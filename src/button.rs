@@ -1,5 +1,5 @@
-use crate::tui::libui::focus::FocusFlag;
-use crate::tui::libui::{ControlUI, HandleEvent};
+use crate::focus::FocusFlag;
+use crate::{ControlUI, HandleEvent};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -13,15 +13,17 @@ use ratatui::widgets::StatefulWidget;
 use ratatui::widgets::Widget;
 use std::fmt::Debug;
 
+/// Simple button.
 #[derive(Debug)]
 pub struct Button<'a, A> {
     pub text: Line<'a>,
-    pub action: Option<A>,
+    pub action: A,
     pub style: Style,
     pub focus_style: Style,
     pub armed_style: Style,
 }
 
+/// Composite style.
 #[derive(Debug, Default)]
 pub struct ButtonStyle {
     pub style: Style,
@@ -29,11 +31,11 @@ pub struct ButtonStyle {
     pub armed: Style,
 }
 
-impl<'a, A> Default for Button<'a, A> {
+impl<'a, A: Default> Default for Button<'a, A> {
     fn default() -> Self {
         Self {
             text: Default::default(),
-            action: None,
+            action: Default::default(),
             style: Default::default(),
             focus_style: Default::default(),
             armed_style: Default::default(),
@@ -41,14 +43,13 @@ impl<'a, A> Default for Button<'a, A> {
     }
 }
 
-#[allow(dead_code)]
-impl<'a, A> Button<'a, A> {
+impl<'a, A: Default> Button<'a, A> {
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn action(mut self, action: A) -> Self {
-        self.action = Some(action);
+        self.action = action;
         self
     }
 
@@ -75,7 +76,7 @@ impl<'a, A> Button<'a, A> {
     }
 }
 
-impl<'a, A> From<&'a str> for Button<'a, A> {
+impl<'a, A: Default> From<&'a str> for Button<'a, A> {
     fn from(value: &'a str) -> Self {
         let mut s = Self::default();
         s.text = Line::from(value);
@@ -83,7 +84,7 @@ impl<'a, A> From<&'a str> for Button<'a, A> {
     }
 }
 
-impl<'a, A> From<String> for Button<'a, A> {
+impl<'a, A: Default> From<String> for Button<'a, A> {
     fn from(value: String) -> Self {
         let mut s = Self::default();
         s.text = Line::from(value);
@@ -91,7 +92,7 @@ impl<'a, A> From<String> for Button<'a, A> {
     }
 }
 
-impl<'a, A> From<Span<'a>> for Button<'a, A> {
+impl<'a, A: Default> From<Span<'a>> for Button<'a, A> {
     fn from(value: Span<'a>) -> Self {
         let mut s = Self::default();
         s.text = Line::from(value);
@@ -99,7 +100,7 @@ impl<'a, A> From<Span<'a>> for Button<'a, A> {
     }
 }
 
-impl<'a, A, const N: usize> From<[Span<'a>; N]> for Button<'a, A> {
+impl<'a, A: Default, const N: usize> From<[Span<'a>; N]> for Button<'a, A> {
     fn from(value: [Span<'a>; N]) -> Self {
         let value = Vec::from(value);
 
@@ -109,7 +110,7 @@ impl<'a, A, const N: usize> From<[Span<'a>; N]> for Button<'a, A> {
     }
 }
 
-impl<'a, A> From<Vec<Span<'a>>> for Button<'a, A> {
+impl<'a, A: Default> From<Vec<Span<'a>>> for Button<'a, A> {
     fn from(value: Vec<Span<'a>>) -> Self {
         let mut s = Self::default();
         s.text = Line::from(value);
@@ -117,7 +118,7 @@ impl<'a, A> From<Vec<Span<'a>>> for Button<'a, A> {
     }
 }
 
-impl<'a, A> From<Line<'a>> for Button<'a, A> {
+impl<'a, A: Default> From<Line<'a>> for Button<'a, A> {
     fn from(value: Line<'a>) -> Self {
         let mut s = Self::default();
         s.text = value;
@@ -125,12 +126,13 @@ impl<'a, A> From<Line<'a>> for Button<'a, A> {
     }
 }
 
+/// Button state.
 #[derive(Debug, Default)]
 pub struct ButtonState<A> {
     pub focus: FocusFlag,
     pub area: Rect,
     pub armed: bool,
-    pub action: Option<A>,
+    pub action: A,
 }
 
 impl<'a, A> StatefulWidget for Button<'a, A> {
@@ -151,7 +153,7 @@ impl<'a, A> StatefulWidget for Button<'a, A> {
     }
 }
 
-impl<A: Copy, E> HandleEvent<A, E> for ButtonState<A> {
+impl<A: Clone, E> HandleEvent<A, E> for ButtonState<A> {
     fn handle(&mut self, event: &Event) -> ControlUI<A, E> {
         match event {
             Event::Key(KeyEvent {
@@ -176,11 +178,7 @@ impl<A: Copy, E> HandleEvent<A, E> for ButtonState<A> {
                 if self.focus.get() {
                     if self.armed {
                         self.armed = false;
-                        if let Some(action) = self.action {
-                            ControlUI::Action(action)
-                        } else {
-                            panic!("no action")
-                        }
+                        ControlUI::Action(self.action.clone())
                     } else {
                         ControlUI::Continue
                     }
