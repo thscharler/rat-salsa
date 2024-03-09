@@ -1,5 +1,14 @@
-use crate::tui::libui::util::{next_circular, prev_circular};
-use crate::tui::libui::ControlUI;
+/// Keeps track of the focus.
+///
+/// This works by adding a FocusFlag to the State of a widget.
+/// Focus is constructed with a list of references to these flags
+/// and switches the focus that way.
+///
+/// Each widget stays separate otherwise and can pull its focus state
+/// from this struct.
+///
+use crate::util::{next_circular, prev_circular};
+use crate::ControlUI;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -9,7 +18,13 @@ use std::cell::Cell;
 /// Flag structure to be used in components.
 #[derive(Debug, Default, Clone)]
 pub struct FocusFlag {
+    /// A unique tag within one focus-cycle. This value is set when
+    /// the focus cycle is created. While it is not recommended to change
+    /// this value it's not essential to the operation. It's only used
+    /// to change the focus from the outside.
     pub tag: Cell<u16>,
+    /// Active focus flag. There is usually only one component with focus==true
+    /// within a cycle.
     pub focus: Cell<bool>,
 }
 
@@ -20,17 +35,17 @@ struct FocusFlagRef<'a> {
     pub focus: &'a Cell<bool>,
 }
 
-/// Switch the focused part.
+/// Switch the focus for an ui.
 ///
-/// The thought here is to represent the focus as multiple bool-flags as part of the ui-state.
-/// Focus collects &mut references to these bools and switches between them.
-///
+/// Uses a list of &FocusFlag for its operation. That way each widget can
+/// stay independent.
 #[derive(Debug)]
 pub struct Focus<'a> {
     areas: Vec<Rect>,
     focus: Vec<FocusFlagRef<'a>>,
 }
 
+/// Result of event processing.
 #[derive(Debug)]
 pub enum FocusChanged {
     Changed,
@@ -38,6 +53,7 @@ pub enum FocusChanged {
 }
 
 impl FocusChanged {
+    /// Convert to ControlUI.
     pub fn into_control<A, E>(self) -> ControlUI<A, E> {
         self.into()
     }
@@ -63,21 +79,26 @@ impl<A, E> From<FocusChanged> for ControlUI<A, E> {
 }
 
 impl FocusFlag {
+    /// Has the focus.
     pub fn get(&self) -> bool {
         self.focus.get()
     }
 
+    /// Set the focus.
     pub fn set(&self) {
         self.focus.set(true);
     }
 
+    /// Associated tag.
     pub fn tag(&self) -> u16 {
         self.tag.get()
     }
 }
 
 impl<'a> Focus<'a> {
+    /// Create a focus cycle.
     ///
+    /// Take a reference to a FocusFlag and a Rect for mouse-events.
     pub fn new<const N: usize>(np: [(&'a FocusFlag, Rect); N]) -> Self {
         let mut zelf = Focus {
             areas: Vec::new(),
@@ -115,6 +136,7 @@ impl<'a> Focus<'a> {
         change
     }
 
+    /// Handle events.
     pub fn handle(&mut self, event: &Event) -> FocusChanged {
         match event {
             Event::Key(KeyEvent {

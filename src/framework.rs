@@ -1,4 +1,9 @@
-use crate::tui::libui::ControlUI;
+//! This implements an event-loop.
+//!
+//! It uses ControlUI as it's central control-flow construct.
+//!
+
+use crate::ControlUI;
 use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
 use crossterm::terminal::{
@@ -14,14 +19,23 @@ use std::thread::JoinHandle;
 use std::time::Duration;
 use std::{io, thread};
 
+/// Describes the requisites of a TuiApp.
+///
+/// It holds no state of its own, just a way to collect the types and operations.
+///
 pub trait TuiApp {
+    /// Application data.
     type Data;
+    /// UI state.
     type State;
+    /// Task-type for the worker thread.
     type Task;
+    /// Action type.
     type Action;
+    /// Error type.
     type Error;
 
-    /// Repainter
+    /// Repaint the ui.
     fn repaint(
         &self,
         frame: &mut Frame,
@@ -54,7 +68,7 @@ pub trait TuiApp {
         worker: &ThreadPool<Self>,
     ) -> ControlUI<Self::Action, Self::Error>;
 
-    /// Called by the worker.
+    /// Called by the worker thread to run a Task.
     fn run_task(
         &self,
         task: Self::Task,
@@ -70,6 +84,7 @@ pub trait TuiApp {
     ) -> ControlUI<Self::Action, Self::Error>;
 }
 
+/// Run the event-loop.
 pub fn run_tui<App: TuiApp>(
     app: &'static App,
     data: &mut App::Data,
@@ -145,6 +160,8 @@ where
         };
     });
 
+    // a draw() error overwrites a possible repaint() error.
+    // but that's probably ok.
     if let Err(err) = result {
         flow = ControlUI::Err(err.into())
     }
@@ -153,11 +170,10 @@ where
 }
 
 /// Basic threadpool
-pub struct ThreadPool<'scope, App: TuiApp + ?Sized> {
+pub struct ThreadPool<App: TuiApp + ?Sized> {
     send: Sender<TaskArgs<App::Task>>,
     recv: Receiver<ControlUI<App::Action, App::Error>>,
     handles: Vec<JoinHandle<()>>,
-    _phantom: PhantomData<&'scope ()>,
 }
 
 /// Send results.
@@ -171,7 +187,7 @@ enum TaskArgs<Task> {
     Task(Task),
 }
 
-impl<'scope, App: TuiApp> ThreadPool<'scope, App>
+impl<App: TuiApp> ThreadPool<App>
 where
     App: Sync,
     App::Task: 'static + Send,
@@ -225,7 +241,6 @@ where
             send,
             recv,
             handles,
-            _phantom: Default::default(),
         }
     }
 

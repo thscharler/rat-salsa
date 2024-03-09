@@ -1,11 +1,12 @@
 use chrono::{Datelike, NaiveDate, Weekday};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Rect, Size};
 use ratatui::prelude::{Line, Span, StatefulWidget, Text};
 use ratatui::style::Style;
 use ratatui::widgets::Widget;
 use std::fmt::{Debug, Formatter};
 
+/// Renders a month.
 pub struct Month {
     pub title_style: Style,
     pub week_style: Style,
@@ -13,12 +14,14 @@ pub struct Month {
     pub start_date: NaiveDate,
 }
 
+/// Composite style.
 pub struct MonthStyle {
     pub title_style: Style,
     pub week_style: Style,
     pub day_style: Box<dyn Fn(NaiveDate) -> Style>,
 }
 
+/// Month state.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct MonthState {
     pub area_month: Rect,
@@ -49,6 +52,7 @@ impl Debug for Month {
 }
 
 impl Month {
+    /// Sets the starting date.
     pub fn date(mut self, s: NaiveDate) -> Self {
         self.start_date = s;
         self
@@ -75,6 +79,8 @@ impl Month {
         self.title_style = s.into();
         self
     }
+
+    // todo: Size
 
     pub fn width(&self) -> usize {
         8 * 3

@@ -1,8 +1,13 @@
+//!
+//! Very basic widgets.
+//!
+
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Widget;
 use ratatui::style::Style;
 
+/// Clears an area, but with style.
 #[derive(Debug, Default, Clone, Eq, PartialEq, Hash)]
 pub struct ClearStyle {
     style: Style,

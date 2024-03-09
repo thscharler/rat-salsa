@@ -1,5 +1,5 @@
-use crate::tui::libui::util::{clamp_opt, next_opt, prev_opt, span_width};
-use crate::tui::libui::{ControlUI, HandleEvent};
+use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
+use crate::{ControlUI, HandleEvent};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -34,7 +34,6 @@ pub struct MenuStyle {
     pub focus: Style,
 }
 
-#[allow(dead_code)]
 impl<'a, A> MenuLine<'a, A> {
     pub fn new() -> Self {
         Self {

@@ -1,7 +1,7 @@
-use crate::tui::libui::button::{Button, ButtonState, ButtonStyle};
-use crate::tui::libui::layout::layout_dialog;
-use crate::tui::libui::{ControlUI, HandleEvent};
+use crate::button::{Button, ButtonState, ButtonStyle};
+use crate::layout::layout_dialog;
 use crate::{cut, ratio};
+use crate::{ControlUI, HandleEvent};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
 use log::debug;
@@ -43,7 +43,6 @@ pub struct StatusDialogState {
     pub log: String,
 }
 
-#[allow(dead_code)]
 impl StatusLine {
     pub fn new() -> Self {
         Self {
@@ -87,7 +86,6 @@ impl StatefulWidget for StatusLine {
     }
 }
 
-#[allow(dead_code)]
 impl StatusDialog {
     pub fn new() -> Self {
         Self {

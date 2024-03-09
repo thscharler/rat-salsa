@@ -1,6 +1,6 @@
-use crate::tui::libui::focus::FocusFlag;
-use crate::tui::libui::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
-use crate::tui::libui::{ControlUI, HandleEvent};
+use crate::focus::FocusFlag;
+use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
+use crate::{ControlUI, HandleEvent};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -37,7 +37,6 @@ impl<'a> Default for TableExt<'a> {
     }
 }
 
-#[allow(dead_code)]
 impl<'a> TableExt<'a> {
     pub fn new<R, C>(rows: R, widths: C) -> Self
     where
@@ -212,7 +211,6 @@ impl Default for TableExtState {
     }
 }
 
-#[allow(dead_code)]
 impl TableExtState {
     pub fn offset(&self) -> usize {
         self.table_state.offset()
