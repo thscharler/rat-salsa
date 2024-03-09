@@ -16,11 +16,9 @@ impl Ratio {
 #[macro_export]
 macro_rules! ratio {
     ($n:literal / $d:literal) => {
-        crate::layout::Ratio { num: $n, den: $d }
+        $crate::layout::Ratio { num: $n, den: $d }
     };
 }
-#[allow(unused_imports)]
-pub use ratio;
 
 #[derive(Debug)]
 pub enum EditConstraint<'a> {
