@@ -29,6 +29,16 @@ pub struct MonthState {
     pub weeks: [Rect; 6],
 }
 
+impl Debug for MonthStyle {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("MonthStyle")
+            .field("title_style", &self.title_style)
+            .field("week_style", &self.week_style)
+            .field("day_style", &"... dyn Fn ...")
+            .finish()
+    }
+}
+
 impl Default for Month {
     fn default() -> Self {
         Self {

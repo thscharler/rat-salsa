@@ -67,6 +67,7 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
     result.into()
 }
 
+#[derive(Debug)]
 pub struct LayoutDialog<const N: usize> {
     pub dialog: Rect,
     pub area: Rect,

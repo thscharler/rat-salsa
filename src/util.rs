@@ -7,15 +7,6 @@ pub(crate) fn span_width(spans: &Vec<Span<'_>>) -> u16 {
     spans.iter().map(|v| v.width() as u16).sum()
 }
 
-/// Clamp
-pub(crate) fn clamp_u16(v: u16, max: u16) -> u16 {
-    if v >= max {
-        max - 1
-    } else {
-        v
-    }
-}
-
 /// Clamp the selection, invalid select values change to None.
 pub(crate) fn clamp_opt(select: Option<usize>, max: usize) -> Option<usize> {
     if let Some(select) = select {
@@ -101,6 +92,7 @@ pub(crate) fn prev_circular(select: usize, max: usize) -> usize {
     }
 }
 
+#[allow(dead_code)]
 pub(crate) fn log_key(s: &str, evt: &Event) {
     if matches!(
         evt,

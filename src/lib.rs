@@ -73,7 +73,7 @@ macro_rules! try_ui {
 macro_rules! cut {
     ($x:expr) => {
         let r = $x;
-        if r.is_continue() {
+        if !r.is_continue() {
             return r;
         }
     };

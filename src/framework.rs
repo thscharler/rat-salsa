@@ -170,6 +170,7 @@ where
 }
 
 /// Basic threadpool
+#[derive(Debug)]
 pub struct ThreadPool<App: TuiApp + ?Sized> {
     send: Sender<TaskArgs<App::Task>>,
     recv: Receiver<ControlUI<App::Action, App::Error>>,
@@ -177,6 +178,7 @@ pub struct ThreadPool<App: TuiApp + ?Sized> {
 }
 
 /// Send results.
+#[derive(Debug)]
 pub struct TaskSender<App: TuiApp + ?Sized> {
     send: Sender<ControlUI<App::Action, App::Error>>,
 }

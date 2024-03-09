@@ -31,8 +31,8 @@ pub struct FocusFlag {
 // Used internally
 #[derive(Debug)]
 struct FocusFlagRef<'a> {
-    pub tag: &'a Cell<u16>,
-    pub focus: &'a Cell<bool>,
+    tag: &'a Cell<u16>,
+    focus: &'a Cell<bool>,
 }
 
 /// Switch the focus for an ui.

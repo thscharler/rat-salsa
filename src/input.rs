@@ -695,35 +695,11 @@ pub mod core {
             self.anchor != self.cursor
         }
 
-        fn byte_anchor(&self) -> usize {
-            let Some((i, _c)) = self
-                .value
-                .grapheme_indices(true)
-                .chain(once((self.value.len(), "")))
-                .skip(self.anchor)
-                .next()
-            else {
-                unreachable!()
-            };
-
-            i
-        }
-
         pub fn selection(&self) -> Range<usize> {
             if self.cursor < self.anchor {
                 self.cursor..self.anchor
             } else {
                 self.anchor..self.cursor
-            }
-        }
-
-        fn byte_selection(&self) -> Range<usize> {
-            let cursor = self.byte_cursor();
-            let anchor = self.byte_anchor();
-            if cursor < anchor {
-                cursor..anchor
-            } else {
-                anchor..cursor
             }
         }
 
