@@ -75,7 +75,7 @@ pub use try_ui;
 macro_rules! cut {
     ($x:expr) => {
         let r = $x;
-        if !matches!(r, $crate::tui::libui::ControlUI::Continue) {
+        if r.is_continue() {
             return r;
         }
     };
@@ -113,6 +113,34 @@ pub enum ControlUI<Action, Err> {
 }
 
 impl<A, E> ControlUI<A, E> {
+    pub fn is_continue(&self) -> bool {
+        matches!(self, ControlUI::Continue)
+    }
+
+    pub fn is_err(&self) -> bool {
+        matches!(self, ControlUI::Err(_))
+    }
+
+    pub fn is_unchanged(&self) -> bool {
+        matches!(self, ControlUI::Unchanged)
+    }
+
+    pub fn is_changed(&self) -> bool {
+        matches!(self, ControlUI::Changed)
+    }
+
+    pub fn is_action(&self) -> bool {
+        matches!(self, ControlUI::Action(_))
+    }
+
+    pub fn is_spawn(&self) -> bool {
+        matches!(self, ControlUI::Spawn(_))
+    }
+
+    pub fn is_break(&self) -> bool {
+        matches!(self, ControlUI::Break)
+    }
+
     /// If the value is Continue, change to c.
     pub fn or(self, c: impl Into<ControlUI<A, E>>) -> ControlUI<A, E> {
         match self {
@@ -142,6 +170,15 @@ impl<A, E> ControlUI<A, E> {
         }
     }
 
+    /// Does some error conversion.
+    pub fn map_err<F>(self, f: impl FnOnce(E) -> ControlUI<A, F>) -> ControlUI<A, F> {
+        match self {
+            ControlUI::Err(e) => ControlUI::Err(f(e)),
+            _ => self,
+        }
+    }
+
+    /// Just convert the error to another type with into().
     pub fn err_into<F>(self) -> ControlUI<A, F>
     where
         E: Into<F>,
