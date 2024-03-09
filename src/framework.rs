@@ -89,6 +89,7 @@ pub fn run_tui<App: TuiApp>(
     app: &'static App,
     data: &mut App::Data,
     uistate: &mut App::State,
+    n_worker: usize,
 ) -> Result<(), anyhow::Error>
 where
     App::Action: Send + 'static,
@@ -103,7 +104,7 @@ where
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
 
-    let worker = ThreadPool::<App>::build(&app);
+    let worker = ThreadPool::<App>::build(&app, n_worker);
 
     let mut flow;
 
@@ -195,16 +196,13 @@ where
     App::Error: 'static + Send,
 {
     /// New threadpool with the given task executor.
-    pub fn build(app: &'static App) -> Self {
-        let n_threads = 1;
-        // available_parallelism().unwrap_or(unsafe { NonZeroUsize::new_unchecked(1) });
-
+    pub fn build(app: &'static App, n_worker: usize) -> Self {
         let (send, t_recv) = unbounded::<TaskArgs<App::Task>>();
         let (t_send, recv) = unbounded::<ControlUI<App::Action, App::Error>>();
 
         let mut handles = Vec::new();
 
-        for _ in 0..n_threads {
+        for _ in 0..n_worker {
             let t_recv = t_recv.clone();
             let t_send = t_send.clone();
 
@@ -280,6 +278,19 @@ where
         }
 
         Ok(())
+    }
+}
+
+impl<App> Drop for ThreadPool<App> {
+    fn drop(&mut self) {
+        for _ in 0..self.handles.len() {
+            // drop is just a fallback to stop_and_join().
+            // so dropping these results might be ok.
+            _ = self.send.send(TaskArgs::Break);
+        }
+        for h in self.handles {
+            _ = h.join();
+        }
     }
 }
 
