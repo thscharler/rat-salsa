@@ -1,0 +1,53 @@
+[package]
+name = "rat-salsa"
+version = "0.1.0"
+authors = ["thomasscharler <thscharler@gmail.com>"]
+edition = "2021"
+description = "ratatui components and a crossterm event-loop"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/rat-salsa"
+readme = "README.md"
+keywords = [ "ratatui", "input", "event-loop"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore"]
+
+[lints.rust]
+absolute_paths_not_starting_with_crate = "warn"
+# box_pointers = "warn"
+elided_lifetimes_in_paths = "warn"
+explicit_outlives_requirements = "warn"
+keyword_idents = "warn"
+macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+missing_abi = "warn"
+# NOT_ACCURATE: missing_copy_implementations = "warn"
+missing_debug_implementations = "warn"
+missing_docs = "warn"
+non_ascii_idents = "warn"
+noop_method_call = "warn"
+# NO: or_patterns_back_compat = "warn"
+pointer_structural_match = "warn"
+semicolon_in_expressions_from_macros = "warn"
+# NOT_ACCURATE: single_use_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unreachable_pub = "warn"
+# unsafe_code: = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unstable_features = "warn"
+# NO: unused_crate_dependencies = "warn"
+# NO: unused_extern_crates = "warn"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+# NO: unused_results = "warn"
+variant_size_differences = "warn"
+
+[dependencies]
+anyhow = "1.0"
+chrono = "0.4"
+crossbeam = "0.8"
+crossterm = "0.27"
+log = "0.4"
+ratatui = "0.26"
+unicode-segmentation = "1.11"
