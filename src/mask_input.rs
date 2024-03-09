@@ -1,6 +1,26 @@
+//! Text input with an input mask.
+//!
+//! * 0: must enter digit, display as 0
+//! * 9: can enter digit, display as space
+//! * H: must enter a hex digit, display as 0
+//! * h: can enter a hex digit, display as space
+//! * O: must enter an octal digit, display as 0
+//! * o: can enter an octal digit, display as space
+//! * L: must enter letter, display as X
+//! * l: can enter letter, display as space
+//! * A: must enter letter or digit, display as X
+//! * a: can enter letter or digit, display as space
+//! * C: must enter character or space, display as space
+//! * c: can enter character or space, display as space
+//! * _: anything, display as space
+//! * #: digit, plus or minus sign, display as space
+//! * . , : ; - /: grouping characters move the cursor when entered
+//!
+//! Inspired by https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da
+
 use crate::basic::ClearStyle;
 use crate::focus::FocusFlag;
-use crate::input::core::{split3, split5};
+use crate::mask_input::core::{split3, split5, CursorPos};
 use crate::{ControlUI, HandleEvent, WidgetExt};
 use crossterm::event::KeyCode::{Backspace, Char, Delete, End, Home, Left, Right};
 use crossterm::event::{
@@ -16,7 +36,7 @@ use std::cmp::min;
 use std::ops::Range;
 
 #[derive(Debug, Default)]
-pub struct Input {
+pub struct InputMask {
     pub without_focus: bool,
     pub insets: Margin,
     pub style: Style,
@@ -27,7 +47,7 @@ pub struct Input {
 }
 
 #[derive(Debug, Default)]
-pub struct InputStyle {
+pub struct InputMaskStyle {
     pub style: Style,
     pub focus: Style,
     pub select: Style,
@@ -35,7 +55,7 @@ pub struct InputStyle {
     pub invalid: Option<Style>,
 }
 
-impl Input {
+impl InputMask {
     pub fn insets(mut self, insets: Margin) -> Self {
         self.insets = insets;
         self
@@ -46,7 +66,7 @@ impl Input {
         self
     }
 
-    pub fn style(mut self, style: InputStyle) -> Self {
+    pub fn style(mut self, style: InputMaskStyle) -> Self {
         self.style = style.style;
         self.focus_style = style.focus;
         self.select_style = style.select;
@@ -97,8 +117,8 @@ impl Input {
     }
 }
 
-impl WidgetExt for Input {
-    type State = InputState;
+impl WidgetExt for InputMask {
+    type State = InputMaskState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
         state.without_focus = self.without_focus;
@@ -166,7 +186,7 @@ impl WidgetExt for Input {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct InputState {
+pub struct InputMaskState {
     pub focus: FocusFlag,
     /// Content is invalid.
     pub invalid: bool,
@@ -174,10 +194,10 @@ pub struct InputState {
     pub without_focus: bool,
     pub area: Rect,
     pub mouse_select: bool,
-    pub value: core::InputCore,
+    pub value: core::InputMaskCore,
 }
 
-impl<A, E> HandleEvent<A, E> for InputState {
+impl<A, E> HandleEvent<A, E> for InputMaskState {
     fn handle(&mut self, evt: &Event) -> ControlUI<A, E> {
         #[allow(non_snake_case)]
         let CONTROL_SHIFT = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
@@ -298,7 +318,7 @@ pub enum InputRequest {
     DeleteTillEnd,
 }
 
-impl InputState {
+impl InputMaskState {
     pub fn reset(&mut self) {
         self.value.clear();
     }
@@ -323,12 +343,38 @@ impl InputState {
         self.value.cursor()
     }
 
+    pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
+        self.value.set_display_mask(s);
+    }
+
+    pub fn display_mask(&self) -> &str {
+        self.value.display_mask()
+    }
+
+    pub fn set_mask<S: Into<String>>(&mut self, s: S) {
+        self.value.set_mask(s);
+    }
+
+    pub fn mask(&self) -> &str {
+        self.value.mask()
+    }
+
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         self.value.set_value(s);
     }
 
     pub fn value(&self) -> &str {
         self.value.value()
+    }
+
+    /// Value with optional spaces removed.
+    pub fn compact_value(&self) -> String {
+        self.value.compact_value()
+    }
+
+    /// Value that has been prepared for rendering
+    pub fn render_str(&self) -> &str {
+        self.value.render_str()
     }
 
     pub fn as_str(&self) -> &str {
@@ -393,8 +439,9 @@ impl InputState {
 
     /// Extracts the visible part.
     pub fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
+        self.value.render_value();
         split5(
-            self.value.as_str(),
+            self.value.render_str(),
             self.cursor(),
             self.visible_range(),
             self.visible_selection(),
@@ -430,25 +477,27 @@ impl InputState {
             }
             DeletePrevChar => {
                 if self.value.is_anchored() {
-                    self.value.replace(self.value.selection(), "");
+                    self.value.remove(self.value.selection(), CursorPos::Start);
                     ControlUI::Changed
                 } else if self.value.cursor() == 0 {
                     ControlUI::Unchanged
                 } else {
-                    self.value
-                        .replace(self.value.cursor() - 1..self.value.cursor(), "");
+                    self.value.remove(
+                        self.value.cursor() - 1..self.value.cursor(),
+                        CursorPos::Start,
+                    );
                     ControlUI::Changed
                 }
             }
             DeleteNextChar => {
                 if self.value.is_anchored() {
-                    self.value.replace(self.value.selection(), "");
+                    self.value.remove(self.value.selection(), CursorPos::End);
                     ControlUI::Changed
                 } else if self.value.cursor() == self.value.len() {
                     ControlUI::Unchanged
                 } else {
                     self.value
-                        .replace(self.value.cursor()..self.value.cursor() + 1, "");
+                        .remove(self.value.cursor()..self.value.cursor() + 1, CursorPos::End);
                     ControlUI::Changed
                 }
             }
@@ -498,7 +547,7 @@ impl InputState {
                 if self.value.is_empty() {
                     ControlUI::Unchanged
                 } else {
-                    self.value.set_value("");
+                    self.value.remove(0..self.value.len(), CursorPos::Start);
                     ControlUI::Changed
                 }
             }
@@ -507,7 +556,8 @@ impl InputState {
                     ControlUI::Unchanged
                 } else {
                     let prev = self.value.prev_word_boundary();
-                    self.value.replace(prev..self.value.cursor(), "");
+                    self.value
+                        .remove(prev..self.value.cursor(), CursorPos::Start);
                     ControlUI::Changed
                 }
             }
@@ -516,7 +566,7 @@ impl InputState {
                     ControlUI::Unchanged
                 } else {
                     let next = self.value.next_word_boundary();
-                    self.value.replace(self.value.cursor()..next, "");
+                    self.value.remove(self.value.cursor()..next, CursorPos::End);
                     ControlUI::Changed
                 }
             }
@@ -538,11 +588,11 @@ impl InputState {
             }
             DeleteTillEnd => {
                 self.value
-                    .replace(self.value.cursor()..self.value.len(), "");
+                    .remove(self.value.cursor()..self.value.len(), CursorPos::Start);
                 ControlUI::Changed
             }
             DeleteTillStart => {
-                self.value.replace(0..self.value.cursor(), "");
+                self.value.remove(0..self.value.cursor(), CursorPos::End);
                 ControlUI::Changed
             }
             SelectAll => {
@@ -557,13 +607,29 @@ impl InputState {
 pub mod core {
     #[allow(unused_imports)]
     use log::debug;
+    use std::cell::{Ref, RefCell};
     use std::iter::once;
     use std::mem;
     use std::ops::Range;
     use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 
+    #[derive(Debug, PartialEq, Eq)]
+    pub enum CursorPos {
+        Start,
+        End,
+    }
+
     #[derive(Debug, Default, Clone)]
-    pub struct InputCore {
+    pub struct InputMaskCore {
+        // Input mask, coded.
+        mask: String,
+        // Input mask, translated for editing replacements.
+        edit_mask: String,
+        // Display mask for parts without useful value.
+        display_mask: String,
+        // Amalgamation for rendering
+        render_string: String,
+        // Base value.
         value: String,
         len: usize,
 
@@ -573,11 +639,10 @@ pub mod core {
         cursor: usize,
         anchor: usize,
 
-        char_buf: String,
         buf: String,
     }
 
-    impl InputCore {
+    impl InputMaskCore {
         /// Offset
         pub fn offset(&self) -> usize {
             self.offset
@@ -646,10 +711,57 @@ pub mod core {
             i
         }
 
+        /// Set the mask that is shown.
+        ///
+        /// Panics:
+        /// If the len differs from the mask.
+        pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
+            let display_mask = s.into();
+            assert_eq!(
+                self.mask.graphemes(true).count(),
+                display_mask.graphemes(true).count()
+            );
+            self.display_mask = display_mask;
+        }
+
+        pub fn display_mask(&self) -> &str {
+            self.display_mask.as_str()
+        }
+
+        /// Set the mask and generates a display mask.
+        /// Uses the display mask as default value.
+        pub fn set_mask<S: Into<String>>(&mut self, s: S) {
+            self.mask = s.into();
+
+            self.display_mask.clear();
+            self.edit_mask.clear();
+            for c in self.mask.chars() {
+                self.display_mask.push(mask_value(c));
+                self.edit_mask.push(mask_value(c));
+            }
+
+            self.set_value(self.edit_mask.clone());
+        }
+
+        /// Mask
+        pub fn mask(&self) -> &str {
+            self.mask.as_str()
+        }
+
         /// Set the value. Resets cursor and anchor to 0.
+        ///
+        /// If the value doesn't conform to the given mask ... todo
+        ///
+        /// Panics
+        /// If the len differs from the mask.
         pub fn set_value<S: Into<String>>(&mut self, s: S) {
-            self.value = s.into();
-            self.len = self.value.graphemes(true).count();
+            let value = s.into();
+            let len = value.graphemes(true).count();
+
+            assert_eq!(len, self.mask.graphemes(true).count());
+
+            self.value = value;
+            self.len = len;
             self.cursor = 0;
             self.offset = 0;
             self.anchor = 0;
@@ -658,6 +770,69 @@ pub mod core {
         /// value
         pub fn value(&self) -> &str {
             self.value.as_str()
+        }
+
+        /// Value with optional spaces removed.
+        pub fn compact_value(&self) -> String {
+            let mut s = String::new();
+            for (c, m) in self.value.chars().zip(self.mask.chars()) {
+                push_compact(c, m, &mut s);
+            }
+            s
+        }
+
+        /// Value that has been prepared with render_str().
+        pub fn render_str(&self) -> &str {
+            self.render_string.as_str()
+        }
+
+        /// Value to be rendered.
+        ///
+        /// Uses the value and the display-mask. If the value is space, the display-mask is used.
+        /// It also uses the mask to create groups of characters. If one of the characters of a
+        /// group has a value, the whole group is considered to have a value.
+        ///
+        pub fn render_value(&mut self) {
+            let render = &mut self.render_string;
+            render.clear();
+
+            debug!("rendering {}", self.value);
+            let mut mark_group = 'X';
+            for (c, (m, d)) in self
+                .value
+                .chars()
+                .zip(self.mask.chars().zip(self.display_mask.chars()))
+            {
+                debug!("{} =<>= {}|{}|{}", mark_group, c, m, d);
+                match m {
+                    '0' | 'H' | 'O' | 'L' | 'A' | 'C' | 'c' => {
+                        mark_group = m;
+                        render.push(c);
+                        debug!(" -4--> {} {}", mark_group, render);
+                    }
+                    '9' | 'h' | 'o' | 'l' | 'a' | '#' | '_' => {
+                        if c != ' ' {
+                            mark_group = m;
+                            render.push(c);
+                            debug!(" -1--> {} {}", mark_group, render);
+                        } else {
+                            if mark_group == m {
+                                render.push(' ');
+                                debug!(" -2--> {} {}", mark_group, render);
+                            } else {
+                                mark_group = 'X';
+                                render.push(d);
+                                debug!(" -3--> {} {}", mark_group, render);
+                            }
+                        }
+                    }
+                    _ => {
+                        mark_group = c;
+                        render.push(d);
+                        debug!(" -5--> {} {}", mark_group, render);
+                    }
+                }
+            }
         }
 
         ///
@@ -738,29 +913,50 @@ pub mod core {
         pub fn insert_char(&mut self, new: char) {
             let selection = self.selection();
 
-            let mut char_buf = mem::take(&mut self.char_buf);
-            char_buf.clear();
-            char_buf.push(new);
-            self.replace(selection, char_buf.as_str());
-            self.char_buf = char_buf;
+            let (_, mask, _) = split3(self.mask.as_str(), selection.start..self.len);
+            if let Some(m) = mask.chars().next() {
+                if is_valid_mask(new, m) {
+                    self.remove(selection.clone(), CursorPos::Start);
+
+                    let (before_str, _, after_str) =
+                        split3(self.value.as_str(), selection.start..selection.start + 1);
+
+                    self.buf.clear();
+                    self.buf.push_str(before_str);
+                    self.buf.push(new);
+                    self.buf.push_str(after_str);
+
+                    mem::swap(&mut self.value, &mut self.buf);
+
+                    self.cursor += 1;
+                    self.anchor = self.cursor;
+                } else {
+                    // skip to match
+                    for (idx, c) in mask.chars().enumerate() {
+                        if c == new {
+                            self.cursor += idx + 1;
+                            self.anchor = self.cursor;
+                            break;
+                        }
+                    }
+                }
+            } else {
+                // no more mask.
+            }
         }
 
         /// Insert a string, replacing the selection.
-        pub fn replace(&mut self, range: Range<usize>, new: &str) {
-            let new_len = new.graphemes(true).count();
+        pub fn remove(&mut self, range: Range<usize>, cursor: CursorPos) {
+            let (before_str, sel_str, after_str) = split3(self.value.as_str(), range.clone());
+            let (_, sel_mask, _) = split3(self.edit_mask.as_str(), range.clone());
 
-            let (before_str, sel_str, after_str) = split3(self.value.as_str(), range);
             let sel_len = sel_str.graphemes(true).count();
             let before_len = before_str.graphemes(true).count();
 
-            self.len -= sel_len;
-            self.len += new_len;
-
-            if self.cursor >= before_len + sel_len {
-                self.cursor -= sel_len;
-                self.cursor += new_len;
-            } else if self.cursor >= before_len {
-                self.cursor = before_len + new_len;
+            if cursor == CursorPos::Start {
+                self.cursor = before_len;
+            } else {
+                self.cursor = before_len + sel_len;
             }
 
             if self.offset > self.cursor {
@@ -769,19 +965,65 @@ pub mod core {
                 self.offset = self.cursor - self.width;
             }
 
-            if self.anchor >= before_len + sel_len {
-                self.anchor -= sel_len;
-                self.anchor += new_len;
-            } else if self.anchor >= before_len {
-                self.anchor = before_len + new_len;
-            }
+            self.anchor = self.cursor;
 
             self.buf.clear();
             self.buf.push_str(before_str);
-            self.buf.push_str(new);
+            self.buf.push_str(sel_mask);
             self.buf.push_str(after_str);
 
             mem::swap(&mut self.value, &mut self.buf);
+        }
+    }
+
+    fn push_compact(c: char, mask: char, buf: &mut String) {
+        match mask {
+            '0' | 'H' | 'O' | 'L' | 'A' | 'C' | 'c' | '_' => buf.push(c),
+            '9' | 'h' | 'o' | 'l' | 'a' | '#' => {
+                if c != ' ' {
+                    buf.push(c);
+                }
+            }
+            _ => buf.push(c),
+        }
+    }
+
+    fn is_valid_mask(new: char, mask: char) -> bool {
+        match mask {
+            '0' => new.is_digit(10),
+            '9' => new.is_digit(10) || new == ' ',
+            'H' => new.is_digit(16),
+            'h' => new.is_digit(16) || new == ' ',
+            'O' => new.is_digit(8),
+            'o' => new.is_digit(8) || new == ' ',
+            'L' => new.is_alphabetic(),
+            'l' => new.is_alphabetic() || new == ' ',
+            'A' => new.is_alphanumeric(),
+            'a' => new.is_alphanumeric() || new == ' ',
+            'C' | 'c' => new.is_alphanumeric() || new == ' ',
+            '#' => new.is_digit(10) || new == ' ' || new == '+' || new == '-',
+            '_' => true,
+            _ => mask == new,
+        }
+    }
+
+    fn mask_value(mask: char) -> char {
+        match mask {
+            '0' => '0',
+            '9' => ' ',
+            'H' => '0',
+            'h' => ' ',
+            'O' => '0',
+            'o' => ' ',
+            '#' => ' ',
+            'L' => 'X',
+            'l' => ' ',
+            'A' => 'X',
+            'a' => ' ',
+            'C' => ' ',
+            'c' => ' ',
+            '_' => ' ',
+            _ => mask,
         }
     }
 

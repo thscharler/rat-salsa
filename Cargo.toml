@@ -51,3 +51,7 @@ crossterm = "0.27"
 log = "0.4"
 ratatui = "0.26"
 unicode-segmentation = "1.11"
+
+[dev-dependencies]
+fern = "0.6"
+humantime = "2.1"

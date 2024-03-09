@@ -2,50 +2,121 @@ use crate::app::Example;
 use crate::data::ExData;
 use crate::state::ExState;
 use rat_salsa::{run_tui, ControlUI};
+use std::time::SystemTime;
 
 type Control = ControlUI<ExAction, anyhow::Error>;
 
-fn main() {
-    // ...
+fn main() -> Result<(), anyhow::Error> {
+    setup_logger()?;
 
-    let mut data = ExData {};
+    let mut data = ExData {
+        datum: Default::default(),
+    };
     let mut state = ExState::default();
 
-    let res = run_tui(&Example, &mut data, &mut state, 1);
+    run_tui(&Example, &mut data, &mut state, 1)?;
 
-    _ = dbg!(res);
+    Ok(())
+}
+
+fn setup_logger() -> Result<(), anyhow::Error> {
+    fern::Dispatch::new()
+        .format(|out, message, record| {
+            out.finish(format_args!(
+                "[{} {} {}] {}",
+                humantime::format_rfc3339_seconds(SystemTime::now()),
+                record.level(),
+                record.target(),
+                message
+            ))
+        })
+        .level(log::LevelFilter::Debug)
+        .chain(fern::log_file("example1.log")?)
+        .apply()?;
+    Ok(())
 }
 
 #[derive(Debug)]
 pub enum ExAction {}
 
 pub mod data {
+    use chrono::NaiveDate;
+
     #[derive(Debug)]
-    pub struct ExData {}
+    pub struct ExData {
+        pub datum: NaiveDate,
+    }
 }
 
 pub mod state {
-    use crate::theme::Theme;
+    use crate::theme::{Theme, ONEDARK};
     use rat_salsa::button::ButtonStyle;
+    use rat_salsa::input::InputStyle;
+    use rat_salsa::mask_input::{InputMaskState, InputMaskStyle};
     use rat_salsa::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
     use ratatui::prelude::Stylize;
     use ratatui::style::Style;
 
-    #[derive(Debug, Default)]
+    #[derive(Debug)]
     pub struct ExState {
         pub g: GeneralState,
+
+        pub input_0: InputMaskState,
     }
 
-    #[derive(Debug, Default)]
+    impl Default for ExState {
+        fn default() -> Self {
+            let mut s = Self {
+                g: Default::default(),
+                input_0: Default::default(),
+            };
+            s.input_0.focus.set();
+            s.input_0.set_mask("99.99.9999");
+            s.input_0.set_display_mask("TT.MM.YYYY");
+            s
+        }
+    }
+
+    #[derive(Debug)]
     pub struct GeneralState {
-        pub theme: Theme,
+        pub theme: &'static Theme,
         pub status: StatusLineState,
         pub error_dlg: StatusDialogState,
+    }
+
+    impl Default for GeneralState {
+        fn default() -> Self {
+            Self {
+                theme: &ONEDARK,
+                status: Default::default(),
+                error_dlg: Default::default(),
+            }
+        }
     }
 
     impl GeneralState {
         pub fn status_style(&self) -> Style {
             Style::default().fg(self.theme.white).bg(self.theme.one_bg3)
+        }
+
+        pub fn input_style(&self) -> InputStyle {
+            InputStyle {
+                style: Style::default().fg(self.theme.black).bg(self.theme.base05),
+                focus: Style::default().fg(self.theme.black).bg(self.theme.green),
+                select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
+                cursor: None,
+                ..InputStyle::default()
+            }
+        }
+
+        pub fn input_mask_style(&self) -> InputMaskStyle {
+            InputMaskStyle {
+                style: Style::default().fg(self.theme.black).bg(self.theme.base05),
+                focus: Style::default().fg(self.theme.black).bg(self.theme.green),
+                select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
+                cursor: None,
+                ..InputMaskStyle::default()
+            }
         }
 
         pub fn button_style(&self) -> ButtonStyle {
@@ -79,10 +150,16 @@ pub mod app {
     use crate::data::ExData;
     use crate::state::ExState;
     use crate::{Control, ExAction};
+    use chrono::NaiveDate;
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+    #[allow(unused_imports)]
+    use log::debug;
+    use rat_salsa::layout::{layout_edit, EditConstraint};
+    use rat_salsa::mask_input::InputMask;
     use rat_salsa::message::{StatusDialog, StatusLine};
-    use rat_salsa::{cut, HandleEvent, TaskSender, ThreadPool, TuiApp};
-    use ratatui::layout::{Constraint, Direction, Layout};
+    use rat_salsa::{cut, FrameExt, HandleEvent, TaskSender, ThreadPool, TuiApp};
+    use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
+    use ratatui::text::Span;
     use ratatui::Frame;
 
     #[derive(Debug)]
@@ -98,7 +175,7 @@ pub mod app {
         fn repaint(
             &self,
             frame: &mut Frame<'_>,
-            _data: &mut ExData,
+            data: &mut ExData,
             uistate: &mut ExState,
         ) -> Result<(), anyhow::Error> {
             //
@@ -114,7 +191,7 @@ pub mod app {
             )
             .split(area);
 
-            // TODO fan out
+            repaint_mask0(frame, layout[0], data, uistate)?;
 
             {
                 let statusdialog = StatusDialog::new().style(uistate.g.status_dialog_style());
@@ -132,7 +209,7 @@ pub mod app {
             Ok(())
         }
 
-        fn handle_event(&self, evt: Event, _data: &mut ExData, uistate: &mut ExState) -> Control {
+        fn handle_event(&self, evt: Event, data: &mut ExData, uistate: &mut ExState) -> Control {
             cut!(match &evt {
                 Event::Resize(_, _) => Control::Changed,
                 Event::Key(KeyEvent {
@@ -152,6 +229,8 @@ pub mod app {
                     Control::Continue
                 }
             });
+
+            cut!(handle_mask0(&evt, data, uistate));
 
             Control::Continue
         }
@@ -192,6 +271,78 @@ pub mod app {
             uistate.g.error_dlg.log(format!("{:?}", &*error).as_str());
             Control::Changed
         }
+    }
+
+    fn repaint_mask0(
+        frame: &mut Frame<'_>,
+        area: Rect,
+        data: &mut ExData,
+        uistate: &mut ExState,
+    ) -> Result<(), anyhow::Error> {
+        let work = area.inner(&Margin::new(5, 1));
+
+        let l_edit = layout_edit(
+            work,
+            [
+                EditConstraint::Label("Datum"),
+                EditConstraint::Widget(15),
+                EditConstraint::Label("Parsed"),
+                EditConstraint::Widget(10),
+                EditConstraint::Widget(10),
+                EditConstraint::Widget(10),
+                EditConstraint::Widget(10),
+            ],
+        );
+
+        let label_edit = Span::from("Datum");
+        let edit = InputMask::default().style(uistate.g.input_mask_style());
+        let compact = Span::from(uistate.input_0.compact_value());
+        let label_parsed = Span::from("Parsed");
+        let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
+
+        frame.render_widget(label_edit, l_edit.label[0]);
+        frame.render_ext(edit, l_edit.widget[0], &mut uistate.input_0);
+        frame.render_widget(label_parsed, l_edit.label[1]);
+        frame.render_widget(parsed, l_edit.widget[1]);
+        frame.render_widget(compact, l_edit.widget[2]);
+
+        let render = Span::from(uistate.input_0.render_str());
+        frame.render_widget(render, l_edit.widget[3]);
+
+        let mask = Span::from(uistate.input_0.mask());
+        frame.render_widget(mask, l_edit.widget[4]);
+
+        Ok(())
+    }
+
+    fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
+        cut!(uistate.input_0.handle(evt));
+
+        cut!(match evt {
+            Event::Key(KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if let Ok(d) =
+                    NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y")
+                {
+                    uistate.input_0.invalid = false;
+                    data.datum = d;
+                } else {
+                    uistate.input_0.invalid = true;
+                    data.datum = NaiveDate::default();
+                }
+                uistate
+                    .input_0
+                    .set_value(data.datum.format("%d.%m.%Y").to_string());
+                Control::Changed
+            }
+            _ => Control::Continue,
+        });
+
+        Control::Continue
     }
 }
 

@@ -19,6 +19,7 @@ pub mod focus;
 mod framework;
 pub mod input;
 pub mod layout;
+pub mod mask_input;
 pub mod menuline;
 pub mod message;
 pub mod table;
