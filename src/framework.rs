@@ -14,7 +14,6 @@ use log::debug;
 use ratatui::backend::CrosstermBackend;
 use ratatui::{Frame, Terminal};
 use std::io::{stdout, Stdout};
-use std::marker::PhantomData;
 use std::thread::JoinHandle;
 use std::time::Duration;
 use std::{io, thread};
@@ -38,7 +37,7 @@ pub trait TuiApp {
     /// Repaint the ui.
     fn repaint(
         &self,
-        frame: &mut Frame,
+        frame: &mut Frame<'_>,
         data: &mut Self::Data,
         uistate: &mut Self::State,
     ) -> Result<(), Self::Error>;
@@ -266,14 +265,14 @@ where
     }
 
     /// Stop threads and join.
-    pub fn stop_and_join(self) -> Result<(), SendError<()>> {
+    pub fn stop_and_join(mut self) -> Result<(), SendError<()>> {
         for _ in 0..self.handles.len() {
             if let Err(_) = self.send.send(TaskArgs::Break) {
                 return Err(SendError(()));
             }
         }
 
-        for h in self.handles {
+        for h in self.handles.drain(..) {
             _ = h.join();
         }
 
@@ -281,14 +280,14 @@ where
     }
 }
 
-impl<App> Drop for ThreadPool<App> {
+impl<App: TuiApp + ?Sized> Drop for ThreadPool<App> {
     fn drop(&mut self) {
         for _ in 0..self.handles.len() {
             // drop is just a fallback to stop_and_join().
             // so dropping these results might be ok.
             _ = self.send.send(TaskArgs::Break);
         }
-        for h in self.handles {
+        for h in self.handles.drain(..) {
             _ = h.join();
         }
     }

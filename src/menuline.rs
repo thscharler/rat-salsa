@@ -285,7 +285,7 @@ impl<'a, A> StatefulWidget for MenuLine<'a, A> {
     }
 }
 
-fn menu_span(txt: &str) -> (char, Vec<Span>) {
+fn menu_span(txt: &str) -> (char, Vec<Span<'_>>) {
     let mut key = char::default();
     let mut menu = Vec::new();
 

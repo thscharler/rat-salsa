@@ -1,7 +1,7 @@
-use crate::tui::libui::basic::ClearStyle;
-use crate::tui::libui::focus::FocusFlag;
-use crate::tui::libui::input::core::{split3, split3_visible, split5};
-use crate::tui::libui::{ControlUI, HandleEvent, WidgetExt};
+use crate::basic::ClearStyle;
+use crate::focus::FocusFlag;
+use crate::input::core::{split3, split5};
+use crate::{ControlUI, HandleEvent, WidgetExt};
 use crossterm::event::KeyCode::{Backspace, Char, Delete, End, Home, Left, Right};
 use crossterm::event::{
     Event, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -9,7 +9,7 @@ use crossterm::event::{
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
-use ratatui::style::{Style, Stylize};
+use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::Frame;
 use std::cmp::min;
@@ -100,7 +100,7 @@ impl Input {
 impl WidgetExt for Input {
     type State = InputState;
 
-    fn render(self, frame: &mut Frame, area: Rect, state: &mut Self::State) {
+    fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
         state.without_focus = self.without_focus;
 
         let mut l_area = area.inner(&self.insets);
@@ -666,7 +666,7 @@ pub mod core {
         }
 
         /// graphemes
-        pub fn graphemes(&self) -> Graphemes {
+        pub fn graphemes(&self) -> Graphemes<'_> {
             self.value.graphemes(true)
         }
 

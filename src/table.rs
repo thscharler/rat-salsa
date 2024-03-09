@@ -163,7 +163,7 @@ impl<'a> Styled for TableExt<'a> {
     type Item = TableExt<'a>;
 
     fn style(&self) -> Style {
-        <Table as Styled>::style(&self.table)
+        <Table<'_> as Styled>::style(&self.table)
     }
 
     fn set_style<S: Into<Style>>(mut self, style: S) -> Self::Item {
@@ -314,7 +314,7 @@ impl TableExtState {
     }
 }
 
-impl<'a, A, E> HandleEvent<A, E> for TableExtState {
+impl<A, E> HandleEvent<A, E> for TableExtState {
     fn handle(&mut self, evt: &Event) -> ControlUI<A, E> {
         match evt {
             Event::Key(KeyEvent {

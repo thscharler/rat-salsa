@@ -16,7 +16,7 @@ impl Ratio {
 #[macro_export]
 macro_rules! ratio {
     ($n:literal / $d:literal) => {
-        crate::tui::libui::layout::Ratio { num: $n, den: $d }
+        crate::layout::Ratio { num: $n, den: $d }
     };
 }
 #[allow(unused_imports)]

@@ -22,7 +22,7 @@ pub mod layout;
 pub mod menuline;
 pub mod message;
 pub mod table;
-pub mod util;
+pub(crate) mod util;
 
 pub use framework::{run_tui, TaskSender, ThreadPool, TuiApp};
 
@@ -46,7 +46,7 @@ pub trait WidgetExt {
     type State: ?Sized;
 
     /// Do render.
-    fn render(self, frame: &mut Frame, area: Rect, state: &mut Self::State);
+    fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State);
 }
 
 /// This trait capture event-handling. It's intended to be implemented
@@ -67,8 +67,6 @@ macro_rules! try_ui {
         }
     }};
 }
-#[allow(unused_imports)]
-pub use try_ui;
 
 /// Cuts the control-flow. If the value is not ControlUI::Continue it returns early.
 #[macro_export]
@@ -112,7 +110,7 @@ pub enum ControlUI<Action, Err> {
     Break,
 }
 
-impl<A, E> ControlUI<A, E> {
+impl<Action, Err> ControlUI<Action, Err> {
     pub fn is_continue(&self) -> bool {
         matches!(self, ControlUI::Continue)
     }
@@ -142,7 +140,7 @@ impl<A, E> ControlUI<A, E> {
     }
 
     /// If the value is Continue, change to c.
-    pub fn or(self, c: impl Into<ControlUI<A, E>>) -> ControlUI<A, E> {
+    pub fn or(self, c: impl Into<ControlUI<Action, Err>>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => c.into(),
             ControlUI::Err(e) => ControlUI::Err(e),
@@ -155,7 +153,7 @@ impl<A, E> ControlUI<A, E> {
     }
 
     /// Run the continuation if the value is Continue.
-    pub fn or_else(self, f: impl FnOnce() -> ControlUI<A, E>) -> ControlUI<A, E> {
+    pub fn or_else(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => f(),
             _ => self,
@@ -171,21 +169,31 @@ impl<A, E> ControlUI<A, E> {
     }
 
     /// Does some error conversion.
-    pub fn map_err<F>(self, f: impl FnOnce(E) -> ControlUI<A, F>) -> ControlUI<A, F> {
+    pub fn map_err<F>(self, f: impl FnOnce(Err) -> ControlUI<Action, F>) -> ControlUI<Action, F> {
         match self {
-            ControlUI::Err(e) => ControlUI::Err(f(e)),
-            _ => self,
+            ControlUI::Continue => ControlUI::Continue,
+            ControlUI::Err(e) => f(e),
+            ControlUI::Unchanged => ControlUI::Unchanged,
+            ControlUI::Changed => ControlUI::Changed,
+            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::Spawn(a) => ControlUI::Spawn(a),
+            ControlUI::Break => ControlUI::Break,
         }
     }
 
     /// Just convert the error to another type with into().
-    pub fn err_into<F>(self) -> ControlUI<A, F>
+    pub fn err_into<F>(self) -> ControlUI<Action, F>
     where
-        E: Into<F>,
+        Err: Into<F>,
     {
         match self {
+            ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => ControlUI::Err(e.into()),
-            _ => self,
+            ControlUI::Unchanged => ControlUI::Unchanged,
+            ControlUI::Changed => ControlUI::Changed,
+            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::Spawn(a) => ControlUI::Spawn(a),
+            ControlUI::Break => ControlUI::Break,
         }
     }
 
@@ -195,27 +203,44 @@ impl<A, E> ControlUI<A, E> {
     /// component actions to more global ones.
     ///
     /// Caveat: Allows no differentiation between Action and Spawn.
-    pub fn and_then<B>(self, f: impl FnOnce(A) -> ControlUI<B, E>) -> ControlUI<B, E> {
+    pub fn and_then<B>(self, f: impl FnOnce(Action) -> ControlUI<B, Err>) -> ControlUI<B, Err> {
         match self {
+            ControlUI::Continue => ControlUI::Continue,
+            ControlUI::Err(e) => ControlUI::Err(e),
+            ControlUI::Unchanged => ControlUI::Unchanged,
+            ControlUI::Changed => ControlUI::Changed,
             ControlUI::Action(a) => f(a),
             ControlUI::Spawn(a) => f(a),
-            _ => self,
+            ControlUI::Break => ControlUI::Break,
         }
     }
 
     /// Run the continuation if the value is Unchanged
-    pub fn on_unchanged(self, f: impl FnOnce() -> ControlUI<A, E>) -> ControlUI<A, E> {
+    pub fn on_unchanged(
+        self,
+        f: impl FnOnce() -> ControlUI<Action, Err>,
+    ) -> ControlUI<Action, Err> {
         match self {
+            ControlUI::Continue => ControlUI::Continue,
+            ControlUI::Err(e) => ControlUI::Err(e),
             ControlUI::Unchanged => f(),
-            _ => self,
+            ControlUI::Changed => ControlUI::Changed,
+            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::Spawn(a) => ControlUI::Spawn(a),
+            ControlUI::Break => ControlUI::Break,
         }
     }
 
     /// Run the continuation if the value is Changed
-    pub fn on_changed(self, f: impl FnOnce() -> ControlUI<A, E>) -> ControlUI<A, E> {
+    pub fn on_changed(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
         match self {
+            ControlUI::Continue => ControlUI::Continue,
+            ControlUI::Err(e) => ControlUI::Err(e),
+            ControlUI::Unchanged => ControlUI::Unchanged,
             ControlUI::Changed => f(),
-            _ => self,
+            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::Spawn(a) => ControlUI::Spawn(a),
+            ControlUI::Break => ControlUI::Break,
         }
     }
 }

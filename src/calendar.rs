@@ -1,6 +1,6 @@
 use chrono::{Datelike, NaiveDate, Weekday};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
+use ratatui::layout::Rect;
 use ratatui::prelude::{Line, Span, StatefulWidget, Text};
 use ratatui::style::Style;
 use ratatui::widgets::Widget;

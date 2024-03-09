@@ -216,11 +216,7 @@ impl<A: Clone, E> HandleEvent<A, E> for ButtonState<A> {
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.armed = false;
-                    if let Some(action) = self.action {
-                        ControlUI::Action(action)
-                    } else {
-                        panic!("no action")
-                    }
+                    ControlUI::Action(self.action.clone())
                 } else {
                     ControlUI::Continue
                 }
