@@ -607,7 +607,6 @@ impl InputMaskState {
 pub mod core {
     #[allow(unused_imports)]
     use log::debug;
-    use std::cell::{Ref, RefCell};
     use std::iter::once;
     use std::mem;
     use std::ops::Range;
@@ -796,40 +795,33 @@ pub mod core {
             let render = &mut self.render_string;
             render.clear();
 
-            debug!("rendering {}", self.value);
             let mut mark_group = 'X';
             for (c, (m, d)) in self
                 .value
                 .chars()
                 .zip(self.mask.chars().zip(self.display_mask.chars()))
             {
-                debug!("{} =<>= {}|{}|{}", mark_group, c, m, d);
                 match m {
                     '0' | 'H' | 'O' | 'L' | 'A' | 'C' | 'c' => {
                         mark_group = m;
                         render.push(c);
-                        debug!(" -4--> {} {}", mark_group, render);
                     }
                     '9' | 'h' | 'o' | 'l' | 'a' | '#' | '_' => {
                         if c != ' ' {
                             mark_group = m;
                             render.push(c);
-                            debug!(" -1--> {} {}", mark_group, render);
                         } else {
                             if mark_group == m {
                                 render.push(' ');
-                                debug!(" -2--> {} {}", mark_group, render);
                             } else {
                                 mark_group = 'X';
                                 render.push(d);
-                                debug!(" -3--> {} {}", mark_group, render);
                             }
                         }
                     }
                     _ => {
                         mark_group = c;
                         render.push(d);
-                        debug!(" -5--> {} {}", mark_group, render);
                     }
                 }
             }
