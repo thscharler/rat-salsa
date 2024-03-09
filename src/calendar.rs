@@ -112,13 +112,13 @@ impl Month {
             Weekday::Sun,
         ] {
             if day.weekday() == wd {
-                day += chrono::Duration::days(1);
+                day += chrono::Duration::try_days(1).expect("days");
             }
         }
         r += 1;
         while month == day.month() {
             for _ in 0..7 {
-                day += chrono::Duration::days(1);
+                day += chrono::Duration::try_days(1).expect("days");
             }
             r += 1;
         }
@@ -174,7 +174,7 @@ impl StatefulWidget for Month {
                 w_week.spans.push(" ".into());
                 x += 3;
 
-                day += chrono::Duration::days(1);
+                day += chrono::Duration::try_days(1).expect("days");
             }
         }
         w_month.lines.push(w_week);
@@ -200,7 +200,7 @@ impl StatefulWidget for Month {
                     w_week.spans.push(" ".into());
                     x += 3;
 
-                    day += chrono::Duration::days(1);
+                    day += chrono::Duration::try_days(1).expect("days");
                 } else {
                     w_week.spans.push("   ".into());
                     x += 3;
