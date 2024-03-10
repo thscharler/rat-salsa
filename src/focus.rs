@@ -37,7 +37,7 @@ pub struct FocusFlag {
 
 /// Switch the focus for an ui.
 ///
-/// Uses a list of &FocusFlag for its operation. That way each widget can
+/// Uses a list of [FocusFlag] for its operation. That way each widget can
 /// stay independent.
 #[derive(Debug)]
 pub struct Focus<'a> {
@@ -110,9 +110,12 @@ impl FocusFlag {
     }
 }
 
-/// Validates the given widget. It expects that the widget has a field `focus: FocusFlag` and
-/// field `is_valid: bool` that a both public.
-/// Sets is_valid with the result of the expression and resets `focus.validate`.
+/// Validates the given widget.
+///
+/// It expects that the widget has the fields `focus: FocusFlag` and `is_valid: bool` that
+/// are both public.
+///
+/// If `focus.lost()` is set, the expression is evaluated. The result is set into `is_valid`.
 #[macro_export]
 macro_rules! validate {
     ($field:expr => $validate:expr) => {
@@ -143,10 +146,11 @@ impl<'a> Focus<'a> {
         zelf
     }
 
-    /// Reset the focus without changing validation flags. Can be used to reset
-    /// the focus after a failed validation.
+    /// Resets the focus to the given field and clears all lost values.
+    /// Can be used to reset the focus after a failed validation without triggering another one.
     pub fn reset(&self, tag: u16) {
         for f in self.focus.iter() {
+            f.lost.set(false);
             if f.tag.get() == tag {
                 if !f.focus.get() {
                     f.focus.set(true);
@@ -182,6 +186,34 @@ impl<'a> Focus<'a> {
         change
     }
 
+    /// Focus the next widget in the cycle.
+    pub fn next(&self) {
+        for (i, p) in self.focus.iter().enumerate() {
+            p.lost.set(false);
+            if p.focus.get() {
+                p.lost.set(true);
+                p.focus.set(false);
+                let n = next_circular(i, self.focus.len());
+                self.focus[n].focus.set(true);
+                break;
+            }
+        }
+    }
+
+    /// Focus the previous widget in the cycle.
+    pub fn prev(&self) {
+        for (i, p) in self.focus.iter().enumerate() {
+            p.lost.set(false);
+            if p.focus.get() {
+                p.lost.set(true);
+                p.focus.set(false);
+                let n = prev_circular(i, self.focus.len());
+                self.focus[n].focus.set(true);
+                break;
+            }
+        }
+    }
+
     /// Handle events.
     pub fn handle(&mut self, event: &Event) -> FocusChanged {
         match event {
@@ -191,16 +223,7 @@ impl<'a> Focus<'a> {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                for (i, p) in self.focus.iter().enumerate() {
-                    p.lost.set(false);
-                    if p.focus.get() {
-                        p.lost.set(true);
-                        p.focus.set(false);
-                        let n = next_circular(i, self.focus.len());
-                        self.focus[n].focus.set(true);
-                        break;
-                    }
-                }
+                self.next();
                 FocusChanged::Changed
             }
             Event::Key(KeyEvent {
@@ -209,19 +232,9 @@ impl<'a> Focus<'a> {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                for (i, p) in self.focus.iter().enumerate() {
-                    p.lost.set(false);
-                    if p.focus.get() {
-                        p.lost.set(true);
-                        p.focus.set(false);
-                        let n = prev_circular(i, self.focus.len());
-                        self.focus[n].focus.set(true);
-                        break;
-                    }
-                }
+                self.prev();
                 FocusChanged::Changed
             }
-
             Event::Mouse(
                 MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),

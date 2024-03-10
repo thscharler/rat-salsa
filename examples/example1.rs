@@ -350,9 +350,9 @@ pub mod app {
     fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
         let f = focus_mask0(uistate).handle(evt);
 
-        validate!(uistate.input_0 => if let Ok(d) =
-            NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y")
-        {
+        // validation and reformat on focus lost.
+        validate!(uistate.input_0 =>
+        if let Ok(d) = NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y") {
             data.datum = d;
             let v = data.datum.format("%d.%m.%Y").to_string();
             uistate.input_0.set_value(v);
@@ -365,6 +365,7 @@ pub mod app {
 
         cut!({
             let r = uistate.input_0.handle(evt);
+            // quick validation for every change
             r.on_changed_do(|| {
                 let str = uistate.input_0.compact_value();
                 let r = NaiveDate::parse_from_str(str.as_str(), "%d.%m.%Y");

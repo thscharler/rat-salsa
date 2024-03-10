@@ -1,9 +1,0 @@
-
-- andere lib als crossterm
-    -> ned umsetzbar
-
-- framework könnt ma verwenden?
-    -> 2 versionen später ... ok
-
-- worker
-    -> ok

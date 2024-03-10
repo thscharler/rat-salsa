@@ -13,7 +13,7 @@
 use crate::basic::ClearStyle;
 use crate::focus::FocusFlag;
 use crate::mask_input::core::{split3, split5, CursorPos};
-use crate::{ControlUI, FrameWidget, HandleEvent};
+use crate::{mask_input, ControlUI, FrameWidget, HandleEvent};
 use crossterm::event::KeyCode::{Backspace, Char, Delete, End, Home, Left, Right};
 use crossterm::event::{
     Event, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -414,7 +414,7 @@ impl InputMaskState {
     /// with a default representation of the mask.
     ///
     /// The result value contains all punctuation and
-    /// the value given as 'display' below. See [compact_value].
+    /// the value given as 'display' below. See [mask_input::InputMaskState::compact_value].
     ///
     /// ** 0: must enter digit, display as 0
     /// ** 9: can enter digit, display as space
@@ -431,7 +431,7 @@ impl InputMaskState {
     /// ** _: anything, display as space
     /// ** #: digit, plus or minus sign, display as space
     /// ** . , : ; - /: grouping characters move the cursor when entered
-    /// Inspired by https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da
+    /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
     pub fn set_mask<S: Into<String>>(&mut self, s: S) {
         self.value.set_mask(s);
     }
