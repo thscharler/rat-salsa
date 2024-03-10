@@ -216,7 +216,7 @@ impl<Action, Err> ControlUI<Action, Err> {
         }
     }
 
-    /// Run the continuation if the value is Unchanged
+    /// Run the continuation if the value is Unchanged.
     pub fn on_unchanged(
         self,
         f: impl FnOnce() -> ControlUI<Action, Err>,
@@ -232,6 +232,14 @@ impl<Action, Err> ControlUI<Action, Err> {
         }
     }
 
+    /// Run the continuation if the value is Changed.
+    pub fn on_unchanged_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+        match self {
+            ControlUI::Unchanged => Some(f()),
+            _ => None,
+        }
+    }
+
     /// Run the continuation if the value is Changed
     pub fn on_changed(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
         match self {
@@ -242,6 +250,14 @@ impl<Action, Err> ControlUI<Action, Err> {
             ControlUI::Action(a) => ControlUI::Action(a),
             ControlUI::Spawn(a) => ControlUI::Spawn(a),
             ControlUI::Break => ControlUI::Break,
+        }
+    }
+
+    /// Run the continuation if the value is Changed
+    pub fn on_changed_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+        match self {
+            ControlUI::Changed => Some(f()),
+            _ => None,
         }
     }
 }
