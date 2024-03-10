@@ -7,6 +7,11 @@
 /// Each widget stays separate otherwise and can pull its focus state
 /// from this struct.
 ///
+/// There is one additional flag [FocusFlag::validate] which is set if a widget
+/// looses the focus. This can be used as a validation marker, but is otherwise not used.
+/// There is a macro [validate!] which can be used for this. It evaluates a block and
+/// stores the result in [FocusFlag::is_valid] which can be used by the widget.
+///
 use crate::util::{next_circular, prev_circular};
 use crate::ControlUI;
 use crossterm::event::{
@@ -15,7 +20,7 @@ use crossterm::event::{
 use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
 
-/// Flag structure to be used in components.
+/// Flag structure to be used in widget states.
 #[derive(Debug, Clone)]
 pub struct FocusFlag {
     /// A unique tag within one focus-cycle. This value is set when
@@ -23,13 +28,11 @@ pub struct FocusFlag {
     /// this value it's not essential to the operation. It's only used
     /// to change the focus from the outside.
     pub tag: Cell<u16>,
-    /// Active focus flag. There is usually only one component with focus==true
+    /// Active focus flag. There is usually only one widget with focus==true
     /// within a cycle.
     pub focus: Cell<bool>,
-    /// Does this widget require validation
-    pub validate: Cell<bool>,
-    /// Is the widget content valid
-    pub is_valid: Cell<bool>,
+    /// Indicates that the field just lost the focus.
+    pub lost: Cell<bool>,
 }
 
 /// Switch the focus for an ui.
@@ -80,8 +83,7 @@ impl Default for FocusFlag {
         Self {
             tag: Cell::new(0),
             focus: Cell::new(false),
-            validate: Cell::new(false),
-            is_valid: Cell::new(true),
+            lost: Cell::new(false),
         }
     }
 }
@@ -102,40 +104,22 @@ impl FocusFlag {
         self.tag.get()
     }
 
-    /// Needs validation. Resets the flag.
-    pub fn needs_validation(&self) -> bool {
-        self.validate.replace(false)
-    }
-
-    /// Is valid
-    pub fn is_valid(&self) -> bool {
-        self.is_valid.get()
-    }
-
-    // Is invalid
-    pub fn is_invalid(&self) -> bool {
-        !self.is_valid.get()
-    }
-
-    // Set valid state.
-    pub fn set_valid(&self) {
-        self.is_valid.set(true);
-    }
-
-    pub fn set_invalid(&self) {
-        self.is_valid.set(false);
+    /// Just lost the focus.
+    pub fn lost(&self) -> bool {
+        self.lost.get()
     }
 }
 
-/// Validates the given widget. It expects that the widget has a field 'focus' that is visible.
-/// Changes the validation state after evaluating the validation expression.
+/// Validates the given widget. It expects that the widget has a field `focus: FocusFlag` and
+/// field `is_valid: bool` that a both public.
+/// Sets is_valid with the result of the expression and resets `focus.validate`.
 #[macro_export]
 macro_rules! validate {
     ($field:expr => $validate:expr) => {
-        let cond = $field.focus.needs_validation();
+        let cond = $field.focus.lost();
         if cond {
             let valid = $validate;
-            $field.focus.is_valid.set(valid);
+            $field.is_valid = valid;
         }
     };
 }
@@ -181,6 +165,7 @@ impl<'a> Focus<'a> {
         let mut change = FocusChanged::Continue;
 
         for f in self.focus.iter() {
+            f.lost.set(false);
             if f.tag.get() == tag {
                 if !f.focus.get() {
                     change = FocusChanged::Changed;
@@ -188,7 +173,7 @@ impl<'a> Focus<'a> {
                 }
             } else {
                 if f.focus.get() {
-                    f.validate.set(true);
+                    f.lost.set(true);
                     f.focus.set(false);
                 }
             }
@@ -207,8 +192,9 @@ impl<'a> Focus<'a> {
                 ..
             }) => {
                 for (i, p) in self.focus.iter().enumerate() {
+                    p.lost.set(false);
                     if p.focus.get() {
-                        p.validate.set(true);
+                        p.lost.set(true);
                         p.focus.set(false);
                         let n = next_circular(i, self.focus.len());
                         self.focus[n].focus.set(true);
@@ -224,8 +210,9 @@ impl<'a> Focus<'a> {
                 ..
             }) => {
                 for (i, p) in self.focus.iter().enumerate() {
+                    p.lost.set(false);
                     if p.focus.get() {
-                        p.validate.set(true);
+                        p.lost.set(true);
                         p.focus.set(false);
                         let n = prev_circular(i, self.focus.len());
                         self.focus[n].focus.set(true);
@@ -249,11 +236,12 @@ impl<'a> Focus<'a> {
                     modifiers: KeyModifiers::NONE,
                 },
             ) => 'f: {
-                for (idx, r) in self.areas.iter().enumerate() {
-                    if r.contains(Position::new(*column, *row)) && !self.focus[idx].focus.get() {
+                for (idx, area) in self.areas.iter().enumerate() {
+                    if area.contains(Position::new(*column, *row)) && !self.focus[idx].focus.get() {
                         for p in self.focus.iter() {
+                            p.lost.set(false);
                             if p.focus.get() {
-                                p.validate.set(true);
+                                p.lost.set(true);
                                 p.focus.set(false);
                             }
                         }
