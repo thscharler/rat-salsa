@@ -15,7 +15,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::{Frame, Terminal};
 use std::io::{stdout, Stdout};
 use std::thread::JoinHandle;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use std::{io, thread};
 
 /// Describes the requisites of a TuiApp.
@@ -40,7 +40,7 @@ pub trait TuiApp {
         frame: &mut Frame<'_>,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-    ) -> Result<(), Self::Error>;
+    ) -> ControlUI<Self::Action, Self::Error>;
 
     /// Handle an event.
     fn handle_event(
@@ -154,10 +154,7 @@ where
     let mut flow = ControlUI::Continue;
 
     let result = term.draw(|frame| {
-        match app.repaint(frame, data, uistate) {
-            Err(err) => flow = ControlUI::Err(err),
-            _ => {}
-        };
+        flow = app.repaint(frame, data, uistate);
     });
 
     // a draw() error overwrites a possible repaint() error.
