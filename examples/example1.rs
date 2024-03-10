@@ -301,8 +301,9 @@ pub mod app {
                 EditConstraint::Widget(15),
                 EditConstraint::Label("Parsed"),
                 EditConstraint::Widget(10),
+                EditConstraint::Label("No spaces"),
                 EditConstraint::Widget(10),
-                EditConstraint::Widget(10),
+                EditConstraint::Label("Mask"),
                 EditConstraint::Widget(10),
             ],
         );
@@ -314,23 +315,23 @@ pub mod app {
         let label_edit = Span::from("Datum");
 
         let edit = InputMask::default().style(uistate.g.input_mask_style());
-        let compact = Span::from(uistate.input_0.compact_value());
         let label_parsed = Span::from("Parsed");
         let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
-
+        let label_compact = Span::from("No spaces");
+        let compact = Span::from(uistate.input_0.compact_value());
         frame.render_widget(label_edit, l_edit0.label[0]);
         frame.render_ext(edit, l_edit0.widget[0], &mut uistate.input_0);
         frame.render_widget(label_parsed, l_edit0.label[1]);
         frame.render_widget(parsed, l_edit0.widget[1]);
+        frame.render_widget(label_compact, l_edit0.label[2]);
         frame.render_widget(compact, l_edit0.widget[2]);
-        let render = Span::from(uistate.input_0.render_str());
-        frame.render_widget(render, l_edit0.widget[3]);
+        let label_mask = Span::from("Mask");
+        frame.render_widget(label_mask, l_edit0.label[3]);
         let mask = Span::from(uistate.input_0.mask());
-        frame.render_widget(mask, l_edit0.widget[4]);
+        frame.render_widget(mask, l_edit0.widget[3]);
 
         let label_edit = Span::from("Text");
         let edit = Input::default().style(uistate.g.input_style());
-
         frame.render_widget(label_edit, l_edit1.label[0]);
         frame.render_ext(edit, l_edit1.widget[0], &mut uistate.input_1);
 
@@ -360,7 +361,16 @@ pub mod app {
             false
         });
 
-        cut!(uistate.input_0.handle(evt));
+        cut!({
+            let r = uistate.input_0.handle(evt);
+            r.on_changed_do(|| {
+                let str = uistate.input_0.compact_value();
+                let r = NaiveDate::parse_from_str(str.as_str(), "%d.%m.%Y");
+                uistate.input_0.focus.is_valid.set(r.is_ok());
+            });
+            r
+        });
+
         cut!(uistate.input_1.handle(evt));
 
         cut!(match evt {
