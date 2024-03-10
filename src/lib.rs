@@ -1,11 +1,4 @@
-//! 1. There is an event-loop with [run_tui()] which runs some [TuiApp].
-//!
-//! 2. An alternate WidgetExt trait, that receives a frame instead of buffer. This is
-//!    helpful if you want the widget to manipulate the cursor. Otherwise, the traits
-//!    from ratatui will do nicely.
-//! 2.1 To bring the [WidgetExt] trait in line with the standard traits there is a simple
-//!     extension trait [FrameExt] that has a render_ext() function.
-//!
+#![doc = include_str!("../crate.md")]
 
 use crossterm::event::Event;
 use ratatui::layout::Rect;

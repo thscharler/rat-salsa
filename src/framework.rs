@@ -15,7 +15,7 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::{Frame, Terminal};
 use std::io::{stdout, Stdout};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use std::{io, thread};
 
 /// Describes the requisites of a TuiApp.
@@ -180,7 +180,7 @@ pub struct ThreadPool<App: TuiApp + ?Sized> {
 /// Send results.
 #[derive(Debug)]
 pub struct TaskSender<App: TuiApp + ?Sized> {
-    send: Sender<ControlUI<App::Action, App::Error>>,
+    pub send: Sender<ControlUI<App::Action, App::Error>>,
 }
 
 // internal

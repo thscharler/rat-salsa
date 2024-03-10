@@ -74,7 +74,7 @@ pub struct LayoutDialog<const N: usize> {
 
 pub fn layout_dialog<const N: usize>(
     area: Rect,
-    h_ratio: Ratio,
+    h_ratio: Ratio, //todo replace with Constraint?
     v_ratio: Ratio,
     insets: Margin,
     buttons: [u16; N],
