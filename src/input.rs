@@ -1,7 +1,16 @@
+//!
+//! Text input widget.
+//!
+//! * Can do the usual insert/delete/move operations.
+//! * Text selection.
+//! * Scrolls with the cursor.
+//! * Can set the cursor or use its own block cursor.
+//! * Can show an indicator for invalid input.
+
 use crate::basic::ClearStyle;
 use crate::focus::FocusFlag;
 use crate::input::core::{split3, split5};
-use crate::{ControlUI, HandleEvent, WidgetExt};
+use crate::{ControlUI, FrameWidget, HandleEvent};
 use crossterm::event::KeyCode::{Backspace, Char, Delete, End, Home, Left, Right};
 use crossterm::event::{
     Event, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -15,8 +24,10 @@ use ratatui::Frame;
 use std::cmp::min;
 use std::ops::Range;
 
-#[derive(Debug, Default)]
+/// Text input widget.
+#[derive(Debug)]
 pub struct Input {
+    pub terminal_cursor: bool,
     pub without_focus: bool,
     pub insets: Margin,
     pub style: Style,
@@ -24,8 +35,10 @@ pub struct Input {
     pub select_style: Style,
     pub cursor_style: Option<Style>,
     pub invalid_style: Option<Style>,
+    pub invalid_char: char,
 }
 
+/// Combined style for the widget.
 #[derive(Debug, Default)]
 pub struct InputStyle {
     pub style: Style,
@@ -35,17 +48,43 @@ pub struct InputStyle {
     pub invalid: Option<Style>,
 }
 
+impl Default for Input {
+    fn default() -> Self {
+        Self {
+            terminal_cursor: true,
+            without_focus: false,
+            insets: Default::default(),
+            style: Default::default(),
+            focus_style: Default::default(),
+            select_style: Default::default(),
+            cursor_style: None,
+            invalid_style: None,
+            invalid_char: '⁉',
+        }
+    }
+}
+
 impl Input {
+    /// Use extra insets for the text input.
     pub fn insets(mut self, insets: Margin) -> Self {
         self.insets = insets;
         self
     }
 
+    /// Use our own cursor indicator or the terminal cursor.
+    pub fn terminal_cursor(mut self, terminal: bool) -> Self {
+        self.terminal_cursor = terminal;
+        self
+    }
+
+    /// Do accept keyboard events event without being focused.
+    /// Useful for a catch field, eg "find stuff"
     pub fn without_focus(mut self, without_focus: bool) -> Self {
         self.without_focus = without_focus;
         self
     }
 
+    /// Set the combined style.
     pub fn style(mut self, style: InputStyle) -> Self {
         self.style = style.style;
         self.focus_style = style.focus;
@@ -55,31 +94,43 @@ impl Input {
         self
     }
 
+    /// Base text style.
     pub fn base_style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
         self
     }
 
+    /// Style when focused.
     pub fn focus_style(mut self, style: impl Into<Style>) -> Self {
         self.focus_style = style.into();
         self
     }
 
+    /// Style for selection
     pub fn select_style(mut self, style: impl Into<Style>) -> Self {
         self.select_style = style.into();
         self
     }
 
+    /// Style for our own cursor.
     pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
         self.cursor_style = Some(style.into());
         self
     }
 
+    /// Style for the invalid indicator.
     pub fn invalid_style(mut self, style: impl Into<Style>) -> Self {
         self.invalid_style = Some(style.into());
         self
     }
 
+    /// Marker character for invalid field.
+    pub fn invalid_char(mut self, invalid: char) -> Self {
+        self.invalid_char = invalid;
+        self
+    }
+
+    // focused or base
     fn active_style(&self, focus: bool) -> Style {
         if focus {
             self.focus_style
@@ -88,6 +139,7 @@ impl Input {
         }
     }
 
+    // focused or base
     fn active_select_style(&self, focus: bool) -> Style {
         if self.without_focus || focus {
             self.select_style
@@ -97,14 +149,14 @@ impl Input {
     }
 }
 
-impl WidgetExt for Input {
+impl FrameWidget for Input {
     type State = InputState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
         state.without_focus = self.without_focus;
 
         let mut l_area = area.inner(&self.insets);
-        let l_invalid = if state.focus.is_invalid() {
+        let l_invalid = if !state.is_valid {
             l_area.width -= 1;
             Rect::new(l_area.x + l_area.width, l_area.y, 1, 1)
         } else {
@@ -149,29 +201,36 @@ impl WidgetExt for Input {
 
         frame.render_widget(clear, area);
         frame.render_widget(line, l_input);
-        if state.focus.is_invalid() {
+        if !state.is_valid {
             let style = if let Some(style) = self.invalid_style {
                 style
             } else {
                 self.active_style(focus)
             };
 
-            let invalid = Span::from("⁉").style(style);
+            let invalid = Span::from(self.invalid_char.to_string()).style(style);
             frame.render_widget(invalid, l_invalid);
         }
-        if focus {
+        if self.terminal_cursor && focus {
             frame.set_cursor(l_input.x + state.visible_cursor(), l_input.y);
         }
     }
 }
 
+/// Input state data.
 #[derive(Debug, Default, Clone)]
 pub struct InputState {
+    /// Focus
     pub focus: FocusFlag,
+    /// Valid.
+    pub is_valid: bool,
     /// Work without focus for key input.
     pub without_focus: bool,
+    /// Area
     pub area: Rect,
+    /// Mouse selection in progress.
     pub mouse_select: bool,
+    /// Editing core
     pub value: core::InputCore,
 }
 
@@ -275,6 +334,7 @@ impl<A, E> HandleEvent<A, E> for InputState {
     }
 }
 
+/// Mapping from events to abstract editing requests.
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum InputRequest {
     SetCursor(usize, bool),
@@ -297,68 +357,89 @@ pub enum InputRequest {
 }
 
 impl InputState {
+    /// Reset to empty.
     pub fn reset(&mut self) {
         self.value.clear();
     }
 
+    /// Offset shown.
     pub fn offset(&self) -> usize {
         self.value.offset()
     }
 
+    /// Offset shown. This is corrected if the cursor wouldn't be visible.
     pub fn set_offset(&mut self, offset: usize) {
         self.value.set_offset(offset);
     }
 
+    /// Display width.
     pub fn width(&self) -> usize {
         self.value.width()
     }
 
+    /// Display width
+    pub fn set_width(&mut self, width: usize) {
+        self.value.set_width(width);
+    }
+
+    /// Set the cursor position, reset selection.
     pub fn set_cursor(&mut self, cursor: usize) {
         self.value.set_cursor(cursor, false);
     }
 
+    /// Cursor position.
     pub fn cursor(&self) -> usize {
         self.value.cursor()
     }
 
+    /// Set text.
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         self.value.set_value(s);
     }
 
+    /// Text.
     pub fn value(&self) -> &str {
         self.value.value()
     }
 
+    /// Text
     pub fn as_str(&self) -> &str {
         self.value.as_str()
     }
 
+    /// Empty.
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
 
+    /// Text length as grapheme count.
     pub fn len(&self) -> usize {
         self.value.len()
     }
 
+    /// Selection.
     pub fn has_selection(&self) -> bool {
         self.value.is_anchored()
     }
 
+    /// Selection.
     pub fn set_selection(&mut self, anchor: usize, cursor: usize) {
-        self.value.set_cursor(anchor, false);
-        self.value.set_cursor(cursor, true);
+        self.value.set_cursor(cursor, false);
+        self.value.set_cursor(anchor, true);
     }
 
+    /// Selection.
     pub fn select_all(&mut self) {
         self.value.set_cursor(0, false);
         self.value.set_cursor(self.value.len(), true);
     }
 
+    /// Selection.
     pub fn selection(&self) -> Range<usize> {
         self.value.selection()
     }
 
+    /// Selection.
     pub fn selection_str(&self) -> &str {
         split3(self.value.as_str(), self.value.selection()).1
     }
@@ -389,7 +470,8 @@ impl InputState {
         start..end
     }
 
-    /// Extracts the visible part.
+    /// Extracts the visible parts. The result is (before, cursor1, selection, cursor2, after).
+    /// One cursor1 and cursor2 is an empty string.
     pub fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
         split5(
             self.value.as_str(),
@@ -560,9 +642,12 @@ pub mod core {
     use std::ops::Range;
     use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 
+    /// Text editing core.
     #[derive(Debug, Default, Clone)]
     pub struct InputCore {
+        // Text
         value: String,
+        // Len in grapheme count.
         len: usize,
 
         offset: usize,
@@ -594,11 +679,12 @@ pub mod core {
             }
         }
 
-        /// Width
+        /// Display width
         pub fn width(&self) -> usize {
             self.width
         }
 
+        /// Display width
         pub fn set_width(&mut self, width: usize) {
             self.width = width;
 
@@ -607,7 +693,8 @@ pub mod core {
             }
         }
 
-        /// Cursor position as grapheme-idx.
+        /// Cursor position as grapheme-idx. Moves the cursor to the new position,
+        /// but can leave the current cursor position as anchor of the selection.
         pub fn set_cursor(&mut self, cursor: usize, anchor: bool) {
             let cursor = if cursor > self.len { self.len } else { cursor };
 
@@ -653,32 +740,32 @@ pub mod core {
             self.anchor = 0;
         }
 
-        /// value
+        /// Value
         pub fn value(&self) -> &str {
             self.value.as_str()
         }
 
-        ///
+        /// Value
         pub fn as_str(&self) -> &str {
             self.value.as_str()
         }
 
-        /// graphemes
+        /// Graphemes
         pub fn graphemes(&self) -> Graphemes<'_> {
             self.value.graphemes(true)
         }
 
-        /// clear
+        /// Clear
         pub fn clear(&mut self) {
             self.set_value("");
         }
 
-        /// is_empty
+        /// Empty
         pub fn is_empty(&self) -> bool {
             self.value.is_empty()
         }
 
-        /// value-len as grapheme-count
+        /// Value lenght as grapheme-count
         pub fn len(&self) -> usize {
             self.len
         }
@@ -693,6 +780,7 @@ pub mod core {
             self.anchor != self.cursor
         }
 
+        /// Selection.
         pub fn selection(&self) -> Range<usize> {
             if self.cursor < self.anchor {
                 self.cursor..self.anchor
@@ -701,7 +789,7 @@ pub mod core {
             }
         }
 
-        ///
+        /// Find next word.
         pub fn next_word_boundary(&self) -> usize {
             if self.cursor == self.len {
                 self.len
@@ -717,7 +805,7 @@ pub mod core {
             }
         }
 
-        ///
+        /// Find previous word.
         pub fn prev_word_boundary(&self) -> usize {
             if self.cursor == 0 {
                 0

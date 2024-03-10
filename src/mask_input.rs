@@ -1,27 +1,19 @@
 //! Text input with an input mask.
 //!
-//! * 0: must enter digit, display as 0
-//! * 9: can enter digit, display as space
-//! * H: must enter a hex digit, display as 0
-//! * h: can enter a hex digit, display as space
-//! * O: must enter an octal digit, display as 0
-//! * o: can enter an octal digit, display as space
-//! * L: must enter letter, display as X
-//! * l: can enter letter, display as space
-//! * A: must enter letter or digit, display as X
-//! * a: can enter letter or digit, display as space
-//! * C: must enter character or space, display as space
-//! * c: can enter character or space, display as space
-//! * _: anything, display as space
-//! * #: digit, plus or minus sign, display as space
-//! * . , : ; - /: grouping characters move the cursor when entered
+//! * Can do the usual insert/delete/move operations.
+//! * Text selection
+//! * Scrolls with the cursor.
+//! * Can set the cursor or use its own block cursor.
+//! * Can show an indicator for invalid input.
 //!
-//! Inspired by https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da
+//! * Accepts an input mask
+//! * Accepts a display overlay used instead of the default chars of the input mask.
+//!
 
 use crate::basic::ClearStyle;
 use crate::focus::FocusFlag;
 use crate::mask_input::core::{split3, split5, CursorPos};
-use crate::{ControlUI, HandleEvent, WidgetExt};
+use crate::{ControlUI, FrameWidget, HandleEvent};
 use crossterm::event::KeyCode::{Backspace, Char, Delete, End, Home, Left, Right};
 use crossterm::event::{
     Event, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -35,8 +27,10 @@ use ratatui::Frame;
 use std::cmp::min;
 use std::ops::Range;
 
-#[derive(Debug, Default)]
+/// Text input widget with input mask.
+#[derive(Debug)]
 pub struct InputMask {
+    pub terminal_cursor: bool,
     pub without_focus: bool,
     pub insets: Margin,
     pub style: Style,
@@ -44,8 +38,10 @@ pub struct InputMask {
     pub select_style: Style,
     pub cursor_style: Option<Style>,
     pub invalid_style: Option<Style>,
+    pub invalid_char: char,
 }
 
+/// Combined style.
 #[derive(Debug, Default)]
 pub struct InputMaskStyle {
     pub style: Style,
@@ -55,17 +51,43 @@ pub struct InputMaskStyle {
     pub invalid: Option<Style>,
 }
 
+impl Default for InputMask {
+    fn default() -> Self {
+        Self {
+            terminal_cursor: true,
+            without_focus: false,
+            insets: Default::default(),
+            style: Default::default(),
+            focus_style: Default::default(),
+            select_style: Default::default(),
+            cursor_style: None,
+            invalid_style: None,
+            invalid_char: '⁉',
+        }
+    }
+}
+
 impl InputMask {
+    /// Use extra insets for the text input.
     pub fn insets(mut self, insets: Margin) -> Self {
         self.insets = insets;
         self
     }
 
+    /// Use our own cursor indicator or the terminal cursor.
+    pub fn terminal_cursor(mut self, terminal: bool) -> Self {
+        self.terminal_cursor = terminal;
+        self
+    }
+
+    /// Do accept keyboard events event without being focused.
+    /// Useful for a catch field, eg "find stuff"
     pub fn without_focus(mut self, without_focus: bool) -> Self {
         self.without_focus = without_focus;
         self
     }
 
+    /// Set the combined style.
     pub fn style(mut self, style: InputMaskStyle) -> Self {
         self.style = style.style;
         self.focus_style = style.focus;
@@ -75,28 +97,39 @@ impl InputMask {
         self
     }
 
+    /// Base text style.
     pub fn base_style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
         self
     }
 
+    /// Style when focused.
     pub fn focus_style(mut self, style: impl Into<Style>) -> Self {
         self.focus_style = style.into();
         self
     }
 
+    /// Style for selection
     pub fn select_style(mut self, style: impl Into<Style>) -> Self {
         self.select_style = style.into();
         self
     }
 
+    /// Style for our own cursor.
     pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
         self.cursor_style = Some(style.into());
         self
     }
 
+    /// Style for the invalid indicator.
     pub fn invalid_style(mut self, style: impl Into<Style>) -> Self {
         self.invalid_style = Some(style.into());
+        self
+    }
+
+    /// Marker character for invalid field.
+    pub fn invalid_char(mut self, invalid: char) -> Self {
+        self.invalid_char = invalid;
         self
     }
 
@@ -117,14 +150,14 @@ impl InputMask {
     }
 }
 
-impl WidgetExt for InputMask {
+impl FrameWidget for InputMask {
     type State = InputMaskState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
         state.without_focus = self.without_focus;
 
         let mut l_area = area.inner(&self.insets);
-        let l_invalid = if state.focus.is_invalid() {
+        let l_invalid = if !state.is_valid {
             l_area.width -= 1;
             Rect::new(l_area.x + l_area.width, l_area.y, 1, 1)
         } else {
@@ -169,14 +202,14 @@ impl WidgetExt for InputMask {
 
         frame.render_widget(clear, area);
         frame.render_widget(line, l_input);
-        if state.focus.is_invalid() {
+        if !state.is_valid {
             let style = if let Some(style) = self.invalid_style {
                 style
             } else {
                 self.active_style(focus)
             };
 
-            let invalid = Span::from("⁉").style(style);
+            let invalid = Span::from(self.invalid_char.to_string()).style(style);
             frame.render_widget(invalid, l_invalid);
         }
         if focus {
@@ -187,11 +220,17 @@ impl WidgetExt for InputMask {
 
 #[derive(Debug, Default, Clone)]
 pub struct InputMaskState {
+    /// Focus
     pub focus: FocusFlag,
+    /// Valid.
+    pub is_valid: bool,
     /// Work without focus for key input.
     pub without_focus: bool,
+    /// Area
     pub area: Rect,
+    /// Mouse selection in progress.
     pub mouse_select: bool,
+    /// Editing core.
     pub value: core::InputMaskCore,
 }
 
@@ -295,6 +334,7 @@ impl<A, E> HandleEvent<A, E> for InputMaskState {
     }
 }
 
+/// Mapping from events to abstract editing requests.
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum InputRequest {
     SetCursor(usize, bool),
@@ -317,50 +357,99 @@ pub enum InputRequest {
 }
 
 impl InputMaskState {
+    /// Reset to empty.
     pub fn reset(&mut self) {
         self.value.clear();
     }
 
+    /// Offset shown.
     pub fn offset(&self) -> usize {
         self.value.offset()
     }
 
+    /// Offset shown. This is corrected if the cursor wouldn't be visible.
     pub fn set_offset(&mut self, offset: usize) {
         self.value.set_offset(offset);
     }
 
+    /// Display width.
     pub fn width(&self) -> usize {
         self.value.width()
     }
 
+    /// Display width
+    pub fn set_width(&mut self, width: usize) {
+        self.value.set_width(width);
+    }
+
+    /// Set the cursor position, reset selection.
     pub fn set_cursor(&mut self, cursor: usize) {
         self.value.set_cursor(cursor, false);
     }
 
+    /// Cursor position
     pub fn cursor(&self) -> usize {
         self.value.cursor()
     }
 
+    /// Set the display mask. This text is used for parts that have
+    /// no valid input yet. Part means consecutive characters of the
+    /// input mask with the same mask type.
+    ///
+    /// There is a default representation for each mask type if this
+    /// is not set.
+    ///
+    /// Panic
+    /// Panics if the length differs from the  mask.
     pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
         self.value.set_display_mask(s);
     }
 
+    /// Display mask.
     pub fn display_mask(&self) -> &str {
         self.value.display_mask()
     }
 
+    /// Set the input mask. This overwrites the display mask and the value
+    /// with a default representation of the mask.
+    ///
+    /// The result value contains all punctuation and
+    /// the value given as 'display' below. See [compact_value].
+    ///
+    /// ** 0: must enter digit, display as 0
+    /// ** 9: can enter digit, display as space
+    /// ** H: must enter a hex digit, display as 0
+    /// ** h: can enter a hex digit, display as space
+    /// ** O: must enter an octal digit, display as 0
+    /// ** o: can enter an octal digit, display as space
+    /// ** L: must enter letter, display as X
+    /// ** l: can enter letter, display as space
+    /// ** A: must enter letter or digit, display as X
+    /// ** a: can enter letter or digit, display as space
+    /// ** C: must enter character or space, display as space
+    /// ** c: can enter character or space, display as space
+    /// ** _: anything, display as space
+    /// ** #: digit, plus or minus sign, display as space
+    /// ** . , : ; - /: grouping characters move the cursor when entered
+    /// Inspired by https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da
     pub fn set_mask<S: Into<String>>(&mut self, s: S) {
         self.value.set_mask(s);
     }
 
+    /// Display mask.
     pub fn mask(&self) -> &str {
         self.value.mask()
     }
 
+    /// Set the value.
+    ///
+    /// Panic
+    /// Panics if the grapheme length of the value is not the same as the mask.
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         self.value.set_value(s);
     }
 
+    /// Value with all punctuation and default values according to the mask type.
     pub fn value(&self) -> &str {
         self.value.value()
     }
@@ -375,6 +464,7 @@ impl InputMaskState {
         self.value.render_str()
     }
 
+    /// Value.
     pub fn as_str(&self) -> &str {
         self.value.value()
     }
@@ -383,29 +473,35 @@ impl InputMaskState {
         self.value.is_empty()
     }
 
+    /// Length in grapheme count.
     pub fn len(&self) -> usize {
         self.value.len()
     }
 
+    /// Selection
     pub fn has_selection(&self) -> bool {
         self.value.is_anchored()
     }
 
+    /// Selection
     pub fn set_selection(&mut self, anchor: usize, cursor: usize) {
         self.value.set_cursor(anchor, false);
         self.value.set_cursor(cursor, true);
     }
 
+    /// Selection
     pub fn select_all(&mut self) {
         // the other way round it fails if width is 0.
         self.value.set_cursor(self.value.len(), false);
         self.value.set_cursor(0, true);
     }
 
+    /// Selection
     pub fn selection(&self) -> Range<usize> {
         self.value.selection()
     }
 
+    /// Selection
     pub fn selection_str(&self) -> &str {
         split3(self.value.value(), self.value.selection()).1
     }
@@ -611,12 +707,14 @@ pub mod core {
     use std::ops::Range;
     use unicode_segmentation::{Graphemes, UnicodeSegmentation};
 
+    /// Indicates where the cursor should be placed after a remove().
     #[derive(Debug, PartialEq, Eq)]
     pub enum CursorPos {
         Start,
         End,
     }
 
+    /// Text editing core.
     #[derive(Debug, Default, Clone)]
     pub struct InputMaskCore {
         // Input mask, coded.
@@ -629,6 +727,7 @@ pub mod core {
         render_string: String,
         // Base value.
         value: String,
+        // Len in grapheme count.
         len: usize,
 
         offset: usize,
@@ -659,11 +758,12 @@ pub mod core {
             }
         }
 
-        /// Width
+        /// Display width
         pub fn width(&self) -> usize {
             self.width
         }
 
+        /// Display width
         pub fn set_width(&mut self, width: usize) {
             self.width = width;
 
@@ -722,6 +822,7 @@ pub mod core {
             self.display_mask = display_mask;
         }
 
+        /// Display mask
         pub fn display_mask(&self) -> &str {
             self.display_mask.as_str()
         }
@@ -748,7 +849,7 @@ pub mod core {
 
         /// Set the value. Resets cursor and anchor to 0.
         ///
-        /// If the value doesn't conform to the given mask ... todo
+        /// If the value doesn't conform to the given mask it is so. ... todo?
         ///
         /// Panics
         /// If the len differs from the mask.
