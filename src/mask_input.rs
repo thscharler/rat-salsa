@@ -124,7 +124,7 @@ impl WidgetExt for InputMask {
         state.without_focus = self.without_focus;
 
         let mut l_area = area.inner(&self.insets);
-        let l_invalid = if state.invalid {
+        let l_invalid = if state.focus.is_invalid() {
             l_area.width -= 1;
             Rect::new(l_area.x + l_area.width, l_area.y, 1, 1)
         } else {
@@ -167,9 +167,9 @@ impl WidgetExt for InputMask {
         let line = Line::from(spans);
         let clear = ClearStyle::default().style(self.active_style(focus));
 
-        frame.render_widget(clear, l_area);
+        frame.render_widget(clear, area);
         frame.render_widget(line, l_input);
-        if state.invalid {
+        if state.focus.is_invalid() {
             let style = if let Some(style) = self.invalid_style {
                 style
             } else {
@@ -188,8 +188,6 @@ impl WidgetExt for InputMask {
 #[derive(Debug, Default, Clone)]
 pub struct InputMaskState {
     pub focus: FocusFlag,
-    /// Content is invalid.
-    pub invalid: bool,
     /// Work without focus for key input.
     pub without_focus: bool,
     pub area: Rect,
@@ -399,8 +397,9 @@ impl InputMaskState {
     }
 
     pub fn select_all(&mut self) {
-        self.value.set_cursor(0, false);
-        self.value.set_cursor(self.value.len(), true);
+        // the other way round it fails if width is 0.
+        self.value.set_cursor(self.value.len(), false);
+        self.value.set_cursor(0, true);
     }
 
     pub fn selection(&self) -> Range<usize> {

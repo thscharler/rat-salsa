@@ -51,10 +51,10 @@ pub mod data {
 pub mod state {
     use crate::theme::{Theme, ONEDARK};
     use rat_salsa::button::ButtonStyle;
-    use rat_salsa::input::InputStyle;
+    use rat_salsa::input::{InputState, InputStyle};
     use rat_salsa::mask_input::{InputMaskState, InputMaskStyle};
     use rat_salsa::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
-    use ratatui::prelude::Stylize;
+    use ratatui::prelude::{Color, Stylize};
     use ratatui::style::Style;
 
     #[derive(Debug)]
@@ -62,6 +62,7 @@ pub mod state {
         pub g: GeneralState,
 
         pub input_0: InputMaskState,
+        pub input_1: InputState,
     }
 
     impl Default for ExState {
@@ -69,10 +70,13 @@ pub mod state {
             let mut s = Self {
                 g: Default::default(),
                 input_0: Default::default(),
+                input_1: Default::default(),
             };
             s.input_0.focus.set();
             s.input_0.set_mask("99.99.9999");
             s.input_0.set_display_mask("TT.MM.YYYY");
+            s.input_0.select_all();
+
             s
         }
     }
@@ -115,6 +119,7 @@ pub mod state {
                 focus: Style::default().fg(self.theme.black).bg(self.theme.green),
                 select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
                 cursor: None,
+                invalid: Some(Style::default().fg(Color::White).bg(Color::Red)),
                 ..InputMaskStyle::default()
             }
         }
@@ -154,10 +159,12 @@ pub mod app {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     #[allow(unused_imports)]
     use log::debug;
+    use rat_salsa::focus::Focus;
+    use rat_salsa::input::Input;
     use rat_salsa::layout::{layout_edit, EditConstraint};
     use rat_salsa::mask_input::InputMask;
     use rat_salsa::message::{StatusDialog, StatusLine};
-    use rat_salsa::{cut, FrameExt, HandleEvent, TaskSender, ThreadPool, TuiApp};
+    use rat_salsa::{cut, validate, FrameExt, HandleEvent, TaskSender, ThreadPool, TuiApp};
     use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
     use ratatui::text::Span;
     use ratatui::Frame;
@@ -193,18 +200,14 @@ pub mod app {
 
             repaint_mask0(frame, layout[0], data, uistate)?;
 
-            {
-                let statusdialog = StatusDialog::new().style(uistate.g.status_dialog_style());
-                let mut err_dialog = &mut uistate.g.error_dlg;
-                if err_dialog.active {
-                    frame.render_stateful_widget(statusdialog, layout[0], &mut err_dialog);
-                }
+            let statusdialog = StatusDialog::new().style(uistate.g.status_dialog_style());
+            let mut err_dialog = &mut uistate.g.error_dlg;
+            if err_dialog.active {
+                frame.render_stateful_widget(statusdialog, layout[0], &mut err_dialog);
             }
-            {
-                let status = StatusLine::new().style(uistate.g.status_style());
-                let mut msg = &mut uistate.g.status;
-                frame.render_stateful_widget(status, layout[2], &mut msg);
-            }
+            let status = StatusLine::new().style(uistate.g.status_style());
+            let mut msg = &mut uistate.g.status;
+            frame.render_stateful_widget(status, layout[2], &mut msg);
 
             Ok(())
         }
@@ -281,8 +284,18 @@ pub mod app {
     ) -> Result<(), anyhow::Error> {
         let work = area.inner(&Margin::new(5, 1));
 
-        let l_edit = layout_edit(
-            work,
+        let work = Layout::new(
+            Direction::Horizontal,
+            [
+                Constraint::Length(25),
+                Constraint::Length(25),
+                Constraint::Length(25),
+            ],
+        )
+        .split(work);
+
+        let l_edit0 = layout_edit(
+            work[0],
             [
                 EditConstraint::Label("Datum"),
                 EditConstraint::Widget(15),
@@ -293,30 +306,62 @@ pub mod app {
                 EditConstraint::Widget(10),
             ],
         );
+        let l_edit1 = layout_edit(
+            work[1],
+            [EditConstraint::Label("Text"), EditConstraint::Widget(15)],
+        );
 
         let label_edit = Span::from("Datum");
+
         let edit = InputMask::default().style(uistate.g.input_mask_style());
         let compact = Span::from(uistate.input_0.compact_value());
         let label_parsed = Span::from("Parsed");
         let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
 
-        frame.render_widget(label_edit, l_edit.label[0]);
-        frame.render_ext(edit, l_edit.widget[0], &mut uistate.input_0);
-        frame.render_widget(label_parsed, l_edit.label[1]);
-        frame.render_widget(parsed, l_edit.widget[1]);
-        frame.render_widget(compact, l_edit.widget[2]);
-
+        frame.render_widget(label_edit, l_edit0.label[0]);
+        frame.render_ext(edit, l_edit0.widget[0], &mut uistate.input_0);
+        frame.render_widget(label_parsed, l_edit0.label[1]);
+        frame.render_widget(parsed, l_edit0.widget[1]);
+        frame.render_widget(compact, l_edit0.widget[2]);
         let render = Span::from(uistate.input_0.render_str());
-        frame.render_widget(render, l_edit.widget[3]);
-
+        frame.render_widget(render, l_edit0.widget[3]);
         let mask = Span::from(uistate.input_0.mask());
-        frame.render_widget(mask, l_edit.widget[4]);
+        frame.render_widget(mask, l_edit0.widget[4]);
+
+        let label_edit = Span::from("Text");
+        let edit = Input::default().style(uistate.g.input_style());
+
+        frame.render_widget(label_edit, l_edit1.label[0]);
+        frame.render_ext(edit, l_edit1.widget[0], &mut uistate.input_1);
 
         Ok(())
     }
 
+    fn focus_mask0(uistate: &ExState) -> Focus<'_> {
+        Focus::new([
+            (&uistate.input_0.focus, uistate.input_0.area),
+            (&uistate.input_1.focus, uistate.input_1.area),
+        ])
+    }
+
     fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
+        let f = focus_mask0(uistate).handle(evt);
+
+        validate!(uistate.input_0 => if let Ok(d) =
+            NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y")
+        {
+            data.datum = d;
+            let v = data.datum.format("%d.%m.%Y").to_string();
+            uistate.input_0.set_value(v);
+            uistate.input_0.select_all();
+            true
+        } else {
+            data.datum = NaiveDate::default();
+            false
+        });
+
         cut!(uistate.input_0.handle(evt));
+        cut!(uistate.input_1.handle(evt));
 
         cut!(match evt {
             Event::Key(KeyEvent {
@@ -328,21 +373,20 @@ pub mod app {
                 if let Ok(d) =
                     NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y")
                 {
-                    uistate.input_0.invalid = false;
+                    uistate.input_0.focus.set_valid();
                     data.datum = d;
                 } else {
-                    uistate.input_0.invalid = true;
+                    uistate.input_0.focus.set_invalid();
                     data.datum = NaiveDate::default();
                 }
-                uistate
-                    .input_0
-                    .set_value(data.datum.format("%d.%m.%Y").to_string());
+                let v = data.datum.format("%d.%m.%Y").to_string();
+                uistate.input_0.set_value(v);
                 Control::Changed
             }
             _ => Control::Continue,
         });
 
-        Control::Continue
+        f.into_control()
     }
 }
 

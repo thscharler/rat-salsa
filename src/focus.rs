@@ -16,7 +16,7 @@ use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
 
 /// Flag structure to be used in components.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct FocusFlag {
     /// A unique tag within one focus-cycle. This value is set when
     /// the focus cycle is created. While it is not recommended to change
@@ -26,13 +26,10 @@ pub struct FocusFlag {
     /// Active focus flag. There is usually only one component with focus==true
     /// within a cycle.
     pub focus: Cell<bool>,
-}
-
-// Used internally
-#[derive(Debug)]
-struct FocusFlagRef<'a> {
-    tag: &'a Cell<u16>,
-    focus: &'a Cell<bool>,
+    /// Does this widget require validation
+    pub validate: Cell<bool>,
+    /// Is the widget content valid
+    pub is_valid: Cell<bool>,
 }
 
 /// Switch the focus for an ui.
@@ -42,7 +39,7 @@ struct FocusFlagRef<'a> {
 #[derive(Debug)]
 pub struct Focus<'a> {
     areas: Vec<Rect>,
-    focus: Vec<FocusFlagRef<'a>>,
+    focus: Vec<&'a FocusFlag>,
 }
 
 /// Result of event processing.
@@ -78,6 +75,17 @@ impl<A, E> From<FocusChanged> for ControlUI<A, E> {
     }
 }
 
+impl Default for FocusFlag {
+    fn default() -> Self {
+        Self {
+            tag: Cell::new(0),
+            focus: Cell::new(false),
+            validate: Cell::new(false),
+            is_valid: Cell::new(true),
+        }
+    }
+}
+
 impl FocusFlag {
     /// Has the focus.
     pub fn get(&self) -> bool {
@@ -93,6 +101,41 @@ impl FocusFlag {
     pub fn tag(&self) -> u16 {
         self.tag.get()
     }
+
+    /// Needs validation. Resets the flag.
+    pub fn needs_validation(&self) -> bool {
+        self.validate.replace(false)
+    }
+
+    /// Is valid
+    pub fn is_valid(&self) -> bool {
+        self.is_valid.get()
+    }
+
+    // Is invalid
+    pub fn is_invalid(&self) -> bool {
+        !self.is_valid.get()
+    }
+
+    // Set valid state.
+    pub fn set_valid(&self) {
+        self.is_valid.set(true);
+    }
+
+    pub fn set_invalid(&self) {
+        self.is_valid.set(false);
+    }
+}
+
+#[macro_export]
+macro_rules! validate {
+    ($x:expr => $v:expr) => {
+        let cond = $x.focus.needs_validation();
+        if cond {
+            let valid = $v;
+            $x.focus.is_valid.set(valid);
+        }
+    };
 }
 
 impl<'a> Focus<'a> {
@@ -105,21 +148,33 @@ impl<'a> Focus<'a> {
             focus: Vec::new(),
         };
 
-        for (n, (flags, rect)) in np.into_iter().enumerate() {
-            flags.tag.set(n as u16);
-            zelf.focus.push(FocusFlagRef {
-                tag: &flags.tag,
-                focus: &flags.focus,
-            });
+        for (n, (f, rect)) in np.into_iter().enumerate() {
+            f.tag.set(n as u16);
+            zelf.focus.push(f);
             zelf.areas.push(rect);
         }
 
         zelf
     }
 
+    /// Reset the focus
+    pub fn reset(&self, tag: u16) {
+        for f in self.focus.iter() {
+            if f.tag.get() == tag {
+                if !f.focus.get() {
+                    f.focus.set(true);
+                }
+            } else {
+                if f.focus.get() {
+                    f.focus.set(false);
+                }
+            }
+        }
+    }
+
     /// Change the focused part. Used for focus changes unrelated to standard
     /// navigation.
-    pub fn focus<A, E>(&mut self, tag: u16) -> FocusChanged {
+    pub fn focus<A, E>(&self, tag: u16) -> FocusChanged {
         let mut change = FocusChanged::Continue;
 
         for f in self.focus.iter() {
@@ -129,7 +184,10 @@ impl<'a> Focus<'a> {
                     f.focus.set(true);
                 }
             } else {
-                f.focus.set(false);
+                if f.focus.get() {
+                    f.validate.set(true);
+                    f.focus.set(false);
+                }
             }
         }
 
@@ -147,8 +205,9 @@ impl<'a> Focus<'a> {
             }) => {
                 for (i, p) in self.focus.iter().enumerate() {
                     if p.focus.get() {
+                        p.validate.set(true);
+                        p.focus.set(false);
                         let n = next_circular(i, self.focus.len());
-                        self.focus[i].focus.set(false);
                         self.focus[n].focus.set(true);
                         break;
                     }
@@ -163,8 +222,9 @@ impl<'a> Focus<'a> {
             }) => {
                 for (i, p) in self.focus.iter().enumerate() {
                     if p.focus.get() {
+                        p.validate.set(true);
+                        p.focus.set(false);
                         let n = prev_circular(i, self.focus.len());
-                        self.focus[i].focus.set(false);
                         self.focus[n].focus.set(true);
                         break;
                     }
@@ -189,7 +249,10 @@ impl<'a> Focus<'a> {
                 for (idx, r) in self.areas.iter().enumerate() {
                     if r.contains(Position::new(*column, *row)) && !self.focus[idx].focus.get() {
                         for p in self.focus.iter() {
-                            p.focus.set(false);
+                            if p.focus.get() {
+                                p.validate.set(true);
+                                p.focus.set(false);
+                            }
                         }
                         self.focus[idx].focus.set(true);
                         break 'f FocusChanged::Changed;
