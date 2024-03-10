@@ -378,7 +378,7 @@ impl InputMaskState {
     }
 
     pub fn as_str(&self) -> &str {
-        self.value.as_str()
+        self.value.value()
     }
 
     pub fn is_empty(&self) -> bool {
@@ -408,7 +408,7 @@ impl InputMaskState {
     }
 
     pub fn selection_str(&self) -> &str {
-        split3(self.value.as_str(), self.value.selection()).1
+        split3(self.value.value(), self.value.selection()).1
     }
 
     /// Extracts the visible part.
