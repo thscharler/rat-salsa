@@ -127,13 +127,15 @@ impl FocusFlag {
     }
 }
 
+/// Validates the given widget. It expects that the widget has a field 'focus' that is visible.
+/// Changes the validation state after evaluating the validation expression.
 #[macro_export]
 macro_rules! validate {
-    ($x:expr => $v:expr) => {
-        let cond = $x.focus.needs_validation();
+    ($field:expr => $validate:expr) => {
+        let cond = $field.focus.needs_validation();
         if cond {
-            let valid = $v;
-            $x.focus.is_valid.set(valid);
+            let valid = $validate;
+            $field.focus.is_valid.set(valid);
         }
     };
 }
@@ -157,7 +159,8 @@ impl<'a> Focus<'a> {
         zelf
     }
 
-    /// Reset the focus
+    /// Reset the focus without changing validation flags. Can be used to reset
+    /// the focus after a failed validation.
     pub fn reset(&self, tag: u16) {
         for f in self.focus.iter() {
             if f.tag.get() == tag {
