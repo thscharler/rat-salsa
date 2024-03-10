@@ -1,3 +1,7 @@
+//!
+//! Render a month of a calender.
+//!
+
 use chrono::{Datelike, NaiveDate, Weekday};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -8,13 +12,17 @@ use std::fmt::{Debug, Formatter};
 
 /// Renders a month.
 pub struct Month {
+    /// Title style.
     pub title_style: Style,
+    /// Week number style.
     pub week_style: Style,
+    /// Styling for a single date.
     pub day_style: Box<dyn Fn(NaiveDate) -> Style>,
+    /// Start date of the month.
     pub start_date: NaiveDate,
 }
 
-/// Composite style.
+/// Composite style for the calendar.
 pub struct MonthStyle {
     pub title_style: Style,
     pub week_style: Style,
@@ -68,6 +76,7 @@ impl Month {
         self
     }
 
+    /// Set the composite style.
     pub fn style(mut self, s: MonthStyle) -> Self {
         self.title_style = s.title_style;
         self.week_style = s.week_style;
@@ -75,27 +84,30 @@ impl Month {
         self
     }
 
+    /// Set the day style.
     pub fn day_style(mut self, s: Box<dyn Fn(NaiveDate) -> Style>) -> Self {
         self.day_style = s;
         self
     }
 
+    /// Set the week number style
     pub fn week_style(mut self, s: impl Into<Style>) -> Self {
         self.week_style = s.into();
         self
     }
 
+    /// Set the month-name style.
     pub fn title_style(mut self, s: impl Into<Style>) -> Self {
         self.title_style = s.into();
         self
     }
 
-    // todo: Size
-
+    /// Required width for the widget.
     pub fn width(&self) -> usize {
         8 * 3
     }
 
+    /// Required height for the widget. Varies.
     pub fn height(&self) -> usize {
         let mut r = 0;
         let mut day = self.start_date;

@@ -1,5 +1,5 @@
 //!
-//! Very basic widgets.
+//! Some basic widgets.
 //!
 
 use ratatui::buffer::Buffer;

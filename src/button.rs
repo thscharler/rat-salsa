@@ -1,3 +1,6 @@
+//!
+//! A simple button.
+//!
 use crate::focus::FocusFlag;
 use crate::{ControlUI, HandleEvent};
 use crossterm::event::{
