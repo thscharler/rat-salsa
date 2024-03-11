@@ -2,11 +2,9 @@
 //! A simple button.
 //!
 use crate::focus::FocusFlag;
-use crate::widget::HandleEvent;
+use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crate::ControlUI;
-use crossterm::event::{
-    Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-};
+use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
@@ -139,6 +137,13 @@ pub struct ButtonState<A> {
     pub action: A,
 }
 
+/// Button actions.
+#[derive(Debug)]
+pub enum InputRequest {
+    Arm,
+    Action,
+}
+
 impl<'a, A> StatefulWidget for Button<'a, A> {
     type State = ButtonState<A>;
 
@@ -157,40 +162,49 @@ impl<'a, A> StatefulWidget for Button<'a, A> {
     }
 }
 
-impl<A: Clone, E> HandleEvent<A, E> for ButtonState<A> {
-    fn handle(&mut self, event: &Event) -> ControlUI<A, E> {
-        match event {
+impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ButtonState<A> {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+        use crossterm::event::*;
+
+        let req = match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Enter,
                 modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Press,
                 ..
-            }) => {
-                if self.focus.get() {
-                    self.armed = true;
-                    ControlUI::Changed
-                } else {
-                    ControlUI::Continue
+            }) => 'f: {
+                if !self.focus.get() {
+                    break 'f None;
                 }
+                Some(InputRequest::Arm)
             }
             Event::Key(KeyEvent {
                 code: KeyCode::Enter,
                 modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Release,
                 ..
-            }) => {
-                if self.focus.get() {
-                    if self.armed {
-                        self.armed = false;
-                        ControlUI::Action(self.action.clone())
-                    } else {
-                        ControlUI::Continue
-                    }
-                } else {
-                    ControlUI::Continue
+            }) => 'f: {
+                if !self.focus.get() {
+                    break 'f None;
                 }
+                Some(InputRequest::Action)
             }
+            _ => return self.handle(event, MouseOnly),
+        };
 
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
+        }
+    }
+}
+
+impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ButtonState<A> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
+        use crossterm::event::*;
+
+        let req = match event {
             Event::Mouse(
                 MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),
@@ -206,10 +220,9 @@ impl<A: Clone, E> HandleEvent<A, E> for ButtonState<A> {
                 },
             ) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.armed = true;
-                    ControlUI::Changed
+                    Some(InputRequest::Arm)
                 } else {
-                    ControlUI::Continue
+                    None
                 }
             }
             Event::Mouse(MouseEvent {
@@ -219,14 +232,39 @@ impl<A: Clone, E> HandleEvent<A, E> for ButtonState<A> {
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
+                    Some(InputRequest::Action)
+                } else {
+                    None
+                }
+            }
+            _ => None,
+        };
+
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
+        }
+    }
+}
+
+impl<A: Clone, E> Input<ControlUI<A, E>> for ButtonState<A> {
+    type Request = InputRequest;
+
+    fn perform(&mut self, action: Self::Request) -> ControlUI<A, E> {
+        match action {
+            InputRequest::Arm => {
+                self.armed = true;
+                ControlUI::Changed
+            }
+            InputRequest::Action => {
+                if self.armed {
                     self.armed = false;
                     ControlUI::Action(self.action.clone())
                 } else {
                     ControlUI::Continue
                 }
             }
-
-            _ => ControlUI::Continue,
         }
     }
 }
