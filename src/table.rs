@@ -253,6 +253,16 @@ impl TableExtState {
         self.adjust_view();
     }
 
+    pub fn scroll_first(&mut self) {
+        self.table_state.select(Some(0));
+        self.adjust_view();
+    }
+
+    pub fn scroll_last(&mut self) {
+        self.table_state.select(Some(self.row_count));
+        self.adjust_view();
+    }
+
     pub fn scroll_pg_down(&mut self) {
         let next = next_pg_opt(
             self.table_state.selected(),
@@ -288,6 +298,8 @@ impl TableExtState {
 
 #[derive(Debug)]
 pub enum InputRequest {
+    First,
+    Last,
     Down,
     Up,
     PageDown,
@@ -321,6 +333,42 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
             }) => {
                 if self.focus.get() {
                     Some(InputRequest::Up)
+                } else {
+                    None
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::Down,
+                modifiers: KeyModifiers::CONTROL,
+                kind: KeyEventKind::Press,
+                ..
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::End,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.focus.get() {
+                    Some(InputRequest::Last)
+                } else {
+                    None
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::Up,
+                modifiers: KeyModifiers::CONTROL,
+                kind: KeyEventKind::Press,
+                ..
+            })
+            | Event::Key(KeyEvent {
+                code: KeyCode::Home,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.focus.get() {
+                    Some(InputRequest::First)
                 } else {
                     None
                 }
@@ -486,6 +534,14 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
             }
             InputRequest::Up => {
                 self.scroll_up();
+                ControlUI::Changed
+            }
+            InputRequest::First => {
+                self.scroll_first();
+                ControlUI::Changed
+            }
+            InputRequest::Last => {
+                self.scroll_last();
                 ControlUI::Changed
             }
             InputRequest::PageDown => {
