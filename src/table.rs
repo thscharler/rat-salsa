@@ -1,6 +1,7 @@
 use crate::focus::FocusFlag;
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
-use crate::{ControlUI, HandleEvent};
+use crate::widget::HandleEvent;
+use crate::ControlUI;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };

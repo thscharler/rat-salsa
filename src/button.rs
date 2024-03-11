@@ -2,7 +2,8 @@
 //! A simple button.
 //!
 use crate::focus::FocusFlag;
-use crate::{ControlUI, HandleEvent};
+use crate::widget::HandleEvent;
+use crate::ControlUI;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };

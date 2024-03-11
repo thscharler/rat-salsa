@@ -1,7 +1,8 @@
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::layout::layout_dialog;
+use crate::widget::HandleEvent;
+use crate::ControlUI;
 use crate::{cut, ratio};
-use crate::{ControlUI, HandleEvent};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
 use log::debug;

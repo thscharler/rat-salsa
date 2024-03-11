@@ -10,7 +10,8 @@
 use crate::basic::ClearStyle;
 use crate::focus::FocusFlag;
 use crate::input::core::{split3, split5};
-use crate::{ControlUI, FrameWidget, HandleEvent};
+use crate::widget::{FrameWidget, HandleEvent};
+use crate::ControlUI;
 use crossterm::event::KeyCode::{Backspace, Char, Delete, End, Home, Left, Right};
 use crossterm::event::{
     Event, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,

@@ -1,55 +1,24 @@
 #![doc = include_str!("../crate.md")]
 
-use crossterm::event::Event;
-use ratatui::layout::Rect;
-use ratatui::Frame;
+use crate::focus::FocusChanged;
 use std::fmt::Debug;
 
 pub mod basic;
 pub mod button;
 pub mod calendar;
 pub mod focus;
-mod framework;
 pub mod input;
 pub mod layout;
 pub mod mask_input;
 pub mod menuline;
 pub mod message;
 pub mod table;
+pub mod widget;
+
 pub(crate) mod util;
 
+mod framework;
 pub use framework::{run_tui, TaskSender, ThreadPool, TuiApp};
-
-/// Extra rendering which passes on the frame to a [FrameWidget].
-/// This allows setting the cursor inside a widget.
-pub trait RenderFrameWidget {
-    fn render_frame_widget<W: FrameWidget>(&mut self, widget: W, area: Rect, state: &mut W::State);
-}
-
-impl<'a> RenderFrameWidget for Frame<'a> {
-    fn render_frame_widget<W: FrameWidget>(&mut self, widget: W, area: Rect, state: &mut W::State) {
-        widget.render(self, area, state)
-    }
-}
-
-/// Another kind of widget that takes a frame instead of a buffer.
-/// Allows to set the cursor while rendering.
-///
-/// This also always takes a state, just use () if not needed.
-pub trait FrameWidget {
-    /// Type of the corresponding state struct.
-    type State: ?Sized;
-
-    /// Do render.
-    fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State);
-}
-
-/// This trait capture event-handling. It's intended to be implemented
-/// on some ui-state struct. It returns a ControlUI state.
-pub trait HandleEvent<Action, Err> {
-    /// Event handling.
-    fn handle(&mut self, evt: &Event) -> ControlUI<Action, Err>;
-}
 
 /// Converts from a [Result::Err] to a [ControlUI::Err] and returns early.
 /// Evaluates to the value of [Result::Ok].
@@ -274,6 +243,15 @@ impl<Action, Err> ControlUI<Action, Err> {
         match self {
             ControlUI::Changed => Some(f()),
             _ => None,
+        }
+    }
+}
+
+impl<A, E> From<FocusChanged> for ControlUI<A, E> {
+    fn from(value: FocusChanged) -> Self {
+        match value {
+            FocusChanged::Changed => ControlUI::Changed,
+            FocusChanged::Continue => ControlUI::Continue,
         }
     }
 }

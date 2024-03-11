@@ -1,5 +1,6 @@
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
-use crate::{ControlUI, HandleEvent};
+use crate::widget::HandleEvent;
+use crate::ControlUI;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
