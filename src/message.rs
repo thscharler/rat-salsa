@@ -1,6 +1,6 @@
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::layout::layout_dialog;
-use crate::widget::{DefaultKeys, HandleCrossterm};
+use crate::widget::{DefaultKeys, HandleCrossterm, Input};
 use crate::ControlUI;
 use crate::{cut, ratio};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -205,5 +205,13 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
 
         // eat all events.
         ControlUI::Unchanged
+    }
+}
+
+impl<A, E> Input<ControlUI<A, E>> for StatusDialogState {
+    type Request = ();
+
+    fn perform(&mut self, _: Self::Request) -> ControlUI<A, E> {
+        ControlUI::Continue
     }
 }
