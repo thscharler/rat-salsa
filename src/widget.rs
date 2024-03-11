@@ -14,12 +14,12 @@ pub trait HandleEvent<Action, Err> {
 ///
 /// A widget can define a set of standard actions to manipulate its state.
 /// The event-handler maps input-events to actions, and executes them using [`Actionable::perform`]
-pub trait Actionable<T, E> {
+pub trait Actionable<R> {
     /// Type of actions for a widget.
     type WidgetAction;
 
     /// Perform the given action.
-    fn perform(&mut self, action: Self::WidgetAction) -> Result<T, E>;
+    fn perform(&mut self, action: Self::WidgetAction) -> R;
 }
 
 /// Marker struct. Used by HandleCrossterm to differentiate between key-mappings.
@@ -47,11 +47,11 @@ pub struct MouseOnly;
 /// Another recommendation is to split the event-handler between keyboard and mouse-events by
 /// using [MouseOnly] for the latter. [DefaultKeys] forwards any unprocessed event to the `MouseOnly`
 /// handler.
-pub trait HandleCrossterm<T, E, K = DefaultKeys>
+pub trait HandleCrossterm<R, K = DefaultKeys>
 where
-    Self: Actionable<T, E>,
+    Self: Actionable<R>,
 {
-    fn handle_crossterm(&mut self, event: &crossterm::event::Event, keymap: K) -> Result<T, E>;
+    fn handle_crossterm(&mut self, event: &crossterm::event::Event, keymap: K) -> R;
 }
 
 /// Extra rendering which passes on the frame to a [FrameWidget].

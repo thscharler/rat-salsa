@@ -19,7 +19,6 @@ use crossterm::event::Event;
 use log::error;
 use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
-use std::convert::Infallible;
 
 /// Flag structure to be used in widget states.
 #[derive(Debug, Clone)]
@@ -198,30 +197,26 @@ impl<'a> Focus<'a> {
     }
 }
 
-impl<'a> Actionable<FocusChanged, Infallible> for Focus<'a> {
+impl<'a> Actionable<FocusChanged> for Focus<'a> {
     type WidgetAction = FocusAction;
 
-    fn perform(&mut self, action: Self::WidgetAction) -> Result<FocusChanged, Infallible> {
+    fn perform(&mut self, action: Self::WidgetAction) -> FocusChanged {
         match action {
             FocusAction::Next => {
                 self.next();
-                Ok(FocusChanged::Changed)
+                FocusChanged::Changed
             }
             FocusAction::Prev => {
                 self.prev();
-                Ok(FocusChanged::Changed)
+                FocusChanged::Changed
             }
-            FocusAction::Tag(tag) => Ok(self.focus(tag)),
+            FocusAction::Tag(tag) => self.focus(tag),
         }
     }
 }
 
-impl<'a> HandleCrossterm<FocusChanged, Infallible> for Focus<'a> {
-    fn handle_crossterm(
-        &mut self,
-        event: &Event,
-        _: DefaultKeys,
-    ) -> Result<FocusChanged, Infallible> {
+impl<'a> HandleCrossterm<FocusChanged> for Focus<'a> {
+    fn handle_crossterm(&mut self, event: &Event, _: DefaultKeys) -> FocusChanged {
         use crossterm::event::*;
 
         let action = match event {
@@ -243,17 +238,13 @@ impl<'a> HandleCrossterm<FocusChanged, Infallible> for Focus<'a> {
         if let Some(action) = action {
             self.perform(action)
         } else {
-            Ok(FocusChanged::Continue)
+            FocusChanged::Continue
         }
     }
 }
 
-impl<'a> HandleCrossterm<FocusChanged, Infallible, MouseOnly> for Focus<'a> {
-    fn handle_crossterm(
-        &mut self,
-        event: &Event,
-        _: MouseOnly,
-    ) -> Result<FocusChanged, Infallible> {
+impl<'a> HandleCrossterm<FocusChanged, MouseOnly> for Focus<'a> {
+    fn handle_crossterm(&mut self, event: &Event, _: MouseOnly) -> FocusChanged {
         use crossterm::event::*;
 
         let action = match event {
@@ -284,7 +275,7 @@ impl<'a> HandleCrossterm<FocusChanged, Infallible, MouseOnly> for Focus<'a> {
         if let Some(action) = action {
             self.perform(action)
         } else {
-            Ok(FocusChanged::Continue)
+            FocusChanged::Continue
         }
     }
 }
