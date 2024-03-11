@@ -153,6 +153,8 @@ where
 {
     let mut flow = ControlUI::Continue;
 
+    _ = term.hide_cursor();
+
     let result = term.draw(|frame| {
         flow = app.repaint(frame, data, uistate);
     });
