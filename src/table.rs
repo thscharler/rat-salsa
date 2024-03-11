@@ -259,7 +259,7 @@ impl TableExtState {
     }
 
     pub fn scroll_last(&mut self) {
-        self.table_state.select(Some(self.row_count));
+        self.table_state.select(Some(self.row_count - 1));
         self.adjust_view();
     }
 
