@@ -52,7 +52,7 @@ pub mod state {
     use crate::theme::{Theme, ONEDARK};
     use rat_salsa::button::ButtonStyle;
     use rat_salsa::input::{InputState, InputStyle};
-    use rat_salsa::mask_input::{InputMaskState, InputMaskStyle};
+    use rat_salsa::mask_input::{InputMaskState, MaskedInputStyle};
     use rat_salsa::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
     use ratatui::prelude::{Color, Stylize};
     use ratatui::style::Style;
@@ -113,14 +113,14 @@ pub mod state {
             }
         }
 
-        pub fn input_mask_style(&self) -> InputMaskStyle {
-            InputMaskStyle {
+        pub fn input_mask_style(&self) -> MaskedInputStyle {
+            MaskedInputStyle {
                 style: Style::default().fg(self.theme.black).bg(self.theme.base05),
                 focus: Style::default().fg(self.theme.black).bg(self.theme.green),
                 select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
                 cursor: None,
                 invalid: Some(Style::default().fg(Color::White).bg(Color::Red)),
-                ..InputMaskStyle::default()
+                ..MaskedInputStyle::default()
             }
         }
 
@@ -159,13 +159,13 @@ pub mod app {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     #[allow(unused_imports)]
     use log::debug;
-    use rat_salsa::focus::{Focus, FocusAction, FocusChanged};
-    use rat_salsa::input::Input;
+    use rat_salsa::focus::{Focus, FocusChanged, InputRequest};
+    use rat_salsa::input::TextInput;
     use rat_salsa::layout::{layout_edit, EditConstraint};
-    use rat_salsa::mask_input::InputMask;
+    use rat_salsa::mask_input::MaskedTextInput;
     use rat_salsa::message::{StatusDialog, StatusLine};
     use rat_salsa::widget::{
-        Actionable, DefaultKeys, HandleCrossterm, HandleEvent, MouseOnly, RenderFrameWidget,
+        DefaultKeys, HandleCrossterm, HandleEvent, Input, MouseOnly, RenderFrameWidget,
     };
     use rat_salsa::{cut, validate, yeet, TaskSender, ThreadPool, TuiApp};
     use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
@@ -317,7 +317,7 @@ pub mod app {
 
         let label_edit = Span::from("Datum");
 
-        let edit = InputMask::default().style(uistate.g.input_mask_style());
+        let edit = MaskedTextInput::default().style(uistate.g.input_mask_style());
         let label_parsed = Span::from("Parsed");
         let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
         let label_compact = Span::from("No spaces");
@@ -334,7 +334,7 @@ pub mod app {
         frame.render_widget(mask, l_edit0.widget[3]);
 
         let label_edit = Span::from("Text");
-        let edit = Input::default().style(uistate.g.input_style());
+        let edit = TextInput::default().style(uistate.g.input_style());
         frame.render_widget(label_edit, l_edit1.label[0]);
         frame.render_frame_widget(edit, l_edit1.widget[0], &mut uistate.input_1);
 
@@ -352,7 +352,7 @@ pub mod app {
     pub struct ExKeys;
 
     impl<'a> HandleCrossterm<FocusChanged, ExKeys> for Focus<'a> {
-        fn handle_crossterm(&mut self, event: &Event, _: ExKeys) -> FocusChanged {
+        fn handle(&mut self, event: &Event, _: ExKeys) -> FocusChanged {
             use crossterm::event::*;
 
             let action = match event {
@@ -361,14 +361,14 @@ pub mod app {
                     modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
                     kind: KeyEventKind::Press,
                     ..
-                }) => Some(FocusAction::Next),
+                }) => Some(InputRequest::Next),
                 Event::Key(KeyEvent {
                     code: KeyCode::F(3),
                     modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
                     kind: KeyEventKind::Press,
                     ..
-                }) => Some(FocusAction::Prev),
-                _ => return self.handle_crossterm(event, MouseOnly),
+                }) => Some(InputRequest::Prev),
+                _ => return self.handle(event, MouseOnly),
             };
 
             if let Some(action) = action {
@@ -381,7 +381,7 @@ pub mod app {
 
     fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
         // let f = focus_mask0(uistate).handle_crossterm(evt, DefaultKeys);
-        let f = focus_mask0(uistate).handle_crossterm(evt, ExKeys);
+        let f = focus_mask0(uistate).handle(evt, ExKeys);
 
         // validation and reformat on focus lost.
         validate!(uistate.input_0 =>
@@ -397,7 +397,7 @@ pub mod app {
         });
 
         cut!({
-            let r = uistate.input_0.handle_crossterm(evt, DefaultKeys);
+            let r = uistate.input_0.handle(evt, DefaultKeys);
             // quick validation for every change
             r.on_changed_do(|| {
                 let str = uistate.input_0.compact_value();
@@ -407,7 +407,7 @@ pub mod app {
             r
         });
 
-        cut!(uistate.input_1.handle_crossterm(evt, DefaultKeys));
+        cut!(uistate.input_1.handle(evt, DefaultKeys));
 
         cut!(match evt {
             Event::Key(KeyEvent {
