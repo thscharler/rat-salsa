@@ -10,7 +10,7 @@
 use crate::basic::ClearStyle;
 use crate::focus::FocusFlag;
 use crate::input::core::{split3, split5};
-use crate::widget::{Actionable, DefaultKeys, FrameWidget, HandleCrossterm, MouseOnly};
+use crate::widget::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::ControlUI;
 #[allow(unused_imports)]
 use log::debug;
@@ -23,7 +23,7 @@ use std::ops::Range;
 
 /// Text input widget.
 #[derive(Debug)]
-pub struct Input {
+pub struct TextInput {
     pub terminal_cursor: bool,
     pub without_focus: bool,
     pub insets: Margin,
@@ -45,7 +45,7 @@ pub struct InputStyle {
     pub invalid: Option<Style>,
 }
 
-impl Default for Input {
+impl Default for TextInput {
     fn default() -> Self {
         Self {
             terminal_cursor: true,
@@ -61,7 +61,7 @@ impl Default for Input {
     }
 }
 
-impl Input {
+impl TextInput {
     /// Use extra insets for the text input.
     pub fn insets(mut self, insets: Margin) -> Self {
         self.insets = insets;
@@ -146,7 +146,7 @@ impl Input {
     }
 }
 
-impl FrameWidget for Input {
+impl FrameWidget for TextInput {
     type State = InputState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
@@ -233,11 +233,7 @@ pub struct InputState {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
     #[allow(non_snake_case)]
-    fn handle_crossterm(
-        &mut self,
-        event: &crossterm::event::Event,
-        _: DefaultKeys,
-    ) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
         use crossterm::event::KeyCode::*;
         use crossterm::event::{Event, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -289,7 +285,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
                     (_, _) => None,
                 }
             }
-            _ => return self.handle_crossterm(event, MouseOnly),
+            _ => return self.handle(event, MouseOnly),
         };
 
         if let Some(req) = req {
@@ -301,11 +297,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for InputState {
-    fn handle_crossterm(
-        &mut self,
-        event: &crossterm::event::Event,
-        _: MouseOnly,
-    ) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
         use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
         let req = match event {
@@ -514,10 +506,10 @@ impl InputState {
     }
 }
 
-impl<A, E> Actionable<ControlUI<A, E>> for InputState {
-    type WidgetAction = InputRequest;
+impl<A, E> Input<ControlUI<A, E>> for InputState {
+    type Request = InputRequest;
 
-    fn perform(&mut self, action: Self::WidgetAction) -> ControlUI<A, E> {
+    fn perform(&mut self, action: Self::Request) -> ControlUI<A, E> {
         use InputRequest::*;
 
         match action {
