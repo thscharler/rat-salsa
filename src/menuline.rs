@@ -240,7 +240,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>> for MenuLineState<A> {
                 ..
             }) => Some(InputRequest::Action),
 
-            _ => None,
+            _ => return self.handle(event, MouseOnly),
         };
 
         if let Some(req) = req {
