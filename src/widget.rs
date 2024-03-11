@@ -2,14 +2,6 @@ use crate::ControlUI;
 use ratatui::layout::Rect;
 use ratatui::Frame;
 
-/// This trait capture event-handling. It's intended to be implemented
-/// on some ui-state struct. It returns a ControlUI state.
-#[deprecated]
-pub trait HandleEvent<Action, Err> {
-    /// Event handling.
-    fn handle(&mut self, evt: &crossterm::event::Event) -> ControlUI<Action, Err>;
-}
-
 /// Executes the input requests defined by a widget.
 ///
 /// A widget can define a set of standard actions to manipulate its state.
