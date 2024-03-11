@@ -167,11 +167,10 @@ pub mod app {
     use rat_salsa::widget::{
         Actionable, DefaultKeys, HandleCrossterm, HandleEvent, MouseOnly, RenderFrameWidget,
     };
-    use rat_salsa::{cut, err, validate, yeet, TaskSender, ThreadPool, TuiApp};
-    use ratatui::layout::{Constraint, Direction, Layout, Margin, Position, Rect};
+    use rat_salsa::{cut, validate, yeet, TaskSender, ThreadPool, TuiApp};
+    use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
     use ratatui::text::Span;
     use ratatui::Frame;
-    use std::convert::Infallible;
 
     #[derive(Debug)]
     pub struct Example;
@@ -349,14 +348,11 @@ pub mod app {
         ])
     }
 
+    #[derive(Debug)]
     pub struct ExKeys;
 
-    impl<'a> HandleCrossterm<FocusChanged, Infallible, ExKeys> for Focus<'a> {
-        fn handle_crossterm(
-            &mut self,
-            event: &Event,
-            _: ExKeys,
-        ) -> Result<FocusChanged, Infallible> {
+    impl<'a> HandleCrossterm<FocusChanged, ExKeys> for Focus<'a> {
+        fn handle_crossterm(&mut self, event: &Event, _: ExKeys) -> FocusChanged {
             use crossterm::event::*;
 
             let action = match event {
@@ -378,14 +374,14 @@ pub mod app {
             if let Some(action) = action {
                 self.perform(action)
             } else {
-                Ok(FocusChanged::Continue)
+                FocusChanged::Continue
             }
         }
     }
 
     fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
-        // let f = err!(focus_mask0(uistate).handle_crossterm(evt, DefaultKeys));
-        let f = err!(focus_mask0(uistate).handle_crossterm(evt, ExKeys));
+        // let f = focus_mask0(uistate).handle_crossterm(evt, DefaultKeys);
+        let f = focus_mask0(uistate).handle_crossterm(evt, ExKeys);
 
         // validation and reformat on focus lost.
         validate!(uistate.input_0 =>
@@ -401,7 +397,7 @@ pub mod app {
         });
 
         cut!({
-            let r = uistate.input_0.handle(evt);
+            let r = uistate.input_0.handle_crossterm(evt, DefaultKeys);
             // quick validation for every change
             r.on_changed_do(|| {
                 let str = uistate.input_0.compact_value();
@@ -411,7 +407,7 @@ pub mod app {
             r
         });
 
-        cut!(uistate.input_1.handle(evt));
+        cut!(uistate.input_1.handle_crossterm(evt, DefaultKeys));
 
         cut!(match evt {
             Event::Key(KeyEvent {

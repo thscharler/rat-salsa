@@ -10,12 +10,8 @@
 use crate::basic::ClearStyle;
 use crate::focus::FocusFlag;
 use crate::input::core::{split3, split5};
-use crate::widget::{FrameWidget, HandleEvent};
+use crate::widget::{Actionable, DefaultKeys, FrameWidget, HandleCrossterm, MouseOnly};
 use crate::ControlUI;
-use crossterm::event::KeyCode::{Backspace, Char, Delete, End, Home, Left, Right};
-use crossterm::event::{
-    Event, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
@@ -235,54 +231,84 @@ pub struct InputState {
     pub value: core::InputCore,
 }
 
-impl<A, E> HandleEvent<A, E> for InputState {
-    fn handle(&mut self, evt: &Event) -> ControlUI<A, E> {
-        #[allow(non_snake_case)]
-        let CONTROL_SHIFT = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
+impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
+    #[allow(non_snake_case)]
+    fn handle_crossterm(
+        &mut self,
+        event: &crossterm::event::Event,
+        _: DefaultKeys,
+    ) -> ControlUI<A, E> {
+        use crossterm::event::KeyCode::*;
+        use crossterm::event::{Event, KeyEvent, KeyEventKind, KeyModifiers};
 
-        let req = match evt {
+        const NONE: KeyModifiers = KeyModifiers::NONE;
+        const CTRL: KeyModifiers = KeyModifiers::CONTROL;
+        const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
+        let CTRL_SHIFT: KeyModifiers = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
+
+        let req = match event {
             Event::Key(KeyEvent {
                 code,
                 modifiers,
                 kind: KeyEventKind::Press,
                 ..
-            }) => {
-                if self.without_focus || self.focus.get() {
-                    match (*code, *modifiers) {
-                        (Left, KeyModifiers::NONE) => Some(InputRequest::GoToPrevChar(false)),
-                        (Right, KeyModifiers::NONE) => Some(InputRequest::GoToNextChar(false)),
-                        (Left, KeyModifiers::CONTROL) => Some(InputRequest::GoToPrevWord(false)),
-                        (Right, KeyModifiers::CONTROL) => Some(InputRequest::GoToNextWord(false)),
-                        (Home, KeyModifiers::NONE) => Some(InputRequest::GoToStart(false)),
-                        (End, KeyModifiers::NONE) => Some(InputRequest::GoToEnd(false)),
+            }) => 'f: {
+                if !self.focus.get() && !self.without_focus {
+                    break 'f None;
+                }
 
-                        (Left, KeyModifiers::SHIFT) => Some(InputRequest::GoToPrevChar(true)),
-                        (Right, KeyModifiers::SHIFT) => Some(InputRequest::GoToNextChar(true)),
-                        (Left, m) if m == CONTROL_SHIFT => Some(InputRequest::GoToPrevWord(true)),
-                        (Right, m) if m == CONTROL_SHIFT => Some(InputRequest::GoToNextWord(true)),
-                        (Home, KeyModifiers::SHIFT) => Some(InputRequest::GoToStart(true)),
-                        (End, KeyModifiers::SHIFT) => Some(InputRequest::GoToEnd(true)),
+                match (*code, *modifiers) {
+                    (Left, NONE) => Some(InputRequest::GoToPrevChar(false)),
+                    (Right, NONE) => Some(InputRequest::GoToNextChar(false)),
+                    (Left, CTRL) => Some(InputRequest::GoToPrevWord(false)),
+                    (Right, CTRL) => Some(InputRequest::GoToNextWord(false)),
+                    (Home, NONE) => Some(InputRequest::GoToStart(false)),
+                    (End, NONE) => Some(InputRequest::GoToEnd(false)),
 
-                        (Char('a'), KeyModifiers::CONTROL) => Some(InputRequest::SelectAll),
+                    (Left, SHIFT) => Some(InputRequest::GoToPrevChar(true)),
+                    (Right, SHIFT) => Some(InputRequest::GoToNextChar(true)),
+                    (Left, m) if m == CTRL_SHIFT => Some(InputRequest::GoToPrevWord(true)),
+                    (Right, m) if m == CTRL_SHIFT => Some(InputRequest::GoToNextWord(true)),
+                    (Home, SHIFT) => Some(InputRequest::GoToStart(true)),
+                    (End, SHIFT) => Some(InputRequest::GoToEnd(true)),
 
-                        (Backspace, KeyModifiers::NONE) => Some(InputRequest::DeletePrevChar),
-                        (Delete, KeyModifiers::NONE) => Some(InputRequest::DeleteNextChar),
+                    (Char('a'), CTRL) => Some(InputRequest::SelectAll),
 
-                        (Backspace, KeyModifiers::CONTROL) => Some(InputRequest::DeletePrevWord),
-                        (Delete, KeyModifiers::CONTROL) => Some(InputRequest::DeleteNextWord),
+                    (Backspace, NONE) => Some(InputRequest::DeletePrevChar),
+                    (Delete, NONE) => Some(InputRequest::DeleteNextChar),
 
-                        (Char('d'), KeyModifiers::CONTROL) => Some(InputRequest::DeleteLine),
-                        (Backspace, m) if m == CONTROL_SHIFT => Some(InputRequest::DeleteTillStart),
-                        (Delete, m) if m == CONTROL_SHIFT => Some(InputRequest::DeleteTillEnd),
+                    (Backspace, CTRL) => Some(InputRequest::DeletePrevWord),
+                    (Delete, CTRL) => Some(InputRequest::DeleteNextWord),
 
-                        (Char(c), KeyModifiers::NONE) => Some(InputRequest::InsertChar(c)),
-                        (Char(c), KeyModifiers::SHIFT) => Some(InputRequest::InsertChar(c)),
-                        (_, _) => None,
-                    }
-                } else {
-                    None
+                    (Char('d'), CTRL) => Some(InputRequest::DeleteLine),
+                    (Backspace, m) if m == CTRL_SHIFT => Some(InputRequest::DeleteTillStart),
+                    (Delete, m) if m == CTRL_SHIFT => Some(InputRequest::DeleteTillEnd),
+
+                    (Char(c), NONE) => Some(InputRequest::InsertChar(c)),
+                    (Char(c), SHIFT) => Some(InputRequest::InsertChar(c)),
+                    (_, _) => None,
                 }
             }
+            _ => return self.handle_crossterm(event, MouseOnly),
+        };
+
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
+        }
+    }
+}
+
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for InputState {
+    fn handle_crossterm(
+        &mut self,
+        event: &crossterm::event::Event,
+        _: MouseOnly,
+    ) -> ControlUI<A, E> {
+        use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+
+        let req = match event {
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
                 column,
@@ -328,7 +354,7 @@ impl<A, E> HandleEvent<A, E> for InputState {
         };
 
         if let Some(req) = req {
-            self.handle_request(req)
+            self.perform(req)
         } else {
             ControlUI::Continue
         }
@@ -486,11 +512,15 @@ impl InputState {
     pub fn visible_cursor(&mut self) -> u16 {
         (self.value.cursor() - self.value.offset()) as u16
     }
+}
 
-    fn handle_request<A, E>(&mut self, req: InputRequest) -> ControlUI<A, E> {
+impl<A, E> Actionable<ControlUI<A, E>> for InputState {
+    type WidgetAction = InputRequest;
+
+    fn perform(&mut self, action: Self::WidgetAction) -> ControlUI<A, E> {
         use InputRequest::*;
 
-        match req {
+        match action {
             SetCursor(pos, anchor) => {
                 let pos = pos + self.value.offset();
                 if self.value.cursor() == pos {
