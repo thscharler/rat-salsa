@@ -13,7 +13,7 @@
 /// stores the result in [FocusFlag::is_valid] which can be used by the widget.
 ///
 use crate::util::{next_circular, prev_circular};
-use crate::widget::{Actionable, DefaultKeys, HandleCrossterm, MouseOnly};
+use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::error;
@@ -47,7 +47,7 @@ pub struct Focus<'a> {
 
 /// Action.
 #[derive(Debug)]
-pub enum FocusAction {
+pub enum InputRequest {
     Next,
     Prev,
     Tag(u16),
@@ -197,46 +197,46 @@ impl<'a> Focus<'a> {
     }
 }
 
-impl<'a> Actionable<FocusChanged> for Focus<'a> {
-    type WidgetAction = FocusAction;
+impl<'a> Input<FocusChanged> for Focus<'a> {
+    type Request = InputRequest;
 
-    fn perform(&mut self, action: Self::WidgetAction) -> FocusChanged {
+    fn perform(&mut self, action: Self::Request) -> FocusChanged {
         match action {
-            FocusAction::Next => {
+            InputRequest::Next => {
                 self.next();
                 FocusChanged::Changed
             }
-            FocusAction::Prev => {
+            InputRequest::Prev => {
                 self.prev();
                 FocusChanged::Changed
             }
-            FocusAction::Tag(tag) => self.focus(tag),
+            InputRequest::Tag(tag) => self.focus(tag),
         }
     }
 }
 
 impl<'a> HandleCrossterm<FocusChanged> for Focus<'a> {
-    fn handle_crossterm(&mut self, event: &Event, _: DefaultKeys) -> FocusChanged {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> FocusChanged {
         use crossterm::event::*;
 
-        let action = match event {
+        let req = match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Tab,
                 modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
                 kind: KeyEventKind::Press,
                 ..
-            }) => Some(FocusAction::Next),
+            }) => Some(InputRequest::Next),
             Event::Key(KeyEvent {
                 code: KeyCode::BackTab,
                 modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
                 kind: KeyEventKind::Press,
                 ..
-            }) => Some(FocusAction::Prev),
-            _ => return self.handle_crossterm(event, MouseOnly),
+            }) => Some(InputRequest::Prev),
+            _ => return self.handle(event, MouseOnly),
         };
 
-        if let Some(action) = action {
-            self.perform(action)
+        if let Some(req) = req {
+            self.perform(req)
         } else {
             FocusChanged::Continue
         }
@@ -244,10 +244,10 @@ impl<'a> HandleCrossterm<FocusChanged> for Focus<'a> {
 }
 
 impl<'a> HandleCrossterm<FocusChanged, MouseOnly> for Focus<'a> {
-    fn handle_crossterm(&mut self, event: &Event, _: MouseOnly) -> FocusChanged {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> FocusChanged {
         use crossterm::event::*;
 
-        let action = match event {
+        let req = match event {
             Event::Mouse(
                 MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),
@@ -264,7 +264,7 @@ impl<'a> HandleCrossterm<FocusChanged, MouseOnly> for Focus<'a> {
             ) => 'f: {
                 for (idx, area) in self.areas.iter().enumerate() {
                     if area.contains(Position::new(*column, *row)) {
-                        break 'f Some(FocusAction::Tag(self.focus[idx].tag()));
+                        break 'f Some(InputRequest::Tag(self.focus[idx].tag()));
                     }
                 }
                 None
@@ -272,8 +272,8 @@ impl<'a> HandleCrossterm<FocusChanged, MouseOnly> for Focus<'a> {
             _ => None,
         };
 
-        if let Some(action) = action {
-            self.perform(action)
+        if let Some(req) = req {
+            self.perform(req)
         } else {
             FocusChanged::Continue
         }
