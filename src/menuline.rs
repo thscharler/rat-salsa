@@ -1,5 +1,5 @@
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
-use crate::widget::HandleEvent;
+use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crate::ControlUI;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -91,6 +91,17 @@ impl<'a, A> MenuLine<'a, A> {
     }
 }
 
+#[derive(Debug)]
+pub enum InputRequest {
+    Prev,
+    Next,
+    Action,
+    KeySelect(char),
+    KeyAction(char),
+    MouseSelect(usize),
+    MouseAction(usize, u64),
+}
+
 #[derive(Debug, PartialEq, Eq)]
 pub struct MenuLineState<A> {
     pub focus: Cell<bool>,
@@ -118,9 +129,86 @@ impl<A> Default for MenuLineState<A> {
     }
 }
 
-impl<A: Copy + Debug, E> HandleEvent<A, E> for MenuLineState<A> {
-    fn handle(&mut self, evt: &Event) -> ControlUI<A, E> {
-        match evt {
+impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
+    type Request = InputRequest;
+
+    fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
+        match req {
+            InputRequest::Prev => {
+                self.armed = 0;
+                self.select = prev_opt(self.select);
+                ControlUI::Changed
+            }
+            InputRequest::Next => {
+                self.armed = 0;
+                self.select = next_opt(self.select, self.len);
+                ControlUI::Changed
+            }
+            InputRequest::Action => {
+                if let Some(i) = self.select {
+                    ControlUI::Action(self.action[i])
+                } else {
+                    ControlUI::Unchanged
+                }
+            }
+            InputRequest::KeySelect(cc) => 'f: {
+                for (i, k) in self.key.iter().enumerate() {
+                    if cc == *k {
+                        self.armed = 0;
+                        self.select = Some(i);
+                        break 'f ControlUI::Changed;
+                    }
+                }
+                ControlUI::Continue
+            }
+            InputRequest::KeyAction(cc) => 'f: {
+                for (i, k) in self.key.iter().enumerate() {
+                    if cc == *k {
+                        self.armed = 0;
+                        self.select = Some(i);
+                        break 'f ControlUI::Action(self.action[i]);
+                    }
+                }
+                ControlUI::Continue
+            }
+            InputRequest::MouseSelect(i) => {
+                if self.select == Some(i) {
+                    ControlUI::Unchanged
+                } else {
+                    self.armed = 0;
+                    self.select = Some(i);
+                    ControlUI::Changed
+                }
+            }
+            InputRequest::MouseAction(i, timeout) => 'f: {
+                if self.select == Some(i) {
+                    self.armed += 1;
+
+                    if self.armed == 1 {
+                        self.armed_time = SystemTime::now();
+                        break 'f ControlUI::Unchanged;
+                    }
+
+                    let elapsed = self.armed_time.elapsed().expect("timeout");
+                    if elapsed > Duration::from_millis(timeout) {
+                        self.armed = 0;
+                        break 'f ControlUI::Unchanged;
+                    }
+
+                    self.armed = 0;
+                    ControlUI::Action(self.action[i])
+                } else {
+                    self.armed = 0;
+                    ControlUI::Unchanged
+                }
+            }
+        }
+    }
+}
+
+impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>> for MenuLineState<A> {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+        let req = match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Char(cc),
                 modifiers: mm @ KeyModifiers::NONE | mm @ KeyModifiers::CONTROL,
@@ -128,46 +216,44 @@ impl<A: Copy + Debug, E> HandleEvent<A, E> for MenuLineState<A> {
                 ..
             }) => {
                 if *mm == KeyModifiers::NONE && !self.focus.get() {
-                    ControlUI::Continue
+                    None
                 } else {
-                    'v: {
-                        for (i, k) in self.key.iter().enumerate() {
-                            if cc == k {
-                                self.armed = 0;
-                                self.select = Some(i);
-                                break 'v ControlUI::Action(self.action[i]);
-                            }
-                        }
-                        ControlUI::Continue
-                    }
+                    Some(InputRequest::KeyAction(*cc))
                 }
             }
             Event::Key(KeyEvent {
-                code: cc,
+                code: KeyCode::Left,
                 modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Press,
                 ..
-            }) => match cc {
-                KeyCode::Left => {
-                    self.armed = 0;
-                    self.select = prev_opt(self.select);
-                    ControlUI::Changed
-                }
-                KeyCode::Right => {
-                    self.armed = 0;
-                    self.select = next_opt(self.select, self.len);
-                    ControlUI::Changed
-                }
-                KeyCode::Enter => {
-                    if let Some(i) = self.select {
-                        ControlUI::Action(self.action[i])
-                    } else {
-                        ControlUI::Unchanged
-                    }
-                }
-                _ => ControlUI::Continue,
-            },
+            }) => Some(InputRequest::Prev),
+            Event::Key(KeyEvent {
+                code: KeyCode::Right,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => Some(InputRequest::Next),
+            Event::Key(KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => Some(InputRequest::Action),
 
+            _ => None,
+        };
+
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
+        }
+    }
+}
+
+impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
+        let req = match event {
             Event::Mouse(
                 MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),
@@ -184,16 +270,10 @@ impl<A: Copy + Debug, E> HandleEvent<A, E> for MenuLineState<A> {
             ) => 'f: {
                 for (i, r) in self.area.iter().enumerate() {
                     if r.contains(Position::new(*column, *row)) {
-                        if self.select == Some(i) {
-                            break 'f ControlUI::Changed;
-                        } else {
-                            self.armed = 0;
-                            self.select = Some(i);
-                            break 'f ControlUI::Changed;
-                        }
+                        break 'f Some(InputRequest::MouseSelect(i));
                     }
                 }
-                ControlUI::Continue
+                None
             }
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::Up(MouseButton::Left),
@@ -202,28 +282,19 @@ impl<A: Copy + Debug, E> HandleEvent<A, E> for MenuLineState<A> {
                 modifiers: KeyModifiers::NONE,
             }) => 'f: {
                 for (i, r) in self.area.iter().enumerate() {
-                    if r.contains(Position::new(*column, *row)) && self.select == Some(i) {
-                        self.armed += 1;
-                        if self.armed == 1 {
-                            self.armed_time = SystemTime::now();
-                        }
-
-                        if self.armed == 1 {
-                            break 'f ControlUI::Unchanged;
-                        }
-                        if self.armed_time.elapsed().expect("timeout") > Duration::from_millis(1000)
-                        {
-                            self.armed = 0;
-                            break 'f ControlUI::Unchanged;
-                        }
-                        self.armed = 0;
-
-                        break 'f ControlUI::Action(self.action[i]);
+                    if r.contains(Position::new(*column, *row)) {
+                        break 'f Some(InputRequest::MouseAction(i, 1000));
                     }
                 }
-                ControlUI::Continue
+                None
             }
-            _ => ControlUI::Continue,
+            _ => None,
+        };
+
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
         }
     }
 }

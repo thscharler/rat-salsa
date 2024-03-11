@@ -1,6 +1,6 @@
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::layout::layout_dialog;
-use crate::widget::HandleEvent;
+use crate::widget::{DefaultKeys, HandleCrossterm};
 use crate::ControlUI;
 use crate::{cut, ratio};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -175,10 +175,10 @@ impl StatefulWidget for StatusDialog {
     }
 }
 
-impl<A, E: Debug> HandleEvent<A, E> for StatusDialogState {
-    fn handle(&mut self, evt: &Event) -> ControlUI<A, E> {
+impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         cut!(if self.active {
-            self.button.handle(evt).and_then(|_a| {
+            self.button.handle(event, DefaultKeys).and_then(|_a| {
                 self.clear_log();
                 ControlUI::Changed
             })
@@ -186,7 +186,7 @@ impl<A, E: Debug> HandleEvent<A, E> for StatusDialogState {
             ControlUI::Continue
         });
 
-        cut!(match evt {
+        cut!(match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Esc,
                 modifiers: KeyModifiers::NONE,
