@@ -159,17 +159,19 @@ pub mod app {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     #[allow(unused_imports)]
     use log::debug;
-    use rat_salsa::focus::Focus;
+    use rat_salsa::focus::{Focus, FocusAction, FocusChanged};
     use rat_salsa::input::Input;
     use rat_salsa::layout::{layout_edit, EditConstraint};
     use rat_salsa::mask_input::InputMask;
     use rat_salsa::message::{StatusDialog, StatusLine};
-    use rat_salsa::{
-        cut, validate, yeet, HandleEvent, RenderFrameWidget, TaskSender, ThreadPool, TuiApp,
+    use rat_salsa::widget::{
+        Actionable, DefaultKeys, HandleCrossterm, HandleEvent, MouseOnly, RenderFrameWidget,
     };
-    use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
+    use rat_salsa::{cut, err, validate, yeet, TaskSender, ThreadPool, TuiApp};
+    use ratatui::layout::{Constraint, Direction, Layout, Margin, Position, Rect};
     use ratatui::text::Span;
     use ratatui::Frame;
+    use std::convert::Infallible;
 
     #[derive(Debug)]
     pub struct Example;
@@ -347,8 +349,43 @@ pub mod app {
         ])
     }
 
+    pub struct ExKeys;
+
+    impl<'a> HandleCrossterm<FocusChanged, Infallible, ExKeys> for Focus<'a> {
+        fn handle_crossterm(
+            &mut self,
+            event: &Event,
+            _: ExKeys,
+        ) -> Result<FocusChanged, Infallible> {
+            use crossterm::event::*;
+
+            let action = match event {
+                Event::Key(KeyEvent {
+                    code: KeyCode::F(2),
+                    modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => Some(FocusAction::Next),
+                Event::Key(KeyEvent {
+                    code: KeyCode::F(3),
+                    modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => Some(FocusAction::Prev),
+                _ => return self.handle_crossterm(event, MouseOnly),
+            };
+
+            if let Some(action) = action {
+                self.perform(action)
+            } else {
+                Ok(FocusChanged::Continue)
+            }
+        }
+    }
+
     fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
-        let f = focus_mask0(uistate).handle(evt);
+        // let f = err!(focus_mask0(uistate).handle_crossterm(evt, DefaultKeys));
+        let f = err!(focus_mask0(uistate).handle_crossterm(evt, ExKeys));
 
         // validation and reformat on focus lost.
         validate!(uistate.input_0 =>
@@ -399,7 +436,7 @@ pub mod app {
             _ => Control::Continue,
         });
 
-        f.into_control()
+        f.into()
     }
 }
 
