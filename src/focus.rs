@@ -13,12 +13,13 @@
 /// stores the result in [FocusFlag::is_valid] which can be used by the widget.
 ///
 use crate::util::{next_circular, prev_circular};
-use crate::ControlUI;
-use crossterm::event::{
-    Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-};
+use crate::widget::{Actionable, DefaultKeys, HandleCrossterm, MouseOnly};
+use crossterm::event::Event;
+#[allow(unused_imports)]
+use log::error;
 use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
+use std::convert::Infallible;
 
 /// Flag structure to be used in widget states.
 #[derive(Debug, Clone)]
@@ -41,8 +42,16 @@ pub struct FocusFlag {
 /// stay independent.
 #[derive(Debug)]
 pub struct Focus<'a> {
-    areas: Vec<Rect>,
-    focus: Vec<&'a FocusFlag>,
+    pub areas: Vec<Rect>,
+    pub focus: Vec<&'a FocusFlag>,
+}
+
+/// Action.
+#[derive(Debug)]
+pub enum FocusAction {
+    Next,
+    Prev,
+    Tag(u16),
 }
 
 /// Result of event processing.
@@ -50,32 +59,6 @@ pub struct Focus<'a> {
 pub enum FocusChanged {
     Changed,
     Continue,
-}
-
-impl FocusChanged {
-    /// Convert to ControlUI.
-    pub fn into_control<A, E>(self) -> ControlUI<A, E> {
-        self.into()
-    }
-}
-
-impl<A, E> From<Option<FocusChanged>> for ControlUI<A, E> {
-    fn from(value: Option<FocusChanged>) -> Self {
-        match value {
-            None => ControlUI::Continue,
-            Some(FocusChanged::Changed) => ControlUI::Changed,
-            Some(FocusChanged::Continue) => ControlUI::Continue,
-        }
-    }
-}
-
-impl<A, E> From<FocusChanged> for ControlUI<A, E> {
-    fn from(value: FocusChanged) -> Self {
-        match value {
-            FocusChanged::Changed => ControlUI::Changed,
-            FocusChanged::Continue => ControlUI::Continue,
-        }
-    }
 }
 
 impl Default for FocusFlag {
@@ -165,7 +148,7 @@ impl<'a> Focus<'a> {
 
     /// Change the focused part. Used for focus changes unrelated to standard
     /// navigation.
-    pub fn focus<A, E>(&self, tag: u16) -> FocusChanged {
+    pub fn focus(&self, tag: u16) -> FocusChanged {
         let mut change = FocusChanged::Continue;
 
         for f in self.focus.iter() {
@@ -213,28 +196,67 @@ impl<'a> Focus<'a> {
             }
         }
     }
+}
 
-    /// Handle events.
-    pub fn handle(&mut self, event: &Event) -> FocusChanged {
-        match event {
+impl<'a> Actionable<FocusChanged, Infallible> for Focus<'a> {
+    type WidgetAction = FocusAction;
+
+    fn perform(&mut self, action: Self::WidgetAction) -> Result<FocusChanged, Infallible> {
+        match action {
+            FocusAction::Next => {
+                self.next();
+                Ok(FocusChanged::Changed)
+            }
+            FocusAction::Prev => {
+                self.prev();
+                Ok(FocusChanged::Changed)
+            }
+            FocusAction::Tag(tag) => Ok(self.focus(tag)),
+        }
+    }
+}
+
+impl<'a> HandleCrossterm<FocusChanged, Infallible> for Focus<'a> {
+    fn handle_crossterm(
+        &mut self,
+        event: &Event,
+        _: DefaultKeys,
+    ) -> Result<FocusChanged, Infallible> {
+        use crossterm::event::*;
+
+        let action = match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Tab,
                 modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
                 kind: KeyEventKind::Press,
                 ..
-            }) => {
-                self.next();
-                FocusChanged::Changed
-            }
+            }) => Some(FocusAction::Next),
             Event::Key(KeyEvent {
                 code: KeyCode::BackTab,
                 modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
                 kind: KeyEventKind::Press,
                 ..
-            }) => {
-                self.prev();
-                FocusChanged::Changed
-            }
+            }) => Some(FocusAction::Prev),
+            _ => return self.handle_crossterm(event, MouseOnly),
+        };
+
+        if let Some(action) = action {
+            self.perform(action)
+        } else {
+            Ok(FocusChanged::Continue)
+        }
+    }
+}
+
+impl<'a> HandleCrossterm<FocusChanged, Infallible, MouseOnly> for Focus<'a> {
+    fn handle_crossterm(
+        &mut self,
+        event: &Event,
+        _: MouseOnly,
+    ) -> Result<FocusChanged, Infallible> {
+        use crossterm::event::*;
+
+        let action = match event {
             Event::Mouse(
                 MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),
@@ -250,22 +272,19 @@ impl<'a> Focus<'a> {
                 },
             ) => 'f: {
                 for (idx, area) in self.areas.iter().enumerate() {
-                    if area.contains(Position::new(*column, *row)) && !self.focus[idx].focus.get() {
-                        for p in self.focus.iter() {
-                            p.lost.set(false);
-                            if p.focus.get() {
-                                p.lost.set(true);
-                                p.focus.set(false);
-                            }
-                        }
-                        self.focus[idx].focus.set(true);
-                        break 'f FocusChanged::Changed;
+                    if area.contains(Position::new(*column, *row)) {
+                        break 'f Some(FocusAction::Tag(self.focus[idx].tag()));
                     }
                 }
-                FocusChanged::Continue
+                None
             }
+            _ => None,
+        };
 
-            _ => FocusChanged::Continue,
+        if let Some(action) = action {
+            self.perform(action)
+        } else {
+            Ok(FocusChanged::Continue)
         }
     }
 }
