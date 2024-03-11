@@ -1,4 +1,3 @@
-use crate::ControlUI;
 use ratatui::layout::Rect;
 use ratatui::Frame;
 
