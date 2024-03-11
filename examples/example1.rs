@@ -164,9 +164,7 @@ pub mod app {
     use rat_salsa::layout::{layout_edit, EditConstraint};
     use rat_salsa::mask_input::MaskedTextInput;
     use rat_salsa::message::{StatusDialog, StatusLine};
-    use rat_salsa::widget::{
-        DefaultKeys, HandleCrossterm, HandleEvent, Input, MouseOnly, RenderFrameWidget,
-    };
+    use rat_salsa::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly, RenderFrameWidget};
     use rat_salsa::{cut, validate, yeet, TaskSender, ThreadPool, TuiApp};
     use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
     use ratatui::text::Span;
@@ -230,7 +228,7 @@ pub mod app {
             cut!({
                 let error_dlg = &mut uistate.g.error_dlg;
                 if error_dlg.active {
-                    error_dlg.handle(&evt)
+                    error_dlg.handle(&evt, DefaultKeys)
                 } else {
                     Control::Continue
                 }
