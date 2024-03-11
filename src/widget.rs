@@ -10,16 +10,16 @@ pub trait HandleEvent<Action, Err> {
     fn handle(&mut self, evt: &crossterm::event::Event) -> ControlUI<Action, Err>;
 }
 
-/// Executes the actions defined by a widget.
+/// Executes the input requests defined by a widget.
 ///
 /// A widget can define a set of standard actions to manipulate its state.
-/// The event-handler maps input-events to actions, and executes them using [`Actionable::perform`]
-pub trait Actionable<R> {
-    /// Type of actions for a widget.
-    type WidgetAction;
+/// The event-handler maps input-events to these actions, and executes them using [`Input::perform`]
+pub trait Input<R> {
+    /// Type of action request for a widget.
+    type Request;
 
     /// Perform the given action.
-    fn perform(&mut self, action: Self::WidgetAction) -> R;
+    fn perform(&mut self, req: Self::Request) -> R;
 }
 
 /// Marker struct. Used by HandleCrossterm to differentiate between key-mappings.
@@ -35,7 +35,7 @@ pub struct MouseOnly;
 /// Handle events received by crossterm.
 ///
 /// Implementations translate from input-events to widget-actions.
-/// The actions are immediately executed by calling [Actionable::perform()] on self.
+/// The actions are immediately executed by calling [Input::perform()] on self.
 ///
 /// There is one extra type parameter K which is used to implement more than one event-handler
 /// for the same widget. It's recommended to use [DefaultKeys] for the baseline implementation.
@@ -45,13 +45,13 @@ pub struct MouseOnly;
 /// a method to create a configurable keymap.
 ///
 /// Another recommendation is to split the event-handler between keyboard and mouse-events by
-/// using [MouseOnly] for the latter. [DefaultKeys] forwards any unprocessed event to the `MouseOnly`
-/// handler.
+/// using [MouseOnly] for the latter. The handler for [DefaultKeys] forwards any unprocessed
+/// event to the `MouseOnly` handler.
 pub trait HandleCrossterm<R, K = DefaultKeys>
 where
-    Self: Actionable<R>,
+    Self: Input<R>,
 {
-    fn handle_crossterm(&mut self, event: &crossterm::event::Event, keymap: K) -> R;
+    fn handle(&mut self, event: &crossterm::event::Event, keymap: K) -> R;
 }
 
 /// Extra rendering which passes on the frame to a [FrameWidget].
