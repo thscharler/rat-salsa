@@ -1,6 +1,6 @@
 use crate::focus::FocusFlag;
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
-use crate::widget::HandleEvent;
+use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crate::ControlUI;
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -11,6 +11,7 @@ use ratatui::prelude::*;
 use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
+use std::time::{Duration, SystemTime};
 
 #[derive(Debug)]
 pub struct TableExt<'a> {
@@ -195,7 +196,8 @@ where
 pub struct TableExtState {
     pub focus: FocusFlag,
     pub area: Rect,
-    pub click: bool,
+    pub armed: u8,
+    pub armed_time: SystemTime,
     pub row_count: usize,
     pub table_state: TableState,
 }
@@ -204,10 +206,11 @@ impl Default for TableExtState {
     fn default() -> Self {
         Self {
             focus: Default::default(),
-            click: false,
             table_state: TableState::default().with_selected(0),
             row_count: 0,
             area: Default::default(),
+            armed: 0,
+            armed_time: SystemTime::now(),
         }
     }
 }
@@ -283,73 +286,83 @@ impl TableExtState {
     }
 }
 
-impl TableExtState {
-    pub fn handle_doubleclick<A, E>(&mut self, evt: &Event, action: A) -> ControlUI<A, E> {
-        match evt {
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => 'f: {
-                if self.click {
-                    // ignore selection click itself.
-                    self.click = false;
-                    break 'f ControlUI::Continue;
-                }
-
-                if self.area.contains(Position::new(*column, *row)) {
-                    let rr = row - self.area.y;
-                    let sel = self.table_state.offset() + rr as usize;
-
-                    if self.table_state.selected() == Some(sel) {
-                        break 'f ControlUI::Action(action);
-                    }
-                }
-
-                ControlUI::Continue
-            }
-
-            _ => ControlUI::Continue,
-        }
-    }
+#[derive(Debug)]
+pub enum InputRequest {
+    Down,
+    Up,
+    PageDown,
+    PageUp,
+    MouseScrollDown,
+    MouseScrollUp,
+    MouseSelect(usize),
+    // MouseAction(usize, u64), // todo: ??? can't be done this way
 }
 
-impl<A, E> HandleEvent<A, E> for TableExtState {
-    fn handle(&mut self, evt: &Event) -> ControlUI<A, E> {
-        match evt {
+impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+        let req = match event {
             Event::Key(KeyEvent {
-                code: cc,
+                code: KeyCode::Down,
                 modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Press,
                 ..
             }) => {
                 if self.focus.get() {
-                    match cc {
-                        KeyCode::Down => {
-                            self.scroll_down();
-                            ControlUI::Changed
-                        }
-                        KeyCode::Up => {
-                            self.scroll_up();
-                            ControlUI::Changed
-                        }
-                        KeyCode::PageDown => {
-                            self.scroll_pg_down();
-                            ControlUI::Changed
-                        }
-                        KeyCode::PageUp => {
-                            self.scroll_pg_up();
-                            ControlUI::Changed
-                        }
-
-                        _ => ControlUI::Continue,
-                    }
+                    Some(InputRequest::Down)
                 } else {
-                    ControlUI::Continue
+                    None
                 }
             }
+            Event::Key(KeyEvent {
+                code: KeyCode::Up,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.focus.get() {
+                    Some(InputRequest::Up)
+                } else {
+                    None
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::PageUp,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.focus.get() {
+                    Some(InputRequest::PageUp)
+                } else {
+                    None
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::PageDown,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.focus.get() {
+                    Some(InputRequest::PageDown)
+                } else {
+                    None
+                }
+            }
+            _ => return self.handle(event, MouseOnly),
+        };
 
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
+        }
+    }
+}
+
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
+        let req = match event {
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::ScrollDown,
                 column,
@@ -357,13 +370,11 @@ impl<A, E> HandleEvent<A, E> for TableExtState {
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_scr_down();
-                    ControlUI::Changed
+                    Some(InputRequest::MouseScrollDown)
                 } else {
-                    ControlUI::Continue
+                    None
                 }
             }
-
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::ScrollUp,
                 column,
@@ -371,13 +382,11 @@ impl<A, E> HandleEvent<A, E> for TableExtState {
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_scr_up();
-                    ControlUI::Changed
+                    Some(InputRequest::MouseScrollUp)
                 } else {
-                    ControlUI::Continue
+                    None
                 }
             }
-
             Event::Mouse(
                 MouseEvent {
                     kind: MouseEventKind::Down(MouseButton::Left),
@@ -397,21 +406,113 @@ impl<A, E> HandleEvent<A, E> for TableExtState {
                     if (self.table_state.offset() + rr as usize) < self.row_count {
                         let sel = self.table_state.offset() + rr as usize;
                         if self.table_state.selected() != Some(sel) {
-                            self.click = true;
-                            self.table_state.select(Some(sel));
-                            ControlUI::Changed
+                            Some(InputRequest::MouseSelect(sel))
                         } else {
-                            ControlUI::Unchanged
+                            None
                         }
                     } else {
+                        None
+                    }
+                } else {
+                    None
+                }
+            }
+
+            _ => None,
+        };
+
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct DoubleClick;
+
+impl<E> HandleCrossterm<ControlUI<bool, E>, DoubleClick> for TableExtState {
+    fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<bool, E> {
+        match event {
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Up(MouseButton::Left),
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            }) => 'f: {
+                if self.area.contains(Position::new(*column, *row)) {
+                    let rr = row - self.area.y;
+                    let sel = self.table_state.offset() + rr as usize;
+
+                    // this cannot be accomplished otherwise. the return type is bitching.
+                    if self.table_state.selected() == Some(sel) {
+                        self.armed += 1;
+
+                        if self.armed == 1 {
+                            self.armed_time = SystemTime::now();
+                            break 'f ControlUI::Unchanged;
+                        }
+
+                        let elapsed = self.armed_time.elapsed().expect("timeout");
+                        if elapsed > Duration::from_millis(1000) {
+                            self.armed = 0;
+                            break 'f ControlUI::Unchanged;
+                        }
+
+                        self.armed = 0;
+                        ControlUI::Action(true)
+                    } else {
+                        self.armed = 0;
                         ControlUI::Unchanged
                     }
                 } else {
                     ControlUI::Continue
                 }
             }
-
             _ => ControlUI::Continue,
+        }
+    }
+}
+
+impl<A, E> Input<ControlUI<A, E>> for TableExtState {
+    type Request = InputRequest;
+
+    fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
+        match req {
+            InputRequest::Down => {
+                self.scroll_down();
+                ControlUI::Changed
+            }
+            InputRequest::Up => {
+                self.scroll_up();
+                ControlUI::Changed
+            }
+            InputRequest::PageDown => {
+                self.scroll_pg_down();
+                ControlUI::Changed
+            }
+            InputRequest::PageUp => {
+                self.scroll_pg_up();
+                ControlUI::Changed
+            }
+            InputRequest::MouseScrollDown => {
+                self.scroll_scr_down();
+                ControlUI::Changed
+            }
+            InputRequest::MouseScrollUp => {
+                self.scroll_scr_up();
+                ControlUI::Changed
+            }
+            InputRequest::MouseSelect(i) => {
+                if self.table_state.selected() == Some(i) {
+                    ControlUI::Unchanged
+                } else {
+                    self.armed = 0;
+                    self.table_state.select(Some(i));
+                    ControlUI::Changed
+                }
+            }
         }
     }
 }
