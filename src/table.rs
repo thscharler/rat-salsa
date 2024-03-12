@@ -1,3 +1,4 @@
+use crate::action_trigger::ActionTrigger;
 use crate::focus::FocusFlag;
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
 use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
@@ -11,7 +12,6 @@ use ratatui::prelude::*;
 use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
-use std::time::{Duration, SystemTime};
 
 #[derive(Debug)]
 pub struct TableExt<'a> {
@@ -196,8 +196,7 @@ where
 pub struct TableExtState {
     pub focus: FocusFlag,
     pub area: Rect,
-    pub armed: u8,
-    pub armed_time: SystemTime,
+    pub trigger: ActionTrigger,
     pub row_count: usize,
     pub table_state: TableState,
 }
@@ -209,8 +208,7 @@ impl Default for TableExtState {
             table_state: TableState::default().with_selected(0),
             row_count: 0,
             area: Default::default(),
-            armed: 0,
-            armed_time: SystemTime::now(),
+            trigger: Default::default(),
         }
     }
 }
@@ -488,30 +486,20 @@ impl<E> HandleCrossterm<ControlUI<bool, E>, DoubleClick> for TableExtState {
                 column,
                 row,
                 modifiers: KeyModifiers::NONE,
-            }) => 'f: {
+            }) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     let rr = row - self.area.y;
                     let sel = self.table_state.offset() + rr as usize;
 
                     // this cannot be accomplished otherwise. the return type is bitching.
                     if self.table_state.selected() == Some(sel) {
-                        self.armed += 1;
-
-                        if self.armed == 1 {
-                            self.armed_time = SystemTime::now();
-                            break 'f ControlUI::Unchanged;
+                        if self.trigger.pull(200) {
+                            ControlUI::Action(true)
+                        } else {
+                            ControlUI::Unchanged
                         }
-
-                        let elapsed = self.armed_time.elapsed().expect("timeout");
-                        if elapsed > Duration::from_millis(1000) {
-                            self.armed = 0;
-                            break 'f ControlUI::Unchanged;
-                        }
-
-                        self.armed = 0;
-                        ControlUI::Action(true)
                     } else {
-                        self.armed = 0;
+                        self.trigger.reset();
                         ControlUI::Unchanged
                     }
                 } else {
@@ -529,34 +517,42 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
     fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
         match req {
             InputRequest::Down => {
+                self.trigger.reset();
                 self.scroll_down();
                 ControlUI::Changed
             }
             InputRequest::Up => {
+                self.trigger.reset();
                 self.scroll_up();
                 ControlUI::Changed
             }
             InputRequest::First => {
+                self.trigger.reset();
                 self.scroll_first();
                 ControlUI::Changed
             }
             InputRequest::Last => {
+                self.trigger.reset();
                 self.scroll_last();
                 ControlUI::Changed
             }
             InputRequest::PageDown => {
+                self.trigger.reset();
                 self.scroll_pg_down();
                 ControlUI::Changed
             }
             InputRequest::PageUp => {
+                self.trigger.reset();
                 self.scroll_pg_up();
                 ControlUI::Changed
             }
             InputRequest::MouseScrollDown => {
+                self.trigger.reset();
                 self.scroll_scr_down();
                 ControlUI::Changed
             }
             InputRequest::MouseScrollUp => {
+                self.trigger.reset();
                 self.scroll_scr_up();
                 ControlUI::Changed
             }
@@ -564,7 +560,7 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
                 if self.table_state.selected() == Some(i) {
                     ControlUI::Unchanged
                 } else {
-                    self.armed = 0;
+                    self.trigger.reset();
                     self.table_state.select(Some(i));
                     ControlUI::Changed
                 }

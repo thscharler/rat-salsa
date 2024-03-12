@@ -1,3 +1,4 @@
+use crate::action_trigger::ActionTrigger;
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
 use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crate::ControlUI;
@@ -13,7 +14,6 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::StatefulWidget;
 use std::cell::Cell;
 use std::fmt::Debug;
-use std::time::{Duration, SystemTime};
 
 #[derive(Debug)]
 pub struct MenuLine<'a, A> {
@@ -102,13 +102,12 @@ pub enum InputRequest {
     MouseAction(usize, u64),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct MenuLineState<A> {
     pub focus: Cell<bool>,
     pub area: Vec<Rect>,
     pub key: Vec<char>,
-    pub armed: u8,
-    pub armed_time: SystemTime,
+    pub trigger: ActionTrigger,
     pub select: Option<usize>,
     pub len: usize,
     pub action: Vec<A>,
@@ -118,13 +117,12 @@ impl<A> Default for MenuLineState<A> {
     fn default() -> Self {
         Self {
             focus: Cell::new(false),
-            key: Vec::new(),
-            armed: 0,
-            armed_time: SystemTime::UNIX_EPOCH,
+            key: Default::default(),
+            trigger: Default::default(),
             select: Some(0),
-            len: 0,
-            area: Vec::new(),
-            action: Vec::new(),
+            len: Default::default(),
+            area: Default::default(),
+            action: Default::default(),
         }
     }
 }
@@ -135,12 +133,12 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
     fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
         match req {
             InputRequest::Prev => {
-                self.armed = 0;
+                self.trigger.reset();
                 self.select = prev_opt(self.select);
                 ControlUI::Changed
             }
             InputRequest::Next => {
-                self.armed = 0;
+                self.trigger.reset();
                 self.select = next_opt(self.select, self.len);
                 ControlUI::Changed
             }
@@ -154,7 +152,7 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
             InputRequest::KeySelect(cc) => 'f: {
                 for (i, k) in self.key.iter().enumerate() {
                     if cc == *k {
-                        self.armed = 0;
+                        self.trigger.reset();
                         self.select = Some(i);
                         break 'f ControlUI::Changed;
                     }
@@ -164,7 +162,7 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
             InputRequest::KeyAction(cc) => 'f: {
                 for (i, k) in self.key.iter().enumerate() {
                     if cc == *k {
-                        self.armed = 0;
+                        self.trigger.reset();
                         self.select = Some(i);
                         break 'f ControlUI::Action(self.action[i]);
                     }
@@ -175,30 +173,20 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
                 if self.select == Some(i) {
                     ControlUI::Unchanged
                 } else {
-                    self.armed = 0;
+                    self.trigger.reset();
                     self.select = Some(i);
                     ControlUI::Changed
                 }
             }
-            InputRequest::MouseAction(i, timeout) => 'f: {
+            InputRequest::MouseAction(i, timeout) => {
                 if self.select == Some(i) {
-                    self.armed += 1;
-
-                    if self.armed == 1 {
-                        self.armed_time = SystemTime::now();
-                        break 'f ControlUI::Unchanged;
+                    if self.trigger.pull(timeout) {
+                        ControlUI::Action(self.action[i])
+                    } else {
+                        ControlUI::Unchanged
                     }
-
-                    let elapsed = self.armed_time.elapsed().expect("timeout");
-                    if elapsed > Duration::from_millis(timeout) {
-                        self.armed = 0;
-                        break 'f ControlUI::Unchanged;
-                    }
-
-                    self.armed = 0;
-                    ControlUI::Action(self.action[i])
                 } else {
-                    self.armed = 0;
+                    self.trigger.reset();
                     ControlUI::Unchanged
                 }
             }
