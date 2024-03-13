@@ -1,6 +1,5 @@
 #![doc = include_str!("../crate.md")]
 
-use crate::focus::FocusChanged;
 use std::fmt::Debug;
 
 pub mod action_trigger;
@@ -24,7 +23,7 @@ pub use framework::{run_tui, TaskSender, ThreadPool, TuiApp};
 /// Converts from a [Result::Err] to a [ControlUI::Err] and returns early.
 /// Evaluates to the value of [Result::Ok].
 #[macro_export]
-macro_rules! err {
+macro_rules! try_result {
     ($ex:expr) => {{
         match $ex {
             Ok(v) => v,
@@ -35,25 +34,33 @@ macro_rules! err {
 
 /// Cuts the control-flow. If the value is not [ControlUI::Continue] it returns early.
 #[macro_export]
-macro_rules! cut {
+macro_rules! check_break {
     ($x:expr) => {{
         let r = $x;
         if !r.is_continue() {
             return r;
         }
+        _ = r; // avoid must_use warnings.
     }};
 }
 
 /// Cuts the control-flow. If the value is [ControlUI::Err] it returns early.
 /// Evaluates to any other value.
 #[macro_export]
-macro_rules! yeet {
+macro_rules! try_ui {
     ($x:expr) => {{
         let r = $x;
         if r.is_err() {
             return r;
         }
         r
+    }};
+    ($x:expr, _) => {{
+        let r = $x;
+        if r.is_err() {
+            return r;
+        }
+        _ = r;
     }};
 }
 
@@ -62,7 +69,7 @@ macro_rules! yeet {
 /// This is the result type for an event-handler.
 ///
 /// * Continue - Continue with execution.
-/// * Err(Err) - Equivalent to Result::Err. Use the macro [err] to convert from Result.
+/// * Err(Err) - Equivalent to Result::Err. Use the macro [try_result] to convert from Result.
 /// * Unchanged - Event processed, no UI update necessary.
 /// * Changed - Event processed, UI update necessary.
 /// * Action(Action) - Run some computation on the model.
@@ -70,7 +77,7 @@ macro_rules! yeet {
 /// * Break - Break the event loop; end the program.
 ///
 /// There are multiple continuation functions that work with these states.
-/// And the macros [err!], [cut!] and [yeet!]
+/// And the macros [try_result!], [check_break!] and [try_ui!]
 #[derive(Debug)]
 #[must_use]
 pub enum ControlUI<Action, Err> {
@@ -244,15 +251,6 @@ impl<Action, Err> ControlUI<Action, Err> {
         match self {
             ControlUI::Changed => Some(f()),
             _ => None,
-        }
-    }
-}
-
-impl<A, E> From<FocusChanged> for ControlUI<A, E> {
-    fn from(value: FocusChanged) -> Self {
-        match value {
-            FocusChanged::Changed => ControlUI::Changed,
-            FocusChanged::Continue => ControlUI::Continue,
         }
     }
 }
