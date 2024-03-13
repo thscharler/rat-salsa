@@ -28,7 +28,6 @@ impl ActionTrigger {
             }
             Some(armed) => {
                 let elapsed = armed.elapsed().expect("timeout");
-                debug!("trigger {:?}", elapsed);
                 if elapsed > Duration::from_millis(time_out) {
                     self.armed = None;
                     false
