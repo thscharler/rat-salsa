@@ -3,6 +3,7 @@
 //! It uses ControlUI as it's central control-flow construct.
 //!
 
+use crate::widget::Repaint;
 use crate::ControlUI;
 use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
@@ -48,6 +49,7 @@ pub trait TuiApp {
         event: Event,
         data: &mut Self::Data,
         uistate: &mut Self::State,
+        repaint: &Repaint,
     ) -> ControlUI<Self::Action, Self::Error>;
 
     /// Run an action.
@@ -105,6 +107,7 @@ where
 
     let worker = ThreadPool::<App>::build(&app, n_worker);
 
+    let repaint = Repaint::new();
     let mut flow;
 
     // initial repaint.
@@ -115,7 +118,7 @@ where
 
         flow = flow.or_else(|| match event::poll(Duration::from_millis(10)) {
             Ok(true) => match event::read() {
-                Ok(evt) => app.handle_event(evt, data, uistate),
+                Ok(evt) => app.handle_event(evt, data, uistate, &repaint),
                 Err(err) => ControlUI::Err(err.into()),
             },
             Ok(false) => ControlUI::Continue,
@@ -125,11 +128,19 @@ where
         flow = match flow {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Unchanged => ControlUI::Continue,
-            ControlUI::Changed => repaint_tui(&mut terminal, app, data, uistate),
+            ControlUI::Changed => {
+                repaint.set();
+                ControlUI::Continue
+            }
             ControlUI::Action(action) => app.run_action(action, data, uistate),
             ControlUI::Spawn(action) => app.start_task(action, data, uistate, &worker),
             ControlUI::Err(err) => app.report_error(err, data, uistate),
             ControlUI::Break => break 'ui,
+        };
+
+        if repaint.get() {
+            repaint.reset();
+            flow = repaint_tui(&mut terminal, app, data, uistate);
         }
     }
 

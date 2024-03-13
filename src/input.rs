@@ -10,7 +10,7 @@
 use crate::basic::ClearStyle;
 use crate::focus::FocusFlag;
 use crate::input::core::{split3, split5};
-use crate::widget::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
+use crate::widget::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly, Repaint};
 use crate::ControlUI;
 #[allow(unused_imports)]
 use log::debug;
@@ -233,7 +233,12 @@ pub struct InputState {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
     #[allow(non_snake_case)]
-    fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        repaint: &Repaint,
+        _: DefaultKeys,
+    ) -> ControlUI<A, E> {
         use crossterm::event::KeyCode::*;
         use crossterm::event::{Event, KeyEvent, KeyEventKind, KeyModifiers};
 
@@ -285,7 +290,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
                     (_, _) => None,
                 }
             }
-            _ => return self.handle(event, MouseOnly),
+            _ => return self.handle(event, repaint, MouseOnly),
         };
 
         if let Some(req) = req {
@@ -297,7 +302,12 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for InputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        _repaint: &Repaint,
+        _: MouseOnly,
+    ) -> ControlUI<A, E> {
         use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
         let req = match event {

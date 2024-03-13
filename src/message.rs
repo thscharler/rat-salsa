@@ -1,8 +1,8 @@
 use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::layout::layout_dialog;
-use crate::widget::{DefaultKeys, HandleCrossterm, Input};
+use crate::widget::{DefaultKeys, HandleCrossterm, Repaint};
 use crate::ControlUI;
-use crate::{cut, ratio};
+use crate::{check_break, ratio};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
 use log::debug;
@@ -176,17 +176,19 @@ impl StatefulWidget for StatusDialog {
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
-    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
-        cut!(if self.active {
-            self.button.handle(event, DefaultKeys).and_then(|_a| {
-                self.clear_log();
-                ControlUI::Changed
-            })
+    fn handle(&mut self, event: &Event, repaint: &Repaint, _: DefaultKeys) -> ControlUI<A, E> {
+        check_break!(if self.active {
+            self.button
+                .handle(event, repaint, DefaultKeys)
+                .and_then(|_a| {
+                    self.clear_log();
+                    ControlUI::Changed
+                })
         } else {
             ControlUI::Continue
         });
 
-        cut!(match event {
+        check_break!(match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Esc,
                 modifiers: KeyModifiers::NONE,
@@ -205,13 +207,5 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
 
         // eat all events.
         ControlUI::Unchanged
-    }
-}
-
-impl<A, E> Input<ControlUI<A, E>> for StatusDialogState {
-    type Request = ();
-
-    fn perform(&mut self, _: Self::Request) -> ControlUI<A, E> {
-        ControlUI::Continue
     }
 }

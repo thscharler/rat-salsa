@@ -159,13 +159,13 @@ pub mod app {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     #[allow(unused_imports)]
     use log::debug;
-    use rat_salsa::focus::{Focus, FocusChanged, InputRequest};
+    use rat_salsa::focus::Focus;
     use rat_salsa::input::TextInput;
     use rat_salsa::layout::{layout_edit, EditConstraint};
     use rat_salsa::mask_input::MaskedTextInput;
     use rat_salsa::message::{StatusDialog, StatusLine};
-    use rat_salsa::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly, RenderFrameWidget};
-    use rat_salsa::{cut, validate, yeet, TaskSender, ThreadPool, TuiApp};
+    use rat_salsa::widget::{DefaultKeys, HandleCrossterm, MouseOnly, RenderFrameWidget, Repaint};
+    use rat_salsa::{check_break, try_ui, validate, ControlUI, TaskSender, ThreadPool, TuiApp};
     use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
     use ratatui::text::Span;
     use ratatui::Frame;
@@ -199,7 +199,7 @@ pub mod app {
             )
             .split(area);
 
-            _ = yeet!(repaint_mask0(frame, layout[0], data, uistate));
+            try_ui!(repaint_mask0(frame, layout[0], data, uistate), _);
 
             let statusdialog = StatusDialog::new().style(uistate.g.status_dialog_style());
             let mut err_dialog = &mut uistate.g.error_dlg;
@@ -213,8 +213,14 @@ pub mod app {
             Control::Continue
         }
 
-        fn handle_event(&self, evt: Event, data: &mut ExData, uistate: &mut ExState) -> Control {
-            cut!(match &evt {
+        fn handle_event(
+            &self,
+            evt: Event,
+            data: &mut ExData,
+            uistate: &mut ExState,
+            repaint: &Repaint,
+        ) -> Control {
+            check_break!(match &evt {
                 Event::Resize(_, _) => Control::Changed,
                 Event::Key(KeyEvent {
                     kind: KeyEventKind::Press,
@@ -225,16 +231,16 @@ pub mod app {
                 _ => Control::Continue,
             });
 
-            cut!({
+            check_break!({
                 let error_dlg = &mut uistate.g.error_dlg;
                 if error_dlg.active {
-                    error_dlg.handle(&evt, DefaultKeys)
+                    error_dlg.handle(&evt, repaint, DefaultKeys)
                 } else {
                     Control::Continue
                 }
             });
 
-            cut!(handle_mask0(&evt, data, uistate));
+            check_break!(handle_mask0(&evt, data, uistate, repaint));
 
             Control::Continue
         }
@@ -349,37 +355,42 @@ pub mod app {
     #[derive(Debug)]
     pub struct ExKeys;
 
-    impl<'a> HandleCrossterm<FocusChanged, ExKeys> for Focus<'a> {
-        fn handle(&mut self, event: &Event, _: ExKeys) -> FocusChanged {
+    impl<'a> HandleCrossterm<Control, ExKeys> for Focus<'a> {
+        fn handle(&mut self, event: &Event, repaint: &Repaint, _: ExKeys) -> Control {
             use crossterm::event::*;
 
-            let action = match event {
+            match event {
                 Event::Key(KeyEvent {
                     code: KeyCode::F(2),
                     modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
                     kind: KeyEventKind::Press,
                     ..
-                }) => Some(InputRequest::Next),
+                }) => {
+                    self.next();
+                    ControlUI::Changed
+                }
                 Event::Key(KeyEvent {
                     code: KeyCode::F(3),
                     modifiers: KeyModifiers::NONE | KeyModifiers::SHIFT,
                     kind: KeyEventKind::Press,
                     ..
-                }) => Some(InputRequest::Prev),
-                _ => return self.handle(event, MouseOnly),
-            };
-
-            if let Some(action) = action {
-                self.perform(action)
-            } else {
-                FocusChanged::Continue
+                }) => {
+                    self.prev();
+                    ControlUI::Changed
+                }
+                _ => return self.handle(event, repaint, MouseOnly),
             }
         }
     }
 
-    fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
+    fn handle_mask0(
+        evt: &Event,
+        data: &mut ExData,
+        uistate: &mut ExState,
+        repaint: &Repaint,
+    ) -> Control {
         // let f = focus_mask0(uistate).handle_crossterm(evt, DefaultKeys);
-        let f = focus_mask0(uistate).handle(evt, ExKeys);
+        let f = focus_mask0(uistate).handle(evt, repaint, ExKeys);
 
         // validation and reformat on focus lost.
         validate!(uistate.input_0 =>
@@ -394,8 +405,8 @@ pub mod app {
             false
         });
 
-        cut!({
-            let r = uistate.input_0.handle(evt, DefaultKeys);
+        check_break!({
+            let r = uistate.input_0.handle(evt, repaint, DefaultKeys);
             // quick validation for every change
             r.on_changed_do(|| {
                 let str = uistate.input_0.compact_value();
@@ -405,9 +416,9 @@ pub mod app {
             r
         });
 
-        cut!(uistate.input_1.handle(evt, DefaultKeys));
+        check_break!(uistate.input_1.handle(evt, repaint, DefaultKeys));
 
-        cut!(match evt {
+        check_break!(match evt {
             Event::Key(KeyEvent {
                 code: KeyCode::Enter,
                 modifiers: KeyModifiers::NONE,

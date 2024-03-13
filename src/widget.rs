@@ -1,5 +1,32 @@
 use ratatui::layout::Rect;
 use ratatui::Frame;
+use std::cell::Cell;
+
+/// Trigger a repaint from event-handling code.
+#[derive(Debug)]
+pub struct Repaint {
+    repaint: Cell<bool>,
+}
+
+impl Repaint {
+    pub fn new() -> Self {
+        Self {
+            repaint: Default::default(),
+        }
+    }
+
+    pub fn get(&self) -> bool {
+        self.repaint.get()
+    }
+
+    pub fn set(&self) {
+        self.repaint.set(true);
+    }
+
+    pub fn reset(&self) {
+        self.repaint.set(false)
+    }
+}
 
 /// Executes the input requests defined by a widget.
 ///
@@ -35,8 +62,8 @@ pub struct MouseOnly;
 /// using [MouseOnly] for the latter. The handler for [DefaultKeys] ought to forward any
 /// unprocessed event to the `MouseOnly` handler. That way a new mapping can easily offload
 /// all the mouse handling.
-pub trait HandleCrossterm<R, K = DefaultKeys> {
-    fn handle(&mut self, event: &crossterm::event::Event, keymap: K) -> R;
+pub trait HandleCrossterm<R, KeyMap = DefaultKeys> {
+    fn handle(&mut self, event: &crossterm::event::Event, repaint: &Repaint, keymap: KeyMap) -> R;
 }
 
 /// Extra rendering which passes on the frame to a [FrameWidget].
