@@ -103,6 +103,18 @@ macro_rules! validate {
     }};
 }
 
+/// Focus gained.
+/// Might be replaced with some fn on_focus(..) on the state struct.
+#[macro_export]
+macro_rules! on_focus {
+    ($field:expr => $gained:expr) => {{
+        let cond = $field.focus.get();
+        if cond {
+            $gained;
+        }
+    }};
+}
+
 impl<'a> Focus<'a> {
     /// Create a focus cycle.
     ///
@@ -203,7 +215,8 @@ impl<'a, A, E> HandleCrossterm<ControlUI<A, E>> for Focus<'a> {
                 ..
             }) => {
                 self.next();
-                ControlUI::Changed
+                repaint.set();
+                ControlUI::Continue
             }
             Event::Key(KeyEvent {
                 code: KeyCode::BackTab,
@@ -212,7 +225,8 @@ impl<'a, A, E> HandleCrossterm<ControlUI<A, E>> for Focus<'a> {
                 ..
             }) => {
                 self.prev();
-                ControlUI::Changed
+                repaint.set();
+                ControlUI::Continue
             }
             _ => return self.handle(event, repaint, MouseOnly),
         }

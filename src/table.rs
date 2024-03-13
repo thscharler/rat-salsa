@@ -310,6 +310,12 @@ pub enum InputRequest {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
     fn handle(&mut self, event: &Event, repaint: &Repaint, _: DefaultKeys) -> ControlUI<A, E> {
+        if self.focus.get() {
+            if self.table_state.selected().is_none() {
+                self.table_state.select(Some(0));
+            }
+        }
+
         let req = match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Down,
