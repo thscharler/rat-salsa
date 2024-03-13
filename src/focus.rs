@@ -20,6 +20,8 @@ use crossterm::event::Event;
 use log::error;
 use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
+use std::iter::Zip;
+use std::vec;
 
 /// Flag structure to be used in widget states.
 #[derive(Debug, Clone)]
@@ -44,14 +46,6 @@ pub struct FocusFlag {
 pub struct Focus<'a> {
     pub areas: Vec<Rect>,
     pub focus: Vec<&'a FocusFlag>,
-}
-
-/// Action.
-#[derive(Debug)]
-pub enum InputRequest {
-    Next,
-    Prev,
-    Tag(u16),
 }
 
 impl Default for FocusFlag {
@@ -115,40 +109,80 @@ macro_rules! on_focus {
     }};
 }
 
+impl<'a> Default for Focus<'a> {
+    fn default() -> Self {
+        Self {
+            areas: Default::default(),
+            focus: Default::default(),
+        }
+    }
+}
+
+impl<'a> IntoIterator for Focus<'a> {
+    type Item = (&'a FocusFlag, Rect);
+    type IntoIter = Zip<vec::IntoIter<&'a FocusFlag>, vec::IntoIter<Rect>>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.focus.into_iter().zip(self.areas.into_iter())
+    }
+}
+
 impl<'a> Focus<'a> {
     /// Create a focus cycle.
     ///
     /// Take a reference to a FocusFlag and a Rect for mouse-events.
-    pub fn new<const N: usize>(np: [(&'a FocusFlag, Rect); N]) -> Self {
-        let mut zelf = Focus {
-            areas: Vec::new(),
-            focus: Vec::new(),
-        };
-
-        for (n, (f, rect)) in np.into_iter().enumerate() {
-            f.tag.set(n as u16);
-            zelf.focus.push(f);
-            zelf.areas.push(rect);
-        }
-
-        zelf
+    pub fn new(np: impl IntoIterator<Item = (&'a FocusFlag, Rect)>) -> Self {
+        Focus::default().add(np)
     }
 
-    /// Resets the focus to the given field and clears all lost values.
+    /// Add more to the focus cycle.
+    pub fn add(mut self, np: impl IntoIterator<Item = (&'a FocusFlag, Rect)>) -> Self {
+        let mut tag = self.focus.len();
+
+        for (f, rect) in np.into_iter() {
+            f.tag.set(tag as u16);
+            self.focus.push(f);
+            self.areas.push(rect);
+
+            tag += 1;
+        }
+
+        self
+    }
+
+    /// Resets the focus to the last field that lost the focus.
     /// Can be used to reset the focus after a failed validation without triggering another one.
-    pub fn reset(&self, tag: u16) {
+    pub fn reset_lost(&self) {
         for f in self.focus.iter() {
+            if f.focus.get() {
+                f.focus.set(false);
+            }
+            if f.lost() {
+                f.focus.set(true);
+            }
+        }
+    }
+
+    /// Change the focused part. Uses an index into the list.
+    pub fn focus_idx(&self, idx: usize) -> bool {
+        let mut change = false;
+
+        for (i, f) in self.focus.iter().enumerate() {
             f.lost.set(false);
-            if f.tag.get() == tag {
+            if i == idx {
                 if !f.focus.get() {
+                    change = true;
                     f.focus.set(true);
                 }
             } else {
                 if f.focus.get() {
+                    f.lost.set(true);
                     f.focus.set(false);
                 }
             }
         }
+
+        change
     }
 
     /// Change the focused part. Used for focus changes unrelated to standard
@@ -175,31 +209,41 @@ impl<'a> Focus<'a> {
     }
 
     /// Focus the next widget in the cycle.
-    pub fn next(&self) {
+    pub fn next(&self) -> bool {
         for (i, p) in self.focus.iter().enumerate() {
-            p.lost.set(false);
             if p.focus.get() {
-                p.lost.set(true);
                 p.focus.set(false);
                 let n = next_circular(i, self.focus.len());
-                self.focus[n].focus.set(true);
-                break;
+                if i != n {
+                    p.lost.set(true);
+                    self.focus[n].focus.set(true);
+                    return true;
+                } else {
+                    p.lost.set(false);
+                    return false;
+                }
             }
         }
+        false
     }
 
     /// Focus the previous widget in the cycle.
-    pub fn prev(&self) {
+    pub fn prev(&self) -> bool {
         for (i, p) in self.focus.iter().enumerate() {
-            p.lost.set(false);
             if p.focus.get() {
-                p.lost.set(true);
                 p.focus.set(false);
                 let n = prev_circular(i, self.focus.len());
-                self.focus[n].focus.set(true);
-                break;
+                if i != n {
+                    p.lost.set(true);
+                    self.focus[n].focus.set(true);
+                    return true;
+                } else {
+                    p.lost.set(false);
+                    return false;
+                }
             }
         }
+        false
     }
 }
 
@@ -214,8 +258,9 @@ impl<'a, A, E> HandleCrossterm<ControlUI<A, E>> for Focus<'a> {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                self.next();
-                repaint.set();
+                if self.next() {
+                    repaint.set();
+                }
                 ControlUI::Continue
             }
             Event::Key(KeyEvent {
@@ -224,8 +269,9 @@ impl<'a, A, E> HandleCrossterm<ControlUI<A, E>> for Focus<'a> {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                self.prev();
-                repaint.set();
+                if self.prev() {
+                    repaint.set();
+                }
                 ControlUI::Continue
             }
             _ => return self.handle(event, repaint, MouseOnly),
@@ -251,14 +297,13 @@ impl<'a, A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for Focus<'a> {
                     row,
                     modifiers: KeyModifiers::NONE,
                 },
-            ) => 'f: {
+            ) => {
                 for (idx, area) in self.areas.iter().enumerate() {
                     if area.contains(Position::new(*column, *row)) {
-                        if self.focus(self.focus[idx].tag()) {
+                        if self.focus_idx(idx) {
                             repaint.set();
                         }
-                        // do not consume mouse events
-                        break 'f ControlUI::Continue;
+                        break;
                     }
                 }
                 ControlUI::Continue
