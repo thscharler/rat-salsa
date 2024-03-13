@@ -54,13 +54,6 @@ pub enum InputRequest {
     Tag(u16),
 }
 
-/// Result of event processing.
-#[derive(Debug)]
-pub enum FocusChanged {
-    Changed,
-    Continue,
-}
-
 impl Default for FocusFlag {
     fn default() -> Self {
         Self {
@@ -108,25 +101,6 @@ macro_rules! validate {
             $field.is_valid = valid;
         }
     }};
-}
-
-// todo: needed any longer?
-impl FocusChanged {
-    pub fn or<A, E>(self, v: impl Into<ControlUI<A, E>>) -> ControlUI<A, E> {
-        match self {
-            FocusChanged::Continue => v.into(),
-            FocusChanged::Changed => ControlUI::Changed,
-        }
-    }
-}
-
-impl<A, E> From<FocusChanged> for ControlUI<A, E> {
-    fn from(value: FocusChanged) -> Self {
-        match value {
-            FocusChanged::Changed => ControlUI::Changed,
-            FocusChanged::Continue => ControlUI::Continue,
-        }
-    }
 }
 
 impl<'a> Focus<'a> {
