@@ -25,23 +25,17 @@ pub struct MouseOnly;
 
 /// Handle events received by crossterm.
 ///
-/// Implementations translate from input-events to widget-actions.
-/// The actions are immediately executed by calling [Input::perform()] on self.
+/// Implementations translate from input-events to widget-actions and call [Input::perform]
+/// to actually do something.
 ///
 /// There is one extra type parameter K which is used to implement more than one event-handler
 /// for the same widget. It's recommended to use [DefaultKeys] for the baseline implementation.
 ///
-/// Users of a widget can easily define their own keymap for existing widgets this way.
-/// [DefaultKeys] has no data of its own, but nothing prevents a user of the trait to provide
-/// a method to create a configurable keymap.
-///
-/// Another recommendation is to split the event-handler between keyboard and mouse-events by
-/// using [MouseOnly] for the latter. The handler for [DefaultKeys] forwards any unprocessed
-/// event to the `MouseOnly` handler.
-pub trait HandleCrossterm<R, K = DefaultKeys>
-where
-    Self: Input<R>,
-{
+/// Another option is to split the event-handler between keyboard and mouse-events by
+/// using [MouseOnly] for the latter. The handler for [DefaultKeys] ought to forward any
+/// unprocessed event to the `MouseOnly` handler. That way a new mapping can easily offload
+/// all the mouse handling.
+pub trait HandleCrossterm<R, K = DefaultKeys> {
     fn handle(&mut self, event: &crossterm::event::Event, keymap: K) -> R;
 }
 
