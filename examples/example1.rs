@@ -366,8 +366,9 @@ pub mod app {
                     kind: KeyEventKind::Press,
                     ..
                 }) => {
-                    self.next();
-                    ControlUI::Changed
+                    if self.next() {
+                        repaint.set();
+                    }
                 }
                 Event::Key(KeyEvent {
                     code: KeyCode::F(3),
@@ -375,11 +376,14 @@ pub mod app {
                     kind: KeyEventKind::Press,
                     ..
                 }) => {
-                    self.prev();
-                    ControlUI::Changed
+                    if self.prev() {
+                        repaint.set();
+                    }
                 }
                 _ => return self.handle(event, repaint, MouseOnly),
             }
+
+            Control::Continue
         }
     }
 
