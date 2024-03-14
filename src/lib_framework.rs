@@ -3,8 +3,8 @@
 //! It uses ControlUI as it's central control-flow construct.
 //!
 
+use crate::lib_repaint::{Repaint, RepaintReason, Timeout};
 use crate::ControlUI;
-use crate::Repaint;
 use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
 use crossterm::terminal::{
@@ -14,9 +14,10 @@ use crossterm::{event, ExecutableCommand};
 use log::debug;
 use ratatui::backend::CrosstermBackend;
 use ratatui::{Frame, Terminal};
+use std::cell::Cell;
 use std::io::{stdout, Stdout};
-use std::thread::JoinHandle;
-use std::time::Duration;
+use std::thread::{sleep, JoinHandle};
+use std::time::{Duration, SystemTime};
 use std::{io, thread};
 
 /// Describes the requisites of a TuiApp.
@@ -35,12 +36,16 @@ pub trait TuiApp {
     /// Error type.
     type Error;
 
+    /// Get the repaint state for this uistate.
+    fn get_repaint<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Repaint>;
+
     /// Repaint the ui.
     fn repaint(
         &self,
         frame: &mut Frame<'_>,
         data: &mut Self::Data,
         uistate: &mut Self::State,
+        reason: RepaintReason,
     ) -> ControlUI<Self::Action, Self::Error>;
 
     /// Handle an event.
@@ -49,7 +54,6 @@ pub trait TuiApp {
         event: Event,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-        repaint: &Repaint,
     ) -> ControlUI<Self::Action, Self::Error>;
 
     /// Run an action.
@@ -107,29 +111,40 @@ where
 
     let worker = ThreadPool::<App>::build(&app, n_worker);
 
-    let repaint = Repaint::new();
+    let def_repaint = Repaint::default();
+    let repaint_reason = Cell::new(RepaintReason::Change);
+
     let mut flow;
 
     // initial repaint.
-    flow = repaint_tui(&mut terminal, app, data, uistate);
+    flow = repaint_tui(&mut terminal, app, data, uistate, repaint_reason.get());
 
     'ui: loop {
+        flow = flow.or_else(|| {
+            check_timers::<App>(get_repaint(app, uistate, &def_repaint), &repaint_reason)
+        });
+
         flow = flow.or_else(|| worker.try_recv());
 
-        flow = flow.or_else(|| match event::poll(Duration::from_millis(10)) {
+        flow = flow.or_else(|| match event::poll(Duration::default()) {
             Ok(true) => match event::read() {
-                Ok(evt) => app.handle_event(evt, data, uistate, &repaint),
+                Ok(evt) => app.handle_event(evt, data, uistate),
                 Err(err) => ControlUI::Err(err.into()),
             },
             Ok(false) => ControlUI::Continue,
             Err(err) => ControlUI::Err(err.into()),
         });
 
+        flow = flow.or_else(|| {
+            sleep(Duration::from_millis(10));
+            ControlUI::Continue
+        });
+
         flow = match flow {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Unchanged => ControlUI::Continue,
             ControlUI::Changed => {
-                repaint.set();
+                get_repaint(app, uistate, &def_repaint).set();
                 ControlUI::Continue
             }
             ControlUI::Action(action) => app.run_action(action, data, uistate),
@@ -138,9 +153,10 @@ where
             ControlUI::Break => break 'ui,
         };
 
-        if repaint.get() {
-            repaint.reset();
-            flow = repaint_tui(&mut terminal, app, data, uistate);
+        if get_repaint(app, uistate, &def_repaint).get() {
+            flow = repaint_tui(&mut terminal, app, data, uistate, repaint_reason.get());
+            get_repaint(app, uistate, &def_repaint).reset();
+            repaint_reason.set(RepaintReason::Change);
         }
     }
 
@@ -153,11 +169,70 @@ where
     Ok(())
 }
 
+fn check_timers<App: TuiApp>(
+    repaint: &Repaint,
+    reason: &Cell<RepaintReason>,
+) -> ControlUI<App::Action, App::Error> {
+    let mut timer = repaint.timer.borrow_mut();
+
+    for i in (0..timer.len()).rev() {
+        let t = &mut timer[i];
+
+        if t.start.elapsed().expect("timeout") >= t.timeout {
+            if t.repeat {
+                if let Some(max) = t.max {
+                    let count = t.count.map(|v| v + 1).unwrap_or_else(|| 0);
+                    if count < max {
+                        t.start = SystemTime::now();
+                        t.count = Some(count);
+
+                        reason.set(RepaintReason::Timeout(Timeout {
+                            tag: t.tag,
+                            counter: count,
+                        }));
+                        return ControlUI::Changed;
+                    } else {
+                        timer.remove(i);
+                    }
+                } else {
+                    let count = t.count.map(|v| v + 1).unwrap_or_else(|| 0);
+                    t.start = SystemTime::now();
+                    t.count = Some(count);
+
+                    reason.set(RepaintReason::Timeout(Timeout {
+                        tag: t.tag,
+                        counter: count,
+                    }));
+                    return ControlUI::Changed;
+                }
+            } else {
+                reason.set(RepaintReason::Timeout(Timeout {
+                    tag: t.tag,
+                    counter: 0,
+                }));
+                timer.remove(i);
+                return ControlUI::Changed;
+            }
+        }
+    }
+
+    ControlUI::Continue
+}
+
+fn get_repaint<'a, 'b, App: TuiApp>(
+    app: &'a App,
+    uistate: &'b App::State,
+    fallback: &'b Repaint,
+) -> &'b Repaint {
+    app.get_repaint(uistate).unwrap_or_else(|| fallback)
+}
+
 fn repaint_tui<App: TuiApp>(
     term: &mut Terminal<CrosstermBackend<Stdout>>,
     app: &App,
     data: &mut App::Data,
     uistate: &mut App::State,
+    reason: RepaintReason,
 ) -> ControlUI<App::Action, App::Error>
 where
     App::Error: From<io::Error>,
@@ -167,7 +242,7 @@ where
     _ = term.hide_cursor();
 
     let result = term.draw(|frame| {
-        flow = app.repaint(frame, data, uistate);
+        flow = app.repaint(frame, data, uistate, reason);
     });
 
     // a draw() error overwrites a possible repaint() error.

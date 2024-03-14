@@ -46,7 +46,16 @@ pub struct MouseOnly;
 /// A widget library can easily support all of them with this scheme without some added layer
 /// of indirection and use a feature flag to select between them.
 pub trait HandleCrossterm<R, KeyMap = DefaultKeys> {
-    fn handle(&mut self, event: &crossterm::event::Event, repaint: &Repaint, keymap: KeyMap) -> R;
+    fn handle(&mut self, event: &crossterm::event::Event, keymap: KeyMap) -> R;
+}
+
+pub trait HandleCrosstermRepaint<R, KeyMap = DefaultKeys> {
+    fn handle_with_repaint(
+        &mut self,
+        event: &crossterm::event::Event,
+        repaint: &Repaint,
+        keymap: KeyMap,
+    ) -> R;
 }
 
 /// Add-on to ratatui.
