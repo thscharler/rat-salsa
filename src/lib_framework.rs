@@ -140,34 +140,40 @@ where
     let mut flow;
     let mut repaint_event = RepaintEvent::Changed;
 
-    // to not to starve any event source
+    // to not starve any event source everyone is polled and put in this queue.
+    // they are not polled again before the queue is not empty.
     let mut poll_queue = VecDeque::new();
 
     // initial repaint.
     flow = repaint_tui(&mut terminal, app, data, uistate, repaint_event);
 
     'ui: loop {
-        if poll_queue.is_empty() {
-            if poll_repaint_flag(app, uistate) {
-                poll_queue.push_back(PollNext::RepaintFlag);
+        flow = flow.or_else(|| 'f: {
+            if poll_queue.is_empty() {
+                if poll_repaint_flag(app, uistate) {
+                    poll_queue.push_back(PollNext::RepaintFlag);
+                }
+                if poll_timers(app, uistate) {
+                    poll_queue.push_back(PollNext::Timers);
+                }
+                if poll_workers(app, &worker) {
+                    poll_queue.push_back(PollNext::Workers);
+                }
+                match poll_crossterm(app) {
+                    Ok(true) => {
+                        poll_queue.push_back(PollNext::Crossterm);
+                    }
+                    Err(err) => break 'f ControlUI::Err(err.into()),
+                    _ => {}
+                }
             }
-            if poll_timers(app, uistate) {
-                poll_queue.push_back(PollNext::Timers);
+            match poll_queue.pop_front() {
+                None => ControlUI::Continue,
+                Some(PollNext::RepaintFlag) => read_repaint_flag(app, uistate, &mut repaint_event),
+                Some(PollNext::Timers) => read_timers(app, data, uistate, &mut repaint_event),
+                Some(PollNext::Workers) => read_workers(app, &worker),
+                Some(PollNext::Crossterm) => read_crossterm(app, data, uistate),
             }
-            if poll_workers(app, &worker) {
-                poll_queue.push_back(PollNext::Workers);
-            }
-            if poll_crossterm(app)? {
-                poll_queue.push_back(PollNext::Crossterm);
-            }
-        }
-
-        flow = flow.or_else(|| match poll_queue.pop_front() {
-            None => ControlUI::Continue,
-            Some(PollNext::RepaintFlag) => read_repaint_flag(app, uistate, &mut repaint_event),
-            Some(PollNext::Timers) => read_timers(app, data, uistate, &mut repaint_event),
-            Some(PollNext::Workers) => read_workers(app, &worker),
-            Some(PollNext::Crossterm) => read_crossterm(app, data, uistate),
         });
 
         flow.or_do(|| {
@@ -239,7 +245,6 @@ fn read_repaint_flag<App: TuiApp>(
 
 fn poll_timers<App: TuiApp>(app: &App, uistate: &mut App::State) -> bool {
     if let Some(timers) = app.get_timers(&uistate) {
-        debug!("timer-poll {}", timers.poll());
         timers.poll()
     } else {
         false
