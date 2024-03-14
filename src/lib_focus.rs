@@ -143,12 +143,12 @@ macro_rules! validate {
 /// # });
 /// # let evt = &vevt;
 /// # let vrepaint = Repaint::default();
-/// # let repaint = &vrepaint;
+/// # let repaint = Some(&vrepaint);
 ///
 /// let flow = Focus::new([
 ///     (&widget1.focus, widget1.area),
 ///     (&widget2.focus, widget2.area),
-/// ]).handle(evt, repaint, DefaultKeys)
+/// ]).handle_repaint(evt, repaint, DefaultKeys)
 /// .on_changed(|| {
 ///     on_focus!(widget1 => {
 ///         // ... do something useful ...
