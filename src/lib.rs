@@ -7,16 +7,19 @@ pub mod widget;
 
 pub(crate) mod util;
 
-mod lib_action_trigger;
 mod lib_focus;
 mod lib_framework;
+mod lib_repaint;
+mod lib_util;
 mod lib_widget;
 
-pub use lib_action_trigger::ActionTrigger;
 pub use lib_focus::{Focus, FocusFlag};
 pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
+pub use lib_repaint::{Repaint, RepaintReason, Timeout, Timer};
+pub use lib_util::ActionTrigger;
 pub use lib_widget::{
-    DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly, RenderFrameWidget, Repaint,
+    DefaultKeys, FrameWidget, HandleCrossterm, HandleCrosstermRepaint, Input, MouseOnly,
+    RenderFrameWidget,
 };
 
 /// Converts from a [Result::Err] to a [ControlUI::Err] and returns early.

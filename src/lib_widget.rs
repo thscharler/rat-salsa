@@ -1,30 +1,6 @@
+use crate::Repaint;
 use ratatui::layout::Rect;
 use ratatui::Frame;
-use std::cell::Cell;
-
-/// Trigger a repaint from event-handling code.
-#[derive(Debug, Default)]
-pub struct Repaint {
-    repaint: Cell<bool>,
-}
-
-impl Repaint {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn get(&self) -> bool {
-        self.repaint.get()
-    }
-
-    pub fn set(&self) {
-        self.repaint.set(true);
-    }
-
-    pub fn reset(&self) {
-        self.repaint.set(false)
-    }
-}
 
 /// Execute an abstract input-action defined by a widget.
 ///
