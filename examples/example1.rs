@@ -54,7 +54,7 @@ pub mod state {
     use rat_salsa::widget::input::{InputState, InputStyle};
     use rat_salsa::widget::mask_input::{InputMaskState, MaskedInputStyle};
     use rat_salsa::widget::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
-    use rat_salsa::Repaint;
+    use rat_salsa::{Repaint, Timers};
     use ratatui::prelude::{Color, Stylize};
     use ratatui::style::Style;
 
@@ -62,9 +62,13 @@ pub mod state {
     pub struct ExState {
         pub g: GeneralState,
         pub repaint: Repaint,
+        pub timers: Timers,
 
         pub input_0: InputMaskState,
         pub input_1: InputState,
+
+        pub timer_1: usize,
+        pub roll: usize,
     }
 
     impl Default for ExState {
@@ -72,8 +76,11 @@ pub mod state {
             let mut s = Self {
                 g: Default::default(),
                 repaint: Default::default(),
+                timers: Default::default(),
                 input_0: Default::default(),
                 input_1: Default::default(),
+                timer_1: 0,
+                roll: 0,
             };
             s.input_0.focus.set();
             s.input_0.set_mask("99.99.9999");
@@ -167,13 +174,15 @@ pub mod app {
     use rat_salsa::widget::mask_input::MaskedTextInput;
     use rat_salsa::widget::message::{StatusDialog, StatusLine};
     use rat_salsa::{
-        check_break, try_ui, validate, HandleCrosstermRepaint, TaskSender, ThreadPool, TuiApp,
+        check_break, try_ui, validate, ControlUI, HandleCrosstermRepaint, TaskSender, ThreadPool,
+        Timer, TimerEvent, Timers, TuiApp,
     };
     use rat_salsa::{DefaultKeys, HandleCrossterm, MouseOnly, RenderFrameWidget, Repaint};
-    use rat_salsa::{Focus, RepaintReason};
+    use rat_salsa::{Focus, RepaintEvent};
     use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
     use ratatui::text::Span;
     use ratatui::Frame;
+    use std::time::Duration;
 
     #[derive(Debug)]
     pub struct Example;
@@ -189,13 +198,18 @@ pub mod app {
             Some(&uistate.repaint)
         }
 
+        fn get_timers<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Timers> {
+            debug!("get_timers {:?}", uistate.timers);
+            Some(&uistate.timers)
+        }
+
         fn repaint(
             &self,
+            event: RepaintEvent,
             frame: &mut Frame<'_>,
-            data: &mut ExData,
-            uistate: &mut ExState,
-            _reason: RepaintReason,
-        ) -> Control {
+            data: &mut Self::Data,
+            uistate: &mut Self::State,
+        ) -> ControlUI<Self::Action, Self::Error> {
             //
             let area = frame.size();
 
@@ -209,7 +223,7 @@ pub mod app {
             )
             .split(area);
 
-            try_ui!(repaint_mask0(frame, layout[0], data, uistate), _);
+            try_ui!(repaint_mask0(event, frame, layout[0], data, uistate), _);
 
             let statusdialog = StatusDialog::new().style(uistate.g.status_dialog_style());
             let mut err_dialog = &mut uistate.g.error_dlg;
@@ -220,6 +234,15 @@ pub mod app {
             let mut msg = &mut uistate.g.status;
             frame.render_stateful_widget(status, layout[2], &mut msg);
 
+            Control::Continue
+        }
+
+        fn handle_timer(
+            &self,
+            _event: TimerEvent,
+            _data: &mut Self::Data,
+            _uistate: &mut Self::State,
+        ) -> ControlUI<Self::Action, Self::Error> {
             Control::Continue
         }
 
@@ -288,6 +311,7 @@ pub mod app {
     }
 
     fn repaint_mask0(
+        event: RepaintEvent,
         frame: &mut Frame<'_>,
         area: Rect,
         data: &mut ExData,
@@ -298,6 +322,7 @@ pub mod app {
         let work = Layout::new(
             Direction::Horizontal,
             [
+                Constraint::Length(25),
                 Constraint::Length(25),
                 Constraint::Length(25),
                 Constraint::Length(25),
@@ -323,6 +348,11 @@ pub mod app {
             [EditConstraint::Label("Text"), EditConstraint::Widget(15)],
         );
 
+        let l_edit2 = layout_edit(
+            work[2],
+            [EditConstraint::Label("Rolling banners are nice :-) ")],
+        );
+
         let label_edit = Span::from("Datum");
 
         let edit = MaskedTextInput::default().style(uistate.g.input_mask_style());
@@ -345,6 +375,27 @@ pub mod app {
         let edit = TextInput::default().style(uistate.g.input_style());
         frame.render_widget(label_edit, l_edit1.label[0]);
         frame.render_frame_widget(edit, l_edit1.widget[0], &mut uistate.input_1);
+
+        debug!("repaint {:?}", event);
+
+        if uistate.timer_1 == 0 {
+            uistate.timer_1 = uistate.timers.add(
+                Timer::new()
+                    .repeat(usize::MAX)
+                    .repaint(true)
+                    .timer(Duration::from_millis(1)),
+            );
+        }
+
+        if let RepaintEvent::Timer(t) = event {
+            if t.tag == uistate.timer_1 {
+                uistate.roll = t.counter % 29;
+            }
+        }
+        let txt_roll = "Rolling banners are nice :-) ";
+        let (txt_roll1, txt_roll2) = txt_roll.split_at(uistate.roll);
+        let label_roll = Span::from(format!("{}{}", txt_roll2, txt_roll1).to_string());
+        frame.render_widget(label_roll, l_edit2.label[0]);
 
         Control::Continue
     }
