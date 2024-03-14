@@ -2,7 +2,9 @@
 use log::debug;
 use std::time::{Duration, SystemTime};
 
-/// Provides the trigger for mouse double-click.
+/// Small helper that provides a trigger for mouse double-click.
+///
+/// It uses a timeout to filter out the second click.
 #[derive(Debug)]
 pub struct ActionTrigger {
     pub armed: Option<SystemTime>,
