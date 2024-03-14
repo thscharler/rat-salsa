@@ -1,3 +1,4 @@
+#[allow(unused_imports)]
 use log::debug;
 use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
@@ -28,7 +29,6 @@ impl Timers {
     pub fn sleep_time(&self) -> Option<Duration> {
         let timers = self.timers.borrow();
         if let Some(timer) = timers.last() {
-            debug!("sleep_time {:?}", timer);
             let now = Instant::now();
             if now > timer.next {
                 Some(Duration::from_nanos(0))
