@@ -1,27 +1,8 @@
-//! Functions that calculate specialized layouts.
-use ratatui::layout::{Constraint, Layout, Margin, Rect};
+//!
+//! Some helper functions that can calculate special layouts.
+//!
+use ratatui::layout::{Constraint, Direction, Flex, Layout, Margin, Rect};
 use std::cmp::max;
-
-// todo: use Constraint instead
-/// A ratio used by layout_dialog().
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Ratio {
-    pub num: u16,
-    pub den: u16,
-}
-
-impl Ratio {
-    pub fn new(num: u16, den: u16) -> Self {
-        Self { num, den }
-    }
-}
-
-#[macro_export]
-macro_rules! ratio {
-    ($n:literal / $d:literal) => {
-        $crate::layout::Ratio { num: $n, den: $d }
-    };
-}
 
 /// Constraint data for [layout_edit]
 #[derive(Debug)]
@@ -76,56 +57,49 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
 pub struct LayoutDialog<const N: usize> {
     pub dialog: Rect,
     pub area: Rect,
+    pub button_area: Rect,
     pub buttons: [Rect; N],
 }
 
 /// Calculates a layout for a dialog with buttons.
 pub fn layout_dialog<const N: usize>(
     area: Rect,
-    h_ratio: Ratio,
-    v_ratio: Ratio,
+    h_constraint: Constraint,
+    v_constraint: Constraint,
     insets: Margin,
-    buttons: [u16; N],
+    buttons: [Constraint; N],
+    button_spacing: u16,
+    button_flex: Flex,
 ) -> LayoutDialog<N> {
-    assert!(h_ratio.num <= h_ratio.den);
-    assert!(v_ratio.num <= v_ratio.den);
+    let l_vertical = Layout::new(
+        Direction::Vertical,
+        [Constraint::Fill(1), v_constraint, Constraint::Fill(1)],
+    )
+    .split(area);
+    let l_dialog = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Fill(1), h_constraint, Constraint::Fill(1)],
+    )
+    .split(l_vertical[1])[1];
 
-    let dlg_width = area.width * h_ratio.num / h_ratio.den;
-    let dlg_height = area.height * v_ratio.num / v_ratio.den;
-    let dlg_space_x = (area.width - dlg_width) / 2;
-    let dlg_space_y = (area.height - dlg_height) / 2;
+    let l_inner = l_dialog.inner(&insets);
 
-    let dlg = Rect::new(
-        area.x + dlg_space_x,
-        area.y + dlg_space_y,
-        dlg_width,
-        dlg_height,
-    );
-
-    let inner = dlg.inner(&insets);
-
-    let l0 = Layout::vertical([
+    let l_content = Layout::vertical([
         Constraint::Fill(1),
         Constraint::Length(insets.vertical),
         Constraint::Length(1),
     ])
-    .split(inner);
+    .split(l_inner);
 
-    let mut bb = Vec::new();
-    bb.push(Constraint::Fill(1));
-    for w in buttons.iter() {
-        bb.push(Constraint::Length(*w));
-    }
-
-    let l1 = Layout::horizontal(bb).spacing(1).split(l0[2]);
-    let mut buttons = [Rect::default(); N];
-    for i in 0..N {
-        buttons[i] = l1[i + 1];
-    }
+    let l_buttons = Layout::horizontal(buttons)
+        .spacing(button_spacing)
+        .flex(button_flex)
+        .areas(l_content[2]);
 
     LayoutDialog {
-        dialog: dlg,
-        area: l0[0],
-        buttons,
+        dialog: l_dialog,
+        area: l_inner,
+        button_area: l_content[2],
+        buttons: l_buttons,
     }
 }
