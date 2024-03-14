@@ -3,16 +3,14 @@ use ratatui::Frame;
 use std::cell::Cell;
 
 /// Trigger a repaint from event-handling code.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Repaint {
     repaint: Cell<bool>,
 }
 
 impl Repaint {
     pub fn new() -> Self {
-        Self {
-            repaint: Default::default(),
-        }
+        Self::default()
     }
 
     pub fn get(&self) -> bool {

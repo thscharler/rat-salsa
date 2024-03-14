@@ -52,10 +52,11 @@ This functionality is split in two functions in [TuiApp]:
 The rest of the [TuiApp] functions are self-explanatory.
 
 ## Keyboard focus
-
-The struct [focus::Focus] can be used to manage the focused widget. It works by embedding a
-[focus::FocusFlag] in the state of each widget. Focus gets a list with all FocusFlags that are 
-involved in the focus-cyle. This list is then used to switch between the widgets.
+ 
+The struct [focus::Focus] can be used to manage the focused widget. It works by adding
+[focus::FocusFlag] to the state of each widget. Focus is constructed with a list of
+the focus-flags that should be involved. Each widget stays separate otherwise and takes
+its current state from this flag.
 
 ### Additions
 

@@ -2,23 +2,22 @@
 
 use std::fmt::Debug;
 
-pub mod action_trigger;
-pub mod basic;
-pub mod button;
-pub mod calendar;
-pub mod focus;
-pub mod input;
 pub mod layout;
-pub mod mask_input;
-pub mod menuline;
-pub mod message;
-pub mod table;
 pub mod widget;
 
 pub(crate) mod util;
 
-mod framework;
-pub use framework::{run_tui, TaskSender, ThreadPool, TuiApp};
+mod lib_action_trigger;
+mod lib_focus;
+mod lib_framework;
+mod lib_widget;
+
+pub use lib_action_trigger::ActionTrigger;
+pub use lib_focus::{Focus, FocusFlag};
+pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
+pub use lib_widget::{
+    DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly, RenderFrameWidget, Repaint,
+};
 
 /// Converts from a [Result::Err] to a [ControlUI::Err] and returns early.
 /// Evaluates to the value of [Result::Ok].

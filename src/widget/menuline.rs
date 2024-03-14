@@ -1,7 +1,7 @@
-use crate::action_trigger::ActionTrigger;
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
-use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
+use crate::ActionTrigger;
 use crate::ControlUI;
+use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };

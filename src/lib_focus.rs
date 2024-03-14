@@ -1,20 +1,6 @@
-/// Keeps track of the focus.
-///
-/// This works by adding a FocusFlag to the State of a widget.
-/// Focus is constructed with a list of references to these flags
-/// and switches the focus that way.
-///
-/// Each widget stays separate otherwise and can pull its focus state
-/// from this struct.
-///
-/// There is one additional flag [FocusFlag::validate] which is set if a widget
-/// looses the focus. This can be used as a validation marker, but is otherwise not used.
-/// There is a macro [validate!] which can be used for this. It evaluates a block and
-/// stores the result in [FocusFlag::is_valid] which can be used by the widget.
-///
 use crate::util::{next_circular, prev_circular};
-use crate::widget::{DefaultKeys, HandleCrossterm, MouseOnly, Repaint};
 use crate::ControlUI;
+use crate::{DefaultKeys, HandleCrossterm, MouseOnly, Repaint};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::error;
@@ -26,29 +12,55 @@ use std::vec;
 /// Flag structure to be used in widget states.
 #[derive(Debug, Clone)]
 pub struct FocusFlag {
-    /// A unique tag within one focus-cycle. This value is set when
-    /// the focus cycle is created. While it is not recommended to change
-    /// this value it's not essential to the operation. It's only used
-    /// to change the focus from the outside.
+    /// A unique tag within one focus-cycle. It is set when the focus cycle is created.
+    /// See [Focus::focus]
     pub tag: Cell<u16>,
-    /// Active focus flag. There is usually only one widget with focus==true
-    /// within a cycle.
+    /// Focus. See [on_focus]
     pub focus: Cell<bool>,
-    /// Indicates that the field just lost the focus.
+    /// This widget just lost the focus. See [validate]
     pub lost: Cell<bool>,
 }
 
-/// Switch the focus for an ui.
+/// Keeps track of the focus.
 ///
-/// Uses a list of [FocusFlag] for its operation. That way each widget can
-/// stay independent.
+/// It works by adding a [FocusFlag] to the State of a widget.
+/// Focus is constructed with a list of references to these flags
+/// and switches the focus that way. Each widget stays separate otherwise
+/// and can pull its focus state from this struct.
+///
+/// ```
+/// # use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+/// use rat_salsa::{check_break, DefaultKeys, Focus, HandleCrossterm, Repaint};
+/// # use rat_salsa::widget::button::ButtonState;
+/// # let widget1 = ButtonState::default();
+/// # let widget2 = ButtonState::default();
+/// # let vevt = crossterm::event::Event::Key(KeyEvent {
+/// #     code: KeyCode::Tab,
+/// #     modifiers: KeyModifiers::NONE,
+/// #     kind: KeyEventKind::Press,
+/// #     state: KeyEventState::NONE
+/// # });
+/// # let evt = &vevt;
+/// # let vrepaint = Repaint::default();
+/// # let repaint = &vrepaint;
+///
+/// check_break!(
+///     Focus::new([
+///         (&widget1.focus, widget1.area),
+///         (&widget2.focus, widget2.area),
+///     ]).handle(evt, repaint, DefaultKeys)
+/// );
+/// ```
 #[derive(Debug)]
 pub struct Focus<'a> {
+    /// Areas for each widget.
     pub areas: Vec<Rect>,
+    /// List of flags.
     pub focus: Vec<&'a FocusFlag>,
 }
 
 impl Default for FocusFlag {
+    #[inline]
     fn default() -> Self {
         Self {
             tag: Cell::new(0),
@@ -60,45 +72,95 @@ impl Default for FocusFlag {
 
 impl FocusFlag {
     /// Has the focus.
+    #[inline]
     pub fn get(&self) -> bool {
         self.focus.get()
     }
 
     /// Set the focus.
+    #[inline]
     pub fn set(&self) {
         self.focus.set(true);
     }
 
     /// Associated tag.
+    #[inline]
     pub fn tag(&self) -> u16 {
         self.tag.get()
     }
 
     /// Just lost the focus.
+    #[inline]
     pub fn lost(&self) -> bool {
         self.lost.get()
     }
 }
 
-/// Validates the given widget.
+/// Validates the given widget if `focus.lost()` is true.
 ///
-/// It expects that the widget has the fields `focus: FocusFlag` and `is_valid: bool` that
+/// ```
+/// # use rat_salsa::{FocusFlag, validate};
+/// # #[derive(Default)]
+/// # struct State {
+/// #     pub focus: FocusFlag,
+/// #     pub valid: bool,
+/// # }
+/// # let mut state = State::default();
+/// validate!(state.firstframe.widget1 => {
+///     // do something ...
+///     true
+/// })
+/// ```
+///
+/// It expects that the widget has the fields `focus: FocusFlag` and `valid: bool` that
 /// are both public.
-///
-/// If `focus.lost()` is set, the expression is evaluated. The result is set into `is_valid`.
 #[macro_export]
 macro_rules! validate {
     ($field:expr => $validate:expr) => {{
         let cond = $field.focus.lost();
         if cond {
             let valid = $validate;
-            $field.is_valid = valid;
+            $field.valid = valid;
         }
     }};
 }
 
-/// Focus gained.
-/// Might be replaced with some fn on_focus(..) on the state struct.
+/// Executes the expression if `focus.get()` is true.
+///
+/// This is only useful if combined with [ControlUI::on_changed].
+///
+/// ```
+/// # use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+/// use rat_salsa::{ControlUI, DefaultKeys, Focus, HandleCrossterm, on_focus, Repaint};
+/// # use rat_salsa::widget::button::ButtonState;
+/// # let widget1 = ButtonState::default();
+/// # let widget2 = ButtonState::default();
+/// # let vevt = crossterm::event::Event::Key(KeyEvent {
+/// #     code: KeyCode::Tab,
+/// #     modifiers: KeyModifiers::NONE,
+/// #     kind: KeyEventKind::Press,
+/// #     state: KeyEventState::NONE
+/// # });
+/// # let evt = &vevt;
+/// # let vrepaint = Repaint::default();
+/// # let repaint = &vrepaint;
+///
+/// let flow = Focus::new([
+///     (&widget1.focus, widget1.area),
+///     (&widget2.focus, widget2.area),
+/// ]).handle(evt, repaint, DefaultKeys)
+/// .on_changed(|| {
+///     on_focus!(widget1 => {
+///         // ... do something useful ...
+///     });
+///     on_focus!(widget2 => {
+///         // ... do something else ...
+///     });
+///
+///     ControlUI::Changed
+/// });
+/// ```
+///
 #[macro_export]
 macro_rules! on_focus {
     ($field:expr => $gained:expr) => {{
@@ -150,8 +212,11 @@ impl<'a> Focus<'a> {
         self
     }
 
-    /// Resets the focus to the last field that lost the focus.
-    /// Can be used to reset the focus after a failed validation without triggering another one.
+    /// Resets the focus to the last widget that lost the focus.
+    ///
+    /// The widget then has the focus and no other field has the lost-flag set.
+    ///
+    /// Can be used to reset the focus after a failed validation without triggering a new one.
     pub fn reset_lost(&self) {
         for f in self.focus.iter() {
             if f.focus.get() {
@@ -163,7 +228,10 @@ impl<'a> Focus<'a> {
         }
     }
 
-    /// Change the focused part. Uses an index into the list.
+    /// Change the focus.
+    ///
+    /// Sets the focus and the lost flags. Calling this for the widget that currently
+    /// has the focus returns *false*, but it resets any lost flag.
     pub fn focus_idx(&self, idx: usize) -> bool {
         let mut change = false;
 
@@ -185,8 +253,10 @@ impl<'a> Focus<'a> {
         change
     }
 
-    /// Change the focused part. Used for focus changes unrelated to standard
-    /// navigation.
+    /// Change the focus using the tag.
+    ///
+    /// Sets the focus and the lost flags. Calling this for the widget that currently
+    /// has the focus returns *false*, but it resets any lost flag.
     pub fn focus(&self, tag: u16) -> bool {
         let mut change = false;
 
@@ -209,6 +279,9 @@ impl<'a> Focus<'a> {
     }
 
     /// Focus the next widget in the cycle.
+    ///
+    /// Sets the focus and lost flags. If this ends up with the same widget as
+    /// before it returns *false*, but it resets any lost flag.
     pub fn next(&self) -> bool {
         for (i, p) in self.focus.iter().enumerate() {
             if p.focus.get() {
@@ -228,6 +301,9 @@ impl<'a> Focus<'a> {
     }
 
     /// Focus the previous widget in the cycle.
+    ///
+    /// Sets the focus and lost flags. If this ends up with the same widget as
+    /// before it returns *false*, but it resets any lost flag.
     pub fn prev(&self) -> bool {
         for (i, p) in self.focus.iter().enumerate() {
             if p.focus.get() {
@@ -280,6 +356,7 @@ impl<'a, A, E> HandleCrossterm<ControlUI<A, E>> for Focus<'a> {
 }
 
 impl<'a, A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for Focus<'a> {
+    /// Only do mouse-events.
     fn handle(&mut self, event: &Event, repaint: &Repaint, _: MouseOnly) -> ControlUI<A, E> {
         use crossterm::event::*;
 

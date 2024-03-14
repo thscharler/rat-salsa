@@ -1,10 +1,10 @@
 use crate::app::Example;
 use crate::data::ExData;
 use crate::state::ExState;
-use rat_salsa::{run_tui, ControlUI};
+use rat_salsa::run_tui;
 use std::time::SystemTime;
 
-type Control = ControlUI<ExAction, anyhow::Error>;
+type Control = rat_salsa::ControlUI<ExAction, anyhow::Error>;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logger()?;
@@ -50,10 +50,10 @@ pub mod data {
 
 pub mod state {
     use crate::theme::{Theme, ONEDARK};
-    use rat_salsa::button::ButtonStyle;
-    use rat_salsa::input::{InputState, InputStyle};
-    use rat_salsa::mask_input::{InputMaskState, MaskedInputStyle};
-    use rat_salsa::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
+    use rat_salsa::widget::button::ButtonStyle;
+    use rat_salsa::widget::input::{InputState, InputStyle};
+    use rat_salsa::widget::mask_input::{InputMaskState, MaskedInputStyle};
+    use rat_salsa::widget::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
     use ratatui::prelude::{Color, Stylize};
     use ratatui::style::Style;
 
@@ -159,13 +159,13 @@ pub mod app {
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     #[allow(unused_imports)]
     use log::debug;
-    use rat_salsa::focus::Focus;
-    use rat_salsa::input::TextInput;
     use rat_salsa::layout::{layout_edit, EditConstraint};
-    use rat_salsa::mask_input::MaskedTextInput;
-    use rat_salsa::message::{StatusDialog, StatusLine};
-    use rat_salsa::widget::{DefaultKeys, HandleCrossterm, MouseOnly, RenderFrameWidget, Repaint};
-    use rat_salsa::{check_break, try_ui, validate, ControlUI, TaskSender, ThreadPool, TuiApp};
+    use rat_salsa::widget::input::TextInput;
+    use rat_salsa::widget::mask_input::MaskedTextInput;
+    use rat_salsa::widget::message::{StatusDialog, StatusLine};
+    use rat_salsa::Focus;
+    use rat_salsa::{check_break, try_ui, validate, TaskSender, ThreadPool, TuiApp};
+    use rat_salsa::{DefaultKeys, HandleCrossterm, MouseOnly, RenderFrameWidget, Repaint};
     use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
     use ratatui::text::Span;
     use ratatui::Frame;
@@ -393,8 +393,8 @@ pub mod app {
         uistate: &mut ExState,
         repaint: &Repaint,
     ) -> Control {
-        // let f = focus_mask0(uistate).handle_crossterm(evt, DefaultKeys);
-        let f = focus_mask0(uistate).handle(evt, repaint, ExKeys);
+        let f = focus_mask0(uistate).handle(evt, repaint, DefaultKeys);
+        // let f = focus_mask0(uistate).handle(evt, repaint, ExKeys);
 
         // validation and reformat on focus lost.
         validate!(uistate.input_0 =>
@@ -415,7 +415,7 @@ pub mod app {
             r.on_changed_do(|| {
                 let str = uistate.input_0.compact_value();
                 let r = NaiveDate::parse_from_str(str.as_str(), "%d.%m.%Y");
-                uistate.input_0.is_valid = r.is_ok();
+                uistate.input_0.valid = r.is_ok();
             });
             r
         });
@@ -432,10 +432,10 @@ pub mod app {
                 if let Ok(d) =
                     NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y")
                 {
-                    uistate.input_0.is_valid = true;
+                    uistate.input_0.valid = true;
                     data.datum = d;
                 } else {
-                    uistate.input_0.is_valid = false;
+                    uistate.input_0.valid = false;
                     data.datum = NaiveDate::default();
                 }
                 let v = data.datum.format("%d.%m.%Y").to_string();

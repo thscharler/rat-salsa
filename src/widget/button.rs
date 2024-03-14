@@ -1,9 +1,9 @@
 //!
 //! A simple button.
 //!
-use crate::focus::FocusFlag;
-use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
 use crate::ControlUI;
+use crate::FocusFlag;
+use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;

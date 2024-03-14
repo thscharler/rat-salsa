@@ -3,8 +3,8 @@
 //! It uses ControlUI as it's central control-flow construct.
 //!
 
-use crate::widget::Repaint;
 use crate::ControlUI;
+use crate::Repaint;
 use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
 use crossterm::terminal::{

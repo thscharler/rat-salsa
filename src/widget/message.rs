@@ -1,8 +1,8 @@
-use crate::button::{Button, ButtonState, ButtonStyle};
 use crate::layout::layout_dialog;
-use crate::widget::{DefaultKeys, HandleCrossterm, Repaint};
+use crate::widget::button::{Button, ButtonState, ButtonStyle};
 use crate::ControlUI;
 use crate::{check_break, ratio};
+use crate::{DefaultKeys, HandleCrossterm, Repaint};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
 use log::debug;

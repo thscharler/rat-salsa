@@ -1,8 +1,8 @@
-use crate::action_trigger::ActionTrigger;
-use crate::focus::FocusFlag;
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
-use crate::widget::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
+use crate::ActionTrigger;
 use crate::ControlUI;
+use crate::FocusFlag;
+use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
