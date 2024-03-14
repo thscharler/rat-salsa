@@ -26,10 +26,12 @@ impl Repaint {
     }
 }
 
-/// Executes the input requests defined by a widget.
+/// Execute an abstract input-action defined by a widget.
 ///
-/// A widget can define a set of standard actions to manipulate its state.
-/// The event-handler maps input-events to these actions, and executes them using [`Input::perform`]
+/// A widget can define a set of standard actions that manipulate its state. The event-handler
+/// translates the concrete events to these actions and executes them calling [`Input::perform`].
+/// This requires that both `Input` and `HandleCrossterm` are implemented for the widget-state.
+/// As it's not obligatory to use this extra layer this is not enforced at type-level.
 pub trait Input<R> {
     /// Type of action request for a widget.
     type Request;
@@ -38,34 +40,42 @@ pub trait Input<R> {
     fn perform(&mut self, req: Self::Request) -> R;
 }
 
-/// Marker struct. Used by HandleCrossterm to differentiate between key-mappings.
+/// Marker struct. Used by `HandleCrossterm` to differentiate between key-mappings.
 #[derive(Debug)]
 pub struct DefaultKeys;
 
 /// Marker struct like [DefaultKeys]. This one selects an event-handler that processes only
 /// mouse events. Useful when creating your own key-bindings but not wanting to touch
-/// the mouse interactions.
+/// the mouse interactions. If this separation exists for a widget it should be called
+/// automatically by the `DefaultKeys` handler.
 #[derive(Debug)]
 pub struct MouseOnly;
 
 /// Handle events received by crossterm.
 ///
-/// Implementations translate from input-events to widget-actions and call [Input::perform]
-/// to actually do something.
+/// This one should be implemented for the state struct of a widget and can do whatever. And it
+/// can return whatever extra outcome is needed. Common usage would return a [ControlUI] flag
+/// as a result.
 ///
-/// There is one extra type parameter K which is used to implement more than one event-handler
-/// for the same widget. It's recommended to use [DefaultKeys] for the baseline implementation.
+/// There is an extra parameter `KeyMap` which can be used to define more than one mapping for
+/// a widget. This can be useful when overriding the default behaviour for a widget. Two
+/// keymaps for common usage are defined in this library: [DefaultKeys] and [MouseOnly].
 ///
-/// Another option is to split the event-handler between keyboard and mouse-events by
-/// using [MouseOnly] for the latter. The handler for [DefaultKeys] ought to forward any
-/// unprocessed event to the `MouseOnly` handler. That way a new mapping can easily offload
-/// all the mouse handling.
+/// Remark
+///
+/// There is only HandleCrossterm for now, as that is what I needed. But there is no problem
+/// adding a HandleTermion, HandleTermwiz or whatever. One could add a second type parameter
+/// for this differentiation, but I think that would complicate usage unnecessarily. And
+/// any application will probably decide to use one or the other and not all of them.
+/// A widget library can easily support all of them with this scheme without some added layer
+/// of indirection and use a feature flag to select between them.
 pub trait HandleCrossterm<R, KeyMap = DefaultKeys> {
     fn handle(&mut self, event: &crossterm::event::Event, repaint: &Repaint, keymap: KeyMap) -> R;
 }
 
-/// Extra rendering which passes on the frame to a [FrameWidget].
-/// This allows setting the cursor inside a widget.
+/// Add-on to ratatui.
+///
+/// Adds a `render_frame_widget()` to Frame for use with [FrameWidget].
 pub trait RenderFrameWidget {
     fn render_frame_widget<W: FrameWidget>(&mut self, widget: W, area: Rect, state: &mut W::State);
 }
@@ -76,10 +86,10 @@ impl<'a> RenderFrameWidget for Frame<'a> {
     }
 }
 
-/// Another kind of widget that takes a frame instead of a buffer.
-/// Allows to set the cursor while rendering.
+/// Add-on to ratatui.
 ///
-/// This also always takes a state, just use () if not needed.
+/// Another kind of widget that takes a frame instead of a buffer.
+/// This allows the widget to call set_cursor(), that's all.
 pub trait FrameWidget {
     /// Type of the corresponding state struct.
     type State: ?Sized;
