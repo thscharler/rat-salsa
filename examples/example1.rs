@@ -199,7 +199,6 @@ pub mod app {
         }
 
         fn get_timers<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Timers> {
-            debug!("get_timers {:?}", uistate.timers);
             Some(&uistate.timers)
         }
 
@@ -376,14 +375,12 @@ pub mod app {
         frame.render_widget(label_edit, l_edit1.label[0]);
         frame.render_frame_widget(edit, l_edit1.widget[0], &mut uistate.input_1);
 
-        debug!("repaint {:?}", event);
-
         if uistate.timer_1 == 0 {
             uistate.timer_1 = uistate.timers.add(
                 Timer::new()
                     .repeat(usize::MAX)
                     .repaint(true)
-                    .timer(Duration::from_millis(1)),
+                    .timer(Duration::from_millis(500)),
             );
         }
 
@@ -448,7 +445,7 @@ pub mod app {
 
         // validation and reformat on focus lost.
         validate!(uistate.input_0 =>
-        if let Ok(d) = NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y") {
+            if let Ok(d) = NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y") {
             data.datum = d;
             let v = data.datum.format("%d.%m.%Y").to_string();
             uistate.input_0.set_value(v);
