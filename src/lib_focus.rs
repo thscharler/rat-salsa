@@ -284,6 +284,9 @@ impl<'a> Focus<'a> {
     /// Sets the focus and lost flags. If this ends up with the same widget as
     /// before it returns *false*, but it resets any lost flag.
     pub fn next(&self) -> bool {
+        for p in self.focus.iter() {
+            p.lost.set(false);
+        }
         for (i, p) in self.focus.iter().enumerate() {
             if p.focus.get() {
                 p.focus.set(false);
@@ -293,7 +296,7 @@ impl<'a> Focus<'a> {
                     self.focus[n].focus.set(true);
                     return true;
                 } else {
-                    p.lost.set(false);
+                    p.focus.set(true);
                     return false;
                 }
             }
@@ -306,6 +309,9 @@ impl<'a> Focus<'a> {
     /// Sets the focus and lost flags. If this ends up with the same widget as
     /// before it returns *false*, but it resets any lost flag.
     pub fn prev(&self) -> bool {
+        for p in self.focus.iter() {
+            p.lost.set(false);
+        }
         for (i, p) in self.focus.iter().enumerate() {
             if p.focus.get() {
                 p.focus.set(false);
@@ -315,7 +321,7 @@ impl<'a> Focus<'a> {
                     self.focus[n].focus.set(true);
                     return true;
                 } else {
-                    p.lost.set(false);
+                    p.focus.set(true);
                     return false;
                 }
             }
