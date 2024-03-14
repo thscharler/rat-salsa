@@ -10,12 +10,14 @@ pub(crate) mod util;
 mod lib_focus;
 mod lib_framework;
 mod lib_repaint;
+mod lib_timer;
 mod lib_util;
 mod lib_widget;
 
 pub use lib_focus::{Focus, FocusFlag};
 pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
-pub use lib_repaint::{Repaint, RepaintReason, Timeout, Timer};
+pub use lib_repaint::{Repaint, RepaintEvent};
+pub use lib_timer::{Timer, TimerEvent, Timers};
 pub use lib_util::ActionTrigger;
 pub use lib_widget::{
     DefaultKeys, FrameWidget, HandleCrossterm, HandleCrosstermRepaint, Input, MouseOnly,

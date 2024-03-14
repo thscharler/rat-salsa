@@ -3,7 +3,8 @@
 //! It uses ControlUI as it's central control-flow construct.
 //!
 
-use crate::lib_repaint::{Repaint, RepaintReason, Timeout};
+use crate::lib_repaint::{Repaint, RepaintEvent};
+use crate::lib_timer::{TimerEvent, Timers};
 use crate::ControlUI;
 use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
@@ -14,10 +15,11 @@ use crossterm::{event, ExecutableCommand};
 use log::debug;
 use ratatui::backend::CrosstermBackend;
 use ratatui::{Frame, Terminal};
-use std::cell::Cell;
+use std::cmp::min;
+use std::collections::VecDeque;
 use std::io::{stdout, Stdout};
 use std::thread::{sleep, JoinHandle};
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 use std::{io, thread};
 
 /// Describes the requisites of a TuiApp.
@@ -37,15 +39,32 @@ pub trait TuiApp {
     type Error;
 
     /// Get the repaint state for this uistate.
-    fn get_repaint<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Repaint>;
+    #[allow(unused_variables)]
+    fn get_repaint<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Repaint> {
+        None
+    }
+
+    /// Get the timer state for this uistate.
+    #[allow(unused_variables)]
+    fn get_timers<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Timers> {
+        None
+    }
 
     /// Repaint the ui.
     fn repaint(
         &self,
+        reason: RepaintEvent,
         frame: &mut Frame<'_>,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-        reason: RepaintReason,
+    ) -> ControlUI<Self::Action, Self::Error>;
+
+    /// Handle a timer.
+    fn handle_timer(
+        &self,
+        event: TimerEvent,
+        data: &mut Self::Data,
+        uistate: &mut Self::State,
     ) -> ControlUI<Self::Action, Self::Error>;
 
     /// Handle an event.
@@ -89,6 +108,13 @@ pub trait TuiApp {
     ) -> ControlUI<Self::Action, Self::Error>;
 }
 
+enum PollNext {
+    RepaintFlag,
+    Timers,
+    Workers,
+    Crossterm,
+}
+
 /// Run the event-loop.
 pub fn run_tui<App: TuiApp>(
     app: &'static App,
@@ -111,53 +137,57 @@ where
 
     let worker = ThreadPool::<App>::build(&app, n_worker);
 
-    let def_repaint = Repaint::default();
-    let repaint_reason = Cell::new(RepaintReason::Change);
-
     let mut flow;
+    let mut repaint_event = RepaintEvent::Changed;
+
+    // to not to starve any event source
+    let mut poll_queue = VecDeque::new();
 
     // initial repaint.
-    flow = repaint_tui(&mut terminal, app, data, uistate, repaint_reason.get());
+    flow = repaint_tui(&mut terminal, app, data, uistate, repaint_event);
 
     'ui: loop {
-        flow = flow.or_else(|| {
-            check_timers::<App>(get_repaint(app, uistate, &def_repaint), &repaint_reason)
+        if poll_queue.is_empty() {
+            if poll_repaint_flag(app, uistate) {
+                poll_queue.push_back(PollNext::RepaintFlag);
+            }
+            if poll_timers(app, uistate) {
+                poll_queue.push_back(PollNext::Timers);
+            }
+            if poll_workers(app, &worker) {
+                poll_queue.push_back(PollNext::Workers);
+            }
+            if poll_crossterm(app)? {
+                poll_queue.push_back(PollNext::Crossterm);
+            }
+        }
+
+        flow = flow.or_else(|| match poll_queue.pop_front() {
+            None => ControlUI::Continue,
+            Some(PollNext::RepaintFlag) => read_repaint_flag(app, uistate, &mut repaint_event),
+            Some(PollNext::Timers) => read_timers(app, data, uistate, &mut repaint_event),
+            Some(PollNext::Workers) => read_workers(app, &worker),
+            Some(PollNext::Crossterm) => read_crossterm(app, data, uistate),
         });
 
-        flow = flow.or_else(|| worker.try_recv());
-
-        flow = flow.or_else(|| match event::poll(Duration::default()) {
-            Ok(true) => match event::read() {
-                Ok(evt) => app.handle_event(evt, data, uistate),
-                Err(err) => ControlUI::Err(err.into()),
-            },
-            Ok(false) => ControlUI::Continue,
-            Err(err) => ControlUI::Err(err.into()),
-        });
-
-        flow = flow.or_else(|| {
-            sleep(Duration::from_millis(10));
-            ControlUI::Continue
+        flow.or_do(|| {
+            let t = calculate_sleep(app, uistate, Duration::from_millis(10));
+            sleep(t);
         });
 
         flow = match flow {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Unchanged => ControlUI::Continue,
             ControlUI::Changed => {
-                get_repaint(app, uistate, &def_repaint).set();
-                ControlUI::Continue
+                flow = repaint_tui(&mut terminal, app, data, uistate, repaint_event);
+                repaint_event = RepaintEvent::Changed;
+                flow
             }
             ControlUI::Action(action) => app.run_action(action, data, uistate),
             ControlUI::Spawn(action) => app.start_task(action, data, uistate, &worker),
             ControlUI::Err(err) => app.report_error(err, data, uistate),
             ControlUI::Break => break 'ui,
         };
-
-        if get_repaint(app, uistate, &def_repaint).get() {
-            flow = repaint_tui(&mut terminal, app, data, uistate, repaint_reason.get());
-            get_repaint(app, uistate, &def_repaint).reset();
-            repaint_reason.set(RepaintReason::Change);
-        }
     }
 
     worker.stop_and_join()?;
@@ -169,62 +199,122 @@ where
     Ok(())
 }
 
-fn check_timers<App: TuiApp>(
-    repaint: &Repaint,
-    reason: &Cell<RepaintReason>,
-) -> ControlUI<App::Action, App::Error> {
-    let mut timer = repaint.timer.borrow_mut();
-
-    for i in (0..timer.len()).rev() {
-        let t = &mut timer[i];
-
-        if t.start.elapsed().expect("timeout") >= t.timeout {
-            if t.repeat {
-                if let Some(max) = t.max {
-                    let count = t.count.map(|v| v + 1).unwrap_or_else(|| 0);
-                    if count < max {
-                        t.start = SystemTime::now();
-                        t.count = Some(count);
-
-                        reason.set(RepaintReason::Timeout(Timeout {
-                            tag: t.tag,
-                            counter: count,
-                        }));
-                        return ControlUI::Changed;
-                    } else {
-                        timer.remove(i);
-                    }
-                } else {
-                    let count = t.count.map(|v| v + 1).unwrap_or_else(|| 0);
-                    t.start = SystemTime::now();
-                    t.count = Some(count);
-
-                    reason.set(RepaintReason::Timeout(Timeout {
-                        tag: t.tag,
-                        counter: count,
-                    }));
-                    return ControlUI::Changed;
-                }
-            } else {
-                reason.set(RepaintReason::Timeout(Timeout {
-                    tag: t.tag,
-                    counter: 0,
-                }));
-                timer.remove(i);
-                return ControlUI::Changed;
-            }
+fn calculate_sleep<App: TuiApp>(app: &App, uistate: &mut App::State, max: Duration) -> Duration {
+    if let Some(timers) = app.get_timers(&uistate) {
+        if let Some(sleep) = timers.sleep_time() {
+            min(sleep, max)
+        } else {
+            max
         }
+    } else {
+        max
     }
-
-    ControlUI::Continue
 }
 
-fn get_repaint<'a, 'b, App: TuiApp>(
-    app: &'a App,
-    uistate: &'b App::State,
-    fallback: &'b Repaint,
-) -> &'b Repaint {
-    app.get_repaint(uistate).unwrap_or_else(|| fallback)
+fn poll_repaint_flag<App: TuiApp>(app: &App, uistate: &mut App::State) -> bool {
+    if let Some(repaint) = app.get_repaint(uistate) {
+        repaint.get()
+    } else {
+        false
+    }
+}
+
+fn read_repaint_flag<App: TuiApp>(
+    app: &App,
+    uistate: &mut App::State,
+    repaint_event: &mut RepaintEvent,
+) -> ControlUI<App::Action, App::Error> {
+    if let Some(repaint) = app.get_repaint(uistate) {
+        if repaint.get() {
+            repaint.reset();
+            *repaint_event = RepaintEvent::Flagged;
+            ControlUI::Changed
+        } else {
+            ControlUI::Continue
+        }
+    } else {
+        ControlUI::Continue
+    }
+}
+
+fn poll_timers<App: TuiApp>(app: &App, uistate: &mut App::State) -> bool {
+    if let Some(timers) = app.get_timers(&uistate) {
+        debug!("timer-poll {}", timers.poll());
+        timers.poll()
+    } else {
+        false
+    }
+}
+
+fn read_timers<App: TuiApp>(
+    app: &App,
+    data: &mut App::Data,
+    uistate: &mut App::State,
+    repaint_event: &mut RepaintEvent,
+) -> ControlUI<App::Action, App::Error> {
+    if let Some(timers) = app.get_timers(&uistate) {
+        match timers.read() {
+            Some(evt @ TimerEvent { repaint: true, .. }) => {
+                *repaint_event = RepaintEvent::Timer(evt);
+                ControlUI::Changed
+            }
+            Some(evt @ TimerEvent { repaint: false, .. }) => {
+                //
+                app.handle_timer(evt, data, uistate)
+            }
+            None => ControlUI::Continue,
+        }
+    } else {
+        ControlUI::Continue
+    }
+}
+
+fn poll_workers<App: TuiApp>(_app: &App, worker: &ThreadPool<App>) -> bool
+where
+    App::Action: Send + 'static,
+    App::Error: Send + 'static + From<TryRecvError>,
+    App::Task: Send + 'static,
+    App: Sync,
+{
+    !worker.is_empty()
+}
+
+fn read_workers<App: TuiApp>(
+    _app: &App,
+    worker: &ThreadPool<App>,
+) -> ControlUI<App::Action, App::Error>
+where
+    App::Action: Send + 'static,
+    App::Error: Send + 'static + From<TryRecvError>,
+    App::Task: Send + 'static,
+    App: Sync,
+{
+    worker.try_recv()
+}
+
+fn poll_crossterm<App: TuiApp>(_app: &App) -> Result<bool, io::Error> {
+    match event::poll(Duration::from_millis(0)) {
+        Ok(poll) => Ok(poll),
+        Err(err) => Err(err),
+    }
+}
+
+fn read_crossterm<App: TuiApp>(
+    app: &App,
+    data: &mut App::Data,
+    uistate: &mut App::State,
+) -> ControlUI<<App as TuiApp>::Action, <App as TuiApp>::Error>
+where
+    App::Error: From<io::Error>,
+{
+    match event::poll(Duration::from_millis(0)) {
+        Ok(true) => match event::read() {
+            Ok(evt) => app.handle_event(evt, data, uistate),
+            Err(err) => ControlUI::Err(err.into()),
+        },
+        Ok(false) => ControlUI::Continue,
+        Err(err) => ControlUI::Err(err.into()),
+    }
 }
 
 fn repaint_tui<App: TuiApp>(
@@ -232,7 +322,7 @@ fn repaint_tui<App: TuiApp>(
     app: &App,
     data: &mut App::Data,
     uistate: &mut App::State,
-    reason: RepaintReason,
+    reason: RepaintEvent,
 ) -> ControlUI<App::Action, App::Error>
 where
     App::Error: From<io::Error>,
@@ -242,7 +332,7 @@ where
     _ = term.hide_cursor();
 
     let result = term.draw(|frame| {
-        flow = app.repaint(frame, data, uistate, reason);
+        flow = app.repaint(reason, frame, data, uistate);
     });
 
     // a draw() error overwrites a possible repaint() error.
@@ -337,6 +427,11 @@ where
             Ok(_) => ControlUI::Continue,
             Err(_) => ControlUI::Err(SendError(()).into()),
         }
+    }
+
+    /// Is the channel empty?
+    pub fn is_empty(&self) -> bool {
+        self.recv.is_empty()
     }
 
     /// Receive a result.
