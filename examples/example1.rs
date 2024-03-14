@@ -54,12 +54,14 @@ pub mod state {
     use rat_salsa::widget::input::{InputState, InputStyle};
     use rat_salsa::widget::mask_input::{InputMaskState, MaskedInputStyle};
     use rat_salsa::widget::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
+    use rat_salsa::Repaint;
     use ratatui::prelude::{Color, Stylize};
     use ratatui::style::Style;
 
     #[derive(Debug)]
     pub struct ExState {
         pub g: GeneralState,
+        pub repaint: Repaint,
 
         pub input_0: InputMaskState,
         pub input_1: InputState,
@@ -69,6 +71,7 @@ pub mod state {
         fn default() -> Self {
             let mut s = Self {
                 g: Default::default(),
+                repaint: Default::default(),
                 input_0: Default::default(),
                 input_1: Default::default(),
             };
@@ -163,9 +166,11 @@ pub mod app {
     use rat_salsa::widget::input::TextInput;
     use rat_salsa::widget::mask_input::MaskedTextInput;
     use rat_salsa::widget::message::{StatusDialog, StatusLine};
-    use rat_salsa::Focus;
-    use rat_salsa::{check_break, try_ui, validate, TaskSender, ThreadPool, TuiApp};
+    use rat_salsa::{
+        check_break, try_ui, validate, HandleCrosstermRepaint, TaskSender, ThreadPool, TuiApp,
+    };
     use rat_salsa::{DefaultKeys, HandleCrossterm, MouseOnly, RenderFrameWidget, Repaint};
+    use rat_salsa::{Focus, RepaintReason};
     use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
     use ratatui::text::Span;
     use ratatui::Frame;
@@ -180,11 +185,16 @@ pub mod app {
         type Action = ExAction;
         type Error = anyhow::Error;
 
+        fn get_repaint<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Repaint> {
+            Some(&uistate.repaint)
+        }
+
         fn repaint(
             &self,
             frame: &mut Frame<'_>,
             data: &mut ExData,
             uistate: &mut ExState,
+            _reason: RepaintReason,
         ) -> Control {
             //
             let area = frame.size();
@@ -213,13 +223,7 @@ pub mod app {
             Control::Continue
         }
 
-        fn handle_event(
-            &self,
-            evt: Event,
-            data: &mut ExData,
-            uistate: &mut ExState,
-            repaint: &Repaint,
-        ) -> Control {
+        fn handle_event(&self, evt: Event, data: &mut ExData, uistate: &mut ExState) -> Control {
             check_break!(match &evt {
                 Event::Resize(_, _) => Control::Changed,
                 Event::Key(KeyEvent {
@@ -234,13 +238,13 @@ pub mod app {
             check_break!({
                 let error_dlg = &mut uistate.g.error_dlg;
                 if error_dlg.active {
-                    error_dlg.handle(&evt, repaint, DefaultKeys)
+                    error_dlg.handle(&evt, DefaultKeys)
                 } else {
                     Control::Continue
                 }
             });
 
-            check_break!(handle_mask0(&evt, data, uistate, repaint));
+            check_break!(handle_mask0(&evt, data, uistate));
 
             Control::Continue
         }
@@ -355,8 +359,8 @@ pub mod app {
     #[derive(Debug)]
     pub struct ExKeys;
 
-    impl<'a> HandleCrossterm<Control, ExKeys> for Focus<'a> {
-        fn handle(&mut self, event: &Event, repaint: &Repaint, _: ExKeys) -> Control {
+    impl<'a> HandleCrosstermRepaint<Control, ExKeys> for Focus<'a> {
+        fn handle_with_repaint(&mut self, event: &Event, repaint: &Repaint, _: ExKeys) -> Control {
             use crossterm::event::*;
 
             match event {
@@ -380,20 +384,15 @@ pub mod app {
                         repaint.set();
                     }
                 }
-                _ => return self.handle(event, repaint, MouseOnly),
+                _ => return self.handle_with_repaint(event, repaint, MouseOnly),
             }
 
             Control::Continue
         }
     }
 
-    fn handle_mask0(
-        evt: &Event,
-        data: &mut ExData,
-        uistate: &mut ExState,
-        repaint: &Repaint,
-    ) -> Control {
-        let f = focus_mask0(uistate).handle(evt, repaint, DefaultKeys);
+    fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
+        let f = focus_mask0(uistate).handle_with_repaint(evt, &uistate.repaint, DefaultKeys);
         // let f = focus_mask0(uistate).handle(evt, repaint, ExKeys);
 
         // validation and reformat on focus lost.
@@ -410,7 +409,7 @@ pub mod app {
         });
 
         check_break!({
-            let r = uistate.input_0.handle(evt, repaint, DefaultKeys);
+            let r = uistate.input_0.handle(evt, DefaultKeys);
             // quick validation for every change
             r.on_changed_do(|| {
                 let str = uistate.input_0.compact_value();
@@ -420,7 +419,7 @@ pub mod app {
             r
         });
 
-        check_break!(uistate.input_1.handle(evt, repaint, DefaultKeys));
+        check_break!(uistate.input_1.handle(evt, DefaultKeys));
 
         check_break!(match evt {
             Event::Key(KeyEvent {

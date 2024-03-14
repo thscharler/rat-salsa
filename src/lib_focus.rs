@@ -1,6 +1,7 @@
+use crate::lib_widget::HandleCrosstermRepaint;
 use crate::util::{next_circular, prev_circular};
 use crate::ControlUI;
-use crate::{DefaultKeys, HandleCrossterm, MouseOnly, Repaint};
+use crate::{DefaultKeys, MouseOnly, Repaint};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::error;
@@ -323,8 +324,13 @@ impl<'a> Focus<'a> {
     }
 }
 
-impl<'a, A, E> HandleCrossterm<ControlUI<A, E>> for Focus<'a> {
-    fn handle(&mut self, event: &Event, repaint: &Repaint, _: DefaultKeys) -> ControlUI<A, E> {
+impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>> for Focus<'a> {
+    fn handle_with_repaint(
+        &mut self,
+        event: &Event,
+        repaint: &Repaint,
+        _: DefaultKeys,
+    ) -> ControlUI<A, E> {
         use crossterm::event::*;
 
         match event {
@@ -350,14 +356,19 @@ impl<'a, A, E> HandleCrossterm<ControlUI<A, E>> for Focus<'a> {
                 }
                 ControlUI::Continue
             }
-            _ => return self.handle(event, repaint, MouseOnly),
+            _ => return self.handle_with_repaint(event, repaint, MouseOnly),
         }
     }
 }
 
-impl<'a, A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for Focus<'a> {
+impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>, MouseOnly> for Focus<'a> {
     /// Only do mouse-events.
-    fn handle(&mut self, event: &Event, repaint: &Repaint, _: MouseOnly) -> ControlUI<A, E> {
+    fn handle_with_repaint(
+        &mut self,
+        event: &Event,
+        repaint: &Repaint,
+        _: MouseOnly,
+    ) -> ControlUI<A, E> {
         use crossterm::event::*;
 
         match event {

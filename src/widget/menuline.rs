@@ -1,7 +1,7 @@
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
 use crate::ActionTrigger;
 use crate::ControlUI;
-use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
+use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -195,7 +195,7 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
 }
 
 impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>> for MenuLineState<A> {
-    fn handle(&mut self, event: &Event, repaint: &Repaint, _: DefaultKeys) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let req = match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Char(cc),
@@ -228,7 +228,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>> for MenuLineState<A> {
                 ..
             }) => Some(InputRequest::Action),
 
-            _ => return self.handle(event, repaint, MouseOnly),
+            _ => return self.handle(event, MouseOnly),
         };
 
         if let Some(req) = req {
@@ -240,7 +240,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>> for MenuLineState<A> {
 }
 
 impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A> {
-    fn handle(&mut self, event: &Event, _repaint: &Repaint, _: MouseOnly) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         let req = match event {
             Event::Mouse(
                 MouseEvent {

@@ -2,7 +2,7 @@ use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
 use crate::ActionTrigger;
 use crate::ControlUI;
 use crate::FocusFlag;
-use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
+use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -309,7 +309,7 @@ pub enum InputRequest {
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
-    fn handle(&mut self, event: &Event, repaint: &Repaint, _: DefaultKeys) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         if self.focus.get() {
             if self.table_state.selected().is_none() {
                 self.table_state.select(Some(0));
@@ -401,7 +401,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
                     None
                 }
             }
-            _ => return self.handle(event, repaint, MouseOnly),
+            _ => return self.handle(event, MouseOnly),
         };
 
         if let Some(req) = req {
@@ -413,7 +413,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
-    fn handle(&mut self, event: &Event, _repaint: &Repaint, _: MouseOnly) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         let req = match event {
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::ScrollDown,
@@ -485,7 +485,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
 pub struct DoubleClick;
 
 impl<E> HandleCrossterm<ControlUI<bool, E>, DoubleClick> for TableExtState {
-    fn handle(&mut self, event: &Event, _repaint: &Repaint, _: DoubleClick) -> ControlUI<bool, E> {
+    fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<bool, E> {
         match event {
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::Up(MouseButton::Left),

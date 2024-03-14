@@ -3,7 +3,7 @@
 //!
 use crate::ControlUI;
 use crate::FocusFlag;
-use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly, Repaint};
+use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
@@ -163,7 +163,7 @@ impl<'a, A> StatefulWidget for Button<'a, A> {
 }
 
 impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ButtonState<A> {
-    fn handle(&mut self, event: &Event, repaint: &Repaint, _: DefaultKeys) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         use crossterm::event::*;
 
         let req = match event {
@@ -189,7 +189,7 @@ impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ButtonState<
                 }
                 Some(InputRequest::Action)
             }
-            _ => return self.handle(event, repaint, MouseOnly),
+            _ => return self.handle(event, MouseOnly),
         };
 
         if let Some(req) = req {
@@ -201,7 +201,7 @@ impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ButtonState<
 }
 
 impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ButtonState<A> {
-    fn handle(&mut self, event: &Event, _repaint: &Repaint, _: MouseOnly) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         use crossterm::event::*;
 
         let req = match event {

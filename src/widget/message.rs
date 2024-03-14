@@ -1,13 +1,13 @@
+use crate::check_break;
 use crate::layout::layout_dialog;
 use crate::widget::button::{Button, ButtonState, ButtonStyle};
 use crate::ControlUI;
-use crate::{check_break, ratio};
-use crate::{DefaultKeys, HandleCrossterm, Repaint};
+use crate::{DefaultKeys, HandleCrossterm};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Margin, Rect};
+use ratatui::layout::{Alignment, Constraint, Flex, Margin, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, Clear, Paragraph, Widget};
@@ -147,10 +147,12 @@ impl StatefulWidget for StatusDialog {
         if state.active {
             let l_dlg = layout_dialog(
                 area,
-                ratio!(6 / 10),
-                ratio!(6 / 10),
+                Constraint::Percentage(61),
+                Constraint::Percentage(61),
                 Margin::new(1, 1),
-                [10],
+                [Constraint::Length(10)],
+                0,
+                Flex::End,
             );
 
             state.area = l_dlg.area;
@@ -176,14 +178,12 @@ impl StatefulWidget for StatusDialog {
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
-    fn handle(&mut self, event: &Event, repaint: &Repaint, _: DefaultKeys) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         check_break!(if self.active {
-            self.button
-                .handle(event, repaint, DefaultKeys)
-                .and_then(|_a| {
-                    self.clear_log();
-                    ControlUI::Changed
-                })
+            self.button.handle(event, DefaultKeys).and_then(|_a| {
+                self.clear_log();
+                ControlUI::Changed
+            })
         } else {
             ControlUI::Continue
         });
