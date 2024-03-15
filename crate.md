@@ -28,9 +28,9 @@ waiting for a new event.
 
 ### Error handling and other macros
 
-* [err!] - converts a [Result::Err] to a [ControlUI::Err] and returns early.
-* [cut!] - returns early if the value is everything but a [ControlUI::Continue].
-* [yeet!] - returns early if the value is a [ControlUI::Err], otherwise evaluates to the other values.
+* [try_result!] - converts a [Result::Err] to a [ControlUI::Err] and returns early.
+* [check_break!] - returns early if the value is everything but a [ControlUI::Continue].
+* [try_ui!] - returns early if the value is a [ControlUI::Err], otherwise evaluates to the other values.
 
 ### Background worker
 
@@ -43,26 +43,73 @@ This functionality is split in two functions in [TuiApp]:
   This allows passing on more than just the plain [TuiApp::Action]. I use it to send
   a copy of the configuration. This way my actions can work without synchronisation.
 
+```rust ignore
+    fn start_task(
+        &self,
+        action: Self::Action,
+        data: &Self::Data,
+        _uistate: &Self::State,
+        worker: &ThreadPool<Self>,
+    ) -> ControlUI<Self::Action, Self::Error> {
+        worker.send((data.config.clone(), action))
+    }
+```
+
 * [TuiApp::run_task()] is called in the worker thread and does the real work.
   The result is then sent back to the event loop. Additionally, it gets passed a
   [TaskSender] for any extra communication needs.
 
+### Events
+
+There are 3 function at this point that handle events.
+
+* [TuiApp::repaint]
+* [TuiApp::handle_timer]
+* [TuiApp::handle_event]
+
+I kept them separate because I didn't want even more type variables or a super
+enum. And this scheme makes it easy to add new event types if wanted. 
+
 ### Other functionality
 
-The rest of the [TuiApp] functions are self-explanatory.
+#### [Repaint]
+
+This is a side-channel to trigger a repaint, if the returned ControlUI is needed
+for something else. It acts just as one more event-source. 
+
+#### [Timer]
+
+Generates timer events. Timers can auto-repeat. There are two kinds, one that
+triggers a repaint and one that gets handed to the application with [TuiApp::handle_timer].
+
+```rust ignore
+    if uistate.timer_1 == 0 {
+        uistate.timer_1 = uistate.timers.add(
+            Timer::new()
+                .repeat(usize::MAX)
+                .repaint(true)
+                .timer(Duration::from_millis(500)),
+        );
+    }
+    if let RepaintEvent::Timer(t) = event {
+        if t.tag == uistate.timer_1 {
+            uistate.roll = t.counter % 29;
+        }
+    }
+```
 
 ## Keyboard focus
  
-The struct [focus::Focus] can be used to manage the focused widget. It works by adding
-[focus::FocusFlag] to the state of each widget. Focus is constructed with a list of
+The struct [Focus] can be used to manage the focused widget. It works by adding
+[FocusFlag] to the state of each widget. Focus is constructed with a list of
 the focus-flags that should be involved. Each widget stays separate otherwise and takes
 its current state from this flag.
 
 ### Additions
 
-* [focus::FocusFlag::tag] - Each participant in a focus cycle gets a unique tag, basically an u16.
+* [FocusFlag::tag] - Each participant in a focus cycle gets a unique tag, basically an u16.
   This can be used set the focus programmatically.
-* [focus::FocusFlag::lost] - Is set if the widget just lost the focus. There is a [validate!] macro that
+* [FocusFlag::lost] - Is set if the widget just lost the focus. There is a [validate!] macro that
   uses this flag to conditionally validate the content of the widget.
 
 ## Extensions and traits
@@ -71,16 +118,13 @@ its current state from this flag.
 
 Setting the cursor position is only supported by [ratatui::Frame]. This trait introduces
 a new widget type that takes the frame instead of the buffer. There is also an extension trait
-for frame to support this case.
+for `Frame` to support this case.
 
 TuiApp is completely agnostic to this one.
 
 ### Event handling
 
-There is a trait [HandleEvent] to encapsulate the concept. It works with crossterm events.
+There is a trait [HandleCrossterm] to encapsulate the concept. It works with crossterm events,
+but the basic concept can easily be copied for other types.
 
-TuiApp doesn't use this trait, it's just a convenience for widgets.
-
-
-
-
+[TuiApp] doesn't use this trait, it's just for widgets.
