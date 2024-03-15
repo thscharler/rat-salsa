@@ -34,6 +34,12 @@ macro_rules! try_result {
             Err(e) => return $crate::ControlUI::Err(e.into()),
         }
     }};
+    ($x:expr, _) => {{
+        match $ex {
+            Ok(_) => {}
+            Err(e) => return $crate::ControlUI::Err(e.into()),
+        }
+    }};
 }
 
 /// Breaks the control-flow. If the value is not [ControlUI::Continue] it returns early.
