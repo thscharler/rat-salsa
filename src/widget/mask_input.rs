@@ -170,27 +170,27 @@ impl FrameWidget for MaskedTextInput {
         let (before, cursor1, select, cursor2, after) = state.visible_part();
 
         let mut spans = Vec::new();
-        if before.len() > 0 {
+        if !before.is_empty() {
             spans.push(Span::styled(before, self.active_style(focus)));
         }
-        if cursor1.len() > 0 {
-            if let Some(cursor_style) = self.cursor_style.clone() {
+        if !cursor1.is_empty() {
+            if let Some(cursor_style) = self.cursor_style {
                 spans.push(Span::styled(cursor1, cursor_style));
             } else {
                 spans.push(Span::styled(cursor1, self.active_select_style(focus)));
             }
         }
-        if select.len() > 0 {
+        if !select.is_empty() {
             spans.push(Span::styled(select, self.active_select_style(focus)));
         }
-        if cursor2.len() > 0 {
-            if let Some(cursor_style) = self.cursor_style.clone() {
+        if !cursor2.is_empty() {
+            if let Some(cursor_style) = self.cursor_style {
                 spans.push(Span::styled(cursor2, cursor_style));
             } else {
                 spans.push(Span::styled(cursor2, self.active_style(focus)));
             }
         }
-        if after.len() > 0 {
+        if !after.is_empty() {
             spans.push(Span::styled(after, self.active_style(focus)));
         }
 
@@ -824,8 +824,7 @@ pub mod core {
                 .value
                 .grapheme_indices(true)
                 .chain(once((self.value.len(), "")))
-                .skip(self.cursor)
-                .next()
+                .nth(self.cursor)
             else {
                 unreachable!()
             };
@@ -1106,10 +1105,10 @@ pub mod core {
 
     fn is_valid_mask(new: char, mask: char) -> bool {
         match mask {
-            '0' => new.is_digit(10),
-            '9' => new.is_digit(10) || new == ' ',
-            'H' => new.is_digit(16),
-            'h' => new.is_digit(16) || new == ' ',
+            '0' => new.is_ascii_digit(),
+            '9' => new.is_ascii_digit() || new == ' ',
+            'H' => new.is_ascii_hexdigit(),
+            'h' => new.is_ascii_hexdigit() || new == ' ',
             'O' => new.is_digit(8),
             'o' => new.is_digit(8) || new == ' ',
             'L' => new.is_alphabetic(),
@@ -1117,7 +1116,7 @@ pub mod core {
             'A' => new.is_alphanumeric(),
             'a' => new.is_alphanumeric() || new == ' ',
             'C' | 'c' => new.is_alphanumeric() || new == ' ',
-            '#' => new.is_digit(10) || new == ' ' || new == '+' || new == '-',
+            '#' => new.is_ascii_digit() || new == ' ' || new == '+' || new == '-',
             '_' => true,
             _ => mask == new,
         }

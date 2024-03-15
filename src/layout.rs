@@ -49,7 +49,7 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
         };
     }
 
-    result.into()
+    result
 }
 
 /// Layout produced by [layout_dialog]

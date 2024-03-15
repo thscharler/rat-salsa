@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::collapsible_else_if)]
 #![doc = include_str!("../crate.md")]
 
 use std::fmt::Debug;
@@ -34,7 +36,7 @@ macro_rules! try_result {
             Err(e) => return $crate::ControlUI::Err(e.into()),
         }
     }};
-    ($x:expr, _) => {{
+    ($ex:expr, _) => {{
         match $ex {
             Ok(_) => {}
             Err(e) => return $crate::ControlUI::Err(e.into()),

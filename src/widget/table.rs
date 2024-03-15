@@ -14,7 +14,7 @@ use ratatui::text::Text;
 use ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
 
 /// Add some minor fixes to [ratatui::widgets::Table]
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TableExt<'a> {
     pub table: Table<'a>,
     /// Row count
@@ -31,17 +31,6 @@ pub struct TableExtStyle {
     pub style: Style,
     pub select_style: Style,
     pub focus_style: Style,
-}
-
-impl<'a> Default for TableExt<'a> {
-    fn default() -> Self {
-        Self {
-            table: Default::default(),
-            row_count: 0,
-            select_style: Default::default(),
-            focus_style: Default::default(),
-        }
-    }
 }
 
 impl<'a> TableExt<'a> {

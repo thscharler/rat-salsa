@@ -44,19 +44,25 @@ pub struct MenuStyle {
     pub focus: Style,
 }
 
-impl<'a, A> MenuLine<'a, A> {
-    /// New
-    pub fn new() -> Self {
+impl<'a, A> Default for MenuLine<'a, A> {
+    fn default() -> Self {
         Self {
             style: Default::default(),
             title_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
             title: Default::default(),
-            key: Vec::new(),
-            menu: Vec::new(),
-            action: Vec::new(),
+            key: vec![],
+            menu: vec![],
+            action: vec![],
         }
+    }
+}
+
+impl<'a, A> MenuLine<'a, A> {
+    /// New
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// Combined style.
@@ -370,7 +376,7 @@ fn menu_span(txt: &str) -> (char, Vec<Span<'_>>) {
 
     let mut it = txt.split('_');
     if let Some(p) = it.next() {
-        if p.len() > 0 {
+        if !p.is_empty() {
             menu.push(Span::from(p));
         }
     }

@@ -80,51 +80,55 @@ impl<'a, A: Default> Button<'a, A> {
 
 impl<'a, A: Default> From<&'a str> for Button<'a, A> {
     fn from(value: &'a str) -> Self {
-        let mut s = Self::default();
-        s.text = Line::from(value);
-        s
+        Self {
+            text: Line::from(value),
+            ..Default::default()
+        }
     }
 }
 
 impl<'a, A: Default> From<String> for Button<'a, A> {
     fn from(value: String) -> Self {
-        let mut s = Self::default();
-        s.text = Line::from(value);
-        s
+        Self {
+            text: Line::from(value),
+            ..Default::default()
+        }
     }
 }
 
 impl<'a, A: Default> From<Span<'a>> for Button<'a, A> {
     fn from(value: Span<'a>) -> Self {
-        let mut s = Self::default();
-        s.text = Line::from(value);
-        s
+        Self {
+            text: Line::from(value),
+            ..Default::default()
+        }
     }
 }
 
 impl<'a, A: Default, const N: usize> From<[Span<'a>; N]> for Button<'a, A> {
     fn from(value: [Span<'a>; N]) -> Self {
-        let value = Vec::from(value);
-
-        let mut s = Self::default();
-        s.text = Line::from(value);
-        s
+        Self {
+            text: Line::from(Vec::from(value)),
+            ..Default::default()
+        }
     }
 }
 
 impl<'a, A: Default> From<Vec<Span<'a>>> for Button<'a, A> {
     fn from(value: Vec<Span<'a>>) -> Self {
-        let mut s = Self::default();
-        s.text = Line::from(value);
-        s
+        Self {
+            text: Line::from(value),
+            ..Default::default()
+        }
     }
 }
 
 impl<'a, A: Default> From<Line<'a>> for Button<'a, A> {
     fn from(value: Line<'a>) -> Self {
-        let mut s = Self::default();
-        s.text = value;
-        s
+        Self {
+            text: value,
+            ..Default::default()
+        }
     }
 }
 

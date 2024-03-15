@@ -3,7 +3,7 @@ use log::debug;
 use ratatui::text::Span;
 
 /// Sum all widths.
-pub(crate) fn span_width(spans: &Vec<Span<'_>>) -> u16 {
+pub(crate) fn span_width(spans: &[Span<'_>]) -> u16 {
     spans.iter().map(|v| v.width() as u16).sum()
 }
 

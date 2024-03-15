@@ -161,7 +161,7 @@ impl StatefulWidget for Month {
 
         // first line may omit a few days
         let mut w_week = Line::default();
-        let w_weeknum = Span::from(day.format("%U").to_string()).style(self.week_style.clone());
+        let w_weeknum = Span::from(day.format("%U").to_string()).style(self.week_style);
         state.weeks[w] = Rect::new(x, y, w_weeknum.width() as u16, 1);
         w_week.spans.push(w_weeknum);
         w_week.spans.push(" ".into());
@@ -197,7 +197,7 @@ impl StatefulWidget for Month {
 
         while month == day.month() {
             let mut w_week = Line::default();
-            let w_weeknum = Span::from(day.format("%U").to_string()).style(self.week_style.clone());
+            let w_weeknum = Span::from(day.format("%U").to_string()).style(self.week_style);
             state.weeks[w] = Rect::new(x, y, w_weeknum.width() as u16, 1);
             w_week.spans.push(w_weeknum);
             w_week.spans.push(" ".into());

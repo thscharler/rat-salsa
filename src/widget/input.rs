@@ -169,27 +169,27 @@ impl FrameWidget for TextInput {
         let (before, cursor1, select, cursor2, after) = state.visible_part();
 
         let mut spans = Vec::new();
-        if before.len() > 0 {
+        if !before.is_empty() {
             spans.push(Span::styled(before, self.active_style(focus)));
         }
-        if cursor1.len() > 0 {
-            if let Some(cursor_style) = self.cursor_style.clone() {
+        if !cursor1.is_empty() {
+            if let Some(cursor_style) = self.cursor_style {
                 spans.push(Span::styled(cursor1, cursor_style));
             } else {
                 spans.push(Span::styled(cursor1, self.active_select_style(focus)));
             }
         }
-        if select.len() > 0 {
+        if !select.is_empty() {
             spans.push(Span::styled(select, self.active_select_style(focus)));
         }
-        if cursor2.len() > 0 {
-            if let Some(cursor_style) = self.cursor_style.clone() {
+        if !cursor2.is_empty() {
+            if let Some(cursor_style) = self.cursor_style {
                 spans.push(Span::styled(cursor2, cursor_style));
             } else {
                 spans.push(Span::styled(cursor2, self.active_style(focus)));
             }
         }
-        if after.len() > 0 {
+        if !after.is_empty() {
             spans.push(Span::styled(after, self.active_style(focus)));
         }
 
@@ -745,8 +745,7 @@ pub mod core {
                 .value
                 .grapheme_indices(true)
                 .chain(once((self.value.len(), "")))
-                .skip(self.cursor)
-                .next()
+                .nth(self.cursor)
             else {
                 unreachable!()
             };

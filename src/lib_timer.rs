@@ -45,12 +45,7 @@ impl Timers {
     pub fn poll(&self) -> bool {
         let timers = self.timers.borrow();
         if let Some(timer) = timers.last() {
-            let now = Instant::now();
-            if now < timer.next {
-                false
-            } else {
-                true
-            }
+            Instant::now() >= timer.next
         } else {
             false
         }
@@ -61,11 +56,7 @@ impl Timers {
     pub fn read(&self) -> Option<TimerEvent> {
         let timer = self.timers.borrow_mut().pop();
         if let Some(mut timer) = timer {
-            let now = Instant::now();
-            if now < timer.next {
-                self.timers.borrow_mut().push(timer);
-                None
-            } else {
+            if Instant::now() >= timer.next {
                 let evt = TimerEvent {
                     tag: timer.tag,
                     counter: timer.count,
@@ -76,12 +67,15 @@ impl Timers {
                 if let Some(repeat) = timer.repeat {
                     timer.count += 1;
                     if timer.count < repeat {
-                        timer.next = timer.next + timer.timer;
+                        timer.next += timer.timer;
                         self.add_impl(timer);
                     }
                 }
 
                 Some(evt)
+            } else {
+                self.timers.borrow_mut().push(timer);
+                None
             }
         } else {
             None
@@ -144,7 +138,7 @@ pub struct TimerEvent {
 }
 
 /// Holds the information to start a timer.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Timer {
     /// Triggers a RepaintEvent.
     pub repaint: bool,
@@ -154,17 +148,6 @@ pub struct Timer {
     pub timer: Duration,
     /// Specific time.
     pub next: Option<Instant>,
-}
-
-impl Default for Timer {
-    fn default() -> Self {
-        Self {
-            repaint: false,
-            repeat: None,
-            timer: Default::default(),
-            next: None,
-        }
-    }
 }
 
 impl Timer {

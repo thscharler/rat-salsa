@@ -11,7 +11,7 @@ use std::iter::Zip;
 use std::vec;
 
 /// Flag structure to be used in widget states.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FocusFlag {
     /// A unique tag within one focus-cycle. It is set when the focus cycle is created.
     /// See [Focus::focus]
@@ -38,23 +38,12 @@ pub struct FocusFlag {
 ///
 /// repaint in the example is a [Repaint] as Focus doesn't consume any events.
 ///
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Focus<'a> {
     /// Areas for each widget.
     pub areas: Vec<Rect>,
     /// List of flags.
     pub focus: Vec<&'a FocusFlag>,
-}
-
-impl Default for FocusFlag {
-    #[inline]
-    fn default() -> Self {
-        Self {
-            tag: Cell::new(0),
-            focus: Cell::new(false),
-            lost: Cell::new(false),
-        }
-    }
 }
 
 impl FocusFlag {
@@ -158,21 +147,12 @@ macro_rules! on_focus {
     }};
 }
 
-impl<'a> Default for Focus<'a> {
-    fn default() -> Self {
-        Self {
-            areas: Default::default(),
-            focus: Default::default(),
-        }
-    }
-}
-
 impl<'a> IntoIterator for Focus<'a> {
     type Item = (&'a FocusFlag, Rect);
     type IntoIter = Zip<vec::IntoIter<&'a FocusFlag>, vec::IntoIter<Rect>>;
 
     fn into_iter(self) -> Self::IntoIter {
-        self.focus.into_iter().zip(self.areas.into_iter())
+        self.focus.into_iter().zip(self.areas)
     }
 }
 
@@ -181,11 +161,11 @@ impl<'a> Focus<'a> {
     ///
     /// Take a reference to a FocusFlag and a Rect for mouse-events.
     pub fn new(np: impl IntoIterator<Item = (&'a FocusFlag, Rect)>) -> Self {
-        Focus::default().add(np)
+        Focus::default().append(np)
     }
 
     /// Add more to the focus cycle.
-    pub fn add(mut self, np: impl IntoIterator<Item = (&'a FocusFlag, Rect)>) -> Self {
+    pub fn append(mut self, np: impl IntoIterator<Item = (&'a FocusFlag, Rect)>) -> Self {
         let mut tag = self.focus.len();
 
         for (f, rect) in np.into_iter() {
@@ -348,7 +328,7 @@ impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>> for Focus<'a> {
                 }
                 ControlUI::Continue
             }
-            _ => return self.handle_with_repaint(event, repaint, MouseOnly),
+            _ => self.handle_with_repaint(event, repaint, MouseOnly),
         }
     }
 }

@@ -16,15 +16,9 @@ pub mod table;
 /// Small helper that provides a trigger for mouse double-click.
 ///
 /// It uses a timeout to filter out the second click.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ActionTrigger {
     pub armed: Option<SystemTime>,
-}
-
-impl Default for ActionTrigger {
-    fn default() -> Self {
-        Self { armed: None }
-    }
 }
 
 impl ActionTrigger {

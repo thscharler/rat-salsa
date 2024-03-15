@@ -18,20 +18,20 @@ use ratatui::widgets::{Block, Clear, Paragraph, Widget};
 use std::fmt::Debug;
 
 /// Basic status line.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StatusLine {
     pub style: Style,
 }
 
 /// State for the status line.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StatusLineState {
     pub area: Rect,
     pub status: String,
 }
 
 /// Basic status dialog for longer messages.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct StatusDialog {
     pub style: Style,
     pub button_style: ButtonStyle,
@@ -77,15 +77,6 @@ impl StatusLineState {
     pub fn status(&mut self, msg: &str) {
         self.status.clear();
         self.status.push_str(msg);
-    }
-}
-
-impl Default for StatusLineState {
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            status: Default::default(),
-        }
     }
 }
 
@@ -186,7 +177,7 @@ impl StatefulWidget for StatusDialog {
 
             let ok = Button::from("Ok").style(self.button_style).action(true);
 
-            Clear::default().render(l_dlg.dialog, buf);
+            Clear.render(l_dlg.dialog, buf);
             block.render(l_dlg.dialog, buf);
             para.render(l_dlg.area, buf);
             ok.render(l_dlg.buttons[0], buf, &mut state.button);

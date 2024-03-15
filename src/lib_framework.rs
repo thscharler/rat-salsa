@@ -40,13 +40,13 @@ pub trait TuiApp {
 
     /// Get the repaint state for this uistate.
     #[allow(unused_variables)]
-    fn get_repaint<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Repaint> {
+    fn get_repaint<'b>(&self, uistate: &'b Self::State) -> Option<&'b Repaint> {
         None
     }
 
     /// Get the timer state for this uistate.
     #[allow(unused_variables)]
-    fn get_timers<'a, 'b>(&'a self, uistate: &'b Self::State) -> Option<&'b Timers> {
+    fn get_timers<'b>(&self, uistate: &'b Self::State) -> Option<&'b Timers> {
         None
     }
 
@@ -135,7 +135,7 @@ where
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
 
-    let worker = ThreadPool::<App>::build(&app, n_worker);
+    let worker = ThreadPool::<App>::build(app, n_worker);
 
     let mut flow;
     let mut repaint_event = RepaintEvent::Changed;
@@ -206,7 +206,7 @@ where
 }
 
 fn calculate_sleep<App: TuiApp>(app: &App, uistate: &mut App::State, max: Duration) -> Duration {
-    if let Some(timers) = app.get_timers(&uistate) {
+    if let Some(timers) = app.get_timers(uistate) {
         if let Some(sleep) = timers.sleep_time() {
             min(sleep, max)
         } else {
@@ -244,7 +244,7 @@ fn read_repaint_flag<App: TuiApp>(
 }
 
 fn poll_timers<App: TuiApp>(app: &App, uistate: &mut App::State) -> bool {
-    if let Some(timers) = app.get_timers(&uistate) {
+    if let Some(timers) = app.get_timers(uistate) {
         timers.poll()
     } else {
         false
@@ -257,7 +257,7 @@ fn read_timers<App: TuiApp>(
     uistate: &mut App::State,
     repaint_event: &mut RepaintEvent,
 ) -> ControlUI<App::Action, App::Error> {
-    if let Some(timers) = app.get_timers(&uistate) {
+    if let Some(timers) = app.get_timers(uistate) {
         match timers.read() {
             Some(evt @ TimerEvent { repaint: true, .. }) => {
                 *repaint_event = RepaintEvent::Timer(evt);
@@ -298,10 +298,7 @@ where
 }
 
 fn poll_crossterm<App: TuiApp>(_app: &App) -> Result<bool, io::Error> {
-    match event::poll(Duration::from_millis(0)) {
-        Ok(poll) => Ok(poll),
-        Err(err) => Err(err),
-    }
+    event::poll(Duration::from_millis(0))
 }
 
 fn read_crossterm<App: TuiApp>(
@@ -390,7 +387,6 @@ where
             let handle = thread::spawn(move || {
                 let t_recv = t_recv;
                 let t_send = TaskSender { send: t_send };
-                let app = app;
 
                 'l: loop {
                     match t_recv.recv() {
@@ -454,7 +450,7 @@ where
     /// Stop threads and join.
     pub fn stop_and_join(mut self) -> Result<(), SendError<()>> {
         for _ in 0..self.handles.len() {
-            if let Err(_) = self.send.send(TaskArgs::Break) {
+            if self.send.send(TaskArgs::Break).is_err() {
                 return Err(SendError(()));
             }
         }
