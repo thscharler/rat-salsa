@@ -146,9 +146,13 @@ pub struct TimerEvent {
 /// Holds the information to start a timer.
 #[derive(Debug)]
 pub struct Timer {
+    /// Triggers a RepaintEvent.
     pub repaint: bool,
+    /// Optional repeat.
     pub repeat: Option<usize>,
+    /// Duration
     pub timer: Duration,
+    /// Specific time.
     pub next: Option<Instant>,
 }
 

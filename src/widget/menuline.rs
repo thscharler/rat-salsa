@@ -1,5 +1,12 @@
+//!
+//! A menu.
+//!
+//! Supports hot-keys with '_' in the item text. The keys are trigger with Ctrl or the plain
+//! key if the menu has focus.
+//!
+
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
-use crate::ActionTrigger;
+use crate::widget::ActionTrigger;
 use crate::ControlUI;
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
@@ -15,6 +22,7 @@ use ratatui::widgets::StatefulWidget;
 use std::cell::Cell;
 use std::fmt::Debug;
 
+/// Menu
 #[derive(Debug)]
 pub struct MenuLine<'a, A> {
     pub style: Style,
@@ -27,6 +35,7 @@ pub struct MenuLine<'a, A> {
     pub action: Vec<A>,
 }
 
+/// Combined styles.
 #[derive(Debug, Default)]
 pub struct MenuStyle {
     pub style: Style,
@@ -36,6 +45,7 @@ pub struct MenuStyle {
 }
 
 impl<'a, A> MenuLine<'a, A> {
+    /// New
     pub fn new() -> Self {
         Self {
             style: Default::default(),
@@ -49,6 +59,7 @@ impl<'a, A> MenuLine<'a, A> {
         }
     }
 
+    /// Combined style.
     pub fn style(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
         self.title_style = styles.title;
@@ -57,31 +68,37 @@ impl<'a, A> MenuLine<'a, A> {
         self
     }
 
+    /// Base style.
     pub fn base_style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
         self
     }
 
+    /// Menu-title style.
     pub fn title_style(mut self, style: impl Into<Style>) -> Self {
         self.title_style = style.into();
         self
     }
 
+    /// Selection
     pub fn select_style(mut self, style: impl Into<Style>) -> Self {
         self.select_style = style.into();
         self
     }
 
+    /// Selection + Focus
     pub fn select_style_focus(mut self, style: impl Into<Style>) -> Self {
         self.focus_style = style.into();
         self
     }
 
+    /// Title text.
     pub fn title(mut self, title: &'a str) -> Self {
         self.title = Span::from(title);
         self
     }
 
+    /// Add item.
     pub fn add(mut self, menu_item: &'a str, action: A) -> Self {
         let (key, item) = menu_span(menu_item);
         self.key.push(key);
@@ -91,6 +108,7 @@ impl<'a, A> MenuLine<'a, A> {
     }
 }
 
+/// Menu ops.
 #[derive(Debug)]
 pub enum InputRequest {
     Prev,
@@ -102,6 +120,7 @@ pub enum InputRequest {
     MouseAction(usize, u64),
 }
 
+/// State for the menu.
 #[derive(Debug)]
 pub struct MenuLineState<A> {
     pub focus: Cell<bool>,

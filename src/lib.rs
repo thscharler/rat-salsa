@@ -11,14 +11,12 @@ mod lib_focus;
 mod lib_framework;
 mod lib_repaint;
 mod lib_timer;
-mod lib_util;
 mod lib_widget;
 
 pub use lib_focus::{Focus, FocusFlag};
 pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
 pub use lib_timer::{Timer, TimerEvent, Timers};
-pub use lib_util::ActionTrigger;
 pub use lib_widget::{
     DefaultKeys, FrameWidget, HandleCrossterm, HandleCrosstermRepaint, Input, MouseOnly,
     RenderFrameWidget,
@@ -26,6 +24,8 @@ pub use lib_widget::{
 
 /// Converts from a [Result::Err] to a [ControlUI::Err] and returns early.
 /// Evaluates to the value of [Result::Ok].
+///
+/// A second parameter `_` silences unused_must_use.
 #[macro_export]
 macro_rules! try_result {
     ($ex:expr) => {{
@@ -36,7 +36,7 @@ macro_rules! try_result {
     }};
 }
 
-/// Cuts the control-flow. If the value is not [ControlUI::Continue] it returns early.
+/// Breaks the control-flow. If the value is not [ControlUI::Continue] it returns early.
 #[macro_export]
 macro_rules! check_break {
     ($x:expr) => {{
@@ -48,8 +48,10 @@ macro_rules! check_break {
     }};
 }
 
-/// Cuts the control-flow. If the value is [ControlUI::Err] it returns early.
+/// Breaks the control-flow. If the value is [ControlUI::Err] it returns early.
 /// Evaluates to any other value.
+///
+/// A second parameter `_` silences unused_must_use.
 #[macro_export]
 macro_rules! try_ui {
     ($x:expr) => {{

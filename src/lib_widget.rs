@@ -16,28 +16,32 @@ pub trait Input<R> {
     fn perform(&mut self, req: Self::Request) -> R;
 }
 
-/// Marker struct. Used by `HandleCrossterm` to differentiate between key-mappings.
+/// Marker struct. Used by [HandleCrossterm] to differentiate between key-mappings.
 #[derive(Debug)]
 pub struct DefaultKeys;
 
 /// Marker struct like [DefaultKeys]. This one selects an event-handler that processes only
 /// mouse events. Useful when creating your own key-bindings but not wanting to touch
 /// the mouse interactions. If this separation exists for a widget it should be called
-/// automatically by the `DefaultKeys` handler.
+/// automatically by the [DefaultKeys] handler.
 #[derive(Debug)]
 pub struct MouseOnly;
 
 /// Handle events received by crossterm.
 ///
 /// This one should be implemented for the state struct of a widget and can do whatever. And it
-/// can return whatever extra outcome is needed. Common usage would return a [ControlUI] flag
-/// as a result.
+/// can return whatever extra outcome is needed. Common usage would return a
+/// [ControlUI](crate::ControlUI) flag as a result.
 ///
 /// There is an extra parameter `KeyMap` which can be used to define more than one mapping for
 /// a widget. This can be useful when overriding the default behaviour for a widget. Two
 /// keymaps for common usage are defined in this library: [DefaultKeys] and [MouseOnly].
 ///
-/// Remark
+/// ```rust ignore
+///     check_break!(uistate.page1.table1.handle(evt, DefaultKeys));
+/// ```
+///
+/// _Remark_
 ///
 /// There is only HandleCrossterm for now, as that is what I needed. But there is no problem
 /// adding a HandleTermion, HandleTermwiz or whatever. One could add a second type parameter
@@ -49,6 +53,8 @@ pub trait HandleCrossterm<R, KeyMap = DefaultKeys> {
     fn handle(&mut self, event: &crossterm::event::Event, keymap: KeyMap) -> R;
 }
 
+/// A specialized version of [HandleCrossterm] which needs [Repaint] to trigger an extra repaint.
+/// Used by [Focus](crate::Focus) as it doesn't want to consume any events, but still needs a repaint.
 pub trait HandleCrosstermRepaint<R, KeyMap = DefaultKeys> {
     fn handle_with_repaint(
         &mut self,

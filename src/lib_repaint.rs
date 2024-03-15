@@ -1,9 +1,9 @@
 use crate::lib_timer::TimerEvent;
 use std::cell::Cell;
 
-/// Flags a mandatory repaint from event-handling code.
+/// Flags a repaint from event-handling code.
 ///
-/// The standard way is to return [ControlUI::Changed] from event-handling. But this
+/// The standard way is to return [crate::ControlUI::Changed] from event-handling. But this
 /// consumes the event and returns early, which is not always what you want.
 ///
 /// This flag provides an alternate way to trigger the repaint in that case.

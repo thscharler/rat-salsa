@@ -433,23 +433,24 @@ impl InputMaskState {
     /// with a default representation of the mask.
     ///
     /// The result value contains all punctuation and
-    /// the value given as 'display' below. See [mask_input::InputMaskState::compact_value].
+    /// the value given as 'display' below. See [compact_value()](crate::widget::mask_input::InputMaskState::compact_value).
     ///
-    /// ** 0: must enter digit, display as 0
-    /// ** 9: can enter digit, display as space
-    /// ** H: must enter a hex digit, display as 0
-    /// ** h: can enter a hex digit, display as space
-    /// ** O: must enter an octal digit, display as 0
-    /// ** o: can enter an octal digit, display as space
-    /// ** L: must enter letter, display as X
-    /// ** l: can enter letter, display as space
-    /// ** A: must enter letter or digit, display as X
-    /// ** a: can enter letter or digit, display as space
-    /// ** C: must enter character or space, display as space
-    /// ** c: can enter character or space, display as space
-    /// ** _: anything, display as space
-    /// ** #: digit, plus or minus sign, display as space
-    /// ** . , : ; - /: grouping characters move the cursor when entered
+    /// * 0: must enter digit, display as 0
+    /// * 9: can enter digit, display as space
+    /// * H: must enter a hex digit, display as 0
+    /// * h: can enter a hex digit, display as space
+    /// * O: must enter an octal digit, display as 0
+    /// * o: can enter an octal digit, display as space
+    /// * L: must enter letter, display as X
+    /// * l: can enter letter, display as space
+    /// * A: must enter letter or digit, display as X
+    /// * a: can enter letter or digit, display as space
+    /// * C: must enter character or space, display as space
+    /// * c: can enter character or space, display as space
+    /// * _: anything, display as space
+    /// * #: digit, plus or minus sign, display as space
+    /// * . , : ; - /: grouping characters move the cursor when entered
+    ///
     /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
     pub fn set_mask<S: Into<String>>(&mut self, s: S) {
         self.value.set_mask(s);

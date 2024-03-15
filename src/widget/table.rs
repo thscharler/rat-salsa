@@ -1,5 +1,5 @@
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
-use crate::ActionTrigger;
+use crate::widget::ActionTrigger;
 use crate::ControlUI;
 use crate::FocusFlag;
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
@@ -13,14 +13,19 @@ use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
 
+/// Add some minor fixes to [ratatui::widgets::Table]
 #[derive(Debug)]
 pub struct TableExt<'a> {
     pub table: Table<'a>,
+    /// Row count
     pub row_count: usize,
+    /// Style for selected + not focused.
     pub select_style: Style,
+    /// Style for selected + focused.
     pub focus_style: Style,
 }
 
+/// Combined style.
 #[derive(Debug, Default)]
 pub struct TableExtStyle {
     pub style: Style,
@@ -191,7 +196,7 @@ where
     }
 }
 
-/// Extended TableState, contains a ratatui::TableState.
+/// Extended TableState, contains a [ratatui::widgets::TableState].
 #[derive(Debug)]
 pub struct TableExtState {
     pub focus: FocusFlag,
@@ -481,6 +486,24 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
     }
 }
 
+/// Extra mapping which does the double click a line in the table thing.
+/// Returns `ControlUI::Action(true)` if a double click is detected.
+///
+/// ```rust ignore
+/// uistate.page1.table1.handle(evt, DefaultKeys).or_else(|| {
+///      uistate.page1.table1.handle(evt, DoubleClick).and_then(|_| {
+///          if let Some(file) = data.files[uistate.page1.table1.selected().unwrap()] {
+///              let file_path = data
+///                  .config
+///                  .base_path
+///                  .join(format!("{}.ods", &file));
+///              Control::Action(RunCalc(file_path))
+///          } else {
+///              Control::Err(anyhow::Error::msg("Nothing to do."))
+///          }
+///      })
+///  })
+/// ```
 #[derive(Debug)]
 pub struct DoubleClick;
 

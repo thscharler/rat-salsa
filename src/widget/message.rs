@@ -1,3 +1,7 @@
+//!
+//! Status line and a message dialog.
+//!
+
 use crate::check_break;
 use crate::layout::layout_dialog;
 use crate::widget::button::{Button, ButtonState, ButtonStyle};
@@ -13,29 +17,34 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, Clear, Paragraph, Widget};
 use std::fmt::Debug;
 
+/// Basic status line.
 #[derive(Debug)]
 pub struct StatusLine {
     pub style: Style,
 }
 
+/// State for the status line.
 #[derive(Debug)]
 pub struct StatusLineState {
     pub area: Rect,
     pub status: String,
 }
 
+/// Basic status dialog for longer messages.
 #[derive(Debug)]
 pub struct StatusDialog {
     pub style: Style,
     pub button_style: ButtonStyle,
 }
 
+/// Combined style.
 #[derive(Default, Debug)]
 pub struct StatusDialogStyle {
     pub style: Style,
     pub button: ButtonStyle,
 }
 
+/// State for the status dialog.
 #[derive(Debug)]
 pub struct StatusDialogState {
     pub active: bool,
@@ -51,6 +60,7 @@ impl StatusLine {
         }
     }
 
+    /// Base style.
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
         self
@@ -58,10 +68,12 @@ impl StatusLine {
 }
 
 impl StatusLineState {
+    /// Clear.
     pub fn clear_status(&mut self) {
         self.status.clear();
     }
 
+    /// Set status
     pub fn status(&mut self, msg: &str) {
         self.status.clear();
         self.status.push_str(msg);
@@ -95,17 +107,20 @@ impl StatusDialog {
         }
     }
 
+    /// Combined style
     pub fn style(mut self, styles: StatusDialogStyle) -> Self {
         self.style = styles.style;
         self.button_style = styles.button;
         self
     }
 
+    /// Base style
     pub fn base_style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
         self
     }
 
+    /// Button style.
     pub fn button_style(mut self, style: ButtonStyle) -> Self {
         self.button_style = style;
         self
@@ -113,11 +128,13 @@ impl StatusDialog {
 }
 
 impl StatusDialogState {
+    /// Clear
     pub fn clear_log(&mut self) {
         self.active = false;
         self.log.clear();
     }
 
+    /// *Append* to the message.
     pub fn log(&mut self, msg: &str) {
         self.active = true;
         if !self.log.is_empty() {

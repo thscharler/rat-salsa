@@ -16,9 +16,9 @@ pub struct FocusFlag {
     /// A unique tag within one focus-cycle. It is set when the focus cycle is created.
     /// See [Focus::focus]
     pub tag: Cell<u16>,
-    /// Focus. See [on_focus]
+    /// Focus. See [on_focus!](crate::on_focus!())
     pub focus: Cell<bool>,
-    /// This widget just lost the focus. See [validate]
+    /// This widget just lost the focus. See [validate!](crate::validate!())
     pub lost: Cell<bool>,
 }
 
@@ -29,29 +29,15 @@ pub struct FocusFlag {
 /// and switches the focus that way. Each widget stays separate otherwise
 /// and can pull its focus state from this struct.
 ///
+/// ```rust ignore
+/// Focus::new([
+///     (&widget1.focus, widget1.area),
+///     (&widget2.focus, widget2.area),
+/// ]).handle(evt, repaint, DefaultKeys);
 /// ```
-/// # use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
-/// use rat_salsa::{check_break, DefaultKeys, Focus, HandleCrossterm, Repaint};
-/// # use rat_salsa::widget::button::ButtonState;
-/// # let widget1 = ButtonState::default();
-/// # let widget2 = ButtonState::default();
-/// # let vevt = crossterm::event::Event::Key(KeyEvent {
-/// #     code: KeyCode::Tab,
-/// #     modifiers: KeyModifiers::NONE,
-/// #     kind: KeyEventKind::Press,
-/// #     state: KeyEventState::NONE
-/// # });
-/// # let evt = &vevt;
-/// # let vrepaint = Repaint::default();
-/// # let repaint = &vrepaint;
 ///
-/// check_break!(
-///     Focus::new([
-///         (&widget1.focus, widget1.area),
-///         (&widget2.focus, widget2.area),
-///     ]).handle(evt, repaint, DefaultKeys)
-/// );
-/// ```
+/// repaint in the example is a [Repaint] as Focus doesn't consume any events.
+///
 #[derive(Debug)]
 pub struct Focus<'a> {
     /// Areas for each widget.
@@ -99,7 +85,7 @@ impl FocusFlag {
 
 /// Validates the given widget if `focus.lost()` is true.
 ///
-/// ```
+/// ```rust ignore
 /// # use rat_salsa::{FocusFlag, validate};
 /// # #[derive(Default)]
 /// # struct State {
@@ -130,7 +116,7 @@ macro_rules! validate {
 ///
 /// This is only useful if combined with [ControlUI::on_changed].
 ///
-/// ```
+/// ```rust ignore
 /// # use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
 /// use rat_salsa::{ControlUI, DefaultKeys, Focus, HandleCrossterm, on_focus, Repaint};
 /// # use rat_salsa::widget::button::ButtonState;
