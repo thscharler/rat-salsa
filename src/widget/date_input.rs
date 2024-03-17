@@ -156,10 +156,18 @@ impl Validate for DateInputState {
         &self.input.focus
     }
 
-    fn validate(&mut self) {
+    fn set_valid(&mut self, valid: bool) {
+        // todo: use cell?
+        self.input.valid = valid;
+    }
+
+    fn validate(&mut self) -> bool {
         if let Ok(d) = self.value() {
             self.set_value(d);
             self.select_all();
+            true
+        } else {
+            false
         }
     }
 }

@@ -102,6 +102,23 @@ macro_rules! validate {
     ($field:expr ) => {{
         let cond = $field.focus().lost();
         if cond {
+            let valid = $field.validate();
+            $field.set_valid(valid);
+        }
+    }};
+}
+
+#[macro_export]
+macro_rules! on_lost {
+    ($field:expr => $validate:expr) => {{
+        let cond = $field.focus.lost();
+        if cond {
+            $validate;
+        }
+    }};
+    ($field:expr) => {{
+        let cond = $field.focus().lost();
+        if cond {
             $field.validate();
         }
     }};
@@ -383,6 +400,8 @@ impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>, MouseOnly> for Focus<'a> 
 pub trait Validate {
     /// FocusFlag
     fn focus(&self) -> &FocusFlag;
+    /// Valid flag
+    fn set_valid(&mut self, valid: bool);
     /// Do whatever
-    fn validate(&mut self);
+    fn validate(&mut self) -> bool;
 }
