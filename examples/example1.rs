@@ -190,7 +190,6 @@ pub mod app {
     impl TuiApp for Example {
         type Data = ExData;
         type State = ExState;
-        type Task = ExAction;
         type Action = ExAction;
         type Error = anyhow::Error;
 
@@ -276,23 +275,14 @@ pub mod app {
             _action: Self::Action,
             _data: &mut Self::Data,
             _uistate: &mut Self::State,
+            _worker: &ThreadPool<Self>,
         ) -> Control {
             // match action {}
 
             Control::Continue
         }
 
-        fn start_task(
-            &self,
-            action: ExAction,
-            _data: &ExData,
-            _uistate: &ExState,
-            worker: &ThreadPool<Self>,
-        ) -> Control {
-            worker.send(action)
-        }
-
-        fn run_task(&self, _task: Self::Task, _send: &TaskSender<Self>) -> Control {
+        fn run_task(&self, _task: Self::Action, _send: &TaskSender<Self>) -> Control {
             // match task {}
 
             Control::Continue

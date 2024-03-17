@@ -31,8 +31,6 @@ pub trait TuiApp {
     type Data;
     /// UI state.
     type State;
-    /// Task-type for the worker thread.
-    type Task;
     /// Action type.
     type Action;
     /// Error type.
@@ -81,21 +79,13 @@ pub trait TuiApp {
         action: Self::Action,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-    ) -> ControlUI<Self::Action, Self::Error>;
-
-    /// Create and start a task.
-    fn start_task(
-        &self,
-        action: Self::Action,
-        data: &Self::Data,
-        uistate: &Self::State,
         worker: &ThreadPool<Self>,
     ) -> ControlUI<Self::Action, Self::Error>;
 
     /// Called by the worker thread to run a Task.
     fn run_task(
         &self,
-        task: Self::Task,
+        task: Self::Action,
         send: &TaskSender<Self>,
     ) -> ControlUI<Self::Action, Self::Error>;
 
@@ -125,7 +115,6 @@ pub fn run_tui<App: TuiApp>(
 where
     App::Action: Send + 'static,
     App::Error: Send + From<TryRecvError> + From<io::Error> + From<SendError<()>> + 'static,
-    App::Task: Send + 'static,
     App: Sync,
 {
     stdout().execute(EnterAlternateScreen)?;
@@ -189,8 +178,8 @@ where
                 repaint_event = RepaintEvent::Changed;
                 flow
             }
-            ControlUI::Run(action) => app.run_action(action, data, uistate),
-            ControlUI::Spawn(action) => app.start_task(action, data, uistate, &worker),
+            ControlUI::Run(action) => app.run_action(action, data, uistate, &worker),
+            ControlUI::Spawn(action) => worker.send(action),
             ControlUI::Err(err) => app.report_error(err, data, uistate),
             ControlUI::Break => break 'ui,
         };
@@ -278,7 +267,6 @@ fn poll_workers<App: TuiApp>(_app: &App, worker: &ThreadPool<App>) -> bool
 where
     App::Action: Send + 'static,
     App::Error: Send + 'static + From<TryRecvError>,
-    App::Task: Send + 'static,
     App: Sync,
 {
     !worker.is_empty()
@@ -291,7 +279,6 @@ fn read_workers<App: TuiApp>(
 where
     App::Action: Send + 'static,
     App::Error: Send + 'static + From<TryRecvError>,
-    App::Task: Send + 'static,
     App: Sync,
 {
     worker.try_recv()
@@ -349,7 +336,7 @@ where
 /// Basic threadpool
 #[derive(Debug)]
 pub struct ThreadPool<App: TuiApp + ?Sized> {
-    send: Sender<TaskArgs<App::Task>>,
+    send: Sender<TaskArgs<App::Action>>,
     recv: Receiver<ControlUI<App::Action, App::Error>>,
     handles: Vec<JoinHandle<()>>,
 }
@@ -369,13 +356,12 @@ enum TaskArgs<Task> {
 impl<App: TuiApp> ThreadPool<App>
 where
     App: Sync,
-    App::Task: 'static + Send,
     App::Action: 'static + Send,
     App::Error: 'static + Send,
 {
     /// New threadpool with the given task executor.
     pub fn build(app: &'static App, n_worker: usize) -> Self {
-        let (send, t_recv) = unbounded::<TaskArgs<App::Task>>();
+        let (send, t_recv) = unbounded::<TaskArgs<App::Action>>();
         let (t_send, recv) = unbounded::<ControlUI<App::Action, App::Error>>();
 
         let mut handles = Vec::new();
@@ -420,7 +406,7 @@ where
     }
 
     /// Send a task.
-    pub fn send(&self, t: App::Task) -> ControlUI<App::Action, App::Error>
+    pub fn send(&self, t: App::Action) -> ControlUI<App::Action, App::Error>
     where
         App::Error: From<SendError<()>>,
     {
