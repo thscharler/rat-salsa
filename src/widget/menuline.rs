@@ -5,7 +5,9 @@
 //! key if the menu has focus.
 //!
 
+use crate::lib_focus::HasArea;
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
+use crate::widget::mask_input::MaskedInputState;
 use crate::widget::ActionTrigger;
 use crate::{ControlUI, FocusFlag, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
@@ -153,7 +155,7 @@ impl<A> Default for MenuLineState<A> {
 }
 
 impl<A> HasFocusFlag for MenuLineState<A> {
-    fn get_focus_flag(&self) -> &FocusFlag {
+    fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 }

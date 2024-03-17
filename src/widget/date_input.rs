@@ -1,4 +1,5 @@
-use crate::lib_focus::{HasFocusFlag, HasValidFlag, Validate};
+use crate::lib_focus::{HasArea, HasFocusFlag, HasValidFlag, Validate};
+use crate::widget::calendar::MonthState;
 use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
 use crate::{ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, ValidFlag};
 use chrono::NaiveDate;
@@ -152,14 +153,20 @@ impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateI
 }
 
 impl HasFocusFlag for DateInputState {
-    fn get_focus_flag(&self) -> &FocusFlag {
+    fn focus(&self) -> &FocusFlag {
         &self.input.focus
     }
 }
 
 impl HasValidFlag for DateInputState {
-    fn get_valid_flag(&self) -> &ValidFlag {
+    fn valid(&self) -> &ValidFlag {
         &self.input.valid
+    }
+}
+
+impl HasArea for DateInputState {
+    fn area(&self) -> Rect {
+        self.input.area
     }
 }
 

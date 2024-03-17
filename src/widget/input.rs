@@ -7,8 +7,9 @@
 //! * Can set the cursor or use its own block cursor.
 //! * Can show an indicator for invalid input.
 
-use crate::lib_focus::{HasFocusFlag, HasValidFlag};
+use crate::lib_focus::{HasArea, HasFocusFlag, HasValidFlag};
 use crate::widget::basic::ClearStyle;
+use crate::widget::calendar::MonthState;
 use crate::widget::input::core::{split3, split5};
 use crate::FocusFlag;
 use crate::{ControlUI, ValidFlag};
@@ -672,13 +673,19 @@ impl<A, E> Input<ControlUI<A, E>> for TextInputState {
 }
 
 impl HasFocusFlag for TextInputState {
-    fn get_focus_flag(&self) -> &FocusFlag {
+    fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 }
 
+impl HasArea for TextInputState {
+    fn area(&self) -> Rect {
+        self.area
+    }
+}
+
 impl HasValidFlag for TextInputState {
-    fn get_valid_flag(&self) -> &ValidFlag {
+    fn valid(&self) -> &ValidFlag {
         &self.valid
     }
 }

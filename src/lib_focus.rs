@@ -24,18 +24,18 @@ pub struct FocusFlag {
 
 /// Trait for a widget that can have focus.
 pub trait HasFocusFlag {
-    fn get_focus_flag(&self) -> &FocusFlag;
+    fn focus(&self) -> &FocusFlag;
 
     fn is_focused(&self) -> bool {
-        self.get_focus_flag().get()
+        self.focus().get()
     }
 
     fn lost_focus(&self) -> bool {
-        self.get_focus_flag().lost()
+        self.focus().lost()
     }
 
     fn focus_tag(&self) -> u16 {
-        self.get_focus_flag().tag()
+        self.focus().tag()
     }
 }
 
@@ -45,23 +45,27 @@ pub struct ValidFlag {
 }
 
 pub trait HasValidFlag {
-    fn get_valid_flag(&self) -> &ValidFlag;
+    fn valid(&self) -> &ValidFlag;
 
     fn is_valid(&self) -> bool {
-        self.get_valid_flag().get()
+        self.valid().get()
     }
 
     fn is_invalid(&self) -> bool {
-        !self.get_valid_flag().get()
+        !self.valid().get()
     }
 
     fn set_valid(&self, valid: bool) {
-        self.get_valid_flag().set(valid)
+        self.valid().set(valid)
     }
 
     fn set_valid_from<T, E>(&self, result: Result<T, E>) {
-        self.get_valid_flag().set(result.is_ok())
+        self.valid().set(result.is_ok())
     }
+}
+
+pub trait HasArea {
+    fn area(&self) -> Rect;
 }
 
 /// Trait that works with [validate!].

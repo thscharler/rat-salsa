@@ -10,8 +10,9 @@
 //! * Accepts a display overlay used instead of the default chars of the input mask.
 //!
 
-use crate::lib_focus::{HasFocusFlag, HasValidFlag};
+use crate::lib_focus::{HasArea, HasFocusFlag, HasValidFlag};
 use crate::widget::basic::ClearStyle;
+use crate::widget::input::TextInputState;
 use crate::widget::mask_input::core::{split3, split5, CursorPos};
 use crate::FocusFlag;
 use crate::{ControlUI, ValidFlag};
@@ -584,14 +585,20 @@ impl MaskedInputState {
 }
 
 impl HasFocusFlag for MaskedInputState {
-    fn get_focus_flag(&self) -> &FocusFlag {
+    fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 }
 
 impl HasValidFlag for MaskedInputState {
-    fn get_valid_flag(&self) -> &ValidFlag {
+    fn valid(&self) -> &ValidFlag {
         &self.valid
+    }
+}
+
+impl HasArea for MaskedInputState {
+    fn area(&self) -> Rect {
+        self.area
     }
 }
 

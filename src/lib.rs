@@ -15,7 +15,7 @@ mod lib_repaint;
 mod lib_timer;
 mod lib_widget;
 
-pub use lib_focus::{Focus, FocusFlag, HasFocusFlag, HasValidFlag, ValidFlag, Validate};
+pub use lib_focus::{Focus, FocusFlag, HasArea, HasFocusFlag, HasValidFlag, ValidFlag, Validate};
 pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
 pub use lib_timer::{Timer, TimerEvent, Timers};
@@ -23,6 +23,11 @@ pub use lib_widget::{
     DefaultKeys, FrameWidget, HandleCrossterm, HandleCrosstermRepaint, Input, MouseOnly,
     RenderFrameWidget,
 };
+
+pub mod prelude {
+    pub use super::lib_focus::{HasArea, HasFocusFlag, HasValidFlag, Validate};
+    pub use super::lib_widget::RenderFrameWidget;
+}
 
 /// Converts from a [Result::Err] to a [ControlUI::Err] and returns early.
 /// Evaluates to the value of [Result::Ok].
