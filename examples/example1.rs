@@ -51,8 +51,8 @@ pub mod data {
 pub mod state {
     use crate::theme::{Theme, ONEDARK};
     use rat_salsa::widget::button::ButtonStyle;
-    use rat_salsa::widget::input::{InputState, InputStyle};
-    use rat_salsa::widget::mask_input::{InputMaskState, MaskedInputStyle};
+    use rat_salsa::widget::input::{TextInputState, TextInputStyle};
+    use rat_salsa::widget::mask_input::{MaskedInputState, MaskedInputStyle};
     use rat_salsa::widget::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
     use rat_salsa::{Repaint, Timers};
     use ratatui::prelude::{Color, Stylize};
@@ -64,8 +64,8 @@ pub mod state {
         pub repaint: Repaint,
         pub timers: Timers,
 
-        pub input_0: InputMaskState,
-        pub input_1: InputState,
+        pub input_0: MaskedInputState,
+        pub input_1: TextInputState,
 
         pub timer_1: usize,
         pub roll: usize,
@@ -113,13 +113,13 @@ pub mod state {
             Style::default().fg(self.theme.white).bg(self.theme.one_bg3)
         }
 
-        pub fn input_style(&self) -> InputStyle {
-            InputStyle {
+        pub fn input_style(&self) -> TextInputStyle {
+            TextInputStyle {
                 style: Style::default().fg(self.theme.black).bg(self.theme.base05),
                 focus: Style::default().fg(self.theme.black).bg(self.theme.green),
                 select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
                 cursor: None,
-                ..InputStyle::default()
+                ..TextInputStyle::default()
             }
         }
 
@@ -171,7 +171,7 @@ pub mod app {
     use log::debug;
     use rat_salsa::layout::{layout_edit, EditConstraint};
     use rat_salsa::widget::input::TextInput;
-    use rat_salsa::widget::mask_input::MaskedTextInput;
+    use rat_salsa::widget::mask_input::MaskedInput;
     use rat_salsa::widget::message::{StatusDialog, StatusLine};
     use rat_salsa::{
         check_break, try_ui, validate, ControlUI, HandleCrosstermRepaint, TaskSender, ThreadPool,
@@ -354,7 +354,7 @@ pub mod app {
 
         let label_edit = Span::from("Datum");
 
-        let edit = MaskedTextInput::default().style(uistate.g.input_mask_style());
+        let edit = MaskedInput::default().style(uistate.g.input_mask_style());
         let label_parsed = Span::from("Parsed");
         let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
         let label_compact = Span::from("No spaces");
