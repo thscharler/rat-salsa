@@ -15,10 +15,10 @@ The event-loop is steered with the [ControlUI] enum. This is a bit of amalgamati
 of [core::ops::ControlFlow] and a [Result] with several specialized Ok variants.
 
 * Continue - continue operations, eventually wait for a new event.
-* Unchanged / Changed - an event has been processed by some part of the
+* NoChange / Change - an event has been processed by some part of the
   event-handling and can break early. Depending on the value the ui is
   repainted or not, and the loop goes get the next event.
-* Action - execute an action on the data-model.
+* Run - execute an action on the data-model.
 * Spawn - execute an action in the worker thread.
 * Break - break the event-loop and stop the application.
 * Err - error has occured, invoke the error handler.
@@ -34,30 +34,9 @@ waiting for a new event.
 
 ### Background worker
 
-This functionality is split in two functions in [TuiApp]:
-
-* [TuiApp::start_task()] gets invoked in the event loop thread and gets passed
-  the complete context. It then creates a [TuiApp::Task] which gets send over
-  to the worker threads.
-
-  This allows passing on more than just the plain [TuiApp::Action]. I use it to send
-  a copy of the configuration. This way my actions can work without synchronisation.
-
-```rust ignore
-    fn start_task(
-        &self,
-        action: Self::Action,
-        data: &Self::Data,
-        _uistate: &Self::State,
-        worker: &ThreadPool<Self>,
-    ) -> ControlUI<Self::Action, Self::Error> {
-        worker.send((data.config.clone(), action))
-    }
-```
-
-* [TuiApp::run_task()] is called in the worker thread and does the real work.
-  The result is then sent back to the event loop. Additionally, it gets passed a
-  [TaskSender] for any extra communication needs.
+Any action marked with ControlUI::Spawn() is sent to a worker thread, and ultimately calls
+[TuiApp::run_task()]. This is where the real work is done. The result is then sent back to 
+the event loop. Additionally, it gets passed a [TaskSender] for any extra communication needs.
 
 ### Events
 
