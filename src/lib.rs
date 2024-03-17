@@ -15,7 +15,7 @@ mod lib_repaint;
 mod lib_timer;
 mod lib_widget;
 
-pub use lib_focus::{Focus, FocusFlag};
+pub use lib_focus::{Focus, FocusFlag, Validate};
 pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
 pub use lib_timer::{Timer, TimerEvent, Timers};

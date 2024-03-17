@@ -99,6 +99,12 @@ macro_rules! validate {
             $field.valid = valid;
         }
     }};
+    ($field:expr ) => {{
+        let cond = $field.focus().lost();
+        if cond {
+            $field.validate();
+        }
+    }};
 }
 
 /// Executes the expression if `focus.get()` is true.
@@ -371,4 +377,12 @@ impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>, MouseOnly> for Focus<'a> 
             _ => ControlUI::Continue,
         }
     }
+}
+
+/// Trait that works with [validate!].
+pub trait Validate {
+    /// FocusFlag
+    fn focus(&self) -> &FocusFlag;
+    /// Do whatever
+    fn validate(&mut self);
 }
