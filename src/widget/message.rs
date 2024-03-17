@@ -190,7 +190,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
         check_break!(if self.active {
             self.button.handle(event, DefaultKeys).and_then(|_a| {
                 self.clear_log();
-                ControlUI::Changed
+                ControlUI::Change
             })
         } else {
             ControlUI::Continue
@@ -205,7 +205,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
             }) => {
                 if self.active {
                     self.clear_log();
-                    ControlUI::Changed
+                    ControlUI::Change
                 } else {
                     ControlUI::Continue
                 }
@@ -214,6 +214,6 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
         });
 
         // eat all events.
-        ControlUI::Unchanged
+        ControlUI::NoChange
     }
 }

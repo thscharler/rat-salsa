@@ -247,7 +247,7 @@ pub mod app {
 
         fn handle_event(&self, evt: Event, data: &mut ExData, uistate: &mut ExState) -> Control {
             check_break!(match &evt {
-                Event::Resize(_, _) => Control::Changed,
+                Event::Resize(_, _) => Control::Change,
                 Event::Key(KeyEvent {
                     kind: KeyEventKind::Press,
                     code: KeyCode::Char('q'),
@@ -305,7 +305,7 @@ pub mod app {
             uistate: &mut ExState,
         ) -> Control {
             uistate.g.error_dlg.log(format!("{:?}", &*error).as_str());
-            Control::Changed
+            Control::Change
         }
     }
 
@@ -459,7 +459,7 @@ pub mod app {
         check_break!({
             let r = uistate.input_0.handle(evt, DefaultKeys);
             // quick validation for every change
-            r.on_changed_do(|| {
+            r.on_change_do(|| {
                 let str = uistate.input_0.compact_value();
                 let r = NaiveDate::parse_from_str(str.as_str(), "%d.%m.%Y");
                 uistate.input_0.valid = r.is_ok();
@@ -487,7 +487,7 @@ pub mod app {
                 }
                 let v = data.datum.format("%d.%m.%Y").to_string();
                 uistate.input_0.set_value(v);
-                Control::Changed
+                Control::Change
             }
             _ => Control::Continue,
         });

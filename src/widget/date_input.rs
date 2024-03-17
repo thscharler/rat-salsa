@@ -144,7 +144,7 @@ impl DateInputState {
 impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState {
     fn handle(&mut self, event: &Event, keymap: DefaultKeys) -> ControlUI<A, E> {
         let r = self.input.handle(event, keymap);
-        r.on_changed_do(|| {
+        r.on_change_do(|| {
             self.input.valid = self.value().is_ok();
         });
         r

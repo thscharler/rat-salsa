@@ -259,12 +259,12 @@ impl<A: Clone, E> Input<ControlUI<A, E>> for ButtonState<A> {
         match action {
             InputRequest::Arm => {
                 self.armed = true;
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::Action => {
                 if self.armed {
                     self.armed = false;
-                    ControlUI::Action(self.action.clone())
+                    ControlUI::Run(self.action.clone())
                 } else {
                     ControlUI::Continue
                 }

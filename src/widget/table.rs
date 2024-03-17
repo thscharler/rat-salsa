@@ -512,13 +512,13 @@ impl<E> HandleCrossterm<ControlUI<bool, E>, DoubleClick> for TableExtState {
                     // this cannot be accomplished otherwise. the return type is bitching.
                     if self.table_state.selected() == Some(sel) {
                         if self.trigger.pull(200) {
-                            ControlUI::Action(true)
+                            ControlUI::Run(true)
                         } else {
-                            ControlUI::Unchanged
+                            ControlUI::NoChange
                         }
                     } else {
                         self.trigger.reset();
-                        ControlUI::Unchanged
+                        ControlUI::NoChange
                     }
                 } else {
                     ControlUI::Continue
@@ -537,50 +537,50 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
             InputRequest::Down => {
                 self.trigger.reset();
                 self.scroll_down();
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::Up => {
                 self.trigger.reset();
                 self.scroll_up();
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::First => {
                 self.trigger.reset();
                 self.scroll_first();
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::Last => {
                 self.trigger.reset();
                 self.scroll_last();
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::PageDown => {
                 self.trigger.reset();
                 self.scroll_pg_down();
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::PageUp => {
                 self.trigger.reset();
                 self.scroll_pg_up();
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::MouseScrollDown => {
                 self.trigger.reset();
                 self.scroll_scr_down();
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::MouseScrollUp => {
                 self.trigger.reset();
                 self.scroll_scr_up();
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::MouseSelect(i) => {
                 if self.table_state.selected() == Some(i) {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.trigger.reset();
                     self.table_state.select(Some(i));
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
         }

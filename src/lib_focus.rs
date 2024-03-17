@@ -109,7 +109,7 @@ macro_rules! validate {
 
 /// Executes the expression if `focus.get()` is true.
 ///
-/// This is only useful if combined with [ControlUI::on_changed].
+/// This is only useful if combined with [ControlUI::on_change].
 ///
 /// ```rust ignore
 /// # use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};

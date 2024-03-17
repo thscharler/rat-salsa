@@ -592,145 +592,145 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
             SetCursor(pos, anchor) => {
                 let pos = pos + self.value.offset();
                 if self.value.cursor() == pos {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.value.set_cursor(pos, anchor);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             Select(anchor, cursor) => {
                 self.value.set_cursor(anchor, false);
                 self.value.set_cursor(cursor, true);
-                ControlUI::Changed
+                ControlUI::Change
             }
             InsertChar(c) => {
                 self.value.insert_char(c);
-                ControlUI::Changed
+                ControlUI::Change
             }
             DeletePrevChar => {
                 if self.value.is_anchored() {
                     self.value.remove(self.value.selection(), CursorPos::Start);
-                    ControlUI::Changed
+                    ControlUI::Change
                 } else if self.value.cursor() == 0 {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.value.remove(
                         self.value.cursor() - 1..self.value.cursor(),
                         CursorPos::Start,
                     );
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             DeleteNextChar => {
                 if self.value.is_anchored() {
                     self.value.remove(self.value.selection(), CursorPos::End);
-                    ControlUI::Changed
+                    ControlUI::Change
                 } else if self.value.cursor() == self.value.len() {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.value
                         .remove(self.value.cursor()..self.value.cursor() + 1, CursorPos::End);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             GoToPrevChar(anchor) => {
                 if !anchor && self.value.is_anchored() {
                     let c = self.value.selection().start;
                     self.value.set_cursor(c, false);
-                    ControlUI::Changed
+                    ControlUI::Change
                 } else if self.value.cursor() == 0 {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.value.set_cursor(self.value.cursor() - 1, anchor);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             GoToNextChar(anchor) => {
                 if !anchor && self.value.is_anchored() {
                     let c = self.value.selection().end;
                     self.value.set_cursor(c, false);
-                    ControlUI::Changed
+                    ControlUI::Change
                 } else if self.value.cursor() == self.value.len() {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.value.set_cursor(self.value.cursor() + 1, anchor);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             GoToPrevWord(anchor) => {
                 if self.value.cursor() == 0 {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     let cursor = self.value.prev_word_boundary();
                     self.value.set_cursor(cursor, anchor);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             GoToNextWord(anchor) => {
                 if self.value.cursor() == self.value.len() {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     let cursor = self.value.next_word_boundary();
                     self.value.set_cursor(cursor, anchor);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             DeleteLine => {
                 if self.value.is_empty() {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.value.remove(0..self.value.len(), CursorPos::Start);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             DeletePrevWord => {
                 if self.value.cursor() == 0 {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     let prev = self.value.prev_word_boundary();
                     self.value
                         .remove(prev..self.value.cursor(), CursorPos::Start);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             DeleteNextWord => {
                 if self.value.cursor() == self.value.len() {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     let next = self.value.next_word_boundary();
                     self.value.remove(self.value.cursor()..next, CursorPos::End);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             GoToStart(anchor) => {
                 if self.value.cursor() == 0 {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.value.set_cursor(0, anchor);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             GoToEnd(anchor) => {
                 if self.value.cursor() == self.value.len() {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.value.set_cursor(self.value.len(), anchor);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             DeleteTillEnd => {
                 self.value
                     .remove(self.value.cursor()..self.value.len(), CursorPos::Start);
-                ControlUI::Changed
+                ControlUI::Change
             }
             DeleteTillStart => {
                 self.value.remove(0..self.value.cursor(), CursorPos::End);
-                ControlUI::Changed
+                ControlUI::Change
             }
             SelectAll => {
                 self.value.set_cursor(0, false);
                 self.value.set_cursor(self.value.len(), true);
-                ControlUI::Changed
+                ControlUI::Change
             }
         }
     }

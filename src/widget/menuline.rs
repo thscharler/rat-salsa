@@ -160,18 +160,18 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
             InputRequest::Prev => {
                 self.trigger.reset();
                 self.select = prev_opt(self.select);
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::Next => {
                 self.trigger.reset();
                 self.select = next_opt(self.select, self.len);
-                ControlUI::Changed
+                ControlUI::Change
             }
             InputRequest::Action => {
                 if let Some(i) = self.select {
-                    ControlUI::Action(self.action[i])
+                    ControlUI::Run(self.action[i])
                 } else {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 }
             }
             InputRequest::KeySelect(cc) => 'f: {
@@ -179,7 +179,7 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
                     if cc == *k {
                         self.trigger.reset();
                         self.select = Some(i);
-                        break 'f ControlUI::Changed;
+                        break 'f ControlUI::Change;
                     }
                 }
                 ControlUI::Continue
@@ -189,30 +189,30 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
                     if cc == *k {
                         self.trigger.reset();
                         self.select = Some(i);
-                        break 'f ControlUI::Action(self.action[i]);
+                        break 'f ControlUI::Run(self.action[i]);
                     }
                 }
                 ControlUI::Continue
             }
             InputRequest::MouseSelect(i) => {
                 if self.select == Some(i) {
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 } else {
                     self.trigger.reset();
                     self.select = Some(i);
-                    ControlUI::Changed
+                    ControlUI::Change
                 }
             }
             InputRequest::MouseAction(i, timeout) => {
                 if self.select == Some(i) {
                     if self.trigger.pull(timeout) {
-                        ControlUI::Action(self.action[i])
+                        ControlUI::Run(self.action[i])
                     } else {
-                        ControlUI::Unchanged
+                        ControlUI::NoChange
                     }
                 } else {
                     self.trigger.reset();
-                    ControlUI::Unchanged
+                    ControlUI::NoChange
                 }
             }
         }

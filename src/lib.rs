@@ -100,11 +100,11 @@ pub enum ControlUI<Action, Err> {
     /// Error
     Err(Err),
     /// Event processed: no changes, no ui update.
-    Unchanged,
+    NoChange,
     /// Event processed: changes happened, ui update.
-    Changed,
+    Change,
     /// Run some action.
-    Action(Action),
+    Run(Action),
     /// Start some background action.
     Spawn(Action),
     /// Break the event loop.
@@ -124,17 +124,17 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Unchanged case
     pub fn is_unchanged(&self) -> bool {
-        matches!(self, ControlUI::Unchanged)
+        matches!(self, ControlUI::NoChange)
     }
 
     /// Changed case
     pub fn is_changed(&self) -> bool {
-        matches!(self, ControlUI::Changed)
+        matches!(self, ControlUI::Change)
     }
 
     /// Action
-    pub fn is_action(&self) -> bool {
-        matches!(self, ControlUI::Action(_))
+    pub fn is_run(&self) -> bool {
+        matches!(self, ControlUI::Run(_))
     }
 
     /// Background action
@@ -152,9 +152,9 @@ impl<Action, Err> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => c.into(),
             ControlUI::Err(e) => ControlUI::Err(e),
-            ControlUI::Unchanged => ControlUI::Unchanged,
-            ControlUI::Changed => ControlUI::Changed,
-            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::NoChange => ControlUI::NoChange,
+            ControlUI::Change => ControlUI::Change,
+            ControlUI::Run(a) => ControlUI::Run(a),
             ControlUI::Spawn(a) => ControlUI::Spawn(a),
             ControlUI::Break => ControlUI::Break,
         }
@@ -181,9 +181,9 @@ impl<Action, Err> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => f(e),
-            ControlUI::Unchanged => ControlUI::Unchanged,
-            ControlUI::Changed => ControlUI::Changed,
-            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::NoChange => ControlUI::NoChange,
+            ControlUI::Change => ControlUI::Change,
+            ControlUI::Run(a) => ControlUI::Run(a),
             ControlUI::Spawn(a) => ControlUI::Spawn(a),
             ControlUI::Break => ControlUI::Break,
         }
@@ -197,9 +197,9 @@ impl<Action, Err> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => ControlUI::Err(e.into()),
-            ControlUI::Unchanged => ControlUI::Unchanged,
-            ControlUI::Changed => ControlUI::Changed,
-            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::NoChange => ControlUI::NoChange,
+            ControlUI::Change => ControlUI::Change,
+            ControlUI::Run(a) => ControlUI::Run(a),
             ControlUI::Spawn(a) => ControlUI::Spawn(a),
             ControlUI::Break => ControlUI::Break,
         }
@@ -215,55 +215,55 @@ impl<Action, Err> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => ControlUI::Err(e),
-            ControlUI::Unchanged => ControlUI::Unchanged,
-            ControlUI::Changed => ControlUI::Changed,
-            ControlUI::Action(a) => f(a),
+            ControlUI::NoChange => ControlUI::NoChange,
+            ControlUI::Change => ControlUI::Change,
+            ControlUI::Run(a) => f(a),
             ControlUI::Spawn(a) => f(a),
             ControlUI::Break => ControlUI::Break,
         }
     }
 
     /// Run the continuation if the value is Unchanged.
-    pub fn on_unchanged(
+    pub fn on_no_change(
         self,
         f: impl FnOnce() -> ControlUI<Action, Err>,
     ) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => ControlUI::Err(e),
-            ControlUI::Unchanged => f(),
-            ControlUI::Changed => ControlUI::Changed,
-            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::NoChange => f(),
+            ControlUI::Change => ControlUI::Change,
+            ControlUI::Run(a) => ControlUI::Run(a),
             ControlUI::Spawn(a) => ControlUI::Spawn(a),
             ControlUI::Break => ControlUI::Break,
         }
     }
 
     /// Run the if the value is Unchanged. Allows to return some value.
-    pub fn on_unchanged_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+    pub fn on_no_change_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
         match self {
-            ControlUI::Unchanged => Some(f()),
+            ControlUI::NoChange => Some(f()),
             _ => None,
         }
     }
 
     /// Run the continuation if the value is Changed.
-    pub fn on_changed(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
+    pub fn on_change(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => ControlUI::Err(e),
-            ControlUI::Unchanged => ControlUI::Unchanged,
-            ControlUI::Changed => f(),
-            ControlUI::Action(a) => ControlUI::Action(a),
+            ControlUI::NoChange => ControlUI::NoChange,
+            ControlUI::Change => f(),
+            ControlUI::Run(a) => ControlUI::Run(a),
             ControlUI::Spawn(a) => ControlUI::Spawn(a),
             ControlUI::Break => ControlUI::Break,
         }
     }
 
     /// Run if the value is Changed. Allows to return some value.
-    pub fn on_changed_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+    pub fn on_change_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
         match self {
-            ControlUI::Changed => Some(f()),
+            ControlUI::Change => Some(f()),
             _ => None,
         }
     }

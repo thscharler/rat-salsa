@@ -183,13 +183,13 @@ where
 
         flow = match flow {
             ControlUI::Continue => ControlUI::Continue,
-            ControlUI::Unchanged => ControlUI::Continue,
-            ControlUI::Changed => {
+            ControlUI::NoChange => ControlUI::Continue,
+            ControlUI::Change => {
                 flow = repaint_tui(&mut terminal, app, data, uistate, repaint_event);
                 repaint_event = RepaintEvent::Changed;
                 flow
             }
-            ControlUI::Action(action) => app.run_action(action, data, uistate),
+            ControlUI::Run(action) => app.run_action(action, data, uistate),
             ControlUI::Spawn(action) => app.start_task(action, data, uistate, &worker),
             ControlUI::Err(err) => app.report_error(err, data, uistate),
             ControlUI::Break => break 'ui,
@@ -234,7 +234,7 @@ fn read_repaint_flag<App: TuiApp>(
         if repaint.get() {
             repaint.reset();
             *repaint_event = RepaintEvent::Flagged;
-            ControlUI::Changed
+            ControlUI::Change
         } else {
             ControlUI::Continue
         }
@@ -261,7 +261,7 @@ fn read_timers<App: TuiApp>(
         match timers.read() {
             Some(evt @ TimerEvent { repaint: true, .. }) => {
                 *repaint_event = RepaintEvent::Timer(evt);
-                ControlUI::Changed
+                ControlUI::Change
             }
             Some(evt @ TimerEvent { repaint: false, .. }) => {
                 //
