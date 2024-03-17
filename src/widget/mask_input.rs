@@ -26,7 +26,7 @@ use std::ops::Range;
 
 /// Text input widget with input mask.
 #[derive(Debug)]
-pub struct MaskedTextInput {
+pub struct MaskedInput {
     pub terminal_cursor: bool,
     pub without_focus: bool,
     pub insets: Margin,
@@ -48,7 +48,7 @@ pub struct MaskedInputStyle {
     pub invalid: Option<Style>,
 }
 
-impl Default for MaskedTextInput {
+impl Default for MaskedInput {
     fn default() -> Self {
         Self {
             terminal_cursor: true,
@@ -64,7 +64,7 @@ impl Default for MaskedTextInput {
     }
 }
 
-impl MaskedTextInput {
+impl MaskedInput {
     /// Use extra insets for the text input.
     pub fn insets(mut self, insets: Margin) -> Self {
         self.insets = insets;
@@ -147,8 +147,8 @@ impl MaskedTextInput {
     }
 }
 
-impl FrameWidget for MaskedTextInput {
-    type State = InputMaskState;
+impl FrameWidget for MaskedInput {
+    type State = MaskedInputState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
         state.without_focus = self.without_focus;
@@ -215,8 +215,8 @@ impl FrameWidget for MaskedTextInput {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-pub struct InputMaskState {
+#[derive(Debug, Clone)]
+pub struct MaskedInputState {
     /// Focus
     pub focus: FocusFlag,
     /// Valid.
@@ -231,7 +231,7 @@ pub struct InputMaskState {
     pub value: core::InputMaskCore,
 }
 
-impl Default for InputMaskState {
+impl Default for MaskedInputState {
     fn default() -> Self {
         Self {
             focus: Default::default(),
@@ -244,7 +244,7 @@ impl Default for InputMaskState {
     }
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputMaskState {
+impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MaskedInputState {
     #[allow(non_snake_case)]
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
         use crossterm::event::KeyCode::*;
@@ -309,7 +309,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputMaskState {
     }
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for InputMaskState {
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
         use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
@@ -388,7 +388,7 @@ pub enum InputRequest {
     DeleteTillEnd,
 }
 
-impl InputMaskState {
+impl MaskedInputState {
     /// Reset to empty.
     pub fn reset(&mut self) {
         self.value.clear();
@@ -446,7 +446,7 @@ impl InputMaskState {
     /// with a default representation of the mask.
     ///
     /// The result value contains all punctuation and
-    /// the value given as 'display' below. See [compact_value()](crate::widget::mask_input::InputMaskState::compact_value).
+    /// the value given as 'display' below. See [compact_value()](crate::widget::mask_input::MaskedInputState::compact_value).
     ///
     /// * 0: must enter digit, display as 0
     /// * 9: can enter digit, display as space
@@ -582,7 +582,7 @@ impl InputMaskState {
     }
 }
 
-impl<A, E> Input<ControlUI<A, E>> for InputMaskState {
+impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
     type Request = InputRequest;
 
     fn perform(&mut self, action: Self::Request) -> ControlUI<A, E> {

@@ -37,7 +37,7 @@ pub struct TextInput {
 
 /// Combined style for the widget.
 #[derive(Debug, Default)]
-pub struct InputStyle {
+pub struct TextInputStyle {
     pub style: Style,
     pub focus: Style,
     pub select: Style,
@@ -82,7 +82,7 @@ impl TextInput {
     }
 
     /// Set the combined style.
-    pub fn style(mut self, style: InputStyle) -> Self {
+    pub fn style(mut self, style: TextInputStyle) -> Self {
         self.style = style.style;
         self.focus_style = style.focus;
         self.select_style = style.select;
@@ -147,7 +147,7 @@ impl TextInput {
 }
 
 impl FrameWidget for TextInput {
-    type State = InputState;
+    type State = TextInputState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
         state.without_focus = self.without_focus;
@@ -216,7 +216,7 @@ impl FrameWidget for TextInput {
 
 /// Input state data.
 #[derive(Debug, Clone)]
-pub struct InputState {
+pub struct TextInputState {
     /// Focus
     pub focus: FocusFlag,
     /// Valid.
@@ -231,7 +231,7 @@ pub struct InputState {
     pub value: core::InputCore,
 }
 
-impl Default for InputState {
+impl Default for TextInputState {
     fn default() -> Self {
         Self {
             focus: Default::default(),
@@ -244,7 +244,7 @@ impl Default for InputState {
     }
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
+impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputState {
     #[allow(non_snake_case)]
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
         use crossterm::event::KeyCode::*;
@@ -309,7 +309,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
     }
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for InputState {
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
         use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
@@ -388,7 +388,7 @@ pub enum InputRequest {
     DeleteTillEnd,
 }
 
-impl InputState {
+impl TextInputState {
     /// Reset to empty.
     pub fn reset(&mut self) {
         self.value.clear();
@@ -519,7 +519,7 @@ impl InputState {
     }
 }
 
-impl<A, E> Input<ControlUI<A, E>> for InputState {
+impl<A, E> Input<ControlUI<A, E>> for TextInputState {
     type Request = InputRequest;
 
     fn perform(&mut self, action: Self::Request) -> ControlUI<A, E> {

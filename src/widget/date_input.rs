@@ -1,8 +1,9 @@
 use crate::lib_focus::Validate;
-use crate::widget::mask_input::{InputMaskState, MaskedInputStyle, MaskedTextInput};
-use crate::{validate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm};
+use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
+use crate::{ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm};
 use chrono::NaiveDate;
 use crossterm::event::Event;
+#[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Rect};
 use ratatui::prelude::Style;
@@ -11,7 +12,7 @@ use std::fmt::Debug;
 
 #[derive(Debug)]
 pub struct DateInput {
-    pub input: MaskedTextInput,
+    pub input: MaskedInput,
 }
 
 impl Default for DateInput {
@@ -95,7 +96,7 @@ impl FrameWidget for DateInput {
 
 #[derive(Debug)]
 pub struct DateInputState {
-    pub input: InputMaskState,
+    pub input: MaskedInputState,
     pub format: String,
 }
 
