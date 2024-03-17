@@ -3,6 +3,7 @@ use crate::util::{next_circular, prev_circular};
 use crate::ControlUI;
 use crate::{DefaultKeys, MouseOnly, Repaint};
 use crossterm::event::Event;
+use log::debug;
 #[allow(unused_imports)]
 use log::error;
 use ratatui::layout::{Position, Rect};
@@ -319,47 +320,45 @@ impl<'a> Focus<'a> {
     /// Sets the focus and the lost flags. Calling this for the widget that currently
     /// has the focus returns *false*, but it resets any lost flag.
     pub fn focus(&self, tag: u16) -> bool {
-        let mut change = false;
-
-        for f in self.focus.iter() {
-            f.lost.set(false);
-            if f.tag.get() == tag {
-                if !f.focus.get() {
-                    change = true;
-                    f.focus.set(true);
-                }
-            } else {
-                if f.focus.get() {
-                    f.lost.set(true);
-                    f.focus.set(false);
-                }
+        for p in self.focus.iter() {
+            p.lost.set(false);
+            if p.focus.get() {
+                p.focus.set(false);
+                p.lost.set(true);
             }
         }
-
-        change
+        for f in self.focus.iter() {
+            if f.tag.get() == tag {
+                f.focus.set(true);
+                return true;
+            }
+        }
+        false
     }
 
     /// Focus the next widget in the cycle.
     ///
     /// Sets the focus and lost flags. If this ends up with the same widget as
-    /// before it returns *false*, but it resets any lost flag.
+    /// before it returns *true* and sets both the focus and lost flag.
+    /// If no field has the focus the first one gets it.
     pub fn next(&self) -> bool {
         for p in self.focus.iter() {
             p.lost.set(false);
+            if p.focus.get() {
+                p.lost.set(true);
+            }
         }
         for (i, p) in self.focus.iter().enumerate() {
             if p.focus.get() {
                 p.focus.set(false);
                 let n = next_circular(i, self.focus.len());
-                if i != n {
-                    p.lost.set(true);
-                    self.focus[n].focus.set(true);
-                    return true;
-                } else {
-                    p.focus.set(true);
-                    return false;
-                }
+                self.focus[n].focus.set(true);
+                return true;
             }
+        }
+        if !self.focus.is_empty() {
+            self.focus[0].focus.set(true);
+            return true;
         }
         false
     }
@@ -367,24 +366,26 @@ impl<'a> Focus<'a> {
     /// Focus the previous widget in the cycle.
     ///
     /// Sets the focus and lost flags. If this ends up with the same widget as
-    /// before it returns *false*, but it resets any lost flag.
+    /// before it returns *true* and sets both the focus and lost flag.
+    /// If no field has the focus the first one gets it.
     pub fn prev(&self) -> bool {
         for p in self.focus.iter() {
             p.lost.set(false);
+            if p.focus.get() {
+                p.lost.set(true);
+            }
         }
         for (i, p) in self.focus.iter().enumerate() {
             if p.focus.get() {
                 p.focus.set(false);
                 let n = prev_circular(i, self.focus.len());
-                if i != n {
-                    p.lost.set(true);
-                    self.focus[n].focus.set(true);
-                    return true;
-                } else {
-                    p.focus.set(true);
-                    return false;
-                }
+                self.focus[n].focus.set(true);
+                return true;
             }
+        }
+        if !self.focus.is_empty() {
+            self.focus[0].focus.set(true);
+            return true;
         }
         false
     }
