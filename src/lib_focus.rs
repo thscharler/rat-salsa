@@ -31,7 +31,7 @@ pub trait HasFocusFlag {
     }
 
     fn lost_focus(&self) -> bool {
-        self.get_focus_flag().get()
+        self.get_focus_flag().lost()
     }
 
     fn focus_tag(&self) -> u16 {
