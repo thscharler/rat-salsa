@@ -22,6 +22,53 @@ pub struct FocusFlag {
     pub lost: Cell<bool>,
 }
 
+/// Trait for a widget that can have focus.
+pub trait HasFocusFlag {
+    fn get_focus_flag(&self) -> &FocusFlag;
+
+    fn is_focused(&self) -> bool {
+        self.get_focus_flag().get()
+    }
+
+    fn lost_focus(&self) -> bool {
+        self.get_focus_flag().get()
+    }
+
+    fn focus_tag(&self) -> u16 {
+        self.get_focus_flag().tag()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ValidFlag {
+    pub valid: Cell<bool>,
+}
+
+pub trait HasValidFlag {
+    fn get_valid_flag(&self) -> &ValidFlag;
+
+    fn is_valid(&self) -> bool {
+        self.get_valid_flag().get()
+    }
+
+    fn is_invalid(&self) -> bool {
+        !self.get_valid_flag().get()
+    }
+
+    fn set_valid(&self, valid: bool) {
+        self.get_valid_flag().set(valid)
+    }
+
+    fn set_valid_from<T, E>(&self, result: Result<T, E>) {
+        self.get_valid_flag().set(result.is_ok())
+    }
+}
+
+/// Trait that works with [validate!].
+pub trait Validate {
+    fn validate(&mut self) -> bool;
+}
+
 /// Keeps track of the focus.
 ///
 /// It works by adding a [FocusFlag] to the State of a widget.
@@ -72,6 +119,28 @@ impl FocusFlag {
     }
 }
 
+impl Default for ValidFlag {
+    fn default() -> Self {
+        Self {
+            valid: Cell::new(true),
+        }
+    }
+}
+
+impl ValidFlag {
+    /// Is valid
+    #[inline]
+    pub fn get(&self) -> bool {
+        self.valid.get()
+    }
+
+    /// Set the focus.
+    #[inline]
+    pub fn set(&self, valid: bool) {
+        self.valid.set(valid);
+    }
+}
+
 /// Validates the given widget if `focus.lost()` is true.
 ///
 /// ```rust ignore
@@ -93,14 +162,14 @@ impl FocusFlag {
 #[macro_export]
 macro_rules! validate {
     ($field:expr => $validate:expr) => {{
-        let cond = $field.focus.lost();
+        let cond = $field.lost_focus();
         if cond {
             let valid = $validate;
-            $field.valid = valid;
+            $field.set_valid(valid);
         }
     }};
-    ($field:expr ) => {{
-        let cond = $field.focus().lost();
+    ($field:expr) => {{
+        let cond = $field.lost_focus();
         if cond {
             let valid = $field.validate();
             $field.set_valid(valid);
@@ -111,15 +180,9 @@ macro_rules! validate {
 #[macro_export]
 macro_rules! on_lost {
     ($field:expr => $validate:expr) => {{
-        let cond = $field.focus.lost();
+        let cond = $field.lost_focus();
         if cond {
             $validate;
-        }
-    }};
-    ($field:expr) => {{
-        let cond = $field.focus().lost();
-        if cond {
-            $field.validate();
         }
     }};
 }
@@ -241,6 +304,13 @@ impl<'a> Focus<'a> {
         }
 
         change
+    }
+
+    /// Change
+    pub fn focus_repaint(&self, tag: u16, repaint: &Repaint) {
+        if self.focus(tag) {
+            repaint.set();
+        }
     }
 
     /// Change the focus using the tag.
@@ -394,14 +464,4 @@ impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>, MouseOnly> for Focus<'a> 
             _ => ControlUI::Continue,
         }
     }
-}
-
-/// Trait that works with [validate!].
-pub trait Validate {
-    /// FocusFlag
-    fn focus(&self) -> &FocusFlag;
-    /// Valid flag
-    fn set_valid(&mut self, valid: bool);
-    /// Do whatever
-    fn validate(&mut self) -> bool;
 }
