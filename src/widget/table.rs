@@ -1,6 +1,5 @@
 use crate::lib_focus::HasArea;
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
-use crate::widget::mask_input::MaskedInputState;
 use crate::widget::ActionTrigger;
 use crate::FocusFlag;
 use crate::{ControlUI, HasFocusFlag};

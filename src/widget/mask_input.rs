@@ -12,7 +12,6 @@
 
 use crate::lib_focus::{HasArea, HasFocusFlag, HasValidFlag};
 use crate::widget::basic::ClearStyle;
-use crate::widget::input::TextInputState;
 use crate::widget::mask_input::core::{split3, split5, CursorPos};
 use crate::FocusFlag;
 use crate::{ControlUI, ValidFlag};

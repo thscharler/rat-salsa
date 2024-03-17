@@ -10,7 +10,9 @@ use std::cell::Cell;
 use std::iter::Zip;
 use std::vec;
 
-/// Flag structure to be used in widget states.
+/// Contains flags for focus.
+///
+/// This struct is used as part of the widget state. Works with [HasFocusFlag].
 #[derive(Debug, Clone, Default)]
 pub struct FocusFlag {
     /// A unique tag within one focus-cycle. It is set when the focus cycle is created.
@@ -22,53 +24,67 @@ pub struct FocusFlag {
     pub lost: Cell<bool>,
 }
 
-/// Trait for a widget that can have focus.
+/// Trait for a widget that has a focus flag.
 pub trait HasFocusFlag {
+    /// Access to the flag for the rest.
     fn focus(&self) -> &FocusFlag;
 
+    /// Focused?
     fn is_focused(&self) -> bool {
         self.focus().get()
     }
 
+    /// Just lost focus.
     fn lost_focus(&self) -> bool {
         self.focus().lost()
     }
 
+    /// Focus cycle tag.
     fn focus_tag(&self) -> u16 {
         self.focus().tag()
     }
 }
 
+/// Contains a valid flag.
+/// Can be used as part of the widget state. Works with [HasValidFlag].
 #[derive(Debug, Clone)]
 pub struct ValidFlag {
+    /// Valid flag.
     pub valid: Cell<bool>,
 }
 
+/// Trait for a widget that can have a valid/invalid state.
 pub trait HasValidFlag {
+    /// Access to the flag for the rest.
     fn valid(&self) -> &ValidFlag;
 
+    /// Widget state is valid.
     fn is_valid(&self) -> bool {
         self.valid().get()
     }
 
+    /// Widget state is invalid.
     fn is_invalid(&self) -> bool {
         !self.valid().get()
     }
 
+    /// Change the valid state.
     fn set_valid(&self, valid: bool) {
         self.valid().set(valid)
     }
 
+    /// Set the valid state from a result. Ok == Valid.
     fn set_valid_from<T, E>(&self, result: Result<T, E>) {
         self.valid().set(result.is_ok())
     }
 }
 
+/// Trait for a widget that has an area for mouse interaction.
 pub trait HasArea {
     fn area(&self) -> Rect;
 }
 
-/// Trait that works with [validate!].
+/// Trait for a widget evaluating the content.
 pub trait Validate {
     fn validate(&mut self) -> bool;
 }
@@ -84,7 +100,7 @@ pub trait Validate {
 /// Focus::new([
 ///     (&widget1.focus, widget1.area),
 ///     (&widget2.focus, widget2.area),
-/// ]).handle(evt, repaint, DefaultKeys);
+/// ]).handle_repaint(evt, repaint, DefaultKeys);
 /// ```
 ///
 /// repaint in the example is a [Repaint] as Focus doesn't consume any events.
@@ -145,24 +161,22 @@ impl ValidFlag {
     }
 }
 
-/// Validates the given widget if `focus.lost()` is true.
+/// Validates the given widget if `lost_focus()` is true.
+///
+/// Uses the traits [HasFocusFlag] and [HasValidFlag] for its function.
 ///
 /// ```rust ignore
-/// # use rat_salsa::{FocusFlag, validate};
-/// # #[derive(Default)]
-/// # struct State {
-/// #     pub focus: FocusFlag,
-/// #     pub valid: bool,
-/// # }
-/// # let mut state = State::default();
 /// validate!(state.firstframe.widget1 => {
 ///     // do something ...
 ///     true
 /// })
 /// ```
 ///
-/// It expects that the widget has the fields `focus: FocusFlag` and `valid: bool` that
-/// are both public.
+/// There is a variant without the block that uses the [Validate] trait.
+///
+/// ```rust ignore
+/// validate!(state.firstframe.numberfield1);
+/// ```
 #[macro_export]
 macro_rules! validate {
     ($field:expr => $validate:expr) => {{
@@ -181,6 +195,9 @@ macro_rules! validate {
     }};
 }
 
+/// Executes the block if `lost_focus()` is true.
+///
+/// This uses the [HasFocusFlag] trait for its function.
 #[macro_export]
 macro_rules! on_lost {
     ($field:expr => $validate:expr) => {{
@@ -191,46 +208,26 @@ macro_rules! on_lost {
     }};
 }
 
-/// Executes the expression if `focus.get()` is true.
-///
-/// This is only useful if combined with [ControlUI::on_change].
+/// Executes the expression if `is_focused()` is true.
 ///
 /// ```rust ignore
-/// # use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
-/// use rat_salsa::{ControlUI, DefaultKeys, Focus, HandleCrossterm, on_focus, Repaint};
-/// # use rat_salsa::widget::button::ButtonState;
-/// # let widget1 = ButtonState::default();
-/// # let widget2 = ButtonState::default();
-/// # let vevt = crossterm::event::Event::Key(KeyEvent {
-/// #     code: KeyCode::Tab,
-/// #     modifiers: KeyModifiers::NONE,
-/// #     kind: KeyEventKind::Press,
-/// #     state: KeyEventState::NONE
-/// # });
-/// # let evt = &vevt;
-/// # let vrepaint = Repaint::default();
-/// # let repaint = Some(&vrepaint);
-///
 /// let flow = Focus::new([
 ///     (&widget1.focus, widget1.area),
 ///     (&widget2.focus, widget2.area),
-/// ]).handle_repaint(evt, repaint, DefaultKeys)
-/// .on_changed(|| {
-///     on_focus!(widget1 => {
-///         // ... do something useful ...
-///     });
-///     on_focus!(widget2 => {
-///         // ... do something else ...
-///     });
+/// ]).handle_repaint(evt, repaint, DefaultKeys);
 ///
-///     ControlUI::Changed
+/// on_focus!(widget1 => {
+///     // ... do something useful ...
+/// });
+/// on_focus!(widget2 => {
+///     // ... do something else ...
 /// });
 /// ```
 ///
 #[macro_export]
 macro_rules! on_focus {
     ($field:expr => $gained:expr) => {{
-        let cond = $field.focus.get();
+        let cond = $field.is_focused();
         if cond {
             $gained;
         }
@@ -310,7 +307,7 @@ impl<'a> Focus<'a> {
         change
     }
 
-    /// Change
+    /// Change the focus using the tag. Flags a repaint if something changed.
     pub fn focus_repaint(&self, tag: u16, repaint: &Repaint) {
         if self.focus(tag) {
             repaint.set();

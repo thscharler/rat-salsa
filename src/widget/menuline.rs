@@ -5,9 +5,7 @@
 //! key if the menu has focus.
 //!
 
-use crate::lib_focus::HasArea;
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
-use crate::widget::mask_input::MaskedInputState;
 use crate::widget::ActionTrigger;
 use crate::{ControlUI, FocusFlag, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
@@ -21,7 +19,6 @@ use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{Modifier, Span, Style, Widget};
 use ratatui::text::{Line, Text};
 use ratatui::widgets::StatefulWidget;
-use std::cell::Cell;
 use std::fmt::Debug;
 
 /// Menu
