@@ -10,10 +10,11 @@
 //! * Accepts a display overlay used instead of the default chars of the input mask.
 //!
 
+use crate::lib_focus::{HasFocusFlag, HasValidFlag};
 use crate::widget::basic::ClearStyle;
 use crate::widget::mask_input::core::{split3, split5, CursorPos};
-use crate::ControlUI;
 use crate::FocusFlag;
+use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 #[allow(unused_imports)]
 use log::debug;
@@ -154,7 +155,7 @@ impl FrameWidget for MaskedInput {
         state.without_focus = self.without_focus;
 
         let mut l_area = area.inner(&self.insets);
-        let l_invalid = if !state.valid {
+        let l_invalid = if !state.valid.get() {
             l_area.width -= 1;
             Rect::new(l_area.x + l_area.width, l_area.y, 1, 1)
         } else {
@@ -199,7 +200,7 @@ impl FrameWidget for MaskedInput {
 
         frame.render_widget(clear, area);
         frame.render_widget(line, l_input);
-        if !state.valid {
+        if !state.valid.get() {
             let style = if let Some(style) = self.invalid_style {
                 style
             } else {
@@ -220,7 +221,7 @@ pub struct MaskedInputState {
     /// Focus
     pub focus: FocusFlag,
     /// Valid.
-    pub valid: bool,
+    pub valid: ValidFlag,
     /// Work without focus for key input.
     pub without_focus: bool,
     /// Area
@@ -235,7 +236,7 @@ impl Default for MaskedInputState {
     fn default() -> Self {
         Self {
             focus: Default::default(),
-            valid: true,
+            valid: Default::default(),
             without_focus: false,
             area: Default::default(),
             mouse_select: false,
@@ -579,6 +580,18 @@ impl MaskedInputState {
     /// Visible cursor position.
     pub fn visible_cursor(&mut self) -> u16 {
         (self.value.cursor() - self.value.offset()) as u16
+    }
+}
+
+impl HasFocusFlag for MaskedInputState {
+    fn get_focus_flag(&self) -> &FocusFlag {
+        &self.focus
+    }
+}
+
+impl HasValidFlag for MaskedInputState {
+    fn get_valid_flag(&self) -> &ValidFlag {
+        &self.valid
     }
 }
 

@@ -7,10 +7,11 @@
 //! * Can set the cursor or use its own block cursor.
 //! * Can show an indicator for invalid input.
 
+use crate::lib_focus::{HasFocusFlag, HasValidFlag};
 use crate::widget::basic::ClearStyle;
 use crate::widget::input::core::{split3, split5};
-use crate::ControlUI;
 use crate::FocusFlag;
+use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 #[allow(unused_imports)]
 use log::debug;
@@ -153,7 +154,7 @@ impl FrameWidget for TextInput {
         state.without_focus = self.without_focus;
 
         let mut l_area = area.inner(&self.insets);
-        let l_invalid = if !state.valid {
+        let l_invalid = if !state.valid.get() {
             l_area.width -= 1;
             Rect::new(l_area.x + l_area.width, l_area.y, 1, 1)
         } else {
@@ -198,7 +199,7 @@ impl FrameWidget for TextInput {
 
         frame.render_widget(clear, area);
         frame.render_widget(line, l_input);
-        if !state.valid {
+        if !state.valid.get() {
             let style = if let Some(style) = self.invalid_style {
                 style
             } else {
@@ -220,7 +221,7 @@ pub struct TextInputState {
     /// Focus
     pub focus: FocusFlag,
     /// Valid.
-    pub valid: bool,
+    pub valid: ValidFlag,
     /// Work without focus for key input.
     pub without_focus: bool,
     /// Area
@@ -235,7 +236,7 @@ impl Default for TextInputState {
     fn default() -> Self {
         Self {
             focus: Default::default(),
-            valid: true,
+            valid: Default::default(),
             without_focus: false,
             area: Default::default(),
             mouse_select: false,
@@ -667,6 +668,18 @@ impl<A, E> Input<ControlUI<A, E>> for TextInputState {
                 ControlUI::Change
             }
         }
+    }
+}
+
+impl HasFocusFlag for TextInputState {
+    fn get_focus_flag(&self) -> &FocusFlag {
+        &self.focus
+    }
+}
+
+impl HasValidFlag for TextInputState {
+    fn get_valid_flag(&self) -> &ValidFlag {
+        &self.valid
     }
 }
 

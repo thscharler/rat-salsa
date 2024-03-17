@@ -1,6 +1,6 @@
-use crate::lib_focus::Validate;
+use crate::lib_focus::{HasFocusFlag, HasValidFlag, Validate};
 use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
-use crate::{ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm};
+use crate::{ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, ValidFlag};
 use chrono::NaiveDate;
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -145,22 +145,25 @@ impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateI
     fn handle(&mut self, event: &Event, keymap: DefaultKeys) -> ControlUI<A, E> {
         let r = self.input.handle(event, keymap);
         r.on_change_do(|| {
-            self.input.valid = self.value().is_ok();
+            self.input.set_valid_from(self.value());
         });
         r
     }
 }
 
-impl Validate for DateInputState {
-    fn focus(&self) -> &FocusFlag {
+impl HasFocusFlag for DateInputState {
+    fn get_focus_flag(&self) -> &FocusFlag {
         &self.input.focus
     }
+}
 
-    fn set_valid(&mut self, valid: bool) {
-        // todo: use cell?
-        self.input.valid = valid;
+impl HasValidFlag for DateInputState {
+    fn get_valid_flag(&self) -> &ValidFlag {
+        &self.input.valid
     }
+}
 
+impl Validate for DateInputState {
     fn validate(&mut self) -> bool {
         if let Ok(d) = self.value() {
             self.set_value(d);
