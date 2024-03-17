@@ -231,6 +231,19 @@ pub struct InputMaskState {
     pub value: core::InputMaskCore,
 }
 
+impl Default for InputMaskState {
+    fn default() -> Self {
+        Self {
+            focus: Default::default(),
+            valid: true,
+            without_focus: false,
+            area: Default::default(),
+            mouse_select: false,
+            value: Default::default(),
+        }
+    }
+}
+
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputMaskState {
     #[allow(non_snake_case)]
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {

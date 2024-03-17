@@ -215,7 +215,7 @@ impl FrameWidget for TextInput {
 }
 
 /// Input state data.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct InputState {
     /// Focus
     pub focus: FocusFlag,
@@ -229,6 +229,19 @@ pub struct InputState {
     pub mouse_select: bool,
     /// Editing core
     pub value: core::InputCore,
+}
+
+impl Default for InputState {
+    fn default() -> Self {
+        Self {
+            focus: Default::default(),
+            valid: true,
+            without_focus: false,
+            area: Default::default(),
+            mouse_select: false,
+            value: Default::default(),
+        }
+    }
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for InputState {
