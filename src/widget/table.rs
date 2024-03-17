@@ -1,7 +1,7 @@
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
 use crate::widget::ActionTrigger;
-use crate::ControlUI;
 use crate::FocusFlag;
+use crate::{ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -204,6 +204,12 @@ impl Default for TableExtState {
             area: Default::default(),
             trigger: Default::default(),
         }
+    }
+}
+
+impl HasFocusFlag for TableExtState {
+    fn get_focus_flag(&self) -> &FocusFlag {
+        &self.focus
     }
 }
 

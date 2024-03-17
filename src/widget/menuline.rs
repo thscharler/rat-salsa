@@ -7,7 +7,7 @@
 
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
 use crate::widget::ActionTrigger;
-use crate::ControlUI;
+use crate::{ControlUI, FocusFlag, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -129,7 +129,7 @@ pub enum InputRequest {
 /// State for the menu.
 #[derive(Debug)]
 pub struct MenuLineState<A> {
-    pub focus: Cell<bool>,
+    pub focus: FocusFlag,
     pub area: Vec<Rect>,
     pub key: Vec<char>,
     pub trigger: ActionTrigger,
@@ -141,7 +141,7 @@ pub struct MenuLineState<A> {
 impl<A> Default for MenuLineState<A> {
     fn default() -> Self {
         Self {
-            focus: Cell::new(false),
+            focus: Default::default(),
             key: Default::default(),
             trigger: Default::default(),
             select: Some(0),
@@ -149,6 +149,12 @@ impl<A> Default for MenuLineState<A> {
             area: Default::default(),
             action: Default::default(),
         }
+    }
+}
+
+impl<A> HasFocusFlag for MenuLineState<A> {
+    fn get_focus_flag(&self) -> &FocusFlag {
+        &self.focus
     }
 }
 
