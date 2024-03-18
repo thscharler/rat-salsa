@@ -53,11 +53,18 @@ macro_rules! try_result {
 #[macro_export]
 macro_rules! check_break {
     ($x:expr) => {{
+        use $crate::optional::OptionalControlUI;
         let r = $x;
-        if !r.is_continue() {
-            return r;
+        if r.is_control_ui() {
+            let s = r.unwrap_control_ui();
+            if !s.is_continue() {
+                return s;
+            } else {
+                _ = s;
+            }
+        } else {
+            _ = r;
         }
-        _ = r; // avoid must_use warnings.
     }};
 }
 
@@ -68,19 +75,46 @@ macro_rules! check_break {
 #[macro_export]
 macro_rules! try_ui {
     ($x:expr) => {{
+        use $crate::optional::OptionalControlUI;
         let r = $x;
-        if r.is_err() {
-            return r;
+        if r.is_control_ui() {
+            let s = r.unwrap_control_ui();
+            if s.is_err() {
+                return s;
+            } else {
+                OptionalControlUI::rewrap_control_ui(s)
+            }
+        } else {
+            r
         }
-        r
     }};
     ($x:expr, _) => {{
+        use $crate:optional:OptionalControlUI;
         let r = $x;
-        if r.is_err() {
-            return r;
+        if r.is_control_ui() {
+            let s = r.unwrap_control_ui();
+            if s.is_err() {
+                return s;
+            } else {
+                _ = s;
+            }
         }
         _ = r;
     }};
+}
+
+pub mod optional {
+    use crate::ControlUI;
+
+    /// Just a helper trait for the macros [try_ui!] and [check_break!]
+    pub trait OptionalControlUI<A, E> {
+        /// Is a ControlUI?
+        fn is_control_ui(&self) -> bool;
+        /// Unwrap if necessary.
+        fn unwrap_control_ui(self) -> ControlUI<A, E>;
+        /// Rewrap if necessary.
+        fn rewrap_control_ui(v: ControlUI<A, E>) -> Self;
+    }
 }
 
 /// UI control flow.
@@ -118,41 +152,49 @@ pub enum ControlUI<Action, Err> {
 
 impl<Action, Err> ControlUI<Action, Err> {
     /// Continue case
+    #[inline]
     pub fn is_continue(&self) -> bool {
         matches!(self, ControlUI::Continue)
     }
 
     /// Err case
+    #[inline]
     pub fn is_err(&self) -> bool {
         matches!(self, ControlUI::Err(_))
     }
 
     /// Unchanged case
+    #[inline]
     pub fn is_unchanged(&self) -> bool {
         matches!(self, ControlUI::NoChange)
     }
 
     /// Changed case
+    #[inline]
     pub fn is_changed(&self) -> bool {
         matches!(self, ControlUI::Change)
     }
 
     /// Action
+    #[inline]
     pub fn is_run(&self) -> bool {
         matches!(self, ControlUI::Run(_))
     }
 
     /// Background action
+    #[inline]
     pub fn is_spawn(&self) -> bool {
         matches!(self, ControlUI::Spawn(_))
     }
 
     /// Break case.
+    #[inline]
     pub fn is_break(&self) -> bool {
         matches!(self, ControlUI::Break)
     }
 
     /// If the value is Continue, change to c.
+    #[inline]
     pub fn or(self, c: impl Into<ControlUI<Action, Err>>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => c.into(),
@@ -161,6 +203,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     }
 
     /// Run the continuation if the value is Continue.
+    #[inline]
     pub fn or_else(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => f(),
@@ -169,6 +212,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     }
 
     /// Run the continuation if the value is Continue. May return some R.
+    #[inline]
     pub fn or_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
         match self {
             ControlUI::Continue => Some(f()),
@@ -177,6 +221,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     }
 
     /// Does some error conversion.
+    #[inline]
     pub fn map_err<F>(self, f: impl FnOnce(Err) -> ControlUI<Action, F>) -> ControlUI<Action, F> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
@@ -190,6 +235,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     }
 
     /// Convert an error to another error type with into().
+    #[inline]
     pub fn err_into<F>(self) -> ControlUI<Action, F>
     where
         Err: Into<F>,
@@ -211,6 +257,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     /// widget actions to more global ones.
     ///
     /// Caveat: Allows no differentiation between Run and Spawn.
+    #[inline]
     pub fn and_then<B>(self, f: impl FnOnce(Action) -> ControlUI<B, Err>) -> ControlUI<B, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
@@ -226,6 +273,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     /// Run the continuation if the value is Run or Spawn. May return some R.
     ///
     /// Caveat: Allows no differentiation between Run and Spawn.
+    #[inline]
     pub fn and_do<R>(&self, f: impl FnOnce(&Action) -> R) -> Option<R> {
         match self {
             ControlUI::Run(a) => Some(f(a)),
@@ -235,6 +283,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     }
 
     /// Run the continuation if the value is Unchanged.
+    #[inline]
     pub fn on_no_change(
         self,
         f: impl FnOnce() -> ControlUI<Action, Err>,
@@ -246,6 +295,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     }
 
     /// Run the if the value is Unchanged. Allows to return some value.
+    #[inline]
     pub fn on_no_change_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
         match self {
             ControlUI::NoChange => Some(f()),
@@ -254,6 +304,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     }
 
     /// Run the continuation if the value is Changed.
+    #[inline]
     pub fn on_change(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Change => f(),
@@ -262,10 +313,45 @@ impl<Action, Err> ControlUI<Action, Err> {
     }
 
     /// Run if the value is Changed. Allows to return some value.
+    #[inline]
     pub fn on_change_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
         match self {
             ControlUI::Change => Some(f()),
             _ => None,
         }
+    }
+}
+
+impl<Action, Err> optional::OptionalControlUI<Action, Err> for ControlUI<Action, Err> {
+    #[inline]
+    fn is_control_ui(&self) -> bool {
+        true
+    }
+
+    #[inline]
+    fn unwrap_control_ui(self) -> ControlUI<Action, Err> {
+        self
+    }
+
+    #[inline]
+    fn rewrap_control_ui(v: ControlUI<Action, Err>) -> Self {
+        v
+    }
+}
+
+impl<Action, Err> optional::OptionalControlUI<Action, Err> for Option<ControlUI<Action, Err>> {
+    #[inline]
+    fn is_control_ui(&self) -> bool {
+        self.is_some()
+    }
+
+    #[inline]
+    fn unwrap_control_ui(self) -> ControlUI<Action, Err> {
+        self.unwrap()
+    }
+
+    #[inline]
+    fn rewrap_control_ui(v: ControlUI<Action, Err>) -> Self {
+        Some(v)
     }
 }
