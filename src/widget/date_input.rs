@@ -1,8 +1,8 @@
 use crate::lib_focus::{HasArea, HasFocusFlag, HasValidFlag, Validate};
 use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
 use crate::{ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, ValidFlag};
-use chrono::NaiveDate;
-use crossterm::event::Event;
+use chrono::{Local, NaiveDate};
+use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Rect};
@@ -143,9 +143,25 @@ impl DateInputState {
 
 impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState {
     fn handle(&mut self, event: &Event, keymap: DefaultKeys) -> ControlUI<A, E> {
-        let r = self.input.handle(event, keymap);
-        r.on_change_do(|| {
-            self.input.set_valid_from(self.value());
+        let r = match event {
+            Event::Key(KeyEvent {
+                code: KeyCode::Char('h'),
+                kind: KeyEventKind::Press,
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => {
+                self.set_value(Local::now().date_naive());
+                ControlUI::Change
+            }
+            _ => ControlUI::Continue,
+        };
+
+        let r = r.or_else(|| {
+            let r = self.input.handle(event, keymap);
+            r.on_change_do(|| {
+                self.input.set_valid_from(self.value());
+            });
+            r
         });
         r
     }
