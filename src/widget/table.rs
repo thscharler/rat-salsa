@@ -509,9 +509,21 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
 #[derive(Debug)]
 pub struct DoubleClick;
 
-impl<E> HandleCrossterm<ControlUI<bool, E>, DoubleClick> for TableExtState {
-    fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<bool, E> {
+impl<E> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState {
+    fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<(), E> {
         match event {
+            Event::Key(KeyEvent {
+                code: KeyCode::Enter,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.focus.get() {
+                    ControlUI::Run(())
+                } else {
+                    ControlUI::Continue
+                }
+            }
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::Up(MouseButton::Left),
                 column,
@@ -525,7 +537,7 @@ impl<E> HandleCrossterm<ControlUI<bool, E>, DoubleClick> for TableExtState {
                     // this cannot be accomplished otherwise. the return type is bitching.
                     if self.table_state.selected() == Some(sel) {
                         if self.trigger.pull(200) {
-                            ControlUI::Run(true)
+                            ControlUI::Run(())
                         } else {
                             ControlUI::NoChange
                         }
@@ -589,7 +601,7 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
             }
             InputRequest::MouseSelect(i) => {
                 if self.table_state.selected() == Some(i) {
-                    ControlUI::NoChange
+                    ControlUI::Continue
                 } else {
                     self.trigger.reset();
                     self.table_state.select(Some(i));
