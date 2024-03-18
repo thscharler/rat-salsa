@@ -1,4 +1,3 @@
-use crate::Repaint;
 use ratatui::layout::Rect;
 use ratatui::Frame;
 
@@ -51,17 +50,6 @@ pub struct MouseOnly;
 /// of indirection and use a feature flag to select between them.
 pub trait HandleCrossterm<R, KeyMap = DefaultKeys> {
     fn handle(&mut self, event: &crossterm::event::Event, keymap: KeyMap) -> R;
-}
-
-/// A specialized version of [HandleCrossterm] which needs [Repaint] to trigger an extra repaint.
-/// Used by [Focus](crate::Focus) as it doesn't want to consume any events, but still needs a repaint.
-pub trait HandleCrosstermRepaint<R, KeyMap = DefaultKeys> {
-    fn handle_with_repaint(
-        &mut self,
-        event: &crossterm::event::Event,
-        repaint: &Repaint,
-        keymap: KeyMap,
-    ) -> R;
 }
 
 /// Add-on to ratatui.

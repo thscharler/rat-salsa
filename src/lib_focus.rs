@@ -1,8 +1,8 @@
-use crate::lib_widget::HandleCrosstermRepaint;
 use crate::util::{next_circular, prev_circular};
-use crate::ControlUI;
-use crate::{DefaultKeys, MouseOnly, Repaint};
+use crate::{ControlUI, HandleCrossterm};
+use crate::{DefaultKeys, MouseOnly};
 use crossterm::event::Event;
+#[allow(unused_imports)]
 use log::debug;
 #[allow(unused_imports)]
 use log::error;
@@ -11,9 +11,12 @@ use std::cell::Cell;
 use std::iter::Zip;
 use std::vec;
 
-/// Contains flags for focus.
+/// Contains flags for the focus.
 ///
-/// This struct is used as part of the widget state. Works with [HasFocusFlag].
+/// This struct is used as part of the widget state.
+///
+/// See [HasFocusFlag], [validate!] and also [on_gained!], [on_lost!].
+///
 #[derive(Debug, Clone, Default)]
 pub struct FocusFlag {
     /// A unique tag within one focus-cycle. It is set when the focus cycle is created.
@@ -21,7 +24,11 @@ pub struct FocusFlag {
     pub tag: Cell<u16>,
     /// Focus. See [on_focus!](crate::on_focus!())
     pub focus: Cell<bool>,
+    /// This widget just gained the focus.
+    /// It is reset at the beginning of all handle_xxx() calls.
+    pub gained: Cell<bool>,
     /// This widget just lost the focus. See [validate!](crate::validate!())
+    /// It is reset at the beginning of all handle_xxx() calls.
     pub lost: Cell<bool>,
 }
 
@@ -40,14 +47,22 @@ pub trait HasFocusFlag {
         self.focus().lost()
     }
 
+    /// Just gained focus.
+    fn gained_focus(&self) -> bool {
+        self.focus().gained()
+    }
+
     /// Focus cycle tag.
     fn focus_tag(&self) -> u16 {
         self.focus().tag()
     }
 }
 
-/// Contains a valid flag.
-/// Can be used as part of the widget state. Works with [HasValidFlag].
+/// A valid flag for a widget that can indicate such a state.
+///
+/// Can be used as part of the widget state.
+///
+/// See [HasValidFlag], [validate!]
 #[derive(Debug, Clone)]
 pub struct ValidFlag {
     /// Valid flag.
@@ -102,11 +117,12 @@ pub trait Validate {
 /// Focus::new([
 ///     (&widget1.focus, widget1.area),
 ///     (&widget2.focus, widget2.area),
-/// ]).handle_repaint(evt, repaint, DefaultKeys);
+/// ]).handle(evt, DefaultKeys)
+/// .and_do(|_| uistate.repaint.set());
 /// ```
 ///
-/// repaint in the example is a [Repaint] as Focus doesn't consume any events.
-///
+/// repaint in the example is a [Repaint]. This is necessary as the focus change does not
+/// automatically trigger a repaint.
 #[derive(Debug, Default)]
 pub struct Focus<'a> {
     /// Areas for each widget.
@@ -138,6 +154,12 @@ impl FocusFlag {
     #[inline]
     pub fn lost(&self) -> bool {
         self.lost.get()
+    }
+
+    /// Just gained the focus.
+    #[inline]
+    pub fn gained(&self) -> bool {
+        self.gained.get()
     }
 }
 
@@ -197,9 +219,7 @@ macro_rules! validate {
     }};
 }
 
-/// Executes the block if `lost_focus()` is true.
-///
-/// This uses the [HasFocusFlag] trait for its function.
+/// Executes the block if [HasFocusFlag::lost_focus()] is true.
 #[macro_export]
 macro_rules! on_lost {
     ($field:expr => $validate:expr) => {{
@@ -210,26 +230,11 @@ macro_rules! on_lost {
     }};
 }
 
-/// Executes the expression if `is_focused()` is true.
-///
-/// ```rust ignore
-/// let flow = Focus::new([
-///     (&widget1.focus, widget1.area),
-///     (&widget2.focus, widget2.area),
-/// ]).handle_repaint(evt, repaint, DefaultKeys);
-///
-/// on_focus!(widget1 => {
-///     // ... do something useful ...
-/// });
-/// on_focus!(widget2 => {
-///     // ... do something else ...
-/// });
-/// ```
-///
+/// Executes the block if [HasFocusFlag::gained_focus()] is true.
 #[macro_export]
-macro_rules! on_focus {
+macro_rules! on_gained {
     ($field:expr => $gained:expr) => {{
-        let cond = $field.is_focused();
+        let cond = $field.gained_focus();
         if cond {
             $gained;
         }
@@ -268,165 +273,127 @@ impl<'a> Focus<'a> {
         self
     }
 
-    /// Resets the focus to the last widget that lost the focus.
-    ///
-    /// The widget then has the focus and no other field has the lost-flag set.
-    ///
-    /// Can be used to reset the focus after a failed validation without triggering a new one.
-    pub fn reset_lost(&self) {
-        for f in self.focus.iter() {
-            if f.focus.get() {
-                f.focus.set(false);
+    // reset flags for a new round.
+    fn start_focus_change(&self, set_lost: bool) {
+        for p in self.focus.iter() {
+            if set_lost {
+                p.lost.set(p.focus.get());
+            } else {
+                p.lost.set(false);
             }
-            if f.lost() {
-                f.focus.set(true);
-            }
+            p.gained.set(false);
+            p.focus.set(false);
+        }
+    }
+
+    /// Sets the focus to the widget with `tag`.
+    ///
+    /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
+    pub fn focus_no_lost(&self, tag: u16) {
+        self.start_focus_change(false);
+        if let Some(f) = self.focus.iter().find(|f| f.tag.get() == tag) {
+            f.focus.set(true);
+            f.gained.set(true);
+        }
+    }
+
+    /// Sets the focus to the widget with `tag`.
+    ///
+    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
+    /// before focus, gained and lost flag are all set.
+    pub fn focus(&self, tag: u16) {
+        self.start_focus_change(true);
+        if let Some(f) = self.focus.iter().find(|f| f.tag.get() == tag) {
+            f.focus.set(true);
+            f.gained.set(true);
+        }
+    }
+
+    /// Reset lost + gained flags.
+    ///
+    /// This is done automatically in `HandleCrossterm::handle()` for every event.
+    /// This means these flags are only ever set if `handle()` returns Run(true) to allow
+    /// immediate reactions to focus changes.
+    pub fn reset_lost_gained(&self) {
+        for p in self.focus.iter() {
+            p.lost.set(false);
+            p.gained.set(false);
         }
     }
 
     /// Change the focus.
     ///
-    /// Sets the focus and the lost flags. Calling this for the widget that currently
-    /// has the focus returns *false*, but it resets any lost flag.
-    pub fn focus_idx(&self, idx: usize) -> bool {
-        let mut change = false;
-
-        for (i, f) in self.focus.iter().enumerate() {
-            f.lost.set(false);
-            if i == idx {
-                if !f.focus.get() {
-                    change = true;
-                    f.focus.set(true);
-                }
-            } else {
-                if f.focus.get() {
-                    f.lost.set(true);
-                    f.focus.set(false);
-                }
-            }
-        }
-
-        change
-    }
-
-    /// Change the focus using the tag. Flags a repaint if something changed.
-    pub fn focus_and_repaint(&self, tag: u16, repaint: &Repaint) {
-        if self.focus(tag) {
-            repaint.set();
-        }
-    }
-
-    /// Change the focus using the tag. This resets all lost flags.
+    /// Sets the focus, gained and lost flags.
     ///
-    /// Sets the focus and the lost flags. Calling this for the widget that currently
-    /// has the focus returns *false*, but it resets any lost flag.
-    pub fn focus_no_lost(&self, tag: u16) -> bool {
-        self.focus_impl(tag, false)
-    }
-
-    /// Change the focus using the tag.
-    ///
-    /// Sets the focus and the lost flags. Calling this for the widget that currently
-    /// has the focus returns *false*, but it resets any lost flag.
-    pub fn focus(&self, tag: u16) -> bool {
-        self.focus_impl(tag, true)
-    }
-
-    fn focus_impl(&self, tag: u16, use_lost: bool) -> bool {
-        for p in self.focus.iter() {
-            p.lost.set(false);
-            if p.focus.get() {
-                p.focus.set(false);
-                if use_lost {
-                    p.lost.set(true);
-                }
-            }
-        }
-        for f in self.focus.iter() {
-            if f.tag.get() == tag {
-                f.focus.set(true);
-                return true;
-            }
-        }
-        false
-    }
-
-    pub fn next_and_repaint(&self, repaint: &Repaint) {
-        if self.next() {
-            repaint.set();
-        }
-    }
-
-    pub fn prev_and_repaint(&self, repaint: &Repaint) {
-        if self.prev() {
-            repaint.set();
+    /// If the field at idx has the focus all three are set.
+    pub fn focus_idx(&self, idx: usize) {
+        self.start_focus_change(true);
+        if let Some(f) = self.focus.get(idx) {
+            f.focus.set(true);
+            f.gained.set(true);
         }
     }
 
     /// Focus the next widget in the cycle.
     ///
-    /// Sets the focus and lost flags. If this ends up with the same widget as
-    /// before it returns *true* and sets both the focus and lost flag.
+    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
+    /// before focus, gained and lost flag are all set.
+    ///
     /// If no field has the focus the first one gets it.
     pub fn next(&self) -> bool {
-        for p in self.focus.iter() {
-            p.lost.set(false);
-            if p.focus.get() {
-                p.lost.set(true);
-            }
-        }
+        self.start_focus_change(true);
         for (i, p) in self.focus.iter().enumerate() {
-            if p.focus.get() {
-                p.focus.set(false);
+            if p.lost.get() {
                 let n = next_circular(i, self.focus.len());
                 self.focus[n].focus.set(true);
-                return true;
+                self.focus[n].gained.set(true);
+                return i != n;
             }
         }
         if !self.focus.is_empty() {
             self.focus[0].focus.set(true);
+            self.focus[0].gained.set(true);
             return true;
         }
+
         false
     }
 
     /// Focus the previous widget in the cycle.
     ///
     /// Sets the focus and lost flags. If this ends up with the same widget as
-    /// before it returns *true* and sets both the focus and lost flag.
+    /// before it returns *true* and sets the focus, gained and lost flag.
+    ///
     /// If no field has the focus the first one gets it.
     pub fn prev(&self) -> bool {
-        for p in self.focus.iter() {
-            p.lost.set(false);
-            if p.focus.get() {
-                p.lost.set(true);
-            }
-        }
+        self.start_focus_change(true);
         for (i, p) in self.focus.iter().enumerate() {
-            if p.focus.get() {
-                p.focus.set(false);
+            if p.lost.get() {
                 let n = prev_circular(i, self.focus.len());
                 self.focus[n].focus.set(true);
-                return true;
+                self.focus[n].gained.set(true);
+                return i != n;
             }
         }
         if !self.focus.is_empty() {
             self.focus[0].focus.set(true);
+            self.focus[0].gained.set(true);
             return true;
         }
         false
     }
 }
 
-impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>> for Focus<'a> {
-    fn handle_with_repaint(
-        &mut self,
-        event: &Event,
-        repaint: &Repaint,
-        _: DefaultKeys,
-    ) -> ControlUI<A, E> {
+impl<'a> HandleCrossterm<ControlUI<bool, ()>> for Focus<'a> {
+    /// Handle events. This is somewhat special as it doesn't blend into the
+    /// Action/Error types of the application, but returns its own action on
+    /// focus change.
+    ///
+    /// The idea is to react to the change, but not to cancel further processing of
+    /// the event. This is crucial for handling mouse-events, otherwise the first
+    /// click would focus, but do nothing otherwise. e.g. select a row in a table.
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<bool, ()> {
         use crossterm::event::*;
-
         match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Tab,
@@ -435,9 +402,10 @@ impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>> for Focus<'a> {
                 ..
             }) => {
                 if self.next() {
-                    repaint.set();
+                    ControlUI::Run(true)
+                } else {
+                    ControlUI::Continue
                 }
-                ControlUI::Continue
             }
             Event::Key(KeyEvent {
                 code: KeyCode::BackTab,
@@ -446,25 +414,20 @@ impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>> for Focus<'a> {
                 ..
             }) => {
                 if self.prev() {
-                    repaint.set();
+                    ControlUI::Run(true)
+                } else {
+                    ControlUI::Continue
                 }
-                ControlUI::Continue
             }
-            _ => self.handle_with_repaint(event, repaint, MouseOnly),
+            _ => self.handle(event, MouseOnly),
         }
     }
 }
 
-impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>, MouseOnly> for Focus<'a> {
+impl<'a> HandleCrossterm<ControlUI<bool, ()>, MouseOnly> for Focus<'a> {
     /// Only do mouse-events.
-    fn handle_with_repaint(
-        &mut self,
-        event: &Event,
-        repaint: &Repaint,
-        _: MouseOnly,
-    ) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<bool, ()> {
         use crossterm::event::*;
-
         match event {
             Event::Mouse(
                 MouseEvent {
@@ -479,18 +442,20 @@ impl<'a, A, E> HandleCrosstermRepaint<ControlUI<A, E>, MouseOnly> for Focus<'a> 
                     row,
                     modifiers: KeyModifiers::NONE,
                 },
-            ) => {
+            ) => 'f: {
                 for (idx, area) in self.areas.iter().enumerate() {
                     if area.contains(Position::new(*column, *row)) {
-                        if self.focus_idx(idx) {
-                            repaint.set();
-                        }
-                        break;
+                        self.focus_idx(idx);
+                        break 'f ControlUI::Run(true);
                     }
                 }
+                self.reset_lost_gained();
                 ControlUI::Continue
             }
-            _ => ControlUI::Continue,
+            _ => {
+                self.reset_lost_gained();
+                ControlUI::Continue
+            }
         }
     }
 }
