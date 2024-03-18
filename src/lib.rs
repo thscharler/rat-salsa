@@ -25,6 +25,7 @@ pub use lib_widget::{
 };
 
 pub mod prelude {
+    //! Import common traits.
     pub use super::lib_focus::{HasArea, HasFocusFlag, HasValidFlag, Validate};
     pub use super::lib_widget::RenderFrameWidget;
 }
