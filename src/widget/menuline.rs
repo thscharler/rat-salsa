@@ -118,6 +118,8 @@ impl<'a, A> MenuLine<'a, A> {
 pub enum InputRequest {
     Prev,
     Next,
+    First,
+    Last,
     Action,
     KeySelect(char),
     KeyAction(char),
@@ -129,7 +131,8 @@ pub enum InputRequest {
 #[derive(Debug)]
 pub struct MenuLineState<A> {
     pub focus: FocusFlag,
-    pub area: Vec<Rect>,
+    pub area: Rect,
+    pub areas: Vec<Rect>,
     pub key: Vec<char>,
     pub trigger: ActionTrigger,
     pub select: Option<usize>,
@@ -145,8 +148,9 @@ impl<A> Default for MenuLineState<A> {
             trigger: Default::default(),
             select: Some(0),
             len: Default::default(),
-            area: Default::default(),
+            areas: Default::default(),
             action: Default::default(),
+            area: Default::default(),
         }
     }
 }
@@ -170,6 +174,20 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
             InputRequest::Next => {
                 self.trigger.reset();
                 self.select = next_opt(self.select, self.len);
+                ControlUI::Change
+            }
+            InputRequest::First => {
+                self.trigger.reset();
+                self.select = Some(0);
+                ControlUI::Change
+            }
+            InputRequest::Last => {
+                self.trigger.reset();
+                if !self.areas.is_empty() {
+                    self.select = Some(self.areas.len() - 1);
+                } else {
+                    self.select = None;
+                }
                 ControlUI::Change
             }
             InputRequest::Action => {
@@ -244,19 +262,61 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>> for MenuLineState<A> {
                 modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Press,
                 ..
-            }) => Some(InputRequest::Prev),
+            }) => {
+                if self.is_focused() {
+                    Some(InputRequest::Prev)
+                } else {
+                    None
+                }
+            }
             Event::Key(KeyEvent {
                 code: KeyCode::Right,
                 modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Press,
                 ..
-            }) => Some(InputRequest::Next),
+            }) => {
+                if self.is_focused() {
+                    Some(InputRequest::Next)
+                } else {
+                    None
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::Home,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.is_focused() {
+                    Some(InputRequest::First)
+                } else {
+                    None
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::End,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.is_focused() {
+                    Some(InputRequest::Last)
+                } else {
+                    None
+                }
+            }
             Event::Key(KeyEvent {
                 code: KeyCode::Enter,
                 modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Press,
                 ..
-            }) => Some(InputRequest::Action),
+            }) => {
+                if self.is_focused() {
+                    Some(InputRequest::Action)
+                } else {
+                    None
+                }
+            }
 
             _ => return self.handle(event, MouseOnly),
         };
@@ -286,7 +346,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A
                     modifiers: KeyModifiers::NONE,
                 },
             ) => 'f: {
-                for (i, r) in self.area.iter().enumerate() {
+                for (i, r) in self.areas.iter().enumerate() {
                     if r.contains(Position::new(*column, *row)) {
                         break 'f Some(InputRequest::MouseSelect(i));
                     }
@@ -299,7 +359,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A
                 row,
                 modifiers: KeyModifiers::NONE,
             }) => 'f: {
-                for (i, r) in self.area.iter().enumerate() {
+                for (i, r) in self.areas.iter().enumerate() {
                     if r.contains(Position::new(*column, *row)) {
                         break 'f Some(InputRequest::MouseAction(i, 1000));
                     }
@@ -324,6 +384,7 @@ impl<'a, A> StatefulWidget for MenuLine<'a, A> {
         let mut row = area.y;
         let mut col = area.x;
 
+        state.area = area;
         state.key = self.key;
         state.len = self.menu.len();
         state.select = clamp_opt(state.select, state.len);
@@ -361,7 +422,7 @@ impl<'a, A> StatefulWidget for MenuLine<'a, A> {
                 }
             }
 
-            state.area.push(Rect::new(col, row, item_width, 1));
+            state.areas.push(Rect::new(col, row, item_width, 1));
 
             line.spans.extend(item);
             line.spans.push(" ".into());
