@@ -75,8 +75,9 @@ pub trait HasValidFlag {
     }
 
     /// Set the valid state from a result. Ok == Valid.
-    fn set_valid_from<T, E>(&self, result: Result<T, E>) {
-        self.valid().set(result.is_ok())
+    fn set_valid_from<T, E>(&self, result: Result<T, E>) -> Option<T> {
+        self.valid().set(result.is_ok());
+        result.ok()
     }
 }
 
@@ -309,10 +310,18 @@ impl<'a> Focus<'a> {
     }
 
     /// Change the focus using the tag. Flags a repaint if something changed.
-    pub fn focus_repaint(&self, tag: u16, repaint: &Repaint) {
+    pub fn focus_and_repaint(&self, tag: u16, repaint: &Repaint) {
         if self.focus(tag) {
             repaint.set();
         }
+    }
+
+    /// Change the focus using the tag. This resets all lost flags.
+    ///
+    /// Sets the focus and the lost flags. Calling this for the widget that currently
+    /// has the focus returns *false*, but it resets any lost flag.
+    pub fn focus_no_lost(&self, tag: u16) -> bool {
+        self.focus_impl(tag, false)
     }
 
     /// Change the focus using the tag.
@@ -320,11 +329,17 @@ impl<'a> Focus<'a> {
     /// Sets the focus and the lost flags. Calling this for the widget that currently
     /// has the focus returns *false*, but it resets any lost flag.
     pub fn focus(&self, tag: u16) -> bool {
+        self.focus_impl(tag, true)
+    }
+
+    fn focus_impl(&self, tag: u16, use_lost: bool) -> bool {
         for p in self.focus.iter() {
             p.lost.set(false);
             if p.focus.get() {
                 p.focus.set(false);
-                p.lost.set(true);
+                if use_lost {
+                    p.lost.set(true);
+                }
             }
         }
         for f in self.focus.iter() {
@@ -334,6 +349,18 @@ impl<'a> Focus<'a> {
             }
         }
         false
+    }
+
+    pub fn next_and_repaint(&self, repaint: &Repaint) {
+        if self.next() {
+            repaint.set();
+        }
+    }
+
+    pub fn prev_and_repaint(&self, repaint: &Repaint) {
+        if self.prev() {
+            repaint.set();
+        }
     }
 
     /// Focus the next widget in the cycle.
