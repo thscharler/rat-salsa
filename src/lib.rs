@@ -20,8 +20,7 @@ pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
 pub use lib_timer::{Timer, TimerEvent, Timers};
 pub use lib_widget::{
-    DefaultKeys, FrameWidget, HandleCrossterm, HandleCrosstermRepaint, Input, MouseOnly,
-    RenderFrameWidget,
+    DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly, RenderFrameWidget,
 };
 
 pub mod prelude {
@@ -157,12 +156,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     pub fn or(self, c: impl Into<ControlUI<Action, Err>>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => c.into(),
-            ControlUI::Err(e) => ControlUI::Err(e),
-            ControlUI::NoChange => ControlUI::NoChange,
-            ControlUI::Change => ControlUI::Change,
-            ControlUI::Run(a) => ControlUI::Run(a),
-            ControlUI::Spawn(a) => ControlUI::Spawn(a),
-            ControlUI::Break => ControlUI::Break,
+            _ => self,
         }
     }
 
@@ -211,12 +205,12 @@ impl<Action, Err> ControlUI<Action, Err> {
         }
     }
 
-    /// Run the continuation if the value is Action or Spawn.
+    /// Run the continuation if the value is Run or Spawn.
     ///
     /// Allows the result action to differ from the input to convert
     /// widget actions to more global ones.
     ///
-    /// Caveat: Allows no differentiation between Action and Spawn.
+    /// Caveat: Allows no differentiation between Run and Spawn.
     pub fn and_then<B>(self, f: impl FnOnce(Action) -> ControlUI<B, Err>) -> ControlUI<B, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
@@ -229,19 +223,25 @@ impl<Action, Err> ControlUI<Action, Err> {
         }
     }
 
+    /// Run the continuation if the value is Run or Spawn. May return some R.
+    ///
+    /// Caveat: Allows no differentiation between Run and Spawn.
+    pub fn and_do<R>(&self, f: impl FnOnce(&Action) -> R) -> Option<R> {
+        match self {
+            ControlUI::Run(a) => Some(f(a)),
+            ControlUI::Spawn(a) => Some(f(a)),
+            _ => None,
+        }
+    }
+
     /// Run the continuation if the value is Unchanged.
     pub fn on_no_change(
         self,
         f: impl FnOnce() -> ControlUI<Action, Err>,
     ) -> ControlUI<Action, Err> {
         match self {
-            ControlUI::Continue => ControlUI::Continue,
-            ControlUI::Err(e) => ControlUI::Err(e),
             ControlUI::NoChange => f(),
-            ControlUI::Change => ControlUI::Change,
-            ControlUI::Run(a) => ControlUI::Run(a),
-            ControlUI::Spawn(a) => ControlUI::Spawn(a),
-            ControlUI::Break => ControlUI::Break,
+            _ => self,
         }
     }
 
@@ -256,13 +256,8 @@ impl<Action, Err> ControlUI<Action, Err> {
     /// Run the continuation if the value is Changed.
     pub fn on_change(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
         match self {
-            ControlUI::Continue => ControlUI::Continue,
-            ControlUI::Err(e) => ControlUI::Err(e),
-            ControlUI::NoChange => ControlUI::NoChange,
             ControlUI::Change => f(),
-            ControlUI::Run(a) => ControlUI::Run(a),
-            ControlUI::Spawn(a) => ControlUI::Spawn(a),
-            ControlUI::Break => ControlUI::Break,
+            _ => self,
         }
     }
 
