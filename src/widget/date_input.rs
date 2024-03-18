@@ -143,17 +143,22 @@ impl DateInputState {
 
 impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState {
     fn handle(&mut self, event: &Event, keymap: DefaultKeys) -> ControlUI<A, E> {
-        let r = match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Char('h'),
-                kind: KeyEventKind::Press,
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
-                self.set_value(Local::now().date_naive());
-                ControlUI::Change
+        let r = {
+            match event {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('h'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    self.set_value(Local::now().date_naive());
+                    ControlUI::Change
+                }
+                _ => ControlUI::Continue,
             }
-            _ => ControlUI::Continue,
         };
 
         let r = r.or_else(|| {
