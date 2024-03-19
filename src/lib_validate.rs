@@ -4,7 +4,7 @@ use std::cell::Cell;
 ///
 /// Can be used as part of the widget state.
 ///
-/// See [HasValid], [validate!]
+/// See [HasValidFlag], [validate!]
 #[derive(Debug, Clone)]
 pub struct ValidFlag {
     /// Valid flag.
@@ -12,7 +12,7 @@ pub struct ValidFlag {
 }
 
 /// Trait for a widget that can have a valid/invalid state.
-pub trait HasValid {
+pub trait HasValidFlag {
     /// Access to the flag for the rest.
     fn valid(&self) -> &ValidFlag;
 
@@ -62,7 +62,7 @@ impl ValidFlag {
 
 /// Validates the given widget if `lost_focus()` is true.
 ///
-/// Uses the traits [HasFocus] and [HasValid] for its function.
+/// Uses the traits [HasFocus] and [HasValidFlag] for its function.
 ///
 /// ```rust ignore
 /// validate!(state.firstframe.widget1 => {
@@ -79,11 +79,30 @@ impl ValidFlag {
 #[macro_export]
 macro_rules! validate {
     ($field:expr => $validate:expr) => {{
-        use $crate::{HasFocus, HasValid};
+        use $crate::{HasFocusFlag, HasValidFlag};
         let cond = $field.lost_focus();
         if cond {
             let valid = $validate;
             $field.set_valid(valid);
         }
     }};
+    ($field:expr) => {{
+        use $crate::{CanValidate, HasFocusFlag};
+        let cond = $field.lost_focus();
+        if cond {
+            $field.validate();
+        }
+    }};
+}
+
+/// Trait for a widget that can do some sort of validation.
+pub trait CanValidate {
+    /// Run some validation for the widget.
+    ///
+    /// This is an extra entrypoint for an application, as any widget will validate
+    /// its state when doing a [ratatui::widgets::StatefulWidget::render].
+    ///
+    /// Note: At the point `render` is called [FocusFlag::lost] and [FocusFlag::gained]
+    /// will still be valid. So content validation can be conditional on one of those.
+    fn validate(&mut self);
 }

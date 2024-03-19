@@ -15,7 +15,7 @@ use std::vec;
 ///
 /// This struct is used as part of the widget state.
 ///
-/// See [HasFocus], [validate!] and also [on_gained!], [on_lost!].
+/// See [HasFocusFlag], [validate!] and also [on_gained!], [on_lost!].
 ///
 #[derive(Debug, Clone, Default)]
 pub struct FocusFlag {
@@ -33,7 +33,7 @@ pub struct FocusFlag {
 }
 
 /// Trait for a widget that has a focus flag.
-pub trait HasFocus {
+pub trait HasFocusFlag {
     /// Access to the flag for the rest.
     fn focus(&self) -> &FocusFlag;
 
@@ -59,12 +59,6 @@ pub trait HasFocus {
     fn focus_tag(&self) -> u16 {
         self.focus().tag()
     }
-
-    ///
-    fn on_gained(&self) {}
-
-    ///
-    fn on_lost(&self) {}
 }
 
 /// Keeps track of the focus.
@@ -124,11 +118,11 @@ impl FocusFlag {
     }
 }
 
-/// Executes the block if [HasFocus::lost_focus()] is true.
+/// Executes the block if [HasFocusFlag::lost_focus()] is true.
 #[macro_export]
 macro_rules! on_lost {
     ($field:expr => $validate:expr) => {{
-        use $crate::HasFocus;
+        use $crate::HasFocusFlag;
         let cond = $field.lost_focus();
         if cond {
             $validate;
@@ -136,11 +130,11 @@ macro_rules! on_lost {
     }};
 }
 
-/// Executes the block if [HasFocus::gained_focus()] is true.
+/// Executes the block if [HasFocusFlag::gained_focus()] is true.
 #[macro_export]
 macro_rules! on_gained {
     ($field:expr => $gained:expr) => {{
-        use $crate::HasFocus;
+        use $crate::HasFocusFlag;
         let cond = $field.gained_focus();
         if cond {
             $gained;

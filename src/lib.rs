@@ -16,19 +16,19 @@ mod lib_timer;
 mod lib_validate;
 mod lib_widget;
 
-pub use lib_focus::{Focus, FocusFlag, HasFocus};
+pub use lib_focus::{Focus, FocusFlag, HasFocusFlag};
 pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
 pub use lib_timer::{Timer, TimerEvent, Timers};
-pub use lib_validate::{HasValid, ValidFlag};
+pub use lib_validate::{CanValidate, HasValidFlag, ValidFlag};
 pub use lib_widget::{
     DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly, RenderFrameWidget,
 };
 
 pub mod prelude {
     //! Import common traits.
-    pub use super::lib_focus::HasFocus;
-    pub use super::lib_validate::{HasValid, ValidFlag};
+    pub use super::lib_focus::HasFocusFlag;
+    pub use super::lib_validate::{CanValidate, HasValidFlag};
     pub use super::lib_widget::RenderFrameWidget;
 }
 
