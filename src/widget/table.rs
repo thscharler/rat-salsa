@@ -1,7 +1,7 @@
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
 use crate::widget::ActionTrigger;
 use crate::FocusFlag;
-use crate::{ControlUI, HasFocus};
+use crate::{ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -129,21 +129,18 @@ impl<'a> TableExt<'a> {
     }
 }
 
-impl<'a> Widget for TableExt<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
-        Widget::render(self.table, area, buf);
-    }
-}
-
 impl<'a> StatefulWidget for TableExt<'a> {
     type State = TableExtState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.row_count = self.row_count;
+
+        if state.gained_focus() {
+            if state.table_state.selected().is_none() {
+                state.table_state.select(Some(0));
+            }
+        }
 
         let table = if state.focus.get() {
             self.table.highlight_style(self.focus_style)
@@ -207,7 +204,7 @@ impl Default for TableExtState {
     }
 }
 
-impl HasFocus for TableExtState {
+impl HasFocusFlag for TableExtState {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -314,12 +311,6 @@ pub enum InputRequest {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
-        if self.focus.get() {
-            if self.table_state.selected().is_none() {
-                self.table_state.select(Some(0));
-            }
-        }
-
         let req = match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Down,

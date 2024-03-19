@@ -7,7 +7,7 @@
 
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
 use crate::widget::ActionTrigger;
-use crate::{ControlUI, FocusFlag, HasFocus};
+use crate::{ControlUI, FocusFlag, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
@@ -155,7 +155,7 @@ impl<A> Default for MenuLineState<A> {
     }
 }
 
-impl<A> HasFocus for MenuLineState<A> {
+impl<A> HasFocusFlag for MenuLineState<A> {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }

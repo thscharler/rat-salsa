@@ -14,7 +14,7 @@ use crate::widget::basic::ClearStyle;
 use crate::widget::mask_input::core::{split3, split5, CursorPos};
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
-use crate::{FocusFlag, HasFocus, HasValid};
+use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
@@ -582,7 +582,7 @@ impl MaskedInputState {
     }
 }
 
-impl HasFocus for MaskedInputState {
+impl HasFocusFlag for MaskedInputState {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -592,7 +592,7 @@ impl HasFocus for MaskedInputState {
     }
 }
 
-impl HasValid for MaskedInputState {
+impl HasValidFlag for MaskedInputState {
     fn valid(&self) -> &ValidFlag {
         &self.valid
     }

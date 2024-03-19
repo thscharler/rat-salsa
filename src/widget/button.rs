@@ -2,7 +2,7 @@
 //! A simple button.
 //!
 use crate::FocusFlag;
-use crate::{ControlUI, HasFocus};
+use crate::{ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -166,7 +166,7 @@ impl<'a, A> StatefulWidget for Button<'a, A> {
     }
 }
 
-impl<A> HasFocus for ButtonState<A> {
+impl<A> HasFocusFlag for ButtonState<A> {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }

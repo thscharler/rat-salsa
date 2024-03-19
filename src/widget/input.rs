@@ -11,7 +11,7 @@ use crate::widget::basic::ClearStyle;
 use crate::widget::input::core::{split3, split5};
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
-use crate::{FocusFlag, HasFocus, HasValid};
+use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
@@ -670,7 +670,7 @@ impl<A, E> Input<ControlUI<A, E>> for TextInputState {
     }
 }
 
-impl HasFocus for TextInputState {
+impl HasFocusFlag for TextInputState {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -680,7 +680,7 @@ impl HasFocus for TextInputState {
     }
 }
 
-impl HasValid for TextInputState {
+impl HasValidFlag for TextInputState {
     fn valid(&self) -> &ValidFlag {
         &self.valid
     }

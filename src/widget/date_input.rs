@@ -1,7 +1,7 @@
 use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
 use crate::{
-    ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, HasFocus, HasValid, ValidFlag,
-    Validate,
+    CanValidate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, HasFocusFlag,
+    HasValidFlag, ValidFlag,
 };
 use chrono::{Local, NaiveDate};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -92,6 +92,10 @@ impl FrameWidget for DateInput {
     type State = DateInputState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
+        if state.lost_focus() {
+            state.validate();
+        }
+
         self.input.render(frame, area, &mut state.input);
     }
 }
@@ -174,7 +178,7 @@ impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateI
     }
 }
 
-impl HasFocus for DateInputState {
+impl HasFocusFlag for DateInputState {
     fn focus(&self) -> &FocusFlag {
         &self.input.focus
     }
@@ -184,20 +188,17 @@ impl HasFocus for DateInputState {
     }
 }
 
-impl HasValid for DateInputState {
+impl HasValidFlag for DateInputState {
     fn valid(&self) -> &ValidFlag {
         &self.input.valid
     }
 }
 
-impl Validate for DateInputState {
-    fn validate(&mut self) -> bool {
-        if let Ok(d) = self.value() {
+impl CanValidate for DateInputState {
+    fn validate(&mut self) {
+        if let Some(d) = self.set_valid_from(self.value()) {
             self.set_value(d);
             self.select_all();
-            true
-        } else {
-            false
         }
     }
 }
