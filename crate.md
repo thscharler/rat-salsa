@@ -88,7 +88,9 @@ its current state from this flag.
 
 * [FocusFlag::tag] - Each participant in a focus cycle gets a unique tag, basically an u16.
   This can be used set the focus programmatically.
-* [FocusFlag::lost] - Is set if the widget just lost the focus. There is a [validate!] macro that
+* [FocusFlag::lost] - Is set if the widget just lost the focus. There is a [on_lost!] macro that
+  uses this flag to conditionally validate the content of the widget.
+* [FocusFlag::gained] - Is set if the widget just lost the focus. There is a [on_gained!] macro that
   uses this flag to conditionally validate the content of the widget.
 
 ## Extensions and traits

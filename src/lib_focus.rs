@@ -204,6 +204,7 @@ impl ValidFlag {
 #[macro_export]
 macro_rules! validate {
     ($field:expr => $validate:expr) => {{
+        use $crate::{HasFocusFlag, HasValidFlag};
         let cond = $field.lost_focus();
         if cond {
             let valid = $validate;
@@ -211,6 +212,7 @@ macro_rules! validate {
         }
     }};
     ($field:expr) => {{
+        use $crate::{HasFocusFlag, HasValidFlag, Validate};
         let cond = $field.lost_focus();
         if cond {
             let valid = $field.validate();
@@ -223,6 +225,7 @@ macro_rules! validate {
 #[macro_export]
 macro_rules! on_lost {
     ($field:expr => $validate:expr) => {{
+        use $crate::HasFocusFlag;
         let cond = $field.lost_focus();
         if cond {
             $validate;
@@ -234,6 +237,7 @@ macro_rules! on_lost {
 #[macro_export]
 macro_rules! on_gained {
     ($field:expr => $gained:expr) => {{
+        use $crate::HasFocusFlag;
         let cond = $field.gained_focus();
         if cond {
             $gained;
