@@ -59,6 +59,12 @@ pub trait HasFocus {
     fn focus_tag(&self) -> u16 {
         self.focus().tag()
     }
+
+    ///
+    fn on_gained(&self) {}
+
+    ///
+    fn on_lost(&self) {}
 }
 
 /// Keeps track of the focus.

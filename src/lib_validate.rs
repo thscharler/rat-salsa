@@ -38,11 +38,6 @@ pub trait HasValid {
     }
 }
 
-/// Trait for a widget evaluating the content.
-pub trait Validate {
-    fn validate(&mut self) -> bool;
-}
-
 impl Default for ValidFlag {
     fn default() -> Self {
         Self {
@@ -88,14 +83,6 @@ macro_rules! validate {
         let cond = $field.lost_focus();
         if cond {
             let valid = $validate;
-            $field.set_valid(valid);
-        }
-    }};
-    ($field:expr) => {{
-        use $crate::{HasFocus, HasValid, Validate};
-        let cond = $field.lost_focus();
-        if cond {
-            let valid = $field.validate();
             $field.set_valid(valid);
         }
     }};
