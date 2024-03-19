@@ -180,7 +180,6 @@ impl CanValidate for DateInputState {
     fn validate(&mut self) {
         if let Some(d) = self.set_valid_from(self.value()) {
             self.set_value(d);
-            self.select_all();
         }
     }
 }
