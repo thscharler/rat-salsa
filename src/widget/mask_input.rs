@@ -215,7 +215,7 @@ impl FrameWidget for MaskedInput {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct MaskedInputState {
     /// Focus
     pub focus: FocusFlag,
@@ -229,19 +229,6 @@ pub struct MaskedInputState {
     pub mouse_select: bool,
     /// Editing core.
     pub value: core::InputMaskCore,
-}
-
-impl Default for MaskedInputState {
-    fn default() -> Self {
-        Self {
-            focus: Default::default(),
-            valid: Default::default(),
-            without_focus: false,
-            area: Default::default(),
-            mouse_select: false,
-            value: Default::default(),
-        }
-    }
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MaskedInputState {

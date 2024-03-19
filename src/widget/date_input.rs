@@ -12,17 +12,9 @@ use ratatui::prelude::Style;
 use ratatui::Frame;
 use std::fmt::Debug;
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DateInput {
     pub input: MaskedInput,
-}
-
-impl Default for DateInput {
-    fn default() -> Self {
-        Self {
-            input: Default::default(),
-        }
-    }
 }
 
 impl DateInput {
@@ -100,19 +92,10 @@ impl FrameWidget for DateInput {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct DateInputState {
     pub input: MaskedInputState,
     pub format: String,
-}
-
-impl Default for DateInputState {
-    fn default() -> Self {
-        Self {
-            input: Default::default(),
-            format: Default::default(),
-        }
-    }
 }
 
 impl DateInputState {
@@ -167,14 +150,13 @@ impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateI
             }
         };
 
-        let r = r.or_else(|| {
+        r.or_else(|| {
             let r = self.input.handle(event, keymap);
             r.on_change_do(|| {
                 self.input.set_valid_from(self.value());
             });
             r
-        });
-        r
+        })
     }
 }
 
