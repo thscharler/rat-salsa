@@ -1,10 +1,11 @@
+use crate::FocusFlag;
 use std::cell::Cell;
 
 /// A valid flag for a widget that can indicate such a state.
 ///
 /// Can be used as part of the widget state.
 ///
-/// See [HasValidFlag], [validate!]
+/// See [HasValidFlag], [CanValidate], [validate!](crate::validate!)
 #[derive(Debug, Clone)]
 pub struct ValidFlag {
     /// Valid flag.
@@ -62,7 +63,8 @@ impl ValidFlag {
 
 /// Validates the given widget if `lost_focus()` is true.
 ///
-/// Uses the traits [HasFocus] and [HasValidFlag] for its function.
+/// Uses the traits [HasFocusFlag](crate::HasFocusFlag)  and [HasValidFlag](crate::HasValidFlag)
+/// for its function.
 ///
 /// ```rust ignore
 /// validate!(state.firstframe.widget1 => {
@@ -71,7 +73,7 @@ impl ValidFlag {
 /// })
 /// ```
 ///
-/// There is a variant without the block that uses the [Validate] trait.
+/// There is a variant without the block that uses the [CanValidate](crate::CanValidate) trait.
 ///
 /// ```rust ignore
 /// validate!(state.firstframe.numberfield1);
@@ -102,7 +104,8 @@ pub trait CanValidate {
     /// This is an extra entrypoint for an application, as any widget will validate
     /// its state when doing a [ratatui::widgets::StatefulWidget::render].
     ///
-    /// Note: At the point `render` is called [FocusFlag::lost] and [FocusFlag::gained]
-    /// will still be valid. So content validation can be conditional on one of those.
+    /// Note: At the point `render` is called [FocusFlag::lost](FocusFlag::lost) and
+    /// [FocusFlag::gained](FocusFlag::gained) will still be valid. So content
+    /// validation can be conditional on one of those.
     fn validate(&mut self);
 }

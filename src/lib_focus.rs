@@ -15,19 +15,26 @@ use std::vec;
 ///
 /// This struct is used as part of the widget state.
 ///
-/// See [HasFocusFlag], [validate!] and also [on_gained!], [on_lost!].
+/// See [HasFocusFlag], [validate!](crate::validate!) and also [on_gained!](crate::on_gained!),
+/// [on_lost!](crate::on_lost!).
 ///
 #[derive(Debug, Clone, Default)]
 pub struct FocusFlag {
     /// A unique tag within one focus-cycle. It is set when the focus cycle is created.
     /// See [Focus::focus]
     pub tag: Cell<u16>,
-    /// Focus. See [on_focus!](crate::on_focus!())
+    /// Focus.
     pub focus: Cell<bool>,
     /// This widget just gained the focus.
+    ///
+    /// See [on_gained!](crate::on_gained!), [validate!](crate::validate!())
+    ///
     /// It is reset at the beginning of all handle_xxx() calls.
     pub gained: Cell<bool>,
-    /// This widget just lost the focus. See [validate!](crate::validate!())
+    /// This widget just lost the focus.
+    ///
+    /// See [on_lost!](crate::on_lost!), [validate!](crate::validate!())
+    ///
     /// It is reset at the beginning of all handle_xxx() calls.
     pub lost: Cell<bool>,
 }
@@ -76,8 +83,8 @@ pub trait HasFocusFlag {
 /// .and_do(|_| uistate.repaint.set());
 /// ```
 ///
-/// repaint in the example is a [Repaint]. This is necessary as the focus change does not
-/// automatically trigger a repaint.
+/// repaint in the example is a [Repaint](crate::Repaint). This is necessary as the focus
+/// change does not automatically trigger a repaint.
 #[derive(Debug, Default)]
 pub struct Focus<'a> {
     /// Areas for each widget.
