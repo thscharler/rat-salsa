@@ -15,7 +15,7 @@ use std::vec;
 ///
 /// This struct is used as part of the widget state.
 ///
-/// See [HasFocusFlag], [validate!] and also [on_gained!], [on_lost!].
+/// See [HasFocus], [validate!] and also [on_gained!], [on_lost!].
 ///
 #[derive(Debug, Clone, Default)]
 pub struct FocusFlag {
@@ -33,9 +33,12 @@ pub struct FocusFlag {
 }
 
 /// Trait for a widget that has a focus flag.
-pub trait HasFocusFlag {
+pub trait HasFocus {
     /// Access to the flag for the rest.
     fn focus(&self) -> &FocusFlag;
+
+    /// Access the area for mouse focus.
+    fn area(&self) -> Rect;
 
     /// Focused?
     fn is_focused(&self) -> bool {
@@ -56,54 +59,6 @@ pub trait HasFocusFlag {
     fn focus_tag(&self) -> u16 {
         self.focus().tag()
     }
-}
-
-/// A valid flag for a widget that can indicate such a state.
-///
-/// Can be used as part of the widget state.
-///
-/// See [HasValidFlag], [validate!]
-#[derive(Debug, Clone)]
-pub struct ValidFlag {
-    /// Valid flag.
-    pub valid: Cell<bool>,
-}
-
-/// Trait for a widget that can have a valid/invalid state.
-pub trait HasValidFlag {
-    /// Access to the flag for the rest.
-    fn valid(&self) -> &ValidFlag;
-
-    /// Widget state is valid.
-    fn is_valid(&self) -> bool {
-        self.valid().get()
-    }
-
-    /// Widget state is invalid.
-    fn is_invalid(&self) -> bool {
-        !self.valid().get()
-    }
-
-    /// Change the valid state.
-    fn set_valid(&self, valid: bool) {
-        self.valid().set(valid)
-    }
-
-    /// Set the valid state from a result. Ok == Valid.
-    fn set_valid_from<T, E>(&self, result: Result<T, E>) -> Option<T> {
-        self.valid().set(result.is_ok());
-        result.ok()
-    }
-}
-
-/// Trait for a widget that has an area for mouse interaction.
-pub trait HasArea {
-    fn area(&self) -> Rect;
-}
-
-/// Trait for a widget evaluating the content.
-pub trait Validate {
-    fn validate(&mut self) -> bool;
 }
 
 /// Keeps track of the focus.
@@ -163,69 +118,11 @@ impl FocusFlag {
     }
 }
 
-impl Default for ValidFlag {
-    fn default() -> Self {
-        Self {
-            valid: Cell::new(true),
-        }
-    }
-}
-
-impl ValidFlag {
-    /// Is valid
-    #[inline]
-    pub fn get(&self) -> bool {
-        self.valid.get()
-    }
-
-    /// Set the focus.
-    #[inline]
-    pub fn set(&self, valid: bool) {
-        self.valid.set(valid);
-    }
-}
-
-/// Validates the given widget if `lost_focus()` is true.
-///
-/// Uses the traits [HasFocusFlag] and [HasValidFlag] for its function.
-///
-/// ```rust ignore
-/// validate!(state.firstframe.widget1 => {
-///     // do something ...
-///     true
-/// })
-/// ```
-///
-/// There is a variant without the block that uses the [Validate] trait.
-///
-/// ```rust ignore
-/// validate!(state.firstframe.numberfield1);
-/// ```
-#[macro_export]
-macro_rules! validate {
-    ($field:expr => $validate:expr) => {{
-        use $crate::{HasFocusFlag, HasValidFlag};
-        let cond = $field.lost_focus();
-        if cond {
-            let valid = $validate;
-            $field.set_valid(valid);
-        }
-    }};
-    ($field:expr) => {{
-        use $crate::{HasFocusFlag, HasValidFlag, Validate};
-        let cond = $field.lost_focus();
-        if cond {
-            let valid = $field.validate();
-            $field.set_valid(valid);
-        }
-    }};
-}
-
-/// Executes the block if [HasFocusFlag::lost_focus()] is true.
+/// Executes the block if [HasFocus::lost_focus()] is true.
 #[macro_export]
 macro_rules! on_lost {
     ($field:expr => $validate:expr) => {{
-        use $crate::HasFocusFlag;
+        use $crate::HasFocus;
         let cond = $field.lost_focus();
         if cond {
             $validate;
@@ -233,11 +130,11 @@ macro_rules! on_lost {
     }};
 }
 
-/// Executes the block if [HasFocusFlag::gained_focus()] is true.
+/// Executes the block if [HasFocus::gained_focus()] is true.
 #[macro_export]
 macro_rules! on_gained {
     ($field:expr => $gained:expr) => {{
-        use $crate::HasFocusFlag;
+        use $crate::HasFocus;
         let cond = $field.gained_focus();
         if cond {
             $gained;
