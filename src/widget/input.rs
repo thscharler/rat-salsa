@@ -7,12 +7,11 @@
 //! * Can set the cursor or use its own block cursor.
 //! * Can show an indicator for invalid input.
 
-use crate::lib_focus::{HasArea, HasFocusFlag, HasValidFlag};
 use crate::widget::basic::ClearStyle;
 use crate::widget::input::core::{split3, split5};
-use crate::FocusFlag;
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
+use crate::{FocusFlag, HasFocus, HasValid};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
@@ -671,19 +670,17 @@ impl<A, E> Input<ControlUI<A, E>> for TextInputState {
     }
 }
 
-impl HasFocusFlag for TextInputState {
+impl HasFocus for TextInputState {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
-}
 
-impl HasArea for TextInputState {
     fn area(&self) -> Rect {
         self.area
     }
 }
 
-impl HasValidFlag for TextInputState {
+impl HasValid for TextInputState {
     fn valid(&self) -> &ValidFlag {
         &self.valid
     }

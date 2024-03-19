@@ -1,6 +1,8 @@
-use crate::lib_focus::{HasArea, HasFocusFlag, HasValidFlag, Validate};
 use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
-use crate::{ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, ValidFlag};
+use crate::{
+    ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, HasFocus, HasValid, ValidFlag,
+    Validate,
+};
 use chrono::{Local, NaiveDate};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
@@ -172,21 +174,19 @@ impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateI
     }
 }
 
-impl HasFocusFlag for DateInputState {
+impl HasFocus for DateInputState {
     fn focus(&self) -> &FocusFlag {
         &self.input.focus
     }
-}
 
-impl HasValidFlag for DateInputState {
-    fn valid(&self) -> &ValidFlag {
-        &self.input.valid
+    fn area(&self) -> Rect {
+        self.input.area
     }
 }
 
-impl HasArea for DateInputState {
-    fn area(&self) -> Rect {
-        self.input.area
+impl HasValid for DateInputState {
+    fn valid(&self) -> &ValidFlag {
+        &self.input.valid
     }
 }
 

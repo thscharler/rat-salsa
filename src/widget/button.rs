@@ -1,9 +1,8 @@
 //!
 //! A simple button.
 //!
-use crate::lib_focus::HasArea;
 use crate::FocusFlag;
-use crate::{ControlUI, HasFocusFlag};
+use crate::{ControlUI, HasFocus};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -167,13 +166,11 @@ impl<'a, A> StatefulWidget for Button<'a, A> {
     }
 }
 
-impl<A> HasFocusFlag for ButtonState<A> {
+impl<A> HasFocus for ButtonState<A> {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
-}
 
-impl<A> HasArea for ButtonState<A> {
     fn area(&self) -> Rect {
         self.area
     }
