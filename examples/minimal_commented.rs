@@ -24,12 +24,13 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = MinimalData::default();
     let mut state = MinimalState::default();
 
+    // Start the event loop
     run_tui(
-        &MinimalApp,
+        &MinimalApp, // application logic
         &mut data,
         &mut state,
         RunConfig {
-            n_threats: 1,
+            n_threats: 1, // background threads
             log_timing: true,
             ..RunConfig::default()
         },
@@ -40,27 +41,31 @@ fn main() -> Result<(), anyhow::Error> {
 
 // -----------------------------------------------------------------------
 
+// type alias for the control-flow enum for the app.
 type Control = ControlUI<MinimalAction, anyhow::Error>;
 
+// plain data
 #[derive(Debug, Default)]
 pub struct MinimalData {}
 
+// triggered actions and background actions
 #[derive(Debug)]
 pub enum MinimalAction {}
 
+// ui state
 #[derive(Debug, Default)]
 pub struct MinimalState {
-    pub g: GeneralState,
-    pub mask0: Mask0,
+    pub g: GeneralState, // collection of global stuff.
+    pub mask0: Mask0,    // state of widgets
 }
 
 #[derive(Debug)]
 pub struct GeneralState {
-    pub theme: &'static Theme,
-    pub repaint: Repaint,
-    pub timers: Timers,
-    pub status: StatusLineState,
-    pub error_dlg: StatusDialogState,
+    pub theme: &'static Theme,        // theme colors and styles
+    pub repaint: Repaint,             // extra repaint flag.
+    pub timers: Timers,               // generates timer events
+    pub status: StatusLineState,      // status line
+    pub error_dlg: StatusDialogState, // status dialog
 }
 
 #[derive(Debug)]
@@ -92,9 +97,12 @@ impl Default for Mask0 {
 
 // -----------------------------------------------------------------------
 
+// Collection of application functions.
+// It needs no state of its own, everything is passed as arguments.
 #[derive(Debug)]
 pub struct MinimalApp;
 
+// utility struct for the base layout of the app.
 #[derive(Debug, Clone, Copy)]
 pub struct MinimalAppLayout {
     area: Rect,
@@ -103,22 +111,26 @@ pub struct MinimalAppLayout {
 }
 
 impl TuiApp for MinimalApp {
+    // define app data, state, action and error types.
     type Data = MinimalData;
     type State = MinimalState;
     type Action = MinimalAction;
     type Error = anyhow::Error;
 
+    // the extra repaint flag is optional.
     fn get_repaint<'b>(&self, uistate: &'b Self::State) -> Option<&'b Repaint> {
         Some(&uistate.g.repaint)
     }
 
+    // timers are optional.
     fn get_timers<'b>(&self, uistate: &'b Self::State) -> Option<&'b Timers> {
         Some(&uistate.g.timers)
     }
 
+    // paint one frame.
     fn repaint(
         &self,
-        event: RepaintEvent,
+        event: RepaintEvent, // gives the cause for the repaint
         frame: &mut Frame<'_>,
         data: &mut Self::Data,
         uistate: &mut Self::State,
@@ -143,8 +155,10 @@ impl TuiApp for MinimalApp {
             }
         };
 
+        // call out for more ui
         try_ui!(repaint_mask0(&event, frame, layout, data, uistate), _);
 
+        // dialog use a flag for control
         if uistate.g.error_dlg.active {
             let err = StatusDialog::new().style(uistate.g.theme.status_dialog_style());
             frame.render_stateful_widget(err, layout.area, &mut uistate.g.error_dlg);
@@ -156,6 +170,7 @@ impl TuiApp for MinimalApp {
         Control::Continue
     }
 
+    // called for application timers.
     fn handle_timer(
         &self,
         event: TimerEvent,
@@ -166,6 +181,7 @@ impl TuiApp for MinimalApp {
         Control::Continue
     }
 
+    // called for events.
     fn handle_event(
         &self,
         event: Event,
@@ -174,9 +190,10 @@ impl TuiApp for MinimalApp {
     ) -> ControlUI<Self::Action, Self::Error> {
         use crossterm::event::*;
 
+        // some global event handling.
         check_break!(match &event {
             Event::Resize(_, _) => {
-                //
+                // triggers a repaint
                 Control::Change
             }
             Event::Key(KeyEvent {
@@ -185,12 +202,15 @@ impl TuiApp for MinimalApp {
                 modifiers: KeyModifiers::CONTROL,
                 ..
             }) => {
-                //
+                // break the control loop
                 Control::Break
             }
             _ => Control::Continue,
         });
 
+        // break event processing and repeat the loop if the event is handled by
+        // this component. everything but ControlUI::Continue is considered processing the
+        // event.
         check_break!({
             if uistate.g.error_dlg.active {
                 uistate.g.error_dlg.handle(&event, DefaultKeys)
@@ -199,11 +219,13 @@ impl TuiApp for MinimalApp {
             }
         });
 
+        // hand out processing
         check_break!(handle_mask0(&event, data, uistate));
 
         Control::Continue
     }
 
+    // run some activity
     fn run_action(
         &self,
         action: Self::Action,
@@ -215,15 +237,19 @@ impl TuiApp for MinimalApp {
         Control::Continue
     }
 
+    // run as a background task. the resulting ControlUI is sent back to the eventloop
+    // for further processing.
     fn run_task(
         &self,
         task: Self::Action,
-        send: &TaskSender<Self>,
+        send: &TaskSender<Self>, // Access to the back channel. Can send more results from the
+                                 // background process.
     ) -> ControlUI<Self::Action, Self::Error> {
         // TODO: tasks
         Control::Continue
     }
 
+    // any error ends here.
     fn report_error(
         &self,
         error: Self::Error,
@@ -235,6 +261,7 @@ impl TuiApp for MinimalApp {
     }
 }
 
+// more painting ...
 fn repaint_mask0(
     event: &RepaintEvent,
     frame: &mut Frame<'_>,
@@ -244,19 +271,29 @@ fn repaint_mask0(
 ) -> Control {
     // TODO: repaint_mask
 
+    // paint the menu-line
     let menu = MenuLine::new()
         .style(uistate.g.theme.menu_style())
-        .add("_Quit", 0u16);
+        .add("_Quit", 0u16); // menu item, _ denotes a shortcut.
+                             // 0u16 is the item action. available as type parameter.
     frame.render_stateful_widget(menu, layout.menu, &mut uistate.mask0.menu);
 
     Control::Continue
 }
 
+// more event processing ...
 fn handle_mask0(event: &Event, data: &mut MinimalData, uistate: &mut MinimalState) -> Control {
     let mask0 = &mut uistate.mask0;
 
     // TODO: handle_mask
 
+    // process events. and_then calls the continuation if the state is ControlUI::Action.
+    // there are more of those:
+    //      - and_do: returns something else but a ControlUI
+    //      - or_else: run on ControlUI::Continue
+    //      - on_change/on_no_change: run on ControlUI::Change/ControlUI::NoChange
+    //      ...
+    // check_break returns early if the result differs from ControlUI::Continue
     check_break!(mask0.menu.handle(event, DefaultKeys).and_then(|a| match a {
         0 => {
             Control::Break
