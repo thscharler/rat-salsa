@@ -225,7 +225,10 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Does some error conversion.
     #[inline]
-    pub fn map_err<F>(self, f: impl FnOnce(Err) -> ControlUI<Action, F>) -> ControlUI<Action, F> {
+    pub fn map_err<OtherErr>(
+        self,
+        f: impl FnOnce(Err) -> ControlUI<Action, OtherErr>,
+    ) -> ControlUI<Action, OtherErr> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => f(e),
@@ -239,9 +242,9 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Convert an error to another error type with into().
     #[inline]
-    pub fn err_into<F>(self) -> ControlUI<Action, F>
+    pub fn err_into<OtherErr>(self) -> ControlUI<Action, OtherErr>
     where
-        Err: Into<F>,
+        Err: Into<OtherErr>,
     {
         match self {
             ControlUI::Continue => ControlUI::Continue,
@@ -261,7 +264,10 @@ impl<Action, Err> ControlUI<Action, Err> {
     ///
     /// Caveat: Allows no differentiation between Run and Spawn.
     #[inline]
-    pub fn and_then<B>(self, f: impl FnOnce(Action) -> ControlUI<B, Err>) -> ControlUI<B, Err> {
+    pub fn and_then<Other>(
+        self,
+        f: impl FnOnce(Action) -> ControlUI<Other, Err>,
+    ) -> ControlUI<Other, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => ControlUI::Err(e),
