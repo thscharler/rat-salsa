@@ -58,37 +58,12 @@ pub mod state {
     use ratatui::prelude::{Color, Stylize};
     use ratatui::style::Style;
 
-    #[derive(Debug)]
+    #[derive(Debug, Default)]
     pub struct ExState {
         pub g: GeneralState,
         pub repaint: Repaint,
         pub timers: Timers,
-
-        pub input_0: MaskedInputState,
-        pub input_1: TextInputState,
-
-        pub timer_1: usize,
-        pub roll: usize,
-    }
-
-    impl Default for ExState {
-        fn default() -> Self {
-            let mut s = Self {
-                g: Default::default(),
-                repaint: Default::default(),
-                timers: Default::default(),
-                input_0: Default::default(),
-                input_1: Default::default(),
-                timer_1: 0,
-                roll: 0,
-            };
-            s.input_0.focus.set();
-            s.input_0.set_mask("99.99.9999");
-            s.input_0.set_display_mask("TT.MM.YYYY");
-            s.input_0.select_all();
-
-            s
-        }
+        pub mask0: Mask0,
     }
 
     #[derive(Debug)]
@@ -96,6 +71,14 @@ pub mod state {
         pub theme: &'static Theme,
         pub status: StatusLineState,
         pub error_dlg: StatusDialogState,
+    }
+
+    #[derive(Debug)]
+    pub struct Mask0 {
+        pub input_0: MaskedInputState,
+        pub input_1: TextInputState,
+        pub timer_1: usize,
+        pub roll: usize,
     }
 
     impl Default for GeneralState {
@@ -157,13 +140,29 @@ pub mod state {
             }
         }
     }
+
+    impl Default for Mask0 {
+        fn default() -> Self {
+            let mut s = Self {
+                input_0: Default::default(),
+                input_1: Default::default(),
+                timer_1: 0,
+                roll: 0,
+            };
+            s.input_0.focus.set();
+            s.input_0.set_mask("99.99.9999");
+            s.input_0.set_display_mask("TT.MM.YYYY");
+            s.input_0.select_all();
+            s
+        }
+    }
 }
 
 // -----------------------------------------------------------------------
 
 pub mod app {
     use crate::data::ExData;
-    use crate::state::ExState;
+    use crate::state::{ExState, Mask0};
     use crate::{Control, ExAction};
     use chrono::NaiveDate;
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -174,10 +173,10 @@ pub mod app {
     use rat_salsa::widget::mask_input::MaskedInput;
     use rat_salsa::widget::message::{StatusDialog, StatusLine};
     use rat_salsa::{
-        check_break, try_ui, validate, ControlUI, HandleCrosstermRepaint, TaskSender, ThreadPool,
-        Timer, TimerEvent, Timers, TuiApp,
+        check_break, on_lost, try_ui, ControlUI, HasValidFlag, TaskSender, ThreadPool, Timer,
+        TimerEvent, Timers, TuiApp,
     };
-    use rat_salsa::{DefaultKeys, HandleCrossterm, MouseOnly, RenderFrameWidget, Repaint};
+    use rat_salsa::{DefaultKeys, HandleCrossterm, RenderFrameWidget, Repaint};
     use rat_salsa::{Focus, RepaintEvent};
     use ratatui::layout::{Constraint, Direction, Layout, Margin, Rect};
     use ratatui::text::Span;
@@ -278,13 +277,11 @@ pub mod app {
             _worker: &ThreadPool<Self>,
         ) -> Control {
             // match action {}
-
             Control::Continue
         }
 
         fn run_task(&self, _task: Self::Action, _send: &TaskSender<Self>) -> Control {
             // match task {}
-
             Control::Continue
         }
 
@@ -348,25 +345,25 @@ pub mod app {
         let label_parsed = Span::from("Parsed");
         let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
         let label_compact = Span::from("No spaces");
-        let compact = Span::from(uistate.input_0.compact_value());
+        let compact = Span::from(uistate.mask0.input_0.compact_value());
         frame.render_widget(label_edit, l_edit0.label[0]);
-        frame.render_frame_widget(edit, l_edit0.widget[0], &mut uistate.input_0);
+        frame.render_frame_widget(edit, l_edit0.widget[0], &mut uistate.mask0.input_0);
         frame.render_widget(label_parsed, l_edit0.label[1]);
         frame.render_widget(parsed, l_edit0.widget[1]);
         frame.render_widget(label_compact, l_edit0.label[2]);
         frame.render_widget(compact, l_edit0.widget[2]);
         let label_mask = Span::from("Mask");
         frame.render_widget(label_mask, l_edit0.label[3]);
-        let mask = Span::from(uistate.input_0.mask());
+        let mask = Span::from(uistate.mask0.input_0.mask());
         frame.render_widget(mask, l_edit0.widget[3]);
 
         let label_edit = Span::from("Text");
         let edit = TextInput::default().style(uistate.g.input_style());
         frame.render_widget(label_edit, l_edit1.label[0]);
-        frame.render_frame_widget(edit, l_edit1.widget[0], &mut uistate.input_1);
+        frame.render_frame_widget(edit, l_edit1.widget[0], &mut uistate.mask0.input_1);
 
-        if uistate.timer_1 == 0 {
-            uistate.timer_1 = uistate.timers.add(
+        if uistate.mask0.timer_1 == 0 {
+            uistate.mask0.timer_1 = uistate.timers.add(
                 Timer::new()
                     .repeat(usize::MAX)
                     .repaint(true)
@@ -375,32 +372,24 @@ pub mod app {
         }
 
         if let RepaintEvent::Timer(t) = event {
-            if t.tag == uistate.timer_1 {
-                uistate.roll = t.counter % 29;
+            if t.tag == uistate.mask0.timer_1 {
+                uistate.mask0.roll = t.counter % 29;
             }
         }
         let txt_roll = "Rolling banners are nice :-) ";
-        let (txt_roll1, txt_roll2) = txt_roll.split_at(uistate.roll);
+        let (txt_roll1, txt_roll2) = txt_roll.split_at(uistate.mask0.roll);
         let label_roll = Span::from(format!("{}{}", txt_roll2, txt_roll1).to_string());
         frame.render_widget(label_roll, l_edit2.label[0]);
 
         Control::Continue
     }
 
-    fn focus_mask0(uistate: &ExState) -> Focus<'_> {
-        Focus::new([
-            (&uistate.input_0.focus, uistate.input_0.area),
-            (&uistate.input_1.focus, uistate.input_1.area),
-        ])
-    }
-
     #[derive(Debug)]
     pub struct ExKeys;
 
-    impl<'a> HandleCrosstermRepaint<Control, ExKeys> for Focus<'a> {
-        fn handle_with_repaint(&mut self, event: &Event, repaint: &Repaint, _: ExKeys) -> Control {
+    impl<'a> HandleCrossterm<ControlUI<bool, ()>, ExKeys> for Focus<'a> {
+        fn handle(&mut self, event: &Event, _: ExKeys) -> ControlUI<bool, ()> {
             use crossterm::event::*;
-
             match event {
                 Event::Key(KeyEvent {
                     code: KeyCode::F(2),
@@ -409,7 +398,9 @@ pub mod app {
                     ..
                 }) => {
                     if self.next() {
-                        repaint.set();
+                        ControlUI::Change
+                    } else {
+                        ControlUI::Continue
                     }
                 }
                 Event::Key(KeyEvent {
@@ -419,70 +410,62 @@ pub mod app {
                     ..
                 }) => {
                     if self.prev() {
-                        repaint.set();
+                        ControlUI::Change
+                    } else {
+                        ControlUI::Continue
                     }
                 }
-                _ => return self.handle_with_repaint(event, repaint, MouseOnly),
+                _ => ControlUI::Continue,
             }
-
-            Control::Continue
         }
     }
 
+    fn focus_mask0(state: &Mask0) -> Focus<'_> {
+        Focus::new([
+            (&state.input_0.focus, state.input_0.area),
+            (&state.input_1.focus, state.input_1.area),
+        ])
+    }
+
     fn handle_mask0(evt: &Event, data: &mut ExData, uistate: &mut ExState) -> Control {
-        let f = focus_mask0(uistate).handle_with_repaint(evt, &uistate.repaint, DefaultKeys);
-        // let f = focus_mask0(uistate).handle(evt, repaint, ExKeys);
+        let state = &mut uistate.mask0;
+
+        focus_mask0(state)
+            .handle(evt, DefaultKeys)
+            .and_do(|_| uistate.repaint.set());
+
+        // alternate focus keys
+        focus_mask0(state)
+            .handle(evt, ExKeys)
+            .and_do(|_| uistate.repaint.set());
 
         // validation and reformat on focus lost.
-        validate!(uistate.input_0 =>
-            if let Ok(d) = NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y") {
-            data.datum = d;
-            let v = data.datum.format("%d.%m.%Y").to_string();
-            uistate.input_0.set_value(v);
-            uistate.input_0.select_all();
-            true
-        } else {
-            data.datum = NaiveDate::default();
-            false
-        });
-
-        check_break!({
-            let r = uistate.input_0.handle(evt, DefaultKeys);
-            // quick validation for every change
-            r.on_change_do(|| {
-                let str = uistate.input_0.compact_value();
-                let r = NaiveDate::parse_from_str(str.as_str(), "%d.%m.%Y");
-                uistate.input_0.valid = r.is_ok();
-            });
-            r
-        });
-
-        check_break!(uistate.input_1.handle(evt, DefaultKeys));
-
-        check_break!(match evt {
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if let Ok(d) =
-                    NaiveDate::parse_from_str(uistate.input_0.compact_value().as_str(), "%d.%m.%Y")
-                {
-                    uistate.input_0.valid = true;
+        on_lost!(
+            state.input_0 => {
+                if let Ok(d) = NaiveDate::parse_from_str(state.input_0.compact_value().as_str(), "%d.%m.%Y") {
                     data.datum = d;
+                    let v = data.datum.format("%d.%m.%Y").to_string();
+                    state.input_0.set_value(v);
+                    state.input_0.select_all();
                 } else {
-                    uistate.input_0.valid = false;
                     data.datum = NaiveDate::default();
                 }
-                let v = data.datum.format("%d.%m.%Y").to_string();
-                uistate.input_0.set_value(v);
-                Control::Change
-            }
-            _ => Control::Continue,
-        });
+            },
+            state.input_1 => {}
+        );
 
-        f.into()
+        check_break!({
+            state.input_0.handle(evt, DefaultKeys).on_change(|| {
+                // quick validation for every change
+                let str = state.input_0.compact_value();
+                let val = NaiveDate::parse_from_str(str.as_str(), "%d.%m.%Y");
+                state.input_0.set_valid_from(val);
+                Control::Change
+            })
+        });
+        check_break!(state.input_1.handle(evt, DefaultKeys));
+
+        Control::Continue
     }
 }
 
