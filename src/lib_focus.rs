@@ -128,24 +128,28 @@ impl FocusFlag {
 /// Executes the block if [HasFocusFlag::lost_focus()] is true.
 #[macro_export]
 macro_rules! on_lost {
-    ($field:expr => $validate:expr) => {{
+    ($($field:expr => $validate:expr),*) => {{
         use $crate::HasFocusFlag;
-        let cond = $field.lost_focus();
-        if cond {
-            $validate;
-        }
+        $(
+            let cond = $field.lost_focus();
+            if cond {
+                _ = $validate;
+            }
+        )*
     }};
 }
 
 /// Executes the block if [HasFocusFlag::gained_focus()] is true.
 #[macro_export]
 macro_rules! on_gained {
-    ($field:expr => $gained:expr) => {{
+    ($($field:expr => $validate:expr),*) => {{
         use $crate::HasFocusFlag;
-        let cond = $field.gained_focus();
-        if cond {
-            $gained;
-        }
+        $(
+            let cond = $field.gained_focus();
+            if cond {
+                _ = $validate;
+            }
+        )*
     }};
 }
 

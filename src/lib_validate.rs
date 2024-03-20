@@ -63,37 +63,22 @@ impl ValidFlag {
 
 /// Validates the given widget if `lost_focus()` is true.
 ///
-/// Uses the traits [HasFocusFlag](crate::HasFocusFlag)  and [HasValidFlag](crate::HasValidFlag)
-/// for its function.
-///
-/// ```rust ignore
-/// validate!(state.firstframe.widget1 => {
-///     // do something ...
-///     true
-/// })
-/// ```
-///
-/// There is a variant without the block that uses the [CanValidate](crate::CanValidate) trait.
+/// Uses the traits [HasFocusFlag](crate::HasFocusFlag), [HasValidFlag](crate::HasValidFlag)
+/// and [CanValidate](crate::CanValidate) for its function.
 ///
 /// ```rust ignore
 /// validate!(state.firstframe.numberfield1);
 /// ```
 #[macro_export]
 macro_rules! validate {
-    ($field:expr => $validate:expr) => {{
-        use $crate::{HasFocusFlag, HasValidFlag};
-        let cond = $field.lost_focus();
-        if cond {
-            let valid = $validate;
-            $field.set_valid(valid);
-        }
-    }};
-    ($field:expr) => {{
+    ($($field:expr),*) => {{
         use $crate::{CanValidate, HasFocusFlag};
-        let cond = $field.lost_focus();
-        if cond {
-            $field.validate();
-        }
+        $(
+            let cond = $field.lost_focus();
+            if cond {
+                $field.validate();
+            }
+        )*
     }};
 }
 
