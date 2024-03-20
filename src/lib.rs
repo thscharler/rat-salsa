@@ -17,7 +17,7 @@ mod lib_validate;
 mod lib_widget;
 
 pub use lib_focus::{Focus, FocusFlag, HasFocusFlag};
-pub use lib_framework::{run_tui, TaskSender, ThreadPool, TuiApp};
+pub use lib_framework::{run_tui, RunConfig, TaskSender, ThreadPool, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
 pub use lib_timer::{Timer, TimerEvent, Timers};
 pub use lib_validate::{CanValidate, HasValidFlag, ValidFlag};

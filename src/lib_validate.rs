@@ -1,4 +1,3 @@
-use crate::FocusFlag;
 use std::cell::Cell;
 
 /// A valid flag for a widget that can indicate such a state.

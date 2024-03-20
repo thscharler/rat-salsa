@@ -17,9 +17,10 @@ use ratatui::backend::CrosstermBackend;
 use ratatui::{Frame, Terminal};
 use std::cmp::min;
 use std::collections::VecDeque;
+use std::fmt::Debug;
 use std::io::{stdout, Stdout};
 use std::thread::{sleep, JoinHandle};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 use std::{io, thread};
 
 /// Describes the requisites of a TuiApp.
@@ -51,7 +52,7 @@ pub trait TuiApp {
     /// Repaint the ui.
     fn repaint(
         &self,
-        reason: RepaintEvent,
+        event: RepaintEvent,
         frame: &mut Frame<'_>,
         data: &mut Self::Data,
         uistate: &mut Self::State,
@@ -105,15 +106,52 @@ enum PollNext {
     Crossterm,
 }
 
+#[derive(Debug)]
+pub struct RunConfig {
+    pub n_threats: usize,
+    pub log_timing: bool,
+}
+
+impl Default for RunConfig {
+    fn default() -> Self {
+        Self {
+            n_threats: 1,
+            log_timing: false,
+        }
+    }
+}
+
+macro_rules! log_timing {
+    ($expr:expr, $event:expr, $cfg:expr) => {{
+        let time = if $cfg.log_timing {
+            Some((SystemTime::now(), format!("{:?}", $event)))
+        } else {
+            None
+        };
+
+        let r = $expr;
+
+        if $cfg.log_timing {
+            if let Some((time, event_msg)) = time {
+                if let Ok(elapsed) = time.elapsed() {
+                    debug!("{:?} for {}", elapsed, event_msg);
+                }
+            }
+        }
+
+        r
+    }};
+}
+
 /// Run the event-loop.
 pub fn run_tui<App: TuiApp>(
     app: &'static App,
     data: &mut App::Data,
     uistate: &mut App::State,
-    n_worker: usize,
+    cfg: RunConfig,
 ) -> Result<(), anyhow::Error>
 where
-    App::Action: Send + 'static,
+    App::Action: Debug + Send + 'static,
     App::Error: Send + From<TryRecvError> + From<io::Error> + From<SendError<()>> + 'static,
     App: Sync,
 {
@@ -124,7 +162,7 @@ where
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
 
-    let worker = ThreadPool::<App>::build(app, n_worker);
+    let worker = ThreadPool::<App>::build(app, cfg.n_threats);
 
     let mut flow;
     let mut repaint_event = RepaintEvent::Changed;
@@ -159,9 +197,9 @@ where
             match poll_queue.pop_front() {
                 None => ControlUI::Continue,
                 Some(PollNext::RepaintFlag) => read_repaint_flag(app, uistate, &mut repaint_event),
-                Some(PollNext::Timers) => read_timers(app, data, uistate, &mut repaint_event),
+                Some(PollNext::Timers) => read_timers(app, &cfg, data, uistate, &mut repaint_event),
                 Some(PollNext::Workers) => read_workers(app, &worker),
-                Some(PollNext::Crossterm) => read_crossterm(app, data, uistate),
+                Some(PollNext::Crossterm) => read_crossterm(app, &cfg, data, uistate),
             }
         });
 
@@ -174,11 +212,17 @@ where
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::NoChange => ControlUI::Continue,
             ControlUI::Change => {
-                flow = repaint_tui(&mut terminal, app, data, uistate, repaint_event);
+                flow = log_timing!(
+                    repaint_tui(&mut terminal, app, data, uistate, repaint_event),
+                    repaint_event,
+                    cfg
+                );
                 repaint_event = RepaintEvent::Changed;
                 flow
             }
-            ControlUI::Run(action) => app.run_action(action, data, uistate, &worker),
+            ControlUI::Run(action) => {
+                log_timing!(app.run_action(action, data, uistate, &worker), action, cfg)
+            }
             ControlUI::Spawn(action) => worker.send(action),
             ControlUI::Err(err) => app.report_error(err, data, uistate),
             ControlUI::Break => break 'ui,
@@ -242,6 +286,7 @@ fn poll_timers<App: TuiApp>(app: &App, uistate: &mut App::State) -> bool {
 
 fn read_timers<App: TuiApp>(
     app: &App,
+    cfg: &RunConfig,
     data: &mut App::Data,
     uistate: &mut App::State,
     repaint_event: &mut RepaintEvent,
@@ -253,8 +298,7 @@ fn read_timers<App: TuiApp>(
                 ControlUI::Change
             }
             Some(evt @ TimerEvent { repaint: false, .. }) => {
-                //
-                app.handle_timer(evt, data, uistate)
+                log_timing!(app.handle_timer(evt, data, uistate), evt, cfg)
             }
             None => ControlUI::Continue,
         }
@@ -290,6 +334,7 @@ fn poll_crossterm<App: TuiApp>(_app: &App) -> Result<bool, io::Error> {
 
 fn read_crossterm<App: TuiApp>(
     app: &App,
+    cfg: &RunConfig,
     data: &mut App::Data,
     uistate: &mut App::State,
 ) -> ControlUI<<App as TuiApp>::Action, <App as TuiApp>::Error>
@@ -298,7 +343,7 @@ where
 {
     match event::poll(Duration::from_millis(0)) {
         Ok(true) => match event::read() {
-            Ok(evt) => app.handle_event(evt, data, uistate),
+            Ok(evt) => log_timing!(app.handle_event(evt, data, uistate), evt, cfg),
             Err(err) => ControlUI::Err(err.into()),
         },
         Ok(false) => ControlUI::Continue,
