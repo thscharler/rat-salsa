@@ -1047,33 +1047,52 @@ pub mod core {
             let (_, mask, _) = split3(self.mask.as_str(), selection.start..self.len);
             if let Some(m) = mask.chars().next() {
                 if is_valid_mask(new, m) {
-                    self.remove(selection.clone(), CursorPos::Start);
+                    self.do_insert_char(new);
+                } else if self.cursor == self.anchor {
+                    let skip_to_sep = mask
+                        .chars()
+                        .enumerate()
+                        .find(|(_i, m)| is_valid_sep(new, *m));
+                    if let Some((skip, _m)) = skip_to_sep {
+                        self.cursor += skip + 1;
+                        self.anchor = self.cursor;
+                    }
 
-                    let (before_str, _, after_str) =
-                        split3(self.value.as_str(), selection.start..selection.start + 1);
-
-                    self.buf.clear();
-                    self.buf.push_str(before_str);
-                    self.buf.push(new);
-                    self.buf.push_str(after_str);
-
-                    mem::swap(&mut self.value, &mut self.buf);
-
-                    self.cursor += 1;
-                    self.anchor = self.cursor;
-                } else {
-                    // skip to match
-                    for (idx, c) in mask.chars().enumerate() {
-                        if c == new {
-                            self.cursor += idx + 1;
+                    let skip_over_sep = mask
+                        .chars()
+                        .enumerate()
+                        .skip_while(|(_, m)| !is_sep(*m))
+                        .next();
+                    if let Some((skip, mm)) = skip_over_sep {
+                        if is_valid_mask(new, mm) {
+                            self.cursor += skip;
                             self.anchor = self.cursor;
-                            break;
+                            self.do_insert_char(new);
                         }
                     }
                 }
             } else {
                 // no more mask.
             }
+        }
+
+        fn do_insert_char(&mut self, new: char) {
+            let selection = self.selection();
+
+            self.remove(selection.clone(), CursorPos::Start);
+
+            let (before_str, _, after_str) =
+                split3(self.value.as_str(), selection.start..selection.start + 1);
+
+            self.buf.clear();
+            self.buf.push_str(before_str);
+            self.buf.push(new);
+            self.buf.push_str(after_str);
+
+            mem::swap(&mut self.value, &mut self.buf);
+
+            self.cursor += 1;
+            self.anchor = self.cursor;
         }
 
         /// Insert a string, replacing the selection.
@@ -1117,6 +1136,17 @@ pub mod core {
             }
             _ => buf.push(c),
         }
+    }
+
+    fn is_sep(mask: char) -> bool {
+        match mask {
+            '0' | '9' | 'H' | 'h' | 'O' | 'o' | 'L' | 'l' | 'A' | 'a' | 'C' | 'c' | '_' => true,
+            _ => false,
+        }
+    }
+
+    fn is_valid_sep(new: char, mask: char) -> bool {
+        is_sep(mask) && new == mask
     }
 
     fn is_valid_mask(new: char, mask: char) -> bool {
