@@ -4,7 +4,7 @@ use crossterm::event::Event;
 use rat_salsa::layout::{layout_edit, EditConstraint};
 use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::input::{TextInput, TextInputState, TextInputStyle};
-use rat_salsa::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
+use rat_salsa::widget::mask_input2::{MaskedInput, MaskedInputState, MaskedInputStyle};
 use rat_salsa::widget::menuline::{MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
@@ -77,6 +77,8 @@ pub struct Mask0 {
     pub hexcolor: MaskedInputState,
     pub creditcard: MaskedInputState,
     pub date: MaskedInputState,
+    pub alpha: MaskedInputState,
+    pub dec7_2: MaskedInputState,
 }
 
 impl Default for GeneralState {
@@ -102,6 +104,8 @@ impl Default for Mask0 {
             hexcolor: Default::default(),
             creditcard: Default::default(),
             date: Default::default(),
+            alpha: Default::default(),
+            dec7_2: Default::default(),
         };
         s.menu.focus.set();
         s.text.focus.set();
@@ -109,9 +113,11 @@ impl Default for Mask0 {
         s.ipv4.set_display_mask("xxx.xxx.xxx.xxx");
         s.hexcolor.set_mask("HHHHHH");
         s.creditcard.set_mask("9999 9999 9999 9999");
-        s.creditcard.set_display_mask("____ ____ ____ ____");
+        s.creditcard.set_display_mask("dddd dddd dddd dddd");
         s.date.set_mask("99/99/9999");
         s.date.set_display_mask("mm/dd/yyyy");
+        s.alpha.set_mask("llllllllll");
+        s.dec7_2.set_mask("###0.Dd");
         s
     }
 }
@@ -287,6 +293,10 @@ fn repaint_mask0(
             EditConstraint::Widget(20),
             EditConstraint::Label("Date"),
             EditConstraint::Widget(11),
+            EditConstraint::Label("Name"),
+            EditConstraint::Widget(11),
+            EditConstraint::Label("Decimal 7.2"),
+            EditConstraint::Widget(8),
         ],
     );
 
@@ -297,6 +307,8 @@ fn repaint_mask0(
     let w_ipv4 = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_creditcard = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_date = MaskedInput::default().style(uistate.g.theme.input_mask_style());
+    let w_name = MaskedInput::default().style(uistate.g.theme.input_mask_style());
+    let w_dec_7_2 = MaskedInput::default().style(uistate.g.theme.input_mask_style());
 
     frame.render_widget(Span::from("Text"), l.label[0]);
     frame.render_frame_widget(w_text, l.widget[0], &mut uistate.mask0.text);
@@ -312,6 +324,10 @@ fn repaint_mask0(
     frame.render_frame_widget(w_creditcard, l.widget[5], &mut uistate.mask0.creditcard);
     frame.render_widget(Span::from("Date"), l.label[6]);
     frame.render_frame_widget(w_date, l.widget[6], &mut uistate.mask0.date);
+    frame.render_widget(Span::from("Name"), l.label[7]);
+    frame.render_frame_widget(w_name, l.widget[7], &mut uistate.mask0.alpha);
+    frame.render_widget(Span::from("Decimal 7.2"), l.label[8]);
+    frame.render_frame_widget(w_dec_7_2, l.widget[8], &mut uistate.mask0.dec7_2);
 
     let menu = MenuLine::new()
         .style(uistate.g.theme.menu_style())
@@ -330,6 +346,8 @@ fn focus0(mask0: &Mask0) -> Focus<'_> {
         (mask0.hexcolor.focus(), mask0.hexcolor.area()),
         (mask0.creditcard.focus(), mask0.creditcard.area()),
         (mask0.date.focus(), mask0.date.area()),
+        (mask0.alpha.focus(), mask0.alpha.area()),
+        (mask0.dec7_2.focus(), mask0.dec7_2.area()),
     ])
 }
 
@@ -348,6 +366,8 @@ fn handle_mask0(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     check_break!(mask0.hexcolor.handle(event, DefaultKeys));
     check_break!(mask0.creditcard.handle(event, DefaultKeys));
     check_break!(mask0.date.handle(event, DefaultKeys));
+    check_break!(mask0.alpha.handle(event, DefaultKeys));
+    check_break!(mask0.dec7_2.handle(event, DefaultKeys));
 
     check_break!(mask0.menu.handle(event, DefaultKeys).and_then(|a| match a {
         0 => {
@@ -523,10 +543,11 @@ fn setup_logging() -> Result<(), anyhow::Error> {
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
-                "[{} {} {}]\n        {}",
-                humantime::format_rfc3339_seconds(SystemTime::now()),
-                record.level(),
-                record.target(),
+                //"[{} {} {}]\n        {}",
+                "{}",
+                // humantime::format_rfc3339_seconds(SystemTime::now()),
+                // record.level(),
+                // record.target(),
                 message
             ))
         })
