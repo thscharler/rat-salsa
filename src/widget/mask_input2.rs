@@ -613,8 +613,8 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 //     self.value.remove(self.value.selection(), CursorPos::Start);
                 // }
                 // self.value.clear_section(c);
-                self.value.skip_cursor(c);
-                self.value.advance_cursor(c);
+                // self.value.skip_cursor(c);
+                // self.value.advance_cursor(c);
                 self.value.insert_char(c);
                 ControlUI::Change
             }
@@ -748,6 +748,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
 }
 
 pub mod core {
+    use crate::layout::EditConstraint;
     #[allow(unused_imports)]
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};
@@ -761,11 +762,17 @@ pub mod core {
         End,
     }
 
+    #[derive(Clone, Copy, PartialEq, Eq)]
+    pub enum EditDirection {
+        Ltor,
+        Rtol,
+    }
+
     #[derive(Debug, Clone, PartialEq, Eq, Default)]
     pub enum Mask {
-        Digit0,
-        Digit,
-        Numeric,
+        Digit0(EditDirection),
+        Digit(EditDirection),
+        Numeric(EditDirection),
         DecimalSep,
         GroupingSep,
         Hex0,
@@ -795,24 +802,43 @@ pub mod core {
         pub display: Box<str>,
     }
 
+    impl Debug for EditDirection {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "{}",
+                match self {
+                    EditDirection::Ltor => ">",
+                    EditDirection::Rtol => "<",
+                }
+            )
+        }
+    }
+
     impl Display for Mask {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            let c = match self {
-                Mask::Digit0 => "0",
-                Mask::Digit => "9",
-                Mask::Numeric => "#",
-                Mask::DecimalSep => ".",
-                Mask::GroupingSep => ",",
-                Mask::Hex0 => "H",
-                Mask::Hex => "h",
-                Mask::Oct0 => "O",
-                Mask::Oct => "o",
-                Mask::Dec0 => "D",
-                Mask::Dec => "d",
-                Mask::Letter => "l",
-                Mask::LetterOrDigit => "a",
-                Mask::LetterDigitSpace => "c",
-                Mask::AnyChar => "_",
+            match self {
+                Mask::Digit0(d) => {
+                    write!(f, "{:?}0", d)
+                }
+                Mask::Digit(d) => {
+                    write!(f, "{:?}9", d)
+                }
+                Mask::Numeric(d) => {
+                    write!(f, "{:?}#", d)
+                }
+                Mask::DecimalSep => write!(f, "."),
+                Mask::GroupingSep => write!(f, ","),
+                Mask::Hex0 => write!(f, "H"),
+                Mask::Hex => write!(f, "h"),
+                Mask::Oct0 => write!(f, "O"),
+                Mask::Oct => write!(f, "o"),
+                Mask::Dec0 => write!(f, "D"),
+                Mask::Dec => write!(f, "d"),
+                Mask::Letter => write!(f, "l"),
+                Mask::LetterOrDigit => write!(f, "a"),
+                Mask::LetterDigitSpace => write!(f, "c"),
+                Mask::AnyChar => write!(f, "_"),
                 Mask::Separator(s) => {
                     if matches!(
                         s.as_ref(),
@@ -833,11 +859,20 @@ pub mod core {
                     ) {
                         write!(f, "\\")?;
                     }
-                    s.as_ref()
+                    write!(f, "{}", s)
                 }
-                Mask::None => "",
-            };
-            write!(f, "{}", c)
+                Mask::None => write!(f, ""),
+            }
+        }
+    }
+
+    impl EditDirection {
+        fn is_ltor(&self) -> bool {
+            *self == EditDirection::Ltor
+        }
+
+        fn is_rtol(&self) -> bool {
+            *self == EditDirection::Rtol
         }
     }
 
@@ -845,11 +880,11 @@ pub mod core {
         // left to right editing
         fn is_ltor(&self) -> bool {
             match self {
-                Mask::Digit0
-                | Mask::Digit
-                | Mask::Numeric
-                | Mask::DecimalSep
-                | Mask::GroupingSep => false,
+                Mask::Digit0(d) => d.is_ltor(),
+                Mask::Digit(d) => d.is_ltor(),
+                Mask::Numeric(d) => d.is_ltor(),
+                Mask::DecimalSep => true,
+                Mask::GroupingSep => true,
                 Mask::Hex0 => true,
                 Mask::Hex => true,
                 Mask::Oct0 => true,
@@ -868,11 +903,11 @@ pub mod core {
         // right to left editing
         fn is_rtol(&self) -> bool {
             match self {
-                Mask::Digit0
-                | Mask::Digit
-                | Mask::Numeric
-                | Mask::DecimalSep
-                | Mask::GroupingSep => true,
+                Mask::Digit0(d) => d.is_rtol(),
+                Mask::Digit(d) => d.is_rtol(),
+                Mask::Numeric(d) => d.is_rtol(),
+                Mask::DecimalSep => false,
+                Mask::GroupingSep => false,
                 Mask::Hex0 => false,
                 Mask::Hex => false,
                 Mask::Oct0 => false,
@@ -891,32 +926,32 @@ pub mod core {
         // which masks fall in the same section
         fn section(&self) -> u8 {
             match self {
-                Mask::Digit0 => 0,
-                Mask::Digit => 0,
-                Mask::Numeric => 0,
-                Mask::DecimalSep => 0,
+                Mask::Digit0(_) => 0,
+                Mask::Digit(_) => 0,
+                Mask::Numeric(_) => 0,
                 Mask::GroupingSep => 0,
-                Mask::Hex0 => 1,
-                Mask::Hex => 1,
-                Mask::Oct0 => 1,
-                Mask::Oct => 1,
-                Mask::Dec0 => 1,
-                Mask::Dec => 1,
-                Mask::Letter => 1,
-                Mask::LetterOrDigit => 1,
-                Mask::LetterDigitSpace => 1,
-                Mask::AnyChar => 1,
-                Mask::Separator(_) => 2,
-                Mask::None => 3,
+                Mask::DecimalSep => 1,
+                Mask::Hex0 => 3,
+                Mask::Hex => 3,
+                Mask::Oct0 => 4,
+                Mask::Oct => 4,
+                Mask::Dec0 => 5,
+                Mask::Dec => 5,
+                Mask::Letter => 6,
+                Mask::LetterOrDigit => 6,
+                Mask::LetterDigitSpace => 6,
+                Mask::AnyChar => 6,
+                Mask::Separator(_) => 7,
+                Mask::None => 8,
             }
         }
 
         // mask should overwrite instead of insert
         fn shall_overwrite(&self, c: &str) -> bool {
             match self {
-                Mask::Digit0 => false,
-                Mask::Digit => false,
-                Mask::Numeric => false,
+                Mask::Digit0(_) => false,
+                Mask::Digit(_) => false,
+                Mask::Numeric(_) => false,
                 Mask::DecimalSep => false,
                 Mask::GroupingSep => false,
                 Mask::Hex0 => c == "0",
@@ -937,9 +972,9 @@ pub mod core {
         // char can be dropped at the end of a section
         fn can_drop(&self, c: &str) -> bool {
             match self {
-                Mask::Digit0 => c == " ",
-                Mask::Digit => c == " ",
-                Mask::Numeric => c == " ",
+                Mask::Digit0(_) => c == " ",
+                Mask::Digit(_) => c == " ",
+                Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
                 Mask::GroupingSep => false,
                 Mask::Hex0 => c == "0",
@@ -960,9 +995,9 @@ pub mod core {
         // can be skipped when generating the condensed form
         fn can_skip(&self, c: &str) -> bool {
             match self {
-                Mask::Digit0 => false,
-                Mask::Digit => c == " ",
-                Mask::Numeric => c == " ",
+                Mask::Digit0(_) => false,
+                Mask::Digit(_) => c == " ",
+                Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
                 Mask::GroupingSep => true,
                 Mask::Hex0 => false,
@@ -993,9 +1028,11 @@ pub mod core {
                 return false;
             };
             match self {
-                Mask::Digit0 => test.is_ascii_digit(),
-                Mask::Digit => test.is_ascii_digit() || test == ' ',
-                Mask::Numeric => test.is_ascii_digit() || test == ' ' || test == '+' || test == '-',
+                Mask::Digit0(_) => test.is_ascii_digit(),
+                Mask::Digit(_) => test.is_ascii_digit() || test == ' ',
+                Mask::Numeric(_) => {
+                    test.is_ascii_digit() || test == ' ' || test == '+' || test == '-'
+                }
                 Mask::DecimalSep => test == '.',
                 Mask::GroupingSep => test == ',',
                 Mask::Hex0 => test.is_ascii_hexdigit(),
@@ -1015,9 +1052,9 @@ pub mod core {
 
         fn edit_value(&self) -> &str {
             match self {
-                Mask::Digit0 => "0",
-                Mask::Digit => " ",
-                Mask::Numeric => " ",
+                Mask::Digit0(_) => "0",
+                Mask::Digit(_) => " ",
+                Mask::Numeric(_) => " ",
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => ",",
                 Mask::Hex0 => "0",
@@ -1037,9 +1074,9 @@ pub mod core {
 
         fn disp_value(&self) -> &str {
             match self {
-                Mask::Digit0 => "0",
-                Mask::Digit => " ",
-                Mask::Numeric => " ",
+                Mask::Digit0(_) => "0",
+                Mask::Digit(_) => " ",
+                Mask::Numeric(_) => " ",
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => ",",
                 Mask::Hex0 => "0",
@@ -1091,7 +1128,7 @@ pub mod core {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
-                "Mask {}:{}-{} {:?}<|{:?}|",
+                "Mask {}:{}-{} {:?} | {:?}",
                 self.sec_nr, self.sec_start, self.sec_end, self.peek_left, self.right
             )
         }
@@ -1237,6 +1274,7 @@ pub mod core {
             let mut nr = 0;
             let mut start = 0;
             let mut last_mask = Mask::None;
+            let mut dec_dir = EditDirection::Rtol;
             let mut esc = false;
             let mut idx = 0;
             for m in mask.graphemes(true).chain(once("")) {
@@ -1245,9 +1283,9 @@ pub mod core {
                     Mask::Separator(Box::from(m))
                 } else {
                     match m {
-                        "0" => Mask::Digit0,
-                        "9" => Mask::Digit,
-                        "#" => Mask::Numeric,
+                        "0" => Mask::Digit0(dec_dir),
+                        "9" => Mask::Digit(dec_dir),
+                        "#" => Mask::Numeric(dec_dir),
                         "." => Mask::DecimalSep,
                         "," => Mask::GroupingSep,
                         "h" => Mask::Hex,
@@ -1268,6 +1306,32 @@ pub mod core {
                         s => Mask::Separator(Box::from(s)),
                     }
                 };
+
+                match mask {
+                    Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) | Mask::GroupingSep => {
+                        // no change
+                    }
+                    Mask::DecimalSep => {
+                        dec_dir = EditDirection::Ltor;
+                    }
+                    Mask::Hex0
+                    | Mask::Hex
+                    | Mask::Oct0
+                    | Mask::Oct
+                    | Mask::Dec0
+                    | Mask::Dec
+                    | Mask::Letter
+                    | Mask::LetterOrDigit
+                    | Mask::LetterDigitSpace
+                    | Mask::AnyChar
+                    | Mask::Separator(_) => {
+                        // reset to default number input direction
+                        dec_dir = EditDirection::Rtol
+                    }
+                    Mask::None => {
+                        // no change, doesn't matter
+                    }
+                }
 
                 if mask.section() != last_mask.section() {
                     for j in start..idx {
@@ -1536,6 +1600,10 @@ pub mod core {
             let mask = &self.mask[self.cursor];
 
             debug!("INSERT CHAR {:?} {:?}", mask, cc);
+
+            if mask.peek_left.is_rtol() && mask.right.is_ltor() {
+                // boundary right/left. prefer right.
+            }
 
             if mask.peek_left.is_rtol() {
                 let mask = &self.mask[self.cursor - 1];

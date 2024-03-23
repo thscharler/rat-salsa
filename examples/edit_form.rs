@@ -116,7 +116,7 @@ impl Default for Mask0 {
         s.date.set_mask("99/99/9999");
         s.date.set_display_mask("mm/dd/yyyy");
         s.alpha.set_mask("llllllllll");
-        s.dec7_2.set_mask("###0.Dd");
+        s.dec7_2.set_mask("###0.00");
         s
     }
 }
@@ -348,7 +348,7 @@ fn repaint_mask0(
 
         for t in r.value.tokens() {
             let w_info = Span::from(format!(
-                "{}:{}-{}   {} <| {}",
+                "{}:{}-{}   {} | {}",
                 t.sec_nr, t.sec_start, t.sec_end, t.peek_left, t.right
             ));
             frame.render_widget(w_info, area);
