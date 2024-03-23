@@ -10,16 +10,15 @@ use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
 use rat_salsa::{
-    check_break, run_tui, try_ui, ControlUI, DefaultKeys, Focus, HandleCrossterm, HasFocusFlag,
-    RenderFrameWidget, Repaint, RepaintEvent, RunConfig, TaskSender, ThreadPool, TimerEvent,
-    Timers, TuiApp,
+    check_break, for_focus, run_tui, try_ui, ControlUI, DefaultKeys, Focus, HandleCrossterm,
+    HasFocusFlag, RenderFrameWidget, Repaint, RepaintEvent, RunConfig, TaskSender, ThreadPool,
+    TimerEvent, Timers, TuiApp,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
 use ratatui::text::Span;
 use ratatui::Frame;
-use std::time::SystemTime;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -109,11 +108,11 @@ impl Default for Mask0 {
         };
         s.menu.focus.set();
         s.text.focus.set();
-        s.ipv4.set_mask("999.999.999.999");
-        s.ipv4.set_display_mask("xxx.xxx.xxx.xxx");
+        s.ipv4.set_mask("999\\.999\\.999\\.999");
+        // s.ipv4.set_display_mask("xxx.xxx.xxx.xxx");
         s.hexcolor.set_mask("HHHHHH");
         s.creditcard.set_mask("9999 9999 9999 9999");
-        s.creditcard.set_display_mask("dddd dddd dddd dddd");
+        // s.creditcard.set_display_mask("dddd dddd dddd dddd");
         s.date.set_mask("99/99/9999");
         s.date.set_display_mask("mm/dd/yyyy");
         s.alpha.set_mask("llllllllll");
@@ -275,9 +274,14 @@ fn repaint_mask0(
     uistate: &mut FormOneState,
 ) -> Control {
     // TODO: repaint_mask
+    let l_columns = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Length(33), Constraint::Length(33)],
+    )
+    .split(layout.area);
 
     let l = layout_edit(
-        layout.area,
+        l_columns[0],
         [
             EditConstraint::Label("Text"),
             EditConstraint::Widget(20),
@@ -303,6 +307,7 @@ fn repaint_mask0(
     let w_text = TextInput::default().style(uistate.g.theme.input_style());
     let w_decimal = TextInput::default().style(uistate.g.theme.input_style());
     let w_float = TextInput::default().style(uistate.g.theme.input_style());
+
     let w_color = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_ipv4 = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_creditcard = MaskedInput::default().style(uistate.g.theme.input_mask_style());
@@ -328,6 +333,28 @@ fn repaint_mask0(
     frame.render_frame_widget(w_name, l.widget[7], &mut uistate.mask0.alpha);
     frame.render_widget(Span::from("Decimal 7.2"), l.label[8]);
     frame.render_frame_widget(w_dec_7_2, l.widget[8], &mut uistate.mask0.dec7_2);
+
+    let r = for_focus!(
+        uistate.mask0.ipv4 => &uistate.mask0.ipv4,
+        uistate.mask0.hexcolor => &uistate.mask0.hexcolor,
+        uistate.mask0.creditcard => &uistate.mask0.creditcard,
+        uistate.mask0.date => &uistate.mask0.date,
+        uistate.mask0.alpha => &uistate.mask0.alpha,
+        uistate.mask0.dec7_2 => &uistate.mask0.dec7_2
+    );
+    if let Some(r) = r {
+        let mut area = l_columns[1];
+        area.height = 1;
+
+        for t in r.value.tokens() {
+            let w_info = Span::from(format!(
+                "{}:{}-{}   {} <| {}",
+                t.sec_nr, t.sec_start, t.sec_end, t.peek_left, t.right
+            ));
+            frame.render_widget(w_info, area);
+            area.y += 1;
+        }
+    }
 
     let menu = MenuLine::new()
         .style(uistate.g.theme.menu_style())

@@ -438,6 +438,7 @@ impl MaskedInputState {
     /// * 0: can enter digit, display as 0 TODO: change to can? remove leading 0?
     /// * 9: can enter digit, display as space
     /// * #: digit, plus or minus sign, display as space
+    /// * '.' and ',': decimal and grouping separators
     /// TODO extend with . and , for full numeric input
     ///
     /// * H: must enter a hex digit, display as 0
@@ -611,8 +612,12 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 ControlUI::Change
             }
             InsertChar(c) => {
-                self.value.skip_cursor();
-                self.value.advance_cursor(c);
+                // if self.value.is_anchored() {
+                //     self.value.remove(self.value.selection(), CursorPos::Start);
+                // }
+                // self.value.clear_section(c);
+                // self.value.skip_cursor();
+                // self.value.advance_cursor(c);
                 self.value.insert_char(c);
                 ControlUI::Change
             }
@@ -746,8 +751,9 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
 }
 
 pub mod core {
+    #[allow(unused_imports)]
     use log::debug;
-    use std::fmt::{Debug, Formatter};
+    use std::fmt::{Debug, Display, Formatter};
     use std::iter::once;
     use std::ops::Range;
     use unicode_segmentation::UnicodeSegmentation;
@@ -758,29 +764,98 @@ pub mod core {
         End,
     }
 
+    #[derive(Debug, Clone, PartialEq, Eq, Default)]
+    pub enum Mask {
+        Digit0,
+        Digit,
+        Numeric,
+        DecimalSep,
+        GroupingSep,
+        Hex0,
+        Hex,
+        Oct0,
+        Oct,
+        Dec0,
+        Dec,
+        Letter,
+        LetterOrDigit,
+        LetterDigitSpace,
+        AnyChar,
+        Separator(Box<str>),
+        #[default]
+        None,
+    }
+
     #[derive(Clone)]
     pub struct MaskToken {
         pub sec_nr: usize,
         pub sec_start: usize,
         pub sec_end: usize,
 
-        pub peek_left: Box<str>,
-        pub right: Box<str>,
+        pub peek_left: Mask,
+        pub right: Mask,
         pub edit: Box<str>,
         pub display: Box<str>,
+    }
+
+    impl Display for Mask {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            let c = match self {
+                Mask::Digit0 => "0",
+                Mask::Digit => "9",
+                Mask::Numeric => "#",
+                Mask::DecimalSep => ".",
+                Mask::GroupingSep => ",",
+                Mask::Hex0 => "H",
+                Mask::Hex => "h",
+                Mask::Oct0 => "O",
+                Mask::Oct => "o",
+                Mask::Dec0 => "D",
+                Mask::Dec => "d",
+                Mask::Letter => "l",
+                Mask::LetterOrDigit => "a",
+                Mask::LetterDigitSpace => "c",
+                Mask::AnyChar => "_",
+                Mask::Separator(s) => {
+                    if matches!(
+                        s.as_ref(),
+                        "0" | "9"
+                            | "#"
+                            | "."
+                            | ","
+                            | "H"
+                            | "h"
+                            | "O"
+                            | "o"
+                            | "D"
+                            | "d"
+                            | "l"
+                            | "a"
+                            | "c"
+                            | "_"
+                    ) {
+                        write!(f, "\\")?;
+                    }
+                    s.as_ref()
+                }
+                Mask::None => "",
+            };
+            write!(f, "{}", c)
+        }
     }
 
     impl Debug for MaskToken {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
-                "Mask {}:{}-{} {}<|{}|",
+                "Mask {}:{}-{} {:?}<|{:?}|",
                 self.sec_nr, self.sec_start, self.sec_end, self.peek_left, self.right
             )
         }
     }
 
     impl MaskToken {
+        // skip over defaulted input. start at 0
         fn skip_start(mask: &[MaskToken], v: &str) -> usize {
             let mut skip = 0;
             for (c, m) in v.graphemes(true).zip(mask.iter()) {
@@ -793,6 +868,7 @@ pub mod core {
             skip
         }
 
+        // skip over defaulted input. start at len
         fn skip_end(mask: &[MaskToken], v: &str) -> usize {
             let mut skip = 0;
             for (c, m) in v.graphemes(true).rev().zip(mask.iter().rev()) {
@@ -805,239 +881,218 @@ pub mod core {
             skip
         }
 
-        fn is_ltor(mask: &str) -> bool {
-            let Some(mask) = mask.chars().next() else {
-                return false;
-            };
+        // left to right editing
+        fn is_ltor(mask: &Mask) -> bool {
             match mask {
-                '0' => false,
-                '9' => false,
-                '#' => false,
-
-                'H' => true,
-                'h' => true,
-                'O' => true,
-                'o' => true,
-                'D' => true,
-                'd' => true,
-
-                'L' => true,
-                'l' => true,
-                'A' => true,
-                'a' => true,
-                'C' => true,
-                'c' => true,
-                '_' => true,
-
-                _ => true,
+                Mask::Digit0
+                | Mask::Digit
+                | Mask::Numeric
+                | Mask::DecimalSep
+                | Mask::GroupingSep => false,
+                Mask::Hex0 => true,
+                Mask::Hex => true,
+                Mask::Oct0 => true,
+                Mask::Oct => true,
+                Mask::Dec0 => true,
+                Mask::Dec => true,
+                Mask::Letter => true,
+                Mask::LetterOrDigit => true,
+                Mask::LetterDigitSpace => true,
+                Mask::AnyChar => true,
+                Mask::Separator(_) => true,
+                Mask::None => false,
             }
         }
 
-        fn is_rtol(mask: &str) -> bool {
-            let Some(mask) = mask.chars().next() else {
-                return false;
-            };
+        // right to left editing
+        fn is_rtol(mask: &Mask) -> bool {
             match mask {
-                '0' => true,
-                '9' => true,
-                '#' => true,
+                Mask::Digit0
+                | Mask::Digit
+                | Mask::Numeric
+                | Mask::DecimalSep
+                | Mask::GroupingSep => true,
+                Mask::Hex0 => false,
+                Mask::Hex => false,
+                Mask::Oct0 => false,
+                Mask::Oct => false,
+                Mask::Dec0 => false,
+                Mask::Dec => false,
+                Mask::Letter => false,
+                Mask::LetterOrDigit => false,
+                Mask::LetterDigitSpace => false,
+                Mask::AnyChar => false,
+                Mask::Separator(_) => false,
+                Mask::None => false,
+            }
+        }
 
-                'H' => false,
-                'h' => false,
-                'O' => false,
-                'o' => false,
-                'D' => false,
-                'd' => false,
+        // which masks fall in the same section
+        fn mask_section(mask: &Mask) -> u8 {
+            match mask {
+                Mask::Digit0 => 0,
+                Mask::Digit => 0,
+                Mask::Numeric => 0,
+                Mask::DecimalSep => 0,
+                Mask::GroupingSep => 0,
+                Mask::Hex0 => 1,
+                Mask::Hex => 1,
+                Mask::Oct0 => 1,
+                Mask::Oct => 1,
+                Mask::Dec0 => 1,
+                Mask::Dec => 1,
+                Mask::Letter => 1,
+                Mask::LetterOrDigit => 1,
+                Mask::LetterDigitSpace => 1,
+                Mask::AnyChar => 1,
+                Mask::Separator(_) => 2,
+                Mask::None => 3,
+            }
+        }
 
-                'L' => false,
-                'l' => false,
-                'A' => false,
-                'a' => false,
-                'C' => false,
-                'c' => false,
-                '_' => false,
+        // mask should overwrite instead of insert
+        fn shall_overwrite(mask: &Mask, c: &str) -> bool {
+            match mask {
+                Mask::Digit0 => false,
+                Mask::Digit => false,
+                Mask::Numeric => false,
+                Mask::DecimalSep => false,
+                Mask::GroupingSep => false,
+                Mask::Hex0 => c == "0",
+                Mask::Hex => false,
+                Mask::Oct0 => c == "0",
+                Mask::Oct => false,
+                Mask::Dec0 => c == "0",
+                Mask::Dec => false,
+                Mask::Letter => false,
+                Mask::LetterOrDigit => false,
+                Mask::LetterDigitSpace => false,
+                Mask::AnyChar => false,
+                Mask::Separator(v) => v.as_ref() == c,
+                Mask::None => false,
+            }
+        }
+
+        // char can be dropped at the end of a section
+        fn can_drop(mask: &Mask, c: &str) -> bool {
+            match mask {
+                Mask::Digit0 => c == " ",
+                Mask::Digit => c == " ",
+                Mask::Numeric => c == " ",
+                Mask::DecimalSep => false,
+                Mask::GroupingSep => false,
+                Mask::Hex0 => c == "0",
+                Mask::Hex => false,
+                Mask::Oct0 => c == "0",
+                Mask::Oct => false,
+                Mask::Dec0 => c == "0",
+                Mask::Dec => false,
+                Mask::Letter => false,
+                Mask::LetterOrDigit => false,
+                Mask::LetterDigitSpace => false,
+                Mask::AnyChar => false,
+                Mask::Separator(v) => v.as_ref() == c,
+                Mask::None => false,
+            }
+        }
+
+        // can be skipped when generating the condensed form
+        fn can_skip(mask: &Mask, c: &str) -> bool {
+            match mask {
+                Mask::Digit0 => false,
+                Mask::Digit => c == " ",
+                Mask::Numeric => c == " ",
+                Mask::DecimalSep => false,
+                Mask::GroupingSep => true,
+                Mask::Hex0 => false,
+                Mask::Hex => c == " ",
+                Mask::Oct0 => false,
+                Mask::Oct => c == " ",
+                Mask::Dec0 => false,
+                Mask::Dec => c == " ",
+                Mask::Letter => c == " ",
+                Mask::LetterOrDigit => c == " ",
+                Mask::LetterDigitSpace => c == " ",
+                Mask::AnyChar => false,
+                Mask::Separator(_) => false,
+                Mask::None => true,
+            }
+        }
+
+        fn is_sep_char(mask: &Mask, test: &str) -> bool {
+            match mask {
+                Mask::Separator(c) => c.as_ref() == test,
                 _ => false,
             }
         }
 
-        fn mask_type(mask: &str) -> u8 {
-            let Some(mask) = mask.chars().next() else {
-                return 99;
-            };
-            match mask {
-                '0' => 0,
-                '9' => 0,
-                '#' => 0,
-
-                'H' => 1,
-                'h' => 1,
-                'O' => 1,
-                'o' => 1,
-                'D' => 1,
-                'd' => 1,
-
-                'L' => 2,
-                'l' => 2,
-                'A' => 2,
-                'a' => 2,
-                'C' => 2,
-                'c' => 2,
-                '_' => 2,
-
-                _ => 3,
-            }
-        }
-
-        fn shall_overwrite(mask: &str) -> bool {
-            let mask = mask.chars().next().expect("mask");
-            match mask {
-                '0' | '9' | 'h' | 'o' | 'd' | 'l' | 'a' | 'c' | '_' | '#' => false,
-                'H' | 'O' | 'D' | 'L' | 'A' | 'C' | _ => true,
-            }
-        }
-
-        fn can_drop(mask: &str, c: &str) -> bool {
-            let mask = mask.chars().next().expect("mask");
-            match mask {
-                '9' | 'h' | 'o' | 'd' | 'l' | 'a' | 'c' | '_' | '#' => {
-                    if c == " " {
-                        true
-                    } else {
-                        false
-                    }
-                }
-                '0' => {
-                    if c == "0" {
-                        true
-                    } else {
-                        false
-                    }
-                }
-                'H' | 'O' | 'D' | 'L' | 'A' | 'C' | _ => false,
-            }
-        }
-
-        fn can_skip(mask: &str, c: &str) -> bool {
-            let mask = mask.chars().next().expect("mask");
-            match mask {
-                '9' | 'h' | 'o' | 'd' | 'l' | 'a' | 'c' | '_' | '#' => {
-                    if c == " " {
-                        true
-                    } else {
-                        false
-                    }
-                }
-                '0' | 'H' | 'O' | 'D' | 'L' | 'A' | 'C' | _ => false,
-            }
-        }
-
-        fn is_sep_char(mask: &str, test: &str) -> bool {
-            let Some(mask) = mask.chars().next() else {
-                return false;
-            };
-            let Some(test) = test.chars().next() else {
+        fn is_valid_char(mask: &Mask, test_grapheme: &str) -> bool {
+            // todo: does this make any sense?
+            let Some(test) = test_grapheme.chars().next() else {
                 return false;
             };
             match mask {
-                '0' => false,
-                '9' => false,
-                '#' => false,
-
-                'H' => false,
-                'h' => false,
-                'O' => false,
-                'o' => false,
-                'D' => false,
-                'd' => false,
-
-                'L' => false,
-                'l' => false,
-                'A' => false,
-                'a' => false,
-                'C' => false,
-                'c' => false,
-                '_' => false,
-
-                c => c == test,
+                Mask::Digit0 => test.is_ascii_digit(),
+                Mask::Digit => test.is_ascii_digit() || test == ' ',
+                Mask::Numeric => test.is_ascii_digit() || test == ' ' || test == '+' || test == '-',
+                Mask::DecimalSep => test == '.',
+                Mask::GroupingSep => test == ',',
+                Mask::Hex0 => test.is_ascii_hexdigit(),
+                Mask::Hex => test.is_ascii_hexdigit() || test == ' ',
+                Mask::Oct0 => test.is_digit(8),
+                Mask::Oct => test.is_digit(8) || test == ' ',
+                Mask::Dec0 => test.is_ascii_digit(),
+                Mask::Dec => test.is_ascii_digit() || test == ' ',
+                Mask::Letter => test.is_alphabetic(),
+                Mask::LetterOrDigit => test.is_alphanumeric(),
+                Mask::LetterDigitSpace => test.is_alphanumeric() || test == ' ',
+                Mask::AnyChar => true,
+                Mask::Separator(g) => g.as_ref() == test_grapheme,
+                Mask::None => false,
             }
         }
 
-        fn is_valid_char(mask: &str, test: &str) -> bool {
-            let Some(mask) = mask.chars().next() else {
-                return false;
-            };
-            let Some(test) = test.chars().next() else {
-                return false;
-            };
+        fn edit_value(mask: &Mask) -> &str {
             match mask {
-                '0' => test.is_ascii_digit(),
-                '9' => test.is_ascii_digit() || test == ' ',
-                '#' => test.is_ascii_digit() || test == ' ' || test == '+' || test == '-',
-
-                'H' => test.is_ascii_hexdigit(),
-                'h' => test.is_ascii_hexdigit() || test == ' ',
-                'O' => test.is_digit(8),
-                'o' => test.is_digit(8) || test == ' ',
-                'D' => test.is_ascii_digit(),
-                'd' => test.is_ascii_digit() || test == ' ',
-
-                'L' => test.is_alphabetic(),
-                'l' => test.is_alphabetic() || test == ' ',
-                'A' => test.is_alphanumeric(),
-                'a' => test.is_alphanumeric() || test == ' ',
-                'C' => test.is_alphanumeric() || test == ' ',
-                'c' => test.is_alphanumeric() || test == ' ',
-
-                '_' => true,
-                _ => false,
+                Mask::Digit0 => "0",
+                Mask::Digit => " ",
+                Mask::Numeric => " ",
+                Mask::DecimalSep => ".",
+                Mask::GroupingSep => ",",
+                Mask::Hex0 => "0",
+                Mask::Hex => " ",
+                Mask::Oct0 => "0",
+                Mask::Oct => " ",
+                Mask::Dec0 => "0",
+                Mask::Dec => " ",
+                Mask::Letter => " ",
+                Mask::LetterOrDigit => " ",
+                Mask::LetterDigitSpace => " ",
+                Mask::AnyChar => " ",
+                Mask::Separator(g) => g.as_ref(),
+                Mask::None => "",
             }
         }
 
-        fn edit_value(mask: &str) -> &str {
+        fn disp_value(mask: &Mask) -> &str {
             match mask {
-                "0" => "0",
-                "9" => " ",
-                "#" => " ",
-
-                "H" => "0",
-                "h" => " ",
-                "O" => "0",
-                "o" => " ",
-                "D" => "0",
-                "d" => " ",
-
-                "L" => " ",
-                "l" => " ",
-                "A" => " ",
-                "a" => " ",
-                "C" => " ",
-                "c" => " ",
-                "_" => " ",
-                _ => mask,
-            }
-        }
-
-        fn disp_value(mask: &str) -> &str {
-            match mask {
-                "0" => "0",
-                "9" => " ",
-                "#" => " ",
-
-                "H" => "0",
-                "h" => " ",
-                "O" => "0",
-                "o" => " ",
-                "D" => "0",
-                "d" => " ",
-
-                "L" => "X",
-                "l" => " ",
-                "A" => "X",
-                "a" => " ",
-                "C" => " ",
-                "c" => " ",
-                "_" => " ",
-                _ => mask,
+                Mask::Digit0 => "0",
+                Mask::Digit => " ",
+                Mask::Numeric => " ",
+                Mask::DecimalSep => ".",
+                Mask::GroupingSep => ",",
+                Mask::Hex0 => "0",
+                Mask::Hex => " ",
+                Mask::Oct0 => "0",
+                Mask::Oct => " ",
+                Mask::Dec0 => "0",
+                Mask::Dec => " ",
+                Mask::Letter => " ",
+                Mask::LetterOrDigit => " ",
+                Mask::LetterDigitSpace => " ",
+                Mask::AnyChar => " ",
+                Mask::Separator(g) => g.as_ref(),
+                Mask::None => "",
             }
         }
     }
@@ -1058,6 +1113,10 @@ pub mod core {
     }
 
     impl InputMaskCore {
+        pub fn tokens(&self) -> &[MaskToken] {
+            &self.mask
+        }
+
         /// Reset value but not the mask and width
         pub fn reset(&mut self) {
             self.value = String::new();
@@ -1149,18 +1208,49 @@ pub mod core {
 
             let mut nr = 0;
             let mut start = 0;
-            let mut last_m = None;
-            for (i, m) in mask.graphemes(true).chain(once("")).enumerate() {
-                if let Some(last_m) = last_m {
-                    if MaskToken::mask_type(m) != MaskToken::mask_type(last_m) {
-                        for j in start..i {
+            let mut last_mask = None;
+            let mut esc = false;
+            let mut idx = 0;
+            for m in mask.graphemes(true).chain(once("")) {
+                let mask = if esc {
+                    esc = false;
+                    Mask::Separator(Box::from(m))
+                } else {
+                    match m {
+                        "0" => Mask::Digit0,
+                        "9" => Mask::Digit,
+                        "#" => Mask::Numeric,
+                        "." => Mask::DecimalSep,
+                        "," => Mask::GroupingSep,
+                        "h" => Mask::Hex,
+                        "H" => Mask::Hex0,
+                        "o" => Mask::Oct,
+                        "O" => Mask::Oct0,
+                        "d" => Mask::Dec,
+                        "D" => Mask::Dec0,
+                        "l" => Mask::Letter,
+                        "a" => Mask::LetterOrDigit,
+                        "c" => Mask::LetterDigitSpace,
+                        "_" => Mask::AnyChar,
+                        "" => Mask::None,
+                        "\\" => {
+                            esc = true;
+                            continue;
+                        }
+                        s => Mask::Separator(Box::from(s)),
+                    }
+                };
+
+                if let Some(last_mask) = &last_mask {
+                    if MaskToken::mask_section(&mask) != MaskToken::mask_section(last_mask) {
+                        for j in start..idx {
                             self.mask[j].sec_nr = nr;
                             self.mask[j].sec_start = start;
-                            self.mask[j].sec_end = i;
+                            self.mask[j].sec_end = idx;
                         }
 
                         nr += 1;
-                        start = i;
+                        start = idx;
                     }
                 }
 
@@ -1168,14 +1258,15 @@ pub mod core {
                     sec_nr: 0,
                     sec_start: 0,
                     sec_end: 0,
-                    peek_left: Box::from(last_m.unwrap_or_default()),
-                    right: Box::from(m),
-                    edit: MaskToken::edit_value(m).into(),
-                    display: MaskToken::disp_value(m).into(),
+                    peek_left: last_mask.unwrap_or_default(),
+                    right: mask.clone(),
+                    edit: MaskToken::edit_value(&mask).into(),
+                    display: MaskToken::disp_value(&mask).into(),
                 };
                 self.mask.push(tok);
 
-                last_m = Some(m);
+                idx += 1;
+                last_mask = Some(mask);
             }
             for j in start..self.mask.len() {
                 self.mask[j].sec_nr = nr;
@@ -1191,9 +1282,11 @@ pub mod core {
         }
 
         pub fn mask(&self) -> String {
+            use std::fmt::Write;
+
             let mut buf = String::new();
             for t in self.mask.iter() {
-                buf.push_str(t.right.as_ref())
+                _ = write!(buf, "{}", t.right);
             }
             buf
         }
@@ -1340,14 +1433,19 @@ pub mod core {
         }
 
         // Clear the section if the cursor is at the very first position.
-        pub fn clear_section(&mut self) {
+        pub fn clear_section(&mut self, c: char) {
+            let buf = String::from(c);
+            let cc = buf.as_str();
+
             let mask = &self.mask[self.cursor];
 
-            if MaskToken::is_rtol(&mask.peek_left) {
-                // noop
-            } else if MaskToken::is_rtol(&mask.right) {
+            if MaskToken::is_rtol(&mask.right) {
                 let (b, c0, _c1, a) = self.split_mask(mask);
-                if c0.is_empty() {
+
+                if c0.is_empty()
+                    && (MaskToken::is_valid_char(&mask.right, cc)
+                        || MaskToken::is_sep_char(&mask.right, cc))
+                {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(self.empty_section(mask).as_str());
@@ -1356,19 +1454,6 @@ pub mod core {
 
                     // cursor stays
                 }
-            } else if MaskToken::is_ltor(&mask.right) {
-                let (b, c0, _c1, a) = self.split_mask(mask);
-                if c0.is_empty() {
-                    let mut buf = String::new();
-                    buf.push_str(b);
-                    buf.push_str(self.empty_section(mask).as_str());
-                    buf.push_str(a);
-                    self.value = buf;
-
-                    // cursor stays
-                }
-            } else if MaskToken::is_ltor(&mask.peek_left) {
-                // noop
             }
         }
 
@@ -1422,15 +1507,16 @@ pub mod core {
 
             let mask = &self.mask[self.cursor];
 
+            debug!("insert_char {:?}", mask);
+
             if MaskToken::is_rtol(&mask.peek_left) {
                 let mask = &self.mask[self.cursor - 1];
                 let mask0 = &self.mask[mask.sec_start];
 
+                debug!("insert_char2 {:?}  {:?}", mask, mask0);
+
                 let (b, c0, c1, a) = self.split_mask(mask);
-                if can_drop_first(&mask0.right, c0)
-                    && (MaskToken::is_valid_char(&mask.right, cc)
-                        || MaskToken::is_sep_char(&mask.right, cc))
-                {
+                if can_drop_first(&mask0.right, c0) && MaskToken::is_valid_char(&mask.right, cc) {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(drop_first(c0));
@@ -1447,7 +1533,7 @@ pub mod core {
                 let mask9 = &self.mask[mask.sec_end - 1];
 
                 let (b, c0, c1, a) = self.split_mask(mask);
-                if MaskToken::shall_overwrite(&mask.right)
+                if can_overwrite_first(&mask.right, c1)
                     && (MaskToken::is_valid_char(&mask.right, cc)
                         || MaskToken::is_sep_char(&mask.right, cc))
                 {
@@ -1578,7 +1664,7 @@ pub mod core {
         if s.is_empty() {
             unreachable!();
         } else {
-            let (_, f, r) = split3(s, 0..1);
+            let (_, _, r) = split3(s, 0..1);
             r
         }
     }
@@ -1588,27 +1674,37 @@ pub mod core {
             unreachable!();
         } else {
             let end = s.graphemes(true).count();
-            let (r, f, _) = split3(s, end - 1..end);
+            let (r, _, _) = split3(s, end - 1..end);
             r
         }
     }
 
-    fn can_drop_first(mask: &str, s: &str) -> bool {
+    fn can_drop_first(mask: &Mask, s: &str) -> bool {
         if s.is_empty() {
             false
         } else {
             let (_, f, _) = split3(s, 0..1);
+            debug!("can_drop_first {:?}  {}", mask, f);
             MaskToken::can_drop(mask, f)
         }
     }
 
-    fn can_drop_last(mask: &str, s: &str) -> bool {
+    fn can_drop_last(mask: &Mask, s: &str) -> bool {
         if s.is_empty() {
             false
         } else {
             let end = s.graphemes(true).count();
             let (_, f, _) = split3(s, end - 1..end);
             MaskToken::can_drop(mask, f)
+        }
+    }
+
+    fn can_overwrite_first(mask: &Mask, s: &str) -> bool {
+        if s.is_empty() {
+            false
+        } else {
+            let (_, f, _) = split3(s, 0..1);
+            MaskToken::shall_overwrite(mask, f)
         }
     }
 
