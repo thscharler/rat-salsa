@@ -153,6 +153,24 @@ macro_rules! on_gained {
     }};
 }
 
+/// Executes the block if [HasFocusFlag::is_focused()] is true.
+///
+/// Evaluates to `Some(expr)` if field.is_focused() is true.
+/// Returns None if none of the given fields is focused.
+#[macro_export]
+macro_rules! for_focus {
+    ($($field:expr => $expr:expr),*) => {{
+        use $crate::HasFocusFlag;
+        if false { None }
+        $(else if $field.is_focused() {
+            Some($expr)
+        })*
+        else {
+            None
+        }
+    }};
+}
+
 impl<'a> IntoIterator for Focus<'a> {
     type Item = (&'a FocusFlag, Rect);
     type IntoIter = Zip<vec::IntoIter<&'a FocusFlag>, vec::IntoIter<Rect>>;
