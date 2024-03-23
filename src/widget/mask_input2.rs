@@ -448,11 +448,8 @@ impl MaskedInputState {
     /// * D: must enter a decimal digit, display as 0
     /// * d: can enter a decimal digit, display as space
     ///
-    /// * L: must enter letter, display as X
     /// * l: can enter letter, display as space
-    /// * A: must enter letter or digit, display as X
     /// * a: can enter letter or digit, display as space
-    /// * C: must enter character or space, display as space
     /// * c: can enter character or space, display as space
     /// * _: anything, display as space
     ///
@@ -616,8 +613,8 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 //     self.value.remove(self.value.selection(), CursorPos::Start);
                 // }
                 // self.value.clear_section(c);
-                // self.value.skip_cursor();
-                // self.value.advance_cursor(c);
+                self.value.skip_cursor(c);
+                self.value.advance_cursor(c);
                 self.value.insert_char(c);
                 ControlUI::Change
             }
@@ -844,46 +841,10 @@ pub mod core {
         }
     }
 
-    impl Debug for MaskToken {
-        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-            write!(
-                f,
-                "Mask {}:{}-{} {:?}<|{:?}|",
-                self.sec_nr, self.sec_start, self.sec_end, self.peek_left, self.right
-            )
-        }
-    }
-
-    impl MaskToken {
-        // skip over defaulted input. start at 0
-        fn skip_start(mask: &[MaskToken], v: &str) -> usize {
-            let mut skip = 0;
-            for (c, m) in v.graphemes(true).zip(mask.iter()) {
-                if !MaskToken::can_drop(&m.right, c) {
-                    break;
-                } else {
-                    skip += 1;
-                }
-            }
-            skip
-        }
-
-        // skip over defaulted input. start at len
-        fn skip_end(mask: &[MaskToken], v: &str) -> usize {
-            let mut skip = 0;
-            for (c, m) in v.graphemes(true).rev().zip(mask.iter().rev()) {
-                if !MaskToken::can_drop(&m.right, c) {
-                    break;
-                } else {
-                    skip += 1;
-                }
-            }
-            skip
-        }
-
+    impl Mask {
         // left to right editing
-        fn is_ltor(mask: &Mask) -> bool {
-            match mask {
+        fn is_ltor(&self) -> bool {
+            match self {
                 Mask::Digit0
                 | Mask::Digit
                 | Mask::Numeric
@@ -905,8 +866,8 @@ pub mod core {
         }
 
         // right to left editing
-        fn is_rtol(mask: &Mask) -> bool {
-            match mask {
+        fn is_rtol(&self) -> bool {
+            match self {
                 Mask::Digit0
                 | Mask::Digit
                 | Mask::Numeric
@@ -928,8 +889,8 @@ pub mod core {
         }
 
         // which masks fall in the same section
-        fn mask_section(mask: &Mask) -> u8 {
-            match mask {
+        fn section(&self) -> u8 {
+            match self {
                 Mask::Digit0 => 0,
                 Mask::Digit => 0,
                 Mask::Numeric => 0,
@@ -951,8 +912,8 @@ pub mod core {
         }
 
         // mask should overwrite instead of insert
-        fn shall_overwrite(mask: &Mask, c: &str) -> bool {
-            match mask {
+        fn shall_overwrite(&self, c: &str) -> bool {
+            match self {
                 Mask::Digit0 => false,
                 Mask::Digit => false,
                 Mask::Numeric => false,
@@ -968,14 +929,14 @@ pub mod core {
                 Mask::LetterOrDigit => false,
                 Mask::LetterDigitSpace => false,
                 Mask::AnyChar => false,
-                Mask::Separator(v) => v.as_ref() == c,
+                Mask::Separator(sep) => sep.as_ref() == c,
                 Mask::None => false,
             }
         }
 
         // char can be dropped at the end of a section
-        fn can_drop(mask: &Mask, c: &str) -> bool {
-            match mask {
+        fn can_drop(&self, c: &str) -> bool {
+            match self {
                 Mask::Digit0 => c == " ",
                 Mask::Digit => c == " ",
                 Mask::Numeric => c == " ",
@@ -991,14 +952,14 @@ pub mod core {
                 Mask::LetterOrDigit => false,
                 Mask::LetterDigitSpace => false,
                 Mask::AnyChar => false,
-                Mask::Separator(v) => v.as_ref() == c,
+                Mask::Separator(sep) => sep.as_ref() == c,
                 Mask::None => false,
             }
         }
 
         // can be skipped when generating the condensed form
-        fn can_skip(mask: &Mask, c: &str) -> bool {
-            match mask {
+        fn can_skip(&self, c: &str) -> bool {
+            match self {
                 Mask::Digit0 => false,
                 Mask::Digit => c == " ",
                 Mask::Numeric => c == " ",
@@ -1019,19 +980,19 @@ pub mod core {
             }
         }
 
-        fn is_sep_char(mask: &Mask, test: &str) -> bool {
-            match mask {
-                Mask::Separator(c) => c.as_ref() == test,
+        fn is_sep_char(&self, test: &str) -> bool {
+            match self {
+                Mask::Separator(sep) => sep.as_ref() == test,
                 _ => false,
             }
         }
 
-        fn is_valid_char(mask: &Mask, test_grapheme: &str) -> bool {
+        fn is_valid_char(&self, test_grapheme: &str) -> bool {
             // todo: does this make any sense?
             let Some(test) = test_grapheme.chars().next() else {
                 return false;
             };
-            match mask {
+            match self {
                 Mask::Digit0 => test.is_ascii_digit(),
                 Mask::Digit => test.is_ascii_digit() || test == ' ',
                 Mask::Numeric => test.is_ascii_digit() || test == ' ' || test == '+' || test == '-',
@@ -1052,8 +1013,8 @@ pub mod core {
             }
         }
 
-        fn edit_value(mask: &Mask) -> &str {
-            match mask {
+        fn edit_value(&self) -> &str {
+            match self {
                 Mask::Digit0 => "0",
                 Mask::Digit => " ",
                 Mask::Numeric => " ",
@@ -1074,8 +1035,8 @@ pub mod core {
             }
         }
 
-        fn disp_value(mask: &Mask) -> &str {
-            match mask {
+        fn disp_value(&self) -> &str {
+            match self {
                 Mask::Digit0 => "0",
                 Mask::Digit => " ",
                 Mask::Numeric => " ",
@@ -1094,6 +1055,73 @@ pub mod core {
                 Mask::Separator(g) => g.as_ref(),
                 Mask::None => "",
             }
+        }
+
+        fn can_drop_first(&self, s: &str) -> bool {
+            if s.is_empty() {
+                false
+            } else {
+                let (_, f, _) = split3(s, 0..1);
+                debug!("can_drop_first {:?}  {}", self, f);
+                self.can_drop(f)
+            }
+        }
+
+        fn can_drop_last(&self, s: &str) -> bool {
+            if s.is_empty() {
+                false
+            } else {
+                let end = s.graphemes(true).count();
+                let (_, f, _) = split3(s, end - 1..end);
+                self.can_drop(f)
+            }
+        }
+
+        fn can_overwrite_first(&self, s: &str) -> bool {
+            if s.is_empty() {
+                false
+            } else {
+                let (_, f, _) = split3(s, 0..1);
+                self.shall_overwrite(f)
+            }
+        }
+    }
+
+    impl Debug for MaskToken {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            write!(
+                f,
+                "Mask {}:{}-{} {:?}<|{:?}|",
+                self.sec_nr, self.sec_start, self.sec_end, self.peek_left, self.right
+            )
+        }
+    }
+
+    impl MaskToken {
+        // skip over defaulted input. start at 0
+        fn skip_start(mask: &[MaskToken], v: &str) -> usize {
+            let mut skip = 0;
+            for (c, m) in v.graphemes(true).zip(mask.iter()) {
+                if !m.right.can_drop(c) {
+                    break;
+                } else {
+                    skip += 1;
+                }
+            }
+            skip
+        }
+
+        // skip over defaulted input. start at len
+        fn skip_end(mask: &[MaskToken], v: &str) -> usize {
+            let mut skip = 0;
+            for (c, m) in v.graphemes(true).rev().zip(mask.iter().rev()) {
+                if !m.right.can_drop(c) {
+                    break;
+                } else {
+                    skip += 1;
+                }
+            }
+            skip
         }
     }
 
@@ -1208,7 +1236,7 @@ pub mod core {
 
             let mut nr = 0;
             let mut start = 0;
-            let mut last_mask = None;
+            let mut last_mask = Mask::None;
             let mut esc = false;
             let mut idx = 0;
             for m in mask.graphemes(true).chain(once("")) {
@@ -1241,32 +1269,30 @@ pub mod core {
                     }
                 };
 
-                if let Some(last_mask) = &last_mask {
-                    if MaskToken::mask_section(&mask) != MaskToken::mask_section(last_mask) {
-                        for j in start..idx {
-                            self.mask[j].sec_nr = nr;
-                            self.mask[j].sec_start = start;
-                            self.mask[j].sec_end = idx;
-                        }
-
-                        nr += 1;
-                        start = idx;
+                if mask.section() != last_mask.section() {
+                    for j in start..idx {
+                        self.mask[j].sec_nr = nr;
+                        self.mask[j].sec_start = start;
+                        self.mask[j].sec_end = idx;
                     }
+
+                    nr += 1;
+                    start = idx;
                 }
 
                 let tok = MaskToken {
                     sec_nr: 0,
                     sec_start: 0,
                     sec_end: 0,
-                    peek_left: last_mask.unwrap_or_default(),
+                    peek_left: last_mask,
                     right: mask.clone(),
-                    edit: MaskToken::edit_value(&mask).into(),
-                    display: MaskToken::disp_value(&mask).into(),
+                    edit: mask.edit_value().into(),
+                    display: mask.disp_value().into(),
                 };
                 self.mask.push(tok);
 
                 idx += 1;
-                last_mask = Some(mask);
+                last_mask = mask;
             }
             for j in start..self.mask.len() {
                 self.mask[j].sec_nr = nr;
@@ -1336,7 +1362,7 @@ pub mod core {
         pub fn compact_value(&self) -> String {
             let mut buf = String::new();
             for (c, m) in self.value.graphemes(true).zip(self.mask.iter()) {
-                if !MaskToken::can_skip(&m.right, c) {
+                if !m.right.can_skip(c) {
                     buf.push_str(c);
                 }
             }
@@ -1371,7 +1397,7 @@ pub mod core {
                     sec_filled = false;
                     sec_nr = m.sec_nr;
                 }
-                sec_filled |= !MaskToken::can_skip(&m.right, c);
+                sec_filled |= !m.right.can_skip(c);
 
                 // todo!
                 // if !sec_filled && MaskToken::can_skip(&m.right, c) {
@@ -1414,17 +1440,21 @@ pub mod core {
         }
 
         /// Sets the cursor to a position where a character may be set.
-        pub fn skip_cursor(&mut self) {
+        pub fn skip_cursor(&mut self, c: char) {
             let mask = &self.mask[self.cursor];
 
-            if MaskToken::is_rtol(&mask.right) {
-                let (_b, _c0, c1, _a) = self.split_mask(mask);
+            debug!("SKIP CURSOR {:?} {:?}", mask, c);
+
+            if mask.right.is_rtol() {
+                debug!("skip_cursor rtol");
+                let (_b, _c0, c1, _a) = split_mask(&self.value, self.cursor, mask);
                 let submask = &self.mask[self.cursor..mask.sec_end];
                 let skip = MaskToken::skip_start(submask, c1);
                 self.cursor += skip;
                 self.anchor = self.cursor;
-            } else if MaskToken::is_ltor(&mask.right) {
-                let (_b, c0, _c1, _a) = self.split_mask(mask);
+            } else if mask.right.is_ltor() {
+                debug!("skip_cursor ltor");
+                let (_b, c0, _c1, _a) = split_mask(&self.value, self.cursor, mask);
                 let submask = &self.mask[mask.sec_start..self.cursor];
                 let skip = MaskToken::skip_end(submask, c0);
                 self.cursor -= skip;
@@ -1439,13 +1469,12 @@ pub mod core {
 
             let mask = &self.mask[self.cursor];
 
-            if MaskToken::is_rtol(&mask.right) {
-                let (b, c0, _c1, a) = self.split_mask(mask);
+            debug!("CLEAR SECTION {:?} {:?}", mask, cc);
 
-                if c0.is_empty()
-                    && (MaskToken::is_valid_char(&mask.right, cc)
-                        || MaskToken::is_sep_char(&mask.right, cc))
-                {
+            if mask.right.is_rtol() {
+                let (b, c0, _c1, a) = split_mask(&self.value, self.cursor, mask);
+
+                if c0.is_empty() && mask.right.is_valid_char(cc) {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(self.empty_section(mask).as_str());
@@ -1465,37 +1494,36 @@ pub mod core {
 
             let mask = &self.mask[self.cursor];
 
-            if MaskToken::is_rtol(&mask.peek_left) {
+            debug!("ADVANCE CURSOR {:?} {:?}", mask, cc);
+
+            if mask.peek_left.is_rtol() {
                 let mask = &self.mask[self.cursor - 1];
                 let mask0 = &self.mask[mask.sec_start];
-                let (_b, c0, _c1, _a) = self.split_mask(mask);
+                debug!("advance_cursor2 {:?}  {:?}", mask, mask0);
+                let (_b, c0, _c1, _a) = split_mask(&self.value, self.cursor, mask);
                 // section is full or char invalid
-                if can_drop_first(&mask0.right, c0)
-                    && (MaskToken::is_valid_char(&mask.right, cc)
-                        || MaskToken::is_sep_char(&mask.right, cc))
-                {
+                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc) {
                     // insert char later.
                 } else {
                     self.cursor = self.find_match(cc);
                     self.anchor = self.cursor;
                 }
-            } else if MaskToken::is_ltor(&mask.right) {
+            } else if mask.right.is_rtol() {
+                debug!("advance_cursor4 {:?}", mask);
+                // left end of rtol. advance
+                self.cursor = self.find_match(cc);
+                self.anchor = self.cursor;
+            } else if mask.right.is_ltor() {
                 let mask9 = &self.mask[mask.sec_end - 1];
-                let (_b, _c0, c1, _a) = self.split_mask(mask);
+                debug!("advance_cursor3 {:?}  {:?}", mask, mask9);
+                let (_b, _c0, c1, _a) = split_mask(&self.value, self.cursor, mask);
 
-                if can_drop_last(&mask9.right, c1)
-                    && (MaskToken::is_valid_char(&mask.right, cc)
-                        || MaskToken::is_sep_char(&mask.right, cc))
-                {
+                if mask9.right.can_drop_last(c1) && mask.right.is_valid_char(cc) {
                     // insert char later
                 } else {
                     self.cursor = self.find_match(cc);
                     self.anchor = self.cursor;
                 }
-            } else if MaskToken::is_rtol(&mask.right) {
-                // left end of rtol. advance
-                self.cursor = self.find_match(cc);
-                self.anchor = self.cursor;
             }
         }
 
@@ -1507,16 +1535,16 @@ pub mod core {
 
             let mask = &self.mask[self.cursor];
 
-            debug!("insert_char {:?}", mask);
+            debug!("INSERT CHAR {:?} {:?}", mask, cc);
 
-            if MaskToken::is_rtol(&mask.peek_left) {
+            if mask.peek_left.is_rtol() {
                 let mask = &self.mask[self.cursor - 1];
                 let mask0 = &self.mask[mask.sec_start];
 
                 debug!("insert_char2 {:?}  {:?}", mask, mask0);
 
-                let (b, c0, c1, a) = self.split_mask(mask);
-                if can_drop_first(&mask0.right, c0) && MaskToken::is_valid_char(&mask.right, cc) {
+                let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
+                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc) {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(drop_first(c0));
@@ -1529,14 +1557,13 @@ pub mod core {
                     return;
                 }
             }
-            if MaskToken::is_ltor(&mask.right) {
+            if mask.right.is_ltor() {
                 let mask9 = &self.mask[mask.sec_end - 1];
 
-                let (b, c0, c1, a) = self.split_mask(mask);
-                if can_overwrite_first(&mask.right, c1)
-                    && (MaskToken::is_valid_char(&mask.right, cc)
-                        || MaskToken::is_sep_char(&mask.right, cc))
-                {
+                debug!("insert_char3 {:?}  {:?}", mask, mask9);
+
+                let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
+                if mask.right.can_overwrite_first(c1) && mask.right.is_valid_char(cc) {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
@@ -1549,10 +1576,7 @@ pub mod core {
                     self.anchor = self.cursor;
                     return;
                 }
-                if can_drop_last(&mask9.right, c1)
-                    && (MaskToken::is_valid_char(&mask.right, cc)
-                        || MaskToken::is_sep_char(&mask.right, cc))
-                {
+                if mask9.right.can_drop_last(c1) && mask.right.is_valid_char(cc) {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
@@ -1614,49 +1638,12 @@ pub mod core {
         fn find_match(&self, cc: &str) -> usize {
             for i in self.cursor..self.mask.len() {
                 let test = &self.mask[i];
-                if MaskToken::is_sep_char(&test.right, cc) {
-                    return i + 1;
-                } else if MaskToken::is_valid_char(&test.right, cc) {
+                debug!("find_match test {:?} cc {:?}", test, cc);
+                if test.right.is_valid_char(cc) {
                     return i;
                 }
             }
             self.cursor
-        }
-
-        /// Split along mask-sections
-        fn split_mask(&self, mask: &MaskToken) -> (&str, &str, &str, &str) {
-            let value = &self.value;
-
-            let mut byte_mask_start = None;
-            let mut byte_mask_end = None;
-            let mut byte_cursor = None;
-
-            for (cidx, (idx, _c)) in value
-                .grapheme_indices(true)
-                .chain(once((value.len(), "")))
-                .enumerate()
-            {
-                if cidx == self.cursor {
-                    byte_cursor = Some(idx);
-                }
-                if cidx == mask.sec_start {
-                    byte_mask_start = Some(idx);
-                }
-                if cidx == mask.sec_end {
-                    byte_mask_end = Some(idx);
-                }
-            }
-
-            let byte_cursor = byte_cursor.expect("mask");
-            let byte_mask_start = byte_mask_start.expect("mask");
-            let byte_mask_end = byte_mask_end.expect("mask");
-
-            (
-                &value[..byte_mask_start],
-                &value[byte_mask_start..byte_cursor],
-                &value[byte_cursor..byte_mask_end],
-                &value[byte_mask_end..],
-            )
         }
     }
 
@@ -1679,33 +1666,42 @@ pub mod core {
         }
     }
 
-    fn can_drop_first(mask: &Mask, s: &str) -> bool {
-        if s.is_empty() {
-            false
-        } else {
-            let (_, f, _) = split3(s, 0..1);
-            debug!("can_drop_first {:?}  {}", mask, f);
-            MaskToken::can_drop(mask, f)
-        }
-    }
+    /// Split along mask-sections
+    fn split_mask<'a>(
+        value: &'a str,
+        cursor: usize,
+        mask: &MaskToken,
+    ) -> (&'a str, &'a str, &'a str, &'a str) {
+        let mut byte_mask_start = None;
+        let mut byte_mask_end = None;
+        let mut byte_cursor = None;
 
-    fn can_drop_last(mask: &Mask, s: &str) -> bool {
-        if s.is_empty() {
-            false
-        } else {
-            let end = s.graphemes(true).count();
-            let (_, f, _) = split3(s, end - 1..end);
-            MaskToken::can_drop(mask, f)
+        for (cidx, (idx, _c)) in value
+            .grapheme_indices(true)
+            .chain(once((value.len(), "")))
+            .enumerate()
+        {
+            if cidx == cursor {
+                byte_cursor = Some(idx);
+            }
+            if cidx == mask.sec_start {
+                byte_mask_start = Some(idx);
+            }
+            if cidx == mask.sec_end {
+                byte_mask_end = Some(idx);
+            }
         }
-    }
 
-    fn can_overwrite_first(mask: &Mask, s: &str) -> bool {
-        if s.is_empty() {
-            false
-        } else {
-            let (_, f, _) = split3(s, 0..1);
-            MaskToken::shall_overwrite(mask, f)
-        }
+        let byte_cursor = byte_cursor.expect("mask");
+        let byte_mask_start = byte_mask_start.expect("mask");
+        let byte_mask_end = byte_mask_end.expect("mask");
+
+        (
+            &value[..byte_mask_start],
+            &value[byte_mask_start..byte_cursor],
+            &value[byte_cursor..byte_mask_end],
+            &value[byte_mask_end..],
+        )
     }
 
     /// Split off selection
