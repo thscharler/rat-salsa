@@ -407,6 +407,11 @@ impl MaskedInputState {
         self.value.set_cursor(cursor, false);
     }
 
+    /// Place cursor at decimal separator, if any. 0 otherwise.
+    pub fn set_default_cursor(&mut self) {
+        self.value.set_default_cursor();
+    }
+
     /// Cursor position
     pub fn cursor(&self) -> usize {
         self.value.cursor()
@@ -436,11 +441,10 @@ impl MaskedInputState {
     /// The result value contains all punctuation and
     /// the value given as 'display' below. See [compact_value()](MaskedInputState::compact_value).
     ///
-    /// * 0: can enter digit, display as 0 TODO: change to can? remove leading 0?
+    /// * 0: can enter digit, display as 0  
     /// * 9: can enter digit, display as space
     /// * #: digit, plus or minus sign, display as space
     /// * '.' and ',': decimal and grouping separators
-    /// TODO extend with . and , for full numeric input
     ///
     /// * H: must enter a hex digit, display as 0
     /// * h: can enter a hex digit, display as space
@@ -454,9 +458,9 @@ impl MaskedInputState {
     /// * c: can enter character or space, display as space
     /// * _: anything, display as space
     ///
-    /// * . , : ; - /: grouping characters move the cursor when entered
+    /// * : ; - /: grouping characters move the cursor when entered.
     ///
-    /// * use \ to escape any of the above. TODO
+    /// * use \ to escape any of the above.
     ///
     /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
     pub fn set_mask<S: Into<String>>(&mut self, s: S) {
@@ -1279,6 +1283,7 @@ pub mod core {
             }
         }
 
+        /// dump the current state as code.
         pub fn test_state(&self) -> String {
             use std::fmt::Write;
 
@@ -1304,11 +1309,13 @@ pub mod core {
             buf
         }
 
+        /// Tokens used for the mask.
         pub fn tokens(&self) -> &[MaskToken] {
             &self.mask
         }
 
-        /// Reset value but not the mask and width
+        /// Reset value but not the mask and width.
+        /// Resets offset and cursor position too.
         pub fn reset(&mut self) {
             self.offset = 0;
             self.set_value(MaskToken::empty_section(&self.mask));
@@ -1409,6 +1416,8 @@ pub mod core {
             }
         }
 
+        /// Changes the mask.
+        /// Resets the value to a default.
         pub fn set_mask<S: Into<String>>(&mut self, s: S) {
             let mask = s.into();
 
@@ -1512,6 +1521,7 @@ pub mod core {
             self.set_value(buf);
         }
 
+        /// Return the mask.
         pub fn mask(&self) -> String {
             use std::fmt::Write;
 
@@ -1523,9 +1533,6 @@ pub mod core {
         }
 
         /// Set the mask that is shown.
-        ///
-        /// Panics:
-        /// If the len differs from the mask.
         pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
             let display_mask = s.into();
 
@@ -1543,6 +1550,11 @@ pub mod core {
             buf
         }
 
+        /// Sets the value.
+        /// No checks if the value conforms to the mask.
+        ///
+        /// Panic
+        /// panics if the length doesn't match the mask.
         pub fn set_value<S: Into<String>>(&mut self, s: S) {
             let value = s.into();
             let len = value.graphemes(true).count();
@@ -1560,10 +1572,12 @@ pub mod core {
             }
         }
 
+        /// Value
         pub fn value(&self) -> &str {
             self.value.as_str()
         }
 
+        /// Value without whitespace.
         pub fn compact_value(&self) -> String {
             let mut buf = String::new();
             for (c, m) in self.value.graphemes(true).zip(self.mask.iter()) {
@@ -1574,6 +1588,7 @@ pub mod core {
             buf
         }
 
+        /// No value different from the default.
         pub fn is_empty(&self) -> bool {
             for (m, c) in self.mask.iter().zip(self.value.graphemes(true)) {
                 if c != m.edit.as_ref() {
@@ -1583,14 +1598,17 @@ pub mod core {
             true
         }
 
+        /// Length
         pub fn len(&self) -> usize {
             self.len
         }
 
+        /// Rendered string for display.
         pub fn rendered(&self) -> &str {
             self.rendered.as_str()
         }
 
+        /// Create the rendered value.
         #[allow(unused_variables)]
         pub fn render_value(&mut self) {
             self.rendered.clear();
@@ -1614,7 +1632,7 @@ pub mod core {
             }
         }
 
-        ///
+        /// Next boundary.
         pub fn next_word_boundary(&self) -> usize {
             if self.cursor == self.len {
                 self.len
@@ -1630,7 +1648,7 @@ pub mod core {
             }
         }
 
-        ///
+        /// Previous boundary.
         pub fn prev_word_boundary(&self) -> usize {
             if self.cursor == 0 {
                 0
@@ -1645,8 +1663,8 @@ pub mod core {
             }
         }
 
-        // Advance the cursor to the next section, if new char matches
-        // certain conditions.
+        /// Advance the cursor to the next section, if new char matches
+        /// certain conditions.
         pub fn advance_cursor(&mut self, c: char) {
             let buf = String::from(c);
             let cc = buf.as_str();
@@ -1719,8 +1737,11 @@ pub mod core {
             self.anchor = self.cursor;
         }
 
-        // Insert the char if it matches the cursor mask and the current
-        // section is not full.
+        /// Insert the char if it matches the cursor mask and the current
+        /// section is not full.
+        ///
+        /// `advance_cursor()` must be called before for correct functionality.
+        /// Otherwise: your mileage might vary.
         pub fn insert_char(&mut self, c: char) {
             let buf = String::from(c);
             let cc = buf.as_str();
@@ -1798,6 +1819,7 @@ pub mod core {
             }
         }
 
+        /// Remove the selection.
         pub fn remove_selection(&mut self, selection: Range<usize>) {
             let mut buf = String::new();
 
@@ -1854,6 +1876,7 @@ pub mod core {
             self.anchor = self.cursor;
         }
 
+        /// Remove the previous char.
         pub fn remove_prev(&mut self) {
             if self.cursor == 0 {
                 return;
@@ -1905,6 +1928,7 @@ pub mod core {
             }
         }
 
+        /// Remove the next char.
         pub fn remove_next(&mut self) {
             if self.cursor == self.mask.len() - 1 {
                 return;
@@ -1950,6 +1974,7 @@ pub mod core {
         }
     }
 
+    /// drop first graphem
     fn drop_first(s: &str) -> &str {
         if s.is_empty() {
             unreachable!();
@@ -1959,6 +1984,7 @@ pub mod core {
         }
     }
 
+    /// drop last graphem.
     fn drop_last(s: &str) -> &str {
         if s.is_empty() {
             unreachable!();
@@ -1969,7 +1995,7 @@ pub mod core {
         }
     }
 
-    // split selection for removal along the mask.
+    /// split selection for removal along the mask boundaries.
     fn split_remove_mask<'a>(
         value: &'a str,
         selection: Range<usize>,
@@ -2104,11 +2130,11 @@ pub mod core {
         let byte_selection_start = byte_selection_start.expect("byte_selection_start_not_found");
         let byte_selection_end = byte_selection_end.expect("byte_selection_end_not_found");
 
-        let before_str = &value[0..byte_selection_start];
-        let sel_str = &value[byte_selection_start..byte_selection_end];
-        let after_str = &value[byte_selection_end..value.len()];
-
-        (before_str, sel_str, after_str)
+        (
+            &value[0..byte_selection_start],
+            &value[byte_selection_start..byte_selection_end],
+            &value[byte_selection_end..value.len()],
+        )
     }
 
     /// Split off selection and cursor
@@ -2185,18 +2211,6 @@ pub mod core {
             c.is_alphanumeric()
         } else {
             false
-        }
-    }
-
-    #[cfg(test)]
-    mod tests {
-        use crate::widget::mask_input2::core::InputMaskCore;
-
-        #[test]
-        fn test_mask() {
-            let mut c = InputMaskCore::default();
-            c.set_mask("999.999");
-            dbg!("{:?}", c);
         }
     }
 }
