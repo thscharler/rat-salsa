@@ -709,12 +709,8 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 }
             }
             DeleteLine => {
-                if self.value.is_empty() {
-                    ControlUI::NoChange
-                } else {
-                    self.value.reset();
-                    ControlUI::Change
-                }
+                self.value.reset();
+                ControlUI::Change
             }
             DeletePrevWord => {
                 if self.value.cursor() == 0 {
@@ -1093,7 +1089,7 @@ pub mod core {
                 Mask::Digit(_) => " ",
                 Mask::Numeric(_) => " ",
                 Mask::DecimalSep => ".",
-                Mask::GroupingSep => "Y", // not used
+                Mask::GroupingSep => " ", // don't show. remap_number fills it in if necessary.
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1114,8 +1110,8 @@ pub mod core {
                 Mask::Digit0(_) => "0",
                 Mask::Digit(_) => " ",
                 Mask::Numeric(_) => " ",
-                Mask::DecimalSep => "X",  // not used
-                Mask::GroupingSep => "X", // not used
+                Mask::DecimalSep => ".",  // only used by get_display_mask()
+                Mask::GroupingSep => ",", // only used by get_display_mask()
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
