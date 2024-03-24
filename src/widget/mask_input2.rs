@@ -616,7 +616,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 // }
                 // self.value.clear_section(c);
                 // self.value.skip_cursor(c);
-                // self.value.advance_cursor(c);
+                self.value.advance_cursor(c);
                 self.value.insert_char(c);
                 ControlUI::Change
             }
@@ -643,7 +643,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 if self.value.is_anchored() {
                     self.value.remove(
                         self.value.selection(),
-                        CursorPos::End,
+                        CursorPos::Start,
                         RemoveDirection::Right,
                     );
                     ControlUI::Change
@@ -990,7 +990,7 @@ pub mod core {
         }
 
         // mask should overwrite instead of insert
-        fn shall_overwrite(&self, c: &str) -> bool {
+        fn can_overwrite(&self, c: &str) -> bool {
             match self {
                 Mask::Digit0(d) | Mask::Digit(d) | Mask::Numeric(d) => *d == EditDirection::Ltor,
                 Mask::DecimalSep => "." == c,
@@ -1013,7 +1013,7 @@ pub mod core {
         // char can be dropped at the end of a section
         fn can_drop(&self, c: &str) -> bool {
             match self {
-                Mask::Digit0(_) => c == " ",
+                Mask::Digit0(_) => c == "0",
                 Mask::Digit(_) => c == " ",
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
@@ -1068,7 +1068,7 @@ pub mod core {
                     test.is_ascii_digit() || test == ' ' || test == '+' || test == '-'
                 }
                 Mask::DecimalSep => test == '.',
-                Mask::GroupingSep => test == ',',
+                Mask::GroupingSep => false,
                 Mask::Hex0 => test.is_ascii_hexdigit(),
                 Mask::Hex => test.is_ascii_hexdigit() || test == ' ',
                 Mask::Oct0 => test.is_digit(8),
@@ -1132,8 +1132,8 @@ pub mod core {
             if s.is_empty() {
                 false
             } else {
-                let (_, f, _) = split3(s, 0..1);
-                self.can_drop(f)
+                let (c, _a) = split_at(s, 1);
+                self.can_drop(c)
             }
         }
 
@@ -1142,8 +1142,8 @@ pub mod core {
                 false
             } else {
                 let end = s.graphemes(true).count();
-                let (_, f, _) = split3(s, end - 1..end);
-                self.can_drop(f)
+                let (_b, c) = split_at(s, end - 1);
+                self.can_drop(c)
             }
         }
 
@@ -1152,7 +1152,7 @@ pub mod core {
                 false
             } else {
                 let (_, f, _) = split3(s, 0..1);
-                self.shall_overwrite(f)
+                self.can_overwrite(f)
             }
         }
     }
@@ -1747,39 +1747,72 @@ pub mod core {
             let buf = String::from(c);
             let cc = buf.as_str();
 
-            let mask = &self.mask[self.cursor];
+            let mut new_cursor = self.cursor;
 
-            debug!("ADVANCE CURSOR {:?} {:?}", mask, cc);
+            debug!("ADVANCE CURSOR {:?}  ", cc);
+            debug!("{}", self.test_state());
 
-            if mask.peek_left.is_rtol() {
-                let mask = &self.mask[self.cursor - 1];
-                let mask0 = &self.mask[mask.sec_start];
-                debug!("advance_cursor2 {:?}  {:?}", mask, mask0);
-                let (_b, c0, _c1, _a) = split_mask(&self.value, self.cursor, mask);
-                // section is full or char invalid
-                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc) {
-                    // insert char later.
-                } else {
-                    self.cursor = self.find_match(cc);
-                    self.anchor = self.cursor;
+            loop {
+                let mask = &self.mask[new_cursor];
+
+                if mask.peek_left.is_rtol()
+                    && (mask.right.is_ltor() || mask.right.is_none())
+                    && ({
+                        let left = &self.mask[new_cursor - 1];
+                        let mask0 = &self.mask[left.sec_start];
+                        let (_b, c0, _c1, _a) = split_mask(&self.value, new_cursor, left);
+                        // can insert at mask gap?
+                        mask0.right.can_drop_first(c0) && left.right.is_valid_char(cc)
+                    })
+                {
+                    break;
+                } else if mask.right.is_rtol()
+                    && ({
+                        let (_b, a) = split_at(&self.value, new_cursor);
+                        // stop at real digit
+                        !mask.right.can_drop_first(a) && mask.right.is_valid_char(cc)
+                    })
+                {
+                    break;
+                } else if mask.right == Mask::DecimalSep && mask.right.is_valid_char(cc) {
+                    new_cursor += 1;
+                    break;
+                } else if mask.right == Mask::GroupingSep {
+                    // never stop here
+                } else if matches!(mask.right, Mask::Separator(_)) && mask.right.is_valid_char(cc) {
+                    new_cursor += 1;
+                    break;
+                } else if matches!(
+                    mask.right,
+                    Mask::Digit0(EditDirection::Ltor)
+                        | Mask::Digit(EditDirection::Ltor)
+                        | Mask::Numeric(EditDirection::Ltor)
+                ) && mask.right.is_valid_char(cc)
+                {
+                    break;
+                } else if matches!(
+                    mask.right,
+                    Mask::Hex0 | Mask::Hex | Mask::Dec0 | Mask::Dec | Mask::Oct0 | Mask::Oct
+                ) && mask.right.is_valid_char(cc)
+                {
+                    break;
+                } else if matches!(
+                    mask.right,
+                    Mask::Letter | Mask::LetterOrDigit | Mask::LetterDigitSpace | Mask::AnyChar
+                ) && mask.right.is_valid_char(cc)
+                {
+                    break;
+                } else if mask.right == Mask::None {
+                    new_cursor = self.cursor;
+                    break;
                 }
-            } else if mask.right.is_rtol() {
-                debug!("advance_cursor4 {:?}", mask);
-                // left end of rtol. advance
-                self.cursor = self.find_match(cc);
-                self.anchor = self.cursor;
-            } else if mask.right.is_ltor() {
-                let mask9 = &self.mask[mask.sec_end - 1];
-                debug!("advance_cursor3 {:?}  {:?}", mask, mask9);
-                let (_b, _c0, c1, _a) = split_mask(&self.value, self.cursor, mask);
 
-                if mask9.right.can_drop_last(c1) && mask.right.is_valid_char(cc) {
-                    // insert char later
-                } else {
-                    self.cursor = self.find_match(cc);
-                    self.anchor = self.cursor;
-                }
+                new_cursor += 1;
             }
+
+            debug!("CURSOR {} => {}", self.cursor, new_cursor);
+            self.cursor = new_cursor;
+            self.anchor = self.cursor;
         }
 
         // Insert the char if it matches the cursor mask and the current
@@ -1794,25 +1827,26 @@ pub mod core {
             debug!("{}", self.test_state());
 
             if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
-                debug!("left is rtol");
                 // boundary right/left. prefer right, change mask.
                 let left = &self.mask[self.cursor - 1];
                 let mask0 = &self.mask[left.sec_start];
-                let (_b, c0, _c1, _a) = split_mask(&self.value, self.cursor, left);
-                debug!(
-                    "checks: {:?} drop={} valid={}",
-                    c0,
-                    mask0.right.can_drop_first(c0),
-                    left.right.is_valid_char(cc)
-                );
+                let (b, c0, c1, a) = split_mask(&self.value, self.cursor, left);
                 if mask0.right.can_drop_first(c0) && left.right.is_valid_char(cc) {
-                    debug!("use left");
-                    mask = left;
-                }
-            }
+                    let submask = &self.mask[left.sec_start..left.sec_end];
+                    let mut mstr = String::new();
+                    mstr.push_str(drop_first(c0));
+                    mstr.push_str(cc);
+                    mstr.push_str(c1);
+                    let mmstr = MaskToken::remap_number(submask, &mstr);
 
-            // only use mask.right henceforth.
-            if mask.right.is_rtol() {
+                    let mut buf = String::new();
+                    buf.push_str(b);
+                    buf.push_str(mmstr.as_str());
+                    buf.push_str(a);
+                    self.value = buf;
+                    // cursor stays
+                }
+            } else if mask.right.is_rtol() {
                 let mask0 = &self.mask[mask.sec_start];
                 let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
                 if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc) {
@@ -1822,8 +1856,6 @@ pub mod core {
                     mstr.push_str(cc);
                     mstr.push_str(c1);
                     let mmstr = MaskToken::remap_number(submask, &mstr);
-                    debug!("before={:?} after={:?}", mstr, mmstr);
-                    assert_eq!(mmstr.len(), mstr.len());
 
                     let mut buf = String::new();
                     buf.push_str(b);
@@ -1836,14 +1868,6 @@ pub mod core {
                 let mask9 = &self.mask[mask.sec_end - 1];
                 let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
 
-                debug!(
-                    "ltor: {:?} overwrite={} drop={} valid={}",
-                    c1,
-                    mask.right.can_overwrite_first(c1),
-                    mask9.right.can_drop_last(c1),
-                    mask.right.is_valid_char(cc)
-                );
-
                 if mask.right.can_overwrite_first(c1) && mask.right.is_valid_char(cc) {
                     let mut buf = String::new();
                     buf.push_str(b);
@@ -1855,7 +1879,6 @@ pub mod core {
 
                     self.cursor += 1;
                     self.anchor = self.cursor;
-                    return;
                 } else if mask9.right.can_drop_last(c1) && mask.right.is_valid_char(cc) {
                     let mut buf = String::new();
                     buf.push_str(b);
@@ -1867,7 +1890,6 @@ pub mod core {
 
                     self.cursor += 1;
                     self.anchor = self.cursor;
-                    return;
                 }
             }
         }
@@ -1983,18 +2005,6 @@ pub mod core {
             }
             buf
         }
-
-        /// Find a possible match in the mask.
-        fn find_match(&self, cc: &str) -> usize {
-            for i in self.cursor..self.mask.len() {
-                let test = &self.mask[i];
-                debug!("find_match test {:?} cc {:?}", test, cc);
-                if test.right.is_valid_char(cc) {
-                    return i;
-                }
-            }
-            self.cursor
-        }
     }
 
     fn drop_first(s: &str) -> &str {
@@ -2022,8 +2032,6 @@ pub mod core {
         selection: Range<usize>,
         mask: &MaskToken,
     ) -> (&'a str, &'a str, &'a str, &'a str, &'a str) {
-        debug!("split_remove_mask {:?} {:?} {:?}", value, selection, mask);
-
         let mut byte_mask_start = None;
         let mut byte_mask_end = None;
         let mut byte_sel_start = None;
@@ -2047,11 +2055,6 @@ pub mod core {
                 byte_mask_end = Some(idx);
             }
         }
-
-        debug!(
-            "sel {:?}-{:?} mask {:?}-{:?}",
-            byte_sel_start, byte_sel_end, byte_mask_start, byte_mask_end
-        );
 
         let byte_sel_start = if selection.start <= mask.sec_start {
             byte_mask_start.expect("mask")
@@ -2117,6 +2120,24 @@ pub mod core {
             &value[byte_cursor..byte_mask_end],
             &value[byte_mask_end..],
         )
+    }
+
+    pub fn split_at(value: &str, cursor: usize) -> (&str, &str) {
+        let mut byte_cursor = None;
+
+        for (cidx, (idx, _c)) in value
+            .grapheme_indices(true)
+            .chain(once((value.len(), "")))
+            .enumerate()
+        {
+            if cidx == cursor {
+                byte_cursor = Some(idx);
+            }
+        }
+
+        let byte_cursor = byte_cursor.expect("cursor");
+
+        (&value[..byte_cursor], &value[byte_cursor..])
     }
 
     /// Split off selection
