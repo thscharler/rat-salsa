@@ -2022,6 +2022,8 @@ pub mod core {
         selection: Range<usize>,
         mask: &MaskToken,
     ) -> (&'a str, &'a str, &'a str, &'a str, &'a str) {
+        debug!("split_remove_mask {:?} {:?} {:?}", value, selection, mask);
+
         let mut byte_mask_start = None;
         let mut byte_mask_end = None;
         let mut byte_sel_start = None;
@@ -2046,24 +2048,27 @@ pub mod core {
             }
         }
 
-        let byte_sel_start = if let Some(byte_sel_start) = byte_sel_start {
-            byte_sel_start
+        debug!(
+            "sel {:?}-{:?} mask {:?}-{:?}",
+            byte_sel_start, byte_sel_end, byte_mask_start, byte_mask_end
+        );
+
+        let byte_sel_start = if selection.start <= mask.sec_start {
+            byte_mask_start.expect("mask")
+        } else if selection.start >= mask.sec_end {
+            byte_mask_end.expect("mask")
         } else {
-            if selection.start <= mask.sec_start {
-                byte_mask_start.expect("mask")
-            } else {
-                byte_mask_end.expect("mask")
-            }
+            byte_sel_start.expect("mask")
         };
-        let byte_sel_end = if let Some(byte_sel_end) = byte_sel_end {
-            byte_sel_end
+
+        let byte_sel_end = if selection.end <= mask.sec_start {
+            byte_mask_start.expect("mask")
+        } else if selection.end >= mask.sec_end {
+            byte_mask_end.expect("mask")
         } else {
-            if selection.end >= mask.sec_end {
-                byte_mask_end.expect("mask")
-            } else {
-                byte_mask_start.expect("mask")
-            }
+            byte_sel_end.expect("mask")
         };
+
         let byte_mask_start = byte_mask_start.expect("mask");
         let byte_mask_end = byte_mask_end.expect("mask");
 
