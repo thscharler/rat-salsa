@@ -12,14 +12,13 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::{event, ExecutableCommand};
-use log::{debug, error};
+use log::debug;
 use ratatui::backend::CrosstermBackend;
 use ratatui::{Frame, Terminal};
 use std::cmp::min;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::io::{stdout, Stdout};
-use std::panic::{catch_unwind, RefUnwindSafe, UnwindSafe};
 use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, SystemTime};
 use std::{io, thread};
@@ -145,53 +144,20 @@ macro_rules! log_timing {
 }
 
 /// Run the event-loop.
-pub fn run_tui<App: TuiApp + RefUnwindSafe>(
+pub fn run_tui<App: TuiApp>(
     app: &'static App,
-    data: App::Data,
-    uistate: App::State,
+    data: &mut App::Data,
+    uistate: &mut App::State,
     cfg: RunConfig,
 ) -> Result<(), anyhow::Error>
 where
     App::Action: Debug + Send + 'static,
     App::Error: Send + From<TryRecvError> + From<io::Error> + From<SendError<()>> + 'static,
-    App::Data: UnwindSafe,
-    App::State: UnwindSafe,
     App: Sync,
 {
     stdout().execute(EnterAlternateScreen)?;
     stdout().execute(EnableMouseCapture)?;
     enable_raw_mode()?;
-
-    // reset the display before panic reporting. scrolling is disabled.
-    let r = catch_unwind(move || run_tui_impl(app, data, uistate, cfg));
-
-    stdout().execute(DisableMouseCapture)?;
-    stdout().execute(LeaveAlternateScreen)?;
-    disable_raw_mode()?;
-
-    match r {
-        Ok(r) => r,
-        Err(p) => {
-            error!("{:#?}", p);
-            panic!("re-panic");
-        }
-    }
-}
-
-/// Run the event-loop.
-fn run_tui_impl<App: TuiApp>(
-    app: &'static App,
-    mut data: App::Data,
-    mut uistate: App::State,
-    cfg: RunConfig,
-) -> Result<(), anyhow::Error>
-where
-    App::Action: Debug + Send + 'static,
-    App::Error: Send + From<TryRecvError> + From<io::Error> + From<SendError<()>> + 'static,
-    App: Sync,
-{
-    let data = &mut data;
-    let uistate = &mut uistate;
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
@@ -267,6 +233,10 @@ where
     }
 
     worker.stop_and_join()?;
+
+    stdout().execute(DisableMouseCapture)?;
+    stdout().execute(LeaveAlternateScreen)?;
+    disable_raw_mode()?;
 
     Ok(())
 }
@@ -503,16 +473,15 @@ where
                 _ = self.send.send(TaskArgs::Break);
             }
 
-            let mut collected = Vec::new();
+            let mut propagate_panic = false;
             for h in self.handles.drain(..) {
-                if let Err(e) = h.join() {
-                    collected.push(e);
+                if let Err(_) = h.join() {
+                    propagate_panic = true;
                 }
             }
-            for e in collected {
-                error!("{:#?}", e);
+            if propagate_panic {
+                panic!("worker panicked");
             }
-            panic!("worker panicked");
         }
     }
 
