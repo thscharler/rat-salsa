@@ -11,12 +11,11 @@
 //!
 
 use crate::widget::basic::ClearStyle;
-use crate::widget::mask_input2::core::{InputMaskCore, RemoveDirection};
+use crate::widget::mask_input2::core::InputMaskCore;
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
-use core::{split3, split5, CursorPos};
-use crossterm::event::KeyCode::{Backspace, Delete};
+use core::{split3, split5};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
@@ -611,50 +610,38 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 ControlUI::Change
             }
             InsertChar(c) => {
-                // if self.value.is_anchored() {
-                //     self.value.remove(self.value.selection(), CursorPos::Start);
-                // }
-                // self.value.clear_section(c);
-                // self.value.skip_cursor(c);
+                if self.value.is_anchored() {
+                    self.value.remove_selection(self.value.selection());
+                }
                 self.value.advance_cursor(c);
                 self.value.insert_char(c);
                 ControlUI::Change
             }
             DeletePrevChar => {
-                if self.value.is_anchored() {
-                    self.value.remove(
-                        self.value.selection(),
-                        CursorPos::Start,
-                        RemoveDirection::Left,
-                    );
+                if self.value.is_select_all() {
+                    self.value.reset();
+                    ControlUI::Change
+                } else if self.value.is_anchored() {
+                    self.value.remove_selection(self.value.selection());
                     ControlUI::Change
                 } else if self.value.cursor() == 0 {
                     ControlUI::NoChange
                 } else {
-                    self.value.remove(
-                        self.value.cursor() - 1..self.value.cursor(),
-                        CursorPos::Start,
-                        RemoveDirection::Left,
-                    );
+                    self.value.remove_prev();
                     ControlUI::Change
                 }
             }
             DeleteNextChar => {
-                if self.value.is_anchored() {
-                    self.value.remove(
-                        self.value.selection(),
-                        CursorPos::Start,
-                        RemoveDirection::Right,
-                    );
+                if self.value.is_select_all() {
+                    self.value.reset();
+                    ControlUI::Change
+                } else if self.value.is_anchored() {
+                    self.value.remove_selection(self.value.selection());
                     ControlUI::Change
                 } else if self.value.cursor() == self.value.len() {
                     ControlUI::NoChange
                 } else {
-                    self.value.remove(
-                        self.value.cursor()..self.value.cursor() + 1,
-                        CursorPos::Start,
-                        RemoveDirection::Right,
-                    );
+                    self.value.remove_next();
                     ControlUI::Change
                 }
             }
@@ -704,11 +691,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 if self.value.is_empty() {
                     ControlUI::NoChange
                 } else {
-                    self.value.remove(
-                        0..self.value.len(),
-                        CursorPos::Start,
-                        RemoveDirection::Right,
-                    );
+                    self.value.reset();
                     ControlUI::Change
                 }
             }
@@ -717,11 +700,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                     ControlUI::NoChange
                 } else {
                     let prev = self.value.prev_word_boundary();
-                    self.value.remove(
-                        prev..self.value.cursor(),
-                        CursorPos::Start,
-                        RemoveDirection::Left,
-                    );
+                    self.value.remove_selection(prev..self.value.cursor());
                     ControlUI::Change
                 }
             }
@@ -730,11 +709,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                     ControlUI::NoChange
                 } else {
                     let next = self.value.next_word_boundary();
-                    self.value.remove(
-                        self.value.cursor()..next,
-                        CursorPos::End,
-                        RemoveDirection::Right,
-                    );
+                    self.value.remove_selection(self.value.cursor()..next);
                     ControlUI::Change
                 }
             }
@@ -755,19 +730,12 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 }
             }
             DeleteTillEnd => {
-                self.value.remove(
-                    self.value.cursor()..self.value.len(),
-                    CursorPos::Start,
-                    RemoveDirection::Right,
-                );
+                self.value
+                    .remove_selection(self.value.cursor()..self.value.len());
                 ControlUI::Change
             }
             DeleteTillStart => {
-                self.value.remove(
-                    0..self.value.cursor(),
-                    CursorPos::End,
-                    RemoveDirection::Left,
-                );
+                self.value.remove_selection(0..self.value.cursor());
                 ControlUI::Change
             }
             SelectAll => {
@@ -784,7 +752,7 @@ pub mod core {
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};
     use std::iter::{once, repeat};
-    use std::ops::{Range, RangeBounds};
+    use std::ops::Range;
     use unicode_segmentation::UnicodeSegmentation;
 
     #[derive(Debug, PartialEq, Eq)]
@@ -1188,34 +1156,8 @@ pub mod core {
             }
         }
 
-        // skip over defaulted input. start at 0
-        fn skip_start(submask: &[MaskToken], v: &str) -> usize {
-            let mut skip = 0;
-            for (c, m) in v.graphemes(true).zip(submask.iter()) {
-                if !m.right.can_drop(c) {
-                    break;
-                } else {
-                    skip += 1;
-                }
-            }
-            skip
-        }
-
-        // skip over defaulted input. start at len
-        fn skip_end(submask: &[MaskToken], v: &str) -> usize {
-            let mut skip = 0;
-            for (c, m) in v.graphemes(true).rev().zip(submask.iter().rev()) {
-                if !m.right.can_drop(c) {
-                    break;
-                } else {
-                    skip += 1;
-                }
-            }
-            skip
-        }
-
         /// Create a string with the default edit mask.
-        fn empty_section2(mask: &[MaskToken]) -> String {
+        fn empty_section(mask: &[MaskToken]) -> String {
             let mut buf = String::new();
             for m in mask {
                 buf.push_str(&m.edit);
@@ -1241,8 +1183,6 @@ pub mod core {
                 }
             }
 
-            debug!("remap clean={:?}", clean);
-
             let mut out_vec = Vec::from_iter(repeat(" ").take(submask.len()));
             let mut out_idx = out_vec.len() as isize - 1;
 
@@ -1258,8 +1198,6 @@ pub mod core {
                 if v.is_none() {
                     v = jt.next();
                 }
-
-                debug!("remap0: {:?} <=> {:?}", m, v);
 
                 let Some(mm) = m else {
                     break;
@@ -1293,14 +1231,10 @@ pub mod core {
                 }
             }
 
-            debug!("remap rev={:?}", out_vec);
-
             let out = out_vec.iter().fold(String::new(), |mut s, v| {
                 s.push_str(v);
                 s
             });
-
-            debug!("remap out={:?}", out);
 
             out
         }
@@ -1358,7 +1292,7 @@ pub mod core {
                     t.sec_nr, t.sec_start, t.sec_end, t.peek_left, t.right, t.edit, t.display
                 );
             }
-            _ = write!(buf, ", ");
+            _ = write!(buf, "], ");
             _ = write!(buf, "value: {:?},", self.value);
             _ = write!(buf, "rendered: {:?},", self.rendered);
             _ = write!(buf, "len: {:?},", self.len);
@@ -1366,7 +1300,7 @@ pub mod core {
             _ = write!(buf, "width: {:?},", self.width);
             _ = write!(buf, "cursor: {:?},", self.cursor);
             _ = write!(buf, "anchor: {:?},", self.anchor);
-            _ = write!(buf, "}}");
+            _ = write!(buf, "}};");
             buf
         }
 
@@ -1376,12 +1310,9 @@ pub mod core {
 
         /// Reset value but not the mask and width
         pub fn reset(&mut self) {
-            self.value = String::new();
-            self.len = 0;
             self.offset = 0;
-            // width not reset
-            self.cursor = 0;
-            self.anchor = 0;
+            self.set_value(MaskToken::empty_section(&self.mask));
+            self.set_default_cursor();
         }
 
         /// Offset
@@ -1432,6 +1363,11 @@ pub mod core {
             self.cursor != self.anchor
         }
 
+        pub fn is_select_all(&self) -> bool {
+            let selection = self.selection();
+            selection.start == 0 && selection.end == self.mask.len() - 1
+        }
+
         pub fn selection(&self) -> Range<usize> {
             if self.cursor < self.anchor {
                 self.cursor..self.anchor
@@ -1455,6 +1391,21 @@ pub mod core {
                 self.offset = self.cursor;
             } else if self.offset + self.width < self.cursor {
                 self.offset = self.cursor - self.width;
+            }
+        }
+
+        /// Place cursor at decimal separator, if any. 0 otherwise.
+        pub fn set_default_cursor(&mut self) {
+            'f: {
+                for (i, t) in self.mask.iter().enumerate() {
+                    if t.right == Mask::DecimalSep {
+                        self.cursor = i;
+                        self.anchor = i;
+                        break 'f;
+                    }
+                }
+                self.cursor = 0;
+                self.anchor = 0;
             }
         }
 
@@ -1525,7 +1476,7 @@ pub mod core {
                     }
                 }
 
-                if mask.section() != last_mask.section() {
+                if matches!(mask, Mask::Separator(_)) || mask.section() != last_mask.section() {
                     for j in start..idx {
                         self.mask[j].sec_nr = nr;
                         self.mask[j].sec_start = start;
@@ -1556,7 +1507,7 @@ pub mod core {
                 self.mask[j].sec_end = mask.graphemes(true).count();
             }
 
-            let buf = MaskToken::empty_section2(&self.mask);
+            let buf = MaskToken::empty_section(&self.mask);
 
             self.set_value(buf);
         }
@@ -1694,53 +1645,6 @@ pub mod core {
             }
         }
 
-        /// Sets the cursor to a position where a character may be set.
-        pub fn skip_cursor(&mut self, c: char) {
-            let mask = &self.mask[self.cursor];
-
-            debug!("SKIP CURSOR {:?} {:?}", mask, c);
-
-            if mask.right.is_rtol() {
-                debug!("skip_cursor rtol");
-                let (_b, _c0, c1, _a) = split_mask(&self.value, self.cursor, mask);
-                let submask = &self.mask[self.cursor..mask.sec_end];
-                let skip = MaskToken::skip_start(submask, c1);
-                self.cursor += skip;
-                self.anchor = self.cursor;
-            } else if mask.right.is_ltor() {
-                debug!("skip_cursor ltor");
-                let (_b, c0, _c1, _a) = split_mask(&self.value, self.cursor, mask);
-                let submask = &self.mask[mask.sec_start..self.cursor];
-                let skip = MaskToken::skip_end(submask, c0);
-                self.cursor -= skip;
-                self.anchor = self.cursor;
-            }
-        }
-
-        // Clear the section if the cursor is at the very first position.
-        pub fn clear_section(&mut self, c: char) {
-            let buf = String::from(c);
-            let cc = buf.as_str();
-
-            let mask = &self.mask[self.cursor];
-
-            debug!("CLEAR SECTION {:?} {:?}", mask, cc);
-
-            if mask.right.is_rtol() {
-                let (b, c0, _c1, a) = split_mask(&self.value, self.cursor, mask);
-
-                if c0.is_empty() && mask.right.is_valid_char(cc) {
-                    let mut buf = String::new();
-                    buf.push_str(b);
-                    buf.push_str(self.empty_section(mask).as_str());
-                    buf.push_str(a);
-                    self.value = buf;
-
-                    // cursor stays
-                }
-            }
-        }
-
         // Advance the cursor to the next section, if new char matches
         // certain conditions.
         pub fn advance_cursor(&mut self, c: char) {
@@ -1821,7 +1725,7 @@ pub mod core {
             let buf = String::from(c);
             let cc = buf.as_str();
 
-            let mut mask = &self.mask[self.cursor];
+            let mask = &self.mask[self.cursor];
 
             debug!("INSERT CHAR {:?} {:?}", mask, cc);
             debug!("{}", self.test_state());
@@ -1894,39 +1798,33 @@ pub mod core {
             }
         }
 
-        /// Insert a string, replacing the selection.
-        pub fn remove(
-            &mut self,
-            selection: Range<usize>,
-            set_cursor: CursorPos,
-            remove_dir: RemoveDirection,
-        ) {
+        pub fn remove_selection(&mut self, selection: Range<usize>) {
             let mut buf = String::new();
 
             // remove section by section.
             let mut mask = &self.mask[selection.start];
+
+            debug!("REMOVE SELECTION {:?} {:?}", mask, selection);
+            debug!("{}", self.test_state());
+
             let (a, _, _, _, _) = split_remove_mask(self.value.as_str(), selection.clone(), mask);
             buf.push_str(a);
 
             loop {
                 let (_, c0, s, c1, _) =
                     split_remove_mask(self.value.as_str(), selection.clone(), mask);
-                debug!(
-                    "remove {:?} {:?} {:?} {:?} {:?}",
-                    c0, s, c1, selection, mask
-                );
+
                 if mask.right.is_rtol() {
                     let remove_count = s.graphemes(true).count();
                     let fill_before = &self.mask[mask.sec_start..mask.sec_start + remove_count];
 
                     let mut mstr = String::new();
-                    mstr.push_str(MaskToken::empty_section2(fill_before).as_str());
+                    mstr.push_str(MaskToken::empty_section(fill_before).as_str());
                     mstr.push_str(c0);
                     mstr.push_str(c1);
 
                     let mmstr =
                         MaskToken::remap_number(&self.mask[mask.sec_start..mask.sec_end], &mstr);
-                    debug!("remove remap {:?} -> {:?}", mstr, mmstr);
 
                     buf.push_str(&mmstr);
                 } else if mask.right.is_ltor() {
@@ -1937,7 +1835,7 @@ pub mod core {
                     let mut mstr = String::new();
                     mstr.push_str(c0);
                     mstr.push_str(c1);
-                    mstr.push_str(MaskToken::empty_section2(fill_after).as_str());
+                    mstr.push_str(MaskToken::empty_section(fill_after).as_str());
 
                     buf.push_str(&mstr);
                 }
@@ -1952,58 +1850,103 @@ pub mod core {
             }
             self.value = buf;
 
-            let mask = &self.mask[self.cursor];
-            debug!(
-                "remove {:?} c={:?} s={:?} r={:?} m={:?}",
-                selection, self.cursor, set_cursor, remove_dir, mask
-            );
-            if remove_dir == RemoveDirection::Left {
-                if set_cursor == CursorPos::Start {
-                    if mask.peek_left.is_rtol() {
-                        self.cursor = selection.end;
-                    } else {
-                        self.cursor = selection.start;
-                    }
-                } else if set_cursor == CursorPos::End {
-                    if mask.peek_left.is_rtol() {
-                        self.cursor = selection.end;
-                    } else {
-                        self.cursor = selection.end;
-                    }
-                }
-            } else if remove_dir == RemoveDirection::Right {
-                if set_cursor == CursorPos::Start {
-                    if mask.right.is_rtol() {
-                        self.cursor = selection.end;
-                    } else {
-                        self.cursor = selection.start;
-                    }
-                } else if set_cursor == CursorPos::End {
-                    if mask.right.is_rtol() {
-                        self.cursor = selection.end;
-                    } else {
-                        self.cursor = selection.end;
-                    }
-                }
-            }
-
-            if self.offset > self.cursor {
-                self.offset = self.cursor;
-            } else if self.offset + self.width < self.cursor {
-                self.offset = self.cursor - self.width;
-            }
-
+            self.cursor = selection.start;
             self.anchor = self.cursor;
         }
 
-        /// Create a string with the default edit mask.
-        fn empty_section(&self, mask: &MaskToken) -> String {
-            let mut buf = String::new();
-            for i in mask.sec_start..mask.sec_end {
-                let m = &self.mask[i];
-                buf.push_str(&m.edit);
+        pub fn remove_prev(&mut self) {
+            if self.cursor == 0 {
+                return;
             }
-            buf
+
+            let mut buf = String::new();
+
+            let left = &self.mask[self.cursor - 1];
+
+            debug!("REMOVE PREV {:?} ", left);
+            debug!("{}", self.test_state());
+
+            let (b, c0, _s, c1, a) =
+                split_remove_mask(self.value.as_str(), self.cursor - 1..self.cursor, left);
+            buf.push_str(b);
+
+            if left.right.is_rtol() {
+                let mut mstr = String::new();
+                let fill_mask = &self.mask[left.sec_start..left.sec_start + 1];
+                mstr.push_str(MaskToken::empty_section(fill_mask).as_str());
+                mstr.push_str(c0);
+                mstr.push_str(c1);
+                let mmstr =
+                    MaskToken::remap_number(&self.mask[left.sec_start..left.sec_end], &mstr);
+                buf.push_str(&mmstr);
+            } else if left.right.is_ltor() {
+                buf.push_str(c0);
+                buf.push_str(c1);
+                let c0_count = c0.graphemes(true).count();
+                let c1_count = c1.graphemes(true).count();
+                let fill_mask = &self.mask[left.sec_start + c0_count + c1_count..left.sec_end];
+                buf.push_str(MaskToken::empty_section(fill_mask).as_str());
+            }
+            buf.push_str(a);
+            self.value = buf;
+
+            if left.right.is_rtol() {
+                let (_b, s, _a) = split3(&self.value(), left.sec_start..left.sec_end);
+                let sec_mask = &self.mask[left.sec_start..left.sec_end];
+                if s == MaskToken::empty_section(sec_mask) {
+                    self.cursor = left.sec_start;
+                    self.anchor = self.cursor;
+                } else {
+                    // cursor stays
+                }
+            } else if left.right.is_ltor() {
+                self.cursor -= 1;
+                self.anchor = self.cursor;
+            }
+        }
+
+        pub fn remove_next(&mut self) {
+            if self.cursor == self.mask.len() - 1 {
+                return;
+            }
+
+            let mut buf = String::new();
+
+            let right = &self.mask[self.cursor];
+
+            debug!("REMOVE NEXT {:?} ", right);
+            debug!("{}", self.test_state());
+
+            let (b, c0, _, c1, a) =
+                split_remove_mask(self.value.as_str(), self.cursor..self.cursor + 1, right);
+            buf.push_str(b);
+
+            if right.right.is_rtol() {
+                let mut mstr = String::new();
+                let fill_mask = &self.mask[right.sec_start..right.sec_start + 1];
+                mstr.push_str(MaskToken::empty_section(fill_mask).as_str());
+                mstr.push_str(c0);
+                mstr.push_str(c1);
+                let mmstr =
+                    MaskToken::remap_number(&self.mask[right.sec_start..right.sec_end], &mstr);
+                buf.push_str(&mmstr);
+            } else if right.right.is_ltor() {
+                buf.push_str(c0);
+                buf.push_str(c1);
+                let c0_count = c0.graphemes(true).count();
+                let c1_count = c1.graphemes(true).count();
+                let fill_mask = &self.mask[right.sec_start + c0_count + c1_count..right.sec_end];
+                buf.push_str(MaskToken::empty_section(fill_mask).as_str());
+            }
+            buf.push_str(a);
+            self.value = buf;
+
+            if right.right.is_rtol() {
+                self.cursor += 1;
+                self.anchor = self.cursor;
+            } else if right.right.is_ltor() {
+                // cursor stays
+            }
         }
     }
 

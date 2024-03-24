@@ -20,8 +20,11 @@ use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
 use ratatui::text::Span;
 use ratatui::Frame;
+use std::fs;
 
 fn main() -> Result<(), anyhow::Error> {
+    _ = fs::remove_file("log.log");
+
     setup_logging()?;
 
     let mut data = FormOneData::default();
@@ -79,6 +82,7 @@ pub struct Mask0 {
     pub date: MaskedInputState,
     pub alpha: MaskedInputState,
     pub dec7_2: MaskedInputState,
+    pub euro: MaskedInputState,
 }
 
 impl Default for GeneralState {
@@ -106,18 +110,20 @@ impl Default for Mask0 {
             date: Default::default(),
             alpha: Default::default(),
             dec7_2: Default::default(),
+            euro: Default::default(),
         };
         s.menu.focus.set();
         s.text.focus.set();
         s.ipv4.set_mask("999\\.999\\.999\\.999");
         // s.ipv4.set_display_mask("xxx.xxx.xxx.xxx");
         s.hexcolor.set_mask("HHHHHH");
-        s.creditcard.set_mask("9999 9999 9999 9999");
+        s.creditcard.set_mask("dddd dddd dddd dddd");
         // s.creditcard.set_display_mask("dddd dddd dddd dddd");
         s.date.set_mask("99/99/9999");
         s.date.set_display_mask("mm/dd/yyyy");
         s.alpha.set_mask("llllllllll");
         s.dec7_2.set_mask("#,###,##0.00");
+        s.euro.set_mask("€ ###,##0.00");
         s
     }
 }
@@ -302,6 +308,8 @@ fn repaint_mask0(
             EditConstraint::Widget(11),
             EditConstraint::Label("Decimal 7.2"),
             EditConstraint::Widget(20),
+            EditConstraint::Label("Euro"),
+            EditConstraint::Widget(20),
         ],
     );
 
@@ -315,6 +323,7 @@ fn repaint_mask0(
     let w_date = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_name = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_dec_7_2 = MaskedInput::default().style(uistate.g.theme.input_mask_style());
+    let w_euro = MaskedInput::default().style(uistate.g.theme.input_mask_style());
 
     frame.render_widget(Span::from("Text"), l.label[0]);
     frame.render_frame_widget(w_text, l.widget[0], &mut uistate.mask0.text);
@@ -334,6 +343,8 @@ fn repaint_mask0(
     frame.render_frame_widget(w_name, l.widget[7], &mut uistate.mask0.alpha);
     frame.render_widget(Span::from("Decimal 7.2"), l.label[8]);
     frame.render_frame_widget(w_dec_7_2, l.widget[8], &mut uistate.mask0.dec7_2);
+    frame.render_widget(Span::from("Euro"), l.label[9]);
+    frame.render_frame_widget(w_euro, l.widget[9], &mut uistate.mask0.euro);
 
     let r = for_focus!(
         uistate.mask0.ipv4 => &uistate.mask0.ipv4,
@@ -341,7 +352,8 @@ fn repaint_mask0(
         uistate.mask0.creditcard => &uistate.mask0.creditcard,
         uistate.mask0.date => &uistate.mask0.date,
         uistate.mask0.alpha => &uistate.mask0.alpha,
-        uistate.mask0.dec7_2 => &uistate.mask0.dec7_2
+        uistate.mask0.dec7_2 => &uistate.mask0.dec7_2,
+        uistate.mask0.euro => &uistate.mask0.euro
     );
     if let Some(r) = r {
         let mut area = l_columns[1];
@@ -376,6 +388,7 @@ fn focus0(mask0: &Mask0) -> Focus<'_> {
         (mask0.date.focus(), mask0.date.area()),
         (mask0.alpha.focus(), mask0.alpha.area()),
         (mask0.dec7_2.focus(), mask0.dec7_2.area()),
+        (mask0.euro.focus(), mask0.euro.area()),
     ])
 }
 
@@ -396,6 +409,7 @@ fn handle_mask0(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     check_break!(mask0.date.handle(event, DefaultKeys));
     check_break!(mask0.alpha.handle(event, DefaultKeys));
     check_break!(mask0.dec7_2.handle(event, DefaultKeys));
+    check_break!(mask0.euro.handle(event, DefaultKeys));
 
     check_break!(mask0.menu.handle(event, DefaultKeys).and_then(|a| match a {
         0 => {
