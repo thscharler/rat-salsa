@@ -124,6 +124,8 @@ impl Default for Mask0 {
         s.alpha.set_mask("llllllllll");
         s.dec7_2.set_mask("#,###,##0.00");
         s.euro.set_mask("€ ###,##0.00");
+        s.euro.set_decimal_grp(".");
+        s.euro.set_decimal_sep(",");
         s
     }
 }
@@ -359,14 +361,36 @@ fn repaint_mask0(
         let mut area = l_columns[1];
         area.height = 1;
 
-        for t in r.value.tokens() {
-            let w_info = Span::from(format!(
+        for (i, t) in r.value.tokens().iter().enumerate() {
+            let mut w_info = Span::from(format!(
                 "{}:{}-{}   {} | {}",
                 t.sec_nr, t.sec_start, t.sec_end, t.peek_left, t.right
             ));
+            if i == r.cursor() {
+                w_info = w_info.on_cyan();
+            }
             frame.render_widget(w_info, area);
             area.y += 1;
         }
+        frame.render_widget(Span::from(format!("value={}", r.value())), area);
+        area.y += 1;
+        frame.render_widget(Span::from(format!("compact={}", r.compact_value())), area);
+        area.y += 1;
+        frame.render_widget(Span::from(format!("mask={}", r.mask())), area);
+        area.y += 1;
+        frame.render_widget(Span::from(format!("display={}", r.display_mask())), area);
+        area.y += 1;
+        frame.render_widget(
+            Span::from(format!(
+                "{}:{} {} {}:{}",
+                r.offset(),
+                r.width(),
+                r.cursor(),
+                r.selection().start,
+                r.selection().end
+            )),
+            area,
+        );
     }
 
     let menu = MenuLine::new()

@@ -472,6 +472,23 @@ impl MaskedInputState {
         self.value.mask()
     }
 
+    /// Set the decimal separator.
+    ///
+    /// Only used for rendering and to map user input.
+    /// The value itself uses "."
+    pub fn set_decimal_sep<S: Into<String>>(&mut self, sep: S) {
+        self.value.set_decimal_sep(sep);
+    }
+
+    /// Set the grouping separator.
+    ///
+    /// Only used for rendering and to map user input.
+    /// The value itself uses ","
+    /// The compact value ignores them.
+    pub fn set_decimal_grp<S: Into<String>>(&mut self, grp: S) {
+        self.value.set_decimal_grp(grp);
+    }
+
     /// Set the value.
     ///
     /// Panic
@@ -1028,7 +1045,21 @@ pub mod core {
             }
         }
 
-        fn is_valid_char(&self, test_grapheme: &str) -> bool {
+        fn replace_char<'a>(&self, test_grapheme: &'a str, dec: &'a str) -> &'a str {
+            // todo: does this make any sense?
+            match self {
+                Mask::DecimalSep => {
+                    if test_grapheme == dec {
+                        "."
+                    } else {
+                        test_grapheme
+                    }
+                }
+                _ => test_grapheme,
+            }
+        }
+
+        fn is_valid_char(&self, test_grapheme: &str, dec: &str) -> bool {
             // todo: does this make any sense?
             let Some(test) = test_grapheme.chars().next() else {
                 return false;
@@ -1039,7 +1070,7 @@ pub mod core {
                 Mask::Numeric(_) => {
                     test.is_ascii_digit() || test == ' ' || test == '+' || test == '-'
                 }
-                Mask::DecimalSep => test == '.',
+                Mask::DecimalSep => test_grapheme == dec,
                 Mask::GroupingSep => false,
                 Mask::Hex0 => test.is_ascii_hexdigit(),
                 Mask::Hex => test.is_ascii_hexdigit() || test == ' ',
@@ -1062,7 +1093,7 @@ pub mod core {
                 Mask::Digit(_) => " ",
                 Mask::Numeric(_) => " ",
                 Mask::DecimalSep => ".",
-                Mask::GroupingSep => " ",
+                Mask::GroupingSep => "Y", // not used
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1083,8 +1114,8 @@ pub mod core {
                 Mask::Digit0(_) => "0",
                 Mask::Digit(_) => " ",
                 Mask::Numeric(_) => " ",
-                Mask::DecimalSep => ".",
-                Mask::GroupingSep => " ",
+                Mask::DecimalSep => "X",  // not used
+                Mask::GroupingSep => "X", // not used
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1245,7 +1276,7 @@ pub mod core {
     }
 
     /// Text editing core.
-    #[derive(Debug, Default, Clone)]
+    #[derive(Debug, Clone)]
     pub struct InputMaskCore {
         pub mask: Vec<MaskToken>,
         pub value: String,
@@ -1257,32 +1288,29 @@ pub mod core {
 
         pub cursor: usize,
         pub anchor: usize,
+
+        pub dec_sep: String,
+        pub grp_sep: String,
+    }
+
+    impl Default for InputMaskCore {
+        fn default() -> Self {
+            Self {
+                mask: Vec::new(),
+                value: Default::default(),
+                rendered: Default::default(),
+                len: 0,
+                offset: 0,
+                width: 0,
+                cursor: 0,
+                anchor: 0,
+                dec_sep: ".".to_string(),
+                grp_sep: ",".to_string(),
+            }
+        }
     }
 
     impl InputMaskCore {
-        #[allow(clippy::too_many_arguments)]
-        pub fn test(
-            mask: Vec<MaskToken>,
-            value: String,
-            rendered: String,
-            len: usize,
-            offset: usize,
-            width: usize,
-            cursor: usize,
-            anchor: usize,
-        ) -> Self {
-            Self {
-                mask,
-                value,
-                rendered,
-                len,
-                offset,
-                width,
-                cursor,
-                anchor,
-            }
-        }
-
         /// dump the current state as code.
         pub fn test_state(&self) -> String {
             use std::fmt::Write;
@@ -1416,6 +1444,22 @@ pub mod core {
             }
         }
 
+        /// Set the decimal separator.
+        ///
+        /// Only used for rendering and to map user input.
+        /// The value itself uses "."
+        pub fn set_decimal_sep<S: Into<String>>(&mut self, sep: S) {
+            self.dec_sep = sep.into();
+        }
+
+        /// Set the grouping separator.
+        ///
+        /// Only used for rendering and to map user input.
+        /// The value itself uses ",".
+        pub fn set_decimal_grp<S: Into<String>>(&mut self, grp: S) {
+            self.grp_sep = grp.into();
+        }
+
         /// Changes the mask.
         /// Resets the value to a default.
         pub fn set_mask<S: Into<String>>(&mut self, s: S) {
@@ -1537,7 +1581,9 @@ pub mod core {
             let display_mask = s.into();
 
             for (t, m) in self.mask.iter_mut().zip(display_mask.graphemes(true)) {
-                t.display = Box::from(m);
+                if t.right != Mask::DecimalSep && t.right != Mask::GroupingSep {
+                    t.display = Box::from(m);
+                }
             }
         }
 
@@ -1627,10 +1673,34 @@ pub mod core {
 
                 if sec == empty {
                     for t in sec_mask {
-                        self.rendered.push_str(&t.display);
+                        let o = if t.right == Mask::GroupingSep {
+                            " "
+                        } else if t.right == Mask::DecimalSep {
+                            &self.dec_sep
+                        } else {
+                            t.display.as_ref()
+                        };
+                        self.rendered.push_str(o);
                     }
                 } else {
-                    self.rendered.push_str(sec);
+                    for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
+                        let o = if t.right == Mask::GroupingSep {
+                            if s == "," {
+                                &self.grp_sep
+                            } else {
+                                " "
+                            }
+                        } else if t.right == Mask::DecimalSep {
+                            if s == "." {
+                                &self.dec_sep
+                            } else {
+                                " "
+                            }
+                        } else {
+                            s
+                        };
+                        self.rendered.push_str(o);
+                    }
                 }
 
                 idx = mask.sec_end;
@@ -1689,7 +1759,8 @@ pub mod core {
                         let mask0 = &self.mask[left.sec_start];
                         let (_b, c0, _c1, _a) = split_mask(&self.value, new_cursor, left);
                         // can insert at mask gap?
-                        mask0.right.can_drop_first(c0) && left.right.is_valid_char(cc)
+                        mask0.right.can_drop_first(c0)
+                            && left.right.is_valid_char(cc, &self.dec_sep)
                     })
                 {
                     break;
@@ -1697,16 +1768,20 @@ pub mod core {
                     && ({
                         let (_b, a) = split_at(&self.value, new_cursor);
                         // stop at real digit
-                        !mask.right.can_drop_first(a) && mask.right.is_valid_char(cc)
+                        !mask.right.can_drop_first(a) && mask.right.is_valid_char(cc, &self.dec_sep)
                     })
                 {
                     break;
-                } else if mask.right == Mask::DecimalSep && mask.right.is_valid_char(cc) {
+                } else if mask.right == Mask::DecimalSep
+                    && mask.right.is_valid_char(cc, &self.dec_sep)
+                {
                     new_cursor += 1;
                     break;
                 } else if mask.right == Mask::GroupingSep {
                     // never stop here
-                } else if matches!(mask.right, Mask::Separator(_)) && mask.right.is_valid_char(cc) {
+                } else if matches!(mask.right, Mask::Separator(_))
+                    && mask.right.is_valid_char(cc, &self.dec_sep)
+                {
                     new_cursor += 1;
                     break;
                 } else if matches!(
@@ -1714,19 +1789,19 @@ pub mod core {
                     Mask::Digit0(EditDirection::Ltor)
                         | Mask::Digit(EditDirection::Ltor)
                         | Mask::Numeric(EditDirection::Ltor)
-                ) && mask.right.is_valid_char(cc)
+                ) && mask.right.is_valid_char(cc, &self.dec_sep)
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Hex0 | Mask::Hex | Mask::Dec0 | Mask::Dec | Mask::Oct0 | Mask::Oct
-                ) && mask.right.is_valid_char(cc)
+                ) && mask.right.is_valid_char(cc, &self.dec_sep)
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Letter | Mask::LetterOrDigit | Mask::LetterDigitSpace | Mask::AnyChar
-                ) && mask.right.is_valid_char(cc)
+                ) && mask.right.is_valid_char(cc, &self.dec_sep)
                 {
                     break;
                 } else if mask.right == Mask::None {
@@ -1761,11 +1836,11 @@ pub mod core {
                 let left = &self.mask[self.cursor - 1];
                 let mask0 = &self.mask[left.sec_start];
                 let (b, c0, c1, a) = split_mask(&self.value, self.cursor, left);
-                if mask0.right.can_drop_first(c0) && left.right.is_valid_char(cc) {
+                if mask0.right.can_drop_first(c0) && left.right.is_valid_char(cc, &self.dec_sep) {
                     let submask = &self.mask[left.sec_start..left.sec_end];
                     let mut mstr = String::new();
                     mstr.push_str(drop_first(c0));
-                    mstr.push_str(cc);
+                    mstr.push_str(left.right.replace_char(cc, &self.dec_sep));
                     mstr.push_str(c1);
                     let mmstr = MaskToken::remap_number(submask, &mstr);
 
@@ -1779,11 +1854,11 @@ pub mod core {
             } else if mask.right.is_rtol() {
                 let mask0 = &self.mask[mask.sec_start];
                 let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
-                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc) {
+                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc, &self.dec_sep) {
                     let submask = &self.mask[mask.sec_start..mask.sec_end];
                     let mut mstr = String::new();
                     mstr.push_str(drop_first(c0));
-                    mstr.push_str(cc);
+                    mstr.push_str(mask.right.replace_char(cc, &self.dec_sep));
                     mstr.push_str(c1);
                     let mmstr = MaskToken::remap_number(submask, &mstr);
 
@@ -1798,22 +1873,25 @@ pub mod core {
                 let mask9 = &self.mask[mask.sec_end - 1];
                 let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
 
-                if mask.right.can_overwrite_first(c1) && mask.right.is_valid_char(cc) {
+                if mask.right.can_overwrite_first(c1) && mask.right.is_valid_char(cc, &self.dec_sep)
+                {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
-                    buf.push_str(cc);
+                    buf.push_str(mask.right.replace_char(cc, &self.dec_sep));
                     buf.push_str(drop_first(c1));
                     buf.push_str(a);
                     self.value = buf;
 
                     self.cursor += 1;
                     self.anchor = self.cursor;
-                } else if mask9.right.can_drop_last(c1) && mask.right.is_valid_char(cc) {
+                } else if mask9.right.can_drop_last(c1)
+                    && mask.right.is_valid_char(cc, &self.dec_sep)
+                {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
-                    buf.push_str(cc);
+                    buf.push_str(mask.right.replace_char(cc, &self.dec_sep));
                     buf.push_str(drop_last(c1));
                     buf.push_str(a);
                     self.value = buf;
