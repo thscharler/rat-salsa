@@ -1613,22 +1613,27 @@ pub mod core {
         pub fn render_value(&mut self) {
             self.rendered.clear();
 
-            let buf = &mut self.rendered;
-            let mut sec_nr = 0;
-            let mut sec_filled = false;
-            for (c, m) in self.value.graphemes(true).zip(self.mask.iter()) {
-                if sec_nr != m.sec_nr {
-                    sec_filled = false;
-                    sec_nr = m.sec_nr;
-                }
-                sec_filled |= !m.right.can_skip(c);
+            let mut idx = 0;
+            loop {
+                let mask = &self.mask[idx];
 
-                // todo!
-                // if !sec_filled && MaskToken::can_skip(&m.right, c) {
-                //     buf.push_str(&m.display);
-                // } else {
-                buf.push_str(c);
-                // }
+                if mask.right == Mask::None {
+                    break;
+                }
+
+                let (b, sec, a) = split3(&self.value, mask.sec_start..mask.sec_end);
+                let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
+                let empty = MaskToken::empty_section(sec_mask);
+
+                if sec == empty {
+                    for t in sec_mask {
+                        self.rendered.push_str(&t.display);
+                    }
+                } else {
+                    self.rendered.push_str(sec);
+                }
+
+                idx = mask.sec_end;
             }
         }
 
