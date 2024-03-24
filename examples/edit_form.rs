@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+#![allow(clippy::needless_update)]
 
 use crossterm::event::Event;
 use rat_salsa::layout::{layout_edit, EditConstraint};
@@ -116,7 +117,7 @@ impl Default for Mask0 {
         s.date.set_mask("99/99/9999");
         s.date.set_display_mask("mm/dd/yyyy");
         s.alpha.set_mask("llllllllll");
-        s.dec7_2.set_mask("###0.00");
+        s.dec7_2.set_mask("#,###,##0.00");
         s
     }
 }
@@ -300,7 +301,7 @@ fn repaint_mask0(
             EditConstraint::Label("Name"),
             EditConstraint::Widget(11),
             EditConstraint::Label("Decimal 7.2"),
-            EditConstraint::Widget(8),
+            EditConstraint::Widget(20),
         ],
     );
 
