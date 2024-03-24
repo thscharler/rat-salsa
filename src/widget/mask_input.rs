@@ -1058,11 +1058,7 @@ pub mod core {
                         self.anchor = self.cursor;
                     }
 
-                    let skip_over_sep = mask
-                        .chars()
-                        .enumerate()
-                        .skip_while(|(_, m)| !is_sep(*m))
-                        .next();
+                    let skip_over_sep = mask.chars().enumerate().find(|(_, m)| is_sep(*m));
                     if let Some((skip, mm)) = skip_over_sep {
                         if is_valid_mask(new, mm) {
                             self.cursor += skip;
@@ -1139,10 +1135,10 @@ pub mod core {
     }
 
     fn is_sep(mask: char) -> bool {
-        match mask {
-            '0' | '9' | 'H' | 'h' | 'O' | 'o' | 'L' | 'l' | 'A' | 'a' | 'C' | 'c' | '_' => true,
-            _ => false,
-        }
+        matches!(
+            mask,
+            '0' | '9' | 'H' | 'h' | 'O' | 'o' | 'L' | 'l' | 'A' | 'a' | 'C' | 'c' | '_'
+        )
     }
 
     fn is_valid_sep(new: char, mask: char) -> bool {
