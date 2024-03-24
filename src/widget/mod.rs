@@ -10,7 +10,6 @@ pub mod calendar;
 pub mod date_input;
 pub mod input;
 pub mod mask_input;
-pub mod mask_input2;
 pub mod menuline;
 pub mod message;
 pub mod table;

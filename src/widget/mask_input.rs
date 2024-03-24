@@ -11,7 +11,7 @@
 //!
 
 use crate::widget::basic::ClearStyle;
-use crate::widget::mask_input2::core::InputMaskCore;
+use crate::widget::mask_input::core::InputMaskCore;
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
