@@ -472,20 +472,12 @@ impl MaskedInputState {
         self.value.mask()
     }
 
-    /// Set the decimal separator.
+    /// Set the decimal separator and grouping.
     ///
     /// Only used for rendering and to map user input.
-    /// The value itself uses "."
-    pub fn set_decimal_sep<S: Into<String>>(&mut self, sep: S) {
+    /// The value itself uses "." and ",".
+    pub fn set_decimal_sep<S: Into<String>>(&mut self, sep: S, grp: S) {
         self.value.set_decimal_sep(sep);
-    }
-
-    /// Set the grouping separator.
-    ///
-    /// Only used for rendering and to map user input.
-    /// The value itself uses ","
-    /// The compact value ignores them.
-    pub fn set_decimal_grp<S: Into<String>>(&mut self, grp: S) {
         self.value.set_decimal_grp(grp);
     }
 
@@ -1601,7 +1593,7 @@ pub mod core {
             let value = s.into();
             let len = value.graphemes(true).count();
 
-            assert_eq!(len, self.mask.len() - 1);
+            assert_eq!(len, self.mask.len() - 1); // TODO: do better
 
             self.value = value;
             self.len = len;
