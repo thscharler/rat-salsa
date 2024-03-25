@@ -11,12 +11,12 @@
 //!
 
 use crate::widget::basic::ClearStyle;
+use crate::widget::grapheme;
 use crate::widget::mask_input::core::InputMaskCore;
 use crate::widget::number_input::NumberSymbols;
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
-use core::{split3, split5};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
@@ -550,7 +550,7 @@ impl MaskedInputState {
 
     /// Selection
     pub fn selection_str(&self) -> &str {
-        split3(self.value.value(), self.value.selection()).1
+        grapheme::split3(self.value.value(), self.value.selection()).1
     }
 
     /// Extracts the visible part.
@@ -583,7 +583,7 @@ impl MaskedInputState {
     pub fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
         self.value.render_value();
 
-        split5(
+        grapheme::split5(
             self.value.rendered(),
             self.cursor(),
             self.visible_range(),
@@ -769,6 +769,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
 }
 
 pub mod core {
+    use crate::widget::grapheme;
     use crate::widget::number_input::NumberSymbols;
     #[allow(unused_imports)]
     use log::debug;
@@ -1124,7 +1125,7 @@ pub mod core {
             if s.is_empty() {
                 false
             } else {
-                let (c, _a) = split_at(s, 1);
+                let (c, _a) = grapheme::split_at(s, 1);
                 self.can_drop(c)
             }
         }
@@ -1134,7 +1135,7 @@ pub mod core {
                 false
             } else {
                 let end = s.graphemes(true).count();
-                let (_b, c) = split_at(s, end - 1);
+                let (_b, c) = grapheme::split_at(s, end - 1);
                 self.can_drop(c)
             }
         }
@@ -1143,7 +1144,7 @@ pub mod core {
             if s.is_empty() {
                 false
             } else {
-                let (_, f, _) = split3(s, 0..1);
+                let (_, f, _) = grapheme::split3(s, 0..1);
                 self.can_overwrite(f)
             }
         }
@@ -1178,6 +1179,11 @@ pub mod core {
                 edit: edit.into(),
                 display: display.into(),
             }
+        }
+
+        /// Range as Range.
+        fn range(&self) -> Range<usize> {
+            self.sec_start..self.sec_end
         }
 
         /// Create a string with the default edit mask.
@@ -1634,14 +1640,22 @@ pub mod core {
 
         /// Sets the value.
         /// No checks if the value conforms to the mask.
-        ///
-        /// Panic
-        /// panics if the length doesn't match the mask.
+        /// If the value is too short it will be filled with space.
+        /// if the value is too long it will be truncated.
         pub fn set_value<S: Into<String>>(&mut self, s: S) {
-            let value = s.into();
+            let mut value = s.into();
             let len = value.graphemes(true).count();
 
-            assert_eq!(len, self.mask.len() - 1); // TODO: do better
+            if len > self.mask.len() - 1 {
+                for _ in len..self.mask.len() - 1 {
+                    value.pop();
+                }
+            } else if len < self.mask.len() - 1 {
+                for _ in len..self.mask.len() - 1 {
+                    value.push(' ');
+                }
+            }
+            assert_eq!(len, self.mask.len() - 1);
 
             self.value = value;
             self.len = len;
@@ -1704,7 +1718,7 @@ pub mod core {
                     break;
                 }
 
-                let (b, sec, a) = split3(&self.value, mask.sec_start..mask.sec_end);
+                let (b, sec, a) = grapheme::split3(&self.value, mask.sec_start..mask.sec_end);
                 let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
                 let empty = MaskToken::empty_section(sec_mask);
 
@@ -1761,8 +1775,8 @@ pub mod core {
                     .graphemes(true)
                     .enumerate()
                     .skip(self.cursor)
-                    .skip_while(|(_, c)| is_alphanumeric(c))
-                    .find(|(_, c)| is_alphanumeric(c))
+                    .skip_while(|(_, c)| grapheme::is_alphanumeric(c))
+                    .find(|(_, c)| grapheme::is_alphanumeric(c))
                     .map(|(i, _)| i)
                     .unwrap_or_else(|| self.len)
             }
@@ -1777,8 +1791,8 @@ pub mod core {
                     .graphemes(true)
                     .rev()
                     .skip(self.len - self.cursor)
-                    .skip_while(|c| is_alphanumeric(c))
-                    .skip_while(|c| is_alphanumeric(c))
+                    .skip_while(|c| grapheme::is_alphanumeric(c))
+                    .skip_while(|c| grapheme::is_alphanumeric(c))
                     .count()
             }
         }
@@ -1802,7 +1816,8 @@ pub mod core {
                     && ({
                         let left = &self.mask[new_cursor - 1];
                         let mask0 = &self.mask[left.sec_start];
-                        let (_b, c0, _c1, _a) = split_mask(&self.value, new_cursor, left);
+                        let (_b, c0, _c1, _a) =
+                            grapheme::split_mask(&self.value, new_cursor, left.range());
                         // can insert at mask gap?
                         mask0.right.can_drop_first(c0)
                             && left.right.is_valid_char(cc, &self.dec_sep())
@@ -1811,7 +1826,7 @@ pub mod core {
                     break;
                 } else if mask.right.is_rtol()
                     && ({
-                        let (_b, a) = split_at(&self.value, new_cursor);
+                        let (_b, a) = grapheme::split_at(&self.value, new_cursor);
                         // stop at real digit
                         !mask.right.can_drop_first(a)
                             && mask.right.is_valid_char(cc, &self.dec_sep())
@@ -1885,8 +1900,9 @@ pub mod core {
                     mask = &self.mask[self.cursor - 1];
                 }
                 let mask0 = &self.mask[mask.sec_start];
-                let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
-                let (bb, cc0, minus, cc1, aa) = split_mask_match(&self.value, "-", mask);
+                let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
+                let (bb, cc0, minus, cc1, aa) =
+                    grapheme::split_mask_match(&self.value, "-", mask.range());
 
                 if cc == self.neg_sym()
                     && mask0.right.can_drop_first(cc1)
@@ -1895,7 +1911,7 @@ pub mod core {
                     let mut mstr = String::new();
                     mstr.push_str(cc0);
                     mstr.push('-');
-                    mstr.push_str(drop_first(cc1));
+                    mstr.push_str(grapheme::drop_first(cc1));
 
                     let submask = &self.mask[mask.sec_start..mask.sec_end];
                     let mmstr = MaskToken::remap_number(submask, &mstr);
@@ -1928,7 +1944,7 @@ pub mod core {
                     && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     let mut mstr = String::new();
-                    mstr.push_str(drop_first(c0));
+                    mstr.push_str(grapheme::drop_first(c0));
                     mstr.push_str(mask.right.replace_char(cc, &self.dec_sep()));
                     mstr.push_str(c1);
 
@@ -1944,7 +1960,7 @@ pub mod core {
                 }
             } else if mask.right.is_ltor() {
                 let mask9 = &self.mask[mask.sec_end - 1];
-                let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
+                let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
 
                 if mask.right.can_overwrite_first(c1)
                     && mask.right.is_valid_char(cc, &self.dec_sep())
@@ -1953,7 +1969,7 @@ pub mod core {
                     buf.push_str(b);
                     buf.push_str(c0);
                     buf.push_str(mask.right.replace_char(cc, &self.dec_sep()));
-                    buf.push_str(drop_first(c1));
+                    buf.push_str(grapheme::drop_first(c1));
                     buf.push_str(a);
                     self.value = buf;
 
@@ -1966,7 +1982,7 @@ pub mod core {
                     buf.push_str(b);
                     buf.push_str(c0);
                     buf.push_str(mask.right.replace_char(cc, &self.dec_sep()));
-                    buf.push_str(drop_last(c1));
+                    buf.push_str(grapheme::drop_last(c1));
                     buf.push_str(a);
                     self.value = buf;
 
@@ -1986,12 +2002,16 @@ pub mod core {
             debug!("REMOVE SELECTION {:?} {:?}", mask, selection);
             debug!("{}", self.test_state());
 
-            let (a, _, _, _, _) = split_remove_mask(self.value.as_str(), selection.clone(), mask);
+            let (a, _, _, _, _) =
+                grapheme::split_remove_mask(self.value.as_str(), selection.clone(), mask.range());
             buf.push_str(a);
 
             loop {
-                let (_, c0, s, c1, _) =
-                    split_remove_mask(self.value.as_str(), selection.clone(), mask);
+                let (_, c0, s, c1, _) = grapheme::split_remove_mask(
+                    self.value.as_str(),
+                    selection.clone(),
+                    mask.range(),
+                );
 
                 if mask.right.is_rtol() {
                     let remove_count = s.graphemes(true).count();
@@ -2020,7 +2040,7 @@ pub mod core {
                 }
 
                 if mask.sec_end >= selection.end {
-                    let (_, _, a) = split3(&self.value, mask.sec_end..mask.sec_end);
+                    let (_, _, a) = grapheme::split3(&self.value, mask.sec_end..mask.sec_end);
                     buf.push_str(a);
                     break;
                 }
@@ -2046,8 +2066,11 @@ pub mod core {
             debug!("REMOVE PREV {:?} ", left);
             debug!("{}", self.test_state());
 
-            let (b, c0, _s, c1, a) =
-                split_remove_mask(self.value.as_str(), self.cursor - 1..self.cursor, left);
+            let (b, c0, _s, c1, a) = grapheme::split_remove_mask(
+                self.value.as_str(),
+                self.cursor - 1..self.cursor,
+                left.range(),
+            );
             buf.push_str(b);
 
             if left.right.is_rtol() {
@@ -2071,7 +2094,7 @@ pub mod core {
             self.value = buf;
 
             if left.right.is_rtol() {
-                let (_b, s, _a) = split3(&self.value(), left.sec_start..left.sec_end);
+                let (_b, s, _a) = grapheme::split3(&self.value(), left.sec_start..left.sec_end);
                 let sec_mask = &self.mask[left.sec_start..left.sec_end];
                 if s == MaskToken::empty_section(sec_mask) {
                     self.cursor = left.sec_start;
@@ -2098,8 +2121,11 @@ pub mod core {
             debug!("REMOVE NEXT {:?} ", right);
             debug!("{}", self.test_state());
 
-            let (b, c0, _, c1, a) =
-                split_remove_mask(self.value.as_str(), self.cursor..self.cursor + 1, right);
+            let (b, c0, _, c1, a) = grapheme::split_remove_mask(
+                self.value.as_str(),
+                self.cursor..self.cursor + 1,
+                right.range(),
+            );
             buf.push_str(b);
 
             if right.right.is_rtol() {
@@ -2128,293 +2154,6 @@ pub mod core {
             } else if right.right.is_ltor() {
                 // cursor stays
             }
-        }
-    }
-
-    /// drop first graphem
-    fn drop_first(s: &str) -> &str {
-        if s.is_empty() {
-            unreachable!();
-        } else {
-            let (_, _, r) = split3(s, 0..1);
-            r
-        }
-    }
-
-    /// drop last graphem.
-    fn drop_last(s: &str) -> &str {
-        if s.is_empty() {
-            unreachable!();
-        } else {
-            let end = s.graphemes(true).count();
-            let (r, _, _) = split3(s, end - 1..end);
-            r
-        }
-    }
-
-    /// split selection for removal along the mask boundaries.
-    fn split_remove_mask<'a>(
-        value: &'a str,
-        selection: Range<usize>,
-        mask: &MaskToken,
-    ) -> (&'a str, &'a str, &'a str, &'a str, &'a str) {
-        let mut byte_mask_start = None;
-        let mut byte_mask_end = None;
-        let mut byte_sel_start = None;
-        let mut byte_sel_end = None;
-
-        for (cidx, (idx, _c)) in value
-            .grapheme_indices(true)
-            .chain(once((value.len(), "")))
-            .enumerate()
-        {
-            if cidx == selection.start {
-                byte_sel_start = Some(idx);
-            }
-            if cidx == selection.end {
-                byte_sel_end = Some(idx);
-            }
-            if cidx == mask.sec_start {
-                byte_mask_start = Some(idx);
-            }
-            if cidx == mask.sec_end {
-                byte_mask_end = Some(idx);
-            }
-        }
-
-        let byte_sel_start = if selection.start <= mask.sec_start {
-            byte_mask_start.expect("mask")
-        } else if selection.start >= mask.sec_end {
-            byte_mask_end.expect("mask")
-        } else {
-            byte_sel_start.expect("mask")
-        };
-
-        let byte_sel_end = if selection.end <= mask.sec_start {
-            byte_mask_start.expect("mask")
-        } else if selection.end >= mask.sec_end {
-            byte_mask_end.expect("mask")
-        } else {
-            byte_sel_end.expect("mask")
-        };
-
-        let byte_mask_start = byte_mask_start.expect("mask");
-        let byte_mask_end = byte_mask_end.expect("mask");
-
-        (
-            &value[..byte_mask_start],
-            &value[byte_mask_start..byte_sel_start],
-            &value[byte_sel_start..byte_sel_end],
-            &value[byte_sel_end..byte_mask_end],
-            &value[byte_mask_end..],
-        )
-    }
-
-    /// Split along mask-sections
-    fn split_mask<'a>(
-        value: &'a str,
-        cursor: usize,
-        mask: &MaskToken,
-    ) -> (&'a str, &'a str, &'a str, &'a str) {
-        let mut byte_mask_start = None;
-        let mut byte_mask_end = None;
-        let mut byte_cursor = None;
-
-        for (cidx, (idx, _c)) in value
-            .grapheme_indices(true)
-            .chain(once((value.len(), "")))
-            .enumerate()
-        {
-            if cidx == cursor {
-                byte_cursor = Some(idx);
-            }
-            if cidx == mask.sec_start {
-                byte_mask_start = Some(idx);
-            }
-            if cidx == mask.sec_end {
-                byte_mask_end = Some(idx);
-            }
-        }
-
-        let byte_cursor = byte_cursor.expect("mask");
-        let byte_mask_start = byte_mask_start.expect("mask");
-        let byte_mask_end = byte_mask_end.expect("mask");
-
-        (
-            &value[..byte_mask_start],
-            &value[byte_mask_start..byte_cursor],
-            &value[byte_cursor..byte_mask_end],
-            &value[byte_mask_end..],
-        )
-    }
-    /// Split along mask-sections, search within the mask.
-    pub fn split_mask_match<'a>(
-        value: &'a str,
-        search: &str,
-        mask: &MaskToken,
-    ) -> (&'a str, &'a str, &'a str, &'a str, &'a str) {
-        let mut byte_mask_start = None;
-        let mut byte_mask_end = None;
-        let mut byte_find_start = None;
-        let mut byte_find_end = None;
-
-        for (cidx, (idx, c)) in value
-            .grapheme_indices(true)
-            .chain(once((value.len(), "")))
-            .enumerate()
-        {
-            if c == search {
-                byte_find_start = Some(idx);
-                byte_find_end = Some(idx + c.len());
-            }
-            if cidx == mask.sec_start {
-                byte_mask_start = Some(idx);
-            }
-            if cidx == mask.sec_end {
-                byte_mask_end = Some(idx);
-            }
-        }
-
-        let (byte_find_start, byte_find_end) = if let Some(byte_find_start) = byte_find_start {
-            (byte_find_start, byte_find_end.expect("find"))
-        } else {
-            (
-                byte_mask_start.expect("mask"),
-                byte_mask_start.expect("mask"),
-            )
-        };
-        let byte_mask_start = byte_mask_start.expect("mask");
-        let byte_mask_end = byte_mask_end.expect("mask");
-
-        (
-            &value[..byte_mask_start],
-            &value[byte_mask_start..byte_find_start],
-            &value[byte_find_start..byte_find_end],
-            &value[byte_find_end..byte_mask_end],
-            &value[byte_mask_end..],
-        )
-    }
-
-    pub fn split_at(value: &str, cursor: usize) -> (&str, &str) {
-        let mut byte_cursor = None;
-
-        for (cidx, (idx, _c)) in value
-            .grapheme_indices(true)
-            .chain(once((value.len(), "")))
-            .enumerate()
-        {
-            if cidx == cursor {
-                byte_cursor = Some(idx);
-            }
-        }
-
-        let byte_cursor = byte_cursor.expect("cursor");
-
-        (&value[..byte_cursor], &value[byte_cursor..])
-    }
-
-    /// Split off selection
-    pub fn split3(value: &str, selection: Range<usize>) -> (&str, &str, &str) {
-        let mut byte_selection_start = None;
-        let mut byte_selection_end = None;
-
-        for (cidx, (idx, _c)) in value
-            .grapheme_indices(true)
-            .chain(once((value.len(), "")))
-            .enumerate()
-        {
-            if cidx == selection.start {
-                byte_selection_start = Some(idx);
-            }
-            if cidx == selection.end {
-                byte_selection_end = Some(idx)
-            }
-        }
-
-        let byte_selection_start = byte_selection_start.expect("byte_selection_start_not_found");
-        let byte_selection_end = byte_selection_end.expect("byte_selection_end_not_found");
-
-        (
-            &value[0..byte_selection_start],
-            &value[byte_selection_start..byte_selection_end],
-            &value[byte_selection_end..value.len()],
-        )
-    }
-
-    /// Split off selection and cursor
-    pub fn split5(
-        value: &str,
-        cursor: usize,
-        visible: Range<usize>,
-        selection: Range<usize>,
-    ) -> (&str, &str, &str, &str, &str) {
-        let mut vis_sta = None;
-        let mut vis_end = None;
-        let mut sel_sta = None;
-        let mut sel_end = None;
-        let mut cur_sta = None;
-        let mut cur_len = None;
-
-        for (cidx, (idx, c)) in value
-            .grapheme_indices(true)
-            .chain(once((value.len(), "")))
-            .enumerate()
-        {
-            if cidx == visible.start {
-                vis_sta = Some(idx);
-            }
-            if cidx == visible.end {
-                vis_end = Some(idx);
-            }
-            if cidx == selection.start {
-                sel_sta = Some(idx);
-            }
-            if cidx == selection.end {
-                sel_end = Some(idx);
-            }
-            if cidx == cursor {
-                cur_sta = Some(idx);
-                cur_len = Some(c.len())
-            }
-        }
-
-        let vis_sta = vis_sta.expect("visible_start_not_found");
-        let vis_end = vis_end.expect("visible_end_not_found");
-        let sel_sta = sel_sta.expect("selection_start_not_found");
-        let sel_end = sel_end.expect("selection_end_not_found");
-        let cur_sta = cur_sta.expect("cursor_start_not_found");
-        let cur_len = cur_len.expect("cursor_end_not_found");
-
-        let before_str = &value[vis_sta..sel_sta];
-
-        let (cursor1_str, sel_str) = if sel_sta == cur_sta && sel_sta + cur_len <= sel_end {
-            (
-                &value[cur_sta..cur_sta + cur_len],
-                &value[sel_sta + cur_len..sel_end],
-            )
-        } else {
-            (&value[sel_sta..sel_sta], &value[sel_sta..sel_end])
-        };
-
-        let (cursor2_str, after_str) = if cur_len == 0 {
-            (" ", &value[sel_end..vis_end])
-        } else if sel_end == cur_sta && sel_end + cur_len <= vis_end {
-            (
-                &value[cur_sta..cur_sta + cur_len],
-                &value[sel_end + cur_len..vis_end],
-            )
-        } else {
-            (&value[sel_end..sel_end], &value[sel_end..vis_end])
-        };
-
-        (before_str, cursor1_str, sel_str, cursor2_str, after_str)
-    }
-
-    fn is_alphanumeric(s: &str) -> bool {
-        if let Some(c) = s.chars().next() {
-            c.is_alphanumeric()
-        } else {
-            false
         }
     }
 }
