@@ -124,8 +124,7 @@ impl Default for Mask0 {
         s.alpha.set_mask("llllllllll");
         s.dec7_2.set_mask("#,###,##0.00");
         s.euro.set_mask("€ ###,##0.00");
-        s.euro.set_decimal_grp(".");
-        s.euro.set_decimal_sep(",");
+        s.euro.set_decimal_sep(".", ",");
         s
     }
 }
@@ -375,6 +374,14 @@ fn repaint_mask0(
         frame.render_widget(Span::from(format!("value={}", r.value())), area);
         area.y += 1;
         frame.render_widget(Span::from(format!("compact={}", r.compact_value())), area);
+        area.y += 1;
+        frame.render_widget(
+            Span::from(format!(
+                "parse={:?}",
+                r.compact_value().as_str().parse::<f64>()
+            )),
+            area,
+        );
         area.y += 1;
         frame.render_widget(Span::from(format!("mask={}", r.mask())), area);
         area.y += 1;

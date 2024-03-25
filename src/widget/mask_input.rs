@@ -1055,9 +1055,7 @@ pub mod core {
             match self {
                 Mask::Digit0(_) => test.is_ascii_digit(),
                 Mask::Digit(_) => test.is_ascii_digit() || test == ' ',
-                Mask::Numeric(_) => {
-                    test.is_ascii_digit() || test == ' ' || test == '+' || test == '-'
-                }
+                Mask::Numeric(_) => test.is_ascii_digit() || test == ' ' || test == '-',
                 Mask::DecimalSep => test_grapheme == dec,
                 Mask::GroupingSep => false,
                 Mask::Hex0 => test.is_ascii_hexdigit(),
@@ -1196,7 +1194,7 @@ pub mod core {
                 let Some(test) = c.chars().next() else {
                     unreachable!();
                 };
-                if test.is_ascii_digit() || test == '-' || test == '+' {
+                if test.is_ascii_digit() || test == '-' {
                     if seen_non_0 || c != "0" {
                         clean.push_str(c);
                     }
@@ -1228,27 +1226,41 @@ pub mod core {
 
                 if matches!(mm.right, Mask::Digit0(_)) {
                     if let Some(vv) = v {
-                        out_vec[out_idx as usize] = vv;
+                        if mm.right.is_valid_char(vv, ".") {
+                            out_vec[out_idx as usize] = vv;
+                            out_idx -= 1;
+                            v = None;
+                        } else {
+                            out_vec[out_idx as usize] = &mm.edit;
+                            out_idx -= 1;
+                            // keep v
+                        }
                     } else {
                         out_vec[out_idx as usize] = &mm.edit;
+                        out_idx -= 1;
+                        // keep v
                     }
-                    out_idx -= 1;
                     m = None;
-                    v = None;
                 } else if matches!(mm.right, Mask::Digit(_) | Mask::Numeric(_)) {
                     if let Some(vv) = v {
                         out_vec[out_idx as usize] = vv;
+                        out_idx -= 1;
+                        v = None;
                     }
-                    out_idx -= 1;
                     m = None;
-                    v = None;
                 } else if matches!(mm.right, Mask::GroupingSep) {
-                    if v.is_some() {
-                        out_vec[out_idx as usize] = ",";
+                    if let Some(vv) = v {
+                        if vv == "-" {
+                            out_vec[out_idx as usize] = vv;
+                            out_idx -= 1;
+                            v = None;
+                        } else {
+                            out_vec[out_idx as usize] = ",";
+                            out_idx -= 1;
+                            // keep v
+                        }
                     }
-                    out_idx -= 1;
                     m = None;
-                    // keep v
                 } else {
                     unreachable!()
                 }
@@ -1675,6 +1687,8 @@ pub mod core {
                         let o = if t.right == Mask::GroupingSep {
                             if s == "," {
                                 &self.grp_sep
+                            } else if s == "-" {
+                                "-"
                             } else {
                                 " "
                             }
@@ -1814,40 +1828,65 @@ pub mod core {
             let buf = String::from(c);
             let cc = buf.as_str();
 
-            let mask = &self.mask[self.cursor];
+            let mut mask = &self.mask[self.cursor];
 
             debug!("INSERT CHAR {:?} {:?}", mask, cc);
             debug!("{}", self.test_state());
 
-            if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
+            if mask.right.is_rtol()
+                || mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none())
+            {
                 // boundary right/left. prefer right, change mask.
-                let left = &self.mask[self.cursor - 1];
-                let mask0 = &self.mask[left.sec_start];
-                let (b, c0, c1, a) = split_mask(&self.value, self.cursor, left);
-                if mask0.right.can_drop_first(c0) && left.right.is_valid_char(cc, &self.dec_sep) {
-                    let submask = &self.mask[left.sec_start..left.sec_end];
+                if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
+                    mask = &self.mask[self.cursor - 1];
+                }
+                let mask0 = &self.mask[mask.sec_start];
+                let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
+                let (bb, cc0, minus, cc1, aa) = split_mask_match(&self.value, "-", mask);
+
+                if cc == "-"
+                    && mask0.right.can_drop_first(cc1)
+                    && mask0.right.is_valid_char(cc, &self.dec_sep)
+                {
                     let mut mstr = String::new();
-                    mstr.push_str(drop_first(c0));
-                    mstr.push_str(left.right.replace_char(cc, &self.dec_sep));
-                    mstr.push_str(c1);
+                    mstr.push_str(cc0);
+                    mstr.push('-');
+                    mstr.push_str(drop_first(cc1));
+
+                    let submask = &self.mask[mask.sec_start..mask.sec_end];
                     let mmstr = MaskToken::remap_number(submask, &mstr);
 
                     let mut buf = String::new();
-                    buf.push_str(b);
+                    buf.push_str(bb);
                     buf.push_str(mmstr.as_str());
-                    buf.push_str(a);
+                    buf.push_str(aa);
                     self.value = buf;
                     // cursor stays
-                }
-            } else if mask.right.is_rtol() {
-                let mask0 = &self.mask[mask.sec_start];
-                let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
-                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc, &self.dec_sep) {
+                } else if cc == "-" && minus == "-" && mask0.right.is_valid_char(cc, &self.dec_sep)
+                {
+                    let mut mstr = String::new();
+                    mstr.push_str(cc0);
+                    mstr.push(' ');
+                    mstr.push_str(cc1);
+
                     let submask = &self.mask[mask.sec_start..mask.sec_end];
+                    let mmstr = MaskToken::remap_number(submask, &mstr);
+
+                    let mut buf = String::new();
+                    buf.push_str(bb);
+                    buf.push_str(mmstr.as_str());
+                    buf.push_str(aa);
+                    self.value = buf;
+                    // cursor stays
+                } else if mask0.right.can_drop_first(c0)
+                    && mask.right.is_valid_char(cc, &self.dec_sep)
+                {
                     let mut mstr = String::new();
                     mstr.push_str(drop_first(c0));
                     mstr.push_str(mask.right.replace_char(cc, &self.dec_sep));
                     mstr.push_str(c1);
+
+                    let submask = &self.mask[mask.sec_start..mask.sec_end];
                     let mmstr = MaskToken::remap_number(submask, &mstr);
 
                     let mut buf = String::new();
@@ -2158,6 +2197,53 @@ pub mod core {
             &value[..byte_mask_start],
             &value[byte_mask_start..byte_cursor],
             &value[byte_cursor..byte_mask_end],
+            &value[byte_mask_end..],
+        )
+    }
+    /// Split along mask-sections, search within the mask.
+    pub fn split_mask_match<'a>(
+        value: &'a str,
+        search: &str,
+        mask: &MaskToken,
+    ) -> (&'a str, &'a str, &'a str, &'a str, &'a str) {
+        let mut byte_mask_start = None;
+        let mut byte_mask_end = None;
+        let mut byte_find_start = None;
+        let mut byte_find_end = None;
+
+        for (cidx, (idx, c)) in value
+            .grapheme_indices(true)
+            .chain(once((value.len(), "")))
+            .enumerate()
+        {
+            if c == search {
+                byte_find_start = Some(idx);
+                byte_find_end = Some(idx + c.len());
+            }
+            if cidx == mask.sec_start {
+                byte_mask_start = Some(idx);
+            }
+            if cidx == mask.sec_end {
+                byte_mask_end = Some(idx);
+            }
+        }
+
+        let (byte_find_start, byte_find_end) = if let Some(byte_find_start) = byte_find_start {
+            (byte_find_start, byte_find_end.expect("find"))
+        } else {
+            (
+                byte_mask_start.expect("mask"),
+                byte_mask_start.expect("mask"),
+            )
+        };
+        let byte_mask_start = byte_mask_start.expect("mask");
+        let byte_mask_end = byte_mask_end.expect("mask");
+
+        (
+            &value[..byte_mask_start],
+            &value[byte_mask_start..byte_find_start],
+            &value[byte_find_start..byte_find_end],
+            &value[byte_find_end..byte_mask_end],
             &value[byte_mask_end..],
         )
     }
