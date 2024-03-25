@@ -1291,6 +1291,7 @@ pub mod core {
 
         pub dec_sep: String,
         pub grp_sep: String,
+        pub neg_sig: String,
     }
 
     impl Default for InputMaskCore {
@@ -1306,6 +1307,7 @@ pub mod core {
                 anchor: 0,
                 dec_sep: ".".to_string(),
                 grp_sep: ",".to_string(),
+                neg_sig: "-".to_string(),
             }
         }
     }
@@ -1458,6 +1460,11 @@ pub mod core {
         /// The value itself uses ",".
         pub fn set_decimal_grp<S: Into<String>>(&mut self, grp: S) {
             self.grp_sep = grp.into();
+        }
+
+        ///  
+        pub fn set_negative_sign<S: Into<String>>(&mut self, neg: S) {
+            self.neg_sig = neg.into();
         }
 
         /// Changes the mask.
@@ -1688,7 +1695,7 @@ pub mod core {
                             if s == "," {
                                 &self.grp_sep
                             } else if s == "-" {
-                                "-"
+                                &self.neg_sig
                             } else {
                                 " "
                             }
@@ -1699,7 +1706,11 @@ pub mod core {
                                 " "
                             }
                         } else {
-                            s
+                            if s == "-" {
+                                &self.neg_sig
+                            } else {
+                                s
+                            }
                         };
                         self.rendered.push_str(o);
                     }
@@ -1844,7 +1855,7 @@ pub mod core {
                 let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
                 let (bb, cc0, minus, cc1, aa) = split_mask_match(&self.value, "-", mask);
 
-                if cc == "-"
+                if cc == self.neg_sig
                     && mask0.right.can_drop_first(cc1)
                     && mask0.right.is_valid_char(cc, &self.dec_sep)
                 {
@@ -1862,7 +1873,9 @@ pub mod core {
                     buf.push_str(aa);
                     self.value = buf;
                     // cursor stays
-                } else if cc == "-" && minus == "-" && mask0.right.is_valid_char(cc, &self.dec_sep)
+                } else if cc == self.neg_sig
+                    && minus == "-"
+                    && mask0.right.is_valid_char(cc, &self.dec_sep)
                 {
                     let mut mstr = String::new();
                     mstr.push_str(cc0);
