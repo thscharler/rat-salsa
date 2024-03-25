@@ -1,7 +1,7 @@
 use crate::app::Example;
 use crate::data::ExData;
 use crate::state::ExState;
-use rat_salsa::run_tui;
+use rat_salsa::{run_tui, RunConfig};
 use std::time::SystemTime;
 
 type Control = rat_salsa::ControlUI<ExAction, anyhow::Error>;
@@ -14,7 +14,15 @@ fn main() -> Result<(), anyhow::Error> {
     };
     let mut state = ExState::default();
 
-    run_tui(&Example, &mut data, &mut state, 1)?;
+    run_tui(
+        &Example,
+        &mut data,
+        &mut state,
+        RunConfig {
+            n_threats: 1,
+            log_timing: false,
+        },
+    )?;
 
     Ok(())
 }
