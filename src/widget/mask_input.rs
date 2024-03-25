@@ -779,22 +779,10 @@ pub mod core {
     use std::rc::Rc;
     use unicode_segmentation::UnicodeSegmentation;
 
-    #[derive(Debug, PartialEq, Eq)]
-    pub enum CursorPos {
-        Start,
-        End,
-    }
-
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum EditDirection {
         Ltor,
         Rtol,
-    }
-
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub enum RemoveDirection {
-        Left,
-        Right,
     }
 
     #[allow(variant_size_differences)]
