@@ -12,6 +12,7 @@
 
 use crate::widget::basic::ClearStyle;
 use crate::widget::mask_input::core::InputMaskCore;
+use crate::widget::number_input::NumberSymbols;
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
@@ -24,6 +25,7 @@ use ratatui::text::{Line, Span};
 use ratatui::Frame;
 use std::cmp::min;
 use std::ops::Range;
+use std::rc::Rc;
 
 /// Text input widget with input mask.
 #[derive(Debug)]
@@ -377,6 +379,17 @@ pub enum InputRequest {
 }
 
 impl MaskedInputState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn new_with_symbols(sym: &Rc<NumberSymbols>) -> Self {
+        Self {
+            value: InputMaskCore::new_with_symbols(sym),
+            ..Self::default()
+        }
+    }
+
     /// Reset to empty.
     pub fn reset(&mut self) {
         self.value.reset();
@@ -472,13 +485,12 @@ impl MaskedInputState {
         self.value.mask()
     }
 
-    /// Set the decimal separator and grouping.
+    /// Set symbols for number display.
     ///
-    /// Only used for rendering and to map user input.
-    /// The value itself uses "." and ",".
-    pub fn set_decimal_sep<S: Into<String>>(&mut self, sep: S, grp: S) {
-        self.value.set_decimal_sep(sep);
-        self.value.set_decimal_grp(grp);
+    /// These are only used for rendering and to map user input.
+    /// The value itself uses ".", "," and "-".
+    pub fn set_num_symbols(&mut self, sym: &Rc<NumberSymbols>) {
+        self.value.set_num_symbols(sym);
     }
 
     /// Set the value.
@@ -757,11 +769,14 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
 }
 
 pub mod core {
+    use crate::widget::number_input::NumberSymbols;
     #[allow(unused_imports)]
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};
     use std::iter::{once, repeat};
+    use std::mem;
     use std::ops::Range;
+    use std::rc::Rc;
     use unicode_segmentation::UnicodeSegmentation;
 
     #[derive(Debug, PartialEq, Eq)]
@@ -1278,20 +1293,18 @@ pub mod core {
     /// Text editing core.
     #[derive(Debug, Clone)]
     pub struct InputMaskCore {
-        pub mask: Vec<MaskToken>,
-        pub value: String,
-        pub rendered: String,
-        pub len: usize,
+        mask: Vec<MaskToken>,
+        value: String,
+        rendered: String,
+        len: usize,
 
-        pub offset: usize,
-        pub width: usize,
+        offset: usize,
+        width: usize,
 
-        pub cursor: usize,
-        pub anchor: usize,
+        cursor: usize,
+        anchor: usize,
 
-        pub dec_sep: String,
-        pub grp_sep: String,
-        pub neg_sig: String,
+        sym: Option<Rc<NumberSymbols>>,
     }
 
     impl Default for InputMaskCore {
@@ -1305,14 +1318,30 @@ pub mod core {
                 width: 0,
                 cursor: 0,
                 anchor: 0,
-                dec_sep: ".".to_string(),
-                grp_sep: ",".to_string(),
-                neg_sig: "-".to_string(),
+                sym: None,
             }
         }
     }
 
     impl InputMaskCore {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        pub fn new_with_symbols(sym: &Rc<NumberSymbols>) -> Self {
+            Self {
+                mask: Default::default(),
+                value: Default::default(),
+                rendered: Default::default(),
+                len: 0,
+                offset: 0,
+                width: 0,
+                cursor: 0,
+                anchor: 0,
+                sym: Some(Rc::clone(sym)),
+            }
+        }
+
         /// dump the current state as code.
         pub fn test_state(&self) -> String {
             use std::fmt::Write;
@@ -1335,6 +1364,7 @@ pub mod core {
             _ = write!(buf, "width: {:?},", self.width);
             _ = write!(buf, "cursor: {:?},", self.cursor);
             _ = write!(buf, "anchor: {:?},", self.anchor);
+            // todo: sym
             _ = write!(buf, "}};");
             buf
         }
@@ -1450,21 +1480,32 @@ pub mod core {
         ///
         /// Only used for rendering and to map user input.
         /// The value itself uses "."
-        pub fn set_decimal_sep<S: Into<String>>(&mut self, sep: S) {
-            self.dec_sep = sep.into();
+        pub fn set_num_symbols(&mut self, sym: &Rc<NumberSymbols>) {
+            self.sym = Some(Rc::clone(sym));
         }
 
-        /// Set the grouping separator.
-        ///
-        /// Only used for rendering and to map user input.
-        /// The value itself uses ",".
-        pub fn set_decimal_grp<S: Into<String>>(&mut self, grp: S) {
-            self.grp_sep = grp.into();
+        fn dec_sep(&self) -> &str {
+            if let Some(sym) = &self.sym {
+                &sym.decimal_sep
+            } else {
+                "."
+            }
         }
 
-        ///  
-        pub fn set_negative_sign<S: Into<String>>(&mut self, neg: S) {
-            self.neg_sig = neg.into();
+        fn grp_sep(&self) -> &str {
+            if let Some(sym) = &self.sym {
+                &sym.decimal_grp
+            } else {
+                ","
+            }
+        }
+
+        fn neg_sym(&self) -> &str {
+            if let Some(sym) = &self.sym {
+                &sym.negative_sym
+            } else {
+                "-"
+            }
         }
 
         /// Changes the mask.
@@ -1664,7 +1705,8 @@ pub mod core {
         /// Create the rendered value.
         #[allow(unused_variables)]
         pub fn render_value(&mut self) {
-            self.rendered.clear();
+            let mut rendered = mem::take(&mut self.rendered);
+            rendered.clear();
 
             let mut idx = 0;
             loop {
@@ -1683,41 +1725,43 @@ pub mod core {
                         let o = if t.right == Mask::GroupingSep {
                             " "
                         } else if t.right == Mask::DecimalSep {
-                            &self.dec_sep
+                            self.dec_sep()
                         } else {
                             t.display.as_ref()
                         };
-                        self.rendered.push_str(o);
+                        rendered.push_str(o);
                     }
                 } else {
                     for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
                         let o = if t.right == Mask::GroupingSep {
                             if s == "," {
-                                &self.grp_sep
+                                self.grp_sep()
                             } else if s == "-" {
-                                &self.neg_sig
+                                self.neg_sym()
                             } else {
                                 " "
                             }
                         } else if t.right == Mask::DecimalSep {
                             if s == "." {
-                                &self.dec_sep
+                                self.dec_sep()
                             } else {
                                 " "
                             }
                         } else {
                             if s == "-" {
-                                &self.neg_sig
+                                self.neg_sym()
                             } else {
                                 s
                             }
                         };
-                        self.rendered.push_str(o);
+                        rendered.push_str(o);
                     }
                 }
 
                 idx = mask.sec_end;
             }
+
+            self.rendered = rendered;
         }
 
         /// Next boundary.
@@ -1773,7 +1817,7 @@ pub mod core {
                         let (_b, c0, _c1, _a) = split_mask(&self.value, new_cursor, left);
                         // can insert at mask gap?
                         mask0.right.can_drop_first(c0)
-                            && left.right.is_valid_char(cc, &self.dec_sep)
+                            && left.right.is_valid_char(cc, &self.dec_sep())
                     })
                 {
                     break;
@@ -1781,19 +1825,20 @@ pub mod core {
                     && ({
                         let (_b, a) = split_at(&self.value, new_cursor);
                         // stop at real digit
-                        !mask.right.can_drop_first(a) && mask.right.is_valid_char(cc, &self.dec_sep)
+                        !mask.right.can_drop_first(a)
+                            && mask.right.is_valid_char(cc, &self.dec_sep())
                     })
                 {
                     break;
                 } else if mask.right == Mask::DecimalSep
-                    && mask.right.is_valid_char(cc, &self.dec_sep)
+                    && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     new_cursor += 1;
                     break;
                 } else if mask.right == Mask::GroupingSep {
                     // never stop here
                 } else if matches!(mask.right, Mask::Separator(_))
-                    && mask.right.is_valid_char(cc, &self.dec_sep)
+                    && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     new_cursor += 1;
                     break;
@@ -1802,19 +1847,19 @@ pub mod core {
                     Mask::Digit0(EditDirection::Ltor)
                         | Mask::Digit(EditDirection::Ltor)
                         | Mask::Numeric(EditDirection::Ltor)
-                ) && mask.right.is_valid_char(cc, &self.dec_sep)
+                ) && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Hex0 | Mask::Hex | Mask::Dec0 | Mask::Dec | Mask::Oct0 | Mask::Oct
-                ) && mask.right.is_valid_char(cc, &self.dec_sep)
+                ) && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Letter | Mask::LetterOrDigit | Mask::LetterDigitSpace | Mask::AnyChar
-                ) && mask.right.is_valid_char(cc, &self.dec_sep)
+                ) && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     break;
                 } else if mask.right == Mask::None {
@@ -1855,9 +1900,9 @@ pub mod core {
                 let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
                 let (bb, cc0, minus, cc1, aa) = split_mask_match(&self.value, "-", mask);
 
-                if cc == self.neg_sig
+                if cc == self.neg_sym()
                     && mask0.right.can_drop_first(cc1)
-                    && mask0.right.is_valid_char(cc, &self.dec_sep)
+                    && mask0.right.is_valid_char(cc, &self.dec_sep())
                 {
                     let mut mstr = String::new();
                     mstr.push_str(cc0);
@@ -1873,9 +1918,9 @@ pub mod core {
                     buf.push_str(aa);
                     self.value = buf;
                     // cursor stays
-                } else if cc == self.neg_sig
+                } else if cc == self.neg_sym()
                     && minus == "-"
-                    && mask0.right.is_valid_char(cc, &self.dec_sep)
+                    && mask0.right.is_valid_char(cc, &self.dec_sep())
                 {
                     let mut mstr = String::new();
                     mstr.push_str(cc0);
@@ -1892,11 +1937,11 @@ pub mod core {
                     self.value = buf;
                     // cursor stays
                 } else if mask0.right.can_drop_first(c0)
-                    && mask.right.is_valid_char(cc, &self.dec_sep)
+                    && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     let mut mstr = String::new();
                     mstr.push_str(drop_first(c0));
-                    mstr.push_str(mask.right.replace_char(cc, &self.dec_sep));
+                    mstr.push_str(mask.right.replace_char(cc, &self.dec_sep()));
                     mstr.push_str(c1);
 
                     let submask = &self.mask[mask.sec_start..mask.sec_end];
@@ -1913,12 +1958,13 @@ pub mod core {
                 let mask9 = &self.mask[mask.sec_end - 1];
                 let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask);
 
-                if mask.right.can_overwrite_first(c1) && mask.right.is_valid_char(cc, &self.dec_sep)
+                if mask.right.can_overwrite_first(c1)
+                    && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
-                    buf.push_str(mask.right.replace_char(cc, &self.dec_sep));
+                    buf.push_str(mask.right.replace_char(cc, &self.dec_sep()));
                     buf.push_str(drop_first(c1));
                     buf.push_str(a);
                     self.value = buf;
@@ -1926,12 +1972,12 @@ pub mod core {
                     self.cursor += 1;
                     self.anchor = self.cursor;
                 } else if mask9.right.can_drop_last(c1)
-                    && mask.right.is_valid_char(cc, &self.dec_sep)
+                    && mask.right.is_valid_char(cc, &self.dec_sep())
                 {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
-                    buf.push_str(mask.right.replace_char(cc, &self.dec_sep));
+                    buf.push_str(mask.right.replace_char(cc, &self.dec_sep()));
                     buf.push_str(drop_last(c1));
                     buf.push_str(a);
                     self.value = buf;

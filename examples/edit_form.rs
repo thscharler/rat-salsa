@@ -10,6 +10,7 @@ use rat_salsa::widget::menuline::{MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
+use rat_salsa::widget::number_input::NumberSymbols;
 use rat_salsa::{
     check_break, for_focus, run_tui, try_ui, ControlUI, DefaultKeys, Focus, HandleCrossterm,
     HasFocusFlag, RenderFrameWidget, Repaint, RepaintEvent, RunConfig, TaskSender, ThreadPool,
@@ -21,14 +22,21 @@ use ratatui::style::Stylize;
 use ratatui::text::Span;
 use ratatui::Frame;
 use std::fs;
+use std::rc::Rc;
 
 fn main() -> Result<(), anyhow::Error> {
     _ = fs::remove_file("log.log");
 
     setup_logging()?;
 
+    let sym = Rc::new(NumberSymbols {
+        decimal_sep: ",".to_string(),
+        decimal_grp: ".".to_string(),
+        negative_sym: "-".to_string(),
+    });
+
     let mut data = FormOneData::default();
-    let mut state = FormOneState::default();
+    let mut state = FormOneState::new(&sym);
 
     run_tui(
         &FormOneApp,
@@ -54,7 +62,7 @@ pub struct FormOneData {}
 #[derive(Debug)]
 pub enum FormOneAction {}
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct FormOneState {
     pub g: GeneralState,
     pub mask0: Mask0,
@@ -83,10 +91,20 @@ pub struct Mask0 {
     pub alpha: MaskedInputState,
     pub dec7_2: MaskedInputState,
     pub euro: MaskedInputState,
+    pub exp: MaskedInputState,
 }
 
-impl Default for GeneralState {
-    fn default() -> Self {
+impl FormOneState {
+    pub fn new(sym: &Rc<NumberSymbols>) -> Self {
+        Self {
+            g: GeneralState::new(),
+            mask0: Mask0::new(sym),
+        }
+    }
+}
+
+impl GeneralState {
+    pub fn new() -> Self {
         Self {
             theme: &ONEDARK,
             repaint: Default::default(),
@@ -97,20 +115,21 @@ impl Default for GeneralState {
     }
 }
 
-impl Default for Mask0 {
-    fn default() -> Self {
+impl Mask0 {
+    pub fn new(sym: &Rc<NumberSymbols>) -> Self {
         let mut s = Self {
-            menu: Default::default(),
-            text: Default::default(),
-            decimal: Default::default(),
-            float: Default::default(),
-            ipv4: Default::default(),
-            hexcolor: Default::default(),
-            creditcard: Default::default(),
-            date: Default::default(),
-            alpha: Default::default(),
-            dec7_2: Default::default(),
-            euro: Default::default(),
+            menu: MenuLineState::default(),
+            text: TextInputState::default(),
+            decimal: TextInputState::default(),
+            float: TextInputState::default(),
+            ipv4: MaskedInputState::new_with_symbols(sym),
+            hexcolor: MaskedInputState::new_with_symbols(sym),
+            creditcard: MaskedInputState::new_with_symbols(sym),
+            date: MaskedInputState::new_with_symbols(sym),
+            alpha: MaskedInputState::new_with_symbols(sym),
+            dec7_2: MaskedInputState::new_with_symbols(sym),
+            euro: MaskedInputState::new_with_symbols(sym),
+            exp: MaskedInputState::new_with_symbols(sym),
         };
         s.menu.focus.set();
         s.text.focus.set();
@@ -124,7 +143,7 @@ impl Default for Mask0 {
         s.alpha.set_mask("llllllllll");
         s.dec7_2.set_mask("#,###,##0.00");
         s.euro.set_mask("€ ###,##0.00");
-        s.euro.set_decimal_sep(".", ",");
+        s.exp.set_mask("#.#######e###");
         s
     }
 }
@@ -311,6 +330,8 @@ fn repaint_mask0(
             EditConstraint::Widget(20),
             EditConstraint::Label("Euro"),
             EditConstraint::Widget(20),
+            EditConstraint::Label("Exp"),
+            EditConstraint::Widget(20),
         ],
     );
 
@@ -325,6 +346,7 @@ fn repaint_mask0(
     let w_name = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_dec_7_2 = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_euro = MaskedInput::default().style(uistate.g.theme.input_mask_style());
+    let w_exp = MaskedInput::default().style(uistate.g.theme.input_mask_style());
 
     frame.render_widget(Span::from("Text"), l.label[0]);
     frame.render_frame_widget(w_text, l.widget[0], &mut uistate.mask0.text);
@@ -346,6 +368,8 @@ fn repaint_mask0(
     frame.render_frame_widget(w_dec_7_2, l.widget[8], &mut uistate.mask0.dec7_2);
     frame.render_widget(Span::from("Euro"), l.label[9]);
     frame.render_frame_widget(w_euro, l.widget[9], &mut uistate.mask0.euro);
+    frame.render_widget(Span::from("Exp"), l.label[10]);
+    frame.render_frame_widget(w_exp, l.widget[10], &mut uistate.mask0.exp);
 
     let r = for_focus!(
         uistate.mask0.ipv4 => &uistate.mask0.ipv4,
@@ -354,7 +378,8 @@ fn repaint_mask0(
         uistate.mask0.date => &uistate.mask0.date,
         uistate.mask0.alpha => &uistate.mask0.alpha,
         uistate.mask0.dec7_2 => &uistate.mask0.dec7_2,
-        uistate.mask0.euro => &uistate.mask0.euro
+        uistate.mask0.euro => &uistate.mask0.euro,
+        uistate.mask0.exp => &uistate.mask0.exp
     );
     if let Some(r) = r {
         let mut area = l_columns[1];
@@ -420,6 +445,7 @@ fn focus0(mask0: &Mask0) -> Focus<'_> {
         (mask0.alpha.focus(), mask0.alpha.area()),
         (mask0.dec7_2.focus(), mask0.dec7_2.area()),
         (mask0.euro.focus(), mask0.euro.area()),
+        (mask0.exp.focus(), mask0.exp.area()),
     ])
 }
 
@@ -441,6 +467,7 @@ fn handle_mask0(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     check_break!(mask0.alpha.handle(event, DefaultKeys));
     check_break!(mask0.dec7_2.handle(event, DefaultKeys));
     check_break!(mask0.euro.handle(event, DefaultKeys));
+    check_break!(mask0.exp.handle(event, DefaultKeys));
 
     check_break!(mask0.menu.handle(event, DefaultKeys).and_then(|a| match a {
         0 => {
