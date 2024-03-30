@@ -10,9 +10,9 @@
 //! * Accepts a display overlay used instead of the default chars of the input mask.
 //!
 
+use crate::grapheme;
 use crate::number::NumberSymbols;
 use crate::widget::basic::ClearStyle;
-use crate::widget::grapheme;
 use crate::widget::mask_input::core::InputMaskCore;
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
@@ -771,8 +771,8 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
 }
 
 pub mod core {
+    use crate::grapheme;
     use crate::number::NumberSymbols;
-    use crate::widget::grapheme;
     #[allow(unused_imports)]
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};

@@ -1,4 +1,4 @@
-use crate::widget::grapheme::is_ascii_digit;
+use crate::grapheme::is_ascii_digit;
 use std::cell::RefCell;
 use std::fmt::{Display, Formatter, Write};
 use std::iter::repeat_with;
@@ -46,6 +46,7 @@ pub enum Mode {
     Exponent,
 }
 
+#[allow(variant_size_differences)]
 #[derive(Debug, Clone)]
 pub enum Token {
     /// Mask char "0". Digit or 0

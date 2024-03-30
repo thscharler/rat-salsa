@@ -8,6 +8,7 @@ pub mod layout;
 pub mod number;
 pub mod widget;
 
+pub(crate) mod grapheme;
 pub(crate) mod util;
 
 mod lib_focus;

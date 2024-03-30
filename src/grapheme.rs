@@ -8,7 +8,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 /// Drop first graphem.
 /// If s is empty do nothing.
-pub fn drop_first(s: &str) -> &str {
+pub(crate) fn drop_first(s: &str) -> &str {
     if s.is_empty() {
         s
     } else {
@@ -18,7 +18,7 @@ pub fn drop_first(s: &str) -> &str {
 
 /// Drop last graphem.
 /// If s is empty do nothing.
-pub fn drop_last(s: &str) -> &str {
+pub(crate) fn drop_last(s: &str) -> &str {
     if s.is_empty() {
         s
     } else {
@@ -28,7 +28,7 @@ pub fn drop_last(s: &str) -> &str {
 }
 
 /// Split selection for removal along the mask boundaries.
-pub fn split_remove_mask(
+pub(crate) fn split_remove_mask(
     value: &str,
     selection: Range<usize>,
     mask: Range<usize>,
@@ -86,7 +86,11 @@ pub fn split_remove_mask(
 }
 
 /// Split along mask bounds and again at the cursor.
-pub fn split_mask(value: &str, cursor: usize, mask: Range<usize>) -> (&str, &str, &str, &str) {
+pub(crate) fn split_mask(
+    value: &str,
+    cursor: usize,
+    mask: Range<usize>,
+) -> (&str, &str, &str, &str) {
     let mut byte_mask_start = None;
     let mut byte_mask_end = None;
     let mut byte_cursor = None;
@@ -126,7 +130,7 @@ pub fn split_mask(value: &str, cursor: usize, mask: Range<usize>) -> (&str, &str
 }
 
 /// Split along mask-sections, search within the mask.
-pub fn split_mask_match<'a>(
+pub(crate) fn split_mask_match<'a>(
     value: &'a str,
     search: &str,
     mask: Range<usize>,
@@ -173,7 +177,7 @@ pub fn split_mask_match<'a>(
     )
 }
 
-pub fn split_at(value: &str, cursor: usize) -> (&str, &str) {
+pub(crate) fn split_at(value: &str, cursor: usize) -> (&str, &str) {
     let mut byte_cursor = None;
 
     for (cidx, (idx, _c)) in value
@@ -192,7 +196,7 @@ pub fn split_at(value: &str, cursor: usize) -> (&str, &str) {
 }
 
 /// Split off selection
-pub fn split3(value: &str, selection: Range<usize>) -> (&str, &str, &str) {
+pub(crate) fn split3(value: &str, selection: Range<usize>) -> (&str, &str, &str) {
     let mut byte_selection_start = None;
     let mut byte_selection_end = None;
 
@@ -220,7 +224,7 @@ pub fn split3(value: &str, selection: Range<usize>) -> (&str, &str, &str) {
 }
 
 /// Split off selection and cursor.
-pub fn split5(
+pub(crate) fn split5(
     value: &str,
     cursor: usize,
     visible: Range<usize>,
@@ -289,7 +293,7 @@ pub fn split5(
 }
 
 /// Is the first char alphanumeric?
-pub fn is_alphanumeric(s: &str) -> bool {
+pub(crate) fn is_alphanumeric(s: &str) -> bool {
     if let Some(c) = s.chars().next() {
         c.is_alphanumeric()
     } else {
@@ -298,7 +302,7 @@ pub fn is_alphanumeric(s: &str) -> bool {
 }
 
 /// Is the first char alphanumeric?
-pub fn is_ascii_digit(s: &str) -> bool {
+pub(crate) fn is_ascii_digit(s: &str) -> bool {
     if let Some(c) = s.chars().next() {
         c.is_ascii_digit()
     } else {
