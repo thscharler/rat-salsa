@@ -13,7 +13,6 @@ pub mod input;
 pub mod mask_input;
 pub mod menuline;
 pub mod message;
-pub mod number_input;
 pub mod table;
 
 /// Small helper that provides a trigger for mouse double-click.

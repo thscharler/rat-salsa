@@ -10,10 +10,10 @@
 //! * Accepts a display overlay used instead of the default chars of the input mask.
 //!
 
+use crate::number::NumberSymbols;
 use crate::widget::basic::ClearStyle;
 use crate::widget::grapheme;
 use crate::widget::mask_input::core::InputMaskCore;
-use crate::widget::number_input::NumberSymbols;
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
@@ -457,6 +457,8 @@ impl MaskedInputState {
     /// * 0: can enter digit, display as 0  
     /// * 9: can enter digit, display as space
     /// * #: digit, plus or minus sign, display as space
+    /// * '+': sign. display '+' for positive
+    /// * '-': sign. display ' ' for positive
     /// * '.' and ',': decimal and grouping separators
     ///
     /// * H: must enter a hex digit, display as 0
@@ -769,8 +771,8 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
 }
 
 pub mod core {
+    use crate::number::NumberSymbols;
     use crate::widget::grapheme;
-    use crate::widget::number_input::NumberSymbols;
     #[allow(unused_imports)]
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};

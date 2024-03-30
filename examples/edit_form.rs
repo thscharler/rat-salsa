@@ -3,6 +3,7 @@
 
 use crossterm::event::Event;
 use rat_salsa::layout::{layout_edit, EditConstraint};
+use rat_salsa::number::NumberSymbols;
 use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::input::{TextInput, TextInputState, TextInputStyle};
 use rat_salsa::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
@@ -10,7 +11,6 @@ use rat_salsa::widget::menuline::{MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
-use rat_salsa::widget::number_input::NumberSymbols;
 use rat_salsa::{
     check_break, for_focus, run_tui, try_ui, ControlUI, DefaultKeys, Focus, HandleCrossterm,
     HasFocusFlag, RenderFrameWidget, Repaint, RepaintEvent, RunConfig, TaskSender, ThreadPool,

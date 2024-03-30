@@ -5,6 +5,7 @@
 use std::fmt::Debug;
 
 pub mod layout;
+pub mod number;
 pub mod widget;
 
 pub(crate) mod util;

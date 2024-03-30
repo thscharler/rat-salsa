@@ -296,3 +296,12 @@ pub fn is_alphanumeric(s: &str) -> bool {
         false
     }
 }
+
+/// Is the first char alphanumeric?
+pub fn is_ascii_digit(s: &str) -> bool {
+    if let Some(c) = s.chars().next() {
+        c.is_ascii_digit()
+    } else {
+        false
+    }
+}
