@@ -1214,11 +1214,8 @@ pub mod core {
             }
         }
 
-        fn is_valid_char(&self, test_grapheme: &str, dec: char) -> bool {
+        fn is_valid_char(&self, test: char, dec: char) -> bool {
             // todo: does this make any sense?
-            let Some(test) = test_grapheme.chars().next() else {
-                return false;
-            };
             match self {
                 Mask::Digit0(_) => test.is_ascii_digit(),
                 Mask::Digit(_) => test.is_ascii_digit() || test == ' ',
@@ -1237,7 +1234,14 @@ pub mod core {
                 Mask::LetterOrDigit => test.is_alphanumeric(),
                 Mask::LetterDigitSpace => test.is_alphanumeric() || test == ' ',
                 Mask::AnyChar => true,
-                Mask::Separator(g) => g.as_ref() == test_grapheme,
+                Mask::Separator(sep) => {
+                    // todo: don't know better
+                    if let Some(sepc) = sep.chars().next() {
+                        sepc == test
+                    } else {
+                        false
+                    }
+                }
                 Mask::None => false,
             }
         }
@@ -1389,7 +1393,9 @@ pub mod core {
 
                 if matches!(mm.right, Mask::Digit0(_)) {
                     if let Some(vv) = v {
-                        if mm.right.is_valid_char(vv, '.') {
+                        // todo: what to think about this?
+                        let vc = vv.chars().next().unwrap_or('\0');
+                        if mm.right.is_valid_char(vc, '.') {
                             out_vec[out_idx as usize] = vv;
                             out_idx -= 1;
                             v = None;
@@ -1894,9 +1900,9 @@ pub mod core {
             let mut new_cursor = self.cursor;
 
             debug!("// ADVANCE CURSOR {:?}  ", cc);
-            debug!("#[rustfmt::skip]");
-            debug!("let mut b = {};", test_state(self));
-            debug!("b.advance_cursor({:?});", c);
+            // debug!("#[rustfmt::skip]");
+            // debug!("let mut b = {};", test_state(self));
+            // debug!("b.advance_cursor({:?});", c);
 
             loop {
                 let mask = &self.mask[new_cursor];
@@ -1911,7 +1917,7 @@ pub mod core {
                             grapheme::split_mask(&self.value, new_cursor, left.range());
                         // can insert at mask gap?
                         mask0.right.can_drop_first(c0)
-                            && left.right.is_valid_char(cc, self.dec_sep())
+                            && left.right.is_valid_char(c, self.dec_sep())
                     })
                 {
                     break;
@@ -1919,41 +1925,40 @@ pub mod core {
                     && ({
                         let (_b, a) = grapheme::split_at(&self.value, new_cursor);
                         // stop at real digit, that is the first non-droppable grapheme.
-                        !mask.right.can_drop_first(a)
-                            && mask.right.is_valid_char(cc, self.dec_sep())
+                        !mask.right.can_drop_first(a) && mask.right.is_valid_char(c, self.dec_sep())
                     })
                 {
                     break;
                 } else if mask.right == Mask::DecimalSep
-                    && mask.right.is_valid_char(cc, self.dec_sep())
+                    && mask.right.is_valid_char(c, self.dec_sep())
                 {
-                    new_cursor += 1; // todo: can be removed? should be a replace position
+                    //new_cursor += 1; // todo: can be removed? should be a replace position
                     break;
                 } else if mask.right == Mask::GroupingSep {
                     // never stop here
                 } else if matches!(mask.right, Mask::Separator(_))
-                    && mask.right.is_valid_char(cc, self.dec_sep())
+                    && mask.right.is_valid_char(c, self.dec_sep())
                 {
-                    new_cursor += 1; // todo: can be removed? should be a replace position
+                    // new_cursor += 1; // todo: can be removed? should be a replace position
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Digit0(EditDirection::Ltor)
                         | Mask::Digit(EditDirection::Ltor)
                         | Mask::Numeric(EditDirection::Ltor)
-                ) && mask.right.is_valid_char(cc, self.dec_sep())
+                ) && mask.right.is_valid_char(c, self.dec_sep())
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Hex0 | Mask::Hex | Mask::Dec0 | Mask::Dec | Mask::Oct0 | Mask::Oct
-                ) && mask.right.is_valid_char(cc, self.dec_sep())
+                ) && mask.right.is_valid_char(c, self.dec_sep())
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Letter | Mask::LetterOrDigit | Mask::LetterDigitSpace | Mask::AnyChar
-                ) && mask.right.is_valid_char(cc, self.dec_sep())
+                ) && mask.right.is_valid_char(c, self.dec_sep())
                 {
                     break;
                 } else if mask.right == Mask::None {
@@ -1969,9 +1974,9 @@ pub mod core {
             self.anchor = self.cursor;
             self.fix_offset();
 
-            debug!("#[rustfmt::skip]");
-            debug!("let a = {};", test_state(self));
-            debug!("assert_eq_core(&b,&a);");
+            // debug!("#[rustfmt::skip]");
+            // debug!("let a = {};", test_state(self));
+            // debug!("assert_eq_core(&b,&a);");
         }
 
         /// Insert the char if it matches the cursor mask and the current
@@ -1980,164 +1985,206 @@ pub mod core {
         /// `advance_cursor()` must be called before for correct functionality.
         /// Otherwise: your mileage might vary.
         pub fn insert_char(&mut self, c: char) {
-            let buf = String::from(c);
-            let cc = buf.as_str();
+            let mask = &self.mask[self.cursor];
+            debug!("// INSERT CHAR {:?} {:?}", mask, c);
+            // debug!("#[rustfmt::skip]");
+            // debug!("let mut b = {};", test_state(self));
+            // debug!("b.insert_char({:?});", c);
 
-            let mut mask = &self.mask[self.cursor];
-
-            debug!("// INSERT CHAR {:?} {:?}", mask, cc);
-            debug!("#[rustfmt::skip]");
-            debug!("let mut b = {};", test_state(self));
-            debug!("b.insert_char({:?});", c);
-
-            if mask.right.is_number() && (c == self.neg_sym() || c == self.pos_sym()) {
-                'f: {
-                    for i in mask.nr_range() {
-                        match &self.mask[i] {
-                            MaskToken {
-                                right: Mask::Plus | Mask::Minus,
-                                ..
-                            } => {
-                                let (b, c0, a) = grapheme::split3(&self.value(), i..i + 1);
-                                let repl = if c0 == "-" {
-                                    " "
-                                } else if c0 == " " && c == self.neg_sym() {
-                                    "-"
-                                } else {
-                                    c0
-                                };
-
-                                let mut buf = String::new();
-                                buf.push_str(b);
-                                buf.push_str(repl);
-                                buf.push_str(a);
-                                debug_assert_eq!(buf.len(), self.value.len());
-                                self.value = buf;
-
-                                // todo: probably no remap necessary?
-
-                                break 'f;
-                            }
-                            _ => {}
-                        }
-                    } // else
-                    {
-                        let (b, c0, p, c1, a) =
-                            grapheme::split_mask_match(&self.value, "-", mask.nr_range());
-                        if p == "-" {
-                            let mut buf = String::new();
-                            buf.push_str(b);
-                            buf.push_str(c0);
-                            buf.push_str(" ");
-                            buf.push_str(c1);
-                            buf.push_str(a);
-                            debug_assert_eq!(buf.len(), self.value.len());
-                            self.value = buf;
-
-                            // todo: probably no remap necessary?
-
-                            break 'f;
-                        }
-                    } // else
-                    if c == self.neg_sym() {
-                        for i in mask.nr_range() {
-                            let mask = &self.mask[i];
-                            match mask {
-                                MaskToken {
-                                    right: Mask::Numeric(EditDirection::Rtol),
-                                    ..
-                                } => {
-                                    let submask = &self.mask[mask.nr_range()];
-                                    let (b, c0, c1, a) =
-                                        grapheme::split_mask(&self.value(), i, mask.nr_range());
-
-                                    if self.mask[i].right.can_drop_first(c1) {
-                                        let mut mstr = String::new();
-                                        mstr.push_str(c0);
-                                        mstr.push_str("-");
-                                        mstr.push_str(grapheme::drop_first(c1));
-                                        let mmstr = MaskToken::remap_number(submask, &mstr);
-
-                                        let mut buf = String::new();
-                                        buf.push_str(b);
-                                        buf.push_str(mmstr.as_str());
-                                        buf.push_str(a);
-                                        debug_assert_eq!(buf.len(), self.value.len());
-                                        self.value = buf;
-                                    };
-
-                                    break 'f;
-                                }
-                                _ => {}
-                            }
-                        }
+            let mask = &self.mask[self.cursor];
+            if mask.right.is_number() {
+                if c == self.neg_sym() || c == self.pos_sym() {
+                    if self.insert_sign(c) {
+                        return;
                     }
                 }
-            } else if mask.right.is_rtol()
-                || mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none())
-            {
-                // boundary right/left. prefer right, change mask.
-                if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
-                    mask = &self.mask[self.cursor - 1];
+            }
+            let mask = &self.mask[self.cursor];
+            if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
+                if c == self.neg_sym() || c == self.pos_sym() {
+                    if self.insert_sign(c) {
+                        return;
+                    }
                 }
-                let mask0 = &self.mask[mask.sec_start];
-                let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
-
-                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc, self.dec_sep()) {
-                    let mut mstr = String::new();
-                    mstr.push_str(grapheme::drop_first(c0));
-                    mstr.push(mask.right.replace_char(c, self.dec_sep()));
-                    mstr.push_str(c1);
-
-                    let submask = &self.mask[mask.sec_start..mask.sec_end];
-                    let mmstr = MaskToken::remap_number(submask, &mstr);
-
-                    let mut buf = String::new();
-                    buf.push_str(b);
-                    buf.push_str(mmstr.as_str());
-                    buf.push_str(a);
-                    debug_assert_eq!(buf.len(), self.value.len());
-                    self.value = buf;
-                    // cursor stays
+            }
+            let mask = &self.mask[self.cursor];
+            if mask.right.is_rtol() {
+                if self.insert_rtol(c) {
+                    return;
                 }
-            } else if mask.right.is_ltor() {
-                let mask9 = &self.mask[mask.sec_end - 1];
-                let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
-
-                if mask.right.can_overwrite_first(c1)
-                    && mask.right.is_valid_char(cc, self.dec_sep())
-                {
-                    let mut buf = String::new();
-                    buf.push_str(b);
-                    buf.push_str(c0);
-                    buf.push(mask.right.replace_char(c, self.dec_sep()));
-                    buf.push_str(grapheme::drop_first(c1));
-                    buf.push_str(a);
-                    debug_assert_eq!(buf.len(), self.value.len());
-                    self.value = buf;
-
-                    self.cursor += 1;
-                    self.anchor = self.cursor;
-                } else if mask9.right.can_drop_last(c1)
-                    && mask.right.is_valid_char(cc, self.dec_sep())
-                {
-                    let mut buf = String::new();
-                    buf.push_str(b);
-                    buf.push_str(c0);
-                    buf.push(mask.right.replace_char(c, self.dec_sep()));
-                    buf.push_str(grapheme::drop_last(c1));
-                    buf.push_str(a);
-                    debug_assert_eq!(buf.len(), self.value.len());
-                    self.value = buf;
-
-                    self.cursor += 1;
-                    self.anchor = self.cursor;
+            }
+            let mask = &self.mask[self.cursor];
+            if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
+                if self.insert_rtol(c) {
+                    return;
+                }
+            }
+            let mask = &self.mask[self.cursor];
+            if mask.right.is_ltor() {
+                if self.insert_ltor(c) {
+                    return;
                 }
             }
 
-            debug!("#[rustfmt::skip]");
-            debug!("let a = {};", test_state(self));
-            debug!("assert_eq_core(&b,&a);");
+            // debug!("#[rustfmt::skip]");
+            // debug!("let a = {};", test_state(self));
+            // debug!("assert_eq_core(&b,&a);");
+        }
+
+        fn insert_ltor(&mut self, c: char) -> bool {
+            let mask = &self.mask[self.cursor];
+            let mask9 = &self.mask[mask.sec_end - 1];
+            let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
+
+            if mask.right.can_overwrite_first(c1) && mask.right.is_valid_char(c, self.dec_sep()) {
+                let mut buf = String::new();
+                buf.push_str(b);
+                buf.push_str(c0);
+                buf.push(mask.right.replace_char(c, self.dec_sep()));
+                buf.push_str(grapheme::drop_first(c1));
+                buf.push_str(a);
+                debug_assert_eq!(buf.len(), self.value.len());
+                self.value = buf;
+
+                self.cursor += 1;
+                self.anchor = self.cursor;
+
+                return true;
+            }
+            if mask9.right.can_drop_last(c1) && mask.right.is_valid_char(c, self.dec_sep()) {
+                let mut buf = String::new();
+                buf.push_str(b);
+                buf.push_str(c0);
+                buf.push(mask.right.replace_char(c, self.dec_sep()));
+                buf.push_str(grapheme::drop_last(c1));
+                buf.push_str(a);
+                debug_assert_eq!(buf.len(), self.value.len());
+                self.value = buf;
+
+                self.cursor += 1;
+                self.anchor = self.cursor;
+
+                return true;
+            }
+
+            return false;
+        }
+
+        fn insert_rtol(&mut self, c: char) -> bool {
+            let mut mask = &self.mask[self.cursor];
+            // boundary right/left. prefer right, change mask.
+            if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
+                mask = &self.mask[self.cursor - 1];
+            }
+            let mask0 = &self.mask[mask.sec_start];
+            let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
+
+            if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(c, self.dec_sep()) {
+                let mut mstr = String::new();
+                mstr.push_str(grapheme::drop_first(c0));
+                mstr.push(mask.right.replace_char(c, self.dec_sep()));
+                mstr.push_str(c1);
+
+                let submask = &self.mask[mask.sec_start..mask.sec_end];
+                let mmstr = MaskToken::remap_number(submask, &mstr);
+
+                let mut buf = String::new();
+                buf.push_str(b);
+                buf.push_str(mmstr.as_str());
+                buf.push_str(a);
+                debug_assert_eq!(buf.len(), self.value.len());
+                self.value = buf;
+                // cursor stays
+
+                return true;
+            }
+
+            return false;
+        }
+
+        fn insert_sign(&mut self, c: char) -> bool {
+            let mask = &self.mask[self.cursor];
+            for i in mask.nr_range() {
+                match &self.mask[i] {
+                    MaskToken {
+                        right: Mask::Plus | Mask::Minus,
+                        ..
+                    } => {
+                        let (b, c0, a) = grapheme::split3(&self.value(), i..i + 1);
+                        let repl = if c0 == "-" {
+                            " "
+                        } else if c0 == " " && c == self.neg_sym() {
+                            "-"
+                        } else {
+                            c0
+                        };
+
+                        let mut buf = String::new();
+                        buf.push_str(b);
+                        buf.push_str(repl);
+                        buf.push_str(a);
+                        debug_assert_eq!(buf.len(), self.value.len());
+                        self.value = buf;
+
+                        // todo: probably no remap necessary?
+
+                        return true;
+                    }
+                    _ => {}
+                }
+            } // else
+            {
+                let (b, c0, p, c1, a) =
+                    grapheme::split_mask_match(&self.value, "-", mask.nr_range());
+                if p == "-" {
+                    let mut buf = String::new();
+                    buf.push_str(b);
+                    buf.push_str(c0);
+                    buf.push_str(" ");
+                    buf.push_str(c1);
+                    buf.push_str(a);
+                    debug_assert_eq!(buf.len(), self.value.len());
+                    self.value = buf;
+
+                    // todo: probably no remap necessary?
+
+                    return true;
+                }
+            } // else
+            if c == self.neg_sym() {
+                for i in mask.nr_range() {
+                    let mask = &self.mask[i];
+                    match mask {
+                        MaskToken {
+                            right: Mask::Numeric(EditDirection::Rtol),
+                            ..
+                        } => {
+                            let submask = &self.mask[mask.nr_range()];
+                            let (b, c0, c1, a) =
+                                grapheme::split_mask(&self.value(), i, mask.nr_range());
+
+                            if self.mask[i].right.can_drop_first(c1) {
+                                let mut mstr = String::new();
+                                mstr.push_str(c0);
+                                mstr.push_str("-");
+                                mstr.push_str(grapheme::drop_first(c1));
+                                let mmstr = MaskToken::remap_number(submask, &mstr);
+
+                                let mut buf = String::new();
+                                buf.push_str(b);
+                                buf.push_str(mmstr.as_str());
+                                buf.push_str(a);
+                                debug_assert_eq!(buf.len(), self.value.len());
+                                self.value = buf;
+                            };
+
+                            return true;
+                        }
+                        _ => {}
+                    }
+                }
+            }
+            return false;
         }
 
         /// Remove the selection.
@@ -2148,9 +2195,9 @@ pub mod core {
             let mut mask = &self.mask[selection.start];
 
             debug!("// REMOVE SELECTION {:?} {:?}", mask, selection);
-            debug!("#[rustfmt::skip]");
-            debug!("let mut b = {};", test_state(self));
-            debug!("b.remove_selection({:?});", selection);
+            // debug!("#[rustfmt::skip]");
+            // debug!("let mut b = {};", test_state(self));
+            // debug!("b.remove_selection({:?});", selection);
 
             let (a, _, _, _, _) =
                 grapheme::split_remove_mask(self.value.as_str(), selection.clone(), mask.range());
@@ -2204,9 +2251,9 @@ pub mod core {
             self.anchor = self.cursor;
             self.fix_offset();
 
-            debug!("#[rustfmt::skip]");
-            debug!("let a = {};", test_state(self));
-            debug!("assert_eq_core(&b,&a);");
+            // debug!("#[rustfmt::skip]");
+            // debug!("let a = {};", test_state(self));
+            // debug!("assert_eq_core(&b,&a);");
         }
 
         /// Remove the previous char.
@@ -2218,9 +2265,9 @@ pub mod core {
             let left = &self.mask[self.cursor - 1];
 
             debug!("// REMOVE PREV {:?} ", left);
-            debug!("#[rustfmt::skip]");
-            debug!("let mut b = {};", test_state(self));
-            debug!("b.remove_prev();");
+            // debug!("#[rustfmt::skip]");
+            // debug!("let mut b = {};", test_state(self));
+            // debug!("b.remove_prev();");
 
             let (b, c0, _s, c1, a) = grapheme::split_remove_mask(
                 self.value.as_str(),
@@ -2276,9 +2323,9 @@ pub mod core {
             }
             self.fix_offset();
 
-            debug!("#[rustfmt::skip]");
-            debug!("let a = {};", test_state(self));
-            debug!("assert_eq_core(&b,&a);");
+            // debug!("#[rustfmt::skip]");
+            // debug!("let a = {};", test_state(self));
+            // debug!("assert_eq_core(&b,&a);");
         }
 
         /// Remove the next char.
@@ -2290,9 +2337,9 @@ pub mod core {
             let right = &self.mask[self.cursor];
 
             debug!("// REMOVE NEXT {:?} ", right);
-            debug!("#[rustfmt::skip]");
-            debug!("let mut b = {};", test_state(self));
-            debug!("b.remove_next();");
+            // debug!("#[rustfmt::skip]");
+            // debug!("let mut b = {};", test_state(self));
+            // debug!("b.remove_next();");
 
             let (b, c0, _, c1, a) = grapheme::split_remove_mask(
                 self.value.as_str(),
@@ -2341,9 +2388,9 @@ pub mod core {
             }
             self.fix_offset();
 
-            debug!("#[rustfmt::skip]");
-            debug!("let a = {};", test_state(self));
-            debug!("assert_eq_core(&b,&a);");
+            // debug!("#[rustfmt::skip]");
+            // debug!("let a = {};", test_state(self));
+            // debug!("assert_eq_core(&b,&a);");
         }
     }
 
