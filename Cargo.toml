@@ -55,3 +55,5 @@ unicode-segmentation = "1.11"
 [dev-dependencies]
 fern = "0.6"
 humantime = "2.1"
+rand = "0.8.5"
+ryu = "1.0.17"

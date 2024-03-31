@@ -1,9 +1,12 @@
 use crate::grapheme::is_ascii_digit;
 use std::cell::RefCell;
-use std::fmt::{Display, Formatter, Write};
+use std::fmt::{Display, Formatter, Write as FmtWrite};
+use std::io::{Cursor, Write as IoWrite};
 use std::iter::repeat_with;
+use std::mem::size_of;
 use std::rc::Rc;
-use std::{fmt, mem};
+use std::str::from_utf8_unchecked;
+use std::{fmt, mem, ptr};
 use unicode_segmentation::UnicodeSegmentation;
 
 ///
@@ -395,10 +398,10 @@ fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
 /// and exponent is 'e' or 'E'.
 ///
 /// There is a need for a buffer of &str, its length must be at least format.tok.len().
-pub fn map_num<'a, 'b, 'c, W: Write>(
+pub fn map_num<'a: 'd, 'b, 'c, 'd, W: fmt::Write>(
     raw: &'a str,
     format: &'a NumberFormat,
-    buffer: &'b mut [&'a str],
+    buffer: &'b mut [&'d str],
     out: &'c mut W,
 ) -> Result<(), fmt::Error> {
     if buffer.len() < format.tok.len() {
@@ -669,7 +672,7 @@ pub fn fmt_f64<Number: Into<f64>>(
 }
 
 /// Format a f64 according to the format string.
-pub fn fmt_f64_to<W: Write, Number: Into<f64>>(
+pub fn fmt_f64_to<W: fmt::Write, Number: Into<f64>>(
     number: Number,
     format: &str,
     sym: Option<&Rc<NumberSymbols>>,
@@ -690,36 +693,40 @@ pub fn format_f64<Number: Into<f64>>(
 }
 
 /// Format a f64 according to the format.
-pub fn format_f64_to<W: Write, Number: Into<f64>>(
+pub fn format_f64_to<W: fmt::Write, Number: Into<f64>>(
     number: Number,
     format: &NumberFormat,
     out: &mut W,
 ) -> Result<(), fmt::Error> {
     thread_local! {
-        static RAW: RefCell<String> = RefCell::new(String::new());
-        static BUF: RefCell<Vec<*const str>> = RefCell::new(Vec::new());
+        static RAW: RefCell<Cursor<[u8;32]>> = RefCell::new(Cursor::new([0u8;32]));
+        static BUF: RefCell<[*const str;32]> = RefCell::new(["";32]);
     }
 
-    println!("{}", format);
-
     RAW.with_borrow_mut(|raw| {
-        raw.clear();
-        let f64 = number.into();
-        dbg!(f64);
+        raw.set_position(0);
         if format.has_exp {
-            write!(raw, "{:.*e}", format.precision as usize, f64)?;
+            write!(raw, "{:.*e}", format.precision as usize, number.into())
+                .map_err(|_| fmt::Error)?;
         } else {
-            write!(raw, "{:.*}", format.precision as usize, f64)?;
+            write!(raw, "{:.*}", format.precision as usize, number.into())
+                .map_err(|_| fmt::Error)?;
         };
-        dbg!(&raw);
+        let raw_str = unsafe { from_utf8_unchecked(&raw.get_ref()[..raw.position() as usize]) };
 
         BUF.with_borrow_mut(|buf| {
-            let buf: &mut Vec<&str> = unsafe { mem::transmute(buf) };
-            buf.extend(repeat_with(|| "").take(format.tok.len()));
-
-            let r = map_num(raw.as_str(), format, buf.as_mut_slice(), out);
-
-            buf.clear();
+            // Safety:
+            // This transmutes pointers to true static str to the required shorter lifetime
+            // &'d str of map_num. It's initialized with pointers to true static strings,
+            // so any residual values are cleaned up.
+            let buf = unsafe {
+                for i in 0..buf.len() {
+                    buf[i] = "";
+                }
+                assert_eq!(size_of::<*const str>(), size_of::<&str>());
+                mem::transmute(&mut buf[..])
+            };
+            let r = map_num(raw_str, format, buf, out);
 
             r
         })
@@ -739,7 +746,7 @@ pub fn fmt_i64<Number: Into<i64>>(
 }
 
 /// Format an i64 according to the format string.
-pub fn fmt_i64_to<W: Write, Number: Into<i64>>(
+pub fn fmt_i64_to<W: fmt::Write, Number: Into<i64>>(
     number: Number,
     format: &str,
     sym: Option<&Rc<NumberSymbols>>,
@@ -760,24 +767,36 @@ pub fn format_i64<Number: Into<i64>>(
 }
 
 /// Format an i64 according to the format.
-pub fn format_i64_to<W: Write, Number: Into<i64>>(
+pub fn format_i64_to<W: fmt::Write, Number: Into<i64>>(
     number: Number,
     format: &NumberFormat,
     out: &mut W,
 ) -> Result<(), fmt::Error> {
     thread_local! {
-        static RAW: RefCell<String> = RefCell::new(String::new());
-        static BUF: RefCell<Vec<*const str>> = RefCell::new(Vec::new());
+        static RAW: RefCell<Cursor<[u8;32]>> = RefCell::new(Cursor::new([0u8;32]));
+        static BUF: RefCell<[*const str;32]> = RefCell::new(["";32]);
     }
 
     RAW.with_borrow_mut(|raw| {
-        raw.clear();
-        write!(raw, "{}", number.into())?;
-        dbg!(&raw);
+        raw.set_position(0);
+        write!(raw, "{}", number.into()).map_err(|_| fmt::Error)?;
+        let raw_str = unsafe { from_utf8_unchecked(&raw.get_ref()[..raw.position() as usize]) };
 
         BUF.with_borrow_mut(|buf| {
-            let buf: &mut Vec<&str> = unsafe { mem::transmute(buf) };
-            map_num(raw.as_str(), format, buf.as_mut_slice(), out)
+            // Safety:
+            // This transmutes pointers to true static str to the required shorter lifetime
+            // &'d str of map_num. It's initialized with pointers to true static strings,
+            // so any residual values are cleaned up.
+            let buf = unsafe {
+                for i in 0..buf.len() {
+                    buf[i] = "";
+                }
+                assert_eq!(size_of::<*const str>(), size_of::<&str>());
+                mem::transmute(&mut buf[..])
+            };
+            let r = map_num(raw_str, format, buf, out);
+
+            r
         })
     })
 }
