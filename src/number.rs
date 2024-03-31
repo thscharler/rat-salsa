@@ -13,23 +13,23 @@
 //! ```
 //!
 //! The following patterns are recognized:
-//! 0 - digit or 0
-//! 9 - digit or space
-//! # - digit or sign or space
-//! 8 - digit or sign or _empty string_
-//! + - sign; show + for positive
-//! - - sign; show space for positive
-//! . - decimal separator
-//! : - decimal separator, always shown
-//! , - grouping separator
-//! ; - grouping separator, always shown
-//! E - upper case exponent
-//! F - upper case exponent, always shown
-//! e - lower case exponent
-//! f - lower case exponent, always shown
-//! ' ' - space can be used as separator
-//! \ - all ascii characters (ascii 32-128!) are reserved and must be escaped.
-//! _ - other unicode characters can be used without escaping.
+//! * `0` - digit or 0
+//! * `9` - digit or space
+//! * `#` - digit or sign or space
+//! * `8` - digit or sign or _empty string_
+//! * `+` - sign; show + for positive
+//! * `-` - sign; show space for positive
+//! * `.` - decimal separator
+//! * `:` - decimal separator, always shown
+//! * `,` - grouping separator
+//! * `;` - grouping separator, always shown
+//! * `E` - upper case exponent
+//! * `F` - upper case exponent, always shown
+//! * `e` - lower case exponent
+//! * `f` - lower case exponent, always shown
+//! * ` ` - space can be used as separator
+//! * `\` - all ascii characters (ascii 32-128!) are reserved and must be escaped.
+//! * `_` - other unicode characters can be used without escaping.
 //!
 
 use std::cell::RefCell;
