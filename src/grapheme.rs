@@ -145,12 +145,12 @@ pub(crate) fn split_mask_match<'a>(
         .chain(once((value.len(), "")))
         .enumerate()
     {
-        if c == search {
-            byte_find_start = Some(idx);
-            byte_find_end = Some(idx + c.len());
-        }
         if cidx == mask.start {
             byte_mask_start = Some(idx);
+        }
+        if c == search && byte_mask_start.is_some() && byte_mask_end.is_none() {
+            byte_find_start = Some(idx);
+            byte_find_end = Some(idx + c.len());
         }
         if cidx == mask.end {
             byte_mask_end = Some(idx);
