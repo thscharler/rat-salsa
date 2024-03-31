@@ -30,10 +30,8 @@ fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
     let sym = Rc::new(NumberSymbols {
-        decimal_sep: ",".to_string(),
-        decimal_grp: ".".to_string(),
-        exponent_upper_sym: "E".to_string(),
-        exponent_lower_sym: "e".to_string(),
+        decimal_sep: ',',
+        decimal_grp: '.',
         ..Default::default()
     });
 

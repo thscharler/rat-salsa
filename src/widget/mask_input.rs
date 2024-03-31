@@ -1164,21 +1164,21 @@ pub mod core {
             }
         }
 
-        fn replace_char<'a>(&self, test_grapheme: &'a str, dec: &'a str) -> &'a str {
+        fn replace_char(&self, test: char, dec: char) -> char {
             // todo: does this make any sense?
             match self {
                 Mask::DecimalSep => {
-                    if test_grapheme == dec {
-                        "."
+                    if test == dec {
+                        '.'
                     } else {
-                        test_grapheme
+                        test
                     }
                 }
-                _ => test_grapheme,
+                _ => test,
             }
         }
 
-        fn is_valid_char(&self, test_grapheme: &str, dec: &str) -> bool {
+        fn is_valid_char(&self, test_grapheme: &str, dec: char) -> bool {
             // todo: does this make any sense?
             let Some(test) = test_grapheme.chars().next() else {
                 return false;
@@ -1187,7 +1187,7 @@ pub mod core {
                 Mask::Digit0(_) => test.is_ascii_digit(),
                 Mask::Digit(_) => test.is_ascii_digit() || test == ' ',
                 Mask::Numeric(_) => test.is_ascii_digit() || test == ' ' || test == '-',
-                Mask::DecimalSep => test_grapheme == dec,
+                Mask::DecimalSep => test == dec,
                 Mask::GroupingSep => false,
                 Mask::Plus => test == '+' || test == '-',
                 Mask::Minus => test == ' ' || test == '-',
@@ -1353,7 +1353,7 @@ pub mod core {
 
                 if matches!(mm.right, Mask::Digit0(_)) {
                     if let Some(vv) = v {
-                        if mm.right.is_valid_char(vv, ".") {
+                        if mm.right.is_valid_char(vv, '.') {
                             out_vec[out_idx as usize] = vv;
                             out_idx -= 1;
                             v = None;
@@ -1602,35 +1602,35 @@ pub mod core {
             self.sym = Some(Rc::clone(sym));
         }
 
-        fn dec_sep(&self) -> &str {
+        fn dec_sep(&self) -> char {
             if let Some(sym) = &self.sym {
-                &sym.decimal_sep
+                sym.decimal_sep
             } else {
-                "."
+                '.'
             }
         }
 
-        fn grp_sep(&self) -> &str {
+        fn grp_sep(&self) -> char {
             if let Some(sym) = &self.sym {
-                &sym.decimal_grp
+                sym.decimal_grp
             } else {
-                ","
+                ','
             }
         }
 
-        fn neg_sym(&self) -> &str {
+        fn neg_sym(&self) -> char {
             if let Some(sym) = &self.sym {
-                &sym.negative_sym
+                sym.negative_sym
             } else {
-                "-"
+                '-'
             }
         }
 
-        fn pos_sym(&self) -> &str {
+        fn pos_sym(&self) -> char {
             if let Some(sym) = &self.sym {
-                &sym.positive_sym
+                sym.positive_sym
             } else {
-                "-"
+                '-'
             }
         }
 
@@ -1769,44 +1769,41 @@ pub mod core {
 
                 if sec == empty {
                     for t in sec_mask {
-                        let o = if t.right == Mask::GroupingSep {
-                            " "
+                        if t.right == Mask::GroupingSep {
+                            rendered.push(' ');
                         } else if t.right == Mask::DecimalSep {
-                            self.dec_sep()
-                            // todo plus and minus? maybe
+                            rendered.push(self.dec_sep());
                         } else {
-                            t.display.as_ref()
+                            rendered.push_str(t.display.as_ref());
                         };
-                        rendered.push_str(o);
                     }
                 } else {
                     for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
-                        let o = if t.right == Mask::GroupingSep {
+                        if t.right == Mask::GroupingSep {
                             if s == "," {
-                                self.grp_sep()
+                                rendered.push(self.grp_sep());
                             } else if s == "-" {
-                                self.neg_sym()
+                                rendered.push(self.neg_sym());
                             } else if s == "+" {
-                                self.pos_sym()
+                                rendered.push(self.pos_sym());
                             } else {
-                                " "
+                                rendered.push(' ');
                             }
                         } else if t.right == Mask::DecimalSep {
                             if s == "." {
-                                self.dec_sep()
+                                rendered.push(self.dec_sep());
                             } else {
-                                " "
+                                rendered.push(' ');
                             }
                         } else {
                             if s == "-" {
-                                self.neg_sym()
+                                rendered.push(self.neg_sym());
                             } else if s == "+" {
-                                self.pos_sym()
+                                rendered.push(self.pos_sym());
                             } else {
-                                s
+                                rendered.push_str(s);
                             }
                         };
-                        rendered.push_str(o);
                     }
                 }
 
@@ -1873,7 +1870,7 @@ pub mod core {
                             grapheme::split_mask(&self.value, new_cursor, left.range());
                         // can insert at mask gap?
                         mask0.right.can_drop_first(c0)
-                            && left.right.is_valid_char(cc, &self.dec_sep())
+                            && left.right.is_valid_char(cc, self.dec_sep())
                     })
                 {
                     break;
@@ -1882,19 +1879,19 @@ pub mod core {
                         let (_b, a) = grapheme::split_at(&self.value, new_cursor);
                         // stop at real digit, that is the first non-droppable grapheme.
                         !mask.right.can_drop_first(a)
-                            && mask.right.is_valid_char(cc, &self.dec_sep())
+                            && mask.right.is_valid_char(cc, self.dec_sep())
                     })
                 {
                     break;
                 } else if mask.right == Mask::DecimalSep
-                    && mask.right.is_valid_char(cc, &self.dec_sep())
+                    && mask.right.is_valid_char(cc, self.dec_sep())
                 {
                     new_cursor += 1; // todo: can be removed? should be a replace position
                     break;
                 } else if mask.right == Mask::GroupingSep {
                     // never stop here
                 } else if matches!(mask.right, Mask::Separator(_))
-                    && mask.right.is_valid_char(cc, &self.dec_sep())
+                    && mask.right.is_valid_char(cc, self.dec_sep())
                 {
                     new_cursor += 1; // todo: can be removed? should be a replace position
                     break;
@@ -1903,19 +1900,19 @@ pub mod core {
                     Mask::Digit0(EditDirection::Ltor)
                         | Mask::Digit(EditDirection::Ltor)
                         | Mask::Numeric(EditDirection::Ltor)
-                ) && mask.right.is_valid_char(cc, &self.dec_sep())
+                ) && mask.right.is_valid_char(cc, self.dec_sep())
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Hex0 | Mask::Hex | Mask::Dec0 | Mask::Dec | Mask::Oct0 | Mask::Oct
-                ) && mask.right.is_valid_char(cc, &self.dec_sep())
+                ) && mask.right.is_valid_char(cc, self.dec_sep())
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Letter | Mask::LetterOrDigit | Mask::LetterDigitSpace | Mask::AnyChar
-                ) && mask.right.is_valid_char(cc, &self.dec_sep())
+                ) && mask.right.is_valid_char(cc, self.dec_sep())
                 {
                     break;
                 } else if mask.right == Mask::None {
@@ -1951,7 +1948,7 @@ pub mod core {
             debug!("let mut b = {};", test_state(self));
             debug!("b.insert_char({:?});", c);
 
-            if mask.right.is_number() && (cc == self.neg_sym() || cc == self.pos_sym()) {
+            if mask.right.is_number() && (c == self.neg_sym() || c == self.pos_sym()) {
                 'f: {
                     for i in mask.nr_range() {
                         match &self.mask[i] {
@@ -1962,7 +1959,7 @@ pub mod core {
                                 let (b, c0, a) = grapheme::split3(&self.value(), i..i + 1);
                                 let repl = if c0 == "-" {
                                     " "
-                                } else if c0 == " " && cc == self.neg_sym() {
+                                } else if c0 == " " && c == self.neg_sym() {
                                     "-"
                                 } else {
                                     c0
@@ -2000,7 +1997,7 @@ pub mod core {
                             break 'f;
                         }
                     } // else
-                    if cc == self.neg_sym() {
+                    if c == self.neg_sym() {
                         for i in mask.nr_range() {
                             let mask = &self.mask[i];
                             match mask {
@@ -2044,10 +2041,10 @@ pub mod core {
                 let mask0 = &self.mask[mask.sec_start];
                 let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
 
-                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc, &self.dec_sep()) {
+                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc, self.dec_sep()) {
                     let mut mstr = String::new();
                     mstr.push_str(grapheme::drop_first(c0));
-                    mstr.push_str(mask.right.replace_char(cc, &self.dec_sep()));
+                    mstr.push(mask.right.replace_char(c, self.dec_sep()));
                     mstr.push_str(c1);
 
                     let submask = &self.mask[mask.sec_start..mask.sec_end];
@@ -2066,12 +2063,12 @@ pub mod core {
                 let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
 
                 if mask.right.can_overwrite_first(c1)
-                    && mask.right.is_valid_char(cc, &self.dec_sep())
+                    && mask.right.is_valid_char(cc, self.dec_sep())
                 {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
-                    buf.push_str(mask.right.replace_char(cc, &self.dec_sep()));
+                    buf.push(mask.right.replace_char(c, self.dec_sep()));
                     buf.push_str(grapheme::drop_first(c1));
                     buf.push_str(a);
                     debug_assert_eq!(buf.len(), self.value.len());
@@ -2080,12 +2077,12 @@ pub mod core {
                     self.cursor += 1;
                     self.anchor = self.cursor;
                 } else if mask9.right.can_drop_last(c1)
-                    && mask.right.is_valid_char(cc, &self.dec_sep())
+                    && mask.right.is_valid_char(cc, self.dec_sep())
                 {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
-                    buf.push_str(mask.right.replace_char(cc, &self.dec_sep()));
+                    buf.push(mask.right.replace_char(c, self.dec_sep()));
                     buf.push_str(grapheme::drop_last(c1));
                     buf.push_str(a);
                     debug_assert_eq!(buf.len(), self.value.len());
@@ -2446,7 +2443,7 @@ pub mod core {
         if let Some(sym) = &m.sym {
             _ = write!(
                 buf,
-                "Some(\"{}|{}|{}|{}|{}|{}\")",
+                "Some(\"{}{}{}{}{}{}\")",
                 sym.decimal_sep,
                 sym.decimal_grp,
                 sym.negative_sym,
@@ -2497,14 +2494,14 @@ pub mod core {
     }
 
     pub fn parse_number_symbols(s: &str) -> Rc<NumberSymbols> {
-        let mut s = s.split('|');
+        let mut s = s.chars();
         Rc::new(NumberSymbols {
-            decimal_sep: s.next().expect("decimal_sep").to_string(),
-            decimal_grp: s.next().expect("decimal_grp").to_string(),
-            negative_sym: s.next().expect("negative_sym").to_string(),
-            positive_sym: s.next().expect("positive_sym").to_string(),
-            exponent_upper_sym: s.next().expect("exponent_upper_sym").to_string(),
-            exponent_lower_sym: s.next().expect("exponent_lower_sym").to_string(),
+            decimal_sep: s.next().expect("decimal_sep"),
+            decimal_grp: s.next().expect("decimal_grp"),
+            negative_sym: s.next().expect("negative_sym"),
+            positive_sym: s.next().expect("positive_sym"),
+            exponent_upper_sym: s.next().expect("exponent_upper_sym"),
+            exponent_lower_sym: s.next().expect("exponent_lower_sym"),
         })
     }
 }

@@ -1,5 +1,3 @@
-use rat_salsa::widget::mask_input::core::EditDirection::*;
-use rat_salsa::widget::mask_input::core::Mask::*;
 use rat_salsa::widget::mask_input::core::{assert_eq_core, test_input_mask_core};
 
 #[test]
@@ -800,7 +798,7 @@ fn test_num73() {
         let mut b = test_input_mask_core("#,###,##0.00", "   13,579.00", "   13.579,00", 12, 0, 20, 9, 9,Some(",|.|-|+|E|e"));
     b.insert_char('-');
     #[rustfmt::skip]
-        let a = test_input_mask_core("#,###,##0.00", "-  13,579.00", "   13.579,00", 12, 0, 20, 9, 9,Some(",|.|-|+|E|e"));
+        let a = test_input_mask_core("#,###,##0.00", "  -13,579.00", "   13.579,00", 12, 0, 20, 9, 9,Some(",|.|-|+|E|e"));
     assert_eq_core(&b, &a);
     // ADVANCE CURSOR "-"
     #[rustfmt::skip]
@@ -828,7 +826,7 @@ fn test_num73() {
         let mut b = test_input_mask_core("#,###,##0.00", "   13,579.00", "   13.579,00", 12, 0, 20, 9, 9,Some(",|.|-|+|E|e"));
     b.insert_char('-');
     #[rustfmt::skip]
-        let a = test_input_mask_core("#,###,##0.00", "-  13,579.00", "   13.579,00", 12, 0, 20, 9, 9,Some(",|.|-|+|E|e"));
+        let a = test_input_mask_core("#,###,##0.00", "  -13,579.00", "   13.579,00", 12, 0, 20, 9, 9,Some(",|.|-|+|E|e"));
     assert_eq_core(&b, &a);
     // ADVANCE CURSOR "-"
     #[rustfmt::skip]
