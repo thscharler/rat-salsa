@@ -1388,6 +1388,32 @@ pub mod core {
                         }
                     }
                     m = None;
+                } else if matches!(mm.right, Mask::Minus) {
+                    if let Some(vv) = v {
+                        if vv == "-" {
+                            out_vec[out_idx as usize] = vv;
+                            out_idx -= 1;
+                            v = None;
+                        } else {
+                            out_vec[out_idx as usize] = " ";
+                            out_idx -= 1;
+                            // keep v
+                        }
+                    }
+                    m = None;
+                } else if matches!(mm.right, Mask::Plus) {
+                    if let Some(vv) = v {
+                        if vv == "-" {
+                            out_vec[out_idx as usize] = vv;
+                            out_idx -= 1;
+                            v = None;
+                        } else {
+                            out_vec[out_idx as usize] = "+";
+                            out_idx -= 1;
+                            // keep v
+                        }
+                    }
+                    m = None;
                 } else {
                     unreachable!()
                 }
