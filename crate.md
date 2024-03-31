@@ -111,14 +111,3 @@ but the basic concept can easily be copied for other types.
 [TuiApp] doesn't use this trait, it's just for widgets.
 
 
-
-## Allegory
-
-What I learned when I dug into this rats nest:
-
-Mutability is best kept in a cell. Ref-Muts (&mut) have to be carefully population 
-controlled, otherwise they mutate into their cousins Rc<RefCell> or the even more 
-feared Arc<Mutex>. There have been spottings of pure RefCell too, but mostly they
-die young. They don't do well when let out of their enclosed environment (Fn()).
-
-Refs (&) are not so bad, except for the ticks.
