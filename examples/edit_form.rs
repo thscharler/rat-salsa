@@ -2,6 +2,7 @@
 #![allow(clippy::needless_update)]
 
 use crossterm::event::Event;
+use log::debug;
 use rat_salsa::layout::{layout_edit, EditConstraint};
 use rat_salsa::number::NumberSymbols;
 use rat_salsa::widget::button::ButtonStyle;
@@ -12,9 +13,9 @@ use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
 use rat_salsa::{
-    check_break, for_focus, run_tui, try_ui, ControlUI, DefaultKeys, Focus, HandleCrossterm,
-    HasFocusFlag, RenderFrameWidget, Repaint, RepaintEvent, RunConfig, TaskSender, ThreadPool,
-    TimerEvent, Timers, TuiApp,
+    check_break, for_focus, on_lost, run_tui, try_ui, ControlUI, DefaultKeys, Focus,
+    HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
+    RunConfig, TaskSender, ThreadPool, TimerEvent, Timers, TuiApp,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
@@ -303,19 +304,35 @@ fn repaint_mask0(
     // TODO: repaint_mask
     let l_columns = Layout::new(
         Direction::Horizontal,
-        [Constraint::Length(33), Constraint::Length(33)],
+        [
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+        ],
     )
     .split(layout.area);
 
-    let l = layout_edit(
+    let l0 = layout_edit(
         l_columns[0],
-        [
+        &[
+            EditConstraint::TitleLabelRows(2),
+            EditConstraint::Empty,
             EditConstraint::Label("Text"),
             EditConstraint::Widget(20),
             EditConstraint::Label("Integer"),
             EditConstraint::Widget(12),
             EditConstraint::Label("Float"),
             EditConstraint::Widget(12),
+        ],
+    );
+    let mut l0 = l0.iter();
+
+    let l2 = layout_edit(
+        l_columns[2],
+        &[
+            EditConstraint::TitleLabelRows(2),
+            EditConstraint::Empty,
             EditConstraint::Label("IPv4"),
             EditConstraint::Widget(16),
             EditConstraint::Label("Color"),
@@ -334,6 +351,8 @@ fn repaint_mask0(
             EditConstraint::Widget(20),
         ],
     );
+    debug!("{:#?}", l2);
+    let mut l2 = l2.iter();
 
     let w_text = TextInput::default().style(uistate.g.theme.input_style());
     let w_decimal = TextInput::default().style(uistate.g.theme.input_style());
@@ -348,28 +367,31 @@ fn repaint_mask0(
     let w_euro = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_exp = MaskedInput::default().style(uistate.g.theme.input_mask_style());
 
-    frame.render_widget(Span::from("Text"), l.label[0]);
-    frame.render_frame_widget(w_text, l.widget[0], &mut uistate.mask0.text);
-    frame.render_widget(Span::from("Integer"), l.label[1]);
-    frame.render_frame_widget(w_decimal, l.widget[1], &mut uistate.mask0.decimal);
-    frame.render_widget(Span::from("Float"), l.label[2]);
-    frame.render_frame_widget(w_float, l.widget[2], &mut uistate.mask0.float);
-    frame.render_widget(Span::from("IPv4"), l.label[3]);
-    frame.render_frame_widget(w_ipv4, l.widget[3], &mut uistate.mask0.ipv4);
-    frame.render_widget(Span::from("Color"), l.label[4]);
-    frame.render_frame_widget(w_color, l.widget[4], &mut uistate.mask0.hexcolor);
-    frame.render_widget(Span::from("Credit card"), l.label[5]);
-    frame.render_frame_widget(w_creditcard, l.widget[5], &mut uistate.mask0.creditcard);
-    frame.render_widget(Span::from("Date"), l.label[6]);
-    frame.render_frame_widget(w_date, l.widget[6], &mut uistate.mask0.date);
-    frame.render_widget(Span::from("Name"), l.label[7]);
-    frame.render_frame_widget(w_name, l.widget[7], &mut uistate.mask0.alpha);
-    frame.render_widget(Span::from("Decimal 7.2"), l.label[8]);
-    frame.render_frame_widget(w_dec_7_2, l.widget[8], &mut uistate.mask0.dec7_2);
-    frame.render_widget(Span::from("Euro"), l.label[9]);
-    frame.render_frame_widget(w_euro, l.widget[9], &mut uistate.mask0.euro);
-    frame.render_widget(Span::from("Exp"), l.label[10]);
-    frame.render_frame_widget(w_exp, l.widget[10], &mut uistate.mask0.exp);
+    frame.render_widget(Span::from("Plain text input").underlined(), l0.label());
+    frame.render_widget(Span::from("Text"), l0.label());
+    frame.render_frame_widget(w_text, l0.widget(), &mut uistate.mask0.text);
+    frame.render_widget(Span::from("Integer"), l0.label());
+    frame.render_frame_widget(w_decimal, l0.widget(), &mut uistate.mask0.decimal);
+    frame.render_widget(Span::from("Float"), l0.label());
+    frame.render_frame_widget(w_float, l0.widget(), &mut uistate.mask0.float);
+
+    frame.render_widget(Span::from("Masked text input").underlined(), l2.label());
+    frame.render_widget(Span::from("IPv4"), l2.label());
+    frame.render_frame_widget(w_ipv4, l2.widget(), &mut uistate.mask0.ipv4);
+    frame.render_widget(Span::from("Color"), l2.label());
+    frame.render_frame_widget(w_color, l2.widget(), &mut uistate.mask0.hexcolor);
+    frame.render_widget(Span::from("Credit card"), l2.label());
+    frame.render_frame_widget(w_creditcard, l2.widget(), &mut uistate.mask0.creditcard);
+    frame.render_widget(Span::from("Date"), l2.label());
+    frame.render_frame_widget(w_date, l2.widget(), &mut uistate.mask0.date);
+    frame.render_widget(Span::from("Name"), l2.label());
+    frame.render_frame_widget(w_name, l2.widget(), &mut uistate.mask0.alpha);
+    frame.render_widget(Span::from("Decimal 7.2"), l2.label());
+    frame.render_frame_widget(w_dec_7_2, l2.widget(), &mut uistate.mask0.dec7_2);
+    frame.render_widget(Span::from("Euro"), l2.label());
+    frame.render_frame_widget(w_euro, l2.widget(), &mut uistate.mask0.euro);
+    frame.render_widget(Span::from("Exp"), l2.label());
+    frame.render_frame_widget(w_exp, l2.widget(), &mut uistate.mask0.exp);
 
     let r = for_focus!(
         uistate.mask0.ipv4 => &uistate.mask0.ipv4,
@@ -382,8 +404,19 @@ fn repaint_mask0(
         uistate.mask0.exp => &uistate.mask0.exp
     );
     if let Some(r) = r {
-        let mut area = l_columns[1];
-        area.height = 1;
+        let mut ec = Vec::new();
+        for _ in 0..r.value.tokens().len() {
+            ec.push(EditConstraint::TitleLabel);
+        }
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+
+        let l3 = layout_edit(l_columns[3], &ec);
+        let mut l3 = l3.iter();
 
         for (i, t) in r.value.tokens().iter().enumerate() {
             let mut w_info = Span::from(format!(
@@ -393,25 +426,25 @@ fn repaint_mask0(
             if i == r.cursor() {
                 w_info = w_info.on_cyan();
             }
-            frame.render_widget(w_info, area);
-            area.y += 1;
+            frame.render_widget(w_info, l3.label());
         }
-        frame.render_widget(Span::from(format!("value={}", r.value())), area);
-        area.y += 1;
-        frame.render_widget(Span::from(format!("compact={}", r.compact_value())), area);
-        area.y += 1;
+        frame.render_widget(Span::from(format!("value={}", r.value())), l3.label());
+        frame.render_widget(
+            Span::from(format!("compact={}", r.compact_value())),
+            l3.label(),
+        );
         frame.render_widget(
             Span::from(format!(
                 "parse={:?}",
                 r.compact_value().as_str().parse::<f64>()
             )),
-            area,
+            l3.label(),
         );
-        area.y += 1;
-        frame.render_widget(Span::from(format!("mask={}", r.mask())), area);
-        area.y += 1;
-        frame.render_widget(Span::from(format!("display={}", r.display_mask())), area);
-        area.y += 1;
+        frame.render_widget(Span::from(format!("mask={}", r.mask())), l3.label());
+        frame.render_widget(
+            Span::from(format!("display={}", r.display_mask())),
+            l3.label(),
+        );
         frame.render_widget(
             Span::from(format!(
                 "{}:{} {} {}:{}",
@@ -421,7 +454,7 @@ fn repaint_mask0(
                 r.selection().start,
                 r.selection().end
             )),
-            area,
+            l3.label(),
         );
     }
 
@@ -455,6 +488,21 @@ fn handle_mask0(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     focus0(mask0)
         .handle(event, DefaultKeys)
         .and_do(|_| uistate.g.repaint.set());
+
+    on_lost!(
+        mask0.decimal => {
+            let v = mask0.decimal.value().parse::<i64>();
+            if let Some(v) = mask0.decimal.set_valid_from(v) {
+                mask0.decimal.set_value(format!("{}", v));
+            }
+        },
+        mask0.float => {
+            let v = mask0.float.value().parse::<f64>();
+            if let Some(v) = mask0.float.set_valid_from(v) {
+                mask0.float.set_value(format!("{}", v));
+            }
+        }
+    );
 
     // TODO: handle_mask
     check_break!(mask0.text.handle(event, DefaultKeys));
