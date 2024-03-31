@@ -712,6 +712,8 @@ pub fn format_f64_to<W: fmt::Write, Number: Into<f64>>(
             write!(raw, "{:.*}", format.precision as usize, number.into())
                 .map_err(|_| fmt::Error)?;
         };
+        // Safety:
+        // Output is ascii.
         let raw_str = unsafe { from_utf8_unchecked(&raw.get_ref()[..raw.position() as usize]) };
 
         BUF.with_borrow_mut(|buf| {
@@ -780,6 +782,8 @@ pub fn format_i64_to<W: fmt::Write, Number: Into<i64>>(
     RAW.with_borrow_mut(|raw| {
         raw.set_position(0);
         write!(raw, "{}", number.into()).map_err(|_| fmt::Error)?;
+        // Safety:
+        // Output is ascii.
         let raw_str = unsafe { from_utf8_unchecked(&raw.get_ref()[..raw.position() as usize]) };
 
         BUF.with_borrow_mut(|buf| {
