@@ -1321,7 +1321,7 @@ pub mod core {
                 let Some(test) = c.chars().next() else {
                     unreachable!();
                 };
-                if test.is_ascii_digit() || test == '-' {
+                if test.is_ascii_digit() || test == '-' || test == '.' {
                     if seen_non_0 || c != "0" {
                         clean.push_str(c);
                     }
@@ -1375,6 +1375,13 @@ pub mod core {
                         v = None;
                     }
                     m = None;
+                } else if matches!(mm.right, Mask::DecimalSep) {
+                    if let Some(vv) = v {
+                        out_vec[out_idx as usize] = vv;
+                        out_idx -= 1;
+                        v = None;
+                    }
+                    m = None;
                 } else if matches!(mm.right, Mask::GroupingSep) {
                     if let Some(vv) = v {
                         if vv == "-" {
@@ -1415,7 +1422,7 @@ pub mod core {
                     }
                     m = None;
                 } else {
-                    unreachable!()
+                    unreachable!("{:?}", mm.right);
                 }
             }
 
