@@ -1608,6 +1608,10 @@ pub mod core {
                 self.anchor = self.cursor;
             }
 
+            self.fix_offset();
+        }
+
+        fn fix_offset(&mut self) {
             if self.offset > self.cursor {
                 self.offset = self.cursor;
             } else if self.offset + self.width < self.cursor {
@@ -1627,6 +1631,7 @@ pub mod core {
                 }
                 self.cursor = 0;
                 self.anchor = 0;
+                self.fix_offset();
             }
         }
 
@@ -1962,6 +1967,7 @@ pub mod core {
             // debug!("CURSOR {} => {}", self.cursor, new_cursor);
             self.cursor = new_cursor;
             self.anchor = self.cursor;
+            self.fix_offset();
 
             debug!("#[rustfmt::skip]");
             debug!("let a = {};", test_state(self));
@@ -2196,6 +2202,7 @@ pub mod core {
 
             self.cursor = selection.start;
             self.anchor = self.cursor;
+            self.fix_offset();
 
             debug!("#[rustfmt::skip]");
             debug!("let a = {};", test_state(self));
@@ -2267,6 +2274,7 @@ pub mod core {
                 self.cursor -= 1;
                 self.anchor = self.cursor;
             }
+            self.fix_offset();
 
             debug!("#[rustfmt::skip]");
             debug!("let a = {};", test_state(self));
@@ -2331,6 +2339,7 @@ pub mod core {
             } else if right.right.is_ltor() {
                 // cursor stays
             }
+            self.fix_offset();
 
             debug!("#[rustfmt::skip]");
             debug!("let a = {};", test_state(self));
