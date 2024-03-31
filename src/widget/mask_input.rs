@@ -6,9 +6,44 @@
 //! * Can set the cursor or use its own block cursor.
 //! * Can show an indicator for invalid input.
 //!
-//! * Accepts an input mask
+//! * Accepts an input mask:
+//!   * `0`: can enter digit, display as 0  
+//!   * `9`: can enter digit, display as space
+//!   * `#`: digit, plus or minus sign, display as space
+//!   * `+`: sign. display '+' for positive
+//!   * `-`: sign. display ' ' for positive
+//!   * `.` and `,`: decimal and grouping separators
+//!
+//!   * `H`: must enter a hex digit, display as 0
+//!   * `h`: can enter a hex digit, display as space
+//!   * `O`: must enter an octal digit, display as 0
+//!   * `o`: can enter an octal digit, display as space
+//!   * `D`: must enter a decimal digit, display as 0
+//!   * `d`: can enter a decimal digit, display as space
+//!
+//!   * `l`: can enter letter, display as space
+//!   * `a`: can enter letter or digit, display as space
+//!   * `c`: can enter character or space, display as space
+//!   * `_`: anything, display as space
+//!
+//!   * `:` `;` `-` `/`: separator characters move the cursor when entered.
+//!   * `\`: escapes the following character and uses it as a separator.
+//!   * all other ascii characters a reserved.
+//!   * other unicode characters can be used as separators without escaping.
+//!
 //! * Accepts a display overlay used instead of the default chars of the input mask.
 //!
+//! ```
+//! use rat_salsa::widget::mask_input::MaskedInputState;
+//!
+//! let mut date_state = MaskedInputState::new();
+//! date_state.set_mask("99/99/9999");
+//! date_state.set_display_mask("mm/dd/yyyy");
+//!
+//! let mut creditcard_state = MaskedInputState::new();
+//! creditcard_state.set_mask("dddd dddd dddd dddd");
+//!
+//! ```
 
 use crate::grapheme;
 use crate::number::NumberSymbols;
@@ -218,6 +253,7 @@ impl FrameWidget for MaskedInput {
     }
 }
 
+/// State of the input-mask.
 #[derive(Debug, Clone, Default)]
 pub struct MaskedInputState {
     /// Focus
@@ -454,28 +490,28 @@ impl MaskedInputState {
     /// The result value contains all punctuation and
     /// the value given as 'display' below. See [compact_value()](MaskedInputState::compact_value).
     ///
-    /// * 0: can enter digit, display as 0  
-    /// * 9: can enter digit, display as space
-    /// * #: digit, plus or minus sign, display as space
-    /// * '+': sign. display '+' for positive
-    /// * '-': sign. display ' ' for positive
-    /// * '.' and ',': decimal and grouping separators
+    /// * `0`: can enter digit, display as 0  
+    /// * `9`: can enter digit, display as space
+    /// * `#`: digit, plus or minus sign, display as space
+    /// * `+`: sign. display '+' for positive
+    /// * `-`: sign. display ' ' for positive
+    /// * `.` and `,`: decimal and grouping separators
     ///
-    /// * H: must enter a hex digit, display as 0
-    /// * h: can enter a hex digit, display as space
-    /// * O: must enter an octal digit, display as 0
-    /// * o: can enter an octal digit, display as space
-    /// * D: must enter a decimal digit, display as 0
-    /// * d: can enter a decimal digit, display as space
+    /// * `H`: must enter a hex digit, display as 0
+    /// * `h`: can enter a hex digit, display as space
+    /// * `O`: must enter an octal digit, display as 0
+    /// * `o`: can enter an octal digit, display as space
+    /// * `D`: must enter a decimal digit, display as 0
+    /// * `d`: can enter a decimal digit, display as space
     ///
-    /// * l: can enter letter, display as space
-    /// * a: can enter letter or digit, display as space
-    /// * c: can enter character or space, display as space
-    /// * _: anything, display as space
+    /// * `l`: can enter letter, display as space
+    /// * `a`: can enter letter or digit, display as space
+    /// * `c`: can enter character or space, display as space
+    /// * `_`: anything, display as space
     ///
-    /// * : ; - /: grouping characters move the cursor when entered.
-    ///
-    /// * use \ to escape any of the above.
+    /// * `:` `;` `-` `/`: separator characters move the cursor when entered.
+    /// * `\`: escapes the following character and uses it as a separator.
+    /// * all other ascii characters a reserved.
     ///
     /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
     pub fn set_mask<S: AsRef<str>>(&mut self, s: S) {
