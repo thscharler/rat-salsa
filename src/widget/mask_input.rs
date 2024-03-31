@@ -1130,7 +1130,7 @@ pub mod core {
         // mask should overwrite instead of insert
         fn can_overwrite(&self, c: &str) -> bool {
             match self {
-                Mask::Digit0(d) | Mask::Digit(d) | Mask::Numeric(d) => *d == EditDirection::Ltor,
+                Mask::Digit0(d) | Mask::Digit(d) | Mask::Numeric(d) => false,
                 Mask::DecimalSep => "." == c,
                 Mask::GroupingSep => false,
                 Mask::Plus => "-" == c || "+" == c,
@@ -1932,15 +1932,27 @@ pub mod core {
                 } else if mask.right == Mask::DecimalSep
                     && mask.right.is_valid_char(c, self.dec_sep())
                 {
-                    //new_cursor += 1; // todo: can be removed? should be a replace position
                     break;
                 } else if mask.right == Mask::GroupingSep {
                     // never stop here
+                    new_cursor += 1;
                 } else if matches!(mask.right, Mask::Separator(_))
                     && mask.right.is_valid_char(c, self.dec_sep())
                 {
-                    // new_cursor += 1; // todo: can be removed? should be a replace position
                     break;
+                } else if matches!(
+                    mask.peek_left,
+                    Mask::Digit0(EditDirection::Ltor)
+                        | Mask::Digit(EditDirection::Ltor)
+                        | Mask::Numeric(EditDirection::Ltor)
+                ) && ({
+                    let (_b, a) = grapheme::split_at(&self.value, new_cursor - 1);
+                    // is there space to the left?
+                    mask.peek_left.can_drop_first(a)
+                        && mask.peek_left.is_valid_char(c, self.dec_sep())
+                }) {
+                    // skip left
+                    new_cursor -= 1;
                 } else if matches!(
                     mask.right,
                     Mask::Digit0(EditDirection::Ltor)
@@ -1964,9 +1976,9 @@ pub mod core {
                 } else if mask.right == Mask::None {
                     new_cursor = self.cursor;
                     break;
+                } else {
+                    new_cursor += 1;
                 }
-
-                new_cursor += 1;
             }
 
             // debug!("CURSOR {} => {}", self.cursor, new_cursor);
@@ -2103,7 +2115,11 @@ pub mod core {
         }
 
         fn insert_sign(&mut self, c: char) -> bool {
-            let mask = &self.mask[self.cursor];
+            let mut mask = &self.mask[self.cursor];
+            // boundary right/left. prefer right, change mask.
+            if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
+                mask = &self.mask[self.cursor - 1];
+            }
             for i in mask.nr_range() {
                 match &self.mask[i] {
                     MaskToken {
