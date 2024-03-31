@@ -1,42 +1,71 @@
-use crate::grapheme::is_ascii_digit;
+//! Number formatting.
+//!
+//! This one uses a pattern string instead of the `format!` style.
+//!
+//! ```
+//! use std::rc::Rc;
+//! use rat_salsa::number::{fmt_f64};
+//!
+//! // formats accordingly, uses the default symbols.
+//! let s = fmt_f64(4561.2234, "###,##0.00", None)?;
+//!
+//! assert_eq!(s, "  4,561.22");
+//! ```
+//!
+//! The following patterns are recognized:
+//! 0 - digit or 0
+//! 9 - digit or space
+//! # - digit or sign or space
+//! 8 - digit or sign or _empty string_
+//! + - sign; show + for positive
+//! - - sign; show space for positive
+//! . - decimal separator
+//! : - decimal separator, always shown
+//! , - grouping separator
+//! ; - grouping separator, always shown
+//! E - upper case exponent
+//! F - upper case exponent, always shown
+//! e - lower case exponent
+//! f - lower case exponent, always shown
+//! ' ' - space can be used as separator
+//! \ - all ascii characters (ascii 32-128!) are reserved and must be escaped.
+//! _ - other unicode characters can be used without escaping.
+//!
+
 use std::cell::RefCell;
-use std::fmt::{Display, Formatter, Write as FmtWrite};
+use std::fmt::{Debug, Display, Formatter, Write as FmtWrite};
 use std::io::{Cursor, Write as IoWrite};
-use std::iter::repeat_with;
 use std::mem::size_of;
 use std::rc::Rc;
 use std::str::from_utf8_unchecked;
-use std::{fmt, mem, ptr};
-use unicode_segmentation::UnicodeSegmentation;
+use std::{fmt, mem};
 
-///
-/// Symbols for numbers
-///
+/// Symbols for number formatting.
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NumberSymbols {
     /// Decimal separator
-    pub decimal_sep: String,
+    pub decimal_sep: char,
     /// Decimal grouping
-    pub decimal_grp: String,
+    pub decimal_grp: char,
     /// Minus sign
-    pub negative_sym: String,
+    pub negative_sym: char,
     /// Plus sign
-    pub positive_sym: String,
+    pub positive_sym: char,
     /// Exponent
-    pub exponent_upper_sym: String,
+    pub exponent_upper_sym: char,
     /// Exponent
-    pub exponent_lower_sym: String,
+    pub exponent_lower_sym: char,
 }
 
 impl Default for NumberSymbols {
     fn default() -> Self {
         Self {
-            decimal_sep: ".".to_string(),
-            decimal_grp: ",".to_string(),
-            negative_sym: "-".to_string(),
-            positive_sym: "+".to_string(),
-            exponent_upper_sym: "E".to_string(),
-            exponent_lower_sym: "e".to_string(),
+            decimal_sep: '.',
+            decimal_grp: ',',
+            negative_sym: '-',
+            positive_sym: '+',
+            exponent_upper_sym: 'E',
+            exponent_lower_sym: 'e',
         }
     }
 }
@@ -49,6 +78,7 @@ pub enum Mode {
     Exponent,
 }
 
+/// Tokens for the format.
 #[allow(variant_size_differences)]
 #[derive(Debug, Clone)]
 pub enum Token {
@@ -81,82 +111,70 @@ pub enum Token {
     /// Mask char "f". Exponent separator.
     ExponentLowerAlways,
     /// Other separator char to output literally. May be escaped with '\\'.
-    Separator(Box<str>),
+    Separator(char),
 }
 
-#[derive(Debug, Default, Clone)]
+/// Holds the pattern for the numberformat and some additional data.
+#[derive(Default, Clone)]
 pub struct NumberFormat {
+    /// Decides what std-format is used. If true it's `{:e}` otherwise plain `{}`
     pub has_exp: bool,
+    /// The required precision for this format. Is used for the underlying std-format.
     pub precision: u8,
+    /// Tokens.
     pub tok: Vec<Token>,
+    /// Symbols.
     pub sym: Option<Rc<NumberSymbols>>,
 }
 
 impl Display for NumberFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "number-format ")?;
-        write!(f, "exp: {} prec: {} ", self.has_exp, self.precision)?;
-        write!(f, "sym: {:?} ", self.sym)?;
         for t in &self.tok {
             match t {
-                Token::Digit0(_) => {
-                    write!(f, "0")?;
-                }
-                Token::Digit(_) => {
-                    write!(f, "9")?;
-                }
-                Token::Numeric(_) => {
-                    write!(f, "#")?;
-                }
-                Token::NumericOpt(_) => {
-                    write!(f, "8")?;
-                }
-                Token::Plus(_) => {
-                    write!(f, "+")?;
-                }
-                Token::Minus(_) => {
-                    write!(f, "-")?;
-                }
-                Token::DecimalSep => {
-                    write!(f, ",")?;
-                }
-                Token::DecimalSepAlways => {
-                    write!(f, ";")?;
-                }
-                Token::GroupingSep => {
-                    write!(f, ".")?;
-                }
-                Token::GroupingSepAlways => {
-                    write!(f, ":")?;
-                }
-                Token::ExponentUpper => {
-                    write!(f, "E")?;
-                }
-                Token::ExponentUpperAlways => {
-                    write!(f, "F")?;
-                }
-                Token::ExponentLower => {
-                    write!(f, "e")?;
-                }
-                Token::ExponentLowerAlways => {
-                    write!(f, "f")?;
-                }
-                Token::Separator(s) => {
-                    write!(f, "{}", s)?;
+                Token::Digit0(_) => f.write_char('0')?,
+                Token::Digit(_) => f.write_char('9')?,
+                Token::Numeric(_) => f.write_char('#')?,
+                Token::NumericOpt(_) => f.write_char('8')?,
+                Token::Plus(_) => f.write_char('+')?,
+                Token::Minus(_) => f.write_char('-')?,
+                Token::DecimalSep => f.write_char('.')?,
+                Token::DecimalSepAlways => f.write_char(':')?,
+                Token::GroupingSep => f.write_char(',')?,
+                Token::GroupingSepAlways => f.write_char(';')?,
+                Token::ExponentUpper => f.write_char('E')?,
+                Token::ExponentUpperAlways => f.write_char('F')?,
+                Token::ExponentLower => f.write_char('e')?,
+                Token::ExponentLowerAlways => f.write_char('f')?,
+                Token::Separator(c) => {
+                    match c {
+                        '0' | '9' | '#' | '8' | '+' | '-' | ',' | ';' | '.' | ':' | 'E' | 'F'
+                        | 'e' | 'f' => {
+                            f.write_char('\\')?;
+                        }
+                        _ => {}
+                    }
+                    f.write_char(*c)?;
                 }
             }
         }
-
         Ok(())
     }
 }
 
-/// Parse a number-format string.
-///
-/// ...
-///
-///
-pub fn parse_format(f: &str) -> Result<NumberFormat, std::fmt::Error> {
+impl Debug for NumberFormat {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        let s = format!("{}", self);
+        f.debug_struct("NumberFormat")
+            .field("has_exp", &self.has_exp)
+            .field("precision", &self.precision)
+            .field("sym", &self.sym)
+            .field("tok", &s)
+            .finish()
+    }
+}
+
+/// Parses the format string for reuse.
+pub fn parse_format(f: &str) -> Result<NumberFormat, fmt::Error> {
     let mut format = NumberFormat::default();
 
     let mut esc = false;
@@ -164,13 +182,13 @@ pub fn parse_format(f: &str) -> Result<NumberFormat, std::fmt::Error> {
     let mut exp_0 = false;
     let mut frac_0 = false;
 
-    for m in f.graphemes(true) {
+    for m in f.chars() {
         let mask = if esc {
             esc = false;
             Token::Separator(m.into())
         } else {
             match m {
-                "0" => {
+                '0' => {
                     if mode == Mode::Fraction {
                         frac_0 = true;
                         format.precision += 1;
@@ -179,79 +197,81 @@ pub fn parse_format(f: &str) -> Result<NumberFormat, std::fmt::Error> {
                     }
                     Token::Digit0(mode)
                 }
-                "8" => {
+                '8' => {
                     if mode == Mode::Fraction {
                         format.precision += 1;
                     }
                     Token::NumericOpt(mode)
                 }
-                "9" => {
+                '9' => {
                     if mode == Mode::Fraction {
                         format.precision += 1;
                     }
                     Token::Digit(mode)
                 }
-                "#" => {
+                '#' => {
                     if mode == Mode::Fraction {
                         format.precision += 1;
                     }
                     Token::Numeric(mode)
                 }
-                "." => {
+                '.' => {
                     if matches!(mode, Mode::Fraction | Mode::Exponent) {
-                        return Err(std::fmt::Error);
+                        return Err(fmt::Error);
                     }
                     mode = Mode::Fraction;
                     Token::DecimalSep
                 }
-                ":" => {
+                ':' => {
                     if matches!(mode, Mode::Fraction | Mode::Exponent) {
-                        return Err(std::fmt::Error);
+                        return Err(fmt::Error);
                     }
                     mode = Mode::Fraction;
                     Token::DecimalSepAlways
                 }
-                "," => Token::GroupingSep,
-                ";" => Token::GroupingSepAlways,
-                "+" => Token::Plus(mode),
-                "-" => Token::Minus(mode),
-                "e" => {
+                ',' => Token::GroupingSep,
+                ';' => Token::GroupingSepAlways,
+                '+' => Token::Plus(mode),
+                '-' => Token::Minus(mode),
+                'e' => {
                     if mode == Mode::Exponent {
-                        return Err(std::fmt::Error);
+                        return Err(fmt::Error);
                     }
                     format.has_exp = true;
                     mode = Mode::Exponent;
                     Token::ExponentLower
                 }
-                "E" => {
+                'E' => {
                     if mode == Mode::Exponent {
-                        return Err(std::fmt::Error);
+                        return Err(fmt::Error);
                     }
                     format.has_exp = true;
                     mode = Mode::Exponent;
                     Token::ExponentUpper
                 }
-                "f" => {
+                'f' => {
                     if mode == Mode::Exponent {
-                        return Err(std::fmt::Error);
+                        return Err(fmt::Error);
                     }
                     format.has_exp = true;
                     mode = Mode::Exponent;
                     Token::ExponentLower
                 }
-                "F" => {
+                'F' => {
                     if mode == Mode::Exponent {
-                        return Err(std::fmt::Error);
+                        return Err(fmt::Error);
                     }
                     format.has_exp = true;
                     mode = Mode::Exponent;
                     Token::ExponentUpper
                 }
-                "\\" => {
+                '\\' => {
                     esc = true;
                     continue;
                 }
-                s => Token::Separator(s.into()),
+                ' ' => Token::Separator(' '),
+                c if c.is_ascii() => return Err(fmt::Error),
+                c => Token::Separator(c),
             }
         };
         format.tok.push(mask);
@@ -281,7 +301,7 @@ pub fn parse_format(f: &str) -> Result<NumberFormat, std::fmt::Error> {
     Ok(format)
 }
 
-/// Parse a number format string and sets the symbol table.
+/// Parses the format string and sets a symbol table.
 pub fn parse_format_sym(
     format: &str,
     sym: Option<&Rc<NumberSymbols>>,
@@ -300,8 +320,8 @@ fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
     let mut byte_exp = None;
     let mut byte_sign_exp = None;
 
-    for (_cidx, (idx, c)) in value.grapheme_indices(true).enumerate() {
-        if c == "-" || c == "+" {
+    for (idx, c) in value.char_indices() {
+        if c == '-' || c == '+' {
             if byte_exp.is_none() {
                 byte_sign = Some(idx);
             } else {
@@ -311,16 +331,16 @@ fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
         if byte_sep.is_none()
             && byte_exp.is_none()
             && byte_digits.is_none()
-            && is_ascii_digit(c)
-            && c != "0"
+            && c.is_ascii_digit()
+            && c != '0'
         {
             // first non-zero integer digit
             byte_digits = Some(idx);
         }
-        if c == "." {
+        if c == '.' {
             byte_sep = Some(idx);
         }
-        if c == "e" || c == "E" {
+        if c == 'e' || c == 'E' {
             byte_exp = Some(idx);
         }
     }
@@ -392,16 +412,85 @@ fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
     )
 }
 
+/// Unmap the formatted string back to a format that `f64::parse()` can understand.
+///
+/// Token::NumericOpt is not supported for now.
+pub fn unmap_num<'a, 'c, W: fmt::Write>(
+    formatted: &'a str,
+    format: &'a NumberFormat,
+    out: &'c mut W,
+) -> Result<(), fmt::Error> {
+    for (t, c) in format.tok.iter().zip(formatted.chars()) {
+        match t {
+            Token::Digit0(_) => {
+                out.write_char(c)?;
+            }
+            Token::Digit(_) => {
+                if c != ' ' {
+                    out.write_char(c)?;
+                }
+            }
+            Token::Numeric(_) => {
+                if c != ' ' {
+                    out.write_char(c)?;
+                }
+            }
+            Token::NumericOpt(_) => {
+                unimplemented!("NumericOpt not supported.");
+            }
+            Token::Plus(_) => {
+                if c == '-' {
+                    out.write_char('-')?;
+                }
+            }
+            Token::Minus(_) => {
+                if c == '-' {
+                    out.write_char('-')?;
+                }
+            }
+            Token::DecimalSep => {
+                out.write_char('.')?;
+            }
+            Token::DecimalSepAlways => {
+                out.write_char('.')?;
+            }
+            Token::GroupingSep => {
+                // noop
+            }
+            Token::GroupingSepAlways => {
+                // noop
+            }
+            Token::ExponentUpper => {
+                out.write_char('E')?;
+            }
+            Token::ExponentUpperAlways => {
+                out.write_char('E')?;
+            }
+            Token::ExponentLower => {
+                out.write_char('e')?;
+            }
+            Token::ExponentLowerAlways => {
+                out.write_char('e')?;
+            }
+            Token::Separator(_) => {
+                // noop
+            }
+        }
+    }
+
+    Ok(())
+}
+
 /// Takes a raw number string and applies the format.
 ///
 /// The raw number should be in a format produced by the format! macro. decimal point is '.'
 /// and exponent is 'e' or 'E'.
 ///
-/// There is a need for a buffer of &str, its length must be at least format.tok.len().
+/// There is a need for a buffer, its length must be at least format.tok.len().
 pub fn map_num<'a: 'd, 'b, 'c, 'd, W: fmt::Write>(
     raw: &'a str,
     format: &'a NumberFormat,
-    buffer: &'b mut [&'d str],
+    buffer: &'b mut [char],
     out: &'c mut W,
 ) -> Result<(), fmt::Error> {
     if buffer.len() < format.tok.len() {
@@ -411,8 +500,10 @@ pub fn map_num<'a: 'd, 'b, 'c, 'd, W: fmt::Write>(
     _map_num(raw, format, buffer)?;
 
     for i in 0..format.tok.len() {
-        if let Err(_) = out.write_str(buffer[i]) {
-            return Err(fmt::Error);
+        if buffer[i] != '\u{7f}' {
+            if let Err(_) = out.write_char(buffer[i]) {
+                return Err(fmt::Error);
+            }
         }
     }
 
@@ -423,34 +514,34 @@ pub fn map_num<'a: 'd, 'b, 'c, 'd, W: fmt::Write>(
 fn _map_num<'a, 'b>(
     raw: &'a str,
     format: &'a NumberFormat,
-    buffer: &'b mut [&'a str],
+    buffer: &'b mut [char],
 ) -> Result<(), fmt::Error> {
     for i in 0..format.tok.len() {
-        buffer[i] = " ";
+        buffer[i] = ' ';
     }
 
     let sym = format.sym.as_ref().map(|v| v.as_ref());
 
     let (mut sign, integer, fraction, mut exp_sign, exp) = split_num(raw);
-    let mut it_integer = integer.graphemes(true);
-    let mut it_fraction = fraction.graphemes(true);
-    let mut it_exp = exp.graphemes(true);
+    let mut it_integer = integer.chars();
+    let mut it_fraction = fraction.chars();
+    let mut it_exp = exp.chars();
 
     for (i, m) in format.tok.iter().enumerate() {
         match m {
             Token::Plus(Mode::Integer) => {
                 if sign == "" {
-                    buffer[i] = sym.map(|v| v.positive_sym.as_str()).unwrap_or("+");
+                    buffer[i] = sym.map(|v| v.positive_sym).unwrap_or('+');
                 } else {
-                    buffer[i] = sym.map(|v| v.negative_sym.as_str()).unwrap_or("-");
+                    buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
                 }
                 sign = "";
             }
             Token::Minus(Mode::Integer) => {
                 if sign == "" {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 } else {
-                    buffer[i] = sym.map(|v| v.negative_sym.as_str()).unwrap_or("-");
+                    buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
                 }
                 sign = "";
             }
@@ -463,13 +554,13 @@ fn _map_num<'a, 'b>(
 
             Token::DecimalSep => {
                 if fraction != "" {
-                    buffer[i] = sym.map(|v| v.decimal_sep.as_str()).unwrap_or(".");
+                    buffer[i] = sym.map(|v| v.decimal_sep).unwrap_or('.');
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::DecimalSepAlways => {
-                buffer[i] = sym.map(|v| v.decimal_sep.as_str()).unwrap_or(".");
+                buffer[i] = sym.map(|v| v.decimal_sep).unwrap_or('.');
             }
             Token::Plus(Mode::Fraction) => {}
             Token::Minus(Mode::Fraction) => {}
@@ -477,65 +568,65 @@ fn _map_num<'a, 'b>(
                 if let Some(d) = it_fraction.next() {
                     buffer[i] = d;
                 } else {
-                    buffer[i] = "0";
+                    buffer[i] = '0';
                 }
             }
             Token::Digit(Mode::Fraction) => {
                 if let Some(d) = it_fraction.next() {
                     buffer[i] = d;
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::Numeric(Mode::Fraction) => {
                 if let Some(d) = it_fraction.next() {
                     buffer[i] = d;
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::NumericOpt(Mode::Fraction) => {
                 if let Some(d) = it_fraction.next() {
                     buffer[i] = d;
                 } else {
-                    buffer[i] = "";
+                    buffer[i] = '\u{7f}';
                 }
             }
 
             Token::ExponentUpper => {
                 if exp != "" {
-                    buffer[i] = sym.map(|v| v.exponent_upper_sym.as_str()).unwrap_or("E");
+                    buffer[i] = sym.map(|v| v.exponent_upper_sym).unwrap_or('E');
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::ExponentLower => {
                 if exp != "" {
-                    buffer[i] = sym.map(|v| v.exponent_lower_sym.as_str()).unwrap_or("E");
+                    buffer[i] = sym.map(|v| v.exponent_lower_sym).unwrap_or('E');
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::ExponentUpperAlways => {
-                buffer[i] = sym.map(|v| v.exponent_upper_sym.as_str()).unwrap_or("E");
+                buffer[i] = sym.map(|v| v.exponent_upper_sym).unwrap_or('E');
             }
             Token::ExponentLowerAlways => {
-                buffer[i] = sym.map(|v| v.exponent_lower_sym.as_str()).unwrap_or("e");
+                buffer[i] = sym.map(|v| v.exponent_lower_sym).unwrap_or('e');
             }
 
             Token::Plus(Mode::Exponent) => {
                 if exp_sign == "" {
-                    buffer[i] = sym.map(|v| v.positive_sym.as_str()).unwrap_or("+");
+                    buffer[i] = sym.map(|v| v.positive_sym).unwrap_or('+');
                 } else {
-                    buffer[i] = sym.map(|v| v.negative_sym.as_str()).unwrap_or("-");
+                    buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
                 }
                 exp_sign = "";
             }
             Token::Minus(Mode::Exponent) => {
                 if exp_sign == "" {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 } else {
-                    buffer[i] = sym.map(|v| v.negative_sym.as_str()).unwrap_or("-");
+                    buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
                 }
                 exp_sign = "";
             }
@@ -544,7 +635,7 @@ fn _map_num<'a, 'b>(
             Token::Numeric(Mode::Exponent) => {}
             Token::NumericOpt(Mode::Exponent) => {}
             Token::Separator(v) => {
-                buffer[i] = v.as_ref();
+                buffer[i] = *v;
             }
         }
     }
@@ -560,34 +651,34 @@ fn _map_num<'a, 'b>(
                 if let Some(d) = it_exp.next_back() {
                     buffer[i] = d;
                 } else {
-                    buffer[i] = "0";
+                    buffer[i] = '0';
                 }
             }
             Token::Digit(Mode::Exponent) => {
                 if let Some(d) = it_exp.next_back() {
                     buffer[i] = d;
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::Numeric(Mode::Exponent) => {
                 if let Some(d) = it_exp.next_back() {
                     buffer[i] = d;
                 } else if exp_sign == "-" {
-                    buffer[i] = sym.map(|v| v.negative_sym.as_str()).unwrap_or("-");
+                    buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
                     exp_sign = "";
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::NumericOpt(Mode::Exponent) => {
                 if let Some(d) = it_exp.next_back() {
                     buffer[i] = d;
                 } else if exp_sign == "-" {
-                    buffer[i] = sym.map(|v| v.negative_sym.as_str()).unwrap_or("-");
+                    buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
                     exp_sign = "";
                 } else {
-                    buffer[i] = "";
+                    buffer[i] = '\u{7f}';
                 }
             }
             Token::Digit0(Mode::Integer) => {
@@ -595,7 +686,7 @@ fn _map_num<'a, 'b>(
                     d = None;
                     buffer[i] = dd;
                 } else {
-                    buffer[i] = "0";
+                    buffer[i] = '0';
                 }
             }
             Token::Digit(Mode::Integer) => {
@@ -603,7 +694,7 @@ fn _map_num<'a, 'b>(
                     d = None;
                     buffer[i] = dd;
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::Numeric(Mode::Integer) => {
@@ -611,10 +702,10 @@ fn _map_num<'a, 'b>(
                     d = None;
                     buffer[i] = dd;
                 } else if sign == "-" {
-                    buffer[i] = sym.map(|v| v.negative_sym.as_str()).unwrap_or("-");
+                    buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
                     sign = "";
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::NumericOpt(Mode::Integer) => {
@@ -622,21 +713,21 @@ fn _map_num<'a, 'b>(
                     d = None;
                     buffer[i] = dd;
                 } else if sign == "-" {
-                    buffer[i] = sym.map(|v| v.negative_sym.as_str()).unwrap_or("-");
+                    buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
                     sign = "";
                 } else {
-                    buffer[i] = "";
+                    buffer[i] = '\u{7F}';
                 }
             }
             Token::GroupingSep => {
                 if d.is_some() {
-                    buffer[i] = sym.map(|v| v.decimal_grp.as_str()).unwrap_or(",");
+                    buffer[i] = sym.map(|v| v.decimal_grp).unwrap_or(',');
                 } else {
-                    buffer[i] = " ";
+                    buffer[i] = ' ';
                 }
             }
             Token::GroupingSepAlways => {
-                buffer[i] = sym.map(|v| v.decimal_grp.as_str()).unwrap_or(",");
+                buffer[i] = sym.map(|v| v.decimal_grp).unwrap_or(',');
             }
             _ => {}
         }

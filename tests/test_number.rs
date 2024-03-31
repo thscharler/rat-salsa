@@ -1,4 +1,4 @@
-use rat_salsa::number::{fmt_f64, parse_format};
+use rat_salsa::number::fmt_f64;
 use std::fmt;
 
 #[test]
