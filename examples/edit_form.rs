@@ -389,7 +389,7 @@ fn repaint_mask0(
 
         for (i, t) in r.value.tokens().iter().enumerate() {
             let mut w_info = Span::from(format!(
-                "#{}:{}:{}-{}   {} | {}",
+                "#{}:{}:{}-{}   {:?} | {:?}",
                 t.nr_id, t.sec_id, t.sec_start, t.sec_end, t.peek_left, t.right
             ));
             if i == r.cursor() {
