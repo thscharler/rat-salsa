@@ -478,13 +478,18 @@ impl MaskedInputState {
     /// * use \ to escape any of the above.
     ///
     /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
-    pub fn set_mask<S: Into<String>>(&mut self, s: S) {
+    pub fn set_mask<S: AsRef<str>>(&mut self, s: S) {
         self.value.set_mask(s);
     }
 
     /// Display mask.
     pub fn mask(&self) -> String {
         self.value.mask()
+    }
+
+    /// Debug mask.
+    pub fn debug_mask(&self) -> String {
+        self.value.debug_mask()
     }
 
     /// Set symbols for number display.
@@ -782,14 +787,14 @@ pub mod core {
     use std::rc::Rc;
     use unicode_segmentation::UnicodeSegmentation;
 
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Clone, Copy, PartialEq, Eq)]
     pub enum EditDirection {
         Ltor,
         Rtol,
     }
 
     #[allow(variant_size_differences)]
-    #[derive(Debug, Clone, PartialEq, Eq, Default)]
+    #[derive(Clone, PartialEq, Eq, Default)]
     pub enum Mask {
         Digit0(EditDirection),
         Digit(EditDirection),
@@ -813,7 +818,7 @@ pub mod core {
         None,
     }
 
-    #[derive(Clone)]
+    #[derive(Clone, PartialEq, Eq)]
     pub struct MaskToken {
         pub nr_id: usize,
         pub nr_start: usize,
@@ -829,7 +834,7 @@ pub mod core {
         pub display: Box<str>,
     }
 
-    impl Display for EditDirection {
+    impl Debug for EditDirection {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
@@ -844,15 +849,63 @@ pub mod core {
 
     impl Display for Mask {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            let s = match self {
+                Mask::Digit0(_) => "0",
+                Mask::Digit(_) => "9",
+                Mask::Numeric(_) => "#",
+                Mask::DecimalSep => ".",
+                Mask::GroupingSep => ",",
+                Mask::Plus => "+",
+                Mask::Minus => "-",
+                Mask::Hex0 => "H",
+                Mask::Hex => "h",
+                Mask::Oct0 => "O",
+                Mask::Oct => "o",
+                Mask::Dec0 => "D",
+                Mask::Dec => "d",
+                Mask::Letter => "l",
+                Mask::LetterOrDigit => "a",
+                Mask::LetterDigitSpace => "c",
+                Mask::AnyChar => "_",
+                Mask::Separator(s) => {
+                    if matches!(
+                        s.as_ref(),
+                        "0" | "9"
+                            | "#"
+                            | "."
+                            | ","
+                            | "H"
+                            | "h"
+                            | "O"
+                            | "o"
+                            | "D"
+                            | "d"
+                            | "l"
+                            | "a"
+                            | "c"
+                            | "_"
+                    ) {
+                        write!(f, "\\")?;
+                    }
+                    s
+                }
+                Mask::None => "",
+            };
+            write!(f, "{}", s)
+        }
+    }
+
+    impl Debug for Mask {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             match self {
                 Mask::Digit0(d) => {
-                    write!(f, "{}0", d)
+                    write!(f, "{:?}0", d)
                 }
                 Mask::Digit(d) => {
-                    write!(f, "{}9", d)
+                    write!(f, "{:?}9", d)
                 }
                 Mask::Numeric(d) => {
-                    write!(f, "{}#", d)
+                    write!(f, "{:?}#", d)
                 }
                 Mask::DecimalSep => write!(f, "."),
                 Mask::GroupingSep => write!(f, ","),
@@ -1241,32 +1294,6 @@ pub mod core {
     }
 
     impl MaskToken {
-        pub fn test(
-            nr_id: usize,
-            nr_start: usize,
-            nr_end: usize,
-            sec_id: usize,
-            sec_start: usize,
-            sec_end: usize,
-            peek_left: Mask,
-            right: Mask,
-            edit: &str,
-            display: &str,
-        ) -> Self {
-            Self {
-                nr_id,
-                nr_start,
-                nr_end,
-                sec_id,
-                sec_start,
-                sec_end,
-                peek_left,
-                right,
-                edit: edit.into(),
-                display: display.into(),
-            }
-        }
-
         /// Number range as Range.
         fn nr_range(&self) -> Range<usize> {
             self.nr_start..self.nr_end
@@ -1376,7 +1403,7 @@ pub mod core {
     }
 
     /// Text editing core.
-    #[derive(Debug, Clone)]
+    #[derive(Debug, Clone, PartialEq, Eq)]
     pub struct InputMaskCore {
         mask: Vec<MaskToken>,
         value: String,
@@ -1425,33 +1452,6 @@ pub mod core {
                 anchor: 0,
                 sym: Some(Rc::clone(sym)),
             }
-        }
-
-        /// dump the current state as code.
-        pub fn test_state(&self) -> String {
-            use std::fmt::Write;
-
-            let mut buf = String::new();
-            _ = write!(buf, "let state = InputMaskCore {{ ");
-            _ = write!(buf, "mask: vec![");
-            for t in &self.mask {
-                _ = write!(
-                    buf,
-                    "MaskToken::test({:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}), ",
-                    t.sec_id, t.sec_start, t.sec_end, t.peek_left, t.right, t.edit, t.display
-                );
-            }
-            _ = write!(buf, "], ");
-            _ = write!(buf, "value: {:?},", self.value);
-            _ = write!(buf, "rendered: {:?},", self.rendered);
-            _ = write!(buf, "len: {:?},", self.len);
-            _ = write!(buf, "offset: {:?},", self.offset);
-            _ = write!(buf, "width: {:?},", self.width);
-            _ = write!(buf, "cursor: {:?},", self.cursor);
-            _ = write!(buf, "anchor: {:?},", self.anchor);
-            // todo: sym
-            _ = write!(buf, "}};");
-            buf
         }
 
         /// Tokens used for the mask.
@@ -1603,132 +1603,9 @@ pub mod core {
 
         /// Changes the mask.
         /// Resets the value to a default.
-        pub fn set_mask<S: Into<String>>(&mut self, s: S) {
-            let mask = s.into();
-
-            self.mask.clear();
-
-            let mut start_id = 0;
-            let mut id = 0;
-            let mut start_nr = 0;
-            let mut nr_id = 0;
-            let mut last_mask = Mask::None;
-            let mut dec_dir = EditDirection::Rtol;
-            let mut esc = false;
-            let mut idx = 0;
-            for m in mask.graphemes(true).chain(once("")) {
-                let mask = if esc {
-                    esc = false;
-                    Mask::Separator(Box::from(m))
-                } else {
-                    match m {
-                        "0" => Mask::Digit0(dec_dir),
-                        "9" => Mask::Digit(dec_dir),
-                        "#" => Mask::Numeric(dec_dir),
-                        "." => Mask::DecimalSep,
-                        "," => Mask::GroupingSep,
-                        "+" => Mask::Plus,
-                        "-" => Mask::Minus,
-                        "h" => Mask::Hex,
-                        "H" => Mask::Hex0,
-                        "o" => Mask::Oct,
-                        "O" => Mask::Oct0,
-                        "d" => Mask::Dec,
-                        "D" => Mask::Dec0,
-                        "l" => Mask::Letter,
-                        "a" => Mask::LetterOrDigit,
-                        "c" => Mask::LetterDigitSpace,
-                        "_" => Mask::AnyChar,
-                        "" => Mask::None,
-                        "\\" => {
-                            esc = true;
-                            continue;
-                        }
-                        s => Mask::Separator(Box::from(s)),
-                    }
-                };
-
-                match mask {
-                    Mask::Digit0(_)
-                    | Mask::Digit(_)
-                    | Mask::Numeric(_)
-                    | Mask::GroupingSep
-                    | Mask::Plus
-                    | Mask::Minus => {
-                        // no change
-                    }
-                    Mask::DecimalSep => {
-                        dec_dir = EditDirection::Ltor;
-                    }
-                    Mask::Hex0
-                    | Mask::Hex
-                    | Mask::Oct0
-                    | Mask::Oct
-                    | Mask::Dec0
-                    | Mask::Dec
-                    | Mask::Letter
-                    | Mask::LetterOrDigit
-                    | Mask::LetterDigitSpace
-                    | Mask::AnyChar
-                    | Mask::Separator(_) => {
-                        // reset to default number input direction
-                        dec_dir = EditDirection::Rtol
-                    }
-                    Mask::None => {
-                        // no change, doesn't matter
-                    }
-                }
-
-                if matches!(mask, Mask::Separator(_)) || mask.number() != last_mask.number() {
-                    for j in start_nr..idx {
-                        self.mask[j].nr_id = nr_id;
-                        self.mask[j].nr_start = start_nr;
-                        self.mask[j].nr_end = idx;
-                    }
-                    nr_id += 1;
-                    start_nr = idx;
-                }
-                if matches!(mask, Mask::Separator(_)) || mask.section() != last_mask.section() {
-                    for j in start_id..idx {
-                        self.mask[j].sec_id = id;
-                        self.mask[j].sec_start = start_id;
-                        self.mask[j].sec_end = idx;
-                    }
-                    id += 1;
-                    start_id = idx;
-                }
-
-                let tok = MaskToken {
-                    nr_id: 0,
-                    nr_start: 0,
-                    nr_end: 0,
-                    sec_id: 0,
-                    sec_start: 0,
-                    sec_end: 0,
-                    peek_left: last_mask,
-                    right: mask.clone(),
-                    edit: mask.edit_value().into(),
-                    display: mask.disp_value().into(),
-                };
-                self.mask.push(tok);
-
-                idx += 1;
-                last_mask = mask;
-            }
-            for j in start_nr..self.mask.len() {
-                self.mask[j].nr_id = nr_id;
-                self.mask[j].nr_start = start_nr;
-                self.mask[j].nr_end = mask.graphemes(true).count();
-            }
-            for j in start_id..self.mask.len() {
-                self.mask[j].sec_id = id;
-                self.mask[j].sec_start = start_id;
-                self.mask[j].sec_end = mask.graphemes(true).count();
-            }
-
-            let buf = MaskToken::empty_section(&self.mask);
-
-            self.set_value(buf);
+        pub fn set_mask<S: AsRef<str>>(&mut self, s: S) {
+            self.mask = parse_mask(s.as_ref());
+            self.set_value(MaskToken::empty_section(&self.mask));
         }
 
         /// Return the mask.
@@ -1738,6 +1615,17 @@ pub mod core {
             let mut buf = String::new();
             for t in self.mask.iter() {
                 _ = write!(buf, "{}", t.right);
+            }
+            buf
+        }
+
+        /// Return the mask.
+        pub fn debug_mask(&self) -> String {
+            use std::fmt::Write;
+
+            let mut buf = String::new();
+            for t in self.mask.iter() {
+                _ = write!(buf, "{:?}", t.right);
             }
             buf
         }
@@ -1934,8 +1822,10 @@ pub mod core {
 
             let mut new_cursor = self.cursor;
 
-            debug!("ADVANCE CURSOR {:?}  ", cc);
-            debug!("{}", self.test_state());
+            debug!("// ADVANCE CURSOR {:?}  ", cc);
+            debug!("#[rustfmt::skip]");
+            debug!("let mut b = {};", test_state(self));
+            debug!("b.advance_cursor({:?});", c);
 
             loop {
                 let mask = &self.mask[new_cursor];
@@ -2002,9 +1892,13 @@ pub mod core {
                 new_cursor += 1;
             }
 
-            debug!("CURSOR {} => {}", self.cursor, new_cursor);
+            // debug!("CURSOR {} => {}", self.cursor, new_cursor);
             self.cursor = new_cursor;
             self.anchor = self.cursor;
+
+            debug!("#[rustfmt::skip]");
+            debug!("let a = {};", test_state(self));
+            debug!("assert_eq_core(&b,&a);");
         }
 
         /// Insert the char if it matches the cursor mask and the current
@@ -2018,8 +1912,10 @@ pub mod core {
 
             let mut mask = &self.mask[self.cursor];
 
-            debug!("INSERT CHAR {:?} {:?}", mask, cc);
-            debug!("{}", self.test_state());
+            debug!("// INSERT CHAR {:?} {:?}", mask, cc);
+            debug!("#[rustfmt::skip]");
+            debug!("let mut b = {};", test_state(self));
+            debug!("b.insert_char({:?});", c);
 
             if mask.right.is_number() && (cc == self.neg_sym() || cc == self.pos_sym()) {
                 'f: {
@@ -2150,6 +2046,10 @@ pub mod core {
                     self.anchor = self.cursor;
                 }
             }
+
+            debug!("#[rustfmt::skip]");
+            debug!("let a = {};", test_state(self));
+            debug!("assert_eq_core(&b,&a);");
         }
 
         /// Remove the selection.
@@ -2159,8 +2059,10 @@ pub mod core {
             // remove section by section.
             let mut mask = &self.mask[selection.start];
 
-            debug!("REMOVE SELECTION {:?} {:?}", mask, selection);
-            debug!("{}", self.test_state());
+            debug!("// REMOVE SELECTION {:?} {:?}", mask, selection);
+            debug!("#[rustfmt::skip]");
+            debug!("let mut b = {};", test_state(self));
+            debug!("b.remove_selection({:?});", selection);
 
             let (a, _, _, _, _) =
                 grapheme::split_remove_mask(self.value.as_str(), selection.clone(), mask.range());
@@ -2211,6 +2113,10 @@ pub mod core {
 
             self.cursor = selection.start;
             self.anchor = self.cursor;
+
+            debug!("#[rustfmt::skip]");
+            debug!("let a = {};", test_state(self));
+            debug!("assert_eq_core(&b,&a);");
         }
 
         /// Remove the previous char.
@@ -2223,8 +2129,10 @@ pub mod core {
 
             let left = &self.mask[self.cursor - 1];
 
-            debug!("REMOVE PREV {:?} ", left);
-            debug!("{}", self.test_state());
+            debug!("// REMOVE PREV {:?} ", left);
+            debug!("#[rustfmt::skip]");
+            debug!("let mut b = {};", test_state(self));
+            debug!("b.remove_prev();");
 
             let (b, c0, _s, c1, a) = grapheme::split_remove_mask(
                 self.value.as_str(),
@@ -2266,6 +2174,10 @@ pub mod core {
                 self.cursor -= 1;
                 self.anchor = self.cursor;
             }
+
+            debug!("#[rustfmt::skip]");
+            debug!("let a = {};", test_state(self));
+            debug!("assert_eq_core(&b,&a);");
         }
 
         /// Remove the next char.
@@ -2278,8 +2190,10 @@ pub mod core {
 
             let right = &self.mask[self.cursor];
 
-            debug!("REMOVE NEXT {:?} ", right);
-            debug!("{}", self.test_state());
+            debug!("// REMOVE NEXT {:?} ", right);
+            debug!("#[rustfmt::skip]");
+            debug!("let mut b = {};", test_state(self));
+            debug!("b.remove_next();");
 
             let (b, c0, _, c1, a) = grapheme::split_remove_mask(
                 self.value.as_str(),
@@ -2314,6 +2228,213 @@ pub mod core {
             } else if right.right.is_ltor() {
                 // cursor stays
             }
+
+            debug!("#[rustfmt::skip]");
+            debug!("let a = {};", test_state(self));
+            debug!("assert_eq_core(&b,&a);");
         }
+    }
+
+    pub fn parse_mask(mask_str: &str) -> Vec<MaskToken> {
+        let mut out = Vec::<MaskToken>::new();
+
+        let mut start_id = 0;
+        let mut id = 0;
+        let mut start_nr = 0;
+        let mut nr_id = 0;
+        let mut last_mask = Mask::None;
+        let mut dec_dir = EditDirection::Rtol;
+        let mut esc = false;
+        let mut idx = 0;
+        for m in mask_str.graphemes(true).chain(once("")) {
+            let mask = if esc {
+                esc = false;
+                Mask::Separator(Box::from(m))
+            } else {
+                match m {
+                    "0" => Mask::Digit0(dec_dir),
+                    "9" => Mask::Digit(dec_dir),
+                    "#" => Mask::Numeric(dec_dir),
+                    "." => Mask::DecimalSep,
+                    "," => Mask::GroupingSep,
+                    "+" => Mask::Plus,
+                    "-" => Mask::Minus,
+                    "h" => Mask::Hex,
+                    "H" => Mask::Hex0,
+                    "o" => Mask::Oct,
+                    "O" => Mask::Oct0,
+                    "d" => Mask::Dec,
+                    "D" => Mask::Dec0,
+                    "l" => Mask::Letter,
+                    "a" => Mask::LetterOrDigit,
+                    "c" => Mask::LetterDigitSpace,
+                    "_" => Mask::AnyChar,
+                    "" => Mask::None,
+                    "\\" => {
+                        esc = true;
+                        continue;
+                    }
+                    s => Mask::Separator(Box::from(s)),
+                }
+            };
+
+            match mask {
+                Mask::Digit0(_)
+                | Mask::Digit(_)
+                | Mask::Numeric(_)
+                | Mask::GroupingSep
+                | Mask::Plus
+                | Mask::Minus => {
+                    // no change
+                }
+                Mask::DecimalSep => {
+                    dec_dir = EditDirection::Ltor;
+                }
+                Mask::Hex0
+                | Mask::Hex
+                | Mask::Oct0
+                | Mask::Oct
+                | Mask::Dec0
+                | Mask::Dec
+                | Mask::Letter
+                | Mask::LetterOrDigit
+                | Mask::LetterDigitSpace
+                | Mask::AnyChar
+                | Mask::Separator(_) => {
+                    // reset to default number input direction
+                    dec_dir = EditDirection::Rtol
+                }
+                Mask::None => {
+                    // no change, doesn't matter
+                }
+            }
+
+            if matches!(mask, Mask::Separator(_)) || mask.number() != last_mask.number() {
+                for j in start_nr..idx {
+                    out[j].nr_id = nr_id;
+                    out[j].nr_start = start_nr;
+                    out[j].nr_end = idx;
+                }
+                nr_id += 1;
+                start_nr = idx;
+            }
+            if matches!(mask, Mask::Separator(_)) || mask.section() != last_mask.section() {
+                for j in start_id..idx {
+                    out[j].sec_id = id;
+                    out[j].sec_start = start_id;
+                    out[j].sec_end = idx;
+                }
+                id += 1;
+                start_id = idx;
+            }
+
+            let tok = MaskToken {
+                nr_id: 0,
+                nr_start: 0,
+                nr_end: 0,
+                sec_id: 0,
+                sec_start: 0,
+                sec_end: 0,
+                peek_left: last_mask,
+                right: mask.clone(),
+                edit: mask.edit_value().into(),
+                display: mask.disp_value().into(),
+            };
+            out.push(tok);
+
+            idx += 1;
+            last_mask = mask;
+        }
+        for j in start_nr..out.len() {
+            out[j].nr_id = nr_id;
+            out[j].nr_start = start_nr;
+            out[j].nr_end = mask_str.graphemes(true).count();
+        }
+        for j in start_id..out.len() {
+            out[j].sec_id = id;
+            out[j].sec_start = start_id;
+            out[j].sec_end = mask_str.graphemes(true).count();
+        }
+
+        out
+    }
+
+    /// dump the current state as code.
+    pub fn test_state(m: &InputMaskCore) -> String {
+        use std::fmt::Write;
+
+        let mut buf = String::new();
+        _ = write!(buf, "test_input_mask_core(");
+        _ = write!(buf, "{:?}, ", m.mask());
+        _ = write!(buf, "{:?}, ", m.value);
+        _ = write!(buf, "{:?}, ", m.rendered);
+        _ = write!(buf, "{:?}, ", m.len);
+        _ = write!(buf, "{:?}, ", m.offset);
+        _ = write!(buf, "{:?}, ", m.width);
+        _ = write!(buf, "{:?}, ", m.cursor);
+        _ = write!(buf, "{:?},", m.anchor);
+        if let Some(sym) = &m.sym {
+            _ = write!(
+                buf,
+                "Some(\"{}|{}|{}|{}|{}|{}\")",
+                sym.decimal_sep,
+                sym.decimal_grp,
+                sym.negative_sym,
+                sym.positive_sym,
+                sym.exponent_upper_sym,
+                sym.exponent_lower_sym
+            );
+        } else {
+            _ = write!(buf, "sym: None, ");
+        }
+        _ = write!(buf, ")");
+        buf
+    }
+
+    #[track_caller]
+    pub fn assert_eq_core(a: &InputMaskCore, b: &InputMaskCore) {
+        assert_eq!(b.value, a.value);
+        assert_eq!(b.rendered, a.rendered);
+        assert_eq!(b.len, a.len);
+        assert_eq!(b.offset, a.offset);
+        assert_eq!(b.width, a.width);
+        assert_eq!(b.cursor, a.cursor);
+        assert_eq!(b.anchor, a.anchor);
+    }
+
+    pub fn test_input_mask_core(
+        mask: &str,
+        value: &str,
+        rendered: &str,
+        len: usize,
+        offset: usize,
+        width: usize,
+        cursor: usize,
+        anchor: usize,
+        sym: Option<&str>,
+    ) -> InputMaskCore {
+        InputMaskCore {
+            mask: parse_mask(mask),
+            value: value.to_string(),
+            rendered: rendered.to_string(),
+            len,
+            offset,
+            width,
+            cursor,
+            anchor,
+            sym: sym.map(|sym| parse_number_symbols(sym)),
+        }
+    }
+
+    pub fn parse_number_symbols(s: &str) -> Rc<NumberSymbols> {
+        let mut s = s.split('|');
+        Rc::new(NumberSymbols {
+            decimal_sep: s.next().expect("decimal_sep").to_string(),
+            decimal_grp: s.next().expect("decimal_grp").to_string(),
+            negative_sym: s.next().expect("negative_sym").to_string(),
+            positive_sym: s.next().expect("positive_sym").to_string(),
+            exponent_upper_sym: s.next().expect("exponent_upper_sym").to_string(),
+            exponent_lower_sym: s.next().expect("exponent_lower_sym").to_string(),
+        })
     }
 }
