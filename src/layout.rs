@@ -2,7 +2,7 @@
 //! Some helper functions that can calculate special layouts.
 //!
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Margin, Rect};
-use std::cmp::max;
+use std::cmp::{max, min};
 
 /// Constraint data for [layout_edit]
 #[allow(variant_size_differences)]
@@ -14,6 +14,12 @@ pub enum EditConstraint<'a> {
     LabelWidth(u16),
     /// Label by height+width. ( cols, rows).
     LabelRows(u16, u16),
+    /// Label occupying the full row.
+    TitleLabel,
+    /// Label occupying the full row, but rendering only part of it. (cols)
+    TitleLabelWidth(u16),
+    /// Label occupying the full row. (rows)
+    TitleLabelRows(u16),
     /// Widget aligned with the label. (cols)
     Widget(u16),
     /// Widget aligned with the label. (cols, rows)
@@ -35,25 +41,80 @@ pub struct LayoutEdit {
     pub widget: Vec<Rect>,
 }
 
+impl LayoutEdit {
+    pub fn iter(&self) -> LayoutEditIterator<'_> {
+        LayoutEditIterator {
+            it_label: self.label.iter(),
+            it_widget: self.widget.iter(),
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct LayoutEditIterator<'a> {
+    it_label: std::slice::Iter<'a, Rect>,
+    it_widget: std::slice::Iter<'a, Rect>,
+}
+
+impl<'a> LayoutEditIterator<'a> {
+    /// Next widget.
+    ///
+    /// Panic
+    /// Panics if there are no more widgets.
+    #[track_caller]
+    pub fn widget(&mut self) -> Rect {
+        *self.it_widget.next().expect("no_more_widget")
+    }
+
+    /// Next label.
+    ///
+    /// Panic
+    /// Panics if there are no more labels.
+    #[track_caller]
+    pub fn label(&mut self) -> Rect {
+        *self.it_label.next().expect("no_more_label")
+    }
+}
+
 /// Simple layout for an edit mask.
 /// It creates one column of input widgets and aligns the labels.
-pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>; N]) -> LayoutEdit {
-    let mut max_width = 0;
+pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> LayoutEdit {
+    let mut max_label = 0;
+    let mut max_widget = 0;
+    let mut space = 1;
+
     for l in constraints.iter() {
         match l {
             EditConstraint::Label(s) => {
-                max_width = max(max_width, s.len() as u16);
+                max_label = max(max_label, s.len() as u16);
             }
             EditConstraint::LabelWidth(w) => {
-                max_width = max(max_width, *w);
+                max_label = max(max_label, *w);
             }
             EditConstraint::LabelRows(w, _) => {
-                max_width = max(max_width, *w);
+                max_label = max(max_label, *w);
             }
-            EditConstraint::Widget(_) => {}
-            EditConstraint::WidgetRows(_, _) => {}
-            EditConstraint::LineWidget(_) => {}
-            EditConstraint::LineWidgetRows(_, _) => {}
+            EditConstraint::TitleLabel => {
+                // don't count
+            }
+            EditConstraint::TitleLabelWidth(_) => {
+                // don't count
+            }
+            EditConstraint::TitleLabelRows(_) => {
+                // don't count
+            }
+            EditConstraint::Widget(w) => {
+                max_widget = max(max_widget, *w);
+            }
+            EditConstraint::WidgetRows(w, _) => {
+                max_widget = max(max_widget, *w);
+            }
+            EditConstraint::LineWidget(_) => {
+                // don't count
+            }
+            EditConstraint::LineWidgetRows(_, _) => {
+                // don't count
+            }
             EditConstraint::Empty => {}
             EditConstraint::EmptyRows(_) => {}
         }
@@ -61,9 +122,58 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
 
     let mut result = LayoutEdit::default();
 
+    // area.width is a constraint too
+    if max_label + space + max_widget < area.width {
+        space = area.width - max_label - max_widget;
+    } else if max_label + space + max_widget > area.width {
+        let mut reduce = max_label + space + max_widget - area.width;
+
+        if space > reduce {
+            space -= reduce;
+            reduce = 0;
+        } else {
+            reduce -= space;
+            space = 0;
+        }
+        if max_label > 5 {
+            if max_label - 5 > reduce {
+                max_label -= reduce;
+                reduce = 0;
+            } else {
+                reduce -= max_label - 5;
+                max_label = 5;
+            }
+        }
+        if max_widget > 5 {
+            if max_widget - 5 > reduce {
+                max_widget -= reduce;
+                reduce = 0;
+            } else {
+                reduce -= max_widget - 5;
+                max_widget = 5;
+            }
+        }
+        if max_label > reduce {
+            max_label -= reduce;
+            reduce = 0;
+        } else {
+            reduce -= max_label;
+            max_label = 0;
+        }
+        if max_widget > reduce {
+            max_widget -= reduce;
+            // reduce = 0;
+        } else {
+            // reduce -= max_widget;
+            max_widget = 0;
+        }
+    }
+
     let mut x = area.x;
     let mut y = area.y;
-    let mut height = 1;
+    let total = max_label + space + max_widget;
+    let mut rest_height = if area.height > 0 { area.height - 1 } else { 0 }; //todo: verify the '-1' somehow??
+    let mut height = min(1, rest_height);
 
     for l in constraints.iter() {
         // break before
@@ -72,7 +182,18 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
                 if x != area.x {
                     x = area.x;
                     y += height;
-                    height = 1;
+                    rest_height -= height;
+                    height = min(1, rest_height);
+                }
+            }
+            EditConstraint::TitleLabel
+            | EditConstraint::TitleLabelWidth(_)
+            | EditConstraint::TitleLabelRows(_) => {
+                if x != area.x {
+                    x = area.x;
+                    y += height;
+                    rest_height -= height;
+                    height = min(1, rest_height);
                 }
             }
             EditConstraint::Label(_)
@@ -86,25 +207,60 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
 
         // self
         match l {
-            EditConstraint::Label(_) | EditConstraint::LabelWidth(_) => {
-                result.label.push(Rect::new(x, y, max_width, 1));
+            EditConstraint::Label(s) => {
+                result.label.push(Rect::new(
+                    x,
+                    y,
+                    min(s.len() as u16, max_label),
+                    min(1, rest_height),
+                ));
             }
-            EditConstraint::LabelRows(_, h) => {
-                result.label.push(Rect::new(x, y, max_width, *h));
+            EditConstraint::LabelWidth(w) => {
+                result
+                    .label
+                    .push(Rect::new(x, y, min(*w, max_label), min(1, rest_height)));
+            }
+            EditConstraint::LabelRows(w, h) => {
+                result
+                    .label
+                    .push(Rect::new(x, y, min(*w, max_label), min(1, *h)));
+            }
+            EditConstraint::TitleLabel => {
+                result
+                    .label
+                    .push(Rect::new(x, y, total, min(1, rest_height)));
+            }
+            EditConstraint::TitleLabelWidth(w) => {
+                result
+                    .label
+                    .push(Rect::new(x, y, min(*w, max_label), min(1, rest_height)));
+            }
+            EditConstraint::TitleLabelRows(h) => {
+                result
+                    .label
+                    .push(Rect::new(x, y, total, min(*h, rest_height)));
             }
             EditConstraint::Widget(w) => {
-                result.widget.push(Rect::new(x, y, *w, 1));
+                result
+                    .widget
+                    .push(Rect::new(x, y, min(*w, max_widget), min(1, rest_height)));
             }
             EditConstraint::WidgetRows(w, h) => {
-                result.widget.push(Rect::new(x, y, *w, *h));
+                result
+                    .widget
+                    .push(Rect::new(x, y, min(*w, max_widget), min(*h, rest_height)));
             }
             EditConstraint::LineWidget(w) => {
                 result.label.push(Rect::new(x, y, 0, 1));
-                result.widget.push(Rect::new(x, y, *w, 1));
+                result
+                    .widget
+                    .push(Rect::new(x, y, min(*w, max_widget), min(1, rest_height)));
             }
             EditConstraint::LineWidgetRows(w, h) => {
                 result.label.push(Rect::new(x, y, 0, *h));
-                result.widget.push(Rect::new(x, y, *w, *h));
+                result
+                    .widget
+                    .push(Rect::new(x, y, min(*w, max_widget), min(*h, rest_height)));
             }
             EditConstraint::Empty => {}
             EditConstraint::EmptyRows(_) => {}
@@ -112,17 +268,21 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
 
         // row-height
         match l {
-            EditConstraint::Label(_) | EditConstraint::LabelWidth(_) => {}
-            EditConstraint::Widget(_) => {}
-            EditConstraint::Empty => {}
-            EditConstraint::LineWidget(_) => {
-                // height = max(height, 1);
+            EditConstraint::Label(_)
+            | EditConstraint::LabelWidth(_)
+            | EditConstraint::TitleLabel
+            | EditConstraint::TitleLabelWidth(_)
+            | EditConstraint::Widget(_)
+            | EditConstraint::Empty
+            | EditConstraint::LineWidget(_) => {
+                height = min(max(height, 1), rest_height);
             }
             EditConstraint::LabelRows(_, h)
+            | EditConstraint::TitleLabelRows(h)
             | EditConstraint::WidgetRows(_, h)
             | EditConstraint::EmptyRows(h)
             | EditConstraint::LineWidgetRows(_, h) => {
-                height = max(height, *h);
+                height = min(max(height, *h), rest_height);
             }
         }
 
@@ -131,7 +291,15 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
             EditConstraint::Label(_)
             | EditConstraint::LabelWidth(_)
             | EditConstraint::LabelRows(_, _) => {
-                x += max_width + 1;
+                x += max_label + space;
+            }
+            EditConstraint::TitleLabel
+            | EditConstraint::TitleLabelWidth(_)
+            | EditConstraint::TitleLabelRows(_) => {
+                x = area.x;
+                y += height;
+                rest_height -= height;
+                height = min(1, rest_height);
             }
             EditConstraint::Widget(_)
             | EditConstraint::WidgetRows(_, _)
@@ -141,7 +309,8 @@ pub fn layout_edit<const N: usize>(area: Rect, constraints: [EditConstraint<'_>;
             | EditConstraint::LineWidgetRows(_, _) => {
                 x = area.x;
                 y += height;
-                height = 1;
+                rest_height -= height;
+                height = min(1, rest_height);
             }
         };
     }
