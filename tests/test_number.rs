@@ -1,4 +1,4 @@
-use rat_salsa::widget::number::{fmt_f64, parse_format};
+use rat_salsa::number::{fmt_f64, parse_format};
 use std::fmt;
 
 #[test]
@@ -15,5 +15,6 @@ fn test_parse() -> Result<(), fmt::Error> {
     ));
     _ = dbg!(fmt_f64(1234, "+####", None));
     _ = dbg!(fmt_f64(1234, "-####", None));
+    _ = dbg!(fmt_f64(-1234, "####-", None));
     Ok(())
 }

@@ -32,7 +32,9 @@ fn main() -> Result<(), anyhow::Error> {
     let sym = Rc::new(NumberSymbols {
         decimal_sep: ",".to_string(),
         decimal_grp: ".".to_string(),
-        negative_sym: "-".to_string(),
+        exponent_upper_sym: "E".to_string(),
+        exponent_lower_sym: "e".to_string(),
+        ..Default::default()
     });
 
     let mut data = FormOneData::default();
@@ -142,7 +144,7 @@ impl Mask0 {
         s.date.set_display_mask("mm/dd/yyyy");
         s.alpha.set_mask("llllllllll");
         s.dec7_2.set_mask("#,###,##0.00");
-        s.euro.set_mask("€ ###,##0.00");
+        s.euro.set_mask("€ ###,##0.00-");
         s.exp.set_mask("#.#######e###");
         s
     }
@@ -387,8 +389,8 @@ fn repaint_mask0(
 
         for (i, t) in r.value.tokens().iter().enumerate() {
             let mut w_info = Span::from(format!(
-                "{}:{}-{}   {} | {}",
-                t.sec_nr, t.sec_start, t.sec_end, t.peek_left, t.right
+                "#{}:{}:{}-{}   {} | {}",
+                t.nr_id, t.sec_id, t.sec_start, t.sec_end, t.peek_left, t.right
             ));
             if i == r.cursor() {
                 w_info = w_info.on_cyan();

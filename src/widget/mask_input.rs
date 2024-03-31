@@ -796,6 +796,8 @@ pub mod core {
         Numeric(EditDirection),
         DecimalSep,
         GroupingSep,
+        Plus,
+        Minus,
         Hex0,
         Hex,
         Oct0,
@@ -813,7 +815,11 @@ pub mod core {
 
     #[derive(Clone)]
     pub struct MaskToken {
-        pub sec_nr: usize,
+        pub nr_id: usize,
+        pub nr_start: usize,
+        pub nr_end: usize,
+
+        pub sec_id: usize,
         pub sec_start: usize,
         pub sec_end: usize,
 
@@ -850,6 +856,8 @@ pub mod core {
                 }
                 Mask::DecimalSep => write!(f, "."),
                 Mask::GroupingSep => write!(f, ","),
+                Mask::Plus => write!(f, "+"),
+                Mask::Minus => write!(f, "-"),
                 Mask::Hex0 => write!(f, "H"),
                 Mask::Hex => write!(f, "h"),
                 Mask::Oct0 => write!(f, "O"),
@@ -903,6 +911,31 @@ pub mod core {
             *self == Mask::None
         }
 
+        //
+        fn is_number(&self) -> bool {
+            match self {
+                Mask::Digit0(_) => true,
+                Mask::Digit(_) => true,
+                Mask::Numeric(_) => true,
+                Mask::DecimalSep => true,
+                Mask::GroupingSep => true,
+                Mask::Plus => true,
+                Mask::Minus => true,
+                Mask::Hex0 => false,
+                Mask::Hex => false,
+                Mask::Oct0 => false,
+                Mask::Oct => false,
+                Mask::Dec0 => false,
+                Mask::Dec => false,
+                Mask::Letter => false,
+                Mask::LetterOrDigit => false,
+                Mask::LetterDigitSpace => false,
+                Mask::AnyChar => false,
+                Mask::Separator(_) => false,
+                Mask::None => false,
+            }
+        }
+
         // left to right editing
         fn is_ltor(&self) -> bool {
             match self {
@@ -910,6 +943,8 @@ pub mod core {
                 Mask::Digit(d) => d.is_ltor(),
                 Mask::Numeric(d) => d.is_ltor(),
                 Mask::GroupingSep => false,
+                Mask::Plus => false,
+                Mask::Minus => false,
                 Mask::DecimalSep => true,
                 Mask::Hex0 => true,
                 Mask::Hex => true,
@@ -933,6 +968,8 @@ pub mod core {
                 Mask::Digit(d) => d.is_rtol(),
                 Mask::Numeric(d) => d.is_rtol(),
                 Mask::GroupingSep => true,
+                Mask::Plus => true,
+                Mask::Minus => true,
                 Mask::DecimalSep => false,
                 Mask::Hex0 => false,
                 Mask::Hex => false,
@@ -956,7 +993,9 @@ pub mod core {
                 Mask::Digit(_) => 0,
                 Mask::Numeric(_) => 0,
                 Mask::GroupingSep => 0,
-                Mask::DecimalSep => 1,
+                Mask::Plus => 1,
+                Mask::Minus => 1,
+                Mask::DecimalSep => 2, // todo: check?
                 Mask::Hex0 => 3,
                 Mask::Hex => 3,
                 Mask::Oct0 => 4,
@@ -972,12 +1011,41 @@ pub mod core {
             }
         }
 
+        // which masks count for the same number
+        fn number(&self) -> u8 {
+            match self {
+                Mask::Digit0(_) => 0,
+                Mask::Digit(_) => 0,
+                Mask::Numeric(_) => 0,
+                Mask::GroupingSep => 0,
+                Mask::Plus => 0,
+                Mask::Minus => 0,
+                Mask::DecimalSep => 0, // todo: check?
+
+                Mask::Hex0 => 1,
+                Mask::Hex => 1,
+                Mask::Oct0 => 1,
+                Mask::Oct => 1,
+                Mask::Dec0 => 1,
+                Mask::Dec => 1,
+                Mask::Letter => 1,
+                Mask::LetterOrDigit => 1,
+                Mask::LetterDigitSpace => 1,
+                Mask::AnyChar => 1,
+
+                Mask::Separator(_) => 2,
+                Mask::None => 3,
+            }
+        }
+
         // mask should overwrite instead of insert
         fn can_overwrite(&self, c: &str) -> bool {
             match self {
                 Mask::Digit0(d) | Mask::Digit(d) | Mask::Numeric(d) => *d == EditDirection::Ltor,
                 Mask::DecimalSep => "." == c,
                 Mask::GroupingSep => false,
+                Mask::Plus => "-" == c || "+" == c,
+                Mask::Minus => "-" == c || " " == c,
                 Mask::Hex0 => c == "0",
                 Mask::Hex => false,
                 Mask::Oct0 => c == "0",
@@ -993,13 +1061,15 @@ pub mod core {
             }
         }
 
-        // char can be dropped at the end of a section
+        // char can be dropped
         fn can_drop(&self, c: &str) -> bool {
             match self {
                 Mask::Digit0(_) => c == "0",
                 Mask::Digit(_) => c == " ",
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
+                Mask::Plus => false,
+                Mask::Minus => false,
                 Mask::GroupingSep => true,
                 Mask::Hex0 => c == "0",
                 Mask::Hex => c == " ",
@@ -1023,6 +1093,8 @@ pub mod core {
                 Mask::Digit(_) => c == " ",
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
+                Mask::Plus => false,
+                Mask::Minus => false,
                 Mask::GroupingSep => true,
                 Mask::Hex0 => false,
                 Mask::Hex => c == " ",
@@ -1064,6 +1136,8 @@ pub mod core {
                 Mask::Numeric(_) => test.is_ascii_digit() || test == ' ' || test == '-',
                 Mask::DecimalSep => test_grapheme == dec,
                 Mask::GroupingSep => false,
+                Mask::Plus => test == '+' || test == '-',
+                Mask::Minus => test == ' ' || test == '-',
                 Mask::Hex0 => test.is_ascii_hexdigit(),
                 Mask::Hex => test.is_ascii_hexdigit() || test == ' ',
                 Mask::Oct0 => test.is_digit(8),
@@ -1086,6 +1160,8 @@ pub mod core {
                 Mask::Numeric(_) => " ",
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => " ", // don't show. remap_number fills it in if necessary.
+                Mask::Plus => "+",
+                Mask::Minus => " ",
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1108,6 +1184,8 @@ pub mod core {
                 Mask::Numeric(_) => " ",
                 Mask::DecimalSep => ".",  // only used by get_display_mask()
                 Mask::GroupingSep => ",", // only used by get_display_mask()
+                Mask::Plus => "+",
+                Mask::Minus => " ",
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1137,7 +1215,7 @@ pub mod core {
                 false
             } else {
                 let end = s.graphemes(true).count();
-                let (_b, c) = grapheme::split_at(s, end - 1);
+                let (_, c) = grapheme::split_at(s, end - 1);
                 self.can_drop(c)
             }
         }
@@ -1146,8 +1224,8 @@ pub mod core {
             if s.is_empty() {
                 false
             } else {
-                let (_, f, _) = grapheme::split3(s, 0..1);
-                self.can_overwrite(f)
+                let (c, _) = grapheme::split_at(s, 1);
+                self.can_overwrite(c)
             }
         }
     }
@@ -1156,15 +1234,18 @@ pub mod core {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             write!(
                 f,
-                "Mask {}:{}-{} {:?} | {:?}",
-                self.sec_nr, self.sec_start, self.sec_end, self.peek_left, self.right
+                "Mask #{}:{}:{}-{} {:?} | {:?}",
+                self.nr_id, self.sec_id, self.sec_start, self.sec_end, self.peek_left, self.right
             )
         }
     }
 
     impl MaskToken {
         pub fn test(
-            sec_nr: usize,
+            nr_id: usize,
+            nr_start: usize,
+            nr_end: usize,
+            sec_id: usize,
             sec_start: usize,
             sec_end: usize,
             peek_left: Mask,
@@ -1173,7 +1254,10 @@ pub mod core {
             display: &str,
         ) -> Self {
             Self {
-                sec_nr,
+                nr_id,
+                nr_start,
+                nr_end,
+                sec_id,
                 sec_start,
                 sec_end,
                 peek_left,
@@ -1181,6 +1265,11 @@ pub mod core {
                 edit: edit.into(),
                 display: display.into(),
             }
+        }
+
+        /// Number range as Range.
+        fn nr_range(&self) -> Range<usize> {
+            self.nr_start..self.nr_end
         }
 
         /// Range as Range.
@@ -1349,7 +1438,7 @@ pub mod core {
                 _ = write!(
                     buf,
                     "MaskToken::test({:?}, {:?}, {:?}, {:?}, {:?}, {:?}, {:?}), ",
-                    t.sec_nr, t.sec_start, t.sec_end, t.peek_left, t.right, t.edit, t.display
+                    t.sec_id, t.sec_start, t.sec_end, t.peek_left, t.right, t.edit, t.display
                 );
             }
             _ = write!(buf, "], ");
@@ -1504,6 +1593,14 @@ pub mod core {
             }
         }
 
+        fn pos_sym(&self) -> &str {
+            if let Some(sym) = &self.sym {
+                &sym.positive_sym
+            } else {
+                "-"
+            }
+        }
+
         /// Changes the mask.
         /// Resets the value to a default.
         pub fn set_mask<S: Into<String>>(&mut self, s: S) {
@@ -1511,8 +1608,10 @@ pub mod core {
 
             self.mask.clear();
 
-            let mut nr = 0;
-            let mut start = 0;
+            let mut start_id = 0;
+            let mut id = 0;
+            let mut start_nr = 0;
+            let mut nr_id = 0;
             let mut last_mask = Mask::None;
             let mut dec_dir = EditDirection::Rtol;
             let mut esc = false;
@@ -1528,6 +1627,8 @@ pub mod core {
                         "#" => Mask::Numeric(dec_dir),
                         "." => Mask::DecimalSep,
                         "," => Mask::GroupingSep,
+                        "+" => Mask::Plus,
+                        "-" => Mask::Minus,
                         "h" => Mask::Hex,
                         "H" => Mask::Hex0,
                         "o" => Mask::Oct,
@@ -1548,7 +1649,12 @@ pub mod core {
                 };
 
                 match mask {
-                    Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) | Mask::GroupingSep => {
+                    Mask::Digit0(_)
+                    | Mask::Digit(_)
+                    | Mask::Numeric(_)
+                    | Mask::GroupingSep
+                    | Mask::Plus
+                    | Mask::Minus => {
                         // no change
                     }
                     Mask::DecimalSep => {
@@ -1573,19 +1679,30 @@ pub mod core {
                     }
                 }
 
+                if matches!(mask, Mask::Separator(_)) || mask.number() != last_mask.number() {
+                    for j in start_nr..idx {
+                        self.mask[j].nr_id = nr_id;
+                        self.mask[j].nr_start = start_nr;
+                        self.mask[j].nr_end = idx;
+                    }
+                    nr_id += 1;
+                    start_nr = idx;
+                }
                 if matches!(mask, Mask::Separator(_)) || mask.section() != last_mask.section() {
-                    for j in start..idx {
-                        self.mask[j].sec_nr = nr;
-                        self.mask[j].sec_start = start;
+                    for j in start_id..idx {
+                        self.mask[j].sec_id = id;
+                        self.mask[j].sec_start = start_id;
                         self.mask[j].sec_end = idx;
                     }
-
-                    nr += 1;
-                    start = idx;
+                    id += 1;
+                    start_id = idx;
                 }
 
                 let tok = MaskToken {
-                    sec_nr: 0,
+                    nr_id: 0,
+                    nr_start: 0,
+                    nr_end: 0,
+                    sec_id: 0,
                     sec_start: 0,
                     sec_end: 0,
                     peek_left: last_mask,
@@ -1598,9 +1715,14 @@ pub mod core {
                 idx += 1;
                 last_mask = mask;
             }
-            for j in start..self.mask.len() {
-                self.mask[j].sec_nr = nr;
-                self.mask[j].sec_start = start;
+            for j in start_nr..self.mask.len() {
+                self.mask[j].nr_id = nr_id;
+                self.mask[j].nr_start = start_nr;
+                self.mask[j].nr_end = mask.graphemes(true).count();
+            }
+            for j in start_id..self.mask.len() {
+                self.mask[j].sec_id = id;
+                self.mask[j].sec_start = start_id;
                 self.mask[j].sec_end = mask.graphemes(true).count();
             }
 
@@ -1730,6 +1852,7 @@ pub mod core {
                             " "
                         } else if t.right == Mask::DecimalSep {
                             self.dec_sep()
+                            // todo plus and minus? maybe
                         } else {
                             t.display.as_ref()
                         };
@@ -1742,6 +1865,8 @@ pub mod core {
                                 self.grp_sep()
                             } else if s == "-" {
                                 self.neg_sym()
+                            } else if s == "+" {
+                                self.pos_sym()
                             } else {
                                 " "
                             }
@@ -1754,6 +1879,8 @@ pub mod core {
                         } else {
                             if s == "-" {
                                 self.neg_sym()
+                            } else if s == "+" {
+                                self.pos_sym()
                             } else {
                                 s
                             }
@@ -1894,7 +2021,78 @@ pub mod core {
             debug!("INSERT CHAR {:?} {:?}", mask, cc);
             debug!("{}", self.test_state());
 
-            if mask.right.is_rtol()
+            if mask.right.is_number() && (cc == self.neg_sym() || cc == self.pos_sym()) {
+                'f: {
+                    for i in mask.nr_range() {
+                        match &self.mask[i] {
+                            MaskToken {
+                                right: Mask::Plus | Mask::Minus,
+                                ..
+                            } => {
+                                debug!("bin0");
+                                let (bb, c0, aa) = grapheme::split3(&self.value(), i..i + 1);
+                                let repl = if c0 == "-" {
+                                    " "
+                                } else if c0 == " " && cc == self.neg_sym() {
+                                    "-"
+                                } else {
+                                    c0
+                                };
+
+                                let mut buf = String::new();
+                                buf.push_str(bb);
+                                buf.push_str(repl);
+                                buf.push_str(aa);
+                                self.value = buf;
+
+                                break 'f;
+                            }
+                            _ => {}
+                        }
+                    }
+                    let (bb, cc0, mm, cc1, aa) =
+                        grapheme::split_mask_match(&self.value, "-", mask.nr_range());
+                    if mm == "-" {
+                        let mut buf = String::new();
+                        buf.push_str(bb);
+                        buf.push_str(cc0);
+                        buf.push_str(" ");
+                        buf.push_str(cc1);
+                        buf.push_str(aa);
+                        self.value = buf;
+
+                        break 'f;
+                    }
+                    if cc == self.neg_sym() {
+                        for i in mask.nr_range() {
+                            match &self.mask[i] {
+                                MaskToken {
+                                    right: Mask::Numeric(EditDirection::Rtol),
+                                    ..
+                                } => {
+                                    let (bb, c0, aa) = grapheme::split3(&self.value(), i..i + 1);
+                                    let repl = if self.mask[i].right.can_drop(c0) {
+                                        "-"
+                                    } else {
+                                        c0
+                                    };
+
+                                    let mut buf = String::new();
+                                    buf.push_str(bb);
+                                    buf.push_str(repl);
+                                    buf.push_str(aa);
+                                    self.value = buf;
+
+                                    // todo: remap number
+
+                                    break 'f;
+                                }
+                                _ => {}
+                            }
+                        }
+                    }
+                }
+            } else if mask.right.is_rtol()
                 || mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none())
             {
                 // boundary right/left. prefer right, change mask.
@@ -1903,48 +2101,8 @@ pub mod core {
                 }
                 let mask0 = &self.mask[mask.sec_start];
                 let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
-                let (bb, cc0, minus, cc1, aa) =
-                    grapheme::split_mask_match(&self.value, "-", mask.range());
 
-                if cc == self.neg_sym()
-                    && mask0.right.can_drop_first(cc1)
-                    && mask0.right.is_valid_char(cc, &self.dec_sep())
-                {
-                    let mut mstr = String::new();
-                    mstr.push_str(cc0);
-                    mstr.push('-');
-                    mstr.push_str(grapheme::drop_first(cc1));
-
-                    let submask = &self.mask[mask.sec_start..mask.sec_end];
-                    let mmstr = MaskToken::remap_number(submask, &mstr);
-
-                    let mut buf = String::new();
-                    buf.push_str(bb);
-                    buf.push_str(mmstr.as_str());
-                    buf.push_str(aa);
-                    self.value = buf;
-                    // cursor stays
-                } else if cc == self.neg_sym()
-                    && minus == "-"
-                    && mask0.right.is_valid_char(cc, &self.dec_sep())
-                {
-                    let mut mstr = String::new();
-                    mstr.push_str(cc0);
-                    mstr.push(' ');
-                    mstr.push_str(cc1);
-
-                    let submask = &self.mask[mask.sec_start..mask.sec_end];
-                    let mmstr = MaskToken::remap_number(submask, &mstr);
-
-                    let mut buf = String::new();
-                    buf.push_str(bb);
-                    buf.push_str(mmstr.as_str());
-                    buf.push_str(aa);
-                    self.value = buf;
-                    // cursor stays
-                } else if mask0.right.can_drop_first(c0)
-                    && mask.right.is_valid_char(cc, &self.dec_sep())
-                {
+                if mask0.right.can_drop_first(c0) && mask.right.is_valid_char(cc, &self.dec_sep()) {
                     let mut mstr = String::new();
                     mstr.push_str(grapheme::drop_first(c0));
                     mstr.push_str(mask.right.replace_char(cc, &self.dec_sep()));
