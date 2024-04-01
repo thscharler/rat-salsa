@@ -542,6 +542,33 @@ impl<E> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState {
     }
 }
 
+#[derive(Debug)]
+pub struct DeleteRow;
+
+impl<E> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for TableExtState {
+    fn handle(&mut self, event: &Event, _: DeleteRow) -> ControlUI<usize, E> {
+        match event {
+            Event::Key(KeyEvent {
+                code: KeyCode::Delete,
+                modifiers: KeyModifiers::NONE,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.focus.get() {
+                    if let Some(selected) = self.table_state.selected() {
+                        ControlUI::Run(selected)
+                    } else {
+                        ControlUI::Continue
+                    }
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            _ => ControlUI::Continue,
+        }
+    }
+}
+
 impl<A, E> Input<ControlUI<A, E>> for TableExtState {
     type Request = InputRequest;
 
