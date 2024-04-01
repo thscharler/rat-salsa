@@ -135,17 +135,17 @@ impl Mask0 {
         };
         s.menu.focus.set();
         s.text.focus.set();
-        s.ipv4.set_mask("990\\.990\\.990\\.990");
+        s.ipv4.set_mask("990\\.990\\.990\\.990").expect("mask");
         // s.ipv4.set_display_mask("xxx.xxx.xxx.xxx");
-        s.hexcolor.set_mask("HHHHHH");
-        s.creditcard.set_mask("dddd dddd dddd dddd");
+        s.hexcolor.set_mask("HHHHHH").expect("mask");
+        s.creditcard.set_mask("dddd dddd dddd dddd").expect("mask");
         // s.creditcard.set_display_mask("dddd dddd dddd dddd");
-        s.date.set_mask("99/99/9999");
+        s.date.set_mask("99/99/9999").expect("mask");
         s.date.set_display_mask("mm/dd/yyyy");
-        s.alpha.set_mask("llllllllll");
-        s.dec7_2.set_mask("#,###,##0.00");
-        s.euro.set_mask("€ ###,##0.00-");
-        s.exp.set_mask("0.#######e###");
+        s.alpha.set_mask("llllllllll").expect("mask");
+        s.dec7_2.set_mask("#,###,##0.00").expect("mask");
+        s.euro.set_mask("€ ###,##0.00-").expect("mask");
+        s.exp.set_mask("0.#######\\e###").expect("mask");
         s
     }
 }
@@ -400,14 +400,15 @@ fn repaint_mask0(
     frame.render_frame_widget(w_exp, l2.widget(), &mut uistate.mask0.exp);
 
     let r = match_focus!(
-        uistate.mask0.ipv4 => &uistate.mask0.ipv4,
-        uistate.mask0.hexcolor => &uistate.mask0.hexcolor,
-        uistate.mask0.creditcard => &uistate.mask0.creditcard,
-        uistate.mask0.date => &uistate.mask0.date,
-        uistate.mask0.alpha => &uistate.mask0.alpha,
-        uistate.mask0.dec7_2 => &uistate.mask0.dec7_2,
-        uistate.mask0.euro => &uistate.mask0.euro,
-        uistate.mask0.exp => &uistate.mask0.exp
+        uistate.mask0.ipv4 => Some(&uistate.mask0.ipv4),
+        uistate.mask0.hexcolor => Some(&uistate.mask0.hexcolor),
+        uistate.mask0.creditcard => Some(&uistate.mask0.creditcard),
+        uistate.mask0.date => Some(&uistate.mask0.date),
+        uistate.mask0.alpha =>Some( &uistate.mask0.alpha),
+        uistate.mask0.dec7_2 => Some(&uistate.mask0.dec7_2),
+        uistate.mask0.euro => Some(&uistate.mask0.euro),
+        uistate.mask0.exp => Some(&uistate.mask0.exp),
+        _ => None
     );
     if let Some(r) = r {
         let mut ec = Vec::new();
@@ -599,6 +600,7 @@ impl Theme {
             style: Style::default().fg(self.black).bg(self.base05),
             focus: Style::default().fg(self.black).bg(self.green),
             select: Style::default().fg(self.black).bg(self.base0e),
+            invalid: Some(Style::default().white().on_light_red()),
             cursor: None,
             ..TextInputStyle::default()
         }
@@ -609,8 +611,8 @@ impl Theme {
             style: Style::default().fg(self.black).bg(self.base05),
             focus: Style::default().fg(self.black).bg(self.green),
             select: Style::default().fg(self.black).bg(self.base0e),
+            invalid: Some(Style::default().white().on_light_red()),
             cursor: None,
-            invalid: Some(Style::default().fg(Color::White).bg(Color::Red)),
             ..MaskedInputStyle::default()
         }
     }

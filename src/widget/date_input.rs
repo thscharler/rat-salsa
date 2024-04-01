@@ -10,6 +10,7 @@ use log::debug;
 use ratatui::layout::{Margin, Rect};
 use ratatui::prelude::Style;
 use ratatui::Frame;
+use std::fmt;
 use std::fmt::Debug;
 
 #[derive(Debug, Default)]
@@ -108,11 +109,12 @@ impl DateInputState {
         self.input.set_display_mask(s);
     }
 
-    pub fn set_mask<S: Into<String>>(&mut self, s: S) {
-        self.input.set_mask(s);
+    pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
+        self.input.set_mask(s)
     }
 
     pub fn set_format<S: Into<String>>(&mut self, s: S) {
+        // todo: generate mask from format
         self.format = s.into();
     }
 
@@ -130,7 +132,10 @@ impl DateInputState {
     }
 }
 
-impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState {
+impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState
+where
+    E: From<fmt::Error>,
+{
     fn handle(&mut self, event: &Event, keymap: DefaultKeys) -> ControlUI<A, E> {
         let r = {
             match event {

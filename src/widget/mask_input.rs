@@ -45,10 +45,10 @@
 //!
 //! ```
 
-use crate::grapheme;
 use crate::number::NumberSymbols;
 use crate::widget::basic::ClearStyle;
 use crate::widget::mask_input::core::InputMaskCore;
+use crate::{grapheme, try_result};
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
@@ -59,6 +59,7 @@ use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::Frame;
 use std::cmp::min;
+use std::fmt;
 use std::ops::Range;
 use std::rc::Rc;
 
@@ -291,7 +292,10 @@ pub struct MaskedInputState {
     pub value: InputMaskCore,
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MaskedInputState {
+impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MaskedInputState
+where
+    E: From<fmt::Error>,
+{
     #[allow(non_snake_case)]
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
         use crossterm::event::KeyCode::*;
@@ -356,7 +360,10 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MaskedInputState {
     }
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MaskedInputState {
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MaskedInputState
+where
+    E: From<fmt::Error>,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
         use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 
@@ -535,8 +542,8 @@ impl MaskedInputState {
     /// * all other ascii characters a reserved.
     ///
     /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
-    pub fn set_mask<S: AsRef<str>>(&mut self, s: S) {
-        self.value.set_mask(s);
+    pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
+        self.value.set_mask(s)
     }
 
     /// Display mask.
@@ -678,7 +685,10 @@ impl HasValidFlag for MaskedInputState {
     }
 }
 
-impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
+impl<A, E> Input<ControlUI<A, E>> for MaskedInputState
+where
+    E: From<fmt::Error>,
+{
     type Request = InputRequest;
 
     fn perform(&mut self, action: Self::Request) -> ControlUI<A, E> {
@@ -701,10 +711,10 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
             }
             InsertChar(c) => {
                 if self.value.is_anchored() {
-                    self.value.remove_selection(self.value.selection());
+                    try_result!(self.value.remove_selection(self.value.selection()));
                 }
                 self.value.advance_cursor(c);
-                self.value.insert_char(c);
+                try_result!(self.value.insert_char(c));
                 ControlUI::Change
             }
             DeletePrevChar => {
@@ -712,12 +722,12 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                     self.value.reset();
                     ControlUI::Change
                 } else if self.value.is_anchored() {
-                    self.value.remove_selection(self.value.selection());
+                    try_result!(self.value.remove_selection(self.value.selection()));
                     ControlUI::Change
                 } else if self.value.cursor() == 0 {
                     ControlUI::NoChange
                 } else {
-                    self.value.remove_prev();
+                    try_result!(self.value.remove_prev());
                     ControlUI::Change
                 }
             }
@@ -726,12 +736,12 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                     self.value.reset();
                     ControlUI::Change
                 } else if self.value.is_anchored() {
-                    self.value.remove_selection(self.value.selection());
+                    try_result!(self.value.remove_selection(self.value.selection()));
                     ControlUI::Change
                 } else if self.value.cursor() == self.value.len() {
                     ControlUI::NoChange
                 } else {
-                    self.value.remove_next();
+                    try_result!(self.value.remove_next());
                     ControlUI::Change
                 }
             }
@@ -786,7 +796,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                     ControlUI::NoChange
                 } else {
                     let prev = self.value.prev_word_boundary();
-                    self.value.remove_selection(prev..self.value.cursor());
+                    try_result!(self.value.remove_selection(prev..self.value.cursor()));
                     ControlUI::Change
                 }
             }
@@ -795,7 +805,7 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                     ControlUI::NoChange
                 } else {
                     let next = self.value.next_word_boundary();
-                    self.value.remove_selection(self.value.cursor()..next);
+                    try_result!(self.value.remove_selection(self.value.cursor()..next));
                     ControlUI::Change
                 }
             }
@@ -816,12 +826,13 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
                 }
             }
             DeleteTillEnd => {
-                self.value
-                    .remove_selection(self.value.cursor()..self.value.len());
+                try_result!(self
+                    .value
+                    .remove_selection(self.value.cursor()..self.value.len()));
                 ControlUI::Change
             }
             DeleteTillStart => {
-                self.value.remove_selection(0..self.value.cursor());
+                try_result!(self.value.remove_selection(0..self.value.cursor()));
                 ControlUI::Change
             }
             SelectAll => {
@@ -834,12 +845,12 @@ impl<A, E> Input<ControlUI<A, E>> for MaskedInputState {
 }
 
 pub mod core {
-    use crate::grapheme;
-    use crate::number::NumberSymbols;
+    use crate::number::{Mode, NumberFormat, NumberSymbols, Token};
+    use crate::{grapheme, number};
     #[allow(unused_imports)]
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};
-    use std::iter::{once, repeat};
+    use std::iter::once;
     use std::ops::Range;
     use std::rc::Rc;
     use std::{fmt, mem};
@@ -1375,7 +1386,7 @@ pub mod core {
             buf
         }
 
-        fn remap_number(submask: &[MaskToken], v: &str) -> String {
+        fn remap_number(submask: &[MaskToken], v: &str) -> Result<String, fmt::Error> {
             // remove all non numbers and leading 0.
             let mut clean = String::new();
             let mut seen_non_0 = false;
@@ -1393,109 +1404,42 @@ pub mod core {
                 }
             }
 
-            let mut out_vec = Vec::from_iter(repeat(" ").take(submask.len()));
-            let mut out_idx = out_vec.len() as isize - 1;
-
-            let mut it = submask.iter().rev();
-            let mut jt = clean.graphemes(true).rev();
-
-            let mut m = None;
-            let mut v = None;
-            loop {
-                if m.is_none() {
-                    m = it.next();
-                }
-                if v.is_none() {
-                    v = jt.next();
-                }
-
-                let Some(mm) = m else {
-                    break;
-                };
-
-                if matches!(mm.right, Mask::Digit0(_)) {
-                    if let Some(vv) = v {
-                        // todo: what to think about this?
-                        let vc = vv.chars().next().unwrap_or('\0');
-                        if mm.right.is_valid_char(vc, '.') {
-                            out_vec[out_idx as usize] = vv;
-                            out_idx -= 1;
-                            v = None;
-                        } else {
-                            out_vec[out_idx as usize] = &mm.edit;
-                            out_idx -= 1;
-                            // keep v
-                        }
-                    } else {
-                        out_vec[out_idx as usize] = &mm.edit;
-                        out_idx -= 1;
-                        // keep v
+            // create number format
+            let mut fmt = NumberFormat::default();
+            // default fmt.sym is nice
+            for t in submask {
+                match &t.right {
+                    Mask::Digit0(EditDirection::Rtol) => fmt.tok.push(Token::Digit0(Mode::Integer)),
+                    Mask::Digit(EditDirection::Rtol) => fmt.tok.push(Token::Digit(Mode::Integer)),
+                    Mask::Numeric(EditDirection::Rtol) => {
+                        fmt.tok.push(Token::Numeric(Mode::Integer))
                     }
-                    m = None;
-                } else if matches!(mm.right, Mask::Digit(_) | Mask::Numeric(_)) {
-                    if let Some(vv) = v {
-                        out_vec[out_idx as usize] = vv;
-                        out_idx -= 1;
-                        v = None;
+                    Mask::Digit0(EditDirection::Ltor) => {
+                        fmt.tok.push(Token::Digit0(Mode::Fraction))
                     }
-                    m = None;
-                } else if matches!(mm.right, Mask::DecimalSep) {
-                    if let Some(vv) = v {
-                        out_vec[out_idx as usize] = vv;
-                        out_idx -= 1;
-                        v = None;
+                    Mask::Digit(EditDirection::Ltor) => fmt.tok.push(Token::Digit(Mode::Fraction)),
+                    Mask::Numeric(EditDirection::Ltor) => {
+                        fmt.tok.push(Token::Numeric(Mode::Fraction))
                     }
-                    m = None;
-                } else if matches!(mm.right, Mask::GroupingSep) {
-                    if let Some(vv) = v {
-                        if vv == "-" {
-                            out_vec[out_idx as usize] = vv;
-                            out_idx -= 1;
-                            v = None;
-                        } else {
-                            out_vec[out_idx as usize] = ",";
-                            out_idx -= 1;
-                            // keep v
+                    Mask::DecimalSep => fmt.tok.push(Token::DecimalSep),
+                    Mask::GroupingSep => fmt.tok.push(Token::GroupingSep),
+                    Mask::Plus => fmt.tok.push(Token::Plus(Mode::Integer)),
+                    Mask::Minus => fmt.tok.push(Token::Minus(Mode::Integer)),
+                    Mask::Separator(s) => {
+                        for c in s.chars() {
+                            fmt.tok.push(Token::Separator(c));
                         }
                     }
-                    m = None;
-                } else if matches!(mm.right, Mask::Minus) {
-                    if let Some(vv) = v {
-                        if vv == "-" {
-                            out_vec[out_idx as usize] = vv;
-                            out_idx -= 1;
-                            v = None;
-                        } else {
-                            out_vec[out_idx as usize] = " ";
-                            out_idx -= 1;
-                            // keep v
-                        }
-                    }
-                    m = None;
-                } else if matches!(mm.right, Mask::Plus) {
-                    if let Some(vv) = v {
-                        if vv == "-" {
-                            out_vec[out_idx as usize] = vv;
-                            out_idx -= 1;
-                            v = None;
-                        } else {
-                            out_vec[out_idx as usize] = "+";
-                            out_idx -= 1;
-                            // keep v
-                        }
-                    }
-                    m = None;
-                } else {
-                    unreachable!("{:?}", mm.right);
+                    Mask::None => {}
+                    _ => unreachable!("invalid mask"),
                 }
             }
 
-            let out = out_vec.iter().fold(String::new(), |mut s, v| {
-                s.push_str(v);
-                s
-            });
+            let mut buf = vec![' '; fmt.tok.len()];
+            let mut out = String::new();
+            number::map_num(clean.as_str(), &fmt, buf.as_mut(), &mut out)?;
 
-            out
+            Ok(out)
         }
     }
 
@@ -2201,7 +2145,7 @@ pub mod core {
         ///
         /// `advance_cursor()` must be called before for correct functionality.
         /// Otherwise: your mileage might vary.
-        pub fn insert_char(&mut self, c: char) {
+        pub fn insert_char(&mut self, c: char) -> Result<(), fmt::Error> {
             let mask = &self.mask[self.cursor];
             debug!("// INSERT CHAR {:?} {:?}", mask, c);
             // debug!("#[rustfmt::skip]");
@@ -2211,44 +2155,46 @@ pub mod core {
             let mask = &self.mask[self.cursor];
             if mask.right.is_number() {
                 if c == self.neg_sym() || c == self.pos_sym() {
-                    if self.insert_sign(c) {
-                        return;
+                    if self.insert_sign(c)? {
+                        return Ok(());
                     }
                 }
             }
             let mask = &self.mask[self.cursor];
             if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
                 if c == self.neg_sym() || c == self.pos_sym() {
-                    if self.insert_sign(c) {
-                        return;
+                    if self.insert_sign(c)? {
+                        return Ok(());
                     }
                 }
             }
             let mask = &self.mask[self.cursor];
             if mask.right.is_rtol() {
-                if self.insert_rtol(c) {
-                    return;
+                if self.insert_rtol(c)? {
+                    return Ok(());
                 }
             }
             let mask = &self.mask[self.cursor];
             if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
-                if self.insert_rtol(c) {
-                    return;
+                if self.insert_rtol(c)? {
+                    return Ok(());
                 }
             }
             let mask = &self.mask[self.cursor];
             if mask.right.is_ltor() {
-                if self.insert_ltor(c) {
-                    return;
+                if self.insert_ltor(c)? {
+                    return Ok(());
                 }
             }
 
             // debug!("#[rustfmt::skip]");
             // debug!("let a = {};", test_state(self));
             // debug!("assert_eq_core(&b,&a);");
+
+            Ok(())
         }
 
-        fn insert_ltor(&mut self, c: char) -> bool {
+        fn insert_ltor(&mut self, c: char) -> Result<bool, fmt::Error> {
             let mask = &self.mask[self.cursor];
             let mask9 = &self.mask[mask.sec_end - 1];
             let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
@@ -2266,7 +2212,7 @@ pub mod core {
                 self.cursor += 1;
                 self.anchor = self.cursor;
 
-                return true;
+                return Ok(true);
             }
             if mask9.right.can_drop_last(c1) && mask.right.is_valid_char(c, self.dec_sep()) {
                 let mut buf = String::new();
@@ -2281,13 +2227,13 @@ pub mod core {
                 self.cursor += 1;
                 self.anchor = self.cursor;
 
-                return true;
+                return Ok(true);
             }
 
-            return false;
+            return Ok(false);
         }
 
-        fn insert_rtol(&mut self, c: char) -> bool {
+        fn insert_rtol(&mut self, c: char) -> Result<bool, fmt::Error> {
             let mut mask = &self.mask[self.cursor];
             // boundary right/left. prefer right, change mask.
             if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
@@ -2303,7 +2249,7 @@ pub mod core {
                 mstr.push_str(c1);
 
                 let submask = &self.mask[mask.sec_start..mask.sec_end];
-                let mmstr = MaskToken::remap_number(submask, &mstr);
+                let mmstr = MaskToken::remap_number(submask, &mstr)?;
 
                 let mut buf = String::new();
                 buf.push_str(b);
@@ -2313,13 +2259,13 @@ pub mod core {
                 self.value = buf;
                 // cursor stays
 
-                return true;
+                return Ok(true);
             }
 
-            return false;
+            return Ok(false);
         }
 
-        fn insert_sign(&mut self, c: char) -> bool {
+        fn insert_sign(&mut self, c: char) -> Result<bool, fmt::Error> {
             let mut mask = &self.mask[self.cursor];
             // boundary right/left. prefer right, change mask.
             if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
@@ -2349,7 +2295,7 @@ pub mod core {
 
                         // todo: probably no remap necessary?
 
-                        return true;
+                        return Ok(true);
                     }
                     _ => {}
                 }
@@ -2369,7 +2315,7 @@ pub mod core {
 
                     // todo: probably no remap necessary?
 
-                    return true;
+                    return Ok(true);
                 }
             } // else
             if c == self.neg_sym() {
@@ -2389,7 +2335,7 @@ pub mod core {
                                 mstr.push_str(c0);
                                 mstr.push_str("-");
                                 mstr.push_str(grapheme::drop_first(c1));
-                                let mmstr = MaskToken::remap_number(submask, &mstr);
+                                let mmstr = MaskToken::remap_number(submask, &mstr)?;
 
                                 let mut buf = String::new();
                                 buf.push_str(b);
@@ -2399,17 +2345,17 @@ pub mod core {
                                 self.value = buf;
                             };
 
-                            return true;
+                            return Ok(true);
                         }
                         _ => {}
                     }
                 }
             }
-            return false;
+            return Ok(false);
         }
 
         /// Remove the selection.
-        pub fn remove_selection(&mut self, selection: Range<usize>) {
+        pub fn remove_selection(&mut self, selection: Range<usize>) -> Result<(), fmt::Error> {
             let mut buf = String::new();
 
             // remove section by section.
@@ -2441,7 +2387,7 @@ pub mod core {
                     mstr.push_str(c1);
 
                     let mmstr =
-                        MaskToken::remap_number(&self.mask[mask.sec_start..mask.sec_end], &mstr);
+                        MaskToken::remap_number(&self.mask[mask.sec_start..mask.sec_end], &mstr)?;
 
                     buf.push_str(&mmstr);
                 } else if mask.right.is_ltor() {
@@ -2475,12 +2421,14 @@ pub mod core {
             // debug!("#[rustfmt::skip]");
             // debug!("let a = {};", test_state(self));
             // debug!("assert_eq_core(&b,&a);");
+
+            Ok(())
         }
 
         /// Remove the previous char.
-        pub fn remove_prev(&mut self) {
+        pub fn remove_prev(&mut self) -> Result<(), fmt::Error> {
             if self.cursor == 0 {
-                return;
+                return Ok(());
             }
 
             let left = &self.mask[self.cursor - 1];
@@ -2504,7 +2452,7 @@ pub mod core {
                 mstr.push_str(c0);
                 mstr.push_str(c1);
                 let mmstr =
-                    MaskToken::remap_number(&self.mask[left.sec_start..left.sec_end], &mstr);
+                    MaskToken::remap_number(&self.mask[left.sec_start..left.sec_end], &mstr)?;
 
                 let mut buf = String::new();
                 buf.push_str(b);
@@ -2547,12 +2495,14 @@ pub mod core {
             // debug!("#[rustfmt::skip]");
             // debug!("let a = {};", test_state(self));
             // debug!("assert_eq_core(&b,&a);");
+
+            Ok(())
         }
 
         /// Remove the next char.
-        pub fn remove_next(&mut self) {
+        pub fn remove_next(&mut self) -> Result<(), fmt::Error> {
             if self.cursor == self.mask.len() - 1 {
-                return;
+                return Ok(());
             }
 
             let right = &self.mask[self.cursor];
@@ -2576,7 +2526,7 @@ pub mod core {
                 mstr.push_str(c0);
                 mstr.push_str(c1);
                 let mmstr =
-                    MaskToken::remap_number(&self.mask[right.sec_start..right.sec_end], &mstr);
+                    MaskToken::remap_number(&self.mask[right.sec_start..right.sec_end], &mstr)?;
 
                 let mut buf = String::new();
                 buf.push_str(b);
@@ -2612,6 +2562,8 @@ pub mod core {
             // debug!("#[rustfmt::skip]");
             // debug!("let a = {};", test_state(self));
             // debug!("assert_eq_core(&b,&a);");
+
+            Ok(())
         }
     }
 
@@ -2738,7 +2690,7 @@ pub mod core {
             out[j].sec_end = mask_str.graphemes(true).count();
         }
 
-        out
+        Ok(out)
     }
 
     /// dump the current state as code.
@@ -2794,9 +2746,9 @@ pub mod core {
         cursor: usize,
         anchor: usize,
         sym: Option<&str>,
-    ) -> InputMaskCore {
-        InputMaskCore {
-            mask: parse_mask(mask),
+    ) -> Result<InputMaskCore, fmt::Error> {
+        Ok(InputMaskCore {
+            mask: parse_mask(mask)?,
             value: value.to_string(),
             rendered: rendered.to_string(),
             len,
@@ -2805,7 +2757,7 @@ pub mod core {
             cursor,
             anchor,
             sym: sym.map(|sym| parse_number_symbols(sym)),
-        }
+        })
     }
 
     pub fn parse_number_symbols(s: &str) -> Rc<NumberSymbols> {
