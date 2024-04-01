@@ -198,7 +198,7 @@ macro_rules! on_gained {
 ///
 #[macro_export]
 macro_rules! match_focus {
-    ($($field:expr => $block:expr),*, $(_ => $final:expr)?) => {{
+    ($($field:expr => $block:expr),* $(, _ => $final:expr)?) => {{
         use $crate::HasFocusFlag;
         if false {
             unreachable!();
