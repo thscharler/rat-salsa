@@ -2145,7 +2145,7 @@ pub mod core {
         /// `advance_cursor()` must be called before for correct functionality.
         /// Otherwise: your mileage might vary.
         pub fn insert_char(&mut self, c: char) -> Result<(), fmt::Error> {
-            let mask = &self.mask[self.cursor];
+            // let mask = &self.mask[self.cursor];
             // debug!("// INSERT CHAR {:?} {:?}", mask, c);
             // debug!("#[rustfmt::skip]");
             // debug!("let mut b = {};", test_state(self));
