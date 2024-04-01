@@ -49,6 +49,14 @@ pub trait TuiApp {
         None
     }
 
+    /// Do some init immediately before the event-loop starts.
+    fn init(
+        &self,
+        data: &mut Self::Data,
+        uistate: &mut Self::State,
+        worker: &ThreadPool<Self>,
+    ) -> Result<(), anyhow::Error>;
+
     /// Repaint the ui.
     fn repaint(
         &self,
@@ -152,7 +160,7 @@ pub fn run_tui<App: TuiApp>(
 ) -> Result<(), anyhow::Error>
 where
     App::Action: Debug + Send + 'static,
-    App::Error: Send + From<TryRecvError> + From<io::Error> + From<SendError<()>> + 'static,
+    App::Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
     App: Sync,
 {
     stdout().execute(EnterAlternateScreen)?;
@@ -170,6 +178,9 @@ where
     // to not starve any event source everyone is polled and put in this queue.
     // they are not polled again before the queue is not empty.
     let mut poll_queue = VecDeque::new();
+
+    // init
+    app.init(data, uistate, &worker)?;
 
     // initial repaint.
     flow = repaint_tui(&mut terminal, app, data, uistate, repaint_event);

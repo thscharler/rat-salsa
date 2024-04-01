@@ -208,6 +208,15 @@ pub mod app {
             Some(&uistate.timers)
         }
 
+        fn init(
+            &self,
+            _data: &mut Self::Data,
+            _uistate: &mut Self::State,
+            _worker: &ThreadPool<Self>,
+        ) -> Result<(), Self::Error> {
+            Ok(())
+        }
+
         fn repaint(
             &self,
             event: RepaintEvent,
@@ -326,7 +335,7 @@ pub mod app {
 
         let l_edit0 = layout_edit(
             work[0],
-            [
+            &[
                 EditConstraint::Label("Datum"),
                 EditConstraint::Widget(15),
                 EditConstraint::Label("Parsed"),
@@ -339,12 +348,12 @@ pub mod app {
         );
         let l_edit1 = layout_edit(
             work[1],
-            [EditConstraint::Label("Text"), EditConstraint::Widget(15)],
+            &[EditConstraint::Label("Text"), EditConstraint::Widget(15)],
         );
 
         let l_edit2 = layout_edit(
             work[2],
-            [EditConstraint::Label("Rolling banners are nice :-) ")],
+            &[EditConstraint::Label("Rolling banners are nice :-) ")],
         );
 
         let label_edit = Span::from("Datum");

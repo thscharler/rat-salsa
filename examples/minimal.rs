@@ -116,6 +116,15 @@ impl TuiApp for MinimalApp {
         Some(&uistate.g.timers)
     }
 
+    fn init(
+        &self,
+        data: &mut Self::Data,
+        uistate: &mut Self::State,
+        worker: &ThreadPool<Self>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn repaint(
         &self,
         event: RepaintEvent,

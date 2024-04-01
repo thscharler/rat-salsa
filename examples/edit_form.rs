@@ -176,6 +176,15 @@ impl TuiApp for FormOneApp {
         Some(&uistate.g.timers)
     }
 
+    fn init(
+        &self,
+        _data: &mut Self::Data,
+        _uistate: &mut Self::State,
+        _worker: &ThreadPool<Self>,
+    ) -> Result<(), Self::Error> {
+        Ok(())
+    }
+
     fn repaint(
         &self,
         event: RepaintEvent,
