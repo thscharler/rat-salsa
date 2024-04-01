@@ -26,7 +26,7 @@
 //!   * `c`: can enter character or space, display as space
 //!   * `_`: anything, display as space
 //!
-//!   * `:` `;` `-` `/`: separator characters move the cursor when entered.
+//!   * `<space>`, `:`, `;`, `/`: separator characters move the cursor when entered.
 //!   * `\`: escapes the following character and uses it as a separator.
 //!   * all other ascii characters a reserved.
 //!   * other unicode characters can be used as separators without escaping.
@@ -559,8 +559,9 @@ impl MaskedInputState {
 
     /// Set the value.
     ///
-    /// Panic
-    /// Panics if the grapheme length of the value is not the same as the mask.
+    /// No checks if the value conforms to the mask.
+    /// If the value is too short it will be filled with space.
+    /// if the value is too long it will be truncated.
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         self.value.set_value(s);
     }
@@ -839,9 +840,9 @@ pub mod core {
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};
     use std::iter::{once, repeat};
-    use std::mem;
     use std::ops::Range;
     use std::rc::Rc;
+    use std::{fmt, mem};
     use unicode_segmentation::UnicodeSegmentation;
 
     #[derive(Clone, Copy, PartialEq, Eq)]
@@ -1151,7 +1152,7 @@ pub mod core {
         // mask should overwrite instead of insert
         fn can_overwrite(&self, c: &str) -> bool {
             match self {
-                Mask::Digit0(d) | Mask::Digit(d) | Mask::Numeric(d) => false,
+                Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => false,
                 Mask::DecimalSep => "." == c,
                 Mask::GroupingSep => false,
                 Mask::Plus => "-" == c || "+" == c,
@@ -1704,9 +1705,10 @@ pub mod core {
 
         /// Changes the mask.
         /// Resets the value to a default.
-        pub fn set_mask<S: AsRef<str>>(&mut self, s: S) {
-            self.mask = parse_mask(s.as_ref());
+        pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
+            self.mask = parse_mask(s.as_ref())?;
             self.set_value(MaskToken::empty_section(&self.mask));
+            Ok(())
         }
 
         /// Return the mask.
@@ -2613,7 +2615,7 @@ pub mod core {
         }
     }
 
-    pub fn parse_mask(mask_str: &str) -> Vec<MaskToken> {
+    pub fn parse_mask(mask_str: &str) -> Result<Vec<MaskToken>, fmt::Error> {
         let mut out = Vec::<MaskToken>::new();
 
         let mut start_id = 0;
@@ -2648,10 +2650,12 @@ pub mod core {
                     "c" => Mask::LetterDigitSpace,
                     "_" => Mask::AnyChar,
                     "" => Mask::None,
+                    " " | ";" | ":" | "/" => Mask::Separator(Box::from(m)),
                     "\\" => {
                         esc = true;
                         continue;
                     }
+                    s if s.is_ascii() => return Err(fmt::Error),
                     s => Mask::Separator(Box::from(s)),
                 }
             };
