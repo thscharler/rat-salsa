@@ -130,7 +130,10 @@ pub enum InputRequest {
 /// State for the menu.
 #[derive(Debug)]
 pub struct MenuLineState<A> {
+    /// Focus
     pub focus: FocusFlag,
+    /// Ctrl+Key is active independent of focus.
+    pub ctrl_key_always: bool,
     pub area: Rect,
     pub areas: Vec<Rect>,
     pub key: Vec<char>,
@@ -144,6 +147,7 @@ impl<A> Default for MenuLineState<A> {
     fn default() -> Self {
         Self {
             focus: Default::default(),
+            ctrl_key_always: true,
             key: Default::default(),
             trigger: Default::default(),
             select: Some(0),
@@ -246,19 +250,31 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
     }
 }
 
-impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>> for MenuLineState<A> {
+impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState<A> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let req = match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Char(cc),
-                modifiers: mm @ KeyModifiers::NONE | mm @ KeyModifiers::CONTROL,
+                modifiers: KeyModifiers::NONE,
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                if *mm == KeyModifiers::NONE && !self.focus.get() {
-                    None
-                } else {
+                if self.is_focused() {
                     Some(InputRequest::KeyAction(*cc))
+                } else {
+                    None
+                }
+            }
+            Event::Key(KeyEvent {
+                code: KeyCode::Char(cc),
+                modifiers: KeyModifiers::CONTROL,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                if self.is_focused() || self.ctrl_key_always {
+                    Some(InputRequest::KeyAction(*cc))
+                } else {
+                    None
                 }
             }
             Event::Key(KeyEvent {
