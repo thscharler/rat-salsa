@@ -2,6 +2,7 @@
 #![allow(clippy::needless_update)]
 
 use crossterm::event::Event;
+#[allow(unused_imports)]
 use log::debug;
 use rat_salsa::layout::{layout_edit, EditConstraint};
 use rat_salsa::number::NumberSymbols;
@@ -134,7 +135,7 @@ impl Mask0 {
         };
         s.menu.focus.set();
         s.text.focus.set();
-        s.ipv4.set_mask("999\\.999\\.999\\.999");
+        s.ipv4.set_mask("990\\.990\\.990\\.990");
         // s.ipv4.set_display_mask("xxx.xxx.xxx.xxx");
         s.hexcolor.set_mask("HHHHHH");
         s.creditcard.set_mask("dddd dddd dddd dddd");
@@ -144,7 +145,7 @@ impl Mask0 {
         s.alpha.set_mask("llllllllll");
         s.dec7_2.set_mask("#,###,##0.00");
         s.euro.set_mask("€ ###,##0.00-");
-        s.exp.set_mask("#.#######e###");
+        s.exp.set_mask("0.#######e###");
         s
     }
 }
@@ -305,9 +306,9 @@ fn repaint_mask0(
     let l_columns = Layout::new(
         Direction::Horizontal,
         [
+            Constraint::Length(33),
             Constraint::Fill(1),
-            Constraint::Fill(1),
-            Constraint::Fill(1),
+            Constraint::Fill(2),
             Constraint::Fill(1),
         ],
     )
@@ -351,7 +352,6 @@ fn repaint_mask0(
             EditConstraint::Widget(20),
         ],
     );
-    debug!("{:#?}", l2);
     let mut l2 = l2.iter();
 
     let w_text = TextInput::default().style(uistate.g.theme.input_style());
@@ -359,13 +359,19 @@ fn repaint_mask0(
     let w_float = TextInput::default().style(uistate.g.theme.input_style());
 
     let w_color = MaskedInput::default().style(uistate.g.theme.input_mask_style());
-    let w_ipv4 = MaskedInput::default().style(uistate.g.theme.input_mask_style());
+    let w_ipv4 = MaskedInput::default()
+        .show_compact(true)
+        .style(uistate.g.theme.input_mask_style());
     let w_creditcard = MaskedInput::default().style(uistate.g.theme.input_mask_style());
-    let w_date = MaskedInput::default().style(uistate.g.theme.input_mask_style());
+    let w_date = MaskedInput::default()
+        .show_compact(true)
+        .style(uistate.g.theme.input_mask_style());
     let w_name = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_dec_7_2 = MaskedInput::default().style(uistate.g.theme.input_mask_style());
     let w_euro = MaskedInput::default().style(uistate.g.theme.input_mask_style());
-    let w_exp = MaskedInput::default().style(uistate.g.theme.input_mask_style());
+    let w_exp = MaskedInput::default()
+        .show_compact(true)
+        .style(uistate.g.theme.input_mask_style());
 
     frame.render_widget(Span::from("Plain text input").underlined(), l0.label());
     frame.render_widget(Span::from("Text"), l0.label());
