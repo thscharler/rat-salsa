@@ -125,49 +125,86 @@ impl FocusFlag {
     }
 }
 
-/// Executes the block if [HasFocusFlag::lost_focus()] is true.
+/// Executes the block if `field.lost_focus()` is true. Uses [HasFocusFlag::lost_focus()].
+/// This macro returns () and there is no else branch.
+///
+/// ```no_run
+/// use rat_salsa::on_gained;
+///
+/// on_lost!(
+///     state.field1 => {
+///         // check valid
+///     },
+///     state.field2 => {
+///         // check valid
+///     }
+/// );
+/// ```
 #[macro_export]
 macro_rules! on_lost {
     ($($field:expr => $validate:expr),*) => {{
         use $crate::HasFocusFlag;
-        $(
-            let cond = $field.lost_focus();
-            if cond {
-                _ = $validate;
-            }
-        )*
+        $(if $field.lost_focus() { _ = $validate })*
     }};
 }
 
-/// Executes the block if [HasFocusFlag::gained_focus()] is true.
+/// Executes the block if `field.gained_focus()` is true. Uses [HasFocusFlag::gained_focus()].
+/// This macro returns () and there is no else branch.
+///
+/// ```no_run
+/// use rat_salsa::on_gained;
+///
+/// on_gained!(
+///     state.field1 => {
+///         // do prep
+///     },
+///     state.field2 => {
+///         // do prep
+///     }
+/// );
+/// ```
 #[macro_export]
 macro_rules! on_gained {
     ($($field:expr => $validate:expr),*) => {{
         use $crate::HasFocusFlag;
-        $(
-            let cond = $field.gained_focus();
-            if cond {
-                _ = $validate;
-            }
-        )*
+        $(if $field.gained_focus() { _ = $validate })*
     }};
 }
 
-/// Executes the block if [HasFocusFlag::is_focused()] is true.
+/// Evaluates the expression if `field.is_focused()` is true. Uses [HasFocusFlag::is_focused()].
+/// Evaluates the `_` branch if none of the given fields is focused.
 ///
-/// Evaluates to `Some(expr)` if field.is_focused() is true.
-/// Returns None if none of the given fields is focused.
+/// ```no_run
+/// use rat_salsa::match_focus;
+///
+/// let res = match_focus!(
+///     state.field1 => {
+///         // do this
+///         true
+///     },
+///     state.field2 => {
+///         // do that
+///         true
+///     },
+///     _ => {
+///         false
+///     }   
+/// );
+///
+/// if res {
+///     // react
+/// }
+/// ```
+///
 #[macro_export]
-macro_rules! for_focus {
-    ($($field:expr => $expr:expr),*) => {{
+macro_rules! match_focus {
+    ($($field:expr => $block:block),* $(_ => $final:block)?) => {{
         use $crate::HasFocusFlag;
-        if false { None }
-        $(else if $field.is_focused() {
-            Some($expr)
-        })*
-        else {
-            None
+        if false {
+            unreachable!();
         }
+        $(else if $field.is_focused() $block)*
+        $(else $final)?
     }};
 }
 

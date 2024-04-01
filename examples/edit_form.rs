@@ -14,7 +14,7 @@ use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
 use rat_salsa::{
-    check_break, for_focus, on_lost, run_tui, try_ui, ControlUI, DefaultKeys, Focus,
+    check_break, match_focus, on_lost, run_tui, try_ui, ControlUI, DefaultKeys, Focus,
     HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
     RunConfig, TaskSender, ThreadPool, TimerEvent, Timers, TuiApp,
 };
@@ -399,7 +399,7 @@ fn repaint_mask0(
     frame.render_widget(Span::from("Exp"), l2.label());
     frame.render_frame_widget(w_exp, l2.widget(), &mut uistate.mask0.exp);
 
-    let r = for_focus!(
+    let r = match_focus!(
         uistate.mask0.ipv4 => &uistate.mask0.ipv4,
         uistate.mask0.hexcolor => &uistate.mask0.hexcolor,
         uistate.mask0.creditcard => &uistate.mask0.creditcard,
