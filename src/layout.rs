@@ -229,16 +229,25 @@ pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> LayoutEdit
                 result
                     .label
                     .push(Rect::new(x, y, total, min(1, rest_height)));
+                result
+                    .widget
+                    .push(Rect::new(x, y, x + total, min(1, rest_height)));
             }
             EditConstraint::TitleLabelWidth(w) => {
                 result
                     .label
                     .push(Rect::new(x, y, min(*w, max_label), min(1, rest_height)));
+                result
+                    .widget
+                    .push(Rect::new(x, y, x + min(*w, max_label), min(1, rest_height)));
             }
             EditConstraint::TitleLabelRows(h) => {
                 result
                     .label
                     .push(Rect::new(x, y, total, min(*h, rest_height)));
+                result
+                    .widget
+                    .push(Rect::new(x, y, x + total, min(*h, rest_height)));
             }
             EditConstraint::Widget(w) => {
                 result
@@ -251,13 +260,13 @@ pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> LayoutEdit
                     .push(Rect::new(x, y, min(*w, max_widget), min(*h, rest_height)));
             }
             EditConstraint::LineWidget(w) => {
-                result.label.push(Rect::new(x, y, 0, 1));
+                result.label.push(Rect::new(x, y, 0, min(1, rest_height)));
                 result
                     .widget
                     .push(Rect::new(x, y, min(*w, max_widget), min(1, rest_height)));
             }
             EditConstraint::LineWidgetRows(w, h) => {
-                result.label.push(Rect::new(x, y, 0, *h));
+                result.label.push(Rect::new(x, y, 0, min(*h, rest_height)));
                 result
                     .widget
                     .push(Rect::new(x, y, min(*w, max_widget), min(*h, rest_height)));
