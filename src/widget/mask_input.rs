@@ -2045,12 +2045,9 @@ pub mod core {
         /// Advance the cursor to the next section, if new char matches
         /// certain conditions.
         pub fn advance_cursor(&mut self, c: char) {
-            let buf = String::from(c);
-            let cc = buf.as_str();
-
             let mut new_cursor = self.cursor;
 
-            debug!("// ADVANCE CURSOR {:?}  ", cc);
+            // debug!("// ADVANCE CURSOR {:?}  ", c);
             // debug!("#[rustfmt::skip]");
             // debug!("let mut b = {};", test_state(self));
             // debug!("b.advance_cursor({:?});", c);
@@ -2149,7 +2146,7 @@ pub mod core {
         /// Otherwise: your mileage might vary.
         pub fn insert_char(&mut self, c: char) -> Result<(), fmt::Error> {
             let mask = &self.mask[self.cursor];
-            debug!("// INSERT CHAR {:?} {:?}", mask, c);
+            // debug!("// INSERT CHAR {:?} {:?}", mask, c);
             // debug!("#[rustfmt::skip]");
             // debug!("let mut b = {};", test_state(self));
             // debug!("b.insert_char({:?});", c);
@@ -2363,7 +2360,7 @@ pub mod core {
             // remove section by section.
             let mut mask = &self.mask[selection.start];
 
-            debug!("// REMOVE SELECTION {:?} {:?}", mask, selection);
+            // debug!("// REMOVE SELECTION {:?} {:?}", mask, selection);
             // debug!("#[rustfmt::skip]");
             // debug!("let mut b = {};", test_state(self));
             // debug!("b.remove_selection({:?});", selection);
@@ -2435,7 +2432,7 @@ pub mod core {
 
             let left = &self.mask[self.cursor - 1];
 
-            debug!("// REMOVE PREV {:?} ", left);
+            // debug!("// REMOVE PREV {:?} ", left);
             // debug!("#[rustfmt::skip]");
             // debug!("let mut b = {};", test_state(self));
             // debug!("b.remove_prev();");
@@ -2509,7 +2506,7 @@ pub mod core {
 
             let right = &self.mask[self.cursor];
 
-            debug!("// REMOVE NEXT {:?} ", right);
+            // debug!("// REMOVE NEXT {:?} ", right);
             // debug!("#[rustfmt::skip]");
             // debug!("let mut b = {};", test_state(self));
             // debug!("b.remove_next();");
