@@ -807,6 +807,7 @@ pub fn format_f64_to<W: fmt::Write, Number: Into<f64>>(
         // Output is ascii.
         let raw_str = unsafe { from_utf8_unchecked(&raw.get_ref()[..raw.position() as usize]) };
 
+        // todo: maybe separate function ok?
         BUF.with_borrow_mut(|buf| {
             // Safety:
             // This transmutes pointers to true static str to the required shorter lifetime

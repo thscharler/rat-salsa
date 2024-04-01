@@ -1701,8 +1701,8 @@ pub mod core {
         /// if the value is too long it will be truncated.
         pub fn set_value<S: Into<String>>(&mut self, s: S) {
             let mut value = s.into();
-            let len = value.graphemes(true).count();
 
+            let len = value.graphemes(true).count();
             if len > self.mask.len() - 1 {
                 for _ in len..self.mask.len() - 1 {
                     value.pop();
@@ -1712,6 +1712,8 @@ pub mod core {
                     value.push(' ');
                 }
             }
+            let len = value.graphemes(true).count();
+
             assert_eq!(len, self.mask.len() - 1);
 
             self.value = value;

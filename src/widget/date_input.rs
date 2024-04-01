@@ -132,7 +132,7 @@ impl DateInputState {
     }
 }
 
-impl<A: Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState
+impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState
 where
     E: From<fmt::Error>,
 {
