@@ -67,6 +67,7 @@ use std::rc::Rc;
 pub struct MaskedInput {
     pub terminal_cursor: bool,
     pub without_focus: bool,
+    pub show_compact: bool,
     pub insets: Margin,
     pub style: Style,
     pub focus_style: Style,
@@ -91,6 +92,7 @@ impl Default for MaskedInput {
         Self {
             terminal_cursor: true,
             without_focus: false,
+            show_compact: false,
             insets: Default::default(),
             style: Default::default(),
             focus_style: Default::default(),
@@ -119,6 +121,12 @@ impl MaskedInput {
     /// Useful for a catch field, eg "find stuff"
     pub fn without_focus(mut self, without_focus: bool) -> Self {
         self.without_focus = without_focus;
+        self
+    }
+
+    /// Show the compact form, if the focus is elsewhere.
+    pub fn show_compact(mut self, show_compact: bool) -> Self {
+        self.show_compact = show_compact;
         self
     }
 
@@ -205,32 +213,45 @@ impl FrameWidget for MaskedInput {
         let focus = state.focus.get();
         let l_input = state.area;
 
-        let (before, cursor1, select, cursor2, after) = state.visible_part();
+        let spans = if self.show_compact && !focus {
+            state.value.render_condensed_value();
 
-        let mut spans = Vec::new();
-        if !before.is_empty() {
-            spans.push(Span::styled(before, self.active_style(focus)));
-        }
-        if !cursor1.is_empty() {
-            if let Some(cursor_style) = self.cursor_style {
-                spans.push(Span::styled(cursor1, cursor_style));
-            } else {
-                spans.push(Span::styled(cursor1, self.active_select_style(focus)));
+            let mut spans = Vec::new();
+            spans.push(Span::styled(
+                state.value.rendered(),
+                self.active_style(focus),
+            ));
+            spans
+        } else {
+            let (before, cursor1, select, cursor2, after) = state.visible_part();
+
+            let mut spans = Vec::new();
+            if !before.is_empty() {
+                spans.push(Span::styled(before, self.active_style(focus)));
             }
-        }
-        if !select.is_empty() {
-            spans.push(Span::styled(select, self.active_select_style(focus)));
-        }
-        if !cursor2.is_empty() {
-            if let Some(cursor_style) = self.cursor_style {
-                spans.push(Span::styled(cursor2, cursor_style));
-            } else {
-                spans.push(Span::styled(cursor2, self.active_style(focus)));
+            if !cursor1.is_empty() {
+                if let Some(cursor_style) = self.cursor_style {
+                    spans.push(Span::styled(cursor1, cursor_style));
+                } else {
+                    spans.push(Span::styled(cursor1, self.active_select_style(focus)));
+                }
             }
-        }
-        if !after.is_empty() {
-            spans.push(Span::styled(after, self.active_style(focus)));
-        }
+            if !select.is_empty() {
+                spans.push(Span::styled(select, self.active_select_style(focus)));
+            }
+            if !cursor2.is_empty() {
+                if let Some(cursor_style) = self.cursor_style {
+                    spans.push(Span::styled(cursor2, cursor_style));
+                } else {
+                    spans.push(Span::styled(cursor2, self.active_style(focus)));
+                }
+            }
+            if !after.is_empty() {
+                spans.push(Span::styled(after, self.active_style(focus)));
+            }
+
+            spans
+        };
 
         let line = Line::from(spans);
         let clear = ClearStyle::default().style(self.active_style(focus));
@@ -1275,9 +1296,9 @@ pub mod core {
                 Mask::Digit0(_) => "0",
                 Mask::Digit(_) => " ",
                 Mask::Numeric(_) => " ",
-                Mask::DecimalSep => ".",  // only used by get_display_mask()
-                Mask::GroupingSep => ",", // only used by get_display_mask()
-                Mask::Plus => "+",
+                Mask::DecimalSep => " ",  // only used by get_display_mask()
+                Mask::GroupingSep => " ", // only used by get_display_mask()
+                Mask::Plus => " ",
                 Mask::Minus => " ",
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
@@ -1715,9 +1736,7 @@ pub mod core {
             let display_mask = s.into();
 
             for (t, m) in self.mask.iter_mut().zip(display_mask.graphemes(true)) {
-                if t.right != Mask::DecimalSep && t.right != Mask::GroupingSep {
-                    t.display = Box::from(m);
-                }
+                t.display = Box::from(m);
             }
         }
 
@@ -1765,6 +1784,7 @@ pub mod core {
             self.value.as_str()
         }
 
+        // todo: this is borderline useless
         /// Value without whitespace.
         pub fn compact_value(&self) -> String {
             let mut buf = String::new();
@@ -1816,41 +1836,224 @@ pub mod core {
 
                 if sec == empty {
                     for t in sec_mask {
-                        if t.right == Mask::GroupingSep {
-                            rendered.push(' ');
-                        } else if t.right == Mask::DecimalSep {
-                            rendered.push(self.dec_sep());
-                        } else {
-                            rendered.push_str(t.display.as_ref());
-                        };
+                        match t.right {
+                            Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => {
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::DecimalSep => {
+                                rendered.push(self.dec_sep());
+                            }
+                            Mask::GroupingSep => {
+                                rendered.push_str(" ");
+                            }
+                            Mask::Plus => {
+                                rendered.push_str(" ");
+                            }
+                            Mask::Minus => {
+                                rendered.push_str(" ");
+                            }
+                            Mask::Hex0
+                            | Mask::Hex
+                            | Mask::Oct0
+                            | Mask::Oct
+                            | Mask::Dec0
+                            | Mask::Dec => {
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::Letter
+                            | Mask::LetterOrDigit
+                            | Mask::LetterDigitSpace
+                            | Mask::AnyChar => {
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::Separator(_) => {
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::None => {}
+                        }
                     }
                 } else {
                     for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
-                        if t.right == Mask::GroupingSep {
-                            if s == "," {
-                                rendered.push(self.grp_sep());
-                            } else if s == "-" {
-                                rendered.push(self.neg_sym());
-                            } else if s == "+" {
-                                rendered.push(self.pos_sym());
-                            } else {
-                                rendered.push(' ');
-                            }
-                        } else if t.right == Mask::DecimalSep {
-                            if s == "." {
-                                rendered.push(self.dec_sep());
-                            } else {
-                                rendered.push(' ');
-                            }
-                        } else {
-                            if s == "-" {
-                                rendered.push(self.neg_sym());
-                            } else if s == "+" {
-                                rendered.push(self.pos_sym());
-                            } else {
+                        match t.right {
+                            Mask::Digit0(_) | Mask::Digit(_) => {
                                 rendered.push_str(s);
                             }
-                        };
+                            Mask::Numeric(_) => {
+                                if s == "." {
+                                    rendered.push(self.neg_sym());
+                                } else {
+                                    rendered.push_str(s);
+                                }
+                            }
+                            Mask::DecimalSep => {
+                                if s == "." {
+                                    rendered.push(self.dec_sep());
+                                } else {
+                                    rendered.push(' ');
+                                }
+                            }
+                            Mask::GroupingSep => {
+                                if s == "," {
+                                    rendered.push(self.grp_sep());
+                                } else if s == "-" {
+                                    rendered.push(self.neg_sym());
+                                } else {
+                                    rendered.push(' ');
+                                }
+                            }
+                            Mask::Plus => {
+                                if s == "-" {
+                                    rendered.push(self.neg_sym());
+                                } else {
+                                    rendered.push(self.pos_sym());
+                                }
+                            }
+                            Mask::Minus => {
+                                if s == "-" {
+                                    rendered.push(self.neg_sym());
+                                } else {
+                                    rendered.push_str(" ");
+                                }
+                            }
+                            Mask::Hex0
+                            | Mask::Hex
+                            | Mask::Oct0
+                            | Mask::Oct
+                            | Mask::Dec0
+                            | Mask::Dec => {
+                                rendered.push_str(s);
+                            }
+                            Mask::Letter => {}
+                            Mask::LetterOrDigit => {}
+                            Mask::LetterDigitSpace => {}
+                            Mask::AnyChar => {
+                                rendered.push_str(s);
+                            }
+                            Mask::Separator(_) => {
+                                rendered.push_str(s);
+                            }
+                            Mask::None => {}
+                        }
+                    }
+                }
+
+                idx = mask.sec_end;
+            }
+
+            self.rendered = rendered;
+        }
+
+        /// Create the rendered value.
+        #[allow(unused_variables)]
+        pub fn render_condensed_value(&mut self) {
+            let mut rendered = mem::take(&mut self.rendered);
+            rendered.clear();
+
+            let mut idx = 0;
+            loop {
+                let mask = &self.mask[idx];
+
+                if mask.right == Mask::None {
+                    break;
+                }
+
+                let (b, sec, a) = grapheme::split3(&self.value, mask.sec_start..mask.sec_end);
+                let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
+                let empty = MaskToken::empty_section(sec_mask);
+
+                if sec == empty {
+                    for t in sec_mask {
+                        match t.right {
+                            Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => {
+                                if t.display.as_ref() != " " {
+                                    rendered.push_str(t.display.as_ref());
+                                }
+                            }
+                            Mask::DecimalSep => {
+                                rendered.push(self.dec_sep());
+                            }
+                            Mask::GroupingSep => {}
+                            Mask::Plus | Mask::Minus => {
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::Hex0
+                            | Mask::Hex
+                            | Mask::Oct0
+                            | Mask::Oct
+                            | Mask::Dec0
+                            | Mask::Dec => {
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::Letter
+                            | Mask::LetterOrDigit
+                            | Mask::LetterDigitSpace
+                            | Mask::AnyChar => {
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::Separator(_) => {
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::None => {}
+                        }
+                    }
+                } else {
+                    for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
+                        match t.right {
+                            Mask::Digit0(_) | Mask::Digit(_) => {
+                                if s != " " {
+                                    rendered.push_str(s);
+                                }
+                            }
+                            Mask::Numeric(_) => {
+                                if s == "-" {
+                                    rendered.push(self.neg_sym());
+                                } else if s != " " {
+                                    rendered.push_str(s);
+                                }
+                            }
+                            Mask::DecimalSep => {
+                                if s == "." {
+                                    rendered.push(self.dec_sep());
+                                }
+                            }
+                            Mask::GroupingSep => {
+                                if s == "," {
+                                    rendered.push(self.grp_sep());
+                                } else if s == "-" {
+                                    rendered.push(self.neg_sym());
+                                }
+                            }
+                            Mask::Plus => {
+                                if s == " " {
+                                    rendered.push(self.pos_sym());
+                                } else if s == "-" {
+                                    rendered.push(self.neg_sym());
+                                }
+                            }
+                            Mask::Minus => {
+                                if s == "-" {
+                                    rendered.push(self.neg_sym());
+                                }
+                            }
+                            Mask::Hex0
+                            | Mask::Hex
+                            | Mask::Oct0
+                            | Mask::Oct
+                            | Mask::Dec0
+                            | Mask::Dec => {
+                                rendered.push_str(s);
+                            }
+                            Mask::Letter
+                            | Mask::LetterOrDigit
+                            | Mask::LetterDigitSpace
+                            | Mask::AnyChar => {
+                                rendered.push_str(s);
+                            }
+                            Mask::Separator(_) => {
+                                rendered.push_str(s);
+                            }
+                            Mask::None => {}
+                        }
                     }
                 }
 
