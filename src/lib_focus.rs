@@ -198,13 +198,13 @@ macro_rules! on_gained {
 ///
 #[macro_export]
 macro_rules! match_focus {
-    ($($field:expr => $block:block),* $(_ => $final:block)?) => {{
+    ($($field:expr => $block:expr),*, $(_ => $final:expr)?) => {{
         use $crate::HasFocusFlag;
         if false {
             unreachable!();
         }
-        $(else if $field.is_focused() $block)*
-        $(else $final)?
+        $(else if $field.is_focused() { $block })*
+        $(else { $final })?
     }};
 }
 
