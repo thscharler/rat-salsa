@@ -3,7 +3,7 @@ use crate::{
     CanValidate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, HasFocusFlag,
     HasValidFlag, ValidFlag,
 };
-use chrono::{Local, NaiveDate};
+use chrono::{Datelike, Days, Local, Months, NaiveDate};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
 use log::debug;
@@ -140,7 +140,7 @@ where
         let r = {
             match event {
                 Event::Key(KeyEvent {
-                    code: KeyCode::Char('h'),
+                    code: KeyCode::Char('h') | KeyCode::Char('t'),
                     kind: KeyEventKind::Press,
                     modifiers: KeyModifiers::NONE,
                     ..
@@ -151,6 +151,214 @@ where
                     self.set_value(Local::now().date_naive());
                     ControlUI::Change
                 }
+
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('l'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    let date = Local::now()
+                        .date_naive()
+                        .checked_sub_months(Months::new(1))
+                        .expect("month")
+                        .with_day(1)
+                        .expect("day");
+                    self.set_value(date);
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('L'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::SHIFT,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    let date = Local::now()
+                        .date_naive()
+                        .with_day(1)
+                        .expect("month")
+                        .checked_sub_days(Days::new(1))
+                        .expect("day");
+                    self.set_value(date);
+                    ControlUI::Change
+                }
+
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('m'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    let date = Local::now().date_naive().with_day(1).expect("day");
+                    self.set_value(date);
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('M'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::SHIFT,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    let date = Local::now()
+                        .date_naive()
+                        .checked_add_months(Months::new(1))
+                        .expect("month")
+                        .with_day(1)
+                        .expect("day")
+                        .checked_sub_days(Days::new(1))
+                        .expect("day");
+                    self.set_value(date);
+                    ControlUI::Change
+                }
+
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('n'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    let date = Local::now()
+                        .date_naive()
+                        .checked_add_months(Months::new(1))
+                        .expect("month")
+                        .with_day(1)
+                        .expect("day");
+                    self.set_value(date);
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('N'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::SHIFT,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    let date = Local::now()
+                        .date_naive()
+                        .checked_add_months(Months::new(2))
+                        .expect("month")
+                        .with_day(1)
+                        .expect("day")
+                        .checked_sub_days(Days::new(1))
+                        .expect("day");
+                    self.set_value(date);
+                    ControlUI::Change
+                }
+
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('j'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    if let Ok(date) = self.value() {
+                        let date = date.checked_add_months(Months::new(1)).expect("month");
+                        self.set_value(date);
+                    }
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('J'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::SHIFT,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    if let Ok(date) = self.value() {
+                        let date = date.with_year(date.year() + 1).expect("year");
+                        self.set_value(date);
+                    }
+                    ControlUI::Change
+                }
+
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('k'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    if let Ok(date) = self.value() {
+                        let date = date.checked_sub_months(Months::new(1)).expect("month");
+                        self.set_value(date);
+                    }
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('K'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::SHIFT,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    if let Ok(date) = self.value() {
+                        let date = date.with_year(date.year() - 1).expect("year");
+                        self.set_value(date);
+                    }
+                    ControlUI::Change
+                }
+
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('a') | KeyCode::Char('b'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    if let Ok(date) = self.value() {
+                        let date = date.with_month(1).expect("month").with_day(1).expect("day");
+                        self.set_value(date);
+                    }
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Char('e'),
+                    kind: KeyEventKind::Press,
+                    modifiers: KeyModifiers::NONE,
+                    ..
+                }) => 'f: {
+                    if !self.is_focused() {
+                        break 'f ControlUI::Continue;
+                    }
+                    if let Ok(date) = self.value() {
+                        let date = date
+                            .with_month(12)
+                            .expect("month")
+                            .with_day(31)
+                            .expect("day");
+                        self.set_value(date);
+                    }
+                    ControlUI::Change
+                }
+
                 _ => ControlUI::Continue,
             }
         };
