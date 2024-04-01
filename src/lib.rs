@@ -138,7 +138,7 @@ pub mod optional {
 /// And the macros [try_result!], [check_break!] and [try_ui!]
 #[derive(Debug)]
 #[must_use]
-pub enum ControlUI<Action, Err> {
+pub enum ControlUI<Action = (), Err = ()> {
     /// Continue execution.
     Continue,
     /// Error
