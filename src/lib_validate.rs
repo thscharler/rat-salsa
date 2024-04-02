@@ -73,8 +73,7 @@ macro_rules! validate {
     ($($field:expr),*) => {{
         use $crate::{CanValidate, HasFocusFlag};
         $(
-            let cond = $field.lost_focus();
-            if cond {
+            if $field.lost_focus() {
                 $field.validate();
             }
         )*
