@@ -157,6 +157,7 @@ pub(crate) fn split_mask_match<'a>(
         }
     }
 
+    #[allow(clippy::unnecessary_unwrap)]
     let (byte_find_start, byte_find_end) = if byte_find_start.is_some() {
         (byte_find_start.expect("find"), byte_find_end.expect("find"))
     } else {

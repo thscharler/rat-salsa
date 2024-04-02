@@ -483,7 +483,7 @@ where
 
             let mut propagate_panic = false;
             for h in self.handles.drain(..) {
-                if let Err(_) = h.join() {
+                if h.join().is_err() {
                     propagate_panic = true;
                 }
             }

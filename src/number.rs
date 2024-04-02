@@ -185,7 +185,7 @@ pub fn parse_format(f: &str) -> Result<NumberFormat, fmt::Error> {
     for m in f.chars() {
         let mask = if esc {
             esc = false;
-            Token::Separator(m.into())
+            Token::Separator(m)
         } else {
             match m {
                 '0' => {
@@ -415,6 +415,7 @@ fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
 /// Unmap the formatted string back to a format that `f64::parse()` can understand.
 ///
 /// Token::NumericOpt is not supported for now.
+#[allow(clippy::needless_lifetimes)]
 pub fn unmap_num<'a, 'c, W: fmt::Write>(
     formatted: &'a str,
     format: &'a NumberFormat,
@@ -487,6 +488,7 @@ pub fn unmap_num<'a, 'c, W: fmt::Write>(
 /// and exponent is 'e' or 'E'.
 ///
 /// There is a need for a buffer, its length must be at least format.tok.len().
+#[allow(clippy::needless_range_loop)]
 pub fn map_num<'a: 'd, 'b, 'c, 'd, W: fmt::Write>(
     raw: &'a str,
     format: &'a NumberFormat,
@@ -501,7 +503,7 @@ pub fn map_num<'a: 'd, 'b, 'c, 'd, W: fmt::Write>(
 
     for i in 0..format.tok.len() {
         if buffer[i] != '\u{7f}' {
-            if let Err(_) = out.write_char(buffer[i]) {
+            if out.write_char(buffer[i]).is_err() {
                 return Err(fmt::Error);
             }
         }
@@ -511,6 +513,8 @@ pub fn map_num<'a: 'd, 'b, 'c, 'd, W: fmt::Write>(
 }
 
 // impl without type parameters
+#[allow(clippy::needless_lifetimes)]
+#[allow(clippy::needless_range_loop)]
 fn _map_num<'a, 'b>(
     raw: &'a str,
     format: &'a NumberFormat,
@@ -530,7 +534,7 @@ fn _map_num<'a, 'b>(
     for (i, m) in format.tok.iter().enumerate() {
         match m {
             Token::Plus(Mode::Integer) => {
-                if sign == "" {
+                if sign.is_empty() {
                     buffer[i] = sym.map(|v| v.positive_sym).unwrap_or('+');
                 } else {
                     buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
@@ -538,7 +542,7 @@ fn _map_num<'a, 'b>(
                 sign = "";
             }
             Token::Minus(Mode::Integer) => {
-                if sign == "" {
+                if sign.is_empty() {
                     buffer[i] = ' ';
                 } else {
                     buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
@@ -553,7 +557,7 @@ fn _map_num<'a, 'b>(
             Token::NumericOpt(Mode::Integer) => {}
 
             Token::DecimalSep => {
-                if fraction != "" {
+                if !fraction.is_empty() {
                     buffer[i] = sym.map(|v| v.decimal_sep).unwrap_or('.');
                 } else {
                     buffer[i] = ' ';
@@ -594,14 +598,14 @@ fn _map_num<'a, 'b>(
             }
 
             Token::ExponentUpper => {
-                if exp != "" {
+                if !exp.is_empty() {
                     buffer[i] = sym.map(|v| v.exponent_upper_sym).unwrap_or('E');
                 } else {
                     buffer[i] = ' ';
                 }
             }
             Token::ExponentLower => {
-                if exp != "" {
+                if !exp.is_empty() {
                     buffer[i] = sym.map(|v| v.exponent_lower_sym).unwrap_or('E');
                 } else {
                     buffer[i] = ' ';
@@ -615,7 +619,7 @@ fn _map_num<'a, 'b>(
             }
 
             Token::Plus(Mode::Exponent) => {
-                if exp_sign == "" {
+                if exp_sign.is_empty() {
                     buffer[i] = sym.map(|v| v.positive_sym).unwrap_or('+');
                 } else {
                     buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
@@ -623,7 +627,7 @@ fn _map_num<'a, 'b>(
                 exp_sign = "";
             }
             Token::Minus(Mode::Exponent) => {
-                if exp_sign == "" {
+                if exp_sign.is_empty() {
                     buffer[i] = ' ';
                 } else {
                     buffer[i] = sym.map(|v| v.negative_sym).unwrap_or('-');
@@ -642,7 +646,7 @@ fn _map_num<'a, 'b>(
 
     let mut d = None;
     for (i, m) in format.tok.iter().enumerate().rev() {
-        if d == None {
+        if d.is_none() {
             d = it_integer.next_back();
         }
 
@@ -791,7 +795,7 @@ pub fn format_f64_to<W: fmt::Write, Number: Into<f64>>(
 ) -> Result<(), fmt::Error> {
     thread_local! {
         static RAW: RefCell<Cursor<[u8;32]>> = RefCell::new(Cursor::new([0u8;32]));
-        static BUF: RefCell<[*const str;32]> = RefCell::new(["";32]);
+        static BUF: RefCell<[*const str;32]> = const { RefCell::new(["";32]) };
     }
 
     RAW.with_borrow_mut(|raw| {
@@ -814,15 +818,14 @@ pub fn format_f64_to<W: fmt::Write, Number: Into<f64>>(
             // &'d str of map_num. It's initialized with pointers to true static strings,
             // so any residual values are cleaned up.
             let buf = unsafe {
-                for i in 0..buf.len() {
-                    buf[i] = "";
+                for b in buf.iter_mut() {
+                    *b = "";
                 }
                 assert_eq!(size_of::<*const str>(), size_of::<&str>());
                 mem::transmute(&mut buf[..])
             };
-            let r = map_num(raw_str, format, buf, out);
 
-            r
+            map_num(raw_str, format, buf, out)
         })
     })
 }
@@ -868,7 +871,7 @@ pub fn format_i64_to<W: fmt::Write, Number: Into<i64>>(
 ) -> Result<(), fmt::Error> {
     thread_local! {
         static RAW: RefCell<Cursor<[u8;32]>> = RefCell::new(Cursor::new([0u8;32]));
-        static BUF: RefCell<[*const str;32]> = RefCell::new(["";32]);
+        static BUF: RefCell<[*const str;32]> = const { RefCell::new(["";32]) };
     }
 
     RAW.with_borrow_mut(|raw| {
@@ -884,15 +887,13 @@ pub fn format_i64_to<W: fmt::Write, Number: Into<i64>>(
             // &'d str of map_num. It's initialized with pointers to true static strings,
             // so any residual values are cleaned up.
             let buf = unsafe {
-                for i in 0..buf.len() {
-                    buf[i] = "";
+                for b in buf.iter_mut() {
+                    *b = "";
                 }
                 assert_eq!(size_of::<*const str>(), size_of::<&str>());
                 mem::transmute(&mut buf[..])
             };
-            let r = map_num(raw_str, format, buf, out);
-
-            r
+            map_num(raw_str, format, buf, out)
         })
     })
 }

@@ -78,6 +78,7 @@ impl<'a> LayoutEditIterator<'a> {
 
 /// Simple layout for an edit mask.
 /// It creates one column of input widgets and aligns the labels.
+#[allow(clippy::comparison_chain)]
 pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> LayoutEdit {
     let mut max_label = 0;
     let mut max_widget = 0;

@@ -197,6 +197,7 @@ impl MaskedInput {
 impl FrameWidget for MaskedInput {
     type State = MaskedInputState;
 
+    #[allow(clippy::vec_init_then_push)]
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
         state.without_focus = self.without_focus;
 
@@ -1444,7 +1445,7 @@ pub mod core {
     }
 
     /// Text editing core.
-    #[derive(Debug, Clone, PartialEq, Eq)]
+    #[derive(Debug, Default, Clone, PartialEq, Eq)]
     pub struct InputMaskCore {
         mask: Vec<MaskToken>,
         value: String,
@@ -1458,22 +1459,6 @@ pub mod core {
         anchor: usize,
 
         sym: Option<Rc<NumberSymbols>>,
-    }
-
-    impl Default for InputMaskCore {
-        fn default() -> Self {
-            Self {
-                mask: Vec::new(),
-                value: Default::default(),
-                rendered: Default::default(),
-                len: 0,
-                offset: 0,
-                width: 0,
-                cursor: 0,
-                anchor: 0,
-                sym: None,
-            }
-        }
     }
 
     impl InputMaskCore {
@@ -1699,6 +1684,7 @@ pub mod core {
         /// No checks if the value conforms to the mask.
         /// If the value is too short it will be filled with space.
         /// if the value is too long it will be truncated.
+        #[allow(clippy::comparison_chain)]
         pub fn set_value<S: Into<String>>(&mut self, s: S) {
             let mut value = s.into();
 
@@ -1792,13 +1778,13 @@ pub mod core {
                                 rendered.push(self.dec_sep());
                             }
                             Mask::GroupingSep => {
-                                rendered.push_str(" ");
+                                rendered.push(' ');
                             }
                             Mask::Plus => {
-                                rendered.push_str(" ");
+                                rendered.push(' ');
                             }
                             Mask::Minus => {
-                                rendered.push_str(" ");
+                                rendered.push(' ');
                             }
                             Mask::Hex0
                             | Mask::Hex
@@ -1860,7 +1846,7 @@ pub mod core {
                                 if s == "-" {
                                     rendered.push(self.neg_sym());
                                 } else {
-                                    rendered.push_str(" ");
+                                    rendered.push(' ');
                                 }
                             }
                             Mask::Hex0
@@ -2044,6 +2030,7 @@ pub mod core {
 
         /// Advance the cursor to the next section, if new char matches
         /// certain conditions.
+        #[allow(clippy::if_same_then_else)]
         pub fn advance_cursor(&mut self, c: char) {
             let mut new_cursor = self.cursor;
 
@@ -2229,7 +2216,7 @@ pub mod core {
                 return Ok(true);
             }
 
-            return Ok(false);
+            Ok(false)
         }
 
         fn insert_rtol(&mut self, c: char) -> Result<bool, fmt::Error> {
@@ -2261,9 +2248,10 @@ pub mod core {
                 return Ok(true);
             }
 
-            return Ok(false);
+            Ok(false)
         }
 
+        #[allow(clippy::single_match)]
         fn insert_sign(&mut self, c: char) -> Result<bool, fmt::Error> {
             let mut mask = &self.mask[self.cursor];
             // boundary right/left. prefer right, change mask.
@@ -2276,7 +2264,7 @@ pub mod core {
                         right: Mask::Plus | Mask::Minus,
                         ..
                     } => {
-                        let (b, c0, a) = grapheme::split3(&self.value(), i..i + 1);
+                        let (b, c0, a) = grapheme::split3(self.value(), i..i + 1);
                         let repl = if c0 == "-" {
                             " "
                         } else if c0 == " " && c == self.neg_sym() {
@@ -2306,7 +2294,7 @@ pub mod core {
                     let mut buf = String::new();
                     buf.push_str(b);
                     buf.push_str(c0);
-                    buf.push_str(" ");
+                    buf.push(' ');
                     buf.push_str(c1);
                     buf.push_str(a);
                     debug_assert_eq!(buf.len(), self.value.len());
@@ -2327,12 +2315,12 @@ pub mod core {
                         } => {
                             let submask = &self.mask[mask.nr_range()];
                             let (b, c0, c1, a) =
-                                grapheme::split_mask(&self.value(), i, mask.nr_range());
+                                grapheme::split_mask(self.value(), i, mask.nr_range());
 
                             if self.mask[i].right.can_drop_first(c1) {
                                 let mut mstr = String::new();
                                 mstr.push_str(c0);
-                                mstr.push_str("-");
+                                mstr.push('-');
                                 mstr.push_str(grapheme::drop_first(c1));
                                 let mmstr = MaskToken::remap_number(submask, &mstr)?;
 
@@ -2350,7 +2338,7 @@ pub mod core {
                     }
                 }
             }
-            return Ok(false);
+            Ok(false)
         }
 
         /// Remove the selection.
@@ -2477,7 +2465,7 @@ pub mod core {
 
             // place cursor after deletion
             if left.right.is_rtol() {
-                let (_b, s, _a) = grapheme::split3(&self.value(), left.sec_start..left.sec_end);
+                let (_b, s, _a) = grapheme::split3(self.value(), left.sec_start..left.sec_end);
                 let sec_mask = &self.mask[left.sec_start..left.sec_end];
                 if s == MaskToken::empty_section(sec_mask) {
                     self.cursor = left.sec_start;
@@ -2566,6 +2554,7 @@ pub mod core {
         }
     }
 
+    #[allow(clippy::needless_range_loop)]
     pub fn parse_mask(mask_str: &str) -> Result<Vec<MaskToken>, fmt::Error> {
         let mut out = Vec::<MaskToken>::new();
 
@@ -2735,6 +2724,7 @@ pub mod core {
         assert_eq!(b.anchor, a.anchor);
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn test_input_mask_core(
         mask: &str,
         value: &str,
@@ -2755,7 +2745,7 @@ pub mod core {
             width,
             cursor,
             anchor,
-            sym: sym.map(|sym| parse_number_symbols(sym)),
+            sym: sym.map(parse_number_symbols),
         })
     }
 
