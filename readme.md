@@ -23,8 +23,11 @@ of [core::ops::ControlFlow] and a [Result] with several specialized Ok variants.
 * Break - break the event-loop and stop the application.
 * Err - error has occured, invoke the error handler.
 
-Each operation generates a ControlUI as result, which is evaluated before
-waiting for a new event.
+There is one more trick involved that helps writing in an `and_then` style:
+Every part of the event-loop generates a ControlUI as result, which is immediately run
+through the event-loop again, etc. Only once the result reaches `ControlUI::Continue`
+new events are polled. While there is the possibility to create an endless loop
+this way this has not been spotted in the wild so far.
 
 ### Error handling and other macros
 
@@ -34,13 +37,14 @@ waiting for a new event.
 
 ### Background worker
 
-Any action marked with ControlUI::Spawn() is sent to a worker thread, and ultimately calls
-[TuiApp::run_task()]. This is where the real work is done. The result is then sent back to 
-the event loop. Additionally, it gets passed a [TaskSender] for any extra communication needs.
+Any action marked with `ControlUI::Spawn()` is sent to a worker thread, which then calls
+[TuiApp::run_task()], where the real work is done. The result of that is sent back to 
+the event loop automatically. Additionally `run_task()` gets a [TaskSender] to send more
+than one ControlUI command.
 
 ### Events
 
-There are 3 function at this point that handle events.
+There are 3 functions at this point that handle events.
 
 * [TuiApp::repaint]
 * [TuiApp::handle_timer]
@@ -92,6 +96,9 @@ its current state from this flag.
   uses this flag to conditionally validate the content of the widget.
 * [FocusFlag::gained] - Is set if the widget just lost the focus. There is a [on_gained!] macro that
   uses this flag to conditionally validate the content of the widget.
+
+Note: The lost and gained flags are only valid for one run of the event-loop and are reset the
+next time `Focus::handle()` is called, regardless of the concrete event. 
 
 ## Extensions and traits
 
