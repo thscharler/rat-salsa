@@ -57,10 +57,16 @@ impl Timers {
         let timer = self.timers.borrow_mut().pop();
         if let Some(mut timer) = timer {
             if Instant::now() >= timer.next {
-                let evt = TimerEvent {
-                    tag: timer.tag,
-                    counter: timer.count,
-                    repaint: timer.repaint,
+                let evt = if timer.repaint {
+                    TimerEvent::Repaint(Timed {
+                        tag: timer.tag,
+                        counter: timer.count,
+                    })
+                } else {
+                    TimerEvent::Application(Timed {
+                        tag: timer.tag,
+                        counter: timer.count,
+                    })
                 };
 
                 // reschedule
@@ -97,7 +103,7 @@ impl Timers {
 
     /// Add a timer.
     #[must_use]
-    pub fn add(&self, t: Timer) -> usize {
+    pub fn add(&self, t: TimerDef) -> usize {
         let tag = self.tags.get() + 1;
         self.tags.set(tag);
 
@@ -126,20 +132,24 @@ impl Timers {
     }
 }
 
-/// Timer event.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub struct TimerEvent {
-    /// The tag identifies the timer.
+/// Timing event data. Used by [TimerEvent].
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Timed {
     pub tag: usize,
-    /// Current counter.
     pub counter: usize,
-    /// Repaint timer or application timer.
-    pub repaint: bool,
+}
+
+/// Timer event.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TimerEvent {
+    /// Repaint timer.
+    Repaint(Timed),
+    Application(Timed),
 }
 
 /// Holds the information to start a timer.
 #[derive(Debug, Default)]
-pub struct Timer {
+pub struct TimerDef {
     /// Triggers a RepaintEvent.
     pub repaint: bool,
     /// Optional repeat.
@@ -150,7 +160,7 @@ pub struct Timer {
     pub next: Option<Instant>,
 }
 
-impl Timer {
+impl TimerDef {
     pub fn new() -> Self {
         Default::default()
     }
@@ -174,7 +184,7 @@ impl Timer {
     }
 
     /// Next time the timer is due. Can set a start delay for a repeating timer,
-    /// or as a oneshot event for a given instant.
+    /// or as an oneshot event for a given instant.
     pub fn next(mut self, next: Instant) -> Self {
         self.next = Some(next);
         self
