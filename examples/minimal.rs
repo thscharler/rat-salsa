@@ -1,5 +1,6 @@
 #![allow(unused_variables)]
 
+use crossbeam::channel::Sender;
 use crossterm::event::Event;
 use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::input::TextInputStyle;
@@ -10,7 +11,7 @@ use rat_salsa::widget::message::{
 };
 use rat_salsa::{
     check_break, run_tui, try_ui, ControlUI, DefaultKeys, HandleCrossterm, Repaint, RepaintEvent,
-    RunConfig, TaskSender, ThreadPool, TimerEvent, Timers, TuiApp,
+    RunConfig, ThreadPool, Timed, Timers, TuiApp,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
@@ -131,7 +132,7 @@ impl TuiApp for MinimalApp {
         frame: &mut Frame<'_>,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-    ) -> ControlUI<Self::Action, Self::Error> {
+    ) -> Control {
         let area = frame.size();
 
         let layout = {
@@ -167,10 +168,10 @@ impl TuiApp for MinimalApp {
 
     fn handle_timer(
         &self,
-        event: TimerEvent,
+        event: Timed,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-    ) -> ControlUI<Self::Action, Self::Error> {
+    ) -> Control {
         // TODO: timer
         Control::Continue
     }
@@ -180,7 +181,7 @@ impl TuiApp for MinimalApp {
         event: Event,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-    ) -> ControlUI<Self::Action, Self::Error> {
+    ) -> Control {
         use crossterm::event::*;
 
         check_break!(match &event {
@@ -219,16 +220,12 @@ impl TuiApp for MinimalApp {
         data: &mut Self::Data,
         uistate: &mut Self::State,
         worker: &ThreadPool<Self>,
-    ) -> ControlUI<Self::Action, Self::Error> {
+    ) -> Control {
         // TODO: actions
         Control::Continue
     }
 
-    fn run_task(
-        &self,
-        task: Self::Action,
-        send: &TaskSender<Self>,
-    ) -> ControlUI<Self::Action, Self::Error> {
+    fn run_task(&self, task: Self::Action, send: &Sender<Control>) -> Control {
         // TODO: tasks
         Control::Continue
     }
@@ -238,7 +235,7 @@ impl TuiApp for MinimalApp {
         error: Self::Error,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-    ) -> ControlUI<Self::Action, Self::Error> {
+    ) -> Control {
         uistate.g.error_dlg.log(format!("{:?}", &*error).as_str());
         Control::Change
     }

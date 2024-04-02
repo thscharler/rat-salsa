@@ -158,7 +158,7 @@ pub mod state {
                 roll: 0,
             };
             s.input_0.focus.set();
-            s.input_0.set_mask("99.99.9999");
+            s.input_0.set_mask("99.99.9999").expect("mask");
             s.input_0.set_display_mask("TT.MM.YYYY");
             s.input_0.select_all();
             s
@@ -173,6 +173,7 @@ pub mod app {
     use crate::state::{ExState, Mask0};
     use crate::{Control, ExAction};
     use chrono::NaiveDate;
+    use crossbeam::channel::Sender;
     use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
     #[allow(unused_imports)]
     use log::debug;
@@ -181,8 +182,8 @@ pub mod app {
     use rat_salsa::widget::mask_input::MaskedInput;
     use rat_salsa::widget::message::{StatusDialog, StatusLine};
     use rat_salsa::{
-        check_break, on_lost, try_ui, ControlUI, HasValidFlag, TaskSender, ThreadPool, Timer,
-        TimerEvent, Timers, TuiApp,
+        check_break, on_lost, try_ui, ControlUI, HasValidFlag, ThreadPool, Timed, TimerDef, Timers,
+        TuiApp,
     };
     use rat_salsa::{DefaultKeys, HandleCrossterm, RenderFrameWidget, Repaint};
     use rat_salsa::{Focus, RepaintEvent};
@@ -253,7 +254,7 @@ pub mod app {
 
         fn handle_timer(
             &self,
-            _event: TimerEvent,
+            _event: Timed,
             _data: &mut Self::Data,
             _uistate: &mut Self::State,
         ) -> ControlUI<Self::Action, Self::Error> {
@@ -297,7 +298,7 @@ pub mod app {
             Control::Continue
         }
 
-        fn run_task(&self, _task: Self::Action, _send: &TaskSender<Self>) -> Control {
+        fn run_task(&self, _task: Self::Action, _send: &Sender<Control>) -> Control {
             // match task {}
             Control::Continue
         }
@@ -381,7 +382,7 @@ pub mod app {
 
         if uistate.mask0.timer_1 == 0 {
             uistate.mask0.timer_1 = uistate.timers.add(
-                Timer::new()
+                TimerDef::new()
                     .repeat(usize::MAX)
                     .repaint(true)
                     .timer(Duration::from_millis(500)),

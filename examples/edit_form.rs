@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 #![allow(clippy::needless_update)]
 
+use crossbeam::channel::Sender;
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
@@ -16,7 +17,7 @@ use rat_salsa::widget::message::{
 use rat_salsa::{
     check_break, match_focus, on_lost, run_tui, try_ui, ControlUI, DefaultKeys, Focus,
     HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
-    RunConfig, TaskSender, ThreadPool, TimerEvent, Timers, TuiApp,
+    RunConfig, ThreadPool, Timed, Timers, TuiApp,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
@@ -227,7 +228,7 @@ impl TuiApp for FormOneApp {
 
     fn handle_timer(
         &self,
-        event: TimerEvent,
+        event: Timed,
         data: &mut Self::Data,
         uistate: &mut Self::State,
     ) -> ControlUI<Self::Action, Self::Error> {
@@ -284,11 +285,7 @@ impl TuiApp for FormOneApp {
         Control::Continue
     }
 
-    fn run_task(
-        &self,
-        task: Self::Action,
-        send: &TaskSender<Self>,
-    ) -> ControlUI<Self::Action, Self::Error> {
+    fn run_task(&self, task: Self::Action, send: &Sender<Control>) -> Control {
         // TODO: tasks
         Control::Continue
     }
@@ -298,7 +295,7 @@ impl TuiApp for FormOneApp {
         error: Self::Error,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-    ) -> ControlUI<Self::Action, Self::Error> {
+    ) -> Control {
         uistate.g.error_dlg.log(format!("{:?}", &*error).as_str());
         Control::Change
     }
