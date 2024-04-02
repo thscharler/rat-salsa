@@ -4,7 +4,7 @@
 //!
 
 use crate::lib_repaint::{Repaint, RepaintEvent};
-use crate::lib_timer::{TimerEvent, Timers};
+use crate::lib_timer::{Timed, TimerEvent, Timers};
 use crate::ControlUI;
 use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
@@ -69,7 +69,7 @@ pub trait TuiApp {
     /// Handle a timer.
     fn handle_timer(
         &self,
-        event: TimerEvent,
+        event: Timed,
         data: &mut Self::Data,
         uistate: &mut Self::State,
     ) -> ControlUI<Self::Action, Self::Error>;
@@ -95,7 +95,7 @@ pub trait TuiApp {
     fn run_task(
         &self,
         task: Self::Action,
-        send: &TaskSender<Self>,
+        send: &Sender<ControlUI<Self::Action, Self::Error>>,
     ) -> ControlUI<Self::Action, Self::Error>;
 
     /// Error reporting.
@@ -114,9 +114,13 @@ enum PollNext {
     Crossterm,
 }
 
+/// Captures some parameters for [run_tui()].
 #[derive(Debug)]
 pub struct RunConfig {
+    /// How many worker threads are wanted?
+    /// Most of the time 1 should be sufficient to offload any gui-blocking tasks.
     pub n_threats: usize,
+    /// Logs the run timings for every action.
     pub log_timing: bool,
 }
 
@@ -173,7 +177,7 @@ where
     let mut worker = ThreadPool::<App>::build(app, cfg.n_threats);
 
     let mut flow;
-    let mut repaint_event = RepaintEvent::Changed;
+    let mut repaint_event = RepaintEvent::Change;
 
     // to not starve any event source everyone is polled and put in this queue.
     // they are not polled again before the queue is not empty.
@@ -231,7 +235,7 @@ where
                     repaint_event,
                     cfg
                 );
-                repaint_event = RepaintEvent::Changed;
+                repaint_event = RepaintEvent::Change;
                 flow
             }
             ControlUI::Run(action) => {
@@ -280,7 +284,7 @@ fn read_repaint_flag<App: TuiApp>(
     if let Some(repaint) = app.get_repaint(uistate) {
         if repaint.get() {
             repaint.reset();
-            *repaint_event = RepaintEvent::Flagged;
+            *repaint_event = RepaintEvent::Change;
             ControlUI::Change
         } else {
             ControlUI::Continue
@@ -307,11 +311,11 @@ fn read_timers<App: TuiApp>(
 ) -> ControlUI<App::Action, App::Error> {
     if let Some(timers) = app.get_timers(uistate) {
         match timers.read() {
-            Some(evt @ TimerEvent { repaint: true, .. }) => {
+            Some(TimerEvent::Repaint(evt)) => {
                 *repaint_event = RepaintEvent::Timer(evt);
                 ControlUI::Change
             }
-            Some(evt @ TimerEvent { repaint: false, .. }) => {
+            Some(TimerEvent::Application(evt)) => {
                 log_timing!(app.handle_timer(evt, data, uistate), evt, cfg)
             }
             None => ControlUI::Continue,
@@ -400,12 +404,6 @@ pub struct ThreadPool<App: TuiApp + ?Sized> {
     handles: Vec<JoinHandle<()>>,
 }
 
-/// Send results.
-#[derive(Debug)]
-pub struct TaskSender<App: TuiApp + ?Sized> {
-    pub send: Sender<ControlUI<App::Action, App::Error>>,
-}
-
 // internal
 enum TaskArgs<Task> {
     Break,
@@ -431,7 +429,6 @@ where
 
             let handle = thread::spawn(move || {
                 let t_recv = t_recv;
-                let t_send = TaskSender { send: t_send };
 
                 'l: loop {
                     match t_recv.recv() {
@@ -549,19 +546,6 @@ impl<App: TuiApp + ?Sized> Drop for ThreadPool<App> {
         }
         for h in self.handles.drain(..) {
             _ = h.join();
-        }
-    }
-}
-
-impl<App: TuiApp> TaskSender<App>
-where
-    App::Action: 'static + Send,
-    App::Error: 'static + Send,
-{
-    pub fn send(&self, msg: ControlUI<App::Action, App::Error>) -> Result<(), SendError<()>> {
-        match self.send.send(msg) {
-            Ok(v) => Ok(v),
-            Err(_) => Err(SendError(())),
         }
     }
 }
