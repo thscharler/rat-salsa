@@ -1,4 +1,4 @@
-use crate::lib_timer::TimerEvent;
+use crate::lib_timer::Timed;
 use std::cell::Cell;
 
 /// Flags a repaint from event-handling code.
@@ -36,10 +36,8 @@ impl Repaint {
 /// Gives some extra information why a repaint was triggered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RepaintEvent {
-    /// There was a ControlUI::Changed.
-    Changed,
-    /// The repaint flag was used.
-    Flagged,
+    /// There was a [ControlUI::Change] or the change flag has been set.
+    Change,
     /// A timer triggered this.
-    Timer(TimerEvent),
+    Timer(Timed),
 }
