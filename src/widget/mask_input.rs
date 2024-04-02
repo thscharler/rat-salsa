@@ -1436,9 +1436,8 @@ pub mod core {
                 }
             }
 
-            let mut buf = vec![' '; fmt.tok.len()];
             let mut out = String::new();
-            number::map_num(clean.as_str(), &fmt, buf.as_mut(), &mut out)?;
+            number::map_num(clean.as_str(), &fmt, &mut out)?;
 
             Ok(out)
         }

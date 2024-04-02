@@ -415,11 +415,10 @@ fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
 /// Unmap the formatted string back to a format that `f64::parse()` can understand.
 ///
 /// Token::NumericOpt is not supported for now.
-#[allow(clippy::needless_lifetimes)]
-pub fn unmap_num<'a, 'c, W: fmt::Write>(
-    formatted: &'a str,
-    format: &'a NumberFormat,
-    out: &'c mut W,
+pub fn unmap_num<W: fmt::Write>(
+    formatted: &str,
+    format: &NumberFormat,
+    out: &mut W,
 ) -> Result<(), fmt::Error> {
     for (t, c) in format.tok.iter().zip(formatted.chars()) {
         match t {
@@ -489,37 +488,49 @@ pub fn unmap_num<'a, 'c, W: fmt::Write>(
 ///
 /// There is a need for a buffer, its length must be at least format.tok.len().
 #[allow(clippy::needless_range_loop)]
-pub fn map_num<'a: 'd, 'b, 'c, 'd, W: fmt::Write>(
-    raw: &'a str,
-    format: &'a NumberFormat,
-    buffer: &'b mut [char],
-    out: &'c mut W,
+pub fn map_num<W: fmt::Write>(
+    raw: &str,
+    format: &NumberFormat,
+    out: &mut W,
 ) -> Result<(), fmt::Error> {
-    if buffer.len() < format.tok.len() {
-        return Err(fmt::Error);
+    thread_local! {
+        static BUF: RefCell<[*const str;32]> = const { RefCell::new(["";32]) };
     }
 
-    _map_num(raw, format, buffer)?;
+    BUF.with_borrow_mut(|buf| {
+        // Safety:
+        // This transmutes pointers to true static str to the required shorter lifetime
+        // &'d str of map_num. It's initialized with pointers to true static strings,
+        // so any residual values are cleaned up.
+        let buffer: &mut [char] = unsafe {
+            for b in buf.iter_mut() {
+                *b = "";
+            }
+            assert_eq!(size_of::<*const str>(), size_of::<&str>());
+            mem::transmute(&mut buf[..])
+        };
 
-    for i in 0..format.tok.len() {
-        if buffer[i] != '\u{7f}' {
-            if out.write_char(buffer[i]).is_err() {
-                return Err(fmt::Error);
+        if buffer.len() < format.tok.len() {
+            return Err(fmt::Error);
+        }
+
+        _map_num(raw, format, buffer)?;
+
+        for i in 0..format.tok.len() {
+            if buffer[i] != '\u{7f}' {
+                if out.write_char(buffer[i]).is_err() {
+                    return Err(fmt::Error);
+                }
             }
         }
-    }
 
-    Ok(())
+        Ok(())
+    })
 }
 
 // impl without type parameters
-#[allow(clippy::needless_lifetimes)]
 #[allow(clippy::needless_range_loop)]
-fn _map_num<'a, 'b>(
-    raw: &'a str,
-    format: &'a NumberFormat,
-    buffer: &'b mut [char],
-) -> Result<(), fmt::Error> {
+fn _map_num(raw: &str, format: &NumberFormat, buffer: &mut [char]) -> Result<(), fmt::Error> {
     for i in 0..format.tok.len() {
         buffer[i] = ' ';
     }
@@ -795,7 +806,6 @@ pub fn format_f64_to<W: fmt::Write, Number: Into<f64>>(
 ) -> Result<(), fmt::Error> {
     thread_local! {
         static RAW: RefCell<Cursor<[u8;32]>> = RefCell::new(Cursor::new([0u8;32]));
-        static BUF: RefCell<[*const str;32]> = const { RefCell::new(["";32]) };
     }
 
     RAW.with_borrow_mut(|raw| {
@@ -811,22 +821,7 @@ pub fn format_f64_to<W: fmt::Write, Number: Into<f64>>(
         // Output is ascii.
         let raw_str = unsafe { from_utf8_unchecked(&raw.get_ref()[..raw.position() as usize]) };
 
-        // todo: maybe separate function ok?
-        BUF.with_borrow_mut(|buf| {
-            // Safety:
-            // This transmutes pointers to true static str to the required shorter lifetime
-            // &'d str of map_num. It's initialized with pointers to true static strings,
-            // so any residual values are cleaned up.
-            let buf = unsafe {
-                for b in buf.iter_mut() {
-                    *b = "";
-                }
-                assert_eq!(size_of::<*const str>(), size_of::<&str>());
-                mem::transmute(&mut buf[..])
-            };
-
-            map_num(raw_str, format, buf, out)
-        })
+        map_num(raw_str, format, out)
     })
 }
 
@@ -871,7 +866,6 @@ pub fn format_i64_to<W: fmt::Write, Number: Into<i64>>(
 ) -> Result<(), fmt::Error> {
     thread_local! {
         static RAW: RefCell<Cursor<[u8;32]>> = RefCell::new(Cursor::new([0u8;32]));
-        static BUF: RefCell<[*const str;32]> = const { RefCell::new(["";32]) };
     }
 
     RAW.with_borrow_mut(|raw| {
@@ -881,19 +875,6 @@ pub fn format_i64_to<W: fmt::Write, Number: Into<i64>>(
         // Output is ascii.
         let raw_str = unsafe { from_utf8_unchecked(&raw.get_ref()[..raw.position() as usize]) };
 
-        BUF.with_borrow_mut(|buf| {
-            // Safety:
-            // This transmutes pointers to true static str to the required shorter lifetime
-            // &'d str of map_num. It's initialized with pointers to true static strings,
-            // so any residual values are cleaned up.
-            let buf = unsafe {
-                for b in buf.iter_mut() {
-                    *b = "";
-                }
-                assert_eq!(size_of::<*const str>(), size_of::<&str>());
-                mem::transmute(&mut buf[..])
-            };
-            map_num(raw_str, format, buf, out)
-        })
+        map_num(raw_str, format, out)
     })
 }
