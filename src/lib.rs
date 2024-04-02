@@ -1,6 +1,6 @@
 #![allow(clippy::collapsible_if)]
 #![allow(clippy::collapsible_else_if)]
-#![doc = include_str!("../crate.md")]
+#![doc = include_str!("../readme.md")]
 
 use std::fmt::Debug;
 
@@ -19,9 +19,9 @@ mod lib_validate;
 mod lib_widget;
 
 pub use lib_focus::{Focus, FocusFlag, HasFocusFlag};
-pub use lib_framework::{run_tui, RunConfig, TaskSender, ThreadPool, TuiApp};
+pub use lib_framework::{run_tui, RunConfig, ThreadPool, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
-pub use lib_timer::{Timer, TimerEvent, Timers};
+pub use lib_timer::{Timed, TimerDef, TimerEvent, Timers};
 pub use lib_validate::{CanValidate, HasValidFlag, ValidFlag};
 pub use lib_widget::{
     DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly, RenderFrameWidget,
@@ -58,15 +58,9 @@ macro_rules! try_result {
 #[macro_export]
 macro_rules! check_break {
     ($x:expr) => {{
-        use $crate::optional::OptionalControlUI;
         let r = $x;
-        if r.is_control_ui() {
-            let s = r.unwrap_control_ui();
-            if !s.is_continue() {
-                return s;
-            } else {
-                _ = s;
-            }
+        if !r.is_continue() {
+            return r;
         } else {
             _ = r;
         }
@@ -80,46 +74,21 @@ macro_rules! check_break {
 #[macro_export]
 macro_rules! try_ui {
     ($x:expr) => {{
-        use $crate::optional::OptionalControlUI;
         let r = $x;
-        if r.is_control_ui() {
-            let s = r.unwrap_control_ui();
-            if s.is_err() {
-                return s;
-            } else {
-                OptionalControlUI::rewrap_control_ui(s)
-            }
+        if r.is_err() {
+            return r;
         } else {
             r
         }
     }};
     ($x:expr, _) => {{
-        use $crate::optional::OptionalControlUI;
         let r = $x;
-        if r.is_control_ui() {
-            let s = r.unwrap_control_ui();
-            if s.is_err() {
-                return s;
-            } else {
-                _ = s;
-            }
+        if r.is_err() {
+            return r;
+        } else {
+            _ = r;
         }
-        _ = r;
     }};
-}
-
-pub mod optional {
-    use crate::ControlUI;
-
-    /// Just a helper trait for the macros [try_ui!] and [check_break!]
-    pub trait OptionalControlUI<A, E> {
-        /// Is a ControlUI?
-        fn is_control_ui(&self) -> bool;
-        /// Unwrap if necessary.
-        fn unwrap_control_ui(self) -> ControlUI<A, E>;
-        /// Rewrap if necessary.
-        fn rewrap_control_ui(v: ControlUI<A, E>) -> Self;
-    }
 }
 
 /// UI control flow.
@@ -218,10 +187,10 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Run the continuation if the value is Continue. May return some R.
     #[inline]
-    pub fn or_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+    pub fn or_do<R: Default>(&self, f: impl FnOnce() -> R) -> R {
         match self {
-            ControlUI::Continue => Some(f()),
-            _ => None,
+            ControlUI::Continue => f(),
+            _ => R::default(),
         }
     }
 
@@ -234,23 +203,6 @@ impl<Action, Err> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
             ControlUI::Err(e) => f(e),
-            ControlUI::NoChange => ControlUI::NoChange,
-            ControlUI::Change => ControlUI::Change,
-            ControlUI::Run(a) => ControlUI::Run(a),
-            ControlUI::Spawn(a) => ControlUI::Spawn(a),
-            ControlUI::Break => ControlUI::Break,
-        }
-    }
-
-    /// Convert an error to another error type with into().
-    #[inline]
-    pub fn err_into<OtherErr>(self) -> ControlUI<Action, OtherErr>
-    where
-        Err: Into<OtherErr>,
-    {
-        match self {
-            ControlUI::Continue => ControlUI::Continue,
-            ControlUI::Err(e) => ControlUI::Err(e.into()),
             ControlUI::NoChange => ControlUI::NoChange,
             ControlUI::Change => ControlUI::Change,
             ControlUI::Run(a) => ControlUI::Run(a),
@@ -285,11 +237,11 @@ impl<Action, Err> ControlUI<Action, Err> {
     ///
     /// Caveat: Allows no differentiation between Run and Spawn.
     #[inline]
-    pub fn and_do<R>(&self, f: impl FnOnce(&Action) -> R) -> Option<R> {
+    pub fn and_do<R: Default>(&self, f: impl FnOnce(&Action) -> R) -> R {
         match self {
-            ControlUI::Run(a) => Some(f(a)),
-            ControlUI::Spawn(a) => Some(f(a)),
-            _ => None,
+            ControlUI::Run(a) => f(a),
+            ControlUI::Spawn(a) => f(a),
+            _ => R::default(),
         }
     }
 
@@ -307,10 +259,10 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Run the if the value is Unchanged. Allows to return some value.
     #[inline]
-    pub fn on_no_change_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+    pub fn on_no_change_do<R: Default>(&self, f: impl FnOnce() -> R) -> R {
         match self {
-            ControlUI::NoChange => Some(f()),
-            _ => None,
+            ControlUI::NoChange => f(),
+            _ => R::default(),
         }
     }
 
@@ -325,44 +277,10 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Run if the value is Changed. Allows to return some value.
     #[inline]
-    pub fn on_change_do<R>(&self, f: impl FnOnce() -> R) -> Option<R> {
+    pub fn on_change_do<R: Default>(&self, f: impl FnOnce() -> R) -> R {
         match self {
-            ControlUI::Change => Some(f()),
-            _ => None,
+            ControlUI::Change => f(),
+            _ => R::default(),
         }
-    }
-}
-
-impl<Action, Err> optional::OptionalControlUI<Action, Err> for ControlUI<Action, Err> {
-    #[inline]
-    fn is_control_ui(&self) -> bool {
-        true
-    }
-
-    #[inline]
-    fn unwrap_control_ui(self) -> ControlUI<Action, Err> {
-        self
-    }
-
-    #[inline]
-    fn rewrap_control_ui(v: ControlUI<Action, Err>) -> Self {
-        v
-    }
-}
-
-impl<Action, Err> optional::OptionalControlUI<Action, Err> for Option<ControlUI<Action, Err>> {
-    #[inline]
-    fn is_control_ui(&self) -> bool {
-        self.is_some()
-    }
-
-    #[inline]
-    fn unwrap_control_ui(self) -> ControlUI<Action, Err> {
-        self.unwrap()
-    }
-
-    #[inline]
-    fn rewrap_control_ui(v: ControlUI<Action, Err>) -> Self {
-        Some(v)
     }
 }
