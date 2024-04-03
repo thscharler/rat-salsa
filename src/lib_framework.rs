@@ -6,7 +6,7 @@
 use crate::lib_repaint::{Repaint, RepaintEvent};
 use crate::lib_timer::{Timed, TimerEvent, Timers};
 use crate::ControlUI;
-use crossbeam::channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
+use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
 use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -19,9 +19,10 @@ use std::cmp::min;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::io::{stdout, Stdout};
+use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, SystemTime};
-use std::{io, thread};
+use std::{io, mem, thread};
 
 /// Describes the requisites of a TuiApp.
 ///
@@ -54,7 +55,7 @@ pub trait TuiApp {
         &self,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-        worker: &ThreadPool<Self>,
+        send: &Sender<Self::Action>,
     ) -> Result<(), anyhow::Error>;
 
     /// Repaint the ui.
@@ -88,7 +89,7 @@ pub trait TuiApp {
         action: Self::Action,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-        worker: &ThreadPool<Self>,
+        send: &Sender<Self::Action>,
     ) -> ControlUI<Self::Action, Self::Error>;
 
     /// Called by the worker thread to run a Task.
@@ -171,6 +172,36 @@ where
     stdout().execute(EnableMouseCapture)?;
     enable_raw_mode()?;
 
+    let r = match catch_unwind(AssertUnwindSafe(|| _run_tui(app, data, uistate, cfg))) {
+        Ok(v) => v,
+        Err(e) => {
+            stdout().execute(DisableMouseCapture)?;
+            stdout().execute(LeaveAlternateScreen)?;
+            disable_raw_mode()?;
+
+            resume_unwind(e);
+        }
+    };
+
+    stdout().execute(DisableMouseCapture)?;
+    stdout().execute(LeaveAlternateScreen)?;
+    disable_raw_mode()?;
+
+    r
+}
+
+/// Run the event-loop.
+fn _run_tui<App: TuiApp>(
+    app: &'static App,
+    data: &mut App::Data,
+    uistate: &mut App::State,
+    cfg: RunConfig,
+) -> Result<(), anyhow::Error>
+where
+    App::Action: Debug + Send + 'static,
+    App::Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
+    App: Sync,
+{
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
 
@@ -184,7 +215,7 @@ where
     let mut poll_queue = VecDeque::new();
 
     // init
-    app.init(data, uistate, &worker)?;
+    app.init(data, uistate, &worker.send)?;
 
     // initial repaint.
     flow = repaint_tui(&mut terminal, app, data, uistate, repaint_event);
@@ -239,7 +270,11 @@ where
                 flow
             }
             ControlUI::Run(action) => {
-                log_timing!(app.run_action(action, data, uistate, &worker), action, cfg)
+                log_timing!(
+                    app.run_action(action, data, uistate, &worker.send),
+                    action,
+                    cfg
+                )
             }
             ControlUI::Spawn(action) => worker.send(action),
             ControlUI::Err(err) => app.report_error(err, data, uistate),
@@ -247,11 +282,7 @@ where
         };
     }
 
-    worker.stop_and_join()?;
-
-    stdout().execute(DisableMouseCapture)?;
-    stdout().execute(LeaveAlternateScreen)?;
-    disable_raw_mode()?;
+    worker.stop_and_join();
 
     Ok(())
 }
@@ -398,16 +429,10 @@ where
 
 /// Basic threadpool
 #[derive(Debug)]
-pub struct ThreadPool<App: TuiApp + ?Sized> {
-    send: Sender<TaskArgs<App::Action>>,
+struct ThreadPool<App: TuiApp> {
+    send: Sender<App::Action>,
     recv: Receiver<ControlUI<App::Action, App::Error>>,
     handles: Vec<JoinHandle<()>>,
-}
-
-// internal
-enum TaskArgs<Task> {
-    Break,
-    Task(Task),
 }
 
 impl<App: TuiApp> ThreadPool<App>
@@ -417,8 +442,8 @@ where
     App::Error: 'static + Send,
 {
     /// New threadpool with the given task executor.
-    pub fn build(app: &'static App, n_worker: usize) -> Self {
-        let (send, t_recv) = unbounded::<TaskArgs<App::Action>>();
+    fn build(app: &'static App, n_worker: usize) -> Self {
+        let (send, t_recv) = unbounded::<App::Action>();
         let (t_send, recv) = unbounded::<ControlUI<App::Action, App::Error>>();
 
         let mut handles = Vec::new();
@@ -432,16 +457,12 @@ where
 
                 'l: loop {
                     match t_recv.recv() {
-                        Ok(TaskArgs::Task(task)) => {
+                        Ok(task) => {
                             let flow = app.run_task(task, &t_send);
                             if let Err(err) = t_send.send(flow) {
                                 debug!("{:?}", err);
                                 break 'l;
                             }
-                        }
-                        Ok(TaskArgs::Break) => {
-                            //
-                            break 'l;
                         }
                         Err(err) => {
                             debug!("{:?}", err);
@@ -465,52 +486,38 @@ where
     ///
     /// Panic:
     /// Panics if any of the workers panicked themselves.
-    pub fn check_liveness(&mut self) {
-        let worker_panic = 'f: {
-            for h in &self.handles {
-                if h.is_finished() {
-                    break 'f true;
-                }
+    fn check_liveness(&mut self) {
+        let mut all_alive = true;
+        for h in &self.handles {
+            if h.is_finished() {
+                all_alive = false;
             }
-            false
-        };
+        }
 
-        if worker_panic {
-            // try to be nice to the rest
-            for _ in 0..self.handles.len() {
-                _ = self.send.send(TaskArgs::Break);
-            }
-
-            let mut propagate_panic = false;
-            for h in self.handles.drain(..) {
-                if h.join().is_err() {
-                    propagate_panic = true;
-                }
-            }
-            if propagate_panic {
-                panic!("worker panicked");
-            }
+        if !all_alive {
+            shutdown_thread_pool(self);
+            panic!("worker panicked");
         }
     }
 
     /// Send a task.
-    pub fn send(&self, t: App::Action) -> ControlUI<App::Action, App::Error>
+    fn send(&self, t: App::Action) -> ControlUI<App::Action, App::Error>
     where
         App::Error: From<SendError<()>>,
     {
-        match self.send.send(TaskArgs::Task(t)) {
+        match self.send.send(t) {
             Ok(_) => ControlUI::Continue,
             Err(_) => ControlUI::Err(SendError(()).into()),
         }
     }
 
     /// Is the channel empty?
-    pub fn is_empty(&self) -> bool {
+    fn is_empty(&self) -> bool {
         self.recv.is_empty()
     }
 
     /// Receive a result.
-    pub fn try_recv(&self) -> ControlUI<App::Action, App::Error>
+    fn try_recv(&self) -> ControlUI<App::Action, App::Error>
     where
         App::Error: From<TryRecvError>,
     {
@@ -522,30 +529,20 @@ where
     }
 
     /// Stop threads and join.
-    pub fn stop_and_join(mut self) -> Result<(), SendError<()>> {
-        for _ in 0..self.handles.len() {
-            if self.send.send(TaskArgs::Break).is_err() {
-                return Err(SendError(()));
-            }
-        }
-
-        for h in self.handles.drain(..) {
-            _ = h.join();
-        }
-
-        Ok(())
+    fn stop_and_join(mut self) {
+        shutdown_thread_pool(&mut self);
     }
 }
 
-impl<App: TuiApp + ?Sized> Drop for ThreadPool<App> {
+impl<App: TuiApp> Drop for ThreadPool<App> {
     fn drop(&mut self) {
-        for _ in 0..self.handles.len() {
-            // drop is just a fallback to stop_and_join().
-            // so dropping these results might be ok.
-            _ = self.send.send(TaskArgs::Break);
-        }
-        for h in self.handles.drain(..) {
-            _ = h.join();
-        }
+        shutdown_thread_pool(self);
+    }
+}
+
+fn shutdown_thread_pool<App: TuiApp>(t: &mut ThreadPool<App>) {
+    drop(mem::replace(&mut t.send, bounded(0).0));
+    for h in t.handles.drain(..) {
+        _ = h.join();
     }
 }
