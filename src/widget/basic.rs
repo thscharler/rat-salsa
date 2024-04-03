@@ -22,6 +22,7 @@ impl ClearStyle {
 
 impl Widget for ClearStyle {
     fn render(self, area: Rect, buf: &mut Buffer) {
+        let area = buf.area.intersection(area);
         for x in area.left()..area.right() {
             for y in area.top()..area.bottom() {
                 buf.get_mut(x, y).reset();
