@@ -17,7 +17,7 @@ use rat_salsa::widget::message::{
 use rat_salsa::{
     check_break, match_focus, on_lost, run_tui, try_ui, ControlUI, DefaultKeys, Focus,
     HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
-    RunConfig, ThreadPool, Timed, Timers, TuiApp,
+    RunConfig, Timed, Timers, TuiApp,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
@@ -181,7 +181,7 @@ impl TuiApp for FormOneApp {
         &self,
         _data: &mut Self::Data,
         _uistate: &mut Self::State,
-        _worker: &ThreadPool<Self>,
+        _send: &Sender<Self::Action>,
     ) -> Result<(), Self::Error> {
         Ok(())
     }
@@ -279,7 +279,7 @@ impl TuiApp for FormOneApp {
         action: Self::Action,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-        worker: &ThreadPool<Self>,
+        send: &Sender<Self::Action>,
     ) -> ControlUI<Self::Action, Self::Error> {
         // TODO: actions
         Control::Continue

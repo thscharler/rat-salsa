@@ -11,7 +11,7 @@ use rat_salsa::widget::message::{
 };
 use rat_salsa::{
     check_break, run_tui, try_ui, ControlUI, DefaultKeys, HandleCrossterm, Repaint, RepaintEvent,
-    RunConfig, ThreadPool, Timed, Timers, TuiApp,
+    RunConfig, Timed, Timers, TuiApp,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
@@ -132,7 +132,7 @@ impl TuiApp for MinimalApp {
         &self,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-        worker: &ThreadPool<Self>,
+        send: &Sender<Self::Action>,
     ) -> Result<(), Self::Error> {
         // TODO: init before event-loop. maybe start some workers.
         Ok(())
@@ -242,7 +242,7 @@ impl TuiApp for MinimalApp {
         action: Self::Action,
         data: &mut Self::Data,
         uistate: &mut Self::State,
-        worker: &ThreadPool<Self>,
+        send: &Sender<Self::Action>,
     ) -> Control {
         // TODO: actions
         Control::Continue

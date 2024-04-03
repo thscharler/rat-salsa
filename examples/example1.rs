@@ -182,8 +182,7 @@ pub mod app {
     use rat_salsa::widget::mask_input::MaskedInput;
     use rat_salsa::widget::message::{StatusDialog, StatusLine};
     use rat_salsa::{
-        check_break, on_lost, try_ui, ControlUI, HasValidFlag, ThreadPool, Timed, TimerDef, Timers,
-        TuiApp,
+        check_break, on_lost, try_ui, ControlUI, HasValidFlag, Timed, TimerDef, Timers, TuiApp,
     };
     use rat_salsa::{DefaultKeys, HandleCrossterm, RenderFrameWidget, Repaint};
     use rat_salsa::{Focus, RepaintEvent};
@@ -213,7 +212,7 @@ pub mod app {
             &self,
             _data: &mut Self::Data,
             _uistate: &mut Self::State,
-            _worker: &ThreadPool<Self>,
+            _send: &Sender<Self::Action>,
         ) -> Result<(), Self::Error> {
             Ok(())
         }
@@ -292,7 +291,7 @@ pub mod app {
             _action: Self::Action,
             _data: &mut Self::Data,
             _uistate: &mut Self::State,
-            _worker: &ThreadPool<Self>,
+            _send: &Sender<Self::Action>,
         ) -> Control {
             // match action {}
             Control::Continue
