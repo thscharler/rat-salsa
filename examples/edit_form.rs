@@ -379,13 +379,21 @@ fn repaint_mask0(
         .show_compact(true)
         .style(uistate.g.theme.input_mask_style());
 
+    debug!("{:#?}", l0);
     frame.render_widget(Span::from("Plain text input").underlined(), l0.label());
+    debug!("{:?}", l0);
     frame.render_widget(Span::from("Text"), l0.label());
+    debug!("{:?}", l0);
     frame.render_frame_widget(w_text, l0.widget(), &mut uistate.mask0.text);
+    debug!("{:?}", l0);
     frame.render_widget(Span::from("Integer"), l0.label());
+    debug!("{:?}", l0);
     frame.render_frame_widget(w_decimal, l0.widget(), &mut uistate.mask0.decimal);
+    debug!("{:?}", l0);
     frame.render_widget(Span::from("Float"), l0.label());
+    debug!("{:?}", l0);
     frame.render_frame_widget(w_float, l0.widget(), &mut uistate.mask0.float);
+    debug!("{:?}", l0);
 
     frame.render_widget(Span::from("Masked text input").underlined(), l2.label());
     frame.render_widget(Span::from("IPv4"), l2.label());

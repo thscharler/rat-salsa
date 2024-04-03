@@ -363,21 +363,21 @@ pub mod app {
         let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
         let label_compact = Span::from("No spaces");
         let compact = Span::from(uistate.mask0.input_0.compact_value());
-        frame.render_widget(label_edit, l_edit0.label[0]);
-        frame.render_frame_widget(edit, l_edit0.widget[0], &mut uistate.mask0.input_0);
-        frame.render_widget(label_parsed, l_edit0.label[1]);
-        frame.render_widget(parsed, l_edit0.widget[1]);
-        frame.render_widget(label_compact, l_edit0.label[2]);
-        frame.render_widget(compact, l_edit0.widget[2]);
+        frame.render_widget(label_edit, l_edit0.label(0));
+        frame.render_frame_widget(edit, l_edit0.widget(0), &mut uistate.mask0.input_0);
+        frame.render_widget(label_parsed, l_edit0.label(1));
+        frame.render_widget(parsed, l_edit0.widget(1));
+        frame.render_widget(label_compact, l_edit0.label(2));
+        frame.render_widget(compact, l_edit0.widget(2));
         let label_mask = Span::from("Mask");
-        frame.render_widget(label_mask, l_edit0.label[3]);
+        frame.render_widget(label_mask, l_edit0.label(3));
         let mask = Span::from(uistate.mask0.input_0.mask());
-        frame.render_widget(mask, l_edit0.widget[3]);
+        frame.render_widget(mask, l_edit0.widget(3));
 
         let label_edit = Span::from("Text");
         let edit = TextInput::default().style(uistate.g.input_style());
-        frame.render_widget(label_edit, l_edit1.label[0]);
-        frame.render_frame_widget(edit, l_edit1.widget[0], &mut uistate.mask0.input_1);
+        frame.render_widget(label_edit, l_edit1.label(0));
+        frame.render_frame_widget(edit, l_edit1.widget(0), &mut uistate.mask0.input_1);
 
         if uistate.mask0.timer_1 == 0 {
             uistate.mask0.timer_1 = uistate.timers.add(
@@ -396,7 +396,7 @@ pub mod app {
         let txt_roll = "Rolling banners are nice :-) ";
         let (txt_roll1, txt_roll2) = txt_roll.split_at(uistate.mask0.roll);
         let label_roll = Span::from(format!("{}{}", txt_roll2, txt_roll1).to_string());
-        frame.render_widget(label_roll, l_edit2.label[0]);
+        frame.render_widget(label_roll, l_edit2.label(0));
 
         Control::Continue
     }
