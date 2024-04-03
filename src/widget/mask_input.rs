@@ -48,7 +48,7 @@
 use crate::number::NumberSymbols;
 use crate::widget::basic::ClearStyle;
 use crate::widget::mask_input::core::InputMaskCore;
-use crate::{grapheme, try_result};
+use crate::{grapheme, tr};
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
@@ -712,10 +712,10 @@ where
             }
             InsertChar(c) => {
                 if self.value.is_anchored() {
-                    try_result!(self.value.remove_selection(self.value.selection()));
+                    tr!(self.value.remove_selection(self.value.selection()));
                 }
                 self.value.advance_cursor(c);
-                try_result!(self.value.insert_char(c));
+                tr!(self.value.insert_char(c));
                 ControlUI::Change
             }
             DeletePrevChar => {
@@ -723,12 +723,12 @@ where
                     self.value.reset();
                     ControlUI::Change
                 } else if self.value.is_anchored() {
-                    try_result!(self.value.remove_selection(self.value.selection()));
+                    tr!(self.value.remove_selection(self.value.selection()));
                     ControlUI::Change
                 } else if self.value.cursor() == 0 {
                     ControlUI::NoChange
                 } else {
-                    try_result!(self.value.remove_prev());
+                    tr!(self.value.remove_prev());
                     ControlUI::Change
                 }
             }
@@ -737,12 +737,12 @@ where
                     self.value.reset();
                     ControlUI::Change
                 } else if self.value.is_anchored() {
-                    try_result!(self.value.remove_selection(self.value.selection()));
+                    tr!(self.value.remove_selection(self.value.selection()));
                     ControlUI::Change
                 } else if self.value.cursor() == self.value.len() {
                     ControlUI::NoChange
                 } else {
-                    try_result!(self.value.remove_next());
+                    tr!(self.value.remove_next());
                     ControlUI::Change
                 }
             }
@@ -797,7 +797,7 @@ where
                     ControlUI::NoChange
                 } else {
                     let prev = self.value.prev_word_boundary();
-                    try_result!(self.value.remove_selection(prev..self.value.cursor()));
+                    tr!(self.value.remove_selection(prev..self.value.cursor()));
                     ControlUI::Change
                 }
             }
@@ -806,7 +806,7 @@ where
                     ControlUI::NoChange
                 } else {
                     let next = self.value.next_word_boundary();
-                    try_result!(self.value.remove_selection(self.value.cursor()..next));
+                    tr!(self.value.remove_selection(self.value.cursor()..next));
                     ControlUI::Change
                 }
             }
@@ -827,13 +827,13 @@ where
                 }
             }
             DeleteTillEnd => {
-                try_result!(self
+                tr!(self
                     .value
                     .remove_selection(self.value.cursor()..self.value.len()));
                 ControlUI::Change
             }
             DeleteTillStart => {
-                try_result!(self.value.remove_selection(0..self.value.cursor()));
+                tr!(self.value.remove_selection(0..self.value.cursor()));
                 ControlUI::Change
             }
             SelectAll => {

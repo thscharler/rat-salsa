@@ -39,7 +39,7 @@ pub mod prelude {
 ///
 /// A second parameter `_` silences unused_must_use.
 #[macro_export]
-macro_rules! try_result {
+macro_rules! tr {
     ($ex:expr) => {{
         match $ex {
             Ok(v) => v,
@@ -67,36 +67,12 @@ macro_rules! check_break {
     }};
 }
 
-/// Breaks the control-flow. If the value is [ControlUI::Err] it returns early.
-/// Evaluates to any other value.
-///
-/// A second parameter `_` silences unused_must_use.
-#[macro_export]
-macro_rules! try_ui {
-    ($x:expr) => {{
-        let r = $x;
-        if r.is_err() {
-            return r;
-        } else {
-            r
-        }
-    }};
-    ($x:expr, _) => {{
-        let r = $x;
-        if r.is_err() {
-            return r;
-        } else {
-            _ = r;
-        }
-    }};
-}
-
 /// UI control flow.
 ///
 /// This is the result type for an event-handler.
 ///
 /// * Continue - Continue with execution.
-/// * Err(Err) - Equivalent to Result::Err. Use the macro [try_result] to convert from Result.
+/// * Err(Err) - Equivalent to Result::Err. Use the macro [tr] to convert from Result.
 /// * Unchanged - Event processed, no UI update necessary.
 /// * Changed - Event processed, UI update necessary.
 /// * Action(Action) - Run some computation on the model.
@@ -104,7 +80,7 @@ macro_rules! try_ui {
 /// * Break - Break the event loop; end the program.
 ///
 /// There are multiple continuation functions that work with these states.
-/// And the macros [try_result!], [check_break!] and [try_ui!]
+/// And the macros [tr!], [check_break!] and [try_ui!]
 #[derive(Debug)]
 #[must_use]
 pub enum ControlUI<Action = (), Err = ()> {
