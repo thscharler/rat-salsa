@@ -385,6 +385,12 @@ pub struct LayoutDialog<const N: usize> {
     pub buttons: [Rect; N],
 }
 
+impl<const N: usize> LayoutDialog<N> {
+    pub fn button(&self, n: usize) -> Rect {
+        self.buttons[n]
+    }
+}
+
 /// Calculates a layout for a dialog with buttons.
 pub fn layout_dialog<const N: usize>(
     area: Rect,
