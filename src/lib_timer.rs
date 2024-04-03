@@ -41,7 +41,6 @@ impl Timers {
     }
 
     /// Polls for the next timer event.
-    /// Removes/recalculates the event and reorders the queue.
     pub fn poll(&self) -> bool {
         let timers = self.timers.borrow();
         if let Some(timer) = timers.last() {

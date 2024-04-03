@@ -83,12 +83,5 @@ macro_rules! validate {
 /// Trait for a widget that can do some sort of validation.
 pub trait CanValidate {
     /// Run some validation for the widget.
-    ///
-    /// This is an extra entrypoint for an application, as any widget will validate
-    /// its state when doing a [ratatui::widgets::StatefulWidget::render].
-    ///
-    /// Note: At the point `render` is called [FocusFlag::lost](crate::FocusFlag::lost) and
-    /// [FocusFlag::gained](crate::FocusFlag::gained) will still be valid. So content
-    /// validation can be conditional on one of those.
     fn validate(&mut self);
 }

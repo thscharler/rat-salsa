@@ -36,7 +36,7 @@ impl Repaint {
 /// Gives some extra information why a repaint was triggered.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RepaintEvent {
-    /// There was a [ControlUI::Change] or the change flag has been set.
+    /// There was a [ControlUI::Change](crate::ControlUI::Change) or the change flag has been set.
     Change,
     /// A timer triggered this.
     Timer(Timed),

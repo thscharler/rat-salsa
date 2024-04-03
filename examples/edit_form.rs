@@ -15,7 +15,7 @@ use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
 use rat_salsa::{
-    check_break, match_focus, on_lost, run_tui, try_ui, ControlUI, DefaultKeys, Focus,
+    check_break, match_focus, on_gained, on_lost, run_tui, try_ui, ControlUI, DefaultKeys, Focus,
     HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
     RunConfig, Timed, Timers, TuiApp,
 };
@@ -379,21 +379,13 @@ fn repaint_mask0(
         .show_compact(true)
         .style(uistate.g.theme.input_mask_style());
 
-    debug!("{:#?}", l0);
     frame.render_widget(Span::from("Plain text input").underlined(), l0.label());
-    debug!("{:?}", l0);
     frame.render_widget(Span::from("Text"), l0.label());
-    debug!("{:?}", l0);
     frame.render_frame_widget(w_text, l0.widget(), &mut uistate.mask0.text);
-    debug!("{:?}", l0);
     frame.render_widget(Span::from("Integer"), l0.label());
-    debug!("{:?}", l0);
     frame.render_frame_widget(w_decimal, l0.widget(), &mut uistate.mask0.decimal);
-    debug!("{:?}", l0);
     frame.render_widget(Span::from("Float"), l0.label());
-    debug!("{:?}", l0);
     frame.render_frame_widget(w_float, l0.widget(), &mut uistate.mask0.float);
-    debug!("{:?}", l0);
 
     frame.render_widget(Span::from("Masked text input").underlined(), l2.label());
     frame.render_widget(Span::from("IPv4"), l2.label());
@@ -522,6 +514,14 @@ fn handle_mask0(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
             if let Some(v) = mask0.float.set_valid_from(v) {
                 mask0.float.set_value(format!("{}", v));
             }
+        }
+    );
+    on_gained!(
+        mask0.decimal => {
+            mask0.decimal.select_all();
+        },
+        mask0.float => {
+            mask0.float.select_all();
         }
     );
 
