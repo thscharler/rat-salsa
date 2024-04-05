@@ -32,6 +32,7 @@
 //! * `_` - other unicode characters can be used without escaping.
 //!
 
+use rust_decimal::Decimal;
 use std::cell::RefCell;
 use std::fmt::{Debug, Display, Formatter, Write as FmtWrite};
 use std::io::{Cursor, Write as IoWrite};
@@ -170,14 +171,45 @@ impl NumberFormat {
         pattern: S,
         sym: &Rc<NumberSymbols>,
     ) -> Result<Self, fmt::Error> {
-        parse_format_sym(pattern.as_ref(), Some(sym))
+        parse_format_sym(pattern.as_ref(), sym)
     }
 
-    pub fn format_f64<Number: Into<f64>>(&self, number: Number) -> Result<String, fmt::Error> {
+    /// Formats or returns the error converted to a string.
+    pub fn format_dec<Number: Into<Decimal>>(&self, number: Number) -> String {
+        match format_dec(number, self) {
+            Ok(v) => v,
+            Err(e) => e.to_string(),
+        }
+    }
+
+    /// Formats or returns the error converted to a string.
+    pub fn format_f64<Number: Into<f64>>(&self, number: Number) -> String {
+        match format_f64(number, self) {
+            Ok(v) => v,
+            Err(e) => e.to_string(),
+        }
+    }
+
+    /// Formats or returns the error converted to a string.
+    pub fn format_i64<Number: Into<i64>>(&self, number: Number) -> String {
+        match format_i64(number, self) {
+            Ok(v) => v,
+            Err(e) => e.to_string(),
+        }
+    }
+
+    /// Formats the number.
+    pub fn fmt_dec<Number: Into<Decimal>>(&self, number: Number) -> Result<String, fmt::Error> {
+        format_dec(number, self)
+    }
+
+    /// Formats the number.
+    pub fn fmt_f64<Number: Into<f64>>(&self, number: Number) -> Result<String, fmt::Error> {
         format_f64(number, self)
     }
 
-    pub fn format_i64<Number: Into<i64>>(&self, number: Number) -> Result<String, fmt::Error> {
+    /// Formats the number.
+    pub fn fmt_i64<Number: Into<i64>>(&self, number: Number) -> Result<String, fmt::Error> {
         format_i64(number, self)
     }
 }
@@ -325,10 +357,10 @@ pub fn parse_format(f: &str) -> Result<NumberFormat, fmt::Error> {
 /// Parses the format string and sets a symbol table.
 pub fn parse_format_sym(
     format: &str,
-    sym: Option<&Rc<NumberSymbols>>,
+    sym: &Rc<NumberSymbols>,
 ) -> Result<NumberFormat, std::fmt::Error> {
     parse_format(format).map(|mut v| {
-        v.sym = sym.cloned();
+        v.sym = Some(Rc::clone(sym));
         v
     })
 }
@@ -786,9 +818,87 @@ fn _map_num(raw: &str, format: &NumberFormat, buffer: &mut [char]) -> Result<(),
     Ok(())
 }
 
+/// Format a Decimal according to the format string.
+pub fn fmt_dec_<Number: Into<Decimal>>(number: Number, format: &str) -> Result<String, fmt::Error> {
+    let format = parse_format(format)?;
+    let mut out = String::new();
+    format_dec_to(number, &format, &mut out)?;
+    Ok(out)
+}
+
+/// Format a Decimal according to the format string.
+pub fn fmt_dec_to_<W: fmt::Write, Number: Into<Decimal>>(
+    number: Number,
+    format: &str,
+    out: &mut W,
+) -> Result<(), fmt::Error> {
+    let format = parse_format(format)?;
+    format_dec_to(number, &format, out)
+}
+
+/// Format a Decimal according to the format string.
+pub fn fmt_dec<Number: Into<Decimal>>(
+    number: Number,
+    format: &str,
+    sym: &Rc<NumberSymbols>,
+) -> Result<String, fmt::Error> {
+    let format = parse_format_sym(format, sym)?;
+    let mut out = String::new();
+    format_dec_to(number, &format, &mut out)?;
+    Ok(out)
+}
+
+/// Format a Decimal according to the format string.
+pub fn fmt_dec_to<W: fmt::Write, Number: Into<Decimal>>(
+    number: Number,
+    format: &str,
+    sym: &Rc<NumberSymbols>,
+    out: &mut W,
+) -> Result<(), fmt::Error> {
+    let format = parse_format_sym(format, sym)?;
+    format_dec_to(number, &format, out)
+}
+
+/// Format a Decimal according to the format.
+pub fn format_dec<Number: Into<Decimal>>(
+    number: Number,
+    format: &NumberFormat,
+) -> Result<String, fmt::Error> {
+    let mut out = String::new();
+    format_dec_to(number, format, &mut out)?;
+    Ok(out)
+}
+
+/// Format a Decimal according to the format.
+pub fn format_dec_to<W: fmt::Write, Number: Into<Decimal>>(
+    number: Number,
+    format: &NumberFormat,
+    out: &mut W,
+) -> Result<(), fmt::Error> {
+    thread_local! {
+        static RAW: RefCell<Cursor<[u8;32]>> = RefCell::new(Cursor::new([0u8;32]));
+    }
+
+    RAW.with_borrow_mut(|raw| {
+        raw.set_position(0);
+        if format.has_exp {
+            write!(raw, "{:.*e}", format.precision as usize, number.into())
+                .map_err(|_| fmt::Error)?;
+        } else {
+            write!(raw, "{:.*}", format.precision as usize, number.into())
+                .map_err(|_| fmt::Error)?;
+        };
+        // Safety:
+        // Output is ascii.
+        let raw_str = unsafe { from_utf8_unchecked(&raw.get_ref()[..raw.position() as usize]) };
+
+        map_num(raw_str, format, out)
+    })
+}
+
 /// Format a f64 according to the format string.
 pub fn fmt_f64_<Number: Into<f64>>(number: Number, format: &str) -> Result<String, fmt::Error> {
-    let format = parse_format_sym(format, None)?;
+    let format = parse_format(format)?;
     let mut out = String::new();
     format_f64_to(number, &format, &mut out)?;
     Ok(out)
@@ -800,7 +910,7 @@ pub fn fmt_f64_to_<W: fmt::Write, Number: Into<f64>>(
     format: &str,
     out: &mut W,
 ) -> Result<(), fmt::Error> {
-    let format = parse_format_sym(format, None)?;
+    let format = parse_format(format)?;
     format_f64_to(number, &format, out)
 }
 
@@ -810,7 +920,7 @@ pub fn fmt_f64<Number: Into<f64>>(
     format: &str,
     sym: &Rc<NumberSymbols>,
 ) -> Result<String, fmt::Error> {
-    let format = parse_format_sym(format, Some(sym))?;
+    let format = parse_format_sym(format, sym)?;
     let mut out = String::new();
     format_f64_to(number, &format, &mut out)?;
     Ok(out)
@@ -823,7 +933,7 @@ pub fn fmt_f64_to<W: fmt::Write, Number: Into<f64>>(
     sym: &Rc<NumberSymbols>,
     out: &mut W,
 ) -> Result<(), fmt::Error> {
-    let format = parse_format_sym(format, Some(sym))?;
+    let format = parse_format_sym(format, sym)?;
     format_f64_to(number, &format, out)
 }
 
@@ -866,7 +976,7 @@ pub fn format_f64_to<W: fmt::Write, Number: Into<f64>>(
 
 /// Format an i64 according to the format string.
 pub fn fmt_i64_<Number: Into<i64>>(number: Number, format: &str) -> Result<String, fmt::Error> {
-    let format = parse_format_sym(format, None)?;
+    let format = parse_format(format)?;
     let mut out = String::new();
     format_i64_to(number, &format, &mut out)?;
     Ok(out)
@@ -878,7 +988,7 @@ pub fn fmt_i64_to_<W: fmt::Write, Number: Into<i64>>(
     format: &str,
     out: &mut W,
 ) -> Result<(), fmt::Error> {
-    let format = parse_format_sym(format, None)?;
+    let format = parse_format(format)?;
     format_i64_to(number, &format, out)
 }
 
@@ -888,7 +998,7 @@ pub fn fmt_i64<Number: Into<i64>>(
     format: &str,
     sym: &Rc<NumberSymbols>,
 ) -> Result<String, fmt::Error> {
-    let format = parse_format_sym(format, Some(sym))?;
+    let format = parse_format_sym(format, sym)?;
     let mut out = String::new();
     format_i64_to(number, &format, &mut out)?;
     Ok(out)
@@ -901,7 +1011,7 @@ pub fn fmt_i64_to<W: fmt::Write, Number: Into<i64>>(
     sym: &Rc<NumberSymbols>,
     out: &mut W,
 ) -> Result<(), fmt::Error> {
-    let format = parse_format_sym(format, Some(sym))?;
+    let format = parse_format_sym(format, sym)?;
     format_i64_to(number, &format, out)
 }
 
