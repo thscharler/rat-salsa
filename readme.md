@@ -65,11 +65,11 @@ been spotted in the wild so far.
 
 Error handling is done with `ControlUI::Err` instead of a classic `Result`. On one hand this 
 makes involved types simpler and at the same time it causes friction when calling into
-parts that use Result. There is the macro [try_result!] to help. It converts a
+parts that use Result. There is the macro [tr!] to help. It converts a
 [Result::Err] to a [ControlUI::Err] and returns early. (It would have been nice to
 use the ? operator, but we are still waiting for that.)
 
-There is [try_ui!] too, which does the same for [ControlUI::Err].
+[tr!] can work with [ControlUI::Err] too.
 
 ### Running Actions
 

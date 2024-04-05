@@ -15,7 +15,7 @@ use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
 use rat_salsa::{
-    check_break, match_focus, on_gained, on_lost, run_tui, try_ui, ControlUI, DefaultKeys, Focus,
+    check_break, match_focus, on_gained, on_lost, run_tui, tr, ControlUI, DefaultKeys, Focus,
     HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
     RunConfig, Timed, Timers, TuiApp,
 };
@@ -213,7 +213,7 @@ impl TuiApp for FormOneApp {
             }
         };
 
-        try_ui!(repaint_mask0(&event, frame, layout, data, uistate), _);
+        tr!(repaint_mask0(&event, frame, layout, data, uistate), _);
 
         if uistate.g.error_dlg.active {
             let err = StatusDialog::new().style(uistate.g.theme.status_dialog_style());

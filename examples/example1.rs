@@ -182,7 +182,7 @@ pub mod app {
     use rat_salsa::widget::mask_input::MaskedInput;
     use rat_salsa::widget::message::{StatusDialog, StatusLine};
     use rat_salsa::{
-        check_break, on_lost, try_ui, ControlUI, HasValidFlag, Timed, TimerDef, Timers, TuiApp,
+        check_break, on_lost, tr, ControlUI, HasValidFlag, Timed, TimerDef, Timers, TuiApp,
     };
     use rat_salsa::{DefaultKeys, HandleCrossterm, RenderFrameWidget, Repaint};
     use rat_salsa::{Focus, RepaintEvent};
@@ -237,7 +237,7 @@ pub mod app {
             )
             .split(area);
 
-            try_ui!(repaint_mask0(event, frame, layout[0], data, uistate), _);
+            tr!(repaint_mask0(event, frame, layout[0], data, uistate), _);
 
             let statusdialog = StatusDialog::new().style(uistate.g.status_dialog_style());
             let mut err_dialog = &mut uistate.g.error_dlg;

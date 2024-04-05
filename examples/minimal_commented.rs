@@ -10,7 +10,7 @@ use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
 use rat_salsa::{
-    check_break, run_tui, try_ui, ControlUI, DefaultKeys, HandleCrossterm, Repaint, RepaintEvent,
+    check_break, run_tui, tr, ControlUI, DefaultKeys, HandleCrossterm, Repaint, RepaintEvent,
     RunConfig, Timed, Timers, TuiApp,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -167,7 +167,7 @@ impl TuiApp for MinimalApp {
         };
 
         // call out for more ui
-        try_ui!(repaint_mask0(&event, frame, layout, data, uistate), _);
+        tr!(repaint_mask0(&event, frame, layout, data, uistate), _);
 
         // dialog use a flag for control
         if uistate.g.error_dlg.active {

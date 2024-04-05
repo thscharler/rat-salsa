@@ -366,6 +366,9 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A
                     modifiers: KeyModifiers::NONE,
                 },
             ) => 'f: {
+                debug!("mouse {}|{}", column, row);
+                debug!("menu {:#?}", self.areas);
+
                 for (i, r) in self.areas.iter().enumerate() {
                     if r.contains(Position::new(*column, *row)) {
                         break 'f Some(InputRequest::MouseSelect(i));
