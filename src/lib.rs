@@ -34,22 +34,65 @@ pub mod prelude {
     pub use super::lib_widget::RenderFrameWidget;
 }
 
+/// Helper trait for [tr!].
+pub trait SplitResult<T, E> {
+    /// Split self in an Ok part and an Err part.
+    fn split(self) -> (Option<T>, Option<E>);
+}
+
+impl<T, E> SplitResult<T, E> for Result<T, E> {
+    fn split(self) -> (Option<T>, Option<E>) {
+        match self {
+            Ok(v) => (Some(v), None),
+            Err(e) => (None, Some(e)),
+        }
+    }
+}
+
+impl<T, E> SplitResult<ControlUI<T, E>, E> for ControlUI<T, E> {
+    fn split(self) -> (Option<ControlUI<T, E>>, Option<E>) {
+        match self {
+            ControlUI::Err(e) => (None, Some(e)),
+            v => (Some(v), None),
+        }
+    }
+}
+
 /// Converts from a [Result::Err] to a [ControlUI::Err] and returns early.
 /// Evaluates to the value of [Result::Ok].
+///
+/// and
+///
+/// Checks if the value is a ControlUI::Err and returns early.
+/// Evaluates to the original ControlUI value.
 ///
 /// A second parameter `_` silences unused_must_use.
 #[macro_export]
 macro_rules! tr {
     ($ex:expr) => {{
-        match $ex {
-            Ok(v) => v,
-            Err(e) => return $crate::ControlUI::Err(e.into()),
+        use $crate::{ControlUI, SplitResult};
+        let x = $ex;
+        let s = SplitResult::split(x);
+        match s {
+            (None, Some(e)) => {
+                let ee = e.into();
+                return ControlUI::Err(ee);
+            }
+            (Some(v), None) => v,
+            _ => unreachable!(),
         }
     }};
     ($ex:expr, _) => {{
-        match $ex {
-            Ok(_) => {}
-            Err(e) => return $crate::ControlUI::Err(e.into()),
+        use $crate::{ControlUI, SplitResult};
+        let x = $ex;
+        let s = SplitResult::split(x);
+        match s {
+            (None, Some(e)) => {
+                let ee = e.into();
+                return ControlUI::Err(ee);
+            }
+            (Some(_), None) => {}
+            _ => unreachable!(),
         }
     }};
 }
@@ -81,7 +124,7 @@ macro_rules! check_break {
 ///
 /// There are multiple continuation functions that work with these states.
 /// And the macros [tr!], [check_break!] and [try_ui!]
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[must_use]
 pub enum ControlUI<Action = (), Err = ()> {
     /// Continue execution.
