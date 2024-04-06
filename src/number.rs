@@ -632,54 +632,53 @@ pub mod core {
     /// The raw number should be in a format produced by the format! macro. decimal point is '.'
     /// and exponent is 'e' or 'E'.
     ///
-    /// There is a need for a buffer, its length must be at least format.tok.len().
-    #[allow(clippy::needless_range_loop)]
+    /// This one uses a thread-local buffer of [char;32]. If the format has more tokens this
+    /// fails with fmt::Error.
+    #[inline]
     pub fn map_num<W: fmt::Write>(
         raw: &str,
         format: &NumberFormat,
         out: &mut W,
     ) -> Result<(), fmt::Error> {
         thread_local! {
-            static BUF: RefCell<[*const str;32]> = const { RefCell::new(["";32]) };
+            static BUF: RefCell<[char;32]> = const { RefCell::new([' ';32]) };
+        }
+        BUF.with_borrow_mut(|buffer| map_num_buf(raw, format, buffer, out))
+    }
+
+    /// Takes a raw number string and applies the format.
+    ///
+    /// The raw number should be in a format produced by the format! macro. decimal point is '.'
+    /// and exponent is 'e' or 'E'.
+    ///
+    /// There is a need for a buffer, its length must be at least format.tok.len().
+    #[inline]
+    pub fn map_num_buf<W: fmt::Write>(
+        raw: &str,
+        format: &NumberFormat,
+        buffer: &mut [char],
+        out: &mut W,
+    ) -> Result<(), fmt::Error> {
+        if buffer.len() < format.tok.len() {
+            return Err(fmt::Error);
         }
 
-        BUF.with_borrow_mut(|buf| {
-            // Safety:
-            // This transmutes pointers to true static str to the required shorter lifetime
-            // &'d str of map_num. It's initialized with pointers to true static strings,
-            // so any residual values are cleaned up.
-            let buffer: &mut [char] = unsafe {
-                // todo: wrong
-                for b in buf.iter_mut() {
-                    *b = "";
-                }
-                assert_eq!(size_of::<*const str>(), size_of::<&str>());
-                mem::transmute(&mut buf[..])
-            };
+        _map_num(raw, format, buffer)?;
 
-            if buffer.len() < format.tok.len() {
-                return Err(fmt::Error);
+        for i in 0..format.tok.len() {
+            if buffer[i] != '\u{7f}' {
+                out.write_char(buffer[i])?
             }
+        }
 
-            _map_num(raw, format, buffer)?;
-
-            for i in 0..format.tok.len() {
-                if buffer[i] != '\u{7f}' {
-                    if out.write_char(buffer[i]).is_err() {
-                        return Err(fmt::Error);
-                    }
-                }
-            }
-
-            Ok(())
-        })
+        Ok(())
     }
 
     // impl without type parameters
     #[allow(clippy::needless_range_loop)]
     fn _map_num(raw: &str, format: &NumberFormat, buffer: &mut [char]) -> Result<(), fmt::Error> {
-        for i in 0..format.tok.len() {
-            buffer[i] = ' ';
+        for c in buffer {
+            *c = ' ';
         }
 
         let sym = format.sym.as_ref().map(|v| v.as_ref());
@@ -912,6 +911,7 @@ pub mod core {
         Ok(())
     }
 
+    /// Formats the number and writes the result to out.
     pub fn format_to<W: fmt::Write, Number: LowerExp + Display>(
         number: Number,
         format: &NumberFormat,
