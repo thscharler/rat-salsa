@@ -28,6 +28,7 @@
 //! * `e` - lower case exponent
 //! * `f` - lower case exponent, always shown
 //! * ` ` - space can be used as separator
+//! * '$' - currency, variable width dependent on the defined symbol.
 //! * `\` - all ascii characters (ascii 32-128!) are reserved and must be escaped.
 //! * `_` - other unicode characters can be used without escaping.
 //!
@@ -36,10 +37,10 @@ use rust_decimal::Decimal;
 use std::fmt;
 use std::fmt::{Debug, Display, Error as FmtError, Formatter, LowerExp, Write as FmtWrite};
 use std::rc::Rc;
-use std::str::FromStr;
+use std::str::{from_utf8_unchecked, FromStr};
 
 /// Symbols for number formatting.
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct NumberSymbols {
     /// Decimal separator
     pub decimal_sep: char,
@@ -53,9 +54,9 @@ pub struct NumberSymbols {
     pub exponent_upper_sym: char,
     /// Exponent
     pub exponent_lower_sym: char,
-    //
-    // todo: zero-digit, infinity, nan, currency
-    //
+    /// Currency
+    pub currency_sym: CurrencySym,
+    // todo: zero-digit, infinity, nan
 }
 
 impl Default for NumberSymbols {
@@ -73,7 +74,104 @@ impl NumberSymbols {
             positive_sym: '+',
             exponent_upper_sym: 'E',
             exponent_lower_sym: 'e',
+            currency_sym: CurrencySym::new("$"),
         }
+    }
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub struct CurrencySym {
+    len: usize,
+    sym: [u8; 16],
+}
+
+impl CurrencySym {
+    pub const fn new(s: &str) -> Self {
+        let mut sym = [0u8; 16];
+
+        let bytes = s.as_bytes();
+        let len = bytes.len();
+
+        if len > 0 {
+            sym[0] = bytes[0];
+        }
+        if len > 1 {
+            sym[1] = bytes[1];
+        }
+        if len > 2 {
+            sym[2] = bytes[2];
+        }
+        if len > 3 {
+            sym[3] = bytes[3];
+        }
+        if len > 4 {
+            sym[4] = bytes[4];
+        }
+        if len > 5 {
+            sym[5] = bytes[5];
+        }
+        if len > 6 {
+            sym[6] = bytes[6];
+        }
+        if len > 7 {
+            sym[7] = bytes[7];
+        }
+        if len > 8 {
+            sym[8] = bytes[8];
+        }
+        if len > 9 {
+            sym[9] = bytes[9];
+        }
+        if len > 10 {
+            sym[10] = bytes[10];
+        }
+        if len > 11 {
+            sym[11] = bytes[11];
+        }
+        if len > 12 {
+            sym[12] = bytes[12];
+        }
+        if len > 13 {
+            sym[13] = bytes[13];
+        }
+        if len > 14 {
+            sym[14] = bytes[14];
+        }
+        if len > 15 {
+            sym[15] = bytes[15];
+        }
+
+        CurrencySym { len, sym }
+    }
+
+    pub fn first(&self) -> char {
+        self.sym().chars().next().expect("currency")
+    }
+
+    pub fn sym(&self) -> &str {
+        // Safety:
+        // Copied from &str and never modified.
+        unsafe { from_utf8_unchecked(&self.sym[..self.len]) }
+    }
+
+    pub fn char_len(&self) -> usize {
+        return self.sym().chars().count();
+    }
+
+    pub const fn len(&self) -> usize {
+        return self.len;
+    }
+}
+
+impl Display for CurrencySym {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.sym())
+    }
+}
+
+impl<'a> From<&'a str> for CurrencySym {
+    fn from(value: &'a str) -> Self {
+        CurrencySym::new(value)
     }
 }
 
@@ -117,6 +215,8 @@ pub enum Token {
     ExponentLower,
     /// Mask char "f". Exponent separator.
     ExponentLowerAlways,
+    /// Mask char "$". Currency.
+    Currency,
     /// Other separator char to output literally. May be escaped with '\\'.
     Separator(char),
 }
@@ -142,20 +242,21 @@ impl Display for NumberFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for t in &self.tok {
             match t {
-                Token::Digit0(_) => write!(f, "{}", '0')?,
-                Token::Digit(_) => write!(f, "{}", '9')?,
-                Token::Numeric(_) => write!(f, "{}", '#')?,
-                Token::NumericOpt(_) => write!(f, "{}", '8')?,
-                Token::Plus(_) => write!(f, "{}", '+')?,
-                Token::Minus(_) => write!(f, "{}", '-')?,
-                Token::DecimalSep => write!(f, "{}", '.')?,
-                Token::DecimalSepAlways => write!(f, "{}", ':')?,
-                Token::GroupingSep => write!(f, "{}", ',')?,
-                Token::GroupingSepAlways => write!(f, "{}", ';')?,
-                Token::ExponentUpper => write!(f, "{}", 'E')?,
-                Token::ExponentUpperAlways => write!(f, "{}", 'F')?,
-                Token::ExponentLower => write!(f, "{}", 'e')?,
-                Token::ExponentLowerAlways => write!(f, "{}", 'f')?,
+                Token::Digit0(_) => write!(f, "0")?,
+                Token::Digit(_) => write!(f, "9")?,
+                Token::Numeric(_) => write!(f, "#")?,
+                Token::NumericOpt(_) => write!(f, "8")?,
+                Token::Plus(_) => write!(f, "+")?,
+                Token::Minus(_) => write!(f, "-")?,
+                Token::DecimalSep => write!(f, ".")?,
+                Token::DecimalSepAlways => write!(f, ":")?,
+                Token::GroupingSep => write!(f, ",")?,
+                Token::GroupingSepAlways => write!(f, ";")?,
+                Token::ExponentUpper => write!(f, "E")?,
+                Token::ExponentUpperAlways => write!(f, "F")?,
+                Token::ExponentLower => write!(f, "e")?,
+                Token::ExponentLowerAlways => write!(f, "f")?,
+                Token::Currency => write!(f, "$")?,
                 Token::Separator(c) => {
                     match c {
                         '0' | '9' | '#' | '8' | '+' | '-' | ',' | ';' | '.' | ':' | 'E' | 'F'
@@ -231,37 +332,42 @@ impl ParseNumber for &str {
 }
 
 /// Format a number according to a format string.
-pub trait FormatNumber {
+pub trait FormatNumber
+where
+    Self: Copy + LowerExp + Display,
+{
     /// Format using the format-string. Uses the given symbols.
     fn format<'a>(
         &self,
         pattern: &'a str,
         sym: &'a NumberSymbols,
-    ) -> Result<impl Display + 'a, FmtError>;
+    ) -> Result<FormattedNumber<'a, Self>, FmtError>;
 
     /// Format using the [NumberFormat]
-    fn fmt<'a>(&self, format: &'a NumberFormat) -> impl Display + 'a;
+    fn fmt<'a>(&self, format: &'a NumberFormat) -> RefFormattedNumber<'a, Self>;
 }
 
-struct FormattableNumber<'a, Number> {
+#[derive(Debug)]
+pub struct FormattedNumber<'a, Number> {
     num: Number,
     format: NumberFormat,
     sym: &'a NumberSymbols,
 }
 
-impl<'a, Number: Copy + LowerExp + Display> Display for FormattableNumber<'a, Number> {
+impl<'a, Number: Copy + LowerExp + Display> Display for FormattedNumber<'a, Number> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         core::format_to(self.num, &self.format, &self.sym, f)
     }
 }
 
-struct RefFormattableNumber<'a, Number> {
+#[derive(Debug)]
+pub struct RefFormattedNumber<'a, Number> {
     num: Number,
     format: &'a NumberFormat,
 }
 
-impl<'a, Number: Copy + LowerExp + Display> Display for RefFormattableNumber<'a, Number> {
+impl<'a, Number: Copy + LowerExp + Display> Display for RefFormattedNumber<'a, Number> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         core::format_to(self.num, self.format, self.format.sym.as_ref(), f)
@@ -276,8 +382,8 @@ macro_rules! define_fmt {
                 &self,
                 pattern: &'a str,
                 sym: &'a NumberSymbols,
-            ) -> Result<impl Display + 'a, FmtError> {
-                Ok(FormattableNumber {
+            ) -> Result<FormattedNumber<'a, Self>, FmtError> {
+                Ok(FormattedNumber {
                     num: *self,
                     format: core::parse_number_format(pattern)?,
                     sym,
@@ -285,8 +391,8 @@ macro_rules! define_fmt {
             }
 
             #[inline]
-            fn fmt<'a>(&self, format: &'a NumberFormat) -> impl Display + 'a {
-                RefFormattableNumber { num: *self, format }
+            fn fmt<'a>(&self, format: &'a NumberFormat) -> RefFormattedNumber<'a, Self> {
+                RefFormattedNumber { num: *self, format }
             }
         }
     };
@@ -430,6 +536,7 @@ pub mod core {
                         mode = Mode::Exponent;
                         Token::ExponentUpper
                     }
+                    '$' => Token::Currency,
                     '\\' => {
                         esc = true;
                         continue;
@@ -586,7 +693,16 @@ pub mod core {
         sym: &NumberSymbols,
         out: &mut W,
     ) -> Result<(), FmtError> {
-        for (t, c) in format.tok.iter().zip(formatted.chars()) {
+        let mut it = format.tok.iter();
+        let mut jt = formatted.chars();
+        loop {
+            let Some(t) = it.next() else {
+                break;
+            };
+            let Some(c) = jt.next() else {
+                break;
+            };
+
             match t {
                 Token::Digit0(_) => {
                     if c.is_ascii_digit() {
@@ -700,6 +816,15 @@ pub mod core {
                         return Err(FmtError);
                     }
                 }
+                Token::Currency => {
+                    if c == sym.currency_sym.first() {
+                        for _ in 1..sym.currency_sym.char_len() {
+                            jt.next();
+                        }
+                    } else {
+                        return Err(FmtError);
+                    }
+                }
                 Token::Separator(sep) => {
                     if c == *sep {
                         // ok
@@ -736,7 +861,17 @@ pub mod core {
         _map_num(raw, format, sym, &mut buf)?;
 
         for i in 0..format.tok.len() {
-            if buf[i] != '\u{00}' {
+            if buf[i] == '\u{00}' {
+                // noop
+            } else if buf[i] == '\u{11}' {
+                match write!(out, "{}", sym.currency_sym) {
+                    Err(e) => {
+                        BUF.set(buf);
+                        return Err(e);
+                    }
+                    _ => {}
+                }
+            } else {
                 match write!(out, "{}", buf[i]) {
                     Err(e) => {
                         BUF.set(buf);
@@ -747,7 +882,6 @@ pub mod core {
             }
         }
         BUF.set(buf);
-
         Ok(())
     }
 
@@ -870,6 +1004,9 @@ pub mod core {
                 Token::Digit(Mode::Exponent) => {}
                 Token::Numeric(Mode::Exponent) => {}
                 Token::NumericOpt(Mode::Exponent) => {}
+                Token::Currency => {
+                    buffer[i] = '\u{11}';
+                }
                 Token::Separator(v) => {
                     buffer[i] = *v;
                 }
@@ -976,6 +1113,8 @@ pub mod core {
             return Err(FmtError);
         }
         // missing fractions are ok.
+        // shouldn't occur, we give the precision to display.
+        debug_assert!(it_fraction.next().is_none());
         if !exp_sign.is_empty() {
             return Err(FmtError);
         }

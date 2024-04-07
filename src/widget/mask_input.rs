@@ -2744,6 +2744,7 @@ pub mod core {
             positive_sym: s.next().expect("positive_sym"),
             exponent_upper_sym: s.next().expect("exponent_upper_sym"),
             exponent_lower_sym: s.next().expect("exponent_lower_sym"),
+            currency_sym: s.collect::<String>().as_str().into(),
         })
     }
 }
