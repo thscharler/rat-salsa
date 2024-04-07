@@ -123,7 +123,7 @@ macro_rules! check_break {
 /// * Break - Break the event loop; end the program.
 ///
 /// There are multiple continuation functions that work with these states.
-/// And the macros [tr!], [check_break!] and [try_ui!]
+/// And the macros [tr!] and [check_break!]
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 #[must_use]
 pub enum ControlUI<Action = (), Err = ()> {
