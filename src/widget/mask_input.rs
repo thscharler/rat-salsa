@@ -1390,20 +1390,7 @@ pub mod core {
         fn remap_number(submask: &[MaskToken], v: &str) -> Result<String, fmt::Error> {
             // remove all non numbers and leading 0.
             let mut clean = String::new();
-            let mut seen_non_0 = false;
-            for c in v.graphemes(true) {
-                let Some(test) = c.chars().next() else {
-                    unreachable!();
-                };
-                if test.is_ascii_digit() || test == '-' || test == '.' {
-                    if seen_non_0 || c != "0" {
-                        clean.push_str(c);
-                    }
-                    if !seen_non_0 {
-                        seen_non_0 = test.is_ascii_digit() && test != '0';
-                    }
-                }
-            }
+            _ = number::core::clean_num(v, &NumberSymbols::new(), &mut clean);
 
             // create number format
             let mut fmt = NumberFormat::default();
@@ -1437,7 +1424,7 @@ pub mod core {
             }
 
             let mut out = String::new();
-            number::map_num(clean.as_str(), &fmt, &mut out)?;
+            number::core::map_num(clean.as_str(), &fmt, &NumberSymbols::new(), &mut out)?;
 
             Ok(out)
         }
