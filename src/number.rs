@@ -639,6 +639,7 @@ pub mod core {
     }
 
     fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
+        // everything is ascii
         let bytes = value.as_bytes();
         let len = bytes.len();
 
@@ -876,8 +877,8 @@ pub mod core {
 
     /// Takes a raw number string and applies the format.
     ///
-    /// The raw number should be in a format produced by the format! macro. decimal point is '.'
-    /// and exponent is 'e' or 'E'.
+    /// The raw number should be in a format produced by the format! macro. decimal point is '.',
+    /// exponent is 'e' and negative sign is '-'.
     #[inline]
     pub fn map_num<W: FmtWrite>(
         raw: &str,

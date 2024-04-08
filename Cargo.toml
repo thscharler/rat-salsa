@@ -54,6 +54,7 @@ unicode-segmentation = "1.11"
 rust_decimal = "1.34"
 rust_decimal_macros = "1.34"
 pure-rust-locales = "0.8"
+memchr = "2.7.2"
 
 [dev-dependencies]
 fern = "0.6"
