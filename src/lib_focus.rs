@@ -128,8 +128,8 @@ impl FocusFlag {
 /// Executes the block if `field.lost_focus()` is true. Uses [HasFocusFlag::lost_focus()].
 /// This macro returns () and there is no else branch.
 ///
-/// ```no_run
-/// use rat_salsa::on_gained;
+/// ```rust ignore
+/// use rat_salsa::{on_lost};
 ///
 /// on_lost!(
 ///     state.field1 => {
@@ -151,7 +151,7 @@ macro_rules! on_lost {
 /// Executes the block if `field.gained_focus()` is true. Uses [HasFocusFlag::gained_focus()].
 /// This macro returns () and there is no else branch.
 ///
-/// ```no_run
+/// ```rust ignore
 /// use rat_salsa::on_gained;
 ///
 /// on_gained!(
@@ -174,7 +174,7 @@ macro_rules! on_gained {
 /// Evaluates the expression if `field.is_focused()` is true. Uses [HasFocusFlag::is_focused()].
 /// Evaluates the `_` branch if none of the given fields is focused.
 ///
-/// ```no_run
+/// ```rust ignore
 /// use rat_salsa::match_focus;
 ///
 /// let res = match_focus!(

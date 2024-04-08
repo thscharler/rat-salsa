@@ -4,12 +4,28 @@
 //!
 //! ```
 //! use std::rc::Rc;
-//! use rat_salsa::number::{fmt_f64};
+//! use pure_rust_locales::Locale::de_AT_euro;
+//! use rat_salsa::number;
+//! use rat_salsa::number::{NumberFormat, NumberSymbols};
 //!
 //! // formats accordingly, uses the default symbols.
-//! let s = fmt_f64(4561.2234, "###,##0.00", None)?;
-//!
+//! let s = number::format(4561.2234, "###,##0.00").expect("works");
 //! assert_eq!(s, "  4,561.22");
+//!
+//! // uses symbols
+//! let sym = NumberSymbols::monetary(de_AT_euro);
+//! let s = number::format(4561.2234, "$ ###,##0.00").expect("works");
+//! assert_eq!(s.as_str(), "€   4.561,22");
+//!
+//! // prepared format
+//! let sym = Rc::new(NumberSymbols::monetary(de_AT_euro));
+//! let m2 = NumberFormat::news("$ ###,##0.00", &sym).expect("works");
+//!
+//! let s = m2.fmt(4561.2234);
+//!
+//! use crate::rat_salsa::number::FormatNumber;
+//! println!("combined output: {}", 4561.2234f64.fmt(&m2));
+//!
 //! ```
 //!
 //! The following patterns are recognized:
@@ -497,6 +513,7 @@ impl Debug for NumberFormat {
 
 pub mod core {
     use crate::number::{Mode, NumberFormat, NumberSymbols, Token};
+    use memchr::memchr;
     use std::cell::Cell;
     use std::fmt::{Display, Error as FmtError, LowerExp, Write as FmtWrite};
     use std::iter;
@@ -621,95 +638,45 @@ pub mod core {
         Ok(format)
     }
 
-    // Splits into sign, integer-part, fraction-part, exponent-sign, exponent
     fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
-        let mut byte_sign = None;
-        let mut byte_digits = None;
-        let mut byte_sep = None;
-        let mut byte_exp = None;
-        let mut byte_sign_exp = None;
+        let bytes = value.as_bytes();
+        let len = bytes.len();
 
-        for (idx, c) in value.char_indices() {
-            if c == '-' || c == '+' {
-                if byte_exp.is_none() {
-                    byte_sign = Some(idx);
-                } else {
-                    byte_sign_exp = Some(idx);
-                }
-            }
-            if byte_sep.is_none()
-                && byte_exp.is_none()
-                && byte_digits.is_none()
-                && c.is_ascii_digit()
-                && c != '0'
-            {
-                // first non-zero integer digit
-                byte_digits = Some(idx);
-            }
-            if c == '.' {
-                byte_sep = Some(idx);
-            }
-            if c == 'e' || c == 'E' {
-                byte_exp = Some(idx);
-            }
-        }
+        let idx_sep = memchr(b'.', bytes);
+        let idx_exp = memchr(b'e', bytes);
 
-        let r_sign = if let Some(byte_sign) = byte_sign {
-            byte_sign..byte_sign + 1
+        let digits_end = if let Some(idx_sep) = idx_sep {
+            idx_sep
+        } else if let Some(idx_exp) = idx_exp {
+            idx_exp
         } else {
-            0..0
+            len
         };
 
-        let r_digits = if let Some(byte_digits) = byte_digits {
-            if let Some(byte_sep) = byte_sep {
-                byte_digits..byte_sep
-            } else if let Some(byte_exp) = byte_exp {
-                byte_digits..byte_exp
-            } else {
-                byte_digits..value.len()
-            }
-        } else if let Some(byte_sign) = byte_sign {
-            if let Some(byte_sep) = byte_sep {
-                byte_sign + 1..byte_sep
-            } else if let Some(byte_exp) = byte_exp {
-                byte_sign + 1..byte_exp
-            } else {
-                byte_sign + 1..value.len()
-            }
+        let fraction_end = if let Some(idx_exp) = idx_exp {
+            idx_exp
         } else {
-            if let Some(byte_sep) = byte_sep {
-                0..byte_sep
-            } else if let Some(byte_exp) = byte_exp {
-                0..byte_exp
-            } else {
-                0..value.len()
-            }
+            len
         };
 
-        let r_fraction = if let Some(byte_sep) = byte_sep {
-            if let Some(byte_exp) = byte_exp {
-                byte_sep + 1..byte_exp
+        let (r_sign, r_digits) = if len > 0 && bytes[0] == b'-' {
+            (0usize..1usize, 1usize..digits_end)
+        } else {
+            (0usize..0usize, 0usize..digits_end)
+        };
+        let r_fraction = if let Some(idx_sep) = idx_sep {
+            idx_sep + 1..fraction_end
+        } else {
+            fraction_end..fraction_end
+        };
+        let (r_sign_exp, r_exp) = if let Some(idx_exp) = idx_exp {
+            if idx_exp + 1 < len && bytes[idx_exp + 1] == b'-' {
+                (idx_exp + 1..idx_exp + 2, idx_exp + 2..len)
             } else {
-                byte_sep + 1..value.len()
+                (idx_exp + 1..idx_exp + 1, idx_exp + 1..len)
             }
         } else {
-            r_digits.end..r_digits.end
-        };
-
-        let r_sign_exp = if let Some(byte_sign_exp) = byte_sign_exp {
-            byte_sign_exp..byte_sign_exp + 1
-        } else if let Some(byte_exp) = byte_exp {
-            byte_exp + 1..byte_exp + 1
-        } else {
-            value.len()..value.len()
-        };
-
-        let r_exp = if let Some(byte_sign_exp) = byte_sign_exp {
-            byte_sign_exp + 1..value.len()
-        } else if let Some(byte_exp) = byte_exp {
-            byte_exp + 1..value.len()
-        } else {
-            value.len()..value.len()
+            (len..len, len..len)
         };
 
         (
@@ -747,7 +714,7 @@ pub mod core {
             } else if c == sym.exponent_lower_sym {
                 write!(out, "e")?;
             } else if c == sym.exponent_upper_sym {
-                write!(out, "E")?;
+                write!(out, "e")?;
             }
         }
         Ok(())
@@ -855,7 +822,7 @@ pub mod core {
                 }
                 Token::ExponentUpper => {
                     if c == sym.exponent_upper_sym {
-                        write!(out, "E")?;
+                        write!(out, "e")?;
                     } else if c == ' ' {
                         // ok
                     } else {
@@ -864,7 +831,7 @@ pub mod core {
                 }
                 Token::ExponentUpperAlways => {
                     if c == sym.exponent_upper_sym {
-                        write!(out, "E")?;
+                        write!(out, "e")?;
                     } else {
                         return Err(FmtError);
                     }
@@ -1001,8 +968,12 @@ pub mod core {
                 Token::DecimalSepAlways => {
                     buffer[i] = sym.decimal_sep;
                 }
-                Token::Plus(Mode::Fraction) => {}
-                Token::Minus(Mode::Fraction) => {}
+                Token::Plus(Mode::Fraction) => {
+                    unreachable!()
+                }
+                Token::Minus(Mode::Fraction) => {
+                    unreachable!()
+                }
                 Token::Digit0(Mode::Fraction) => {
                     if let Some(d) = it_fraction.next() {
                         buffer[i] = d;
@@ -1123,6 +1094,7 @@ pub mod core {
                         buffer[i] = '\u{00}';
                     }
                 }
+
                 Token::Digit0(Mode::Integer) => {
                     if let Some(dd) = d {
                         d = None;
@@ -1276,6 +1248,7 @@ pub mod core {
 }
 
 /// Format a Number according to the format string.
+/// Uses the default symbols.
 pub fn format<Number: LowerExp + Display>(
     number: Number,
     pattern: &str,
@@ -1287,6 +1260,7 @@ pub fn format<Number: LowerExp + Display>(
 }
 
 /// Format a Number according to the format string.
+/// Uses the default symbols.
 pub fn format_to<W: FmtWrite, Number: LowerExp + Display>(
     number: Number,
     pattern: &str,
