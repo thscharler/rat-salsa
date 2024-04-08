@@ -27,6 +27,8 @@ pub use lib_widget::{
     DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly, RenderFrameWidget,
 };
 
+pub use pure_rust_locales::Locale;
+
 pub mod prelude {
     //! Import common traits.
     pub use super::lib_focus::HasFocusFlag;

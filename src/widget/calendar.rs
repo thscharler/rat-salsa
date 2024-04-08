@@ -34,6 +34,7 @@ pub struct MonthStyle {
 /// Month state.
 #[derive(Debug, Default, Clone, Copy)]
 pub struct MonthState {
+    pub area: Rect,
     pub area_month: Rect,
     pub area_days: [Rect; 31],
     pub weeks: [Rect; 6],
@@ -153,6 +154,8 @@ impl StatefulWidget for Month {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let mut day = self.start_date;
         let month = self.start_date.month();
+
+        state.area = area;
 
         let mut w = 0;
         let mut x = area.x;
