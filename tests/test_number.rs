@@ -1,3 +1,4 @@
+use pure_rust_locales::Locale;
 use rat_salsa::number;
 use rat_salsa::number::{parse_sym, FormatNumber, NumberFormat, NumberSymbols, ParseNumber};
 use std::fmt;
@@ -68,4 +69,9 @@ fn test_currency() -> Result<(), std::fmt::Error> {
     println!("{:?}", "Rub  112".parse_fmt::<f64>(&fmt2));
 
     Ok(())
+}
+
+#[test]
+fn test_loc() {
+    dbg!(NumberSymbols::monetary(Locale::es_ES));
 }
