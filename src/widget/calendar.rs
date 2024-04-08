@@ -20,6 +20,8 @@ pub struct Month {
     pub day_style: Box<dyn Fn(NaiveDate) -> Style>,
     /// Start date of the month.
     pub start_date: NaiveDate,
+    /// Locale
+    pub loc: chrono::Locale,
 }
 
 /// Composite style for the calendar.
@@ -54,6 +56,7 @@ impl Default for Month {
             week_style: Default::default(),
             day_style: Box::new(|_| Style::default()),
             start_date: Default::default(),
+            loc: Default::default(),
         }
     }
 }
@@ -73,6 +76,11 @@ impl Month {
     /// Sets the starting date.
     pub fn date(mut self, s: NaiveDate) -> Self {
         self.start_date = s;
+        self
+    }
+
+    pub fn locale(mut self, loc: chrono::Locale) -> Self {
+        self.loc = loc;
         self
     }
 
@@ -154,14 +162,18 @@ impl StatefulWidget for Month {
 
         let mut w_month = Text::default();
 
-        let w_title = Line::styled(day.format("%B").to_string(), self.title_style);
+        let w_title = Line::styled(
+            day.format_localized("%B", self.loc).to_string(),
+            self.title_style,
+        );
         state.area_month = Rect::new(x, y, w_title.width() as u16, 1);
         w_month.lines.push(w_title);
         y += 1;
 
         // first line may omit a few days
         let mut w_week = Line::default();
-        let w_weeknum = Span::from(day.format("%U").to_string()).style(self.week_style);
+        let w_weeknum =
+            Span::from(day.format_localized("%U", self.loc).to_string()).style(self.week_style);
         state.weeks[w] = Rect::new(x, y, w_weeknum.width() as u16, 1);
         w_week.spans.push(w_weeknum);
         w_week.spans.push(" ".into());
@@ -180,7 +192,8 @@ impl StatefulWidget for Month {
                 w_week.spans.push("   ".into());
                 x += 3;
             } else {
-                let w_date = Span::from(day.format("%e").to_string()).style(day_style(day));
+                let w_date = Span::from(day.format_localized("%e", self.loc).to_string())
+                    .style(day_style(day));
                 state.area_days[day.day0() as usize] = Rect::new(x, y, w_date.width() as u16, 1);
                 w_week.spans.push(w_date);
                 w_week.spans.push(" ".into());
@@ -197,7 +210,8 @@ impl StatefulWidget for Month {
 
         while month == day.month() {
             let mut w_week = Line::default();
-            let w_weeknum = Span::from(day.format("%U").to_string()).style(self.week_style);
+            let w_weeknum =
+                Span::from(day.format_localized("%U", self.loc).to_string()).style(self.week_style);
             state.weeks[w] = Rect::new(x, y, w_weeknum.width() as u16, 1);
             w_week.spans.push(w_weeknum);
             w_week.spans.push(" ".into());
@@ -205,7 +219,8 @@ impl StatefulWidget for Month {
 
             for _ in 0..7 {
                 if day.month() == month {
-                    let w_date = Span::from(day.format("%e").to_string()).style(day_style(day));
+                    let w_date = Span::from(day.format_localized("%e", self.loc).to_string())
+                        .style(day_style(day));
                     state.area_days[day.day0() as usize] =
                         Rect::new(x, y, w_date.width() as u16, 1);
                     w_week.spans.push(w_date);

@@ -7,7 +7,7 @@ description = "ratatui widgets and a crossterm event-loop"
 license = "MIT/Apache-2.0"
 repository = "https://github.com/thscharler/rat-salsa"
 readme = "readme.md"
-keywords = [ "ratatui", "input", "event-loop"]
+keywords = ["ratatui", "input", "event-loop"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
@@ -45,7 +45,7 @@ variant_size_differences = "warn"
 
 [dependencies]
 anyhow = "1.0"
-chrono = "0.4"
+chrono = { version = "0.4", features = ["unstable-locales"] }
 crossbeam = "0.8"
 crossterm = "0.27"
 log = "0.4"
