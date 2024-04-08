@@ -33,6 +33,8 @@
 //! * `_` - other unicode characters can be used without escaping.
 //!
 
+use pure_rust_locales as rust_locid;
+use pure_rust_locales::locale_match;
 use rust_decimal::Decimal;
 use std::fmt;
 use std::fmt::{Debug, Display, Error as FmtError, Formatter, LowerExp, Write as FmtWrite};
@@ -77,11 +79,75 @@ impl NumberSymbols {
             currency_sym: CurrencySym::new("$"),
         }
     }
+
+    /// Uses the locale information provided by `pure_rust_locales`.
+    ///
+    /// This function sets
+    /// * decimal_sep to LC_NUMERIC::DECIMAL_POINT,
+    /// * decimal_grp to LC_NUMERIC::THOUSANDS_SEP
+    /// Fills the rest with defaults.
+    pub fn numeric(locale: rust_locid::Locale) -> Self {
+        Self {
+            decimal_sep: first_or(locale_match!(locale => LC_NUMERIC::DECIMAL_POINT), '.'),
+            decimal_grp: first_or(locale_match!(locale => LC_NUMERIC::THOUSANDS_SEP), ','),
+            negative_sym: '-',
+            positive_sym: ' ',
+            exponent_upper_sym: 'E',
+            exponent_lower_sym: 'e',
+            currency_sym: CurrencySym::new("$"),
+        }
+    }
+
+    /// Uses the locale information provided by `pure_rust_locales`.
+    ///
+    /// This function sets
+    /// * decimal_sep to LC_MONETARY::MON_DECIMAL_POINT,
+    /// * decimal_grp to LC_MONETARY::MON_THOUSANDS_SEP
+    /// * negative_sym to LC_MONETARY::NEGATIVE_SIGN
+    /// * positive_sym to LC_MONETARY::POSITIVE_SIGN
+    /// * currency_sym to LC_MONETARY::CURRENCY_SYMBOL
+    /// Fills the rest with defaults.
+    pub fn monetary(locale: rust_locid::Locale) -> Self {
+        Self {
+            decimal_sep: first_or(locale_match!(locale => LC_MONETARY::MON_DECIMAL_POINT), '.'),
+            decimal_grp: first_or(locale_match!(locale => LC_MONETARY::MON_THOUSANDS_SEP), ','),
+            negative_sym: first_or(locale_match!(locale => LC_MONETARY::NEGATIVE_SIGN), '-'),
+            positive_sym: first_or(locale_match!(locale => LC_MONETARY::POSITIVE_SIGN), ' '),
+            exponent_upper_sym: 'E',
+            exponent_lower_sym: 'e',
+            currency_sym: CurrencySym::new(locale_match!(locale => LC_MONETARY::CURRENCY_SYMBOL)),
+        }
+    }
+
+    /// Uses the locale information provided by `pure_rust_locales`.
+    ///
+    /// This function sets
+    /// * decimal_sep to LC_MONETARY::MON_DECIMAL_POINT,
+    /// * decimal_grp to LC_MONETARY::MON_THOUSANDS_SEP
+    /// * negative_sym to LC_MONETARY::NEGATIVE_SIGN
+    /// * positive_sym to LC_MONETARY::POSITIVE_SIGN
+    /// * currency_sym to LC_MONETARY::INT_CURR_SYMBOL
+    /// Fills the rest with defaults.
+    pub fn int_monetary(locale: rust_locid::Locale) -> Self {
+        Self {
+            decimal_sep: first_or(locale_match!(locale => LC_MONETARY::MON_DECIMAL_POINT), '.'),
+            decimal_grp: first_or(locale_match!(locale => LC_MONETARY::MON_THOUSANDS_SEP), ','),
+            negative_sym: first_or(locale_match!(locale => LC_MONETARY::NEGATIVE_SIGN), '-'),
+            positive_sym: first_or(locale_match!(locale => LC_MONETARY::POSITIVE_SIGN), ' '),
+            exponent_upper_sym: 'E',
+            exponent_lower_sym: 'e',
+            currency_sym: CurrencySym::new(locale_match!(locale => LC_MONETARY::INT_CURR_SYMBOL)),
+        }
+    }
+}
+
+fn first_or(s: &str, default: char) -> char {
+    s.chars().next().unwrap_or(default)
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub struct CurrencySym {
-    len: usize,
+    len: u8,
     sym: [u8; 16],
 }
 
@@ -141,7 +207,10 @@ impl CurrencySym {
             sym[15] = bytes[15];
         }
 
-        CurrencySym { len, sym }
+        CurrencySym {
+            len: len as u8,
+            sym,
+        }
     }
 
     pub fn first(&self) -> char {
@@ -151,7 +220,7 @@ impl CurrencySym {
     pub fn sym(&self) -> &str {
         // Safety:
         // Copied from &str and never modified.
-        unsafe { from_utf8_unchecked(&self.sym[..self.len]) }
+        unsafe { from_utf8_unchecked(&self.sym[..self.len as usize]) }
     }
 
     pub fn char_len(&self) -> usize {
@@ -159,7 +228,7 @@ impl CurrencySym {
     }
 
     pub const fn len(&self) -> usize {
-        return self.len;
+        return self.len as usize;
     }
 }
 
