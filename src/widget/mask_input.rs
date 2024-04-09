@@ -2581,7 +2581,17 @@ pub mod core {
                 self.cursor += 1;
                 self.anchor = self.cursor;
             } else if right.right.is_ltor() {
-                // cursor stays
+                // in a ltor field keep the cursor at the same position until the
+                // whole section is empty. Only then put it at the end of the section
+                // to continue right of the section.
+                let (_b, s, _a) = grapheme::split3(self.value(), right.sec_start..right.sec_end);
+                let sec_mask = &self.mask[right.sec_start..right.sec_end];
+                if s == MaskToken::empty_section(sec_mask) {
+                    self.cursor = right.sec_end;
+                    self.anchor = self.cursor;
+                } else {
+                    // cursor stays
+                }
             }
             self.fix_offset();
 
