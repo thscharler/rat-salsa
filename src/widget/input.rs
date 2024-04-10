@@ -8,8 +8,7 @@
 //! * Can show an indicator for invalid input.
 
 use crate::widget::basic::ClearStyle;
-use crate::widget::input::core::{split3, split5};
-use crate::{ControlUI, ValidFlag};
+use crate::{grapheme, ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 #[allow(unused_imports)]
@@ -460,7 +459,7 @@ impl TextInputState {
 
     /// Selection.
     pub fn selection_str(&self) -> &str {
-        split3(self.value.as_str(), self.value.selection()).1
+        grapheme::split3(self.value.as_str(), self.value.selection()).1
     }
 
     /// Extracts the visible part.
@@ -492,7 +491,7 @@ impl TextInputState {
     /// Extracts the visible parts. The result is (before, cursor1, selection, cursor2, after).
     /// One cursor1 and cursor2 is an empty string.
     pub fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
-        split5(
+        grapheme::split5(
             self.value.as_str(),
             self.cursor(),
             self.visible_range(),
@@ -674,12 +673,12 @@ impl HasValidFlag for TextInputState {
 }
 
 pub mod core {
+    use crate::grapheme;
     #[allow(unused_imports)]
     use log::debug;
-    use std::iter::once;
     use std::mem;
     use std::ops::Range;
-    use unicode_segmentation::{Graphemes, UnicodeSegmentation};
+    use unicode_segmentation::UnicodeSegmentation;
 
     /// Text editing core.
     #[derive(Debug, Default, Clone)]
@@ -755,20 +754,6 @@ pub mod core {
             self.cursor
         }
 
-        /// Cursor position as byte position.
-        pub fn byte_cursor(&self) -> usize {
-            let Some((i, _c)) = self
-                .value
-                .grapheme_indices(true)
-                .chain(once((self.value.len(), "")))
-                .nth(self.cursor)
-            else {
-                unreachable!()
-            };
-
-            i
-        }
-
         /// Set the value. Resets cursor and anchor to 0.
         pub fn set_value<S: Into<String>>(&mut self, s: S) {
             self.value = s.into();
@@ -786,11 +771,6 @@ pub mod core {
         /// Value
         pub fn as_str(&self) -> &str {
             self.value.as_str()
-        }
-
-        /// Graphemes
-        pub fn graphemes(&self) -> Graphemes<'_> {
-            self.value.graphemes(true)
         }
 
         /// Clear
@@ -836,8 +816,8 @@ pub mod core {
                     .graphemes(true)
                     .enumerate()
                     .skip(self.cursor)
-                    .skip_while(|(_, c)| is_alphanumeric(c))
-                    .find(|(_, c)| is_alphanumeric(c))
+                    .skip_while(|(_, c)| grapheme::is_alphanumeric(c))
+                    .find(|(_, c)| grapheme::is_alphanumeric(c))
                     .map(|(i, _)| i)
                     .unwrap_or_else(|| self.len)
             }
@@ -852,8 +832,8 @@ pub mod core {
                     .graphemes(true)
                     .rev()
                     .skip(self.len - self.cursor)
-                    .skip_while(|c| !is_alphanumeric(c))
-                    .skip_while(|c| is_alphanumeric(c))
+                    .skip_while(|c| !grapheme::is_alphanumeric(c))
+                    .skip_while(|c| grapheme::is_alphanumeric(c))
                     .count()
             }
         }
@@ -873,7 +853,7 @@ pub mod core {
         pub fn replace(&mut self, range: Range<usize>, new: &str) {
             let new_len = new.graphemes(true).count();
 
-            let (before_str, sel_str, after_str) = split3(self.value.as_str(), range);
+            let (before_str, sel_str, after_str) = grapheme::split3(self.value.as_str(), range);
             let sel_len = sel_str.graphemes(true).count();
             let before_len = before_str.graphemes(true).count();
 
@@ -887,17 +867,18 @@ pub mod core {
                 self.cursor = before_len + new_len;
             }
 
-            if self.offset > self.cursor {
-                self.offset = self.cursor;
-            } else if self.offset + self.width < self.cursor {
-                self.offset = self.cursor - self.width;
-            }
-
             if self.anchor >= before_len + sel_len {
                 self.anchor -= sel_len;
                 self.anchor += new_len;
             } else if self.anchor >= before_len {
                 self.anchor = before_len + new_len;
+            }
+
+            // fix offset
+            if self.offset > self.cursor {
+                self.offset = self.cursor;
+            } else if self.offset + self.width < self.cursor {
+                self.offset = self.cursor - self.width;
             }
 
             self.buf.clear();
@@ -906,111 +887,6 @@ pub mod core {
             self.buf.push_str(after_str);
 
             mem::swap(&mut self.value, &mut self.buf);
-        }
-    }
-
-    /// Split off selection
-    pub fn split3(value: &str, selection: Range<usize>) -> (&str, &str, &str) {
-        let mut byte_selection_start = None;
-        let mut byte_selection_end = None;
-
-        for (cidx, (idx, _c)) in value
-            .grapheme_indices(true)
-            .chain(once((value.len(), "")))
-            .enumerate()
-        {
-            if cidx == selection.start {
-                byte_selection_start = Some(idx);
-            }
-            if cidx == selection.end {
-                byte_selection_end = Some(idx)
-            }
-        }
-
-        let byte_selection_start = byte_selection_start.expect("byte_selection_start_not_found");
-        let byte_selection_end = byte_selection_end.expect("byte_selection_end_not_found");
-
-        let before_str = &value[0..byte_selection_start];
-        let sel_str = &value[byte_selection_start..byte_selection_end];
-        let after_str = &value[byte_selection_end..value.len()];
-
-        (before_str, sel_str, after_str)
-    }
-
-    /// Split off selection and cursor
-    pub fn split5(
-        value: &str,
-        cursor: usize,
-        visible: Range<usize>,
-        selection: Range<usize>,
-    ) -> (&str, &str, &str, &str, &str) {
-        let mut vis_sta = None;
-        let mut vis_end = None;
-        let mut sel_sta = None;
-        let mut sel_end = None;
-        let mut cur_sta = None;
-        let mut cur_len = None;
-
-        for (cidx, (idx, c)) in value
-            .grapheme_indices(true)
-            .chain(once((value.len(), "")))
-            .enumerate()
-        {
-            if cidx == visible.start {
-                vis_sta = Some(idx);
-            }
-            if cidx == visible.end {
-                vis_end = Some(idx);
-            }
-            if cidx == selection.start {
-                sel_sta = Some(idx);
-            }
-            if cidx == selection.end {
-                sel_end = Some(idx);
-            }
-            if cidx == cursor {
-                cur_sta = Some(idx);
-                cur_len = Some(c.len())
-            }
-        }
-
-        let vis_sta = vis_sta.expect("visible_start_not_found");
-        let vis_end = vis_end.expect("visible_end_not_found");
-        let sel_sta = sel_sta.expect("selection_start_not_found");
-        let sel_end = sel_end.expect("selection_end_not_found");
-        let cur_sta = cur_sta.expect("cursor_start_not_found");
-        let cur_len = cur_len.expect("cursor_end_not_found");
-
-        let before_str = &value[vis_sta..sel_sta];
-
-        let (cursor1_str, sel_str) = if sel_sta == cur_sta && sel_sta + cur_len <= sel_end {
-            (
-                &value[cur_sta..cur_sta + cur_len],
-                &value[sel_sta + cur_len..sel_end],
-            )
-        } else {
-            (&value[sel_sta..sel_sta], &value[sel_sta..sel_end])
-        };
-
-        let (cursor2_str, after_str) = if cur_len == 0 {
-            (" ", &value[sel_end..vis_end])
-        } else if sel_end == cur_sta && sel_end + cur_len <= vis_end {
-            (
-                &value[cur_sta..cur_sta + cur_len],
-                &value[sel_end + cur_len..vis_end],
-            )
-        } else {
-            (&value[sel_end..sel_end], &value[sel_end..vis_end])
-        };
-
-        (before_str, cursor1_str, sel_str, cursor2_str, after_str)
-    }
-
-    fn is_alphanumeric(s: &str) -> bool {
-        if let Some(c) = s.chars().next() {
-            c.is_alphanumeric()
-        } else {
-            false
         }
     }
 }
