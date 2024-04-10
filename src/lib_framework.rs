@@ -243,6 +243,12 @@ where
                     _ => {}
                 }
             }
+
+            if poll_queue.is_empty() {
+                let t = calculate_sleep(app, uistate, Duration::from_millis(10));
+                sleep(t);
+            }
+
             match poll_queue.pop_front() {
                 None => ControlUI::Continue,
                 Some(PollNext::RepaintFlag) => read_repaint_flag(app, uistate, &mut repaint_event),
@@ -250,11 +256,6 @@ where
                 Some(PollNext::Workers) => read_workers(app, &worker),
                 Some(PollNext::Crossterm) => read_crossterm(app, &cfg, data, uistate),
             }
-        });
-
-        flow.or_do(|| {
-            let t = calculate_sleep(app, uistate, Duration::from_millis(10));
-            sleep(t);
         });
 
         flow = match flow {
