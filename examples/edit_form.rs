@@ -312,7 +312,7 @@ fn repaint_mask0(
     let l_columns = Layout::new(
         Direction::Horizontal,
         [
-            Constraint::Length(33),
+            Constraint::Fill(2),
             Constraint::Fill(1),
             Constraint::Fill(2),
             Constraint::Fill(1),
@@ -406,6 +406,36 @@ fn repaint_mask0(
     frame.render_frame_widget(w_exp, l2.widget(), &mut uistate.mask0.exp);
 
     let r = match_focus!(
+        uistate.mask0.text => Some(&uistate.mask0.text),
+        uistate.mask0.decimal => Some(&uistate.mask0.decimal),
+        uistate.mask0.float => Some(&uistate.mask0.float),
+        _ => None
+    );
+    if let Some(r) = r {
+        let mut ec = Vec::new();
+        ec.push(EditConstraint::EmptyRows(2));
+        ec.push(EditConstraint::Empty);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+
+        let l1 = layout_edit(l_columns[1], &ec);
+        let mut l1 = l1.iter();
+
+        frame.render_widget(Span::from(format!("value={}", r.value())), l1.label());
+        frame.render_widget(
+            Span::from(format!(
+                "o={} w={} c={} s={}:{}",
+                r.offset(),
+                r.width(),
+                r.cursor(),
+                r.selection().start,
+                r.selection().end
+            )),
+            l1.label(),
+        );
+    }
+
+    let r = match_focus!(
         uistate.mask0.ipv4 => Some(&uistate.mask0.ipv4),
         uistate.mask0.hexcolor => Some(&uistate.mask0.hexcolor),
         uistate.mask0.creditcard => Some(&uistate.mask0.creditcard),
@@ -418,6 +448,8 @@ fn repaint_mask0(
     );
     if let Some(r) = r {
         let mut ec = Vec::new();
+        ec.push(EditConstraint::EmptyRows(2));
+        ec.push(EditConstraint::Empty);
         for _ in 0..r.value.tokens().len() {
             ec.push(EditConstraint::TitleLabel);
         }
@@ -460,7 +492,7 @@ fn repaint_mask0(
         );
         frame.render_widget(
             Span::from(format!(
-                "{}:{} {} {}:{}",
+                "o={} w={} c={} s={}:{}",
                 r.offset(),
                 r.width(),
                 r.cursor(),
