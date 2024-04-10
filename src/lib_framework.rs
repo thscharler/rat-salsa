@@ -213,6 +213,7 @@ where
     // to not starve any event source everyone is polled and put in this queue.
     // they are not polled again before the queue is not empty.
     let mut poll_queue = VecDeque::new();
+    let mut poll_sleep = 10;
 
     // init
     app.init(data, uistate, &worker.send)?;
@@ -245,8 +246,25 @@ where
             }
 
             if poll_queue.is_empty() {
-                let t = calculate_sleep(app, uistate, Duration::from_millis(10));
+                let t = calculate_sleep(app, uistate, Duration::from_millis(poll_sleep));
                 sleep(t);
+
+                if poll_sleep == 1 {
+                    poll_sleep = 10;
+                }
+            } else {
+                // short sleep after a series of successfull polls.
+                //
+                // there can be some delay before consecutive events are available to
+                // poll_crossterm().
+                //
+                // this happens with windows-terminal, which pastes by sending each char as a
+                // key-event. the normal sleep interval is noticeable in that case. with
+                // the shorter sleep it's still not instantaneous but ok-ish.
+                //
+                // For all other cases 10ms seems to work fine.
+                // Note: could make this configurable too.
+                poll_sleep = 1;
             }
 
             match poll_queue.pop_front() {
