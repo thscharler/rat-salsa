@@ -1869,10 +1869,10 @@ pub mod core {
                             | Mask::Dec => {
                                 rendered.push_str(s);
                             }
-                            Mask::Letter => {}
-                            Mask::LetterOrDigit => {}
-                            Mask::LetterDigitSpace => {}
-                            Mask::AnyChar => {
+                            Mask::Letter
+                            | Mask::LetterOrDigit
+                            | Mask::LetterDigitSpace
+                            | Mask::AnyChar => {
                                 rendered.push_str(s);
                             }
                             Mask::Separator(_) => {
