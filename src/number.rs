@@ -161,10 +161,19 @@ fn first_or(s: &str, default: char) -> char {
     s.chars().next().unwrap_or(default)
 }
 
-#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+#[derive(PartialEq, Eq, Clone, Copy)]
 pub struct CurrencySym {
     len: u8,
     sym: [u8; 16],
+}
+
+impl Debug for CurrencySym {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        f.debug_struct("CurrencySym")
+            .field("len", &self.len)
+            .field("sym", &self.sym())
+            .finish()
+    }
 }
 
 impl CurrencySym {
@@ -269,27 +278,31 @@ pub enum Mode {
 }
 
 /// Tokens for the format.
+///
+/// Digit0, Digit, Numeric, NumericOpt, GroupingSep hold an digit-index.
+/// Depending on mode that's the index into the integer, fraction or exponent part of
+/// the number.
 #[allow(variant_size_differences)]
 #[derive(Debug, Clone)]
 pub enum Token {
     /// Mask char "0". Digit or 0
-    Digit0(Mode),
+    Digit0(Mode, i32),
     /// Mask char "9". Digit or space
-    Digit(Mode),
+    Digit(Mode, i32),
     /// Mask char "#". Digit or sign or space
-    Numeric(Mode),
+    Numeric(Mode, i32),
     /// Mask char "8". Digit or sign or *empty string*.
-    NumericOpt(Mode),
+    NumericOpt(Mode, i32),
     /// Mask char "+". Show "+" sign for positive number, "-" for negative.
-    Plus(Mode),
+    PlusInt,
     /// Mask char "-". Show " " for positive number, "-" for negative.
-    Minus(Mode),
+    MinusInt,
     /// Mask char ".". Decimal separator.
     DecimalSep,
     /// Mask char ":". Decimal separator, always displayed.
     DecimalSepAlways,
     /// Mask char ",". Grouping separator.
-    GroupingSep,
+    GroupingSep(i32),
     /// Mask char ";". Grouping separator.
     GroupingSepAlways,
     /// Mask char "E". Exponent separator.
@@ -300,6 +313,10 @@ pub enum Token {
     ExponentLower,
     /// Mask char "f". Exponent separator.
     ExponentLowerAlways,
+    /// Mask char "+". Show "+" sign for positive number, "-" for negative.
+    PlusExp,
+    /// Mask char "-". Show " " for positive number, "-" for negative.
+    MinusExp,
     /// Mask char "$". Currency.
     Currency,
     /// Other separator char to output literally. May be escaped with '\\'.
@@ -309,38 +326,44 @@ pub enum Token {
 /// Holds the pattern for the numberformat and some additional data.
 #[derive(Default, Clone)]
 pub struct NumberFormat {
-    /// Decides what std-format is used. If true it's `{:e}` otherwise plain `{}`
-    pub has_exp: bool,
+    /// Has a separate sign token for the integer part.
+    has_int_sign: bool,
+    /// has a separate sign token for the exponent part.
+    has_exp_sign: bool,
+    /// Decides which std-format is used. If true it's `{:e}` otherwise plain `{}`
+    has_exp: bool,
     /// Has an exponent with a '0' pattern.
-    pub has_exp_0: bool,
+    has_exp_0: bool,
     /// Has a fraction with a '0' pattern.
-    pub has_frac_0: bool,
+    has_frac_0: bool,
     /// The required precision for this format. Is used for the underlying std-format.
-    pub precision: u8,
+    precision: u8,
     /// Tokens.
-    pub tok: Vec<Token>,
+    tok: Vec<Token>,
     /// Symbols.
-    pub sym: Rc<NumberSymbols>,
+    sym: Rc<NumberSymbols>,
 }
 
 impl Display for NumberFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         for t in &self.tok {
             match t {
-                Token::Digit0(_) => write!(f, "0")?,
-                Token::Digit(_) => write!(f, "9")?,
-                Token::Numeric(_) => write!(f, "#")?,
-                Token::NumericOpt(_) => write!(f, "8")?,
-                Token::Plus(_) => write!(f, "+")?,
-                Token::Minus(_) => write!(f, "-")?,
+                Token::Digit0(_, _) => write!(f, "0")?,
+                Token::Digit(_, _) => write!(f, "9")?,
+                Token::Numeric(_, _) => write!(f, "#")?,
+                Token::NumericOpt(_, _) => write!(f, "8")?,
+                Token::PlusInt => write!(f, "+")?,
+                Token::MinusInt => write!(f, "-")?,
                 Token::DecimalSep => write!(f, ".")?,
                 Token::DecimalSepAlways => write!(f, ":")?,
-                Token::GroupingSep => write!(f, ",")?,
+                Token::GroupingSep(_) => write!(f, ",")?,
                 Token::GroupingSepAlways => write!(f, ";")?,
                 Token::ExponentUpper => write!(f, "E")?,
                 Token::ExponentUpperAlways => write!(f, "F")?,
                 Token::ExponentLower => write!(f, "e")?,
                 Token::ExponentLowerAlways => write!(f, "f")?,
+                Token::PlusExp => write!(f, "+")?,
+                Token::MinusExp => write!(f, "-")?,
                 Token::Currency => write!(f, "$")?,
                 Token::Separator(c) => {
                     match c {
@@ -359,23 +382,164 @@ impl Display for NumberFormat {
 }
 
 impl NumberFormat {
+    /// New format from pattern.
     pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, FmtError> {
         core::parse_number_format(pattern.as_ref())
     }
 
+    /// New format from pattern + symbols
     pub fn news<S: AsRef<str>>(pattern: S, sym: &Rc<NumberSymbols>) -> Result<Self, FmtError> {
         core::parse_number_format_sym(pattern.as_ref(), sym)
     }
 
-    pub fn with_sym<S: AsRef<str>>(pattern: S, sym: &Rc<NumberSymbols>) -> Result<Self, FmtError> {
-        core::parse_number_format_sym(pattern.as_ref(), sym)
+    /// New format from token-array.
+    pub fn new_tok(pattern: Vec<Token>) -> Self {
+        Self::news_tok(pattern, &Rc::new(NumberSymbols::new()))
     }
 
-    /// Set the decimal symbols.
-    #[inline]
-    pub fn sym(mut self, sym: &Rc<NumberSymbols>) -> Self {
-        self.sym = Rc::clone(sym);
-        self
+    /// New format from token-array.
+    pub fn news_tok(mut pattern: Vec<Token>, sym: &Rc<NumberSymbols>) -> Self {
+        let mut has_exp = false;
+        let mut has_exp_0 = false;
+        let mut has_frac_0 = false;
+        let mut has_int_sign = false;
+        let mut has_exp_sign = false;
+        let mut precision = 0;
+
+        let mut idx_frac = -1;
+        for t in pattern.iter_mut() {
+            match t {
+                Token::Digit0(Mode::Fraction, x) => {
+                    has_frac_0 = true;
+                    precision += 1;
+                    idx_frac += 1;
+                    *x = idx_frac;
+                }
+                Token::Digit(Mode::Fraction, x) => {
+                    precision += 1;
+                    idx_frac += 1;
+                    *x = idx_frac;
+                }
+                Token::Numeric(Mode::Fraction, x) => {
+                    precision += 1;
+                    idx_frac += 1;
+                    *x = idx_frac;
+                }
+                Token::NumericOpt(Mode::Fraction, x) => {
+                    precision += 1;
+                    idx_frac += 1;
+                    *x = idx_frac;
+                }
+
+                Token::ExponentLower
+                | Token::ExponentLowerAlways
+                | Token::ExponentUpper
+                | Token::ExponentUpperAlways => {
+                    has_exp = true;
+                }
+
+                Token::PlusInt | Token::MinusInt => has_int_sign = true,
+                Token::PlusExp | Token::MinusExp => has_exp_sign = true,
+
+                _ => {}
+            }
+        }
+        let mut idx_int = -1;
+        let mut idx_exp = -1;
+        for t in pattern.iter_mut().rev() {
+            match t {
+                Token::Digit0(Mode::Integer, x) => {
+                    idx_int += 1;
+                    *x = idx_int;
+                }
+                Token::Digit(Mode::Integer, x) => {
+                    idx_int += 1;
+                    *x = idx_int;
+                }
+                Token::Numeric(Mode::Integer, x) => {
+                    idx_int += 1;
+                    *x = idx_int;
+                }
+                Token::NumericOpt(Mode::Integer, x) => {
+                    idx_int += 1;
+                    *x = idx_int;
+                }
+
+                Token::GroupingSep(x) => {
+                    *x = idx_int + 1;
+                }
+
+                Token::Digit0(Mode::Exponent, x) => {
+                    has_exp_0 = true;
+                    idx_exp += 1;
+                    *x = idx_exp;
+                }
+                Token::Digit(Mode::Exponent, x) => {
+                    idx_exp += 1;
+                    *x = idx_exp;
+                }
+                Token::Numeric(Mode::Exponent, x) => {
+                    idx_exp += 1;
+                    *x = idx_exp;
+                }
+                Token::NumericOpt(Mode::Exponent, x) => {
+                    idx_exp += 1;
+                    *x = idx_exp;
+                }
+                _ => {}
+            }
+        }
+
+        NumberFormat {
+            has_int_sign,
+            has_exp_sign,
+            has_exp,
+            has_exp_0,
+            has_frac_0,
+            precision,
+            tok: pattern,
+            sym: Rc::clone(sym),
+        }
+    }
+
+    ///
+    pub fn sym(&self) -> &NumberSymbols {
+        self.sym.as_ref()
+    }
+
+    ///
+    pub fn tok(&self) -> &[Token] {
+        &self.tok
+    }
+
+    /// Has `Token::Plus` or `Token::Minus`
+    pub fn has_int_sign(&self) -> bool {
+        self.has_int_sign
+    }
+
+    /// Has `Token::Plus` or `Token::Minus`
+    pub fn has_exp_sign(&self) -> bool {
+        self.has_exp_sign
+    }
+
+    /// Has any `Token::Exponent*`
+    pub fn has_exp(&self) -> bool {
+        self.has_exp
+    }
+
+    /// Has a `Token::Digit0` in the exponent.
+    pub fn has_exp_0(&self) -> bool {
+        self.has_exp_0
+    }
+
+    /// Has a `Token::Digit0` in the fraction.
+    pub fn has_frac_0(&self) -> bool {
+        self.has_frac_0
+    }
+
+    /// Decimal precision of the pattern.
+    pub fn precision(&self) -> u8 {
+        self.precision
     }
 
     /// Formats or returns the error converted to a string.
@@ -501,12 +665,15 @@ define_fmt!(Decimal);
 
 impl Debug for NumberFormat {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let s = format!("{}", self);
         f.debug_struct("NumberFormat")
+            .field("has_int_sign", &self.has_int_sign)
+            .field("has_exp_sign", &self.has_exp_sign)
             .field("has_exp", &self.has_exp)
+            .field("has_exp_0", &self.has_exp_0)
+            .field("has_frac_0", &self.has_frac_0)
             .field("precision", &self.precision)
             .field("sym", &self.sym)
-            .field("tok", &s)
+            .field("tok", &self.tok)
             .finish()
     }
 }
@@ -515,8 +682,8 @@ pub mod core {
     use crate::number::{Mode, NumberFormat, NumberSymbols, Token};
     use memchr::memchr;
     use std::cell::Cell;
+    use std::cmp::max;
     use std::fmt::{Display, Error as FmtError, LowerExp, Write as FmtWrite};
-    use std::iter;
     use std::rc::Rc;
     use std::str::FromStr;
 
@@ -534,10 +701,10 @@ pub mod core {
 
     /// Parses the format string for reuse.
     pub fn parse_number_format(pattern: &str) -> Result<NumberFormat, FmtError> {
-        let mut format = NumberFormat::default();
-
         let mut esc = false;
         let mut mode = Mode::Integer;
+
+        let mut tok = Vec::new();
 
         for m in pattern.chars() {
             let mask = if esc {
@@ -545,33 +712,10 @@ pub mod core {
                 Token::Separator(m)
             } else {
                 match m {
-                    '0' => {
-                        if mode == Mode::Fraction {
-                            format.has_frac_0 = true;
-                            format.precision += 1;
-                        } else if mode == Mode::Exponent {
-                            format.has_exp_0 = true;
-                        }
-                        Token::Digit0(mode)
-                    }
-                    '8' => {
-                        if mode == Mode::Fraction {
-                            format.precision += 1;
-                        }
-                        Token::NumericOpt(mode)
-                    }
-                    '9' => {
-                        if mode == Mode::Fraction {
-                            format.precision += 1;
-                        }
-                        Token::Digit(mode)
-                    }
-                    '#' => {
-                        if mode == Mode::Fraction {
-                            format.precision += 1;
-                        }
-                        Token::Numeric(mode)
-                    }
+                    '0' => Token::Digit0(mode, 0),
+                    '8' => Token::NumericOpt(mode, 0),
+                    '9' => Token::Digit(mode, 0),
+                    '#' => Token::Numeric(mode, 0),
                     '.' => {
                         if matches!(mode, Mode::Fraction | Mode::Exponent) {
                             return Err(FmtError);
@@ -586,15 +730,30 @@ pub mod core {
                         mode = Mode::Fraction;
                         Token::DecimalSepAlways
                     }
-                    ',' => Token::GroupingSep,
+                    ',' => Token::GroupingSep(0),
                     ';' => Token::GroupingSepAlways,
-                    '+' => Token::Plus(mode),
-                    '-' => Token::Minus(mode),
+                    '+' => {
+                        if mode == Mode::Integer {
+                            Token::PlusInt
+                        } else if mode == Mode::Exponent {
+                            Token::PlusExp
+                        } else {
+                            return Err(FmtError);
+                        }
+                    }
+                    '-' => {
+                        if mode == Mode::Integer {
+                            Token::MinusInt
+                        } else if mode == Mode::Exponent {
+                            Token::MinusExp
+                        } else {
+                            return Err(FmtError);
+                        }
+                    }
                     'e' => {
                         if mode == Mode::Exponent {
                             return Err(FmtError);
                         }
-                        format.has_exp = true;
                         mode = Mode::Exponent;
                         Token::ExponentLower
                     }
@@ -602,7 +761,6 @@ pub mod core {
                         if mode == Mode::Exponent {
                             return Err(FmtError);
                         }
-                        format.has_exp = true;
                         mode = Mode::Exponent;
                         Token::ExponentUpper
                     }
@@ -610,7 +768,6 @@ pub mod core {
                         if mode == Mode::Exponent {
                             return Err(FmtError);
                         }
-                        format.has_exp = true;
                         mode = Mode::Exponent;
                         Token::ExponentLower
                     }
@@ -618,7 +775,6 @@ pub mod core {
                         if mode == Mode::Exponent {
                             return Err(FmtError);
                         }
-                        format.has_exp = true;
                         mode = Mode::Exponent;
                         Token::ExponentUpper
                     }
@@ -632,10 +788,10 @@ pub mod core {
                     c => Token::Separator(c),
                 }
             };
-            format.tok.push(mask);
+            tok.push(mask);
         }
 
-        Ok(format)
+        Ok(NumberFormat::new_tok(tok))
     }
 
     fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
@@ -741,14 +897,14 @@ pub mod core {
             };
 
             match t {
-                Token::Digit0(_) => {
+                Token::Digit0(_, _) => {
                     if c.is_ascii_digit() {
-                        write!(out, "{}", c)?;
+                        write!(out, "{}", c)?; // todo: dont use write
                     } else {
                         return Err(FmtError);
                     }
                 }
-                Token::Digit(_) => {
+                Token::Digit(_, _) => {
                     if c.is_ascii_digit() {
                         write!(out, "{}", c)?;
                     } else if c == ' ' {
@@ -757,7 +913,7 @@ pub mod core {
                         return Err(FmtError);
                     }
                 }
-                Token::Numeric(_) => {
+                Token::Numeric(_, _) => {
                     if c.is_ascii_digit() {
                         write!(out, "{}", c)?;
                     } else if c == sym.negative_sym {
@@ -768,10 +924,10 @@ pub mod core {
                         return Err(FmtError);
                     }
                 }
-                Token::NumericOpt(_) => {
+                Token::NumericOpt(_, _) => {
                     unimplemented!("NumericOpt not supported.");
                 }
-                Token::Plus(_) => {
+                Token::PlusInt | Token::PlusExp => {
                     if c == sym.negative_sym {
                         write!(out, "-")?;
                     } else if c == sym.positive_sym {
@@ -780,7 +936,7 @@ pub mod core {
                         return Err(FmtError);
                     }
                 }
-                Token::Minus(_) => {
+                Token::MinusInt | Token::MinusExp => {
                     if c == sym.negative_sym {
                         write!(out, "-")?;
                     } else if c == ' ' {
@@ -805,7 +961,7 @@ pub mod core {
                         return Err(FmtError);
                     }
                 }
-                Token::GroupingSep => {
+                Token::GroupingSep(_) => {
                     if c == sym.decimal_grp {
                         // ok
                     } else if c == ' ' {
@@ -886,281 +1042,225 @@ pub mod core {
         sym: &NumberSymbols,
         out: &mut W,
     ) -> Result<(), FmtError> {
-        thread_local! {
-            static BUF: Cell<Vec<char>> = const { Cell::new(Vec::new()) };
-        }
+        let (mut sign, int, frac, mut exp_sign, exp) = split_num(raw);
 
-        let mut buf = BUF.take();
+        let int = int.as_bytes();
+        let len_int = int.len() as i32;
+        let mut max_int = 0;
+        let frac = frac.as_bytes();
+        let len_frac = frac.len() as i32;
+        let mut max_frac = 0;
+        let exp = exp.as_bytes();
+        let len_exp = exp.len() as i32;
+        let mut max_exp = 0;
 
-        buf.clear();
-        buf.extend(iter::repeat(' ').take(format.tok.len()));
-
-        _map_num(raw, format, sym, &mut buf)?;
-
-        for i in 0..format.tok.len() {
-            if buf[i] == '\u{00}' {
-                // noop
-            } else if buf[i] == '\u{11}' {
-                match write!(out, "{}", sym.currency_sym) {
-                    Err(e) => {
-                        BUF.set(buf);
-                        return Err(e);
-                    }
-                    _ => {}
-                }
-            } else {
-                match write!(out, "{}", buf[i]) {
-                    Err(e) => {
-                        BUF.set(buf);
-                        return Err(e);
-                    }
-                    _ => {}
-                };
-            }
-        }
-        BUF.set(buf);
-        Ok(())
-    }
-
-    // impl without type parameters
-    fn _map_num(
-        raw: &str,
-        format: &NumberFormat,
-        sym: &NumberSymbols,
-        buffer: &mut [char],
-    ) -> Result<(), FmtError> {
-        let (mut sign, integer, fraction, mut exp_sign, exp) = split_num(raw);
-        let mut it_integer = integer.chars();
-        let mut it_fraction = fraction.chars();
-        let mut it_exp = exp.chars();
-
-        for (i, m) in format.tok.iter().enumerate() {
+        for m in format.tok.iter() {
             match m {
-                Token::Plus(Mode::Integer) => {
+                Token::PlusInt => {
                     if sign.is_empty() {
-                        buffer[i] = sym.positive_sym;
+                        out.write_char(sym.positive_sym)?;
                     } else {
-                        buffer[i] = sym.negative_sym;
+                        out.write_char(sym.negative_sym)?;
                     }
                     sign = "";
                 }
-                Token::Minus(Mode::Integer) => {
+                Token::MinusInt => {
                     if sign.is_empty() {
-                        buffer[i] = ' ';
+                        out.write_char(' ')?;
                     } else {
-                        buffer[i] = sym.negative_sym;
+                        out.write_char(sym.negative_sym)?;
                     }
                     sign = "";
                 }
-                Token::GroupingSep => {}
-                Token::GroupingSepAlways => {}
-                Token::Digit0(Mode::Integer) => {}
-                Token::Digit(Mode::Integer) => {}
-                Token::Numeric(Mode::Integer) => {}
-                Token::NumericOpt(Mode::Integer) => {}
+                Token::GroupingSep(i) => {
+                    if len_int - i - 1 >= 0 {
+                        out.write_char(sym.decimal_grp)?;
+                    } else {
+                        out.write_char(' ')?;
+                    }
+                }
+                Token::GroupingSepAlways => {
+                    out.write_char(sym.decimal_grp)?;
+                }
+                Token::Digit0(Mode::Integer, i) => {
+                    max_int = max(max_int, *i);
+                    if len_int - i - 1 >= 0 {
+                        out.write_char(int[(len_int - i - 1) as usize] as char)?;
+                    } else {
+                        out.write_char('0')?;
+                    }
+                }
+                Token::Digit(Mode::Integer, i) => {
+                    max_int = max(max_int, *i);
+                    if len_int - i - 1 >= 0 {
+                        out.write_char(int[(len_int - i - 1) as usize] as char)?;
+                    } else {
+                        out.write_char(' ')?;
+                    }
+                }
+                Token::Numeric(Mode::Integer, i) => {
+                    max_int = max(max_int, *i);
+                    if len_int - i - 1 >= 0 {
+                        out.write_char(int[(len_int - i - 1) as usize] as char)?;
+                    } else if len_int - i - 1 == -1 && !sign.is_empty() && !format.has_int_sign {
+                        out.write_str(sign)?;
+                        sign = "";
+                    } else {
+                        out.write_char(' ')?;
+                    }
+                }
+                Token::NumericOpt(Mode::Integer, i) => {
+                    max_int = max(max_int, *i);
+                    if len_int - i - 1 >= 0 {
+                        out.write_char(int[(len_int - i - 1) as usize] as char)?;
+                    } else if len_int - i - 1 == -1 && !sign.is_empty() && !format.has_int_sign {
+                        out.write_str(sign)?;
+                        sign = "";
+                    } else {
+                        // dont: out.write_char(' ')?;
+                    }
+                }
 
                 Token::DecimalSep => {
-                    if !fraction.is_empty() || format.has_frac_0 {
-                        buffer[i] = sym.decimal_sep;
+                    if !frac.is_empty() || format.has_frac_0 {
+                        out.write_char(sym.decimal_sep)?;
                     } else {
-                        buffer[i] = ' ';
+                        out.write_char(' ')?;
                     }
                 }
                 Token::DecimalSepAlways => {
-                    buffer[i] = sym.decimal_sep;
+                    out.write_char(sym.decimal_sep)?;
                 }
-                Token::Plus(Mode::Fraction) => {
-                    unreachable!()
-                }
-                Token::Minus(Mode::Fraction) => {
-                    unreachable!()
-                }
-                Token::Digit0(Mode::Fraction) => {
-                    if let Some(d) = it_fraction.next() {
-                        buffer[i] = d;
+                Token::Digit0(Mode::Fraction, i) => {
+                    max_frac = max(max_frac, *i);
+                    if *i < len_frac {
+                        out.write_char(frac[*i as usize] as char)?;
                     } else {
-                        buffer[i] = '0';
+                        out.write_char('0')?;
                     }
                 }
-                Token::Digit(Mode::Fraction) => {
-                    if let Some(d) = it_fraction.next() {
-                        buffer[i] = d;
+                Token::Digit(Mode::Fraction, i) => {
+                    max_frac = max(max_frac, *i);
+                    if *i < len_frac {
+                        out.write_char(frac[*i as usize] as char)?;
                     } else {
-                        buffer[i] = ' ';
+                        out.write_char(' ')?;
                     }
                 }
-                Token::Numeric(Mode::Fraction) => {
-                    if let Some(d) = it_fraction.next() {
-                        buffer[i] = d;
+                Token::Numeric(Mode::Fraction, i) => {
+                    max_frac = max(max_frac, *i);
+                    if *i < len_frac {
+                        out.write_char(frac[*i as usize] as char)?;
                     } else {
-                        buffer[i] = ' ';
+                        out.write_char(' ')?;
                     }
                 }
-                Token::NumericOpt(Mode::Fraction) => {
-                    if let Some(d) = it_fraction.next() {
-                        buffer[i] = d;
+                Token::NumericOpt(Mode::Fraction, i) => {
+                    max_frac = max(max_frac, *i);
+                    if *i < len_frac {
+                        out.write_char(frac[*i as usize] as char)?;
                     } else {
-                        buffer[i] = '\u{00}';
+                        // dont: out.write_char(' ')?;
                     }
                 }
 
                 Token::ExponentUpper => {
                     if !exp.is_empty() || format.has_exp_0 {
-                        buffer[i] = sym.exponent_upper_sym;
+                        out.write_char(sym.exponent_upper_sym)?;
                     } else {
-                        buffer[i] = ' ';
+                        out.write_char(' ')?;
                     }
                 }
                 Token::ExponentLower => {
                     if !exp.is_empty() || format.has_exp_0 {
-                        buffer[i] = sym.exponent_lower_sym;
+                        out.write_char(sym.exponent_lower_sym)?;
                     } else {
-                        buffer[i] = ' ';
+                        out.write_char(' ')?;
                     }
                 }
                 Token::ExponentUpperAlways => {
-                    buffer[i] = sym.exponent_upper_sym;
+                    out.write_char(sym.exponent_upper_sym)?;
                 }
                 Token::ExponentLowerAlways => {
-                    buffer[i] = sym.exponent_lower_sym;
+                    out.write_char(sym.exponent_lower_sym)?;
                 }
 
-                Token::Plus(Mode::Exponent) => {
+                Token::PlusExp => {
                     if exp_sign.is_empty() {
-                        buffer[i] = sym.positive_sym;
+                        out.write_char(sym.positive_sym)?;
                     } else {
-                        buffer[i] = sym.negative_sym;
+                        out.write_char(sym.negative_sym)?;
                     }
                     exp_sign = "";
                 }
-                Token::Minus(Mode::Exponent) => {
+                Token::MinusExp => {
                     if exp_sign.is_empty() {
-                        buffer[i] = ' ';
+                        out.write_char(' ')?;
                     } else {
-                        buffer[i] = sym.negative_sym;
+                        out.write_char(sym.negative_sym)?;
                     }
                     exp_sign = "";
                 }
-                Token::Digit0(Mode::Exponent) => {}
-                Token::Digit(Mode::Exponent) => {}
-                Token::Numeric(Mode::Exponent) => {}
-                Token::NumericOpt(Mode::Exponent) => {}
+                Token::Digit0(Mode::Exponent, i) => {
+                    max_exp = max(max_exp, *i);
+                    if len_exp - i - 1 >= 0 {
+                        out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
+                    } else {
+                        out.write_char('0')?;
+                    }
+                }
+                Token::Digit(Mode::Exponent, i) => {
+                    max_exp = max(max_exp, *i);
+                    if len_exp - i - 1 >= 0 {
+                        out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
+                    } else {
+                        out.write_char(' ')?;
+                    }
+                }
+                Token::Numeric(Mode::Exponent, i) => {
+                    max_exp = max(max_exp, *i);
+                    if len_exp - i - 1 >= 0 {
+                        out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
+                    } else if len_exp - i - 1 == -1 && !exp_sign.is_empty() && !format.has_exp_sign
+                    {
+                        out.write_str(exp_sign)?;
+                        exp_sign = "";
+                    } else {
+                        out.write_char(' ')?;
+                    }
+                }
+                Token::NumericOpt(Mode::Exponent, i) => {
+                    max_exp = max(max_exp, *i);
+                    if len_exp - i - 1 >= 0 {
+                        out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
+                    } else if len_exp - i - 1 == -1 && !exp_sign.is_empty() && !format.has_exp_sign
+                    {
+                        out.write_str(exp_sign)?;
+                        exp_sign = "";
+                    } else {
+                        // dont: out.write_char(' ')?;
+                    }
+                }
                 Token::Currency => {
-                    buffer[i] = '\u{11}';
+                    out.write_str(sym.currency_sym.sym())?;
                 }
                 Token::Separator(v) => {
-                    buffer[i] = *v;
+                    out.write_char(*v)?;
                 }
-            }
-        }
-
-        let mut d = None;
-        for (i, m) in format.tok.iter().enumerate().rev() {
-            if d.is_none() {
-                d = it_integer.next_back();
-            }
-
-            match m {
-                Token::Digit0(Mode::Exponent) => {
-                    if let Some(d) = it_exp.next_back() {
-                        buffer[i] = d;
-                    } else {
-                        buffer[i] = '0';
-                    }
-                }
-                Token::Digit(Mode::Exponent) => {
-                    if let Some(d) = it_exp.next_back() {
-                        buffer[i] = d;
-                    } else {
-                        buffer[i] = ' ';
-                    }
-                }
-                Token::Numeric(Mode::Exponent) => {
-                    if let Some(d) = it_exp.next_back() {
-                        buffer[i] = d;
-                    } else if exp_sign == "-" {
-                        buffer[i] = sym.negative_sym;
-                        exp_sign = "";
-                    } else {
-                        buffer[i] = ' ';
-                    }
-                }
-                Token::NumericOpt(Mode::Exponent) => {
-                    if let Some(d) = it_exp.next_back() {
-                        buffer[i] = d;
-                    } else if exp_sign == "-" {
-                        buffer[i] = sym.negative_sym;
-                        exp_sign = "";
-                    } else {
-                        buffer[i] = '\u{00}';
-                    }
-                }
-
-                Token::Digit0(Mode::Integer) => {
-                    if let Some(dd) = d {
-                        d = None;
-                        buffer[i] = dd;
-                    } else {
-                        buffer[i] = '0';
-                    }
-                }
-                Token::Digit(Mode::Integer) => {
-                    if let Some(dd) = d {
-                        d = None;
-                        buffer[i] = dd;
-                    } else {
-                        buffer[i] = ' ';
-                    }
-                }
-                Token::Numeric(Mode::Integer) => {
-                    if let Some(dd) = d {
-                        d = None;
-                        buffer[i] = dd;
-                    } else if sign == "-" {
-                        buffer[i] = sym.negative_sym;
-                        sign = "";
-                    } else {
-                        buffer[i] = ' ';
-                    }
-                }
-                Token::NumericOpt(Mode::Integer) => {
-                    if let Some(dd) = d {
-                        d = None;
-                        buffer[i] = dd;
-                    } else if sign == "-" {
-                        buffer[i] = sym.negative_sym;
-                        sign = "";
-                    } else {
-                        buffer[i] = '\u{00}';
-                    }
-                }
-                Token::GroupingSep => {
-                    if d.is_some() {
-                        buffer[i] = sym.decimal_grp;
-                    } else {
-                        buffer[i] = ' ';
-                    }
-                }
-                Token::GroupingSepAlways => {
-                    buffer[i] = sym.decimal_grp;
-                }
-                _ => {}
             }
         }
 
         if !sign.is_empty() {
             return Err(FmtError);
         }
-        if d.is_some() {
+        if len_int > max_int + 1 {
             return Err(FmtError);
         }
         // missing fractions are ok.
-        // shouldn't occur, we give the precision to display.
-        debug_assert!(it_fraction.next().is_none());
         if !exp_sign.is_empty() {
             return Err(FmtError);
         }
-        if it_exp.next().is_some() {
+        if len_exp > max_exp + 1 {
             return Err(FmtError);
         }
 

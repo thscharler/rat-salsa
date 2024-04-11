@@ -1420,38 +1420,37 @@ pub mod core {
             _ = number::core::clean_num(v, &NumberSymbols::new(), &mut clean);
 
             // create number format
-            let mut fmt = NumberFormat::default();
+            let mut tok = Vec::new();
             // default fmt.sym is nice
             for t in submask {
                 match &t.right {
-                    Mask::Digit0(EditDirection::Rtol) => fmt.tok.push(Token::Digit0(Mode::Integer)),
-                    Mask::Digit(EditDirection::Rtol) => fmt.tok.push(Token::Digit(Mode::Integer)),
+                    Mask::Digit0(EditDirection::Rtol) => tok.push(Token::Digit0(Mode::Integer, 0)),
+                    Mask::Digit(EditDirection::Rtol) => tok.push(Token::Digit(Mode::Integer, 0)),
                     Mask::Numeric(EditDirection::Rtol) => {
-                        fmt.tok.push(Token::Numeric(Mode::Integer))
+                        tok.push(Token::Numeric(Mode::Integer, 0))
                     }
-                    Mask::Digit0(EditDirection::Ltor) => {
-                        fmt.tok.push(Token::Digit0(Mode::Fraction))
-                    }
-                    Mask::Digit(EditDirection::Ltor) => fmt.tok.push(Token::Digit(Mode::Fraction)),
+                    Mask::Digit0(EditDirection::Ltor) => tok.push(Token::Digit0(Mode::Fraction, 0)),
+                    Mask::Digit(EditDirection::Ltor) => tok.push(Token::Digit(Mode::Fraction, 0)),
                     Mask::Numeric(EditDirection::Ltor) => {
-                        fmt.tok.push(Token::Numeric(Mode::Fraction))
+                        tok.push(Token::Numeric(Mode::Fraction, 0))
                     }
-                    Mask::DecimalSep => fmt.tok.push(Token::DecimalSep),
-                    Mask::GroupingSep => fmt.tok.push(Token::GroupingSep),
-                    Mask::Plus => fmt.tok.push(Token::Plus(Mode::Integer)),
-                    Mask::Minus => fmt.tok.push(Token::Minus(Mode::Integer)),
+                    Mask::DecimalSep => tok.push(Token::DecimalSep),
+                    Mask::GroupingSep => tok.push(Token::GroupingSep(0)),
+                    Mask::Plus => tok.push(Token::PlusInt),
+                    Mask::Minus => tok.push(Token::MinusInt),
                     Mask::Separator(s) => {
                         for c in s.chars() {
-                            fmt.tok.push(Token::Separator(c));
+                            tok.push(Token::Separator(c));
                         }
                     }
                     Mask::None => {}
                     _ => unreachable!("invalid mask"),
                 }
             }
+            let fmt = NumberFormat::new_tok(tok);
 
             let mut out = String::new();
-            number::core::map_num(clean.as_str(), &fmt, &NumberSymbols::new(), &mut out)?;
+            number::core::map_num(clean.as_str(), &fmt, fmt.sym(), &mut out)?;
 
             Ok(out)
         }

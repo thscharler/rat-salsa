@@ -6,33 +6,55 @@ use std::rc::Rc;
 
 #[test]
 fn test_format() -> Result<(), fmt::Error> {
-    _ = dbg!(number::format(1234, "#####"));
-    _ = dbg!(number::format(1234, "####0.00"));
-    _ = dbg!(number::format(1234, "###00.##"));
-    _ = dbg!(number::format(1234, "#####e###"));
-    _ = dbg!(number::format(1.234e14, "###,###,###,###,###f###"));
-    _ = dbg!(number::format(
-        1.234e-14,
-        "###,###,###,###,###.##################f###"
-    ));
-    _ = dbg!(number::format(1234, "+####"));
-    _ = dbg!(number::format(1234, "-####"));
-    _ = dbg!(number::format(-1234, "####-"));
+    assert_eq!(number::format(1234, "#####")?, " 1234");
+    assert_eq!(number::format(1234, "####0.00")?, " 1234.00");
+    assert_eq!(number::format(1234, "###00.##")?, " 1234   ");
+    assert_eq!(number::format(1234, "#####e###")?, "    1e  3");
+    assert_eq!(
+        number::format(1.234e14, "###,###,###,###,###f###")?,
+        "                  1e 14"
+    );
+    assert_eq!(
+        number::format(1.234e-14, "###,###,###,###,###.##################f###")?,
+        "                  1.233999999999999936e-14"
+    );
+    assert_eq!(number::format(1234, "+####")?, "+1234");
+    assert_eq!(number::format(1234, "-####")?, " 1234");
+    assert_eq!(number::format(-1234, "#####")?, "-1234");
+    assert_eq!(number::format(-1234, "####-")?, "1234-");
+    assert_eq!(number::format(-1234, "#####-")?, " 1234-");
     Ok(())
 }
 
 #[test]
 fn test_fmt() -> Result<(), std::fmt::Error> {
-    println!("{}", 32.format("####", &NumberSymbols::new())?);
-    println!("{}", 32.23f64.format("0000.00", &NumberSymbols::new())?);
-    println!(
-        "{}",
-        32.23f64.format("0000.00e+000", &NumberSymbols::new())?
+    assert_eq!(
+        format!("{}", 32.format("####", &NumberSymbols::new())?).to_string(),
+        "  32"
     );
-    println!("{}", 32.23f64.format("###0.00e888", &NumberSymbols::new())?);
-    println!(
-        "{}",
-        0.003223f64.format("###0.00e888", &NumberSymbols::new())?
+    assert_eq!(
+        format!("{}", 32.23f64.format("0000.00", &NumberSymbols::new())?).to_string(),
+        "0032.23"
+    );
+    assert_eq!(
+        format!(
+            "{}",
+            32.23f64.format("0000.00e+000", &NumberSymbols::new())?
+        )
+        .to_string(),
+        "0003.22e+001"
+    );
+    assert_eq!(
+        format!("{}", 32.23f64.format("###0.00e888", &NumberSymbols::new())?).to_string(),
+        "   3.22e1"
+    );
+    assert_eq!(
+        format!(
+            "{}",
+            0.003223f64.format("###0.00e888", &NumberSymbols::new())?
+        )
+        .to_string(),
+        "   3.22e-3"
     );
 
     Ok(())
@@ -40,7 +62,7 @@ fn test_fmt() -> Result<(), std::fmt::Error> {
 
 #[test]
 fn test_parse() {
-    println!("{:?}", parse_sym::<f32>("111", &Default::default()));
+    assert_eq!(parse_sym::<f32>("111", &Default::default()), Ok(111f32));
 }
 
 #[test]
@@ -59,14 +81,13 @@ fn test_currency() -> Result<(), std::fmt::Error> {
         ..Default::default()
     });
 
-    println!("{}", 112.format("$ ###0", &sym)?);
-    println!("{}", 112.format("$ ###0", &sym2)?);
+    assert_eq!(number::formats(112, "$ ###0", &sym)?, "€  112");
+    assert_eq!(number::formats(112, "$ ###0", &sym2)?, "Rub  112");
 
     let fmt = NumberFormat::news("$ ###0", &sym)?;
-    println!("{:?}", "€  112".parse_fmt::<f64>(&fmt));
-
+    assert_eq!(number::parse_fmt("€  112", &fmt), Ok(112));
     let fmt2 = NumberFormat::news("$ ###0", &sym2)?;
-    println!("{:?}", "Rub  112".parse_fmt::<f64>(&fmt2));
+    assert_eq!(number::parse_fmt("Rub  112", &fmt2), Ok(112));
 
     Ok(())
 }
