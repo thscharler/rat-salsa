@@ -5,6 +5,21 @@ use std::fmt;
 use std::rc::Rc;
 
 #[test]
+fn test_format_struct() -> Result<(), fmt::Error> {
+    let fmt = NumberFormat::new("####")?;
+    let mut str = String::new();
+    number::core::map_num("-.", &fmt, fmt.sym(), &mut str)?;
+    assert_eq!(str, "   -");
+
+    assert_eq!(number::format(-1, "####")?, "  -1");
+    assert_eq!(number::format(-1, "###0")?, "  -1");
+    assert_eq!(number::format(-1, "##00")?, " -01");
+    assert_eq!(number::format(-1, "#000")?, "-001");
+
+    Ok(())
+}
+
+#[test]
 fn test_format() -> Result<(), fmt::Error> {
     assert_eq!(number::format(1234, "#####")?, " 1234");
     assert_eq!(number::format(1234, "####0.00")?, " 1234.00");
@@ -23,6 +38,7 @@ fn test_format() -> Result<(), fmt::Error> {
     assert_eq!(number::format(-1234, "#####")?, "-1234");
     assert_eq!(number::format(-1234, "####-")?, "1234-");
     assert_eq!(number::format(-1234, "#####-")?, " 1234-");
+    assert_eq!(number::format(-1, "###00")?, "  -01");
     Ok(())
 }
 
