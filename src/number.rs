@@ -862,16 +862,16 @@ pub mod core {
             if c.is_ascii_digit() {
                 seen_non_0 |= c != '0';
                 if seen_non_0 {
-                    write!(out, "{}", c)?;
+                    out.write_char(c)?;
                 }
             } else if c == sym.negative_sym {
-                write!(out, "-")?;
+                out.write_char('-')?;
             } else if c == sym.decimal_sep {
-                write!(out, ".")?;
+                out.write_char('.')?;
             } else if c == sym.exponent_lower_sym {
-                write!(out, "e")?;
+                out.write_char('e')?;
             } else if c == sym.exponent_upper_sym {
-                write!(out, "e")?;
+                out.write_char('e')?;
             }
         }
         Ok(())
@@ -899,14 +899,14 @@ pub mod core {
             match t {
                 Token::Digit0(_, _) => {
                     if c.is_ascii_digit() {
-                        write!(out, "{}", c)?; // todo: dont use write
+                        out.write_char(c)?;
                     } else {
                         return Err(FmtError);
                     }
                 }
                 Token::Digit(_, _) => {
                     if c.is_ascii_digit() {
-                        write!(out, "{}", c)?;
+                        out.write_char(c)?;
                     } else if c == ' ' {
                         // ok
                     } else {
@@ -915,9 +915,9 @@ pub mod core {
                 }
                 Token::Numeric(_, _) => {
                     if c.is_ascii_digit() {
-                        write!(out, "{}", c)?;
+                        out.write_char(c)?;
                     } else if c == sym.negative_sym {
-                        write!(out, "-")?;
+                        out.write_char('-')?;
                     } else if c == ' ' {
                         // ok
                     } else {
@@ -929,7 +929,7 @@ pub mod core {
                 }
                 Token::PlusInt | Token::PlusExp => {
                     if c == sym.negative_sym {
-                        write!(out, "-")?;
+                        out.write_char('-')?;
                     } else if c == sym.positive_sym {
                         // ok
                     } else {
@@ -938,7 +938,7 @@ pub mod core {
                 }
                 Token::MinusInt | Token::MinusExp => {
                     if c == sym.negative_sym {
-                        write!(out, "-")?;
+                        out.write_char('-')?;
                     } else if c == ' ' {
                         // ok
                     } else {
@@ -947,7 +947,7 @@ pub mod core {
                 }
                 Token::DecimalSep => {
                     if c == sym.decimal_sep {
-                        write!(out, ".")?;
+                        out.write_char('.')?;
                     } else if c == ' ' {
                         // ok
                     } else {
@@ -956,7 +956,7 @@ pub mod core {
                 }
                 Token::DecimalSepAlways => {
                     if c == sym.decimal_sep {
-                        write!(out, ".")?;
+                        out.write_char('.')?;
                     } else {
                         return Err(FmtError);
                     }
@@ -979,7 +979,7 @@ pub mod core {
                 }
                 Token::ExponentUpper => {
                     if c == sym.exponent_upper_sym {
-                        write!(out, "e")?;
+                        out.write_char('e')?;
                     } else if c == ' ' {
                         // ok
                     } else {
@@ -988,14 +988,14 @@ pub mod core {
                 }
                 Token::ExponentUpperAlways => {
                     if c == sym.exponent_upper_sym {
-                        write!(out, "e")?;
+                        out.write_char('e')?;
                     } else {
                         return Err(FmtError);
                     }
                 }
                 Token::ExponentLower => {
                     if c == sym.exponent_lower_sym {
-                        write!(out, "e")?;
+                        out.write_char('e')?;
                     } else if c == ' ' {
                         // ok
                     } else {
@@ -1004,7 +1004,7 @@ pub mod core {
                 }
                 Token::ExponentLowerAlways => {
                     if c == sym.exponent_lower_sym {
-                        write!(out, "e")?;
+                        out.write_char('e')?;
                     } else {
                         return Err(FmtError);
                     }
