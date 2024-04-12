@@ -5,8 +5,39 @@ use std::fmt;
 use std::rc::Rc;
 
 #[test]
-fn test_std() {
-    dbg!(NumberFormat::new("###e##00"));
+fn test_std() -> Result<(), fmt::Error> {
+    let fmt = NumberFormat::new("###e##00").unwrap();
+    println!("{}", fmt);
+    println!("{:?} {}", fmt.fmt(1).unwrap(), 1);
+    println!("{:?} {}", fmt.fmt(1e1).unwrap(), 1e1);
+    println!("{:?} {}", fmt.fmt(1e-1).unwrap(), 1e-1);
+    println!("{:?} {}", fmt.fmt(1e12).unwrap(), 1e12);
+    println!("{:?} {}", fmt.fmt(1e-12).unwrap(), 1e-12);
+
+    let fmt = NumberFormat::new("###e###0").unwrap();
+    println!("{}", fmt);
+    println!("{:?} {}", fmt.fmt(1).unwrap(), 1);
+    println!("{:?} {}", fmt.fmt(1e1).unwrap(), 1e1);
+    println!("{:?} {}", fmt.fmt(1e-1).unwrap(), 1e-1);
+    println!("{:?} {}", fmt.fmt(1e12).unwrap(), 1e12);
+    println!("{:?} {}", fmt.fmt(1e-12).unwrap(), 1e-12);
+
+    let fmt = NumberFormat::new("###e####").unwrap();
+    println!("{}", fmt);
+    println!("{:?} {}", fmt.fmt(1).unwrap(), 1);
+    println!("{:?} {}", fmt.fmt(1e1).unwrap(), 1e1);
+    println!("{:?} {}", fmt.fmt(1e-1).unwrap(), 1e-1);
+    println!("{:?} {}", fmt.fmt(1e12).unwrap(), 1e12);
+    println!("{:?} {}", fmt.fmt(1e-12).unwrap(), 1e-12);
+
+    let fmt = NumberFormat::new("###e##").unwrap();
+    println!("{}", fmt);
+    println!("{:?} {}", fmt.fmt(1).unwrap(), 1);
+    println!("{:?} {}", fmt.fmt(1e1).unwrap(), 1e1);
+    println!("{:?} {}", fmt.fmt(1e-1).unwrap(), 1e-1);
+    println!("{:?} {}", fmt.fmt(1e12).unwrap(), 1e12);
+    // println!("{:?} {}", fmt.fmt(1e-12).unwrap(), 1e-12);
+    Ok(())
 }
 
 #[test]

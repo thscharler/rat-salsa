@@ -30,21 +30,15 @@
 //!
 //! The following patterns are recognized:
 //! * `0` - digit or 0
-//! * `9` - digit or space
 //! * `#` - digit or sign or space
-//! * `8` - digit or sign or _empty string_
-//! * `+` - sign; show + for positive
 //! * `-` - sign; show space for positive
 //! * `.` - decimal separator
 //! * `:` - decimal separator, always shown
 //! * `,` - grouping separator
-//! * `;` - grouping separator, always shown
 //! * `E` - upper case exponent
-//! * `F` - upper case exponent, always shown
 //! * `e` - lower case exponent
-//! * `f` - lower case exponent, always shown
 //! * ` ` - space can be used as separator
-//! * '$' - currency, variable width dependent on the defined symbol.
+//! * '$' - currency. repeat for multi-char currency symbols.
 //! * `\` - all ascii characters (ascii 32-128!) are reserved and must be escaped.
 //! * `_` - other unicode characters can be used without escaping.
 //!
@@ -53,7 +47,7 @@ use pure_rust_locales as rust_locid;
 use pure_rust_locales::locale_match;
 use rust_decimal::Decimal;
 use std::fmt;
-use std::fmt::{Debug, Display, Error as FmtError, Formatter, LowerExp, Write as FmtWrite};
+use std::fmt::{Debug, Display, Error as FmtError, Error, Formatter, LowerExp, Write as FmtWrite};
 use std::rc::Rc;
 use std::str::{from_utf8_unchecked, FromStr};
 
@@ -327,7 +321,7 @@ pub enum Token {
 }
 
 /// Holds the pattern for the numberformat and some additional data.
-#[derive(Default, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct NumberFormat {
     /// Has a separate sign token for the integer part.
     has_int_sign: bool,
@@ -470,7 +464,7 @@ impl NumberFormat {
                 Token::Digit0(Mode::Exponent, x) => {
                     len_exp += 1;
                     has_exp_0 = true;
-                    min_exp_sign = idx_exp;
+                    min_exp_sign = idx_exp + 1;
                     *x = idx_exp;
                     idx_exp += 1;
                 }
@@ -515,16 +509,20 @@ impl NumberFormat {
 
     /// Formats or returns the error converted to a string.
     #[inline]
-    pub fn fmt<Number: LowerExp + Display>(&self, number: Number) -> String {
+    pub fn fmt<Number: LowerExp + Display>(&self, number: Number) -> Result<String, fmt::Error> {
         let mut out = String::new();
-        _ = core::format_to(number, self, self.sym.as_ref(), &mut out);
-        out
+        core::format_to(number, self, self.sym.as_ref(), &mut out)?;
+        Ok(out)
     }
 
     /// Formats or returns the error converted to a string.
     #[inline]
-    pub fn fmt_to<Number: LowerExp + Display, W: FmtWrite>(&self, number: Number, out: &mut W) {
-        _ = core::format_to(number, self, self.sym.as_ref(), out);
+    pub fn fmt_to<Number: LowerExp + Display, W: FmtWrite>(
+        &self,
+        number: Number,
+        out: &mut W,
+    ) -> Result<(), fmt::Error> {
+        core::format_to(number, self, self.sym.as_ref(), out)
     }
 
     #[inline]
@@ -633,23 +631,6 @@ define_fmt!(i8);
 define_fmt!(usize);
 define_fmt!(isize);
 define_fmt!(Decimal);
-
-impl Debug for NumberFormat {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        f.debug_struct("NumberFormat")
-            .field("has_int_sign", &self.has_int_sign)
-            .field("min_int_sign", &self.min_int_sign)
-            .field("has_exp_sign", &self.has_exp_sign)
-            .field("min_exp_sign", &self.min_exp_sign)
-            .field("has_exp", &self.has_exp)
-            .field("has_exp_0", &self.has_exp_0)
-            .field("has_frac_0", &self.has_frac_0)
-            .field("precision", &self.len_frac)
-            .field("sym", &self.sym)
-            .field("tok", &self.tok)
-            .finish()
-    }
-}
 
 pub mod core {
     use crate::number::{Mode, NumberFormat, NumberSymbols, Token};
@@ -960,8 +941,26 @@ pub mod core {
         let exp = exp.as_bytes();
         let len_exp = exp.len() as u32;
 
+        // let len_sign = sign.len() as u32;
+        let len_exp_sign = exp_sign.len() as u32;
+
         let mut used_sign = sign.is_empty();
         let mut used_exp_sign = exp_sign.is_empty();
+
+        // missing fractions are ok. other missing digits not.
+        if len_int > format.len_int {
+            return Err(FmtError);
+        }
+        if len_exp > format.len_exp {
+            return Err(FmtError);
+        }
+        // not enough space for the exponent
+        if max(len_exp, format.min_exp_sign) + len_exp_sign > format.len_exp {
+            return Err(FmtError);
+        }
+        // left shift the exponent and fill the rest with ' '.
+        let shift_exp_n = format.len_exp - max(len_exp, format.min_exp_sign) - len_exp_sign;
+        let shift_exp_pos = max(len_exp, format.min_exp_sign) + len_exp_sign;
 
         for m in format.tok.iter() {
             match m {
@@ -974,18 +973,19 @@ pub mod core {
                     used_sign = true;
                 }
                 Token::GroupingSep(i) => {
-                    if let Some(decimal_grp) = sym.decimal_grp {
-                        if len_int > *i {
-                            out.write_char(decimal_grp)?;
-                        } else if max(len_int, format.min_int_sign) == *i
-                            && !used_sign
-                            && !format.has_int_sign
-                        {
-                            out.write_str(sign)?;
-                            used_sign = true;
-                        } else {
-                            out.write_char(' ')?;
-                        }
+                    let Some(decimal_grp) = sym.decimal_grp else {
+                        continue;
+                    };
+                    if len_int > *i {
+                        out.write_char(decimal_grp)?;
+                    } else if max(len_int, format.min_int_sign) == *i
+                        && !used_sign
+                        && !format.has_int_sign
+                    {
+                        out.write_str(sign)?;
+                        used_sign = true;
+                    } else {
+                        out.write_char(' ')?;
                     }
                 }
                 Token::Digit0(Mode::Integer, i) => {
@@ -1009,7 +1009,6 @@ pub mod core {
                         out.write_char(' ')?;
                     }
                 }
-
                 Token::DecimalSep => {
                     if !frac.is_empty() || format.has_frac_0 {
                         out.write_char(sym.decimal_sep)?;
@@ -1034,7 +1033,6 @@ pub mod core {
                         out.write_char(' ')?;
                     }
                 }
-
                 Token::ExponentUpper => {
                     if !exp.is_empty() || format.has_exp_0 {
                         out.write_char(sym.exponent_upper_sym)?;
@@ -1049,7 +1047,6 @@ pub mod core {
                         out.write_char(' ')?;
                     }
                 }
-
                 Token::SignExp => {
                     if exp_sign.is_empty() && sym.positive_sym == ' ' {
                         // explicit sign in the exponent shows '+'.
@@ -1062,14 +1059,25 @@ pub mod core {
                     used_exp_sign = true;
                 }
                 Token::Digit0(Mode::Exponent, i) => {
-                    if len_exp > *i {
+                    if *i >= shift_exp_pos {
+                        // left-shift exponent
+                    } else if len_exp > *i {
                         out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
                     } else {
                         out.write_char('0')?;
                     }
+
+                    // append shifted digits as blank
+                    if *i == 0 {
+                        for _ in 0..shift_exp_n {
+                            out.write_char(' ')?;
+                        }
+                    }
                 }
                 Token::Digit(Mode::Exponent, i, _) => {
-                    if len_exp > *i {
+                    if *i >= shift_exp_pos {
+                        // left-shift exponent
+                    } else if len_exp > *i {
                         out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
                     } else if max(len_exp, format.min_exp_sign) == *i
                         && !used_exp_sign
@@ -1079,6 +1087,13 @@ pub mod core {
                         used_exp_sign = true;
                     } else {
                         out.write_char(' ')?;
+                    }
+
+                    // append shifted digits as blank
+                    if *i == 0 {
+                        for _ in 0..shift_exp_n {
+                            out.write_char(' ')?;
+                        }
                     }
                 }
                 Token::Currency => {
@@ -1093,14 +1108,7 @@ pub mod core {
         if !used_sign {
             return Err(FmtError);
         }
-        if len_int > format.len_int {
-            return Err(FmtError);
-        }
-        // missing fractions are ok.
         if !used_exp_sign {
-            return Err(FmtError);
-        }
-        if len_exp > format.len_exp {
             return Err(FmtError);
         }
 
