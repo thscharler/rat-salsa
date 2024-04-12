@@ -316,12 +316,8 @@ pub enum Token {
     GroupingSep(u32),
     /// Mask char "E". Exponent separator.
     ExponentUpper,
-    /// Mask char "F". Exponent separator.
-    ExponentUpperAlways,
     /// Mask char "e". Exponent separator.
     ExponentLower,
-    /// Mask char "f". Exponent separator.
-    ExponentLowerAlways,
     /// Mask char "-". Exponent sign.
     SignExp,
     /// Mask char "$". Currency. Each $ takes one character of the symbol.
@@ -337,18 +333,25 @@ pub struct NumberFormat {
     has_int_sign: bool,
     /// Minimum position where a sign can be placed. Just left of a `Token::Digit0`
     min_int_sign: u32,
+    /// Number of integer digits.
+    len_int: u32,
+
     /// has a separate sign token for the exponent part.
     has_exp_sign: bool,
     /// Minimum position where a sign can be placed. Just left of a `Token::Digit0`
     min_exp_sign: u32,
     /// Decides which std-format is used. If true it's `{:e}` otherwise plain `{}`
     has_exp: bool,
+    /// Number of exponent digits
+    len_exp: u32,
     /// Has an exponent with a '0' pattern.
     has_exp_0: bool,
+
     /// Has a fraction with a '0' pattern.
     has_frac_0: bool,
     /// The required precision for this format. Is used for the underlying std-format.
-    precision: u8,
+    len_frac: u8,
+
     /// Tokens.
     tok: Vec<Token>,
     /// Symbols.
@@ -366,9 +369,7 @@ impl Display for NumberFormat {
                 Token::DecimalSepAlways => write!(f, ":")?,
                 Token::GroupingSep(_) => write!(f, ",")?,
                 Token::ExponentUpper => write!(f, "E")?,
-                Token::ExponentUpperAlways => write!(f, "F")?,
                 Token::ExponentLower => write!(f, "e")?,
-                Token::ExponentLowerAlways => write!(f, "f")?,
                 Token::SignExp => write!(f, "-")?,
                 Token::Currency => write!(f, "$")?,
                 Token::Separator(c) => {
@@ -414,28 +415,27 @@ impl NumberFormat {
         let mut min_int_sign = 0;
         let mut has_exp_sign = false;
         let mut min_exp_sign = 0;
-        let mut precision = 0;
+        let mut len_frac = 0;
+        let mut len_int = 0;
+        let mut len_exp = 0;
 
         let mut idx_frac = 0;
         for t in pattern.iter_mut() {
             match t {
                 Token::Digit0(Mode::Fraction, x) => {
                     has_frac_0 = true;
-                    precision += 1;
+                    len_frac += 1;
                     *x = idx_frac;
                     idx_frac += 1;
                 }
                 Token::Digit(Mode::Fraction, x, sign) => {
-                    precision += 1;
+                    len_frac += 1;
                     *x = idx_frac;
                     *sign = false;
                     idx_frac += 1;
                 }
 
-                Token::ExponentLower
-                | Token::ExponentLowerAlways
-                | Token::ExponentUpper
-                | Token::ExponentUpperAlways => {
+                Token::ExponentLower | Token::ExponentUpper => {
                     has_exp = true;
                 }
 
@@ -451,11 +451,13 @@ impl NumberFormat {
         for t in pattern.iter_mut().rev() {
             match t {
                 Token::Digit0(Mode::Integer, x) => {
+                    len_int += 1;
                     min_int_sign = idx_int + 1;
                     *x = idx_int;
                     idx_int += 1;
                 }
                 Token::Digit(Mode::Integer, x, sign) => {
+                    len_int += 1;
                     *x = idx_int;
                     *sign = !was_grp;
                     idx_int += 1;
@@ -466,12 +468,14 @@ impl NumberFormat {
                 }
 
                 Token::Digit0(Mode::Exponent, x) => {
+                    len_exp += 1;
                     has_exp_0 = true;
                     min_exp_sign = idx_exp;
                     *x = idx_exp;
                     idx_exp += 1;
                 }
                 Token::Digit(Mode::Exponent, x, sign) => {
+                    len_exp += 1;
                     *x = idx_exp;
                     *sign = true;
                     idx_exp += 1;
@@ -486,12 +490,14 @@ impl NumberFormat {
         NumberFormat {
             has_int_sign,
             min_int_sign,
+            len_int,
             has_exp_sign,
             min_exp_sign,
             has_exp,
+            len_exp,
             has_exp_0,
             has_frac_0,
-            precision,
+            len_frac,
             tok: pattern,
             sym: Rc::clone(sym),
         }
@@ -502,53 +508,9 @@ impl NumberFormat {
         self.sym.as_ref()
     }
 
-    ///
+    /// Tokens
     pub fn tok(&self) -> &[Token] {
         &self.tok
-    }
-
-    /// Has `Token::Plus` or `Token::Minus`
-    pub fn has_int_sign(&self) -> bool {
-        self.has_int_sign
-    }
-
-    /// Minimum position where a sign can be placed.
-    /// Just left of a `Token::Digit` or `Token::Digit0` if there is a `Token::Numeric` or
-    /// `Token::NumericOpt`
-    pub fn min_int_sign(&self) -> u32 {
-        self.min_int_sign
-    }
-
-    /// Has `Token::Plus` or `Token::Minus`
-    pub fn has_exp_sign(&self) -> bool {
-        self.has_exp_sign
-    }
-
-    /// Minimum position where a sign can be placed.
-    /// Just left of a `Token::Digit` or `Token::Digit0` if there is a `Token::Numeric` or
-    /// `Token::NumericOpt`
-    pub fn min_exp_sign(&self) -> u32 {
-        self.min_exp_sign
-    }
-
-    /// Has any `Token::Exponent*`
-    pub fn has_exp(&self) -> bool {
-        self.has_exp
-    }
-
-    /// Has a `Token::Digit0` in the exponent.
-    pub fn has_exp_0(&self) -> bool {
-        self.has_exp_0
-    }
-
-    /// Has a `Token::Digit0` in the fraction.
-    pub fn has_frac_0(&self) -> bool {
-        self.has_frac_0
-    }
-
-    /// Decimal precision of the pattern.
-    pub fn precision(&self) -> u8 {
-        self.precision
     }
 
     /// Formats or returns the error converted to a string.
@@ -682,7 +644,7 @@ impl Debug for NumberFormat {
             .field("has_exp", &self.has_exp)
             .field("has_exp_0", &self.has_exp_0)
             .field("has_frac_0", &self.has_frac_0)
-            .field("precision", &self.precision)
+            .field("precision", &self.len_frac)
             .field("sym", &self.sym)
             .field("tok", &self.tok)
             .finish()
@@ -746,20 +708,6 @@ pub mod core {
                         Token::ExponentLower
                     }
                     'E' => {
-                        if mode == Mode::Exponent {
-                            return Err(FmtError);
-                        }
-                        mode = Mode::Exponent;
-                        Token::ExponentUpper
-                    }
-                    'f' => {
-                        if mode == Mode::Exponent {
-                            return Err(FmtError);
-                        }
-                        mode = Mode::Exponent;
-                        Token::ExponentLower
-                    }
-                    'F' => {
                         if mode == Mode::Exponent {
                             return Err(FmtError);
                         }
@@ -961,25 +909,11 @@ pub mod core {
                         return Err(FmtError);
                     }
                 }
-                Token::ExponentUpperAlways => {
-                    if c == sym.exponent_upper_sym {
-                        out.write_char('e')?;
-                    } else {
-                        return Err(FmtError);
-                    }
-                }
                 Token::ExponentLower => {
                     if c == sym.exponent_lower_sym {
                         out.write_char('e')?;
                     } else if c == ' ' {
                         // ok
-                    } else {
-                        return Err(FmtError);
-                    }
-                }
-                Token::ExponentLowerAlways => {
-                    if c == sym.exponent_lower_sym {
-                        out.write_char('e')?;
                     } else {
                         return Err(FmtError);
                     }
@@ -1017,45 +951,44 @@ pub mod core {
         sym: &NumberSymbols,
         out: &mut W,
     ) -> Result<(), FmtError> {
-        let (mut sign, int, frac, mut exp_sign, exp) = split_num(raw);
+        let (sign, int, frac, exp_sign, exp) = split_num(raw);
 
         let int = int.as_bytes();
         let len_int = int.len() as u32;
-        let mut max_int = 0;
         let frac = frac.as_bytes();
         let len_frac = frac.len() as u32;
-        let mut max_frac = 0;
         let exp = exp.as_bytes();
         let len_exp = exp.len() as u32;
-        let mut max_exp = 0;
+
+        let mut used_sign = sign.is_empty();
+        let mut used_exp_sign = exp_sign.is_empty();
 
         for m in format.tok.iter() {
             match m {
                 Token::SignInt => {
-                    if sign.is_empty() {
+                    if !used_sign {
                         out.write_char(sym.positive_sym)?;
                     } else {
                         out.write_char(sym.negative_sym)?;
                     }
-                    sign = "";
+                    used_sign = true;
                 }
                 Token::GroupingSep(i) => {
                     if let Some(decimal_grp) = sym.decimal_grp {
                         if len_int > *i {
                             out.write_char(decimal_grp)?;
                         } else if max(len_int, format.min_int_sign) == *i
-                            && !sign.is_empty()
+                            && !used_sign
                             && !format.has_int_sign
                         {
                             out.write_str(sign)?;
-                            sign = "";
+                            used_sign = true;
                         } else {
                             out.write_char(' ')?;
                         }
                     }
                 }
                 Token::Digit0(Mode::Integer, i) => {
-                    max_int = max(max_int, *i);
                     if len_int > *i {
                         out.write_char(int[(len_int - i - 1) as usize] as char)?;
                     } else {
@@ -1063,16 +996,15 @@ pub mod core {
                     }
                 }
                 Token::Digit(Mode::Integer, i, can_be_sign) => {
-                    max_int = max(max_int, *i);
                     if len_int > *i {
                         out.write_char(int[(len_int - i - 1) as usize] as char)?;
                     } else if max(len_int, format.min_int_sign) == *i
                         && *can_be_sign
-                        && !sign.is_empty()
+                        && !used_sign
                         && !format.has_int_sign
                     {
                         out.write_str(sign)?;
-                        sign = "";
+                        used_sign = true;
                     } else {
                         out.write_char(' ')?;
                     }
@@ -1089,7 +1021,6 @@ pub mod core {
                     out.write_char(sym.decimal_sep)?;
                 }
                 Token::Digit0(Mode::Fraction, i) => {
-                    max_frac = max(max_frac, *i);
                     if len_frac > *i {
                         out.write_char(frac[*i as usize] as char)?;
                     } else {
@@ -1097,7 +1028,6 @@ pub mod core {
                     }
                 }
                 Token::Digit(Mode::Fraction, i, _) => {
-                    max_frac = max(max_frac, *i);
                     if len_frac > *i {
                         out.write_char(frac[*i as usize] as char)?;
                     } else {
@@ -1119,26 +1049,19 @@ pub mod core {
                         out.write_char(' ')?;
                     }
                 }
-                Token::ExponentUpperAlways => {
-                    out.write_char(sym.exponent_upper_sym)?;
-                }
-                Token::ExponentLowerAlways => {
-                    out.write_char(sym.exponent_lower_sym)?;
-                }
 
                 Token::SignExp => {
                     if exp_sign.is_empty() && sym.positive_sym == ' ' {
-                        // explizit sign in the exponent shows '+'.
+                        // explicit sign in the exponent shows '+'.
                         out.write_char('+')?;
                     } else if exp_sign.is_empty() {
                         out.write_char(sym.positive_sym)?;
                     } else {
                         out.write_char(sym.negative_sym)?;
                     }
-                    exp_sign = "";
+                    used_exp_sign = true;
                 }
                 Token::Digit0(Mode::Exponent, i) => {
-                    max_exp = max(max_exp, *i);
                     if len_exp > *i {
                         out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
                     } else {
@@ -1146,15 +1069,14 @@ pub mod core {
                     }
                 }
                 Token::Digit(Mode::Exponent, i, _) => {
-                    max_exp = max(max_exp, *i);
                     if len_exp > *i {
                         out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
                     } else if max(len_exp, format.min_exp_sign) == *i
-                        && !exp_sign.is_empty()
+                        && !used_exp_sign
                         && !format.has_exp_sign
                     {
                         out.write_str(exp_sign)?;
-                        exp_sign = "";
+                        used_exp_sign = true;
                     } else {
                         out.write_char(' ')?;
                     }
@@ -1168,17 +1090,17 @@ pub mod core {
             }
         }
 
-        if !sign.is_empty() {
+        if !used_sign {
             return Err(FmtError);
         }
-        if len_int > max_int + 1 {
+        if len_int > format.len_int {
             return Err(FmtError);
         }
         // missing fractions are ok.
-        if !exp_sign.is_empty() {
+        if !used_exp_sign {
             return Err(FmtError);
         }
-        if len_exp > max_exp + 1 {
+        if len_exp > format.len_exp {
             return Err(FmtError);
         }
 
@@ -1200,9 +1122,9 @@ pub mod core {
 
         raw.clear();
         if format.has_exp {
-            write!(raw, "{:.*e}", format.precision as usize, number).map_err(|_| FmtError)?;
+            write!(raw, "{:.*e}", format.len_frac as usize, number).map_err(|_| FmtError)?;
         } else {
-            write!(raw, "{:.*}", format.precision as usize, number).map_err(|_| FmtError)?;
+            write!(raw, "{:.*}", format.len_frac as usize, number).map_err(|_| FmtError)?;
         };
 
         match map_num(raw.as_str(), format, sym, out) {

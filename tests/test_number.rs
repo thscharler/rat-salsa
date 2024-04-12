@@ -5,6 +5,11 @@ use std::fmt;
 use std::rc::Rc;
 
 #[test]
+fn test_std() {
+    dbg!(NumberFormat::new("###e##00"));
+}
+
+#[test]
 fn test_grouping() {
     assert_eq!(number::format(-123, "##,###").unwrap(), "  -123");
     assert_eq!(number::format(-1234, "##,###").unwrap(), "-1,234");
