@@ -305,7 +305,7 @@ pub enum Token {
     /// Mask char "0". Digit or 0
     Digit0(Mode, u32),
     /// Mask char "#". Digit or sign or space
-    Numeric(Mode, u32, bool),
+    Digit(Mode, u32, bool),
     /// Mask char "-". Integer sign.
     SignInt,
     /// Mask char ".". Decimal separator.
@@ -360,7 +360,7 @@ impl Display for NumberFormat {
         for t in &self.tok {
             match t {
                 Token::Digit0(_, _) => write!(f, "0")?,
-                Token::Numeric(_, _, _) => write!(f, "#")?,
+                Token::Digit(_, _, _) => write!(f, "#")?,
                 Token::SignInt => write!(f, "-")?,
                 Token::DecimalSep => write!(f, ".")?,
                 Token::DecimalSepAlways => write!(f, ":")?,
@@ -425,7 +425,7 @@ impl NumberFormat {
                     *x = idx_frac;
                     idx_frac += 1;
                 }
-                Token::Numeric(Mode::Fraction, x, sign) => {
+                Token::Digit(Mode::Fraction, x, sign) => {
                     precision += 1;
                     *x = idx_frac;
                     *sign = false;
@@ -455,7 +455,7 @@ impl NumberFormat {
                     *x = idx_int;
                     idx_int += 1;
                 }
-                Token::Numeric(Mode::Integer, x, sign) => {
+                Token::Digit(Mode::Integer, x, sign) => {
                     *x = idx_int;
                     *sign = !was_grp;
                     idx_int += 1;
@@ -471,7 +471,7 @@ impl NumberFormat {
                     *x = idx_exp;
                     idx_exp += 1;
                 }
-                Token::Numeric(Mode::Exponent, x, sign) => {
+                Token::Digit(Mode::Exponent, x, sign) => {
                     *x = idx_exp;
                     *sign = true;
                     idx_exp += 1;
@@ -713,7 +713,7 @@ pub mod core {
             } else {
                 match m {
                     '0' => Token::Digit0(mode, 0),
-                    '#' => Token::Numeric(mode, 0, false),
+                    '#' => Token::Digit(mode, 0, false),
                     '.' => {
                         if matches!(mode, Mode::Fraction | Mode::Exponent) {
                             return Err(FmtError);
@@ -894,7 +894,7 @@ pub mod core {
                         return Err(FmtError);
                     }
                 }
-                Token::Numeric(_, _, _) => {
+                Token::Digit(_, _, _) => {
                     if c.is_ascii_digit() {
                         out.write_char(c)?;
                     } else if c == sym.negative_sym {
@@ -1062,7 +1062,7 @@ pub mod core {
                         out.write_char('0')?;
                     }
                 }
-                Token::Numeric(Mode::Integer, i, can_be_sign) => {
+                Token::Digit(Mode::Integer, i, can_be_sign) => {
                     max_int = max(max_int, *i);
                     if len_int > *i {
                         out.write_char(int[(len_int - i - 1) as usize] as char)?;
@@ -1096,7 +1096,7 @@ pub mod core {
                         out.write_char('0')?;
                     }
                 }
-                Token::Numeric(Mode::Fraction, i, _) => {
+                Token::Digit(Mode::Fraction, i, _) => {
                     max_frac = max(max_frac, *i);
                     if len_frac > *i {
                         out.write_char(frac[*i as usize] as char)?;
@@ -1145,7 +1145,7 @@ pub mod core {
                         out.write_char('0')?;
                     }
                 }
-                Token::Numeric(Mode::Exponent, i, _) => {
+                Token::Digit(Mode::Exponent, i, _) => {
                     max_exp = max(max_exp, *i);
                     if len_exp > *i {
                         out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
