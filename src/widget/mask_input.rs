@@ -869,7 +869,6 @@ pub mod core {
     #[derive(Clone, PartialEq, Eq, Default)]
     pub enum Mask {
         Digit0(EditDirection),
-        Digit(EditDirection),
         Numeric(EditDirection),
         DecimalSep,
         GroupingSep,
@@ -932,7 +931,6 @@ pub mod core {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             let s = match self {
                 Mask::Digit0(_) => "0",
-                Mask::Digit(_) => "9",
                 Mask::Numeric(_) => "#",
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => ",",
@@ -981,9 +979,6 @@ pub mod core {
             match self {
                 Mask::Digit0(d) => {
                     write!(f, "{:?}0", d)
-                }
-                Mask::Digit(d) => {
-                    write!(f, "{:?}9", d)
                 }
                 Mask::Numeric(d) => {
                     write!(f, "{:?}#", d)
@@ -1050,7 +1045,6 @@ pub mod core {
         fn is_number(&self) -> bool {
             match self {
                 Mask::Digit0(_) => true,
-                Mask::Digit(_) => true,
                 Mask::Numeric(_) => true,
                 Mask::DecimalSep => true,
                 Mask::GroupingSep => true,
@@ -1075,7 +1069,6 @@ pub mod core {
         fn is_ltor(&self) -> bool {
             match self {
                 Mask::Digit0(d) => d.is_ltor(),
-                Mask::Digit(d) => d.is_ltor(),
                 Mask::Numeric(d) => d.is_ltor(),
                 Mask::GroupingSep => false,
                 Mask::Sign => false,
@@ -1099,7 +1092,6 @@ pub mod core {
         fn is_rtol(&self) -> bool {
             match self {
                 Mask::Digit0(d) => d.is_rtol(),
-                Mask::Digit(d) => d.is_rtol(),
                 Mask::Numeric(d) => d.is_rtol(),
                 Mask::GroupingSep => true,
                 Mask::Sign => true,
@@ -1123,7 +1115,6 @@ pub mod core {
         fn section(&self) -> u8 {
             match self {
                 Mask::Digit0(_) => 0,
-                Mask::Digit(_) => 0,
                 Mask::Numeric(_) => 0,
                 Mask::GroupingSep => 0,
 
@@ -1155,7 +1146,6 @@ pub mod core {
         fn number(&self) -> u8 {
             match self {
                 Mask::Digit0(_) => 0,
-                Mask::Digit(_) => 0,
                 Mask::Numeric(_) => 0,
                 Mask::GroupingSep => 0,
                 Mask::Sign => 0,
@@ -1180,7 +1170,7 @@ pub mod core {
         // mask should overwrite instead of insert
         fn can_overwrite(&self, c: &str) -> bool {
             match self {
-                Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => false,
+                Mask::Digit0(_) | Mask::Numeric(_) => false,
                 Mask::DecimalSep => "." == c,
                 Mask::GroupingSep => false,
                 Mask::Sign => "-" == c || " " == c,
@@ -1203,7 +1193,6 @@ pub mod core {
         fn can_drop(&self, c: &str) -> bool {
             match self {
                 Mask::Digit0(_) => c == "0",
-                Mask::Digit(_) => c == " ",
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
                 Mask::Sign => false,
@@ -1227,7 +1216,6 @@ pub mod core {
         fn can_skip(&self, c: &str) -> bool {
             match self {
                 Mask::Digit0(_) => false,
-                Mask::Digit(_) => c == " ",
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
                 Mask::Sign => false,
@@ -1251,7 +1239,6 @@ pub mod core {
         fn edit_value(&self) -> &str {
             match self {
                 Mask::Digit0(_) => "0",
-                Mask::Digit(_) => " ",
                 Mask::Numeric(_) => " ",
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => " ", // don't show. remap_number fills it in if necessary.
@@ -1275,7 +1262,6 @@ pub mod core {
         fn disp_value(&self) -> &str {
             match self {
                 Mask::Digit0(_) => "0",
-                Mask::Digit(_) => " ",
                 Mask::Numeric(_) => " ",
                 Mask::DecimalSep => " ",  // only used by get_display_mask()
                 Mask::GroupingSep => " ", // only used by get_display_mask()
@@ -1384,14 +1370,12 @@ pub mod core {
             for t in submask {
                 match &t.right {
                     Mask::Digit0(EditDirection::Rtol) => tok.push(Token::Digit0(Mode::Integer, 0)),
-                    Mask::Digit(EditDirection::Rtol) => tok.push(Token::Digit(Mode::Integer, 0)),
                     Mask::Numeric(EditDirection::Rtol) => {
-                        tok.push(Token::Numeric(Mode::Integer, 0))
+                        tok.push(Token::Numeric(Mode::Integer, 0, false))
                     }
                     Mask::Digit0(EditDirection::Ltor) => tok.push(Token::Digit0(Mode::Fraction, 0)),
-                    Mask::Digit(EditDirection::Ltor) => tok.push(Token::Digit(Mode::Fraction, 0)),
                     Mask::Numeric(EditDirection::Ltor) => {
-                        tok.push(Token::Numeric(Mode::Fraction, 0))
+                        tok.push(Token::Numeric(Mode::Fraction, 0, false))
                     }
                     Mask::DecimalSep => tok.push(Token::DecimalSep),
                     Mask::GroupingSep => tok.push(Token::GroupingSep(0)),
@@ -1747,7 +1731,7 @@ pub mod core {
                 if sec == empty {
                     for t in sec_mask {
                         match t.right {
-                            Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => {
+                            Mask::Digit0(_) | Mask::Numeric(_) => {
                                 rendered.push_str(t.display.as_ref());
                             }
                             Mask::DecimalSep => {
@@ -1782,7 +1766,7 @@ pub mod core {
                 } else {
                     for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
                         match t.right {
-                            Mask::Digit0(_) | Mask::Digit(_) => {
+                            Mask::Digit0(_) => {
                                 rendered.push_str(s);
                             }
                             Mask::Numeric(_) => {
@@ -1864,7 +1848,7 @@ pub mod core {
                 if sec == empty {
                     for t in sec_mask {
                         match t.right {
-                            Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => {
+                            Mask::Digit0(_) | Mask::Numeric(_) => {
                                 if t.display.as_ref() != " " {
                                     rendered.push_str(t.display.as_ref());
                                 }
@@ -1899,7 +1883,7 @@ pub mod core {
                 } else {
                     for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
                         match t.right {
-                            Mask::Digit0(_) | Mask::Digit(_) => {
+                            Mask::Digit0(_) => {
                                 if s != " " {
                                     rendered.push_str(s);
                                 }
@@ -2022,18 +2006,14 @@ pub mod core {
                     break;
                 } else if matches!(
                     mask.peek_left,
-                    Mask::Digit0(EditDirection::Ltor)
-                        | Mask::Digit(EditDirection::Ltor)
-                        | Mask::Numeric(EditDirection::Ltor)
+                    Mask::Digit0(EditDirection::Ltor) | Mask::Numeric(EditDirection::Ltor)
                 ) && self.can_insert_digit(mask, new_cursor, c)
                 {
                     // skip left
                     new_cursor -= 1;
                 } else if matches!(
                     mask.right,
-                    Mask::Digit0(EditDirection::Ltor)
-                        | Mask::Digit(EditDirection::Ltor)
-                        | Mask::Numeric(EditDirection::Ltor)
+                    Mask::Digit0(EditDirection::Ltor) | Mask::Numeric(EditDirection::Ltor)
                 ) && self.is_valid_c(&mask.right, c)
                 {
                     break;
@@ -2098,7 +2078,6 @@ pub mod core {
         fn is_valid_c(&self, mask: &Mask, c: char) -> bool {
             match mask {
                 Mask::Digit0(_) => c.is_ascii_digit(),
-                Mask::Digit(_) => c.is_ascii_digit() || c == ' ',
                 Mask::Numeric(_) => {
                     c.is_ascii_digit() || c == ' ' || c == self.neg_sym() || c == self.pos_sym()
                 }
@@ -2632,7 +2611,6 @@ pub mod core {
             } else {
                 match m {
                     "0" => Mask::Digit0(dec_dir),
-                    "9" => Mask::Digit(dec_dir),
                     "#" => Mask::Numeric(dec_dir),
                     "." => Mask::DecimalSep,
                     "," => Mask::GroupingSep,
@@ -2659,11 +2637,7 @@ pub mod core {
             };
 
             match mask {
-                Mask::Digit0(_)
-                | Mask::Digit(_)
-                | Mask::Numeric(_)
-                | Mask::GroupingSep
-                | Mask::Sign => {
+                Mask::Digit0(_) | Mask::Numeric(_) | Mask::GroupingSep | Mask::Sign => {
                     // no change
                 }
                 Mask::DecimalSep => {

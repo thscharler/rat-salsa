@@ -5,7 +5,13 @@ use std::fmt;
 use std::rc::Rc;
 
 #[test]
-fn test_format_struct() -> Result<(), fmt::Error> {
+fn test_grouping() {
+    assert_eq!(number::format(-123, "##,###").unwrap(), "  -123");
+    assert_eq!(number::format(-1234, "##,###").unwrap(), "-1,234");
+}
+
+#[test]
+fn test_sign() -> Result<(), fmt::Error> {
     let fmt = NumberFormat::new("####")?;
     let mut str = String::new();
     number::core::map_num("-.", &fmt, fmt.sym(), &mut str)?;
@@ -70,21 +76,21 @@ fn test_fmt() {
         format!(
             "{}",
             32.23f64
-                .format("###0.00e888", &NumberSymbols::new())
+                .format("###0.00e###", &NumberSymbols::new())
                 .expect("x")
         )
         .to_string(),
-        "   3.22e1"
+        "   3.22e  1"
     );
     assert_eq!(
         format!(
             "{}",
             0.003223f64
-                .format("###0.00e888", &NumberSymbols::new())
+                .format("###0.00e###", &NumberSymbols::new())
                 .expect("x")
         )
         .to_string(),
-        "   3.22e-3"
+        "   3.22e -3"
     );
 }
 
