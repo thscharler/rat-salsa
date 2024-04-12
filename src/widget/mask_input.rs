@@ -1247,54 +1247,6 @@ pub mod core {
             }
         }
 
-        /// Use mapped-char instead of input.
-        #[deprecated]
-        fn map_input_c(mask: &Mask, dec_sep: char, c: char) -> char {
-            match mask {
-                Mask::DecimalSep => {
-                    if c == dec_sep {
-                        '.'
-                    } else {
-                        c
-                    }
-                }
-                _ => c,
-            }
-        }
-
-        /// Valid input for this mask.
-        #[deprecated]
-        fn is_valid_c(mask: &Mask, dec_sep: char, c: char) -> bool {
-            // todo: does this make any sense?
-            match mask {
-                Mask::Digit0(_) => c.is_ascii_digit(),
-                Mask::Digit(_) => c.is_ascii_digit() || c == ' ',
-                Mask::Numeric(_) => c.is_ascii_digit() || c == ' ' || c == '-',
-                Mask::DecimalSep => c == dec_sep,
-                Mask::GroupingSep => false,
-                Mask::Sign => c == ' ' || c == '-',
-                Mask::Hex0 => c.is_ascii_hexdigit(),
-                Mask::Hex => c.is_ascii_hexdigit() || c == ' ',
-                Mask::Oct0 => c.is_digit(8),
-                Mask::Oct => c.is_digit(8) || c == ' ',
-                Mask::Dec0 => c.is_ascii_digit(),
-                Mask::Dec => c.is_ascii_digit() || c == ' ',
-                Mask::Letter => c.is_alphabetic(),
-                Mask::LetterOrDigit => c.is_alphanumeric(),
-                Mask::LetterDigitSpace => c.is_alphanumeric() || c == ' ',
-                Mask::AnyChar => true,
-                Mask::Separator(sep) => {
-                    // todo: don't know better
-                    if let Some(sepc) = sep.chars().next() {
-                        sepc == c
-                    } else {
-                        false
-                    }
-                }
-                Mask::None => false,
-            }
-        }
-
         /// Get the default char for this mask.
         fn edit_value(&self) -> &str {
             match self {
@@ -1340,6 +1292,14 @@ pub mod core {
                 Mask::AnyChar => " ",
                 Mask::Separator(g) => g.as_ref(),
                 Mask::None => "",
+            }
+        }
+
+        fn first<'a>(&self, s: &'a str) -> &'a str {
+            if s.is_empty() {
+                ""
+            } else {
+                grapheme::split_at(s, 1).0
             }
         }
 
@@ -2051,15 +2011,13 @@ pub mod core {
                 } else if mask.right.is_rtol() && self.is_rtol_insert_position(mask, new_cursor, c)
                 {
                     break;
-                } else if mask.right == Mask::DecimalSep
-                    && Mask::is_valid_c(&mask.right, self.dec_sep(), c)
-                {
+                } else if mask.right == Mask::DecimalSep && self.is_valid_c(&mask.right, c) {
                     break;
                 } else if mask.right == Mask::GroupingSep {
                     // never stop here
                     new_cursor += 1;
                 } else if matches!(mask.right, Mask::Separator(_))
-                    && Mask::is_valid_c(&mask.right, self.dec_sep(), c)
+                    && self.is_valid_c(&mask.right, c)
                 {
                     break;
                 } else if matches!(
@@ -2076,19 +2034,19 @@ pub mod core {
                     Mask::Digit0(EditDirection::Ltor)
                         | Mask::Digit(EditDirection::Ltor)
                         | Mask::Numeric(EditDirection::Ltor)
-                ) && Mask::is_valid_c(&mask.right, self.dec_sep(), c)
+                ) && self.is_valid_c(&mask.right, c)
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Hex0 | Mask::Hex | Mask::Dec0 | Mask::Dec | Mask::Oct0 | Mask::Oct
-                ) && Mask::is_valid_c(&mask.right, self.dec_sep(), c)
+                ) && self.is_valid_c(&mask.right, c)
                 {
                     break;
                 } else if matches!(
                     mask.right,
                     Mask::Letter | Mask::LetterOrDigit | Mask::LetterDigitSpace | Mask::AnyChar
-                ) && Mask::is_valid_c(&mask.right, self.dec_sep(), c)
+                ) && self.is_valid_c(&mask.right, c)
                 {
                     break;
                 } else if mask.right == Mask::None {
@@ -2109,20 +2067,85 @@ pub mod core {
             // debug!("assert_eq_core(&b,&a);");
         }
 
+        /// Use mapped-char instead of input.
+        fn map_input_c(&self, mask: &Mask, c: char) -> char {
+            match mask {
+                Mask::Numeric(_) => {
+                    if c == self.neg_sym() {
+                        return '-';
+                    } else if c == self.pos_sym() {
+                        return ' ';
+                    }
+                }
+                Mask::DecimalSep => {
+                    if c == self.dec_sep() {
+                        return '.';
+                    }
+                }
+                Mask::Sign => {
+                    if c == self.neg_sym() {
+                        return '-';
+                    } else if c == self.pos_sym() {
+                        return ' ';
+                    }
+                }
+                _ => {}
+            }
+            return c;
+        }
+
+        /// Valid input for this mask.
+        fn is_valid_c(&self, mask: &Mask, c: char) -> bool {
+            match mask {
+                Mask::Digit0(_) => c.is_ascii_digit(),
+                Mask::Digit(_) => c.is_ascii_digit() || c == ' ',
+                Mask::Numeric(_) => {
+                    c.is_ascii_digit() || c == ' ' || c == self.neg_sym() || c == self.pos_sym()
+                }
+                Mask::DecimalSep => c == self.dec_sep(),
+                Mask::GroupingSep => false,
+                Mask::Sign => c == ' ' || c == self.neg_sym() || c == self.pos_sym(),
+                Mask::Hex0 => c.is_ascii_hexdigit(),
+                Mask::Hex => c.is_ascii_hexdigit() || c == ' ',
+                Mask::Oct0 => c.is_digit(8),
+                Mask::Oct => c.is_digit(8) || c == ' ',
+                Mask::Dec0 => c.is_ascii_digit(),
+                Mask::Dec => c.is_ascii_digit() || c == ' ',
+                Mask::Letter => c.is_alphabetic(),
+                Mask::LetterOrDigit => c.is_alphanumeric(),
+                Mask::LetterDigitSpace => c.is_alphanumeric() || c == ' ',
+                Mask::AnyChar => true,
+                Mask::Separator(sep) => {
+                    // todo: don't know better
+                    if let Some(sepc) = sep.chars().next() {
+                        sepc == c
+                    } else {
+                        false
+                    }
+                }
+                Mask::None => false,
+            }
+        }
+
         // Can insert one more digit int the field to the left.
         #[inline]
         fn can_insert_digit(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
             let (_b, a) = grapheme::split_at(&self.value, new_cursor - 1);
             // is there space to the left?
-            mask.peek_left.can_drop_first(a) && Mask::is_valid_c(&mask.peek_left, self.dec_sep(), c)
+            mask.peek_left.can_drop_first(a) && self.is_valid_c(&mask.peek_left, c)
         }
 
         // Is this the correct input position for a rtol field
         #[inline]
         fn is_rtol_insert_position(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
+            if c == self.neg_sym() || c == self.pos_sym() {
+                return true;
+            }
             let (_b, a) = grapheme::split_at(&self.value, new_cursor);
-            // stop at real digit, that is the first non-droppable grapheme.
-            !mask.right.can_drop_first(a) && Mask::is_valid_c(&mask.right, self.dec_sep(), c)
+            // stop at real digit, that is the first non-droppable grapheme. except '-'
+            !mask.right.can_drop_first(a)
+                && mask.right.first(a) != "-"
+                && self.is_valid_c(&mask.right, c)
         }
 
         // Can edit the field left of the cursor.
@@ -2132,7 +2155,7 @@ pub mod core {
             let mask0 = &self.mask[left.sec_start];
             let (_b, c0, _c1, _a) = grapheme::split_mask(&self.value, new_cursor, left.range());
             // can insert at mask gap?
-            mask0.right.can_drop_first(c0) && Mask::is_valid_c(&left.right, self.dec_sep(), c)
+            mask0.right.can_drop_first(c0) && self.is_valid_c(&left.right, c)
         }
 
         /// Insert the char if it matches the cursor mask and the current section is not full.
@@ -2208,13 +2231,11 @@ pub mod core {
             let mask9 = &self.mask[mask.sec_end - 1];
             let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
 
-            if mask.right.can_overwrite_first(c1)
-                && Mask::is_valid_c(&mask.right, self.dec_sep(), c)
-            {
+            if mask.right.can_overwrite_first(c1) && self.is_valid_c(&mask.right, c) {
                 let mut buf = String::new();
                 buf.push_str(b);
                 buf.push_str(c0);
-                buf.push(Mask::map_input_c(&mask.right, self.dec_sep(), c));
+                buf.push(self.map_input_c(&mask.right, c));
                 buf.push_str(grapheme::drop_first(c1));
                 buf.push_str(a);
                 debug_assert_eq!(buf.len(), self.value.len());
@@ -2225,11 +2246,11 @@ pub mod core {
 
                 return Ok(true);
             }
-            if mask9.right.can_drop_last(c1) && Mask::is_valid_c(&mask.right, self.dec_sep(), c) {
+            if mask9.right.can_drop_last(c1) && self.is_valid_c(&mask.right, c) {
                 let mut buf = String::new();
                 buf.push_str(b);
                 buf.push_str(c0);
-                buf.push(Mask::map_input_c(&mask.right, self.dec_sep(), c));
+                buf.push(self.map_input_c(&mask.right, c));
                 buf.push_str(grapheme::drop_last(c1));
                 buf.push_str(a);
                 debug_assert_eq!(buf.len(), self.value.len());
@@ -2254,10 +2275,10 @@ pub mod core {
             let mask0 = &self.mask[mask.sec_start];
             let (b, c0, c1, a) = grapheme::split_mask(&self.value, self.cursor, mask.range());
 
-            if mask0.right.can_drop_first(c0) && Mask::is_valid_c(&mask.right, self.dec_sep(), c) {
+            if mask0.right.can_drop_first(c0) && self.is_valid_c(&mask.right, c) {
                 let mut mstr = String::new();
                 mstr.push_str(grapheme::drop_first(c0));
-                mstr.push(Mask::map_input_c(&mask.right, self.dec_sep(), c));
+                mstr.push(self.map_input_c(&mask.right, c));
                 mstr.push_str(c1);
 
                 let submask = &self.mask[mask.sec_start..mask.sec_end];
