@@ -63,7 +63,7 @@ pub struct NumberSymbols {
     /// Decimal separator
     pub decimal_sep: char,
     /// Decimal grouping
-    pub decimal_grp: char,
+    pub decimal_grp: Option<char>,
     /// Minus sign
     pub negative_sym: char,
     /// Plus sign
@@ -87,9 +87,9 @@ impl NumberSymbols {
     pub const fn new() -> Self {
         Self {
             decimal_sep: '.',
-            decimal_grp: ',',
+            decimal_grp: Some(','),
             negative_sym: '-',
-            positive_sym: '+',
+            positive_sym: ' ',
             exponent_upper_sym: 'E',
             exponent_lower_sym: 'e',
             currency_sym: CurrencySym::new("$"),
@@ -105,7 +105,7 @@ impl NumberSymbols {
     pub fn numeric(locale: rust_locid::Locale) -> Self {
         Self {
             decimal_sep: first_or(locale_match!(locale => LC_NUMERIC::DECIMAL_POINT), '.'),
-            decimal_grp: first_or(locale_match!(locale => LC_NUMERIC::THOUSANDS_SEP), ','),
+            decimal_grp: first_opt(locale_match!(locale => LC_NUMERIC::THOUSANDS_SEP)),
             negative_sym: '-',
             positive_sym: ' ',
             exponent_upper_sym: 'E',
@@ -126,7 +126,7 @@ impl NumberSymbols {
     pub fn monetary(locale: rust_locid::Locale) -> Self {
         Self {
             decimal_sep: first_or(locale_match!(locale => LC_MONETARY::MON_DECIMAL_POINT), '.'),
-            decimal_grp: first_or(locale_match!(locale => LC_MONETARY::MON_THOUSANDS_SEP), ','),
+            decimal_grp: first_opt(locale_match!(locale => LC_MONETARY::MON_THOUSANDS_SEP)),
             negative_sym: first_or(locale_match!(locale => LC_MONETARY::NEGATIVE_SIGN), '-'),
             positive_sym: first_or(locale_match!(locale => LC_MONETARY::POSITIVE_SIGN), ' '),
             exponent_upper_sym: 'E',
@@ -147,7 +147,7 @@ impl NumberSymbols {
     pub fn int_monetary(locale: rust_locid::Locale) -> Self {
         Self {
             decimal_sep: first_or(locale_match!(locale => LC_MONETARY::MON_DECIMAL_POINT), '.'),
-            decimal_grp: first_or(locale_match!(locale => LC_MONETARY::MON_THOUSANDS_SEP), ','),
+            decimal_grp: first_opt(locale_match!(locale => LC_MONETARY::MON_THOUSANDS_SEP)),
             negative_sym: first_or(locale_match!(locale => LC_MONETARY::NEGATIVE_SIGN), '-'),
             positive_sym: first_or(locale_match!(locale => LC_MONETARY::POSITIVE_SIGN), ' '),
             exponent_upper_sym: 'E',
@@ -158,8 +158,15 @@ impl NumberSymbols {
 }
 
 // first char or default
+#[inline]
 fn first_or(s: &str, default: char) -> char {
     s.chars().next().unwrap_or(default)
+}
+
+// first char or default
+#[inline]
+fn first_opt(s: &str) -> Option<char> {
+    s.chars().next()
 }
 
 /// Currency symbol.
@@ -299,10 +306,8 @@ pub enum Token {
     Numeric(Mode, u32),
     /// Mask char "8". Digit or sign or *empty string*.
     NumericOpt(Mode, u32),
-    /// Mask char "+". Show "+" sign for positive number, "-" for negative.
-    PlusInt,
-    /// Mask char "-". Show " " for positive number, "-" for negative.
-    MinusInt,
+    /// Mask char "-". Integer sign.
+    SignInt,
     /// Mask char ".". Decimal separator.
     DecimalSep,
     /// Mask char ":". Decimal separator, always displayed.
@@ -319,10 +324,8 @@ pub enum Token {
     ExponentLower,
     /// Mask char "f". Exponent separator.
     ExponentLowerAlways,
-    /// Mask char "+". Show "+" sign for positive number, "-" for negative.
-    PlusExp,
-    /// Mask char "-". Show " " for positive number, "-" for negative.
-    MinusExp,
+    /// Mask char "-". Exponent sign.
+    SignExp,
     /// Mask char "$". Currency.
     Currency,
     /// Other separator char to output literally. May be escaped with '\\'.
@@ -362,8 +365,7 @@ impl Display for NumberFormat {
                 Token::Digit(_, _) => write!(f, "9")?,
                 Token::Numeric(_, _) => write!(f, "#")?,
                 Token::NumericOpt(_, _) => write!(f, "8")?,
-                Token::PlusInt => write!(f, "+")?,
-                Token::MinusInt => write!(f, "-")?,
+                Token::SignInt => write!(f, "-")?,
                 Token::DecimalSep => write!(f, ".")?,
                 Token::DecimalSepAlways => write!(f, ":")?,
                 Token::GroupingSep(_) => write!(f, ",")?,
@@ -372,13 +374,12 @@ impl Display for NumberFormat {
                 Token::ExponentUpperAlways => write!(f, "F")?,
                 Token::ExponentLower => write!(f, "e")?,
                 Token::ExponentLowerAlways => write!(f, "f")?,
-                Token::PlusExp => write!(f, "+")?,
-                Token::MinusExp => write!(f, "-")?,
+                Token::SignExp => write!(f, "-")?,
                 Token::Currency => write!(f, "$")?,
                 Token::Separator(c) => {
                     match c {
-                        '0' | '9' | '#' | '8' | '+' | '-' | ',' | ';' | '.' | ':' | 'E' | 'F'
-                        | 'e' | 'f' => {
+                        '0' | '9' | '#' | '8' | '-' | ',' | ';' | '.' | ':' | 'E' | 'F' | 'e'
+                        | 'f' => {
                             write!(f, "{}", '\\')?;
                         }
                         _ => {}
@@ -399,7 +400,10 @@ impl NumberFormat {
 
     /// New format from pattern + symbols
     pub fn news<S: AsRef<str>>(pattern: S, sym: &Rc<NumberSymbols>) -> Result<Self, FmtError> {
-        core::parse_number_format_sym(pattern.as_ref(), sym)
+        core::parse_number_format(pattern.as_ref()).map(|mut v| {
+            v.sym = Rc::clone(sym);
+            v
+        })
     }
 
     /// New format from token-array.
@@ -450,8 +454,8 @@ impl NumberFormat {
                     has_exp = true;
                 }
 
-                Token::PlusInt | Token::MinusInt => has_int_sign = true,
-                Token::PlusExp | Token::MinusExp => has_exp_sign = true,
+                Token::SignInt => has_int_sign = true,
+                Token::SignExp => has_exp_sign = true,
 
                 _ => {}
             }
@@ -714,27 +718,15 @@ impl Debug for NumberFormat {
 
 pub mod core {
     use crate::number::{Mode, NumberFormat, NumberSymbols, Token};
+    #[allow(unused_imports)]
     use log::debug;
     use memchr::memchr;
     use std::cell::Cell;
     use std::cmp::max;
     use std::fmt::{Display, Error as FmtError, LowerExp, Write as FmtWrite};
-    use std::rc::Rc;
     use std::str::FromStr;
 
-    /// Parses the format string and sets a symbol table.
-    #[inline]
-    pub fn parse_number_format_sym(
-        pattern: &str,
-        sym: &Rc<NumberSymbols>,
-    ) -> Result<NumberFormat, FmtError> {
-        parse_number_format(pattern).map(|mut v| {
-            v.sym = Rc::clone(sym);
-            v
-        })
-    }
-
-    /// Parses the format string for reuse.
+    /// Parses the format string. Uses the default symbol table.
     pub fn parse_number_format(pattern: &str) -> Result<NumberFormat, FmtError> {
         let mut esc = false;
         let mut mode = Mode::Integer;
@@ -767,20 +759,11 @@ pub mod core {
                     }
                     ',' => Token::GroupingSep(0),
                     ';' => Token::GroupingSepAlways,
-                    '+' => {
-                        if mode == Mode::Integer {
-                            Token::PlusInt
-                        } else if mode == Mode::Exponent {
-                            Token::PlusExp
-                        } else {
-                            return Err(FmtError);
-                        }
-                    }
                     '-' => {
                         if mode == Mode::Integer {
-                            Token::MinusInt
+                            Token::SignInt
                         } else if mode == Mode::Exponent {
-                            Token::MinusExp
+                            Token::SignExp
                         } else {
                             return Err(FmtError);
                         }
@@ -901,6 +884,8 @@ pub mod core {
                 }
             } else if c == sym.negative_sym {
                 out.write_char('-')?;
+            } else if c == sym.positive_sym || c == '+' {
+                // noop
             } else if c == sym.decimal_sep {
                 out.write_char('.')?;
             } else if c == sym.exponent_lower_sym {
@@ -962,7 +947,7 @@ pub mod core {
                 Token::NumericOpt(_, _) => {
                     unimplemented!("NumericOpt not supported.");
                 }
-                Token::PlusInt | Token::PlusExp => {
+                Token::SignInt => {
                     if c == sym.negative_sym {
                         out.write_char('-')?;
                     } else if c == sym.positive_sym {
@@ -971,10 +956,12 @@ pub mod core {
                         return Err(FmtError);
                     }
                 }
-                Token::MinusInt | Token::MinusExp => {
+                Token::SignExp => {
                     if c == sym.negative_sym {
                         out.write_char('-')?;
-                    } else if c == ' ' {
+                    } else if c == sym.positive_sym {
+                        // ok
+                    } else if c == '+' {
                         // ok
                     } else {
                         return Err(FmtError);
@@ -997,19 +984,23 @@ pub mod core {
                     }
                 }
                 Token::GroupingSep(_) => {
-                    if c == sym.decimal_grp {
-                        // ok
-                    } else if c == ' ' {
-                        // ok
-                    } else {
-                        return Err(FmtError);
+                    if let Some(decimal_grp) = sym.decimal_grp {
+                        if c == decimal_grp {
+                            // ok
+                        } else if c == ' ' {
+                            // ok
+                        } else {
+                            return Err(FmtError);
+                        }
                     }
                 }
                 Token::GroupingSepAlways => {
-                    if c == sym.decimal_grp {
-                        // ok
-                    } else {
-                        return Err(FmtError);
+                    if let Some(decimal_grp) = sym.decimal_grp {
+                        if c == decimal_grp {
+                            // ok
+                        } else {
+                            return Err(FmtError);
+                        }
                     }
                 }
                 Token::ExponentUpper => {
@@ -1091,7 +1082,7 @@ pub mod core {
 
         for m in format.tok.iter() {
             match m {
-                Token::PlusInt => {
+                Token::SignInt => {
                     if sign.is_empty() {
                         out.write_char(sym.positive_sym)?;
                     } else {
@@ -1099,23 +1090,19 @@ pub mod core {
                     }
                     sign = "";
                 }
-                Token::MinusInt => {
-                    if sign.is_empty() {
-                        out.write_char(' ')?;
-                    } else {
-                        out.write_char(sym.negative_sym)?;
-                    }
-                    sign = "";
-                }
                 Token::GroupingSep(i) => {
-                    if len_int > *i {
-                        out.write_char(sym.decimal_grp)?;
-                    } else {
-                        out.write_char(' ')?;
+                    if let Some(decimal_grp) = sym.decimal_grp {
+                        if len_int > *i {
+                            out.write_char(decimal_grp)?;
+                        } else {
+                            out.write_char(' ')?;
+                        }
                     }
                 }
                 Token::GroupingSepAlways => {
-                    out.write_char(sym.decimal_grp)?;
+                    if let Some(decimal_grp) = sym.decimal_grp {
+                        out.write_char(decimal_grp)?;
+                    }
                 }
                 Token::Digit0(Mode::Integer, i) => {
                     max_int = max(max_int, *i);
@@ -1226,17 +1213,12 @@ pub mod core {
                     out.write_char(sym.exponent_lower_sym)?;
                 }
 
-                Token::PlusExp => {
-                    if exp_sign.is_empty() {
+                Token::SignExp => {
+                    if exp_sign.is_empty() && sym.positive_sym == ' ' {
+                        // explizit sign in the exponent shows '+'.
+                        out.write_char('+')?;
+                    } else if exp_sign.is_empty() {
                         out.write_char(sym.positive_sym)?;
-                    } else {
-                        out.write_char(sym.negative_sym)?;
-                    }
-                    exp_sign = "";
-                }
-                Token::MinusExp => {
-                    if exp_sign.is_empty() {
-                        out.write_char(' ')?;
                     } else {
                         out.write_char(sym.negative_sym)?;
                     }
@@ -1295,19 +1277,19 @@ pub mod core {
             }
         }
 
-        // if !sign.is_empty() {
-        //     return Err(FmtError);
-        // }
-        // if len_int > max_int + 1 {
-        //     return Err(FmtError);
-        // }
-        // // missing fractions are ok.
-        // if !exp_sign.is_empty() {
-        //     return Err(FmtError);
-        // }
-        // if len_exp > max_exp + 1 {
-        //     return Err(FmtError);
-        // }
+        if !sign.is_empty() {
+            return Err(FmtError);
+        }
+        if len_int > max_int + 1 {
+            return Err(FmtError);
+        }
+        // missing fractions are ok.
+        if !exp_sign.is_empty() {
+            return Err(FmtError);
+        }
+        if len_exp > max_exp + 1 {
+            return Err(FmtError);
+        }
 
         Ok(())
     }

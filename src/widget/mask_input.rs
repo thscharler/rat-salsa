@@ -10,8 +10,7 @@
 //!   * `0`: can enter digit, display as 0  
 //!   * `9`: can enter digit, display as space
 //!   * `#`: digit, plus or minus sign, display as space
-//!   * `+`: sign. display '+' for positive
-//!   * `-`: sign. display ' ' for positive
+//!   * `-`: sign
 //!   * `.` and `,`: decimal and grouping separators
 //!
 //!   * `H`: must enter a hex digit, display as 0
@@ -846,7 +845,7 @@ where
 }
 
 pub mod core {
-    use crate::number::{Mode, NumberFormat, NumberSymbols, Token};
+    use crate::number::{CurrencySym, Mode, NumberFormat, NumberSymbols, Token};
     use crate::{grapheme, number};
     #[allow(unused_imports)]
     use log::debug;
@@ -874,8 +873,7 @@ pub mod core {
         Numeric(EditDirection),
         DecimalSep,
         GroupingSep,
-        Plus,
-        Minus,
+        Sign,
         Hex0,
         Hex,
         Oct0,
@@ -938,8 +936,7 @@ pub mod core {
                 Mask::Numeric(_) => "#",
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => ",",
-                Mask::Plus => "+",
-                Mask::Minus => "-",
+                Mask::Sign => "-",
                 Mask::Hex0 => "H",
                 Mask::Hex => "h",
                 Mask::Oct0 => "O",
@@ -957,6 +954,7 @@ pub mod core {
                             | "#"
                             | "."
                             | ","
+                            | "-"
                             | "H"
                             | "h"
                             | "O"
@@ -992,8 +990,7 @@ pub mod core {
                 }
                 Mask::DecimalSep => write!(f, "."),
                 Mask::GroupingSep => write!(f, ","),
-                Mask::Plus => write!(f, "+"),
-                Mask::Minus => write!(f, "-"),
+                Mask::Sign => write!(f, "-"),
                 Mask::Hex0 => write!(f, "H"),
                 Mask::Hex => write!(f, "h"),
                 Mask::Oct0 => write!(f, "O"),
@@ -1011,6 +1008,7 @@ pub mod core {
                             | "#"
                             | "."
                             | ","
+                            | "-"
                             | "H"
                             | "h"
                             | "O"
@@ -1056,8 +1054,7 @@ pub mod core {
                 Mask::Numeric(_) => true,
                 Mask::DecimalSep => true,
                 Mask::GroupingSep => true,
-                Mask::Plus => true,
-                Mask::Minus => true,
+                Mask::Sign => true,
 
                 Mask::Hex0 => false,
                 Mask::Hex => false,
@@ -1081,8 +1078,7 @@ pub mod core {
                 Mask::Digit(d) => d.is_ltor(),
                 Mask::Numeric(d) => d.is_ltor(),
                 Mask::GroupingSep => false,
-                Mask::Plus => false,
-                Mask::Minus => false,
+                Mask::Sign => false,
                 Mask::DecimalSep => true,
                 Mask::Hex0 => true,
                 Mask::Hex => true,
@@ -1106,8 +1102,7 @@ pub mod core {
                 Mask::Digit(d) => d.is_rtol(),
                 Mask::Numeric(d) => d.is_rtol(),
                 Mask::GroupingSep => true,
-                Mask::Plus => true,
-                Mask::Minus => true,
+                Mask::Sign => true,
                 Mask::DecimalSep => false,
                 Mask::Hex0 => false,
                 Mask::Hex => false,
@@ -1132,8 +1127,7 @@ pub mod core {
                 Mask::Numeric(_) => 0,
                 Mask::GroupingSep => 0,
 
-                Mask::Plus => 1,
-                Mask::Minus => 1,
+                Mask::Sign => 1,
 
                 Mask::DecimalSep => 2,
 
@@ -1164,8 +1158,7 @@ pub mod core {
                 Mask::Digit(_) => 0,
                 Mask::Numeric(_) => 0,
                 Mask::GroupingSep => 0,
-                Mask::Plus => 0,
-                Mask::Minus => 0,
+                Mask::Sign => 0,
                 Mask::DecimalSep => 0,
 
                 Mask::Hex0 => 1,
@@ -1190,8 +1183,7 @@ pub mod core {
                 Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => false,
                 Mask::DecimalSep => "." == c,
                 Mask::GroupingSep => false,
-                Mask::Plus => "-" == c || "+" == c,
-                Mask::Minus => "-" == c || " " == c,
+                Mask::Sign => "-" == c || " " == c,
                 Mask::Hex0 => c == "0",
                 Mask::Hex => false,
                 Mask::Oct0 => c == "0",
@@ -1214,8 +1206,7 @@ pub mod core {
                 Mask::Digit(_) => c == " ",
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
-                Mask::Plus => false,
-                Mask::Minus => false,
+                Mask::Sign => false,
                 Mask::GroupingSep => true,
                 Mask::Hex0 => c == "0",
                 Mask::Hex => c == " ",
@@ -1239,8 +1230,7 @@ pub mod core {
                 Mask::Digit(_) => c == " ",
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
-                Mask::Plus => false,
-                Mask::Minus => false,
+                Mask::Sign => false,
                 Mask::GroupingSep => true,
                 Mask::Hex0 => false,
                 Mask::Hex => c == " ",
@@ -1258,8 +1248,8 @@ pub mod core {
         }
 
         /// Use mapped-char instead of input.
+        #[deprecated]
         fn map_input_c(mask: &Mask, dec_sep: char, c: char) -> char {
-            // todo: does this make any sense?
             match mask {
                 Mask::DecimalSep => {
                     if c == dec_sep {
@@ -1273,6 +1263,7 @@ pub mod core {
         }
 
         /// Valid input for this mask.
+        #[deprecated]
         fn is_valid_c(mask: &Mask, dec_sep: char, c: char) -> bool {
             // todo: does this make any sense?
             match mask {
@@ -1281,8 +1272,7 @@ pub mod core {
                 Mask::Numeric(_) => c.is_ascii_digit() || c == ' ' || c == '-',
                 Mask::DecimalSep => c == dec_sep,
                 Mask::GroupingSep => false,
-                Mask::Plus => c == '+' || c == '-',
-                Mask::Minus => c == ' ' || c == '-',
+                Mask::Sign => c == ' ' || c == '-',
                 Mask::Hex0 => c.is_ascii_hexdigit(),
                 Mask::Hex => c.is_ascii_hexdigit() || c == ' ',
                 Mask::Oct0 => c.is_digit(8),
@@ -1313,8 +1303,7 @@ pub mod core {
                 Mask::Numeric(_) => " ",
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => " ", // don't show. remap_number fills it in if necessary.
-                Mask::Plus => "+",
-                Mask::Minus => " ",
+                Mask::Sign => " ",
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1338,8 +1327,7 @@ pub mod core {
                 Mask::Numeric(_) => " ",
                 Mask::DecimalSep => " ",  // only used by get_display_mask()
                 Mask::GroupingSep => " ", // only used by get_display_mask()
-                Mask::Plus => " ",
-                Mask::Minus => " ",
+                Mask::Sign => " ",
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1415,9 +1403,20 @@ pub mod core {
         }
 
         fn remap_number(submask: &[MaskToken], v: &str) -> Result<String, fmt::Error> {
+            // to be safe, always use our internal symbol set.
+            let sym = Rc::new(NumberSymbols {
+                decimal_sep: '.',
+                decimal_grp: Some(','),
+                negative_sym: '-',
+                positive_sym: ' ',
+                exponent_upper_sym: 'E',
+                exponent_lower_sym: 'e',
+                currency_sym: CurrencySym::new("$"),
+            });
+
             // remove all non numbers and leading 0.
             let mut clean = String::new();
-            _ = number::core::clean_num(v, &NumberSymbols::new(), &mut clean);
+            _ = number::core::clean_num(v, sym.as_ref(), &mut clean);
 
             // create number format
             let mut tok = Vec::new();
@@ -1436,8 +1435,7 @@ pub mod core {
                     }
                     Mask::DecimalSep => tok.push(Token::DecimalSep),
                     Mask::GroupingSep => tok.push(Token::GroupingSep(0)),
-                    Mask::Plus => tok.push(Token::PlusInt),
-                    Mask::Minus => tok.push(Token::MinusInt),
+                    Mask::Sign => tok.push(Token::SignInt),
                     Mask::Separator(s) => {
                         for c in s.chars() {
                             tok.push(Token::Separator(c));
@@ -1447,8 +1445,8 @@ pub mod core {
                     _ => unreachable!("invalid mask"),
                 }
             }
-            let fmt = NumberFormat::new_tok(tok);
 
+            let fmt = NumberFormat::news_tok(tok, &sym);
             let mut out = String::new();
             number::core::map_num(clean.as_str(), &fmt, fmt.sym(), &mut out)?;
 
@@ -1604,8 +1602,7 @@ pub mod core {
             }
         }
 
-        /// Set the decimal separator.
-        ///
+        /// Set the decimal separator and other symbols.
         /// Only used for rendering and to map user input.
         /// The value itself uses "."
         pub fn set_num_symbols(&mut self, sym: &Rc<NumberSymbols>) {
@@ -1622,7 +1619,14 @@ pub mod core {
 
         fn grp_sep(&self) -> char {
             if let Some(sym) = &self.sym {
-                sym.decimal_grp
+                if let Some(grp) = sym.decimal_grp {
+                    grp
+                } else {
+                    // fallback for empty grp-char.
+                    // it would be really ugly, if we couldn't keep
+                    //   mask-idx == grapheme-idx
+                    ' '
+                }
             } else {
                 ','
             }
@@ -1640,7 +1644,7 @@ pub mod core {
             if let Some(sym) = &self.sym {
                 sym.positive_sym
             } else {
-                '-'
+                ' '
             }
         }
 
@@ -1792,10 +1796,7 @@ pub mod core {
                             Mask::GroupingSep => {
                                 rendered.push(' ');
                             }
-                            Mask::Plus => {
-                                rendered.push(' ');
-                            }
-                            Mask::Minus => {
+                            Mask::Sign => {
                                 rendered.push(' ');
                             }
                             Mask::Hex0
@@ -1847,18 +1848,11 @@ pub mod core {
                                     rendered.push(' ');
                                 }
                             }
-                            Mask::Plus => {
+                            Mask::Sign => {
                                 if s == "-" {
                                     rendered.push(self.neg_sym());
                                 } else {
                                     rendered.push(self.pos_sym());
-                                }
-                            }
-                            Mask::Minus => {
-                                if s == "-" {
-                                    rendered.push(self.neg_sym());
-                                } else {
-                                    rendered.push(' ');
                                 }
                             }
                             Mask::Hex0
@@ -1919,7 +1913,7 @@ pub mod core {
                                 rendered.push(self.dec_sep());
                             }
                             Mask::GroupingSep => {}
-                            Mask::Plus | Mask::Minus => {
+                            Mask::Sign => {
                                 rendered.push_str(t.display.as_ref());
                             }
                             Mask::Hex0
@@ -1969,14 +1963,7 @@ pub mod core {
                                     rendered.push(self.neg_sym());
                                 }
                             }
-                            Mask::Plus => {
-                                if s == " " {
-                                    rendered.push(self.pos_sym());
-                                } else if s == "-" {
-                                    rendered.push(self.neg_sym());
-                                }
-                            }
-                            Mask::Minus => {
+                            Mask::Sign => {
                                 if s == "-" {
                                     rendered.push(self.neg_sym());
                                 }
@@ -2014,6 +2001,7 @@ pub mod core {
             if self.cursor == self.len {
                 self.len
             } else {
+                // todo: skip to sep
                 self.value
                     .graphemes(true)
                     .enumerate()
@@ -2301,12 +2289,14 @@ pub mod core {
                 if matches!(
                     &self.mask[i],
                     MaskToken {
-                        right: Mask::Plus | Mask::Minus,
+                        right: Mask::Sign,
                         ..
                     }
                 ) {
                     let (b, c0, a) = grapheme::split3(self.value(), i..i + 1);
-                    let repl = if c0 == "-" {
+                    let repl = if c == self.pos_sym() {
+                        " "
+                    } else if c0 == "-" {
                         " "
                     } else if c0 == " " && c == self.neg_sym() {
                         "-"
@@ -2625,8 +2615,7 @@ pub mod core {
                     "#" => Mask::Numeric(dec_dir),
                     "." => Mask::DecimalSep,
                     "," => Mask::GroupingSep,
-                    "+" => Mask::Plus,
-                    "-" => Mask::Minus,
+                    "-" => Mask::Sign,
                     "h" => Mask::Hex,
                     "H" => Mask::Hex0,
                     "o" => Mask::Oct,
@@ -2653,8 +2642,7 @@ pub mod core {
                 | Mask::Digit(_)
                 | Mask::Numeric(_)
                 | Mask::GroupingSep
-                | Mask::Plus
-                | Mask::Minus => {
+                | Mask::Sign => {
                     // no change
                 }
                 Mask::DecimalSep => {
@@ -2748,7 +2736,11 @@ pub mod core {
                 buf,
                 "Some(\"{}{}{}{}{}{}\")",
                 sym.decimal_sep,
-                sym.decimal_grp,
+                if let Some(decimal_grp) = sym.decimal_grp {
+                    decimal_grp
+                } else {
+                    ' '
+                },
                 sym.negative_sym,
                 sym.positive_sym,
                 sym.exponent_upper_sym,
@@ -2801,7 +2793,7 @@ pub mod core {
         let mut s = s.chars();
         Rc::new(NumberSymbols {
             decimal_sep: s.next().expect("decimal_sep"),
-            decimal_grp: s.next().expect("decimal_grp"),
+            decimal_grp: Some(s.next().expect("decimal_grp")),
             negative_sym: s.next().expect("negative_sym"),
             positive_sym: s.next().expect("positive_sym"),
             exponent_upper_sym: s.next().expect("exponent_upper_sym"),

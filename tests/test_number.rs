@@ -1,6 +1,6 @@
 use pure_rust_locales::Locale;
 use rat_salsa::number;
-use rat_salsa::number::{parse_sym, FormatNumber, NumberFormat, NumberSymbols, ParseNumber};
+use rat_salsa::number::{parse_sym, FormatNumber, NumberFormat, NumberSymbols};
 use std::fmt;
 use std::rc::Rc;
 
@@ -20,60 +20,72 @@ fn test_format_struct() -> Result<(), fmt::Error> {
 }
 
 #[test]
-fn test_format() -> Result<(), fmt::Error> {
-    assert_eq!(number::format(1234, "#####")?, " 1234");
-    assert_eq!(number::format(1234, "####0.00")?, " 1234.00");
-    assert_eq!(number::format(1234, "###00.##")?, " 1234   ");
-    assert_eq!(number::format(1234, "#####e###")?, "    1e  3");
+fn test_format() {
+    assert_eq!(number::format(1234, "#####").expect("x"), " 1234");
+    assert_eq!(number::format(1234, "####0.00").expect("x"), " 1234.00");
+    assert_eq!(number::format(1234, "###00.##").expect("x"), " 1234   ");
+    assert_eq!(number::format(1234, "#####e###").expect("x"), "    1e  3");
     assert_eq!(
-        number::format(1.234e14, "###,###,###,###,###f###")?,
+        number::format(1.234e14, "###,###,###,###,###f###").expect("x"),
         "                  1e 14"
     );
     assert_eq!(
-        number::format(1.234e-14, "###,###,###,###,###.##################f###")?,
+        number::format(1.234e-14, "###,###,###,###,###.##################f###").expect("x"),
         "                  1.233999999999999936e-14"
     );
-    assert_eq!(number::format(1234, "+####")?, "+1234");
-    assert_eq!(number::format(1234, "-####")?, " 1234");
-    assert_eq!(number::format(-1234, "#####")?, "-1234");
-    assert_eq!(number::format(-1234, "####-")?, "1234-");
-    assert_eq!(number::format(-1234, "#####-")?, " 1234-");
-    assert_eq!(number::format(-1, "###00")?, "  -01");
-    Ok(())
+    assert_eq!(number::format(1234, "-####").expect("x"), " 1234");
+    assert_eq!(number::format(-1234, "#####").expect("x"), "-1234");
+    assert_eq!(number::format(-1234, "####-").expect("x"), "1234-");
+    assert_eq!(number::format(-1234, "#####-").expect("x"), " 1234-");
+    assert_eq!(number::format(-1, "###00").expect("x"), "  -01");
 }
 
 #[test]
-fn test_fmt() -> Result<(), std::fmt::Error> {
+fn test_fmt() {
     assert_eq!(
-        format!("{}", 32.format("####", &NumberSymbols::new())?).to_string(),
+        format!("{}", 32.format("####", &NumberSymbols::new()).expect("x")).to_string(),
         "  32"
     );
     assert_eq!(
-        format!("{}", 32.23f64.format("0000.00", &NumberSymbols::new())?).to_string(),
+        format!(
+            "{}",
+            32.23f64
+                .format("0000.00", &NumberSymbols::new())
+                .expect("x")
+        )
+        .to_string(),
         "0032.23"
     );
     assert_eq!(
         format!(
             "{}",
-            32.23f64.format("0000.00e+000", &NumberSymbols::new())?
+            32.23f64
+                .format("0000.00e-000", &NumberSymbols::new())
+                .expect("x")
         )
         .to_string(),
         "0003.22e+001"
     );
     assert_eq!(
-        format!("{}", 32.23f64.format("###0.00e888", &NumberSymbols::new())?).to_string(),
+        format!(
+            "{}",
+            32.23f64
+                .format("###0.00e888", &NumberSymbols::new())
+                .expect("x")
+        )
+        .to_string(),
         "   3.22e1"
     );
     assert_eq!(
         format!(
             "{}",
-            0.003223f64.format("###0.00e888", &NumberSymbols::new())?
+            0.003223f64
+                .format("###0.00e888", &NumberSymbols::new())
+                .expect("x")
         )
         .to_string(),
         "   3.22e-3"
     );
-
-    Ok(())
 }
 
 #[test]
@@ -85,14 +97,14 @@ fn test_parse() {
 fn test_currency() -> Result<(), std::fmt::Error> {
     let sym = Rc::new(NumberSymbols {
         decimal_sep: ',',
-        decimal_grp: '.',
+        decimal_grp: Some('.'),
         currency_sym: "€".into(),
         ..Default::default()
     });
 
     let sym2 = Rc::new(NumberSymbols {
         decimal_sep: ',',
-        decimal_grp: '.',
+        decimal_grp: Some('.'),
         currency_sym: "Rub".into(),
         ..Default::default()
     });

@@ -34,7 +34,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let sym = Rc::new(NumberSymbols {
         decimal_sep: ',',
-        decimal_grp: '.',
+        decimal_grp: Some('.'),
         ..Default::default()
     });
 
