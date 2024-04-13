@@ -499,6 +499,7 @@ impl NumberFormat {
         }
         let mut idx_int = 0;
         let mut idx_exp = 0;
+        let mut has_grp = sym.decimal_grp.is_some();
         let mut was_grp = false;
         for t in pattern.iter_mut().rev() {
             match t {
@@ -517,7 +518,7 @@ impl NumberFormat {
                 Token::Numeric(Mode::Integer, x, sign) => {
                     len_int += 1;
                     *x = idx_int;
-                    *sign = !was_grp;
+                    *sign = !has_grp || !was_grp;
                     idx_int += 1;
                 }
 
@@ -1055,6 +1056,9 @@ pub mod core {
             sym.negative_sym
         };
 
+        //
+        let skip_group = sym.decimal_grp.is_none();
+
         // ...
 
         let int = raw_int.as_bytes();
@@ -1092,14 +1096,13 @@ pub mod core {
                     used_sign = true;
                 }
                 Token::GroupingSep(i) => {
-                    let Some(decimal_grp) = sym.decimal_grp else {
-                        continue;
-                    };
-                    if len_int > *i {
+                    if skip_group {
+                        // noop
+                    } else if len_int > *i {
                         out.write_char(disp_decimal_grp)?;
-                    } else if max(len_int, format.min_int_sign) == *i
-                        && !used_sign
+                    } else if !used_sign
                         && !format.has_int_sign
+                        && max(len_int, format.min_int_sign) == *i
                     {
                         out.write_char(disp_sign)?;
                         used_sign = true;
