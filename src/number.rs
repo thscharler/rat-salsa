@@ -279,7 +279,7 @@ impl<'a> From<&'a str> for CurrencySym {
 
 /// Number mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Mode {
+enum Mode {
     Integer,
     Fraction,
     Exponent,
@@ -296,7 +296,7 @@ pub enum Mode {
 /// of the grouping separator.
 #[allow(variant_size_differences)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Token {
+enum Token {
     /// Mask char "0". Digit or 0
     Digit0(Mode, u32),
     /// Mask char "9". Digit or space
@@ -310,7 +310,7 @@ pub enum Token {
     /// Mask char ":". Decimal separator, always displayed.
     DecimalSepAlways,
     /// Mask char ",". Grouping separator.
-    GroupingSep(u32),
+    GroupingSep(u32, bool),
     /// Mask char "E". Exponent separator.
     ExponentUpper,
     /// Mask char "e". Exponent separator.
@@ -399,7 +399,7 @@ impl Display for NumberFormat {
                 Token::SignInt => write!(f, "-")?,
                 Token::DecimalSep => write!(f, ".")?,
                 Token::DecimalSepAlways => write!(f, ":")?,
-                Token::GroupingSep(_) => write!(f, ",")?,
+                Token::GroupingSep(_, _) => write!(f, ",")?,
                 Token::ExponentUpper => write!(f, "E")?,
                 Token::ExponentLower => write!(f, "e")?,
                 Token::SignExp => write!(f, "-")?,
@@ -436,15 +436,7 @@ impl NumberFormat {
     }
 
     /// New format from token-array.
-    pub fn new_tok(pattern: Vec<Token>) -> Result<Self, NumberFmtError> {
-        Self::news_tok(pattern, &Rc::new(NumberSymbols::new()))
-    }
-
-    /// New format from token-array.
-    pub fn news_tok(
-        mut pattern: Vec<Token>,
-        sym: &Rc<NumberSymbols>,
-    ) -> Result<Self, NumberFmtError> {
+    fn news_tok(mut pattern: Vec<Token>, sym: &Rc<NumberSymbols>) -> Result<Self, NumberFmtError> {
         let mut has_exp = false;
         let mut has_exp_0 = false;
         let mut has_dec_sep = false;
@@ -499,7 +491,6 @@ impl NumberFormat {
         }
         let mut idx_int = 0;
         let mut idx_exp = 0;
-        let mut has_grp = sym.decimal_grp.is_some();
         let mut was_grp = false;
         for t in pattern.iter_mut().rev() {
             match t {
@@ -518,11 +509,12 @@ impl NumberFormat {
                 Token::Numeric(Mode::Integer, x, sign) => {
                     len_int += 1;
                     *x = idx_int;
-                    *sign = !has_grp || !was_grp;
+                    *sign = !has_int_sign && (sym.decimal_grp.is_none() || !was_grp);
                     idx_int += 1;
                 }
 
-                Token::GroupingSep(x) => {
+                Token::GroupingSep(x, sign) => {
+                    *sign = !has_int_sign;
                     *x = idx_int;
                 }
 
@@ -549,7 +541,7 @@ impl NumberFormat {
                 _ => {}
             }
 
-            was_grp = matches!(t, Token::GroupingSep(_));
+            was_grp = matches!(t, Token::GroupingSep(_, _));
         }
 
         Ok(NumberFormat {
@@ -598,7 +590,7 @@ impl NumberFormat {
                         mode = Mode::Fraction;
                         Token::DecimalSepAlways
                     }
-                    ',' => Token::GroupingSep(0),
+                    ',' => Token::GroupingSep(0, false),
                     '-' => {
                         if mode == Mode::Integer {
                             Token::SignInt
@@ -641,11 +633,6 @@ impl NumberFormat {
     /// Symbols
     pub fn sym(&self) -> &NumberSymbols {
         self.sym.as_ref()
-    }
-
-    /// Tokens
-    pub fn tok(&self) -> &[Token] {
-        &self.tok
     }
 
     /// Formats or returns the error converted to a string.
@@ -918,6 +905,8 @@ pub mod core {
                         out.write_char(c)?;
                     } else if c == sym.negative_sym {
                         out.write_char('-')?;
+                    } else if c == sym.positive_sym {
+                        // ok
                     } else if c == ' ' {
                         // ok
                     } else {
@@ -960,9 +949,13 @@ pub mod core {
                         return Err(NumberFmtError::ParseInvalidDecimalSep);
                     }
                 }
-                Token::GroupingSep(_) => {
+                Token::GroupingSep(_, _) => {
                     if let Some(decimal_grp) = sym.decimal_grp {
                         if c == decimal_grp {
+                            // ok
+                        } else if c == sym.negative_sym {
+                            out.write_char('-')?;
+                        } else if c == sym.positive_sym {
                             // ok
                         } else if c == ' ' {
                             // ok
@@ -1095,15 +1088,13 @@ pub mod core {
                     out.write_char(disp_sign)?;
                     used_sign = true;
                 }
-                Token::GroupingSep(i) => {
+                Token::GroupingSep(i, can_be_sign) => {
                     if skip_group {
                         // noop
                     } else if len_int > *i {
                         out.write_char(disp_decimal_grp)?;
-                    } else if !used_sign
-                        && !format.has_int_sign
-                        && max(len_int, format.min_int_sign) == *i
-                    {
+                    } else if !format.has_int_sign && max(len_int, format.min_int_sign) == *i {
+                        debug_assert!(!used_sign);
                         out.write_char(disp_sign)?;
                         used_sign = true;
                     } else {
@@ -1127,11 +1118,11 @@ pub mod core {
                 Token::Numeric(Mode::Integer, i, can_be_sign) => {
                     if len_int > *i {
                         out.write_char(int[(len_int - i - 1) as usize] as char)?;
-                    } else if max(len_int, format.min_int_sign) == *i
-                        && *can_be_sign
-                        && !used_sign
+                    } else if *can_be_sign
                         && !format.has_int_sign
+                        && max(len_int, format.min_int_sign) == *i
                     {
+                        debug_assert!(!used_sign);
                         out.write_char(disp_sign)?;
                         used_sign = true;
                     } else {

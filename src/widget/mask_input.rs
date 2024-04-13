@@ -845,7 +845,7 @@ where
 }
 
 pub mod core {
-    use crate::number::{CurrencySym, Mode, NumberFormat, NumberSymbols, Token};
+    use crate::number::{CurrencySym, NumberFormat, NumberSymbols};
     use crate::{grapheme, number};
     #[allow(unused_imports)]
     use log::debug;
@@ -1379,26 +1379,20 @@ pub mod core {
             _ = number::core::clean_num(v, sym.as_ref(), &mut clean);
 
             // create number format
-            let mut tok = Vec::new();
+            let mut tok = String::new();
             // default fmt.sym is nice
             for t in submask {
                 match &t.right {
-                    Mask::Digit0(EditDirection::Rtol) => tok.push(Token::Digit0(Mode::Integer, 0)),
-                    Mask::Digit(EditDirection::Rtol) => tok.push(Token::Digit(Mode::Integer, 0)),
-                    Mask::Numeric(EditDirection::Rtol) => {
-                        tok.push(Token::Numeric(Mode::Integer, 0, false))
-                    }
-                    Mask::Digit0(EditDirection::Ltor) => tok.push(Token::Digit0(Mode::Fraction, 0)),
-                    Mask::Digit(EditDirection::Ltor) => tok.push(Token::Digit(Mode::Fraction, 0)),
-                    Mask::Numeric(EditDirection::Ltor) => {
-                        tok.push(Token::Numeric(Mode::Fraction, 0, false))
-                    }
-                    Mask::DecimalSep => tok.push(Token::DecimalSep),
-                    Mask::GroupingSep => tok.push(Token::GroupingSep(0)),
-                    Mask::Sign => tok.push(Token::SignInt),
+                    Mask::Digit0(_) => tok.push('0'),
+                    Mask::Digit(_) => tok.push('9'),
+                    Mask::Numeric(_) => tok.push('#'),
+                    Mask::DecimalSep => tok.push('.'),
+                    Mask::GroupingSep => tok.push(','),
+                    Mask::Sign => tok.push('-'),
                     Mask::Separator(s) => {
                         for c in s.chars() {
-                            tok.push(Token::Separator(c));
+                            tok.push('\\');
+                            tok.push(c);
                         }
                     }
                     Mask::None => {}
@@ -1406,7 +1400,7 @@ pub mod core {
                 }
             }
 
-            let fmt = match NumberFormat::news_tok(tok, &sym) {
+            let fmt = match NumberFormat::news(tok, &sym) {
                 Ok(v) => v,
                 Err(_) => return Err(fmt::Error),
             };

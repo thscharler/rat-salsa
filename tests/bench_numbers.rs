@@ -8,7 +8,7 @@ mod lib_test;
 fn bench_num() -> Result<(), anyhow::Error> {
     let mut t = Timing::default()
         .skip(10)
-        .runs(1000000)
+        .runs(100000)
         .unit(Unit::Microsecond);
 
     let mut out = String::new();
