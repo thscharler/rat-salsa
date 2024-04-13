@@ -326,8 +326,6 @@ enum Token {
 /// Holds the pattern for the numberformat and some additional data.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NumberFormat {
-    /// Has a separate sign token for the integer part.
-    has_int_sign: bool,
     /// Minimum position where a sign can be placed. Just left of a `Token::Digit0`
     min_int_sign: u32,
     /// Number of integer digits.
@@ -545,7 +543,6 @@ impl NumberFormat {
         }
 
         Ok(NumberFormat {
-            has_int_sign,
             min_int_sign,
             len_int,
             has_exp_sign,
@@ -1093,7 +1090,7 @@ pub mod core {
                         // noop
                     } else if len_int > *i {
                         out.write_char(disp_decimal_grp)?;
-                    } else if !format.has_int_sign && max(len_int, format.min_int_sign) == *i {
+                    } else if *can_be_sign && max(len_int, format.min_int_sign) == *i {
                         debug_assert!(!used_sign);
                         out.write_char(disp_sign)?;
                         used_sign = true;
@@ -1118,10 +1115,7 @@ pub mod core {
                 Token::Numeric(Mode::Integer, i, can_be_sign) => {
                     if len_int > *i {
                         out.write_char(int[(len_int - i - 1) as usize] as char)?;
-                    } else if *can_be_sign
-                        && !format.has_int_sign
-                        && max(len_int, format.min_int_sign) == *i
-                    {
+                    } else if *can_be_sign && max(len_int, format.min_int_sign) == *i {
                         debug_assert!(!used_sign);
                         out.write_char(disp_sign)?;
                         used_sign = true;
