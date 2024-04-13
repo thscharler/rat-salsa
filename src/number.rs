@@ -1023,6 +1023,40 @@ pub mod core {
     ) -> Result<(), NumberFmtError> {
         let (raw_sign, raw_int, raw_frac, raw_exp_sign, raw_exp) = split_num(raw);
 
+        // locale mapping
+        let disp_sign = if raw_sign == "" {
+            sym.positive_sym
+        } else {
+            sym.negative_sym
+        };
+        let disp_decimal_grp = if let Some(decimal_grp) = sym.decimal_grp {
+            decimal_grp
+        } else {
+            ' '
+        };
+        let disp_decimal_sep = if !raw_frac.is_empty() || format.has_frac_0 {
+            sym.decimal_sep
+        } else {
+            ' '
+        };
+        let disp_exp_upper = if !raw_exp.is_empty() || format.has_exp_0 {
+            sym.exponent_upper_sym
+        } else {
+            ' '
+        };
+        let disp_exp_lower = if !raw_exp.is_empty() || format.has_exp_0 {
+            sym.exponent_lower_sym
+        } else {
+            ' '
+        };
+        let disp_exp_sign = if raw_exp_sign.is_empty() {
+            sym.positive_sym
+        } else {
+            sym.negative_sym
+        };
+
+        // ...
+
         let int = raw_int.as_bytes();
         let len_int = int.len() as u32;
         let frac = raw_frac.as_bytes();
@@ -1054,11 +1088,7 @@ pub mod core {
             match m {
                 Token::SignInt => {
                     debug_assert!(!used_sign);
-                    if raw_sign == "" {
-                        out.write_char(sym.positive_sym)?;
-                    } else {
-                        out.write_char(sym.negative_sym)?;
-                    }
+                    out.write_char(disp_sign)?;
                     used_sign = true;
                 }
                 Token::GroupingSep(i) => {
@@ -1066,16 +1096,12 @@ pub mod core {
                         continue;
                     };
                     if len_int > *i {
-                        out.write_char(decimal_grp)?;
+                        out.write_char(disp_decimal_grp)?;
                     } else if max(len_int, format.min_int_sign) == *i
                         && !used_sign
                         && !format.has_int_sign
                     {
-                        if raw_sign == "" {
-                            out.write_char(sym.positive_sym)?;
-                        } else {
-                            out.write_char(sym.negative_sym)?;
-                        }
+                        out.write_char(disp_sign)?;
                         used_sign = true;
                     } else {
                         out.write_char(' ')?;
@@ -1103,22 +1129,14 @@ pub mod core {
                         && !used_sign
                         && !format.has_int_sign
                     {
-                        if raw_sign == "" {
-                            out.write_char(sym.positive_sym)?;
-                        } else {
-                            out.write_char(sym.negative_sym)?;
-                        }
+                        out.write_char(disp_sign)?;
                         used_sign = true;
                     } else {
                         out.write_char(' ')?;
                     }
                 }
                 Token::DecimalSep => {
-                    if !frac.is_empty() || format.has_frac_0 {
-                        out.write_char(sym.decimal_sep)?;
-                    } else {
-                        out.write_char(' ')?;
-                    }
+                    out.write_char(disp_decimal_sep)?;
                 }
                 Token::DecimalSepAlways => {
                     out.write_char(sym.decimal_sep)?;
@@ -1145,28 +1163,18 @@ pub mod core {
                     }
                 }
                 Token::ExponentUpper => {
-                    if !exp.is_empty() || format.has_exp_0 {
-                        out.write_char(sym.exponent_upper_sym)?;
-                    } else {
-                        out.write_char(' ')?;
-                    }
+                    out.write_char(disp_exp_upper)?;
                 }
                 Token::ExponentLower => {
-                    if !exp.is_empty() || format.has_exp_0 {
-                        out.write_char(sym.exponent_lower_sym)?;
-                    } else {
-                        out.write_char(' ')?;
-                    }
+                    out.write_char(disp_exp_lower)?;
                 }
                 Token::SignExp => {
                     debug_assert!(!used_exp_sign);
                     if raw_exp_sign.is_empty() && sym.positive_sym == ' ' {
                         // explicit sign in the exponent shows '+'.
                         out.write_char('+')?;
-                    } else if raw_exp_sign.is_empty() {
-                        out.write_char(sym.positive_sym)?;
                     } else {
-                        out.write_char(sym.negative_sym)?;
+                        out.write_char(disp_exp_sign)?;
                     }
                     used_exp_sign = true;
                 }
@@ -1214,10 +1222,8 @@ pub mod core {
                         if raw_exp_sign.is_empty() && sym.positive_sym == ' ' {
                             // explicit sign in the exponent shows '+'.
                             out.write_char('+')?;
-                        } else if raw_exp_sign.is_empty() {
-                            out.write_char(sym.positive_sym)?;
                         } else {
-                            out.write_char(sym.negative_sym)?;
+                            out.write_char(disp_exp_sign)?;
                         }
                         used_exp_sign = true;
                     } else {
