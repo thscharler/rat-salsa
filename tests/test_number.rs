@@ -1,85 +1,87 @@
 use pure_rust_locales::Locale;
 use rat_salsa::number;
-use rat_salsa::number::{parse_sym, FormatNumber, NumberFormat, NumberSymbols};
+use rat_salsa::number::{parse_sym, FormatNumber, NumberFmtError, NumberFormat, NumberSymbols};
 use std::fmt;
 use std::rc::Rc;
 
 #[test]
-fn test_std() -> Result<(), fmt::Error> {
+fn test_exp() -> Result<(), fmt::Error> {
+    assert_eq!(
+        number::format(1.234e14, "###,###,###,###,###e###"),
+        Ok("                  1e14 ".to_string())
+    );
+
     let fmt = NumberFormat::new("###e##00").unwrap();
-    println!("{}", fmt);
-    println!("{:?} {}", fmt.fmt(1).unwrap(), 1);
-    println!("{:?} {}", fmt.fmt(1e1).unwrap(), 1e1);
-    println!("{:?} {}", fmt.fmt(1e-1).unwrap(), 1e-1);
-    println!("{:?} {}", fmt.fmt(1e12).unwrap(), 1e12);
-    println!("{:?} {}", fmt.fmt(1e-12).unwrap(), 1e-12);
+    assert_eq!(fmt.fmt(1), Ok("  1e00  ".to_string()));
+    assert_eq!(fmt.fmt(1e1), Ok("  1e01  ".to_string()));
+    assert_eq!(fmt.fmt(1e-1), Ok("  1e-01 ".to_string()));
+    assert_eq!(fmt.fmt(1e12), Ok("  1e12  ".to_string()));
+    assert_eq!(fmt.fmt(1e-12), Ok("  1e-12 ".to_string()));
 
     let fmt = NumberFormat::new("###e###0").unwrap();
-    println!("{}", fmt);
-    println!("{:?} {}", fmt.fmt(1).unwrap(), 1);
-    println!("{:?} {}", fmt.fmt(1e1).unwrap(), 1e1);
-    println!("{:?} {}", fmt.fmt(1e-1).unwrap(), 1e-1);
-    println!("{:?} {}", fmt.fmt(1e12).unwrap(), 1e12);
-    println!("{:?} {}", fmt.fmt(1e-12).unwrap(), 1e-12);
+    assert_eq!(fmt.fmt(1), Ok("  1e0   ".to_string()));
+    assert_eq!(fmt.fmt(1e1), Ok("  1e1   ".to_string()));
+    assert_eq!(fmt.fmt(1e-1), Ok("  1e-1  ".to_string()));
+    assert_eq!(fmt.fmt(1e12), Ok("  1e12  ".to_string()));
+    assert_eq!(fmt.fmt(1e-12), Ok("  1e-12 ".to_string()));
 
     let fmt = NumberFormat::new("###e####").unwrap();
-    println!("{}", fmt);
-    println!("{:?} {}", fmt.fmt(1).unwrap(), 1);
-    println!("{:?} {}", fmt.fmt(1e1).unwrap(), 1e1);
-    println!("{:?} {}", fmt.fmt(1e-1).unwrap(), 1e-1);
-    println!("{:?} {}", fmt.fmt(1e12).unwrap(), 1e12);
-    println!("{:?} {}", fmt.fmt(1e-12).unwrap(), 1e-12);
+    assert_eq!(fmt.fmt(1), Ok("  1e0   ".to_string()));
+    assert_eq!(fmt.fmt(1e1), Ok("  1e1   ".to_string()));
+    assert_eq!(fmt.fmt(1e-1), Ok("  1e-1  ".to_string()));
+    assert_eq!(fmt.fmt(1e12), Ok("  1e12  ".to_string()));
+    assert_eq!(fmt.fmt(1e-12), Ok("  1e-12 ".to_string()));
 
     let fmt = NumberFormat::new("###e##").unwrap();
-    println!("{}", fmt);
-    println!("{:?} {}", fmt.fmt(1).unwrap(), 1);
-    println!("{:?} {}", fmt.fmt(1e1).unwrap(), 1e1);
-    println!("{:?} {}", fmt.fmt(1e-1).unwrap(), 1e-1);
-    println!("{:?} {}", fmt.fmt(1e12).unwrap(), 1e12);
-    // println!("{:?} {}", fmt.fmt(1e-12).unwrap(), 1e-12);
+    assert_eq!(fmt.fmt(1), Ok("  1e0 ".to_string()));
+    assert_eq!(fmt.fmt(1e1), Ok("  1e1 ".to_string()));
+    assert_eq!(fmt.fmt(1e-1), Ok("  1e-1".to_string()));
+    assert_eq!(fmt.fmt(1e12), Ok("  1e12".to_string()));
+    assert_eq!(fmt.fmt(1e-12), Err(NumberFmtError::FmtLenExp));
     Ok(())
 }
 
 #[test]
 fn test_grouping() {
-    assert_eq!(number::format(-123, "##,###").unwrap(), "  -123");
-    assert_eq!(number::format(-1234, "##,###").unwrap(), "-1,234");
+    assert_eq!(number::format(-123, "##,###"), Ok("  -123".to_string()));
+    assert_eq!(number::format(-1234, "##,###"), Ok("-1,234".to_string()));
 }
 
 #[test]
-fn test_sign() -> Result<(), fmt::Error> {
-    let fmt = NumberFormat::new("####")?;
+fn test_sign() {
+    let fmt = NumberFormat::new("####").expect("x");
     let mut str = String::new();
-    number::core::map_num("-.", &fmt, fmt.sym(), &mut str)?;
+    number::core::map_num("-.", &fmt, fmt.sym(), &mut str).expect("x");
     assert_eq!(str, "   -");
 
-    assert_eq!(number::format(-1, "####")?, "  -1");
-    assert_eq!(number::format(-1, "###0")?, "  -1");
-    assert_eq!(number::format(-1, "##00")?, " -01");
-    assert_eq!(number::format(-1, "#000")?, "-001");
-
-    Ok(())
+    assert_eq!(number::format(-1, "####"), Ok("  -1".to_string()));
+    assert_eq!(number::format(-1, "###0"), Ok("  -1".to_string()));
+    assert_eq!(number::format(-1, "##00"), Ok(" -01".to_string()));
+    assert_eq!(number::format(-1, "#000"), Ok("-001".to_string()));
 }
 
 #[test]
 fn test_format() {
-    assert_eq!(number::format(1234, "#####").expect("x"), " 1234");
-    assert_eq!(number::format(1234, "####0.00").expect("x"), " 1234.00");
-    assert_eq!(number::format(1234, "###00.##").expect("x"), " 1234   ");
-    assert_eq!(number::format(1234, "#####e###").expect("x"), "    1e  3");
+    assert_eq!(number::format(1234, "#####"), Ok(" 1234".to_string()));
+    assert_eq!(number::format(1234, "####0.00"), Ok(" 1234.00".to_string()));
+    assert_eq!(number::format(1234, "###00.##"), Ok(" 1234   ".to_string()));
     assert_eq!(
-        number::format(1.234e14, "###,###,###,###,###f###").expect("x"),
-        "                  1e 14"
+        number::format(1234, "#####e###"),
+        Ok("    1e3  ".to_string())
     );
     assert_eq!(
-        number::format(1.234e-14, "###,###,###,###,###.##################f###").expect("x"),
-        "                  1.233999999999999936e-14"
+        number::format(1.234e14, "###,###,###,###,###e###"),
+        Ok("                  1e14 ".to_string())
     );
-    assert_eq!(number::format(1234, "-####").expect("x"), " 1234");
-    assert_eq!(number::format(-1234, "#####").expect("x"), "-1234");
-    assert_eq!(number::format(-1234, "####-").expect("x"), "1234-");
-    assert_eq!(number::format(-1234, "#####-").expect("x"), " 1234-");
-    assert_eq!(number::format(-1, "###00").expect("x"), "  -01");
+    assert_eq!(
+        number::format(1.234e-14, "###,###,###,###,###.##################e###"),
+        Ok("                  1.233999999999999936e-14".to_string())
+    );
+    assert_eq!(number::format(1234, "-####"), Ok(" 1234".to_string()));
+    assert_eq!(number::format(-1234, "#####"), Ok("-1234".to_string()));
+    assert_eq!(number::format(-1234, "####-"), Ok("1234-".to_string()));
+    assert_eq!(number::format(-1234, "#####-"), Ok(" 1234-".to_string()));
+    assert_eq!(number::format(-1, "###00"), Ok("  -01".to_string()));
 }
 
 #[test]
@@ -116,7 +118,7 @@ fn test_fmt() {
                 .expect("x")
         )
         .to_string(),
-        "   3.22e  1"
+        "   3.22e1  "
     );
     assert_eq!(
         format!(
@@ -126,7 +128,7 @@ fn test_fmt() {
                 .expect("x")
         )
         .to_string(),
-        "   3.22e -3"
+        "   3.22e-3 "
     );
 }
 
@@ -136,7 +138,7 @@ fn test_parse() {
 }
 
 #[test]
-fn test_currency() -> Result<(), std::fmt::Error> {
+fn test_currency() {
     let sym = Rc::new(NumberSymbols {
         decimal_sep: ',',
         decimal_grp: Some('.'),
@@ -151,18 +153,17 @@ fn test_currency() -> Result<(), std::fmt::Error> {
         ..Default::default()
     });
 
-    assert_eq!(number::formats(112, "$ ###0", &sym)?, "€  112");
-    assert_eq!(number::formats(112, "$ ###0", &sym2)?, "Rub  112");
+    assert_eq!(
+        number::formats(112, "$ ###0", &sym),
+        Ok("€  112".to_string())
+    );
+    assert_eq!(
+        number::formats(112, "$ ###0", &sym2),
+        Ok("Rub  112".to_string())
+    );
 
-    let fmt = NumberFormat::news("$ ###0", &sym)?;
+    let fmt = NumberFormat::news("$ ###0", &sym).expect("x");
     assert_eq!(number::parse_fmt("€  112", &fmt), Ok(112));
-    let fmt2 = NumberFormat::news("$ ###0", &sym2)?;
+    let fmt2 = NumberFormat::news("$ ###0", &sym2).expect("x");
     assert_eq!(number::parse_fmt("Rub  112", &fmt2), Ok(112));
-
-    Ok(())
-}
-
-#[test]
-fn test_loc() {
-    dbg!(NumberSymbols::monetary(Locale::es_ES));
 }
