@@ -1021,20 +1021,19 @@ pub mod core {
         sym: &NumberSymbols,
         out: &mut W,
     ) -> Result<(), NumberFmtError> {
-        let (sign, int, frac, exp_sign, exp) = split_num(raw);
+        let (raw_sign, raw_int, raw_frac, raw_exp_sign, raw_exp) = split_num(raw);
 
-        let int = int.as_bytes();
+        let int = raw_int.as_bytes();
         let len_int = int.len() as u32;
-        let frac = frac.as_bytes();
+        let frac = raw_frac.as_bytes();
         let len_frac = frac.len() as u32;
-        let exp = exp.as_bytes();
+        let exp = raw_exp.as_bytes();
         let len_exp = exp.len() as u32;
 
-        // let len_sign = sign.len() as u32;
-        let len_exp_sign = exp_sign.len() as u32;
+        let len_exp_sign = raw_exp_sign.len() as u32;
 
-        let mut used_sign = sign.is_empty();
-        let mut used_exp_sign = exp_sign.is_empty();
+        let mut used_sign = false;
+        let mut used_exp_sign = false;
 
         // missing fractions are ok. other missing digits not.
         if len_int > format.len_int {
@@ -1054,10 +1053,8 @@ pub mod core {
         for m in format.tok.iter() {
             match m {
                 Token::SignInt => {
-                    if used_sign && !sign.is_empty() {
-                        return Err(NumberFmtError::FmtSign);
-                    }
-                    if sign == "" {
+                    debug_assert!(!used_sign);
+                    if raw_sign == "" {
                         out.write_char(sym.positive_sym)?;
                     } else {
                         out.write_char(sym.negative_sym)?;
@@ -1074,7 +1071,7 @@ pub mod core {
                         && !used_sign
                         && !format.has_int_sign
                     {
-                        if sign == "" {
+                        if raw_sign == "" {
                             out.write_char(sym.positive_sym)?;
                         } else {
                             out.write_char(sym.negative_sym)?;
@@ -1106,7 +1103,7 @@ pub mod core {
                         && !used_sign
                         && !format.has_int_sign
                     {
-                        if sign == "" {
+                        if raw_sign == "" {
                             out.write_char(sym.positive_sym)?;
                         } else {
                             out.write_char(sym.negative_sym)?;
@@ -1162,13 +1159,11 @@ pub mod core {
                     }
                 }
                 Token::SignExp => {
-                    if used_exp_sign && !exp_sign.is_empty() {
-                        return Err(NumberFmtError::FmtSignExp);
-                    }
-                    if exp_sign.is_empty() && sym.positive_sym == ' ' {
+                    debug_assert!(!used_exp_sign);
+                    if raw_exp_sign.is_empty() && sym.positive_sym == ' ' {
                         // explicit sign in the exponent shows '+'.
                         out.write_char('+')?;
-                    } else if exp_sign.is_empty() {
+                    } else if raw_exp_sign.is_empty() {
                         out.write_char(sym.positive_sym)?;
                     } else {
                         out.write_char(sym.negative_sym)?;
@@ -1216,10 +1211,10 @@ pub mod core {
                         && !used_exp_sign
                         && !format.has_exp_sign
                     {
-                        if exp_sign.is_empty() && sym.positive_sym == ' ' {
+                        if raw_exp_sign.is_empty() && sym.positive_sym == ' ' {
                             // explicit sign in the exponent shows '+'.
                             out.write_char('+')?;
-                        } else if exp_sign.is_empty() {
+                        } else if raw_exp_sign.is_empty() {
                             out.write_char(sym.positive_sym)?;
                         } else {
                             out.write_char(sym.negative_sym)?;
@@ -1245,10 +1240,10 @@ pub mod core {
             }
         }
 
-        if !used_sign {
+        if !used_sign && !raw_sign.is_empty() {
             return Err(NumberFmtError::FmtNoSign);
         }
-        if !used_exp_sign {
+        if !used_exp_sign && !raw_exp_sign.is_empty() {
             return Err(NumberFmtError::FmtNoExpSign);
         }
 
