@@ -295,7 +295,7 @@ pub enum Mode {
 /// Next to a grouping separator there can be no sign, it will be at the position
 /// of the grouping separator.
 #[allow(variant_size_differences)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Token {
     /// Mask char "0". Digit or 0
     Digit0(Mode, u32),
@@ -318,13 +318,13 @@ pub enum Token {
     /// Mask char "-". Exponent sign.
     SignExp,
     /// Mask char "$". Currency. Variable length.
-    Currency, // todo: u32
+    Currency,
     /// Other separator char to output literally. May be escaped with '\\'.
     Separator(char),
 }
 
 /// Holds the pattern for the numberformat and some additional data.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NumberFormat {
     /// Has a separate sign token for the integer part.
     has_int_sign: bool,
@@ -422,7 +422,8 @@ impl Display for NumberFormat {
 impl NumberFormat {
     /// New format from pattern.
     pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, NumberFmtError> {
-        core::parse_number_format(pattern.as_ref())
+        let tok = Self::parse_tokens(pattern.as_ref())?;
+        Self::news_tok(tok, &Rc::new(NumberSymbols::new()))
     }
 
     /// New format from pattern + symbols
@@ -430,10 +431,8 @@ impl NumberFormat {
         pattern: S,
         sym: &Rc<NumberSymbols>,
     ) -> Result<Self, NumberFmtError> {
-        core::parse_number_format(pattern.as_ref()).map(|mut v| {
-            v.sym = Rc::clone(sym);
-            v
-        })
+        let tok = Self::parse_tokens(pattern.as_ref())?;
+        Self::news_tok(tok, sym)
     }
 
     /// New format from token-array.
@@ -568,7 +567,77 @@ impl NumberFormat {
         })
     }
 
-    ///
+    /// Parses the format string. Uses the default symbol table.
+    fn parse_tokens(pattern: &str) -> Result<Vec<Token>, NumberFmtError> {
+        let mut esc = false;
+        let mut mode = Mode::Integer;
+
+        let mut tok = Vec::new();
+
+        for m in pattern.chars() {
+            let mask = if esc {
+                esc = false;
+                Token::Separator(m)
+            } else {
+                match m {
+                    '0' => Token::Digit0(mode, 0),
+                    '9' => Token::Digit(mode, 0),
+                    '#' => Token::Numeric(mode, 0, false),
+                    '.' => {
+                        if matches!(mode, Mode::Fraction | Mode::Exponent) {
+                            return Err(NumberFmtError::ParseInvalidDecimalSep);
+                        }
+                        mode = Mode::Fraction;
+                        Token::DecimalSep
+                    }
+                    ':' => {
+                        if matches!(mode, Mode::Fraction | Mode::Exponent) {
+                            return Err(NumberFmtError::ParseInvalidDecimalSep);
+                        }
+                        mode = Mode::Fraction;
+                        Token::DecimalSepAlways
+                    }
+                    ',' => Token::GroupingSep(0),
+                    '-' => {
+                        if mode == Mode::Integer {
+                            Token::SignInt
+                        } else if mode == Mode::Exponent {
+                            Token::SignExp
+                        } else {
+                            return Err(NumberFmtError::ParseInvalidSign);
+                        }
+                    }
+                    'e' => {
+                        if mode == Mode::Exponent {
+                            return Err(NumberFmtError::ParseInvalidExp);
+                        }
+                        mode = Mode::Exponent;
+                        Token::ExponentLower
+                    }
+                    'E' => {
+                        if mode == Mode::Exponent {
+                            return Err(NumberFmtError::ParseInvalidExp);
+                        }
+                        mode = Mode::Exponent;
+                        Token::ExponentUpper
+                    }
+                    '$' => Token::Currency,
+                    '\\' => {
+                        esc = true;
+                        continue;
+                    }
+                    ' ' => Token::Separator(' '),
+                    c if c.is_ascii() => return Err(NumberFmtError::ParseUnescaped),
+                    c => Token::Separator(c),
+                }
+            };
+            tok.push(mask);
+        }
+
+        Ok(tok)
+    }
+
+    /// Symbols
     pub fn sym(&self) -> &NumberSymbols {
         self.sym.as_ref()
     }
@@ -683,7 +752,7 @@ macro_rules! define_fmt {
             ) -> Result<FormattedNumber<'a, Self>, NumberFmtError> {
                 Ok(FormattedNumber {
                     num: *self,
-                    format: core::parse_number_format(pattern)?,
+                    format: NumberFormat::new(pattern)?,
                     sym,
                 })
             }
@@ -721,76 +790,6 @@ pub mod core {
     use std::cmp::max;
     use std::fmt::{Display, LowerExp, Write as FmtWrite};
     use std::str::FromStr;
-
-    /// Parses the format string. Uses the default symbol table.
-    pub fn parse_number_format(pattern: &str) -> Result<NumberFormat, NumberFmtError> {
-        let mut esc = false;
-        let mut mode = Mode::Integer;
-
-        let mut tok = Vec::new();
-
-        for m in pattern.chars() {
-            let mask = if esc {
-                esc = false;
-                Token::Separator(m)
-            } else {
-                match m {
-                    '0' => Token::Digit0(mode, 0),
-                    '9' => Token::Digit(mode, 0),
-                    '#' => Token::Numeric(mode, 0, false),
-                    '.' => {
-                        if matches!(mode, Mode::Fraction | Mode::Exponent) {
-                            return Err(NumberFmtError::ParseInvalidDecimalSep);
-                        }
-                        mode = Mode::Fraction;
-                        Token::DecimalSep
-                    }
-                    ':' => {
-                        if matches!(mode, Mode::Fraction | Mode::Exponent) {
-                            return Err(NumberFmtError::ParseInvalidDecimalSep);
-                        }
-                        mode = Mode::Fraction;
-                        Token::DecimalSepAlways
-                    }
-                    ',' => Token::GroupingSep(0),
-                    '-' => {
-                        if mode == Mode::Integer {
-                            Token::SignInt
-                        } else if mode == Mode::Exponent {
-                            Token::SignExp
-                        } else {
-                            return Err(NumberFmtError::ParseInvalidSign);
-                        }
-                    }
-                    'e' => {
-                        if mode == Mode::Exponent {
-                            return Err(NumberFmtError::ParseInvalidExp);
-                        }
-                        mode = Mode::Exponent;
-                        Token::ExponentLower
-                    }
-                    'E' => {
-                        if mode == Mode::Exponent {
-                            return Err(NumberFmtError::ParseInvalidExp);
-                        }
-                        mode = Mode::Exponent;
-                        Token::ExponentUpper
-                    }
-                    '$' => Token::Currency,
-                    '\\' => {
-                        esc = true;
-                        continue;
-                    }
-                    ' ' => Token::Separator(' '),
-                    c if c.is_ascii() => return Err(NumberFmtError::ParseUnescaped),
-                    c => Token::Separator(c),
-                }
-            };
-            tok.push(mask);
-        }
-
-        NumberFormat::new_tok(tok)
-    }
 
     fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {
         // everything is ascii
@@ -1345,9 +1344,9 @@ pub fn format<Number: LowerExp + Display>(
     number: Number,
     pattern: &str,
 ) -> Result<String, NumberFmtError> {
-    let format = core::parse_number_format(pattern)?;
+    let fmt = NumberFormat::new(pattern)?;
     let mut out = String::new();
-    core::format_to(number, &format, &NumberSymbols::new(), &mut out)?;
+    core::format_to(number, &fmt, fmt.sym(), &mut out)?;
     Ok(out)
 }
 
@@ -1358,8 +1357,8 @@ pub fn format_to<W: FmtWrite, Number: LowerExp + Display>(
     pattern: &str,
     out: &mut W,
 ) -> Result<(), NumberFmtError> {
-    let format = core::parse_number_format(pattern)?;
-    core::format_to(number, &format, &NumberSymbols::new(), out)
+    let fmt = NumberFormat::new(pattern)?;
+    core::format_to(number, &fmt, fmt.sym(), out)
 }
 
 /// Format a Number according to the format string.
@@ -1368,7 +1367,7 @@ pub fn formats<Number: LowerExp + Display>(
     pattern: &str,
     sym: &NumberSymbols,
 ) -> Result<String, NumberFmtError> {
-    let format = core::parse_number_format(pattern)?;
+    let format = NumberFormat::new(pattern)?;
     let mut out = String::new();
     core::format_to(number, &format, sym, &mut out)?;
     Ok(out)
@@ -1381,7 +1380,7 @@ pub fn formats_to<W: FmtWrite, Number: LowerExp + Display>(
     sym: &NumberSymbols,
     out: &mut W,
 ) -> Result<(), NumberFmtError> {
-    let format = core::parse_number_format(pattern)?;
+    let format = NumberFormat::new(pattern)?;
     core::format_to(number, &format, &sym, out)
 }
 
@@ -1420,6 +1419,6 @@ pub fn parse_format<F: FromStr>(
     pattern: &str,
     sym: &NumberSymbols,
 ) -> Result<F, NumberFmtError> {
-    let format = core::parse_number_format(pattern)?;
+    let format = NumberFormat::new(pattern)?;
     core::parse_fmt(s, &format, sym)
 }

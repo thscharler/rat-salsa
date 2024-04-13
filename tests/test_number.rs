@@ -5,6 +5,25 @@ use std::fmt;
 use std::rc::Rc;
 
 #[test]
+fn test_extra() -> Result<(), fmt::Error> {
+    dbg!(number::format(1234, "#\\-#\\-#\\-#\\-#\\-#"));
+
+    Ok(())
+}
+
+#[test]
+fn test_fail() {
+    assert_eq!(
+        NumberFormat::new("##0.00.00"),
+        Err(NumberFmtError::ParseInvalidDecimalSep)
+    );
+    assert_eq!(
+        NumberFormat::new("##0e00e00"),
+        Err(NumberFmtError::ParseInvalidExp)
+    );
+}
+
+#[test]
 fn test_exp() -> Result<(), fmt::Error> {
     assert_eq!(
         number::format(1.234e14, "###,###,###,###,###e###"),

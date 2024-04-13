@@ -1,6 +1,5 @@
 use crate::lib_test::{Timing, Unit};
-use rat_salsa::number::core::parse_number_format;
-use rat_salsa::number::fmt_to;
+use rat_salsa::number::{fmt_to, format_to, NumberFormat};
 use std::fmt::Write;
 
 mod lib_test;
@@ -23,10 +22,16 @@ fn bench_num() -> Result<(), anyhow::Error> {
         _ = ryu.format(rand::random::<f64>());
     });
 
-    let fmt = parse_number_format("0.################")?;
+    let fmt = NumberFormat::new("0.################")?;
     let mut out = String::new();
     t.run_proc("fmt", || {
         fmt_to(rand::random::<f64>(), &fmt, &mut out);
+        out.clear();
+    });
+
+    let mut out = String::new();
+    t.run_proc("fmt2", || {
+        _ = format_to(rand::random::<f64>(), "0.################", &mut out);
         out.clear();
     });
 
