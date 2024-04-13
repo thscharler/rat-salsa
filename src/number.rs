@@ -317,7 +317,7 @@ pub enum Token {
     ExponentLower,
     /// Mask char "-". Exponent sign.
     SignExp,
-    /// Mask char "$". Currency. Each $ takes one character of the symbol.
+    /// Mask char "$". Currency. Variable length.
     Currency, // todo: u32
     /// Other separator char to output literally. May be escaped with '\\'.
     Separator(char),
@@ -375,8 +375,16 @@ pub enum NumberFmtError {
     ParseInvalidSeparator,
 }
 
+impl std::error::Error for NumberFmtError {}
+
+impl Display for NumberFmtError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
+}
+
 impl From<FmtError> for NumberFmtError {
-    fn from(value: FmtError) -> Self {
+    fn from(_: FmtError) -> Self {
         NumberFmtError::Fmt
     }
 }
@@ -429,14 +437,18 @@ impl NumberFormat {
     }
 
     /// New format from token-array.
-    pub fn new_tok(pattern: Vec<Token>) -> Self {
+    pub fn new_tok(pattern: Vec<Token>) -> Result<Self, NumberFmtError> {
         Self::news_tok(pattern, &Rc::new(NumberSymbols::new()))
     }
 
     /// New format from token-array.
-    pub fn news_tok(mut pattern: Vec<Token>, sym: &Rc<NumberSymbols>) -> Self {
+    pub fn news_tok(
+        mut pattern: Vec<Token>,
+        sym: &Rc<NumberSymbols>,
+    ) -> Result<Self, NumberFmtError> {
         let mut has_exp = false;
         let mut has_exp_0 = false;
+        let mut has_dec_sep = false;
         let mut has_frac_0 = false;
         let mut has_int_sign = false;
         let mut min_int_sign = 0;
@@ -449,6 +461,12 @@ impl NumberFormat {
         let mut idx_frac = 0;
         for t in pattern.iter_mut() {
             match t {
+                Token::DecimalSep | Token::DecimalSepAlways => {
+                    if has_dec_sep {
+                        return Err(NumberFmtError::ParseInvalidDecimalSep);
+                    }
+                    has_dec_sep = true;
+                }
                 Token::Digit0(Mode::Fraction, x) => {
                     has_frac_0 = true;
                     len_frac += 1;
@@ -468,6 +486,9 @@ impl NumberFormat {
                 }
 
                 Token::ExponentLower | Token::ExponentUpper => {
+                    if has_exp {
+                        return Err(NumberFmtError::ParseInvalidExp);
+                    }
                     has_exp = true;
                 }
 
@@ -531,7 +552,7 @@ impl NumberFormat {
             was_grp = matches!(t, Token::GroupingSep(_));
         }
 
-        NumberFormat {
+        Ok(NumberFormat {
             has_int_sign,
             min_int_sign,
             len_int,
@@ -544,7 +565,7 @@ impl NumberFormat {
             len_frac,
             tok: pattern,
             sym: Rc::clone(sym),
-        }
+        })
     }
 
     ///
@@ -629,7 +650,7 @@ impl<'a, Number: Copy + LowerExp + Display> Display for FormattedNumber<'a, Numb
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match core::format_to(self.num, &self.format, &self.sym, f) {
-            Ok(v) => Ok(()),
+            Ok(_) => Ok(()),
             Err(_) => Err(fmt::Error),
         }
     }
@@ -768,7 +789,7 @@ pub mod core {
             tok.push(mask);
         }
 
-        Ok(NumberFormat::new_tok(tok))
+        NumberFormat::new_tok(tok)
     }
 
     fn split_num(value: &str) -> (&str, &str, &str, &str, &str) {

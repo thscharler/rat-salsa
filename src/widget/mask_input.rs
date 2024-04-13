@@ -845,7 +845,7 @@ where
 }
 
 pub mod core {
-    use crate::number::{CurrencySym, Mode, NumberFmtError, NumberFormat, NumberSymbols, Token};
+    use crate::number::{CurrencySym, Mode, NumberFormat, NumberSymbols, Token};
     use crate::{grapheme, number};
     #[allow(unused_imports)]
     use log::debug;
@@ -1406,7 +1406,10 @@ pub mod core {
                 }
             }
 
-            let fmt = NumberFormat::news_tok(tok, &sym);
+            let fmt = match NumberFormat::news_tok(tok, &sym) {
+                Ok(v) => v,
+                Err(_) => return Err(fmt::Error),
+            };
             let mut out = String::new();
             match number::core::map_num(clean.as_str(), &fmt, fmt.sym(), &mut out) {
                 Ok(_) => {}
