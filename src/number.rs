@@ -331,16 +331,14 @@ pub struct NumberFormat {
     /// Number of integer digits.
     len_int: u32,
 
-    /// has a separate sign token for the exponent part.
-    has_exp_sign: bool,
-    /// Minimum position where a sign can be placed. Just left of a `Token::Digit0`
-    min_exp_sign: u32,
     /// Decides which std-format is used. If true it's `{:e}` otherwise plain `{}`
     has_exp: bool,
-    /// Number of exponent digits
-    len_exp: u32,
     /// Has an exponent with a '0' pattern.
     has_exp_0: bool,
+    /// Minimum position where a sign can be placed. Just left of a `Token::Digit0`
+    min_exp_sign: u32,
+    /// Number of exponent digits
+    len_exp: u32,
 
     /// Has a fraction with a '0' pattern.
     has_frac_0: bool,
@@ -532,7 +530,7 @@ impl NumberFormat {
                 Token::Numeric(Mode::Exponent, x, sign) => {
                     len_exp += 1;
                     *x = idx_exp;
-                    *sign = true;
+                    *sign = !has_exp_sign;
                     idx_exp += 1;
                 }
 
@@ -545,7 +543,6 @@ impl NumberFormat {
         Ok(NumberFormat {
             min_int_sign,
             len_int,
-            has_exp_sign,
             min_exp_sign,
             has_exp,
             len_exp,
@@ -1015,21 +1012,46 @@ pub mod core {
         let (raw_sign, raw_int, raw_frac, raw_exp_sign, raw_exp) = split_num(raw);
 
         // locale mapping
-        let disp_sign = if raw_sign == "" {
-            sym.positive_sym
-        } else {
-            sym.negative_sym
-        };
+
+        // grouping
+        let skip_group = sym.decimal_grp.is_none();
         let disp_decimal_grp = if let Some(decimal_grp) = sym.decimal_grp {
             decimal_grp
         } else {
             ' '
         };
+
+        // sign
+        let disp_sign = if raw_sign.is_empty() {
+            sym.positive_sym
+        } else {
+            sym.negative_sym
+        };
+
+        // integer
+        let int = raw_int.as_bytes();
+        let len_int = int.len() as u32;
+        if len_int > format.len_int {
+            return Err(NumberFmtError::FmtLenInt);
+        }
+
+        // dec-sep
         let disp_decimal_sep = if !raw_frac.is_empty() || format.has_frac_0 {
             sym.decimal_sep
         } else {
             ' '
         };
+
+        // fraction
+        let frac = raw_frac.as_bytes();
+        let len_frac = frac.len() as u32;
+
+        // exponent sign
+        let len_exp_sign = raw_exp_sign.len() as u32;
+
+        // exponent
+        let exp = raw_exp.as_bytes();
+        let len_exp = exp.len() as u32;
         let disp_exp_upper = if !raw_exp.is_empty() || format.has_exp_0 {
             sym.exponent_upper_sym
         } else {
@@ -1046,27 +1068,6 @@ pub mod core {
             sym.negative_sym
         };
 
-        //
-        let skip_group = sym.decimal_grp.is_none();
-
-        // ...
-
-        let int = raw_int.as_bytes();
-        let len_int = int.len() as u32;
-        let frac = raw_frac.as_bytes();
-        let len_frac = frac.len() as u32;
-        let exp = raw_exp.as_bytes();
-        let len_exp = exp.len() as u32;
-
-        let len_exp_sign = raw_exp_sign.len() as u32;
-
-        let mut used_sign = false;
-        let mut used_exp_sign = false;
-
-        // missing fractions are ok. other missing digits not.
-        if len_int > format.len_int {
-            return Err(NumberFmtError::FmtLenInt);
-        }
         if len_exp > format.len_exp {
             return Err(NumberFmtError::FmtLenExp);
         }
@@ -1077,6 +1078,9 @@ pub mod core {
         // left shift the exponent and fill the rest with ' '.
         let shift_exp_n = format.len_exp - max(len_exp, format.min_exp_sign) - len_exp_sign;
         let shift_exp_pos = max(len_exp, format.min_exp_sign) + len_exp_sign;
+
+        let mut used_sign = false;
+        let mut used_exp_sign = false;
 
         for m in format.tok.iter() {
             match m {
@@ -1174,7 +1178,6 @@ pub mod core {
                     } else {
                         out.write_char('0')?;
                     }
-
                     // append shifted digits as blank
                     if *i == 0 {
                         for _ in 0..shift_exp_n {
@@ -1190,7 +1193,6 @@ pub mod core {
                     } else {
                         out.write_char(' ')?;
                     }
-
                     // append shifted digits as blank
                     if *i == 0 {
                         for _ in 0..shift_exp_n {
@@ -1198,21 +1200,14 @@ pub mod core {
                         }
                     }
                 }
-                Token::Numeric(Mode::Exponent, i, _) => {
+                Token::Numeric(Mode::Exponent, i, can_be_sign) => {
                     if *i >= shift_exp_pos {
                         // left-shift exponent
                     } else if len_exp > *i {
                         out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
-                    } else if max(len_exp, format.min_exp_sign) == *i
-                        && !used_exp_sign
-                        && !format.has_exp_sign
-                    {
-                        if raw_exp_sign.is_empty() && sym.positive_sym == ' ' {
-                            // explicit sign in the exponent shows '+'.
-                            out.write_char('+')?;
-                        } else {
-                            out.write_char(disp_exp_sign)?;
-                        }
+                    } else if *can_be_sign && max(len_exp, format.min_exp_sign) == *i {
+                        debug_assert!(!used_exp_sign);
+                        out.write_char(disp_exp_sign)?;
                         used_exp_sign = true;
                     } else {
                         out.write_char(' ')?;
