@@ -35,11 +35,11 @@
 //! * `-` - sign; show space for positive
 //! * `.` - decimal separator
 //! * `:` - decimal separator, always shown
-//! * `,` - grouping separator
+//! * `,` - grouping separator. maybe left out if the symbols say so.
 //! * `E` - upper case exponent
 //! * `e` - lower case exponent
 //! * ` ` - space can be used as separator
-//! * '$' - currency. repeat for multi-char currency symbols.
+//! * '$' - currency. variable length output according to the currency-symbol.
 //! * `\` - all ascii characters (ascii 32-128!) are reserved and must be escaped.
 //! * `_` - other unicode characters can be used without escaping.
 //!
@@ -165,10 +165,7 @@ fn first_opt(s: &str) -> Option<char> {
 }
 
 /// Currency symbol.
-///
-/// This is a bit of a construction to have an inline, const-capable string.
-/// All this to have a cheap, copyable default value for NumberSymbols, that can always be
-/// constructed on the fly.
+/// Const constructable short inline string.
 #[derive(PartialEq, Eq, Clone, Copy)]
 pub struct CurrencySym {
     len: u8,
@@ -315,7 +312,7 @@ enum Token {
     Separator(char),
 }
 
-/// Holds the pattern for the numberformat and some additional data.
+/// Holds the pattern for the number format and some additional data.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct NumberFormat {
     /// Minimum position where a sign can be placed. Just left of a `Token::Digit0`
@@ -343,23 +340,38 @@ pub struct NumberFormat {
     sym: Rc<NumberSymbols>,
 }
 
+/// Errors
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
 pub enum NumberFmtError {
+    /// General formatting error. Mostly from `write!()`
     Fmt,
+    /// Integer len of the source is too long.
     FmtLenInt,
+    /// Exponent len of the source is too long.
     FmtLenExp,
-    FmtSign,
-    FmtSignExp,
+    /// Number is negative, but there is no place to show.
     FmtNoSign,
+    /// Exponent is negative, but there is no place to show.
     FmtNoExpSign,
+    /// General parse error. Mostly from `FromStr::parse()`
     Parse,
+    /// Misplaced decimal separator in the pattern. Invalid decimal separator when parsing.
     ParseInvalidDecimalSep,
+    /// Invalid sign in the pattern. Invalid sign when parsing.
     ParseInvalidSign,
+    /// Invalid exponent in the pattern. Invalid exponent when parsing.
     ParseInvalidExp,
+    /// Invalid exp sign in the pattern. Invalid exp sign when parsing.
+    ParseInvalidExpSign,
+    /// Unescaped char in the pattern.
     ParseUnescaped,
+    /// Invalid digit when parsing.
     ParseInvalidDigit,
+    /// Invalid grp sep when parsing.
     ParseInvalidGroupingSep,
+    /// Invalid currency symbol when parsing.
     ParseInvalidCurrency,
+    /// Invalid separator when parsing.
     ParseInvalidSeparator,
 }
 
@@ -621,27 +633,29 @@ impl NumberFormat {
         self.sym.as_ref()
     }
 
-    /// Formats or returns the error converted to a string.
+    /// Formats.
     #[inline]
     pub fn fmt<Number: LowerExp + Display>(
         &self,
         number: Number,
     ) -> Result<String, NumberFmtError> {
         let mut out = String::new();
-        core::format_to(number, self, self.sym.as_ref(), &mut out)?;
+        core::format_to(number, self, self.sym(), &mut out)?;
         Ok(out)
     }
 
-    /// Formats or returns the error converted to a string.
+    /// Formats to a buffer.
     #[inline]
     pub fn fmt_to<Number: LowerExp + Display, W: FmtWrite>(
         &self,
         number: Number,
         out: &mut W,
     ) -> Result<(), NumberFmtError> {
-        core::format_to(number, self, self.sym.as_ref(), out)
+        core::format_to(number, self, self.sym(), out)
     }
 
+    /// Parse using the exact format.
+    /// See [ParseNumber::parse_sym()](crate::number::ParseNumber::parse_sym()]
     #[inline]
     pub fn parse<F: FromStr>(&self, s: &str) -> Result<F, NumberFmtError> {
         core::parse_fmt(s, self, self.sym.as_ref())
@@ -651,8 +665,11 @@ impl NumberFormat {
 /// Parses a number from a &str.
 pub trait ParseNumber {
     /// Parse the number after applying [core::clean_num()].
+    /// This removes everything but digits, decimal sym and sign and then parses.
+    /// Uses the given symbols for the translation.
     fn parse_sym<F: FromStr>(&self, sym: &NumberSymbols) -> Result<F, NumberFmtError>;
     /// Parse the number after applying [core::unmap_num()]
+    /// Creates a raw number by unapplying the exact pattern.
     fn parse_fmt<F: FromStr>(&self, fmt: &NumberFormat) -> Result<F, NumberFmtError>;
 }
 
@@ -682,6 +699,8 @@ where
     fn fmt<'a>(&self, format: &'a NumberFormat) -> RefFormattedNumber<'a, Self>;
 }
 
+/// Holds a temporary result from [FormatNumber]. The only purpose is as anchor for the
+/// Display trait.
 #[derive(Debug)]
 pub struct FormattedNumber<'a, Number> {
     num: Number,
@@ -699,6 +718,8 @@ impl<'a, Number: Copy + LowerExp + Display> Display for FormattedNumber<'a, Numb
     }
 }
 
+/// Holds a temporary result from [FormatNumber]. The only purpose is as anchor for the
+/// Display trait.
 #[derive(Debug)]
 pub struct RefFormattedNumber<'a, Number> {
     num: Number,
@@ -851,8 +872,6 @@ pub mod core {
     }
 
     /// Unmap the formatted string back to a format that `f64::parse()` can understand.
-    ///
-    /// Token::NumericOpt is not supported for now.
     pub fn unmap_num<W: FmtWrite>(
         formatted: &str,
         format: &NumberFormat,
@@ -916,7 +935,7 @@ pub mod core {
                     } else if c == '+' {
                         // ok
                     } else {
-                        return Err(NumberFmtError::ParseInvalidSign);
+                        return Err(NumberFmtError::ParseInvalidExpSign);
                     }
                 }
                 Token::DecimalSep => {
@@ -1306,6 +1325,7 @@ pub mod core {
         }
     }
 
+    /// Parse the number according to the exact format.
     pub fn parse_fmt<F: FromStr>(
         s: &str,
         fmt: &NumberFormat,
@@ -1332,6 +1352,8 @@ pub mod core {
         }
     }
 
+    /// Parse the number only using the symbols for translation.
+    /// Takes digits and some specials and ignores the rest.
     pub fn parse_sym<F: FromStr>(s: &str, sym: &NumberSymbols) -> Result<F, NumberFmtError> {
         thread_local! {
             static RAW: Cell<String> = Cell::new(String::new());
