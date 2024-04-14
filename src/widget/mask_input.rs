@@ -11,6 +11,7 @@
 //!   * `9`: can enter digit, display as space
 //!   * `#`: digit, plus or minus sign, display as space
 //!   * `-`: sign
+//!   * `+`: sign, positive is '+', negative is '-', not localized.
 //!   * `.` and `,`: decimal and grouping separators
 //!
 //!   * `H`: must enter a hex digit, display as 0
@@ -874,6 +875,7 @@ pub mod core {
         DecimalSep,
         GroupingSep,
         Sign,
+        Plus,
         Hex0,
         Hex,
         Oct0,
@@ -937,6 +939,7 @@ pub mod core {
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => ",",
                 Mask::Sign => "-",
+                Mask::Plus => "+",
                 Mask::Hex0 => "H",
                 Mask::Hex => "h",
                 Mask::Oct0 => "O",
@@ -955,6 +958,7 @@ pub mod core {
                             | "."
                             | ","
                             | "-"
+                            | "+"
                             | "H"
                             | "h"
                             | "O"
@@ -991,6 +995,7 @@ pub mod core {
                 Mask::DecimalSep => write!(f, "."),
                 Mask::GroupingSep => write!(f, ","),
                 Mask::Sign => write!(f, "-"),
+                Mask::Plus => write!(f, "+"),
                 Mask::Hex0 => write!(f, "H"),
                 Mask::Hex => write!(f, "h"),
                 Mask::Oct0 => write!(f, "O"),
@@ -1009,6 +1014,7 @@ pub mod core {
                             | "."
                             | ","
                             | "-"
+                            | "+"
                             | "H"
                             | "h"
                             | "O"
@@ -1055,6 +1061,7 @@ pub mod core {
                 Mask::DecimalSep => true,
                 Mask::GroupingSep => true,
                 Mask::Sign => true,
+                Mask::Plus => true,
 
                 Mask::Hex0 => false,
                 Mask::Hex => false,
@@ -1079,6 +1086,7 @@ pub mod core {
                 Mask::Numeric(d) => d.is_ltor(),
                 Mask::GroupingSep => false,
                 Mask::Sign => false,
+                Mask::Plus => false,
                 Mask::DecimalSep => true,
                 Mask::Hex0 => true,
                 Mask::Hex => true,
@@ -1103,6 +1111,7 @@ pub mod core {
                 Mask::Numeric(d) => d.is_rtol(),
                 Mask::GroupingSep => true,
                 Mask::Sign => true,
+                Mask::Plus => true,
                 Mask::DecimalSep => false,
                 Mask::Hex0 => false,
                 Mask::Hex => false,
@@ -1129,25 +1138,27 @@ pub mod core {
 
                 Mask::Sign => 1,
 
-                Mask::DecimalSep => 2,
+                Mask::Plus => 2,
 
-                Mask::Hex0 => 3,
-                Mask::Hex => 3,
+                Mask::DecimalSep => 3,
 
-                Mask::Oct0 => 4,
-                Mask::Oct => 4,
+                Mask::Hex0 => 4,
+                Mask::Hex => 4,
 
-                Mask::Dec0 => 5,
-                Mask::Dec => 5,
+                Mask::Oct0 => 5,
+                Mask::Oct => 5,
 
-                Mask::Letter => 6,
-                Mask::LetterOrDigit => 6,
-                Mask::LetterDigitSpace => 6,
-                Mask::AnyChar => 6,
+                Mask::Dec0 => 6,
+                Mask::Dec => 6,
 
-                Mask::Separator(_) => 7,
+                Mask::Letter => 7,
+                Mask::LetterOrDigit => 7,
+                Mask::LetterDigitSpace => 7,
+                Mask::AnyChar => 7,
 
-                Mask::None => 8,
+                Mask::Separator(_) => 8,
+
+                Mask::None => 9,
             }
         }
 
@@ -1159,6 +1170,7 @@ pub mod core {
                 Mask::Numeric(_) => 0,
                 Mask::GroupingSep => 0,
                 Mask::Sign => 0,
+                Mask::Plus => 0,
                 Mask::DecimalSep => 0,
 
                 Mask::Hex0 => 1,
@@ -1184,6 +1196,7 @@ pub mod core {
                 Mask::DecimalSep => "." == c,
                 Mask::GroupingSep => false,
                 Mask::Sign => "-" == c || " " == c,
+                Mask::Plus => "-" == c || "+" == c || " " == c,
                 Mask::Hex0 => c == "0",
                 Mask::Hex => false,
                 Mask::Oct0 => c == "0",
@@ -1207,6 +1220,7 @@ pub mod core {
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
                 Mask::Sign => false,
+                Mask::Plus => false,
                 Mask::GroupingSep => true,
                 Mask::Hex0 => c == "0",
                 Mask::Hex => c == " ",
@@ -1231,6 +1245,7 @@ pub mod core {
                 Mask::Numeric(_) => c == " ",
                 Mask::DecimalSep => false,
                 Mask::Sign => false,
+                Mask::Plus => false,
                 Mask::GroupingSep => true,
                 Mask::Hex0 => false,
                 Mask::Hex => c == " ",
@@ -1256,6 +1271,7 @@ pub mod core {
                 Mask::DecimalSep => ".",
                 Mask::GroupingSep => " ", // don't show. remap_number fills it in if necessary.
                 Mask::Sign => " ",
+                Mask::Plus => "+",
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1280,6 +1296,7 @@ pub mod core {
                 Mask::DecimalSep => " ",  // only used by get_display_mask()
                 Mask::GroupingSep => " ", // only used by get_display_mask()
                 Mask::Sign => " ",
+                Mask::Plus => "+",
                 Mask::Hex0 => "0",
                 Mask::Hex => " ",
                 Mask::Oct0 => "0",
@@ -1389,6 +1406,7 @@ pub mod core {
                     Mask::DecimalSep => tok.push('.'),
                     Mask::GroupingSep => tok.push(','),
                     Mask::Sign => tok.push('-'),
+                    Mask::Plus => tok.push('+'),
                     Mask::Separator(s) => {
                         for c in s.chars() {
                             tok.push('\\');
@@ -1757,7 +1775,10 @@ pub mod core {
                                 rendered.push(' ');
                             }
                             Mask::Sign => {
-                                rendered.push(' ');
+                                rendered.push_str(t.display.as_ref());
+                            }
+                            Mask::Plus => {
+                                rendered.push_str(t.display.as_ref());
                             }
                             Mask::Hex0
                             | Mask::Hex
@@ -1813,6 +1834,13 @@ pub mod core {
                                     rendered.push(self.neg_sym());
                                 } else {
                                     rendered.push(self.pos_sym());
+                                }
+                            }
+                            Mask::Plus => {
+                                if s == "-" {
+                                    rendered.push('-');
+                                } else {
+                                    rendered.push('+');
                                 }
                             }
                             Mask::Hex0
@@ -1876,6 +1904,9 @@ pub mod core {
                             Mask::Sign => {
                                 rendered.push_str(t.display.as_ref());
                             }
+                            Mask::Plus => {
+                                rendered.push_str(t.display.as_ref());
+                            }
                             Mask::Hex0
                             | Mask::Hex
                             | Mask::Oct0
@@ -1926,6 +1957,13 @@ pub mod core {
                             Mask::Sign => {
                                 if s == "-" {
                                     rendered.push(self.neg_sym());
+                                }
+                            }
+                            Mask::Plus => {
+                                if s == "-" {
+                                    rendered.push('-');
+                                } else {
+                                    rendered.push('+');
                                 }
                             }
                             Mask::Hex0
@@ -2087,6 +2125,15 @@ pub mod core {
                         return '-';
                     } else if c == self.pos_sym() {
                         return ' ';
+                    } else if c == '+' {
+                        return ' ';
+                    }
+                }
+                Mask::Plus => {
+                    if c == self.neg_sym() {
+                        return '-';
+                    } else if c == self.pos_sym() {
+                        return '+';
                     }
                 }
                 _ => {}
@@ -2105,6 +2152,7 @@ pub mod core {
                 Mask::DecimalSep => c == self.dec_sep(),
                 Mask::GroupingSep => false,
                 Mask::Sign => c == ' ' || c == self.neg_sym() || c == self.pos_sym(),
+                Mask::Plus => c == ' ' || c == '-' || c == '+',
                 Mask::Hex0 => c.is_ascii_hexdigit(),
                 Mask::Hex => c.is_ascii_hexdigit() || c == ' ',
                 Mask::Oct0 => c.is_digit(8),
@@ -2176,8 +2224,9 @@ pub mod core {
             {
                 let mask = &self.mask[self.cursor];
                 if mask.right.is_number() {
-                    if c == self.neg_sym() || c == self.pos_sym() {
-                        if self.insert_sign(c)? {
+                    let cc = self.map_input_c(&mask.right, c);
+                    if cc == '-' || cc == '+' {
+                        if self.insert_sign(cc)? {
                             return Ok(());
                         }
                     }
@@ -2186,8 +2235,9 @@ pub mod core {
             {
                 let mask = &self.mask[self.cursor];
                 if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
-                    if c == self.neg_sym() || c == self.pos_sym() {
-                        if self.insert_sign(c)? {
+                    let cc = self.map_input_c(&mask.right, c);
+                    if cc == '-' || cc == '+' {
+                        if self.insert_sign(cc)? {
                             return Ok(());
                         }
                     }
@@ -2300,7 +2350,7 @@ pub mod core {
 
         /// Insert a sign c into the current number section
         #[allow(clippy::single_match)]
-        fn insert_sign(&mut self, c: char) -> Result<bool, fmt::Error> {
+        fn insert_sign(&mut self, cc: char) -> Result<bool, fmt::Error> {
             let mut mask = &self.mask[self.cursor];
             // boundary right/left. prefer right, change mask.
             if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
@@ -2315,11 +2365,39 @@ pub mod core {
                     }
                 ) {
                     let (b, c0, a) = grapheme::split3(self.value(), i..i + 1);
-                    let repl = if c == self.pos_sym() {
+                    let repl = if cc == ' ' {
                         " "
-                    } else if c0 == "-" {
+                    } else if c0 == "-" && cc == '-' {
                         " "
-                    } else if c0 == " " && c == self.neg_sym() {
+                    } else if c0 == " " && cc == '-' {
+                        "-"
+                    } else {
+                        c0
+                    };
+
+                    let mut buf = String::new();
+                    buf.push_str(b);
+                    buf.push_str(repl);
+                    buf.push_str(a);
+                    debug_assert_eq!(buf.len(), self.value.len());
+                    self.value = buf;
+                    // note: probably no remap necessary?
+                    return Ok(true);
+                } else if matches!(
+                    &self.mask[i],
+                    MaskToken {
+                        right: Mask::Plus,
+                        ..
+                    }
+                ) {
+                    let (b, c0, a) = grapheme::split3(self.value(), i..i + 1);
+                    let repl = if cc == '+' {
+                        "+"
+                    } else if c0 == "-" && cc == '-' {
+                        "+"
+                    } else if c0 == "+" && cc == '-' {
+                        "-"
+                    } else if c0 == " " && cc == '-' {
                         "-"
                     } else {
                         c0
@@ -2351,7 +2429,7 @@ pub mod core {
             }
             // else
             // insert a fresh "-" somewhere
-            if c == self.neg_sym() {
+            if cc == self.neg_sym() {
                 for i in mask.nr_range() {
                     let mask = &self.mask[i];
                     if matches!(
@@ -2637,6 +2715,7 @@ pub mod core {
                     "." => Mask::DecimalSep,
                     "," => Mask::GroupingSep,
                     "-" => Mask::Sign,
+                    "+" => Mask::Plus,
                     "h" => Mask::Hex,
                     "H" => Mask::Hex0,
                     "o" => Mask::Oct,
@@ -2663,7 +2742,8 @@ pub mod core {
                 | Mask::Digit(_)
                 | Mask::Numeric(_)
                 | Mask::GroupingSep
-                | Mask::Sign => {
+                | Mask::Sign
+                | Mask::Plus => {
                     // no change
                 }
                 Mask::DecimalSep => {

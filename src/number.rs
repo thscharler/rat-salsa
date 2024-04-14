@@ -33,6 +33,7 @@
 //! * `9` - digit or space
 //! * `#` - digit or sign or space
 //! * `-` - sign; show space for positive
+//! * `+` - sign; show '+' for positive and '-' for negative. not localized.
 //! * `.` - decimal separator
 //! * `:` - decimal separator, always shown
 //! * `,` - grouping separator. maybe left out if the symbols say so.
@@ -251,6 +252,8 @@ enum Token {
     Numeric(Mode, u32, bool),
     /// Mask char "-". Integer sign.
     SignInt,
+    /// Mask char "+". Integer sign.
+    PlusInt,
     /// Mask char ".". Decimal separator.
     DecimalSep,
     /// Mask char ":". Decimal separator, always displayed.
@@ -263,6 +266,8 @@ enum Token {
     ExponentLower,
     /// Mask char "-". Exponent sign.
     SignExp,
+    /// Mask char "+". Exponent sign.
+    PlusExp,
     /// Mask char "$". Currency. Variable length.
     Currency,
     /// Other separator char to output literally. May be escaped with '\\'.
@@ -354,12 +359,14 @@ impl Display for NumberFormat {
                 Token::Digit(_, _) => write!(f, "9")?,
                 Token::Numeric(_, _, _) => write!(f, "#")?,
                 Token::SignInt => write!(f, "-")?,
+                Token::PlusInt => write!(f, "-")?,
                 Token::DecimalSep => write!(f, ".")?,
                 Token::DecimalSepAlways => write!(f, ":")?,
                 Token::GroupingSep(_, _) => write!(f, ",")?,
                 Token::ExponentUpper => write!(f, "E")?,
                 Token::ExponentLower => write!(f, "e")?,
                 Token::SignExp => write!(f, "-")?,
+                Token::PlusExp => write!(f, "+")?,
                 Token::Currency => write!(f, "$")?,
                 Token::Separator(c) => {
                     match c {
@@ -446,7 +453,19 @@ impl NumberFormat {
                     }
                     has_int_sign = true;
                 }
+                Token::PlusInt => {
+                    if has_int_sign {
+                        return Err(NumberFmtError::ParseInvalidSign);
+                    }
+                    has_int_sign = true;
+                }
                 Token::SignExp => {
+                    if has_exp_sign {
+                        return Err(NumberFmtError::ParseInvalidExpSign);
+                    }
+                    has_exp_sign = true;
+                }
+                Token::PlusExp => {
                     if has_exp_sign {
                         return Err(NumberFmtError::ParseInvalidExpSign);
                     }
@@ -561,6 +580,15 @@ impl NumberFormat {
                             Token::SignInt
                         } else if mode == Mode::Exponent {
                             Token::SignExp
+                        } else {
+                            return Err(NumberFmtError::ParseInvalidSign);
+                        }
+                    }
+                    '+' => {
+                        if mode == Mode::Integer {
+                            Token::PlusInt
+                        } else if mode == Mode::Exponent {
+                            Token::PlusExp
                         } else {
                             return Err(NumberFmtError::ParseInvalidSign);
                         }
@@ -825,8 +853,10 @@ pub mod core {
                 }
             } else if c == sym.negative_sym {
                 out.write_char('-')?;
-            } else if c == sym.positive_sym || c == '+' {
+            } else if c == sym.positive_sym {
                 // noop
+            } else if c == '+' {
+                // todo: ???
             } else if c == sym.decimal_sep {
                 out.write_char('.')?;
             } else if c == sym.exponent_lower_sym {
@@ -894,11 +924,29 @@ pub mod core {
                         return Err(NumberFmtError::ParseInvalidSign);
                     }
                 }
+                Token::PlusInt => {
+                    if c == '-' {
+                        out.write_char('-')?;
+                    } else if c == '+' {
+                        out.write_char('+')?;
+                    } else {
+                        return Err(NumberFmtError::ParseInvalidSign);
+                    }
+                }
                 Token::SignExp => {
                     if c == sym.negative_sym {
                         out.write_char('-')?;
                     } else if c == sym.positive_sym {
                         // ok
+                    } else if c == '+' {
+                        // ok
+                    } else {
+                        return Err(NumberFmtError::ParseInvalidExpSign);
+                    }
+                }
+                Token::PlusExp => {
+                    if c == '-' {
+                        out.write_char('-')?;
                     } else if c == '+' {
                         // ok
                     } else {
@@ -1094,6 +1142,14 @@ pub mod core {
                     out.write_char(disp_sign)?;
                     used_sign = true;
                 }
+                Token::PlusInt => {
+                    debug_assert!(!used_sign);
+                    if raw_sign == "" {
+                        out.write_char('+')?;
+                    } else {
+                        out.write_char('-')?;
+                    }
+                }
                 Token::GroupingSep(i, can_be_sign) => {
                     if skip_group {
                         // noop
@@ -1177,6 +1233,17 @@ pub mod core {
                             out.write_char('+')?;
                         } else {
                             out.write_char(disp_exp_sign)?;
+                        }
+                        used_exp_sign = true;
+                    }
+                }
+                Token::PlusExp => {
+                    if EXP {
+                        debug_assert!(!used_exp_sign);
+                        if raw_exp_sign.is_empty() {
+                            out.write_char('+')?;
+                        } else {
+                            out.write_char('-')?;
                         }
                         used_exp_sign = true;
                     }
