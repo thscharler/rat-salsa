@@ -132,8 +132,6 @@ pub enum InputRequest {
 pub struct MenuLineState<A> {
     /// Focus
     pub focus: FocusFlag,
-    /// Ctrl+Key is active independent of focus.
-    pub ctrl_key_always: bool,
     pub area: Rect,
     pub areas: Vec<Rect>,
     pub key: Vec<char>,
@@ -147,7 +145,6 @@ impl<A> Default for MenuLineState<A> {
     fn default() -> Self {
         Self {
             focus: Default::default(),
-            ctrl_key_always: true,
             key: Default::default(),
             trigger: Default::default(),
             select: Some(0),
@@ -206,7 +203,9 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
                 }
             }
             InputRequest::KeySelect(cc) => 'f: {
+                let cc = cc.to_ascii_lowercase();
                 for (i, k) in self.key.iter().enumerate() {
+                    debug!("check key {} {}", cc, k);
                     if cc == *k {
                         self.trigger.reset();
                         self.select = Some(i);
@@ -216,10 +215,13 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
                 ControlUI::Continue
             }
             InputRequest::KeyAction(cc) => 'f: {
+                let cc = cc.to_ascii_lowercase();
                 for (i, k) in self.key.iter().enumerate() {
+                    debug!("check key {} {}", cc, k);
                     if cc == *k {
                         self.trigger.reset();
                         self.select = Some(i);
+                        debug!("action {:?}", self.select);
                         break 'f ControlUI::Run(self.action[i]);
                     }
                 }
@@ -250,6 +252,57 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
     }
 }
 
+/// React to ctrl + menu shortcut.
+#[derive(Debug)]
+pub struct HotKeyCtrl;
+
+impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, HotKeyCtrl> for MenuLineState<A> {
+    fn handle(&mut self, event: &Event, _: HotKeyCtrl) -> ControlUI<A, E> {
+        let req = match event {
+            Event::Key(KeyEvent {
+                code: KeyCode::Char(cc),
+                modifiers: KeyModifiers::CONTROL,
+                kind: KeyEventKind::Press,
+                ..
+            }) => Some(InputRequest::KeyAction(*cc)),
+            _ => None,
+        };
+
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
+        }
+    }
+}
+
+/// React to alt + menu shortcut.
+#[derive(Debug)]
+pub struct HotKeyAlt;
+
+impl<A: Copy + Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, HotKeyAlt> for MenuLineState<A> {
+    fn handle(&mut self, event: &Event, _: HotKeyAlt) -> ControlUI<A, E> {
+        let req = match event {
+            Event::Key(KeyEvent {
+                code: KeyCode::Char(cc),
+                modifiers: KeyModifiers::ALT,
+                kind: KeyEventKind::Press,
+                ..
+            }) => {
+                debug!("hotkey {}", cc);
+                Some(InputRequest::KeyAction(*cc))
+            }
+            _ => None,
+        };
+
+        if let Some(req) = req {
+            self.perform(req)
+        } else {
+            ControlUI::Continue
+        }
+    }
+}
+
 impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState<A> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let req = match event {
@@ -260,18 +313,6 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState
                 ..
             }) => {
                 if self.is_focused() {
-                    Some(InputRequest::KeyAction(*cc))
-                } else {
-                    None
-                }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Char(cc),
-                modifiers: KeyModifiers::CONTROL,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.is_focused() || self.ctrl_key_always {
                     Some(InputRequest::KeyAction(*cc))
                 } else {
                     None
@@ -366,9 +407,6 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A
                     modifiers: KeyModifiers::NONE,
                 },
             ) => 'f: {
-                debug!("mouse {}|{}", column, row);
-                debug!("menu {:#?}", self.areas);
-
                 for (i, r) in self.areas.iter().enumerate() {
                     if r.contains(Position::new(*column, *row)) {
                         break 'f Some(InputRequest::MouseSelect(i));
