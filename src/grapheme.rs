@@ -148,7 +148,7 @@ pub(crate) fn split_mask_match<'a>(
         if cidx == mask.start {
             byte_mask_start = Some(idx);
         }
-        if c == search && byte_mask_start.is_some() && byte_mask_end.is_none() {
+        if cidx >= mask.start && cidx < mask.end && c == search {
             byte_find_start = Some(idx);
             byte_find_end = Some(idx + c.len());
         }
