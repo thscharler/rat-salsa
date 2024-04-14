@@ -2123,9 +2123,7 @@ pub mod core {
                 Mask::Sign => {
                     if c == self.neg_sym() {
                         return '-';
-                    } else if c == self.pos_sym() {
-                        return ' ';
-                    } else if c == '+' {
+                    } else if c == self.pos_sym() || c == '+' {
                         return ' ';
                     }
                 }
@@ -2138,7 +2136,7 @@ pub mod core {
                 }
                 _ => {}
             }
-            return c;
+            c
         }
 
         /// Valid input for this mask.
@@ -2367,12 +2365,14 @@ pub mod core {
                     let (b, c0, a) = grapheme::split3(self.value(), i..i + 1);
                     let repl = if cc == ' ' {
                         " "
-                    } else if c0 == "-" && cc == '-' {
-                        " "
-                    } else if c0 == " " && cc == '-' {
-                        "-"
+                    } else if cc == '-' {
+                        if c0 == "-" {
+                            " "
+                        } else {
+                            "-"
+                        }
                     } else {
-                        c0
+                        unreachable!();
                     };
 
                     let mut buf = String::new();
@@ -2393,14 +2393,14 @@ pub mod core {
                     let (b, c0, a) = grapheme::split3(self.value(), i..i + 1);
                     let repl = if cc == '+' {
                         "+"
-                    } else if c0 == "-" && cc == '-' {
-                        "+"
-                    } else if c0 == "+" && cc == '-' {
-                        "-"
-                    } else if c0 == " " && cc == '-' {
-                        "-"
+                    } else if cc == '-' {
+                        if c0 == "-" {
+                            "+"
+                        } else {
+                            "-"
+                        }
                     } else {
-                        c0
+                        unreachable!();
                     };
 
                     let mut buf = String::new();

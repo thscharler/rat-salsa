@@ -208,7 +208,11 @@ impl CurrencySym {
     }
 
     pub const fn len(&self) -> usize {
-        return self.len as usize;
+        self.len as usize
+    }
+
+    pub const fn is_empty(&self) -> bool {
+        self.len == 0
     }
 }
 
@@ -369,11 +373,8 @@ impl Display for NumberFormat {
                 Token::PlusExp => write!(f, "+")?,
                 Token::Currency => write!(f, "$")?,
                 Token::Separator(c) => {
-                    match c {
-                        '0' | '9' | '#' | '-' | ',' | '.' | ':' | 'E' | 'F' | 'e' | 'f' => {
-                            write!(f, "{}", '\\')?;
-                        }
-                        _ => {}
+                    if *c < '\u{0100}' {
+                        write!(f, "\\ ")?;
                     }
                     write!(f, "{}", *c)?;
                 }
@@ -706,7 +707,7 @@ pub struct FormattedNumber<'a, Number> {
 impl<'a, Number: Copy + LowerExp + Display> Display for FormattedNumber<'a, Number> {
     #[inline]
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        match core::format_to(self.num, &self.format, &self.sym, f) {
+        match core::format_to(self.num, &self.format, self.sym, f) {
             Ok(_) => Ok(()),
             Err(_) => Err(fmt::Error),
         }
@@ -859,9 +860,7 @@ pub mod core {
                 // todo: ???
             } else if c == sym.decimal_sep {
                 out.write_char('.')?;
-            } else if c == sym.exponent_lower_sym {
-                out.write_char('e')?;
-            } else if c == sym.exponent_upper_sym {
+            } else if c == sym.exponent_lower_sym || c == sym.exponent_upper_sym {
                 out.write_char('e')?;
             }
         }
@@ -907,9 +906,7 @@ pub mod core {
                         out.write_char(c)?;
                     } else if c == sym.negative_sym {
                         out.write_char('-')?;
-                    } else if c == sym.positive_sym {
-                        // ok
-                    } else if c == ' ' {
+                    } else if c == sym.positive_sym || c == ' ' {
                         // ok
                     } else {
                         return Err(NumberFmtError::ParseInvalidDigit);
@@ -936,9 +933,7 @@ pub mod core {
                 Token::SignExp => {
                     if c == sym.negative_sym {
                         out.write_char('-')?;
-                    } else if c == sym.positive_sym {
-                        // ok
-                    } else if c == '+' {
+                    } else if c == sym.positive_sym || c == '+' {
                         // ok
                     } else {
                         return Err(NumberFmtError::ParseInvalidExpSign);
@@ -975,9 +970,7 @@ pub mod core {
                             // ok
                         } else if c == sym.negative_sym {
                             out.write_char('-')?;
-                        } else if c == sym.positive_sym {
-                            // ok
-                        } else if c == ' ' {
+                        } else if c == sym.positive_sym || c == ' ' {
                             // ok
                         } else {
                             return Err(NumberFmtError::ParseInvalidGroupingSep);
@@ -1144,7 +1137,7 @@ pub mod core {
                 }
                 Token::PlusInt => {
                     debug_assert!(!used_sign);
-                    if raw_sign == "" {
+                    if raw_sign.is_empty() {
                         out.write_char('+')?;
                     } else {
                         out.write_char('-')?;
@@ -1331,7 +1324,7 @@ pub mod core {
         out: &mut W,
     ) -> Result<(), NumberFmtError> {
         thread_local! {
-            static RAW: Cell<String> = Cell::new(String::new());
+            static RAW: Cell<String> = const {Cell::new(String::new())};
         }
 
         let mut raw = RAW.take();
@@ -1366,7 +1359,7 @@ pub mod core {
         sym: &NumberSymbols,
     ) -> Result<F, NumberFmtError> {
         thread_local! {
-            static RAW: Cell<String> = Cell::new(String::new());
+            static RAW: Cell<String> = const {Cell::new(String::new())};
         }
 
         let mut raw = RAW.take();
@@ -1390,7 +1383,7 @@ pub mod core {
     /// Takes digits and some specials and ignores the rest.
     pub fn parse_sym<F: FromStr>(s: &str, sym: &NumberSymbols) -> Result<F, NumberFmtError> {
         thread_local! {
-            static RAW: Cell<String> = Cell::new(String::new());
+            static RAW: Cell<String> = const {Cell::new(String::new())};
         }
 
         let mut raw = RAW.take();
@@ -1454,7 +1447,7 @@ pub fn formats_to<W: FmtWrite, Number: LowerExp + Display>(
     out: &mut W,
 ) -> Result<(), NumberFmtError> {
     let format = NumberFormat::new(pattern)?;
-    core::format_to(number, &format, &sym, out)
+    core::format_to(number, &format, sym, out)
 }
 
 /// Format a Number according to the format.
