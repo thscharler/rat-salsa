@@ -846,6 +846,7 @@ where
 }
 
 pub mod core {
+    use crate::grapheme::gr_len;
     use crate::number::{CurrencySym, NumberFormat, NumberSymbols};
     use crate::{grapheme, number};
     #[allow(unused_imports)]
@@ -1112,6 +1113,30 @@ pub mod core {
                 Mask::GroupingSep => true,
                 Mask::Sign => true,
                 Mask::Plus => true,
+                Mask::DecimalSep => false,
+                Mask::Hex0 => false,
+                Mask::Hex => false,
+                Mask::Oct0 => false,
+                Mask::Oct => false,
+                Mask::Dec0 => false,
+                Mask::Dec => false,
+                Mask::Letter => false,
+                Mask::LetterOrDigit => false,
+                Mask::LetterDigitSpace => false,
+                Mask::AnyChar => false,
+                Mask::Separator(_) => false,
+                Mask::None => false,
+            }
+        }
+
+        fn is_fraction(&self) -> bool {
+            match self {
+                Mask::Digit0(d) => d.is_ltor(),
+                Mask::Digit(d) => d.is_ltor(),
+                Mask::Numeric(d) => d.is_ltor(),
+                Mask::GroupingSep => false,
+                Mask::Sign => false,
+                Mask::Plus => false,
                 Mask::DecimalSep => false,
                 Mask::Hex0 => false,
                 Mask::Hex => false,
@@ -2040,40 +2065,36 @@ pub mod core {
             loop {
                 let mask = &self.mask[new_cursor];
 
-                // at the gap between rtol and ltor field
                 if mask.peek_left.is_rtol()
                     && (mask.right.is_ltor() || mask.right.is_none())
-                    && self.can_edit_left(new_cursor, c)
+                    && self.can_edit_left_integer(new_cursor, c)
                 {
+                    // At the gap between an integer field and something else.
+                    // Integer fields are served first.
                     break;
-                } else if mask.right.is_rtol() && self.is_rtol_insert_position(mask, new_cursor, c)
-                {
+                } else if mask.right.is_rtol() && self.is_integer_insert_pos(mask, new_cursor, c) {
+                    // Insert position inside an integer field. After any spaces
+                    // and the sign.
+                    break;
+                } else if mask.right.is_number() && self.can_edit_sign(mask, c) {
+                    // Can insert a sign here.
                     break;
                 } else if mask.right == Mask::DecimalSep && self.is_valid_c(&mask.right, c) {
+                    // Decimal separator matches.
                     break;
                 } else if mask.right == Mask::GroupingSep {
-                    // never stop here
+                    // Never stop here.
                     new_cursor += 1;
                 } else if matches!(mask.right, Mask::Separator(_))
                     && self.is_valid_c(&mask.right, c)
                 {
                     break;
-                } else if matches!(
-                    mask.peek_left,
-                    Mask::Digit0(EditDirection::Ltor)
-                        | Mask::Digit(EditDirection::Ltor)
-                        | Mask::Numeric(EditDirection::Ltor)
-                ) && self.can_insert_digit(mask, new_cursor, c)
+                } else if mask.peek_left.is_fraction()
+                    && self.can_skip_left_in_fraction(mask, new_cursor, c)
                 {
                     // skip left
                     new_cursor -= 1;
-                } else if matches!(
-                    mask.right,
-                    Mask::Digit0(EditDirection::Ltor)
-                        | Mask::Digit(EditDirection::Ltor)
-                        | Mask::Numeric(EditDirection::Ltor)
-                ) && self.is_valid_c(&mask.right, c)
-                {
+                } else if mask.right.is_fraction() && self.is_valid_c(&mask.right, c) {
                     break;
                 } else if matches!(
                     mask.right,
@@ -2088,6 +2109,7 @@ pub mod core {
                 {
                     break;
                 } else if mask.right == Mask::None {
+                    // No better position found. Reset and break;
                     new_cursor = self.cursor;
                     break;
                 } else {
@@ -2145,12 +2167,17 @@ pub mod core {
                 Mask::Digit0(_) => c.is_ascii_digit(),
                 Mask::Digit(_) => c.is_ascii_digit() || c == ' ',
                 Mask::Numeric(_) => {
-                    c.is_ascii_digit() || c == ' ' || c == self.neg_sym() || c == self.pos_sym()
+                    c.is_ascii_digit()
+                        || c == ' '
+                        || c == self.neg_sym()
+                        || c == self.pos_sym()
+                        || c == '-'
+                        || c == '+'
                 }
                 Mask::DecimalSep => c == self.dec_sep(),
                 Mask::GroupingSep => false,
-                Mask::Sign => c == ' ' || c == self.neg_sym() || c == self.pos_sym(),
-                Mask::Plus => c == ' ' || c == '-' || c == '+',
+                Mask::Sign => c == self.neg_sym() || c == self.pos_sym() || c == '-' || c == '+',
+                Mask::Plus => c == self.neg_sym() || c == self.pos_sym() || c == '-' || c == '+',
                 Mask::Hex0 => c.is_ascii_hexdigit(),
                 Mask::Hex => c.is_ascii_hexdigit() || c == ' ',
                 Mask::Oct0 => c.is_digit(8),
@@ -2173,20 +2200,46 @@ pub mod core {
             }
         }
 
-        // Can insert one more digit int the field to the left.
+        // Can insert one more digit into the field to the left.
         #[inline]
-        fn can_insert_digit(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
+        fn can_skip_left_in_fraction(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
             let (_b, a) = grapheme::split_at(&self.value, new_cursor - 1);
             // is there space to the left?
             mask.peek_left.can_drop_first(a) && self.is_valid_c(&mask.peek_left, c)
         }
 
+        // Can input a sign here?
+        #[inline]
+        fn can_edit_sign(&self, mask: &MaskToken, c: char) -> bool {
+            if !self.is_valid_c(&Mask::Sign, c) {
+                return false;
+            }
+
+            for i in mask.nr_range() {
+                let t = &self.mask[i];
+                match t.right {
+                    Mask::Plus => return true,
+                    Mask::Sign => return true,
+                    Mask::Numeric(EditDirection::Rtol) => {
+                        // Numeric fields can hold a sign.
+                        // If they are not otherwise occupied.
+                        let (_b, a) = grapheme::split_at(&self.value, i);
+                        if t.right.can_drop_first(a) || t.right.first(a) == "-" {
+                            return true;
+                        } else {
+                            return false;
+                        }
+                    }
+                    _ => {}
+                }
+            }
+
+            false
+        }
+
         // Is this the correct input position for a rtol field
         #[inline]
-        fn is_rtol_insert_position(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
-            if c == self.neg_sym() || c == self.pos_sym() {
-                return true;
-            }
+        fn is_integer_insert_pos(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
             let (_b, a) = grapheme::split_at(&self.value, new_cursor);
             // stop at real digit, that is the first non-droppable grapheme. except '-'
             !mask.right.can_drop_first(a)
@@ -2196,7 +2249,7 @@ pub mod core {
 
         // Can edit the field left of the cursor.
         #[inline]
-        fn can_edit_left(&self, new_cursor: usize, c: char) -> bool {
+        fn can_edit_left_integer(&self, new_cursor: usize, c: char) -> bool {
             let left = &self.mask[new_cursor - 1];
             let mask0 = &self.mask[left.sec_start];
             let (_b, c0, _c1, _a) = grapheme::split_mask(&self.value, new_cursor, left.range());
@@ -2221,21 +2274,18 @@ pub mod core {
             // note: because of borrow checker. calls &mut methods.
             {
                 let mask = &self.mask[self.cursor];
-                if mask.right.is_number() {
-                    let cc = self.map_input_c(&mask.right, c);
-                    if cc == '-' || cc == '+' {
-                        if self.insert_sign(cc)? {
-                            return Ok(());
-                        }
+                if mask.right.is_number() && self.can_edit_sign(mask, c) {
+                    if self.insert_sign(c)? {
+                        return Ok(());
                     }
                 }
             }
             {
                 let mask = &self.mask[self.cursor];
                 if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
-                    let cc = self.map_input_c(&mask.right, c);
-                    if cc == '-' || cc == '+' {
-                        if self.insert_sign(cc)? {
+                    let left = &self.mask[self.cursor - 1];
+                    if self.can_edit_sign(left, c) {
+                        if self.insert_sign(c)? {
                             return Ok(());
                         }
                     }
@@ -2286,7 +2336,7 @@ pub mod core {
                 buf.push(self.map_input_c(&mask.right, c));
                 buf.push_str(grapheme::drop_first(c1));
                 buf.push_str(a);
-                debug_assert_eq!(buf.len(), self.value.len());
+                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                 self.value = buf;
 
                 self.cursor += 1;
@@ -2301,7 +2351,7 @@ pub mod core {
                 buf.push(self.map_input_c(&mask.right, c));
                 buf.push_str(grapheme::drop_last(c1));
                 buf.push_str(a);
-                debug_assert_eq!(buf.len(), self.value.len());
+                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                 self.value = buf;
 
                 self.cursor += 1;
@@ -2336,7 +2386,7 @@ pub mod core {
                 buf.push_str(b);
                 buf.push_str(mmstr.as_str());
                 buf.push_str(a);
-                debug_assert_eq!(buf.len(), self.value.len());
+                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                 self.value = buf;
                 // cursor stays
 
@@ -2348,7 +2398,7 @@ pub mod core {
 
         /// Insert a sign c into the current number section
         #[allow(clippy::single_match)]
-        fn insert_sign(&mut self, cc: char) -> Result<bool, fmt::Error> {
+        fn insert_sign(&mut self, c: char) -> Result<bool, fmt::Error> {
             let mut mask = &self.mask[self.cursor];
             // boundary right/left. prefer right, change mask.
             if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
@@ -2362,6 +2412,7 @@ pub mod core {
                         ..
                     }
                 ) {
+                    let cc = self.map_input_c(&Mask::Sign, c);
                     let (b, c0, a) = grapheme::split3(self.value(), i..i + 1);
                     let repl = if cc == ' ' {
                         " "
@@ -2379,7 +2430,7 @@ pub mod core {
                     buf.push_str(b);
                     buf.push_str(repl);
                     buf.push_str(a);
-                    debug_assert_eq!(buf.len(), self.value.len());
+                    debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                     self.value = buf;
                     // note: probably no remap necessary?
                     return Ok(true);
@@ -2390,6 +2441,7 @@ pub mod core {
                         ..
                     }
                 ) {
+                    let cc = self.map_input_c(&Mask::Plus, c);
                     let (b, c0, a) = grapheme::split3(self.value(), i..i + 1);
                     let repl = if cc == '+' {
                         "+"
@@ -2407,7 +2459,7 @@ pub mod core {
                     buf.push_str(b);
                     buf.push_str(repl);
                     buf.push_str(a);
-                    debug_assert_eq!(buf.len(), self.value.len());
+                    debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                     self.value = buf;
                     // note: probably no remap necessary?
                     return Ok(true);
@@ -2422,14 +2474,14 @@ pub mod core {
                 buf.push(' ');
                 buf.push_str(c1);
                 buf.push_str(a);
-                debug_assert_eq!(buf.len(), self.value.len());
+                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                 self.value = buf;
                 // note: probably no remap necessary?
                 return Ok(true);
             }
             // else
             // insert a fresh "-" somewhere
-            if cc == self.neg_sym() {
+            if c == self.neg_sym() {
                 for i in mask.nr_range() {
                     let mask = &self.mask[i];
                     if matches!(
@@ -2453,7 +2505,7 @@ pub mod core {
                             buf.push_str(b);
                             buf.push_str(mmstr.as_str());
                             buf.push_str(a);
-                            debug_assert_eq!(buf.len(), self.value.len());
+                            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                             self.value = buf;
                         };
 
@@ -2522,7 +2574,7 @@ pub mod core {
 
                 mask = &self.mask[mask.sec_end];
             }
-            debug_assert_eq!(buf.len(), self.value.len());
+            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
             self.value = buf;
 
             self.cursor = selection.start;
@@ -2569,7 +2621,7 @@ pub mod core {
                 buf.push_str(b);
                 buf.push_str(&mmstr);
                 buf.push_str(a);
-                debug_assert_eq!(buf.len(), self.value.len());
+                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                 self.value = buf;
             } else if left.right.is_ltor() {
                 let mut buf = String::new();
@@ -2583,7 +2635,7 @@ pub mod core {
                 buf.push_str(MaskToken::empty_section(fill_mask).as_str());
 
                 buf.push_str(a);
-                debug_assert_eq!(buf.len(), self.value.len());
+                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                 self.value = buf;
             }
 
@@ -2646,7 +2698,7 @@ pub mod core {
                 buf.push_str(b);
                 buf.push_str(&mmstr);
                 buf.push_str(a);
-                debug_assert_eq!(buf.len(), self.value.len());
+                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                 self.value = buf;
             } else if right.right.is_ltor() {
                 let mut buf = String::new();
@@ -2660,7 +2712,7 @@ pub mod core {
                 buf.push_str(MaskToken::empty_section(fill_mask).as_str());
 
                 buf.push_str(a);
-                debug_assert_eq!(buf.len(), self.value.len());
+                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
                 self.value = buf;
             }
 

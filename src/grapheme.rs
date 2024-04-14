@@ -6,6 +6,11 @@ use std::iter::once;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
+///
+pub(crate) fn gr_len(s: &str) -> usize {
+    s.graphemes(true).count()
+}
+
 /// Drop first graphem.
 /// If s is empty do nothing.
 pub(crate) fn drop_first(s: &str) -> &str {
