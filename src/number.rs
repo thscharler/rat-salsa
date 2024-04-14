@@ -182,63 +182,20 @@ impl Debug for CurrencySym {
 }
 
 impl CurrencySym {
-    pub const fn new(s: &str) -> Self {
+    pub const fn new(src: &str) -> Self {
         let mut sym = [0u8; 16];
 
-        let bytes = s.as_bytes();
-        let len = bytes.len();
+        let src = src.as_bytes();
+        let src_len = src.len();
 
-        if len > 0 {
-            sym[0] = bytes[0];
-        }
-        if len > 1 {
-            sym[1] = bytes[1];
-        }
-        if len > 2 {
-            sym[2] = bytes[2];
-        }
-        if len > 3 {
-            sym[3] = bytes[3];
-        }
-        if len > 4 {
-            sym[4] = bytes[4];
-        }
-        if len > 5 {
-            sym[5] = bytes[5];
-        }
-        if len > 6 {
-            sym[6] = bytes[6];
-        }
-        if len > 7 {
-            sym[7] = bytes[7];
-        }
-        if len > 8 {
-            sym[8] = bytes[8];
-        }
-        if len > 9 {
-            sym[9] = bytes[9];
-        }
-        if len > 10 {
-            sym[10] = bytes[10];
-        }
-        if len > 11 {
-            sym[11] = bytes[11];
-        }
-        if len > 12 {
-            sym[12] = bytes[12];
-        }
-        if len > 13 {
-            sym[13] = bytes[13];
-        }
-        if len > 14 {
-            sym[14] = bytes[14];
-        }
-        if len > 15 {
-            sym[15] = bytes[15];
+        let mut i = 0;
+        while i < src_len && i < 16 {
+            sym[i] = src[i];
+            i += 1;
         }
 
         CurrencySym {
-            len: len as u8,
+            len: src_len as u8,
             sym,
         }
     }
