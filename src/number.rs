@@ -440,8 +440,18 @@ impl NumberFormat {
                     has_exp = true;
                 }
 
-                Token::SignInt => has_int_sign = true,
-                Token::SignExp => has_exp_sign = true,
+                Token::SignInt => {
+                    if has_int_sign {
+                        return Err(NumberFmtError::ParseInvalidSign);
+                    }
+                    has_int_sign = true;
+                }
+                Token::SignExp => {
+                    if has_exp_sign {
+                        return Err(NumberFmtError::ParseInvalidExpSign);
+                    }
+                    has_exp_sign = true;
+                }
 
                 _ => {}
             }
