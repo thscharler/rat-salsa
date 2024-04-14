@@ -3,6 +3,7 @@ use crate::{
     CanValidate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, HasFocusFlag,
     HasValidFlag, ValidFlag,
 };
+use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use chrono::{Datelike, Days, Local, Months, NaiveDate};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
 #[allow(unused_imports)]
@@ -12,6 +13,7 @@ use ratatui::prelude::Style;
 use ratatui::Frame;
 use std::fmt;
 use std::fmt::Debug;
+use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Default)]
 pub struct DateInput {
@@ -96,7 +98,8 @@ impl FrameWidget for DateInput {
 #[derive(Debug, Default)]
 pub struct DateInputState {
     pub input: MaskedInputState,
-    pub format: String,
+    pub pattern: String,
+    pub locale: chrono::Locale,
 }
 
 impl DateInputState {
@@ -105,25 +108,139 @@ impl DateInputState {
         self.input.reset();
     }
 
+    /// chrono format string.
+    ///
+    /// generates a mask according to the format and overwrites whatever
+    /// set_mask() did.
+    pub fn set_format<S: AsRef<str>>(
+        &mut self,
+        pattern: S,
+        locale: chrono::Locale,
+    ) -> Result<(), fmt::Error> {
+        debug!("pattern {}", pattern.as_ref());
+        let mut mask = String::new();
+        let items = StrftimeItems::new_with_locale(pattern.as_ref(), locale)
+            .parse()
+            .map_err(|_| fmt::Error)?;
+        for t in &items {
+            debug!("{:?}", t);
+            match t {
+                Item::Literal(s) => {
+                    for c in s.graphemes(true) {
+                        mask.push('\\');
+                        mask.push_str(c);
+                    }
+                }
+                Item::OwnedLiteral(s) => {
+                    for c in s.graphemes(true) {
+                        mask.push('\\');
+                        mask.push_str(c);
+                    }
+                }
+                Item::Space(s) => {
+                    for c in s.graphemes(true) {
+                        mask.push_str(c);
+                    }
+                }
+                Item::OwnedSpace(s) => {
+                    for c in s.graphemes(true) {
+                        mask.push_str(c);
+                    }
+                }
+                Item::Numeric(v, Pad::None | Pad::Space) => match v {
+                    Numeric::Year | Numeric::IsoYear => mask.push_str("9999"),
+                    Numeric::YearDiv100
+                    | Numeric::YearMod100
+                    | Numeric::IsoYearDiv100
+                    | Numeric::IsoYearMod100
+                    | Numeric::Month
+                    | Numeric::Day
+                    | Numeric::WeekFromSun
+                    | Numeric::WeekFromMon
+                    | Numeric::IsoWeek
+                    | Numeric::Hour
+                    | Numeric::Hour12
+                    | Numeric::Minute
+                    | Numeric::Second => mask.push_str("99"),
+                    Numeric::NumDaysFromSun | Numeric::WeekdayFromMon => mask.push('9'),
+                    Numeric::Ordinal => mask.push_str("999"),
+                    Numeric::Nanosecond => mask.push_str("999999999"),
+                    Numeric::Timestamp => mask.push_str("###########"),
+                    _ => return Err(fmt::Error),
+                },
+                Item::Numeric(v, Pad::Zero) => match v {
+                    Numeric::Year | Numeric::IsoYear => mask.push_str("0000"),
+                    Numeric::YearDiv100
+                    | Numeric::YearMod100
+                    | Numeric::IsoYearDiv100
+                    | Numeric::IsoYearMod100
+                    | Numeric::Month
+                    | Numeric::Day
+                    | Numeric::WeekFromSun
+                    | Numeric::WeekFromMon
+                    | Numeric::IsoWeek
+                    | Numeric::Hour
+                    | Numeric::Hour12
+                    | Numeric::Minute
+                    | Numeric::Second => mask.push_str("00"),
+                    Numeric::NumDaysFromSun | Numeric::WeekdayFromMon => mask.push('0'),
+                    Numeric::Ordinal => mask.push_str("000"),
+                    Numeric::Nanosecond => mask.push_str("000000000"),
+                    Numeric::Timestamp => mask.push_str("#0000000000"),
+                    _ => return Err(fmt::Error),
+                },
+                Item::Fixed(v) => match v {
+                    Fixed::ShortMonthName => mask.push_str("___"),
+                    Fixed::LongMonthName => mask.push_str("_________"),
+                    Fixed::ShortWeekdayName => mask.push_str("___"),
+                    Fixed::LongWeekdayName => mask.push_str("________"),
+                    Fixed::LowerAmPm => mask.push_str("__"),
+                    Fixed::UpperAmPm => mask.push_str("__"),
+                    Fixed::Nanosecond => mask.push_str(".#########"),
+                    Fixed::Nanosecond3 => mask.push_str(".###"),
+                    Fixed::Nanosecond6 => mask.push_str(".######"),
+                    Fixed::Nanosecond9 => mask.push_str(".#########"),
+                    Fixed::TimezoneName => mask.push_str("__________"),
+                    Fixed::TimezoneOffsetColon | Fixed::TimezoneOffset => mask.push_str("+##:##"),
+                    Fixed::TimezoneOffsetDoubleColon => mask.push_str("+##:##:##"),
+                    Fixed::TimezoneOffsetTripleColon => mask.push_str("+##"),
+                    Fixed::TimezoneOffsetColonZ | Fixed::TimezoneOffsetZ => return Err(fmt::Error),
+                    Fixed::RFC2822 => {
+                        // 01 Jun 2016 14:31:46 -0700
+                        mask.push_str("00 ___ 0000 00:00:00 +0000")
+                    }
+                    Fixed::RFC3339 => {
+                        // not supported, for now
+                        return Err(fmt::Error);
+                    }
+                    _ => return Err(fmt::Error),
+                },
+                Item::Error => return Err(fmt::Error),
+            }
+        }
+
+        self.locale = locale;
+        self.pattern = pattern.as_ref().to_string();
+        self.set_mask(mask)?;
+        Ok(())
+    }
+
+    /// Overlay for empty fields.
     pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
         self.input.set_display_mask(s);
     }
 
+    /// Mask as defined by [MaskedInput]
     pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
         self.input.set_mask(s)
     }
 
-    pub fn set_format<S: Into<String>>(&mut self, s: S) {
-        // todo: generate mask from format
-        self.format = s.into();
-    }
-
     pub fn value(&self) -> Result<NaiveDate, chrono::ParseError> {
-        NaiveDate::parse_from_str(self.input.compact_value().as_str(), self.format.as_str())
+        NaiveDate::parse_from_str(self.input.compact_value().as_str(), self.pattern.as_str())
     }
 
     pub fn set_value(&mut self, date: NaiveDate) {
-        let v = date.format(self.format.as_str()).to_string();
+        let v = date.format(self.pattern.as_str()).to_string();
         self.input.set_value(v);
     }
 
@@ -132,11 +249,28 @@ impl DateInputState {
     }
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState
+/// Add convenience keys:
+/// * `h` `t` - today
+/// * `a` `b` - January, 1st
+/// * `e` - December, 31st
+/// * `l` - first of last month
+/// * `L` - last of last month
+/// * `m` - first of this month
+/// * `M` - last of this month
+/// * `n` - first of next month
+/// * `N` - last of next month
+/// * `j` - add month
+/// * `k` - subtract month
+/// * `J` - add year
+/// * `K` - subtract year
+#[derive(Debug)]
+pub struct ConvenienceKeys;
+
+impl<A, E> HandleCrossterm<ControlUI<A, E>, ConvenienceKeys> for DateInputState
 where
     E: From<fmt::Error>,
 {
-    fn handle(&mut self, event: &Event, keymap: DefaultKeys) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _keymap: ConvenienceKeys) -> ControlUI<A, E> {
         let r = {
             match event {
                 Event::Key(KeyEvent {
@@ -364,12 +498,25 @@ where
         };
 
         r.or_else(|| {
-            let r = self.input.handle(event, keymap);
+            let r = self.input.handle(event, DefaultKeys);
             r.on_change_do(|| {
                 self.input.set_valid_from(self.value());
             });
             r
         })
+    }
+}
+
+impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for DateInputState
+where
+    E: From<fmt::Error>,
+{
+    fn handle(&mut self, event: &Event, _keymap: DefaultKeys) -> ControlUI<A, E> {
+        let r = self.input.handle(event, DefaultKeys);
+        r.on_change_do(|| {
+            self.input.set_valid_from(self.value());
+        });
+        r
     }
 }
 

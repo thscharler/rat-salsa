@@ -5,18 +5,20 @@ use crossbeam::channel::Sender;
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
+use pure_rust_locales::Locale;
 use rat_salsa::layout::{layout_edit, EditConstraint};
 use rat_salsa::number::NumberSymbols;
 use rat_salsa::widget::button::ButtonStyle;
+use rat_salsa::widget::date_input::{DateInput, DateInputState};
 use rat_salsa::widget::input::{TextInput, TextInputState, TextInputStyle};
 use rat_salsa::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
-use rat_salsa::widget::menuline::{MenuLine, MenuLineState, MenuStyle};
+use rat_salsa::widget::menuline::{HotKeyAlt, MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
 use rat_salsa::{
-    check_break, match_focus, on_gained, on_lost, run_tui, tr, ControlUI, DefaultKeys, Focus,
-    HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
+    check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
+    Focus, HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
     RunConfig, Timed, Timers, TuiApp,
 };
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -68,7 +70,11 @@ pub enum FormOneAction {}
 #[derive(Debug)]
 pub struct FormOneState {
     pub g: GeneralState,
+
+    pub menu: MenuLineState<u16>,
+
     pub mask0: Mask0,
+    pub mask1: Mask1,
 }
 
 #[derive(Debug)]
@@ -76,17 +82,17 @@ pub struct GeneralState {
     pub theme: &'static Theme,
     pub repaint: Repaint,
     pub timers: Timers,
+
     pub status: StatusLineState,
     pub error_dlg: StatusDialogState,
 }
 
 #[derive(Debug)]
 pub struct Mask0 {
-    pub menu: MenuLineState<u16>,
-
     pub text: TextInputState,
     pub decimal: TextInputState,
     pub float: TextInputState,
+
     pub ipv4: MaskedInputState,
     pub hexcolor: MaskedInputState,
     pub creditcard: MaskedInputState,
@@ -97,12 +103,22 @@ pub struct Mask0 {
     pub exp: MaskedInputState,
 }
 
+#[derive(Debug)]
+pub struct Mask1 {
+    pub date1: DateInputState,
+    pub date2: DateInputState,
+    pub date3: DateInputState,
+}
+
 impl FormOneState {
     pub fn new(sym: &Rc<NumberSymbols>) -> Self {
-        Self {
+        let s = Self {
             g: GeneralState::new(),
+            menu: Default::default(),
             mask0: Mask0::new(sym),
-        }
+            mask1: Mask1::new(sym),
+        };
+        s
     }
 }
 
@@ -121,7 +137,6 @@ impl GeneralState {
 impl Mask0 {
     pub fn new(sym: &Rc<NumberSymbols>) -> Self {
         let mut s = Self {
-            menu: MenuLineState::default(),
             text: TextInputState::default(),
             decimal: TextInputState::default(),
             float: TextInputState::default(),
@@ -134,8 +149,9 @@ impl Mask0 {
             euro: MaskedInputState::new_with_symbols(sym),
             exp: MaskedInputState::new_with_symbols(sym),
         };
-        s.menu.focus.set();
+
         s.text.focus.set();
+
         s.ipv4.set_mask("990\\.990\\.990\\.990").expect("mask");
         // s.ipv4.set_display_mask("xxx.xxx.xxx.xxx");
         s.hexcolor.set_mask("HHHHHH").expect("mask");
@@ -147,6 +163,22 @@ impl Mask0 {
         s.dec7_2.set_mask("#,###,##0.00").expect("mask");
         s.euro.set_mask("€ ###,##0.00-").expect("mask");
         s.exp.set_mask("0.#######\\e###").expect("mask");
+        s
+    }
+}
+
+impl Mask1 {
+    pub fn new(sym: &Rc<NumberSymbols>) -> Self {
+        let mut s = Self {
+            date1: DateInputState::default(),
+            date2: DateInputState::default(),
+            date3: DateInputState::default(),
+        };
+        s.date1
+            .set_format("%d.%m.%Y", Locale::de_AT)
+            .expect("mask1");
+        s.date2.set_format("%x", Locale::de_AT).expect("mask1");
+        s.date3.set_format("%c", Locale::de_AT).expect("mask1");
         s
     }
 }
@@ -213,7 +245,16 @@ impl TuiApp for FormOneApp {
             }
         };
 
-        tr!(repaint_mask0(&event, frame, layout, data, uistate), _);
+        match uistate.menu.select {
+            Some(0) => {
+                tr!(repaint_mask0(&event, frame, layout, data, uistate), _)
+            }
+            Some(1) => {
+                tr!(repaint_mask1(&event, frame, layout, data, uistate), _)
+            }
+            _ => {}
+        }
+        tr!(repaint_menu(&event, frame, layout, data, uistate), _);
 
         if uistate.g.error_dlg.active {
             let err = StatusDialog::new().style(uistate.g.theme.status_dialog_style());
@@ -269,7 +310,13 @@ impl TuiApp for FormOneApp {
             }
         });
 
-        check_break!(handle_mask0(&event, data, uistate));
+        check_break!(match uistate.menu.select {
+            Some(0) => handle_mask0(&event, data, uistate),
+            Some(1) => handle_mask1(&event, data, uistate),
+            _ => Control::Continue,
+        });
+
+        check_break!(handle_menu(&event, data, uistate));
 
         Control::Continue
     }
@@ -299,6 +346,39 @@ impl TuiApp for FormOneApp {
         uistate.g.error_dlg.log(format!("{:?}", &*error).as_str());
         Control::Change
     }
+}
+
+fn repaint_menu(
+    event: &RepaintEvent,
+    frame: &mut Frame<'_>,
+    layout: FormOneAppLayout,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let menu = MenuLine::new()
+        .style(uistate.g.theme.menu_style())
+        .title("Select form:")
+        .add("_Text Input", 0u16)
+        .add("_Dates", 1u16)
+        .add("_Quit", 99u16);
+    frame.render_stateful_widget(menu, layout.menu, &mut uistate.menu);
+
+    Control::Continue
+}
+
+fn handle_menu(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
+    check_break!(uistate
+        .menu
+        .handle(event, DefaultKeys)
+        .or_else(|| uistate.menu.handle(event, HotKeyAlt))
+        .and_then(|a| match a {
+            99 => {
+                Control::Break
+            }
+            _ => Control::Change,
+        }));
+
+    Control::Continue
 }
 
 fn repaint_mask0(
@@ -503,11 +583,6 @@ fn repaint_mask0(
         );
     }
 
-    let menu = MenuLine::new()
-        .style(uistate.g.theme.menu_style())
-        .add("_Quit", 0u16);
-    frame.render_stateful_widget(menu, layout.menu, &mut uistate.mask0.menu);
-
     Control::Continue
 }
 
@@ -570,12 +645,144 @@ fn handle_mask0(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     check_break!(mask0.euro.handle(event, DefaultKeys));
     check_break!(mask0.exp.handle(event, DefaultKeys));
 
-    check_break!(mask0.menu.handle(event, DefaultKeys).and_then(|a| match a {
-        0 => {
-            Control::Break
+    Control::Continue
+}
+
+fn repaint_mask1(
+    event: &RepaintEvent,
+    frame: &mut Frame<'_>,
+    layout: FormOneAppLayout,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let l_columns = Layout::new(
+        Direction::Horizontal,
+        [
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+        ],
+    )
+    .split(layout.area);
+
+    let l0 = layout_edit(
+        l_columns[0],
+        &[
+            EditConstraint::TitleLabelRows(2),
+            EditConstraint::Empty,
+            EditConstraint::Label("Date 1"),
+            EditConstraint::Widget(20),
+            EditConstraint::Label("Date 2"),
+            EditConstraint::Widget(20),
+            EditConstraint::Label("Date 3"),
+            EditConstraint::Widget(20),
+        ],
+    );
+    let mut l0 = l0.iter();
+
+    let w_date1 = DateInput::default().style(uistate.g.theme.input_mask_style());
+    let w_date2 = DateInput::default().style(uistate.g.theme.input_mask_style());
+    let w_date3 = DateInput::default().style(uistate.g.theme.input_mask_style());
+
+    frame.render_widget(Span::from("Date input").underlined(), l0.label());
+    frame.render_widget(Span::from("Date 1"), l0.label());
+    frame.render_frame_widget(w_date1, l0.widget(), &mut uistate.mask1.date1);
+    frame.render_widget(Span::from("Date 2"), l0.label());
+    frame.render_frame_widget(w_date2, l0.widget(), &mut uistate.mask1.date2);
+    frame.render_widget(Span::from("Date 3"), l0.label());
+    frame.render_frame_widget(w_date3, l0.widget(), &mut uistate.mask1.date3);
+
+    let r = match_focus!(
+        uistate.mask1.date1 => Some(&uistate.mask1.date1),
+        uistate.mask1.date2 => Some(&uistate.mask1.date2),
+        uistate.mask1.date3 => Some(&uistate.mask1.date3),
+        _ => None
+    );
+    if let Some(r) = r {
+        let mut ec = Vec::new();
+        ec.push(EditConstraint::EmptyRows(2));
+        ec.push(EditConstraint::Empty);
+        for _ in 0..r.input.value.tokens().len() {
+            ec.push(EditConstraint::TitleLabel);
         }
-        _ => Control::Continue,
-    }));
+
+        let l1 = layout_edit(l_columns[1], &ec);
+        let mut l1 = l1.iter();
+
+        for (i, t) in r.input.value.tokens().iter().enumerate() {
+            let mut w_info = Span::from(format!(
+                "#{}:{}:{}-{}   {:?} | {:?}",
+                t.nr_id, t.sec_id, t.sec_start, t.sec_end, t.peek_left, t.right
+            ));
+            if i == r.input.cursor() {
+                w_info = w_info.on_cyan();
+            }
+            frame.render_widget(w_info, l1.label());
+        }
+
+        let mut ec = Vec::new();
+        ec.push(EditConstraint::EmptyRows(2));
+        ec.push(EditConstraint::Empty);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
+
+        let l2 = layout_edit(l_columns[2], &ec);
+        let mut l2 = l2.iter();
+
+        frame.render_widget(Span::from(format!("value={}", r.input.value())), l2.label());
+        frame.render_widget(
+            Span::from(format!("compact={}", r.input.compact_value())),
+            l2.label(),
+        );
+        frame.render_widget(Span::from(format!("parse={:?}", r.value())), l2.label());
+        frame.render_widget(Span::from(format!("pattern={}", r.pattern)), l2.label());
+        frame.render_widget(Span::from(format!("mask={}", r.input.mask())), l2.label());
+        frame.render_widget(
+            Span::from(format!("display={}", r.input.display_mask())),
+            l2.label(),
+        );
+        frame.render_widget(
+            Span::from(format!(
+                "o={} w={} c={} s={}:{}",
+                r.input.offset(),
+                r.input.width(),
+                r.input.cursor(),
+                r.input.selection().start,
+                r.input.selection().end
+            )),
+            l2.label(),
+        );
+    }
+
+    Control::Continue
+}
+
+fn focus1(mask1: &Mask1) -> Focus<'_> {
+    Focus::new([
+        (mask1.date1.focus(), mask1.date1.area()),
+        (mask1.date2.focus(), mask1.date2.area()),
+        (mask1.date3.focus(), mask1.date3.area()),
+    ])
+}
+
+fn handle_mask1(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
+    let mask1 = &mut uistate.mask1;
+
+    focus1(mask1)
+        .handle(event, DefaultKeys)
+        .and_do(|_| uistate.g.repaint.set());
+
+    validate!(mask1.date1, mask1.date2, mask1.date3);
+
+    check_break!(mask1.date1.handle(event, DefaultKeys));
+    check_break!(mask1.date2.handle(event, DefaultKeys));
+    check_break!(mask1.date3.handle(event, DefaultKeys));
 
     Control::Continue
 }
