@@ -1,3 +1,6 @@
+///
+/// Extensions for [ratatui::widgets::Table]
+///
 use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
 use crate::widget::ActionTrigger;
 use crate::FocusFlag;
@@ -297,16 +300,24 @@ impl TableExtState {
 
 #[derive(Debug)]
 pub enum InputRequest {
+    /// Select first row
     First,
+    /// Select last row
     Last,
+    /// Select new row
     Down,
+    /// Select prev row
     Up,
+    /// Page up
     PageDown,
+    /// Page down
     PageUp,
+    /// Mouse page up
     MouseScrollDown,
+    /// Mouse page down
     MouseScrollUp,
+    /// Select by mouse click
     MouseSelect(usize),
-    // MouseAction(usize, u64), // todo: ??? can't be done this way
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
@@ -477,10 +488,9 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
 }
 
 /// Extra mapping which does the double click a line in the table thing.
-/// Returns `ControlUI::Action(true)` if a double click is detected.
+/// Returns `ControlUI::Action(())` if a double click is detected.
 ///
 /// ```rust ignore
-/// uistate.page1.table1.handle(evt, DefaultKeys).or_else(|| {
 ///      uistate.page1.table1.handle(evt, DoubleClick).and_then(|_| {
 ///          if let Some(file) = data.files[uistate.page1.table1.selected().unwrap()] {
 ///              let file_path = data
@@ -492,7 +502,6 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
 ///              Control::Err(anyhow::Error::msg("Nothing to do."))
 ///          }
 ///      })
-///  })
 /// ```
 #[derive(Debug)]
 pub struct DoubleClick;
@@ -542,6 +551,9 @@ impl<E> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState {
     }
 }
 
+/// Extra mapping that reacts to the delete-key in a table.
+///
+/// Returns [ControlUI::Run(usize)] for which row should be deleted.
 #[derive(Debug)]
 pub struct DeleteRow;
 
