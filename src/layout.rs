@@ -63,6 +63,11 @@ impl LayoutEdit {
     }
 }
 
+/// Iterates both the labels and the widgets.
+///
+/// There are constraints like LineWidget and TitleLabel that create empty Label/Widget areas
+/// to keep the two vectors in sync. Those are automatically skipped when using widget()/label().
+/// Yes it's nice to have the label and the according widget at the same index, if you use indexing.
 #[derive(Debug)]
 pub struct LayoutEditIterator<'a> {
     idx_label: usize,
