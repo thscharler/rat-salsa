@@ -1405,7 +1405,7 @@ pub mod core {
                 Err(_) => return Err(fmt::Error),
             };
             let mut out = String::new();
-            match number::core::map_num(clean.as_str(), &fmt, fmt.sym(), &mut out) {
+            match number::core::map_num::<_, false>(clean.as_str(), &fmt, fmt.sym(), &mut out) {
                 Ok(_) => {}
                 Err(_) => return Err(fmt::Error),
             }

@@ -70,7 +70,7 @@ fn test_grouping() {
 fn test_sign() {
     let fmt = NumberFormat::new("####").expect("x");
     let mut str = String::new();
-    number::core::map_num("-.", &fmt, fmt.sym(), &mut str).expect("x");
+    number::core::map_num::<_, false>("-.", &fmt, fmt.sym(), &mut str).expect("x");
     assert_eq!(str, "   -");
 
     assert_eq!(number::format(-1, "####"), Ok("  -1".to_string()));
@@ -185,4 +185,13 @@ fn test_currency() {
     assert_eq!(number::parse_fmt("€  112", &fmt), Ok(112));
     let fmt2 = NumberFormat::news("$ ###0", &sym2).expect("x");
     assert_eq!(number::parse_fmt("Rub  112", &fmt2), Ok(112));
+
+    assert_eq!(
+        number::parse_fmt::<u32>("Ru  112", &fmt2),
+        Err(NumberFmtError::ParseInvalidCurrency)
+    );
+    assert_eq!(
+        number::parse_fmt::<u32>("Ru", &fmt2),
+        Err(NumberFmtError::ParseInvalidCurrency)
+    );
 }

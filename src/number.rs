@@ -179,7 +179,7 @@ impl Debug for CurrencySym {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         f.debug_struct("CurrencySym")
             .field("len", &self.len)
-            .field("sym", &self.sym())
+            .field("sym", &self.as_str())
             .finish()
     }
 }
@@ -246,18 +246,10 @@ impl CurrencySym {
         }
     }
 
-    pub fn first(&self) -> char {
-        self.sym().chars().next().expect("currency")
-    }
-
-    pub fn sym(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         // Safety:
         // Copied from &str and never modified.
         unsafe { from_utf8_unchecked(&self.sym[..self.len as usize]) }
-    }
-
-    pub fn char_len(&self) -> usize {
-        return self.sym().chars().count();
     }
 
     pub const fn len(&self) -> usize {
@@ -267,7 +259,7 @@ impl CurrencySym {
 
 impl Display for CurrencySym {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.sym())
+        write!(f, "{}", self.as_str())
     }
 }
 
@@ -977,12 +969,26 @@ pub mod core {
                     }
                 }
                 Token::Currency => {
-                    if c == sym.currency_sym.first() {
-                        for _ in 1..sym.currency_sym.char_len() {
-                            jt.next();
-                        }
-                    } else {
+                    let mut kt = sym.currency_sym.as_str().chars();
+                    let s = kt.next();
+                    if Some(c) != s {
                         return Err(NumberFmtError::ParseInvalidCurrency);
+                    }
+
+                    loop {
+                        match kt.next() {
+                            None => {
+                                break;
+                            }
+                            Some(s) => {
+                                let Some(c) = jt.next() else {
+                                    return Err(NumberFmtError::ParseInvalidCurrency);
+                                };
+                                if c != s {
+                                    return Err(NumberFmtError::ParseInvalidCurrency);
+                                }
+                            }
+                        }
                     }
                 }
                 Token::Separator(sep) => {
@@ -1003,7 +1009,7 @@ pub mod core {
     /// The raw number should be in a format produced by the format! macro. decimal point is '.',
     /// exponent is 'e' and negative sign is '-'.
     #[inline]
-    pub fn map_num<W: FmtWrite>(
+    pub fn map_num<W: FmtWrite, const EXP: bool>(
         raw: &str,
         format: &NumberFormat,
         sym: &NumberSymbols,
@@ -1052,32 +1058,45 @@ pub mod core {
         // exponent
         let exp = raw_exp.as_bytes();
         let len_exp = exp.len() as u32;
-        let disp_exp_upper = if !raw_exp.is_empty() || format.has_exp_0 {
-            sym.exponent_upper_sym
-        } else {
-            ' '
-        };
-        let disp_exp_lower = if !raw_exp.is_empty() || format.has_exp_0 {
-            sym.exponent_lower_sym
-        } else {
-            ' '
-        };
-        let disp_exp_sign = if raw_exp_sign.is_empty() {
-            sym.positive_sym
-        } else {
-            sym.negative_sym
-        };
 
-        if len_exp > format.len_exp {
-            return Err(NumberFmtError::FmtLenExp);
-        }
-        // not enough space for the exponent
-        if max(len_exp, format.min_exp_sign) + len_exp_sign > format.len_exp {
-            return Err(NumberFmtError::FmtLenExp);
-        }
-        // left shift the exponent and fill the rest with ' '.
-        let shift_exp_n = format.len_exp - max(len_exp, format.min_exp_sign) - len_exp_sign;
-        let shift_exp_pos = max(len_exp, format.min_exp_sign) + len_exp_sign;
+        let (disp_exp_upper, disp_exp_lower, disp_exp_sign, shift_exp_n, shift_exp_pos) = if EXP {
+            let disp_exp_upper = if !raw_exp.is_empty() || format.has_exp_0 {
+                sym.exponent_upper_sym
+            } else {
+                ' '
+            };
+            let disp_exp_lower = if !raw_exp.is_empty() || format.has_exp_0 {
+                sym.exponent_lower_sym
+            } else {
+                ' '
+            };
+            let disp_exp_sign = if raw_exp_sign.is_empty() {
+                sym.positive_sym
+            } else {
+                sym.negative_sym
+            };
+
+            if len_exp > format.len_exp {
+                return Err(NumberFmtError::FmtLenExp);
+            }
+            // not enough space for the exponent
+            if max(len_exp, format.min_exp_sign) + len_exp_sign > format.len_exp {
+                return Err(NumberFmtError::FmtLenExp);
+            }
+            // left shift the exponent and fill the rest with ' '.
+            let shift_exp_n = format.len_exp - max(len_exp, format.min_exp_sign) - len_exp_sign;
+            let shift_exp_pos = max(len_exp, format.min_exp_sign) + len_exp_sign;
+
+            (
+                disp_exp_upper,
+                disp_exp_lower,
+                disp_exp_sign,
+                shift_exp_n,
+                shift_exp_pos,
+            )
+        } else {
+            (' ', ' ', ' ', 0, 0)
+        };
 
         let mut used_sign = false;
         let mut used_exp_sign = false;
@@ -1155,73 +1174,85 @@ pub mod core {
                     }
                 }
                 Token::ExponentUpper => {
-                    out.write_char(disp_exp_upper)?;
+                    if EXP {
+                        out.write_char(disp_exp_upper)?;
+                    }
                 }
                 Token::ExponentLower => {
-                    out.write_char(disp_exp_lower)?;
+                    if EXP {
+                        out.write_char(disp_exp_lower)?;
+                    }
                 }
                 Token::SignExp => {
-                    debug_assert!(!used_exp_sign);
-                    if raw_exp_sign.is_empty() && sym.positive_sym == ' ' {
-                        // explicit sign in the exponent shows '+'.
-                        out.write_char('+')?;
-                    } else {
-                        out.write_char(disp_exp_sign)?;
+                    if EXP {
+                        debug_assert!(!used_exp_sign);
+                        if raw_exp_sign.is_empty() && sym.positive_sym == ' ' {
+                            // explicit sign in the exponent shows '+'.
+                            out.write_char('+')?;
+                        } else {
+                            out.write_char(disp_exp_sign)?;
+                        }
+                        used_exp_sign = true;
                     }
-                    used_exp_sign = true;
                 }
                 Token::Digit0(Mode::Exponent, i) => {
-                    if *i >= shift_exp_pos {
-                        // left-shift exponent
-                    } else if len_exp > *i {
-                        out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
-                    } else {
-                        out.write_char('0')?;
-                    }
-                    // append shifted digits as blank
-                    if *i == 0 {
-                        for _ in 0..shift_exp_n {
-                            out.write_char(' ')?;
+                    if EXP {
+                        if *i >= shift_exp_pos {
+                            // left-shift exponent
+                        } else if len_exp > *i {
+                            out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
+                        } else {
+                            out.write_char('0')?;
+                        }
+                        // append shifted digits as blank
+                        if *i == 0 {
+                            for _ in 0..shift_exp_n {
+                                out.write_char(' ')?;
+                            }
                         }
                     }
                 }
                 Token::Digit(Mode::Exponent, i) => {
-                    if *i >= shift_exp_pos {
-                        // left-shift exponent
-                    } else if len_exp > *i {
-                        out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
-                    } else {
-                        out.write_char(' ')?;
-                    }
-                    // append shifted digits as blank
-                    if *i == 0 {
-                        for _ in 0..shift_exp_n {
+                    if EXP {
+                        if *i >= shift_exp_pos {
+                            // left-shift exponent
+                        } else if len_exp > *i {
+                            out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
+                        } else {
                             out.write_char(' ')?;
+                        }
+                        // append shifted digits as blank
+                        if *i == 0 {
+                            for _ in 0..shift_exp_n {
+                                out.write_char(' ')?;
+                            }
                         }
                     }
                 }
                 Token::Numeric(Mode::Exponent, i, can_be_sign) => {
-                    if *i >= shift_exp_pos {
-                        // left-shift exponent
-                    } else if len_exp > *i {
-                        out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
-                    } else if *can_be_sign && max(len_exp, format.min_exp_sign) == *i {
-                        debug_assert!(!used_exp_sign);
-                        out.write_char(disp_exp_sign)?;
-                        used_exp_sign = true;
-                    } else {
-                        out.write_char(' ')?;
-                    }
-
-                    // append shifted digits as blank
-                    if *i == 0 {
-                        for _ in 0..shift_exp_n {
+                    if EXP {
+                        if *i >= shift_exp_pos {
+                            // left-shift exponent
+                        } else if len_exp > *i {
+                            out.write_char(exp[(len_exp - i - 1) as usize] as char)?;
+                        } else if *can_be_sign && max(len_exp, format.min_exp_sign) == *i {
+                            debug_assert!(!used_exp_sign);
+                            out.write_char(disp_exp_sign)?;
+                            used_exp_sign = true;
+                        } else {
                             out.write_char(' ')?;
+                        }
+
+                        // append shifted digits as blank
+                        if *i == 0 {
+                            for _ in 0..shift_exp_n {
+                                out.write_char(' ')?;
+                            }
                         }
                     }
                 }
                 Token::Currency => {
-                    out.write_str(sym.currency_sym.sym())?;
+                    out.write_str(sym.currency_sym.as_str())?;
                 }
                 Token::Separator(v) => {
                     out.write_char(*v)?;
@@ -1253,15 +1284,17 @@ pub mod core {
         let mut raw = RAW.take();
 
         raw.clear();
-        if format.has_exp {
+        let res = if format.has_exp {
             write!(raw, "{:.*e}", format.len_frac as usize, number)
                 .map_err(|_| NumberFmtError::Fmt)?;
+            map_num::<_, true>(raw.as_str(), format, sym, out)
         } else {
             write!(raw, "{:.*}", format.len_frac as usize, number)
                 .map_err(|_| NumberFmtError::Fmt)?;
+            map_num::<_, false>(raw.as_str(), format, sym, out)
         };
 
-        match map_num(raw.as_str(), format, sym, out) {
+        match res {
             Ok(v) => {
                 RAW.set(raw);
                 Ok(v)
