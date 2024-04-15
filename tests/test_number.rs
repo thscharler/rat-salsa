@@ -1,4 +1,3 @@
-use pure_rust_locales::Locale;
 use rat_salsa::number;
 use rat_salsa::number::{parse_sym, FormatNumber, NumberFmtError, NumberFormat, NumberSymbols};
 use std::fmt;

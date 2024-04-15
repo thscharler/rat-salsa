@@ -112,7 +112,15 @@ impl DateInputState {
     ///
     /// generates a mask according to the format and overwrites whatever
     /// set_mask() did.
-    pub fn set_format<S: AsRef<str>>(
+    pub fn set_format<S: AsRef<str>>(&mut self, pattern: S) -> Result<(), fmt::Error> {
+        self.set_formats(pattern, chrono::Locale::default())
+    }
+
+    /// chrono format string.
+    ///
+    /// generates a mask according to the format and overwrites whatever
+    /// set_mask() did.
+    pub fn set_formats<S: AsRef<str>>(
         &mut self,
         pattern: S,
         locale: chrono::Locale,
