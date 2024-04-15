@@ -629,6 +629,22 @@ impl NumberFormat {
         self.sym.as_ref()
     }
 
+    /// Formats and unwraps any error.
+    /// The error is written to the result string using {:?}.
+    /// So this one may be convenient in some situations, but ...
+    #[inline]
+    pub fn fmt_u<Number: LowerExp + Display>(&self, number: Number) -> String {
+        let mut out = String::new();
+        match core::format_to(number, self, self.sym(), &mut out) {
+            Ok(_) => {}
+            Err(e) => {
+                out.clear();
+                _ = write!(out, "{:?}", e);
+            }
+        }
+        out
+    }
+
     /// Formats.
     #[inline]
     pub fn fmt<Number: LowerExp + Display>(
