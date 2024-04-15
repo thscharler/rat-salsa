@@ -2,6 +2,7 @@
 //! Some widgets and extensions to ratatui-widgets.
 //!
 
+use std::cell::Cell;
 use std::time::{Duration, SystemTime};
 
 pub mod basic;
@@ -12,6 +13,7 @@ pub mod input;
 pub mod mask_input;
 pub mod menuline;
 pub mod message;
+pub mod paragraph;
 pub mod table;
 
 /// Small helper that provides a trigger for mouse double-click.
@@ -45,6 +47,92 @@ impl ActionTrigger {
                     true
                 }
             }
+        }
+    }
+}
+
+/// Scroll-state of a widget.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct Scroll {
+    /// Total content length
+    pub len: Cell<usize>,
+    /// Current offset
+    pub offset: Cell<usize>,
+    /// Page-size
+    pub page: Cell<usize>,
+    /// Mouse scrolling active
+    pub mouse: Cell<bool>,
+}
+
+impl Scroll {
+    pub fn set_len(&self, len: usize) {
+        self.len.set(len);
+    }
+
+    pub fn len(&self) -> usize {
+        self.len.get()
+    }
+
+    pub fn set_offset(&self, offset: usize) {
+        self.offset.set(offset);
+    }
+
+    pub fn offset(&self) -> usize {
+        self.offset.get()
+    }
+
+    pub fn set_page(&self, page: usize) {
+        self.page.set(page);
+    }
+
+    pub fn page(&self) -> usize {
+        self.page.get()
+    }
+}
+
+/// Trait for a widget that can scroll vertically.
+pub trait HasVerticalScroll {
+    /// State needs scrolling?
+    fn need_vscroll(&self) -> bool {
+        true
+    }
+
+    /// Scroll data.
+    fn vscroll(&self) -> &Scroll;
+
+    /// Vertical length.
+    fn vlen(&self) -> usize {
+        self.vscroll().len.get()
+    }
+
+    /// Vertical offset.
+    fn voffset(&self) -> usize {
+        self.vscroll().offset.get()
+    }
+
+    /// Vertical page size.
+    fn vpage(&self) -> usize {
+        self.vscroll().page.get()
+    }
+
+    /// Scroll up by n.
+    fn vscroll_up(&self, n: usize) {
+        let offset = self.vscroll().offset.get();
+        if offset > n {
+            self.vscroll().offset.set(offset - n);
+        } else {
+            self.vscroll().offset.set(0);
+        }
+    }
+
+    /// Scroll down by n.
+    fn vscroll_down(&self, n: usize) {
+        let offset = self.voffset();
+        let len = self.vlen();
+        if offset + n < len {
+            self.vscroll().offset.set(offset + n);
+        } else {
+            self.vscroll().offset.set(len);
         }
     }
 }

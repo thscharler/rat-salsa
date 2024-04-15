@@ -5,7 +5,6 @@ use crossbeam::channel::Sender;
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
-use pure_rust_locales::Locale;
 use rat_salsa::layout::{layout_edit, EditConstraint};
 use rat_salsa::number::NumberSymbols;
 use rat_salsa::widget::button::ButtonStyle;
@@ -16,6 +15,7 @@ use rat_salsa::widget::menuline::{HotKeyAlt, MenuLine, MenuLineState, MenuStyle}
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
+use rat_salsa::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use rat_salsa::{
     check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
     Focus, HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
@@ -24,7 +24,7 @@ use rat_salsa::{
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
-use ratatui::text::Span;
+use ratatui::text::{Line, Span};
 use ratatui::Frame;
 use std::fs;
 use std::rc::Rc;
@@ -75,6 +75,7 @@ pub struct FormOneState {
 
     pub mask0: Mask0,
     pub mask1: Mask1,
+    pub mask2: Mask2,
 }
 
 #[derive(Debug)]
@@ -110,6 +111,11 @@ pub struct Mask1 {
     pub date3: DateInputState,
 }
 
+#[derive(Debug)]
+pub struct Mask2 {
+    pub para: ParagraphExtState,
+}
+
 impl FormOneState {
     pub fn new(sym: &Rc<NumberSymbols>) -> Self {
         let s = Self {
@@ -117,6 +123,7 @@ impl FormOneState {
             menu: Default::default(),
             mask0: Mask0::new(sym),
             mask1: Mask1::new(sym),
+            mask2: Mask2::new(),
         };
         s
     }
@@ -174,12 +181,18 @@ impl Mask1 {
             date2: DateInputState::default(),
             date3: DateInputState::default(),
         };
-        s.date1
-            .set_format("%d.%m.%Y", Locale::de_AT)
-            .expect("mask1");
-        s.date2.set_format("%x", Locale::de_AT).expect("mask1");
-        s.date3.set_format("%c", Locale::de_AT).expect("mask1");
+        s.date1.set_format("%d.%m.%Y").expect("mask1");
+        s.date2.set_format("%x").expect("mask1");
+        s.date3.set_format("%c").expect("mask1");
         s
+    }
+}
+
+impl Mask2 {
+    pub fn new() -> Self {
+        Self {
+            para: ParagraphExtState::default(),
+        }
     }
 }
 
@@ -252,6 +265,9 @@ impl TuiApp for FormOneApp {
             Some(1) => {
                 tr!(repaint_mask1(&event, frame, layout, data, uistate), _)
             }
+            Some(2) => {
+                tr!(repaint_mask2(&event, frame, layout, data, uistate), _)
+            }
             _ => {}
         }
         tr!(repaint_menu(&event, frame, layout, data, uistate), _);
@@ -313,6 +329,7 @@ impl TuiApp for FormOneApp {
         check_break!(match uistate.menu.select {
             Some(0) => handle_mask0(&event, data, uistate),
             Some(1) => handle_mask1(&event, data, uistate),
+            Some(2) => handle_mask2(&event, data, uistate),
             _ => Control::Continue,
         });
 
@@ -360,6 +377,7 @@ fn repaint_menu(
         .title("Select form:")
         .add("_Text Input", 0u16)
         .add("_Dates", 1u16)
+        .add("_Scroll", 1u16)
         .add("_Quit", 99u16);
     frame.render_stateful_widget(menu, layout.menu, &mut uistate.menu);
 
@@ -783,6 +801,108 @@ fn handle_mask1(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     check_break!(mask1.date1.handle(event, DefaultKeys));
     check_break!(mask1.date2.handle(event, DefaultKeys));
     check_break!(mask1.date3.handle(event, DefaultKeys));
+
+    Control::Continue
+}
+
+fn repaint_mask2(
+    event: &RepaintEvent,
+    frame: &mut Frame<'_>,
+    layout: FormOneAppLayout,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let l_columns = Layout::new(
+        Direction::Horizontal,
+        [
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+        ],
+    )
+    .split(layout.area);
+
+    let w_para = ParagraphExt::new(
+        [
+            "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, ",
+            "sed diam nonumy eirmod tempor invidunt ut labore et dolore",
+            "magna aliquyam erat, sed diam voluptua. At vero eos et ",
+            "accusam et justo duo dolores et ea rebum. Stet clita kasd ",
+            "gubergren, no sea takimata sanctus est Lorem ipsum dolor ",
+            "sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing ",
+            "elitr, sed diam nonumy eirmod tempor invidunt ut labore et",
+            "dolore magna aliquyam erat, sed diam voluptua. At vero ",
+            "eos et accusam et justo duo dolores et ea rebum. Stet",
+            "clita kasd gubergren, no sea takimata sanctus est Lorem ",
+            "ipsum dolor sit amet. Lorem ipsum dolor sit amet, ",
+            "consetetur sadipscing elitr, sed diam nonumy eirmod tempor ",
+            "invidunt ut labore et dolore magna aliquyam erat, sed diam",
+            "voluptua. At vero eos et accusam et justo duo dolores et ",
+            "ea rebum. Stet clita kasd gubergren, no sea takimata sanctus ",
+            "est Lorem ipsum dolor sit amet.   ",
+            "",
+            "Duis autem vel eum iriure dolor in hendrerit in vulputate ",
+            "velit esse molestie consequat, vel illum dolore eu feugiat ",
+            "nulla facilisis at vero eros et accumsan et iusto odio",
+            " dignissim qui blandit praesent luptatum zzril delenit ",
+            "augue duis dolore te feugait nulla facilisi. Lorem ipsum ",
+            "dolor sit amet, consectetuer adipiscing elit, sed diam ",
+            "nonummy nibh euismod tincidunt ut laoreet dolore magna ",
+            "aliquam erat volutpat.   ",
+            "",
+            "Ut wisi enim ad minim veniam, quis nostrud exerci tation ",
+            "ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo ",
+            "consequat. Duis autem vel eum iriure dolor in hendrerit in ",
+            "vulputate velit esse molestie consequat, vel illum dolore ",
+            "eu feugiat nulla facilisis at vero eros et accumsan et ",
+            "iusto odio dignissim qui blandit praesent luptatum zzril ",
+            "delenit augue duis dolore te feugait nulla facilisi.   ",
+            "",
+            "Nam liber tempor cum soluta nobis eleifend option congue ",
+            "nihil imperdiet doming id quod mazim placerat facer possim ",
+            "assum. Lorem ipsum dolor sit amet, consectetuer adipiscing ",
+            "elit, sed diam nonummy nibh euismod tincidunt ut laoreet ",
+            "dolore magna aliquam erat volutpat. Ut wisi enim ad minim ",
+            "veniam, quis nostrud exerci tation ullamcorper suscipit ",
+            "lobortis nisl ut aliquip ex ea commodo consequat.   ",
+            "",
+            "Duis autem vel eum iriure dolor in hendrerit in vulputate ",
+            "velit esse molestie consequat, vel illum dolore eu feugiat ",
+            "nulla facilisis.   ",
+            "",
+            "At vero eos et accusam et justo duo dolores et ea rebum. ",
+            "Stet clita kasd gubergren, no sea takimata sanctus est ",
+            "Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, ",
+            "consetetur sadipscing elitr, sed diam nonumy eirmod tempor ",
+            "invidunt ut labore et dolore magna aliquyam erat, sed diam ",
+            "voluptua. At vero eos et accusam et justo duo dolores et ",
+            "ea rebum. Stet clita kasd gubergren, no sea takimata sanctus ",
+            "est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit ",
+            "amet, consetetur sadipscing elitr, At accusam aliquyam diam ",
+            "diam dolore dolores duo eirmod eos erat, et nonumy sed ",
+            "tempor et et invidunt justo labore Stet clita ea et gubergren, ",
+            "kasd magna no rebum. sanctus sea sed takimata ut vero ",
+            "voluptua. est Lorem ipsum dolor sit amet. Lorem ipsum dolor ",
+            "sit amet, consetetur",
+        ]
+        .iter()
+        .map(|v| Line::from(*v))
+        .collect::<Vec<_>>(),
+    );
+
+    frame.render_stateful_widget(w_para, l_columns[0], &mut uistate.mask2.para);
+
+    Control::Continue
+}
+
+fn handle_mask2(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
+    let mask2 = &mut uistate.mask2;
+
+    check_break!(mask2.para.handle(event, DefaultKeys).on_change(|| {
+        debug!("para::CHANGE!");
+        Control::Change
+    }));
 
     Control::Continue
 }
