@@ -378,7 +378,7 @@ where
                 if self.area.contains(Position::new(*column, *row)) {
                     self.mouse_select = true;
                     let c = column - self.area.x;
-                    Some(InputRequest::SetCursor(c as usize, false))
+                    Some(InputRequest::SetCursor(c as isize, false))
                 } else {
                     None
                 }
@@ -400,12 +400,8 @@ where
                 ..
             }) => {
                 if self.mouse_select {
-                    let c = if *column >= self.area.x {
-                        column - self.area.x
-                    } else {
-                        0
-                    };
-                    Some(InputRequest::SetCursor(c as usize, true))
+                    let c = (*column as isize) - (self.area.x as isize);
+                    Some(InputRequest::SetCursor(c, true))
                 } else {
                     None
                 }
@@ -424,7 +420,7 @@ where
 /// Mapping from events to abstract editing requests.
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub enum InputRequest {
-    SetCursor(usize, bool),
+    SetCursor(isize, bool),
     Select(usize, usize),
     InsertChar(char),
     GoToPrevChar(bool),
@@ -696,8 +692,12 @@ where
         use InputRequest::*;
 
         match action {
-            SetCursor(pos, anchor) => {
-                let pos = pos + self.value.offset();
+            SetCursor(rpos, anchor) => {
+                let pos = if rpos < 0 {
+                    self.value.offset().saturating_sub(-rpos as usize)
+                } else {
+                    self.value.offset() + rpos as usize
+                };
                 if self.value.cursor() == pos {
                     ControlUI::NoChange
                 } else {
