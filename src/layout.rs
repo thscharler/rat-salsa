@@ -421,7 +421,7 @@ pub fn layout_dialog<const N: usize>(
 
     let l_content = Layout::vertical([
         Constraint::Fill(1),
-        Constraint::Length(insets.vertical),
+        Constraint::Length(1),
         Constraint::Length(1),
     ])
     .split(l_inner);
@@ -433,7 +433,7 @@ pub fn layout_dialog<const N: usize>(
 
     LayoutDialog {
         dialog: l_dialog,
-        area: l_inner,
+        area: l_content[0],
         button_area: l_content[2],
         buttons: l_buttons,
     }
