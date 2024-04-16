@@ -5,6 +5,7 @@
 use crate::check_break;
 use crate::layout::layout_dialog;
 use crate::widget::button::{Button, ButtonState, ButtonStyle};
+use crate::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use crate::ControlUI;
 use crate::{DefaultKeys, HandleCrossterm};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -49,6 +50,7 @@ pub struct StatusDialogStyle {
 pub struct StatusDialogState {
     pub active: bool,
     pub area: Rect,
+    pub message: ParagraphExtState,
     pub button: ButtonState<bool>,
     pub log: String,
 }
@@ -122,6 +124,7 @@ impl StatusDialogState {
     /// Clear
     pub fn clear_log(&mut self) {
         self.active = false;
+        self.message = ParagraphExtState::default();
         self.log.clear();
     }
 
@@ -140,6 +143,7 @@ impl Default for StatusDialogState {
         let s = Self {
             active: false,
             area: Default::default(),
+            message: Default::default(),
             button: Default::default(),
             log: Default::default(),
         };
@@ -173,13 +177,13 @@ impl StatefulWidget for StatusDialog {
                 lines.push(Line::from(t));
             }
             let text = Text::from(lines).alignment(Alignment::Center);
-            let para = Paragraph::new(text);
+            let para = ParagraphExt::new(text);
 
             let ok = Button::from("Ok").style(self.button_style).action(true);
 
             Clear.render(l_dlg.dialog, buf);
             block.render(l_dlg.dialog, buf);
-            para.render(l_dlg.area, buf);
+            para.render(l_dlg.area, buf, &mut state.message);
             ok.render(l_dlg.buttons[0], buf, &mut state.button);
         }
     }
@@ -187,6 +191,8 @@ impl StatefulWidget for StatusDialog {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+        check_break!(self.message.handle(event, DefaultKeys));
+
         check_break!(if self.active {
             self.button.handle(event, DefaultKeys).and_then(|_a| {
                 self.clear_log();

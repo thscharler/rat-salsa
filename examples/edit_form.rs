@@ -330,6 +330,7 @@ impl TuiApp for FormOneApp {
             Some(0) => handle_mask0(&event, data, uistate),
             Some(1) => handle_mask1(&event, data, uistate),
             Some(2) => handle_mask2(&event, data, uistate),
+            Some(3) => handle_mask3(&event, data, uistate),
             _ => Control::Continue,
         });
 
@@ -377,7 +378,8 @@ fn repaint_menu(
         .title("Select form:")
         .add("_Text Input", 0u16)
         .add("_Dates", 1u16)
-        .add("_Scroll", 1u16)
+        .add("_Scroll", 2u16)
+        .add("_Error", 3u16)
         .add("_Quit", 99u16);
     frame.render_stateful_widget(menu, layout.menu, &mut uistate.menu);
 
@@ -899,12 +901,79 @@ fn repaint_mask2(
 fn handle_mask2(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
     let mask2 = &mut uistate.mask2;
 
-    check_break!(mask2.para.handle(event, DefaultKeys).on_change(|| {
-        debug!("para::CHANGE!");
-        Control::Change
-    }));
+    check_break!(mask2.para.handle(event, DefaultKeys));
 
     Control::Continue
+}
+
+fn handle_mask3(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
+    for s in [
+        "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, ",
+        "sed diam nonumy eirmod tempor invidunt ut labore et dolore",
+        "magna aliquyam erat, sed diam voluptua. At vero eos et ",
+        "accusam et justo duo dolores et ea rebum. Stet clita kasd ",
+        "gubergren, no sea takimata sanctus est Lorem ipsum dolor ",
+        "sit amet. Lorem ipsum dolor sit amet, consetetur sadipscing ",
+        "elitr, sed diam nonumy eirmod tempor invidunt ut labore et",
+        "dolore magna aliquyam erat, sed diam voluptua. At vero ",
+        "eos et accusam et justo duo dolores et ea rebum. Stet",
+        "clita kasd gubergren, no sea takimata sanctus est Lorem ",
+        "ipsum dolor sit amet. Lorem ipsum dolor sit amet, ",
+        "consetetur sadipscing elitr, sed diam nonumy eirmod tempor ",
+        "invidunt ut labore et dolore magna aliquyam erat, sed diam",
+        "voluptua. At vero eos et accusam et justo duo dolores et ",
+        "ea rebum. Stet clita kasd gubergren, no sea takimata sanctus ",
+        "est Lorem ipsum dolor sit amet.   ",
+        "",
+        "Duis autem vel eum iriure dolor in hendrerit in vulputate ",
+        "velit esse molestie consequat, vel illum dolore eu feugiat ",
+        "nulla facilisis at vero eros et accumsan et iusto odio",
+        " dignissim qui blandit praesent luptatum zzril delenit ",
+        "augue duis dolore te feugait nulla facilisi. Lorem ipsum ",
+        "dolor sit amet, consectetuer adipiscing elit, sed diam ",
+        "nonummy nibh euismod tincidunt ut laoreet dolore magna ",
+        "aliquam erat volutpat.   ",
+        "",
+        "Ut wisi enim ad minim veniam, quis nostrud exerci tation ",
+        "ullamcorper suscipit lobortis nisl ut aliquip ex ea commodo ",
+        "consequat. Duis autem vel eum iriure dolor in hendrerit in ",
+        "vulputate velit esse molestie consequat, vel illum dolore ",
+        "eu feugiat nulla facilisis at vero eros et accumsan et ",
+        "iusto odio dignissim qui blandit praesent luptatum zzril ",
+        "delenit augue duis dolore te feugait nulla facilisi.   ",
+        "",
+        "Nam liber tempor cum soluta nobis eleifend option congue ",
+        "nihil imperdiet doming id quod mazim placerat facer possim ",
+        "assum. Lorem ipsum dolor sit amet, consectetuer adipiscing ",
+        "elit, sed diam nonummy nibh euismod tincidunt ut laoreet ",
+        "dolore magna aliquam erat volutpat. Ut wisi enim ad minim ",
+        "veniam, quis nostrud exerci tation ullamcorper suscipit ",
+        "lobortis nisl ut aliquip ex ea commodo consequat.   ",
+        "",
+        "Duis autem vel eum iriure dolor in hendrerit in vulputate ",
+        "velit esse molestie consequat, vel illum dolore eu feugiat ",
+        "nulla facilisis.   ",
+        "",
+        "At vero eos et accusam et justo duo dolores et ea rebum. ",
+        "Stet clita kasd gubergren, no sea takimata sanctus est ",
+        "Lorem ipsum dolor sit amet. Lorem ipsum dolor sit amet, ",
+        "consetetur sadipscing elitr, sed diam nonumy eirmod tempor ",
+        "invidunt ut labore et dolore magna aliquyam erat, sed diam ",
+        "voluptua. At vero eos et accusam et justo duo dolores et ",
+        "ea rebum. Stet clita kasd gubergren, no sea takimata sanctus ",
+        "est Lorem ipsum dolor sit amet. Lorem ipsum dolor sit ",
+        "amet, consetetur sadipscing elitr, At accusam aliquyam diam ",
+        "diam dolore dolores duo eirmod eos erat, et nonumy sed ",
+        "tempor et et invidunt justo labore Stet clita ea et gubergren, ",
+        "kasd magna no rebum. sanctus sea sed takimata ut vero ",
+        "voluptua. est Lorem ipsum dolor sit amet. Lorem ipsum dolor ",
+        "sit amet, consetetur",
+    ] {
+        uistate.g.error_dlg.log(s);
+    }
+    uistate.menu.select = Some(0);
+
+    Control::Change
 }
 
 // -----------------------------------------------------------------------
