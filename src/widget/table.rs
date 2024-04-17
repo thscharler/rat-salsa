@@ -272,8 +272,8 @@ impl<SEL: Selection> HasVerticalScroll for TableExtState<SEL> {
 
     fn set_voffset(&mut self, offset: usize) {
         *self.table_state.offset_mut() = offset;
-        // For scrolling purposes the selection is never None.
-        // Instead it defaults out to 0 which prohibits any attempt.
+        // For scrolling purposes the selection of ratatui::Table is never None,
+        // instead it defaults out to 0 which prohibits any scrolling attempt.
         *self.table_state.selected_mut() = Some(offset);
     }
 
@@ -314,6 +314,17 @@ impl<SEL: Selection> TableExtState<SEL> {
                 self.set_voffset(selected);
             }
         }
+    }
+}
+
+impl TableExtState<SingleSelection> {
+    /// Returns the lead selection.
+    pub fn selected(&self) -> Option<usize> {
+        self.selection.lead_selection()
+    }
+
+    pub fn select(&mut self, n: Option<usize>) {
+        self.selection.select(n)
     }
 }
 
@@ -427,7 +438,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.vscroll_up(self.vpage() / 5);
+                    self.vscroll_down(self.vpage() / 5);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -440,33 +451,52 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.vscroll_down(self.vpage() / 5);
+                    self.vscroll_up(self.vpage() / 5);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(
-                MouseEvent {
-                    kind: MouseEventKind::Down(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                }
-                | MouseEvent {
-                    kind: MouseEventKind::Drag(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                },
-            ) => {
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            }) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     let new_row = *row as usize - self.area.y as usize + self.offset();
+                    self.mouse = true;
                     self.selection.select_clamped(new_row, self.len - 1);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
                 }
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Drag(MouseButton::Left),
+                row,
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => {
+                if self.mouse {
+                    let new_row = self.offset() as isize + *row as isize - self.area.y as isize;
+                    if new_row >= 0 {
+                        self.selection
+                            .select_clamped(new_row as usize, self.len - 1);
+                        self.adjust_view();
+                    }
+                    ControlUI::Change
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Up(MouseButton::Left),
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => {
+                self.mouse = false;
+                ControlUI::Continue
             }
 
             _ => ControlUI::Continue,
@@ -520,7 +550,6 @@ impl<E, SEL: Selection> HandleCrossterm<ControlUI<(), E>, DoubleClick> for Table
                     let rr = row - self.area.y;
                     let sel = self.table_state.offset() + rr as usize;
 
-                    // this cannot be accomplished otherwise. the return type is bitching.
                     if self.selection.lead_selection() == Some(sel) {
                         if self.trigger.pull(200) {
                             ControlUI::Run(())
@@ -572,8 +601,6 @@ impl<E, SEL: Selection> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for Tabl
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
-        const CTRL_SHIFT: KeyModifiers = KeyModifiers::CONTROL.union(KeyModifiers::SHIFT);
-
         let res = if self.is_focused() {
             match event {
                 Event::Key(KeyEvent {
