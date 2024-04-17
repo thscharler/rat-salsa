@@ -139,6 +139,7 @@ pub struct MenuLineState<A> {
     pub select: Option<usize>,
     pub len: usize,
     pub action: Vec<A>,
+    pub mouse: bool,
 }
 
 impl<A> MenuLineState<A> {
@@ -168,6 +169,7 @@ impl<A> Default for MenuLineState<A> {
             areas: Default::default(),
             action: Default::default(),
             area: Default::default(),
+            mouse: false,
         }
     }
 }
@@ -403,23 +405,31 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState
 impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         let req = match event {
-            Event::Mouse(
-                MouseEvent {
-                    kind: MouseEventKind::Down(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                }
-                | MouseEvent {
-                    kind: MouseEventKind::Drag(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                },
-            ) => 'f: {
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            }) => 'f: {
                 for (i, r) in self.areas.iter().enumerate() {
                     if r.contains(Position::new(*column, *row)) {
+                        self.mouse = true;
                         break 'f Some(InputRequest::MouseSelect(i));
+                    }
+                }
+                None
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Drag(MouseButton::Left),
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            }) => 'f: {
+                if self.mouse {
+                    for (i, r) in self.areas.iter().enumerate() {
+                        if r.contains(Position::new(*column, *row)) {
+                            break 'f Some(InputRequest::MouseSelect(i));
+                        }
                     }
                 }
                 None
@@ -430,6 +440,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A
                 row,
                 modifiers: KeyModifiers::NONE,
             }) => 'f: {
+                self.mouse = false;
                 for (i, r) in self.areas.iter().enumerate() {
                     if r.contains(Position::new(*column, *row)) {
                         break 'f Some(InputRequest::MouseAction(i, 1000));
