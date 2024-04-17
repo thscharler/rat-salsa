@@ -1,10 +1,26 @@
+///
+/// Selection for widgets.
+///
 use crate::util::{next_opt, prev_opt};
+#[allow(unused_imports)]
 use log::debug;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::mem;
 
-/// Trait for using a selection.
+///
+/// A trait for using a selection.
+///
+/// This covers only the rendering side of the selection.
+/// For interactions one implementation per Selection type will be necessary.
+///
+/// Tried some variations, in the end parameterizing the widget state with
+/// Selection seems the best. This allows implementing the interactions on
+/// the state struct, one per Selection model. Setting the selection as
+/// `dyn something` ends in having a Rc<RefCell<SomeSelection>>, and setting
+/// only a reference for rendering couldn't be done at all, because lifetimes.
+///
+/// This should be sufficient for list-like widgets.
 ///
 pub trait Selection {
     /// Is selected.
@@ -17,7 +33,7 @@ pub trait Selection {
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 
-/// NoSelection
+/// No selection
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NoSelection;
 
@@ -81,7 +97,11 @@ impl SingleSelection {
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 
-/// List selection
+/// List selection as a set of usize.
+///
+/// This provides a pair anchor+lead which provide the active selection range.
+/// The active range can be retired and a new range started.
+///
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct SetSelection {
     pub anchor: Option<usize>,
@@ -137,36 +157,45 @@ impl SetSelection {
         }
     }
 
+    /// Select previous. Maybe extend the range.
     pub fn next(&mut self, n: usize, max: usize, extend: bool) {
         self.extend(extend);
         self.lead = next_opt(self.lead, n, max);
     }
 
+    /// Select next. Maybe extend the range.
     pub fn prev(&mut self, n: usize, extend: bool) {
         self.extend(extend);
         self.lead = prev_opt(self.lead, n);
     }
 
+    /// Set a new lead. Maybe extend the range.
     pub fn set_lead(&mut self, lead: Option<usize>, extend: bool) {
         self.extend(extend);
         self.lead = lead;
     }
 
+    /// Set a new lead, at the same time limit the lead to max.
     pub fn set_lead_clamped(&mut self, lead: usize, max: usize, extend: bool) {
+        self.extend(extend);
         if lead <= max {
-            self.extend(extend);
             self.lead = Some(lead);
+        } else {
+            self.lead = Some(max);
         }
     }
 
+    /// Current lead.
     pub fn lead(&self) -> Option<usize> {
         self.lead
     }
 
+    /// Current anchor.
     pub fn anchor(&self) -> Option<usize> {
         self.anchor
     }
 
+    /// Transfers the range anchor to lead to the selection set and reset both.
     pub fn transfer_lead_anchor(&mut self) {
         Self::fill(self.anchor, self.lead, &mut self.selected);
         self.anchor = None;
@@ -191,16 +220,20 @@ impl SetSelection {
         }
     }
 
+    /// Clear the selection.
     pub fn clear(&mut self) {
         self.anchor = None;
         self.lead = None;
         self.selected.clear();
     }
 
+    /// Add to selection.
     pub fn add(&mut self, idx: usize) {
         self.selected.insert(idx);
     }
 
+    /// Remove from selection. Only works for retired selections, not for the
+    /// active anchor-lead range.
     pub fn remove(&mut self, idx: usize) {
         self.selected.remove(&idx);
     }
