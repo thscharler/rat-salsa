@@ -17,6 +17,7 @@ use rat_salsa::widget::message::{
 };
 use rat_salsa::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use rat_salsa::widget::scrolled::{Scrolled, ScrolledState};
+use rat_salsa::widget::selected::{SetSelection, SingleSelection};
 use rat_salsa::widget::table::{TableExt, TableExtState, TableExtStyle};
 use rat_salsa::{
     check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
@@ -132,7 +133,8 @@ pub struct FormScrolledParagraph {
 
 #[derive(Debug)]
 pub struct FormScrolledTable {
-    pub table: ScrolledState<TableExtState>,
+    pub table1: ScrolledState<TableExtState<SingleSelection>>,
+    pub table2: ScrolledState<TableExtState<SetSelection>>,
 }
 
 impl FormOneState {
@@ -219,7 +221,8 @@ impl FormScrolledParagraph {
 impl FormScrolledTable {
     pub fn new() -> Self {
         Self {
-            table: Default::default(),
+            table1: Default::default(),
+            table2: Default::default(),
         }
     }
 }
@@ -294,9 +297,10 @@ impl TuiApp for FormOneApp {
                 tr!(repaint_dateinput(&event, frame, layout, data, uistate), _)
             }
             Some(MenuItem::Paragraph) => {
-                tr!(repaint_scrolled_paragraph(
-                    &event, frame, layout, data, uistate
-                ));
+                tr!(
+                    repaint_scrolled_paragraph(&event, frame, layout, data, uistate),
+                    _
+                );
             }
             Some(MenuItem::Table) => {
                 tr!(
@@ -1037,6 +1041,22 @@ fn repaint_scrolled_table(
     data: &mut FormOneData,
     uistate: &mut FormOneState,
 ) -> Control {
+    let l_title = Layout::new(
+        Direction::Horizontal,
+        [
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+        ],
+    )
+    .split(Rect::new(
+        layout.area.x,
+        layout.area.y,
+        layout.area.width,
+        1,
+    ));
+
     let l_columns = Layout::new(
         Direction::Horizontal,
         [
@@ -1046,9 +1066,31 @@ fn repaint_scrolled_table(
             Constraint::Fill(1),
         ],
     )
-    .split(layout.area);
+    .split(Rect::new(
+        layout.area.x,
+        layout.area.y + 1,
+        layout.area.width,
+        layout.area.height - 1,
+    ));
 
-    let w_table = TableExt::from_iter(
+    let l_table1 = Span::from("Single selection").underlined();
+    let w_table1 = create_sample_table().styles(uistate.g.theme.table_style());
+    let w_table1 = Scrolled::new(w_table1);
+
+    let l_table2 = Span::from("Multiple selection").underlined();
+    let w_table2 = create_sample_table().styles(uistate.g.theme.table_style());
+    let w_table2 = Scrolled::new(w_table2);
+
+    frame.render_widget(l_table1, l_title[0]);
+    frame.render_stateful_widget(w_table1, l_columns[0], &mut uistate.scrolled_table.table1);
+    frame.render_widget(l_table2, l_title[2]);
+    frame.render_stateful_widget(w_table2, l_columns[2], &mut uistate.scrolled_table.table2);
+
+    ControlUI::Continue
+}
+
+fn create_sample_table<'a, SEL>() -> TableExt<'a, SEL> {
+    TableExt::from_iter(
         [
             ["1", "2", "3", "4"],
             ["2", "3", "4", "5"],
@@ -1187,16 +1229,13 @@ fn repaint_scrolled_table(
         Constraint::Length(5),
         Constraint::Length(5),
     ])
-    .styles(uistate.g.theme.table_style());
-    let w_table = Scrolled::new(w_table);
-
-    frame.render_stateful_widget(w_table, l_columns[0], &mut uistate.scrolled_table.table);
-
-    ControlUI::Continue
 }
 
 fn focus_table(state: &FormScrolledTable) -> Focus<'_> {
-    Focus::new([(state.table.focus(), state.table.area())])
+    Focus::new([
+        (state.table1.focus(), state.table1.area()),
+        (state.table2.focus(), state.table2.area()),
+    ])
 }
 
 fn handle_scrolled_table(
@@ -1204,14 +1243,15 @@ fn handle_scrolled_table(
     data: &mut FormOneData,
     uistate: &mut FormOneState,
 ) -> Control {
-    let mut state = &mut uistate.scrolled_table;
+    let state = &mut uistate.scrolled_table;
 
     focus_table(state)
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
         .and_do(|_| uistate.g.repaint.set());
 
-    check_break!(uistate.scrolled_table.table.handle(event, DefaultKeys));
+    check_break!(uistate.scrolled_table.table1.handle(event, DefaultKeys));
+    check_break!(uistate.scrolled_table.table2.handle(event, DefaultKeys));
 
     Control::Continue
 }
