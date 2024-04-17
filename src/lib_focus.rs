@@ -396,20 +396,12 @@ impl<'a> HandleCrossterm<ControlUI<bool, ()>, MouseOnly> for Focus<'a> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<bool, ()> {
         use crossterm::event::*;
         match event {
-            Event::Mouse(
-                MouseEvent {
-                    kind: MouseEventKind::Down(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                }
-                | MouseEvent {
-                    kind: MouseEventKind::Drag(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                },
-            ) => 'f: {
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            }) => 'f: {
                 for (idx, area) in self.areas.iter().enumerate() {
                     if area.contains(Position::new(*column, *row)) {
                         self.focus_idx(idx);
