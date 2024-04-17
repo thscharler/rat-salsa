@@ -1,4 +1,5 @@
 use crate::util::{next_opt, prev_opt};
+use log::debug;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::mem;
@@ -62,6 +63,12 @@ impl SingleSelection {
         self.selected = select;
     }
 
+    pub fn select_clamped(&mut self, select: usize, max: usize) {
+        if select <= max {
+            self.selected = Some(select);
+        }
+    }
+
     pub fn next(&mut self, n: usize, max: usize) {
         self.selected = next_opt(self.selected, n, max);
     }
@@ -90,7 +97,7 @@ impl Selection for SetSelection {
                     mem::swap(&mut lead, &mut anchor);
                 }
 
-                if n >= lead && n <= anchor {
+                if n >= anchor && n <= lead {
                     return true;
                 }
             }
@@ -119,29 +126,37 @@ impl SetSelection {
         }
     }
 
-    pub fn next(&mut self, n: usize, max: usize, extend: bool) {
-        if extend && self.anchor.is_none() {
-            self.anchor = self.lead;
+    fn extend(&mut self, extend: bool) {
+        if extend {
+            if self.anchor.is_none() {
+                self.anchor = self.lead;
+            }
         } else {
             self.anchor = None;
+            self.selected.clear();
         }
+    }
+
+    pub fn next(&mut self, n: usize, max: usize, extend: bool) {
+        self.extend(extend);
         self.lead = next_opt(self.lead, n, max);
     }
 
     pub fn prev(&mut self, n: usize, extend: bool) {
-        if extend && self.anchor.is_none() {
-            self.anchor = self.lead;
-        } else {
-            self.anchor = None;
-        }
+        self.extend(extend);
         self.lead = prev_opt(self.lead, n);
     }
 
     pub fn set_lead(&mut self, lead: Option<usize>, extend: bool) {
-        if extend && self.anchor.is_none() {
-            self.anchor = self.lead;
-        }
+        self.extend(extend);
         self.lead = lead;
+    }
+
+    pub fn set_lead_clamped(&mut self, lead: usize, max: usize, extend: bool) {
+        if lead <= max {
+            self.extend(extend);
+            self.lead = Some(lead);
+        }
     }
 
     pub fn lead(&self) -> Option<usize> {
@@ -153,25 +168,25 @@ impl SetSelection {
     }
 
     pub fn transfer_lead_anchor(&mut self) {
-        self.fill(&mut self.selected);
+        Self::fill(self.anchor, self.lead, &mut self.selected);
         self.anchor = None;
-        // keep lead
+        self.lead = None;
     }
 
-    fn fill(&self, selection: &mut HashSet<usize>) {
-        if let Some(mut anchor) = self.anchor {
-            if let Some(mut lead) = self.lead {
+    fn fill(anchor: Option<usize>, lead: Option<usize>, selection: &mut HashSet<usize>) {
+        if let Some(mut anchor) = anchor {
+            if let Some(mut lead) = lead {
                 if lead < anchor {
                     mem::swap(&mut lead, &mut anchor);
                 }
 
-                for n in lead..=anchor {
-                    selection.add(n);
+                for n in anchor..=lead {
+                    selection.insert(n);
                 }
             }
         } else {
-            if let Some(lead) = self.lead {
-                selection.add(lead);
+            if let Some(lead) = lead {
+                selection.insert(lead);
             }
         }
     }

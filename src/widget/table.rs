@@ -1,12 +1,11 @@
 ///
 /// Extensions for [ratatui::widgets::Table]
 ///
-use crate::util::{next, next_opt, prev, prev_opt};
-use crate::widget::selected::{NoSelection, Selection, SingleSelection};
+use crate::widget::selected::{NoSelection, Selection, SetSelection, SingleSelection};
 use crate::widget::{ActionTrigger, HasVerticalScroll};
 use crate::FocusFlag;
 use crate::{ControlUI, HasFocusFlag};
-use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
+use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -183,23 +182,15 @@ impl<'a, SEL: Selection> StatefulWidget for TableExt<'a, SEL> {
         state.area = area;
         state.len = self.len;
 
-        // if state.gained_focus() {
-        //     if state.table_state.selected().is_none() {
-        //         state.table_state.select(Some(0));
-        //     }
-        // }
-
-        let selection = &state.selection;
-
         for (i, r) in self.rows.iter_mut().enumerate() {
             let style = if state.focus.get() {
-                if selection.is_selected(i) {
+                if state.selection.is_selected(i) {
                     self.focus_style
                 } else {
                     self.base_style
                 }
             } else {
-                if selection.is_selected(i) {
+                if state.selection.is_selected(i) {
                     self.select_style
                 } else {
                     self.base_style
@@ -257,6 +248,7 @@ pub struct TableExtState<SEL> {
     pub len: usize,
     pub table_state: TableState,
     pub selection: SEL,
+    pub mouse: bool,
 }
 
 impl<SEL: Selection> HasFocusFlag for TableExtState<SEL> {
@@ -280,6 +272,9 @@ impl<SEL: Selection> HasVerticalScroll for TableExtState<SEL> {
 
     fn set_voffset(&mut self, offset: usize) {
         *self.table_state.offset_mut() = offset;
+        // For scrolling purposes the selection is never None.
+        // Instead it defaults out to 0 which prohibits any attempt.
+        *self.table_state.selected_mut() = Some(offset);
     }
 
     fn vpage(&self) -> usize {
@@ -312,135 +307,119 @@ impl<SEL: Selection> TableExtState<SEL> {
     /// Scroll to selected.
     pub fn adjust_view(&mut self) {
         if let Some(selected) = self.selection.lead_selection() {
-            if self.table_state.offset() + (self.area.height as usize) < selected {
-                *self.table_state.offset_mut() = selected - (self.area.height as usize);
+            if self.voffset() + (self.area.height as usize) <= selected {
+                self.set_voffset(selected - (self.area.height as usize) + 1);
             }
-            if self.table_state.offset() > selected {
-                *self.table_state.offset_mut() = selected;
+            if self.voffset() > selected {
+                self.set_voffset(selected);
             }
         }
     }
 }
 
-#[derive(Debug)]
-pub enum InputRequest {
-    /// Select first row
-    First,
-    /// Select last row
-    Last,
-    /// Select new row
-    Down(usize),
-    /// Select prev row
-    Up(usize),
-    /// Select by mouse click
-    Select(usize),
-    /// Mouse page up
-    ScrollDown(usize),
-    /// Mouse page down
-    ScrollUp(usize),
+impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<NoSelection> {
+    fn handle(&mut self, _event: &Event, _keymap: DefaultKeys) -> ControlUI<A, E> {
+        ControlUI::Continue
+    }
+}
+
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<NoSelection> {
+    fn handle(&mut self, _event: &Event, _keymap: MouseOnly) -> ControlUI<A, E> {
+        ControlUI::Continue
+    }
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SingleSelection> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
-        let req = match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Down,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.focus.get() {
-                    Some(InputRequest::Down(1))
-                } else {
-                    None
+        let res = if self.is_focused() {
+            match event {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Down,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.next(1, self.len - 1);
+                    self.adjust_view();
+                    ControlUI::Change
                 }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Up,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.focus.get() {
-                    Some(InputRequest::Up(1))
-                } else {
-                    None
+                Event::Key(KeyEvent {
+                    code: KeyCode::Up,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.prev(1);
+                    self.adjust_view();
+                    ControlUI::Change
                 }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Down,
-                modifiers: KeyModifiers::CONTROL,
-                kind: KeyEventKind::Press,
-                ..
-            })
-            | Event::Key(KeyEvent {
-                code: KeyCode::End,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.focus.get() {
-                    Some(InputRequest::Last)
-                } else {
-                    None
+                Event::Key(KeyEvent {
+                    code: KeyCode::Down,
+                    modifiers: KeyModifiers::CONTROL,
+                    kind: KeyEventKind::Press,
+                    ..
+                })
+                | Event::Key(KeyEvent {
+                    code: KeyCode::End,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.select(Some(self.len - 1));
+                    self.adjust_view();
+                    ControlUI::Change
                 }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Up,
-                modifiers: KeyModifiers::CONTROL,
-                kind: KeyEventKind::Press,
-                ..
-            })
-            | Event::Key(KeyEvent {
-                code: KeyCode::Home,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.focus.get() {
-                    Some(InputRequest::First)
-                } else {
-                    None
+                Event::Key(KeyEvent {
+                    code: KeyCode::Up,
+                    modifiers: KeyModifiers::CONTROL,
+                    kind: KeyEventKind::Press,
+                    ..
+                })
+                | Event::Key(KeyEvent {
+                    code: KeyCode::Home,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.select(Some(0));
+                    self.adjust_view();
+                    ControlUI::Change
                 }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::PageUp,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.focus.get() {
-                    Some(InputRequest::Up(self.vpage() / 2))
-                } else {
-                    None
+                Event::Key(KeyEvent {
+                    code: KeyCode::PageUp,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.prev(self.vpage() / 2);
+                    self.adjust_view();
+                    ControlUI::Change
                 }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::PageDown,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.focus.get() {
-                    Some(InputRequest::Down(self.vpage() / 2))
-                } else {
-                    None
+                Event::Key(KeyEvent {
+                    code: KeyCode::PageDown,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.next(self.vpage() / 2, self.len - 1);
+                    self.adjust_view();
+                    ControlUI::Change
                 }
+                _ => ControlUI::Continue,
             }
-            _ => return self.handle(event, MouseOnly),
-        };
-
-        if let Some(req) = req {
-            self.perform(req)
         } else {
             ControlUI::Continue
-        }
+        };
+
+        res.or_else(|| {
+            <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly)
+        })
     }
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        let req = match event {
+        let res = match event {
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::ScrollDown,
                 column,
@@ -448,9 +427,10 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    Some(InputRequest::ScrollDown(self.vpage() / 5))
+                    self.vscroll_up(self.vpage() / 5);
+                    ControlUI::Change
                 } else {
-                    None
+                    ControlUI::Continue
                 }
             }
             Event::Mouse(MouseEvent {
@@ -460,9 +440,10 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    Some(InputRequest::ScrollUp(self.vpage() / 5))
+                    self.vscroll_down(self.vpage() / 5);
+                    ControlUI::Change
                 } else {
-                    None
+                    ControlUI::Continue
                 }
             }
             Event::Mouse(
@@ -480,30 +461,18 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                 },
             ) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    let rr = row - self.area.y;
-                    if (self.table_state.offset() + rr as usize) < self.len {
-                        let sel = self.table_state.offset() + rr as usize;
-                        if self.selection.lead_selection() != Some(sel) {
-                            Some(InputRequest::Select(sel))
-                        } else {
-                            None
-                        }
-                    } else {
-                        None
-                    }
+                    let new_row = *row as usize - self.area.y as usize + self.offset();
+                    self.selection.select_clamped(new_row, self.len - 1);
+                    ControlUI::Change
                 } else {
-                    None
+                    ControlUI::Continue
                 }
             }
 
-            _ => None,
+            _ => ControlUI::Continue,
         };
 
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
+        res
     }
 }
 
@@ -601,55 +570,258 @@ impl<E, SEL: Selection> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for Tabl
     }
 }
 
-impl<A, E> Input<ControlUI<A, E>> for TableExtState<SingleSelection> {
-    type Request = InputRequest;
+impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+        const CTRL_SHIFT: KeyModifiers = KeyModifiers::CONTROL.union(KeyModifiers::SHIFT);
 
-    fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
-        match req {
-            InputRequest::Down(n) => {
-                let next = next_opt(self.table_state.selected(), n, self.len - 1);
-                self.table_state.select(next);
-                self.adjust_view();
-                ControlUI::Change
-            }
-            InputRequest::Up(n) => {
-                let prev = prev_opt(self.table_state.selected(), n);
-                self.table_state.select(prev);
-                self.adjust_view();
-                ControlUI::Change
-            }
-            InputRequest::First => {
-                self.table_state.select(Some(0));
-                self.adjust_view();
-                ControlUI::Change
-            }
-            InputRequest::Last => {
-                self.table_state.select(Some(self.len - 1));
-                self.adjust_view();
-                ControlUI::Change
-            }
-            InputRequest::Select(n) => {
-                if self.table_state.selected() == Some(n) {
-                    ControlUI::Continue
-                } else {
-                    self.table_state.select(Some(n));
+        let res = if self.is_focused() {
+            match event {
+                Event::Key(KeyEvent {
+                    code: KeyCode::Down,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.next(1, self.len - 1, false);
                     self.adjust_view();
                     ControlUI::Change
                 }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Down,
+                    modifiers: KeyModifiers::SHIFT,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.next(1, self.len - 1, true);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Up,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.prev(1, false);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Up,
+                    modifiers: KeyModifiers::SHIFT,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.prev(1, true);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Down,
+                    modifiers: KeyModifiers::CONTROL,
+                    kind: KeyEventKind::Press,
+                    ..
+                })
+                | Event::Key(KeyEvent {
+                    code: KeyCode::End,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.set_lead(Some(self.len - 1), false);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::End,
+                    modifiers: KeyModifiers::SHIFT,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.set_lead(Some(self.len - 1), true);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Up,
+                    modifiers: KeyModifiers::CONTROL,
+                    kind: KeyEventKind::Press,
+                    ..
+                })
+                | Event::Key(KeyEvent {
+                    code: KeyCode::Home,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.set_lead(Some(0), false);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::Home,
+                    modifiers: KeyModifiers::SHIFT,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.set_lead(Some(0), true);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+
+                Event::Key(KeyEvent {
+                    code: KeyCode::PageUp,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.prev(self.vpage() / 2, false);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::PageUp,
+                    modifiers: KeyModifiers::SHIFT,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.prev(self.vpage() / 2, true);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::PageDown,
+                    modifiers: KeyModifiers::NONE,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.next(self.vpage() / 2, self.len - 1, false);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                Event::Key(KeyEvent {
+                    code: KeyCode::PageDown,
+                    modifiers: KeyModifiers::SHIFT,
+                    kind: KeyEventKind::Press,
+                    ..
+                }) => {
+                    self.selection.next(self.vpage() / 2, self.len - 1, true);
+                    self.adjust_view();
+                    ControlUI::Change
+                }
+                _ => ControlUI::Continue,
+            }
+        } else {
+            ControlUI::Continue
+        };
+
+        res.or_else(|| {
+            <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly)
+        })
+    }
+}
+
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSelection> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
+        let res = match event {
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::ScrollDown,
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            }) => {
+                if self.area.contains(Position::new(*column, *row)) {
+                    self.vscroll_up(self.vpage() / 5);
+                    ControlUI::Change
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::ScrollUp,
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            }) => {
+                if self.area.contains(Position::new(*column, *row)) {
+                    self.vscroll_down(self.vpage() / 5);
+                    ControlUI::Change
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers: KeyModifiers::NONE,
+            }) => {
+                if self.area.contains(Position::new(*column, *row)) {
+                    let new_row = *row as usize - self.area.y as usize + self.offset();
+                    self.mouse = true;
+                    self.selection
+                        .set_lead_clamped(new_row, self.len - 1, false);
+                    ControlUI::Change
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers: KeyModifiers::CONTROL,
+            }) => {
+                if self.area.contains(Position::new(*column, *row)) {
+                    let new_row = *row as usize - self.area.y as usize + self.offset();
+                    self.mouse = true;
+                    self.selection.transfer_lead_anchor();
+                    if self.selection.is_selected(new_row) {
+                        self.selection.remove(new_row);
+                    } else {
+                        self.selection.set_lead_clamped(new_row, self.len - 1, true);
+                    }
+                    ControlUI::Change
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Drag(MouseButton::Left),
+                row,
+                modifiers: KeyModifiers::NONE,
+                ..
+            })
+            | Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Drag(MouseButton::Left),
+                row,
+                modifiers: KeyModifiers::CONTROL,
+                ..
+            }) => {
+                if self.mouse {
+                    let new_row = self.offset() as isize + *row as isize - self.area.y as isize;
+                    if new_row >= 0 {
+                        self.selection
+                            .set_lead_clamped(new_row as usize, self.len - 1, true);
+                        self.adjust_view();
+                    }
+                    ControlUI::Change
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            Event::Mouse(MouseEvent {
+                kind: MouseEventKind::Up(MouseButton::Left),
+                modifiers: KeyModifiers::NONE,
+                ..
+            }) => {
+                self.mouse = false;
+                ControlUI::Continue
             }
 
-            InputRequest::ScrollDown(n) => {
-                self.trigger.reset();
-                let next = next(self.table_state.offset(), n, self.len - 1);
-                *self.table_state.offset_mut() = next;
-                ControlUI::Change
-            }
-            InputRequest::ScrollUp(n) => {
-                self.trigger.reset();
-                let prev = prev(self.table_state.offset(), n);
-                *self.table_state.offset_mut() = prev;
-                ControlUI::Change
-            }
-        }
+            _ => ControlUI::Continue,
+        };
+
+        res
     }
 }
