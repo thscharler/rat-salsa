@@ -125,13 +125,11 @@ impl DateInputState {
         pattern: S,
         locale: chrono::Locale,
     ) -> Result<(), fmt::Error> {
-        debug!("pattern {}", pattern.as_ref());
         let mut mask = String::new();
         let items = StrftimeItems::new_with_locale(pattern.as_ref(), locale)
             .parse()
             .map_err(|_| fmt::Error)?;
         for t in &items {
-            debug!("{:?}", t);
             match t {
                 Item::Literal(s) => {
                     for c in s.graphemes(true) {

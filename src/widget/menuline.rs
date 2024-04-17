@@ -221,7 +221,6 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
             InputRequest::KeySelect(cc) => 'f: {
                 let cc = cc.to_ascii_lowercase();
                 for (i, k) in self.key.iter().enumerate() {
-                    debug!("check key {} {}", cc, k);
                     if cc == *k {
                         self.trigger.reset();
                         self.select = Some(i);
@@ -233,11 +232,9 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
             InputRequest::KeyAction(cc) => 'f: {
                 let cc = cc.to_ascii_lowercase();
                 for (i, k) in self.key.iter().enumerate() {
-                    debug!("check key {} {}", cc, k);
                     if cc == *k {
                         self.trigger.reset();
                         self.select = Some(i);
-                        debug!("action {:?}", self.select);
                         break 'f ControlUI::Run(self.action[i]);
                     }
                 }
@@ -304,10 +301,7 @@ impl<A: Copy + Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, HotKeyAlt> for 
                 modifiers: KeyModifiers::ALT,
                 kind: KeyEventKind::Press,
                 ..
-            }) => {
-                debug!("hotkey {}", cc);
-                Some(InputRequest::KeyAction(*cc))
-            }
+            }) => Some(InputRequest::KeyAction(*cc)),
             _ => None,
         };
 
