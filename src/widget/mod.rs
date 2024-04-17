@@ -10,6 +10,7 @@ pub mod button;
 pub mod calendar;
 pub mod date_input;
 pub mod input;
+pub mod list;
 pub mod mask_input;
 pub mod menuline;
 pub mod message;
@@ -20,7 +21,7 @@ pub mod table;
 /// Small helper that provides a trigger for mouse double-click.
 ///
 /// It uses a timeout to filter out the second click.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ActionTrigger {
     pub armed: Option<SystemTime>,
 }

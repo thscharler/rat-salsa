@@ -1187,7 +1187,7 @@ fn repaint_scrolled_table(
         Constraint::Length(5),
         Constraint::Length(5),
     ])
-    .style(uistate.g.theme.table_style());
+    .styles(uistate.g.theme.table_style());
     let w_table = Scrolled::new(w_table);
 
     frame.render_stateful_widget(w_table, l_columns[0], &mut uistate.scrolled_table.table);

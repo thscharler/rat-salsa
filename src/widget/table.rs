@@ -19,11 +19,11 @@ use ratatui::text::Text;
 use ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
 
 /// Add some minor fixes to [ratatui::widgets::Table]
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TableExt<'a> {
     pub table: Table<'a>,
     /// Row count
-    pub row_count: usize,
+    pub len: usize,
     /// Style for selected + not focused.
     pub select_style: Style,
     /// Style for selected + focused.
@@ -47,11 +47,11 @@ impl<'a> TableExt<'a> {
         C::Item: Into<Constraint>,
     {
         let rows = rows.into_iter().collect::<Vec<_>>();
-        let row_count = rows.len();
+        let len = rows.len();
 
         Self {
             table: Table::new(rows, widths),
-            row_count,
+            len: len,
             select_style: Default::default(),
             focus_style: Default::default(),
         }
@@ -62,7 +62,7 @@ impl<'a> TableExt<'a> {
         T: IntoIterator<Item = Row<'a>>,
     {
         let rows = rows.into_iter().collect::<Vec<_>>();
-        self.row_count = rows.len();
+        self.len = rows.len();
         self.table = self.table.rows(rows);
         self
     }
@@ -96,14 +96,14 @@ impl<'a> TableExt<'a> {
         self
     }
 
-    pub fn style(mut self, styles: TableExtStyle) -> Self {
+    pub fn styles(mut self, styles: TableExtStyle) -> Self {
         self.table = self.table.style(styles.style);
         self.select_style = styles.select_style;
         self.focus_style = styles.focus_style;
         self
     }
 
-    pub fn base_style<S: Into<Style>>(mut self, style: S) -> Self {
+    pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         self.table = self.table.style(style);
         self
     }
@@ -139,7 +139,7 @@ impl<'a> StatefulWidget for TableExt<'a> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
-        state.row_count = self.row_count;
+        state.len = self.len;
 
         if state.gained_focus() {
             if state.table_state.selected().is_none() {
@@ -176,11 +176,11 @@ where
 {
     fn from_iter<U: IntoIterator<Item = Item>>(iter: U) -> Self {
         let rows = iter.into_iter().map(|v| v.into()).collect::<Vec<_>>();
-        let row_count = rows.len();
+        let len = rows.len();
 
         Self {
             table: Table::from_iter(rows),
-            row_count,
+            len,
             select_style: Default::default(),
             focus_style: Default::default(),
         }
@@ -188,25 +188,13 @@ where
 }
 
 /// Extended TableState, contains a [ratatui::widgets::TableState].
-#[derive(Debug)]
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TableExtState {
     pub focus: FocusFlag,
     pub area: Rect,
     pub trigger: ActionTrigger,
-    pub row_count: usize,
+    pub len: usize,
     pub table_state: TableState,
-}
-
-impl Default for TableExtState {
-    fn default() -> Self {
-        Self {
-            focus: Default::default(),
-            table_state: TableState::default().with_selected(0),
-            row_count: 0,
-            area: Default::default(),
-            trigger: Default::default(),
-        }
-    }
 }
 
 impl HasFocusFlag for TableExtState {
@@ -221,7 +209,7 @@ impl HasFocusFlag for TableExtState {
 
 impl HasVerticalScroll for TableExtState {
     fn vlen(&self) -> usize {
-        self.row_count
+        self.len
     }
 
     fn voffset(&self) -> usize {
@@ -238,8 +226,25 @@ impl HasVerticalScroll for TableExtState {
 }
 
 impl TableExtState {
+    pub fn with_offset(mut self, offset: usize) -> Self {
+        self.table_state = self.table_state.with_offset(offset);
+        self
+    }
+
+    pub fn with_selected<T>(mut self, selected: T) -> Self
+    where
+        T: Into<Option<usize>>,
+    {
+        self.table_state = self.table_state.with_selected(selected);
+        self
+    }
+
     pub fn offset(&self) -> usize {
         self.table_state.offset()
+    }
+
+    pub fn offset_mut(&mut self) -> &mut usize {
+        self.table_state.offset_mut()
     }
 
     pub fn selected(&self) -> Option<usize> {
@@ -250,6 +255,11 @@ impl TableExtState {
         self.table_state.select(select);
     }
 
+    pub fn selected_mut(&mut self) -> &mut Option<usize> {
+        self.table_state.selected_mut()
+    }
+
+    /// Scroll to selected
     pub fn adjust_view(&mut self) {
         if let Some(selected) = self.table_state.selected() {
             if self.table_state.offset() + (self.area.height as usize) < selected {
@@ -423,7 +433,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
             ) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     let rr = row - self.area.y;
-                    if (self.table_state.offset() + rr as usize) < self.row_count {
+                    if (self.table_state.offset() + rr as usize) < self.len {
                         let sel = self.table_state.offset() + rr as usize;
                         if self.table_state.selected() != Some(sel) {
                             Some(InputRequest::Select(sel))
@@ -550,7 +560,7 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
         match req {
             InputRequest::Down(n) => {
                 self.trigger.reset();
-                let next = next_opt(self.table_state.selected(), n, self.row_count - 1);
+                let next = next_opt(self.table_state.selected(), n, self.len - 1);
                 self.table_state.select(next);
                 self.adjust_view();
                 ControlUI::Change
@@ -570,7 +580,7 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
             }
             InputRequest::Last => {
                 self.trigger.reset();
-                self.table_state.select(Some(self.row_count - 1));
+                self.table_state.select(Some(self.len - 1));
                 self.adjust_view();
                 ControlUI::Change
             }
@@ -587,7 +597,7 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
 
             InputRequest::ScrollDown(n) => {
                 self.trigger.reset();
-                let next = next(self.table_state.offset(), n, self.row_count - 1);
+                let next = next(self.table_state.offset(), n, self.len - 1);
                 *self.table_state.offset_mut() = next;
                 ControlUI::Change
             }

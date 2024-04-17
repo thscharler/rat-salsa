@@ -18,7 +18,7 @@ use std::vec;
 /// See [HasFocusFlag], [validate!](crate::validate!) and also [on_gained!](crate::on_gained!),
 /// [on_lost!](crate::on_lost!).
 ///
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct FocusFlag {
     /// A unique tag within one focus-cycle. It is set when the focus cycle is created.
     /// See [Focus::focus]
