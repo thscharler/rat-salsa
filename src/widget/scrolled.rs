@@ -1,6 +1,10 @@
 ///
 /// Add scrolling behaviour to a widget.
 ///
+/// Scrolled acts as a wrapper around a widget that implements HasVerticalScroll.
+/// No HasHorizontalScroll at the moment, probably never will be and instead
+/// a HasScroll covering both.
+///
 use crate::widget::HasVerticalScroll;
 use crate::{
     CanValidate, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasValidFlag,
@@ -27,6 +31,8 @@ pub struct ScrolledState<S> {
     pub widget: S,
     /// area
     pub area: Rect,
+    /// scrollbar area
+    pub scrollbar_area: Option<Rect>,
     /// mouse action in progress
     pub mouse: bool,
 }
@@ -47,14 +53,21 @@ where
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
 
-        let mut widget_area = area.clone();
-        widget_area.width -= 1;
-        self.widget.render(widget_area, buf, &mut state.widget);
+        if state.widget.need_vscroll() {
+            state.scrollbar_area = area.columns().last();
 
-        let scroll = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-        let mut scroll_state =
-            ScrollbarState::new(state.widget.vlen()).position(state.widget.voffset());
-        scroll.render(area, buf, &mut scroll_state);
+            let mut widget_area = area.clone();
+            widget_area.width -= 1;
+            self.widget.render(widget_area, buf, &mut state.widget);
+
+            let scroll = Scrollbar::new(ScrollbarOrientation::VerticalRight);
+            let mut scroll_state =
+                ScrollbarState::new(state.widget.vlen()).position(state.widget.voffset());
+            scroll.render(area, buf, &mut scroll_state);
+        } else {
+            state.scrollbar_area = None;
+            self.widget.render(area, buf, &mut state.widget);
+        }
     }
 }
 
@@ -146,7 +159,7 @@ where
                 row,
                 modifiers: KeyModifiers::NONE,
             }) => {
-                if let Some(scroll_area) = self.area.columns().last() {
+                if let Some(scroll_area) = self.scrollbar_area {
                     if scroll_area.contains(Position::new(*column, *row)) {
                         let row = row.saturating_sub(scroll_area.y) as usize;
                         let height = scroll_area.height.saturating_sub(1) as usize;
@@ -180,7 +193,7 @@ where
                 ..
             }) => {
                 if self.mouse {
-                    if let Some(scroll_area) = self.area.columns().last() {
+                    if let Some(scroll_area) = self.scrollbar_area {
                         let row = row.saturating_sub(scroll_area.y) as usize;
                         let height = scroll_area.height.saturating_sub(1) as usize;
 
