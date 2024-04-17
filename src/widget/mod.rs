@@ -14,6 +14,7 @@ pub mod mask_input;
 pub mod menuline;
 pub mod message;
 pub mod paragraph;
+pub mod scrolled;
 pub mod table;
 
 /// Small helper that provides a trigger for mouse double-click.
@@ -52,6 +53,9 @@ impl ActionTrigger {
 }
 
 /// Scroll-state of a widget.
+///
+/// This may be used by a widget implementation to implement scrolling.
+/// The real deal is to implement the trait [HasVerticalScroll].
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct Scroll {
     /// Total content length
@@ -60,8 +64,6 @@ pub struct Scroll {
     pub offset: Cell<usize>,
     /// Page-size
     pub page: Cell<usize>,
-    /// Mouse scrolling active
-    pub mouse: Cell<bool>,
 }
 
 impl Scroll {
@@ -97,42 +99,36 @@ pub trait HasVerticalScroll {
         true
     }
 
-    /// Scroll data.
-    fn vscroll(&self) -> &Scroll;
-
     /// Vertical length.
-    fn vlen(&self) -> usize {
-        self.vscroll().len.get()
-    }
+    fn vlen(&self) -> usize;
 
     /// Vertical offset.
-    fn voffset(&self) -> usize {
-        self.vscroll().offset.get()
-    }
+    fn voffset(&self) -> usize;
+
+    /// Change the offset
+    fn set_voffset(&mut self, offset: usize);
 
     /// Vertical page size.
-    fn vpage(&self) -> usize {
-        self.vscroll().page.get()
-    }
+    fn vpage(&self) -> usize;
 
     /// Scroll up by n.
-    fn vscroll_up(&self, n: usize) {
-        let offset = self.vscroll().offset.get();
+    fn vscroll_up(&mut self, n: usize) {
+        let offset = self.voffset();
         if offset > n {
-            self.vscroll().offset.set(offset - n);
+            self.set_voffset(offset - n);
         } else {
-            self.vscroll().offset.set(0);
+            self.set_voffset(0);
         }
     }
 
     /// Scroll down by n.
-    fn vscroll_down(&self, n: usize) {
+    fn vscroll_down(&mut self, n: usize) {
         let offset = self.voffset();
         let len = self.vlen();
         if offset + n < len {
-            self.vscroll().offset.set(offset + n);
+            self.set_voffset(offset + n);
         } else {
-            self.vscroll().offset.set(len);
+            self.set_voffset(len);
         }
     }
 }

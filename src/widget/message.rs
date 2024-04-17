@@ -6,6 +6,7 @@ use crate::check_break;
 use crate::layout::layout_dialog;
 use crate::widget::button::{Button, ButtonState, ButtonStyle};
 use crate::widget::paragraph::{ParagraphExt, ParagraphExtState};
+use crate::widget::scrolled::{Scrolled, ScrolledState};
 use crate::ControlUI;
 use crate::{DefaultKeys, HandleCrossterm};
 use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
@@ -15,7 +16,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Margin, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, Clear, Paragraph, Widget};
+use ratatui::widgets::{Block, Clear, Widget};
 use std::fmt::Debug;
 
 /// Basic status line.
@@ -50,7 +51,7 @@ pub struct StatusDialogStyle {
 pub struct StatusDialogState {
     pub active: bool,
     pub area: Rect,
-    pub message: ParagraphExtState,
+    pub message: ScrolledState<ParagraphExtState>,
     pub button: ButtonState<bool>,
     pub log: String,
 }
@@ -124,7 +125,7 @@ impl StatusDialogState {
     /// Clear
     pub fn clear_log(&mut self) {
         self.active = false;
-        self.message = ParagraphExtState::default();
+        self.message = Default::default();
         self.log.clear();
     }
 
@@ -178,12 +179,13 @@ impl StatefulWidget for StatusDialog {
             }
             let text = Text::from(lines).alignment(Alignment::Center);
             let para = ParagraphExt::new(text);
+            let scrolled_para = Scrolled::new(para);
 
             let ok = Button::from("Ok").style(self.button_style).action(true);
 
             Clear.render(l_dlg.dialog, buf);
             block.render(l_dlg.dialog, buf);
-            para.render(l_dlg.area, buf, &mut state.message);
+            scrolled_para.render(l_dlg.area, buf, &mut state.message);
             ok.render(l_dlg.buttons[0], buf, &mut state.button);
         }
     }

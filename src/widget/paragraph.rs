@@ -1,15 +1,14 @@
 use crate::widget::{HasVerticalScroll, Scroll};
-use crate::{ControlUI, DefaultKeys, HandleCrossterm, Input, MouseOnly};
-use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use crate::{ControlUI, DefaultKeys, HandleCrossterm, MouseOnly};
+use crossterm::event::Event;
+#[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Position, Rect};
+use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
 use ratatui::text::Text;
-use ratatui::widgets::{
-    Block, Paragraph, Scrollbar, ScrollbarOrientation, ScrollbarState, Widget, Wrap,
-};
+use ratatui::widgets::{Block, Paragraph, Widget, Wrap};
 
 #[derive(Debug)]
 pub struct ParagraphExt<'a> {
@@ -24,8 +23,20 @@ pub struct ParagraphExtState {
 }
 
 impl HasVerticalScroll for ParagraphExtState {
-    fn vscroll(&self) -> &Scroll {
-        &self.scroll
+    fn vlen(&self) -> usize {
+        self.scroll.len()
+    }
+
+    fn voffset(&self) -> usize {
+        self.scroll.offset()
+    }
+
+    fn set_voffset(&mut self, offset: usize) {
+        self.scroll.set_offset(offset);
+    }
+
+    fn vpage(&self) -> usize {
+        self.scroll.page()
     }
 }
 
@@ -93,47 +104,6 @@ impl<'a> StatefulWidget for ParagraphExt<'a> {
 
         let para = self.para.scroll((state.voffset() as u16, 0));
         para.render(area, buf);
-
-        let scroll = Scrollbar::new(ScrollbarOrientation::VerticalRight);
-        let mut scroll_state = ScrollbarState::new(state.vlen()).position(state.voffset());
-        scroll.render(area, buf, &mut scroll_state);
-    }
-}
-
-#[derive(Debug)]
-pub enum InputRequest {
-    /// Select first row
-    First,
-    /// Select last row
-    Last,
-    /// Select new row
-    Down(usize),
-    /// Select prev row
-    Up(usize),
-}
-
-impl<A, E> Input<ControlUI<A, E>> for ParagraphExtState {
-    type Request = InputRequest;
-
-    fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
-        match req {
-            InputRequest::First => {
-                self.vscroll().offset.set(0);
-                ControlUI::Change
-            }
-            InputRequest::Last => {
-                self.vscroll().offset.set(self.vscroll().len.get());
-                ControlUI::Change
-            }
-            InputRequest::Down(n) => {
-                self.vscroll_down(n);
-                ControlUI::Change
-            }
-            InputRequest::Up(n) => {
-                self.vscroll_up(n);
-                ControlUI::Change
-            }
-        }
     }
 }
 
@@ -144,97 +114,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ParagraphExtState {
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ParagraphExtState {
-    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        let req = match event {
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if let Some(scr_area) = self.area.columns().last() {
-                    if scr_area.contains(Position::new(*column, *row)) {
-                        let row = row.saturating_sub(self.area.y) as usize;
-                        let height = scr_area.height.saturating_sub(1) as usize;
-
-                        let pos = (row * self.vlen()) / height;
-
-                        self.vscroll().mouse.set(true);
-                        self.vscroll().set_offset(pos);
-
-                        Err(ControlUI::Change)
-                    } else {
-                        Err(ControlUI::Continue)
-                    }
-                } else {
-                    Err(ControlUI::Continue)
-                }
-            }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
-                if self.vscroll().mouse.get() {
-                    self.vscroll().mouse.set(false);
-                }
-                Err(ControlUI::Continue)
-            }
-
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Drag(MouseButton::Left),
-                row,
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
-                if let Some(scr_area) = self.area.columns().last() {
-                    if self.scroll.mouse.get() {
-                        let row = row.saturating_sub(self.area.y) as usize;
-                        let height = scr_area.height.saturating_sub(1) as usize;
-
-                        let pos = (row * self.vlen()) / height;
-
-                        self.vscroll().mouse.set(true);
-                        self.vscroll().set_offset(pos);
-                        Err(ControlUI::Change)
-                    } else {
-                        Err(ControlUI::Continue)
-                    }
-                } else {
-                    Err(ControlUI::Continue)
-                }
-            }
-
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollDown,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    Ok(InputRequest::Down((self.area.height / 5) as usize))
-                } else {
-                    Err(ControlUI::Continue)
-                }
-            }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollUp,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    Ok(InputRequest::Up((self.area.height / 5) as usize))
-                } else {
-                    Err(ControlUI::Continue)
-                }
-            }
-            _ => Err(ControlUI::Continue),
-        };
-
-        match req {
-            Ok(req) => self.perform(req),
-            Err(res) => res,
-        }
+    fn handle(&mut self, _event: &Event, _: MouseOnly) -> ControlUI<A, E> {
+        ControlUI::Continue
     }
 }

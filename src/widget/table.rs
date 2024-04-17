@@ -1,14 +1,16 @@
 ///
 /// Extensions for [ratatui::widgets::Table]
 ///
-use crate::util::{next_opt, next_pg_opt, prev_opt, prev_pg_opt};
-use crate::widget::ActionTrigger;
+use crate::util::{next, next_opt, prev, prev_opt};
+use crate::widget::{ActionTrigger, HasVerticalScroll};
 use crate::FocusFlag;
 use crate::{ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
+#[allow(unused_imports)]
+use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::prelude::*;
@@ -217,6 +219,24 @@ impl HasFocusFlag for TableExtState {
     }
 }
 
+impl HasVerticalScroll for TableExtState {
+    fn vlen(&self) -> usize {
+        self.row_count
+    }
+
+    fn voffset(&self) -> usize {
+        self.table_state.offset()
+    }
+
+    fn set_voffset(&mut self, offset: usize) {
+        *self.table_state.offset_mut() = offset;
+    }
+
+    fn vpage(&self) -> usize {
+        self.area.height as usize
+    }
+}
+
 impl TableExtState {
     pub fn offset(&self) -> usize {
         self.table_state.offset()
@@ -242,60 +262,6 @@ impl TableExtState {
             }
         }
     }
-
-    pub fn scroll_down(&mut self) {
-        let next = next_opt(self.table_state.selected(), self.row_count);
-        self.table_state.select(next);
-        self.adjust_view();
-    }
-
-    pub fn scroll_up(&mut self) {
-        let prev = prev_opt(self.table_state.selected());
-        self.table_state.select(prev);
-        self.adjust_view();
-    }
-
-    pub fn scroll_first(&mut self) {
-        self.table_state.select(Some(0));
-        self.adjust_view();
-    }
-
-    pub fn scroll_last(&mut self) {
-        self.table_state.select(Some(self.row_count - 1));
-        self.adjust_view();
-    }
-
-    pub fn scroll_pg_down(&mut self) {
-        let next = next_pg_opt(
-            self.table_state.selected(),
-            self.area.height as usize / 2,
-            self.row_count,
-        );
-        self.table_state.select(next);
-        self.adjust_view();
-    }
-
-    pub fn scroll_pg_up(&mut self) {
-        let prev = prev_pg_opt(self.table_state.selected(), self.area.height as usize / 2);
-        self.table_state.select(prev);
-        self.adjust_view();
-    }
-
-    pub fn scroll_scr_down(&mut self) {
-        let next = next_pg_opt(
-            self.table_state.selected(),
-            self.area.height as usize / 5,
-            self.row_count,
-        );
-        self.table_state.select(next);
-        self.adjust_view();
-    }
-
-    pub fn scroll_scr_up(&mut self) {
-        let prev = prev_pg_opt(self.table_state.selected(), self.area.height as usize / 5);
-        self.table_state.select(prev);
-        self.adjust_view();
-    }
 }
 
 #[derive(Debug)]
@@ -305,19 +271,15 @@ pub enum InputRequest {
     /// Select last row
     Last,
     /// Select new row
-    Down,
+    Down(usize),
     /// Select prev row
-    Up,
-    /// Page up
-    PageDown,
-    /// Page down
-    PageUp,
-    /// Mouse page up
-    MouseScrollDown,
-    /// Mouse page down
-    MouseScrollUp,
+    Up(usize),
     /// Select by mouse click
-    MouseSelect(usize),
+    Select(usize),
+    /// Mouse page up
+    ScrollDown(usize),
+    /// Mouse page down
+    ScrollUp(usize),
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
@@ -330,7 +292,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
                 ..
             }) => {
                 if self.focus.get() {
-                    Some(InputRequest::Down)
+                    Some(InputRequest::Down(1))
                 } else {
                     None
                 }
@@ -342,7 +304,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
                 ..
             }) => {
                 if self.focus.get() {
-                    Some(InputRequest::Up)
+                    Some(InputRequest::Up(1))
                 } else {
                     None
                 }
@@ -390,7 +352,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
                 ..
             }) => {
                 if self.focus.get() {
-                    Some(InputRequest::PageUp)
+                    Some(InputRequest::Up(self.vpage() / 2))
                 } else {
                     None
                 }
@@ -402,7 +364,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
                 ..
             }) => {
                 if self.focus.get() {
-                    Some(InputRequest::PageDown)
+                    Some(InputRequest::Down(self.vpage() / 2))
                 } else {
                     None
                 }
@@ -428,7 +390,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    Some(InputRequest::MouseScrollDown)
+                    Some(InputRequest::ScrollDown(self.vpage() / 5))
                 } else {
                     None
                 }
@@ -440,7 +402,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
                 modifiers: KeyModifiers::NONE,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    Some(InputRequest::MouseScrollUp)
+                    Some(InputRequest::ScrollUp(self.vpage() / 5))
                 } else {
                     None
                 }
@@ -464,7 +426,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
                     if (self.table_state.offset() + rr as usize) < self.row_count {
                         let sel = self.table_state.offset() + rr as usize;
                         if self.table_state.selected() != Some(sel) {
-                            Some(InputRequest::MouseSelect(sel))
+                            Some(InputRequest::Select(sel))
                         } else {
                             None
                         }
@@ -586,54 +548,54 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
 
     fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
         match req {
-            InputRequest::Down => {
+            InputRequest::Down(n) => {
                 self.trigger.reset();
-                self.scroll_down();
+                let next = next_opt(self.table_state.selected(), n, self.row_count - 1);
+                self.table_state.select(next);
+                self.adjust_view();
                 ControlUI::Change
             }
-            InputRequest::Up => {
+            InputRequest::Up(n) => {
                 self.trigger.reset();
-                self.scroll_up();
+                let prev = prev_opt(self.table_state.selected(), n);
+                self.table_state.select(prev);
+                self.adjust_view();
                 ControlUI::Change
             }
             InputRequest::First => {
                 self.trigger.reset();
-                self.scroll_first();
+                self.table_state.select(Some(0));
+                self.adjust_view();
                 ControlUI::Change
             }
             InputRequest::Last => {
                 self.trigger.reset();
-                self.scroll_last();
+                self.table_state.select(Some(self.row_count - 1));
+                self.adjust_view();
                 ControlUI::Change
             }
-            InputRequest::PageDown => {
-                self.trigger.reset();
-                self.scroll_pg_down();
-                ControlUI::Change
-            }
-            InputRequest::PageUp => {
-                self.trigger.reset();
-                self.scroll_pg_up();
-                ControlUI::Change
-            }
-            InputRequest::MouseScrollDown => {
-                self.trigger.reset();
-                self.scroll_scr_down();
-                ControlUI::Change
-            }
-            InputRequest::MouseScrollUp => {
-                self.trigger.reset();
-                self.scroll_scr_up();
-                ControlUI::Change
-            }
-            InputRequest::MouseSelect(i) => {
-                if self.table_state.selected() == Some(i) {
+            InputRequest::Select(n) => {
+                if self.table_state.selected() == Some(n) {
                     ControlUI::Continue
                 } else {
                     self.trigger.reset();
-                    self.table_state.select(Some(i));
+                    self.table_state.select(Some(n));
+                    self.adjust_view();
                     ControlUI::Change
                 }
+            }
+
+            InputRequest::ScrollDown(n) => {
+                self.trigger.reset();
+                let next = next(self.table_state.offset(), n, self.row_count - 1);
+                *self.table_state.offset_mut() = next;
+                ControlUI::Change
+            }
+            InputRequest::ScrollUp(n) => {
+                self.trigger.reset();
+                let prev = prev(self.table_state.offset(), n);
+                *self.table_state.offset_mut() = prev;
+                ControlUI::Change
             }
         }
     }

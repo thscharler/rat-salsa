@@ -16,6 +16,8 @@ use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
 use rat_salsa::widget::paragraph::{ParagraphExt, ParagraphExtState};
+use rat_salsa::widget::scrolled::{Scrolled, ScrolledState};
+use rat_salsa::widget::table::{TableExt, TableExtState, TableExtStyle};
 use rat_salsa::{
     check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
     Focus, HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
@@ -25,6 +27,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
+use ratatui::widgets::Row;
 use ratatui::Frame;
 use std::fs;
 use std::rc::Rc;
@@ -71,11 +74,22 @@ pub enum FormOneAction {}
 pub struct FormOneState {
     pub g: GeneralState,
 
-    pub menu: MenuLineState<u16>,
+    pub menu: MenuLineState<MenuItem>,
 
-    pub mask0: Mask0,
-    pub mask1: Mask1,
-    pub mask2: Mask2,
+    pub textinput: FormTextInput,
+    pub dateinput: FormDateInput,
+    pub scrolled_para: FormScrolledParagraph,
+    pub scrolled_table: FormScrolledTable,
+}
+
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum MenuItem {
+    Text,
+    Date,
+    Paragraph,
+    Table,
+    Error,
+    Quit,
 }
 
 #[derive(Debug)]
@@ -89,7 +103,7 @@ pub struct GeneralState {
 }
 
 #[derive(Debug)]
-pub struct Mask0 {
+pub struct FormTextInput {
     pub text: TextInputState,
     pub decimal: TextInputState,
     pub float: TextInputState,
@@ -105,15 +119,20 @@ pub struct Mask0 {
 }
 
 #[derive(Debug)]
-pub struct Mask1 {
+pub struct FormDateInput {
     pub date1: DateInputState,
     pub date2: DateInputState,
     pub date3: DateInputState,
 }
 
 #[derive(Debug)]
-pub struct Mask2 {
-    pub para: ParagraphExtState,
+pub struct FormScrolledParagraph {
+    pub para: ScrolledState<ParagraphExtState>,
+}
+
+#[derive(Debug)]
+pub struct FormScrolledTable {
+    pub table: ScrolledState<TableExtState>,
 }
 
 impl FormOneState {
@@ -121,9 +140,10 @@ impl FormOneState {
         let s = Self {
             g: GeneralState::new(),
             menu: Default::default(),
-            mask0: Mask0::new(sym),
-            mask1: Mask1::new(sym),
-            mask2: Mask2::new(),
+            textinput: FormTextInput::new(sym),
+            dateinput: FormDateInput::new(sym),
+            scrolled_para: FormScrolledParagraph::new(),
+            scrolled_table: FormScrolledTable::new(),
         };
         s
     }
@@ -141,7 +161,7 @@ impl GeneralState {
     }
 }
 
-impl Mask0 {
+impl FormTextInput {
     pub fn new(sym: &Rc<NumberSymbols>) -> Self {
         let mut s = Self {
             text: TextInputState::default(),
@@ -174,7 +194,7 @@ impl Mask0 {
     }
 }
 
-impl Mask1 {
+impl FormDateInput {
     pub fn new(sym: &Rc<NumberSymbols>) -> Self {
         let mut s = Self {
             date1: DateInputState::default(),
@@ -188,10 +208,18 @@ impl Mask1 {
     }
 }
 
-impl Mask2 {
+impl FormScrolledParagraph {
     pub fn new() -> Self {
         Self {
-            para: ParagraphExtState::default(),
+            para: Default::default(),
+        }
+    }
+}
+
+impl FormScrolledTable {
+    pub fn new() -> Self {
+        Self {
+            table: Default::default(),
         }
     }
 }
@@ -258,15 +286,23 @@ impl TuiApp for FormOneApp {
             }
         };
 
-        match uistate.menu.select {
-            Some(0) => {
-                tr!(repaint_mask0(&event, frame, layout, data, uistate), _)
+        match uistate.menu.selected_action() {
+            Some(MenuItem::Text) => {
+                tr!(repaint_textinput(&event, frame, layout, data, uistate), _)
             }
-            Some(1) => {
-                tr!(repaint_mask1(&event, frame, layout, data, uistate), _)
+            Some(MenuItem::Date) => {
+                tr!(repaint_dateinput(&event, frame, layout, data, uistate), _)
             }
-            Some(2) => {
-                tr!(repaint_mask2(&event, frame, layout, data, uistate), _)
+            Some(MenuItem::Paragraph) => {
+                tr!(repaint_scrolled_paragraph(
+                    &event, frame, layout, data, uistate
+                ));
+            }
+            Some(MenuItem::Table) => {
+                tr!(
+                    repaint_scrolled_table(&event, frame, layout, data, uistate),
+                    _
+                )
             }
             _ => {}
         }
@@ -327,10 +363,11 @@ impl TuiApp for FormOneApp {
         });
 
         check_break!(match uistate.menu.select {
-            Some(0) => handle_mask0(&event, data, uistate),
-            Some(1) => handle_mask1(&event, data, uistate),
-            Some(2) => handle_mask2(&event, data, uistate),
-            Some(3) => handle_mask3(&event, data, uistate),
+            Some(0) => handle_textinput(&event, data, uistate),
+            Some(1) => handle_dateinput(&event, data, uistate),
+            Some(2) => handle_scrolled_paragraph(&event, data, uistate),
+            Some(3) => handle_scrolled_table(&event, data, uistate),
+            Some(4) => handle_error(&event, data, uistate),
             _ => Control::Continue,
         });
 
@@ -376,14 +413,19 @@ fn repaint_menu(
     let menu = MenuLine::new()
         .style(uistate.g.theme.menu_style())
         .title("Select form:")
-        .add("_Text Input", 0u16)
-        .add("_Dates", 1u16)
-        .add("_Scroll", 2u16)
-        .add("_Error", 3u16)
-        .add("_Quit", 99u16);
+        .add("_TextField", MenuItem::Text)
+        .add("_DateField", MenuItem::Date)
+        .add("_Scrolling", MenuItem::Paragraph)
+        .add("_Table", MenuItem::Table)
+        .add("_Error", MenuItem::Error)
+        .add("_Quit", MenuItem::Quit);
     frame.render_stateful_widget(menu, layout.menu, &mut uistate.menu);
 
     Control::Continue
+}
+
+fn focus_menu(state: &MenuLineState<MenuItem>) -> Focus<'_> {
+    Focus::new([(state.focus(), state.area())])
 }
 
 fn handle_menu(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
@@ -392,7 +434,7 @@ fn handle_menu(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState
         .handle(event, DefaultKeys)
         .or_else(|| uistate.menu.handle(event, HotKeyAlt))
         .and_then(|a| match a {
-            99 => {
+            MenuItem::Quit => {
                 Control::Break
             }
             _ => Control::Change,
@@ -401,7 +443,7 @@ fn handle_menu(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState
     Control::Continue
 }
 
-fn repaint_mask0(
+fn repaint_textinput(
     event: &RepaintEvent,
     frame: &mut Frame<'_>,
     layout: FormOneAppLayout,
@@ -481,34 +523,34 @@ fn repaint_mask0(
 
     frame.render_widget(Span::from("Plain text input").underlined(), l0.label());
     frame.render_widget(Span::from("Text"), l0.label());
-    frame.render_frame_widget(w_text, l0.widget(), &mut uistate.mask0.text);
+    frame.render_frame_widget(w_text, l0.widget(), &mut uistate.textinput.text);
     frame.render_widget(Span::from("Integer"), l0.label());
-    frame.render_frame_widget(w_decimal, l0.widget(), &mut uistate.mask0.decimal);
+    frame.render_frame_widget(w_decimal, l0.widget(), &mut uistate.textinput.decimal);
     frame.render_widget(Span::from("Float"), l0.label());
-    frame.render_frame_widget(w_float, l0.widget(), &mut uistate.mask0.float);
+    frame.render_frame_widget(w_float, l0.widget(), &mut uistate.textinput.float);
 
     frame.render_widget(Span::from("Masked text input").underlined(), l2.label());
     frame.render_widget(Span::from("IPv4"), l2.label());
-    frame.render_frame_widget(w_ipv4, l2.widget(), &mut uistate.mask0.ipv4);
+    frame.render_frame_widget(w_ipv4, l2.widget(), &mut uistate.textinput.ipv4);
     frame.render_widget(Span::from("Color"), l2.label());
-    frame.render_frame_widget(w_color, l2.widget(), &mut uistate.mask0.hexcolor);
+    frame.render_frame_widget(w_color, l2.widget(), &mut uistate.textinput.hexcolor);
     frame.render_widget(Span::from("Credit card"), l2.label());
-    frame.render_frame_widget(w_creditcard, l2.widget(), &mut uistate.mask0.creditcard);
+    frame.render_frame_widget(w_creditcard, l2.widget(), &mut uistate.textinput.creditcard);
     frame.render_widget(Span::from("Date"), l2.label());
-    frame.render_frame_widget(w_date, l2.widget(), &mut uistate.mask0.date);
+    frame.render_frame_widget(w_date, l2.widget(), &mut uistate.textinput.date);
     frame.render_widget(Span::from("Name"), l2.label());
-    frame.render_frame_widget(w_name, l2.widget(), &mut uistate.mask0.alpha);
+    frame.render_frame_widget(w_name, l2.widget(), &mut uistate.textinput.alpha);
     frame.render_widget(Span::from("Decimal 7.2"), l2.label());
-    frame.render_frame_widget(w_dec_7_2, l2.widget(), &mut uistate.mask0.dec7_2);
+    frame.render_frame_widget(w_dec_7_2, l2.widget(), &mut uistate.textinput.dec7_2);
     frame.render_widget(Span::from("Euro"), l2.label());
-    frame.render_frame_widget(w_euro, l2.widget(), &mut uistate.mask0.euro);
+    frame.render_frame_widget(w_euro, l2.widget(), &mut uistate.textinput.euro);
     frame.render_widget(Span::from("Exp"), l2.label());
-    frame.render_frame_widget(w_exp, l2.widget(), &mut uistate.mask0.exp);
+    frame.render_frame_widget(w_exp, l2.widget(), &mut uistate.textinput.exp);
 
     let r = match_focus!(
-        uistate.mask0.text => Some(&uistate.mask0.text),
-        uistate.mask0.decimal => Some(&uistate.mask0.decimal),
-        uistate.mask0.float => Some(&uistate.mask0.float),
+        uistate.textinput.text => Some(&uistate.textinput.text),
+        uistate.textinput.decimal => Some(&uistate.textinput.decimal),
+        uistate.textinput.float => Some(&uistate.textinput.float),
         _ => None
     );
     if let Some(r) = r {
@@ -536,14 +578,14 @@ fn repaint_mask0(
     }
 
     let r = match_focus!(
-        uistate.mask0.ipv4 => Some(&uistate.mask0.ipv4),
-        uistate.mask0.hexcolor => Some(&uistate.mask0.hexcolor),
-        uistate.mask0.creditcard => Some(&uistate.mask0.creditcard),
-        uistate.mask0.date => Some(&uistate.mask0.date),
-        uistate.mask0.alpha =>Some( &uistate.mask0.alpha),
-        uistate.mask0.dec7_2 => Some(&uistate.mask0.dec7_2),
-        uistate.mask0.euro => Some(&uistate.mask0.euro),
-        uistate.mask0.exp => Some(&uistate.mask0.exp),
+        uistate.textinput.ipv4 => Some(&uistate.textinput.ipv4),
+        uistate.textinput.hexcolor => Some(&uistate.textinput.hexcolor),
+        uistate.textinput.creditcard => Some(&uistate.textinput.creditcard),
+        uistate.textinput.date => Some(&uistate.textinput.date),
+        uistate.textinput.alpha =>Some( &uistate.textinput.alpha),
+        uistate.textinput.dec7_2 => Some(&uistate.textinput.dec7_2),
+        uistate.textinput.euro => Some(&uistate.textinput.euro),
+        uistate.textinput.exp => Some(&uistate.textinput.exp),
         _ => None
     );
     if let Some(r) = r {
@@ -606,7 +648,7 @@ fn repaint_mask0(
     Control::Continue
 }
 
-fn focus0(mask0: &Mask0) -> Focus<'_> {
+fn focus_textinput(mask0: &FormTextInput) -> Focus<'_> {
     Focus::new([
         (mask0.text.focus(), mask0.text.area()),
         (mask0.decimal.focus(), mask0.decimal.area()),
@@ -622,10 +664,11 @@ fn focus0(mask0: &Mask0) -> Focus<'_> {
     ])
 }
 
-fn handle_mask0(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
-    let mask0 = &mut uistate.mask0;
+fn handle_textinput(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
+    let mask0 = &mut uistate.textinput;
 
-    focus0(mask0)
+    focus_textinput(mask0)
+        .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
         .and_do(|_| uistate.g.repaint.set());
 
@@ -668,7 +711,7 @@ fn handle_mask0(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     Control::Continue
 }
 
-fn repaint_mask1(
+fn repaint_dateinput(
     event: &RepaintEvent,
     frame: &mut Frame<'_>,
     layout: FormOneAppLayout,
@@ -707,16 +750,16 @@ fn repaint_mask1(
 
     frame.render_widget(Span::from("Date input").underlined(), l0.label());
     frame.render_widget(Span::from("Date 1"), l0.label());
-    frame.render_frame_widget(w_date1, l0.widget(), &mut uistate.mask1.date1);
+    frame.render_frame_widget(w_date1, l0.widget(), &mut uistate.dateinput.date1);
     frame.render_widget(Span::from("Date 2"), l0.label());
-    frame.render_frame_widget(w_date2, l0.widget(), &mut uistate.mask1.date2);
+    frame.render_frame_widget(w_date2, l0.widget(), &mut uistate.dateinput.date2);
     frame.render_widget(Span::from("Date 3"), l0.label());
-    frame.render_frame_widget(w_date3, l0.widget(), &mut uistate.mask1.date3);
+    frame.render_frame_widget(w_date3, l0.widget(), &mut uistate.dateinput.date3);
 
     let r = match_focus!(
-        uistate.mask1.date1 => Some(&uistate.mask1.date1),
-        uistate.mask1.date2 => Some(&uistate.mask1.date2),
-        uistate.mask1.date3 => Some(&uistate.mask1.date3),
+        uistate.dateinput.date1 => Some(&uistate.dateinput.date1),
+        uistate.dateinput.date2 => Some(&uistate.dateinput.date2),
+        uistate.dateinput.date3 => Some(&uistate.dateinput.date3),
         _ => None
     );
     if let Some(r) = r {
@@ -783,7 +826,7 @@ fn repaint_mask1(
     Control::Continue
 }
 
-fn focus1(mask1: &Mask1) -> Focus<'_> {
+fn focus_dateinput(mask1: &FormDateInput) -> Focus<'_> {
     Focus::new([
         (mask1.date1.focus(), mask1.date1.area()),
         (mask1.date2.focus(), mask1.date2.area()),
@@ -791,10 +834,11 @@ fn focus1(mask1: &Mask1) -> Focus<'_> {
     ])
 }
 
-fn handle_mask1(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
-    let mask1 = &mut uistate.mask1;
+fn handle_dateinput(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
+    let mask1 = &mut uistate.dateinput;
 
-    focus1(mask1)
+    focus_dateinput(mask1)
+        .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
         .and_do(|_| uistate.g.repaint.set());
 
@@ -807,7 +851,7 @@ fn handle_mask1(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     Control::Continue
 }
 
-fn repaint_mask2(
+fn repaint_scrolled_paragraph(
     event: &RepaintEvent,
     frame: &mut Frame<'_>,
     layout: FormOneAppLayout,
@@ -892,21 +936,31 @@ fn repaint_mask2(
         .map(|v| Line::from(*v))
         .collect::<Vec<_>>(),
     );
+    let w_para = Scrolled::new(w_para);
 
-    frame.render_stateful_widget(w_para, l_columns[0], &mut uistate.mask2.para);
+    frame.render_stateful_widget(w_para, l_columns[0], &mut uistate.scrolled_para.para);
 
     Control::Continue
 }
 
-fn handle_mask2(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
-    let mask2 = &mut uistate.mask2;
+fn handle_scrolled_paragraph(
+    event: &Event,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let mask2 = &mut uistate.scrolled_para;
+
+    Focus::new([])
+        .append(focus_menu(&uistate.menu))
+        .handle(event, DefaultKeys)
+        .and_do(|_| uistate.g.repaint.set());
 
     check_break!(mask2.para.handle(event, DefaultKeys));
 
     Control::Continue
 }
 
-fn handle_mask3(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
+fn handle_error(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState) -> Control {
     for s in [
         "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, ",
         "sed diam nonumy eirmod tempor invidunt ut labore et dolore",
@@ -976,6 +1030,191 @@ fn handle_mask3(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     Control::Change
 }
 
+fn repaint_scrolled_table(
+    event: &RepaintEvent,
+    frame: &mut Frame<'_>,
+    layout: FormOneAppLayout,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let l_columns = Layout::new(
+        Direction::Horizontal,
+        [
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+        ],
+    )
+    .split(layout.area);
+
+    let w_table = TableExt::from_iter(
+        [
+            ["1", "2", "3", "4"],
+            ["2", "3", "4", "5"],
+            ["3", "4", "5", "6"],
+            ["4", "5", "6", "7"],
+            ["5", "6", "7", "8"],
+            ["6", "7", "8", "9"],
+            ["7", "8", "9", "10"],
+            ["8", "9", "10", "11"],
+            ["9", "10", "11", "12"],
+            ["10", "11", "12", "13"],
+            ["11", "12", "13", "14"],
+            ["12", "13", "14", "15"],
+            ["13", "14", "15", "16"],
+            ["14", "15", "16", "17"],
+            ["15", "16", "17", "18"],
+            ["16", "17", "18", "19"],
+            ["17", "18", "19", "20"],
+            ["18", "19", "20", "21"],
+            ["19", "20", "21", "22"],
+            ["20", "21", "22", "23"],
+            ["21", "22", "23", "24"],
+            ["22", "23", "24", "25"],
+            ["23", "24", "25", "26"],
+            ["24", "25", "26", "27"],
+            ["25", "26", "27", "28"],
+            ["26", "27", "28", "29"],
+            ["27", "28", "29", "30"],
+            ["28", "29", "30", "31"],
+            ["29", "30", "31", "32"],
+            ["30", "31", "32", "33"],
+            ["31", "32", "33", "34"],
+            ["32", "33", "34", "35"],
+            ["33", "34", "35", "36"],
+            ["34", "35", "36", "37"],
+            ["35", "36", "37", "38"],
+            ["36", "37", "38", "39"],
+            ["37", "38", "39", "40"],
+            ["38", "39", "40", "41"],
+            ["39", "40", "41", "42"],
+            ["40", "41", "42", "43"],
+            ["41", "42", "43", "44"],
+            ["42", "43", "44", "45"],
+            ["43", "44", "45", "46"],
+            ["44", "45", "46", "47"],
+            ["45", "46", "47", "48"],
+            ["46", "47", "48", "49"],
+            ["47", "48", "49", "50"],
+            ["48", "49", "50", "51"],
+            ["49", "50", "51", "52"],
+            ["50", "51", "52", "53"],
+            ["51", "52", "53", "54"],
+            ["52", "53", "54", "55"],
+            ["53", "54", "55", "56"],
+            ["54", "55", "56", "57"],
+            ["55", "56", "57", "58"],
+            ["56", "57", "58", "59"],
+            ["57", "58", "59", "60"],
+            ["58", "59", "60", "61"],
+            ["59", "60", "61", "62"],
+            ["60", "61", "62", "63"],
+            ["61", "62", "63", "64"],
+            ["62", "63", "64", "65"],
+            ["63", "64", "65", "66"],
+            ["64", "65", "66", "67"],
+            ["65", "66", "67", "68"],
+            ["66", "67", "68", "69"],
+            ["67", "68", "69", "70"],
+            ["68", "69", "70", "71"],
+            ["69", "70", "71", "72"],
+            ["70", "71", "72", "73"],
+            ["71", "72", "73", "74"],
+            ["72", "73", "74", "75"],
+            ["73", "74", "75", "76"],
+            ["74", "75", "76", "77"],
+            ["75", "76", "77", "78"],
+            ["76", "77", "78", "79"],
+            ["77", "78", "79", "80"],
+            ["78", "79", "80", "81"],
+            ["79", "80", "81", "82"],
+            ["80", "81", "82", "83"],
+            ["81", "82", "83", "84"],
+            ["82", "83", "84", "85"],
+            ["83", "84", "85", "86"],
+            ["84", "85", "86", "87"],
+            ["85", "86", "87", "88"],
+            ["86", "87", "88", "89"],
+            ["87", "88", "89", "90"],
+            ["88", "89", "90", "91"],
+            ["89", "90", "91", "92"],
+            ["90", "91", "92", "93"],
+            ["91", "92", "93", "94"],
+            ["92", "93", "94", "95"],
+            ["93", "94", "95", "96"],
+            ["94", "95", "96", "97"],
+            ["95", "96", "97", "98"],
+            ["96", "97", "98", "99"],
+            ["97", "98", "99", "100"],
+            ["98", "99", "100", "101"],
+            ["99", "100", "101", "102"],
+            ["100", "101", "102", "103"],
+            ["101", "102", "103", "104"],
+            ["102", "103", "104", "105"],
+            ["103", "104", "105", "106"],
+            ["104", "105", "106", "107"],
+            ["105", "106", "107", "108"],
+            ["106", "107", "108", "109"],
+            ["107", "108", "109", "110"],
+            ["108", "109", "110", "111"],
+            ["109", "110", "111", "112"],
+            ["110", "111", "112", "113"],
+            ["111", "112", "113", "114"],
+            ["112", "113", "114", "115"],
+            ["113", "114", "115", "116"],
+            ["114", "115", "116", "117"],
+            ["115", "116", "117", "118"],
+            ["116", "117", "118", "119"],
+            ["117", "118", "119", "120"],
+            ["118", "119", "120", "121"],
+            ["119", "120", "121", "122"],
+            ["120", "121", "122", "123"],
+        ]
+        .into_iter()
+        .map(|v| {
+            Row::new([
+                Span::from(v[0]),
+                Span::from(v[1]),
+                Span::from(v[2]),
+                Span::from(v[3]),
+            ])
+        }),
+    )
+    .widths([
+        Constraint::Length(5),
+        Constraint::Length(5),
+        Constraint::Length(5),
+        Constraint::Length(5),
+    ])
+    .style(uistate.g.theme.table_style());
+    let w_table = Scrolled::new(w_table);
+
+    frame.render_stateful_widget(w_table, l_columns[0], &mut uistate.scrolled_table.table);
+
+    ControlUI::Continue
+}
+
+fn focus_table(state: &FormScrolledTable) -> Focus<'_> {
+    Focus::new([(state.table.focus(), state.table.area())])
+}
+
+fn handle_scrolled_table(
+    event: &Event,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let mut state = &mut uistate.scrolled_table;
+
+    focus_table(state)
+        .append(focus_menu(&uistate.menu))
+        .handle(event, DefaultKeys)
+        .and_do(|_| uistate.g.repaint.set());
+
+    check_break!(uistate.scrolled_table.table.handle(event, DefaultKeys));
+
+    Control::Continue
+}
 // -----------------------------------------------------------------------
 
 #[derive(Debug, Default)]
@@ -1035,6 +1274,14 @@ pub struct Theme {
 impl Theme {
     pub fn status_style(&self) -> Style {
         Style::default().fg(self.white).bg(self.one_bg3)
+    }
+
+    pub fn table_style(&self) -> TableExtStyle {
+        TableExtStyle {
+            style: Default::default(),
+            select_style: Style::default().fg(self.black).bg(self.purple).bold(),
+            focus_style: Style::default().fg(self.black).bg(self.green).bold(),
+        }
     }
 
     pub fn input_style(&self) -> TextInputStyle {
