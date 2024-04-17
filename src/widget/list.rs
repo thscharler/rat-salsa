@@ -1,4 +1,3 @@
-use crate::widget::table::TableExtState;
 use crate::widget::{ActionTrigger, HasVerticalScroll};
 use crate::{ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, MouseOnly};
 use crossterm::event::Event;
@@ -82,11 +81,6 @@ impl<'a> ListExt<'a> {
 
     pub fn direction(mut self, direction: ListDirection) -> Self {
         self.list = self.list.direction(direction);
-        self
-    }
-
-    pub fn scroll_padding(mut self, padding: usize) -> Self {
-        self.list = self.list.scroll_padding(padding);
         self
     }
 
@@ -235,13 +229,13 @@ impl ListExtState {
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>> for ListExtState {
-    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+    fn handle(&mut self, _event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         ControlUI::Continue
     }
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
-    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState {
+    fn handle(&mut self, _event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         ControlUI::Continue
     }
 }

@@ -49,7 +49,7 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 crossbeam = "0.8"
 crossterm = "0.27"
 log = "0.4"
-ratatui = "0.26"
+ratatui = { version = "0.26", features = ["unstable-widget-ref"] }
 unicode-segmentation = "1.11"
 rust_decimal = "1.34"
 rust_decimal_macros = "1.34"

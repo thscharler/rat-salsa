@@ -16,6 +16,7 @@ pub mod menuline;
 pub mod message;
 pub mod paragraph;
 pub mod scrolled;
+pub mod selected;
 pub mod table;
 
 /// Small helper that provides a trigger for mouse double-click.

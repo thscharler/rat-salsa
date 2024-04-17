@@ -2,6 +2,7 @@
 /// Extensions for [ratatui::widgets::Table]
 ///
 use crate::util::{next, next_opt, prev, prev_opt};
+use crate::widget::selected::{NoSelection, Selection, SingleSelection};
 use crate::widget::{ActionTrigger, HasVerticalScroll};
 use crate::FocusFlag;
 use crate::{ControlUI, HasFocusFlag};
@@ -17,17 +18,55 @@ use ratatui::prelude::*;
 use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
+use std::fmt::{Debug, Formatter};
+use std::marker::PhantomData;
+use std::mem;
 
 /// Add some minor fixes to [ratatui::widgets::Table]
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct TableExt<'a> {
+#[derive()]
+pub struct TableExt<'a, SEL> {
+    ///
+    pub rows: Vec<Row<'a>>,
+    ///
     pub table: Table<'a>,
     /// Row count
     pub len: usize,
+
+    /// Base style
+    pub base_style: Style,
     /// Style for selected + not focused.
     pub select_style: Style,
     /// Style for selected + focused.
     pub focus_style: Style,
+
+    pub _phantom: PhantomData<SEL>,
+}
+
+impl<'a, SEL> Debug for TableExt<'a, SEL> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("TableExt")
+            .field("rows", &self.rows)
+            .field("table", &self.table)
+            .field("len", &self.len)
+            .field("base_style", &self.base_style)
+            .field("select_style", &self.select_style)
+            .field("focus_style", &self.focus_style)
+            .finish()
+    }
+}
+
+impl<'a, SEL> Default for TableExt<'a, SEL> {
+    fn default() -> Self {
+        Self {
+            rows: Default::default(),
+            table: Default::default(),
+            len: 0,
+            base_style: Default::default(),
+            select_style: Default::default(),
+            focus_style: Default::default(),
+            _phantom: Default::default(),
+        }
+    }
 }
 
 /// Combined style.
@@ -38,7 +77,7 @@ pub struct TableExtStyle {
     pub focus_style: Style,
 }
 
-impl<'a> TableExt<'a> {
+impl<'a, SEL> TableExt<'a, SEL> {
     pub fn new<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
@@ -46,14 +85,17 @@ impl<'a> TableExt<'a> {
         C: IntoIterator,
         C::Item: Into<Constraint>,
     {
-        let rows = rows.into_iter().collect::<Vec<_>>();
+        let rows = rows.into_iter().map(|v| v.into()).collect::<Vec<_>>();
         let len = rows.len();
 
         Self {
-            table: Table::new(rows, widths),
-            len: len,
+            rows,
+            table: Table::default().widths(widths),
+            len,
+            base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
+            _phantom: Default::default(),
         }
     }
 
@@ -63,7 +105,7 @@ impl<'a> TableExt<'a> {
     {
         let rows = rows.into_iter().collect::<Vec<_>>();
         self.len = rows.len();
-        self.table = self.table.rows(rows);
+        self.rows = rows;
         self
     }
 
@@ -97,14 +139,14 @@ impl<'a> TableExt<'a> {
     }
 
     pub fn styles(mut self, styles: TableExtStyle) -> Self {
-        self.table = self.table.style(styles.style);
+        self.base_style = styles.style;
         self.select_style = styles.select_style;
         self.focus_style = styles.focus_style;
         self
     }
 
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.table = self.table.style(style);
+        self.base_style = style.into();
         self
     }
 
@@ -134,31 +176,47 @@ impl<'a> TableExt<'a> {
     }
 }
 
-impl<'a> StatefulWidget for TableExt<'a> {
-    type State = TableExtState;
+impl<'a, SEL: Selection> StatefulWidget for TableExt<'a, SEL> {
+    type State = TableExtState<SEL>;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.len = self.len;
 
-        if state.gained_focus() {
-            if state.table_state.selected().is_none() {
-                state.table_state.select(Some(0));
-            }
+        // if state.gained_focus() {
+        //     if state.table_state.selected().is_none() {
+        //         state.table_state.select(Some(0));
+        //     }
+        // }
+
+        let selection = &state.selection;
+
+        for (i, r) in self.rows.iter_mut().enumerate() {
+            let style = if state.focus.get() {
+                if selection.is_selected(i) {
+                    self.focus_style
+                } else {
+                    self.base_style
+                }
+            } else {
+                if selection.is_selected(i) {
+                    self.select_style
+                } else {
+                    self.base_style
+                }
+            };
+
+            *r = mem::take(r).style(style);
         }
 
-        let table = if state.focus.get() {
-            self.table.highlight_style(self.focus_style)
-        } else {
-            self.table.highlight_style(self.select_style)
-        };
+        let table = self.table.style(self.base_style).rows(self.rows);
 
         StatefulWidget::render(table, area, buf, &mut state.table_state);
     }
 }
 
-impl<'a> Styled for TableExt<'a> {
-    type Item = TableExt<'a>;
+impl<'a, SEL> Styled for TableExt<'a, SEL> {
+    type Item = TableExt<'a, SEL>;
 
     fn style(&self) -> Style {
         <Table<'_> as Styled>::style(&self.table)
@@ -170,7 +228,7 @@ impl<'a> Styled for TableExt<'a> {
     }
 }
 
-impl<'a, Item> FromIterator<Item> for TableExt<'a>
+impl<'a, SEL, Item> FromIterator<Item> for TableExt<'a, SEL>
 where
     Item: Into<Row<'a>>,
 {
@@ -179,25 +237,29 @@ where
         let len = rows.len();
 
         Self {
-            table: Table::from_iter(rows),
+            rows,
+            table: Table::default(),
             len,
+            base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
+            _phantom: Default::default(),
         }
     }
 }
 
 /// Extended TableState, contains a [ratatui::widgets::TableState].
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct TableExtState {
+pub struct TableExtState<SEL> {
     pub focus: FocusFlag,
     pub area: Rect,
     pub trigger: ActionTrigger,
     pub len: usize,
     pub table_state: TableState,
+    pub selection: SEL,
 }
 
-impl HasFocusFlag for TableExtState {
+impl<SEL: Selection> HasFocusFlag for TableExtState<SEL> {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -207,7 +269,7 @@ impl HasFocusFlag for TableExtState {
     }
 }
 
-impl HasVerticalScroll for TableExtState {
+impl<SEL: Selection> HasVerticalScroll for TableExtState<SEL> {
     fn vlen(&self) -> usize {
         self.len
     }
@@ -225,17 +287,9 @@ impl HasVerticalScroll for TableExtState {
     }
 }
 
-impl TableExtState {
+impl<SEL: Selection> TableExtState<SEL> {
     pub fn with_offset(mut self, offset: usize) -> Self {
         self.table_state = self.table_state.with_offset(offset);
-        self
-    }
-
-    pub fn with_selected<T>(mut self, selected: T) -> Self
-    where
-        T: Into<Option<usize>>,
-    {
-        self.table_state = self.table_state.with_selected(selected);
         self
     }
 
@@ -247,26 +301,20 @@ impl TableExtState {
         self.table_state.offset_mut()
     }
 
-    pub fn selected(&self) -> Option<usize> {
-        self.table_state.selected()
+    pub fn selection(&self) -> &SEL {
+        &self.selection
     }
 
-    pub fn select(&mut self, select: Option<usize>) {
-        self.table_state.select(select);
+    pub fn selection_mut(&mut self) -> &mut SEL {
+        &mut self.selection
     }
 
-    pub fn selected_mut(&mut self) -> &mut Option<usize> {
-        self.table_state.selected_mut()
-    }
-
-    /// Scroll to selected
+    /// Scroll to selected.
     pub fn adjust_view(&mut self) {
-        if let Some(selected) = self.table_state.selected() {
+        if let Some(selected) = self.selection.lead_selection() {
             if self.table_state.offset() + (self.area.height as usize) < selected {
                 *self.table_state.offset_mut() = selected - (self.area.height as usize);
             }
-        }
-        if let Some(selected) = self.table_state.selected() {
             if self.table_state.offset() > selected {
                 *self.table_state.offset_mut() = selected;
             }
@@ -292,7 +340,7 @@ pub enum InputRequest {
     ScrollUp(usize),
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
+impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SingleSelection> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let req = match event {
             Event::Key(KeyEvent {
@@ -390,7 +438,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState {
     }
 }
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
+impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         let req = match event {
             Event::Mouse(MouseEvent {
@@ -435,7 +483,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
                     let rr = row - self.area.y;
                     if (self.table_state.offset() + rr as usize) < self.len {
                         let sel = self.table_state.offset() + rr as usize;
-                        if self.table_state.selected() != Some(sel) {
+                        if self.selection.lead_selection() != Some(sel) {
                             Some(InputRequest::Select(sel))
                         } else {
                             None
@@ -478,7 +526,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState {
 #[derive(Debug)]
 pub struct DoubleClick;
 
-impl<E> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState {
+impl<E, SEL: Selection> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState<SEL> {
     fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<(), E> {
         match event {
             Event::Key(KeyEvent {
@@ -487,7 +535,7 @@ impl<E> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState {
                 kind: KeyEventKind::Press,
                 ..
             }) => {
-                if self.focus.get() {
+                if self.is_focused() {
                     ControlUI::Run(())
                 } else {
                     ControlUI::Continue
@@ -504,7 +552,7 @@ impl<E> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState {
                     let sel = self.table_state.offset() + rr as usize;
 
                     // this cannot be accomplished otherwise. the return type is bitching.
-                    if self.table_state.selected() == Some(sel) {
+                    if self.selection.lead_selection() == Some(sel) {
                         if self.trigger.pull(200) {
                             ControlUI::Run(())
                         } else {
@@ -529,7 +577,7 @@ impl<E> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState {
 #[derive(Debug)]
 pub struct DeleteRow;
 
-impl<E> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for TableExtState {
+impl<E, SEL: Selection> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for TableExtState<SEL> {
     fn handle(&mut self, event: &Event, _: DeleteRow) -> ControlUI<usize, E> {
         match event {
             Event::Key(KeyEvent {
@@ -539,7 +587,7 @@ impl<E> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for TableExtState {
                 ..
             }) => {
                 if self.focus.get() {
-                    if let Some(selected) = self.table_state.selected() {
+                    if let Some(selected) = self.selection.lead_selection() {
                         ControlUI::Run(selected)
                     } else {
                         ControlUI::Continue
@@ -553,33 +601,29 @@ impl<E> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for TableExtState {
     }
 }
 
-impl<A, E> Input<ControlUI<A, E>> for TableExtState {
+impl<A, E> Input<ControlUI<A, E>> for TableExtState<SingleSelection> {
     type Request = InputRequest;
 
     fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
         match req {
             InputRequest::Down(n) => {
-                self.trigger.reset();
                 let next = next_opt(self.table_state.selected(), n, self.len - 1);
                 self.table_state.select(next);
                 self.adjust_view();
                 ControlUI::Change
             }
             InputRequest::Up(n) => {
-                self.trigger.reset();
                 let prev = prev_opt(self.table_state.selected(), n);
                 self.table_state.select(prev);
                 self.adjust_view();
                 ControlUI::Change
             }
             InputRequest::First => {
-                self.trigger.reset();
                 self.table_state.select(Some(0));
                 self.adjust_view();
                 ControlUI::Change
             }
             InputRequest::Last => {
-                self.trigger.reset();
                 self.table_state.select(Some(self.len - 1));
                 self.adjust_view();
                 ControlUI::Change
@@ -588,7 +632,6 @@ impl<A, E> Input<ControlUI<A, E>> for TableExtState {
                 if self.table_state.selected() == Some(n) {
                     ControlUI::Continue
                 } else {
-                    self.trigger.reset();
                     self.table_state.select(Some(n));
                     self.adjust_view();
                     ControlUI::Change
