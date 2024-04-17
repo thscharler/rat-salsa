@@ -272,13 +272,13 @@ impl DateInputState {
 /// * `J` - add year
 /// * `K` - subtract year
 #[derive(Debug)]
-pub struct ConvenienceKeys;
+pub struct ConvenientKeys;
 
-impl<A, E> HandleCrossterm<ControlUI<A, E>, ConvenienceKeys> for DateInputState
+impl<A, E> HandleCrossterm<ControlUI<A, E>, ConvenientKeys> for DateInputState
 where
     E: From<fmt::Error>,
 {
-    fn handle(&mut self, event: &Event, _keymap: ConvenienceKeys) -> ControlUI<A, E> {
+    fn handle(&mut self, event: &Event, _keymap: ConvenientKeys) -> ControlUI<A, E> {
         let r = {
             match event {
                 Event::Key(KeyEvent {
