@@ -1,6 +1,7 @@
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use log::debug;
 use ratatui::text::Span;
+use std::cmp::min;
 
 /// Sum all widths.
 pub(crate) fn span_width(spans: &[Span<'_>]) -> u16 {
@@ -23,55 +24,31 @@ pub(crate) fn clamp_opt(select: Option<usize>, max: usize) -> Option<usize> {
 }
 
 /// Select previous.
-pub(crate) fn prev_opt(select: Option<usize>) -> Option<usize> {
+pub(crate) fn prev_opt(select: Option<usize>, change: usize) -> Option<usize> {
     if let Some(select) = select {
-        if select > 0 {
-            Some(select - 1)
-        } else {
-            Some(0)
-        }
+        Some(prev(select, change))
     } else {
         Some(0)
     }
 }
 
 /// Select next.
-pub(crate) fn next_opt(select: Option<usize>, max: usize) -> Option<usize> {
-    if let Some(select) = select {
-        if select + 1 < max {
-            Some(select + 1)
-        } else {
-            Some(select)
-        }
+pub(crate) fn next_opt(selected: Option<usize>, change: usize, max: usize) -> Option<usize> {
+    if let Some(select) = selected {
+        Some(next(select, change, max))
     } else {
         Some(0)
     }
 }
 
 /// Select previous.
-pub(crate) fn prev_pg_opt(select: Option<usize>, pg: usize) -> Option<usize> {
-    if let Some(select) = select {
-        if select >= pg {
-            Some(select - pg)
-        } else {
-            Some(0)
-        }
-    } else {
-        Some(0)
-    }
+pub(crate) fn prev(select: usize, change: usize) -> usize {
+    select.saturating_sub(change)
 }
 
 /// Select next.
-pub(crate) fn next_pg_opt(select: Option<usize>, pg: usize, max: usize) -> Option<usize> {
-    if let Some(select) = select {
-        if select + pg < max {
-            Some(select + pg)
-        } else {
-            Some(max - 1)
-        }
-    } else {
-        Some(0)
-    }
+pub(crate) fn next(select: usize, change: usize, max: usize) -> usize {
+    min(select + change, max)
 }
 
 /// Next but circle around.

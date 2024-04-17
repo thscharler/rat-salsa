@@ -141,6 +141,22 @@ pub struct MenuLineState<A> {
     pub action: Vec<A>,
 }
 
+impl<A> MenuLineState<A> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn selected_action(&self) -> Option<A>
+    where
+        A: Copy,
+    {
+        match self.select {
+            Some(i) => self.action.get(i).copied(),
+            None => None,
+        }
+    }
+}
+
 impl<A> Default for MenuLineState<A> {
     fn default() -> Self {
         Self {
@@ -173,12 +189,12 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
         match req {
             InputRequest::Prev => {
                 self.trigger.reset();
-                self.select = prev_opt(self.select);
+                self.select = prev_opt(self.select, 1);
                 ControlUI::Change
             }
             InputRequest::Next => {
                 self.trigger.reset();
-                self.select = next_opt(self.select, self.len);
+                self.select = next_opt(self.select, 1, self.len);
                 ControlUI::Change
             }
             InputRequest::First => {
