@@ -17,8 +17,10 @@ use std::mem;
 /// Tried some variations, in the end parameterizing the widget state with
 /// Selection seems the best. This allows implementing the interactions on
 /// the state struct, one per Selection model. Setting the selection as
-/// `dyn something` ends in having a Rc<RefCell<SomeSelection>>, and setting
+/// `dyn something` ends in having a `Rc<RefCell<SomeSelection>>`, and setting
 /// only a reference for rendering couldn't be done at all, because lifetimes.
+///
+/// See [TableExtState](crate::widget::table::TableExtState) for an example.
 ///
 /// This should be sufficient for list-like widgets.
 ///

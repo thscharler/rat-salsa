@@ -304,3 +304,13 @@ to define the set of interactions. The key-binding maps to these interactions an
 can do whatever complicated logic is needed.
 
 [TuiApp] doesn't use this trait, it's just for widgets.
+
+### Scrolling
+
+See [HasVerticalScroll](crate::widget::HasVerticalScroll).
+
+And also [scrolled](crate::widget::scrolled)
+
+### Selection
+
+See [selected](crate::widget::selected)

@@ -44,7 +44,6 @@ unused_qualifications = "warn"
 variant_size_differences = "warn"
 
 [dependencies]
-anyhow = "1.0"
 chrono = { version = "0.4", features = ["unstable-locales"] }
 crossbeam = "0.8"
 crossterm = "0.27"
@@ -61,3 +60,4 @@ fern = "0.6"
 humantime = "2.1"
 rand = "0.8.5"
 ryu = "1.0.17"
+anyhow = "1.0"
