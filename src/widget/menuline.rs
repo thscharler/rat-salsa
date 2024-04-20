@@ -6,7 +6,7 @@
 //!
 
 use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
-use crate::widget::ActionTrigger;
+use crate::widget::MouseFlags;
 use crate::{ControlUI, FocusFlag, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
 use crossterm::event::{
@@ -135,7 +135,7 @@ pub struct MenuLineState<A> {
     pub area: Rect,
     pub areas: Vec<Rect>,
     pub key: Vec<char>,
-    pub trigger: ActionTrigger,
+    pub trigger: MouseFlags,
     pub select: Option<usize>,
     pub len: usize,
     pub action: Vec<A>,
@@ -190,22 +190,22 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
     fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
         match req {
             InputRequest::Prev => {
-                self.trigger.reset();
+                self.trigger.reset_trigger();
                 self.select = prev_opt(self.select, 1);
                 ControlUI::Change
             }
             InputRequest::Next => {
-                self.trigger.reset();
+                self.trigger.reset_trigger();
                 self.select = next_opt(self.select, 1, self.len);
                 ControlUI::Change
             }
             InputRequest::First => {
-                self.trigger.reset();
+                self.trigger.reset_trigger();
                 self.select = Some(0);
                 ControlUI::Change
             }
             InputRequest::Last => {
-                self.trigger.reset();
+                self.trigger.reset_trigger();
                 if !self.areas.is_empty() {
                     self.select = Some(self.areas.len() - 1);
                 } else {
@@ -224,7 +224,7 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
                 let cc = cc.to_ascii_lowercase();
                 for (i, k) in self.key.iter().enumerate() {
                     if cc == *k {
-                        self.trigger.reset();
+                        self.trigger.reset_trigger();
                         self.select = Some(i);
                         break 'f ControlUI::Change;
                     }
@@ -235,7 +235,7 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
                 let cc = cc.to_ascii_lowercase();
                 for (i, k) in self.key.iter().enumerate() {
                     if cc == *k {
-                        self.trigger.reset();
+                        self.trigger.reset_trigger();
                         self.select = Some(i);
                         break 'f ControlUI::Run(self.action[i]);
                     }
@@ -246,20 +246,20 @@ impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
                 if self.select == Some(i) {
                     ControlUI::NoChange
                 } else {
-                    self.trigger.reset();
+                    self.trigger.reset_trigger();
                     self.select = Some(i);
                     ControlUI::Change
                 }
             }
             InputRequest::MouseAction(i, timeout) => {
                 if self.select == Some(i) {
-                    if self.trigger.pull(timeout) {
+                    if self.trigger.pull_trigger(timeout) {
                         ControlUI::Run(self.action[i])
                     } else {
                         ControlUI::NoChange
                     }
                 } else {
-                    self.trigger.reset();
+                    self.trigger.reset_trigger();
                     ControlUI::NoChange
                 }
             }

@@ -2,7 +2,7 @@
 /// Extensions for [ratatui::widgets::Table]
 ///
 use crate::widget::selected::{NoSelection, Selection, SetSelection, SingleSelection};
-use crate::widget::{ActionTrigger, HasVerticalScroll};
+use crate::widget::{HasVerticalScroll, MouseFlags};
 use crate::FocusFlag;
 use crate::{ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
@@ -248,7 +248,8 @@ pub struct TableExtState<SEL> {
     pub len: usize,
     pub table_state: TableState,
     pub selection: SEL,
-    pub mouse: bool,
+
+    pub mouse: MouseFlags,
 }
 
 impl<SEL: Selection> HasFocusFlag for TableExtState<SEL> {

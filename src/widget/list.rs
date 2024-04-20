@@ -1,4 +1,4 @@
-use crate::widget::{ActionTrigger, HasVerticalScroll};
+use crate::widget::{HasVerticalScroll, MouseFlags};
 use crate::{ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, MouseOnly};
 use crossterm::event::Event;
 use ratatui::buffer::Buffer;
@@ -164,7 +164,7 @@ pub struct ListExtState {
     pub focus: FocusFlag,
     pub area: Rect,
     pub len: usize,
-    pub trigger: ActionTrigger,
+    pub trigger: MouseFlags,
     pub list_state: ListState,
 }
 

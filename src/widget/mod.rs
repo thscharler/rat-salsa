@@ -23,18 +23,36 @@ pub mod table;
 ///
 /// It uses a timeout to filter out the second click.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct ActionTrigger {
+pub struct MouseFlags {
     pub armed: Option<SystemTime>,
+    pub drag: bool,
 }
 
-impl ActionTrigger {
+impl MouseFlags {
+    pub fn do_drag(&self) -> bool {
+        self.drag
+    }
+
+    pub fn set_drag(&mut self) {
+        self.drag = true;
+    }
+
+    pub fn clear_drag(&mut self) {
+        self.drag = false;
+    }
+
     /// Reset the trigger.
-    pub fn reset(&mut self) {
+    pub fn reset_trigger(&mut self) {
         self.armed = None;
     }
 
+    /// Unconditionally set a new time for the trigger.
+    pub fn arm_trigger(&mut self) {
+        self.armed = Some(SystemTime::now());
+    }
+
     /// Pull the trigger, returns true if the action is triggered.
-    pub fn pull(&mut self, time_out: u64) -> bool {
+    pub fn pull_trigger(&mut self, time_out: u64) -> bool {
         match &self.armed {
             None => {
                 self.armed = Some(SystemTime::now());
