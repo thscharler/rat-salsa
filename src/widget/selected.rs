@@ -10,6 +10,7 @@ use std::mem;
 
 ///
 /// A trait for using a selection.
+/// This trait should be sufficient for list-like selections.
 ///
 /// This covers only the rendering side of the selection.
 /// For interactions one implementation per Selection type will be necessary.
@@ -22,8 +23,6 @@ use std::mem;
 ///
 /// See [TableExtState](crate::widget::table::TableExtState) for an example.
 ///
-/// This should be sufficient for list-like widgets.
-///
 pub trait Selection {
     /// Is selected.
     fn is_selected(&self, n: usize) -> bool;
@@ -31,6 +30,16 @@ pub trait Selection {
     /// Selection lead.
     fn lead_selection(&self) -> Option<usize>;
 }
+
+// TODO: Possible selection trait for full table 2d selection.
+//       I don't need it for now, so leave that for later.
+//
+// /// Extension for Table
+// pub trait CellSelection {
+//     fn is_selected_cell(&self, col: usize, row: usize) -> bool;
+//
+//     fn lead_cell_selection(&self) -> Option<(usize, usize)>;
+// }
 
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------

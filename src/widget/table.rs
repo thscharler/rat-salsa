@@ -26,6 +26,9 @@ use std::mem;
 pub struct TableExt<'a, SEL> {
     ///
     pub rows: Vec<Row<'a>>,
+    pub header: Option<Row<'a>>,
+    pub footer: Option<Row<'a>>,
+
     ///
     pub table: Table<'a>,
     /// Row count
@@ -58,6 +61,8 @@ impl<'a, SEL> Default for TableExt<'a, SEL> {
     fn default() -> Self {
         Self {
             rows: Default::default(),
+            header: None,
+            footer: None,
             table: Default::default(),
             len: 0,
             base_style: Default::default(),
@@ -89,6 +94,8 @@ impl<'a, SEL> TableExt<'a, SEL> {
 
         Self {
             rows,
+            header: None,
+            footer: None,
             table: Table::default().widths(widths),
             len,
             base_style: Default::default(),
@@ -109,12 +116,12 @@ impl<'a, SEL> TableExt<'a, SEL> {
     }
 
     pub fn header(mut self, header: Row<'a>) -> Self {
-        self.table = self.table.header(header);
+        self.header = Some(header);
         self
     }
 
     pub fn footer(mut self, footer: Row<'a>) -> Self {
-        self.table = self.table.footer(footer);
+        self.footer = Some(footer);
         self
     }
 
@@ -179,9 +186,36 @@ impl<'a, SEL: Selection> StatefulWidget for TableExt<'a, SEL> {
     type State = TableExtState<SEL>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        // store to state
         state.area = area;
         state.len = self.len;
 
+        // row layout
+        let header_height = self.header.as_ref().map_or(0, |h| h.height_with_margin());
+        let footer_height = self.footer.as_ref().map_or(0, |f| f.height_with_margin());
+        let layout = Layout::vertical([
+            Constraint::Length(header_height),
+            Constraint::Min(0),
+            Constraint::Length(footer_height),
+        ])
+        .split(area);
+
+        state.header_area = layout[0];
+        state.footer_area = layout[2];
+        state.row_areas.clear();
+        let mut row_area = Rect::new(layout[1].x, layout[1].y, layout[1].width, 1);
+        for row in self.rows.iter().skip(state.offset()) {
+            row_area.height = row.height_with_margin();
+
+            state.row_areas.push(row_area.clone());
+
+            row_area.y += row_area.height;
+            if row_area.y > layout[1].height {
+                break;
+            }
+        }
+
+        // selection
         for (i, r) in self.rows.iter_mut().enumerate() {
             let style = if state.focus.get() {
                 if state.selection.is_selected(i) {
@@ -200,7 +234,18 @@ impl<'a, SEL: Selection> StatefulWidget for TableExt<'a, SEL> {
             *r = mem::take(r).style(style);
         }
 
+        // prepare table widget
         let table = self.table.style(self.base_style).rows(self.rows);
+        let table = if let Some(header) = self.header {
+            table.header(header)
+        } else {
+            table
+        };
+        let table = if let Some(footer) = self.footer {
+            table.footer(footer)
+        } else {
+            table
+        };
 
         StatefulWidget::render(table, area, buf, &mut state.table_state);
     }
@@ -229,6 +274,8 @@ where
 
         Self {
             rows,
+            header: None,
+            footer: None,
             table: Table::default(),
             len,
             base_style: Default::default(),
@@ -242,11 +289,16 @@ where
 /// Extended TableState, contains a [ratatui::widgets::TableState].
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct TableExtState<SEL> {
-    pub focus: FocusFlag,
-    pub area: Rect,
-    pub trigger: ActionTrigger,
-    pub len: usize,
     pub table_state: TableState,
+
+    pub len: usize,
+
+    pub area: Rect,
+    pub header_area: Rect,
+    pub row_areas: Vec<Rect>,
+    pub footer_area: Rect,
+
+    pub focus: FocusFlag,
     pub selection: SEL,
 
     pub mouse: MouseFlags,
@@ -303,6 +355,53 @@ impl<SEL: Selection> TableExtState<SEL> {
 
     pub fn selection_mut(&mut self) -> &mut SEL {
         &mut self.selection
+    }
+
+    pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
+        for (i, r) in self.row_areas.iter().enumerate() {
+            if r.contains(pos) {
+                return Some(self.offset() + i);
+            }
+        }
+        None
+    }
+
+    /// Row when dragging. Can go outside the area.
+    pub fn row_at_drag(&self, pos: Position) -> usize {
+        let offset = self.offset();
+        for (i, r) in self.row_areas.iter().enumerate() {
+            if pos.y >= r.y && pos.y < r.y + r.height {
+                debug!("row_at_drag found row {}", offset + i);
+                return offset + i;
+            }
+        }
+
+        let offset = self.offset() as isize;
+        let rr = if pos.y < self.header_area.y + self.header_area.height {
+            // assume row-height=1 for outside the box.
+            let min_row = self.header_area.y as isize + self.header_area.height as isize;
+            offset + (pos.y as isize - min_row)
+        } else if pos.y >= self.footer_area.y {
+            let max_row = self.footer_area.y as isize;
+            let vis_rows = self.row_areas.len() as isize;
+            offset + vis_rows + (pos.y as isize - max_row)
+        } else {
+            if let Some(last) = self.row_areas.last() {
+                // count from last row.
+                let min_row = last.y as isize + last.height as isize;
+                let vis_rows = self.row_areas.len() as isize;
+                offset + vis_rows + (pos.y as isize - min_row)
+            } else {
+                // empty table, count from header
+                let min_row = self.header_area.y as isize + self.header_area.height as isize;
+                offset + (pos.y as isize - min_row)
+            }
+        };
+        if rr < 0 {
+            0
+        } else {
+            rr as usize
+        }
     }
 
     /// Scroll to selected.
@@ -464,39 +563,43 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                 row,
                 modifiers: KeyModifiers::NONE,
             }) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    let new_row = *row as usize - self.area.y as usize + self.offset();
-                    self.mouse = true;
-                    self.selection.select_clamped(new_row, self.len - 1);
-                    ControlUI::Change
+                let pos = Position::new(*column, *row);
+                if self.area.contains(pos) {
+                    if let Some(new_row) = self.row_at_clicked(pos) {
+                        self.mouse.set_drag();
+                        self.selection.select_clamped(new_row, self.len - 1);
+                        ControlUI::Change
+                    } else {
+                        ControlUI::NoChange
+                    }
                 } else {
                     ControlUI::Continue
                 }
             }
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::Drag(MouseButton::Left),
+                column,
                 row,
                 modifiers: KeyModifiers::NONE,
                 ..
             }) => {
-                if self.mouse {
-                    let new_row = self.offset() as isize + *row as isize - self.area.y as isize;
-                    if new_row >= 0 {
-                        self.selection
-                            .select_clamped(new_row as usize, self.len - 1);
-                        self.adjust_view();
-                    }
+                if self.mouse.do_drag() {
+                    let pos = Position::new(*column, *row);
+                    let new_row = self.row_at_drag(pos);
+                    self.mouse.set_drag();
+                    self.selection.select_clamped(new_row, self.len - 1);
+                    self.adjust_view();
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
                 }
             }
             Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
+                kind: MouseEventKind::Moved,
                 modifiers: KeyModifiers::NONE,
                 ..
             }) => {
-                self.mouse = false;
+                self.mouse.clear_drag();
                 ControlUI::Continue
             }
 
@@ -526,8 +629,8 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
 #[derive(Debug)]
 pub struct DoubleClick;
 
-impl<E, SEL: Selection> HandleCrossterm<ControlUI<(), E>, DoubleClick> for TableExtState<SEL> {
-    fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<(), E> {
+impl<E, SEL: Selection> HandleCrossterm<ControlUI<usize, E>, DoubleClick> for TableExtState<SEL> {
+    fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<usize, E> {
         match event {
             Event::Key(KeyEvent {
                 code: KeyCode::Enter,
@@ -536,7 +639,11 @@ impl<E, SEL: Selection> HandleCrossterm<ControlUI<(), E>, DoubleClick> for Table
                 ..
             }) => {
                 if self.is_focused() {
-                    ControlUI::Run(())
+                    if let Some(lead) = self.selection.lead_selection() {
+                        ControlUI::Run(lead)
+                    } else {
+                        ControlUI::NoChange
+                    }
                 } else {
                     ControlUI::Continue
                 }
@@ -547,18 +654,24 @@ impl<E, SEL: Selection> HandleCrossterm<ControlUI<(), E>, DoubleClick> for Table
                 row,
                 modifiers: KeyModifiers::NONE,
             }) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    let rr = row - self.area.y;
-                    let sel = self.table_state.offset() + rr as usize;
+                let pos = Position::new(*column, *row);
+                if self.area.contains(pos) {
+                    let Some(sel) = self.row_at_clicked(pos) else {
+                        return ControlUI::NoChange;
+                    };
+                    let Some(lead) = self.selection.lead_selection() else {
+                        return ControlUI::NoChange;
+                    };
 
-                    if self.selection.lead_selection() == Some(sel) {
-                        if self.trigger.pull(200) {
-                            ControlUI::Run(())
+                    if sel == lead {
+                        if self.mouse.pull_trigger(200) {
+                            ControlUI::Run(lead)
                         } else {
                             ControlUI::NoChange
                         }
                     } else {
-                        self.trigger.reset();
+                        // can happen if Up and Down switch order.
+                        self.mouse.arm_trigger();
                         ControlUI::NoChange
                     }
                 } else {
@@ -586,10 +699,10 @@ impl<E, SEL: Selection> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for Tabl
                 ..
             }) => {
                 if self.focus.get() {
-                    if let Some(selected) = self.selection.lead_selection() {
-                        ControlUI::Run(selected)
+                    if let Some(sel) = self.selection.lead_selection() {
+                        ControlUI::Run(sel)
                     } else {
-                        ControlUI::Continue
+                        ControlUI::NoChange
                     }
                 } else {
                     ControlUI::Continue
@@ -784,12 +897,16 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                 row,
                 modifiers: KeyModifiers::NONE,
             }) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    let new_row = *row as usize - self.area.y as usize + self.offset();
-                    self.mouse = true;
-                    self.selection
-                        .set_lead_clamped(new_row, self.len - 1, false);
-                    ControlUI::Change
+                let pos = Position::new(*column, *row);
+                if self.area.contains(pos) {
+                    if let Some(new_row) = self.row_at_clicked(pos) {
+                        self.mouse.set_drag();
+                        self.selection
+                            .set_lead_clamped(new_row, self.len - 1, false);
+                        ControlUI::Change
+                    } else {
+                        ControlUI::NoChange
+                    }
                 } else {
                     ControlUI::Continue
                 }
@@ -801,49 +918,53 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                 modifiers: KeyModifiers::CONTROL,
             }) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    let new_row = *row as usize - self.area.y as usize + self.offset();
-                    self.mouse = true;
-                    self.selection.transfer_lead_anchor();
-                    if self.selection.is_selected(new_row) {
-                        self.selection.remove(new_row);
+                    let pos = Position::new(*column, *row);
+                    if let Some(new_row) = self.row_at_clicked(pos) {
+                        self.mouse.set_drag();
+                        self.selection.transfer_lead_anchor();
+                        if self.selection.is_selected(new_row) {
+                            self.selection.remove(new_row);
+                        } else {
+                            self.selection.set_lead_clamped(new_row, self.len - 1, true);
+                        }
+                        ControlUI::Change
                     } else {
-                        self.selection.set_lead_clamped(new_row, self.len - 1, true);
+                        ControlUI::NoChange
                     }
-                    ControlUI::Change
                 } else {
                     ControlUI::Continue
                 }
             }
             Event::Mouse(MouseEvent {
                 kind: MouseEventKind::Drag(MouseButton::Left),
+                column,
                 row,
                 modifiers: KeyModifiers::NONE,
                 ..
             })
             | Event::Mouse(MouseEvent {
                 kind: MouseEventKind::Drag(MouseButton::Left),
+                column,
                 row,
                 modifiers: KeyModifiers::CONTROL,
                 ..
             }) => {
-                if self.mouse {
-                    let new_row = self.offset() as isize + *row as isize - self.area.y as isize;
-                    if new_row >= 0 {
-                        self.selection
-                            .set_lead_clamped(new_row as usize, self.len - 1, true);
-                        self.adjust_view();
-                    }
+                if self.mouse.do_drag() {
+                    let pos = Position::new(*column, *row);
+                    let new_row = self.row_at_drag(pos);
+                    self.selection.set_lead_clamped(new_row, self.len - 1, true);
+                    self.adjust_view();
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
                 }
             }
             Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
+                kind: MouseEventKind::Moved,
                 modifiers: KeyModifiers::NONE,
                 ..
             }) => {
-                self.mouse = false;
+                self.mouse.clear_drag();
                 ControlUI::Continue
             }
 
