@@ -17,13 +17,13 @@ use rat_salsa::widget::message::{
 };
 use rat_salsa::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use rat_salsa::widget::scrolled::{Scrolled, ScrolledState};
-use rat_salsa::widget::selected::{SetSelection, SingleSelection};
 use rat_salsa::widget::table::{TableExt, TableExtState, TableExtStyle};
 use rat_salsa::{
     check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
     Focus, HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
     RunConfig, Timed, Timers, TuiApp,
 };
+use rat_salsa::{SetSelection, SingleSelection};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
@@ -139,7 +139,7 @@ pub struct FormScrolledTable {
 
 impl FormOneState {
     pub fn new(sym: &Rc<NumberSymbols>) -> Self {
-        let s = Self {
+        let mut s = Self {
             g: GeneralState::new(),
             menu: Default::default(),
             textinput: FormTextInput::new(sym),
@@ -147,6 +147,7 @@ impl FormOneState {
             scrolled_para: FormScrolledParagraph::new(),
             scrolled_table: FormScrolledTable::new(),
         };
+        s.menu.select(Some(0));
         s
     }
 }
@@ -289,7 +290,7 @@ impl TuiApp for FormOneApp {
             }
         };
 
-        match uistate.menu.selected_action() {
+        match uistate.menu.action() {
             Some(MenuItem::Text) => {
                 tr!(repaint_textinput(&event, frame, layout, data, uistate), _)
             }
@@ -366,7 +367,7 @@ impl TuiApp for FormOneApp {
             }
         });
 
-        check_break!(match uistate.menu.select {
+        check_break!(match uistate.menu.selected() {
             Some(0) => handle_textinput(&event, data, uistate),
             Some(1) => handle_dateinput(&event, data, uistate),
             Some(2) => handle_scrolled_paragraph(&event, data, uistate),
@@ -1029,7 +1030,7 @@ fn handle_error(event: &Event, data: &mut FormOneData, uistate: &mut FormOneStat
     ] {
         uistate.g.error_dlg.log(s);
     }
-    uistate.menu.select = Some(0);
+    uistate.menu.select(Some(0));
 
     Control::Change
 }
