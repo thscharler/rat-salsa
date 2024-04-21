@@ -5,7 +5,7 @@
 /// No HasHorizontalScroll at the moment, probably never will be and instead
 /// a HasScroll covering both.
 ///
-use crate::widget::HasVerticalScroll;
+use crate::HasVerticalScroll;
 use crate::{
     CanValidate, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasValidFlag,
     MouseOnly, ValidFlag,

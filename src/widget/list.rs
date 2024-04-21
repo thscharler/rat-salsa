@@ -1,5 +1,7 @@
-use crate::widget::{HasVerticalScroll, MouseFlags};
-use crate::{ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, MouseOnly};
+use crate::widget::MouseFlags;
+use crate::{
+    ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasVerticalScroll, MouseOnly,
+};
 use crossterm::event::Event;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

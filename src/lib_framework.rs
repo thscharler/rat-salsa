@@ -18,7 +18,7 @@ use ratatui::{Frame, Terminal};
 use std::cmp::min;
 use std::collections::VecDeque;
 use std::fmt::Debug;
-use std::io::{ErrorKind, stdout, Stdout};
+use std::io::{stdout, ErrorKind, Stdout};
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::thread::{sleep, JoinHandle};
 use std::time::{Duration, SystemTime};
@@ -162,25 +162,21 @@ pub fn run_tui<App: TuiApp>(
     data: &mut App::Data,
     uistate: &mut App::State,
     cfg: RunConfig,
-) ->   io::Result<()>
+) -> io::Result<()>
 where
     App::Action: Debug + Send + 'static,
     App::Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
     App: Sync,
 {
-    stdout()
-        .execute(EnterAlternateScreen)?;
-    stdout()
-        .execute(EnableMouseCapture) ?;
+    stdout().execute(EnterAlternateScreen)?;
+    stdout().execute(EnableMouseCapture)?;
     enable_raw_mode()?;
 
     let r = match catch_unwind(AssertUnwindSafe(|| _run_tui(app, data, uistate, cfg))) {
         Ok(v) => v,
         Err(e) => {
-            stdout()
-                .execute(DisableMouseCapture) ?;
-            stdout()
-                .execute(LeaveAlternateScreen) ?;
+            stdout().execute(DisableMouseCapture)?;
+            stdout().execute(LeaveAlternateScreen)?;
             disable_raw_mode()?;
 
             resume_unwind(e);
@@ -223,7 +219,7 @@ where
     match app.init(data, uistate, &worker.send) {
         Ok(_) => {}
         Err(err) => {
-            _= app.report_error(err, data, uistate);
+            _ = app.report_error(err, data, uistate);
             return Err(io::Error::from(ErrorKind::Other));
         }
     };

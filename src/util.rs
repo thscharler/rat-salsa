@@ -8,21 +8,6 @@ pub(crate) fn span_width(spans: &[Span<'_>]) -> u16 {
     spans.iter().map(|v| v.width() as u16).sum()
 }
 
-/// Clamp the selection, invalid select values change to None.
-pub(crate) fn clamp_opt(select: Option<usize>, max: usize) -> Option<usize> {
-    if let Some(select) = select {
-        if max == 0 {
-            None
-        } else if select >= max {
-            Some(max - 1)
-        } else {
-            Some(select)
-        }
-    } else {
-        None
-    }
-}
-
 /// Select previous.
 pub(crate) fn prev_opt(select: Option<usize>, change: usize) -> Option<usize> {
     if let Some(select) = select {

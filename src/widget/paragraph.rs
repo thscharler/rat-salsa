@@ -1,4 +1,4 @@
-use crate::widget::{HasVerticalScroll, Scroll};
+use crate::HasVerticalScroll;
 use crate::{ControlUI, DefaultKeys, HandleCrossterm, MouseOnly};
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -13,30 +13,31 @@ use ratatui::widgets::{Block, Paragraph, Widget, Wrap};
 #[derive(Debug)]
 pub struct ParagraphExt<'a> {
     pub para: Paragraph<'a>,
-    pub len: usize,
+    pub vlen: usize,
 }
 
 #[derive(Debug, Default)]
 pub struct ParagraphExtState {
     pub area: Rect,
-    pub scroll: Scroll,
+    pub vlen: usize,
+    pub voffset: usize,
 }
 
 impl HasVerticalScroll for ParagraphExtState {
     fn vlen(&self) -> usize {
-        self.scroll.len()
+        self.vlen
     }
 
     fn voffset(&self) -> usize {
-        self.scroll.offset()
+        self.voffset
     }
 
     fn set_voffset(&mut self, offset: usize) {
-        self.scroll.set_offset(offset);
+        self.voffset = offset;
     }
 
     fn vpage(&self) -> usize {
-        self.scroll.page()
+        self.area.height as usize
     }
 }
 
@@ -49,7 +50,7 @@ impl<'a> ParagraphExt<'a> {
         let len = t.height();
         Self {
             para: Paragraph::new(t),
-            len,
+            vlen: len,
         }
     }
 
@@ -99,8 +100,7 @@ impl<'a> StatefulWidget for ParagraphExt<'a> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
-        state.scroll.set_len(self.len);
-        state.scroll.set_page(area.height as usize);
+        state.vlen = self.vlen;
 
         let para = self.para.scroll((state.voffset() as u16, 0));
         para.render(area, buf);

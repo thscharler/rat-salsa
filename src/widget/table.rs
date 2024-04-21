@@ -1,11 +1,11 @@
+use crate::widget::MouseFlags;
+use crate::{ControlUI, HasFocusFlag};
+use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
+use crate::{FocusFlag, HasVerticalScroll};
 ///
 /// Extensions for [ratatui::widgets::Table]
 ///
-use crate::widget::selected::{NoSelection, Selection, SetSelection, SingleSelection};
-use crate::widget::{HasVerticalScroll, MouseFlags};
-use crate::FocusFlag;
-use crate::{ControlUI, HasFocusFlag};
-use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
+use crate::{ListSelection, NoSelection, SetSelection, SingleSelection};
 use crossterm::event::{
     Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
 };
@@ -182,7 +182,7 @@ impl<'a, SEL> TableExt<'a, SEL> {
     }
 }
 
-impl<'a, SEL: Selection> StatefulWidget for TableExt<'a, SEL> {
+impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
     type State = TableExtState<SEL>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -304,7 +304,7 @@ pub struct TableExtState<SEL> {
     pub mouse: MouseFlags,
 }
 
-impl<SEL: Selection> HasFocusFlag for TableExtState<SEL> {
+impl<SEL> HasFocusFlag for TableExtState<SEL> {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -314,7 +314,7 @@ impl<SEL: Selection> HasFocusFlag for TableExtState<SEL> {
     }
 }
 
-impl<SEL: Selection> HasVerticalScroll for TableExtState<SEL> {
+impl<SEL> HasVerticalScroll for TableExtState<SEL> {
     fn vlen(&self) -> usize {
         self.len
     }
@@ -335,7 +335,7 @@ impl<SEL: Selection> HasVerticalScroll for TableExtState<SEL> {
     }
 }
 
-impl<SEL: Selection> TableExtState<SEL> {
+impl<SEL: ListSelection> TableExtState<SEL> {
     pub fn with_offset(mut self, offset: usize) -> Self {
         self.table_state = self.table_state.with_offset(offset);
         self
@@ -629,7 +629,9 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
 #[derive(Debug)]
 pub struct DoubleClick;
 
-impl<E, SEL: Selection> HandleCrossterm<ControlUI<usize, E>, DoubleClick> for TableExtState<SEL> {
+impl<E, SEL: ListSelection> HandleCrossterm<ControlUI<usize, E>, DoubleClick>
+    for TableExtState<SEL>
+{
     fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<usize, E> {
         match event {
             Event::Key(KeyEvent {
@@ -689,7 +691,7 @@ impl<E, SEL: Selection> HandleCrossterm<ControlUI<usize, E>, DoubleClick> for Ta
 #[derive(Debug)]
 pub struct DeleteRow;
 
-impl<E, SEL: Selection> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for TableExtState<SEL> {
+impl<E, SEL: ListSelection> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for TableExtState<SEL> {
     fn handle(&mut self, event: &Event, _: DeleteRow) -> ControlUI<usize, E> {
         match event {
             Event::Key(KeyEvent {
