@@ -1,9 +1,9 @@
 //!
 //! A simple button.
 //!
-use crate::FocusFlag;
+use crate::{ct_event, FocusFlag};
 use crate::{ControlUI, HasFocusFlag};
-use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
+use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
@@ -141,11 +141,19 @@ pub struct ButtonState<A> {
     pub action: A,
 }
 
-/// Button actions.
-#[derive(Debug)]
-pub enum InputRequest {
-    Arm,
-    Action,
+impl<A> ButtonState<A> {
+    //
+    pub fn action(&mut self) -> Option<A>
+    where
+        A: Clone,
+    {
+        if self.armed {
+            self.armed = false;
+            Some(self.action.clone())
+        } else {
+            None
+        }
+    }
 }
 
 impl<'a, A> StatefulWidget for Button<'a, A> {
@@ -178,107 +186,53 @@ impl<A> HasFocusFlag for ButtonState<A> {
 
 impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ButtonState<A> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
-        use crossterm::event::*;
-
-        let req = match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => 'f: {
-                if !self.focus.get() {
-                    break 'f None;
+        let res = if self.is_focused() {
+            match event {
+                ct_event!(keycode press Enter) => {
+                    self.armed = true;
+                    ControlUI::Change
                 }
-                Some(InputRequest::Arm)
+                ct_event!(keycode release Enter) => match self.action() {
+                    Some(a) => ControlUI::Run(a),
+                    None => ControlUI::NoChange,
+                },
+                _ => ControlUI::Continue,
             }
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Release,
-                ..
-            }) => 'f: {
-                if !self.focus.get() {
-                    break 'f None;
-                }
-                Some(InputRequest::Action)
-            }
-            _ => return self.handle(event, MouseOnly),
-        };
-
-        if let Some(req) = req {
-            self.perform(req)
         } else {
             ControlUI::Continue
-        }
+        };
+
+        res.or_else(|| {
+            <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly)
+        })
     }
 }
 
 impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ButtonState<A> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        use crossterm::event::*;
-
-        let req = match event {
-            Event::Mouse(
-                MouseEvent {
-                    kind: MouseEventKind::Down(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                }
-                | MouseEvent {
-                    kind: MouseEventKind::Drag(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                },
-            ) => {
+        let res = match event {
+            ct_event!(mouse down Left for column, row)
+            | ct_event!(mouse drag Left for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    Some(InputRequest::Arm)
-                } else {
-                    None
-                }
-            }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    Some(InputRequest::Action)
-                } else {
-                    None
-                }
-            }
-            _ => None,
-        };
-
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
-    }
-}
-
-impl<A: Clone, E> Input<ControlUI<A, E>> for ButtonState<A> {
-    type Request = InputRequest;
-
-    fn perform(&mut self, action: Self::Request) -> ControlUI<A, E> {
-        match action {
-            InputRequest::Arm => {
-                self.armed = true;
-                ControlUI::Change
-            }
-            InputRequest::Action => {
-                if self.armed {
-                    self.armed = false;
-                    ControlUI::Run(self.action.clone())
+                    self.armed = true;
+                    ControlUI::Change
                 } else {
                     ControlUI::Continue
                 }
             }
-        }
+            ct_event!(mouse up Left for column, row) => {
+                if self.area.contains(Position::new(*column, *row)) {
+                    match self.action() {
+                        Some(a) => ControlUI::Run(a),
+                        None => ControlUI::NoChange,
+                    }
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            _ => ControlUI::Continue,
+        };
+
+        res
     }
 }

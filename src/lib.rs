@@ -21,7 +21,7 @@ mod lib_validate;
 mod lib_widget;
 
 pub use lib_control_flow::{ControlUI, SplitResult};
-pub use lib_event_handler::{DefaultKeys, HandleCrossterm, MouseOnly};
+pub use lib_event_handler::{modifiers, DefaultKeys, HandleCrossterm, MouseOnly};
 pub use lib_focus::{Focus, FocusFlag, HasFocusFlag};
 pub use lib_framework::{run_tui, RunConfig, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
@@ -29,6 +29,6 @@ pub use lib_scroll::HasVerticalScroll;
 pub use lib_selection::{ListSelection, NoSelection, SetSelection, SingleSelection};
 pub use lib_timer::{Timed, TimerDef, TimerEvent, Timers};
 pub use lib_validate::{CanValidate, HasValidFlag, ValidFlag};
-pub use lib_widget::{FrameWidget, Input, RenderFrameWidget};
+pub use lib_widget::{FrameWidget, RenderFrameWidget};
 
 pub use pure_rust_locales::Locale;

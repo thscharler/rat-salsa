@@ -2,14 +2,14 @@
 //! Status line and a message dialog.
 //!
 
-use crate::check_break;
 use crate::layout::layout_dialog;
 use crate::widget::button::{Button, ButtonState, ButtonStyle};
 use crate::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use crate::widget::scrolled::{Scrolled, ScrolledState};
 use crate::ControlUI;
+use crate::{check_break, ct_event};
 use crate::{DefaultKeys, HandleCrossterm};
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
@@ -205,12 +205,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
         });
 
         check_break!(match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Esc,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
+            ct_event!(keycode press Esc) => {
                 if self.active {
                     self.clear_log();
                     ControlUI::Change

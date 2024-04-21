@@ -7,7 +7,10 @@ use crate::lib_repaint::{Repaint, RepaintEvent};
 use crate::lib_timer::{Timed, TimerEvent, Timers};
 use crate::ControlUI;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
-use crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
+use crossterm::cursor::{DisableBlinking, EnableBlinking};
+use crossterm::event::{
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
+};
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
@@ -170,6 +173,8 @@ where
 {
     stdout().execute(EnterAlternateScreen)?;
     stdout().execute(EnableMouseCapture)?;
+    stdout().execute(EnableBlinking)?;
+    stdout().execute(EnableBracketedPaste)?;
     enable_raw_mode()?;
 
     let r = match catch_unwind(AssertUnwindSafe(|| _run_tui(app, data, uistate, cfg))) {
@@ -183,6 +188,8 @@ where
         }
     };
 
+    stdout().execute(DisableBracketedPaste)?;
+    stdout().execute(DisableBlinking)?;
     stdout().execute(DisableMouseCapture)?;
     stdout().execute(LeaveAlternateScreen)?;
     disable_raw_mode()?;

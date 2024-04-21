@@ -5,13 +5,11 @@
 //! key if the menu has focus.
 //!
 
-use crate::util::{clamp_opt, next_opt, prev_opt, span_width};
+use crate::util::span_width;
 use crate::widget::MouseFlags;
-use crate::{ControlUI, FocusFlag, HasFocusFlag};
-use crate::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
-use crossterm::event::{
-    Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-};
+use crate::{ct_event, ControlUI, FocusFlag, HasFocusFlag, SingleSelection};
+use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
+use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
@@ -113,352 +111,6 @@ impl<'a, A> MenuLine<'a, A> {
     }
 }
 
-/// Menu ops.
-#[derive(Debug)]
-pub enum InputRequest {
-    Prev,
-    Next,
-    First,
-    Last,
-    Action,
-    KeySelect(char),
-    KeyAction(char),
-    MouseSelect(usize),
-    MouseAction(usize, u64),
-}
-
-/// State for the menu.
-#[derive(Debug)]
-pub struct MenuLineState<A> {
-    /// Focus
-    pub focus: FocusFlag,
-    pub area: Rect,
-    pub areas: Vec<Rect>,
-    pub key: Vec<char>,
-    pub trigger: MouseFlags,
-    pub select: Option<usize>,
-    pub len: usize,
-    pub action: Vec<A>,
-    pub mouse: bool,
-}
-
-impl<A> MenuLineState<A> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn selected_action(&self) -> Option<A>
-    where
-        A: Copy,
-    {
-        match self.select {
-            Some(i) => self.action.get(i).copied(),
-            None => None,
-        }
-    }
-}
-
-impl<A> Default for MenuLineState<A> {
-    fn default() -> Self {
-        Self {
-            focus: Default::default(),
-            key: Default::default(),
-            trigger: Default::default(),
-            select: Some(0),
-            len: Default::default(),
-            areas: Default::default(),
-            action: Default::default(),
-            area: Default::default(),
-            mouse: false,
-        }
-    }
-}
-
-impl<A> HasFocusFlag for MenuLineState<A> {
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
-    }
-
-    fn area(&self) -> Rect {
-        self.area
-    }
-}
-
-impl<A: Copy, E> Input<ControlUI<A, E>> for MenuLineState<A> {
-    type Request = InputRequest;
-
-    fn perform(&mut self, req: Self::Request) -> ControlUI<A, E> {
-        match req {
-            InputRequest::Prev => {
-                self.trigger.reset_trigger();
-                self.select = prev_opt(self.select, 1);
-                ControlUI::Change
-            }
-            InputRequest::Next => {
-                self.trigger.reset_trigger();
-                self.select = next_opt(self.select, 1, self.len);
-                ControlUI::Change
-            }
-            InputRequest::First => {
-                self.trigger.reset_trigger();
-                self.select = Some(0);
-                ControlUI::Change
-            }
-            InputRequest::Last => {
-                self.trigger.reset_trigger();
-                if !self.areas.is_empty() {
-                    self.select = Some(self.areas.len() - 1);
-                } else {
-                    self.select = None;
-                }
-                ControlUI::Change
-            }
-            InputRequest::Action => {
-                if let Some(i) = self.select {
-                    ControlUI::Run(self.action[i])
-                } else {
-                    ControlUI::NoChange
-                }
-            }
-            InputRequest::KeySelect(cc) => 'f: {
-                let cc = cc.to_ascii_lowercase();
-                for (i, k) in self.key.iter().enumerate() {
-                    if cc == *k {
-                        self.trigger.reset_trigger();
-                        self.select = Some(i);
-                        break 'f ControlUI::Change;
-                    }
-                }
-                ControlUI::Continue
-            }
-            InputRequest::KeyAction(cc) => 'f: {
-                let cc = cc.to_ascii_lowercase();
-                for (i, k) in self.key.iter().enumerate() {
-                    if cc == *k {
-                        self.trigger.reset_trigger();
-                        self.select = Some(i);
-                        break 'f ControlUI::Run(self.action[i]);
-                    }
-                }
-                ControlUI::Continue
-            }
-            InputRequest::MouseSelect(i) => {
-                if self.select == Some(i) {
-                    ControlUI::NoChange
-                } else {
-                    self.trigger.reset_trigger();
-                    self.select = Some(i);
-                    ControlUI::Change
-                }
-            }
-            InputRequest::MouseAction(i, timeout) => {
-                if self.select == Some(i) {
-                    if self.trigger.pull_trigger(timeout) {
-                        ControlUI::Run(self.action[i])
-                    } else {
-                        ControlUI::NoChange
-                    }
-                } else {
-                    self.trigger.reset_trigger();
-                    ControlUI::NoChange
-                }
-            }
-        }
-    }
-}
-
-/// React to ctrl + menu shortcut.
-#[derive(Debug)]
-pub struct HotKeyCtrl;
-
-impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, HotKeyCtrl> for MenuLineState<A> {
-    fn handle(&mut self, event: &Event, _: HotKeyCtrl) -> ControlUI<A, E> {
-        let req = match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Char(cc),
-                modifiers: KeyModifiers::CONTROL,
-                kind: KeyEventKind::Press,
-                ..
-            }) => Some(InputRequest::KeyAction(*cc)),
-            _ => None,
-        };
-
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
-    }
-}
-
-/// React to alt + menu shortcut.
-#[derive(Debug)]
-pub struct HotKeyAlt;
-
-impl<A: Copy + Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, HotKeyAlt> for MenuLineState<A> {
-    fn handle(&mut self, event: &Event, _: HotKeyAlt) -> ControlUI<A, E> {
-        let req = match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Char(cc),
-                modifiers: KeyModifiers::ALT,
-                kind: KeyEventKind::Press,
-                ..
-            }) => Some(InputRequest::KeyAction(*cc)),
-            _ => None,
-        };
-
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
-    }
-}
-
-impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState<A> {
-    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
-        let req = match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Char(cc),
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.is_focused() {
-                    Some(InputRequest::KeyAction(*cc))
-                } else {
-                    None
-                }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Left,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.is_focused() {
-                    Some(InputRequest::Prev)
-                } else {
-                    None
-                }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Right,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.is_focused() {
-                    Some(InputRequest::Next)
-                } else {
-                    None
-                }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Home,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.is_focused() {
-                    Some(InputRequest::First)
-                } else {
-                    None
-                }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::End,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.is_focused() {
-                    Some(InputRequest::Last)
-                } else {
-                    None
-                }
-            }
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
-                if self.is_focused() {
-                    Some(InputRequest::Action)
-                } else {
-                    None
-                }
-            }
-
-            _ => return self.handle(event, MouseOnly),
-        };
-
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
-    }
-}
-
-impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A> {
-    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        let req = match event {
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => 'f: {
-                for (i, r) in self.areas.iter().enumerate() {
-                    if r.contains(Position::new(*column, *row)) {
-                        self.mouse = true;
-                        break 'f Some(InputRequest::MouseSelect(i));
-                    }
-                }
-                None
-            }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Drag(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => 'f: {
-                if self.mouse {
-                    for (i, r) in self.areas.iter().enumerate() {
-                        if r.contains(Position::new(*column, *row)) {
-                            break 'f Some(InputRequest::MouseSelect(i));
-                        }
-                    }
-                }
-                None
-            }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => 'f: {
-                self.mouse = false;
-                for (i, r) in self.areas.iter().enumerate() {
-                    if r.contains(Position::new(*column, *row)) {
-                        break 'f Some(InputRequest::MouseAction(i, 1000));
-                    }
-                }
-                None
-            }
-            _ => None,
-        };
-
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
-    }
-}
-
 impl<'a, A> StatefulWidget for MenuLine<'a, A> {
     type State = MenuLineState<A>;
 
@@ -468,8 +120,9 @@ impl<'a, A> StatefulWidget for MenuLine<'a, A> {
 
         state.area = area;
         state.key = self.key;
-        state.len = self.menu.len();
-        state.select = clamp_opt(state.select, state.len);
+        if let Some(selected) = state.select.selected() {
+            state.select.select_clamped(selected, self.menu.len());
+        }
         state.action = self.action;
 
         let mut text = Text::default();
@@ -494,7 +147,7 @@ impl<'a, A> StatefulWidget for MenuLine<'a, A> {
                 col = area.x;
             }
 
-            if state.select == Some(n) {
+            if state.select.selected() == Some(n) {
                 for v in &mut item {
                     v.style = v.style.patch(if state.focus.get() {
                         self.focus_style
@@ -547,4 +200,229 @@ fn menu_span(txt: &str) -> (char, Vec<Span<'_>>) {
     }
 
     (key, menu)
+}
+
+/// State for the menu.
+#[derive(Debug)]
+pub struct MenuLineState<A> {
+    /// Focus
+    pub focus: FocusFlag,
+    pub area: Rect,
+    pub areas: Vec<Rect>,
+    pub key: Vec<char>,
+    pub action: Vec<A>,
+    pub select: SingleSelection,
+    pub mouse: MouseFlags,
+}
+
+impl<A> MenuLineState<A> {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn len(&self) -> usize {
+        self.action.len()
+    }
+
+    pub fn selected(&self) -> Option<usize> {
+        self.select.selected()
+    }
+
+    pub fn select(&mut self, select: Option<usize>) {
+        self.select.select(select);
+    }
+
+    pub fn select_by_key(&mut self, cc: char) {
+        let cc = cc.to_ascii_lowercase();
+        for (i, k) in self.key.iter().enumerate() {
+            if cc == *k {
+                self.select.select(Some(i));
+                break;
+            }
+        }
+    }
+
+    pub fn item_at(&self, pos: Position) -> Option<usize> {
+        for (i, r) in self.areas.iter().enumerate() {
+            if r.contains(pos) {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    pub fn next(&mut self) {
+        self.select.next(1, self.len());
+    }
+
+    pub fn prev(&mut self) {
+        self.select.prev(1);
+    }
+
+    pub fn action(&self) -> Option<A>
+    where
+        A: Copy,
+    {
+        match self.select.selected() {
+            Some(i) => self.action.get(i).copied(),
+            None => None,
+        }
+    }
+}
+
+impl<A> Default for MenuLineState<A> {
+    fn default() -> Self {
+        Self {
+            focus: Default::default(),
+            key: Default::default(),
+            mouse: Default::default(),
+            select: Default::default(),
+            areas: Default::default(),
+            action: Default::default(),
+            area: Default::default(),
+        }
+    }
+}
+
+impl<A> HasFocusFlag for MenuLineState<A> {
+    fn focus(&self) -> &FocusFlag {
+        &self.focus
+    }
+
+    fn area(&self) -> Rect {
+        self.area
+    }
+}
+
+/// React to ctrl + menu shortcut.
+#[derive(Debug)]
+pub struct HotKeyCtrl;
+
+impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, HotKeyCtrl> for MenuLineState<A> {
+    fn handle(&mut self, event: &Event, _: HotKeyCtrl) -> ControlUI<A, E> {
+        let res = match event {
+            ct_event!(key press CONTROL-cc) => {
+                self.select_by_key(*cc);
+                match self.action() {
+                    Some(a) => ControlUI::Run(a),
+                    None => ControlUI::Continue,
+                }
+            }
+            _ => ControlUI::Continue,
+        };
+
+        res
+    }
+}
+
+/// React to alt + menu shortcut.
+#[derive(Debug)]
+pub struct HotKeyAlt;
+
+impl<A: Copy + Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, HotKeyAlt> for MenuLineState<A> {
+    fn handle(&mut self, event: &Event, _: HotKeyAlt) -> ControlUI<A, E> {
+        let res = match event {
+            ct_event!(key press ALT-cc) => {
+                self.select_by_key(*cc);
+                match self.action() {
+                    Some(a) => ControlUI::Run(a),
+                    None => ControlUI::Continue,
+                }
+            }
+            _ => ControlUI::Continue,
+        };
+
+        res
+    }
+}
+
+impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState<A> {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+        debug!("handle menu {:?}", event);
+        let res = if self.is_focused() {
+            match event {
+                ct_event!(key press cc) => {
+                    self.select_by_key(*cc);
+                    match self.action() {
+                        Some(a) => ControlUI::Run(a),
+                        None => ControlUI::Continue,
+                    }
+                }
+                ct_event!(keycode press Left) => {
+                    debug!("sel prev");
+                    self.prev();
+                    ControlUI::Change
+                }
+                ct_event!(keycode press Right) => {
+                    debug!("sel next");
+                    self.next();
+                    ControlUI::Change
+                }
+                ct_event!(keycode press Home) => {
+                    self.select(Some(0));
+                    ControlUI::Change
+                }
+                ct_event!(keycode press End) => {
+                    self.select(Some(self.len() - 1));
+                    ControlUI::Change
+                }
+                ct_event!(keycode press Enter) => match self.action() {
+                    Some(a) => ControlUI::Run(a),
+                    None => ControlUI::Continue,
+                },
+                _ => ControlUI::Continue,
+            }
+        } else {
+            ControlUI::Continue
+        };
+
+        res.or_else(|| self.handle(event, MouseOnly))
+    }
+}
+
+impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A> {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
+        let res = match event {
+            ct_event!(mouse down Left for col, row) => {
+                if let Some(i) = self.item_at(Position::new(*col, *row)) {
+                    self.mouse.set_drag();
+                    self.select(Some(i));
+                    ControlUI::Change
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            ct_event!(mouse drag Left for col, row) => {
+                if self.mouse.do_drag() {
+                    if let Some(i) = self.item_at(Position::new(*col, *row)) {
+                        self.mouse.set_drag();
+                        self.select(Some(i));
+                        ControlUI::Change
+                    } else {
+                        ControlUI::Continue
+                    }
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            ct_event!(mouse up Left for col,row) => {
+                let idx = self.item_at(Position::new(*col, *row));
+                if self.selected() == idx && self.mouse.pull_trigger(500) {
+                    match self.action() {
+                        Some(a) => ControlUI::Run(a),
+                        None => ControlUI::Continue,
+                    }
+                } else {
+                    ControlUI::Continue
+                }
+            }
+            ct_event!(mouse moved) => {
+                self.mouse.clear_drag();
+                ControlUI::Continue
+            }
+            _ => ControlUI::Continue,
+        };
+
+        res
+    }
 }

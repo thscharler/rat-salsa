@@ -35,70 +35,167 @@ pub trait HandleCrossterm<R, KeyMap = DefaultKeys> {
     fn handle(&mut self, event: &crossterm::event::Event, keymap: KeyMap) -> R;
 }
 
+pub mod modifiers {
+    use crossterm::event::KeyModifiers;
+
+    pub const NONE: KeyModifiers = KeyModifiers::NONE;
+    pub const CONTROL: KeyModifiers = KeyModifiers::CONTROL;
+    pub const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
+    pub const ALT: KeyModifiers = KeyModifiers::ALT;
+    pub const META: KeyModifiers = KeyModifiers::META;
+    pub const SUPER: KeyModifiers = KeyModifiers::SUPER;
+    pub const HYPER: KeyModifiers = KeyModifiers::HYPER;
+    pub const CONTROL_SHIFT: KeyModifiers = KeyModifiers::from_bits_truncate(0b0000_0011);
+    pub const ALT_SHIFT: KeyModifiers = KeyModifiers::from_bits_truncate(0b0000_0101);
+}
+
 #[macro_export]
 macro_rules! ct_event {
-    (key-char press $mod:ident $code:ident ) => {
-        Event::Key(KeyEvent {
-            code: KeyCode::Char($code),
-            modifiers: KeyModifiers::$mod,
-            kind: KeyEventKind::Press,
+    (key press $code:pat) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::Char($code),
+            modifiers: $crate::modifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
             ..
         })
     };
-    (key-char press $mod:ident $code:literal ) => {
-        Event::Key(KeyEvent {
-            code: KeyCode::Char($code),
-            modifiers: KeyModifiers::$mod,
-            kind: KeyEventKind::Press,
+    (key press $mod:ident-$code:pat) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::Char($code),
+            modifiers: $crate::modifiers::$mod,
+            kind: crossterm::event::KeyEventKind::Press,
             ..
         })
     };
-    (key-code press $mod:ident $code:ident ) => {
-        Event::Key(KeyEvent {
-            code: KeyCode::$code,
-            modifiers: KeyModifiers::$mod,
-            kind: KeyEventKind::Press,
+    (key release $code:pat) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::Char($code),
+            modifiers: $crate::modifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Release,
+            ..
+        })
+    };
+    (key release $mod:ident-$code:pat) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::Char($code),
+            modifiers: $crate::modifiers::$mod,
+            kind: crossterm::event::KeyEventKind::Release,
             ..
         })
     };
 
-    (mouse-down $mod:ident $button:ident for $col:ident, $row:ident ) => {
-        Event::Mouse(MouseEvent {
-            kind: MouseEventKind::Down(MouseButton::$button),
-            column: $col,
-            row: $row,
-            modifiers: KeyModifiers::$mod,
-        })
-    };
-    (mouse-up $mod:ident $button:ident for $col:ident, $row:ident ) => {
-        Event::Mouse(MouseEvent {
-            kind: MouseEventKind::Up(MouseButton::$button),
-            column: $col,
-            row: $row,
-            modifiers: KeyModifiers::$mod,
-        })
-    };
-    (mouse-drag $mod:ident $button:ident for $col:ident, $row:ident ) => {
-        Event::Mouse(MouseEvent {
-            kind: MouseEventKind::Drag(MouseButton::$button),
-            column: $col,
-            row: $row,
-            modifiers: KeyModifiers::$mod,
-        })
-    };
-    (mouse-moved ) => {
-        Event::Mouse(MouseEvent {
-            kind: MouseEventKind::Moved,
-            modifiers: KeyModifiers::NONE,
+    (keycode press $code:ident) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::$code,
+            modifiers: $crate::modifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
             ..
         })
     };
-    (mouse-moved for $col:ident, $row:ident) => {
-        Event::Mouse(MouseEvent {
-            kind: MouseEventKind::Moved,
+    (keycode press $mod:ident-$code:ident) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::$code,
+            modifiers: $crate::modifiers::$mod,
+            kind: crossterm::event::KeyEventKind::Press,
+            ..
+        })
+    };
+    (keycode release $code:ident) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::$code,
+            modifiers: $crate::modifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Release,
+            ..
+        })
+    };
+    (keycode release $mod:ident-$code:ident) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::$code,
+            modifiers: $crate::modifiers::$mod,
+            kind: crossterm::event::KeyEventKind::Release,
+            ..
+        })
+    };
+
+    (mouse down $button:ident for $col:ident, $row:ident ) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::$button),
             column: $col,
             row: $row,
-            modifiers: KeyModifiers::NONE,
+            modifiers: $crate::modifiers::NONE,
+        })
+    };
+    (mouse down $mod:ident-$button:ident for $col:ident, $row:ident ) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Down(crossterm::event::MouseButton::$button),
+            column: $col,
+            row: $row,
+            modifiers: $crate::modifiers::$mod,
+        })
+    };
+    (mouse up $button:ident for $col:ident, $row:ident ) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Up(crossterm::event::MouseButton::$button),
+            column: $col,
+            row: $row,
+            modifiers: $crate::modifiers::NONE,
+        })
+    };
+    (mouse up $mod:ident-$button:ident for $col:ident, $row:ident ) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Up(crossterm::event::MouseButton::$button),
+            column: $col,
+            row: $row,
+            modifiers: $crate::modifiers::$mod,
+        })
+    };
+    (mouse drag $button:ident for $col:ident, $row:ident ) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Drag(crossterm::event::MouseButton::$button),
+            column: $col,
+            row: $row,
+            modifiers: $crate::modifiers::NONE,
+        })
+    };
+    (mouse drag $mod:ident-$button:ident for $col:ident, $row:ident ) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Drag(crossterm::event::MouseButton::$button),
+            column: $col,
+            row: $row,
+            modifiers: $crate::modifiers::$mod,
+        })
+    };
+
+    (mouse moved ) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Moved,
+            modifiers: $crate::modifiers::NONE,
+            ..
+        })
+    };
+    (mouse moved for $col:ident, $row:ident) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::Moved,
+            column: $col,
+            row: $row,
+            modifiers: $crate::modifiers::NONE,
+        })
+    };
+
+    (scroll down for $col:ident, $row:ident) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::ScrollDown,
+            column: $col,
+            row: $row,
+            modifiers: $crate::modifiers::NONE,
+        })
+    };
+    (scroll up for $col:ident, $row:ident) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::ScrollUp,
+            column: $col,
+            row: $row,
+            modifiers: $crate::modifiers::NONE,
         })
     };
 }

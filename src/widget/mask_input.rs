@@ -48,9 +48,9 @@
 use crate::number::NumberSymbols;
 use crate::widget::basic::ClearStyle;
 use crate::widget::mask_input::core::InputMaskCore;
-use crate::{grapheme, tr};
+use crate::{ct_event, grapheme, tr};
 use crate::{ControlUI, ValidFlag};
-use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
+use crate::{DefaultKeys, FrameWidget, HandleCrossterm, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 #[allow(unused_imports)]
 use log::debug;
@@ -67,7 +67,6 @@ use std::rc::Rc;
 #[derive(Debug)]
 pub struct MaskedInput {
     pub terminal_cursor: bool,
-    pub without_focus: bool,
     pub show_compact: bool,
     pub insets: Margin,
     pub style: Style,
@@ -92,7 +91,6 @@ impl Default for MaskedInput {
     fn default() -> Self {
         Self {
             terminal_cursor: true,
-            without_focus: false,
             show_compact: false,
             insets: Default::default(),
             style: Default::default(),
@@ -115,13 +113,6 @@ impl MaskedInput {
     /// Use our own cursor indicator or the terminal cursor.
     pub fn terminal_cursor(mut self, terminal: bool) -> Self {
         self.terminal_cursor = terminal;
-        self
-    }
-
-    /// Do accept keyboard events event without being focused.
-    /// Useful for a catch field, eg "find stuff"
-    pub fn without_focus(mut self, without_focus: bool) -> Self {
-        self.without_focus = without_focus;
         self
     }
 
@@ -186,7 +177,7 @@ impl MaskedInput {
     }
 
     fn active_select_style(&self, focus: bool) -> Style {
-        if self.without_focus || focus {
+        if focus {
             self.select_style
         } else {
             self.style
@@ -199,8 +190,6 @@ impl FrameWidget for MaskedInput {
 
     #[allow(clippy::vec_init_then_push)]
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
-        state.without_focus = self.without_focus;
-
         let mut l_area = area.inner(&self.insets);
         let l_invalid = if !state.valid.get() {
             l_area.width -= 1;
@@ -297,67 +286,64 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MaskedInputState
 where
     E: From<fmt::Error>,
 {
-    #[allow(non_snake_case)]
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
-        use crossterm::event::KeyCode::*;
-        use crossterm::event::{Event, KeyEvent, KeyEventKind, KeyModifiers};
-
-        const NONE: KeyModifiers = KeyModifiers::NONE;
-        const CTRL: KeyModifiers = KeyModifiers::CONTROL;
-        const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
-        let CTRL_SHIFT: KeyModifiers = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
-
-        let req = match event {
-            Event::Key(KeyEvent {
-                code,
-                modifiers,
-                kind: KeyEventKind::Press,
-                ..
-            }) => 'f: {
-                if !self.focus.get() && !self.without_focus {
-                    break 'f None;
+        let res = 'f: {
+            if self.is_focused() {
+                match event {
+                    ct_event!(keycode press Left) => self.move_to_prev(false),
+                    ct_event!(keycode press Right) => self.move_to_next(false),
+                    ct_event!(keycode press CONTROL-Left) => {
+                        let pos = self.prev_word_boundary();
+                        self.set_cursor(pos, false);
+                    }
+                    ct_event!(keycode press CONTROL-Right) => {
+                        let pos = self.next_word_boundary();
+                        self.set_cursor(pos, false);
+                    }
+                    ct_event!(keycode press Home) => self.set_cursor(0, false),
+                    ct_event!(keycode press End) => self.set_cursor(self.len(), false),
+                    ct_event!(keycode press SHIFT-Left) => self.move_to_prev(true),
+                    ct_event!(keycode press SHIFT-Right) => self.move_to_next(true),
+                    ct_event!(keycode press CONTROL_SHIFT-Left) => {
+                        let pos = self.prev_word_boundary();
+                        self.set_cursor(pos, true);
+                    }
+                    ct_event!(keycode press CONTROL_SHIFT-Right) => {
+                        let pos = self.next_word_boundary();
+                        self.set_cursor(pos, true);
+                    }
+                    ct_event!(keycode press SHIFT-Home) => self.set_cursor(0, true),
+                    ct_event!(keycode press SHIFT-End) => self.set_cursor(self.len(), true),
+                    ct_event!(key press CONTROL-'a') => self.set_selection(0, self.len()),
+                    ct_event!(keycode press Backspace) => tr!(self.delete_prev_char()),
+                    ct_event!(keycode press Delete) => tr!(self.delete_next_char()),
+                    ct_event!(keycode press CONTROL-Backspace) => {
+                        let prev = self.prev_word_boundary();
+                        tr!(self.remove_selection(prev..self.cursor()));
+                    }
+                    ct_event!(keycode press CONTROL-Delete) => {
+                        let next = self.next_word_boundary();
+                        tr!(self.remove_selection(self.cursor()..next));
+                    }
+                    ct_event!(key press CONTROL-'d') => self.set_value(""),
+                    ct_event!(keycode press CONTROL_SHIFT-Backspace) => {
+                        tr!(self.remove_selection(0..self.cursor()))
+                    }
+                    ct_event!(keycode press CONTROL_SHIFT-Delete) => {
+                        tr!(self.remove_selection(self.cursor()..self.len()))
+                    }
+                    ct_event!(key press c) | ct_event!(key press SHIFT-c) => {
+                        tr!(self.insert_char(*c))
+                    }
+                    _ => break 'f ControlUI::Continue,
                 }
-
-                match (*code, *modifiers) {
-                    (Left, NONE) => Some(InputRequest::GoToPrevChar(false)),
-                    (Right, NONE) => Some(InputRequest::GoToNextChar(false)),
-                    (Left, CTRL) => Some(InputRequest::GoToPrevWord(false)),
-                    (Right, CTRL) => Some(InputRequest::GoToNextWord(false)),
-                    (Home, NONE) => Some(InputRequest::GoToStart(false)),
-                    (End, NONE) => Some(InputRequest::GoToEnd(false)),
-
-                    (Left, SHIFT) => Some(InputRequest::GoToPrevChar(true)),
-                    (Right, SHIFT) => Some(InputRequest::GoToNextChar(true)),
-                    (Left, m) if m == CTRL_SHIFT => Some(InputRequest::GoToPrevWord(true)),
-                    (Right, m) if m == CTRL_SHIFT => Some(InputRequest::GoToNextWord(true)),
-                    (Home, SHIFT) => Some(InputRequest::GoToStart(true)),
-                    (End, SHIFT) => Some(InputRequest::GoToEnd(true)),
-
-                    (Char('a'), CTRL) => Some(InputRequest::SelectAll),
-
-                    (Backspace, NONE) => Some(InputRequest::DeletePrevChar),
-                    (Delete, NONE) => Some(InputRequest::DeleteNextChar),
-
-                    (Backspace, m) if m == CTRL_SHIFT => Some(InputRequest::DeletePrevWord),
-                    (Delete, m) if m == CTRL_SHIFT => Some(InputRequest::DeleteNextWord),
-
-                    (Char('d'), CTRL) => Some(InputRequest::DeleteLine),
-                    (Backspace, CTRL) => Some(InputRequest::DeleteTillStart),
-                    (Delete, CTRL) => Some(InputRequest::DeleteTillEnd),
-
-                    (Char(c), NONE) => Some(InputRequest::InsertChar(c)),
-                    (Char(c), SHIFT) => Some(InputRequest::InsertChar(c)),
-                    (_, _) => None,
-                }
+                ControlUI::Change
+            } else {
+                ControlUI::Continue
             }
-            _ => return self.handle(event, MouseOnly),
         };
 
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
+        res.or_else(|| self.handle(event, MouseOnly))
     }
 }
 
@@ -366,54 +352,34 @@ where
     E: From<fmt::Error>,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
-        use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-
-        let req = match event {
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+        let res = match event {
+            ct_event!(mouse down Left for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.mouse_select = true;
                     let c = column - self.area.x;
-                    Some(InputRequest::SetCursor(c as isize, false))
+                    self.set_offset_relative_cursor(c as isize, false);
+                    ControlUI::Change
                 } else {
-                    None
+                    ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
-                if self.mouse_select {
-                    self.mouse_select = false;
-                }
-                None
-            }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Drag(MouseButton::Left),
-                column,
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
+            ct_event!(mouse drag Left for column, _row) => {
                 if self.mouse_select {
                     let c = (*column as isize) - (self.area.x as isize);
-                    Some(InputRequest::SetCursor(c, true))
+                    self.set_offset_relative_cursor(c, true);
+                    ControlUI::Change
                 } else {
-                    None
+                    ControlUI::Continue
                 }
             }
-            _ => None,
+            ct_event!(mouse moved) => {
+                self.mouse_select = false;
+                ControlUI::Continue
+            }
+            _ => ControlUI::Continue,
         };
 
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
+        res
     }
 }
 
@@ -477,8 +443,8 @@ impl MaskedInputState {
     }
 
     /// Set the cursor position, reset selection.
-    pub fn set_cursor(&mut self, cursor: usize) {
-        self.value.set_cursor(cursor, false);
+    pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) {
+        self.value.set_cursor(cursor, extend_selection);
     }
 
     /// Place cursor at decimal separator, if any. 0 otherwise.
@@ -596,7 +562,7 @@ impl MaskedInputState {
 
     /// Selection
     pub fn has_selection(&self) -> bool {
-        self.value.is_anchored()
+        self.value.has_selection()
     }
 
     /// Selection
@@ -622,14 +588,92 @@ impl MaskedInputState {
         grapheme::split3(self.value.value(), self.value.selection()).1
     }
 
+    /// Set the cursor position from a visual position relative to the origin.
+    pub fn set_offset_relative_cursor(&mut self, rpos: isize, extend_selection: bool) {
+        let pos = if rpos < 0 {
+            self.value.offset().saturating_sub(-rpos as usize)
+        } else {
+            self.value.offset() + rpos as usize
+        };
+        self.value.set_cursor(pos, extend_selection);
+    }
+
+    pub fn prev_word_boundary(&self) -> usize {
+        self.value.prev_word_boundary()
+    }
+
+    pub fn next_word_boundary(&self) -> usize {
+        self.value.next_word_boundary()
+    }
+
+    /// Move to the next char.
+    pub fn move_to_next(&mut self, extend_selection: bool) {
+        if !extend_selection && self.value.has_selection() {
+            let c = self.value.selection().end;
+            self.value.set_cursor(c, false);
+        } else if self.value.cursor() < self.value.len() {
+            self.value
+                .set_cursor(self.value.cursor() + 1, extend_selection);
+        }
+    }
+
+    /// Move to the previous char.
+    pub fn move_to_prev(&mut self, extend_selection: bool) {
+        if !extend_selection && self.value.has_selection() {
+            let c = self.value.selection().start;
+            self.value.set_cursor(c, false);
+        } else if self.value.cursor() > 0 {
+            self.value
+                .set_cursor(self.value.cursor() - 1, extend_selection);
+        }
+    }
+
+    /// Insert a char a the current position.
+    pub fn insert_char(&mut self, c: char) -> Result<(), fmt::Error> {
+        if self.value.has_selection() {
+            self.value.remove_selection(self.value.selection())?;
+        }
+        self.value.advance_cursor(c);
+        self.value.insert_char(c)?;
+        Ok(())
+    }
+
+    pub fn remove_selection(&mut self, selection: Range<usize>) -> Result<(), fmt::Error> {
+        self.value.remove_selection(selection)
+    }
+
+    /// Delete the char before the cursor.
+    pub fn delete_prev_char(&mut self) -> Result<(), fmt::Error> {
+        if self.value.is_select_all() {
+            self.value.reset();
+        } else if self.value.has_selection() {
+            self.value.remove_selection(self.value.selection())?;
+        } else if self.value.cursor() > 0 {
+            self.value.remove_prev()?;
+        }
+        Ok(())
+    }
+
+    /// Delete the char after the cursor.
+    pub fn delete_next_char(&mut self) -> Result<(), fmt::Error> {
+        if self.value.is_select_all() {
+            self.value.reset();
+        } else if self.value.has_selection() {
+            self.value.remove_selection(self.value.selection())?;
+        } else if self.value.cursor() < self.value.len() {
+            self.value.remove_next()?;
+        }
+        Ok(())
+    }
+
     /// Extracts the visible part.
-    pub fn visible_range(&self) -> Range<usize> {
+    fn visible_range(&self) -> Range<usize> {
         let len = min(self.value.offset() + self.value.width(), self.value.len());
         self.value.offset()..len
     }
 
     /// Extracts the visible selection.
-    pub fn visible_selection(&self) -> Range<usize> {
+    fn visible_selection(&self) -> Range<usize> {
         let width = self.value.width();
         let offset = self.value.offset();
         let Range { mut start, mut end } = self.value.selection();
@@ -649,7 +693,7 @@ impl MaskedInputState {
     }
 
     /// Extracts the visible part.
-    pub fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
+    fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
         self.value.render_value();
 
         grapheme::split5(
@@ -661,7 +705,7 @@ impl MaskedInputState {
     }
 
     /// Visible cursor position.
-    pub fn visible_cursor(&mut self) -> u16 {
+    fn visible_cursor(&mut self) -> u16 {
         (self.value.cursor() - self.value.offset()) as u16
     }
 }
@@ -679,169 +723,6 @@ impl HasFocusFlag for MaskedInputState {
 impl HasValidFlag for MaskedInputState {
     fn valid(&self) -> &ValidFlag {
         &self.valid
-    }
-}
-
-impl<A, E> Input<ControlUI<A, E>> for MaskedInputState
-where
-    E: From<fmt::Error>,
-{
-    type Request = InputRequest;
-
-    fn perform(&mut self, action: Self::Request) -> ControlUI<A, E> {
-        use InputRequest::*;
-
-        match action {
-            SetCursor(rpos, anchor) => {
-                let pos = if rpos < 0 {
-                    self.value.offset().saturating_sub(-rpos as usize)
-                } else {
-                    self.value.offset() + rpos as usize
-                };
-                if self.value.cursor() == pos {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(pos, anchor);
-                    ControlUI::Change
-                }
-            }
-            Select(anchor, cursor) => {
-                self.value.set_cursor(anchor, false);
-                self.value.set_cursor(cursor, true);
-                ControlUI::Change
-            }
-            InsertChar(c) => {
-                if self.value.is_anchored() {
-                    tr!(self.value.remove_selection(self.value.selection()));
-                }
-                self.value.advance_cursor(c);
-                tr!(self.value.insert_char(c));
-                ControlUI::Change
-            }
-            DeletePrevChar => {
-                if self.value.is_select_all() {
-                    self.value.reset();
-                    ControlUI::Change
-                } else if self.value.is_anchored() {
-                    tr!(self.value.remove_selection(self.value.selection()));
-                    ControlUI::Change
-                } else if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    tr!(self.value.remove_prev());
-                    ControlUI::Change
-                }
-            }
-            DeleteNextChar => {
-                if self.value.is_select_all() {
-                    self.value.reset();
-                    ControlUI::Change
-                } else if self.value.is_anchored() {
-                    tr!(self.value.remove_selection(self.value.selection()));
-                    ControlUI::Change
-                } else if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    tr!(self.value.remove_next());
-                    ControlUI::Change
-                }
-            }
-            GoToPrevChar(anchor) => {
-                if !anchor && self.value.is_anchored() {
-                    let c = self.value.selection().start;
-                    self.value.set_cursor(c, false);
-                    ControlUI::Change
-                } else if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(self.value.cursor() - 1, anchor);
-                    ControlUI::Change
-                }
-            }
-            GoToNextChar(anchor) => {
-                if !anchor && self.value.is_anchored() {
-                    let c = self.value.selection().end;
-                    self.value.set_cursor(c, false);
-                    ControlUI::Change
-                } else if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(self.value.cursor() + 1, anchor);
-                    ControlUI::Change
-                }
-            }
-            GoToPrevWord(anchor) => {
-                if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    let cursor = self.value.prev_word_boundary();
-                    self.value.set_cursor(cursor, anchor);
-                    ControlUI::Change
-                }
-            }
-            GoToNextWord(anchor) => {
-                if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    let cursor = self.value.next_word_boundary();
-                    self.value.set_cursor(cursor, anchor);
-                    ControlUI::Change
-                }
-            }
-            DeleteLine => {
-                self.value.reset();
-                ControlUI::Change
-            }
-            DeletePrevWord => {
-                if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    let prev = self.value.prev_word_boundary();
-                    tr!(self.value.remove_selection(prev..self.value.cursor()));
-                    ControlUI::Change
-                }
-            }
-            DeleteNextWord => {
-                if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    let next = self.value.next_word_boundary();
-                    tr!(self.value.remove_selection(self.value.cursor()..next));
-                    ControlUI::Change
-                }
-            }
-            GoToStart(anchor) => {
-                if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(0, anchor);
-                    ControlUI::Change
-                }
-            }
-            GoToEnd(anchor) => {
-                if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(self.value.len(), anchor);
-                    ControlUI::Change
-                }
-            }
-            DeleteTillEnd => {
-                tr!(self
-                    .value
-                    .remove_selection(self.value.cursor()..self.value.len()));
-                ControlUI::Change
-            }
-            DeleteTillStart => {
-                tr!(self.value.remove_selection(0..self.value.cursor()));
-                ControlUI::Change
-            }
-            SelectAll => {
-                self.value.set_cursor(0, false);
-                self.value.set_cursor(self.value.len(), true);
-                ControlUI::Change
-            }
-        }
     }
 }
 
@@ -1550,7 +1431,7 @@ pub mod core {
             self.anchor
         }
 
-        pub fn is_anchored(&self) -> bool {
+        pub fn has_selection(&self) -> bool {
             self.cursor != self.anchor
         }
 
@@ -1567,14 +1448,14 @@ pub mod core {
             }
         }
 
-        pub fn set_cursor(&mut self, cursor: usize, anchor: bool) {
+        pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) {
             if cursor > self.len {
                 self.cursor = self.len;
             } else {
                 self.cursor = cursor;
             }
 
-            if !anchor {
+            if !extend_selection {
                 self.anchor = self.cursor;
             }
 

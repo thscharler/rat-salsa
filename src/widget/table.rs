@@ -1,14 +1,12 @@
 use crate::widget::MouseFlags;
-use crate::{ControlUI, HasFocusFlag};
+use crate::{ct_event, ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
 use crate::{FocusFlag, HasVerticalScroll};
 ///
 /// Extensions for [ratatui::widgets::Table]
 ///
 use crate::{ListSelection, NoSelection, SetSelection, SingleSelection};
-use crossterm::event::{
-    Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers, MouseButton, MouseEvent, MouseEventKind,
-};
+use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
@@ -444,74 +442,32 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SingleSelection> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let res = if self.is_focused() {
             match event {
-                Event::Key(KeyEvent {
-                    code: KeyCode::Down,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press Down) => {
                     self.selection.next(1, self.len - 1);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press Up) => {
                     self.selection.prev(1);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Down,
-                    modifiers: KeyModifiers::CONTROL,
-                    kind: KeyEventKind::Press,
-                    ..
-                })
-                | Event::Key(KeyEvent {
-                    code: KeyCode::End,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
                     self.selection.select(Some(self.len - 1));
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::CONTROL,
-                    kind: KeyEventKind::Press,
-                    ..
-                })
-                | Event::Key(KeyEvent {
-                    code: KeyCode::Home,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
                     self.selection.select(Some(0));
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::PageUp,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press PageUp) => {
                     self.selection.prev(self.vpage() / 2);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::PageDown,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press PageDown) => {
                     self.selection.next(self.vpage() / 2, self.len - 1);
                     self.adjust_view();
                     ControlUI::Change
@@ -531,12 +487,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SingleSelection> {
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         let res = match event {
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollDown,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.vscroll_down(self.vpage() / 5);
                     ControlUI::Change
@@ -544,12 +495,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollUp,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.vscroll_up(self.vpage() / 5);
                     ControlUI::Change
@@ -557,12 +503,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(mouse down Left for column, row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
@@ -576,13 +517,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Drag(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
+            ct_event!(mouse drag Left for column, row) => {
                 if self.mouse.do_drag() {
                     let pos = Position::new(*column, *row);
                     let new_row = self.row_at_drag(pos);
@@ -594,11 +529,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Moved,
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
+            ct_event!(mouse moved) => {
                 self.mouse.clear_drag();
                 ControlUI::Continue
             }
@@ -634,12 +565,7 @@ impl<E, SEL: ListSelection> HandleCrossterm<ControlUI<usize, E>, DoubleClick>
 {
     fn handle(&mut self, event: &Event, _: DoubleClick) -> ControlUI<usize, E> {
         match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
+            ct_event!(keycode press Enter) => {
                 if self.is_focused() {
                     if let Some(lead) = self.selection.lead_selection() {
                         ControlUI::Run(lead)
@@ -650,12 +576,7 @@ impl<E, SEL: ListSelection> HandleCrossterm<ControlUI<usize, E>, DoubleClick>
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(mouse up Left for column,row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
                     let Some(sel) = self.row_at_clicked(pos) else {
@@ -694,12 +615,7 @@ pub struct DeleteRow;
 impl<E, SEL: ListSelection> HandleCrossterm<ControlUI<usize, E>, DeleteRow> for TableExtState<SEL> {
     fn handle(&mut self, event: &Event, _: DeleteRow) -> ControlUI<usize, E> {
         match event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Delete,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) => {
+            ct_event!(keycode press Delete) => {
                 if self.focus.get() {
                     if let Some(sel) = self.selection.lead_selection() {
                         ControlUI::Run(sel)
@@ -719,135 +635,63 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let res = if self.is_focused() {
             match event {
-                Event::Key(KeyEvent {
-                    code: KeyCode::Down,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press Down) => {
                     self.selection.next(1, self.len - 1, false);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Down,
-                    modifiers: KeyModifiers::SHIFT,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press SHIFT-Down) => {
                     self.selection.next(1, self.len - 1, true);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press Up) => {
                     self.selection.prev(1, false);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::SHIFT,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press SHIFT-Up) => {
                     self.selection.prev(1, true);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Down,
-                    modifiers: KeyModifiers::CONTROL,
-                    kind: KeyEventKind::Press,
-                    ..
-                })
-                | Event::Key(KeyEvent {
-                    code: KeyCode::End,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
                     self.selection.set_lead(Some(self.len - 1), false);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::End,
-                    modifiers: KeyModifiers::SHIFT,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press SHIFT-End) => {
                     self.selection.set_lead(Some(self.len - 1), true);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Up,
-                    modifiers: KeyModifiers::CONTROL,
-                    kind: KeyEventKind::Press,
-                    ..
-                })
-                | Event::Key(KeyEvent {
-                    code: KeyCode::Home,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
                     self.selection.set_lead(Some(0), false);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Home,
-                    modifiers: KeyModifiers::SHIFT,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press SHIFT-Home) => {
                     self.selection.set_lead(Some(0), true);
                     self.adjust_view();
                     ControlUI::Change
                 }
 
-                Event::Key(KeyEvent {
-                    code: KeyCode::PageUp,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press PageUp) => {
                     self.selection.prev(self.vpage() / 2, false);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::PageUp,
-                    modifiers: KeyModifiers::SHIFT,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press SHIFT-PageUp) => {
                     self.selection.prev(self.vpage() / 2, true);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::PageDown,
-                    modifiers: KeyModifiers::NONE,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press PageDown) => {
                     self.selection.next(self.vpage() / 2, self.len - 1, false);
                     self.adjust_view();
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::PageDown,
-                    modifiers: KeyModifiers::SHIFT,
-                    kind: KeyEventKind::Press,
-                    ..
-                }) => {
+                ct_event!(keycode press SHIFT-PageDown) => {
                     self.selection.next(self.vpage() / 2, self.len - 1, true);
                     self.adjust_view();
                     ControlUI::Change
@@ -867,12 +711,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         let res = match event {
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollDown,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(scroll down for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.vscroll_up(self.vpage() / 5);
                     ControlUI::Change
@@ -880,12 +719,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollUp,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.vscroll_down(self.vpage() / 5);
                     ControlUI::Change
@@ -893,12 +727,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(mouse down Left for column, row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
@@ -913,12 +742,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::CONTROL,
-            }) => {
+            ct_event!(mouse down CONTROL-Left for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     let pos = Position::new(*column, *row);
                     if let Some(new_row) = self.row_at_clicked(pos) {
@@ -937,20 +761,8 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Drag(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-                ..
-            })
-            | Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Drag(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::CONTROL,
-                ..
-            }) => {
+            ct_event!(mouse drag Left for column, row)
+            | ct_event!(mouse drag CONTROL-Left for column, row) => {
                 if self.mouse.do_drag() {
                     let pos = Position::new(*column, *row);
                     let new_row = self.row_at_drag(pos);
@@ -961,11 +773,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Moved,
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
+            ct_event!(mouse moved) => {
                 self.mouse.clear_drag();
                 ControlUI::Continue
             }

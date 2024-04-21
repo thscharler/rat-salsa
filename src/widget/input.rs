@@ -8,9 +8,10 @@
 //! * Can show an indicator for invalid input.
 
 use crate::widget::basic::ClearStyle;
-use crate::{grapheme, ControlUI, ValidFlag};
-use crate::{DefaultKeys, FrameWidget, HandleCrossterm, Input, MouseOnly};
+use crate::{ct_event, grapheme, ControlUI, ValidFlag};
+use crate::{DefaultKeys, FrameWidget, HandleCrossterm, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
+use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
@@ -24,7 +25,6 @@ use std::ops::Range;
 #[derive(Debug)]
 pub struct TextInput {
     pub terminal_cursor: bool,
-    pub without_focus: bool,
     pub insets: Margin,
     pub style: Style,
     pub focus_style: Style,
@@ -48,7 +48,6 @@ impl Default for TextInput {
     fn default() -> Self {
         Self {
             terminal_cursor: true,
-            without_focus: false,
             insets: Default::default(),
             style: Default::default(),
             focus_style: Default::default(),
@@ -70,13 +69,6 @@ impl TextInput {
     /// Use our own cursor indicator or the terminal cursor.
     pub fn terminal_cursor(mut self, terminal: bool) -> Self {
         self.terminal_cursor = terminal;
-        self
-    }
-
-    /// Do accept keyboard events event without being focused.
-    /// Useful for a catch field, eg "find stuff"
-    pub fn without_focus(mut self, without_focus: bool) -> Self {
-        self.without_focus = without_focus;
         self
     }
 
@@ -137,7 +129,7 @@ impl TextInput {
 
     // focused or base
     fn active_select_style(&self, focus: bool) -> Style {
-        if self.without_focus || focus {
+        if focus {
             self.select_style
         } else {
             self.style
@@ -149,8 +141,6 @@ impl FrameWidget for TextInput {
     type State = TextInputState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
-        state.without_focus = self.without_focus;
-
         let mut l_area = area.inner(&self.insets);
         let l_invalid = if !state.valid.get() {
             l_area.width -= 1;
@@ -220,8 +210,6 @@ pub struct TextInputState {
     pub focus: FocusFlag,
     /// Valid.
     pub valid: ValidFlag,
-    /// Work without focus for key input.
-    pub without_focus: bool,
     /// Area
     pub area: Rect,
     /// Mouse selection in progress.
@@ -232,146 +220,96 @@ pub struct TextInputState {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputState {
     #[allow(non_snake_case)]
-    fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
-        use crossterm::event::KeyCode::*;
-        use crossterm::event::{Event, KeyEvent, KeyEventKind, KeyModifiers};
-
-        const NONE: KeyModifiers = KeyModifiers::NONE;
-        const CTRL: KeyModifiers = KeyModifiers::CONTROL;
-        const SHIFT: KeyModifiers = KeyModifiers::SHIFT;
-        let CTRL_SHIFT: KeyModifiers = KeyModifiers::SHIFT | KeyModifiers::CONTROL;
-
-        let req = match event {
-            Event::Key(KeyEvent {
-                code,
-                modifiers,
-                kind: KeyEventKind::Press,
-                ..
-            }) => 'f: {
-                if !self.focus.get() && !self.without_focus {
-                    break 'f None;
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+        let res = 'f: {
+            if self.is_focused() {
+                match event {
+                    ct_event!(keycode press Left) => self.move_to_prev(false),
+                    ct_event!(keycode press Right) => self.move_to_next(false),
+                    ct_event!(keycode press CONTROL-Left) => {
+                        let pos = self.prev_word_boundary();
+                        self.set_cursor(pos, false);
+                    }
+                    ct_event!(keycode press CONTROL-Right) => {
+                        let pos = self.next_word_boundary();
+                        self.set_cursor(pos, false);
+                    }
+                    ct_event!(keycode press Home) => self.set_cursor(0, false),
+                    ct_event!(keycode press End) => self.set_cursor(self.len(), false),
+                    ct_event!(keycode press SHIFT-Left) => self.move_to_prev(true),
+                    ct_event!(keycode press SHIFT-Right) => self.move_to_next(true),
+                    ct_event!(keycode press CONTROL_SHIFT-Left) => {
+                        let pos = self.prev_word_boundary();
+                        self.set_cursor(pos, true);
+                    }
+                    ct_event!(keycode press CONTROL_SHIFT-Right) => {
+                        let pos = self.next_word_boundary();
+                        self.set_cursor(pos, true);
+                    }
+                    ct_event!(keycode press SHIFT-Home) => self.set_cursor(0, true),
+                    ct_event!(keycode press SHIFT-End) => self.set_cursor(self.len(), true),
+                    ct_event!(key press CONTROL-'a') => self.set_selection(0, self.len()),
+                    ct_event!(keycode press Backspace) => self.delete_prev_char(),
+                    ct_event!(keycode press Delete) => self.delete_next_char(),
+                    ct_event!(keycode press CONTROL-Backspace) => {
+                        let prev = self.prev_word_boundary();
+                        self.replace(prev..self.cursor(), "");
+                    }
+                    ct_event!(keycode press CONTROL-Delete) => {
+                        let next = self.next_word_boundary();
+                        self.replace(self.cursor()..next, "");
+                    }
+                    ct_event!(key press CONTROL-'d') => self.set_value(""),
+                    ct_event!(keycode press CONTROL_SHIFT-Backspace) => {
+                        self.replace(0..self.cursor(), "")
+                    }
+                    ct_event!(keycode press CONTROL_SHIFT-Delete) => {
+                        self.replace(self.cursor()..self.len(), "")
+                    }
+                    ct_event!(key press c) | ct_event!(key press SHIFT-c) => self.insert_char(*c),
+                    _ => break 'f ControlUI::Continue,
                 }
-
-                match (*code, *modifiers) {
-                    (Left, NONE) => Some(InputRequest::GoToPrevChar(false)),
-                    (Right, NONE) => Some(InputRequest::GoToNextChar(false)),
-                    (Left, CTRL) => Some(InputRequest::GoToPrevWord(false)),
-                    (Right, CTRL) => Some(InputRequest::GoToNextWord(false)),
-                    (Home, NONE) => Some(InputRequest::GoToStart(false)),
-                    (End, NONE) => Some(InputRequest::GoToEnd(false)),
-
-                    (Left, SHIFT) => Some(InputRequest::GoToPrevChar(true)),
-                    (Right, SHIFT) => Some(InputRequest::GoToNextChar(true)),
-                    (Left, m) if m == CTRL_SHIFT => Some(InputRequest::GoToPrevWord(true)),
-                    (Right, m) if m == CTRL_SHIFT => Some(InputRequest::GoToNextWord(true)),
-                    (Home, SHIFT) => Some(InputRequest::GoToStart(true)),
-                    (End, SHIFT) => Some(InputRequest::GoToEnd(true)),
-
-                    (Char('a'), CTRL) => Some(InputRequest::SelectAll),
-
-                    (Backspace, NONE) => Some(InputRequest::DeletePrevChar),
-                    (Delete, NONE) => Some(InputRequest::DeleteNextChar),
-
-                    (Backspace, CTRL) => Some(InputRequest::DeletePrevWord),
-                    (Delete, CTRL) => Some(InputRequest::DeleteNextWord),
-
-                    (Char('d'), CTRL) => Some(InputRequest::DeleteLine),
-                    (Backspace, m) if m == CTRL_SHIFT => Some(InputRequest::DeleteTillStart),
-                    (Delete, m) if m == CTRL_SHIFT => Some(InputRequest::DeleteTillEnd),
-
-                    (Char(c), NONE) => Some(InputRequest::InsertChar(c)),
-                    (Char(c), SHIFT) => Some(InputRequest::InsertChar(c)),
-                    (_, _) => None,
-                }
+                ControlUI::Change
+            } else {
+                ControlUI::Continue
             }
-            _ => return self.handle(event, MouseOnly),
         };
 
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
+        res.or_else(|| self.handle(event, MouseOnly))
     }
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
-        use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-
-        let req = match event {
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
+        let res = match event {
+            ct_event!(mouse down Left for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.mouse_select = true;
                     let c = column - self.area.x;
-                    Some(InputRequest::SetCursor(c as isize, false))
+                    self.set_offset_relative_cursor(c as isize, false);
+                    ControlUI::Change
                 } else {
-                    None
+                    ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
+            ct_event!(mouse drag Left for column, _row) => {
                 if self.mouse_select {
-                    self.mouse_select = false;
-                }
-                None
-            }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Drag(MouseButton::Left),
-                column,
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
-                if self.mouse_select {
-                    let c =
-                        (*column as isize) - (self.area.x as isize)
-                     ;
-                    Some(InputRequest::SetCursor(c , true))
+                    let c = (*column as isize) - (self.area.x as isize);
+                    self.set_offset_relative_cursor(c, true);
+                    ControlUI::Change
                 } else {
-                    None
+                    ControlUI::Continue
                 }
             }
-            _ => None,
+            ct_event!(mouse moved) => {
+                self.mouse_select = false;
+                ControlUI::Continue
+            }
+            _ => ControlUI::Continue,
         };
 
-        if let Some(req) = req {
-            self.perform(req)
-        } else {
-            ControlUI::Continue
-        }
+        res
     }
-}
-
-/// Mapping from events to abstract editing requests.
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum InputRequest {
-    /// Set the cursor. This is the *visible* position relative to the
-    /// offset. It may be negative too.
-    SetCursor(isize, bool),
-    Select(usize, usize),
-    InsertChar(char),
-    GoToPrevChar(bool),
-    GoToNextChar(bool),
-    GoToPrevWord(bool),
-    GoToNextWord(bool),
-    GoToStart(bool),
-    GoToEnd(bool),
-    SelectAll,
-    DeletePrevChar,
-    DeleteNextChar,
-    DeletePrevWord,
-    DeleteNextWord,
-    DeleteLine,
-    DeleteTillStart,
-    DeleteTillEnd,
 }
 
 impl TextInputState {
@@ -401,8 +339,8 @@ impl TextInputState {
     }
 
     /// Set the cursor position, reset selection.
-    pub fn set_cursor(&mut self, cursor: usize) {
-        self.value.set_cursor(cursor, false);
+    pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) {
+        self.value.set_cursor(cursor, extend_selection);
     }
 
     /// Cursor position.
@@ -437,13 +375,13 @@ impl TextInputState {
 
     /// Selection.
     pub fn has_selection(&self) -> bool {
-        self.value.is_anchored()
+        self.value.has_selection()
     }
 
     /// Selection.
     pub fn set_selection(&mut self, anchor: usize, cursor: usize) {
-        self.value.set_cursor(cursor, false);
-        self.value.set_cursor(anchor, true);
+        self.value.set_cursor(anchor, false);
+        self.value.set_cursor(cursor, true);
     }
 
     /// Selection.
@@ -462,14 +400,88 @@ impl TextInputState {
         grapheme::split3(self.value.as_str(), self.value.selection()).1
     }
 
+    /// Previous word boundary
+    pub fn prev_word_boundary(&self) -> usize {
+        self.value.prev_word_boundary()
+    }
+
+    /// Next word boundary
+    pub fn next_word_boundary(&self) -> usize {
+        self.value.next_word_boundary()
+    }
+
+    /// Set the cursor position from a visual position relative to the origin.
+    pub fn set_offset_relative_cursor(&mut self, rpos: isize, extend_selection: bool) {
+        let pos = if rpos < 0 {
+            self.value.offset().saturating_sub(-rpos as usize)
+        } else {
+            self.value.offset() + rpos as usize
+        };
+        self.value.set_cursor(pos, extend_selection);
+    }
+
+    /// Move to the next char.
+    pub fn move_to_next(&mut self, extend_selection: bool) {
+        if !extend_selection && self.value.has_selection() {
+            let c = self.value.selection().end;
+            self.value.set_cursor(c, false);
+        } else if self.value.cursor() < self.value.len() {
+            self.value
+                .set_cursor(self.value.cursor() + 1, extend_selection);
+        }
+    }
+
+    /// Move to the previous char.
+    pub fn move_to_prev(&mut self, extend_selection: bool) {
+        if !extend_selection && self.value.has_selection() {
+            let c = self.value.selection().start;
+            self.value.set_cursor(c, false);
+        } else if self.value.cursor() > 0 {
+            self.value
+                .set_cursor(self.value.cursor() - 1, extend_selection);
+        }
+    }
+
+    /// Insert a char a the current position.
+    pub fn insert_char(&mut self, c: char) {
+        self.value.insert_char(c);
+    }
+
+    /// Replace the given range with a new string.
+    pub fn replace(&mut self, range: Range<usize>, new: &str) {
+        self.value.replace(range, new);
+    }
+
+    /// Delete the char before the cursor.
+    pub fn delete_prev_char(&mut self) {
+        if self.value.has_selection() {
+            self.value.replace(self.value.selection(), "");
+        } else if self.value.cursor() == 0 {
+        } else {
+            self.value
+                .replace(self.value.cursor() - 1..self.value.cursor(), "");
+        }
+    }
+
+    /// Delete the char after the cursor.
+    pub fn delete_next_char(&mut self) {
+        if self.value.has_selection() {
+            self.value.replace(self.value.selection(), "");
+        } else if self.value.cursor() == self.value.len() {
+        } else {
+            self.value
+                .replace(self.value.cursor()..self.value.cursor() + 1, "");
+        }
+    }
+
     /// Extracts the visible part.
-    pub fn visible_range(&self) -> Range<usize> {
+    fn visible_range(&self) -> Range<usize> {
         let len = min(self.value.offset() + self.value.width(), self.value.len());
         self.value.offset()..len
     }
 
     /// Extracts the visible selection.
-    pub fn visible_selection(&self) -> Range<usize> {
+    fn visible_selection(&self) -> Range<usize> {
         let width = self.value.width();
         let offset = self.value.offset();
         let Range { mut start, mut end } = self.value.selection();
@@ -490,7 +502,7 @@ impl TextInputState {
 
     /// Extracts the visible parts. The result is (before, cursor1, selection, cursor2, after).
     /// One cursor1 and cursor2 is an empty string.
-    pub fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
+    fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
         grapheme::split5(
             self.value.as_str(),
             self.cursor(),
@@ -500,163 +512,8 @@ impl TextInputState {
     }
 
     /// Visible cursor position.
-    pub fn visible_cursor(&mut self) -> u16 {
+    fn visible_cursor(&mut self) -> u16 {
         (self.value.cursor() - self.value.offset()) as u16
-    }
-}
-
-impl<A, E> Input<ControlUI<A, E>> for TextInputState {
-    type Request = InputRequest;
-
-    fn perform(&mut self, action: Self::Request) -> ControlUI<A, E> {
-        use InputRequest::*;
-
-        match action {
-            SetCursor(rpos, anchor) => {
-                let pos = if rpos < 0 {
-                    self.value.offset().saturating_sub(-rpos as usize)
-                } else {
-                    self.value.offset() + rpos as usize
-                };
-                if self.value.cursor() == pos {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(pos, anchor);
-                    ControlUI::Change
-                }
-            }
-            Select(anchor, cursor) => {
-                self.value.set_cursor(anchor, false);
-                self.value.set_cursor(cursor, true);
-                ControlUI::Change
-            }
-            InsertChar(c) => {
-                self.value.insert_char(c);
-                ControlUI::Change
-            }
-            DeletePrevChar => {
-                if self.value.is_anchored() {
-                    self.value.replace(self.value.selection(), "");
-                    ControlUI::Change
-                } else if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    self.value
-                        .replace(self.value.cursor() - 1..self.value.cursor(), "");
-                    ControlUI::Change
-                }
-            }
-            DeleteNextChar => {
-                if self.value.is_anchored() {
-                    self.value.replace(self.value.selection(), "");
-                    ControlUI::Change
-                } else if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    self.value
-                        .replace(self.value.cursor()..self.value.cursor() + 1, "");
-                    ControlUI::Change
-                }
-            }
-            GoToPrevChar(anchor) => {
-                if !anchor && self.value.is_anchored() {
-                    let c = self.value.selection().start;
-                    self.value.set_cursor(c, false);
-                    ControlUI::Change
-                } else if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(self.value.cursor() - 1, anchor);
-                    ControlUI::Change
-                }
-            }
-            GoToNextChar(anchor) => {
-                if !anchor && self.value.is_anchored() {
-                    let c = self.value.selection().end;
-                    self.value.set_cursor(c, false);
-                    ControlUI::Change
-                } else if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(self.value.cursor() + 1, anchor);
-                    ControlUI::Change
-                }
-            }
-            GoToPrevWord(anchor) => {
-                if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    let cursor = self.value.prev_word_boundary();
-                    self.value.set_cursor(cursor, anchor);
-                    ControlUI::Change
-                }
-            }
-            GoToNextWord(anchor) => {
-                if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    let cursor = self.value.next_word_boundary();
-                    self.value.set_cursor(cursor, anchor);
-                    ControlUI::Change
-                }
-            }
-            DeleteLine => {
-                if self.value.is_empty() {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_value("");
-                    ControlUI::Change
-                }
-            }
-            DeletePrevWord => {
-                if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    let prev = self.value.prev_word_boundary();
-                    self.value.replace(prev..self.value.cursor(), "");
-                    ControlUI::Change
-                }
-            }
-            DeleteNextWord => {
-                if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    let next = self.value.next_word_boundary();
-                    self.value.replace(self.value.cursor()..next, "");
-                    ControlUI::Change
-                }
-            }
-            GoToStart(anchor) => {
-                if self.value.cursor() == 0 {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(0, anchor);
-                    ControlUI::Change
-                }
-            }
-            GoToEnd(anchor) => {
-                if self.value.cursor() == self.value.len() {
-                    ControlUI::NoChange
-                } else {
-                    self.value.set_cursor(self.value.len(), anchor);
-                    ControlUI::Change
-                }
-            }
-            DeleteTillEnd => {
-                self.value
-                    .replace(self.value.cursor()..self.value.len(), "");
-                ControlUI::Change
-            }
-            DeleteTillStart => {
-                self.value.replace(0..self.value.cursor(), "");
-                ControlUI::Change
-            }
-            SelectAll => {
-                self.value.set_cursor(0, false);
-                self.value.set_cursor(self.value.len(), true);
-                ControlUI::Change
-            }
-        }
     }
 }
 
@@ -737,12 +594,12 @@ pub mod core {
 
         /// Cursor position as grapheme-idx. Moves the cursor to the new position,
         /// but can leave the current cursor position as anchor of the selection.
-        pub fn set_cursor(&mut self, cursor: usize, anchor: bool) {
+        pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) {
             let cursor = if cursor > self.len { self.len } else { cursor };
 
             self.cursor = cursor;
 
-            if !anchor {
+            if !extend_selection {
                 self.anchor = cursor;
             }
 
@@ -798,7 +655,7 @@ pub mod core {
         }
 
         /// Anchor is active
-        pub fn is_anchored(&self) -> bool {
+        pub fn has_selection(&self) -> bool {
             self.anchor != self.cursor
         }
 

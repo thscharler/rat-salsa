@@ -5,12 +5,12 @@
 /// No HasHorizontalScroll at the moment, probably never will be and instead
 /// a HasScroll covering both.
 ///
-use crate::HasVerticalScroll;
+use crate::{ct_event, HasVerticalScroll};
 use crate::{
     CanValidate, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasValidFlag,
     MouseOnly, ValidFlag,
 };
-use crossterm::event::{Event, KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
@@ -153,12 +153,7 @@ where
 {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         let res = match event {
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Down(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(mouse down Left for column,row) => {
                 if let Some(scroll_area) = self.scrollbar_area {
                     if scroll_area.contains(Position::new(*column, *row)) {
                         let row = row.saturating_sub(scroll_area.y) as usize;
@@ -177,21 +172,7 @@ where
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
-                self.mouse = false;
-                ControlUI::Continue
-            }
-
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Drag(MouseButton::Left),
-                row,
-                modifiers: KeyModifiers::NONE,
-                ..
-            }) => {
+            ct_event!(mouse drag Left for _column, row) => {
                 if self.mouse {
                     if let Some(scroll_area) = self.scrollbar_area {
                         let row = row.saturating_sub(scroll_area.y) as usize;
@@ -208,28 +189,22 @@ where
                     ControlUI::Continue
                 }
             }
+            ct_event!(mouse moved) => {
+                self.mouse = false;
+                ControlUI::Continue
+            }
 
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollDown,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(scroll down for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.widget.vscroll_down(self.widget.vpage() / 5);
+                    self.widget.vscroll_down(self.widget.vpage() / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
                 }
             }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::ScrollUp,
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) => {
+            ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.widget.vscroll_up(self.widget.vpage() / 5);
+                    self.widget.vscroll_up(self.widget.vpage() / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue

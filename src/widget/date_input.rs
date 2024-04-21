@@ -1,11 +1,11 @@
 use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
 use crate::{
-    CanValidate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm, HasFocusFlag,
-    HasValidFlag, ValidFlag,
+    ct_event, CanValidate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm,
+    HasFocusFlag, HasValidFlag, ValidFlag,
 };
 use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use chrono::{Datelike, Days, Local, Months, NaiveDate};
-use crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Rect};
@@ -30,13 +30,6 @@ impl DateInput {
     /// Use our own cursor indicator or the terminal cursor.
     pub fn terminal_cursor(mut self, terminal: bool) -> Self {
         self.input = self.input.terminal_cursor(terminal);
-        self
-    }
-
-    /// Do accept keyboard events event without being focused.
-    /// Useful for a catch field, eg "find stuff"
-    pub fn without_focus(mut self, without_focus: bool) -> Self {
-        self.input = self.input.without_focus(without_focus);
         self
     }
 
@@ -279,25 +272,14 @@ where
     fn handle(&mut self, event: &Event, _keymap: ConvenientKeys) -> ControlUI<A, E> {
         let r = {
             match event {
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('h') | KeyCode::Char('t'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => 'f: {
+                ct_event!(key press 'h'|'t') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
                     self.set_value(Local::now().date_naive());
                     ControlUI::Change
                 }
-
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('l'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => 'f: {
+                ct_event!(key press 'l') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -310,12 +292,7 @@ where
                     self.set_value(date);
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('L'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::SHIFT,
-                    ..
-                }) => 'f: {
+                ct_event!(key press SHIFT-'L') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -329,12 +306,7 @@ where
                     ControlUI::Change
                 }
 
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('m'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => 'f: {
+                ct_event!(key press 'm') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -342,12 +314,7 @@ where
                     self.set_value(date);
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('M'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::SHIFT,
-                    ..
-                }) => 'f: {
+                ct_event!(key press SHIFT-'M') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -363,12 +330,7 @@ where
                     ControlUI::Change
                 }
 
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('n'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => 'f: {
+                ct_event!(key press 'n') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -381,12 +343,7 @@ where
                     self.set_value(date);
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('N'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::SHIFT,
-                    ..
-                }) => 'f: {
+                ct_event!(key press SHIFT-'N') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -402,12 +359,7 @@ where
                     ControlUI::Change
                 }
 
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('j'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => 'f: {
+                ct_event!(key press 'j') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -417,12 +369,7 @@ where
                     }
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('J'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::SHIFT,
-                    ..
-                }) => 'f: {
+                ct_event!(key press SHIFT-'J') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -433,12 +380,7 @@ where
                     ControlUI::Change
                 }
 
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('k'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => 'f: {
+                ct_event!(key press 'k') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -448,12 +390,7 @@ where
                     }
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('K'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::SHIFT,
-                    ..
-                }) => 'f: {
+                ct_event!(key press SHIFT-'K') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -464,12 +401,7 @@ where
                     ControlUI::Change
                 }
 
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('a') | KeyCode::Char('b'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => 'f: {
+                ct_event!(key press 'a'|'b') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
@@ -479,12 +411,7 @@ where
                     }
                     ControlUI::Change
                 }
-                Event::Key(KeyEvent {
-                    code: KeyCode::Char('e'),
-                    kind: KeyEventKind::Press,
-                    modifiers: KeyModifiers::NONE,
-                    ..
-                }) => 'f: {
+                ct_event!(key press 'e') => 'f: {
                     if !self.is_focused() {
                         break 'f ControlUI::Continue;
                     }
