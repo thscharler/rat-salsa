@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["NoSelection","SetSelection","SingleSelection"],"trait":["Selection"]};

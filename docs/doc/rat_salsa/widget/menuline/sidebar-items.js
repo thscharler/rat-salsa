@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["InputRequest"],"struct":["HotKeyAlt","HotKeyCtrl","MenuLine","MenuLineState","MenuStyle"]};
+window.SIDEBAR_ITEMS = {"struct":["HotKeyAlt","HotKeyCtrl","MenuLine","MenuLineState","MenuStyle"]};

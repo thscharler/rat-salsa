@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["InputRequest"],"mod":["core"],"struct":["TextInput","TextInputState","TextInputStyle"]};
+window.SIDEBAR_ITEMS = {"mod":["core"],"struct":["TextInput","TextInputState","TextInputStyle"]};

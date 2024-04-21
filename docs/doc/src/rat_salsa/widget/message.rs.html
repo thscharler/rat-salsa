@@ -222,23 +222,18 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//!
 //! Status line and a message dialog.
 //!
 
-</span><span class="kw">use </span><span class="kw">crate</span>::check_break;
-<span class="kw">use </span><span class="kw">crate</span>::layout::layout_dialog;
+</span><span class="kw">use </span><span class="kw">crate</span>::layout::layout_dialog;
 <span class="kw">use </span><span class="kw">crate</span>::widget::button::{Button, ButtonState, ButtonStyle};
 <span class="kw">use </span><span class="kw">crate</span>::widget::paragraph::{ParagraphExt, ParagraphExtState};
 <span class="kw">use </span><span class="kw">crate</span>::widget::scrolled::{Scrolled, ScrolledState};
 <span class="kw">use </span><span class="kw">crate</span>::ControlUI;
+<span class="kw">use crate</span>::{check_break, ct_event};
 <span class="kw">use crate</span>::{DefaultKeys, HandleCrossterm};
-<span class="kw">use </span>crossterm::event::{Event, KeyCode, KeyEvent, KeyEventKind, KeyModifiers};
+<span class="kw">use </span>crossterm::event::Event;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>log::debug;
 <span class="kw">use </span>ratatui::buffer::Buffer;
@@ -434,12 +429,7 @@
         });
 
         <span class="macro">check_break!</span>(<span class="kw">match </span>event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Esc,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) =&gt; {
+            <span class="macro">ct_event!</span>(keycode press Esc) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.active {
                     <span class="self">self</span>.clear_log();
                     ControlUI::Change

@@ -577,6 +577,9 @@
 <a href="#575" id="575">575</a>
 <a href="#576" id="576">576</a>
 <a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This implements an event-loop.
 //!
 //! It uses ControlUI as it's central control-flow construct.
@@ -586,7 +589,10 @@
 <span class="kw">use </span><span class="kw">crate</span>::lib_timer::{Timed, TimerEvent, Timers};
 <span class="kw">use </span><span class="kw">crate</span>::ControlUI;
 <span class="kw">use </span>crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
-<span class="kw">use </span>crossterm::event::{DisableMouseCapture, EnableMouseCapture, Event};
+<span class="kw">use </span>crossterm::cursor::{DisableBlinking, EnableBlinking};
+<span class="kw">use </span>crossterm::event::{
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
+};
 <span class="kw">use </span>crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
@@ -597,7 +603,7 @@
 <span class="kw">use </span>std::cmp::min;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::io::{ErrorKind, stdout, Stdout};
+<span class="kw">use </span>std::io::{stdout, ErrorKind, Stdout};
 <span class="kw">use </span>std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 <span class="kw">use </span>std::thread::{sleep, JoinHandle};
 <span class="kw">use </span>std::time::{Duration, SystemTime};
@@ -741,31 +747,31 @@
     data: <span class="kw-2">&amp;mut </span>App::Data,
     uistate: <span class="kw-2">&amp;mut </span>App::State,
     cfg: RunConfig,
-) -&gt;   io::Result&lt;()&gt;
+) -&gt; io::Result&lt;()&gt;
 <span class="kw">where
     </span>App::Action: Debug + Send + <span class="lifetime">'static</span>,
     App::Error: Send + <span class="lifetime">'static </span>+ From&lt;TryRecvError&gt; + From&lt;io::Error&gt; + From&lt;SendError&lt;()&gt;&gt;,
     App: Sync,
 {
-    stdout()
-        .execute(EnterAlternateScreen)<span class="question-mark">?</span>;
-    stdout()
-        .execute(EnableMouseCapture) <span class="question-mark">?</span>;
+    stdout().execute(EnterAlternateScreen)<span class="question-mark">?</span>;
+    stdout().execute(EnableMouseCapture)<span class="question-mark">?</span>;
+    stdout().execute(EnableBlinking)<span class="question-mark">?</span>;
+    stdout().execute(EnableBracketedPaste)<span class="question-mark">?</span>;
     enable_raw_mode()<span class="question-mark">?</span>;
 
     <span class="kw">let </span>r = <span class="kw">match </span>catch_unwind(AssertUnwindSafe(|| _run_tui(app, data, uistate, cfg))) {
         <span class="prelude-val">Ok</span>(v) =&gt; v,
         <span class="prelude-val">Err</span>(e) =&gt; {
-            stdout()
-                .execute(DisableMouseCapture) <span class="question-mark">?</span>;
-            stdout()
-                .execute(LeaveAlternateScreen) <span class="question-mark">?</span>;
+            stdout().execute(DisableMouseCapture)<span class="question-mark">?</span>;
+            stdout().execute(LeaveAlternateScreen)<span class="question-mark">?</span>;
             disable_raw_mode()<span class="question-mark">?</span>;
 
             resume_unwind(e);
         }
     };
 
+    stdout().execute(DisableBracketedPaste)<span class="question-mark">?</span>;
+    stdout().execute(DisableBlinking)<span class="question-mark">?</span>;
     stdout().execute(DisableMouseCapture)<span class="question-mark">?</span>;
     stdout().execute(LeaveAlternateScreen)<span class="question-mark">?</span>;
     disable_raw_mode()<span class="question-mark">?</span>;
@@ -802,7 +808,7 @@
     </span><span class="kw">match </span>app.init(data, uistate, <span class="kw-2">&amp;</span>worker.send) {
         <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {}
         <span class="prelude-val">Err</span>(err) =&gt; {
-            <span class="kw">_</span>= app.report_error(err, data, uistate);
+            <span class="kw">_ </span>= app.report_error(err, data, uistate);
             <span class="kw">return </span><span class="prelude-val">Err</span>(io::Error::from(ErrorKind::Other));
         }
     };

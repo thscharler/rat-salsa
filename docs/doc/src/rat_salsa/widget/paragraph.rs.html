@@ -120,7 +120,7 @@
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
 <a href="#120" id="120">120</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::widget::{HasVerticalScroll, Scroll};
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::HasVerticalScroll;
 <span class="kw">use crate</span>::{ControlUI, DefaultKeys, HandleCrossterm, MouseOnly};
 <span class="kw">use </span>crossterm::event::Event;
 <span class="attr">#[allow(unused_imports)]
@@ -135,30 +135,31 @@
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ParagraphExt&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>para: Paragraph&lt;<span class="lifetime">'a</span>&gt;,
-    <span class="kw">pub </span>len: usize,
+    <span class="kw">pub </span>vlen: usize,
 }
 
 <span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>ParagraphExtState {
     <span class="kw">pub </span>area: Rect,
-    <span class="kw">pub </span>scroll: Scroll,
+    <span class="kw">pub </span>vlen: usize,
+    <span class="kw">pub </span>voffset: usize,
 }
 
 <span class="kw">impl </span>HasVerticalScroll <span class="kw">for </span>ParagraphExtState {
     <span class="kw">fn </span>vlen(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.scroll.len()
+        <span class="self">self</span>.vlen
     }
 
     <span class="kw">fn </span>voffset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.scroll.offset()
+        <span class="self">self</span>.voffset
     }
 
     <span class="kw">fn </span>set_voffset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize) {
-        <span class="self">self</span>.scroll.set_offset(offset);
+        <span class="self">self</span>.voffset = offset;
     }
 
     <span class="kw">fn </span>vpage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.scroll.page()
+        <span class="self">self</span>.area.height <span class="kw">as </span>usize
     }
 }
 
@@ -171,7 +172,7 @@
         <span class="kw">let </span>len = t.height();
         <span class="self">Self </span>{
             para: Paragraph::new(t),
-            len,
+            vlen: len,
         }
     }
 
@@ -221,8 +222,7 @@
 
     <span class="kw">fn </span>render(<span class="self">self</span>, area: Rect, buf: <span class="kw-2">&amp;mut </span>Buffer, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
         state.area = area;
-        state.scroll.set_len(<span class="self">self</span>.len);
-        state.scroll.set_page(area.height <span class="kw">as </span>usize);
+        state.vlen = <span class="self">self</span>.vlen;
 
         <span class="kw">let </span>para = <span class="self">self</span>.para.scroll((state.voffset() <span class="kw">as </span>u16, <span class="number">0</span>));
         para.render(area, buf);

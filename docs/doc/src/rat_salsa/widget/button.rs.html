@@ -236,60 +236,12 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a>
-<a href="#244" id="244">244</a>
-<a href="#245" id="245">245</a>
-<a href="#246" id="246">246</a>
-<a href="#247" id="247">247</a>
-<a href="#248" id="248">248</a>
-<a href="#249" id="249">249</a>
-<a href="#250" id="250">250</a>
-<a href="#251" id="251">251</a>
-<a href="#252" id="252">252</a>
-<a href="#253" id="253">253</a>
-<a href="#254" id="254">254</a>
-<a href="#255" id="255">255</a>
-<a href="#256" id="256">256</a>
-<a href="#257" id="257">257</a>
-<a href="#258" id="258">258</a>
-<a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a>
-<a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//!
 //! A simple button.
 //!
-</span><span class="kw">use </span><span class="kw">crate</span>::FocusFlag;
+</span><span class="kw">use crate</span>::{ct_event, FocusFlag};
 <span class="kw">use crate</span>::{ControlUI, HasFocusFlag};
-<span class="kw">use crate</span>::{DefaultKeys, HandleCrossterm, Input, MouseOnly};
+<span class="kw">use crate</span>::{DefaultKeys, HandleCrossterm, MouseOnly};
 <span class="kw">use </span>crossterm::event::Event;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>log::debug;
@@ -427,11 +379,19 @@
     <span class="kw">pub </span>action: A,
 }
 
-<span class="doccomment">/// Button actions.
-</span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>InputRequest {
-    Arm,
-    Action,
+<span class="kw">impl</span>&lt;A&gt; ButtonState&lt;A&gt; {
+    <span class="comment">//
+    </span><span class="kw">pub fn </span>action(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;A&gt;
+    <span class="kw">where
+        </span>A: Clone,
+    {
+        <span class="kw">if </span><span class="self">self</span>.armed {
+            <span class="self">self</span>.armed = <span class="bool-val">false</span>;
+            <span class="prelude-val">Some</span>(<span class="self">self</span>.action.clone())
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
+    }
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, A&gt; StatefulWidget <span class="kw">for </span>Button&lt;<span class="lifetime">'a</span>, A&gt; {
@@ -464,107 +424,51 @@
 
 <span class="kw">impl</span>&lt;A: Clone, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, DefaultKeys&gt; <span class="kw">for </span>ButtonState&lt;A&gt; {
     <span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, <span class="kw">_</span>: DefaultKeys) -&gt; ControlUI&lt;A, E&gt; {
-        <span class="kw">use </span>crossterm::event::<span class="kw-2">*</span>;
-
-        <span class="kw">let </span>req = <span class="kw">match </span>event {
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Press,
-                ..
-            }) =&gt; <span class="lifetime">'f</span>: {
-                <span class="kw">if </span>!<span class="self">self</span>.focus.get() {
-                    <span class="kw">break </span><span class="lifetime">'f </span><span class="prelude-val">None</span>;
+        <span class="kw">let </span>res = <span class="kw">if </span><span class="self">self</span>.is_focused() {
+            <span class="kw">match </span>event {
+                <span class="macro">ct_event!</span>(keycode press Enter) =&gt; {
+                    <span class="self">self</span>.armed = <span class="bool-val">true</span>;
+                    ControlUI::Change
                 }
-                <span class="prelude-val">Some</span>(InputRequest::Arm)
+                <span class="macro">ct_event!</span>(keycode release Enter) =&gt; <span class="kw">match </span><span class="self">self</span>.action() {
+                    <span class="prelude-val">Some</span>(a) =&gt; ControlUI::Run(a),
+                    <span class="prelude-val">None </span>=&gt; ControlUI::NoChange,
+                },
+                <span class="kw">_ </span>=&gt; ControlUI::Continue,
             }
-            Event::Key(KeyEvent {
-                code: KeyCode::Enter,
-                modifiers: KeyModifiers::NONE,
-                kind: KeyEventKind::Release,
-                ..
-            }) =&gt; <span class="lifetime">'f</span>: {
-                <span class="kw">if </span>!<span class="self">self</span>.focus.get() {
-                    <span class="kw">break </span><span class="lifetime">'f </span><span class="prelude-val">None</span>;
-                }
-                <span class="prelude-val">Some</span>(InputRequest::Action)
-            }
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="self">self</span>.handle(event, MouseOnly),
-        };
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(req) = req {
-            <span class="self">self</span>.perform(req)
         } <span class="kw">else </span>{
             ControlUI::Continue
-        }
+        };
+
+        res.or_else(|| {
+            &lt;<span class="self">Self </span><span class="kw">as </span>HandleCrossterm&lt;ControlUI&lt;A, E&gt;, MouseOnly&gt;&gt;::handle(<span class="self">self</span>, event, MouseOnly)
+        })
     }
 }
 
 <span class="kw">impl</span>&lt;A: Clone, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, MouseOnly&gt; <span class="kw">for </span>ButtonState&lt;A&gt; {
     <span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, <span class="kw">_</span>: MouseOnly) -&gt; ControlUI&lt;A, E&gt; {
-        <span class="kw">use </span>crossterm::event::<span class="kw-2">*</span>;
-
-        <span class="kw">let </span>req = <span class="kw">match </span>event {
-            Event::Mouse(
-                MouseEvent {
-                    kind: MouseEventKind::Down(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                }
-                | MouseEvent {
-                    kind: MouseEventKind::Drag(MouseButton::Left),
-                    column,
-                    row,
-                    modifiers: KeyModifiers::NONE,
-                },
-            ) =&gt; {
+        <span class="kw">match </span>event {
+            <span class="macro">ct_event!</span>(mouse down Left <span class="kw">for </span>column, row)
+            | <span class="macro">ct_event!</span>(mouse drag Left <span class="kw">for </span>column, row) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.area.contains(Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row)) {
-                    <span class="prelude-val">Some</span>(InputRequest::Arm)
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">None
-                </span>}
-            }
-            Event::Mouse(MouseEvent {
-                kind: MouseEventKind::Up(MouseButton::Left),
-                column,
-                row,
-                modifiers: KeyModifiers::NONE,
-            }) =&gt; {
-                <span class="kw">if </span><span class="self">self</span>.area.contains(Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row)) {
-                    <span class="prelude-val">Some</span>(InputRequest::Action)
-                } <span class="kw">else </span>{
-                    <span class="prelude-val">None
-                </span>}
-            }
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-        };
-
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(req) = req {
-            <span class="self">self</span>.perform(req)
-        } <span class="kw">else </span>{
-            ControlUI::Continue
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;A: Clone, E&gt; Input&lt;ControlUI&lt;A, E&gt;&gt; <span class="kw">for </span>ButtonState&lt;A&gt; {
-    <span class="kw">type </span>Request = InputRequest;
-
-    <span class="kw">fn </span>perform(<span class="kw-2">&amp;mut </span><span class="self">self</span>, action: <span class="self">Self</span>::Request) -&gt; ControlUI&lt;A, E&gt; {
-        <span class="kw">match </span>action {
-            InputRequest::Arm =&gt; {
-                <span class="self">self</span>.armed = <span class="bool-val">true</span>;
-                ControlUI::Change
-            }
-            InputRequest::Action =&gt; {
-                <span class="kw">if </span><span class="self">self</span>.armed {
-                    <span class="self">self</span>.armed = <span class="bool-val">false</span>;
-                    ControlUI::Run(<span class="self">self</span>.action.clone())
+                    <span class="self">self</span>.armed = <span class="bool-val">true</span>;
+                    ControlUI::Change
                 } <span class="kw">else </span>{
                     ControlUI::Continue
                 }
             }
+            <span class="macro">ct_event!</span>(mouse up Left <span class="kw">for </span>column, row) =&gt; {
+                <span class="kw">if </span><span class="self">self</span>.area.contains(Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row)) {
+                    <span class="kw">match </span><span class="self">self</span>.action() {
+                        <span class="prelude-val">Some</span>(a) =&gt; ControlUI::Run(a),
+                        <span class="prelude-val">None </span>=&gt; ControlUI::NoChange,
+                    }
+                } <span class="kw">else </span>{
+                    ControlUI::Continue
+                }
+            }
+            <span class="kw">_ </span>=&gt; ControlUI::Continue,
         }
     }
 }
