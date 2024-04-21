@@ -7,7 +7,7 @@ use crate::lib_repaint::{Repaint, RepaintEvent};
 use crate::lib_timer::{Timed, TimerEvent, Timers};
 use crate::ControlUI;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
-use crossterm::cursor::{DisableBlinking, EnableBlinking};
+use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
 };
@@ -174,6 +174,7 @@ where
     stdout().execute(EnterAlternateScreen)?;
     stdout().execute(EnableMouseCapture)?;
     stdout().execute(EnableBlinking)?;
+    stdout().execute(SetCursorStyle::BlinkingBar)?;
     stdout().execute(EnableBracketedPaste)?;
     enable_raw_mode()?;
 
@@ -188,11 +189,12 @@ where
         }
     };
 
+    disable_raw_mode()?;
     stdout().execute(DisableBracketedPaste)?;
+    stdout().execute(SetCursorStyle::DefaultUserShape)?;
     stdout().execute(DisableBlinking)?;
     stdout().execute(DisableMouseCapture)?;
     stdout().execute(LeaveAlternateScreen)?;
-    disable_raw_mode()?;
 
     r
 }
