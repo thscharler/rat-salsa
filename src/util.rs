@@ -2,10 +2,27 @@ use crossterm::event::{Event, KeyCode, KeyEvent};
 use log::debug;
 use ratatui::text::Span;
 use std::cmp::min;
+use std::ops::Range;
 
 /// Sum all widths.
 pub(crate) fn span_width(spans: &[Span<'_>]) -> u16 {
     spans.iter().map(|v| v.width() as u16).sum()
+}
+
+/// Constrains the range to the visible range and shifts the result by offset.
+pub(crate) fn clamp_shift(range: Range<usize>, offset: usize, width: usize) -> Range<usize> {
+    let start = if range.start < offset {
+        offset
+    } else {
+        range.start
+    };
+    let end = if range.end > offset + width {
+        offset + width
+    } else {
+        range.end
+    };
+
+    start - offset..end - offset
 }
 
 /// Select previous.

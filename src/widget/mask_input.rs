@@ -46,8 +46,10 @@
 //! ```
 
 use crate::number::NumberSymbols;
+use crate::util::clamp_shift;
 use crate::widget::basic::ClearStyle;
 use crate::widget::mask_input::core::InputMaskCore;
+use crate::widget::MouseFlags;
 use crate::{ct_event, grapheme, tr};
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, MouseOnly};
@@ -55,26 +57,25 @@ use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
+use ratatui::prelude::Stylize;
 use ratatui::style::Style;
-use ratatui::text::{Line, Span};
+use ratatui::text::Span;
 use ratatui::Frame;
-use std::cmp::min;
 use std::fmt;
 use std::ops::Range;
 use std::rc::Rc;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Text input widget with input mask.
 #[derive(Debug)]
 pub struct MaskedInput {
-    pub terminal_cursor: bool,
     pub show_compact: bool,
     pub insets: Margin,
     pub style: Style,
     pub focus_style: Style,
     pub select_style: Style,
-    pub cursor_style: Option<Style>,
-    pub invalid_style: Option<Style>,
-    pub invalid_char: char,
+    pub invalid_style: Style,
+    pub non_exhaustive: (),
 }
 
 /// Combined style.
@@ -83,22 +84,20 @@ pub struct MaskedInputStyle {
     pub style: Style,
     pub focus: Style,
     pub select: Style,
-    pub cursor: Option<Style>,
-    pub invalid: Option<Style>,
+    pub invalid: Style,
+    pub non_exhaustive: (),
 }
 
 impl Default for MaskedInput {
     fn default() -> Self {
         Self {
-            terminal_cursor: true,
             show_compact: false,
             insets: Default::default(),
             style: Default::default(),
             focus_style: Default::default(),
             select_style: Default::default(),
-            cursor_style: None,
-            invalid_style: None,
-            invalid_char: '⁉',
+            invalid_style: Style::default().red().underlined(),
+            non_exhaustive: (),
         }
     }
 }
@@ -110,13 +109,7 @@ impl MaskedInput {
         self
     }
 
-    /// Use our own cursor indicator or the terminal cursor.
-    pub fn terminal_cursor(mut self, terminal: bool) -> Self {
-        self.terminal_cursor = terminal;
-        self
-    }
-
-    /// Show the compact form, if the focus is elsewhere.
+    /// Show the compact form, if the focus is not with this widget.
     pub fn show_compact(mut self, show_compact: bool) -> Self {
         self.show_compact = show_compact;
         self
@@ -127,7 +120,6 @@ impl MaskedInput {
         self.style = style.style;
         self.focus_style = style.focus;
         self.select_style = style.select;
-        self.cursor_style = style.cursor;
         self.invalid_style = style.invalid;
         self
     }
@@ -150,38 +142,10 @@ impl MaskedInput {
         self
     }
 
-    /// Style for our own cursor.
-    pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
-        self.cursor_style = Some(style.into());
-        self
-    }
-
     /// Style for the invalid indicator.
     pub fn invalid_style(mut self, style: impl Into<Style>) -> Self {
-        self.invalid_style = Some(style.into());
+        self.invalid_style = style.into();
         self
-    }
-
-    /// Marker character for invalid field.
-    pub fn invalid_char(mut self, invalid: char) -> Self {
-        self.invalid_char = invalid;
-        self
-    }
-
-    fn active_style(&self, focus: bool) -> Style {
-        if focus {
-            self.focus_style
-        } else {
-            self.style
-        }
-    }
-
-    fn active_select_style(&self, focus: bool) -> Style {
-        if focus {
-            self.select_style
-        } else {
-            self.style
-        }
     }
 }
 
@@ -190,77 +154,68 @@ impl FrameWidget for MaskedInput {
 
     #[allow(clippy::vec_init_then_push)]
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
-        let mut l_area = area.inner(&self.insets);
-        let l_invalid = if !state.valid.get() {
-            l_area.width -= 1;
-            Rect::new(l_area.x + l_area.width, l_area.y, 1, 1)
-        } else {
-            Rect::new(l_area.x + l_area.width, l_area.y, 0, 1)
-        };
-
-        state.area = l_area;
+        state.area = area.inner(&self.insets);
         state.value.set_width(state.area.width as usize);
 
-        let focus = state.focus.get();
-        let l_input = state.area;
-
-        let spans = if self.show_compact && !focus {
-            state.value.render_condensed_value();
-
-            let mut spans = Vec::new();
-            spans.push(Span::styled(
-                state.value.rendered(),
-                self.active_style(focus),
-            ));
-            spans
-        } else {
-            let (before, cursor1, select, cursor2, after) = state.visible_part();
-
-            let mut spans = Vec::new();
-            if !before.is_empty() {
-                spans.push(Span::styled(before, self.active_style(focus)));
-            }
-            if !cursor1.is_empty() {
-                if let Some(cursor_style) = self.cursor_style {
-                    spans.push(Span::styled(cursor1, cursor_style));
-                } else {
-                    spans.push(Span::styled(cursor1, self.active_select_style(focus)));
-                }
-            }
-            if !select.is_empty() {
-                spans.push(Span::styled(select, self.active_select_style(focus)));
-            }
-            if !cursor2.is_empty() {
-                if let Some(cursor_style) = self.cursor_style {
-                    spans.push(Span::styled(cursor2, cursor_style));
-                } else {
-                    spans.push(Span::styled(cursor2, self.active_style(focus)));
-                }
-            }
-            if !after.is_empty() {
-                spans.push(Span::styled(after, self.active_style(focus)));
-            }
-
-            spans
-        };
-
-        let line = Line::from(spans);
-        let clear = ClearStyle::default().style(self.active_style(focus));
-
-        frame.render_widget(clear, area);
-        frame.render_widget(line, l_input);
-        if !state.valid.get() {
-            let style = if let Some(style) = self.invalid_style {
-                style
+        if !state.is_focused() {
+            if self.show_compact {
+                state.value.render_condensed_value();
             } else {
-                self.active_style(focus)
-            };
+                state.value.render_value();
+            }
 
-            let invalid = Span::from(self.invalid_char.to_string()).style(style);
-            frame.render_widget(invalid, l_invalid);
-        }
-        if focus {
-            frame.set_cursor(l_input.x + state.visible_cursor(), l_input.y);
+            if state.is_valid() {
+                frame.render_widget(ClearStyle::default().style(self.style), state.area);
+                frame.render_widget(Span::styled(state.value.rendered(), self.style), state.area);
+            } else {
+                frame.render_widget(
+                    ClearStyle::default().style(self.style.patch(self.invalid_style)),
+                    state.area,
+                );
+                frame.render_widget(
+                    Span::styled(state.value.rendered(), self.style.patch(self.invalid_style)),
+                    state.area,
+                );
+            }
+        } else {
+            state.value.render_value();
+
+            let buf = frame.buffer_mut();
+            let area = state.area.intersection(buf.area);
+
+            let selection = clamp_shift(state.selection(), state.offset(), state.width());
+            let mut cit = state.value.rendered().graphemes(true).skip(state.offset());
+            let invalid_style = self.focus_style.patch(self.invalid_style);
+
+            for col in 0..area.width as usize {
+                let cell = buf.get_mut(area.x + col as u16, area.y);
+                if let Some(c) = cit.next() {
+                    cell.set_symbol(c);
+                } else {
+                    cell.set_char(' ');
+                }
+
+                let valid = if let Some(valid_mask) = &state.valid_mask {
+                    valid_mask
+                        .get(state.offset() + col)
+                        .copied()
+                        .unwrap_or(true)
+                } else {
+                    state.is_valid()
+                };
+
+                if selection.contains(&col) {
+                    cell.set_style(self.select_style);
+                } else if valid {
+                    cell.set_style(self.focus_style);
+                } else {
+                    cell.set_style(invalid_style);
+                }
+            }
+
+            if state.is_focused() {
+                frame.set_cursor(state.area.x + state.visible_cursor(), state.area.y);
+            }
         }
     }
 }
@@ -272,14 +227,16 @@ pub struct MaskedInputState {
     pub focus: FocusFlag,
     /// Valid.
     pub valid: ValidFlag,
-    /// Work without focus for key input.
-    pub without_focus: bool,
+    /// Valid mask. Which characters of the input are valid/not valid.
+    pub valid_mask: Option<Vec<bool>>,
     /// Area
     pub area: Rect,
     /// Mouse selection in progress.
-    pub mouse_select: bool,
+    pub mouse: MouseFlags,
     /// Editing core.
     pub value: InputMaskCore,
+    ///
+    pub non_exhaustive: (),
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MaskedInputState
@@ -355,7 +312,7 @@ where
         match event {
             ct_event!(mouse down Left for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.mouse_select = true;
+                    self.mouse.set_drag();
                     let c = column - self.area.x;
                     self.set_offset_relative_cursor(c as isize, false);
                     ControlUI::Change
@@ -364,7 +321,7 @@ where
                 }
             }
             ct_event!(mouse drag Left for column, _row) => {
-                if self.mouse_select {
+                if self.mouse.do_drag() {
                     let c = (*column as isize) - (self.area.x as isize);
                     self.set_offset_relative_cursor(c, true);
                     ControlUI::Change
@@ -373,34 +330,12 @@ where
                 }
             }
             ct_event!(mouse moved) => {
-                self.mouse_select = false;
+                self.mouse.clear_drag();
                 ControlUI::Continue
             }
             _ => ControlUI::Continue,
         }
     }
-}
-
-/// Mapping from events to abstract editing requests.
-#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
-pub enum InputRequest {
-    SetCursor(isize, bool),
-    Select(usize, usize),
-    InsertChar(char),
-    GoToPrevChar(bool),
-    GoToNextChar(bool),
-    GoToPrevWord(bool),
-    GoToNextWord(bool),
-    GoToStart(bool),
-    GoToEnd(bool),
-    SelectAll,
-    DeletePrevChar,
-    DeleteNextChar,
-    DeletePrevWord,
-    DeleteNextWord,
-    DeleteLine,
-    DeleteTillStart,
-    DeleteTillEnd,
 }
 
 impl MaskedInputState {
@@ -462,8 +397,8 @@ impl MaskedInputState {
     /// There is a default representation for each mask type if this
     /// is not set.
     ///
-    /// Panic
-    /// Panics if the length differs from the  mask.
+    /// If the length differs from the mask, the difference will be
+    /// ignored / filled with defaults.
     pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
         self.value.set_display_mask(s);
     }
@@ -471,6 +406,16 @@ impl MaskedInputState {
     /// Display mask.
     pub fn display_mask(&self) -> String {
         self.value.display_mask()
+    }
+
+    /// Sets a mask of valid/invalid characters.
+    pub fn set_valid_mask(&mut self, v: Option<Vec<bool>>) {
+        self.valid_mask = v;
+    }
+
+    /// Mask of valid/invalid characters.
+    pub fn valid_mask(&self) -> &Option<Vec<bool>> {
+        &self.valid_mask
     }
 
     /// Set the input mask. This overwrites the display mask and the value
@@ -512,7 +457,7 @@ impl MaskedInputState {
         self.value.mask()
     }
 
-    /// Debug mask.
+    /// Mask with some debug information.
     pub fn debug_mask(&self) -> String {
         self.value.debug_mask()
     }
@@ -539,7 +484,12 @@ impl MaskedInputState {
         self.value.value()
     }
 
-    /// Value with optional spaces removed.
+    ///
+    pub fn split_value(&self) -> Vec<&str> {
+        self.value.split_value()
+    }
+
+    /// Value without optional whitespace and grouping separators. Might be easier to parse.
     pub fn compact_value(&self) -> String {
         self.value.compact_value()
     }
@@ -549,6 +499,7 @@ impl MaskedInputState {
         self.value.value()
     }
 
+    ///
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
@@ -596,10 +547,12 @@ impl MaskedInputState {
         self.value.set_cursor(pos, extend_selection);
     }
 
+    /// Previous word boundary.
     pub fn prev_word_boundary(&self) -> usize {
         self.value.prev_word_boundary()
     }
 
+    /// Next word boundary.
     pub fn next_word_boundary(&self) -> usize {
         self.value.next_word_boundary()
     }
@@ -626,7 +579,7 @@ impl MaskedInputState {
         }
     }
 
-    /// Insert a char a the current position.
+    /// Insert a char at the current position.
     pub fn insert_char(&mut self, c: char) -> Result<(), fmt::Error> {
         if self.value.has_selection() {
             self.value.remove_selection(self.value.selection())?;
@@ -636,6 +589,8 @@ impl MaskedInputState {
         Ok(())
     }
 
+    /// Remove the selected range. The text will be replaced with the default value
+    /// as defined by the mask.
     pub fn remove_selection(&mut self, selection: Range<usize>) -> Result<(), fmt::Error> {
         self.value.remove_selection(selection)
     }
@@ -662,44 +617,6 @@ impl MaskedInputState {
             self.value.remove_next()?;
         }
         Ok(())
-    }
-
-    /// Extracts the visible part.
-    fn visible_range(&self) -> Range<usize> {
-        let len = min(self.value.offset() + self.value.width(), self.value.len());
-        self.value.offset()..len
-    }
-
-    /// Extracts the visible selection.
-    fn visible_selection(&self) -> Range<usize> {
-        let width = self.value.width();
-        let offset = self.value.offset();
-        let Range { mut start, mut end } = self.value.selection();
-
-        if start < offset {
-            start = offset;
-        } else if start > offset + width {
-            start = offset + width;
-        }
-        if end < offset {
-            end = offset;
-        } else if end > offset + width {
-            end = offset + width;
-        }
-
-        start..end
-    }
-
-    /// Extracts the visible part.
-    fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
-        self.value.render_value();
-
-        grapheme::split5(
-            self.value.rendered(),
-            self.cursor(),
-            self.visible_range(),
-            self.visible_selection(),
-        )
     }
 
     /// Visible cursor position.
@@ -731,7 +648,7 @@ pub mod core {
     #[allow(unused_imports)]
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};
-    use std::iter::once;
+    use std::iter::{once, repeat_with};
     use std::ops::Range;
     use std::rc::Rc;
     use std::{fmt, mem};
@@ -748,6 +665,7 @@ pub mod core {
     /// One char of the input mask.
     #[allow(variant_size_differences)]
     #[derive(Clone, PartialEq, Eq, Default)]
+    #[non_exhaustive]
     pub enum Mask {
         Digit0(EditDirection),
         Digit(EditDirection),
@@ -782,6 +700,7 @@ pub mod core {
     ///
     /// Default-values for editing and display.
     #[derive(Clone, PartialEq, Eq)]
+    #[non_exhaustive]
     pub struct MaskToken {
         pub nr_id: usize,
         pub nr_start: usize,
@@ -1564,8 +1483,16 @@ pub mod core {
         pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
             let display_mask = s.into();
 
-            for (t, m) in self.mask.iter_mut().zip(display_mask.graphemes(true)) {
-                t.display = Box::from(m);
+            for (t, m) in self
+                .mask
+                .iter_mut()
+                .zip(display_mask.graphemes(true).chain(repeat_with(|| "")))
+            {
+                if m.is_empty() {
+                    t.display = t.right.disp_value().into();
+                } else {
+                    t.display = m.into();
+                }
             }
         }
 
@@ -1616,8 +1543,7 @@ pub mod core {
             self.value.as_str()
         }
 
-        // todo: this is borderline useless
-        /// Value without whitespace.
+        /// Value without whitespace and grouping separators. Might be easier to parse.
         pub fn compact_value(&self) -> String {
             let mut buf = String::new();
             for (c, m) in self.value.graphemes(true).zip(self.mask.iter()) {

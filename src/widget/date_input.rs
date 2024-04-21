@@ -27,12 +27,6 @@ impl DateInput {
         self
     }
 
-    /// Use our own cursor indicator or the terminal cursor.
-    pub fn terminal_cursor(mut self, terminal: bool) -> Self {
-        self.input = self.input.terminal_cursor(terminal);
-        self
-    }
-
     /// Set the combined style.
     pub fn style(mut self, style: MaskedInputStyle) -> Self {
         self.input = self.input.style(style);
@@ -57,21 +51,9 @@ impl DateInput {
         self
     }
 
-    /// Style for our own cursor.
-    pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
-        self.input = self.input.cursor_style(style);
-        self
-    }
-
     /// Style for the invalid indicator.
     pub fn invalid_style(mut self, style: impl Into<Style>) -> Self {
         self.input = self.input.invalid_style(style);
-        self
-    }
-
-    /// Marker character for invalid field.
-    pub fn invalid_char(mut self, invalid: char) -> Self {
-        self.input = self.input.invalid_char(invalid);
         self
     }
 }

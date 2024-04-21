@@ -7,7 +7,9 @@
 //! * Can set the cursor or use its own block cursor.
 //! * Can show an indicator for invalid input.
 
+use crate::util::clamp_shift;
 use crate::widget::basic::ClearStyle;
+use crate::widget::MouseFlags;
 use crate::{ct_event, grapheme, ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
@@ -15,23 +17,21 @@ use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
-use ratatui::style::Style;
-use ratatui::text::{Line, Span};
+use ratatui::style::{Style, Stylize};
+use ratatui::text::Span;
 use ratatui::Frame;
-use std::cmp::min;
 use std::ops::Range;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Text input widget.
 #[derive(Debug)]
 pub struct TextInput {
-    pub terminal_cursor: bool,
     pub insets: Margin,
     pub style: Style,
     pub focus_style: Style,
     pub select_style: Style,
-    pub cursor_style: Option<Style>,
-    pub invalid_style: Option<Style>,
-    pub invalid_char: char,
+    pub invalid_style: Style,
+    pub non_exhaustive: (),
 }
 
 /// Combined style for the widget.
@@ -40,21 +40,19 @@ pub struct TextInputStyle {
     pub style: Style,
     pub focus: Style,
     pub select: Style,
-    pub cursor: Option<Style>,
-    pub invalid: Option<Style>,
+    pub invalid: Style,
+    pub non_exhaustive: (),
 }
 
 impl Default for TextInput {
     fn default() -> Self {
         Self {
-            terminal_cursor: true,
             insets: Default::default(),
             style: Default::default(),
             focus_style: Default::default(),
             select_style: Default::default(),
-            cursor_style: None,
-            invalid_style: None,
-            invalid_char: '⁉',
+            invalid_style: Style::default().red().underlined(),
+            non_exhaustive: (),
         }
     }
 }
@@ -66,18 +64,11 @@ impl TextInput {
         self
     }
 
-    /// Use our own cursor indicator or the terminal cursor.
-    pub fn terminal_cursor(mut self, terminal: bool) -> Self {
-        self.terminal_cursor = terminal;
-        self
-    }
-
     /// Set the combined style.
     pub fn style(mut self, style: TextInputStyle) -> Self {
         self.style = style.style;
         self.focus_style = style.focus;
         self.select_style = style.select;
-        self.cursor_style = style.cursor;
         self.invalid_style = style.invalid;
         self
     }
@@ -100,40 +91,10 @@ impl TextInput {
         self
     }
 
-    /// Style for our own cursor.
-    pub fn cursor_style(mut self, style: impl Into<Style>) -> Self {
-        self.cursor_style = Some(style.into());
-        self
-    }
-
     /// Style for the invalid indicator.
     pub fn invalid_style(mut self, style: impl Into<Style>) -> Self {
-        self.invalid_style = Some(style.into());
+        self.invalid_style = style.into();
         self
-    }
-
-    /// Marker character for invalid field.
-    pub fn invalid_char(mut self, invalid: char) -> Self {
-        self.invalid_char = invalid;
-        self
-    }
-
-    // focused or base
-    fn active_style(&self, focus: bool) -> Style {
-        if focus {
-            self.focus_style
-        } else {
-            self.style
-        }
-    }
-
-    // focused or base
-    fn active_select_style(&self, focus: bool) -> Style {
-        if focus {
-            self.select_style
-        } else {
-            self.style
-        }
     }
 }
 
@@ -141,64 +102,52 @@ impl FrameWidget for TextInput {
     type State = TextInputState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
-        let mut l_area = area.inner(&self.insets);
-        let l_invalid = if !state.valid.get() {
-            l_area.width -= 1;
-            Rect::new(l_area.x + l_area.width, l_area.y, 1, 1)
-        } else {
-            Rect::new(l_area.x + l_area.width, l_area.y, 0, 1)
-        };
-
-        state.area = l_area;
+        state.area = area.inner(&self.insets);
         state.value.set_width(state.area.width as usize);
 
-        let focus = state.focus.get();
-        let l_input = state.area;
-
-        let (before, cursor1, select, cursor2, after) = state.visible_part();
-
-        let mut spans = Vec::new();
-        if !before.is_empty() {
-            spans.push(Span::styled(before, self.active_style(focus)));
-        }
-        if !cursor1.is_empty() {
-            if let Some(cursor_style) = self.cursor_style {
-                spans.push(Span::styled(cursor1, cursor_style));
+        if !state.is_focused() {
+            if state.is_valid() {
+                frame.render_widget(ClearStyle::default().style(self.style), state.area);
+                frame.render_widget(Span::styled(state.value(), self.style), state.area);
             } else {
-                spans.push(Span::styled(cursor1, self.active_select_style(focus)));
+                frame.render_widget(
+                    ClearStyle::default().style(self.style.patch(self.invalid_style)),
+                    state.area,
+                );
+                frame.render_widget(
+                    Span::styled(state.value(), self.style.patch(self.invalid_style)),
+                    state.area,
+                );
             }
-        }
-        if !select.is_empty() {
-            spans.push(Span::styled(select, self.active_select_style(focus)));
-        }
-        if !cursor2.is_empty() {
-            if let Some(cursor_style) = self.cursor_style {
-                spans.push(Span::styled(cursor2, cursor_style));
-            } else {
-                spans.push(Span::styled(cursor2, self.active_style(focus)));
+        } else {
+            let buf = frame.buffer_mut();
+            let area = state.area.intersection(buf.area);
+
+            let invalid_style = self.focus_style.patch(self.invalid_style);
+            let selection = clamp_shift(state.selection(), state.offset(), state.width());
+            let mut cit = state.value.value().graphemes(true).skip(state.offset());
+
+            for col in 0..area.width as usize {
+                let cell = buf.get_mut(area.x + col as u16, area.y);
+                if let Some(c) = cit.next() {
+                    cell.set_symbol(c);
+                } else {
+                    cell.set_char(' ');
+                }
+
+                if selection.contains(&col) {
+                    cell.set_style(self.select_style);
+                } else if state.is_valid() {
+                    cell.set_style(self.focus_style);
+                } else {
+                    cell.set_style(invalid_style);
+                }
             }
-        }
-        if !after.is_empty() {
-            spans.push(Span::styled(after, self.active_style(focus)));
-        }
 
-        let line = Line::from(spans);
-        let clear = ClearStyle::default().style(self.active_style(focus));
-
-        frame.render_widget(clear, area);
-        frame.render_widget(line, l_input);
-        if !state.valid.get() {
-            let style = if let Some(style) = self.invalid_style {
-                style
-            } else {
-                self.active_style(focus)
-            };
-
-            let invalid = Span::from(self.invalid_char.to_string()).style(style);
-            frame.render_widget(invalid, l_invalid);
-        }
-        if self.terminal_cursor && focus {
-            frame.set_cursor(l_input.x + state.visible_cursor(), l_input.y);
+            if state.is_focused() {
+                let cursor = state.value.cursor().saturating_sub(state.value.offset()) as u16;
+                frame.set_cursor(state.area.x + cursor, state.area.y);
+            }
         }
     }
 }
@@ -213,9 +162,11 @@ pub struct TextInputState {
     /// Area
     pub area: Rect,
     /// Mouse selection in progress.
-    pub mouse_select: bool,
+    pub mouse: MouseFlags,
     /// Editing core
     pub value: core::InputCore,
+    ///
+    pub non_exhaustive: (),
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputState {
@@ -284,7 +235,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputState {
         match event {
             ct_event!(mouse down Left for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.mouse_select = true;
+                    self.mouse.set_drag();
                     let c = column - self.area.x;
                     self.set_offset_relative_cursor(c as isize, false);
                     ControlUI::Change
@@ -293,7 +244,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputState {
                 }
             }
             ct_event!(mouse drag Left for column, _row) => {
-                if self.mouse_select {
+                if self.mouse.do_drag() {
                     let c = (*column as isize) - (self.area.x as isize);
                     self.set_offset_relative_cursor(c, true);
                     ControlUI::Change
@@ -302,7 +253,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputState {
                 }
             }
             ct_event!(mouse moved) => {
-                self.mouse_select = false;
+                self.mouse.clear_drag();
                 ControlUI::Continue
             }
             _ => ControlUI::Continue,
@@ -470,48 +421,6 @@ impl TextInputState {
             self.value
                 .replace(self.value.cursor()..self.value.cursor() + 1, "");
         }
-    }
-
-    /// Extracts the visible part.
-    fn visible_range(&self) -> Range<usize> {
-        let len = min(self.value.offset() + self.value.width(), self.value.len());
-        self.value.offset()..len
-    }
-
-    /// Extracts the visible selection.
-    fn visible_selection(&self) -> Range<usize> {
-        let width = self.value.width();
-        let offset = self.value.offset();
-        let Range { mut start, mut end } = self.value.selection();
-
-        if start < offset {
-            start = offset;
-        } else if start > offset + width {
-            start = offset + width;
-        }
-        if end < offset {
-            end = offset;
-        } else if end > offset + width {
-            end = offset + width;
-        }
-
-        start..end
-    }
-
-    /// Extracts the visible parts. The result is (before, cursor1, selection, cursor2, after).
-    /// One cursor1 and cursor2 is an empty string.
-    fn visible_part(&mut self) -> (&str, &str, &str, &str, &str) {
-        grapheme::split5(
-            self.value.as_str(),
-            self.cursor(),
-            self.visible_range(),
-            self.visible_selection(),
-        )
-    }
-
-    /// Visible cursor position.
-    fn visible_cursor(&mut self) -> u16 {
-        (self.value.cursor() - self.value.offset()) as u16
     }
 }
 
