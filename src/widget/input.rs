@@ -281,7 +281,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputState {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        let res = match event {
+        match event {
             ct_event!(mouse down Left for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.mouse_select = true;
@@ -306,9 +306,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputState {
                 ControlUI::Continue
             }
             _ => ControlUI::Continue,
-        };
-
-        res
+        }
     }
 }
 

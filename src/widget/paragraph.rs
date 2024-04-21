@@ -1,3 +1,6 @@
+///
+/// Adapter for ratatui::widget::Paragraph
+///
 use crate::HasVerticalScroll;
 use crate::{ControlUI, DefaultKeys, HandleCrossterm, MouseOnly};
 use crossterm::event::Event;

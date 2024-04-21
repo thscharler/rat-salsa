@@ -210,7 +210,7 @@ impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ButtonState<
 
 impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ButtonState<A> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        let res = match event {
+        match event {
             ct_event!(mouse down Left for column, row)
             | ct_event!(mouse drag Left for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
@@ -231,8 +231,6 @@ impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ButtonState<A>
                 }
             }
             _ => ControlUI::Continue,
-        };
-
-        res
+        }
     }
 }

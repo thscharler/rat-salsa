@@ -35,6 +35,7 @@ pub trait HandleCrossterm<R, KeyMap = DefaultKeys> {
     fn handle(&mut self, event: &crossterm::event::Event, keymap: KeyMap) -> R;
 }
 
+/// A copy of the crossterm-KeyModifiers. Plus a few combinations of modifiers.
 pub mod modifiers {
     use crossterm::event::KeyModifiers;
 
@@ -49,35 +50,55 @@ pub mod modifiers {
     pub const ALT_SHIFT: KeyModifiers = KeyModifiers::from_bits_truncate(0b0000_0101);
 }
 
+/// This macro produces pattern matches for crossterm events.
+///
+/// Syntax:
+/// ```bnf
+/// "key" ("press"|"release") (modifier "-")? "'" char "'"
+/// "keycode" ("press"|"release") (modifier "-")? keycode
+/// "mouse" ("down"|"up"|"drag") (modifier "-")? button "for" col_id "," row_id
+/// "mouse" "moved" ("for" col_id "," row_id)?
+/// "scroll" ("up"|"down") "for" col_id "," row_id
+/// ```
+///
+/// where
+///
+/// ```bnf
+/// modifier := <<one of the KeyModifiers's>> | "CONTROL_SHIFT" | "ALT_SHIFT"
+/// char := <<some character>>
+/// keycode := <<one of the defined KeyCode's>>
+/// button := <<one of the defined MouseButton's>>
+/// ```
+///
 #[macro_export]
 macro_rules! ct_event {
-    (key press $code:pat) => {
+    (key press $keychar:pat) => {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($code),
+            code: crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::modifiers::NONE,
             kind: crossterm::event::KeyEventKind::Press,
             ..
         })
     };
-    (key press $mod:ident-$code:pat) => {
+    (key press $mod:ident-$keychar:pat) => {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($code),
+            code: crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::modifiers::$mod,
             kind: crossterm::event::KeyEventKind::Press,
             ..
         })
     };
-    (key release $code:pat) => {
+    (key release $keychar:pat) => {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($code),
+            code: crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::modifiers::NONE,
             kind: crossterm::event::KeyEventKind::Release,
             ..
         })
     };
-    (key release $mod:ident-$code:pat) => {
+    (key release $mod:ident-$keychar:pat) => {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
-            code: crossterm::event::KeyCode::Char($code),
+            code: crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::modifiers::$mod,
             kind: crossterm::event::KeyEventKind::Release,
             ..

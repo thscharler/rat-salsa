@@ -56,7 +56,7 @@ where
         if state.widget.need_vscroll() {
             state.scrollbar_area = area.columns().last();
 
-            let mut widget_area = area.clone();
+            let mut widget_area = area;
             widget_area.width -= 1;
             self.widget.render(widget_area, buf, &mut state.widget);
 

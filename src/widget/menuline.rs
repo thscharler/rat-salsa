@@ -215,6 +215,7 @@ pub struct MenuLineState<A> {
     pub mouse: MouseFlags,
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl<A> MenuLineState<A> {
     pub fn new() -> Self {
         Self::default()
@@ -300,7 +301,7 @@ pub struct HotKeyCtrl;
 
 impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, HotKeyCtrl> for MenuLineState<A> {
     fn handle(&mut self, event: &Event, _: HotKeyCtrl) -> ControlUI<A, E> {
-        let res = match event {
+        match event {
             ct_event!(key press CONTROL-cc) => {
                 self.select_by_key(*cc);
                 match self.action() {
@@ -309,9 +310,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, HotKeyCtrl> for MenuLineState<
                 }
             }
             _ => ControlUI::Continue,
-        };
-
-        res
+        }
     }
 }
 
@@ -321,7 +320,7 @@ pub struct HotKeyAlt;
 
 impl<A: Copy + Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, HotKeyAlt> for MenuLineState<A> {
     fn handle(&mut self, event: &Event, _: HotKeyAlt) -> ControlUI<A, E> {
-        let res = match event {
+        match event {
             ct_event!(key press ALT-cc) => {
                 self.select_by_key(*cc);
                 match self.action() {
@@ -330,9 +329,7 @@ impl<A: Copy + Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, HotKeyAlt> for 
                 }
             }
             _ => ControlUI::Continue,
-        };
-
-        res
+        }
     }
 }
 
@@ -382,7 +379,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState
 
 impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        let res = match event {
+        match event {
             ct_event!(mouse down Left for col, row) => {
                 if let Some(i) = self.item_at(Position::new(*col, *row)) {
                     self.mouse.set_drag();
@@ -421,8 +418,6 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineState<A
                 ControlUI::Continue
             }
             _ => ControlUI::Continue,
-        };
-
-        res
+        }
     }
 }

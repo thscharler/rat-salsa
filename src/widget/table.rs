@@ -205,7 +205,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
         for row in self.rows.iter().skip(state.offset()) {
             row_area.height = row.height_with_margin();
 
-            state.row_areas.push(row_area.clone());
+            state.row_areas.push(row_area);
 
             row_area.y += row_area.height;
             if row_area.y > layout[1].height {
@@ -486,7 +486,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SingleSelection> {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        let res = match event {
+        match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.vscroll_down(self.vpage() / 5);
@@ -535,9 +535,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
             }
 
             _ => ControlUI::Continue,
-        };
-
-        res
+        }
     }
 }
 
@@ -710,7 +708,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        let res = match event {
+        match event {
             ct_event!(scroll down for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.vscroll_up(self.vpage() / 5);
@@ -779,8 +777,6 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
             }
 
             _ => ControlUI::Continue,
-        };
-
-        res
+        }
     }
 }

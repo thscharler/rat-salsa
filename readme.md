@@ -299,18 +299,14 @@ impl<R> HandleCrossterm<R, SpecialKeybinding> for DateInputState
 }
 ```
 
-To simplify the process there is one more trait [Input](crate::Input) which enables widgets
-to define the set of interactions. The key-binding maps to these interactions and the interactions
-can do whatever complicated logic is needed.
-
 [TuiApp] doesn't use this trait, it's just for widgets.
 
 ### Scrolling
 
-See [HasVerticalScroll](crate::widget::HasVerticalScroll).
+See [HasVerticalScroll](crate::HasVerticalScroll).
 
 And also [scrolled](crate::widget::scrolled)
 
-### Selection
+### ListSelection
 
-See [selected](crate::widget::selected)
+See [ListSelection](crate::ListSelection)

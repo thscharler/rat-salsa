@@ -352,7 +352,7 @@ where
     E: From<fmt::Error>,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
-        let res = match event {
+        match event {
             ct_event!(mouse down Left for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.mouse_select = true;
@@ -377,9 +377,7 @@ where
                 ControlUI::Continue
             }
             _ => ControlUI::Continue,
-        };
-
-        res
+        }
     }
 }
 
@@ -2105,11 +2103,7 @@ pub mod core {
                         // Numeric fields can hold a sign.
                         // If they are not otherwise occupied.
                         let (_b, a) = grapheme::split_at(&self.value, i);
-                        if t.right.can_drop_first(a) || t.right.first(a) == "-" {
-                            return true;
-                        } else {
-                            return false;
-                        }
+                        return t.right.can_drop_first(a) || t.right.first(a) == "-";
                     }
                     _ => {}
                 }
