@@ -23,7 +23,7 @@ use std::mem;
 ///
 /// See [TableExtState](crate::widget::table::TableExtState) for an example.
 ///
-pub trait Selection {
+pub trait ListSelection {
     /// Is selected.
     fn is_selected(&self, n: usize) -> bool;
 
@@ -41,14 +41,11 @@ pub trait Selection {
 //     fn lead_cell_selection(&self) -> Option<(usize, usize)>;
 // }
 
-// -----------------------------------------------------------------------
-// -----------------------------------------------------------------------
-
 /// No selection
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct NoSelection;
 
-impl Selection for NoSelection {
+impl ListSelection for NoSelection {
     fn is_selected(&self, _n: usize) -> bool {
         false
     }
@@ -58,16 +55,13 @@ impl Selection for NoSelection {
     }
 }
 
-// -----------------------------------------------------------------------
-// -----------------------------------------------------------------------
-
 /// Single element selection.
 #[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct SingleSelection {
     pub selected: Option<usize>,
 }
 
-impl Selection for SingleSelection {
+impl ListSelection for SingleSelection {
     fn is_selected(&self, n: usize) -> bool {
         self.selected == Some(n)
     }
@@ -105,9 +99,6 @@ impl SingleSelection {
     }
 }
 
-// -----------------------------------------------------------------------
-// -----------------------------------------------------------------------
-
 /// List selection as a set of usize.
 ///
 /// This provides a pair anchor+lead which provide the active selection range.
@@ -120,7 +111,7 @@ pub struct SetSelection {
     pub selected: HashSet<usize>,
 }
 
-impl Selection for SetSelection {
+impl ListSelection for SetSelection {
     fn is_selected(&self, n: usize) -> bool {
         if let Some(mut anchor) = self.anchor {
             if let Some(mut lead) = self.lead {
@@ -249,6 +240,3 @@ impl SetSelection {
         self.selected.remove(&idx);
     }
 }
-
-// -----------------------------------------------------------------------
-// -----------------------------------------------------------------------

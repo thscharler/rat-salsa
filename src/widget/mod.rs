@@ -2,7 +2,6 @@
 //! Some widgets and extensions to ratatui-widgets.
 //!
 
-use std::cell::Cell;
 use std::time::{Duration, SystemTime};
 
 pub mod basic;
@@ -16,12 +15,10 @@ pub mod menuline;
 pub mod message;
 pub mod paragraph;
 pub mod scrolled;
-pub mod selected;
 pub mod table;
 
-/// Small helper that provides a trigger for mouse double-click.
+/// Small helper for handling mouse-events.
 ///
-/// It uses a timeout to filter out the second click.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct MouseFlags {
     pub armed: Option<SystemTime>,
@@ -29,19 +26,25 @@ pub struct MouseFlags {
 }
 
 impl MouseFlags {
+    /// Handling mouse drag events for this widget is enabled.
+    /// It may make sense for a component to track mouse events outside its area.
+    /// But usually with some limitations. This flag signals that those limits
+    /// have been met, and drag event should be processed.
     pub fn do_drag(&self) -> bool {
         self.drag
     }
 
+    /// Enable handling mouse drag events for the widget.
     pub fn set_drag(&mut self) {
         self.drag = true;
     }
 
+    /// Clear the do-drag flag.
     pub fn clear_drag(&mut self) {
         self.drag = false;
     }
 
-    /// Reset the trigger.
+    /// Reset the double-click trigger.
     pub fn reset_trigger(&mut self) {
         self.armed = None;
     }
@@ -68,87 +71,6 @@ impl MouseFlags {
                     true
                 }
             }
-        }
-    }
-}
-
-/// Scroll-state of a widget.
-///
-/// This may be used by a widget implementation to implement scrolling.
-/// The real deal is to implement the trait [HasVerticalScroll].
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct Scroll {
-    /// Total content length
-    pub len: Cell<usize>,
-    /// Current offset
-    pub offset: Cell<usize>,
-    /// Page-size
-    pub page: Cell<usize>,
-}
-
-impl Scroll {
-    pub fn set_len(&self, len: usize) {
-        self.len.set(len);
-    }
-
-    pub fn len(&self) -> usize {
-        self.len.get()
-    }
-
-    pub fn set_offset(&self, offset: usize) {
-        self.offset.set(offset);
-    }
-
-    pub fn offset(&self) -> usize {
-        self.offset.get()
-    }
-
-    pub fn set_page(&self, page: usize) {
-        self.page.set(page);
-    }
-
-    pub fn page(&self) -> usize {
-        self.page.get()
-    }
-}
-
-/// Trait for a widget that can scroll vertically.
-pub trait HasVerticalScroll {
-    /// State needs scrolling?
-    fn need_vscroll(&self) -> bool {
-        true
-    }
-
-    /// Vertical length.
-    fn vlen(&self) -> usize;
-
-    /// Vertical offset.
-    fn voffset(&self) -> usize;
-
-    /// Change the offset
-    fn set_voffset(&mut self, offset: usize);
-
-    /// Vertical page size.
-    fn vpage(&self) -> usize;
-
-    /// Scroll up by n.
-    fn vscroll_up(&mut self, n: usize) {
-        let offset = self.voffset();
-        if offset > n {
-            self.set_voffset(offset - n);
-        } else {
-            self.set_voffset(0);
-        }
-    }
-
-    /// Scroll down by n.
-    fn vscroll_down(&mut self, n: usize) {
-        let offset = self.voffset();
-        let len = self.vlen();
-        if offset + n < len {
-            self.set_voffset(offset + n);
-        } else {
-            self.set_voffset(len);
         }
     }
 }
