@@ -137,7 +137,7 @@ pub struct FormScrolledParagraph {
 #[derive(Debug)]
 pub struct FormScrolledTable {
     pub table1: ScrolledState<TableExtState<SingleSelection>>,
-    pub table2: ScrolledState<TableExtState<SetSelection>>,
+    pub table2: TableExtState<SetSelection>,
 }
 
 impl FormOneState {
@@ -888,16 +888,26 @@ fn repaint_scrolled_paragraph(
     .split(layout.area);
 
     let w_para = create_para().overscroll(0);
-    let w_para = Scrolled::new(w_para);
+    let w_para = Scrolled::new(w_para).block(
+        Block::bordered()
+            .border_type(BorderType::Rounded)
+            .title("no overscroll")
+            .title_style(Style::default().underlined()),
+    );
     frame.render_stateful_widget(w_para, l_columns[0], &mut uistate.scrolled_para.para1);
 
     let w_para = create_para().overscroll(33);
-    let w_para = Scrolled::new(w_para);
+    let w_para = Scrolled::new(w_para).block(
+        Block::default()
+            .borders(Borders::RIGHT | Borders::BOTTOM)
+            .title("overscroll")
+            .title_style(Style::default().underlined()),
+    );
     frame.render_stateful_widget(w_para, l_columns[2], &mut uistate.scrolled_para.para2);
 
     let w_para = create_para().block(
         Block::default()
-            .title("Some title")
+            .title("inner border")
             .borders(Borders::ALL)
             .border_type(BorderType::Plain),
     );
@@ -1116,7 +1126,6 @@ fn repaint_scrolled_table(
 
     let l_table2 = Span::from("Multiple selection").underlined();
     let w_table2 = create_sample_table().styles(uistate.g.theme.table_style());
-    let w_table2 = Scrolled::new(w_table2);
 
     frame.render_widget(l_table1, l_title[0]);
     frame.render_stateful_widget(w_table1, l_columns[0], &mut uistate.scrolled_table.table1);
