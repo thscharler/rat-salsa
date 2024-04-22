@@ -3,7 +3,6 @@
 //!
 
 use ratatui::layout::Rect;
-use std::cmp::min;
 
 /// Trait for a widget that can scroll.
 pub trait ScrolledWidget {

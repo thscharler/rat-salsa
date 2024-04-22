@@ -72,7 +72,7 @@ impl<'a, SEL> Default for TableExt<'a, SEL> {
 }
 
 impl<'a, SEL> ScrolledWidget for TableExt<'a, SEL> {
-    fn need_scroll(&self, area: Rect) -> ScrollParam {
+    fn need_scroll(&self, _area: Rect) -> ScrollParam {
         ScrollParam {
             hlen: 0,
             vlen: self.rows.len(),
