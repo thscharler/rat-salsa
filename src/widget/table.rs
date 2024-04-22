@@ -74,8 +74,6 @@ impl<'a, SEL> Default for TableExt<'a, SEL> {
 impl<'a, SEL> ScrolledWidget for TableExt<'a, SEL> {
     fn need_scroll(&self, _area: Rect) -> ScrollParam {
         ScrollParam {
-            hlen: 0,
-            vlen: self.rows.len(),
             has_hscroll: false,
             has_vscroll: true,
         }
@@ -224,6 +222,18 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
             }
         }
 
+        // max_v_offset
+        let mut n = 0;
+        let mut height = 0;
+        for row in self.rows.iter().rev() {
+            height += row.height_with_margin();
+            if height > layout[1].height {
+                break;
+            }
+            n += 1;
+        }
+        state.max_v_offset = state.len - n;
+
         // selection
         for (i, r) in self.rows.iter_mut().enumerate() {
             let style = if state.focus.get() {
@@ -287,6 +297,7 @@ pub struct TableExtState<SEL> {
     pub table_state: TableState,
 
     pub len: usize,
+    pub max_v_offset: usize,
 
     pub area: Rect,
     pub header_area: Rect,
@@ -311,46 +322,32 @@ impl<SEL> HasFocusFlag for TableExtState<SEL> {
 }
 
 impl<SEL> HasScrolling for TableExtState<SEL> {
-    fn has_vscroll(&self) -> bool {
-        true
+    fn max_v_offset(&self) -> usize {
+        self.max_v_offset
     }
 
-    fn has_hscroll(&self) -> bool {
-        false
-    }
-
-    fn vlen(&self) -> usize {
-        self.len
-    }
-
-    fn hlen(&self) -> usize {
+    fn max_h_offset(&self) -> usize {
         0
     }
 
-    fn vmax_offset(&self) -> usize {
-        self.len
-    }
-
-    fn hmax_offset(&self) -> usize {
-        0
-    }
-
-    fn voffset(&self) -> usize {
+    fn v_offset(&self) -> usize {
         self.table_state.offset()
     }
 
-    fn hoffset(&self) -> usize {
+    fn h_offset(&self) -> usize {
         0
     }
 
-    fn set_voffset(&mut self, offset: usize) {
+    fn set_v_offset(&mut self, offset: usize) {
         *self.table_state.offset_mut() = offset;
         // For scrolling purposes the selection of ratatui::Table is never None,
         // instead it defaults out to 0 which prohibits any scrolling attempt.
+
+        // We do our own selection, so we don't really care.
         *self.table_state.selected_mut() = Some(offset);
     }
 
-    fn set_hoffset(&mut self, _offset: usize) {
+    fn set_h_offset(&mut self, _offset: usize) {
         unimplemented!("no horizontal scrolling")
     }
 }
@@ -377,6 +374,7 @@ impl<SEL: ListSelection> TableExtState<SEL> {
         &mut self.selection
     }
 
+    /// Row at given position.
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
         for (i, r) in self.row_areas.iter().enumerate() {
             if r.contains(pos) {
@@ -424,13 +422,13 @@ impl<SEL: ListSelection> TableExtState<SEL> {
     }
 
     /// Scroll to selected.
-    pub fn adjust_view(&mut self) {
+    pub fn scroll_to_selected(&mut self) {
         if let Some(selected) = self.selection.lead_selection() {
-            if self.voffset() + self.row_areas.len() <= selected {
-                self.set_voffset(selected - self.row_areas.len() + 1);
+            if self.v_offset() + self.row_areas.len() <= selected {
+                self.set_v_offset(selected - self.row_areas.len() + 1);
             }
-            if self.voffset() > selected {
-                self.set_voffset(selected);
+            if self.v_offset() > selected {
+                self.set_v_offset(selected);
             }
         }
     }
@@ -465,33 +463,33 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SingleSelection> {
             match event {
                 ct_event!(keycode press Down) => {
                     self.selection.next(1, self.len - 1);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press Up) => {
                     self.selection.prev(1);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
                     self.selection.select(Some(self.len - 1));
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
                     self.selection.select(Some(0));
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageUp) => {
                     self.selection.prev(self.table_area.height as usize / 2);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageDown) => {
                     self.selection
                         .next(self.table_area.height as usize / 2, self.len - 1);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 _ => ControlUI::Continue,
@@ -511,7 +509,8 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
         match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(self.table_area.height as usize / 5);
+                    debug!("scroll down");
+                    self.scroll_down(self.table_area.height as usize / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -519,7 +518,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(self.table_area.height as usize / 5);
+                    self.scroll_up(self.table_area.height as usize / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -545,7 +544,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
                     let new_row = self.row_at_drag(pos);
                     self.mouse.set_drag();
                     self.selection.select_clamped(new_row, self.len - 1);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -657,67 +656,67 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
             match event {
                 ct_event!(keycode press Down) => {
                     self.selection.next(1, self.len - 1, false);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press SHIFT-Down) => {
                     self.selection.next(1, self.len - 1, true);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press Up) => {
                     self.selection.prev(1, false);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press SHIFT-Up) => {
                     self.selection.prev(1, true);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
                     self.selection.set_lead(Some(self.len - 1), false);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press SHIFT-End) => {
                     self.selection.set_lead(Some(self.len - 1), true);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
                     self.selection.set_lead(Some(0), false);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press SHIFT-Home) => {
                     self.selection.set_lead(Some(0), true);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
 
                 ct_event!(keycode press PageUp) => {
                     self.selection
                         .prev(self.table_area.height as usize / 2, false);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press SHIFT-PageUp) => {
                     self.selection
                         .prev(self.table_area.height as usize / 2, true);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageDown) => {
                     self.selection
                         .next(self.table_area.height as usize / 2, self.len - 1, false);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press SHIFT-PageDown) => {
                     self.selection
                         .next(self.table_area.height as usize / 2, self.len - 1, true);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 _ => ControlUI::Continue,
@@ -735,7 +734,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSelection> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         match event {
-            ct_event!(scroll down for column, row) => {
+            ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.scroll_up(self.table_area.height as usize / 5);
                     ControlUI::Change
@@ -743,7 +742,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                     ControlUI::Continue
                 }
             }
-            ct_event!(scroll up for column, row) => {
+            ct_event!(scroll down for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
                     self.scroll_down(self.table_area.height as usize / 5);
                     ControlUI::Change
@@ -791,7 +790,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
                     let pos = Position::new(*column, *row);
                     let new_row = self.row_at_drag(pos);
                     self.selection.set_lead_clamped(new_row, self.len - 1, true);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 } else {
                     ControlUI::Continue

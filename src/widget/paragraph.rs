@@ -12,6 +12,7 @@ use ratatui::prelude::{BlockExt, StatefulWidget};
 use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, Paragraph, Widget, Wrap};
+use std::cell::Cell;
 use std::cmp::min;
 
 #[derive(Debug)]
@@ -19,7 +20,11 @@ pub struct ParagraphExt<'a> {
     pub para: Paragraph<'a>,
     pub block: Option<Block<'a>>,
     pub wrap: Option<Wrap>,
-    pub overscroll: usize,
+
+    // maybe??
+    pub cached_area_width: Cell<u16>,
+    pub cached_line_width: Cell<usize>,
+    pub cached_line_count: Cell<usize>,
 }
 
 #[derive(Debug, Default)]
@@ -27,35 +32,35 @@ pub struct ParagraphExtState {
     pub area: Rect,
     pub para_area: Rect,
 
-    pub overscroll: usize,
-
-    pub has_vscroll: bool,
     pub vlen: usize,
-    pub voffset: usize,
-    pub has_hscroll: bool,
     pub hlen: usize,
+    pub voffset: usize,
     pub hoffset: usize,
 }
 
 impl<'a> ScrolledWidget for ParagraphExt<'a> {
-    fn need_scroll(&self, area: Rect) -> ScrollParam {
-        let (show_horizontal, hlen) = if self.wrap.is_some() {
-            (false, area.width as usize)
+    fn need_scroll(&self, mut area: Rect) -> ScrollParam {
+        area = self.block.inner_if_some(area);
+
+        self.cached_area_width.set(area.width);
+
+        let show_horizontal = if self.wrap.is_some() {
+            false
         } else {
             let width = self.para.line_width();
+            self.cached_line_width.set(width);
             if width >= area.width as usize {
-                (true, width)
+                true
             } else {
-                (false, width)
+                false
             }
         };
 
-        let vlen = self.para.line_count(hlen as u16);
-        let show_vertical = true; // always show ...
+        let lines = self.para.line_count(area.width);
+        self.cached_line_count.set(lines);
+        let show_vertical = lines > area.height as usize;
 
         ScrollParam {
-            hlen,
-            vlen,
             has_hscroll: show_horizontal,
             has_vscroll: show_vertical,
         }
@@ -63,50 +68,28 @@ impl<'a> ScrolledWidget for ParagraphExt<'a> {
 }
 
 impl HasScrolling for ParagraphExtState {
-    fn has_vscroll(&self) -> bool {
-        self.has_vscroll
-    }
-
-    fn has_hscroll(&self) -> bool {
-        self.has_hscroll
-    }
-
-    fn vlen(&self) -> usize {
-        self.vlen
-    }
-
-    fn hlen(&self) -> usize {
-        self.hlen
-    }
-
-    fn vmax_offset(&self) -> usize {
+    fn max_v_offset(&self) -> usize {
         self.vlen.saturating_sub(self.para_area.height as usize)
     }
 
-    fn hmax_offset(&self) -> usize {
+    fn max_h_offset(&self) -> usize {
         self.hlen.saturating_sub(self.para_area.width as usize)
     }
 
-    fn voffset(&self) -> usize {
+    fn v_offset(&self) -> usize {
         self.voffset
     }
 
-    fn hoffset(&self) -> usize {
+    fn h_offset(&self) -> usize {
         self.hoffset
     }
 
-    fn set_voffset(&mut self, offset: usize) {
-        self.voffset = min(
-            offset,
-            self.vmax_offset() + (self.para_area.height as usize * self.overscroll / 100),
-        );
+    fn set_v_offset(&mut self, offset: usize) {
+        self.voffset = min(offset, self.vlen);
     }
 
-    fn set_hoffset(&mut self, offset: usize) {
-        self.hoffset = min(
-            offset,
-            self.hmax_offset() + (self.para_area.width as usize * self.overscroll / 100),
-        );
+    fn set_h_offset(&mut self, offset: usize) {
+        self.hoffset = min(offset, self.hlen);
     }
 }
 
@@ -120,14 +103,10 @@ impl<'a> ParagraphExt<'a> {
             para: Paragraph::new(t),
             block: None,
             wrap: None,
-            overscroll: 0,
+            cached_area_width: Cell::new(0),
+            cached_line_width: Cell::new(0),
+            cached_line_count: Cell::new(0),
         }
-    }
-
-    /// Overscrolling in percent.
-    pub fn overscroll(mut self, percent: usize) -> Self {
-        self.overscroll = percent;
-        self
     }
 
     pub fn block(mut self, block: Block<'a>) -> Self {
@@ -175,16 +154,17 @@ impl<'a> StatefulWidget for ParagraphExt<'a> {
         state.area = area;
         state.para_area = self.block.inner_if_some(area);
 
-        let scroll_config = self.need_scroll(area);
-        state.overscroll = self.overscroll;
-        state.hlen = scroll_config.hlen;
-        state.vlen = scroll_config.vlen;
-        state.has_hscroll = scroll_config.has_hscroll;
-        state.has_vscroll = scroll_config.has_vscroll;
+        if self.cached_area_width.get() == state.para_area.width {
+            state.hlen = self.cached_line_width.get();
+            state.vlen = self.cached_line_count.get();
+        } else {
+            state.hlen = self.para.line_width();
+            state.vlen = self.para.line_count(state.para_area.width);
+        }
 
         let para = self
             .para
-            .scroll((state.voffset() as u16, (state.hoffset() as u16)));
+            .scroll((state.v_offset() as u16, state.h_offset() as u16));
         para.render(area, buf);
     }
 }

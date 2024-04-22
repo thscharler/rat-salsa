@@ -4,6 +4,7 @@ use crate::{
     ListSelection, MouseOnly, NoSelection, SingleSelection,
 };
 use crossterm::event::Event;
+#[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
@@ -178,6 +179,19 @@ impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
             }
         }
 
+        // max_h_offset
+        let mut n = 0;
+        let mut height = 0;
+        for item in self.items.iter().rev() {
+            height += item.height();
+            if height > state.list_area.height as usize {
+                break;
+            }
+            n += 1;
+        }
+        state.max_v_offset = state.len - n;
+
+        // rendering
         let mut list = if state.focus.get() {
             self.list.highlight_style(self.focus_style)
         } else {
@@ -197,6 +211,7 @@ pub struct ListExtState<SEL> {
     pub widget: ListState,
 
     pub len: usize,
+    pub max_v_offset: usize,
 
     pub area: Rect,
     pub list_area: Rect,
@@ -219,44 +234,28 @@ impl<SEL> HasFocusFlag for ListExtState<SEL> {
 }
 
 impl<SEL> HasScrolling for ListExtState<SEL> {
-    fn has_vscroll(&self) -> bool {
-        true
+    fn max_v_offset(&self) -> usize {
+        self.max_v_offset
     }
 
-    fn has_hscroll(&self) -> bool {
-        false
-    }
-
-    fn vlen(&self) -> usize {
-        self.len
-    }
-
-    fn hlen(&self) -> usize {
+    fn max_h_offset(&self) -> usize {
         0
     }
 
-    fn vmax_offset(&self) -> usize {
-        self.len
-    }
-
-    fn hmax_offset(&self) -> usize {
-        0
-    }
-
-    fn voffset(&self) -> usize {
+    fn v_offset(&self) -> usize {
         self.widget.offset()
     }
 
-    fn hoffset(&self) -> usize {
+    fn h_offset(&self) -> usize {
         0
     }
 
-    fn set_voffset(&mut self, offset: usize) {
+    fn set_v_offset(&mut self, offset: usize) {
         *self.widget.offset_mut() = offset;
-        // TODO: check selected fix
+        // TODO: check selected prohibits scroll?
     }
 
-    fn set_hoffset(&mut self, _offset: usize) {
+    fn set_h_offset(&mut self, _offset: usize) {
         unimplemented!("no horizontal scrolling")
     }
 }
@@ -297,7 +296,6 @@ impl<SEL: ListSelection> ListExtState<SEL> {
         let offset = self.offset();
         for (i, r) in self.item_areas.iter().enumerate() {
             if pos.y >= r.y && pos.y < r.y + r.height {
-                debug!("row_at_drag found row {}", offset + i);
                 return offset + i;
             }
         }
@@ -331,13 +329,13 @@ impl<SEL: ListSelection> ListExtState<SEL> {
     }
 
     /// Scroll to selected.
-    pub fn adjust_view(&mut self) {
+    pub fn scroll_to_selected(&mut self) {
         if let Some(selected) = self.selection.lead_selection() {
-            if self.voffset() + self.item_areas.len() <= selected {
-                self.set_voffset(selected - self.item_areas.len() + 1);
+            if self.v_offset() + self.item_areas.len() <= selected {
+                self.set_v_offset(selected - self.item_areas.len() + 1);
             }
-            if self.voffset() > selected {
-                self.set_voffset(selected);
+            if self.v_offset() > selected {
+                self.set_v_offset(selected);
             }
         }
     }
@@ -372,33 +370,33 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for ListExtState<SingleSelection> {
             match event {
                 ct_event!(keycode press Down) => {
                     self.selection.next(1, self.len - 1);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press Up) => {
                     self.selection.prev(1);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
                     self.selection.select(Some(self.len - 1));
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
                     self.selection.select(Some(0));
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageUp) => {
                     self.selection.prev(self.list_area.height as usize / 2);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageDown) => {
                     self.selection
                         .next(self.list_area.height as usize / 2, self.len - 1);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 }
                 _ => ControlUI::Continue,
@@ -452,7 +450,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState<SingleSe
                     let new_row = self.row_at_drag(pos);
                     self.mouse.set_drag();
                     self.selection.select_clamped(new_row, self.len - 1);
-                    self.adjust_view();
+                    self.scroll_to_selected();
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
