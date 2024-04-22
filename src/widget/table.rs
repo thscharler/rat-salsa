@@ -20,17 +20,14 @@ use std::marker::PhantomData;
 use std::mem;
 
 /// Add some minor fixes to [ratatui::widgets::Table]
-#[derive()]
 pub struct TableExt<'a, SEL> {
+    ///
+    pub table: Table<'a>,
+
     ///
     pub rows: Vec<Row<'a>>,
     pub header: Option<Row<'a>>,
     pub footer: Option<Row<'a>>,
-
-    ///
-    pub table: Table<'a>,
-    /// Row count
-    pub len: usize,
 
     /// Base style
     pub base_style: Style,
@@ -39,6 +36,7 @@ pub struct TableExt<'a, SEL> {
     /// Style for selected + focused.
     pub focus_style: Style,
 
+    pub non_exhaustive: (),
     pub _phantom: PhantomData<SEL>,
 }
 
@@ -46,8 +44,9 @@ impl<'a, SEL> Debug for TableExt<'a, SEL> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("TableExt")
             .field("rows", &self.rows)
+            .field("header", &self.header)
+            .field("footer", &self.footer)
             .field("table", &self.table)
-            .field("len", &self.len)
             .field("base_style", &self.base_style)
             .field("select_style", &self.select_style)
             .field("focus_style", &self.focus_style)
@@ -62,10 +61,10 @@ impl<'a, SEL> Default for TableExt<'a, SEL> {
             header: None,
             footer: None,
             table: Default::default(),
-            len: 0,
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
+            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
@@ -77,6 +76,7 @@ pub struct TableExtStyle {
     pub style: Style,
     pub select_style: Style,
     pub focus_style: Style,
+    pub non_exhaustive: (),
 }
 
 impl<'a, SEL> TableExt<'a, SEL> {
@@ -88,17 +88,16 @@ impl<'a, SEL> TableExt<'a, SEL> {
         C::Item: Into<Constraint>,
     {
         let rows = rows.into_iter().map(|v| v.into()).collect::<Vec<_>>();
-        let len = rows.len();
 
         Self {
             rows,
             header: None,
             footer: None,
             table: Table::default().widths(widths),
-            len,
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
+            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
@@ -108,7 +107,6 @@ impl<'a, SEL> TableExt<'a, SEL> {
         T: IntoIterator<Item = Row<'a>>,
     {
         let rows = rows.into_iter().collect::<Vec<_>>();
-        self.len = rows.len();
         self.rows = rows;
         self
     }
@@ -186,7 +184,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         // store to state
         state.area = area;
-        state.len = self.len;
+        state.len = self.rows.len();
 
         // row layout
         let header_height = self.header.as_ref().map_or(0, |h| h.height_with_margin());
@@ -208,7 +206,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
             state.row_areas.push(row_area);
 
             row_area.y += row_area.height;
-            if row_area.y > layout[1].height {
+            if row_area.y >= layout[1].y + layout[1].height {
                 break;
             }
         }
@@ -249,36 +247,22 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
     }
 }
 
-impl<'a, SEL> Styled for TableExt<'a, SEL> {
-    type Item = TableExt<'a, SEL>;
-
-    fn style(&self) -> Style {
-        <Table<'_> as Styled>::style(&self.table)
-    }
-
-    fn set_style<S: Into<Style>>(mut self, style: S) -> Self::Item {
-        self.table = self.table.set_style(style);
-        self
-    }
-}
-
 impl<'a, SEL, Item> FromIterator<Item> for TableExt<'a, SEL>
 where
     Item: Into<Row<'a>>,
 {
     fn from_iter<U: IntoIterator<Item = Item>>(iter: U) -> Self {
         let rows = iter.into_iter().map(|v| v.into()).collect::<Vec<_>>();
-        let len = rows.len();
 
         Self {
             rows,
             header: None,
             footer: None,
             table: Table::default(),
-            len,
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
+            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
@@ -369,7 +353,7 @@ impl<SEL: ListSelection> TableExtState<SEL> {
         let offset = self.offset();
         for (i, r) in self.row_areas.iter().enumerate() {
             if pos.y >= r.y && pos.y < r.y + r.height {
-                debug!("row_at_drag found row {}", offset + i);
+                debug!("find row {} in {:?} -> {}", pos.y, r, offset + i);
                 return offset + i;
             }
         }
@@ -380,6 +364,12 @@ impl<SEL: ListSelection> TableExtState<SEL> {
             let min_row = self.header_area.y as isize + self.header_area.height as isize;
             offset + (pos.y as isize - min_row)
         } else if pos.y >= self.footer_area.y {
+            debug!(
+                "gtfooter {} {} len {}",
+                pos.y,
+                self.footer_area.y,
+                self.row_areas.len()
+            );
             let max_row = self.footer_area.y as isize;
             let vis_rows = self.row_areas.len() as isize;
             offset + vis_rows + (pos.y as isize - max_row)
@@ -405,8 +395,8 @@ impl<SEL: ListSelection> TableExtState<SEL> {
     /// Scroll to selected.
     pub fn adjust_view(&mut self) {
         if let Some(selected) = self.selection.lead_selection() {
-            if self.voffset() + (self.area.height as usize) <= selected {
-                self.set_voffset(selected - (self.area.height as usize) + 1);
+            if self.voffset() + self.row_areas.len() <= selected {
+                self.set_voffset(selected - self.row_areas.len() + 1);
             }
             if self.voffset() > selected {
                 self.set_voffset(selected);
