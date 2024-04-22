@@ -335,7 +335,6 @@ impl<A: Copy + Debug, E: Debug> HandleCrossterm<ControlUI<A, E>, HotKeyAlt> for 
 
 impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState<A> {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
-        debug!("handle menu {:?}", event);
         let res = if self.is_focused() {
             match event {
                 ct_event!(key press cc) => {
@@ -346,12 +345,10 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState
                     }
                 }
                 ct_event!(keycode press Left) => {
-                    debug!("sel prev");
                     self.prev();
                     ControlUI::Change
                 }
                 ct_event!(keycode press Right) => {
-                    debug!("sel next");
                     self.next();
                     ControlUI::Change
                 }

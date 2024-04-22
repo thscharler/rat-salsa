@@ -484,11 +484,6 @@ impl MaskedInputState {
         self.value.value()
     }
 
-    ///
-    pub fn split_value(&self) -> Vec<&str> {
-        self.value.split_value()
-    }
-
     /// Value without optional whitespace and grouping separators. Might be easier to parse.
     pub fn compact_value(&self) -> String {
         self.value.compact_value()
