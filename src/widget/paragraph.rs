@@ -79,11 +79,11 @@ impl HasScrolling for ParagraphExtState {
         self.hlen
     }
 
-    fn vmax(&self) -> usize {
+    fn vmax_offset(&self) -> usize {
         self.vlen.saturating_sub(self.para_area.height as usize)
     }
 
-    fn hmax(&self) -> usize {
+    fn hmax_offset(&self) -> usize {
         self.hlen.saturating_sub(self.para_area.width as usize)
     }
 
@@ -98,14 +98,14 @@ impl HasScrolling for ParagraphExtState {
     fn set_voffset(&mut self, offset: usize) {
         self.voffset = min(
             offset,
-            self.vmax() + (self.para_area.height as usize * self.overscroll / 100),
+            self.vmax_offset() + (self.para_area.height as usize * self.overscroll / 100),
         );
     }
 
     fn set_hoffset(&mut self, offset: usize) {
         self.hoffset = min(
             offset,
-            self.hmax() + (self.para_area.width as usize * self.overscroll / 100),
+            self.hmax_offset() + (self.para_area.width as usize * self.overscroll / 100),
         );
     }
 }

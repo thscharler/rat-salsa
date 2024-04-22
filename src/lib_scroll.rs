@@ -34,10 +34,10 @@ pub trait HasScrolling {
     fn hlen(&self) -> usize;
 
     /// Maximum offset.
-    fn vmax(&self) -> usize;
+    fn vmax_offset(&self) -> usize;
 
     /// Maximum offset.
-    fn hmax(&self) -> usize;
+    fn hmax_offset(&self) -> usize;
 
     /// Vertical offset.
     fn voffset(&self) -> usize;

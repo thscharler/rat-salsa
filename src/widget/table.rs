@@ -327,11 +327,11 @@ impl<SEL> HasScrolling for TableExtState<SEL> {
         0
     }
 
-    fn vmax(&self) -> usize {
+    fn vmax_offset(&self) -> usize {
         self.len
     }
 
-    fn hmax(&self) -> usize {
+    fn hmax_offset(&self) -> usize {
         0
     }
 
