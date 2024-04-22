@@ -10,6 +10,7 @@ use rat_salsa::number::NumberSymbols;
 use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::date_input::{DateInput, DateInputState};
 use rat_salsa::widget::input::{TextInput, TextInputState, TextInputStyle};
+use rat_salsa::widget::list::ListExtState;
 use rat_salsa::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
 use rat_salsa::widget::menuline::{HotKeyAlt, MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
@@ -27,10 +28,11 @@ use rat_salsa::{SetSelection, SingleSelection};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Wrap};
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Row, Wrap};
 use ratatui::Frame;
 use std::fs;
+use std::iter::repeat_with;
 use std::rc::Rc;
 
 fn main() -> Result<(), anyhow::Error> {
@@ -81,6 +83,7 @@ pub struct FormOneState {
     pub dateinput: FormDateInput,
     pub scrolled_para: FormScrolledParagraph,
     pub scrolled_table: FormScrolledTable,
+    pub scrolled_list: FormScrolledList,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -89,6 +92,7 @@ pub enum MenuItem {
     Date,
     Paragraph,
     Table,
+    List,
     Error,
     Quit,
 }
@@ -140,6 +144,11 @@ pub struct FormScrolledTable {
     pub table2: TableExtState<SetSelection>,
 }
 
+#[derive(Debug)]
+pub struct FormScrolledList {
+    pub list1: ScrolledState<ListExtState<SingleSelection>>,
+}
+
 impl FormOneState {
     pub fn new(sym: &Rc<NumberSymbols>) -> Self {
         let mut s = Self {
@@ -149,6 +158,7 @@ impl FormOneState {
             dateinput: FormDateInput::new(sym),
             scrolled_para: FormScrolledParagraph::new(),
             scrolled_table: FormScrolledTable::new(),
+            scrolled_list: FormScrolledList::new(),
         };
         s.menu.select(Some(0));
         s
@@ -234,6 +244,14 @@ impl FormScrolledTable {
     }
 }
 
+impl FormScrolledList {
+    pub fn new() -> Self {
+        Self {
+            list1: Default::default(),
+        }
+    }
+}
+
 // -----------------------------------------------------------------------
 
 #[derive(Debug)]
@@ -315,6 +333,12 @@ impl TuiApp for FormOneApp {
                     _
                 )
             }
+            Some(MenuItem::List) => {
+                tr!(
+                    repaint_scrolled_list(&event, frame, layout, data, uistate),
+                    _
+                )
+            }
             _ => {}
         }
         tr!(repaint_menu(&event, frame, layout, data, uistate), _);
@@ -373,12 +397,13 @@ impl TuiApp for FormOneApp {
             }
         });
 
-        check_break!(match uistate.menu.selected() {
-            Some(0) => handle_textinput(&event, data, uistate),
-            Some(1) => handle_dateinput(&event, data, uistate),
-            Some(2) => handle_scrolled_paragraph(&event, data, uistate),
-            Some(3) => handle_scrolled_table(&event, data, uistate),
-            Some(4) => handle_error(&event, data, uistate),
+        check_break!(match uistate.menu.action() {
+            Some(MenuItem::Text) => handle_textinput(&event, data, uistate),
+            Some(MenuItem::Date) => handle_dateinput(&event, data, uistate),
+            Some(MenuItem::Paragraph) => handle_scrolled_paragraph(&event, data, uistate),
+            Some(MenuItem::Table) => handle_scrolled_table(&event, data, uistate),
+            Some(MenuItem::List) => handle_scrolled_list(&event, data, uistate),
+            Some(MenuItem::Error) => handle_error(&event, data, uistate),
             _ => Control::Continue,
         });
 
@@ -887,22 +912,26 @@ fn repaint_scrolled_paragraph(
     )
     .split(layout.area);
 
-    let w_para = create_para().overscroll(0);
-    let w_para = Scrolled::new(w_para).block(
-        Block::bordered()
-            .border_type(BorderType::Rounded)
-            .title("no overscroll")
-            .title_style(Style::default().underlined()),
-    );
+    let w_para = create_para();
+    let w_para = Scrolled::new(w_para)
+        .block(
+            Block::bordered()
+                .border_type(BorderType::Rounded)
+                .title("no overscroll")
+                .title_style(Style::default().underlined()),
+        )
+        .v_overscroll(0);
     frame.render_stateful_widget(w_para, l_columns[0], &mut uistate.scrolled_para.para1);
 
-    let w_para = create_para().overscroll(33);
-    let w_para = Scrolled::new(w_para).block(
-        Block::default()
-            .borders(Borders::RIGHT | Borders::BOTTOM)
-            .title("overscroll")
-            .title_style(Style::default().underlined()),
-    );
+    let w_para = create_para();
+    let w_para = Scrolled::new(w_para)
+        .block(
+            Block::default()
+                .borders(Borders::RIGHT | Borders::BOTTOM)
+                .title("overscroll")
+                .title_style(Style::default().underlined()),
+        )
+        .v_overscroll(5);
     frame.render_stateful_widget(w_para, l_columns[2], &mut uistate.scrolled_para.para2);
 
     let w_para = create_para().block(
@@ -1120,11 +1149,11 @@ fn repaint_scrolled_table(
         layout.area.height - 1,
     ));
 
-    let l_table1 = Span::from("Single selection").underlined();
+    let l_table1 = Span::from("Single selection, external scroll").underlined();
     let w_table1 = create_sample_table().styles(uistate.g.theme.table_style());
     let w_table1 = Scrolled::new(w_table1);
 
-    let l_table2 = Span::from("Multiple selection").underlined();
+    let l_table2 = Span::from("Multiple selection, internal scroll").underlined();
     let w_table2 = create_sample_table().styles(uistate.g.theme.table_style());
 
     frame.render_widget(l_table1, l_title[0]);
@@ -1301,6 +1330,54 @@ fn handle_scrolled_table(
 
     Control::Continue
 }
+
+fn repaint_scrolled_list(
+    event: &RepaintEvent,
+    frame: &mut Frame<'_>,
+    layout: FormOneAppLayout,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    // let l_columns = Layout::new(
+    //     Direction::Horizontal,
+    //     [
+    //         Constraint::Fill(2),
+    //         Constraint::Fill(1),
+    //         Constraint::Fill(2),
+    //         Constraint::Fill(1),
+    //     ],
+    // )
+    //     .split(layout.area);
+    //
+    // let mut nn = 0;
+    // let w_list1 = List::default().items(
+    //     repeat_with(|| {
+    //         nn += 1;
+    //         nn
+    //     }).take(5000)
+    //         .map(|v| {
+    //             ListItem::new(Text::from_iter([
+    //                 Line::from(format!("line {}", v).to_string()),
+    //                 Line::from(format!("line {}", v).to_string()),
+    //             ]))
+    //         })
+    // ]);
+    // let w_list1 = Scrolled::new(w_list1)
+    //     ;
+    //
+    // frame.render_widget(w_list1, l_columns[0]);
+
+    ControlUI::Continue
+}
+
+fn handle_scrolled_list(
+    event: &Event,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    ControlUI::Continue
+}
+
 // -----------------------------------------------------------------------
 
 #[derive(Debug, Default)]
