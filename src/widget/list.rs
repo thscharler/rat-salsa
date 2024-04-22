@@ -1,6 +1,6 @@
 use crate::widget::MouseFlags;
 use crate::{
-    ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasVerticalScroll,
+    ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
     ListSelection, MouseOnly, NoSelection, SingleSelection,
 };
 use crossterm::event::Event;
@@ -8,7 +8,6 @@ use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style};
-use ratatui::style::Styled;
 use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState};
 use std::marker::PhantomData;
 
@@ -189,13 +188,13 @@ impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
         }
         list = list.items(self.items);
 
-        StatefulWidget::render(list, area, buf, &mut state.list_state);
+        StatefulWidget::render(list, area, buf, &mut state.widget);
     }
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ListExtState<SEL> {
-    pub list_state: ListState,
+    pub widget: ListState,
 
     pub len: usize,
 
@@ -219,28 +218,52 @@ impl<SEL> HasFocusFlag for ListExtState<SEL> {
     }
 }
 
-impl<SEL> HasVerticalScroll for ListExtState<SEL> {
+impl<SEL> HasScrolling for ListExtState<SEL> {
+    fn has_vscroll(&self) -> bool {
+        true
+    }
+
+    fn has_hscroll(&self) -> bool {
+        false
+    }
+
     fn vlen(&self) -> usize {
         self.len
     }
 
+    fn hlen(&self) -> usize {
+        0
+    }
+
+    fn vmax(&self) -> usize {
+        self.len
+    }
+
+    fn hmax(&self) -> usize {
+        0
+    }
+
     fn voffset(&self) -> usize {
-        self.list_state.offset()
+        self.widget.offset()
+    }
+
+    fn hoffset(&self) -> usize {
+        0
     }
 
     fn set_voffset(&mut self, offset: usize) {
-        *self.list_state.offset_mut() = offset;
+        *self.widget.offset_mut() = offset;
         // TODO: check selected fix
     }
 
-    fn vpage(&self) -> usize {
-        self.area.height as usize
+    fn set_hoffset(&mut self, _offset: usize) {
+        unimplemented!("no horizontal scrolling")
     }
 }
 
 impl<SEL: ListSelection> ListExtState<SEL> {
     pub fn with_offset(mut self, offset: usize) -> Self {
-        self.list_state = self.list_state.with_offset(offset);
+        self.widget = self.widget.with_offset(offset);
         self
     }
 
@@ -253,11 +276,11 @@ impl<SEL: ListSelection> ListExtState<SEL> {
     }
 
     pub fn offset(&self) -> usize {
-        self.list_state.offset()
+        self.widget.offset()
     }
 
     pub fn offset_mut(&mut self) -> &mut usize {
-        self.list_state.offset_mut()
+        self.widget.offset_mut()
     }
 
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
@@ -368,12 +391,13 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for ListExtState<SingleSelection> {
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageUp) => {
-                    self.selection.prev(self.vpage() / 2);
+                    self.selection.prev(self.list_area.height as usize / 2);
                     self.adjust_view();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageDown) => {
-                    self.selection.next(self.vpage() / 2, self.len - 1);
+                    self.selection
+                        .next(self.list_area.height as usize / 2, self.len - 1);
                     self.adjust_view();
                     ControlUI::Change
                 }
@@ -394,7 +418,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState<SingleSe
         match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.vscroll_down(self.vpage() / 10);
+                    self.scroll_down(self.list_area.height as usize / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -402,7 +426,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState<SingleSe
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.vscroll_up(self.vpage() / 10);
+                    self.scroll_up(self.list_area.height as usize / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue

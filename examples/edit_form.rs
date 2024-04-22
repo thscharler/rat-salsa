@@ -28,7 +28,7 @@ use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span};
-use ratatui::widgets::Row;
+use ratatui::widgets::{Block, BorderType, Borders, Paragraph, Row, Wrap};
 use ratatui::Frame;
 use std::fs;
 use std::rc::Rc;
@@ -128,7 +128,10 @@ pub struct FormDateInput {
 
 #[derive(Debug)]
 pub struct FormScrolledParagraph {
-    pub para: ScrolledState<ParagraphExtState>,
+    pub para1: ScrolledState<ParagraphExtState>,
+    pub para2: ScrolledState<ParagraphExtState>,
+    pub para3: ScrolledState<ParagraphExtState>,
+    pub para4: ScrolledState<ParagraphExtState>,
 }
 
 #[derive(Debug)]
@@ -214,7 +217,10 @@ impl FormDateInput {
 impl FormScrolledParagraph {
     pub fn new() -> Self {
         Self {
-            para: Default::default(),
+            para1: Default::default(),
+            para2: Default::default(),
+            para3: Default::default(),
+            para4: Default::default(),
         }
     }
 }
@@ -689,6 +695,10 @@ fn handle_textinput(event: &Event, data: &mut FormOneData, uistate: &mut FormOne
             if let Some(v) = mask0.float.set_valid_from(v) {
                 mask0.float.set_value(format!("{}", v));
             }
+        },
+        mask0.ipv4 => {
+            // mask0.ipv4.value()
+
         }
     );
     on_gained!(
@@ -866,15 +876,43 @@ fn repaint_scrolled_paragraph(
     let l_columns = Layout::new(
         Direction::Horizontal,
         [
-            Constraint::Fill(2),
             Constraint::Fill(1),
-            Constraint::Fill(2),
+            Constraint::Length(2),
+            Constraint::Fill(1),
+            Constraint::Length(2),
+            Constraint::Fill(1),
+            Constraint::Length(2),
             Constraint::Fill(1),
         ],
     )
     .split(layout.area);
 
-    let w_para = ParagraphExt::new(
+    let w_para = create_para().overscroll(0);
+    let w_para = Scrolled::new(w_para);
+    frame.render_stateful_widget(w_para, l_columns[0], &mut uistate.scrolled_para.para1);
+
+    let w_para = create_para().overscroll(33);
+    let w_para = Scrolled::new(w_para);
+    frame.render_stateful_widget(w_para, l_columns[2], &mut uistate.scrolled_para.para2);
+
+    let w_para = create_para().block(
+        Block::default()
+            .title("Some title")
+            .borders(Borders::ALL)
+            .border_type(BorderType::Plain),
+    );
+    let w_para = Scrolled::new(w_para);
+    frame.render_stateful_widget(w_para, l_columns[4], &mut uistate.scrolled_para.para3);
+
+    let w_para = create_para().wrap(Wrap { trim: true });
+    let w_para = Scrolled::new(w_para);
+    frame.render_stateful_widget(w_para, l_columns[6], &mut uistate.scrolled_para.para4);
+
+    Control::Continue
+}
+
+fn create_para() -> ParagraphExt<'static> {
+    ParagraphExt::new(
         [
             "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, ",
             "sed diam nonumy eirmod tempor invidunt ut labore et dolore",
@@ -940,12 +978,7 @@ fn repaint_scrolled_paragraph(
         .iter()
         .map(|v| Line::from(*v))
         .collect::<Vec<_>>(),
-    );
-    let w_para = Scrolled::new(w_para);
-
-    frame.render_stateful_widget(w_para, l_columns[0], &mut uistate.scrolled_para.para);
-
-    Control::Continue
+    )
 }
 
 fn handle_scrolled_paragraph(
@@ -960,7 +993,10 @@ fn handle_scrolled_paragraph(
         .handle(event, DefaultKeys)
         .and_do(|_| uistate.g.repaint.set());
 
-    check_break!(mask2.para.handle(event, DefaultKeys));
+    check_break!(mask2.para1.handle(event, DefaultKeys));
+    check_break!(mask2.para2.handle(event, DefaultKeys));
+    check_break!(mask2.para3.handle(event, DefaultKeys));
+    check_break!(mask2.para4.handle(event, DefaultKeys));
 
     Control::Continue
 }
@@ -1322,6 +1358,7 @@ impl Theme {
             style: Default::default(),
             select_style: Style::default().fg(self.black).bg(self.purple).bold(),
             focus_style: Style::default().fg(self.black).bg(self.green).bold(),
+            ..TableExtStyle::default()
         }
     }
 
@@ -1330,8 +1367,7 @@ impl Theme {
             style: Style::default().fg(self.black).bg(self.base05),
             focus: Style::default().fg(self.black).bg(self.green),
             select: Style::default().fg(self.black).bg(self.base0e),
-            invalid: Some(Style::default().white().on_light_red()),
-            cursor: None,
+            invalid: Style::default().red().underlined(),
             ..TextInputStyle::default()
         }
     }
@@ -1341,8 +1377,7 @@ impl Theme {
             style: Style::default().fg(self.black).bg(self.base05),
             focus: Style::default().fg(self.black).bg(self.green),
             select: Style::default().fg(self.black).bg(self.base0e),
-            invalid: Some(Style::default().white().on_light_red()),
-            cursor: None,
+            invalid: Style::default().red().underlined(),
             ..MaskedInputStyle::default()
         }
     }

@@ -1,11 +1,12 @@
-use crate::widget::MouseFlags;
-use crate::{ct_event, ControlUI, HasFocusFlag};
-use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
-use crate::{FocusFlag, HasVerticalScroll};
 ///
 /// Extensions for [ratatui::widgets::Table]
 ///
-use crate::{ListSelection, NoSelection, SetSelection, SingleSelection};
+use crate::widget::MouseFlags;
+use crate::{
+    ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
+    ListSelection, MouseOnly, NoSelection, ScrollParam, ScrolledWidget, SetSelection,
+    SingleSelection,
+};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
@@ -66,6 +67,17 @@ impl<'a, SEL> Default for TableExt<'a, SEL> {
             focus_style: Default::default(),
             non_exhaustive: (),
             _phantom: Default::default(),
+        }
+    }
+}
+
+impl<'a, SEL> ScrolledWidget for TableExt<'a, SEL> {
+    fn need_scroll(&self, area: Rect) -> ScrollParam {
+        ScrollParam {
+            hlen: 0,
+            vlen: self.rows.len(),
+            has_hscroll: false,
+            has_vscroll: true,
         }
     }
 }
@@ -197,6 +209,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
         .split(area);
 
         state.header_area = layout[0];
+        state.table_area = layout[1];
         state.footer_area = layout[2];
         state.row_areas.clear();
         let mut row_area = Rect::new(layout[1].x, layout[1].y, layout[1].width, 1);
@@ -277,6 +290,7 @@ pub struct TableExtState<SEL> {
 
     pub area: Rect,
     pub header_area: Rect,
+    pub table_area: Rect,
     pub row_areas: Vec<Rect>,
     pub footer_area: Rect,
 
@@ -296,13 +310,37 @@ impl<SEL> HasFocusFlag for TableExtState<SEL> {
     }
 }
 
-impl<SEL> HasVerticalScroll for TableExtState<SEL> {
+impl<SEL> HasScrolling for TableExtState<SEL> {
+    fn has_vscroll(&self) -> bool {
+        true
+    }
+
+    fn has_hscroll(&self) -> bool {
+        false
+    }
+
     fn vlen(&self) -> usize {
         self.len
     }
 
+    fn hlen(&self) -> usize {
+        0
+    }
+
+    fn vmax(&self) -> usize {
+        self.len
+    }
+
+    fn hmax(&self) -> usize {
+        0
+    }
+
     fn voffset(&self) -> usize {
         self.table_state.offset()
+    }
+
+    fn hoffset(&self) -> usize {
+        0
     }
 
     fn set_voffset(&mut self, offset: usize) {
@@ -312,8 +350,8 @@ impl<SEL> HasVerticalScroll for TableExtState<SEL> {
         *self.table_state.selected_mut() = Some(offset);
     }
 
-    fn vpage(&self) -> usize {
-        self.area.height as usize
+    fn set_hoffset(&mut self, _offset: usize) {
+        unimplemented!("no horizontal scrolling")
     }
 }
 
@@ -353,24 +391,17 @@ impl<SEL: ListSelection> TableExtState<SEL> {
         let offset = self.offset();
         for (i, r) in self.row_areas.iter().enumerate() {
             if pos.y >= r.y && pos.y < r.y + r.height {
-                debug!("find row {} in {:?} -> {}", pos.y, r, offset + i);
                 return offset + i;
             }
         }
 
         let offset = self.offset() as isize;
-        let rr = if pos.y < self.header_area.y + self.header_area.height {
+        let rr = if pos.y < self.table_area.y {
             // assume row-height=1 for outside the box.
-            let min_row = self.header_area.y as isize + self.header_area.height as isize;
-            offset + (pos.y as isize - min_row)
-        } else if pos.y >= self.footer_area.y {
-            debug!(
-                "gtfooter {} {} len {}",
-                pos.y,
-                self.footer_area.y,
-                self.row_areas.len()
-            );
-            let max_row = self.footer_area.y as isize;
+            let min_row = self.table_area.y as isize;
+            offset - (min_row - pos.y as isize)
+        } else if pos.y >= self.table_area.y + self.table_area.height {
+            let max_row = self.table_area.y as isize + self.table_area.height as isize;
             let vis_rows = self.row_areas.len() as isize;
             offset + vis_rows + (pos.y as isize - max_row)
         } else {
@@ -381,7 +412,7 @@ impl<SEL: ListSelection> TableExtState<SEL> {
                 offset + vis_rows + (pos.y as isize - min_row)
             } else {
                 // empty table, count from header
-                let min_row = self.header_area.y as isize + self.header_area.height as isize;
+                let min_row = self.table_area.y as isize + self.table_area.height as isize;
                 offset + (pos.y as isize - min_row)
             }
         };
@@ -453,12 +484,13 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SingleSelection> {
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageUp) => {
-                    self.selection.prev(self.vpage() / 2);
+                    self.selection.prev(self.table_area.height as usize / 2);
                     self.adjust_view();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageDown) => {
-                    self.selection.next(self.vpage() / 2, self.len - 1);
+                    self.selection
+                        .next(self.table_area.height as usize / 2, self.len - 1);
                     self.adjust_view();
                     ControlUI::Change
                 }
@@ -479,7 +511,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
         match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.vscroll_down(self.vpage() / 5);
+                    self.scroll_down(self.table_area.height as usize / 5);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -487,7 +519,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.vscroll_up(self.vpage() / 5);
+                    self.scroll_up(self.table_area.height as usize / 5);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -665,22 +697,26 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
                 }
 
                 ct_event!(keycode press PageUp) => {
-                    self.selection.prev(self.vpage() / 2, false);
+                    self.selection
+                        .prev(self.table_area.height as usize / 2, false);
                     self.adjust_view();
                     ControlUI::Change
                 }
                 ct_event!(keycode press SHIFT-PageUp) => {
-                    self.selection.prev(self.vpage() / 2, true);
+                    self.selection
+                        .prev(self.table_area.height as usize / 2, true);
                     self.adjust_view();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageDown) => {
-                    self.selection.next(self.vpage() / 2, self.len - 1, false);
+                    self.selection
+                        .next(self.table_area.height as usize / 2, self.len - 1, false);
                     self.adjust_view();
                     ControlUI::Change
                 }
                 ct_event!(keycode press SHIFT-PageDown) => {
-                    self.selection.next(self.vpage() / 2, self.len - 1, true);
+                    self.selection
+                        .next(self.table_area.height as usize / 2, self.len - 1, true);
                     self.adjust_view();
                     ControlUI::Change
                 }
@@ -701,7 +737,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
         match event {
             ct_event!(scroll down for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.vscroll_up(self.vpage() / 5);
+                    self.scroll_up(self.table_area.height as usize / 5);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -709,7 +745,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SetSele
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.vscroll_down(self.vpage() / 5);
+                    self.scroll_down(self.table_area.height as usize / 5);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
