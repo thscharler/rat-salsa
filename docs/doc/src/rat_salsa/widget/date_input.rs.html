@@ -460,24 +460,6 @@
 <a href="#458" id="458">458</a>
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a>
-<a href="#473" id="473">473</a>
-<a href="#474" id="474">474</a>
-<a href="#475" id="475">475</a>
-<a href="#476" id="476">476</a>
-<a href="#477" id="477">477</a>
-<a href="#478" id="478">478</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
 <span class="kw">use crate</span>::{
     ct_event, CanValidate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm,
@@ -507,12 +489,6 @@
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Use our own cursor indicator or the terminal cursor.
-    </span><span class="kw">pub fn </span>terminal_cursor(<span class="kw-2">mut </span><span class="self">self</span>, terminal: bool) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.input = <span class="self">self</span>.input.terminal_cursor(terminal);
-        <span class="self">self
-    </span>}
-
     <span class="doccomment">/// Set the combined style.
     </span><span class="kw">pub fn </span>style(<span class="kw-2">mut </span><span class="self">self</span>, style: MaskedInputStyle) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.input = <span class="self">self</span>.input.style(style);
@@ -537,21 +513,9 @@
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Style for our own cursor.
-    </span><span class="kw">pub fn </span>cursor_style(<span class="kw-2">mut </span><span class="self">self</span>, style: <span class="kw">impl </span>Into&lt;Style&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.input = <span class="self">self</span>.input.cursor_style(style);
-        <span class="self">self
-    </span>}
-
     <span class="doccomment">/// Style for the invalid indicator.
     </span><span class="kw">pub fn </span>invalid_style(<span class="kw-2">mut </span><span class="self">self</span>, style: <span class="kw">impl </span>Into&lt;Style&gt;) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.input = <span class="self">self</span>.input.invalid_style(style);
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Marker character for invalid field.
-    </span><span class="kw">pub fn </span>invalid_char(<span class="kw-2">mut </span><span class="self">self</span>, invalid: char) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.input = <span class="self">self</span>.input.invalid_char(invalid);
         <span class="self">self
     </span>}
 }

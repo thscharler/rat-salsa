@@ -68,14 +68,48 @@
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a>
+<a href="#76" id="76">76</a>
+<a href="#77" id="77">77</a>
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>crossterm::event::{Event, KeyCode, KeyEvent};
 <span class="kw">use </span>log::debug;
 <span class="kw">use </span>ratatui::text::Span;
 <span class="kw">use </span>std::cmp::min;
+<span class="kw">use </span>std::ops::Range;
 
 <span class="doccomment">/// Sum all widths.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>span_width(spans: <span class="kw-2">&amp;</span>[Span&lt;<span class="lifetime">'_</span>&gt;]) -&gt; u16 {
     spans.iter().map(|v| v.width() <span class="kw">as </span>u16).sum()
+}
+
+<span class="doccomment">/// Constrains the range to the visible range and shifts the result by offset.
+</span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>clamp_shift(range: Range&lt;usize&gt;, offset: usize, width: usize) -&gt; Range&lt;usize&gt; {
+    <span class="kw">let </span>start = <span class="kw">if </span>range.start &lt; offset {
+        offset
+    } <span class="kw">else </span>{
+        range.start
+    };
+    <span class="kw">let </span>end = <span class="kw">if </span>range.end &gt; offset + width {
+        offset + width
+    } <span class="kw">else </span>{
+        range.end
+    };
+
+    start - offset..end - offset
 }
 
 <span class="doccomment">/// Select previous.

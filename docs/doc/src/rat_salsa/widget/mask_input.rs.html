@@ -2753,85 +2753,6 @@
 <a href="#2751" id="2751">2751</a>
 <a href="#2752" id="2752">2752</a>
 <a href="#2753" id="2753">2753</a>
-<a href="#2754" id="2754">2754</a>
-<a href="#2755" id="2755">2755</a>
-<a href="#2756" id="2756">2756</a>
-<a href="#2757" id="2757">2757</a>
-<a href="#2758" id="2758">2758</a>
-<a href="#2759" id="2759">2759</a>
-<a href="#2760" id="2760">2760</a>
-<a href="#2761" id="2761">2761</a>
-<a href="#2762" id="2762">2762</a>
-<a href="#2763" id="2763">2763</a>
-<a href="#2764" id="2764">2764</a>
-<a href="#2765" id="2765">2765</a>
-<a href="#2766" id="2766">2766</a>
-<a href="#2767" id="2767">2767</a>
-<a href="#2768" id="2768">2768</a>
-<a href="#2769" id="2769">2769</a>
-<a href="#2770" id="2770">2770</a>
-<a href="#2771" id="2771">2771</a>
-<a href="#2772" id="2772">2772</a>
-<a href="#2773" id="2773">2773</a>
-<a href="#2774" id="2774">2774</a>
-<a href="#2775" id="2775">2775</a>
-<a href="#2776" id="2776">2776</a>
-<a href="#2777" id="2777">2777</a>
-<a href="#2778" id="2778">2778</a>
-<a href="#2779" id="2779">2779</a>
-<a href="#2780" id="2780">2780</a>
-<a href="#2781" id="2781">2781</a>
-<a href="#2782" id="2782">2782</a>
-<a href="#2783" id="2783">2783</a>
-<a href="#2784" id="2784">2784</a>
-<a href="#2785" id="2785">2785</a>
-<a href="#2786" id="2786">2786</a>
-<a href="#2787" id="2787">2787</a>
-<a href="#2788" id="2788">2788</a>
-<a href="#2789" id="2789">2789</a>
-<a href="#2790" id="2790">2790</a>
-<a href="#2791" id="2791">2791</a>
-<a href="#2792" id="2792">2792</a>
-<a href="#2793" id="2793">2793</a>
-<a href="#2794" id="2794">2794</a>
-<a href="#2795" id="2795">2795</a>
-<a href="#2796" id="2796">2796</a>
-<a href="#2797" id="2797">2797</a>
-<a href="#2798" id="2798">2798</a>
-<a href="#2799" id="2799">2799</a>
-<a href="#2800" id="2800">2800</a>
-<a href="#2801" id="2801">2801</a>
-<a href="#2802" id="2802">2802</a>
-<a href="#2803" id="2803">2803</a>
-<a href="#2804" id="2804">2804</a>
-<a href="#2805" id="2805">2805</a>
-<a href="#2806" id="2806">2806</a>
-<a href="#2807" id="2807">2807</a>
-<a href="#2808" id="2808">2808</a>
-<a href="#2809" id="2809">2809</a>
-<a href="#2810" id="2810">2810</a>
-<a href="#2811" id="2811">2811</a>
-<a href="#2812" id="2812">2812</a>
-<a href="#2813" id="2813">2813</a>
-<a href="#2814" id="2814">2814</a>
-<a href="#2815" id="2815">2815</a>
-<a href="#2816" id="2816">2816</a>
-<a href="#2817" id="2817">2817</a>
-<a href="#2818" id="2818">2818</a>
-<a href="#2819" id="2819">2819</a>
-<a href="#2820" id="2820">2820</a>
-<a href="#2821" id="2821">2821</a>
-<a href="#2822" id="2822">2822</a>
-<a href="#2823" id="2823">2823</a>
-<a href="#2824" id="2824">2824</a>
-<a href="#2825" id="2825">2825</a>
-<a href="#2826" id="2826">2826</a>
-<a href="#2827" id="2827">2827</a>
-<a href="#2828" id="2828">2828</a>
-<a href="#2829" id="2829">2829</a>
-<a href="#2830" id="2830">2830</a>
-<a href="#2831" id="2831">2831</a>
-<a href="#2832" id="2832">2832</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Text input with an input mask.
 //!
 //! * Can do the usual insert/delete/move operations.
@@ -2880,8 +2801,10 @@
 //! ```
 
 </span><span class="kw">use </span><span class="kw">crate</span>::number::NumberSymbols;
+<span class="kw">use </span><span class="kw">crate</span>::util::clamp_shift;
 <span class="kw">use </span><span class="kw">crate</span>::widget::basic::ClearStyle;
 <span class="kw">use </span><span class="kw">crate</span>::widget::mask_input::core::InputMaskCore;
+<span class="kw">use </span><span class="kw">crate</span>::widget::MouseFlags;
 <span class="kw">use crate</span>::{ct_event, grapheme, tr};
 <span class="kw">use crate</span>::{ControlUI, ValidFlag};
 <span class="kw">use crate</span>::{DefaultKeys, FrameWidget, HandleCrossterm, MouseOnly};
@@ -2889,26 +2812,25 @@
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>log::debug;
 <span class="kw">use </span>ratatui::layout::{Margin, Position, Rect};
+<span class="kw">use </span>ratatui::prelude::Stylize;
 <span class="kw">use </span>ratatui::style::Style;
-<span class="kw">use </span>ratatui::text::{Line, Span};
+<span class="kw">use </span>ratatui::text::Span;
 <span class="kw">use </span>ratatui::Frame;
-<span class="kw">use </span>std::cmp::min;
 <span class="kw">use </span>std::fmt;
 <span class="kw">use </span>std::ops::Range;
 <span class="kw">use </span>std::rc::Rc;
+<span class="kw">use </span>unicode_segmentation::UnicodeSegmentation;
 
 <span class="doccomment">/// Text input widget with input mask.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>MaskedInput {
-    <span class="kw">pub </span>terminal_cursor: bool,
     <span class="kw">pub </span>show_compact: bool,
     <span class="kw">pub </span>insets: Margin,
     <span class="kw">pub </span>style: Style,
     <span class="kw">pub </span>focus_style: Style,
     <span class="kw">pub </span>select_style: Style,
-    <span class="kw">pub </span>cursor_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-    <span class="kw">pub </span>invalid_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-    <span class="kw">pub </span>invalid_char: char,
+    <span class="kw">pub </span>invalid_style: Style,
+    <span class="kw">pub </span>non_exhaustive: (),
 }
 
 <span class="doccomment">/// Combined style.
@@ -2917,22 +2839,20 @@
     <span class="kw">pub </span>style: Style,
     <span class="kw">pub </span>focus: Style,
     <span class="kw">pub </span>select: Style,
-    <span class="kw">pub </span>cursor: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-    <span class="kw">pub </span>invalid: <span class="prelude-ty">Option</span>&lt;Style&gt;,
+    <span class="kw">pub </span>invalid: Style,
+    <span class="kw">pub </span>non_exhaustive: (),
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>MaskedInput {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
-            terminal_cursor: <span class="bool-val">true</span>,
             show_compact: <span class="bool-val">false</span>,
             insets: Default::default(),
             style: Default::default(),
             focus_style: Default::default(),
             select_style: Default::default(),
-            cursor_style: <span class="prelude-val">None</span>,
-            invalid_style: <span class="prelude-val">None</span>,
-            invalid_char: <span class="string">'⁉'</span>,
+            invalid_style: Style::default().red().underlined(),
+            non_exhaustive: (),
         }
     }
 }
@@ -2944,13 +2864,7 @@
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Use our own cursor indicator or the terminal cursor.
-    </span><span class="kw">pub fn </span>terminal_cursor(<span class="kw-2">mut </span><span class="self">self</span>, terminal: bool) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.terminal_cursor = terminal;
-        <span class="self">self
-    </span>}
-
-    <span class="doccomment">/// Show the compact form, if the focus is elsewhere.
+    <span class="doccomment">/// Show the compact form, if the focus is not with this widget.
     </span><span class="kw">pub fn </span>show_compact(<span class="kw-2">mut </span><span class="self">self</span>, show_compact: bool) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.show_compact = show_compact;
         <span class="self">self
@@ -2961,7 +2875,6 @@
         <span class="self">self</span>.style = style.style;
         <span class="self">self</span>.focus_style = style.focus;
         <span class="self">self</span>.select_style = style.select;
-        <span class="self">self</span>.cursor_style = style.cursor;
         <span class="self">self</span>.invalid_style = style.invalid;
         <span class="self">self
     </span>}
@@ -2984,39 +2897,11 @@
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Style for our own cursor.
-    </span><span class="kw">pub fn </span>cursor_style(<span class="kw-2">mut </span><span class="self">self</span>, style: <span class="kw">impl </span>Into&lt;Style&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.cursor_style = <span class="prelude-val">Some</span>(style.into());
-        <span class="self">self
-    </span>}
-
     <span class="doccomment">/// Style for the invalid indicator.
     </span><span class="kw">pub fn </span>invalid_style(<span class="kw-2">mut </span><span class="self">self</span>, style: <span class="kw">impl </span>Into&lt;Style&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.invalid_style = <span class="prelude-val">Some</span>(style.into());
+        <span class="self">self</span>.invalid_style = style.into();
         <span class="self">self
     </span>}
-
-    <span class="doccomment">/// Marker character for invalid field.
-    </span><span class="kw">pub fn </span>invalid_char(<span class="kw-2">mut </span><span class="self">self</span>, invalid: char) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.invalid_char = invalid;
-        <span class="self">self
-    </span>}
-
-    <span class="kw">fn </span>active_style(<span class="kw-2">&amp;</span><span class="self">self</span>, focus: bool) -&gt; Style {
-        <span class="kw">if </span>focus {
-            <span class="self">self</span>.focus_style
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.style
-        }
-    }
-
-    <span class="kw">fn </span>active_select_style(<span class="kw-2">&amp;</span><span class="self">self</span>, focus: bool) -&gt; Style {
-        <span class="kw">if </span>focus {
-            <span class="self">self</span>.select_style
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.style
-        }
-    }
 }
 
 <span class="kw">impl </span>FrameWidget <span class="kw">for </span>MaskedInput {
@@ -3024,77 +2909,68 @@
 
     <span class="attr">#[allow(clippy::vec_init_then_push)]
     </span><span class="kw">fn </span>render(<span class="self">self</span>, frame: <span class="kw-2">&amp;mut </span>Frame&lt;<span class="lifetime">'_</span>&gt;, area: Rect, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
-        <span class="kw">let </span><span class="kw-2">mut </span>l_area = area.inner(<span class="kw-2">&amp;</span><span class="self">self</span>.insets);
-        <span class="kw">let </span>l_invalid = <span class="kw">if </span>!state.valid.get() {
-            l_area.width -= <span class="number">1</span>;
-            Rect::new(l_area.x + l_area.width, l_area.y, <span class="number">1</span>, <span class="number">1</span>)
-        } <span class="kw">else </span>{
-            Rect::new(l_area.x + l_area.width, l_area.y, <span class="number">0</span>, <span class="number">1</span>)
-        };
-
-        state.area = l_area;
+        state.area = area.inner(<span class="kw-2">&amp;</span><span class="self">self</span>.insets);
         state.value.set_width(state.area.width <span class="kw">as </span>usize);
 
-        <span class="kw">let </span>focus = state.focus.get();
-        <span class="kw">let </span>l_input = state.area;
-
-        <span class="kw">let </span>spans = <span class="kw">if </span><span class="self">self</span>.show_compact &amp;&amp; !focus {
-            state.value.render_condensed_value();
-
-            <span class="kw">let </span><span class="kw-2">mut </span>spans = Vec::new();
-            spans.push(Span::styled(
-                state.value.rendered(),
-                <span class="self">self</span>.active_style(focus),
-            ));
-            spans
-        } <span class="kw">else </span>{
-            <span class="kw">let </span>(before, cursor1, select, cursor2, after) = state.visible_part();
-
-            <span class="kw">let </span><span class="kw-2">mut </span>spans = Vec::new();
-            <span class="kw">if </span>!before.is_empty() {
-                spans.push(Span::styled(before, <span class="self">self</span>.active_style(focus)));
-            }
-            <span class="kw">if </span>!cursor1.is_empty() {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor_style) = <span class="self">self</span>.cursor_style {
-                    spans.push(Span::styled(cursor1, cursor_style));
-                } <span class="kw">else </span>{
-                    spans.push(Span::styled(cursor1, <span class="self">self</span>.active_select_style(focus)));
-                }
-            }
-            <span class="kw">if </span>!select.is_empty() {
-                spans.push(Span::styled(select, <span class="self">self</span>.active_select_style(focus)));
-            }
-            <span class="kw">if </span>!cursor2.is_empty() {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(cursor_style) = <span class="self">self</span>.cursor_style {
-                    spans.push(Span::styled(cursor2, cursor_style));
-                } <span class="kw">else </span>{
-                    spans.push(Span::styled(cursor2, <span class="self">self</span>.active_style(focus)));
-                }
-            }
-            <span class="kw">if </span>!after.is_empty() {
-                spans.push(Span::styled(after, <span class="self">self</span>.active_style(focus)));
-            }
-
-            spans
-        };
-
-        <span class="kw">let </span>line = Line::from(spans);
-        <span class="kw">let </span>clear = ClearStyle::default().style(<span class="self">self</span>.active_style(focus));
-
-        frame.render_widget(clear, area);
-        frame.render_widget(line, l_input);
-        <span class="kw">if </span>!state.valid.get() {
-            <span class="kw">let </span>style = <span class="kw">if let </span><span class="prelude-val">Some</span>(style) = <span class="self">self</span>.invalid_style {
-                style
+        <span class="kw">if </span>!state.is_focused() {
+            <span class="kw">if </span><span class="self">self</span>.show_compact {
+                state.value.render_condensed_value();
             } <span class="kw">else </span>{
-                <span class="self">self</span>.active_style(focus)
-            };
+                state.value.render_value();
+            }
 
-            <span class="kw">let </span>invalid = Span::from(<span class="self">self</span>.invalid_char.to_string()).style(style);
-            frame.render_widget(invalid, l_invalid);
-        }
-        <span class="kw">if </span>focus {
-            frame.set_cursor(l_input.x + state.visible_cursor(), l_input.y);
+            <span class="kw">if </span>state.is_valid() {
+                frame.render_widget(ClearStyle::default().style(<span class="self">self</span>.style), state.area);
+                frame.render_widget(Span::styled(state.value.rendered(), <span class="self">self</span>.style), state.area);
+            } <span class="kw">else </span>{
+                frame.render_widget(
+                    ClearStyle::default().style(<span class="self">self</span>.style.patch(<span class="self">self</span>.invalid_style)),
+                    state.area,
+                );
+                frame.render_widget(
+                    Span::styled(state.value.rendered(), <span class="self">self</span>.style.patch(<span class="self">self</span>.invalid_style)),
+                    state.area,
+                );
+            }
+        } <span class="kw">else </span>{
+            state.value.render_value();
+
+            <span class="kw">let </span>buf = frame.buffer_mut();
+            <span class="kw">let </span>area = state.area.intersection(buf.area);
+
+            <span class="kw">let </span>selection = clamp_shift(state.selection(), state.offset(), state.width());
+            <span class="kw">let </span><span class="kw-2">mut </span>cit = state.value.rendered().graphemes(<span class="bool-val">true</span>).skip(state.offset());
+            <span class="kw">let </span>invalid_style = <span class="self">self</span>.focus_style.patch(<span class="self">self</span>.invalid_style);
+
+            <span class="kw">for </span>col <span class="kw">in </span><span class="number">0</span>..area.width <span class="kw">as </span>usize {
+                <span class="kw">let </span>cell = buf.get_mut(area.x + col <span class="kw">as </span>u16, area.y);
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(c) = cit.next() {
+                    cell.set_symbol(c);
+                } <span class="kw">else </span>{
+                    cell.set_char(<span class="string">' '</span>);
+                }
+
+                <span class="kw">let </span>valid = <span class="kw">if let </span><span class="prelude-val">Some</span>(valid_mask) = <span class="kw-2">&amp;</span>state.valid_mask {
+                    valid_mask
+                        .get(state.offset() + col)
+                        .copied()
+                        .unwrap_or(<span class="bool-val">true</span>)
+                } <span class="kw">else </span>{
+                    state.is_valid()
+                };
+
+                <span class="kw">if </span>selection.contains(<span class="kw-2">&amp;</span>col) {
+                    cell.set_style(<span class="self">self</span>.select_style);
+                } <span class="kw">else if </span>valid {
+                    cell.set_style(<span class="self">self</span>.focus_style);
+                } <span class="kw">else </span>{
+                    cell.set_style(invalid_style);
+                }
+            }
+
+            <span class="kw">if </span>state.is_focused() {
+                frame.set_cursor(state.area.x + state.visible_cursor(), state.area.y);
+            }
         }
     }
 }
@@ -3106,14 +2982,16 @@
     </span><span class="kw">pub </span>focus: FocusFlag,
     <span class="doccomment">/// Valid.
     </span><span class="kw">pub </span>valid: ValidFlag,
-    <span class="doccomment">/// Work without focus for key input.
-    </span><span class="kw">pub </span>without_focus: bool,
+    <span class="doccomment">/// Valid mask. Which characters of the input are valid/not valid.
+    </span><span class="kw">pub </span>valid_mask: <span class="prelude-ty">Option</span>&lt;Vec&lt;bool&gt;&gt;,
     <span class="doccomment">/// Area
     </span><span class="kw">pub </span>area: Rect,
     <span class="doccomment">/// Mouse selection in progress.
-    </span><span class="kw">pub </span>mouse_select: bool,
+    </span><span class="kw">pub </span>mouse: MouseFlags,
     <span class="doccomment">/// Editing core.
     </span><span class="kw">pub </span>value: InputMaskCore,
+    <span class="doccomment">///
+    </span><span class="kw">pub </span>non_exhaustive: (),
 }
 
 <span class="kw">impl</span>&lt;A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, DefaultKeys&gt; <span class="kw">for </span>MaskedInputState
@@ -3189,7 +3067,7 @@
         <span class="kw">match </span>event {
             <span class="macro">ct_event!</span>(mouse down Left <span class="kw">for </span>column,row) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.area.contains(Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row)) {
-                    <span class="self">self</span>.mouse_select = <span class="bool-val">true</span>;
+                    <span class="self">self</span>.mouse.set_drag();
                     <span class="kw">let </span>c = column - <span class="self">self</span>.area.x;
                     <span class="self">self</span>.set_offset_relative_cursor(c <span class="kw">as </span>isize, <span class="bool-val">false</span>);
                     ControlUI::Change
@@ -3198,7 +3076,7 @@
                 }
             }
             <span class="macro">ct_event!</span>(mouse drag Left <span class="kw">for </span>column, _row) =&gt; {
-                <span class="kw">if </span><span class="self">self</span>.mouse_select {
+                <span class="kw">if </span><span class="self">self</span>.mouse.do_drag() {
                     <span class="kw">let </span>c = (<span class="kw-2">*</span>column <span class="kw">as </span>isize) - (<span class="self">self</span>.area.x <span class="kw">as </span>isize);
                     <span class="self">self</span>.set_offset_relative_cursor(c, <span class="bool-val">true</span>);
                     ControlUI::Change
@@ -3207,34 +3085,12 @@
                 }
             }
             <span class="macro">ct_event!</span>(mouse moved) =&gt; {
-                <span class="self">self</span>.mouse_select = <span class="bool-val">false</span>;
+                <span class="self">self</span>.mouse.clear_drag();
                 ControlUI::Continue
             }
             <span class="kw">_ </span>=&gt; ControlUI::Continue,
         }
     }
-}
-
-<span class="doccomment">/// Mapping from events to abstract editing requests.
-</span><span class="attr">#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
-</span><span class="kw">pub enum </span>InputRequest {
-    SetCursor(isize, bool),
-    Select(usize, usize),
-    InsertChar(char),
-    GoToPrevChar(bool),
-    GoToNextChar(bool),
-    GoToPrevWord(bool),
-    GoToNextWord(bool),
-    GoToStart(bool),
-    GoToEnd(bool),
-    SelectAll,
-    DeletePrevChar,
-    DeleteNextChar,
-    DeletePrevWord,
-    DeleteNextWord,
-    DeleteLine,
-    DeleteTillStart,
-    DeleteTillEnd,
 }
 
 <span class="kw">impl </span>MaskedInputState {
@@ -3296,8 +3152,8 @@
     /// There is a default representation for each mask type if this
     /// is not set.
     ///
-    /// Panic
-    /// Panics if the length differs from the  mask.
+    /// If the length differs from the mask, the difference will be
+    /// ignored / filled with defaults.
     </span><span class="kw">pub fn </span>set_display_mask&lt;S: Into&lt;String&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: S) {
         <span class="self">self</span>.value.set_display_mask(s);
     }
@@ -3305,6 +3161,16 @@
     <span class="doccomment">/// Display mask.
     </span><span class="kw">pub fn </span>display_mask(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="self">self</span>.value.display_mask()
+    }
+
+    <span class="doccomment">/// Sets a mask of valid/invalid characters.
+    </span><span class="kw">pub fn </span>set_valid_mask(<span class="kw-2">&amp;mut </span><span class="self">self</span>, v: <span class="prelude-ty">Option</span>&lt;Vec&lt;bool&gt;&gt;) {
+        <span class="self">self</span>.valid_mask = v;
+    }
+
+    <span class="doccomment">/// Mask of valid/invalid characters.
+    </span><span class="kw">pub fn </span>valid_mask(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="prelude-ty">Option</span>&lt;Vec&lt;bool&gt;&gt; {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.valid_mask
     }
 
     <span class="doccomment">/// Set the input mask. This overwrites the display mask and the value
@@ -3346,7 +3212,7 @@
         <span class="self">self</span>.value.mask()
     }
 
-    <span class="doccomment">/// Debug mask.
+    <span class="doccomment">/// Mask with some debug information.
     </span><span class="kw">pub fn </span>debug_mask(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="self">self</span>.value.debug_mask()
     }
@@ -3373,7 +3239,7 @@
         <span class="self">self</span>.value.value()
     }
 
-    <span class="doccomment">/// Value with optional spaces removed.
+    <span class="doccomment">/// Value without optional whitespace and grouping separators. Might be easier to parse.
     </span><span class="kw">pub fn </span>compact_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
         <span class="self">self</span>.value.compact_value()
     }
@@ -3383,7 +3249,8 @@
         <span class="self">self</span>.value.value()
     }
 
-    <span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+    <span class="doccomment">///
+    </span><span class="kw">pub fn </span>is_empty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
         <span class="self">self</span>.value.is_empty()
     }
 
@@ -3430,11 +3297,13 @@
         <span class="self">self</span>.value.set_cursor(pos, extend_selection);
     }
 
-    <span class="kw">pub fn </span>prev_word_boundary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    <span class="doccomment">/// Previous word boundary.
+    </span><span class="kw">pub fn </span>prev_word_boundary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.value.prev_word_boundary()
     }
 
-    <span class="kw">pub fn </span>next_word_boundary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    <span class="doccomment">/// Next word boundary.
+    </span><span class="kw">pub fn </span>next_word_boundary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.value.next_word_boundary()
     }
 
@@ -3460,7 +3329,7 @@
         }
     }
 
-    <span class="doccomment">/// Insert a char a the current position.
+    <span class="doccomment">/// Insert a char at the current position.
     </span><span class="kw">pub fn </span>insert_char(<span class="kw-2">&amp;mut </span><span class="self">self</span>, c: char) -&gt; <span class="prelude-ty">Result</span>&lt;(), fmt::Error&gt; {
         <span class="kw">if </span><span class="self">self</span>.value.has_selection() {
             <span class="self">self</span>.value.remove_selection(<span class="self">self</span>.value.selection())<span class="question-mark">?</span>;
@@ -3470,7 +3339,9 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub fn </span>remove_selection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, selection: Range&lt;usize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), fmt::Error&gt; {
+    <span class="doccomment">/// Remove the selected range. The text will be replaced with the default value
+    /// as defined by the mask.
+    </span><span class="kw">pub fn </span>remove_selection(<span class="kw-2">&amp;mut </span><span class="self">self</span>, selection: Range&lt;usize&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), fmt::Error&gt; {
         <span class="self">self</span>.value.remove_selection(selection)
     }
 
@@ -3496,44 +3367,6 @@
             <span class="self">self</span>.value.remove_next()<span class="question-mark">?</span>;
         }
         <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="doccomment">/// Extracts the visible part.
-    </span><span class="kw">fn </span>visible_range(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Range&lt;usize&gt; {
-        <span class="kw">let </span>len = min(<span class="self">self</span>.value.offset() + <span class="self">self</span>.value.width(), <span class="self">self</span>.value.len());
-        <span class="self">self</span>.value.offset()..len
-    }
-
-    <span class="doccomment">/// Extracts the visible selection.
-    </span><span class="kw">fn </span>visible_selection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Range&lt;usize&gt; {
-        <span class="kw">let </span>width = <span class="self">self</span>.value.width();
-        <span class="kw">let </span>offset = <span class="self">self</span>.value.offset();
-        <span class="kw">let </span>Range { <span class="kw-2">mut </span>start, <span class="kw-2">mut </span>end } = <span class="self">self</span>.value.selection();
-
-        <span class="kw">if </span>start &lt; offset {
-            start = offset;
-        } <span class="kw">else if </span>start &gt; offset + width {
-            start = offset + width;
-        }
-        <span class="kw">if </span>end &lt; offset {
-            end = offset;
-        } <span class="kw">else if </span>end &gt; offset + width {
-            end = offset + width;
-        }
-
-        start..end
-    }
-
-    <span class="doccomment">/// Extracts the visible part.
-    </span><span class="kw">fn </span>visible_part(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; (<span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str, <span class="kw-2">&amp;</span>str) {
-        <span class="self">self</span>.value.render_value();
-
-        grapheme::split5(
-            <span class="self">self</span>.value.rendered(),
-            <span class="self">self</span>.cursor(),
-            <span class="self">self</span>.visible_range(),
-            <span class="self">self</span>.visible_selection(),
-        )
     }
 
     <span class="doccomment">/// Visible cursor position.
@@ -3565,7 +3398,7 @@
     <span class="attr">#[allow(unused_imports)]
     </span><span class="kw">use </span>log::debug;
     <span class="kw">use </span>std::fmt::{Debug, Display, Formatter};
-    <span class="kw">use </span>std::iter::once;
+    <span class="kw">use </span>std::iter::{once, repeat_with};
     <span class="kw">use </span>std::ops::Range;
     <span class="kw">use </span>std::rc::Rc;
     <span class="kw">use </span>std::{fmt, mem};
@@ -3582,6 +3415,7 @@
     <span class="doccomment">/// One char of the input mask.
     </span><span class="attr">#[allow(variant_size_differences)]
     #[derive(Clone, PartialEq, Eq, Default)]
+    #[non_exhaustive]
     </span><span class="kw">pub enum </span>Mask {
         Digit0(EditDirection),
         Digit(EditDirection),
@@ -3616,6 +3450,7 @@
     ///
     /// Default-values for editing and display.
     </span><span class="attr">#[derive(Clone, PartialEq, Eq)]
+    #[non_exhaustive]
     </span><span class="kw">pub struct </span>MaskToken {
         <span class="kw">pub </span>nr_id: usize,
         <span class="kw">pub </span>nr_start: usize,
@@ -4398,8 +4233,16 @@
         </span><span class="kw">pub fn </span>set_display_mask&lt;S: Into&lt;String&gt;&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, s: S) {
             <span class="kw">let </span>display_mask = s.into();
 
-            <span class="kw">for </span>(t, m) <span class="kw">in </span><span class="self">self</span>.mask.iter_mut().zip(display_mask.graphemes(<span class="bool-val">true</span>)) {
-                t.display = Box::from(m);
+            <span class="kw">for </span>(t, m) <span class="kw">in </span><span class="self">self
+                </span>.mask
+                .iter_mut()
+                .zip(display_mask.graphemes(<span class="bool-val">true</span>).chain(repeat_with(|| <span class="string">""</span>)))
+            {
+                <span class="kw">if </span>m.is_empty() {
+                    t.display = t.right.disp_value().into();
+                } <span class="kw">else </span>{
+                    t.display = m.into();
+                }
             }
         }
 
@@ -4450,8 +4293,7 @@
             <span class="self">self</span>.value.as_str()
         }
 
-        <span class="comment">// todo: this is borderline useless
-        </span><span class="doccomment">/// Value without whitespace.
+        <span class="doccomment">/// Value without whitespace and grouping separators. Might be easier to parse.
         </span><span class="kw">pub fn </span>compact_value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
             <span class="kw">let </span><span class="kw-2">mut </span>buf = String::new();
             <span class="kw">for </span>(c, m) <span class="kw">in </span><span class="self">self</span>.value.graphemes(<span class="bool-val">true</span>).zip(<span class="self">self</span>.mask.iter()) {

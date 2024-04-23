@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"constant":["ALT","ALT_SHIFT","CONTROL","CONTROL_SHIFT","HYPER","META","NONE","SHIFT","SUPER"]};

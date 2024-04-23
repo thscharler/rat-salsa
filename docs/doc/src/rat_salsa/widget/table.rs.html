@@ -782,14 +782,63 @@
 <a href="#780" id="780">780</a>
 <a href="#781" id="781">781</a>
 <a href="#782" id="782">782</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::widget::MouseFlags;
-<span class="kw">use crate</span>::{ct_event, ControlUI, HasFocusFlag};
-<span class="kw">use crate</span>::{DefaultKeys, HandleCrossterm, MouseOnly};
-<span class="kw">use crate</span>::{FocusFlag, HasVerticalScroll};
-<span class="doccomment">///
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+<a href="#797" id="797">797</a>
+<a href="#798" id="798">798</a>
+<a href="#799" id="799">799</a>
+<a href="#800" id="800">800</a>
+<a href="#801" id="801">801</a>
+<a href="#802" id="802">802</a>
+<a href="#803" id="803">803</a>
+<a href="#804" id="804">804</a>
+<a href="#805" id="805">805</a>
+<a href="#806" id="806">806</a>
+<a href="#807" id="807">807</a>
+<a href="#808" id="808">808</a>
+<a href="#809" id="809">809</a>
+<a href="#810" id="810">810</a>
+<a href="#811" id="811">811</a>
+<a href="#812" id="812">812</a>
+<a href="#813" id="813">813</a>
+<a href="#814" id="814">814</a>
+<a href="#815" id="815">815</a>
+<a href="#816" id="816">816</a>
+<a href="#817" id="817">817</a>
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+</pre></div><pre class="rust"><code><span class="doccomment">///
 /// Extensions for [ratatui::widgets::Table]
 ///
-</span><span class="kw">use crate</span>::{ListSelection, NoSelection, SetSelection, SingleSelection};
+</span><span class="kw">use </span><span class="kw">crate</span>::widget::MouseFlags;
+<span class="kw">use crate</span>::{
+    ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
+    ListSelection, MouseOnly, NoSelection, ScrollParam, ScrolledWidget, SetSelection,
+    SingleSelection,
+};
 <span class="kw">use </span>crossterm::event::Event;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>log::debug;
@@ -804,17 +853,14 @@
 <span class="kw">use </span>std::mem;
 
 <span class="doccomment">/// Add some minor fixes to [ratatui::widgets::Table]
-</span><span class="attr">#[derive()]
 </span><span class="kw">pub struct </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
+    <span class="doccomment">///
+    </span><span class="kw">pub </span>table: Table&lt;<span class="lifetime">'a</span>&gt;,
+
     <span class="doccomment">///
     </span><span class="kw">pub </span>rows: Vec&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
     <span class="kw">pub </span>header: <span class="prelude-ty">Option</span>&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
     <span class="kw">pub </span>footer: <span class="prelude-ty">Option</span>&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
-
-    <span class="doccomment">///
-    </span><span class="kw">pub </span>table: Table&lt;<span class="lifetime">'a</span>&gt;,
-    <span class="doccomment">/// Row count
-    </span><span class="kw">pub </span>len: usize,
 
     <span class="doccomment">/// Base style
     </span><span class="kw">pub </span>base_style: Style,
@@ -823,6 +869,7 @@
     <span class="doccomment">/// Style for selected + focused.
     </span><span class="kw">pub </span>focus_style: Style,
 
+    <span class="kw">pub </span>non_exhaustive: (),
     <span class="kw">pub </span>_phantom: PhantomData&lt;SEL&gt;,
 }
 
@@ -830,8 +877,9 @@
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
         f.debug_struct(<span class="string">"TableExt"</span>)
             .field(<span class="string">"rows"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.rows)
+            .field(<span class="string">"header"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.header)
+            .field(<span class="string">"footer"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.footer)
             .field(<span class="string">"table"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.table)
-            .field(<span class="string">"len"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.len)
             .field(<span class="string">"base_style"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.base_style)
             .field(<span class="string">"select_style"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.select_style)
             .field(<span class="string">"focus_style"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.focus_style)
@@ -846,11 +894,20 @@
             header: <span class="prelude-val">None</span>,
             footer: <span class="prelude-val">None</span>,
             table: Default::default(),
-            len: <span class="number">0</span>,
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
+            non_exhaustive: (),
             _phantom: Default::default(),
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL&gt; ScrolledWidget <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
+    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect) -&gt; ScrollParam {
+        ScrollParam {
+            has_hscroll: <span class="bool-val">false</span>,
+            has_vscroll: <span class="bool-val">true</span>,
         }
     }
 }
@@ -861,6 +918,7 @@
     <span class="kw">pub </span>style: Style,
     <span class="kw">pub </span>select_style: Style,
     <span class="kw">pub </span>focus_style: Style,
+    <span class="kw">pub </span>non_exhaustive: (),
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL&gt; TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
@@ -872,17 +930,16 @@
         C::Item: Into&lt;Constraint&gt;,
     {
         <span class="kw">let </span>rows = rows.into_iter().map(|v| v.into()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="kw">let </span>len = rows.len();
 
         <span class="self">Self </span>{
             rows,
             header: <span class="prelude-val">None</span>,
             footer: <span class="prelude-val">None</span>,
             table: Table::default().widths(widths),
-            len,
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
+            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
@@ -892,7 +949,6 @@
         </span>T: IntoIterator&lt;Item = Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
     {
         <span class="kw">let </span>rows = rows.into_iter().collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="self">self</span>.len = rows.len();
         <span class="self">self</span>.rows = rows;
         <span class="self">self
     </span>}
@@ -970,11 +1026,15 @@
     <span class="kw">fn </span>render(<span class="kw-2">mut </span><span class="self">self</span>, area: Rect, buf: <span class="kw-2">&amp;mut </span>Buffer, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
         <span class="comment">// store to state
         </span>state.area = area;
-        state.len = <span class="self">self</span>.len;
+        state.len = <span class="self">self</span>.rows.len();
 
         <span class="comment">// row layout
-        </span><span class="kw">let </span>header_height = <span class="self">self</span>.header.as_ref().map_or(<span class="number">0</span>, |h| h.height_with_margin());
-        <span class="kw">let </span>footer_height = <span class="self">self</span>.footer.as_ref().map_or(<span class="number">0</span>, |f| f.height_with_margin());
+        // TODO: as long as height_with_margin() is not accessible we are limited
+        //       to single row tables.
+        // let header_height = self.header.as_ref().map_or(0, |h| h.height_with_margin());
+        // let footer_height = self.footer.as_ref().map_or(0, |f| f.height_with_margin());
+        </span><span class="kw">let </span>header_height = <span class="number">1</span>;
+        <span class="kw">let </span>footer_height = <span class="number">1</span>;
         <span class="kw">let </span>layout = Layout::vertical([
             Constraint::Length(header_height),
             Constraint::Min(<span class="number">0</span>),
@@ -983,21 +1043,41 @@
         .split(area);
 
         state.header_area = layout[<span class="number">0</span>];
+        state.table_area = layout[<span class="number">1</span>];
         state.footer_area = layout[<span class="number">2</span>];
         state.row_areas.clear();
         <span class="kw">let </span><span class="kw-2">mut </span>row_area = Rect::new(layout[<span class="number">1</span>].x, layout[<span class="number">1</span>].y, layout[<span class="number">1</span>].width, <span class="number">1</span>);
         <span class="kw">for </span>row <span class="kw">in </span><span class="self">self</span>.rows.iter().skip(state.offset()) {
-            row_area.height = row.height_with_margin();
+            <span class="comment">// TODO: as long as height_with_margin() is not accessible we are limited
+            //       to single row tables.
+            // row_area.height = row.height_with_margin();
+            </span>row_area.height = <span class="number">1</span>;
 
             state.row_areas.push(row_area);
 
             row_area.y += row_area.height;
-            <span class="kw">if </span>row_area.y &gt; layout[<span class="number">1</span>].height {
+            <span class="kw">if </span>row_area.y &gt;= layout[<span class="number">1</span>].y + layout[<span class="number">1</span>].height {
                 <span class="kw">break</span>;
             }
         }
 
-        <span class="comment">// selection
+        <span class="comment">// max_v_offset
+        </span><span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">0</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>height = <span class="number">0</span>;
+        <span class="kw">for </span>row <span class="kw">in </span><span class="self">self</span>.rows.iter().rev() {
+            <span class="comment">// TODO: as long as height_with_margin() is not accessible we are limited
+            //       to single row tables.
+            // height += row.height_with_margin();
+            </span>height += <span class="number">1</span>;
+            <span class="kw">if </span>height &gt; layout[<span class="number">1</span>].height {
+                <span class="kw">break</span>;
+            }
+            n += <span class="number">1</span>;
+        }
+        state.v_page_len = n;
+        state.max_v_offset = state.len - n;
+
+        <span class="comment">// style selection
         </span><span class="kw">for </span>(i, r) <span class="kw">in </span><span class="self">self</span>.rows.iter_mut().enumerate() {
             <span class="kw">let </span>style = <span class="kw">if </span>state.focus.get() {
                 <span class="kw">if </span>state.selection.is_selected(i) {
@@ -1033,36 +1113,22 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL&gt; Styled <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
-    <span class="kw">type </span>Item = TableExt&lt;<span class="lifetime">'a</span>, SEL&gt;;
-
-    <span class="kw">fn </span>style(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Style {
-        &lt;Table&lt;<span class="lifetime">'_</span>&gt; <span class="kw">as </span>Styled&gt;::style(<span class="kw-2">&amp;</span><span class="self">self</span>.table)
-    }
-
-    <span class="kw">fn </span>set_style&lt;S: Into&lt;Style&gt;&gt;(<span class="kw-2">mut </span><span class="self">self</span>, style: S) -&gt; <span class="self">Self</span>::Item {
-        <span class="self">self</span>.table = <span class="self">self</span>.table.set_style(style);
-        <span class="self">self
-    </span>}
-}
-
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL, Item&gt; FromIterator&lt;Item&gt; <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt;
 <span class="kw">where
     </span>Item: Into&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
 {
     <span class="kw">fn </span>from_iter&lt;U: IntoIterator&lt;Item = Item&gt;&gt;(iter: U) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>rows = iter.into_iter().map(|v| v.into()).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-        <span class="kw">let </span>len = rows.len();
 
         <span class="self">Self </span>{
             rows,
             header: <span class="prelude-val">None</span>,
             footer: <span class="prelude-val">None</span>,
             table: Table::default(),
-            len,
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
+            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
@@ -1074,9 +1140,12 @@
     <span class="kw">pub </span>table_state: TableState,
 
     <span class="kw">pub </span>len: usize,
+    <span class="kw">pub </span>v_page_len: usize,
+    <span class="kw">pub </span>max_v_offset: usize,
 
     <span class="kw">pub </span>area: Rect,
     <span class="kw">pub </span>header_area: Rect,
+    <span class="kw">pub </span>table_area: Rect,
     <span class="kw">pub </span>row_areas: Vec&lt;Rect&gt;,
     <span class="kw">pub </span>footer_area: Rect,
 
@@ -1096,25 +1165,46 @@
     }
 }
 
-<span class="kw">impl</span>&lt;SEL&gt; HasVerticalScroll <span class="kw">for </span>TableExtState&lt;SEL&gt; {
-    <span class="kw">fn </span>vlen(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.len
+<span class="kw">impl</span>&lt;SEL&gt; HasScrolling <span class="kw">for </span>TableExtState&lt;SEL&gt; {
+    <span class="kw">fn </span>max_v_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.max_v_offset
     }
 
-    <span class="kw">fn </span>voffset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+    <span class="kw">fn </span>max_h_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="number">0
+    </span>}
+
+    <span class="kw">fn </span>v_page_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="self">self</span>.v_page_len
+    }
+
+    <span class="kw">fn </span>h_page_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="number">0
+    </span>}
+
+    <span class="kw">fn </span>v_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.table_state.offset()
     }
 
-    <span class="kw">fn </span>set_voffset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize) {
+    <span class="kw">fn </span>h_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
+        <span class="number">0
+    </span>}
+
+    <span class="kw">fn </span>set_v_offset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize) {
         <span class="kw-2">*</span><span class="self">self</span>.table_state.offset_mut() = offset;
         <span class="comment">// For scrolling purposes the selection of ratatui::Table is never None,
         // instead it defaults out to 0 which prohibits any scrolling attempt.
+
+        // We do our own selection, so we don't really care.
         </span><span class="kw-2">*</span><span class="self">self</span>.table_state.selected_mut() = <span class="prelude-val">Some</span>(offset);
     }
 
-    <span class="kw">fn </span>vpage(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.area.height <span class="kw">as </span>usize
-    }
+    <span class="kw">fn </span>set_h_offset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _offset: usize) {
+        <span class="comment">// It's hard to escape somebody calling this.
+        // Gracefully ignoring it seems best.
+
+        // unimplemented!("no horizontal scrolling")
+    </span>}
 }
 
 <span class="kw">impl</span>&lt;SEL: ListSelection&gt; TableExtState&lt;SEL&gt; {
@@ -1139,7 +1229,8 @@
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.selection
     }
 
-    <span class="kw">pub fn </span>row_at_clicked(<span class="kw-2">&amp;</span><span class="self">self</span>, pos: Position) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
+    <span class="doccomment">/// Row at given position.
+    </span><span class="kw">pub fn </span>row_at_clicked(<span class="kw-2">&amp;</span><span class="self">self</span>, pos: Position) -&gt; <span class="prelude-ty">Option</span>&lt;usize&gt; {
         <span class="kw">for </span>(i, r) <span class="kw">in </span><span class="self">self</span>.row_areas.iter().enumerate() {
             <span class="kw">if </span>r.contains(pos) {
                 <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="self">self</span>.offset() + i);
@@ -1153,18 +1244,17 @@
         <span class="kw">let </span>offset = <span class="self">self</span>.offset();
         <span class="kw">for </span>(i, r) <span class="kw">in </span><span class="self">self</span>.row_areas.iter().enumerate() {
             <span class="kw">if </span>pos.y &gt;= r.y &amp;&amp; pos.y &lt; r.y + r.height {
-                <span class="macro">debug!</span>(<span class="string">"row_at_drag found row {}"</span>, offset + i);
                 <span class="kw">return </span>offset + i;
             }
         }
 
         <span class="kw">let </span>offset = <span class="self">self</span>.offset() <span class="kw">as </span>isize;
-        <span class="kw">let </span>rr = <span class="kw">if </span>pos.y &lt; <span class="self">self</span>.header_area.y + <span class="self">self</span>.header_area.height {
+        <span class="kw">let </span>rr = <span class="kw">if </span>pos.y &lt; <span class="self">self</span>.table_area.y {
             <span class="comment">// assume row-height=1 for outside the box.
-            </span><span class="kw">let </span>min_row = <span class="self">self</span>.header_area.y <span class="kw">as </span>isize + <span class="self">self</span>.header_area.height <span class="kw">as </span>isize;
-            offset + (pos.y <span class="kw">as </span>isize - min_row)
-        } <span class="kw">else if </span>pos.y &gt;= <span class="self">self</span>.footer_area.y {
-            <span class="kw">let </span>max_row = <span class="self">self</span>.footer_area.y <span class="kw">as </span>isize;
+            </span><span class="kw">let </span>min_row = <span class="self">self</span>.table_area.y <span class="kw">as </span>isize;
+            offset - (min_row - pos.y <span class="kw">as </span>isize)
+        } <span class="kw">else if </span>pos.y &gt;= <span class="self">self</span>.table_area.y + <span class="self">self</span>.table_area.height {
+            <span class="kw">let </span>max_row = <span class="self">self</span>.table_area.y <span class="kw">as </span>isize + <span class="self">self</span>.table_area.height <span class="kw">as </span>isize;
             <span class="kw">let </span>vis_rows = <span class="self">self</span>.row_areas.len() <span class="kw">as </span>isize;
             offset + vis_rows + (pos.y <span class="kw">as </span>isize - max_row)
         } <span class="kw">else </span>{
@@ -1175,7 +1265,7 @@
                 offset + vis_rows + (pos.y <span class="kw">as </span>isize - min_row)
             } <span class="kw">else </span>{
                 <span class="comment">// empty table, count from header
-                </span><span class="kw">let </span>min_row = <span class="self">self</span>.header_area.y <span class="kw">as </span>isize + <span class="self">self</span>.header_area.height <span class="kw">as </span>isize;
+                </span><span class="kw">let </span>min_row = <span class="self">self</span>.table_area.y <span class="kw">as </span>isize + <span class="self">self</span>.table_area.height <span class="kw">as </span>isize;
                 offset + (pos.y <span class="kw">as </span>isize - min_row)
             }
         };
@@ -1187,13 +1277,13 @@
     }
 
     <span class="doccomment">/// Scroll to selected.
-    </span><span class="kw">pub fn </span>adjust_view(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+    </span><span class="kw">pub fn </span>scroll_to_selected(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(selected) = <span class="self">self</span>.selection.lead_selection() {
-            <span class="kw">if </span><span class="self">self</span>.voffset() + (<span class="self">self</span>.area.height <span class="kw">as </span>usize) &lt;= selected {
-                <span class="self">self</span>.set_voffset(selected - (<span class="self">self</span>.area.height <span class="kw">as </span>usize) + <span class="number">1</span>);
+            <span class="kw">if </span><span class="self">self</span>.v_offset() + <span class="self">self</span>.row_areas.len() &lt;= selected {
+                <span class="self">self</span>.set_v_offset(selected - <span class="self">self</span>.row_areas.len() + <span class="number">1</span>);
             }
-            <span class="kw">if </span><span class="self">self</span>.voffset() &gt; selected {
-                <span class="self">self</span>.set_voffset(selected);
+            <span class="kw">if </span><span class="self">self</span>.v_offset() &gt; selected {
+                <span class="self">self</span>.set_v_offset(selected);
             }
         }
     }
@@ -1228,32 +1318,33 @@
             <span class="kw">match </span>event {
                 <span class="macro">ct_event!</span>(keycode press Down) =&gt; {
                     <span class="self">self</span>.selection.next(<span class="number">1</span>, <span class="self">self</span>.len - <span class="number">1</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press Up) =&gt; {
                     <span class="self">self</span>.selection.prev(<span class="number">1</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press CONTROL-Down) | <span class="macro">ct_event!</span>(keycode press End) =&gt; {
                     <span class="self">self</span>.selection.select(<span class="prelude-val">Some</span>(<span class="self">self</span>.len - <span class="number">1</span>));
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press CONTROL-Up) | <span class="macro">ct_event!</span>(keycode press Home) =&gt; {
                     <span class="self">self</span>.selection.select(<span class="prelude-val">Some</span>(<span class="number">0</span>));
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press PageUp) =&gt; {
-                    <span class="self">self</span>.selection.prev(<span class="self">self</span>.vpage() / <span class="number">2</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.selection.prev(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">2</span>);
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press PageDown) =&gt; {
-                    <span class="self">self</span>.selection.next(<span class="self">self</span>.vpage() / <span class="number">2</span>, <span class="self">self</span>.len - <span class="number">1</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.selection
+                        .next(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">2</span>, <span class="self">self</span>.len - <span class="number">1</span>);
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="kw">_ </span>=&gt; ControlUI::Continue,
@@ -1273,7 +1364,8 @@
         <span class="kw">match </span>event {
             <span class="macro">ct_event!</span>(scroll down <span class="kw">for </span>column,row) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.area.contains(Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row)) {
-                    <span class="self">self</span>.vscroll_down(<span class="self">self</span>.vpage() / <span class="number">5</span>);
+                    <span class="macro">debug!</span>(<span class="string">"scroll down"</span>);
+                    <span class="self">self</span>.scroll_down(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">10</span>);
                     ControlUI::Change
                 } <span class="kw">else </span>{
                     ControlUI::Continue
@@ -1281,7 +1373,7 @@
             }
             <span class="macro">ct_event!</span>(scroll up <span class="kw">for </span>column, row) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.area.contains(Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row)) {
-                    <span class="self">self</span>.vscroll_up(<span class="self">self</span>.vpage() / <span class="number">5</span>);
+                    <span class="self">self</span>.scroll_up(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">10</span>);
                     ControlUI::Change
                 } <span class="kw">else </span>{
                     ControlUI::Continue
@@ -1307,7 +1399,7 @@
                     <span class="kw">let </span>new_row = <span class="self">self</span>.row_at_drag(pos);
                     <span class="self">self</span>.mouse.set_drag();
                     <span class="self">self</span>.selection.select_clamped(new_row, <span class="self">self</span>.len - <span class="number">1</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 } <span class="kw">else </span>{
                     ControlUI::Continue
@@ -1419,63 +1511,67 @@
             <span class="kw">match </span>event {
                 <span class="macro">ct_event!</span>(keycode press Down) =&gt; {
                     <span class="self">self</span>.selection.next(<span class="number">1</span>, <span class="self">self</span>.len - <span class="number">1</span>, <span class="bool-val">false</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press SHIFT-Down) =&gt; {
                     <span class="self">self</span>.selection.next(<span class="number">1</span>, <span class="self">self</span>.len - <span class="number">1</span>, <span class="bool-val">true</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press Up) =&gt; {
                     <span class="self">self</span>.selection.prev(<span class="number">1</span>, <span class="bool-val">false</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press SHIFT-Up) =&gt; {
                     <span class="self">self</span>.selection.prev(<span class="number">1</span>, <span class="bool-val">true</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press CONTROL-Down) | <span class="macro">ct_event!</span>(keycode press End) =&gt; {
                     <span class="self">self</span>.selection.set_lead(<span class="prelude-val">Some</span>(<span class="self">self</span>.len - <span class="number">1</span>), <span class="bool-val">false</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press SHIFT-End) =&gt; {
                     <span class="self">self</span>.selection.set_lead(<span class="prelude-val">Some</span>(<span class="self">self</span>.len - <span class="number">1</span>), <span class="bool-val">true</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press CONTROL-Up) | <span class="macro">ct_event!</span>(keycode press Home) =&gt; {
                     <span class="self">self</span>.selection.set_lead(<span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="bool-val">false</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press SHIFT-Home) =&gt; {
                     <span class="self">self</span>.selection.set_lead(<span class="prelude-val">Some</span>(<span class="number">0</span>), <span class="bool-val">true</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
 
                 <span class="macro">ct_event!</span>(keycode press PageUp) =&gt; {
-                    <span class="self">self</span>.selection.prev(<span class="self">self</span>.vpage() / <span class="number">2</span>, <span class="bool-val">false</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.selection
+                        .prev(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">2</span>, <span class="bool-val">false</span>);
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press SHIFT-PageUp) =&gt; {
-                    <span class="self">self</span>.selection.prev(<span class="self">self</span>.vpage() / <span class="number">2</span>, <span class="bool-val">true</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.selection
+                        .prev(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">2</span>, <span class="bool-val">true</span>);
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press PageDown) =&gt; {
-                    <span class="self">self</span>.selection.next(<span class="self">self</span>.vpage() / <span class="number">2</span>, <span class="self">self</span>.len - <span class="number">1</span>, <span class="bool-val">false</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.selection
+                        .next(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">2</span>, <span class="self">self</span>.len - <span class="number">1</span>, <span class="bool-val">false</span>);
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="macro">ct_event!</span>(keycode press SHIFT-PageDown) =&gt; {
-                    <span class="self">self</span>.selection.next(<span class="self">self</span>.vpage() / <span class="number">2</span>, <span class="self">self</span>.len - <span class="number">1</span>, <span class="bool-val">true</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.selection
+                        .next(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">2</span>, <span class="self">self</span>.len - <span class="number">1</span>, <span class="bool-val">true</span>);
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 }
                 <span class="kw">_ </span>=&gt; ControlUI::Continue,
@@ -1493,17 +1589,17 @@
 <span class="kw">impl</span>&lt;A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, MouseOnly&gt; <span class="kw">for </span>TableExtState&lt;SetSelection&gt; {
     <span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, <span class="kw">_</span>: MouseOnly) -&gt; ControlUI&lt;A, E&gt; {
         <span class="kw">match </span>event {
-            <span class="macro">ct_event!</span>(scroll down <span class="kw">for </span>column, row) =&gt; {
+            <span class="macro">ct_event!</span>(scroll up <span class="kw">for </span>column, row) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.area.contains(Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row)) {
-                    <span class="self">self</span>.vscroll_up(<span class="self">self</span>.vpage() / <span class="number">5</span>);
+                    <span class="self">self</span>.scroll_up(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">5</span>);
                     ControlUI::Change
                 } <span class="kw">else </span>{
                     ControlUI::Continue
                 }
             }
-            <span class="macro">ct_event!</span>(scroll up <span class="kw">for </span>column, row) =&gt; {
+            <span class="macro">ct_event!</span>(scroll down <span class="kw">for </span>column, row) =&gt; {
                 <span class="kw">if </span><span class="self">self</span>.area.contains(Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row)) {
-                    <span class="self">self</span>.vscroll_down(<span class="self">self</span>.vpage() / <span class="number">5</span>);
+                    <span class="self">self</span>.scroll_down(<span class="self">self</span>.table_area.height <span class="kw">as </span>usize / <span class="number">5</span>);
                     ControlUI::Change
                 } <span class="kw">else </span>{
                     ControlUI::Continue
@@ -1549,7 +1645,7 @@
                     <span class="kw">let </span>pos = Position::new(<span class="kw-2">*</span>column, <span class="kw-2">*</span>row);
                     <span class="kw">let </span>new_row = <span class="self">self</span>.row_at_drag(pos);
                     <span class="self">self</span>.selection.set_lead_clamped(new_row, <span class="self">self</span>.len - <span class="number">1</span>, <span class="bool-val">true</span>);
-                    <span class="self">self</span>.adjust_view();
+                    <span class="self">self</span>.scroll_to_selected();
                     ControlUI::Change
                 } <span class="kw">else </span>{
                     ControlUI::Continue

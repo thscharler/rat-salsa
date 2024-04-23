@@ -580,6 +580,8 @@
 <a href="#578" id="578">578</a>
 <a href="#579" id="579">579</a>
 <a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! This implements an event-loop.
 //!
 //! It uses ControlUI as it's central control-flow construct.
@@ -589,7 +591,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::lib_timer::{Timed, TimerEvent, Timers};
 <span class="kw">use </span><span class="kw">crate</span>::ControlUI;
 <span class="kw">use </span>crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
-<span class="kw">use </span>crossterm::cursor::{DisableBlinking, EnableBlinking};
+<span class="kw">use </span>crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 <span class="kw">use </span>crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, Event,
 };
@@ -756,6 +758,7 @@
     stdout().execute(EnterAlternateScreen)<span class="question-mark">?</span>;
     stdout().execute(EnableMouseCapture)<span class="question-mark">?</span>;
     stdout().execute(EnableBlinking)<span class="question-mark">?</span>;
+    stdout().execute(SetCursorStyle::BlinkingBar)<span class="question-mark">?</span>;
     stdout().execute(EnableBracketedPaste)<span class="question-mark">?</span>;
     enable_raw_mode()<span class="question-mark">?</span>;
 
@@ -770,11 +773,12 @@
         }
     };
 
+    disable_raw_mode()<span class="question-mark">?</span>;
     stdout().execute(DisableBracketedPaste)<span class="question-mark">?</span>;
+    stdout().execute(SetCursorStyle::DefaultUserShape)<span class="question-mark">?</span>;
     stdout().execute(DisableBlinking)<span class="question-mark">?</span>;
     stdout().execute(DisableMouseCapture)<span class="question-mark">?</span>;
     stdout().execute(LeaveAlternateScreen)<span class="question-mark">?</span>;
-    disable_raw_mode()<span class="question-mark">?</span>;
 
     r
 }
