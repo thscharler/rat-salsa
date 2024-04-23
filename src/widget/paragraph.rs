@@ -25,6 +25,8 @@ pub struct ParagraphExt<'a> {
     pub cached_area_width: Cell<u16>,
     pub cached_line_width: Cell<usize>,
     pub cached_line_count: Cell<usize>,
+
+    pub non_exhaustive: (),
 }
 
 #[derive(Debug, Default)]
@@ -36,6 +38,8 @@ pub struct ParagraphExtState {
     pub hlen: usize,
     pub voffset: usize,
     pub hoffset: usize,
+
+    pub non_exhaustive: (),
 }
 
 impl<'a> ScrolledWidget for ParagraphExt<'a> {
@@ -76,20 +80,20 @@ impl HasScrolling for ParagraphExtState {
         self.hlen.saturating_sub(self.para_area.width as usize)
     }
 
-    fn v_offset(&self) -> usize {
-        self.voffset
-    }
-
-    fn h_offset(&self) -> usize {
-        self.hoffset
-    }
-
     fn v_page_len(&self) -> usize {
         self.para_area.height as usize
     }
 
     fn h_page_len(&self) -> usize {
         self.para_area.width as usize
+    }
+
+    fn v_offset(&self) -> usize {
+        self.voffset
+    }
+
+    fn h_offset(&self) -> usize {
+        self.hoffset
     }
 
     fn set_v_offset(&mut self, offset: usize) {
@@ -114,6 +118,7 @@ impl<'a> ParagraphExt<'a> {
             cached_area_width: Cell::new(0),
             cached_line_width: Cell::new(0),
             cached_line_count: Cell::new(0),
+            non_exhaustive: (),
         }
     }
 

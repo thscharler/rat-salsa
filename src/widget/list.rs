@@ -1,7 +1,7 @@
 use crate::widget::MouseFlags;
 use crate::{
     ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
-    ListSelection, MouseOnly, NoSelection, SingleSelection,
+    ListSelection, MouseOnly, NoSelection, ScrollParam, ScrolledWidget, SingleSelection,
 };
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -19,7 +19,6 @@ use std::marker::PhantomData;
 pub struct ListExt<'a, SEL> {
     pub list: List<'a>,
     pub block: Option<Block<'a>>,
-
     pub items: Vec<ListItem<'a>>,
 
     /// Style for selected + not focused.
@@ -153,6 +152,15 @@ where
     }
 }
 
+impl<'a, SEL: ListSelection> ScrolledWidget for ListExt<'a, SEL> {
+    fn need_scroll(&self, area: Rect) -> ScrollParam {
+        ScrollParam {
+            has_hscroll: false,
+            has_vscroll: true,
+        }
+    }
+}
+
 impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
     type State = ListExtState<SEL>;
 
@@ -244,19 +252,19 @@ impl<SEL> HasScrolling for ListExtState<SEL> {
         0
     }
 
-    fn v_offset(&self) -> usize {
-        self.widget.offset()
-    }
-
-    fn h_offset(&self) -> usize {
-        0
-    }
-
     fn v_page_len(&self) -> usize {
         self.v_page_len
     }
 
     fn h_page_len(&self) -> usize {
+        0
+    }
+
+    fn v_offset(&self) -> usize {
+        self.widget.offset()
+    }
+
+    fn h_offset(&self) -> usize {
         0
     }
 
@@ -266,7 +274,10 @@ impl<SEL> HasScrolling for ListExtState<SEL> {
     }
 
     fn set_h_offset(&mut self, _offset: usize) {
-        unimplemented!("no horizontal scrolling")
+        // It's hard to escape somebody calling this.
+        // Gracefully ignoring it seems best.
+
+        // unimplemented!("no horizontal scrolling")
     }
 }
 

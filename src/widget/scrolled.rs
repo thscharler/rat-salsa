@@ -533,10 +533,11 @@ where
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         let res = match event {
             ct_event!(mouse down Left for column,row) => {
+                // Click in the scrollbar sets the offset to some absolute position.
                 check_break!(if let Some(vscroll_area) = self.v_scrollbar_area {
-                    // Click in the scrollbar sets the offset to some absolute position.
                     if vscroll_area.contains(Position::new(*column, *row)) {
                         let row = row.saturating_sub(vscroll_area.y) as usize;
+                        // max_v_offset is inclusive, so height should be too.
                         let height = vscroll_area.height.saturating_sub(1) as usize;
 
                         let pos = (self.widget.max_v_offset() * row) / height;
@@ -572,10 +573,10 @@ where
                 ControlUI::Continue
             }
             ct_event!(mouse drag Left for column, row) => {
+                // dragging around the scroll bar
                 check_break!(if self.v_drag {
                     if let Some(vscroll_area) = self.v_scrollbar_area {
                         let row = row.saturating_sub(vscroll_area.y) as usize;
-                        // todo: why -1?
                         let height = vscroll_area.height.saturating_sub(1) as usize;
 
                         let pos = (self.widget.max_v_offset() * row) / height;
@@ -608,6 +609,7 @@ where
             }
 
             ct_event!(mouse moved) => {
+                // reset drag
                 self.v_drag = false;
                 self.h_drag = false;
                 ControlUI::Continue
@@ -630,6 +632,7 @@ where
                 }
             }
             ct_event!(scroll ALT down for column, row) => {
+                // right scroll with ALT. shift doesn't work?
                 if self.area.contains(Position::new(*column, *row)) {
                     self.limited_scroll_right(self.view_area.width as usize / 10);
                     ControlUI::Change
@@ -638,6 +641,7 @@ where
                 }
             }
             ct_event!(scroll ALT up for column, row) => {
+                // right scroll with ALT. shift doesn't work?
                 if self.area.contains(Position::new(*column, *row)) {
                     self.widget.scroll_left(self.view_area.width as usize / 10);
                     ControlUI::Change
@@ -652,6 +656,7 @@ where
     }
 }
 
+// forward some library traits.
 impl<T> HasFocusFlag for ScrolledState<T>
 where
     T: HasFocusFlag,
@@ -681,6 +686,7 @@ where
     }
 }
 
+// forward some library traits.
 impl<T> HasValidFlag for ScrolledState<T>
 where
     T: HasValidFlag,
@@ -706,6 +712,7 @@ where
     }
 }
 
+// forward some library traits.
 impl<T> CanValidate for ScrolledState<T>
 where
     T: CanValidate,

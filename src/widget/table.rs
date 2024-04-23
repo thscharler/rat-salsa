@@ -197,8 +197,12 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
         state.len = self.rows.len();
 
         // row layout
-        let header_height = self.header.as_ref().map_or(0, |h| h.height_with_margin());
-        let footer_height = self.footer.as_ref().map_or(0, |f| f.height_with_margin());
+        // TODO: as long as height_with_margin() is not accessible we are limited
+        //       to single row tables.
+        // let header_height = self.header.as_ref().map_or(0, |h| h.height_with_margin());
+        // let footer_height = self.footer.as_ref().map_or(0, |f| f.height_with_margin());
+        let header_height = 1;
+        let footer_height = 1;
         let layout = Layout::vertical([
             Constraint::Length(header_height),
             Constraint::Min(0),
@@ -212,7 +216,10 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
         state.row_areas.clear();
         let mut row_area = Rect::new(layout[1].x, layout[1].y, layout[1].width, 1);
         for row in self.rows.iter().skip(state.offset()) {
-            row_area.height = row.height_with_margin();
+            // TODO: as long as height_with_margin() is not accessible we are limited
+            //       to single row tables.
+            // row_area.height = row.height_with_margin();
+            row_area.height = 1;
 
             state.row_areas.push(row_area);
 
@@ -226,7 +233,10 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
         let mut n = 0;
         let mut height = 0;
         for row in self.rows.iter().rev() {
-            height += row.height_with_margin();
+            // TODO: as long as height_with_margin() is not accessible we are limited
+            //       to single row tables.
+            // height += row.height_with_margin();
+            height += 1;
             if height > layout[1].height {
                 break;
             }
@@ -235,7 +245,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
         state.v_page_len = n;
         state.max_v_offset = state.len - n;
 
-        // selection
+        // style selection
         for (i, r) in self.rows.iter_mut().enumerate() {
             let style = if state.focus.get() {
                 if state.selection.is_selected(i) {
@@ -332,19 +342,19 @@ impl<SEL> HasScrolling for TableExtState<SEL> {
         0
     }
 
-    fn v_offset(&self) -> usize {
-        self.table_state.offset()
-    }
-
-    fn h_offset(&self) -> usize {
-        0
-    }
-
     fn v_page_len(&self) -> usize {
         self.v_page_len
     }
 
     fn h_page_len(&self) -> usize {
+        0
+    }
+
+    fn v_offset(&self) -> usize {
+        self.table_state.offset()
+    }
+
+    fn h_offset(&self) -> usize {
         0
     }
 
@@ -358,7 +368,10 @@ impl<SEL> HasScrolling for TableExtState<SEL> {
     }
 
     fn set_h_offset(&mut self, _offset: usize) {
-        unimplemented!("no horizontal scrolling")
+        // It's hard to escape somebody calling this.
+        // Gracefully ignoring it seems best.
+
+        // unimplemented!("no horizontal scrolling")
     }
 }
 
