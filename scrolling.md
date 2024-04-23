@@ -1,4 +1,80 @@
-Features of solution
+## Proposal
+
+I would suggest using a container widget that manages the scrollbars and
+can implement common behaviour.
+
+It would use the following two traits, one for the widget and one for the state.
+
+```rust 
+/// Trait for a widget that can scroll.
+pub trait ScrolledWidget {
+    /// Get the scrolling behaviour of the widget.
+    ///
+    /// The area is the area for the scroll widget minus any block set on the [Scrolled] widget.
+    /// It doesn't account for the scroll-bars.
+    fn need_scroll(&self, area: Rect) -> ScrollParam;
+}
+```
+
+This trait is used before rendering the widget itself to allow calculating the layout.
+
+The next trait is for the state:
+
+```rust 
+pub trait HasScrolling {
+    /// Maximum offset that is accessible with scrolling.
+    ///
+    /// This is shorter than the length of the content by whatever fills the last page.
+    /// This is the base for the scrollbar content_length.
+    fn max_v_offset(&self) -> usize;
+
+    /// Maximum offset that is accessible with scrolling.
+    ///
+    /// This is shorter than the length of the content by whatever fills the last page.
+    /// This is the base for the scrollbar content_length.
+    fn max_h_offset(&self) -> usize;
+
+    /// Vertical page-size at the current offset.
+    fn v_page_len(&self) -> usize;
+
+    /// Horizontal page-size at the current offset.
+    fn h_page_len(&self) -> usize;
+
+    /// Current vertical offset.
+    fn v_offset(&self) -> usize;
+
+    /// Current horizontal offset.
+    fn h_offset(&self) -> usize;
+
+    /// Change the vertical offset.
+    ///
+    /// Due to overscroll it's possible that this is an invalid offset for the widget.
+    /// The widget must deal with this situation.
+    fn set_v_offset(&mut self, offset: usize);
+
+    /// Change the horizontal offset.
+    ///
+    /// Due to overscroll it's possible that this is an invalid offset for the widget.
+    /// The widget must deal with this situation.
+    fn set_h_offset(&mut self, offset: usize);
+}
+```
+
+The unit used doesn't matter to scrolling. It could be lines, items or whatever.
+The interpretation lies with the widget.
+
+Using offset+max_offset for the Scrollbar solves the current over-scrolling behaviour.
+The scrollbar is at its maximum only if offset reaches the maximum value, so this
+maximum can't be len. Letting the widget calculate it gives the widget enough powers.
+Alternatively, if the trait used len here, it would need to know the number and height
+of the items that fit on the last page. This seems a bit too much.
+
+The page_len can be used for any fractional scrolling. With that, just having
+setters for the offset is sufficient to implement the needs for scrolling.
+
+This list was put up as requirements:
+
+## Features of solution
 
 * Will be used by each ratatui widgets that currently scroll: Paragraph, List, Table
 
@@ -166,11 +242,9 @@ Trait
 * How much of the common behavior can we pull out of widgets and into the types
   that support scrolling implementation (e.g. scrolling specific items into view and truncation)?
 
-I don't think you can for the whole set of widget that could scroll.
+I don't think you can for the whole set of widgets that could scroll.
 But it should be possible for some subsets. List and Table are very similar
-as they are implemented. Maybe Paragraph and tui-image could share some?
-// Maybe there's too much focus on commonalities rather than having widgets that
-// are different enough to warrant the effort.
+as they are implemented now. Maybe Paragraph and tui-image could share some?
 
 * Does this conflict with anything currently being worked on?
 

@@ -8,7 +8,7 @@ use ratatui::layout::Rect;
 pub trait ScrolledWidget {
     /// Get the scrolling behaviour of the widget.
     ///
-    /// The area is the area for the scroll widget minus any block set on the scroll widget.
+    /// The area is the area for the scroll widget minus any block set on the [Scrolled] widget.
     /// It doesn't account for the scroll-bars.
     fn need_scroll(&self, area: Rect) -> ScrollParam;
 }
@@ -33,9 +33,8 @@ pub struct ScrollParam {
 /// the next round of rendering len == max_offset + page_len will hold true.
 ///
 /// The offset can be set to any value possible for usize. It's the widgets job
-/// to limit the value if necessary. Of course it's possible for a user of this
+/// to limit the value if necessary. Of course, it's possible for a user of this
 /// trait to set their own limits.
-///
 pub trait HasScrolling {
     /// Maximum offset that is accessible with scrolling.
     ///
