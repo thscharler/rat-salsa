@@ -189,6 +189,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
             }
             n += 1;
         }
+        state.v_page_len = n;
         state.max_v_offset = state.len - n;
 
         // rendering
@@ -212,6 +213,7 @@ pub struct ListExtState<SEL> {
 
     pub len: usize,
     pub max_v_offset: usize,
+    pub v_page_len: usize,
 
     pub area: Rect,
     pub list_area: Rect,
@@ -247,6 +249,14 @@ impl<SEL> HasScrolling for ListExtState<SEL> {
     }
 
     fn h_offset(&self) -> usize {
+        0
+    }
+
+    fn v_page_len(&self) -> usize {
+        self.v_page_len
+    }
+
+    fn h_page_len(&self) -> usize {
         0
     }
 

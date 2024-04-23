@@ -303,7 +303,7 @@ impl<R> HandleCrossterm<R, SpecialKeybinding> for DateInputState
 
 ### Scrolling
 
-See [HasVerticalScroll](crate::HasVerticalScroll).
+See [ScrolledWidget](crate::ScrolledWidget) and [HasScrolling](crate::HasScrolling)
 
 And also [scrolled](crate::widget::scrolled)
 

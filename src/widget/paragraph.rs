@@ -84,6 +84,14 @@ impl HasScrolling for ParagraphExtState {
         self.hoffset
     }
 
+    fn v_page_len(&self) -> usize {
+        self.para_area.height as usize
+    }
+
+    fn h_page_len(&self) -> usize {
+        self.para_area.width as usize
+    }
+
     fn set_v_offset(&mut self, offset: usize) {
         self.voffset = min(offset, self.vlen);
     }

@@ -14,7 +14,7 @@ use crossterm::event::Event;
 use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
-use ratatui::prelude::Style;
+use ratatui::prelude::{BlockExt, Style};
 use ratatui::symbols::scrollbar::Set;
 use ratatui::widgets::{
     Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
@@ -234,7 +234,7 @@ where
         state.v_overscroll = self.v_overscroll;
         state.h_overscroll = self.h_overscroll;
 
-        let sconf = self.widget.need_scroll(area);
+        let sconf = self.widget.need_scroll(self.block.inner_if_some(area));
 
         let has_vscroll = self.v_scroll_policy.apply(sconf.has_vscroll);
         let has_hscroll = self.h_scroll_policy.apply(sconf.has_hscroll);
@@ -434,12 +434,16 @@ impl<S: HasScrolling> ScrolledState<S> {
 
     /// Change the offset.
     ///
-    /// Due to overscroll it's possible that this is an invalid offset for the widget.
-    /// The widget must deal with this situation.
+    /// Due to overscroll it's possible that this is an invalid
+    /// offset for the widget. The widget must deal with this
+    /// situation.
     pub fn set_v_offset(&mut self, offset: usize) {
         self.widget.set_v_offset(offset);
     }
 
+    /// Change the offset.
+    ///
+    /// Limits the offset to max_v_offset + v_overscroll.
     pub fn set_limited_v_offset(&mut self, offset: usize) {
         let voffset = min(offset, self.widget.max_v_offset() + self.v_overscroll);
         self.set_v_offset(voffset);
@@ -447,12 +451,16 @@ impl<S: HasScrolling> ScrolledState<S> {
 
     /// Change the offset.
     ///
-    /// Due to overscroll it's possible that this is an invalid offset for the widget.
-    /// The widget must deal with this situation.
+    /// Due to overscroll it's possible that this is an invalid
+    /// offset for the widget. The widget must deal with this
+    /// situation.
     pub fn set_h_offset(&mut self, offset: usize) {
         self.widget.set_h_offset(offset);
     }
 
+    /// Change the offset
+    ///
+    /// Limits the offset to max_v_offset + v_overscroll.
     pub fn set_limited_h_offset(&mut self, offset: usize) {
         let hoffset = min(offset, self.widget.max_h_offset() + self.h_overscroll);
         self.set_h_offset(hoffset);
@@ -504,8 +512,16 @@ where
         + HandleCrossterm<ControlUI<A, E>, DefaultKeys>,
 {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
+        // Don't do key-events here. That's up to the widget, it has more
+        // information about the indented behaviour.
+
+        // Do handle some mouse events here.
+        // * mouse interactions with the scroll-bars.
+        // * scrolling.
         let res =
             <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly);
+
+        // Let the widget handle the rest.
         res.or_else(|| self.widget.handle(event, DefaultKeys))
     }
 }

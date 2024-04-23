@@ -28,11 +28,10 @@ use rat_salsa::{SetSelection, SingleSelection};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
-use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, BorderType, Borders, List, ListItem, Paragraph, Row, Wrap};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, BorderType, Borders, Row, Wrap};
 use ratatui::Frame;
 use std::fs;
-use std::iter::repeat_with;
 use std::rc::Rc;
 
 fn main() -> Result<(), anyhow::Error> {
