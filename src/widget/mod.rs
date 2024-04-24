@@ -16,6 +16,7 @@ pub mod message;
 pub mod paragraph;
 pub mod scrolled;
 pub mod table;
+pub mod text_area;
 
 /// Small helper for handling mouse-events.
 ///
