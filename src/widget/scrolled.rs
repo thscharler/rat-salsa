@@ -227,14 +227,16 @@ where
     T: StatefulWidget + ScrolledWidget,
     T::State: HasScrolling,
 {
-    type State = ScrolledState<T::State>;
+    type State = ScrolledState<<T as StatefulWidget>::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.v_overscroll = self.v_overscroll;
         state.h_overscroll = self.h_overscroll;
 
-        let sconf = self.widget.need_scroll(self.block.inner_if_some(area));
+        let sconf = self
+            .widget
+            .need_scroll(self.block.inner_if_some(area), &mut state.widget);
 
         let has_vscroll = self.v_scroll_policy.apply(sconf.has_vscroll);
         let has_hscroll = self.h_scroll_policy.apply(sconf.has_hscroll);
@@ -617,7 +619,7 @@ where
 
             ct_event!(scroll down for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.limited_scroll_down(self.view_area.height as usize / 10);
+                    self.limited_scroll_down(self.widget.v_page_len() / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -625,7 +627,7 @@ where
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.widget.scroll_up(self.view_area.height as usize / 10);
+                    self.widget.scroll_up(self.widget.v_page_len() / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -634,7 +636,7 @@ where
             ct_event!(scroll ALT down for column, row) => {
                 // right scroll with ALT. shift doesn't work?
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.limited_scroll_right(self.view_area.width as usize / 10);
+                    self.limited_scroll_right(self.widget.h_page_len() / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -643,7 +645,7 @@ where
             ct_event!(scroll ALT up for column, row) => {
                 // right scroll with ALT. shift doesn't work?
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.widget.scroll_left(self.view_area.width as usize / 10);
+                    self.widget.scroll_left(self.widget.h_page_len() / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue

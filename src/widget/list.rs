@@ -153,7 +153,7 @@ where
 }
 
 impl<'a, SEL: ListSelection> ScrolledWidget for ListExt<'a, SEL> {
-    fn need_scroll(&self, _area: Rect) -> ScrollParam {
+    fn need_scroll(&self, _area: Rect, _uistate: &mut Self::State) -> ScrollParam {
         ScrollParam {
             has_hscroll: false,
             has_vscroll: true,

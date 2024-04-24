@@ -71,8 +71,8 @@ impl<'a, SEL> Default for TableExt<'a, SEL> {
     }
 }
 
-impl<'a, SEL> ScrolledWidget for TableExt<'a, SEL> {
-    fn need_scroll(&self, _area: Rect) -> ScrollParam {
+impl<'a, SEL: ListSelection> ScrolledWidget for TableExt<'a, SEL> {
+    fn need_scroll(&self, _area: Rect, _uistate: &mut Self::State) -> ScrollParam {
         ScrollParam {
             has_hscroll: false,
             has_vscroll: true,

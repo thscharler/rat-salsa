@@ -28,7 +28,7 @@ pub struct TextAreaExtState<'a> {
 }
 
 impl<'a> ScrolledWidget for TextAreaExt<'a> {
-    fn need_scroll(&self, _area: Rect) -> ScrollParam {
+    fn need_scroll(&self, _area: Rect, _uistate: &mut Self::State) -> ScrollParam {
         ScrollParam {
             has_hscroll: true,
             has_vscroll: true,

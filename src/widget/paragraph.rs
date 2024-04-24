@@ -43,7 +43,7 @@ pub struct ParagraphExtState {
 }
 
 impl<'a> ScrolledWidget for ParagraphExt<'a> {
-    fn need_scroll(&self, mut area: Rect) -> ScrollParam {
+    fn need_scroll(&self, mut area: Rect, _state: &mut Self::State) -> ScrollParam {
         area = self.block.inner_if_some(area);
 
         self.cached_area_width.set(area.width);
