@@ -668,22 +668,6 @@ where
     fn area(&self) -> Rect {
         self.widget.area()
     }
-
-    fn is_focused(&self) -> bool {
-        self.widget.is_focused()
-    }
-
-    fn lost_focus(&self) -> bool {
-        self.widget.lost_focus()
-    }
-
-    fn gained_focus(&self) -> bool {
-        self.widget.gained_focus()
-    }
-
-    fn focus_tag(&self) -> u16 {
-        self.widget.focus_tag()
-    }
 }
 
 // forward some library traits.
@@ -693,22 +677,6 @@ where
 {
     fn valid(&self) -> &ValidFlag {
         self.widget.valid()
-    }
-
-    fn is_valid(&self) -> bool {
-        self.widget.is_valid()
-    }
-
-    fn is_invalid(&self) -> bool {
-        self.widget.is_invalid()
-    }
-
-    fn set_valid(&self, valid: bool) {
-        self.widget.set_valid(valid);
-    }
-
-    fn set_valid_from<V, E>(&self, result: Result<V, E>) -> Option<V> {
-        self.widget.set_valid_from(result)
     }
 }
 

@@ -215,7 +215,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
         state.footer_area = layout[2];
         state.row_areas.clear();
         let mut row_area = Rect::new(layout[1].x, layout[1].y, layout[1].width, 1);
-        for row in self.rows.iter().skip(state.offset()) {
+        for _row in self.rows.iter().skip(state.offset()) {
             // TODO: as long as height_with_margin() is not accessible we are limited
             //       to single row tables.
             // row_area.height = row.height_with_margin();
@@ -232,7 +232,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
         // max_v_offset
         let mut n = 0;
         let mut height = 0;
-        for row in self.rows.iter().rev() {
+        for _row in self.rows.iter().rev() {
             // TODO: as long as height_with_margin() is not accessible we are limited
             //       to single row tables.
             // height += row.height_with_margin();
