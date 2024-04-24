@@ -1,5 +1,3 @@
-## Proposal
-
 I would suggest using a container widget that manages the scrollbars and
 can implement common behaviour.
 
@@ -16,11 +14,11 @@ pub trait ScrolledWidget: StatefulWidget {
 }
 ```
 
-This trait is used before rendering the widget itself to allow calculating the layout.
-Some widgets need information stored in their state to calculate a height, so that's
-in there too. And with the state there's the need to know the type of the state too.
-Making ScrolledWidget depend on StatefulWidget shouldn't be to limiting. Scrolling
-without keeping some state around would be hard to do anyway.
+This trait is called before rendering the widget itself.
+
+This allows the scrolling-container to calculate the exact layout.
+At least tui_tree_widget needs information from the state to calculate a height,
+so that's a parameter too.
 
 The next trait is for the state:
 
@@ -64,17 +62,61 @@ pub trait HasScrolling {
 }
 ```
 
-The unit used doesn't matter to scrolling. It could be lines, items or whatever.
-The interpretation lies with the widget.
+The scrolling widget imposes no unit on the usize values used in this trait.
+Those could be items, lines or something else. The interpretation lies solely
+with the widget.
 
-Using offset+max_offset for the Scrollbar solves the current over-scrolling behaviour.
-The scrollbar is at its maximum only if offset reaches the maximum value, so this
-maximum can't be len. Letting the widget calculate it gives the widget enough powers.
-Alternatively, if the trait used len here, it would need to know the number and height
-of the items that fit on the last page. This seems a bit too much.
+But this means that the scrolling widget can't make any connection between
+screen space and the values used in this interface.
 
-The page_len can be used for any fractional scrolling. With that, just having
-setters for the offset is sufficient to implement the needs for scrolling.
+### Page_len
+
+That's why it gets the current page_len via the trait.
+With the page_len known any fractional scrolling is easy.
+
+### Scrollbar
+
+The values used for the scrollbar are offset + max_offset.
+Where max_offset is the maximum allowed offset that ensures that a full page
+can be displayed. This should solve the complaints about overscrolling.
+
+Both page_size and max_offset are values that can easily be calculated while
+rendering, or are a rather small extra burden.
+
+Letting the widget do all these calculations gives the widgets enough freedom
+to do whatever they need to do.
+
+### Setting the offset
+
+With the current offset, page_len and max_offset known all the wanted
+behaviour can be done.
+
+### Drawback
+
+The one drawback I saw, was that currently there is a strong link between
+the selected item and scrolling. The table blocks scrolling, if the
+selected item would go out of view.
+
+This is a bit annoying and would require one more switch to turn this off.
+Some function like scroll_selected_to_visible() would be nice. It
+could be invoked when navigating with the keyboard.
+
+## Example
+
+I tried this, and here are the docs:
+
+[ScrolledWidget](https://thscharler.github.io/rat-salsa/doc/rat_salsa/trait.ScrolledWidget.html)
+[HasScrolling](https://thscharler.github.io/rat-salsa/doc/rat_salsa/trait.HasScrolling.html)
+the widget: [Scrolled](https://thscharler.github.io/rat-salsa/doc/rat_salsa/widget/scrolled/struct.Scrolled.html)
+
+I wrote adapters for List, Table, Paragraph and just to see if it works
+for tui_textarea and tui_tree_widget too.
+
+[widgets](https://thscharler.github.io/rat-salsa/doc/rat_salsa/widget/index.html)
+
+If you want to run it there is examples/sample1.rs with the crate.
+
+The crate contains more stuff, but it's late alpha/early beta now.
 
 This list was put up as requirements:
 
@@ -82,11 +124,16 @@ This list was put up as requirements:
 
 * Will be used by each ratatui widgets that currently scroll: Paragraph, List, Table
 
-Can do so.
+Yes
 
 * Can be used by those that don't currently: Calendar, Barchart, Chart, Sparkline?
 
-Probably
+Not as they are.
+
+But a viewport widget could implement these traits and render any
+of these to a temporary buffer.
+
+I haven't tried it, but buffer seems good enough for this.
 
 * Can be used by external widgets that need scroll behavior
 
@@ -96,11 +143,12 @@ I tried
 
 - tui_textarea
   The information necessary exists, but there is no public api for it.
-  Would need only a small patch. The sample uses the cursor api to do something close.
+  Would need only a small patch.
+  The example uses the cursor api to do something close.
 
 - tui-rs-tree-widget
-  It would work nicely if implemented directly for the widget. With the wrapper
-  it's ok too.
+  It would work nicely if implemented directly for the widget.
+  And it has enough public apis that a wrapper can work too.
 
 * Scrolling based on a line / row / item basis
 
