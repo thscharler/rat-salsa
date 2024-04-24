@@ -105,7 +105,7 @@ I tried
 * Scrolling based on a line / row / item basis
 
 Abstract notion of an offset. Can denote any of the above.
-Could be made configurable for a widget, if it wants to alternate it's scrolling logic.
+Could be made configurable for a widget, if it wants to switch its scrolling logic.
 
 * Supports non-scrolled areas in a widget (e.g. table or list header / footer)
 
@@ -133,7 +133,7 @@ Only if the widget supports it.
 
 * Only supports the StatefulWidget approach (not Widget)
 
-Needs some place to store state. But an adapter should be possible.
+Needs some place to store state. But an adapter should always be possible. (See ParagraphExt).
 
 * Should avoid having to implement the same logic on each widget (e.g. struct over trait when reasonable)
 

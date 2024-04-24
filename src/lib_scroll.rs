@@ -9,7 +9,8 @@ use ratatui::prelude::StatefulWidget;
 pub trait ScrolledWidget: StatefulWidget {
     /// Get the scrolling behaviour of the widget.
     ///
-    /// The area is the area for the scroll widget minus any block set on the [Scrolled] widget.
+    /// The area is the area for the scroll widget minus any block set on the
+    /// [Scrolled](crate::widget::scrolled::Scrolled) widget.
     /// It doesn't account for the scroll-bars.
     fn need_scroll(&self, area: Rect, state: &mut Self::State) -> ScrollParam;
 }

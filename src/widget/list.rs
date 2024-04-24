@@ -11,6 +11,7 @@ use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style};
 use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState};
 use std::marker::PhantomData;
+use std::mem;
 
 ///
 /// Extensions for [ratatui::widgets::List]
@@ -21,6 +22,8 @@ pub struct ListExt<'a, SEL> {
     pub block: Option<Block<'a>>,
     pub items: Vec<ListItem<'a>>,
 
+    /// Base style
+    pub base_style: Style,
     /// Style for selected + not focused.
     pub select_style: Style,
     /// Style for selected + focused.
@@ -45,6 +48,7 @@ impl<'a, SEL> Default for ListExt<'a, SEL> {
             list: Default::default(),
             block: Default::default(),
             items: Default::default(),
+            base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
             non_exhaustive: (),
@@ -65,6 +69,7 @@ impl<'a, SEL> ListExt<'a, SEL> {
             list: List::default(),
             block: Default::default(),
             items,
+            base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
             non_exhaustive: (),
@@ -88,7 +93,7 @@ impl<'a, SEL> ListExt<'a, SEL> {
     }
 
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.list = self.list.style(style);
+        self.base_style = style.into();
         self
     }
 
@@ -118,11 +123,11 @@ impl<'a, SEL> ListExt<'a, SEL> {
     }
 
     pub fn len(&self) -> usize {
-        self.list.len()
+        self.items.len()
     }
 
     pub fn is_empty(&self) -> bool {
-        self.list.is_empty()
+        self.items.is_empty()
     }
 
     pub fn styles(mut self, styles: ListExtStyle) -> Self {
@@ -164,12 +169,15 @@ impl<'a, SEL: ListSelection> ScrolledWidget for ListExt<'a, SEL> {
 impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
     type State = ListExtState<SEL>;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.len = self.len();
+        debug!("state.len {}", state.len);
 
         state.list_area = self.block.inner_if_some(area);
 
+        // area for each item
+        state.item_areas.clear();
         let mut item_area = Rect::new(
             state.list_area.x,
             state.list_area.y,
@@ -186,6 +194,9 @@ impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
                 break;
             }
         }
+        debug!("item areas {:#?}", state.item_areas);
+        state.v_page_len = state.item_areas.len();
+        debug!("pagelen {}", state.v_page_len);
 
         // max_h_offset
         let mut n = 0;
@@ -197,21 +208,36 @@ impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
             }
             n += 1;
         }
-        state.v_page_len = n;
-        state.max_v_offset = state.len - n;
+        state.max_v_offset = state.len.saturating_sub(n);
 
         // rendering
-        let mut list = if state.focus.get() {
-            self.list.highlight_style(self.focus_style)
-        } else {
-            self.list.highlight_style(self.select_style)
-        };
-        if let Some(block) = self.block {
-            list = list.block(block);
-        }
-        list = list.items(self.items);
+        let mut tmp_item = ListItem::from("".to_string());
+        for (i, r) in self.items.iter_mut().enumerate() {
+            let style = if state.focus.get() {
+                if state.selection.is_selected(i) {
+                    self.focus_style
+                } else {
+                    self.base_style
+                }
+            } else {
+                if state.selection.is_selected(i) {
+                    self.select_style
+                } else {
+                    self.base_style
+                }
+            };
 
-        StatefulWidget::render(list, area, buf, &mut state.widget);
+            mem::swap(r, &mut tmp_item);
+            tmp_item = tmp_item.style(style);
+            mem::swap(r, &mut tmp_item);
+        }
+
+        if let Some(block) = self.block {
+            self.list = self.list.block(block);
+        }
+        self.list = self.list.items(self.items);
+
+        StatefulWidget::render(self.list, area, buf, &mut state.widget);
     }
 }
 
@@ -305,6 +331,7 @@ impl<SEL: ListSelection> ListExtState<SEL> {
 
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
         for (i, r) in self.item_areas.iter().enumerate() {
+            debug!("list item {:?}", r);
             if r.contains(pos) {
                 return Some(self.offset() + i);
             }
@@ -390,7 +417,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for ListExtState<SingleSelection> {
         let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Down) => {
-                    self.selection.next(1, self.len - 1);
+                    self.selection.next(1, self.len.saturating_sub(1));
                     self.scroll_to_selected();
                     ControlUI::Change
                 }
@@ -400,7 +427,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for ListExtState<SingleSelection> {
                     ControlUI::Change
                 }
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    self.selection.select(Some(self.len - 1));
+                    self.selection.select(Some(self.len.saturating_sub(1)));
                     self.scroll_to_selected();
                     ControlUI::Change
                 }
@@ -410,13 +437,13 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for ListExtState<SingleSelection> {
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageUp) => {
-                    self.selection.prev(self.list_area.height as usize / 2);
+                    self.selection.prev(self.v_page_len() / 2);
                     self.scroll_to_selected();
                     ControlUI::Change
                 }
                 ct_event!(keycode press PageDown) => {
                     self.selection
-                        .next(self.list_area.height as usize / 2, self.len - 1);
+                        .next(self.v_page_len() / 2, self.len.saturating_sub(1));
                     self.scroll_to_selected();
                     ControlUI::Change
                 }
@@ -437,7 +464,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState<SingleSe
         match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(self.list_area.height as usize / 10);
+                    self.scroll_down(self.v_page_len() / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -445,7 +472,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState<SingleSe
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(self.list_area.height as usize / 10);
+                    self.scroll_up(self.v_page_len() / 10);
                     ControlUI::Change
                 } else {
                     ControlUI::Continue
@@ -454,9 +481,12 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState<SingleSe
             ct_event!(mouse down Left for column, row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
+                    debug!("select {:?}", pos);
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.mouse.set_drag();
-                        self.selection.select_clamped(new_row, self.len - 1);
+                        debug!("selection {}", new_row);
+                        self.selection
+                            .select_clamped(new_row, self.len.saturating_sub(1));
                         ControlUI::Change
                     } else {
                         ControlUI::NoChange
@@ -470,7 +500,8 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState<SingleSe
                     let pos = Position::new(*column, *row);
                     let new_row = self.row_at_drag(pos);
                     self.mouse.set_drag();
-                    self.selection.select_clamped(new_row, self.len - 1);
+                    self.selection
+                        .select_clamped(new_row, self.len.saturating_sub(1));
                     self.scroll_to_selected();
                     ControlUI::Change
                 } else {

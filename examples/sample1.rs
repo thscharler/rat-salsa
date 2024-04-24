@@ -11,7 +11,7 @@ use rat_salsa::number::NumberSymbols;
 use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::date_input::{DateInput, DateInputState};
 use rat_salsa::widget::input::{TextInput, TextInputState, TextInputStyle};
-use rat_salsa::widget::list::ListExtState;
+use rat_salsa::widget::list::{ListExt, ListExtState, ListExtStyle};
 use rat_salsa::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
 use rat_salsa::widget::menuline::{HotKeyAlt, MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
@@ -31,10 +31,11 @@ use rat_salsa::{SetSelection, SingleSelection};
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, BorderType, Borders, Row, Wrap};
+use ratatui::text::{Line, Span, Text};
+use ratatui::widgets::{Block, BorderType, Borders, ListItem, Row, Wrap};
 use ratatui::Frame;
 use std::fs;
+use std::iter::repeat_with;
 use std::rc::Rc;
 use tui_tree_widget::TreeItem;
 
@@ -496,6 +497,7 @@ fn repaint_menu(
         .add("_DateField", MenuItem::Date)
         .add("_Scrolling", MenuItem::Paragraph)
         .add("Table", MenuItem::Table)
+        .add("List", MenuItem::List)
         .add("TextArea", MenuItem::TextArea)
         .add("Tree", MenuItem::Tree)
         .add("_Error", MenuItem::Error)
@@ -1383,36 +1385,42 @@ fn repaint_scrolled_list(
     data: &mut FormOneData,
     uistate: &mut FormOneState,
 ) -> Control {
-    // let l_columns = Layout::new(
-    //     Direction::Horizontal,
-    //     [
-    //         Constraint::Fill(2),
-    //         Constraint::Fill(1),
-    //         Constraint::Fill(2),
-    //         Constraint::Fill(1),
-    //     ],
-    // )
-    //     .split(layout.area);
-    //
-    // let mut nn = 0;
-    // let w_list1 = List::default().items(
-    //     repeat_with(|| {
-    //         nn += 1;
-    //         nn
-    //     }).take(5000)
-    //         .map(|v| {
-    //             ListItem::new(Text::from_iter([
-    //                 Line::from(format!("line {}", v).to_string()),
-    //                 Line::from(format!("line {}", v).to_string()),
-    //             ]))
-    //         })
-    // ]);
-    // let w_list1 = Scrolled::new(w_list1)
-    //     ;
-    //
-    // frame.render_widget(w_list1, l_columns[0]);
+    let l_columns = Layout::new(
+        Direction::Horizontal,
+        [
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+        ],
+    )
+    .split(layout.area);
+
+    let mut nn = 0;
+    let w_list1 = ListExt::default()
+        .items(
+            repeat_with(|| {
+                nn += 1;
+                nn
+            })
+            .take(5000)
+            .map(|v| {
+                ListItem::new(Text::from_iter([
+                    Line::from(format!("item {}", v).to_string()),
+                    Line::from("this is a second line for the item".to_string()),
+                ]))
+            }),
+        )
+        .styles(uistate.g.theme.list_style());
+    let w_list1 = Scrolled::new(w_list1);
+
+    frame.render_stateful_widget(w_list1, l_columns[0], &mut uistate.scrolled_list.list1);
 
     ControlUI::Continue
+}
+
+fn focus_list(state: &FormScrolledList) -> Focus<'_> {
+    Focus::new([(state.list1.focus(), state.list1.area())])
 }
 
 fn handle_scrolled_list(
@@ -1420,7 +1428,12 @@ fn handle_scrolled_list(
     data: &mut FormOneData,
     uistate: &mut FormOneState,
 ) -> Control {
-    ControlUI::Continue
+    focus_list(&uistate.scrolled_list)
+        .append(focus_menu(&uistate.menu))
+        .handle(event, DefaultKeys)
+        .and_do(|_| uistate.g.repaint.set());
+
+    uistate.scrolled_list.list1.handle(event, DefaultKeys)
 }
 
 fn repaint_textarea(
@@ -1603,37 +1616,6 @@ fn repaint_tree(
     }
     frame.render_stateful_widget(tree, l_columns[0], &mut uistate.tree.tree);
 
-    // let l1 = layout_edit(
-    //     l_columns[1],
-    //     &[
-    //         EditConstraint::EmptyRows(2),
-    //         EditConstraint::Label("cur"),
-    //         EditConstraint::Widget(20),
-    //         EditConstraint::Label("rec"),
-    //         EditConstraint::Widget(20),
-    //         EditConstraint::Label("dim"),
-    //         EditConstraint::Widget(20),
-    //     ],
-    // );
-    // let mut l1 = l1.iter();
-    //
-    // frame.render_widget(Span::from("cur"), l1.label());
-    // frame.render_widget(
-    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.cursor()).to_string()),
-    //     l1.widget(),
-    // );
-    // TODO: rect() and dimensions() not implemented in the baseline
-    // frame.render_widget(Span::from("rec"), l1.label());
-    // frame.render_widget(
-    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.rect()).to_string()),
-    //     l1.widget(),
-    // );
-    // frame.render_widget(Span::from("dim"), l1.label());
-    // frame.render_widget(
-    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.dimensions()).to_string()),
-    //     l1.widget(),
-    // );
-
     ControlUI::Continue
 }
 
@@ -1714,6 +1696,15 @@ pub struct Theme {
 impl Theme {
     pub fn status_style(&self) -> Style {
         Style::default().fg(self.white).bg(self.one_bg3)
+    }
+
+    pub fn list_style(&self) -> ListExtStyle {
+        ListExtStyle {
+            style: Default::default(),
+            select_style: Style::default().fg(self.black).bg(self.purple).bold(),
+            focus_style: Style::default().fg(self.black).bg(self.green).bold(),
+            ..ListExtStyle::default()
+        }
     }
 
     pub fn table_style(&self) -> TableExtStyle {
