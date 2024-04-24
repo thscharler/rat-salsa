@@ -3,14 +3,15 @@
 //!
 
 use ratatui::layout::Rect;
+use ratatui::prelude::StatefulWidget;
 
 /// Trait for a widget that can scroll.
-pub trait ScrolledWidget {
+pub trait ScrolledWidget: StatefulWidget {
     /// Get the scrolling behaviour of the widget.
     ///
     /// The area is the area for the scroll widget minus any block set on the [Scrolled] widget.
     /// It doesn't account for the scroll-bars.
-    fn need_scroll(&self, area: Rect) -> ScrollParam;
+    fn need_scroll(&self, area: Rect, state: &mut Self::State) -> ScrollParam;
 }
 
 /// Widget scrolling information.
