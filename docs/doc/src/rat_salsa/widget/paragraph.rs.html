@@ -192,9 +192,6 @@
 <a href="#190" id="190">190</a>
 <a href="#191" id="191">191</a>
 <a href="#192" id="192">192</a>
-<a href="#193" id="193">193</a>
-<a href="#194" id="194">194</a>
-<a href="#195" id="195">195</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::lib_scroll::{HasScrolling, ScrollParam, ScrolledWidget};
 <span class="doccomment">///
 /// Adapter for ratatui::widget::Paragraph
@@ -250,11 +247,8 @@
         </span>} <span class="kw">else </span>{
             <span class="kw">let </span>width = <span class="self">self</span>.para.line_width();
             <span class="self">self</span>.cached_line_width.set(width);
-            <span class="kw">if </span>width &gt;= area.width <span class="kw">as </span>usize {
-                <span class="bool-val">true
-            </span>} <span class="kw">else </span>{
-                <span class="bool-val">false
-            </span>}
+
+            width &gt;= area.width <span class="kw">as </span>usize
         };
 
         <span class="kw">let </span>lines = <span class="self">self</span>.para.line_count(area.width);

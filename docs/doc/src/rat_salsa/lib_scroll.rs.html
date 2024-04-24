@@ -95,6 +95,7 @@
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//!
 //! Scrolling behaviour.
 //!
@@ -106,7 +107,8 @@
 </span><span class="kw">pub trait </span>ScrolledWidget: StatefulWidget {
     <span class="doccomment">/// Get the scrolling behaviour of the widget.
     ///
-    /// The area is the area for the scroll widget minus any block set on the [Scrolled] widget.
+    /// The area is the area for the scroll widget minus any block set on the
+    /// [Scrolled](crate::widget::scrolled::Scrolled) widget.
     /// It doesn't account for the scroll-bars.
     </span><span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, area: Rect, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) -&gt; ScrollParam;
 }
