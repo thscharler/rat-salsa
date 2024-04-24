@@ -179,13 +179,10 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Does some error conversion.
     #[inline]
-    pub fn map_err<OtherErr>(
-        self,
-        f: impl FnOnce(Err) -> ControlUI<Action, OtherErr>,
-    ) -> ControlUI<Action, OtherErr> {
+    pub fn map_err<OtherErr>(self, f: impl FnOnce(Err) -> OtherErr) -> ControlUI<Action, OtherErr> {
         match self {
             ControlUI::Continue => ControlUI::Continue,
-            ControlUI::Err(e) => f(e),
+            ControlUI::Err(e) => ControlUI::Err(f(e)),
             ControlUI::NoChange => ControlUI::NoChange,
             ControlUI::Change => ControlUI::Change,
             ControlUI::Run(a) => ControlUI::Run(a),
