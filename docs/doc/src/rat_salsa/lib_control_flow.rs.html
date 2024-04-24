@@ -266,9 +266,6 @@
 <a href="#264" id="264">264</a>
 <a href="#265" id="265">265</a>
 <a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
 </pre></div><pre class="rust"><code><span class="doccomment">/// Helper trait for [crate::tr!].
 </span><span class="kw">pub trait </span>SplitResult&lt;T, E&gt; {
     <span class="doccomment">/// Split self in an Ok part and an Err part.
@@ -450,13 +447,10 @@
 
     <span class="doccomment">/// Does some error conversion.
     </span><span class="attr">#[inline]
-    </span><span class="kw">pub fn </span>map_err&lt;OtherErr&gt;(
-        <span class="self">self</span>,
-        f: <span class="kw">impl </span>FnOnce(<span class="prelude-val">Err</span>) -&gt; ControlUI&lt;Action, OtherErr&gt;,
-    ) -&gt; ControlUI&lt;Action, OtherErr&gt; {
+    </span><span class="kw">pub fn </span>map_err&lt;OtherErr&gt;(<span class="self">self</span>, f: <span class="kw">impl </span>FnOnce(<span class="prelude-val">Err</span>) -&gt; OtherErr) -&gt; ControlUI&lt;Action, OtherErr&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             ControlUI::Continue =&gt; ControlUI::Continue,
-            ControlUI::Err(e) =&gt; f(e),
+            ControlUI::Err(e) =&gt; ControlUI::Err(f(e)),
             ControlUI::NoChange =&gt; ControlUI::NoChange,
             ControlUI::Change =&gt; ControlUI::Change,
             ControlUI::Run(a) =&gt; ControlUI::Run(a),

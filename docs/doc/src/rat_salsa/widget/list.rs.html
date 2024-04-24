@@ -643,7 +643,7 @@
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL: ListSelection&gt; ScrolledWidget <span class="kw">for </span>ListExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
-    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, area: Rect) -&gt; ScrollParam {
+    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect, _uistate: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) -&gt; ScrollParam {
         ScrollParam {
             has_hscroll: <span class="bool-val">false</span>,
             has_vscroll: <span class="bool-val">true</span>,

@@ -903,8 +903,8 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL&gt; ScrolledWidget <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
-    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect) -&gt; ScrollParam {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL: ListSelection&gt; ScrolledWidget <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
+    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect, _uistate: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) -&gt; ScrollParam {
         ScrollParam {
             has_hscroll: <span class="bool-val">false</span>,
             has_vscroll: <span class="bool-val">true</span>,
@@ -1047,7 +1047,7 @@
         state.footer_area = layout[<span class="number">2</span>];
         state.row_areas.clear();
         <span class="kw">let </span><span class="kw-2">mut </span>row_area = Rect::new(layout[<span class="number">1</span>].x, layout[<span class="number">1</span>].y, layout[<span class="number">1</span>].width, <span class="number">1</span>);
-        <span class="kw">for </span>row <span class="kw">in </span><span class="self">self</span>.rows.iter().skip(state.offset()) {
+        <span class="kw">for </span>_row <span class="kw">in </span><span class="self">self</span>.rows.iter().skip(state.offset()) {
             <span class="comment">// TODO: as long as height_with_margin() is not accessible we are limited
             //       to single row tables.
             // row_area.height = row.height_with_margin();
@@ -1064,7 +1064,7 @@
         <span class="comment">// max_v_offset
         </span><span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">0</span>;
         <span class="kw">let </span><span class="kw-2">mut </span>height = <span class="number">0</span>;
-        <span class="kw">for </span>row <span class="kw">in </span><span class="self">self</span>.rows.iter().rev() {
+        <span class="kw">for </span>_row <span class="kw">in </span><span class="self">self</span>.rows.iter().rev() {
             <span class="comment">// TODO: as long as height_with_margin() is not accessible we are limited
             //       to single row tables.
             // height += row.height_with_margin();

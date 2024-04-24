@@ -100,14 +100,15 @@
 //!
 
 </span><span class="kw">use </span>ratatui::layout::Rect;
+<span class="kw">use </span>ratatui::prelude::StatefulWidget;
 
 <span class="doccomment">/// Trait for a widget that can scroll.
-</span><span class="kw">pub trait </span>ScrolledWidget {
+</span><span class="kw">pub trait </span>ScrolledWidget: StatefulWidget {
     <span class="doccomment">/// Get the scrolling behaviour of the widget.
     ///
-    /// The area is the area for the scroll widget minus any block set on the scroll widget.
+    /// The area is the area for the scroll widget minus any block set on the [Scrolled] widget.
     /// It doesn't account for the scroll-bars.
-    </span><span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, area: Rect) -&gt; ScrollParam;
+    </span><span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, area: Rect, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) -&gt; ScrollParam;
 }
 
 <span class="doccomment">/// Widget scrolling information.
@@ -130,9 +131,8 @@
 /// the next round of rendering len == max_offset + page_len will hold true.
 ///
 /// The offset can be set to any value possible for usize. It's the widgets job
-/// to limit the value if necessary. Of course it's possible for a user of this
+/// to limit the value if necessary. Of course, it's possible for a user of this
 /// trait to set their own limits.
-///
 </span><span class="kw">pub trait </span>HasScrolling {
     <span class="doccomment">/// Maximum offset that is accessible with scrolling.
     ///
