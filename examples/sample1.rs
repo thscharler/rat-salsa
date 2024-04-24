@@ -1,6 +1,7 @@
 #![allow(unused_variables)]
 #![allow(clippy::needless_update)]
 
+use anyhow::anyhow;
 use crossbeam::channel::Sender;
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -19,6 +20,8 @@ use rat_salsa::widget::message::{
 use rat_salsa::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use rat_salsa::widget::scrolled::{Scrolled, ScrolledState};
 use rat_salsa::widget::table::{TableExt, TableExtState, TableExtStyle};
+use rat_salsa::widget::text_area::{TextAreaExt, TextAreaExtState};
+use rat_salsa::widget::tree::{TreeExt, TreeExtState};
 use rat_salsa::{
     check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
     Focus, HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
@@ -33,6 +36,7 @@ use ratatui::widgets::{Block, BorderType, Borders, Row, Wrap};
 use ratatui::Frame;
 use std::fs;
 use std::rc::Rc;
+use tui_tree_widget::TreeItem;
 
 fn main() -> Result<(), anyhow::Error> {
     _ = fs::remove_file("log.log");
@@ -83,6 +87,8 @@ pub struct FormOneState {
     pub scrolled_para: FormScrolledParagraph,
     pub scrolled_table: FormScrolledTable,
     pub scrolled_list: FormScrolledList,
+    pub text_area: FormTextArea,
+    pub tree: FormTree,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -92,6 +98,8 @@ pub enum MenuItem {
     Paragraph,
     Table,
     List,
+    TextArea,
+    Tree,
     Error,
     Quit,
 }
@@ -148,6 +156,16 @@ pub struct FormScrolledList {
     pub list1: ScrolledState<ListExtState<SingleSelection>>,
 }
 
+#[derive(Debug)]
+pub struct FormTextArea {
+    pub text: ScrolledState<TextAreaExtState<'static>>,
+}
+
+#[derive(Debug)]
+pub struct FormTree {
+    pub tree: ScrolledState<TreeExtState<usize>>,
+}
+
 impl FormOneState {
     pub fn new(sym: &Rc<NumberSymbols>) -> Self {
         let mut s = Self {
@@ -158,6 +176,8 @@ impl FormOneState {
             scrolled_para: FormScrolledParagraph::new(),
             scrolled_table: FormScrolledTable::new(),
             scrolled_list: FormScrolledList::new(),
+            text_area: FormTextArea::new(),
+            tree: FormTree::new(),
         };
         s.menu.select(Some(0));
         s
@@ -251,6 +271,22 @@ impl FormScrolledList {
     }
 }
 
+impl FormTextArea {
+    pub fn new() -> Self {
+        Self {
+            text: Default::default(),
+        }
+    }
+}
+
+impl FormTree {
+    pub fn new() -> Self {
+        Self {
+            tree: Default::default(),
+        }
+    }
+}
+
 // -----------------------------------------------------------------------
 
 #[derive(Debug)]
@@ -338,6 +374,12 @@ impl TuiApp for FormOneApp {
                     _
                 )
             }
+            Some(MenuItem::TextArea) => {
+                tr!(repaint_textarea(&event, frame, layout, data, uistate), _)
+            }
+            Some(MenuItem::Tree) => {
+                tr!(repaint_tree(&event, frame, layout, data, uistate), _)
+            }
             _ => {}
         }
         tr!(repaint_menu(&event, frame, layout, data, uistate), _);
@@ -402,6 +444,8 @@ impl TuiApp for FormOneApp {
             Some(MenuItem::Paragraph) => handle_scrolled_paragraph(&event, data, uistate),
             Some(MenuItem::Table) => handle_scrolled_table(&event, data, uistate),
             Some(MenuItem::List) => handle_scrolled_list(&event, data, uistate),
+            Some(MenuItem::TextArea) => handle_textarea(&event, data, uistate),
+            Some(MenuItem::Tree) => handle_tree(&event, data, uistate),
             Some(MenuItem::Error) => handle_error(&event, data, uistate),
             _ => Control::Continue,
         });
@@ -451,7 +495,9 @@ fn repaint_menu(
         .add("_TextField", MenuItem::Text)
         .add("_DateField", MenuItem::Date)
         .add("_Scrolling", MenuItem::Paragraph)
-        .add("_Table", MenuItem::Table)
+        .add("Table", MenuItem::Table)
+        .add("TextArea", MenuItem::TextArea)
+        .add("Tree", MenuItem::Tree)
         .add("_Error", MenuItem::Error)
         .add("_Quit", MenuItem::Quit);
     frame.render_stateful_widget(menu, layout.menu, &mut uistate.menu);
@@ -1375,6 +1421,238 @@ fn handle_scrolled_list(
     uistate: &mut FormOneState,
 ) -> Control {
     ControlUI::Continue
+}
+
+fn repaint_textarea(
+    event: &RepaintEvent,
+    frame: &mut Frame<'_>,
+    layout: FormOneAppLayout,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let l_columns = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Fill(5), Constraint::Fill(1)],
+    )
+    .split(Rect::new(
+        layout.area.x,
+        layout.area.y + 1,
+        layout.area.width,
+        layout.area.height - 1,
+    ));
+
+    let text_area = Scrolled::new(TextAreaExt::default());
+    frame.render_stateful_widget(text_area, l_columns[0], &mut uistate.text_area.text);
+
+    let l1 = layout_edit(
+        l_columns[1],
+        &[
+            EditConstraint::EmptyRows(2),
+            EditConstraint::Label("cur"),
+            EditConstraint::Widget(20),
+            EditConstraint::Label("rec"),
+            EditConstraint::Widget(20),
+            EditConstraint::Label("dim"),
+            EditConstraint::Widget(20),
+        ],
+    );
+    let mut l1 = l1.iter();
+
+    frame.render_widget(Span::from("cur"), l1.label());
+    frame.render_widget(
+        Span::from(format!("{:?}", uistate.text_area.text.widget.widget.cursor()).to_string()),
+        l1.widget(),
+    );
+    // TODO: rect() and dimensions() not implemented in the baseline
+    // frame.render_widget(Span::from("rec"), l1.label());
+    // frame.render_widget(
+    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.rect()).to_string()),
+    //     l1.widget(),
+    // );
+    // frame.render_widget(Span::from("dim"), l1.label());
+    // frame.render_widget(
+    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.dimensions()).to_string()),
+    //     l1.widget(),
+    // );
+
+    ControlUI::Continue
+}
+
+fn focus_textarea(state: &FormTextArea) -> Focus<'_> {
+    Focus::new([(state.text.focus(), state.text.area())])
+}
+
+fn handle_textarea(
+    event: &Event,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> ControlUI<FormOneAction, anyhow::Error> {
+    check_break!(focus_textarea(&uistate.text_area)
+        .append(focus_menu(&uistate.menu))
+        .handle(event, DefaultKeys)
+        .and_then(|_| { ControlUI::Change })
+        .map_err(|_| anyhow!("wtf")));
+
+    uistate.text_area.text.handle(event, DefaultKeys)
+}
+
+fn repaint_tree(
+    event: &RepaintEvent,
+    frame: &mut Frame<'_>,
+    layout: FormOneAppLayout,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let l_columns = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Fill(5), Constraint::Fill(1)],
+    )
+    .split(Rect::new(
+        layout.area.x,
+        layout.area.y + 1,
+        layout.area.width,
+        layout.area.height - 1,
+    ));
+
+    let tree = Scrolled::new(TreeExt::new(vec![
+        tr!(TreeItem::new(
+            1,
+            "1",
+            vec![
+                TreeItem::new_leaf(10, "10"),
+                TreeItem::new_leaf(11, "11"),
+                TreeItem::new_leaf(12, "12"),
+                TreeItem::new_leaf(13, "13"),
+                TreeItem::new_leaf(14, "14"),
+                TreeItem::new_leaf(15, "15"),
+                TreeItem::new_leaf(16, "16"),
+                TreeItem::new_leaf(17, "17"),
+                TreeItem::new_leaf(18, "18"),
+                TreeItem::new_leaf(19, "19"),
+            ],
+        )),
+        tr!(TreeItem::new(
+            2,
+            "2",
+            vec![
+                TreeItem::new_leaf(20, "20"),
+                TreeItem::new_leaf(21, "21"),
+                TreeItem::new_leaf(22, "22"),
+                TreeItem::new_leaf(23, "23"),
+                TreeItem::new_leaf(24, "24"),
+                TreeItem::new_leaf(25, "25"),
+                TreeItem::new_leaf(26, "26"),
+                TreeItem::new_leaf(27, "27"),
+                TreeItem::new_leaf(28, "28"),
+                TreeItem::new_leaf(29, "29"),
+            ],
+        )),
+        tr!(TreeItem::new(
+            3,
+            "3",
+            vec![
+                TreeItem::new_leaf(30, "30"),
+                TreeItem::new_leaf(31, "31"),
+                TreeItem::new_leaf(32, "32"),
+                TreeItem::new_leaf(33, "33"),
+                TreeItem::new_leaf(34, "34"),
+                TreeItem::new_leaf(35, "35"),
+                TreeItem::new_leaf(36, "36"),
+                TreeItem::new_leaf(37, "37"),
+                TreeItem::new_leaf(38, "38"),
+                TreeItem::new_leaf(39, "39"),
+            ],
+        )),
+        tr!(TreeItem::new(
+            4,
+            "4",
+            vec![
+                TreeItem::new_leaf(40, "40"),
+                TreeItem::new_leaf(41, "41"),
+                TreeItem::new_leaf(42, "42"),
+                TreeItem::new_leaf(43, "43"),
+                TreeItem::new_leaf(44, "44"),
+                TreeItem::new_leaf(45, "45"),
+                TreeItem::new_leaf(46, "46"),
+                TreeItem::new_leaf(47, "47"),
+                TreeItem::new_leaf(48, "48"),
+                TreeItem::new_leaf(49, "49"),
+            ],
+        )),
+        tr!(TreeItem::new(
+            5,
+            "5",
+            vec![
+                TreeItem::new_leaf(50, "50"),
+                TreeItem::new_leaf(51, "51"),
+                TreeItem::new_leaf(52, "52"),
+                TreeItem::new_leaf(53, "53"),
+                TreeItem::new_leaf(54, "54"),
+                TreeItem::new_leaf(55, "55"),
+                TreeItem::new_leaf(56, "56"),
+                TreeItem::new_leaf(57, "57"),
+                TreeItem::new_leaf(58, "58"),
+                TreeItem::new_leaf(59, "59"),
+            ],
+        )),
+    ]));
+
+    for i in 0..60 {
+        uistate.tree.tree.widget.widget.open(vec![i / 10]);
+        uistate.tree.tree.widget.widget.open(vec![i / 10, i]);
+    }
+    frame.render_stateful_widget(tree, l_columns[0], &mut uistate.tree.tree);
+
+    // let l1 = layout_edit(
+    //     l_columns[1],
+    //     &[
+    //         EditConstraint::EmptyRows(2),
+    //         EditConstraint::Label("cur"),
+    //         EditConstraint::Widget(20),
+    //         EditConstraint::Label("rec"),
+    //         EditConstraint::Widget(20),
+    //         EditConstraint::Label("dim"),
+    //         EditConstraint::Widget(20),
+    //     ],
+    // );
+    // let mut l1 = l1.iter();
+    //
+    // frame.render_widget(Span::from("cur"), l1.label());
+    // frame.render_widget(
+    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.cursor()).to_string()),
+    //     l1.widget(),
+    // );
+    // TODO: rect() and dimensions() not implemented in the baseline
+    // frame.render_widget(Span::from("rec"), l1.label());
+    // frame.render_widget(
+    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.rect()).to_string()),
+    //     l1.widget(),
+    // );
+    // frame.render_widget(Span::from("dim"), l1.label());
+    // frame.render_widget(
+    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.dimensions()).to_string()),
+    //     l1.widget(),
+    // );
+
+    ControlUI::Continue
+}
+
+fn focus_tree(state: &FormTree) -> Focus<'_> {
+    Focus::new([(state.tree.focus(), state.tree.area())])
+}
+
+fn handle_tree(
+    event: &Event,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> ControlUI<FormOneAction, anyhow::Error> {
+    check_break!(focus_tree(&uistate.tree)
+        .append(focus_menu(&uistate.menu))
+        .handle(event, DefaultKeys)
+        .and_then(|_| { ControlUI::Change })
+        .map_err(|_| anyhow!("wtf")));
+
+    uistate.tree.tree.handle(event, DefaultKeys)
 }
 
 // -----------------------------------------------------------------------

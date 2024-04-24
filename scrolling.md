@@ -7,16 +7,20 @@ It would use the following two traits, one for the widget and one for the state.
 
 ```rust 
 /// Trait for a widget that can scroll.
-pub trait ScrolledWidget {
+pub trait ScrolledWidget: StatefulWidget {
     /// Get the scrolling behaviour of the widget.
     ///
     /// The area is the area for the scroll widget minus any block set on the [Scrolled] widget.
     /// It doesn't account for the scroll-bars.
-    fn need_scroll(&self, area: Rect) -> ScrollParam;
+    fn need_scroll(&self, area: Rect, state: &mut Self::State) -> ScrollParam;
 }
 ```
 
 This trait is used before rendering the widget itself to allow calculating the layout.
+Some widgets need information stored in their state to calculate a height, so that's
+in there too. And with the state there's the need to know the type of the state too.
+Making ScrolledWidget depend on StatefulWidget shouldn't be to limiting. Scrolling
+without keeping some state around would be hard to do anyway.
 
 The next trait is for the state:
 
@@ -87,6 +91,16 @@ Probably
 * Can be used by external widgets that need scroll behavior
 
 Yes
+
+I tried
+
+- tui_textarea
+  The information necessary exists, but there is no public api for it.
+  Would need only a small patch. The sample uses the cursor api to do something close.
+
+- tui-rs-tree-widget
+  It would work nicely if implemented directly for the widget. With the wrapper
+  it's ok too.
 
 * Scrolling based on a line / row / item basis
 
