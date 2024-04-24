@@ -3,6 +3,7 @@ use crate::{
     MouseOnly, ScrollParam, ScrolledWidget,
 };
 use crossterm::event::Event;
+#[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

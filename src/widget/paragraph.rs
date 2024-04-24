@@ -53,11 +53,8 @@ impl<'a> ScrolledWidget for ParagraphExt<'a> {
         } else {
             let width = self.para.line_width();
             self.cached_line_width.set(width);
-            if width >= area.width as usize {
-                true
-            } else {
-                false
-            }
+
+            width >= area.width as usize
         };
 
         let lines = self.para.line_count(area.width);
