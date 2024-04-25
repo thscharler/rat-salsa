@@ -222,6 +222,31 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//!
 //! Status line and a message dialog.
 //!
@@ -231,6 +256,7 @@
 <span class="kw">use </span><span class="kw">crate</span>::widget::paragraph::{ParagraphExt, ParagraphExtState};
 <span class="kw">use </span><span class="kw">crate</span>::widget::scrolled::{Scrolled, ScrolledState};
 <span class="kw">use </span><span class="kw">crate</span>::ControlUI;
+<span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
 <span class="kw">use crate</span>::{check_break, ct_event};
 <span class="kw">use crate</span>::{DefaultKeys, HandleCrossterm};
 <span class="kw">use </span>crossterm::event::Event;
@@ -246,28 +272,30 @@
 <span class="doccomment">/// Basic status line.
 </span><span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>StatusLine {
-    <span class="kw">pub </span>style: Style,
+    style: Style,
 }
 
 <span class="doccomment">/// State for the status line.
-</span><span class="attr">#[derive(Debug, Default)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>StatusLineState {
     <span class="kw">pub </span>area: Rect,
     <span class="kw">pub </span>status: String,
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
 <span class="doccomment">/// Basic status dialog for longer messages.
 </span><span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">pub struct </span>StatusDialog {
-    <span class="kw">pub </span>style: Style,
-    <span class="kw">pub </span>button_style: ButtonStyle,
+    style: Style,
+    button_style: ButtonStyle,
 }
 
 <span class="doccomment">/// Combined style.
-</span><span class="attr">#[derive(Default, Debug)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>StatusDialogStyle {
     <span class="kw">pub </span>style: Style,
     <span class="kw">pub </span>button: ButtonStyle,
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
 <span class="doccomment">/// State for the status dialog.
@@ -278,6 +306,7 @@
     <span class="kw">pub </span>message: ScrolledState&lt;ParagraphExtState&gt;,
     <span class="kw">pub </span>button: ButtonState&lt;bool&gt;,
     <span class="kw">pub </span>log: String,
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
 <span class="kw">impl </span>StatusLine {
@@ -292,6 +321,16 @@
         <span class="self">self</span>.style = style.into();
         <span class="self">self
     </span>}
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>StatusLineState {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            area: Default::default(),
+            status: <span class="string">""</span>.to_string(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 <span class="kw">impl </span>StatusLineState {
@@ -345,6 +384,16 @@
     </span>}
 }
 
+<span class="kw">impl </span>Default <span class="kw">for </span>StatusDialogStyle {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            style: Default::default(),
+            button: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 <span class="kw">impl </span>StatusDialogState {
     <span class="doccomment">/// Clear
     </span><span class="kw">pub fn </span>clear_log(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
@@ -371,6 +420,7 @@
             message: Default::default(),
             button: Default::default(),
             log: Default::default(),
+            non_exhaustive: NonExhaustive,
         };
         s.button.focus.set();
         s

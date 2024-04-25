@@ -830,7 +830,25 @@
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
-</pre></div><pre class="rust"><code><span class="doccomment">///
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
+<span class="doccomment">///
 /// Extensions for [ratatui::widgets::Table]
 ///
 </span><span class="kw">use </span><span class="kw">crate</span>::widget::MouseFlags;
@@ -848,46 +866,32 @@
 <span class="kw">use </span>ratatui::style::Style;
 <span class="kw">use </span>ratatui::text::Text;
 <span class="kw">use </span>ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
-<span class="kw">use </span>std::fmt::{Debug, Formatter};
+<span class="kw">use </span>std::fmt::Debug;
 <span class="kw">use </span>std::marker::PhantomData;
 <span class="kw">use </span>std::mem;
 
 <span class="doccomment">/// Add some minor fixes to [ratatui::widgets::Table]
-</span><span class="kw">pub struct </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
+</span><span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">pub struct </span>TableExt&lt;<span class="lifetime">'a</span>, Selection&gt; {
     <span class="doccomment">///
-    </span><span class="kw">pub </span>table: Table&lt;<span class="lifetime">'a</span>&gt;,
+    </span>table: Table&lt;<span class="lifetime">'a</span>&gt;,
 
     <span class="doccomment">///
-    </span><span class="kw">pub </span>rows: Vec&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
-    <span class="kw">pub </span>header: <span class="prelude-ty">Option</span>&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
-    <span class="kw">pub </span>footer: <span class="prelude-ty">Option</span>&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
+    </span>rows: Vec&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
+    header: <span class="prelude-ty">Option</span>&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
+    footer: <span class="prelude-ty">Option</span>&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
 
     <span class="doccomment">/// Base style
-    </span><span class="kw">pub </span>base_style: Style,
+    </span>base_style: Style,
     <span class="doccomment">/// Style for selected + not focused.
-    </span><span class="kw">pub </span>select_style: Style,
+    </span>select_style: Style,
     <span class="doccomment">/// Style for selected + focused.
-    </span><span class="kw">pub </span>focus_style: Style,
+    </span>focus_style: Style,
 
-    <span class="kw">pub </span>non_exhaustive: (),
-    <span class="kw">pub </span>_phantom: PhantomData&lt;SEL&gt;,
+    _phantom: PhantomData&lt;Selection&gt;,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL&gt; Debug <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
-    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
-        f.debug_struct(<span class="string">"TableExt"</span>)
-            .field(<span class="string">"rows"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.rows)
-            .field(<span class="string">"header"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.header)
-            .field(<span class="string">"footer"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.footer)
-            .field(<span class="string">"table"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.table)
-            .field(<span class="string">"base_style"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.base_style)
-            .field(<span class="string">"select_style"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.select_style)
-            .field(<span class="string">"focus_style"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.focus_style)
-            .finish()
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL&gt; Default <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Selection&gt; Default <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, Selection&gt; {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             rows: Default::default(),
@@ -897,14 +901,13 @@
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL: ListSelection&gt; ScrolledWidget <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
-    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect, _uistate: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) -&gt; ScrollParam {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, State, Selection: ListSelection&gt; ScrolledWidget&lt;State&gt; <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, Selection&gt; {
+    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect, _uistate: <span class="kw-2">&amp;mut </span>State) -&gt; ScrollParam {
         ScrollParam {
             has_hscroll: <span class="bool-val">false</span>,
             has_vscroll: <span class="bool-val">true</span>,
@@ -913,15 +916,26 @@
 }
 
 <span class="doccomment">/// Combined style.
-</span><span class="attr">#[derive(Debug, Default)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>TableExtStyle {
     <span class="kw">pub </span>style: Style,
     <span class="kw">pub </span>select_style: Style,
     <span class="kw">pub </span>focus_style: Style,
-    <span class="kw">pub </span>non_exhaustive: (),
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL&gt; TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
+<span class="kw">impl </span>Default <span class="kw">for </span>TableExtStyle {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            style: Default::default(),
+            select_style: Default::default(),
+            focus_style: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Selection&gt; TableExt&lt;<span class="lifetime">'a</span>, Selection&gt; {
     <span class="kw">pub fn </span>new&lt;R, C&gt;(rows: R, widths: C) -&gt; <span class="self">Self
     </span><span class="kw">where
         </span>R: IntoIterator,
@@ -939,7 +953,6 @@
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
@@ -1020,8 +1033,8 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL: ListSelection&gt; StatefulWidget <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt; {
-    <span class="kw">type </span>State = TableExtState&lt;SEL&gt;;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Selection: ListSelection&gt; StatefulWidget <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, Selection&gt; {
+    <span class="kw">type </span>State = TableExtState&lt;Selection&gt;;
 
     <span class="kw">fn </span>render(<span class="kw-2">mut </span><span class="self">self</span>, area: Rect, buf: <span class="kw-2">&amp;mut </span>Buffer, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
         <span class="comment">// store to state
@@ -1113,7 +1126,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, SEL, Item&gt; FromIterator&lt;Item&gt; <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, SEL&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Selection, Item&gt; FromIterator&lt;Item&gt; <span class="kw">for </span>TableExt&lt;<span class="lifetime">'a</span>, Selection&gt;
 <span class="kw">where
     </span>Item: Into&lt;Row&lt;<span class="lifetime">'a</span>&gt;&gt;,
 {
@@ -1128,15 +1141,14 @@
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
 }
 
 <span class="doccomment">/// Extended TableState, contains a [ratatui::widgets::TableState].
-</span><span class="attr">#[derive(Debug, Default, Clone, PartialEq, Eq)]
-</span><span class="kw">pub struct </span>TableExtState&lt;SEL&gt; {
+</span><span class="attr">#[derive(Debug, Clone, PartialEq, Eq)]
+</span><span class="kw">pub struct </span>TableExtState&lt;Selection&gt; {
     <span class="kw">pub </span>table_state: TableState,
 
     <span class="kw">pub </span>len: usize,
@@ -1150,12 +1162,34 @@
     <span class="kw">pub </span>footer_area: Rect,
 
     <span class="kw">pub </span>focus: FocusFlag,
-    <span class="kw">pub </span>selection: SEL,
+    <span class="kw">pub </span>selection: Selection,
 
     <span class="kw">pub </span>mouse: MouseFlags,
+
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
-<span class="kw">impl</span>&lt;SEL&gt; HasFocusFlag <span class="kw">for </span>TableExtState&lt;SEL&gt; {
+<span class="kw">impl</span>&lt;Selection: Default&gt; Default <span class="kw">for </span>TableExtState&lt;Selection&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            table_state: Default::default(),
+            len: <span class="number">0</span>,
+            v_page_len: <span class="number">0</span>,
+            max_v_offset: <span class="number">0</span>,
+            area: Default::default(),
+            header_area: Default::default(),
+            table_area: Default::default(),
+            row_areas: Default::default(),
+            footer_area: Default::default(),
+            focus: Default::default(),
+            selection: Default::default(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;Selection&gt; HasFocusFlag <span class="kw">for </span>TableExtState&lt;Selection&gt; {
     <span class="kw">fn </span>focus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FocusFlag {
         <span class="kw-2">&amp;</span><span class="self">self</span>.focus
     }
@@ -1165,7 +1199,7 @@
     }
 }
 
-<span class="kw">impl</span>&lt;SEL&gt; HasScrolling <span class="kw">for </span>TableExtState&lt;SEL&gt; {
+<span class="kw">impl</span>&lt;Selection&gt; HasScrolling <span class="kw">for </span>TableExtState&lt;Selection&gt; {
     <span class="kw">fn </span>max_v_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
         <span class="self">self</span>.max_v_offset
     }
@@ -1207,7 +1241,7 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;SEL: ListSelection&gt; TableExtState&lt;SEL&gt; {
+<span class="kw">impl</span>&lt;Selection: ListSelection&gt; TableExtState&lt;Selection&gt; {
     <span class="kw">pub fn </span>with_offset(<span class="kw-2">mut </span><span class="self">self</span>, offset: usize) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.table_state = <span class="self">self</span>.table_state.with_offset(offset);
         <span class="self">self
@@ -1221,11 +1255,11 @@
         <span class="self">self</span>.table_state.offset_mut()
     }
 
-    <span class="kw">pub fn </span>selection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>SEL {
+    <span class="kw">pub fn </span>selection(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Selection {
         <span class="kw-2">&amp;</span><span class="self">self</span>.selection
     }
 
-    <span class="kw">pub fn </span>selection_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>SEL {
+    <span class="kw">pub fn </span>selection_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Selection {
         <span class="kw-2">&amp;mut </span><span class="self">self</span>.selection
     }
 

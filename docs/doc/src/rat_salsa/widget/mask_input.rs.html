@@ -2753,6 +2753,31 @@
 <a href="#2751" id="2751">2751</a>
 <a href="#2752" id="2752">2752</a>
 <a href="#2753" id="2753">2753</a>
+<a href="#2754" id="2754">2754</a>
+<a href="#2755" id="2755">2755</a>
+<a href="#2756" id="2756">2756</a>
+<a href="#2757" id="2757">2757</a>
+<a href="#2758" id="2758">2758</a>
+<a href="#2759" id="2759">2759</a>
+<a href="#2760" id="2760">2760</a>
+<a href="#2761" id="2761">2761</a>
+<a href="#2762" id="2762">2762</a>
+<a href="#2763" id="2763">2763</a>
+<a href="#2764" id="2764">2764</a>
+<a href="#2765" id="2765">2765</a>
+<a href="#2766" id="2766">2766</a>
+<a href="#2767" id="2767">2767</a>
+<a href="#2768" id="2768">2768</a>
+<a href="#2769" id="2769">2769</a>
+<a href="#2770" id="2770">2770</a>
+<a href="#2771" id="2771">2771</a>
+<a href="#2772" id="2772">2772</a>
+<a href="#2773" id="2773">2773</a>
+<a href="#2774" id="2774">2774</a>
+<a href="#2775" id="2775">2775</a>
+<a href="#2776" id="2776">2776</a>
+<a href="#2777" id="2777">2777</a>
+<a href="#2778" id="2778">2778</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Text input with an input mask.
 //!
 //! * Can do the usual insert/delete/move operations.
@@ -2800,7 +2825,8 @@
 //!
 //! ```
 
-</span><span class="kw">use </span><span class="kw">crate</span>::number::NumberSymbols;
+</span><span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
+<span class="kw">use </span><span class="kw">crate</span>::number::NumberSymbols;
 <span class="kw">use </span><span class="kw">crate</span>::util::clamp_shift;
 <span class="kw">use </span><span class="kw">crate</span>::widget::basic::ClearStyle;
 <span class="kw">use </span><span class="kw">crate</span>::widget::mask_input::core::InputMaskCore;
@@ -2824,23 +2850,34 @@
 <span class="doccomment">/// Text input widget with input mask.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>MaskedInput {
-    <span class="kw">pub </span>show_compact: bool,
-    <span class="kw">pub </span>insets: Margin,
-    <span class="kw">pub </span>style: Style,
-    <span class="kw">pub </span>focus_style: Style,
-    <span class="kw">pub </span>select_style: Style,
-    <span class="kw">pub </span>invalid_style: Style,
-    <span class="kw">pub </span>non_exhaustive: (),
+    show_compact: bool,
+    insets: Margin,
+    style: Style,
+    focus_style: Style,
+    select_style: Style,
+    invalid_style: Style,
 }
 
 <span class="doccomment">/// Combined style.
-</span><span class="attr">#[derive(Debug, Default)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>MaskedInputStyle {
     <span class="kw">pub </span>style: Style,
     <span class="kw">pub </span>focus: Style,
     <span class="kw">pub </span>select: Style,
     <span class="kw">pub </span>invalid: Style,
-    <span class="kw">pub </span>non_exhaustive: (),
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>MaskedInputStyle {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            style: Default::default(),
+            focus: Default::default(),
+            select: Default::default(),
+            invalid: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>MaskedInput {
@@ -2852,7 +2889,6 @@
             focus_style: Default::default(),
             select_style: Default::default(),
             invalid_style: Style::default().red().underlined(),
-            non_exhaustive: (),
         }
     }
 }
@@ -2976,7 +3012,7 @@
 }
 
 <span class="doccomment">/// State of the input-mask.
-</span><span class="attr">#[derive(Debug, Clone, Default)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>MaskedInputState {
     <span class="doccomment">/// Focus
     </span><span class="kw">pub </span>focus: FocusFlag,
@@ -2991,7 +3027,21 @@
     <span class="doccomment">/// Editing core.
     </span><span class="kw">pub </span>value: InputMaskCore,
     <span class="doccomment">///
-    </span><span class="kw">pub </span>non_exhaustive: (),
+    </span><span class="kw">pub </span>non_exhaustive: NonExhaustive,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>MaskedInputState {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            focus: Default::default(),
+            valid: Default::default(),
+            valid_mask: <span class="prelude-val">None</span>,
+            area: Default::default(),
+            mouse: Default::default(),
+            value: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 <span class="kw">impl</span>&lt;A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, DefaultKeys&gt; <span class="kw">for </span>MaskedInputState

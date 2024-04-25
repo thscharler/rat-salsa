@@ -693,7 +693,112 @@
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
 <a href="#693" id="693">693</a>
-</pre></div><pre class="rust"><code><span class="doccomment">///
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
+<a href="#707" id="707">707</a>
+<a href="#708" id="708">708</a>
+<a href="#709" id="709">709</a>
+<a href="#710" id="710">710</a>
+<a href="#711" id="711">711</a>
+<a href="#712" id="712">712</a>
+<a href="#713" id="713">713</a>
+<a href="#714" id="714">714</a>
+<a href="#715" id="715">715</a>
+<a href="#716" id="716">716</a>
+<a href="#717" id="717">717</a>
+<a href="#718" id="718">718</a>
+<a href="#719" id="719">719</a>
+<a href="#720" id="720">720</a>
+<a href="#721" id="721">721</a>
+<a href="#722" id="722">722</a>
+<a href="#723" id="723">723</a>
+<a href="#724" id="724">724</a>
+<a href="#725" id="725">725</a>
+<a href="#726" id="726">726</a>
+<a href="#727" id="727">727</a>
+<a href="#728" id="728">728</a>
+<a href="#729" id="729">729</a>
+<a href="#730" id="730">730</a>
+<a href="#731" id="731">731</a>
+<a href="#732" id="732">732</a>
+<a href="#733" id="733">733</a>
+<a href="#734" id="734">734</a>
+<a href="#735" id="735">735</a>
+<a href="#736" id="736">736</a>
+<a href="#737" id="737">737</a>
+<a href="#738" id="738">738</a>
+<a href="#739" id="739">739</a>
+<a href="#740" id="740">740</a>
+<a href="#741" id="741">741</a>
+<a href="#742" id="742">742</a>
+<a href="#743" id="743">743</a>
+<a href="#744" id="744">744</a>
+<a href="#745" id="745">745</a>
+<a href="#746" id="746">746</a>
+<a href="#747" id="747">747</a>
+<a href="#748" id="748">748</a>
+<a href="#749" id="749">749</a>
+<a href="#750" id="750">750</a>
+<a href="#751" id="751">751</a>
+<a href="#752" id="752">752</a>
+<a href="#753" id="753">753</a>
+<a href="#754" id="754">754</a>
+<a href="#755" id="755">755</a>
+<a href="#756" id="756">756</a>
+<a href="#757" id="757">757</a>
+<a href="#758" id="758">758</a>
+<a href="#759" id="759">759</a>
+<a href="#760" id="760">760</a>
+<a href="#761" id="761">761</a>
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a>
+<a href="#773" id="773">773</a>
+<a href="#774" id="774">774</a>
+<a href="#775" id="775">775</a>
+<a href="#776" id="776">776</a>
+<a href="#777" id="777">777</a>
+<a href="#778" id="778">778</a>
+<a href="#779" id="779">779</a>
+<a href="#780" id="780">780</a>
+<a href="#781" id="781">781</a>
+<a href="#782" id="782">782</a>
+<a href="#783" id="783">783</a>
+<a href="#784" id="784">784</a>
+<a href="#785" id="785">785</a>
+<a href="#786" id="786">786</a>
+<a href="#787" id="787">787</a>
+<a href="#788" id="788">788</a>
+<a href="#789" id="789">789</a>
+<a href="#790" id="790">790</a>
+<a href="#791" id="791">791</a>
+<a href="#792" id="792">792</a>
+<a href="#793" id="793">793</a>
+<a href="#794" id="794">794</a>
+<a href="#795" id="795">795</a>
+<a href="#796" id="796">796</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
+<span class="kw">use </span><span class="kw">crate</span>::widget::viewport::Viewport;
+<span class="doccomment">///
 /// Add scrolling behaviour to a widget.
 ///
 /// Scrolled acts as a wrapper around a widget that implements HasVerticalScroll.
@@ -702,49 +807,49 @@
 ///
 </span><span class="kw">use crate</span>::{
     check_break, ct_event, CanValidate, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm,
-    HasFocusFlag, HasScrolling, HasValidFlag, MouseOnly, ScrolledWidget, ValidFlag,
+    HasFocusFlag, HasScrolling, HasValidFlag, MouseOnly, ScrollParam, ScrolledWidget, ValidFlag,
 };
 <span class="kw">use </span>crossterm::event::Event;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>log::debug;
 <span class="kw">use </span>ratatui::buffer::Buffer;
-<span class="kw">use </span>ratatui::layout::{Position, Rect};
+<span class="kw">use </span>ratatui::layout::{Position, Rect, Size};
 <span class="kw">use </span>ratatui::prelude::{BlockExt, Style};
 <span class="kw">use </span>ratatui::symbols::scrollbar::Set;
 <span class="kw">use </span>ratatui::widgets::{
-    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
+    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, StatefulWidgetRef,
+    Widget, WidgetRef,
 };
 <span class="kw">use </span>std::cmp::min;
+<span class="kw">use </span>std::mem;
 
 <span class="doccomment">/// A wrapper widget that scrolls it's content.
 </span><span class="attr">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>Scrolled&lt;<span class="lifetime">'a</span>, T&gt; {
     <span class="doccomment">/// widget
-    </span><span class="kw">pub </span>widget: T,
+    </span>widget: T,
 
-    <span class="kw">pub </span>h_overscroll: usize,
-    <span class="kw">pub </span>v_overscroll: usize,
-    <span class="kw">pub </span>h_scroll_policy: ScrollbarPolicy,
-    <span class="kw">pub </span>v_scroll_policy: ScrollbarPolicy,
-    <span class="kw">pub </span>h_scroll_position: HScrollPosition,
-    <span class="kw">pub </span>v_scroll_position: VScrollPosition,
+    h_overscroll: usize,
+    v_overscroll: usize,
+    h_scroll_policy: ScrollbarPolicy,
+    v_scroll_policy: ScrollbarPolicy,
+    h_scroll_position: HScrollPosition,
+    v_scroll_position: VScrollPosition,
 
-    <span class="kw">pub </span>block: <span class="prelude-ty">Option</span>&lt;Block&lt;<span class="lifetime">'a</span>&gt;&gt;,
+    block: <span class="prelude-ty">Option</span>&lt;Block&lt;<span class="lifetime">'a</span>&gt;&gt;,
 
-    <span class="kw">pub </span>thumb_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-    <span class="kw">pub </span>thumb_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-    <span class="kw">pub </span>track_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-    <span class="kw">pub </span>track_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-    <span class="kw">pub </span>begin_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-    <span class="kw">pub </span>begin_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-    <span class="kw">pub </span>end_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-    <span class="kw">pub </span>end_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-
-    <span class="kw">pub </span>non_exhaustive: (),
+    thumb_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+    thumb_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
+    track_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+    track_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
+    begin_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+    begin_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
+    end_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+    end_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
 }
 
 <span class="doccomment">/// Scrolled state.
-</span><span class="attr">#[derive(Debug, Default, Clone)]
+</span><span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>ScrolledState&lt;S&gt; {
     <span class="kw">pub </span>widget: S,
 
@@ -760,7 +865,7 @@
     </span><span class="kw">pub </span>v_drag: bool,
     <span class="kw">pub </span>h_drag: bool,
 
-    <span class="kw">pub </span>non_exhaustive: (),
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
 <span class="doccomment">/// This policy plus ScrollParam allow to decide what to show.
@@ -808,7 +913,6 @@
             begin_style: <span class="prelude-val">None</span>,
             end_symbol: <span class="prelude-val">None</span>,
             end_style: <span class="prelude-val">None</span>,
-            non_exhaustive: (),
         }
     }
 
@@ -917,176 +1021,257 @@
     </span>}
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; StatefulWidget <span class="kw">for </span>Scrolled&lt;<span class="lifetime">'a</span>, T&gt;
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; Scrolled&lt;<span class="lifetime">'a</span>, Viewport&lt;T&gt;&gt;
 <span class="kw">where
-    </span>T: StatefulWidget + ScrolledWidget,
+    </span>T: Widget,
+{
+    <span class="kw">pub fn </span>new_viewport(inner: T) -&gt; Scrolled&lt;<span class="lifetime">'a</span>, Viewport&lt;T&gt;&gt; {
+        <span class="self">Self </span>{
+            widget: Viewport::new(inner),
+            h_overscroll: <span class="number">0</span>,
+            v_overscroll: <span class="number">0</span>,
+            h_scroll_policy: Default::default(),
+            v_scroll_policy: Default::default(),
+            h_scroll_position: Default::default(),
+            v_scroll_position: Default::default(),
+            block: <span class="prelude-val">None</span>,
+            thumb_symbol: <span class="prelude-val">None</span>,
+            thumb_style: <span class="prelude-val">None</span>,
+            track_symbol: <span class="prelude-val">None</span>,
+            track_style: <span class="prelude-val">None</span>,
+            begin_symbol: <span class="prelude-val">None</span>,
+            begin_style: <span class="prelude-val">None</span>,
+            end_symbol: <span class="prelude-val">None</span>,
+            end_style: <span class="prelude-val">None</span>,
+        }
+    }
+
+    <span class="doccomment">/// Size for the inner widget.
+    </span><span class="kw">pub fn </span>viewport_size(<span class="kw-2">mut </span><span class="self">self</span>, size: Size) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.widget = <span class="self">self</span>.widget.viewport_size(size);
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Style for the empty space outside the rendered buffer.
+    </span><span class="kw">pub fn </span>viewport_style(<span class="kw-2">mut </span><span class="self">self</span>, style: Style) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.widget = <span class="self">self</span>.widget.style(style);
+        <span class="self">self
+    </span>}
+
+    <span class="kw">pub fn </span>viewport_fill_char(<span class="kw-2">mut </span><span class="self">self</span>, fill_char: char) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.widget = <span class="self">self</span>.widget.fill_char(fill_char);
+        <span class="self">self
+    </span>}
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; StatefulWidgetRef <span class="kw">for </span>Scrolled&lt;<span class="lifetime">'a</span>, T&gt;
+<span class="kw">where
+    </span>T: StatefulWidgetRef + ScrolledWidget&lt;T::State&gt;,
     T::State: HasScrolling,
 {
-    <span class="kw">type </span>State = ScrolledState&lt;&lt;T <span class="kw">as </span>StatefulWidget&gt;::State&gt;;
+    <span class="kw">type </span>State = ScrolledState&lt;T::State&gt;;
 
-    <span class="kw">fn </span>render(<span class="self">self</span>, area: Rect, buf: <span class="kw-2">&amp;mut </span>Buffer, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
-        state.area = area;
-        state.v_overscroll = <span class="self">self</span>.v_overscroll;
-        state.h_overscroll = <span class="self">self</span>.h_overscroll;
-
-        <span class="kw">let </span>sconf = <span class="self">self
+    <span class="kw">fn </span>render_ref(<span class="kw-2">&amp;</span><span class="self">self</span>, area: Rect, buf: <span class="kw-2">&amp;mut </span>Buffer, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
+        <span class="kw">let </span>scroll_param = <span class="self">self
             </span>.widget
             .need_scroll(<span class="self">self</span>.block.inner_if_some(area), <span class="kw-2">&amp;mut </span>state.widget);
 
-        <span class="kw">let </span>has_vscroll = <span class="self">self</span>.v_scroll_policy.apply(sconf.has_vscroll);
-        <span class="kw">let </span>has_hscroll = <span class="self">self</span>.h_scroll_policy.apply(sconf.has_hscroll);
+        render_impl(<span class="self">self</span>, area, buf, state, scroll_param, |area, buf, state| {
+            <span class="self">self</span>.widget.render_ref(area, buf, state);
+        });
+    }
+}
 
-        <span class="comment">// Calculate the areas for the scrollbars and the view-area.
-        // If there is a block set, assume there is a right and a bottom border too.
-        // Currently, there is no way to know it. Overwriting part of the content is
-        // ok in this case.
-        </span><span class="kw">if </span>has_vscroll &amp;&amp; has_hscroll {
-            <span class="kw">let </span><span class="kw-2">mut </span>vscrollbar_area = area.columns().last().expect(<span class="string">"scroll"</span>);
-            <span class="kw">if </span><span class="self">self</span>.block.is_some() {
-                vscrollbar_area.y += <span class="number">1</span>;
-                vscrollbar_area.height -= <span class="number">2</span>;
-            } <span class="kw">else </span>{
-                vscrollbar_area.height -= <span class="number">1</span>;
-            }
-            state.v_scrollbar_area = <span class="prelude-val">Some</span>(vscrollbar_area);
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, T&gt; StatefulWidget <span class="kw">for </span>Scrolled&lt;<span class="lifetime">'a</span>, T&gt;
+<span class="kw">where
+    </span>T: StatefulWidget + ScrolledWidget&lt;T::State&gt; + Default,
+    T::State: HasScrolling,
+{
+    <span class="kw">type </span>State = ScrolledState&lt;T::State&gt;;
 
-            <span class="kw">let </span><span class="kw-2">mut </span>hscrollbar_area = area.rows().last().expect(<span class="string">"scroll"</span>);
-            <span class="kw">if </span><span class="self">self</span>.block.is_some() {
-                hscrollbar_area.x += <span class="number">1</span>;
-                hscrollbar_area.width -= <span class="number">2</span>;
-            } <span class="kw">else </span>{
-                hscrollbar_area.width -= <span class="number">1</span>;
-            }
-            state.h_scrollbar_area = <span class="prelude-val">Some</span>(hscrollbar_area);
+    <span class="kw">fn </span>render(<span class="kw-2">mut </span><span class="self">self</span>, area: Rect, buf: <span class="kw-2">&amp;mut </span>Buffer, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
+        <span class="kw">let </span>scroll_param = <span class="self">self
+            </span>.widget
+            .need_scroll(<span class="self">self</span>.block.inner_if_some(area), <span class="kw-2">&amp;mut </span>state.widget);
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = <span class="self">self</span>.block.as_ref() {
-                state.view_area = block.inner(area);
-            } <span class="kw">else </span>{
-                state.view_area = area;
-                state.view_area.width -= <span class="number">1</span>;
-                state.view_area.height -= <span class="number">1</span>;
-            }
-        } <span class="kw">else if </span>has_vscroll {
-            <span class="kw">let </span><span class="kw-2">mut </span>vscrollbar_area = area.columns().last().expect(<span class="string">"scroll"</span>);
-            <span class="kw">if </span><span class="self">self</span>.block.is_some() {
-                vscrollbar_area.y += <span class="number">1</span>;
-                vscrollbar_area.height -= <span class="number">1</span>;
-            } <span class="kw">else </span>{
-                vscrollbar_area.height -= <span class="number">0</span>;
-            }
-            state.v_scrollbar_area = <span class="prelude-val">Some</span>(vscrollbar_area);
+        <span class="kw">let </span>inner = mem::take(<span class="kw-2">&amp;mut </span><span class="self">self</span>.widget);
 
-            state.h_scrollbar_area = <span class="prelude-val">None</span>;
+        render_impl(<span class="kw-2">&amp;</span><span class="self">self</span>, area, buf, state, scroll_param, |area, buf, state| {
+            inner.render(area, buf, state);
+        });
+    }
+}
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = <span class="self">self</span>.block.as_ref() {
-                state.view_area = block.inner(area);
-            } <span class="kw">else </span>{
-                state.view_area = area;
-                state.view_area.width -= <span class="number">1</span>;
-                state.view_area.height -= <span class="number">0</span>;
-            }
-        } <span class="kw">else if </span>has_hscroll {
-            state.v_scrollbar_area = <span class="prelude-val">None</span>;
+<span class="kw">fn </span>render_impl&lt;<span class="lifetime">'a</span>, FnRender, T, S&gt;(
+    widget: <span class="kw-2">&amp;</span>Scrolled&lt;<span class="lifetime">'a</span>, T&gt;,
+    area: Rect,
+    buf: <span class="kw-2">&amp;mut </span>Buffer,
+    state: <span class="kw-2">&amp;mut </span>ScrolledState&lt;S&gt;,
+    scroll_param: ScrollParam,
+    render_inner: FnRender,
+) <span class="kw">where
+    </span>T: ScrolledWidget&lt;S&gt;,
+    S: HasScrolling,
+    FnRender: FnOnce(Rect, <span class="kw-2">&amp;mut </span>Buffer, <span class="kw-2">&amp;mut </span>S),
+{
+    state.area = area;
+    state.v_overscroll = widget.v_overscroll;
+    state.h_overscroll = widget.h_overscroll;
 
-            <span class="kw">let </span><span class="kw-2">mut </span>hscrollbar_area = area.rows().last().expect(<span class="string">"scroll"</span>);
-            <span class="kw">if </span><span class="self">self</span>.block.is_some() {
-                hscrollbar_area.x += <span class="number">1</span>;
-                hscrollbar_area.width -= <span class="number">1</span>;
-            } <span class="kw">else </span>{
-                hscrollbar_area.width -= <span class="number">0</span>;
-            }
-            state.h_scrollbar_area = <span class="prelude-val">Some</span>(hscrollbar_area);
+    <span class="kw">let </span>has_vscroll = widget.v_scroll_policy.apply(scroll_param.has_vscroll);
+    <span class="kw">let </span>has_hscroll = widget.h_scroll_policy.apply(scroll_param.has_hscroll);
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = <span class="self">self</span>.block.as_ref() {
-                state.view_area = block.inner(area);
-            } <span class="kw">else </span>{
-                state.view_area = area;
-                state.view_area.width -= <span class="number">0</span>;
-                state.view_area.height -= <span class="number">1</span>;
-            }
+    <span class="comment">// Calculate the areas for the scrollbars and the view-area.
+    // If there is a block set, assume there is a right and a bottom border too.
+    // Currently, there is no way to know it. Overwriting part of the content is
+    // ok in this case.
+    </span><span class="kw">if </span>has_vscroll &amp;&amp; has_hscroll {
+        <span class="kw">let </span><span class="kw-2">mut </span>vscrollbar_area = area.columns().last().expect(<span class="string">"scroll"</span>);
+        <span class="kw">if </span>widget.block.is_some() {
+            vscrollbar_area.y += <span class="number">1</span>;
+            vscrollbar_area.height -= <span class="number">2</span>;
         } <span class="kw">else </span>{
-            state.v_scrollbar_area = <span class="prelude-val">None</span>;
-            state.h_scrollbar_area = <span class="prelude-val">None</span>;
+            vscrollbar_area.height -= <span class="number">1</span>;
+        }
+        state.v_scrollbar_area = <span class="prelude-val">Some</span>(vscrollbar_area);
 
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = <span class="self">self</span>.block.as_ref() {
-                state.view_area = block.inner(area);
-            } <span class="kw">else </span>{
-                state.view_area = area;
-                state.view_area.width -= <span class="number">0</span>;
-                state.view_area.height -= <span class="number">0</span>;
-            }
+        <span class="kw">let </span><span class="kw-2">mut </span>hscrollbar_area = area.rows().last().expect(<span class="string">"scroll"</span>);
+        <span class="kw">if </span>widget.block.is_some() {
+            hscrollbar_area.x += <span class="number">1</span>;
+            hscrollbar_area.width -= <span class="number">2</span>;
+        } <span class="kw">else </span>{
+            hscrollbar_area.width -= <span class="number">1</span>;
+        }
+        state.h_scrollbar_area = <span class="prelude-val">Some</span>(hscrollbar_area);
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = widget.block.as_ref() {
+            state.view_area = block.inner(area);
+        } <span class="kw">else </span>{
+            state.view_area = area;
+            state.view_area.width -= <span class="number">1</span>;
+            state.view_area.height -= <span class="number">1</span>;
+        }
+    } <span class="kw">else if </span>has_vscroll {
+        <span class="kw">let </span><span class="kw-2">mut </span>vscrollbar_area = area.columns().last().expect(<span class="string">"scroll"</span>);
+        <span class="kw">if </span>widget.block.is_some() {
+            vscrollbar_area.y += <span class="number">1</span>;
+            vscrollbar_area.height -= <span class="number">1</span>;
+        } <span class="kw">else </span>{
+            vscrollbar_area.height -= <span class="number">0</span>;
+        }
+        state.v_scrollbar_area = <span class="prelude-val">Some</span>(vscrollbar_area);
+
+        state.h_scrollbar_area = <span class="prelude-val">None</span>;
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = widget.block.as_ref() {
+            state.view_area = block.inner(area);
+        } <span class="kw">else </span>{
+            state.view_area = area;
+            state.view_area.width -= <span class="number">1</span>;
+            state.view_area.height -= <span class="number">0</span>;
+        }
+    } <span class="kw">else if </span>has_hscroll {
+        state.v_scrollbar_area = <span class="prelude-val">None</span>;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>hscrollbar_area = area.rows().last().expect(<span class="string">"scroll"</span>);
+        <span class="kw">if </span>widget.block.is_some() {
+            hscrollbar_area.x += <span class="number">1</span>;
+            hscrollbar_area.width -= <span class="number">1</span>;
+        } <span class="kw">else </span>{
+            hscrollbar_area.width -= <span class="number">0</span>;
+        }
+        state.h_scrollbar_area = <span class="prelude-val">Some</span>(hscrollbar_area);
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = widget.block.as_ref() {
+            state.view_area = block.inner(area);
+        } <span class="kw">else </span>{
+            state.view_area = area;
+            state.view_area.width -= <span class="number">0</span>;
+            state.view_area.height -= <span class="number">1</span>;
+        }
+    } <span class="kw">else </span>{
+        state.v_scrollbar_area = <span class="prelude-val">None</span>;
+        state.h_scrollbar_area = <span class="prelude-val">None</span>;
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = widget.block.as_ref() {
+            state.view_area = block.inner(area);
+        } <span class="kw">else </span>{
+            state.view_area = area;
+            state.view_area.width -= <span class="number">0</span>;
+            state.view_area.height -= <span class="number">0</span>;
+        }
+    }
+
+    render_inner(state.view_area, buf, <span class="kw-2">&amp;mut </span>state.widget);
+
+    widget.block.render_ref(area, buf);
+
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(vscrollbar_area) = state.v_scrollbar_area {
+        <span class="kw">let </span><span class="kw-2">mut </span>vscroll = Scrollbar::new(widget.v_scroll_position.orientation());
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(thumb_symbol) = widget.thumb_symbol {
+            vscroll = vscroll.thumb_symbol(thumb_symbol);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(track_symbol) = widget.track_symbol {
+            vscroll = vscroll.track_symbol(<span class="prelude-val">Some</span>(track_symbol));
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(begin_symbol) = widget.begin_symbol {
+            vscroll = vscroll.begin_symbol(<span class="prelude-val">Some</span>(begin_symbol));
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(end_symbol) = widget.end_symbol {
+            vscroll = vscroll.end_symbol(<span class="prelude-val">Some</span>(end_symbol));
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(thumb_style) = widget.thumb_style {
+            vscroll = vscroll.thumb_style(thumb_style);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(track_style) = widget.track_style {
+            vscroll = vscroll.track_style(track_style);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(begin_style) = widget.begin_style {
+            vscroll = vscroll.begin_style(begin_style);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(end_style) = widget.end_style {
+            vscroll = vscroll.end_style(end_style);
         }
 
-        <span class="self">self</span>.widget.render(state.view_area, buf, <span class="kw-2">&amp;mut </span>state.widget);
-        <span class="self">self</span>.block.render(area, buf);
+        <span class="kw">let </span>max_offset = state.widget.max_v_offset();
+        <span class="kw">let </span>offset = state.widget.v_offset();
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(vscrollbar_area) = state.v_scrollbar_area {
-            <span class="kw">let </span><span class="kw-2">mut </span>vscroll = Scrollbar::new(<span class="self">self</span>.v_scroll_position.orientation());
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(thumb_symbol) = <span class="self">self</span>.thumb_symbol {
-                vscroll = vscroll.thumb_symbol(thumb_symbol);
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(track_symbol) = <span class="self">self</span>.track_symbol {
-                vscroll = vscroll.track_symbol(<span class="prelude-val">Some</span>(track_symbol));
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(begin_symbol) = <span class="self">self</span>.begin_symbol {
-                vscroll = vscroll.begin_symbol(<span class="prelude-val">Some</span>(begin_symbol));
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(end_symbol) = <span class="self">self</span>.end_symbol {
-                vscroll = vscroll.end_symbol(<span class="prelude-val">Some</span>(end_symbol));
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(thumb_style) = <span class="self">self</span>.thumb_style {
-                vscroll = vscroll.thumb_style(thumb_style);
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(track_style) = <span class="self">self</span>.track_style {
-                vscroll = vscroll.track_style(track_style);
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(begin_style) = <span class="self">self</span>.begin_style {
-                vscroll = vscroll.begin_style(begin_style);
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(end_style) = <span class="self">self</span>.end_style {
-                vscroll = vscroll.end_style(end_style);
-            }
+        <span class="kw">let </span><span class="kw-2">mut </span>vscroll_state = ScrollbarState::new(max_offset).position(offset);
+        vscroll.render(vscrollbar_area, buf, <span class="kw-2">&amp;mut </span>vscroll_state);
+    }
 
-            <span class="kw">let </span>max_offset = state.widget.max_v_offset();
-            <span class="kw">let </span>offset = state.widget.v_offset();
-
-            <span class="kw">let </span><span class="kw-2">mut </span>vscroll_state = ScrollbarState::new(max_offset).position(offset);
-            vscroll.render(vscrollbar_area, buf, <span class="kw-2">&amp;mut </span>vscroll_state);
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(hscrollbar_area) = state.h_scrollbar_area {
+        <span class="kw">let </span><span class="kw-2">mut </span>hscroll = Scrollbar::new(widget.h_scroll_position.orientation());
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(thumb_symbol) = widget.thumb_symbol {
+            hscroll = hscroll.thumb_symbol(thumb_symbol);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(track_symbol) = widget.track_symbol {
+            hscroll = hscroll.track_symbol(<span class="prelude-val">Some</span>(track_symbol));
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(begin_symbol) = widget.begin_symbol {
+            hscroll = hscroll.begin_symbol(<span class="prelude-val">Some</span>(begin_symbol));
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(end_symbol) = widget.end_symbol {
+            hscroll = hscroll.end_symbol(<span class="prelude-val">Some</span>(end_symbol));
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(thumb_style) = widget.thumb_style {
+            hscroll = hscroll.thumb_style(thumb_style);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(track_style) = widget.track_style {
+            hscroll = hscroll.track_style(track_style);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(begin_style) = widget.begin_style {
+            hscroll = hscroll.begin_style(begin_style);
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(end_style) = widget.end_style {
+            hscroll = hscroll.end_style(end_style);
         }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(hscrollbar_area) = state.h_scrollbar_area {
-            <span class="kw">let </span><span class="kw-2">mut </span>hscroll = Scrollbar::new(<span class="self">self</span>.h_scroll_position.orientation());
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(thumb_symbol) = <span class="self">self</span>.thumb_symbol {
-                hscroll = hscroll.thumb_symbol(thumb_symbol);
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(track_symbol) = <span class="self">self</span>.track_symbol {
-                hscroll = hscroll.track_symbol(<span class="prelude-val">Some</span>(track_symbol));
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(begin_symbol) = <span class="self">self</span>.begin_symbol {
-                hscroll = hscroll.begin_symbol(<span class="prelude-val">Some</span>(begin_symbol));
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(end_symbol) = <span class="self">self</span>.end_symbol {
-                hscroll = hscroll.end_symbol(<span class="prelude-val">Some</span>(end_symbol));
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(thumb_style) = <span class="self">self</span>.thumb_style {
-                hscroll = hscroll.thumb_style(thumb_style);
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(track_style) = <span class="self">self</span>.track_style {
-                hscroll = hscroll.track_style(track_style);
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(begin_style) = <span class="self">self</span>.begin_style {
-                hscroll = hscroll.begin_style(begin_style);
-            }
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(end_style) = <span class="self">self</span>.end_style {
-                hscroll = hscroll.end_style(end_style);
-            }
+        <span class="kw">let </span>max_offset = state.widget.max_h_offset();
+        <span class="kw">let </span>offset = state.widget.h_offset();
 
-            <span class="kw">let </span>max_offset = state.widget.max_h_offset();
-            <span class="kw">let </span>offset = state.widget.h_offset();
-
-            <span class="kw">let </span><span class="kw-2">mut </span>hscroll_state = ScrollbarState::new(max_offset).position(offset);
-            hscroll.render(hscrollbar_area, buf, <span class="kw-2">&amp;mut </span>hscroll_state);
-        }
+        <span class="kw">let </span><span class="kw-2">mut </span>hscroll_state = ScrollbarState::new(max_offset).position(offset);
+        hscroll.render(hscrollbar_area, buf, <span class="kw-2">&amp;mut </span>hscroll_state);
     }
 }
 
@@ -1114,6 +1299,23 @@
         <span class="kw">match </span><span class="self">self </span>{
             VScrollPosition::Left =&gt; ScrollbarOrientation::VerticalLeft,
             VScrollPosition::Right =&gt; ScrollbarOrientation::VerticalRight,
+        }
+    }
+}
+
+<span class="kw">impl</span>&lt;S: Default&gt; Default <span class="kw">for </span>ScrolledState&lt;S&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            widget: Default::default(),
+            area: Default::default(),
+            view_area: Default::default(),
+            h_scrollbar_area: <span class="prelude-val">None</span>,
+            v_scrollbar_area: <span class="prelude-val">None</span>,
+            v_overscroll: <span class="number">0</span>,
+            h_overscroll: <span class="number">0</span>,
+            v_drag: <span class="bool-val">false</span>,
+            h_drag: <span class="bool-val">false</span>,
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -1199,6 +1401,10 @@
             <span class="self">self</span>.widget.max_h_offset() + <span class="self">self</span>.h_overscroll,
         );
         <span class="self">self</span>.set_h_offset(hoffset);
+    }
+
+    <span class="kw">pub fn </span>widget_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>S {
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>.widget
     }
 }
 

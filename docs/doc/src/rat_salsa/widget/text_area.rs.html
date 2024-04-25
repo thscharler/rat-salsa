@@ -137,7 +137,24 @@
 <a href="#135" id="135">135</a>
 <a href="#136" id="136">136</a>
 <a href="#137" id="137">137</a>
-</pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
+<span class="kw">use crate</span>::{
     ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling, MouseOnly,
     ScrollParam, ScrolledWidget,
 };
@@ -153,10 +170,10 @@
 
 <span class="attr">#[derive(Debug, Default, Clone)]
 </span><span class="kw">pub struct </span>TextAreaExt&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">pub </span>_phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>()&gt;,
+    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>()&gt;,
 }
 
-<span class="attr">#[derive(Debug, Default, Clone)]
+<span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub struct </span>TextAreaExtState&lt;<span class="lifetime">'a</span>&gt; {
     <span class="kw">pub </span>area: Rect,
     <span class="kw">pub </span>focus: FocusFlag,
@@ -164,10 +181,12 @@
     <span class="kw">pub </span>max_v_offset: usize,
     <span class="kw">pub </span>max_h_offset: usize,
     <span class="kw">pub </span>widget: TextArea&lt;<span class="lifetime">'a</span>&gt;,
+
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; ScrolledWidget <span class="kw">for </span>TextAreaExt&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect, _uistate: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) -&gt; ScrollParam {
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, State&gt; ScrolledWidget&lt;State&gt; <span class="kw">for </span>TextAreaExt&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect, _uistate: <span class="kw-2">&amp;mut </span>State) -&gt; ScrollParam {
         ScrollParam {
             has_hscroll: <span class="bool-val">true</span>,
             has_vscroll: <span class="bool-val">true</span>,
@@ -191,6 +210,19 @@
 
         <span class="kw">let </span>widget = state.widget.widget();
         widget.render(area, buf);
+    }
+}
+
+<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Default <span class="kw">for </span>TextAreaExtState&lt;<span class="lifetime">'a</span>&gt; {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            area: Default::default(),
+            focus: Default::default(),
+            max_v_offset: <span class="number">0</span>,
+            max_h_offset: <span class="number">0</span>,
+            widget: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

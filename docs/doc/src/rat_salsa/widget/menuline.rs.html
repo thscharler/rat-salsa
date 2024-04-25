@@ -420,6 +420,22 @@
 <a href="#418" id="418">418</a>
 <a href="#419" id="419">419</a>
 <a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//!
 //! A menu.
 //!
@@ -427,7 +443,8 @@
 //! key if the menu has focus.
 //!
 
-</span><span class="kw">use </span><span class="kw">crate</span>::util::span_width;
+</span><span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
+<span class="kw">use </span><span class="kw">crate</span>::util::span_width;
 <span class="kw">use </span><span class="kw">crate</span>::widget::MouseFlags;
 <span class="kw">use crate</span>::{ct_event, ControlUI, FocusFlag, HasFocusFlag, SingleSelection};
 <span class="kw">use crate</span>::{DefaultKeys, HandleCrossterm, MouseOnly};
@@ -444,23 +461,24 @@
 <span class="doccomment">/// Menu
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>MenuLine&lt;<span class="lifetime">'a</span>, A&gt; {
-    <span class="kw">pub </span>style: Style,
-    <span class="kw">pub </span>title_style: Style,
-    <span class="kw">pub </span>select_style: Style,
-    <span class="kw">pub </span>focus_style: Style,
-    <span class="kw">pub </span>title: Span&lt;<span class="lifetime">'a</span>&gt;,
-    <span class="kw">pub </span>key: Vec&lt;char&gt;,
-    <span class="kw">pub </span>menu: Vec&lt;Vec&lt;Span&lt;<span class="lifetime">'a</span>&gt;&gt;&gt;,
-    <span class="kw">pub </span>action: Vec&lt;A&gt;,
+    style: Style,
+    title_style: Style,
+    select_style: Style,
+    focus_style: Style,
+    title: Span&lt;<span class="lifetime">'a</span>&gt;,
+    key: Vec&lt;char&gt;,
+    menu: Vec&lt;Vec&lt;Span&lt;<span class="lifetime">'a</span>&gt;&gt;&gt;,
+    action: Vec&lt;A&gt;,
 }
 
 <span class="doccomment">/// Combined styles.
-</span><span class="attr">#[derive(Debug, Default)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>MenuStyle {
     <span class="kw">pub </span>style: Style,
     <span class="kw">pub </span>title: Style,
     <span class="kw">pub </span>select: Style,
     <span class="kw">pub </span>focus: Style,
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, A&gt; Default <span class="kw">for </span>MenuLine&lt;<span class="lifetime">'a</span>, A&gt; {
@@ -624,6 +642,18 @@
     (key, menu)
 }
 
+<span class="kw">impl </span>Default <span class="kw">for </span>MenuStyle {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            style: Default::default(),
+            title: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 <span class="doccomment">/// State for the menu.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>MenuLineState&lt;A&gt; {
@@ -635,6 +665,7 @@
     <span class="kw">pub </span>action: Vec&lt;A&gt;,
     <span class="kw">pub </span>select: SingleSelection,
     <span class="kw">pub </span>mouse: MouseFlags,
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
 }
 
 <span class="attr">#[allow(clippy::len_without_is_empty)]
@@ -703,6 +734,7 @@
             areas: Default::default(),
             action: Default::default(),
             area: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }

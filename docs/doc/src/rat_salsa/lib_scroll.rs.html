@@ -96,21 +96,26 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//!
 //! Scrolling behaviour.
 //!
 
 </span><span class="kw">use </span>ratatui::layout::Rect;
-<span class="kw">use </span>ratatui::prelude::StatefulWidget;
 
 <span class="doccomment">/// Trait for a widget that can scroll.
-</span><span class="kw">pub trait </span>ScrolledWidget: StatefulWidget {
+</span><span class="kw">pub trait </span>ScrolledWidget&lt;S&gt; {
     <span class="doccomment">/// Get the scrolling behaviour of the widget.
     ///
     /// The area is the area for the scroll widget minus any block set on the
     /// [Scrolled](crate::widget::scrolled::Scrolled) widget.
     /// It doesn't account for the scroll-bars.
-    </span><span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, area: Rect, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) -&gt; ScrollParam;
+    </span><span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, area: Rect, state: <span class="kw-2">&amp;mut </span>S) -&gt; ScrollParam;
 }
 
 <span class="doccomment">/// Widget scrolling information.
@@ -191,5 +196,12 @@
     </span><span class="kw">fn </span>scroll_right(<span class="kw-2">&amp;mut </span><span class="self">self</span>, n: usize) {
         <span class="self">self</span>.set_h_offset(<span class="self">self</span>.h_offset() + n);
     }
+}
+
+<span class="doccomment">/// A widget that can differentiate between these two states can use this as a flag.
+/// It's the job of the widget to implement the difference.
+</span><span class="kw">pub enum </span>ScrollPolicy {
+    Selection,
+    Offset,
 }
 </code></pre></div></section></main></body></html>

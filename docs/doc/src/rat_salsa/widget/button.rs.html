@@ -236,10 +236,24 @@
 <a href="#234" id="234">234</a>
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//!
 //! A simple button.
 //!
-</span><span class="kw">use crate</span>::{ct_event, FocusFlag};
+</span><span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
+<span class="kw">use crate</span>::{ct_event, FocusFlag};
 <span class="kw">use crate</span>::{ControlUI, HasFocusFlag};
 <span class="kw">use crate</span>::{DefaultKeys, HandleCrossterm, MouseOnly};
 <span class="kw">use </span>crossterm::event::Event;
@@ -256,19 +270,31 @@
 <span class="doccomment">/// Simple button.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Button&lt;<span class="lifetime">'a</span>, A&gt; {
-    <span class="kw">pub </span>text: Line&lt;<span class="lifetime">'a</span>&gt;,
-    <span class="kw">pub </span>action: A,
-    <span class="kw">pub </span>style: Style,
-    <span class="kw">pub </span>focus_style: Style,
-    <span class="kw">pub </span>armed_style: Style,
+    text: Line&lt;<span class="lifetime">'a</span>&gt;,
+    action: A,
+    style: Style,
+    focus_style: Style,
+    armed_style: Style,
 }
 
 <span class="doccomment">/// Composite style.
-</span><span class="attr">#[derive(Debug, Default)]
+</span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>ButtonStyle {
     <span class="kw">pub </span>style: Style,
     <span class="kw">pub </span>focus: Style,
     <span class="kw">pub </span>armed: Style,
+    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
+}
+
+<span class="kw">impl </span>Default <span class="kw">for </span>ButtonStyle {
+    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{
+            style: Default::default(),
+            focus: Default::default(),
+            armed: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, A: Default&gt; Default <span class="kw">for </span>Button&lt;<span class="lifetime">'a</span>, A&gt; {
