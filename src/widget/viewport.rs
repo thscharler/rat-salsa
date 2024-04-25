@@ -1,17 +1,19 @@
 //!
 //! A viewport that allows scrolling of a Widget.
 //!
-
 use crate::_private::NonExhaustive;
 use crate::{
     ControlUI, DefaultKeys, HandleCrossterm, HasScrolling, MouseOnly, ScrollParam, ScrolledWidget,
 };
 use crossterm::event::Event;
+#[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::style::Style;
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use std::mem;
 
 /// The viewport has its own size that is used to create
 /// the buffer where the contained widget is rendered.
@@ -79,61 +81,86 @@ impl<T> Viewport<T> {
     }
 }
 
-impl<T> StatefulWidget for Viewport<T>
+impl<T> StatefulWidgetRef for Viewport<T>
 where
-    T: Widget,
+    T: WidgetRef,
 {
     type State = ViewportState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-        state.viewport_area = Rect::new(
-            area.x,
-            area.y,
-            self.viewport_size.width,
-            self.viewport_size.height,
-        );
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_impl(self, area, buf, state, |area, buf| {
+            self.widget.render_ref(area, buf);
+        });
+    }
+}
 
-        let mut tmp = Buffer::empty(state.viewport_area);
+impl<T> StatefulWidget for Viewport<T>
+where
+    T: Widget + Default,
+{
+    type State = ViewportState;
 
-        self.widget.render(state.viewport_area, &mut tmp);
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let inner = mem::take(&mut self.widget);
 
-        // copy buffer
-        for (cell_offset, cell) in tmp.content.drain(..).enumerate() {
-            let tmp_row = cell_offset as u16 / tmp.area.width;
-            let tmp_col = cell_offset as u16 % tmp.area.width;
+        render_impl(&self, area, buf, state, |area, buf| {
+            inner.render(area, buf);
+        });
+    }
+}
 
-            if area.y + tmp_row >= state.v_offset as u16
-                && area.x + tmp_row >= state.h_offset as u16
-            {
-                let row = area.y + tmp_row - state.v_offset as u16;
-                let col = area.x + tmp_col - state.h_offset as u16;
+fn render_impl<T, FnRender>(
+    widget: &Viewport<T>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut ViewportState,
+    render_inner: FnRender,
+) where
+    FnRender: FnOnce(Rect, &mut Buffer),
+{
+    state.area = area;
+    state.viewport_area = Rect::new(
+        area.x,
+        area.y,
+        widget.viewport_size.width,
+        widget.viewport_size.height,
+    );
 
-                debug!("output {} {}", row, col);
+    let mut tmp = Buffer::empty(state.viewport_area);
 
-                if area.contains(Position::new(col, row)) {
-                    *buf.get_mut(col, row) = cell;
-                } else {
-                    // clip
-                }
+    render_inner(state.viewport_area, &mut tmp);
+
+    // copy buffer
+    for (cell_offset, cell) in tmp.content.drain(..).enumerate() {
+        let tmp_row = cell_offset as u16 / tmp.area.width;
+        let tmp_col = cell_offset as u16 % tmp.area.width;
+
+        if area.y + tmp_row >= state.v_offset as u16 && area.x + tmp_row >= state.h_offset as u16 {
+            let row = area.y + tmp_row - state.v_offset as u16;
+            let col = area.x + tmp_col - state.h_offset as u16;
+
+            if area.contains(Position::new(col, row)) {
+                *buf.get_mut(col, row) = cell;
             } else {
-                // clip2
+                // clip
             }
+        } else {
+            // clip2
         }
+    }
 
-        // clear the rest
-        let filled_left =
-            (state.area.x + state.viewport_area.width).saturating_sub(state.h_offset as u16);
-        let filled_bottom =
-            (state.area.y + state.viewport_area.height).saturating_sub(state.v_offset as u16);
+    // clear the rest
+    let filled_left =
+        (state.area.x + state.viewport_area.width).saturating_sub(state.h_offset as u16);
+    let filled_bottom =
+        (state.area.y + state.viewport_area.height).saturating_sub(state.v_offset as u16);
 
-        for r in area.y..area.y + area.height {
-            for c in area.x..area.x + area.width {
-                if c >= filled_left || r >= filled_bottom {
-                    buf.get_mut(c, r)
-                        .set_char(self.fill_char)
-                        .set_style(self.style);
-                }
+    for r in area.y..area.y + area.height {
+        for c in area.x..area.x + area.width {
+            if c >= filled_left || r >= filled_bottom {
+                buf.get_mut(c, r)
+                    .set_char(widget.fill_char)
+                    .set_style(widget.style);
             }
         }
     }
