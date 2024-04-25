@@ -266,7 +266,7 @@ where
 
 impl<'a, T> StatefulWidget for Scrolled<'a, T>
 where
-    T: StatefulWidget + ScrolledWidget,
+    T: StatefulWidget + ScrolledWidget<T::State>,
     T::State: HasScrolling,
 {
     type State = ScrolledState<<T as StatefulWidget>::State>;

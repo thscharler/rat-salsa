@@ -139,11 +139,11 @@ where
     }
 }
 
-impl<T> ScrolledWidget for Viewport<T>
+impl<State, T> ScrolledWidget<State> for Viewport<T>
 where
     T: Widget,
 {
-    fn need_scroll(&self, area: Rect, _state: &mut Self::State) -> ScrollParam {
+    fn need_scroll(&self, area: Rect, _state: &mut State) -> ScrollParam {
         ScrollParam {
             has_hscroll: area.width < self.viewport_size.width,
             has_vscroll: area.height < self.viewport_size.height,

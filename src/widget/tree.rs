@@ -86,11 +86,11 @@ impl<'a, Identifier> TreeExt<'a, Identifier> {
     }
 }
 
-impl<'a, Identifier> ScrolledWidget for TreeExt<'a, Identifier>
+impl<'a, Identifier> ScrolledWidget<TreeExtState<Identifier>> for TreeExt<'a, Identifier>
 where
     Identifier: Debug + Clone + PartialEq + Eq + Hash,
 {
-    fn need_scroll(&self, area: Rect, state: &mut Self::State) -> ScrollParam {
+    fn need_scroll(&self, area: Rect, state: &mut TreeExtState<Identifier>) -> ScrollParam {
         let flattened = state.widget.flatten(&self.items);
 
         let mut has_vscroll = false;

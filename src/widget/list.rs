@@ -22,6 +22,7 @@ pub struct ListExt<'a, SEL> {
     pub block: Option<Block<'a>>,
     pub items: Vec<ListItem<'a>>,
 
+    // todo: pub scroll: ScrollPolicy
     /// Base style
     pub base_style: Style,
     /// Style for selected + not focused.
@@ -157,8 +158,8 @@ where
     }
 }
 
-impl<'a, SEL: ListSelection> ScrolledWidget for ListExt<'a, SEL> {
-    fn need_scroll(&self, _area: Rect, _uistate: &mut Self::State) -> ScrollParam {
+impl<'a, State, SEL: ListSelection> ScrolledWidget<State> for ListExt<'a, SEL> {
+    fn need_scroll(&self, _area: Rect, _uistate: &mut State) -> ScrollParam {
         ScrollParam {
             has_hscroll: false,
             has_vscroll: true,

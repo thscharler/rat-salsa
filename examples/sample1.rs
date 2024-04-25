@@ -1641,30 +1641,12 @@ fn repaint_tree(
         .data(BarGroup::default().bars(&[Bar::default().value(10), Bar::default().value(20)]))
         .max(4);
 
-    let v = Viewport {
-        viewport_size: Default::default(),
-        style: Default::default(),
-        fill_char: ' ',
-        widget: (),
-        ..Default::default()
-    };
-
-    let vv = ViewportState {
-        area: Default::default(),
-        viewport_area: Default::default(),
-        h_offset: 0,
-        v_offset: 0,
-        ..Default::default()
-    };
-
-    let w_chart = Scrolled::new(
-        Viewport::new(w_chart)
-            .viewport_size(Size::new(60, 60))
-            .style(Style::default().fg(uistate.g.theme.red))
-            .fill_char('∞'),
-    )
-    .h_overscroll(10)
-    .v_overscroll(10);
+    let w_chart = Scrolled::new_viewport(w_chart)
+        .viewport_size(Size::new(60, 60))
+        .viewport_style(Style::default().fg(uistate.g.theme.red))
+        .viewport_fill_char('∞')
+        .h_overscroll(10)
+        .v_overscroll(10);
     frame.render_stateful_widget(w_chart, l_columns[2], &mut uistate.scroll_other.chart);
 
     ControlUI::Continue

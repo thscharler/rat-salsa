@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 ///
 /// Extensions for [ratatui::widgets::Table]
 ///
@@ -21,7 +22,8 @@ use std::marker::PhantomData;
 use std::mem;
 
 /// Add some minor fixes to [ratatui::widgets::Table]
-pub struct TableExt<'a, SEL> {
+#[derive(Debug, Clone)]
+pub struct TableExt<'a, Selection> {
     ///
     pub table: Table<'a>,
 
@@ -37,25 +39,11 @@ pub struct TableExt<'a, SEL> {
     /// Style for selected + focused.
     pub focus_style: Style,
 
-    pub non_exhaustive: (),
-    pub _phantom: PhantomData<SEL>,
+    pub non_exhaustive: NonExhaustive,
+    pub _phantom: PhantomData<Selection>,
 }
 
-impl<'a, SEL> Debug for TableExt<'a, SEL> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("TableExt")
-            .field("rows", &self.rows)
-            .field("header", &self.header)
-            .field("footer", &self.footer)
-            .field("table", &self.table)
-            .field("base_style", &self.base_style)
-            .field("select_style", &self.select_style)
-            .field("focus_style", &self.focus_style)
-            .finish()
-    }
-}
-
-impl<'a, SEL> Default for TableExt<'a, SEL> {
+impl<'a, Selection> Default for TableExt<'a, Selection> {
     fn default() -> Self {
         Self {
             rows: Default::default(),
@@ -65,14 +53,14 @@ impl<'a, SEL> Default for TableExt<'a, SEL> {
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: (),
+            non_exhaustive: NonExhaustive,
             _phantom: Default::default(),
         }
     }
 }
 
-impl<'a, SEL: ListSelection> ScrolledWidget for TableExt<'a, SEL> {
-    fn need_scroll(&self, _area: Rect, _uistate: &mut Self::State) -> ScrollParam {
+impl<'a, State, Selection: ListSelection> ScrolledWidget<State> for TableExt<'a, Selection> {
+    fn need_scroll(&self, _area: Rect, _uistate: &mut State) -> ScrollParam {
         ScrollParam {
             has_hscroll: false,
             has_vscroll: true,
@@ -89,7 +77,7 @@ pub struct TableExtStyle {
     pub non_exhaustive: (),
 }
 
-impl<'a, SEL> TableExt<'a, SEL> {
+impl<'a, Selection> TableExt<'a, Selection> {
     pub fn new<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
@@ -107,7 +95,7 @@ impl<'a, SEL> TableExt<'a, SEL> {
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: (),
+            non_exhaustive: NonExhaustive,
             _phantom: Default::default(),
         }
     }
@@ -188,8 +176,8 @@ impl<'a, SEL> TableExt<'a, SEL> {
     }
 }
 
-impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
-    type State = TableExtState<SEL>;
+impl<'a, Selection: ListSelection> StatefulWidget for TableExt<'a, Selection> {
+    type State = TableExtState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         // store to state
@@ -281,7 +269,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for TableExt<'a, SEL> {
     }
 }
 
-impl<'a, SEL, Item> FromIterator<Item> for TableExt<'a, SEL>
+impl<'a, Selection, Item> FromIterator<Item> for TableExt<'a, Selection>
 where
     Item: Into<Row<'a>>,
 {
@@ -296,7 +284,7 @@ where
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: (),
+            non_exhaustive: NonExhaustive,
             _phantom: Default::default(),
         }
     }
