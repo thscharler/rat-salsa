@@ -7,6 +7,7 @@
 //! * Can set the cursor or use its own block cursor.
 //! * Can show an indicator for invalid input.
 
+use crate::_private::NonExhaustive;
 use crate::util::clamp_shift;
 use crate::widget::basic::ClearStyle;
 use crate::widget::MouseFlags;
@@ -26,22 +27,33 @@ use unicode_segmentation::UnicodeSegmentation;
 /// Text input widget.
 #[derive(Debug)]
 pub struct TextInput {
-    pub insets: Margin,
-    pub style: Style,
-    pub focus_style: Style,
-    pub select_style: Style,
-    pub invalid_style: Style,
-    pub non_exhaustive: (),
+    insets: Margin,
+    style: Style,
+    focus_style: Style,
+    select_style: Style,
+    invalid_style: Style,
 }
 
 /// Combined style for the widget.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TextInputStyle {
     pub style: Style,
     pub focus: Style,
     pub select: Style,
     pub invalid: Style,
-    pub non_exhaustive: (),
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for TextInputStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            focus: Default::default(),
+            select: Default::default(),
+            invalid: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl Default for TextInput {
@@ -52,7 +64,6 @@ impl Default for TextInput {
             focus_style: Default::default(),
             select_style: Default::default(),
             invalid_style: Style::default().red().underlined(),
-            non_exhaustive: (),
         }
     }
 }
@@ -153,7 +164,7 @@ impl FrameWidget for TextInput {
 }
 
 /// Input state data.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct TextInputState {
     /// Focus
     pub focus: FocusFlag,
@@ -166,7 +177,20 @@ pub struct TextInputState {
     /// Editing core
     pub value: core::InputCore,
     ///
-    pub non_exhaustive: (),
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for TextInputState {
+    fn default() -> Self {
+        Self {
+            focus: Default::default(),
+            valid: Default::default(),
+            area: Default::default(),
+            mouse: Default::default(),
+            value: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputState {

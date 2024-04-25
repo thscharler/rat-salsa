@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::lib_scroll::{HasScrolling, ScrollParam, ScrolledWidget};
 ///
 /// Adapter for ratatui::widget::Paragraph
@@ -17,19 +18,17 @@ use std::cmp::min;
 
 #[derive(Debug)]
 pub struct ParagraphExt<'a> {
-    pub para: Paragraph<'a>,
-    pub block: Option<Block<'a>>,
-    pub wrap: Option<Wrap>,
+    para: Paragraph<'a>,
+    block: Option<Block<'a>>,
+    wrap: Option<Wrap>,
 
     // maybe??
-    pub cached_area_width: Cell<u16>,
-    pub cached_line_width: Cell<usize>,
-    pub cached_line_count: Cell<usize>,
-
-    pub non_exhaustive: (),
+    cached_area_width: Cell<u16>,
+    cached_line_width: Cell<usize>,
+    cached_line_count: Cell<usize>,
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ParagraphExtState {
     pub area: Rect,
     pub para_area: Rect,
@@ -39,7 +38,20 @@ pub struct ParagraphExtState {
     pub voffset: usize,
     pub hoffset: usize,
 
-    pub non_exhaustive: (),
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl<'a> Default for ParagraphExt<'a> {
+    fn default() -> Self {
+        Self {
+            para: Default::default(),
+            block: None,
+            wrap: None,
+            cached_area_width: Cell::new(0),
+            cached_line_width: Cell::new(0),
+            cached_line_count: Cell::new(0),
+        }
+    }
 }
 
 impl<'a, State> ScrolledWidget<State> for ParagraphExt<'a> {
@@ -64,6 +76,20 @@ impl<'a, State> ScrolledWidget<State> for ParagraphExt<'a> {
         ScrollParam {
             has_hscroll: show_horizontal,
             has_vscroll: show_vertical,
+        }
+    }
+}
+
+impl Default for ParagraphExtState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            para_area: Default::default(),
+            vlen: 0,
+            hlen: 0,
+            voffset: 0,
+            hoffset: 0,
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -110,12 +136,7 @@ impl<'a> ParagraphExt<'a> {
         let t = text.into();
         Self {
             para: Paragraph::new(t),
-            block: None,
-            wrap: None,
-            cached_area_width: Cell::new(0),
-            cached_line_width: Cell::new(0),
-            cached_line_count: Cell::new(0),
-            non_exhaustive: (),
+            ..Self::default()
         }
     }
 

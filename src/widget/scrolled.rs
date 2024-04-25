@@ -9,7 +9,7 @@ use crate::widget::viewport::Viewport;
 ///
 use crate::{
     check_break, ct_event, CanValidate, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm,
-    HasFocusFlag, HasScrolling, HasValidFlag, MouseOnly, ScrolledWidget, ValidFlag,
+    HasFocusFlag, HasScrolling, HasValidFlag, MouseOnly, ScrollParam, ScrolledWidget, ValidFlag,
 };
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -19,9 +19,11 @@ use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};
 use ratatui::symbols::scrollbar::Set;
 use ratatui::widgets::{
-    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
+    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, StatefulWidgetRef,
+    Widget, WidgetRef,
 };
 use std::cmp::min;
+use std::mem;
 
 /// A wrapper widget that scrolls it's content.
 #[derive(Debug, Default, Clone)]
@@ -264,176 +266,214 @@ where
     }
 }
 
-impl<'a, T> StatefulWidget for Scrolled<'a, T>
+impl<'a, T> StatefulWidgetRef for Scrolled<'a, T>
 where
-    T: StatefulWidget + ScrolledWidget<T::State>,
+    T: StatefulWidgetRef + ScrolledWidget<T::State>,
     T::State: HasScrolling,
 {
-    type State = ScrolledState<<T as StatefulWidget>::State>;
+    type State = ScrolledState<T::State>;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-        state.v_overscroll = self.v_overscroll;
-        state.h_overscroll = self.h_overscroll;
-
-        let sconf = self
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let scroll_param = self
             .widget
             .need_scroll(self.block.inner_if_some(area), &mut state.widget);
 
-        let has_vscroll = self.v_scroll_policy.apply(sconf.has_vscroll);
-        let has_hscroll = self.h_scroll_policy.apply(sconf.has_hscroll);
+        render_impl(self, area, buf, state, scroll_param, |area, buf, state| {
+            self.widget.render_ref(area, buf, state);
+        });
+    }
+}
 
-        // Calculate the areas for the scrollbars and the view-area.
-        // If there is a block set, assume there is a right and a bottom border too.
-        // Currently, there is no way to know it. Overwriting part of the content is
-        // ok in this case.
-        if has_vscroll && has_hscroll {
-            let mut vscrollbar_area = area.columns().last().expect("scroll");
-            if self.block.is_some() {
-                vscrollbar_area.y += 1;
-                vscrollbar_area.height -= 2;
-            } else {
-                vscrollbar_area.height -= 1;
-            }
-            state.v_scrollbar_area = Some(vscrollbar_area);
+impl<'a, T> StatefulWidget for Scrolled<'a, T>
+where
+    T: StatefulWidget + ScrolledWidget<T::State> + Default,
+    T::State: HasScrolling,
+{
+    type State = ScrolledState<T::State>;
 
-            let mut hscrollbar_area = area.rows().last().expect("scroll");
-            if self.block.is_some() {
-                hscrollbar_area.x += 1;
-                hscrollbar_area.width -= 2;
-            } else {
-                hscrollbar_area.width -= 1;
-            }
-            state.h_scrollbar_area = Some(hscrollbar_area);
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let scroll_param = self
+            .widget
+            .need_scroll(self.block.inner_if_some(area), &mut state.widget);
 
-            if let Some(block) = self.block.as_ref() {
-                state.view_area = block.inner(area);
-            } else {
-                state.view_area = area;
-                state.view_area.width -= 1;
-                state.view_area.height -= 1;
-            }
-        } else if has_vscroll {
-            let mut vscrollbar_area = area.columns().last().expect("scroll");
-            if self.block.is_some() {
-                vscrollbar_area.y += 1;
-                vscrollbar_area.height -= 1;
-            } else {
-                vscrollbar_area.height -= 0;
-            }
-            state.v_scrollbar_area = Some(vscrollbar_area);
+        let inner = mem::take(&mut self.widget);
 
-            state.h_scrollbar_area = None;
+        render_impl(&self, area, buf, state, scroll_param, |area, buf, state| {
+            inner.render(area, buf, state);
+        });
+    }
+}
 
-            if let Some(block) = self.block.as_ref() {
-                state.view_area = block.inner(area);
-            } else {
-                state.view_area = area;
-                state.view_area.width -= 1;
-                state.view_area.height -= 0;
-            }
-        } else if has_hscroll {
-            state.v_scrollbar_area = None;
+fn render_impl<'a, FnRender, T, S>(
+    widget: &Scrolled<'a, T>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut ScrolledState<S>,
+    scroll_param: ScrollParam,
+    render_inner: FnRender,
+) where
+    T: ScrolledWidget<S>,
+    S: HasScrolling,
+    FnRender: FnOnce(Rect, &mut Buffer, &mut S),
+{
+    state.area = area;
+    state.v_overscroll = widget.v_overscroll;
+    state.h_overscroll = widget.h_overscroll;
 
-            let mut hscrollbar_area = area.rows().last().expect("scroll");
-            if self.block.is_some() {
-                hscrollbar_area.x += 1;
-                hscrollbar_area.width -= 1;
-            } else {
-                hscrollbar_area.width -= 0;
-            }
-            state.h_scrollbar_area = Some(hscrollbar_area);
+    let has_vscroll = widget.v_scroll_policy.apply(scroll_param.has_vscroll);
+    let has_hscroll = widget.h_scroll_policy.apply(scroll_param.has_hscroll);
 
-            if let Some(block) = self.block.as_ref() {
-                state.view_area = block.inner(area);
-            } else {
-                state.view_area = area;
-                state.view_area.width -= 0;
-                state.view_area.height -= 1;
-            }
+    // Calculate the areas for the scrollbars and the view-area.
+    // If there is a block set, assume there is a right and a bottom border too.
+    // Currently, there is no way to know it. Overwriting part of the content is
+    // ok in this case.
+    if has_vscroll && has_hscroll {
+        let mut vscrollbar_area = area.columns().last().expect("scroll");
+        if widget.block.is_some() {
+            vscrollbar_area.y += 1;
+            vscrollbar_area.height -= 2;
         } else {
-            state.v_scrollbar_area = None;
-            state.h_scrollbar_area = None;
+            vscrollbar_area.height -= 1;
+        }
+        state.v_scrollbar_area = Some(vscrollbar_area);
 
-            if let Some(block) = self.block.as_ref() {
-                state.view_area = block.inner(area);
-            } else {
-                state.view_area = area;
-                state.view_area.width -= 0;
-                state.view_area.height -= 0;
-            }
+        let mut hscrollbar_area = area.rows().last().expect("scroll");
+        if widget.block.is_some() {
+            hscrollbar_area.x += 1;
+            hscrollbar_area.width -= 2;
+        } else {
+            hscrollbar_area.width -= 1;
+        }
+        state.h_scrollbar_area = Some(hscrollbar_area);
+
+        if let Some(block) = widget.block.as_ref() {
+            state.view_area = block.inner(area);
+        } else {
+            state.view_area = area;
+            state.view_area.width -= 1;
+            state.view_area.height -= 1;
+        }
+    } else if has_vscroll {
+        let mut vscrollbar_area = area.columns().last().expect("scroll");
+        if widget.block.is_some() {
+            vscrollbar_area.y += 1;
+            vscrollbar_area.height -= 1;
+        } else {
+            vscrollbar_area.height -= 0;
+        }
+        state.v_scrollbar_area = Some(vscrollbar_area);
+
+        state.h_scrollbar_area = None;
+
+        if let Some(block) = widget.block.as_ref() {
+            state.view_area = block.inner(area);
+        } else {
+            state.view_area = area;
+            state.view_area.width -= 1;
+            state.view_area.height -= 0;
+        }
+    } else if has_hscroll {
+        state.v_scrollbar_area = None;
+
+        let mut hscrollbar_area = area.rows().last().expect("scroll");
+        if widget.block.is_some() {
+            hscrollbar_area.x += 1;
+            hscrollbar_area.width -= 1;
+        } else {
+            hscrollbar_area.width -= 0;
+        }
+        state.h_scrollbar_area = Some(hscrollbar_area);
+
+        if let Some(block) = widget.block.as_ref() {
+            state.view_area = block.inner(area);
+        } else {
+            state.view_area = area;
+            state.view_area.width -= 0;
+            state.view_area.height -= 1;
+        }
+    } else {
+        state.v_scrollbar_area = None;
+        state.h_scrollbar_area = None;
+
+        if let Some(block) = widget.block.as_ref() {
+            state.view_area = block.inner(area);
+        } else {
+            state.view_area = area;
+            state.view_area.width -= 0;
+            state.view_area.height -= 0;
+        }
+    }
+
+    render_inner(state.view_area, buf, &mut state.widget);
+
+    widget.block.render_ref(area, buf);
+
+    if let Some(vscrollbar_area) = state.v_scrollbar_area {
+        let mut vscroll = Scrollbar::new(widget.v_scroll_position.orientation());
+        if let Some(thumb_symbol) = widget.thumb_symbol {
+            vscroll = vscroll.thumb_symbol(thumb_symbol);
+        }
+        if let Some(track_symbol) = widget.track_symbol {
+            vscroll = vscroll.track_symbol(Some(track_symbol));
+        }
+        if let Some(begin_symbol) = widget.begin_symbol {
+            vscroll = vscroll.begin_symbol(Some(begin_symbol));
+        }
+        if let Some(end_symbol) = widget.end_symbol {
+            vscroll = vscroll.end_symbol(Some(end_symbol));
+        }
+        if let Some(thumb_style) = widget.thumb_style {
+            vscroll = vscroll.thumb_style(thumb_style);
+        }
+        if let Some(track_style) = widget.track_style {
+            vscroll = vscroll.track_style(track_style);
+        }
+        if let Some(begin_style) = widget.begin_style {
+            vscroll = vscroll.begin_style(begin_style);
+        }
+        if let Some(end_style) = widget.end_style {
+            vscroll = vscroll.end_style(end_style);
         }
 
-        self.widget.render(state.view_area, buf, &mut state.widget);
-        self.block.render(area, buf);
+        let max_offset = state.widget.max_v_offset();
+        let offset = state.widget.v_offset();
 
-        if let Some(vscrollbar_area) = state.v_scrollbar_area {
-            let mut vscroll = Scrollbar::new(self.v_scroll_position.orientation());
-            if let Some(thumb_symbol) = self.thumb_symbol {
-                vscroll = vscroll.thumb_symbol(thumb_symbol);
-            }
-            if let Some(track_symbol) = self.track_symbol {
-                vscroll = vscroll.track_symbol(Some(track_symbol));
-            }
-            if let Some(begin_symbol) = self.begin_symbol {
-                vscroll = vscroll.begin_symbol(Some(begin_symbol));
-            }
-            if let Some(end_symbol) = self.end_symbol {
-                vscroll = vscroll.end_symbol(Some(end_symbol));
-            }
-            if let Some(thumb_style) = self.thumb_style {
-                vscroll = vscroll.thumb_style(thumb_style);
-            }
-            if let Some(track_style) = self.track_style {
-                vscroll = vscroll.track_style(track_style);
-            }
-            if let Some(begin_style) = self.begin_style {
-                vscroll = vscroll.begin_style(begin_style);
-            }
-            if let Some(end_style) = self.end_style {
-                vscroll = vscroll.end_style(end_style);
-            }
+        let mut vscroll_state = ScrollbarState::new(max_offset).position(offset);
+        vscroll.render(vscrollbar_area, buf, &mut vscroll_state);
+    }
 
-            let max_offset = state.widget.max_v_offset();
-            let offset = state.widget.v_offset();
-
-            let mut vscroll_state = ScrollbarState::new(max_offset).position(offset);
-            vscroll.render(vscrollbar_area, buf, &mut vscroll_state);
+    if let Some(hscrollbar_area) = state.h_scrollbar_area {
+        let mut hscroll = Scrollbar::new(widget.h_scroll_position.orientation());
+        if let Some(thumb_symbol) = widget.thumb_symbol {
+            hscroll = hscroll.thumb_symbol(thumb_symbol);
+        }
+        if let Some(track_symbol) = widget.track_symbol {
+            hscroll = hscroll.track_symbol(Some(track_symbol));
+        }
+        if let Some(begin_symbol) = widget.begin_symbol {
+            hscroll = hscroll.begin_symbol(Some(begin_symbol));
+        }
+        if let Some(end_symbol) = widget.end_symbol {
+            hscroll = hscroll.end_symbol(Some(end_symbol));
+        }
+        if let Some(thumb_style) = widget.thumb_style {
+            hscroll = hscroll.thumb_style(thumb_style);
+        }
+        if let Some(track_style) = widget.track_style {
+            hscroll = hscroll.track_style(track_style);
+        }
+        if let Some(begin_style) = widget.begin_style {
+            hscroll = hscroll.begin_style(begin_style);
+        }
+        if let Some(end_style) = widget.end_style {
+            hscroll = hscroll.end_style(end_style);
         }
 
-        if let Some(hscrollbar_area) = state.h_scrollbar_area {
-            let mut hscroll = Scrollbar::new(self.h_scroll_position.orientation());
-            if let Some(thumb_symbol) = self.thumb_symbol {
-                hscroll = hscroll.thumb_symbol(thumb_symbol);
-            }
-            if let Some(track_symbol) = self.track_symbol {
-                hscroll = hscroll.track_symbol(Some(track_symbol));
-            }
-            if let Some(begin_symbol) = self.begin_symbol {
-                hscroll = hscroll.begin_symbol(Some(begin_symbol));
-            }
-            if let Some(end_symbol) = self.end_symbol {
-                hscroll = hscroll.end_symbol(Some(end_symbol));
-            }
-            if let Some(thumb_style) = self.thumb_style {
-                hscroll = hscroll.thumb_style(thumb_style);
-            }
-            if let Some(track_style) = self.track_style {
-                hscroll = hscroll.track_style(track_style);
-            }
-            if let Some(begin_style) = self.begin_style {
-                hscroll = hscroll.begin_style(begin_style);
-            }
-            if let Some(end_style) = self.end_style {
-                hscroll = hscroll.end_style(end_style);
-            }
+        let max_offset = state.widget.max_h_offset();
+        let offset = state.widget.h_offset();
 
-            let max_offset = state.widget.max_h_offset();
-            let offset = state.widget.h_offset();
-
-            let mut hscroll_state = ScrollbarState::new(max_offset).position(offset);
-            hscroll.render(hscrollbar_area, buf, &mut hscroll_state);
-        }
+        let mut hscroll_state = ScrollbarState::new(max_offset).position(offset);
+        hscroll.render(hscrollbar_area, buf, &mut hscroll_state);
     }
 }
 

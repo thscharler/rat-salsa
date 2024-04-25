@@ -45,6 +45,7 @@
 //!
 //! ```
 
+use crate::_private::NonExhaustive;
 use crate::number::NumberSymbols;
 use crate::util::clamp_shift;
 use crate::widget::basic::ClearStyle;
@@ -69,23 +70,34 @@ use unicode_segmentation::UnicodeSegmentation;
 /// Text input widget with input mask.
 #[derive(Debug)]
 pub struct MaskedInput {
-    pub show_compact: bool,
-    pub insets: Margin,
-    pub style: Style,
-    pub focus_style: Style,
-    pub select_style: Style,
-    pub invalid_style: Style,
-    pub non_exhaustive: (),
+    show_compact: bool,
+    insets: Margin,
+    style: Style,
+    focus_style: Style,
+    select_style: Style,
+    invalid_style: Style,
 }
 
 /// Combined style.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MaskedInputStyle {
     pub style: Style,
     pub focus: Style,
     pub select: Style,
     pub invalid: Style,
-    pub non_exhaustive: (),
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for MaskedInputStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            focus: Default::default(),
+            select: Default::default(),
+            invalid: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl Default for MaskedInput {
@@ -97,7 +109,6 @@ impl Default for MaskedInput {
             focus_style: Default::default(),
             select_style: Default::default(),
             invalid_style: Style::default().red().underlined(),
-            non_exhaustive: (),
         }
     }
 }
@@ -221,7 +232,7 @@ impl FrameWidget for MaskedInput {
 }
 
 /// State of the input-mask.
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct MaskedInputState {
     /// Focus
     pub focus: FocusFlag,
@@ -236,7 +247,21 @@ pub struct MaskedInputState {
     /// Editing core.
     pub value: InputMaskCore,
     ///
-    pub non_exhaustive: (),
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for MaskedInputState {
+    fn default() -> Self {
+        Self {
+            focus: Default::default(),
+            valid: Default::default(),
+            valid_mask: None,
+            area: Default::default(),
+            mouse: Default::default(),
+            value: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MaskedInputState

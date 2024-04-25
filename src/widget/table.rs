@@ -17,7 +17,7 @@ use ratatui::prelude::*;
 use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 
@@ -25,22 +25,21 @@ use std::mem;
 #[derive(Debug, Clone)]
 pub struct TableExt<'a, Selection> {
     ///
-    pub table: Table<'a>,
+    table: Table<'a>,
 
     ///
-    pub rows: Vec<Row<'a>>,
-    pub header: Option<Row<'a>>,
-    pub footer: Option<Row<'a>>,
+    rows: Vec<Row<'a>>,
+    header: Option<Row<'a>>,
+    footer: Option<Row<'a>>,
 
     /// Base style
-    pub base_style: Style,
+    base_style: Style,
     /// Style for selected + not focused.
-    pub select_style: Style,
+    select_style: Style,
     /// Style for selected + focused.
-    pub focus_style: Style,
+    focus_style: Style,
 
-    pub non_exhaustive: NonExhaustive,
-    pub _phantom: PhantomData<Selection>,
+    _phantom: PhantomData<Selection>,
 }
 
 impl<'a, Selection> Default for TableExt<'a, Selection> {
@@ -53,7 +52,6 @@ impl<'a, Selection> Default for TableExt<'a, Selection> {
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: NonExhaustive,
             _phantom: Default::default(),
         }
     }
@@ -69,12 +67,23 @@ impl<'a, State, Selection: ListSelection> ScrolledWidget<State> for TableExt<'a,
 }
 
 /// Combined style.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct TableExtStyle {
     pub style: Style,
     pub select_style: Style,
     pub focus_style: Style,
-    pub non_exhaustive: (),
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for TableExtStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            select_style: Default::default(),
+            focus_style: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl<'a, Selection> TableExt<'a, Selection> {
@@ -95,7 +104,6 @@ impl<'a, Selection> TableExt<'a, Selection> {
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: NonExhaustive,
             _phantom: Default::default(),
         }
     }
@@ -284,15 +292,14 @@ where
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: NonExhaustive,
             _phantom: Default::default(),
         }
     }
 }
 
 /// Extended TableState, contains a [ratatui::widgets::TableState].
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct TableExtState<SEL> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TableExtState<Selection> {
     pub table_state: TableState,
 
     pub len: usize,
@@ -306,12 +313,34 @@ pub struct TableExtState<SEL> {
     pub footer_area: Rect,
 
     pub focus: FocusFlag,
-    pub selection: SEL,
+    pub selection: Selection,
 
     pub mouse: MouseFlags,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
-impl<SEL> HasFocusFlag for TableExtState<SEL> {
+impl<Selection: Default> Default for TableExtState<Selection> {
+    fn default() -> Self {
+        Self {
+            table_state: Default::default(),
+            len: 0,
+            v_page_len: 0,
+            max_v_offset: 0,
+            area: Default::default(),
+            header_area: Default::default(),
+            table_area: Default::default(),
+            row_areas: Default::default(),
+            footer_area: Default::default(),
+            focus: Default::default(),
+            selection: Default::default(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl<Selection> HasFocusFlag for TableExtState<Selection> {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -321,7 +350,7 @@ impl<SEL> HasFocusFlag for TableExtState<SEL> {
     }
 }
 
-impl<SEL> HasScrolling for TableExtState<SEL> {
+impl<Selection> HasScrolling for TableExtState<Selection> {
     fn max_v_offset(&self) -> usize {
         self.max_v_offset
     }
@@ -363,7 +392,7 @@ impl<SEL> HasScrolling for TableExtState<SEL> {
     }
 }
 
-impl<SEL: ListSelection> TableExtState<SEL> {
+impl<Selection: ListSelection> TableExtState<Selection> {
     pub fn with_offset(mut self, offset: usize) -> Self {
         self.table_state = self.table_state.with_offset(offset);
         self
@@ -377,11 +406,11 @@ impl<SEL: ListSelection> TableExtState<SEL> {
         self.table_state.offset_mut()
     }
 
-    pub fn selection(&self) -> &SEL {
+    pub fn selection(&self) -> &Selection {
         &self.selection
     }
 
-    pub fn selection_mut(&mut self) -> &mut SEL {
+    pub fn selection_mut(&mut self) -> &mut Selection {
         &mut self.selection
     }
 

@@ -5,6 +5,7 @@
 //! key if the menu has focus.
 //!
 
+use crate::_private::NonExhaustive;
 use crate::util::span_width;
 use crate::widget::MouseFlags;
 use crate::{ct_event, ControlUI, FocusFlag, HasFocusFlag, SingleSelection};
@@ -22,23 +23,24 @@ use std::fmt::Debug;
 /// Menu
 #[derive(Debug)]
 pub struct MenuLine<'a, A> {
-    pub style: Style,
-    pub title_style: Style,
-    pub select_style: Style,
-    pub focus_style: Style,
-    pub title: Span<'a>,
-    pub key: Vec<char>,
-    pub menu: Vec<Vec<Span<'a>>>,
-    pub action: Vec<A>,
+    style: Style,
+    title_style: Style,
+    select_style: Style,
+    focus_style: Style,
+    title: Span<'a>,
+    key: Vec<char>,
+    menu: Vec<Vec<Span<'a>>>,
+    action: Vec<A>,
 }
 
 /// Combined styles.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MenuStyle {
     pub style: Style,
     pub title: Style,
     pub select: Style,
     pub focus: Style,
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a, A> Default for MenuLine<'a, A> {
@@ -202,6 +204,18 @@ fn menu_span(txt: &str) -> (char, Vec<Span<'_>>) {
     (key, menu)
 }
 
+impl Default for MenuStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            title: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 /// State for the menu.
 #[derive(Debug)]
 pub struct MenuLineState<A> {
@@ -213,6 +227,7 @@ pub struct MenuLineState<A> {
     pub action: Vec<A>,
     pub select: SingleSelection,
     pub mouse: MouseFlags,
+    pub non_exhaustive: NonExhaustive,
 }
 
 #[allow(clippy::len_without_is_empty)]
@@ -281,6 +296,7 @@ impl<A> Default for MenuLineState<A> {
             areas: Default::default(),
             action: Default::default(),
             area: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }

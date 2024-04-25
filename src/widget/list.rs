@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::widget::MouseFlags;
 use crate::{
     ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
@@ -17,33 +18,43 @@ use std::mem;
 /// Extensions for [ratatui::widgets::List]
 ///
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
-pub struct ListExt<'a, SEL> {
-    pub list: List<'a>,
-    pub block: Option<Block<'a>>,
-    pub items: Vec<ListItem<'a>>,
+pub struct ListExt<'a, Selection> {
+    list: List<'a>,
+    block: Option<Block<'a>>,
+    items: Vec<ListItem<'a>>,
 
     // todo: pub scroll: ScrollPolicy
     /// Base style
-    pub base_style: Style,
+    base_style: Style,
     /// Style for selected + not focused.
-    pub select_style: Style,
+    select_style: Style,
     /// Style for selected + focused.
-    pub focus_style: Style,
+    focus_style: Style,
 
-    pub non_exhaustive: (),
-    pub _phantom: PhantomData<SEL>,
+    _phantom: PhantomData<Selection>,
 }
 
 /// Combined style
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ListExtStyle {
     pub style: Style,
     pub select_style: Style,
     pub focus_style: Style,
-    pub non_exhaustive: (),
+    pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, SEL> Default for ListExt<'a, SEL> {
+impl Default for ListExtStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            select_style: Default::default(),
+            focus_style: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl<'a, Selection> Default for ListExt<'a, Selection> {
     fn default() -> Self {
         Self {
             list: Default::default(),
@@ -52,13 +63,12 @@ impl<'a, SEL> Default for ListExt<'a, SEL> {
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
 }
 
-impl<'a, SEL> ListExt<'a, SEL> {
+impl<'a, Selection> ListExt<'a, Selection> {
     pub fn new<T>(items: T) -> Self
     where
         T: IntoIterator,
@@ -73,7 +83,6 @@ impl<'a, SEL> ListExt<'a, SEL> {
             base_style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
-            non_exhaustive: (),
             _phantom: Default::default(),
         }
     }
@@ -149,7 +158,7 @@ impl<'a, SEL> ListExt<'a, SEL> {
     }
 }
 
-impl<'a, Item, SEL> FromIterator<Item> for ListExt<'a, SEL>
+impl<'a, Item, Selection> FromIterator<Item> for ListExt<'a, Selection>
 where
     Item: Into<ListItem<'a>>,
 {
@@ -158,7 +167,7 @@ where
     }
 }
 
-impl<'a, State, SEL: ListSelection> ScrolledWidget<State> for ListExt<'a, SEL> {
+impl<'a, State, Selection: ListSelection> ScrolledWidget<State> for ListExt<'a, Selection> {
     fn need_scroll(&self, _area: Rect, _uistate: &mut State) -> ScrollParam {
         ScrollParam {
             has_hscroll: false,
@@ -167,8 +176,8 @@ impl<'a, State, SEL: ListSelection> ScrolledWidget<State> for ListExt<'a, SEL> {
     }
 }
 
-impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
-    type State = ListExtState<SEL>;
+impl<'a, Selection: ListSelection> StatefulWidget for ListExt<'a, Selection> {
+    type State = ListExtState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
@@ -243,7 +252,7 @@ impl<'a, SEL: ListSelection> StatefulWidget for ListExt<'a, SEL> {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct ListExtState<SEL> {
+pub struct ListExtState<Selection> {
     pub widget: ListState,
 
     pub len: usize,
@@ -255,12 +264,12 @@ pub struct ListExtState<SEL> {
     pub item_areas: Vec<Rect>,
 
     pub focus: FocusFlag,
-    pub selection: SEL,
+    pub selection: Selection,
 
     pub mouse: MouseFlags,
 }
 
-impl<SEL> HasFocusFlag for ListExtState<SEL> {
+impl<Selection> HasFocusFlag for ListExtState<Selection> {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -270,7 +279,7 @@ impl<SEL> HasFocusFlag for ListExtState<SEL> {
     }
 }
 
-impl<SEL> HasScrolling for ListExtState<SEL> {
+impl<Selection> HasScrolling for ListExtState<Selection> {
     fn max_v_offset(&self) -> usize {
         self.max_v_offset
     }
@@ -308,17 +317,17 @@ impl<SEL> HasScrolling for ListExtState<SEL> {
     }
 }
 
-impl<SEL: ListSelection> ListExtState<SEL> {
+impl<Selection: ListSelection> ListExtState<Selection> {
     pub fn with_offset(mut self, offset: usize) -> Self {
         self.widget = self.widget.with_offset(offset);
         self
     }
 
-    pub fn selection(&self) -> &SEL {
+    pub fn selection(&self) -> &Selection {
         &self.selection
     }
 
-    pub fn selection_mut(&mut self) -> &mut SEL {
+    pub fn selection_mut(&mut self) -> &mut Selection {
         &mut self.selection
     }
 

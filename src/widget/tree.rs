@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::{
     ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
     MouseOnly, ScrollParam, ScrolledWidget,
@@ -15,17 +16,17 @@ use tui_tree_widget::{Tree, TreeItem, TreeState};
 
 #[derive(Debug, Default, Clone)]
 pub struct TreeExt<'a, Identifier> {
-    pub items: Vec<TreeItem<'a, Identifier>>,
-    pub block: Option<Block<'a>>,
-    pub style: Option<Style>,
-    pub highlight_style: Option<Style>,
-    pub highlight_symbol: Option<&'a str>,
-    pub node_closed_symbol: Option<&'a str>,
-    pub node_open_symbol: Option<&'a str>,
-    pub node_no_children_symbol: Option<&'a str>,
+    items: Vec<TreeItem<'a, Identifier>>,
+    block: Option<Block<'a>>,
+    style: Option<Style>,
+    highlight_style: Option<Style>,
+    highlight_symbol: Option<&'a str>,
+    node_closed_symbol: Option<&'a str>,
+    node_open_symbol: Option<&'a str>,
+    node_no_children_symbol: Option<&'a str>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct TreeExtState<Identifier> {
     pub area: Rect,
     pub focus: FocusFlag,
@@ -34,6 +35,8 @@ pub struct TreeExtState<Identifier> {
     pub v_page_len: usize,
 
     pub widget: TreeState<Identifier>,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a, Identifier> TreeExt<'a, Identifier> {
@@ -188,6 +191,19 @@ where
             tree = tree.node_no_children_symbol(node_no_children_symbol);
         }
         tree.render(area, buf, &mut state.widget);
+    }
+}
+
+impl<Identifier: Default> Default for TreeExtState<Identifier> {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            focus: Default::default(),
+            max_v_offset: 0,
+            v_page_len: 0,
+            widget: TreeState::default(),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

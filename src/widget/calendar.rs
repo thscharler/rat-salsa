@@ -2,6 +2,7 @@
 //! Render a month of a calender.
 //!
 
+use crate::_private::NonExhaustive;
 use chrono::{Datelike, NaiveDate, Weekday};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -13,15 +14,15 @@ use std::fmt::{Debug, Formatter};
 /// Renders a month.
 pub struct Month {
     /// Title style.
-    pub title_style: Style,
+    title_style: Style,
     /// Week number style.
-    pub week_style: Style,
+    week_style: Style,
     /// Styling for a single date.
-    pub day_style: Box<dyn Fn(NaiveDate) -> Style>,
+    day_style: Box<dyn Fn(NaiveDate) -> Style>,
     /// Start date of the month.
-    pub start_date: NaiveDate,
+    start_date: NaiveDate,
     /// Locale
-    pub loc: chrono::Locale,
+    loc: chrono::Locale,
 }
 
 /// Composite style for the calendar.
@@ -29,15 +30,40 @@ pub struct MonthStyle {
     pub title_style: Style,
     pub week_style: Style,
     pub day_style: Box<dyn Fn(NaiveDate) -> Style>,
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// Month state.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct MonthState {
     pub area: Rect,
     pub area_month: Rect,
     pub area_days: [Rect; 31],
     pub weeks: [Rect; 6],
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for MonthStyle {
+    fn default() -> Self {
+        Self {
+            title_style: Default::default(),
+            week_style: Default::default(),
+            day_style: Box::new(|_| Style::default()),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl Default for MonthState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            area_month: Default::default(),
+            area_days: [Rect::default(); 31],
+            weeks: [Rect::default(); 6],
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl Debug for MonthStyle {

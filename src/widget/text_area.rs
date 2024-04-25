@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::{
     ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling, MouseOnly,
     ScrollParam, ScrolledWidget,
@@ -14,10 +15,10 @@ use tui_textarea::{CursorMove, TextArea};
 
 #[derive(Debug, Default, Clone)]
 pub struct TextAreaExt<'a> {
-    pub _phantom: PhantomData<&'a ()>,
+    _phantom: PhantomData<&'a ()>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct TextAreaExtState<'a> {
     pub area: Rect,
     pub focus: FocusFlag,
@@ -25,6 +26,8 @@ pub struct TextAreaExtState<'a> {
     pub max_v_offset: usize,
     pub max_h_offset: usize,
     pub widget: TextArea<'a>,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a, State> ScrolledWidget<State> for TextAreaExt<'a> {
@@ -52,6 +55,19 @@ impl<'a> StatefulWidget for TextAreaExt<'a> {
 
         let widget = state.widget.widget();
         widget.render(area, buf);
+    }
+}
+
+impl<'a> Default for TextAreaExtState<'a> {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            focus: Default::default(),
+            max_v_offset: 0,
+            max_h_offset: 0,
+            widget: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

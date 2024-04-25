@@ -1,6 +1,7 @@
 //!
 //! A simple button.
 //!
+use crate::_private::NonExhaustive;
 use crate::{ct_event, FocusFlag};
 use crate::{ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
@@ -18,19 +19,31 @@ use std::fmt::Debug;
 /// Simple button.
 #[derive(Debug)]
 pub struct Button<'a, A> {
-    pub text: Line<'a>,
-    pub action: A,
-    pub style: Style,
-    pub focus_style: Style,
-    pub armed_style: Style,
+    text: Line<'a>,
+    action: A,
+    style: Style,
+    focus_style: Style,
+    armed_style: Style,
 }
 
 /// Composite style.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct ButtonStyle {
     pub style: Style,
     pub focus: Style,
     pub armed: Style,
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for ButtonStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            focus: Default::default(),
+            armed: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl<'a, A: Default> Default for Button<'a, A> {

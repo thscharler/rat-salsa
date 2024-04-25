@@ -22,7 +22,7 @@ use rat_salsa::widget::scrolled::{Scrolled, ScrolledState};
 use rat_salsa::widget::table::{TableExt, TableExtState, TableExtStyle};
 use rat_salsa::widget::text_area::{TextAreaExt, TextAreaExtState};
 use rat_salsa::widget::tree::{TreeExt, TreeExtState};
-use rat_salsa::widget::viewport::{Viewport, ViewportState};
+use rat_salsa::widget::viewport::ViewportState;
 use rat_salsa::{
     check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
     Focus, HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
@@ -1768,7 +1768,7 @@ impl Theme {
             focus: Style::default().fg(self.black).bg(self.green),
             select: Style::default().fg(self.black).bg(self.base0e),
             invalid: Style::default().red().underlined(),
-            ..MaskedInputStyle::default()
+            ..Default::default()
         }
     }
 
@@ -1777,6 +1777,7 @@ impl Theme {
             style: Style::default().fg(self.black).bg(self.purple).bold(),
             focus: Style::default().fg(self.black).bg(self.green).bold(),
             armed: Style::default().fg(self.black).bg(self.orange).bold(),
+            ..Default::default()
         }
     }
 
@@ -1784,6 +1785,7 @@ impl Theme {
         StatusDialogStyle {
             style: self.status_style(),
             button: self.button_style(),
+            ..Default::default()
         }
     }
 
@@ -1793,6 +1795,7 @@ impl Theme {
             title: Style::default().fg(self.black).bg(self.base0a).bold(),
             select: Style::default().fg(self.black).bg(self.base0e).bold(),
             focus: Style::default().fg(self.black).bg(self.green).bold(),
+            ..Default::default()
         }
     }
 }

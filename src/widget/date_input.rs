@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
 use crate::{
     ct_event, CanValidate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm,
@@ -17,7 +18,7 @@ use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Default)]
 pub struct DateInput {
-    pub input: MaskedInput,
+    input: MaskedInput,
 }
 
 impl DateInput {
@@ -70,11 +71,23 @@ impl FrameWidget for DateInput {
     }
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct DateInputState {
     pub input: MaskedInputState,
     pub pattern: String,
     pub locale: chrono::Locale,
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for DateInputState {
+    fn default() -> Self {
+        Self {
+            input: Default::default(),
+            pattern: Default::default(),
+            locale: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl DateInputState {

@@ -7,6 +7,7 @@ use crate::widget::button::{Button, ButtonState, ButtonStyle};
 use crate::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use crate::widget::scrolled::{Scrolled, ScrolledState};
 use crate::ControlUI;
+use crate::_private::NonExhaustive;
 use crate::{check_break, ct_event};
 use crate::{DefaultKeys, HandleCrossterm};
 use crossterm::event::Event;
@@ -22,28 +23,30 @@ use std::fmt::Debug;
 /// Basic status line.
 #[derive(Debug, Default)]
 pub struct StatusLine {
-    pub style: Style,
+    style: Style,
 }
 
 /// State for the status line.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct StatusLineState {
     pub area: Rect,
     pub status: String,
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// Basic status dialog for longer messages.
 #[derive(Debug, Default)]
 pub struct StatusDialog {
-    pub style: Style,
-    pub button_style: ButtonStyle,
+    style: Style,
+    button_style: ButtonStyle,
 }
 
 /// Combined style.
-#[derive(Default, Debug)]
+#[derive(Debug)]
 pub struct StatusDialogStyle {
     pub style: Style,
     pub button: ButtonStyle,
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// State for the status dialog.
@@ -54,6 +57,7 @@ pub struct StatusDialogState {
     pub message: ScrolledState<ParagraphExtState>,
     pub button: ButtonState<bool>,
     pub log: String,
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl StatusLine {
@@ -67,6 +71,16 @@ impl StatusLine {
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
         self
+    }
+}
+
+impl Default for StatusLineState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            status: "".to_string(),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 
@@ -121,6 +135,16 @@ impl StatusDialog {
     }
 }
 
+impl Default for StatusDialogStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            button: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 impl StatusDialogState {
     /// Clear
     pub fn clear_log(&mut self) {
@@ -147,6 +171,7 @@ impl Default for StatusDialogState {
             message: Default::default(),
             button: Default::default(),
             log: Default::default(),
+            non_exhaustive: NonExhaustive,
         };
         s.button.focus.set();
         s
