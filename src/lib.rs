@@ -32,3 +32,8 @@ pub use lib_validate::{CanValidate, HasValidFlag, ValidFlag};
 pub use lib_widget::{FrameWidget, RenderFrameWidget};
 
 pub use pure_rust_locales::Locale;
+
+mod _private {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct NonExhaustive;
+}

@@ -18,6 +18,7 @@ pub mod scrolled;
 pub mod table;
 pub mod text_area;
 pub mod tree;
+pub mod viewport;
 
 /// Small helper for handling mouse-events.
 ///

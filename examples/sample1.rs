@@ -22,17 +22,18 @@ use rat_salsa::widget::scrolled::{Scrolled, ScrolledState};
 use rat_salsa::widget::table::{TableExt, TableExtState, TableExtStyle};
 use rat_salsa::widget::text_area::{TextAreaExt, TextAreaExtState};
 use rat_salsa::widget::tree::{TreeExt, TreeExtState};
+use rat_salsa::widget::viewport::{Viewport, ViewportState};
 use rat_salsa::{
     check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
     Focus, HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
     RunConfig, Timed, Timers, TuiApp,
 };
 use rat_salsa::{SetSelection, SingleSelection};
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, BorderType, Borders, ListItem, Row, Wrap};
+use ratatui::widgets::{Bar, BarChart, BarGroup, Block, BorderType, Borders, ListItem, Row, Wrap};
 use ratatui::Frame;
 use std::fs;
 use std::iter::repeat_with;
@@ -89,7 +90,7 @@ pub struct FormOneState {
     pub scrolled_table: FormScrolledTable,
     pub scrolled_list: FormScrolledList,
     pub text_area: FormTextArea,
-    pub tree: FormTree,
+    pub scroll_other: FormOther,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -163,8 +164,9 @@ pub struct FormTextArea {
 }
 
 #[derive(Debug)]
-pub struct FormTree {
+pub struct FormOther {
     pub tree: ScrolledState<TreeExtState<usize>>,
+    pub chart: ScrolledState<ViewportState>,
 }
 
 impl FormOneState {
@@ -178,7 +180,7 @@ impl FormOneState {
             scrolled_table: FormScrolledTable::new(),
             scrolled_list: FormScrolledList::new(),
             text_area: FormTextArea::new(),
-            tree: FormTree::new(),
+            scroll_other: FormOther::new(),
         };
         s.menu.select(Some(0));
         s
@@ -280,10 +282,11 @@ impl FormTextArea {
     }
 }
 
-impl FormTree {
+impl FormOther {
     pub fn new() -> Self {
         Self {
             tree: Default::default(),
+            chart: Default::default(),
         }
     }
 }
@@ -493,14 +496,14 @@ fn repaint_menu(
     let menu = MenuLine::new()
         .style(uistate.g.theme.menu_style())
         .title("Select form:")
-        .add("_TextField", MenuItem::Text)
-        .add("_DateField", MenuItem::Date)
-        .add("_Scrolling", MenuItem::Paragraph)
+        .add("TextField", MenuItem::Text)
+        .add("DateField", MenuItem::Date)
+        .add("Scrolling", MenuItem::Paragraph)
         .add("Table", MenuItem::Table)
         .add("List", MenuItem::List)
         .add("TextArea", MenuItem::TextArea)
-        .add("Tree", MenuItem::Tree)
-        .add("_Error", MenuItem::Error)
+        .add("Other", MenuItem::Tree)
+        .add("Error", MenuItem::Error)
         .add("_Quit", MenuItem::Quit);
     frame.render_stateful_widget(menu, layout.menu, &mut uistate.menu);
 
@@ -1518,7 +1521,12 @@ fn repaint_tree(
 ) -> Control {
     let l_columns = Layout::new(
         Direction::Horizontal,
-        [Constraint::Fill(5), Constraint::Fill(1)],
+        [
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+            Constraint::Fill(2),
+            Constraint::Fill(1),
+        ],
     )
     .split(Rect::new(
         layout.area.x,
@@ -1611,15 +1619,58 @@ fn repaint_tree(
     ]));
 
     for i in 0..60 {
-        uistate.tree.tree.widget.widget.open(vec![i / 10]);
-        uistate.tree.tree.widget.widget.open(vec![i / 10, i]);
+        uistate.scroll_other.tree.widget.widget.open(vec![i / 10]);
+        uistate
+            .scroll_other
+            .tree
+            .widget
+            .widget
+            .open(vec![i / 10, i]);
     }
-    frame.render_stateful_widget(tree, l_columns[0], &mut uistate.tree.tree);
+    frame.render_stateful_widget(tree, l_columns[0], &mut uistate.scroll_other.tree);
+
+    let w_chart = BarChart::default()
+        .block(Block::default().title("BarChart").borders(Borders::ALL))
+        .bar_width(3)
+        .bar_gap(1)
+        .group_gap(3)
+        .bar_style(Style::new().yellow().on_red())
+        .value_style(Style::new().red().bold())
+        .label_style(Style::new().white())
+        .data(&[("B0", 0), ("B1", 2), ("B2", 4), ("B3", 3)])
+        .data(BarGroup::default().bars(&[Bar::default().value(10), Bar::default().value(20)]))
+        .max(4);
+
+    let v = Viewport {
+        viewport_size: Default::default(),
+        style: Default::default(),
+        fill_char: ' ',
+        widget: (),
+        ..Default::default()
+    };
+
+    let vv = ViewportState {
+        area: Default::default(),
+        viewport_area: Default::default(),
+        h_offset: 0,
+        v_offset: 0,
+        ..Default::default()
+    };
+
+    let w_chart = Scrolled::new(
+        Viewport::new(w_chart)
+            .viewport_size(Size::new(60, 60))
+            .style(Style::default().fg(uistate.g.theme.red))
+            .fill_char('∞'),
+    )
+    .h_overscroll(10)
+    .v_overscroll(10);
+    frame.render_stateful_widget(w_chart, l_columns[2], &mut uistate.scroll_other.chart);
 
     ControlUI::Continue
 }
 
-fn focus_tree(state: &FormTree) -> Focus<'_> {
+fn focus_tree(state: &FormOther) -> Focus<'_> {
     Focus::new([(state.tree.focus(), state.tree.area())])
 }
 
@@ -1628,13 +1679,16 @@ fn handle_tree(
     data: &mut FormOneData,
     uistate: &mut FormOneState,
 ) -> ControlUI<FormOneAction, anyhow::Error> {
-    check_break!(focus_tree(&uistate.tree)
+    check_break!(focus_tree(&uistate.scroll_other)
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
         .and_then(|_| { ControlUI::Change })
         .map_err(|_| anyhow!("wtf")));
 
-    uistate.tree.tree.handle(event, DefaultKeys)
+    check_break!(uistate.scroll_other.tree.handle(event, DefaultKeys));
+    check_break!(uistate.scroll_other.chart.handle(event, DefaultKeys));
+
+    ControlUI::Continue
 }
 
 // -----------------------------------------------------------------------
