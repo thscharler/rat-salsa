@@ -1,3 +1,5 @@
+use crate::_private::NonExhaustive;
+use crate::widget::viewport::Viewport;
 ///
 /// Add scrolling behaviour to a widget.
 ///
@@ -13,7 +15,7 @@ use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};
 use ratatui::symbols::scrollbar::Set;
 use ratatui::widgets::{
@@ -25,31 +27,29 @@ use std::cmp::min;
 #[derive(Debug, Default, Clone)]
 pub struct Scrolled<'a, T> {
     /// widget
-    pub widget: T,
+    widget: T,
 
-    pub h_overscroll: usize,
-    pub v_overscroll: usize,
-    pub h_scroll_policy: ScrollbarPolicy,
-    pub v_scroll_policy: ScrollbarPolicy,
-    pub h_scroll_position: HScrollPosition,
-    pub v_scroll_position: VScrollPosition,
+    h_overscroll: usize,
+    v_overscroll: usize,
+    h_scroll_policy: ScrollbarPolicy,
+    v_scroll_policy: ScrollbarPolicy,
+    h_scroll_position: HScrollPosition,
+    v_scroll_position: VScrollPosition,
 
-    pub block: Option<Block<'a>>,
+    block: Option<Block<'a>>,
 
-    pub thumb_symbol: Option<&'a str>,
-    pub thumb_style: Option<Style>,
-    pub track_symbol: Option<&'a str>,
-    pub track_style: Option<Style>,
-    pub begin_symbol: Option<&'a str>,
-    pub begin_style: Option<Style>,
-    pub end_symbol: Option<&'a str>,
-    pub end_style: Option<Style>,
-
-    pub non_exhaustive: (),
+    thumb_symbol: Option<&'a str>,
+    thumb_style: Option<Style>,
+    track_symbol: Option<&'a str>,
+    track_style: Option<Style>,
+    begin_symbol: Option<&'a str>,
+    begin_style: Option<Style>,
+    end_symbol: Option<&'a str>,
+    end_style: Option<Style>,
 }
 
 /// Scrolled state.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct ScrolledState<S> {
     pub widget: S,
 
@@ -65,7 +65,7 @@ pub struct ScrolledState<S> {
     pub v_drag: bool,
     pub h_drag: bool,
 
-    pub non_exhaustive: (),
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// This policy plus ScrollParam allow to decide what to show.
@@ -113,7 +113,6 @@ impl<'a, T> Scrolled<'a, T> {
             begin_style: None,
             end_symbol: None,
             end_style: None,
-            non_exhaustive: (),
         }
     }
 
@@ -218,6 +217,49 @@ impl<'a, T> Scrolled<'a, T> {
         self.thumb_style = Some(style);
         self.begin_style = Some(style);
         self.end_style = Some(style);
+        self
+    }
+}
+
+impl<'a, T> Scrolled<'a, Viewport<T>>
+where
+    T: Widget,
+{
+    pub fn new_viewport(inner: T) -> Scrolled<'a, Viewport<T>> {
+        Self {
+            widget: Viewport::new(inner),
+            h_overscroll: 0,
+            v_overscroll: 0,
+            h_scroll_policy: Default::default(),
+            v_scroll_policy: Default::default(),
+            h_scroll_position: Default::default(),
+            v_scroll_position: Default::default(),
+            block: None,
+            thumb_symbol: None,
+            thumb_style: None,
+            track_symbol: None,
+            track_style: None,
+            begin_symbol: None,
+            begin_style: None,
+            end_symbol: None,
+            end_style: None,
+        }
+    }
+
+    /// Size for the inner widget.
+    pub fn viewport_size(mut self, size: Size) -> Self {
+        self.widget = self.widget.viewport_size(size);
+        self
+    }
+
+    /// Style for the empty space outside the rendered buffer.
+    pub fn viewport_style(mut self, style: Style) -> Self {
+        self.widget = self.widget.style(style);
+        self
+    }
+
+    pub fn viewport_fill_char(mut self, fill_char: char) -> Self {
+        self.widget = self.widget.fill_char(fill_char);
         self
     }
 }
@@ -423,6 +465,23 @@ impl VScrollPosition {
     }
 }
 
+impl<S: Default> Default for ScrolledState<S> {
+    fn default() -> Self {
+        Self {
+            widget: Default::default(),
+            area: Default::default(),
+            view_area: Default::default(),
+            h_scrollbar_area: None,
+            v_scrollbar_area: None,
+            v_overscroll: 0,
+            h_overscroll: 0,
+            v_drag: false,
+            h_drag: false,
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 impl<S: HasScrolling> ScrolledState<S> {
     /// Current vertical offset.
     pub fn v_offset(&self) -> usize {
@@ -504,6 +563,10 @@ impl<S: HasScrolling> ScrolledState<S> {
             self.widget.max_h_offset() + self.h_overscroll,
         );
         self.set_h_offset(hoffset);
+    }
+
+    pub fn widget_mut(&mut self) -> &mut S {
+        &mut self.widget
     }
 }
 

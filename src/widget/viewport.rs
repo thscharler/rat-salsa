@@ -17,24 +17,21 @@ use ratatui::style::Style;
 /// the buffer where the contained widget is rendered.
 ///
 /// This buffer is the base for scrolling behaviour.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct Viewport<T> {
     /// Viewport size.
     /// There is only need for a size, the widget gets a buffer with
     /// x and y set to the rendering area.
-    pub viewport_size: Size,
+    viewport_size: Size,
     /// Style for the empty space, when scrolling goes beyond the
     /// buffer size.
-    pub style: Style,
+    style: Style,
     /// Character to be drawn when scrolling goes beyond the buffer
     /// size
-    pub fill_char: char,
+    fill_char: char,
 
     /// The widget.
-    pub widget: T,
-
-    /// Only construct with `..Default::default()`.
-    pub non_exhaustive: NonExhaustive,
+    widget: T,
 }
 
 /// State of the viewport.
@@ -53,18 +50,6 @@ pub struct ViewportState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<T: Default> Default for Viewport<T> {
-    fn default() -> Self {
-        Self {
-            viewport_size: Default::default(),
-            style: Default::default(),
-            fill_char: ' ',
-            widget: Default::default(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
 impl<T> Viewport<T> {
     /// New viewport.
     pub fn new(inner: T) -> Self {
@@ -73,7 +58,6 @@ impl<T> Viewport<T> {
             style: Default::default(),
             fill_char: ' ',
             widget: inner,
-            non_exhaustive: NonExhaustive,
         }
     }
 
