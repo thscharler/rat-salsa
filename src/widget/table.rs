@@ -549,7 +549,6 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TableExtState<SingleS
         match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    debug!("scroll down");
                     self.scroll_down(self.table_area.height as usize / 10);
                     ControlUI::Change
                 } else {

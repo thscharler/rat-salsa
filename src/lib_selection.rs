@@ -42,7 +42,7 @@ pub trait ListSelection {
 // }
 
 /// No selection
-#[derive(Debug, PartialEq, Eq, Clone)]
+#[derive(Debug, Default, PartialEq, Eq, Clone)]
 pub struct NoSelection;
 
 impl ListSelection for NoSelection {

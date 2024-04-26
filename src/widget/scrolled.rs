@@ -304,8 +304,8 @@ where
     }
 }
 
-fn render_impl<'a, FnRender, T, S>(
-    widget: &Scrolled<'a, T>,
+fn render_impl<FnRender, T, S>(
+    widget: &Scrolled<'_, T>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut ScrolledState<S>,

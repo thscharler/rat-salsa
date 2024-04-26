@@ -10,7 +10,7 @@ use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style};
-use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState};
+use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState, Widget};
 use std::marker::PhantomData;
 use std::mem;
 
@@ -176,13 +176,21 @@ impl<'a, State, Selection: ListSelection> ScrolledWidget<State> for ListExt<'a, 
     }
 }
 
+impl<'a, Selection: Default + ListSelection> Widget for ListExt<'a, Selection> {
+    fn render(self, area: Rect, buf: &mut Buffer)
+    where
+        Self: Sized,
+    {
+        StatefulWidget::render(self, area, buf, &mut ListExtState::default());
+    }
+}
+
 impl<'a, Selection: ListSelection> StatefulWidget for ListExt<'a, Selection> {
     type State = ListExtState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.len = self.len();
-        debug!("state.len {}", state.len);
 
         state.list_area = self.block.inner_if_some(area);
 
@@ -204,9 +212,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for ListExt<'a, Selection> {
                 break;
             }
         }
-        debug!("item areas {:#?}", state.item_areas);
         state.v_page_len = state.item_areas.len();
-        debug!("pagelen {}", state.v_page_len);
 
         // max_h_offset
         let mut n = 0;
@@ -341,7 +347,6 @@ impl<Selection: ListSelection> ListExtState<Selection> {
 
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
         for (i, r) in self.item_areas.iter().enumerate() {
-            debug!("list item {:?}", r);
             if r.contains(pos) {
                 return Some(self.offset() + i);
             }
@@ -491,10 +496,8 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ListExtState<SingleSe
             ct_event!(mouse down Left for column, row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
-                    debug!("select {:?}", pos);
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.mouse.set_drag();
-                        debug!("selection {}", new_row);
                         self.selection
                             .select_clamped(new_row, self.len.saturating_sub(1));
                         ControlUI::Change
