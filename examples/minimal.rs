@@ -263,12 +263,15 @@ fn handle_mask0(event: &Event, data: &mut MinimalData, uistate: &mut MinimalStat
 
     // TODO: handle_mask
 
-    check_break!(mask0.menu.handle(event, DefaultKeys).and_then(|a| match a {
-        0 => {
-            Control::Break
-        }
-        _ => Control::Continue,
-    }));
+    check_break!(mask0
+        .menu
+        .handle(event, DefaultKeys)
+        .on_action(|a| match a {
+            0 => {
+                Control::Break
+            }
+            _ => Control::Continue,
+        }));
 
     Control::Continue
 }

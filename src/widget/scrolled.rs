@@ -627,7 +627,7 @@ where
             <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly);
 
         // Let the widget handle the rest.
-        res.or_else(|| self.widget.handle(event, DefaultKeys))
+        res.on_continue(|| self.widget.handle(event, DefaultKeys))
     }
 }
 
@@ -757,7 +757,7 @@ where
             _ => ControlUI::Continue,
         };
 
-        res.or_else(|| self.widget.handle(event, MouseOnly))
+        res.on_continue(|| self.widget.handle(event, MouseOnly))
     }
 }
 

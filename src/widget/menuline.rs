@@ -386,7 +386,7 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineState
             ControlUI::Continue
         };
 
-        res.or_else(|| self.handle(event, MouseOnly))
+        res.on_continue(|| self.handle(event, MouseOnly))
     }
 }
 

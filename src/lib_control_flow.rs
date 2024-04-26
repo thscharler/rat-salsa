@@ -152,7 +152,7 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// If the value is Continue, change to c.
     #[inline]
-    pub fn or(self, c: impl Into<ControlUI<Action, Err>>) -> ControlUI<Action, Err> {
+    pub fn on_continue_take(self, c: impl Into<ControlUI<Action, Err>>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => c.into(),
             _ => self,
@@ -161,7 +161,7 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Run the continuation if the value is Continue.
     #[inline]
-    pub fn or_else(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
+    pub fn on_continue(self, f: impl FnOnce() -> ControlUI<Action, Err>) -> ControlUI<Action, Err> {
         match self {
             ControlUI::Continue => f(),
             _ => self,
@@ -170,7 +170,7 @@ impl<Action, Err> ControlUI<Action, Err> {
 
     /// Run the continuation if the value is Continue. May return some R.
     #[inline]
-    pub fn or_do<R: Default>(&self, f: impl FnOnce() -> R) -> R {
+    pub fn on_continue_do<R: Default>(&self, f: impl FnOnce() -> R) -> R {
         match self {
             ControlUI::Continue => f(),
             _ => R::default(),
@@ -198,7 +198,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     ///
     /// Caveat: Allows no differentiation between Run and Spawn.
     #[inline]
-    pub fn and_then<Other>(
+    pub fn on_action<Other>(
         self,
         f: impl FnOnce(Action) -> ControlUI<Other, Err>,
     ) -> ControlUI<Other, Err> {
@@ -217,7 +217,7 @@ impl<Action, Err> ControlUI<Action, Err> {
     ///
     /// Caveat: Allows no differentiation between Run and Spawn.
     #[inline]
-    pub fn and_do<R: Default>(&self, f: impl FnOnce(&Action) -> R) -> R {
+    pub fn on_action_do<R: Default>(&self, f: impl FnOnce(&Action) -> R) -> R {
         match self {
             ControlUI::Run(a) => f(a),
             ControlUI::Spawn(a) => f(a),

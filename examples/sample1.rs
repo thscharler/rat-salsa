@@ -518,8 +518,8 @@ fn handle_menu(event: &Event, data: &mut FormOneData, uistate: &mut FormOneState
     check_break!(uistate
         .menu
         .handle(event, DefaultKeys)
-        .or_else(|| uistate.menu.handle(event, HotKeyAlt))
-        .and_then(|a| match a {
+        .on_continue(|| uistate.menu.handle(event, HotKeyAlt))
+        .on_action(|a| match a {
             MenuItem::Quit => {
                 Control::Break
             }
@@ -756,7 +756,7 @@ fn handle_textinput(event: &Event, data: &mut FormOneData, uistate: &mut FormOne
     focus_textinput(mask0)
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
-        .and_do(|_| uistate.g.repaint.set());
+        .on_action_do(|_| uistate.g.repaint.set());
 
     on_lost!(
         mask0.decimal => {
@@ -930,7 +930,7 @@ fn handle_dateinput(event: &Event, data: &mut FormOneData, uistate: &mut FormOne
     focus_dateinput(mask1)
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
-        .and_do(|_| uistate.g.repaint.set());
+        .on_action_do(|_| uistate.g.repaint.set());
 
     validate!(mask1.date1, mask1.date2, mask1.date3);
 
@@ -1080,7 +1080,7 @@ fn handle_scrolled_paragraph(
     Focus::new([])
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
-        .and_do(|_| uistate.g.repaint.set());
+        .on_action_do(|_| uistate.g.repaint.set());
 
     check_break!(mask2.para1.handle(event, DefaultKeys));
     check_break!(mask2.para2.handle(event, DefaultKeys));
@@ -1373,7 +1373,7 @@ fn handle_scrolled_table(
     focus_table(state)
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
-        .and_do(|_| uistate.g.repaint.set());
+        .on_action_do(|_| uistate.g.repaint.set());
 
     check_break!(uistate.scrolled_table.table1.handle(event, DefaultKeys));
     check_break!(uistate.scrolled_table.table2.handle(event, DefaultKeys));
@@ -1434,7 +1434,7 @@ fn handle_scrolled_list(
     focus_list(&uistate.scrolled_list)
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
-        .and_do(|_| uistate.g.repaint.set());
+        .on_action_do(|_| uistate.g.repaint.set());
 
     uistate.scrolled_list.list1.handle(event, DefaultKeys)
 }
@@ -1506,7 +1506,7 @@ fn handle_textarea(
     check_break!(focus_textarea(&uistate.text_area)
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
-        .and_then(|_| { ControlUI::Change })
+        .on_action(|_| { ControlUI::Change })
         .map_err(|_| anyhow!("wtf")));
 
     uistate.text_area.text.handle(event, DefaultKeys)
@@ -1664,7 +1664,7 @@ fn handle_tree(
     check_break!(focus_tree(&uistate.scroll_other)
         .append(focus_menu(&uistate.menu))
         .handle(event, DefaultKeys)
-        .and_then(|_| { ControlUI::Change })
+        .on_action(|_| { ControlUI::Change })
         .map_err(|_| anyhow!("wtf")));
 
     check_break!(uistate.scroll_other.tree.handle(event, DefaultKeys));

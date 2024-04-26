@@ -449,12 +449,12 @@ pub mod app {
 
         focus_mask0(state)
             .handle(evt, DefaultKeys)
-            .and_do(|_| uistate.repaint.set());
+            .on_action_do(|_| uistate.repaint.set());
 
         // alternate focus keys
         focus_mask0(state)
             .handle(evt, ExKeys)
-            .and_do(|_| uistate.repaint.set());
+            .on_action_do(|_| uistate.repaint.set());
 
         // validation and reformat on focus lost.
         on_lost!(

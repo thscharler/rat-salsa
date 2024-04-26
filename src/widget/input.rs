@@ -250,7 +250,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputState {
             }
         };
 
-        res.or_else(|| self.handle(event, MouseOnly))
+        res.on_continue(|| self.handle(event, MouseOnly))
     }
 }
 

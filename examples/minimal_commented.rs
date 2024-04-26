@@ -305,12 +305,15 @@ fn handle_mask0(event: &Event, data: &mut MinimalData, uistate: &mut MinimalStat
     //      - on_change/on_no_change: run on ControlUI::Change/ControlUI::NoChange
     //      ...
     // check_break returns early if the result differs from ControlUI::Continue
-    check_break!(mask0.menu.handle(event, DefaultKeys).and_then(|a| match a {
-        0 => {
-            Control::Break
-        }
-        _ => Control::Continue,
-    }));
+    check_break!(mask0
+        .menu
+        .handle(event, DefaultKeys)
+        .on_action(|a| match a {
+            0 => {
+                Control::Break
+            }
+            _ => Control::Continue,
+        }));
 
     Control::Continue
 }

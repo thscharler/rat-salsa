@@ -325,7 +325,7 @@ where
             }
         };
 
-        res.or_else(|| self.handle(event, MouseOnly))
+        res.on_continue(|| self.handle(event, MouseOnly))
     }
 }
 

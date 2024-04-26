@@ -240,7 +240,7 @@ where
         // panic on worker panic
         worker.check_liveness();
 
-        flow = flow.or_else(|| 'f: {
+        flow = flow.on_continue(|| 'f: {
             if poll_queue.is_empty() {
                 if poll_repaint_flag(app, uistate) {
                     poll_queue.push_back(PollNext::RepaintFlag);

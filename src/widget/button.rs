@@ -215,7 +215,7 @@ impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ButtonState<
             ControlUI::Continue
         };
 
-        res.or_else(|| {
+        res.on_continue(|| {
             <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly)
         })
     }

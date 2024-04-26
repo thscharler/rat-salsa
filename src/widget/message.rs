@@ -221,7 +221,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for StatusDialogState {
         check_break!(self.message.handle(event, DefaultKeys));
 
         check_break!(if self.active {
-            self.button.handle(event, DefaultKeys).and_then(|_a| {
+            self.button.handle(event, DefaultKeys).on_action(|_a| {
                 self.clear_log();
                 ControlUI::Change
             })

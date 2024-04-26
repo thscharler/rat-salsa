@@ -425,7 +425,7 @@ where
             }
         };
 
-        r.or_else(|| {
+        r.on_continue(|| {
             let r = self.input.handle(event, DefaultKeys);
             r.on_change_do(|| {
                 self.input.set_valid_from(self.value());

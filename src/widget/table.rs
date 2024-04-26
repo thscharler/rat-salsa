@@ -538,7 +538,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SingleSelection> {
             ControlUI::Continue
         };
 
-        res.or_else(|| {
+        res.on_continue(|| {
             <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly)
         })
     }
@@ -764,7 +764,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for TableExtState<SetSelection> {
             ControlUI::Continue
         };
 
-        res.or_else(|| {
+        res.on_continue(|| {
             <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly)
         })
     }
