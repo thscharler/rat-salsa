@@ -56,6 +56,7 @@ pure-rust-locales = "0.8"
 memchr = "2.7.2"
 tui-textarea = { version = "0.4.0", features = ["ratatui", "crossterm"] }
 tui-tree-widget = "0.19.0"
+format_num_pattern = "0.9"
 
 #[dependencies.ratatui]
 #version = "0.26"

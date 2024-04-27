@@ -46,7 +46,6 @@
 //! ```
 
 use crate::_private::NonExhaustive;
-use crate::number::NumberSymbols;
 use crate::util::clamp_shift;
 use crate::widget::basic::ClearStyle;
 use crate::widget::mask_input::core::InputMaskCore;
@@ -55,6 +54,7 @@ use crate::{ct_event, grapheme, tr};
 use crate::{ControlUI, ValidFlag};
 use crate::{DefaultKeys, FrameWidget, HandleCrossterm, MouseOnly};
 use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
+use format_num_pattern::NumberSymbols;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Margin, Position, Rect};
@@ -64,7 +64,6 @@ use ratatui::text::Span;
 use ratatui::Frame;
 use std::fmt;
 use std::ops::Range;
-use std::rc::Rc;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Text input widget with input mask.
@@ -368,7 +367,7 @@ impl MaskedInputState {
         Self::default()
     }
 
-    pub fn new_with_symbols(sym: &Rc<NumberSymbols>) -> Self {
+    pub fn new_with_symbols(sym: NumberSymbols) -> Self {
         Self {
             value: InputMaskCore::new_with_symbols(sym),
             ..Self::default()
@@ -491,7 +490,7 @@ impl MaskedInputState {
     ///
     /// These are only used for rendering and to map user input.
     /// The value itself uses ".", "," and "-".
-    pub fn set_num_symbols(&mut self, sym: &Rc<NumberSymbols>) {
+    pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
         self.value.set_num_symbols(sym);
     }
 
@@ -662,15 +661,15 @@ impl HasValidFlag for MaskedInputState {
 }
 
 pub mod core {
+    use crate::grapheme;
     use crate::grapheme::gr_len;
-    use crate::number::{CurrencySym, NumberFormat, NumberSymbols};
-    use crate::{grapheme, number};
+    use format_num_pattern as number;
+    use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};
     #[allow(unused_imports)]
     use log::debug;
     use std::fmt::{Debug, Display, Formatter};
     use std::iter::{once, repeat_with};
     use std::ops::Range;
-    use std::rc::Rc;
     use std::{fmt, mem};
     use unicode_segmentation::UnicodeSegmentation;
 
@@ -1224,7 +1223,7 @@ pub mod core {
 
         fn remap_number(submask: &[MaskToken], v: &str) -> Result<String, fmt::Error> {
             // to be safe, always use our internal symbol set.
-            let sym = Rc::new(NumberSymbols {
+            let sym = NumberSymbols {
                 decimal_sep: '.',
                 decimal_grp: Some(','),
                 negative_sym: '-',
@@ -1232,11 +1231,11 @@ pub mod core {
                 exponent_upper_sym: 'E',
                 exponent_lower_sym: 'e',
                 currency_sym: CurrencySym::new("$"),
-            });
+            };
 
             // remove all non numbers and leading 0.
             let mut clean = String::new();
-            _ = number::core::clean_num(v, sym.as_ref(), &mut clean);
+            _ = number::core::clean_num(v, &sym, &mut clean);
 
             // create number format
             let mut tok = String::new();
@@ -1261,7 +1260,7 @@ pub mod core {
                 }
             }
 
-            let fmt = match NumberFormat::news(tok, &sym) {
+            let fmt = match NumberFormat::news(tok, sym) {
                 Ok(v) => v,
                 Err(_) => return Err(fmt::Error),
             };
@@ -1289,7 +1288,7 @@ pub mod core {
         cursor: usize,
         anchor: usize,
 
-        sym: Option<Rc<NumberSymbols>>,
+        sym: Option<NumberSymbols>,
     }
 
     impl InputMaskCore {
@@ -1297,7 +1296,7 @@ pub mod core {
             Self::default()
         }
 
-        pub fn new_with_symbols(sym: &Rc<NumberSymbols>) -> Self {
+        pub fn new_with_symbols(sym: NumberSymbols) -> Self {
             Self {
                 mask: Default::default(),
                 value: Default::default(),
@@ -1307,7 +1306,7 @@ pub mod core {
                 width: 0,
                 cursor: 0,
                 anchor: 0,
-                sym: Some(Rc::clone(sym)),
+                sym: Some(sym),
             }
         }
 
@@ -1426,8 +1425,8 @@ pub mod core {
         /// Set the decimal separator and other symbols.
         /// Only used for rendering and to map user input.
         /// The value itself uses "."
-        pub fn set_num_symbols(&mut self, sym: &Rc<NumberSymbols>) {
-            self.sym = Some(Rc::clone(sym));
+        pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
+            self.sym = Some(sym);
         }
 
         fn dec_sep(&self) -> char {
@@ -2763,9 +2762,9 @@ pub mod core {
         })
     }
 
-    pub fn parse_number_symbols(s: &str) -> Rc<NumberSymbols> {
+    pub fn parse_number_symbols(s: &str) -> NumberSymbols {
         let mut s = s.chars();
-        Rc::new(NumberSymbols {
+        NumberSymbols {
             decimal_sep: s.next().expect("decimal_sep"),
             decimal_grp: Some(s.next().expect("decimal_grp")),
             negative_sym: s.next().expect("negative_sym"),
@@ -2773,6 +2772,6 @@ pub mod core {
             exponent_upper_sym: s.next().expect("exponent_upper_sym"),
             exponent_lower_sym: s.next().expect("exponent_lower_sym"),
             currency_sym: s.collect::<String>().as_str().into(),
-        })
+        }
     }
 }

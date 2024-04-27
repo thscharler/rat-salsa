@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["EditDirection","Mask"],"fn":["assert_eq_core","parse_mask","parse_number_symbols","test_input_mask_core","test_state"],"struct":["InputMaskCore","MaskToken"]};

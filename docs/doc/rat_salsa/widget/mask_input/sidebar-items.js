@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["core"],"struct":["MaskedInput","MaskedInputState","MaskedInputStyle"]};

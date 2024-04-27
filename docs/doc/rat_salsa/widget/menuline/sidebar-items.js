@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["HotKeyAlt","HotKeyCtrl","MenuLine","MenuLineState","MenuStyle"]};
