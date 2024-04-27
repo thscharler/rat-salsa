@@ -3,7 +3,6 @@
 #![doc = include_str!("../readme.md")]
 
 pub mod layout;
-pub mod number;
 pub mod widget;
 
 pub(crate) mod grapheme;
