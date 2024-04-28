@@ -2,9 +2,9 @@
 
 use crossbeam::channel::Sender;
 use crossterm::event::Event;
+use rat_input::input::TextInputStyle;
+use rat_input::masked_input::MaskedInputStyle;
 use rat_salsa::widget::button::ButtonStyle;
-use rat_salsa::widget::input::TextInputStyle;
-use rat_salsa::widget::mask_input::MaskedInputStyle;
 use rat_salsa::widget::menuline::{MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
@@ -384,8 +384,7 @@ impl Theme {
             style: Style::default().fg(self.black).bg(self.base05),
             focus: Style::default().fg(self.black).bg(self.green),
             select: Style::default().fg(self.black).bg(self.base0e),
-            cursor: None,
-            ..TextInputStyle::default()
+            ..Default::default()
         }
     }
 
@@ -394,9 +393,8 @@ impl Theme {
             style: Style::default().fg(self.black).bg(self.base05),
             focus: Style::default().fg(self.black).bg(self.green),
             select: Style::default().fg(self.black).bg(self.base0e),
-            cursor: None,
-            invalid: Some(Style::default().fg(Color::White).bg(Color::Red)),
-            ..MaskedInputStyle::default()
+            invalid: Style::default().bg(Color::Red),
+            ..Default::default()
         }
     }
 
@@ -405,6 +403,7 @@ impl Theme {
             style: Style::default().fg(self.black).bg(self.purple).bold(),
             focus: Style::default().fg(self.black).bg(self.green).bold(),
             armed: Style::default().fg(self.black).bg(self.orange).bold(),
+            ..Default::default()
         }
     }
 
@@ -412,6 +411,7 @@ impl Theme {
         StatusDialogStyle {
             style: self.status_style(),
             button: self.button_style(),
+            ..Default::default()
         }
     }
 
@@ -421,6 +421,7 @@ impl Theme {
             title: Style::default().fg(self.black).bg(self.base0a).bold(),
             select: Style::default().fg(self.black).bg(self.base0e).bold(),
             focus: Style::default().fg(self.black).bg(self.green).bold(),
+            ..Default::default()
         }
     }
 }

@@ -1,5 +1,5 @@
 use crate::_private::NonExhaustive;
-use crate::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
+use crate::widget::mask_input::{MaskedInputExt, MaskedInputExtState};
 use crate::{
     ct_event, CanValidate, ControlUI, DefaultKeys, FocusFlag, FrameWidget, HandleCrossterm,
     HasFocusFlag, HasValidFlag, ValidFlag,
@@ -9,7 +9,8 @@ use chrono::{Datelike, Days, Local, Months, NaiveDate};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
-use ratatui::layout::{Margin, Rect};
+use rat_input::masked_input::MaskedInputStyle;
+use ratatui::layout::Rect;
 use ratatui::prelude::Style;
 use ratatui::Frame;
 use std::fmt;
@@ -17,17 +18,11 @@ use std::fmt::Debug;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug, Default)]
-pub struct DateInput {
-    input: MaskedInput,
+pub struct DateInput<'a> {
+    input: MaskedInputExt<'a>,
 }
 
-impl DateInput {
-    /// Use extra insets for the text input.
-    pub fn insets(mut self, insets: Margin) -> Self {
-        self.input = self.input.insets(insets);
-        self
-    }
-
+impl<'a> DateInput<'a> {
     /// Set the combined style.
     pub fn style(mut self, style: MaskedInputStyle) -> Self {
         self.input = self.input.style(style);
@@ -59,7 +54,7 @@ impl DateInput {
     }
 }
 
-impl FrameWidget for DateInput {
+impl<'a> FrameWidget for DateInput<'a> {
     type State = DateInputState;
 
     fn render(self, frame: &mut Frame<'_>, area: Rect, state: &mut Self::State) {
@@ -73,7 +68,7 @@ impl FrameWidget for DateInput {
 
 #[derive(Debug)]
 pub struct DateInputState {
-    pub input: MaskedInputState,
+    pub input: MaskedInputExtState,
     pub pattern: String,
     pub locale: chrono::Locale,
     pub non_exhaustive: NonExhaustive,

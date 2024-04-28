@@ -5,7 +5,6 @@
 pub mod layout;
 pub mod widget;
 
-pub(crate) mod grapheme;
 pub(crate) mod util;
 
 mod lib_control_flow;

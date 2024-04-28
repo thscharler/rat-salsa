@@ -58,6 +58,10 @@ tui-textarea = { version = "0.4.0", features = ["ratatui", "crossterm"] }
 tui-tree-widget = "0.19.0"
 format_num_pattern = "0.9"
 
+[dependencies.rat-input]
+version = "0.9"
+path = "../rat-input"
+
 #[dependencies.ratatui]
 #version = "0.26"
 #features = ["unstable-widget-ref", "unstable-rendered-line-info"]

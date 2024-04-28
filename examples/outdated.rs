@@ -58,9 +58,11 @@ pub mod data {
 
 pub mod state {
     use crate::theme::{Theme, ONEDARK};
+    use rat_input::input::TextInputStyle;
+    use rat_input::masked_input::MaskedInputStyle;
     use rat_salsa::widget::button::ButtonStyle;
-    use rat_salsa::widget::input::{TextInputState, TextInputStyle};
-    use rat_salsa::widget::mask_input::{MaskedInputState, MaskedInputStyle};
+    use rat_salsa::widget::input::TextInputExtState;
+    use rat_salsa::widget::mask_input::MaskedInputExtState;
     use rat_salsa::widget::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
     use rat_salsa::{Repaint, Timers};
     use ratatui::prelude::{Color, Stylize};
@@ -83,8 +85,8 @@ pub mod state {
 
     #[derive(Debug)]
     pub struct Mask0 {
-        pub input_0: MaskedInputState,
-        pub input_1: TextInputState,
+        pub input_0: MaskedInputExtState,
+        pub input_1: TextInputExtState,
         pub timer_1: usize,
         pub roll: usize,
     }
@@ -109,8 +111,7 @@ pub mod state {
                 style: Style::default().fg(self.theme.black).bg(self.theme.base05),
                 focus: Style::default().fg(self.theme.black).bg(self.theme.green),
                 select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
-                cursor: None,
-                ..TextInputStyle::default()
+                ..Default::default()
             }
         }
 
@@ -119,9 +120,8 @@ pub mod state {
                 style: Style::default().fg(self.theme.black).bg(self.theme.base05),
                 focus: Style::default().fg(self.theme.black).bg(self.theme.green),
                 select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
-                cursor: None,
-                invalid: Some(Style::default().fg(Color::White).bg(Color::Red)),
-                ..MaskedInputStyle::default()
+                invalid: Style::default().bg(Color::Red),
+                ..Default::default()
             }
         }
 
@@ -139,12 +139,14 @@ pub mod state {
                     .fg(self.theme.black)
                     .bg(self.theme.orange)
                     .bold(),
+                ..Default::default()
             }
         }
         pub fn status_dialog_style(&self) -> StatusDialogStyle {
             StatusDialogStyle {
                 style: self.status_style(),
                 button: self.button_style(),
+                ..Default::default()
             }
         }
     }
@@ -178,8 +180,8 @@ pub mod app {
     #[allow(unused_imports)]
     use log::debug;
     use rat_salsa::layout::{layout_edit, EditConstraint};
-    use rat_salsa::widget::input::TextInput;
-    use rat_salsa::widget::mask_input::MaskedInput;
+    use rat_salsa::widget::input::TextInputExt;
+    use rat_salsa::widget::mask_input::MaskedInputExt;
     use rat_salsa::widget::message::{StatusDialog, StatusLine};
     use rat_salsa::{
         check_break, on_lost, tr, ControlUI, HasValidFlag, Timed, TimerDef, Timers, TuiApp,
@@ -358,7 +360,7 @@ pub mod app {
 
         let label_edit = Span::from("Datum");
 
-        let edit = MaskedInput::default().style(uistate.g.input_mask_style());
+        let edit = MaskedInputExt::default().style(uistate.g.input_mask_style());
         let label_parsed = Span::from("Parsed");
         let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
         let label_compact = Span::from("No spaces");
@@ -375,7 +377,7 @@ pub mod app {
         frame.render_widget(mask, l_edit0.widget(3));
 
         let label_edit = Span::from("Text");
-        let edit = TextInput::default().style(uistate.g.input_style());
+        let edit = TextInputExt::default().style(uistate.g.input_style());
         frame.render_widget(label_edit, l_edit1.label(0));
         frame.render_frame_widget(edit, l_edit1.widget(0), &mut uistate.mask0.input_1);
 

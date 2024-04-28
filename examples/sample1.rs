@@ -4,15 +4,17 @@
 use anyhow::anyhow;
 use crossbeam::channel::Sender;
 use crossterm::event::Event;
+use format_num_pattern::NumberSymbols;
 #[allow(unused_imports)]
 use log::debug;
+use rat_input::input::TextInputStyle;
+use rat_input::masked_input::MaskedInputStyle;
 use rat_salsa::layout::{layout_edit, EditConstraint};
-use rat_salsa::number::NumberSymbols;
 use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::date_input::{DateInput, DateInputState};
-use rat_salsa::widget::input::{TextInput, TextInputState, TextInputStyle};
+use rat_salsa::widget::input::{TextInputExt, TextInputExtState};
 use rat_salsa::widget::list::{ListExt, ListExtState, ListExtStyle};
-use rat_salsa::widget::mask_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
+use rat_salsa::widget::mask_input::{MaskedInputExt, MaskedInputExtState};
 use rat_salsa::widget::menuline::{HotKeyAlt, MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
@@ -37,7 +39,6 @@ use ratatui::widgets::{Bar, BarChart, BarGroup, Block, BorderType, Borders, List
 use ratatui::Frame;
 use std::fs;
 use std::iter::repeat_with;
-use std::rc::Rc;
 use tui_tree_widget::TreeItem;
 
 fn main() -> Result<(), anyhow::Error> {
@@ -45,14 +46,14 @@ fn main() -> Result<(), anyhow::Error> {
 
     setup_logging()?;
 
-    let sym = Rc::new(NumberSymbols {
+    let sym = NumberSymbols {
         decimal_sep: ',',
         decimal_grp: Some('.'),
         ..Default::default()
-    });
+    };
 
     let mut data = FormOneData::default();
-    let mut state = FormOneState::new(&sym);
+    let mut state = FormOneState::new(sym);
 
     run_tui(
         &FormOneApp,
@@ -118,18 +119,18 @@ pub struct GeneralState {
 
 #[derive(Debug)]
 pub struct FormTextInput {
-    pub text: TextInputState,
-    pub decimal: TextInputState,
-    pub float: TextInputState,
+    pub text: TextInputExtState,
+    pub decimal: TextInputExtState,
+    pub float: TextInputExtState,
 
-    pub ipv4: MaskedInputState,
-    pub hexcolor: MaskedInputState,
-    pub creditcard: MaskedInputState,
-    pub date: MaskedInputState,
-    pub alpha: MaskedInputState,
-    pub dec7_2: MaskedInputState,
-    pub euro: MaskedInputState,
-    pub exp: MaskedInputState,
+    pub ipv4: MaskedInputExtState,
+    pub hexcolor: MaskedInputExtState,
+    pub creditcard: MaskedInputExtState,
+    pub date: MaskedInputExtState,
+    pub alpha: MaskedInputExtState,
+    pub dec7_2: MaskedInputExtState,
+    pub euro: MaskedInputExtState,
+    pub exp: MaskedInputExtState,
 }
 
 #[derive(Debug)]
@@ -170,7 +171,7 @@ pub struct FormOther {
 }
 
 impl FormOneState {
-    pub fn new(sym: &Rc<NumberSymbols>) -> Self {
+    pub fn new(sym: NumberSymbols) -> Self {
         let mut s = Self {
             g: GeneralState::new(),
             menu: Default::default(),
@@ -200,19 +201,19 @@ impl GeneralState {
 }
 
 impl FormTextInput {
-    pub fn new(sym: &Rc<NumberSymbols>) -> Self {
+    pub fn new(sym: NumberSymbols) -> Self {
         let mut s = Self {
-            text: TextInputState::default(),
-            decimal: TextInputState::default(),
-            float: TextInputState::default(),
-            ipv4: MaskedInputState::new_with_symbols(sym),
-            hexcolor: MaskedInputState::new_with_symbols(sym),
-            creditcard: MaskedInputState::new_with_symbols(sym),
-            date: MaskedInputState::new_with_symbols(sym),
-            alpha: MaskedInputState::new_with_symbols(sym),
-            dec7_2: MaskedInputState::new_with_symbols(sym),
-            euro: MaskedInputState::new_with_symbols(sym),
-            exp: MaskedInputState::new_with_symbols(sym),
+            text: Default::default(),
+            decimal: Default::default(),
+            float: Default::default(),
+            ipv4: MaskedInputExtState::new_with_symbols(sym),
+            hexcolor: MaskedInputExtState::new_with_symbols(sym),
+            creditcard: MaskedInputExtState::new_with_symbols(sym),
+            date: MaskedInputExtState::new_with_symbols(sym),
+            alpha: MaskedInputExtState::new_with_symbols(sym),
+            dec7_2: MaskedInputExtState::new_with_symbols(sym),
+            euro: MaskedInputExtState::new_with_symbols(sym),
+            exp: MaskedInputExtState::new_with_symbols(sym),
         };
 
         s.text.focus.set();
@@ -233,11 +234,11 @@ impl FormTextInput {
 }
 
 impl FormDateInput {
-    pub fn new(sym: &Rc<NumberSymbols>) -> Self {
+    pub fn new(sym: NumberSymbols) -> Self {
         let mut s = Self {
-            date1: DateInputState::default(),
-            date2: DateInputState::default(),
-            date3: DateInputState::default(),
+            date1: Default::default(),
+            date2: Default::default(),
+            date3: Default::default(),
         };
         s.date1.set_format("%d.%m.%Y").expect("mask1");
         s.date2.set_format("%x").expect("mask1");
@@ -588,22 +589,22 @@ fn repaint_textinput(
     );
     let mut l2 = l2.iter();
 
-    let w_text = TextInput::default().style(uistate.g.theme.input_style());
-    let w_decimal = TextInput::default().style(uistate.g.theme.input_style());
-    let w_float = TextInput::default().style(uistate.g.theme.input_style());
+    let w_text = TextInputExt::default().style(uistate.g.theme.input_style());
+    let w_decimal = TextInputExt::default().style(uistate.g.theme.input_style());
+    let w_float = TextInputExt::default().style(uistate.g.theme.input_style());
 
-    let w_color = MaskedInput::default().style(uistate.g.theme.input_mask_style());
-    let w_ipv4 = MaskedInput::default()
+    let w_color = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
+    let w_ipv4 = MaskedInputExt::default()
         .show_compact(true)
         .style(uistate.g.theme.input_mask_style());
-    let w_creditcard = MaskedInput::default().style(uistate.g.theme.input_mask_style());
-    let w_date = MaskedInput::default()
+    let w_creditcard = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
+    let w_date = MaskedInputExt::default()
         .show_compact(true)
         .style(uistate.g.theme.input_mask_style());
-    let w_name = MaskedInput::default().style(uistate.g.theme.input_mask_style());
-    let w_dec_7_2 = MaskedInput::default().style(uistate.g.theme.input_mask_style());
-    let w_euro = MaskedInput::default().style(uistate.g.theme.input_mask_style());
-    let w_exp = MaskedInput::default()
+    let w_name = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
+    let w_dec_7_2 = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
+    let w_euro = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
+    let w_exp = MaskedInputExt::default()
         .show_compact(true)
         .style(uistate.g.theme.input_mask_style());
 
@@ -654,7 +655,7 @@ fn repaint_textinput(
             Span::from(format!(
                 "o={} w={} c={} s={}:{}",
                 r.offset(),
-                r.width(),
+                r.widget.value.width(),
                 r.cursor(),
                 r.selection().start,
                 r.selection().end
@@ -678,7 +679,7 @@ fn repaint_textinput(
         let mut ec = Vec::new();
         ec.push(EditConstraint::EmptyRows(2));
         ec.push(EditConstraint::Empty);
-        for _ in 0..r.value.tokens().len() {
+        for _ in 0..r.widget.value.tokens().len() {
             ec.push(EditConstraint::TitleLabel);
         }
         ec.push(EditConstraint::TitleLabel);
@@ -691,7 +692,7 @@ fn repaint_textinput(
         let l3 = layout_edit(l_columns[3], &ec);
         let mut l3 = l3.iter();
 
-        for (i, t) in r.value.tokens().iter().enumerate() {
+        for (i, t) in r.widget.value.tokens().iter().enumerate() {
             let mut w_info = Span::from(format!(
                 "#{}:{}:{}-{}   {:?} | {:?}",
                 t.nr_id, t.sec_id, t.sec_start, t.sec_end, t.peek_left, t.right
@@ -722,7 +723,7 @@ fn repaint_textinput(
             Span::from(format!(
                 "o={} w={} c={} s={}:{}",
                 r.offset(),
-                r.width(),
+                r.widget.value.width(),
                 r.cursor(),
                 r.selection().start,
                 r.selection().end
@@ -856,14 +857,14 @@ fn repaint_dateinput(
         let mut ec = Vec::new();
         ec.push(EditConstraint::EmptyRows(2));
         ec.push(EditConstraint::Empty);
-        for _ in 0..r.input.value.tokens().len() {
+        for _ in 0..r.input.widget.value.tokens().len() {
             ec.push(EditConstraint::TitleLabel);
         }
 
         let l1 = layout_edit(l_columns[1], &ec);
         let mut l1 = l1.iter();
 
-        for (i, t) in r.input.value.tokens().iter().enumerate() {
+        for (i, t) in r.input.widget.value.tokens().iter().enumerate() {
             let mut w_info = Span::from(format!(
                 "#{}:{}:{}-{}   {:?} | {:?}",
                 t.nr_id, t.sec_id, t.sec_start, t.sec_end, t.peek_left, t.right
@@ -904,7 +905,7 @@ fn repaint_dateinput(
             Span::from(format!(
                 "o={} w={} c={} s={}:{}",
                 r.input.offset(),
-                r.input.width(),
+                r.input.widget.value.width(),
                 r.input.cursor(),
                 r.input.selection().start,
                 r.input.selection().end
