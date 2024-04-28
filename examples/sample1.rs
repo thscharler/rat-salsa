@@ -688,6 +688,7 @@ fn repaint_textinput(
         ec.push(EditConstraint::TitleLabel);
         ec.push(EditConstraint::TitleLabel);
         ec.push(EditConstraint::TitleLabel);
+        ec.push(EditConstraint::TitleLabel);
 
         let l3 = layout_edit(l_columns[3], &ec);
         let mut l3 = l3.iter();
@@ -705,6 +706,17 @@ fn repaint_textinput(
         frame.render_widget(Span::from(format!("value={}", r.value())), l3.label());
         frame.render_widget(
             Span::from(format!("compact={}", r.compact_value())),
+            l3.label(),
+        );
+        frame.render_widget(
+            Span::from(format!(
+                "parts={}",
+                r.value_parts().iter().fold(String::new(), |mut v, w| {
+                    v.push('|');
+                    v.push_str(w.as_str());
+                    v
+                })
+            )),
             l3.label(),
         );
         frame.render_widget(
@@ -771,10 +783,6 @@ fn handle_textinput(event: &Event, data: &mut FormOneData, uistate: &mut FormOne
             if let Some(v) = mask0.float.set_valid_from(v) {
                 mask0.float.set_value(format!("{}", v));
             }
-        },
-        mask0.ipv4 => {
-            // mask0.ipv4.value()
-
         }
     );
     on_gained!(

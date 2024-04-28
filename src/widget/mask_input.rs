@@ -209,16 +209,6 @@ impl MaskedInputExtState {
         self.widget.display_mask()
     }
 
-    /// Sets a mask of valid/invalid characters.
-    pub fn set_valid_mask(&mut self, v: Option<Vec<bool>>) {
-        self.widget.set_valid_mask(v);
-    }
-
-    /// Mask of valid/invalid characters.
-    pub fn valid_mask(&self) -> &Option<Vec<bool>> {
-        self.widget.valid_mask()
-    }
-
     /// Set the input mask. This overwrites the display mask and the value
     /// with a default representation of the mask.
     ///
@@ -283,6 +273,11 @@ impl MaskedInputExtState {
     /// Value with all punctuation and default values according to the mask type.
     pub fn value(&self) -> &str {
         self.widget.value()
+    }
+
+    /// Value split along any separators
+    pub fn value_parts(&self) -> Vec<String> {
+        self.widget.value_parts()
     }
 
     /// Value without optional whitespace and grouping separators. Might be easier to parse.
