@@ -17,6 +17,7 @@ mod lib_selection;
 mod lib_timer;
 mod lib_validate;
 mod lib_widget;
+pub mod rere;
 
 pub use lib_control_flow::{ControlUI, SplitResult};
 pub use lib_event_handler::{modifiers, DefaultKeys, HandleCrossterm, MouseOnly};
