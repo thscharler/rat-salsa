@@ -273,7 +273,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for TableExt<'a, Selection> {
             table
         };
 
-        table.render(area, buf, &mut state.table_state);
+        StatefulWidget::render(table, area, buf, &mut state.table_state);
     }
 }
 
