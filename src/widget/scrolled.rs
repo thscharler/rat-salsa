@@ -623,8 +623,7 @@ where
         // Do handle some mouse events here.
         // * mouse interactions with the scroll-bars.
         // * scrolling.
-        let res =
-            <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly);
+        let res = HandleCrossterm::handle(self, event, MouseOnly);
 
         // Let the widget handle the rest.
         res.on_continue(|| self.widget.handle(event, DefaultKeys))
