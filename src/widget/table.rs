@@ -33,7 +33,7 @@ pub struct TableExt<'a, Selection> {
     footer: Option<Row<'a>>,
 
     /// Base style
-    base_style: Style,
+    style: Style,
     /// Style for selected + not focused.
     select_style: Style,
     /// Style for selected + focused.
@@ -49,7 +49,7 @@ impl<'a, Selection> Default for TableExt<'a, Selection> {
             header: None,
             footer: None,
             table: Default::default(),
-            base_style: Default::default(),
+            style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
             _phantom: Default::default(),
@@ -101,7 +101,7 @@ impl<'a, Selection> TableExt<'a, Selection> {
             header: None,
             footer: None,
             table: Table::default().widths(widths),
-            base_style: Default::default(),
+            style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
             _phantom: Default::default(),
@@ -147,14 +147,14 @@ impl<'a, Selection> TableExt<'a, Selection> {
     }
 
     pub fn styles(mut self, styles: TableExtStyle) -> Self {
-        self.base_style = styles.style;
+        self.style = styles.style;
         self.select_style = styles.select_style;
         self.focus_style = styles.focus_style;
         self
     }
 
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.base_style = style.into();
+        self.style = style.into();
         self
     }
 
@@ -247,13 +247,13 @@ impl<'a, Selection: ListSelection> StatefulWidget for TableExt<'a, Selection> {
                 if state.selection.is_selected(i) {
                     self.focus_style
                 } else {
-                    self.base_style
+                    self.style
                 }
             } else {
                 if state.selection.is_selected(i) {
                     self.select_style
                 } else {
-                    self.base_style
+                    self.style
                 }
             };
 
@@ -261,7 +261,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for TableExt<'a, Selection> {
         }
 
         // prepare table widget
-        let table = self.table.style(self.base_style).rows(self.rows);
+        let table = self.table.style(self.style).rows(self.rows);
         let table = if let Some(header) = self.header {
             table.header(header)
         } else {
@@ -273,7 +273,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for TableExt<'a, Selection> {
             table
         };
 
-        StatefulWidget::render(table, area, buf, &mut state.table_state);
+        table.render(area, buf, &mut state.table_state);
     }
 }
 
@@ -289,7 +289,7 @@ where
             header: None,
             footer: None,
             table: Table::default(),
-            base_style: Default::default(),
+            style: Default::default(),
             select_style: Default::default(),
             focus_style: Default::default(),
             _phantom: Default::default(),
