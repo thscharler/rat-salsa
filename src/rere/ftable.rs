@@ -1,20 +1,22 @@
 use crate::_private::NonExhaustive;
 use crate::rere::ftable::text::{TextRow, TextTableData};
-use crate::util::{DynBorrow, RCow};
 use crate::widget::MouseFlags;
 use crate::{
     ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
-    ListSelection, MouseOnly, NoSelection, ScrollParam, ScrolledWidget, SingleSelection,
+    ListSelection, MouseOnly, NoSelection, ScrollOutcome, ScrollParam, ScrolledWidget,
+    SingleSelection,
 };
 use crossterm::event::Event;
+#[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Position, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Modifier, Style};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
+use std::rc::Rc;
 
 /// Trait for the table-data.
 pub trait TableData<'a> {
@@ -24,18 +26,17 @@ pub trait TableData<'a> {
 
     fn row_height(&self, row: usize) -> u16;
 
-    fn col_width(&self, column: usize) -> u16;
-
     fn render_cell(&self, column: usize, row: usize, style: Style, area: Rect, buf: &mut Buffer);
 }
 
 /// Furious table.
-pub struct FTable<'a, 'b: 'a, Selection> {
-    data: RCow<'b, TextTableData<'a>, &'b dyn TableData<'a>>,
+pub struct FTable<'a, Selection> {
+    data: DataRepr<'a>,
 
     widths: Vec<Constraint>,
     flex: Flex,
     column_spacing: u16,
+    layout_width: Option<u16>,
 
     block: Option<Block<'a>>,
 
@@ -49,11 +50,18 @@ pub struct FTable<'a, 'b: 'a, Selection> {
     _phantom: PhantomData<Selection>,
 }
 
-impl<'a, 'b: 'a, Selection: Debug> Debug for FTable<'a, 'b, Selection> {
+enum DataRepr<'a> {
+    Text(TextTableData<'a>),
+    Ref(&'a dyn TableData<'a>),
+}
+
+impl<'a, Selection: Debug> Debug for FTable<'a, Selection> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        let rows = self.data_ref().rows();
+        let columns = self.data_ref().columns();
         f.debug_struct("FTable")
-            .field("rows", &self.data.dyn_borrow().rows())
-            .field("columns", &self.data.dyn_borrow().columns())
+            .field("rows", &rows)
+            .field("columns", &columns)
             .field("style", &self.style)
             .field("select_style", &self.select_style)
             .field("focus_style", &self.focus_style)
@@ -61,13 +69,14 @@ impl<'a, 'b: 'a, Selection: Debug> Debug for FTable<'a, 'b, Selection> {
     }
 }
 
-impl<'a, 'b: 'a, Selection: Default> Default for FTable<'a, 'b, Selection> {
+impl<'a, Selection: Default> Default for FTable<'a, Selection> {
     fn default() -> Self {
         Self {
-            data: RCow::Owned(Default::default()),
+            data: DataRepr::Text(Default::default()),
             widths: Default::default(),
             flex: Default::default(),
             column_spacing: 0,
+            layout_width: None,
             block: None,
             style: Default::default(),
             select_style: Style::default().add_modifier(Modifier::REVERSED),
@@ -77,7 +86,7 @@ impl<'a, 'b: 'a, Selection: Default> Default for FTable<'a, 'b, Selection> {
     }
 }
 
-impl<'a, 'b: 'a, Selection> FTable<'a, 'b, Selection> {
+impl<'a, Selection> FTable<'a, Selection> {
     pub fn new<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
@@ -86,13 +95,14 @@ impl<'a, 'b: 'a, Selection> FTable<'a, 'b, Selection> {
         C::Item: Into<Constraint>,
         Selection: Default,
     {
+        let widths = widths.into_iter().map(|v| v.into()).collect::<Vec<_>>();
         let data = TextTableData {
+            columns: widths.len(),
             rows: rows.into_iter().map(|v| v.into()).collect(),
         };
-
         Self {
-            data: RCow::Owned(data),
-            widths: widths.into_iter().map(|v| v.into()).collect(),
+            data: DataRepr::Text(data),
+            widths,
             ..Default::default()
         }
     }
@@ -103,21 +113,18 @@ impl<'a, 'b: 'a, Selection> FTable<'a, 'b, Selection> {
     {
         let rows = rows.into_iter().collect();
         match &mut self.data {
-            RCow::Borrowed(_) => {
+            DataRepr::Text(d) => {
+                d.rows = rows;
+            }
+            DataRepr::Ref(_) => {
                 unimplemented!("doesn't work that way");
-            }
-            RCow::Owned(o) => {
-                o.rows = rows;
-            }
-            RCow::Phantom(_) => {
-                unreachable!()
             }
         }
         self
     }
 
     pub fn data(mut self, data: &'a dyn TableData<'a>) -> Self {
-        self.data = RCow::Borrowed(data);
+        self.data = DataRepr::Ref(data);
         self
     }
 
@@ -130,13 +137,23 @@ impl<'a, 'b: 'a, Selection> FTable<'a, 'b, Selection> {
         self
     }
 
-    // todo: header
-    // todo: footer
+    pub fn flex(mut self, flex: Flex) -> Self {
+        self.flex = flex;
+        self
+    }
 
     pub fn column_spacing(mut self, spacing: u16) -> Self {
         self.column_spacing = spacing;
         self
     }
+
+    pub fn layout_width(mut self, width: u16) -> Self {
+        self.layout_width = Some(width);
+        self
+    }
+
+    // todo: header
+    // todo: footer
 
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
@@ -168,30 +185,76 @@ impl<'a, 'b: 'a, Selection> FTable<'a, 'b, Selection> {
     // todo: select_symbol
 
     // todo: select_spacing
+}
 
-    pub fn flex(mut self, flex: Flex) -> Self {
-        self.flex = flex;
-        self
+impl<'a, Selection> FTable<'a, Selection> {
+    fn data_ref(&self) -> &dyn TableData<'a> {
+        match &self.data {
+            DataRepr::Text(v) => &*v,
+            DataRepr::Ref(v) => *v,
+        }
+    }
+
+    fn layout_columns(&self, mut area: Rect) -> (Rc<[Rect]>, Rc<[Rect]>) {
+        let widths;
+        let widths = if self.widths.is_empty() {
+            widths = vec![Constraint::Fill(1); self.data_ref().columns()];
+            widths.as_slice()
+        } else {
+            self.widths.as_slice()
+        };
+
+        area.x = 0;
+        area.y = 0;
+        area.height = 0;
+        if let Some(layout_width) = self.layout_width {
+            area.width = layout_width;
+        }
+
+        Layout::horizontal(widths)
+            .flex(self.flex)
+            .spacing(self.column_spacing)
+            .split_with_spacers(area);
     }
 }
 
-impl<'a, 'b: 'a, Selection: ListSelection> StatefulWidget for FTable<'a, 'b, Selection> {
+impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
     type State = FTableState<Selection>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let data = self.data.dyn_borrow();
+        let data = self.data_ref();
 
-        state.area = self.block.inner_if_some(area);
+        // limits
+        if state.row_offset >= data.rows() {
+            state.row_offset = data.rows().saturating_sub(1);
+        }
+        if state.col_offset >= data.columns() {
+            state.col_offset = data.columns().saturating_sub(1);
+        }
 
-        state.table_area = area;
-        state.row_areas.clear();
-
+        // state
         state.row_len = data.rows();
         state.col_len = data.columns();
-        state.row_page_len = 1; // todo
-        state.col_page_len = 1; // todo
-        state.max_row_offset = data.rows(); // todo
-        state.max_col_offset = data.columns(); // todo
+        state.area = self.block.inner_if_some(area);
+
+        // vertical layout
+        let l_rows = Layout::vertical([
+            Constraint::Length(0),
+            Constraint::Fill(1),
+            Constraint::Length(0),
+        ])
+        .split(state.area);
+        // todo: header, footer
+        state.table_area = l_rows[1];
+
+        // horizontal layout
+        let (l_columns, l_spacers) = self.layout_columns(state.table_area);
+        assert_eq!(l_columns.len(), data.columns());
+
+        // render visible
+        state.row_areas.clear();
+        state.row_page_len = 0;
+        state.col_page_len = 0;
 
         let mut row = state.row_offset;
         let mut y = state.table_area.y;
@@ -204,6 +267,7 @@ impl<'a, 'b: 'a, Selection: ListSelection> StatefulWidget for FTable<'a, 'b, Sel
                 state.table_area.width,
                 row_height,
             ));
+            state.row_page_len += 1;
 
             let style = if state.selection.is_selected(row) {
                 if state.is_focused() {
@@ -216,33 +280,49 @@ impl<'a, 'b: 'a, Selection: ListSelection> StatefulWidget for FTable<'a, 'b, Sel
             };
 
             let mut col = state.col_offset;
-            let mut x = state.table_area.x;
+            let x0 = l_columns[col].x;
             loop {
-                let col_width = data.col_width(col);
+                let l_col = l_columns[col];
+                let cell_area = Rect::new(
+                    state.table_area.x + l_col.x - x0,
+                    y,
+                    l_col.width,
+                    row_height,
+                )
+                .intersection(area);
 
-                let cell_area = Rect::new(x, y, col_width, row_height).intersection(area);
+                state.col_page_len += 1;
 
+                buf.set_style(l_spacers[col + 1], style);
                 data.render_cell(col, row, style, cell_area, buf);
 
-                if x + col_width >= state.table_area.right() {
+                if l_col.x + l_col.width >= state.table_area.right() {
+                    break;
+                }
+                if col + 1 >= data.columns() {
                     break;
                 }
 
                 col += 1;
-                x += col_width;
             }
 
             if y + row_height >= state.table_area.bottom() {
+                break;
+            }
+            if row + 1 >= data.rows() {
                 break;
             }
 
             row += 1;
             y += row_height;
         }
+
+        state.max_row_offset = state.row_len; // todo
+        state.max_col_offset = state.col_len; // todo
     }
 }
 
-impl<'a, 'b: 'a, State, Selection> ScrolledWidget<State> for FTable<'a, 'b, Selection> {
+impl<'a, State, Selection> ScrolledWidget<State> for FTable<'a, Selection> {
     fn need_scroll(&self, _area: Rect, _state: &mut State) -> ScrollParam {
         // todo: something better
         ScrollParam {
@@ -355,12 +435,28 @@ impl<Selection> HasScrolling for FTableState<Selection> {
         self.col_offset
     }
 
-    fn set_v_offset(&mut self, offset: usize) {
-        self.row_offset = offset;
+    fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome {
+        if offset < self.row_len {
+            self.row_offset = offset;
+            ScrollOutcome::Exact
+        } else if self.row_offset == self.row_len.saturating_sub(1) {
+            ScrollOutcome::AtLimit
+        } else {
+            self.row_offset = self.row_len.saturating_sub(1);
+            ScrollOutcome::Limited
+        }
     }
 
-    fn set_h_offset(&mut self, offset: usize) {
-        self.col_offset = offset
+    fn set_h_offset(&mut self, offset: usize) -> ScrollOutcome {
+        if offset < self.col_len {
+            self.col_offset = offset;
+            ScrollOutcome::Exact
+        } else if self.col_offset == self.col_len.saturating_sub(1) {
+            ScrollOutcome::AtLimit
+        } else {
+            self.col_offset = self.col_len.saturating_sub(1);
+            ScrollOutcome::Limited
+        }
     }
 }
 
@@ -562,16 +658,17 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for FTableState<SingleSel
 
 pub mod text {
     use crate::rere::ftable::TableData;
-    use crate::util::DynBorrow;
+    #[allow(unused_imports)]
     use log::debug;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::Style;
     use ratatui::text::Text;
-    use ratatui::widgets::{Cell, WidgetRef};
+    use ratatui::widgets::WidgetRef;
 
     #[derive(Debug, Default, Clone)]
     pub struct TextTableData<'a> {
+        pub columns: usize,
         pub rows: Vec<TextRow<'a>>,
     }
 
@@ -580,22 +677,13 @@ pub mod text {
         pub cells: Vec<Text<'a>>,
     }
 
-    impl<'a, 'b> DynBorrow<'b, &'b dyn TableData<'a>> for TextTableData<'a> {
-        fn dyn_borrow(&'b self) -> &'b dyn TableData<'a>
-        where
-            &'b dyn TableData<'a>: 'b,
-        {
-            &*self
-        }
-    }
-
     impl<'a> TableData<'a> for TextTableData<'a> {
         fn rows(&self) -> usize {
             self.rows.len()
         }
 
         fn columns(&self) -> usize {
-            0
+            self.columns
         }
 
         fn row_height(&self, r: usize) -> u16 {
@@ -604,15 +692,6 @@ pub mod text {
             } else {
                 0
             }
-        }
-
-        fn col_width(&self, c: usize) -> u16 {
-            // if let Some(col) = self.col_width.get(c) {
-            //     *col
-            // } else {
-            //     0
-            // }
-            0
         }
 
         fn render_cell(&self, c: usize, r: usize, style: Style, area: Rect, buf: &mut Buffer) {

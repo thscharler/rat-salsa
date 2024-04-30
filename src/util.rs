@@ -4,46 +4,6 @@ use ratatui::text::Span;
 use std::cmp::min;
 use std::marker::PhantomData;
 
-/// A borrow trait without the restriction of returning
-/// a `&'_ B`. This requires that B: Copy, but I can live
-/// with that.
-pub(crate) trait DynBorrow<'b, B> {
-    fn dyn_borrow(&'b self) -> B
-    where
-        B: 'b;
-}
-
-/// Reverse cow. Can borrow an owned value but cannot
-/// upgrade a borrow to owned state.
-#[allow(dead_code)]
-pub(crate) enum RCow<'b, O, B>
-where
-    O: DynBorrow<'b, B>,
-{
-    Borrowed(B),
-    Owned(O),
-    Phantom(PhantomData<&'b ()>),
-}
-
-impl<'b, O, B> DynBorrow<'b, B> for RCow<'b, O, B>
-where
-    O: DynBorrow<'b, B>,
-    B: Copy,
-{
-    fn dyn_borrow(&'b self) -> B
-    where
-        B: 'b,
-    {
-        match self {
-            RCow::Borrowed(b) => *b,
-            RCow::Owned(o) => o.dyn_borrow(),
-            _ => {
-                unreachable!()
-            }
-        }
-    }
-}
-
 /// Sum all widths.
 pub(crate) fn span_width(spans: &[Span<'_>]) -> u16 {
     spans.iter().map(|v| v.width() as u16).sum()
