@@ -24,7 +24,7 @@ pub use lib_event_handler::{modifiers, DefaultKeys, HandleCrossterm, MouseOnly};
 pub use lib_focus::{Focus, FocusFlag, HasFocusFlag};
 pub use lib_framework::{run_tui, RunConfig, TuiApp};
 pub use lib_repaint::{Repaint, RepaintEvent};
-pub use lib_scroll::{HasScrolling, ScrollParam, ScrolledWidget};
+pub use lib_scroll::{HasScrolling, ScrollOutcome, ScrollParam, ScrollPolicy, ScrolledWidget};
 pub use lib_selection::{ListSelection, NoSelection, SetSelection, SingleSelection};
 pub use lib_timer::{Timed, TimerDef, TimerEvent, Timers};
 pub use lib_validate::{CanValidate, HasValidFlag, ValidFlag};
