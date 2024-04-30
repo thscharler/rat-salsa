@@ -14,24 +14,94 @@ use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Flex, Margin, Rect};
+use ratatui::layout::{Alignment, Constraint, Flex, Layout, Margin, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
-use ratatui::text::{Line, Text};
+use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Clear, Widget};
 use std::fmt::Debug;
+use std::io::IsTerminal;
 
 /// Basic status line.
 #[derive(Debug, Default)]
 pub struct StatusLine {
-    style: Style,
+    style: Vec<Style>,
+    widths: Vec<Constraint>,
 }
 
 /// State for the status line.
 #[derive(Debug)]
 pub struct StatusLineState {
     pub area: Rect,
-    pub status: String,
+    pub status: Vec<String>,
     pub non_exhaustive: NonExhaustive,
+}
+
+impl StatusLine {
+    pub fn new() -> Self {
+        Self {
+            style: Default::default(),
+            widths: Default::default(),
+        }
+    }
+
+    /// Layout
+    pub fn layout<It, Item>(mut self, widths: It) -> Self
+    where
+        It: IntoIterator<Item = Item>,
+        Item: Into<Constraint>,
+    {
+        self.widths = widths.into_iter().map(|v| v.into()).collect();
+        self
+    }
+
+    /// Base style.
+    pub fn styles(mut self, style: impl IntoIterator<Item = impl Into<Style>>) -> Self {
+        self.style = style.into_iter().map(|v| v.into()).collect();
+        self
+    }
+}
+
+impl Default for StatusLineState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            status: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl StatusLineState {
+    /// Clear.
+    pub fn clear_status(&mut self) {
+        self.status.clear();
+    }
+
+    /// Set status
+    pub fn status<S: Into<String>>(&mut self, idx: usize, msg: S) {
+        while self.status.len() <= idx {
+            self.status.push("".to_string());
+        }
+        self.status[idx] = msg.into();
+    }
+}
+
+impl StatefulWidget for StatusLine {
+    type State = StatusLineState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        state.area = area;
+
+        let layout = Layout::horizontal(self.widths).split(state.area);
+
+        for (i, rect) in layout.iter().enumerate() {
+            let style = self.style.get(i).cloned().unwrap_or_default();
+            let txt = state.status.get(i).map(|v| v.as_str()).unwrap_or("");
+
+            buf.set_style(*rect, style);
+            Span::from(txt).render(*rect, buf);
+        }
+    }
 }
 
 /// Basic status dialog for longer messages.
@@ -58,53 +128,6 @@ pub struct StatusDialogState {
     pub button: ButtonState<bool>,
     pub log: String,
     pub non_exhaustive: NonExhaustive,
-}
-
-impl StatusLine {
-    pub fn new() -> Self {
-        Self {
-            style: Default::default(),
-        }
-    }
-
-    /// Base style.
-    pub fn style(mut self, style: impl Into<Style>) -> Self {
-        self.style = style.into();
-        self
-    }
-}
-
-impl Default for StatusLineState {
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            status: "".to_string(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
-impl StatusLineState {
-    /// Clear.
-    pub fn clear_status(&mut self) {
-        self.status.clear();
-    }
-
-    /// Set status
-    pub fn status(&mut self, msg: &str) {
-        self.status.clear();
-        self.status.push_str(msg);
-    }
-}
-
-impl StatefulWidget for StatusLine {
-    type State = StatusLineState;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-        let status = Line::styled(&state.status, self.style);
-        status.render(area, buf);
-    }
 }
 
 impl StatusDialog {
