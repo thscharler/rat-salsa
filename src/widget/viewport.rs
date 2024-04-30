@@ -3,7 +3,8 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::{
-    ControlUI, DefaultKeys, HandleCrossterm, HasScrolling, MouseOnly, ScrollParam, ScrolledWidget,
+    ControlUI, DefaultKeys, HandleCrossterm, HasScrolling, MouseOnly, ScrollOutcome, ScrollParam,
+    ScrolledWidget,
 };
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -215,12 +216,28 @@ impl HasScrolling for ViewportState {
         self.h_offset
     }
 
-    fn set_v_offset(&mut self, offset: usize) {
-        self.v_offset = offset;
+    fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome {
+        if self.v_offset < self.viewport_area.height as usize {
+            self.v_offset = offset;
+            ScrollOutcome::Exact
+        } else if self.v_offset == self.viewport_area.height.saturating_sub(1) as usize {
+            ScrollOutcome::AtLimit
+        } else {
+            self.v_offset = self.viewport_area.height.saturating_sub(1) as usize;
+            ScrollOutcome::Limited
+        }
     }
 
-    fn set_h_offset(&mut self, offset: usize) {
-        self.h_offset = offset
+    fn set_h_offset(&mut self, offset: usize) -> ScrollOutcome {
+        if self.h_offset < self.viewport_area.width as usize {
+            self.h_offset = offset;
+            ScrollOutcome::Exact
+        } else if self.h_offset == self.viewport_area.width.saturating_sub(1) as usize {
+            ScrollOutcome::AtLimit
+        } else {
+            self.h_offset = self.viewport_area.width.saturating_sub(1) as usize;
+            ScrollOutcome::Limited
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::{
     ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
-    MouseOnly, ScrollParam, ScrolledWidget,
+    MouseOnly, ScrollOutcome, ScrollParam, ScrolledWidget,
 };
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -137,9 +137,7 @@ where
         state.max_v_offset = flattened.len() - n;
 
         // calculate current page
-        let ensure_index_in_view = if
-        /*state.ensure_selected_in_view_on_next_render &&*/
-        !state.widget.selected().is_empty() {
+        let ensure_index_in_view = if !state.widget.selected().is_empty() {
             flattened
                 .iter()
                 .position(|flattened| flattened.identifier == state.widget.selected())
@@ -235,17 +233,22 @@ where
         0
     }
 
-    fn set_v_offset(&mut self, offset: usize) {
+    fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome {
         let old_offset = self.v_offset();
         if old_offset < offset {
             self.widget.scroll_down(offset - old_offset);
+            ScrollOutcome::Unknown
         } else {
-            self.widget.scroll_up(old_offset - offset);
+            if self.widget.scroll_up(old_offset - offset) {
+                ScrollOutcome::Exact
+            } else {
+                ScrollOutcome::AtLimit
+            }
         }
     }
 
-    fn set_h_offset(&mut self, _offset: usize) {
-        // noop
+    fn set_h_offset(&mut self, _offset: usize) -> ScrollOutcome {
+        ScrollOutcome::Denied
     }
 }
 

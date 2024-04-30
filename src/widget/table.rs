@@ -5,8 +5,8 @@ use crate::_private::NonExhaustive;
 use crate::widget::MouseFlags;
 use crate::{
     ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
-    ListSelection, MouseOnly, NoSelection, ScrollParam, ScrolledWidget, SetSelection,
-    SingleSelection,
+    ListSelection, MouseOnly, NoSelection, ScrollOutcome, ScrollParam, ScrolledWidget,
+    SetSelection, SingleSelection,
 };
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -375,20 +375,31 @@ impl<Selection> HasScrolling for TableExtState<Selection> {
         0
     }
 
-    fn set_v_offset(&mut self, offset: usize) {
-        *self.table_state.offset_mut() = offset;
+    fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome {
+        let res = if self.table_state.offset() < self.len {
+            *self.table_state.offset_mut() = offset;
+            ScrollOutcome::Exact
+        } else if self.table_state.offset() == self.len.saturating_sub(1) {
+            ScrollOutcome::AtLimit
+        } else {
+            *self.table_state.offset_mut() = self.len.saturating_sub(1);
+            ScrollOutcome::Limited
+        };
+
         // For scrolling purposes the selection of ratatui::Table is never None,
         // instead it defaults out to 0 which prohibits any scrolling attempt.
-
         // We do our own selection, so we don't really care.
-        *self.table_state.selected_mut() = Some(offset);
+        *self.table_state.selected_mut() = Some(self.table_state.offset());
+
+        res
     }
 
-    fn set_h_offset(&mut self, _offset: usize) {
+    fn set_h_offset(&mut self, _offset: usize) -> ScrollOutcome {
         // It's hard to escape somebody calling this.
         // Gracefully ignoring it seems best.
 
         // unimplemented!("no horizontal scrolling")
+        ScrollOutcome::Denied
     }
 }
 

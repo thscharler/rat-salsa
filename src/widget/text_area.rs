@@ -1,7 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::{
     ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling, MouseOnly,
-    ScrollParam, ScrolledWidget,
+    ScrollOutcome, ScrollParam, ScrolledWidget,
 };
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -97,14 +97,16 @@ impl<'a> HasScrolling for TextAreaExtState<'a> {
         self.widget.cursor().1
     }
 
-    fn set_v_offset(&mut self, offset: usize) {
+    fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome {
         self.widget
             .move_cursor(CursorMove::Jump(offset as u16, self.h_offset() as u16));
+        ScrollOutcome::Unknown
     }
 
-    fn set_h_offset(&mut self, offset: usize) {
+    fn set_h_offset(&mut self, offset: usize) -> ScrollOutcome {
         self.widget
             .move_cursor(CursorMove::Jump(self.v_offset() as u16, offset as u16));
+        ScrollOutcome::Unknown
     }
 }
 

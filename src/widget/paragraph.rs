@@ -3,7 +3,7 @@ use crate::lib_scroll::{HasScrolling, ScrollParam, ScrolledWidget};
 ///
 /// Adapter for ratatui::widget::Paragraph
 ///
-use crate::{ControlUI, DefaultKeys, HandleCrossterm, MouseOnly};
+use crate::{ControlUI, DefaultKeys, HandleCrossterm, MouseOnly, ScrollOutcome};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
@@ -119,12 +119,28 @@ impl HasScrolling for ParagraphExtState {
         self.hoffset
     }
 
-    fn set_v_offset(&mut self, offset: usize) {
-        self.voffset = min(offset, self.vlen);
+    fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome {
+        if offset < self.vlen {
+            self.voffset = offset;
+            ScrollOutcome::Exact
+        } else if self.voffset == self.vlen.saturating_sub(1) {
+            ScrollOutcome::AtLimit
+        } else {
+            self.voffset = self.vlen.saturating_sub(1);
+            ScrollOutcome::Limited
+        }
     }
 
-    fn set_h_offset(&mut self, offset: usize) {
-        self.hoffset = min(offset, self.hlen);
+    fn set_h_offset(&mut self, offset: usize) -> ScrollOutcome {
+        if offset < self.hlen {
+            self.hoffset = offset;
+            ScrollOutcome::Exact
+        } else if self.hoffset == self.hlen.saturating_sub(1) {
+            ScrollOutcome::AtLimit
+        } else {
+            self.hoffset = self.hlen.saturating_sub(1);
+            ScrollOutcome::Limited
+        }
     }
 }
 

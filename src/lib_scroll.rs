@@ -65,37 +65,53 @@ pub trait HasScrolling {
     ///
     /// Due to overscroll it's possible that this is an invalid offset for the widget.
     /// The widget must deal with this situation.
-    fn set_v_offset(&mut self, offset: usize);
+    fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome;
 
     /// Change the horizontal offset.
     ///
     /// Due to overscroll it's possible that this is an invalid offset for the widget.
     /// The widget must deal with this situation.
-    fn set_h_offset(&mut self, offset: usize);
+    fn set_h_offset(&mut self, offset: usize) -> ScrollOutcome;
 
     /// Scroll up by n items.
-    fn scroll_up(&mut self, n: usize) {
-        self.set_v_offset(self.v_offset().saturating_sub(n));
+    fn scroll_up(&mut self, n: usize) -> ScrollOutcome {
+        self.set_v_offset(self.v_offset().saturating_sub(n))
     }
 
     /// Scroll down by n items.
-    fn scroll_down(&mut self, n: usize) {
-        self.set_v_offset(self.v_offset() + n);
+    fn scroll_down(&mut self, n: usize) -> ScrollOutcome {
+        self.set_v_offset(self.v_offset() + n)
     }
 
     /// Scroll up by n items.
-    fn scroll_left(&mut self, n: usize) {
-        self.set_h_offset(self.h_offset().saturating_sub(n));
+    fn scroll_left(&mut self, n: usize) -> ScrollOutcome {
+        self.set_h_offset(self.h_offset().saturating_sub(n))
     }
 
     /// Scroll down by n items.
-    fn scroll_right(&mut self, n: usize) {
-        self.set_h_offset(self.h_offset() + n);
+    fn scroll_right(&mut self, n: usize) -> ScrollOutcome {
+        self.set_h_offset(self.h_offset() + n)
     }
+}
+
+/// Outcome of a scroll operation.
+#[derive(Debug, Clone, Copy)]
+pub enum ScrollOutcome {
+    /// Could scroll to the exact position given.
+    Exact,
+    /// Could scroll, but hit a limit.
+    Limited,
+    /// Further scrolling denied. Was already at the limit.
+    AtLimit,
+    /// Scrolling denied for some other reason.
+    Denied,
+    /// The result is not known. Really, this can happen.
+    Unknown,
 }
 
 /// A widget that can differentiate between these two states can use this as a flag.
 /// It's the job of the widget to implement the difference.
+#[derive(Debug, Clone, Copy)]
 pub enum ScrollPolicy {
     Selection,
     Offset,

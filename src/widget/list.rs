@@ -2,7 +2,8 @@ use crate::_private::NonExhaustive;
 use crate::widget::MouseFlags;
 use crate::{
     ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
-    ListSelection, MouseOnly, NoSelection, ScrollParam, ScrolledWidget, SingleSelection,
+    ListSelection, MouseOnly, NoSelection, ScrollOutcome, ScrollParam, ScrolledWidget,
+    SingleSelection,
 };
 use crossterm::event::Event;
 #[allow(unused_imports)]
@@ -310,16 +311,25 @@ impl<Selection> HasScrolling for ListExtState<Selection> {
         0
     }
 
-    fn set_v_offset(&mut self, offset: usize) {
-        *self.widget.offset_mut() = offset;
+    fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome {
+        if offset < self.len {
+            *self.widget.offset_mut() = offset;
+            ScrollOutcome::Exact
+        } else if self.widget.offset() == self.len.saturating_sub(1) {
+            ScrollOutcome::AtLimit
+        } else {
+            *self.widget.offset_mut() = self.len.saturating_sub(1);
+            ScrollOutcome::Limited
+        }
         // TODO: check selected prohibits scroll?
     }
 
-    fn set_h_offset(&mut self, _offset: usize) {
+    fn set_h_offset(&mut self, _offset: usize) -> ScrollOutcome {
         // It's hard to escape somebody calling this.
         // Gracefully ignoring it seems best.
 
         // unimplemented!("no horizontal scrolling")
+        ScrollOutcome::Denied
     }
 }
 
