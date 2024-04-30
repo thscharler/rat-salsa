@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["text"],"struct":["FTable","FTableState","FTableStyle"],"trait":["TableData"]};

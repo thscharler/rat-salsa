@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["DeleteRow","DoubleClick","TableExt","TableExtState","TableExtStyle"]};
