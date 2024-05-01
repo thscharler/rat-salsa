@@ -800,7 +800,7 @@
 
 <span class="kw">enum </span>DataRepr&lt;<span class="lifetime">'a</span>&gt; {
     Text(TextTableData&lt;<span class="lifetime">'a</span>&gt;),
-    Ref(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>TableData&lt;<span class="lifetime">'a</span>&gt;),
+    Owned(Box&lt;<span class="kw">dyn </span>TableData&lt;<span class="lifetime">'a</span>&gt;&gt;),
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Selection: Debug&gt; Debug <span class="kw">for </span>FTable&lt;<span class="lifetime">'a</span>, Selection&gt; {
@@ -871,8 +871,8 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>data(<span class="kw-2">mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>TableData&lt;<span class="lifetime">'a</span>&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.data = DataRepr::Ref(data);
+    <span class="kw">pub fn </span>data(<span class="kw-2">mut </span><span class="self">self</span>, data: Box&lt;<span class="kw">dyn </span>TableData&lt;<span class="lifetime">'a</span>&gt;&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.data = DataRepr::Owned(data);
         <span class="self">self
     </span>}
 
@@ -939,7 +939,7 @@
     <span class="kw">fn </span>data_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>TableData&lt;<span class="lifetime">'a</span>&gt; {
         <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.data {
             DataRepr::Text(v) =&gt; <span class="kw-2">&amp;*</span>v,
-            DataRepr::Ref(v) =&gt; <span class="kw-2">*</span>v,
+            DataRepr::Owned(v) =&gt; <span class="kw-2">&amp;*</span>v,
         }
     }
 

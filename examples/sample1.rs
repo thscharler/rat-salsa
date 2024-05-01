@@ -10,6 +10,7 @@ use log::debug;
 use rat_input::input::TextInputStyle;
 use rat_input::masked_input::MaskedInputStyle;
 use rat_salsa::layout::{layout_edit, EditConstraint};
+use rat_salsa::rere::ftable::{FTable, FTableState, TableData};
 use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::date_input::{DateInput, DateInputState};
 use rat_salsa::widget::input::{TextInputExt, TextInputExtState};
@@ -31,14 +32,18 @@ use rat_salsa::{
     RunConfig, Timed, Timers, TuiApp,
 };
 use rat_salsa::{SetSelection, SingleSelection};
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Bar, BarChart, BarGroup, Block, BorderType, Borders, ListItem, Row, Wrap};
+use ratatui::widgets::{
+    Bar, BarChart, BarGroup, Block, BorderType, Borders, ListItem, Row, Widget, Wrap,
+};
 use ratatui::Frame;
 use std::fs;
 use std::iter::repeat_with;
+use std::time::{Duration, SystemTime};
 use tui_tree_widget::TreeItem;
 
 fn main() -> Result<(), anyhow::Error> {
@@ -52,7 +57,24 @@ fn main() -> Result<(), anyhow::Error> {
         ..Default::default()
     };
 
-    let mut data = FormOneData::default();
+    let mut data = FormOneData {
+        sample1: Default::default(),
+    };
+    for i in 0..100_000 {
+        data.sample1.push([
+            i + 0,
+            i + 1,
+            i + 2,
+            i + 3,
+            i + 4,
+            i + 5,
+            i + 6,
+            i + 7,
+            i + 8,
+            i + 9,
+        ]);
+    }
+
     let mut state = FormOneState::new(sym);
 
     run_tui(
@@ -74,7 +96,9 @@ fn main() -> Result<(), anyhow::Error> {
 type Control = ControlUI<FormOneAction, anyhow::Error>;
 
 #[derive(Debug, Default)]
-pub struct FormOneData {}
+pub struct FormOneData {
+    pub sample1: Vec<[usize; 10]>,
+}
 
 #[derive(Debug)]
 pub enum FormOneAction {}
@@ -89,6 +113,7 @@ pub struct FormOneState {
     pub dateinput: FormDateInput,
     pub scrolled_para: FormScrolledParagraph,
     pub scrolled_table: FormScrolledTable,
+    pub scrolled_ftable: FormScrolledFTable,
     pub scrolled_list: FormScrolledList,
     pub text_area: FormTextArea,
     pub scroll_other: FormOther,
@@ -100,6 +125,7 @@ pub enum MenuItem {
     Date,
     Paragraph,
     Table,
+    FTable,
     List,
     TextArea,
     Tree,
@@ -155,6 +181,11 @@ pub struct FormScrolledTable {
 }
 
 #[derive(Debug)]
+pub struct FormScrolledFTable {
+    pub table1: ScrolledState<FTableState<SingleSelection>>,
+}
+
+#[derive(Debug)]
 pub struct FormScrolledList {
     pub list1: ScrolledState<ListExtState<SingleSelection>>,
 }
@@ -179,6 +210,7 @@ impl FormOneState {
             dateinput: FormDateInput::new(sym),
             scrolled_para: FormScrolledParagraph::new(),
             scrolled_table: FormScrolledTable::new(),
+            scrolled_ftable: FormScrolledFTable::new(),
             scrolled_list: FormScrolledList::new(),
             text_area: FormTextArea::new(),
             scroll_other: FormOther::new(),
@@ -267,6 +299,14 @@ impl FormScrolledTable {
     }
 }
 
+impl FormScrolledFTable {
+    pub fn new() -> Self {
+        Self {
+            table1: Default::default(),
+        }
+    }
+}
+
 impl FormScrolledList {
     pub fn new() -> Self {
         Self {
@@ -334,6 +374,8 @@ impl TuiApp for FormOneApp {
         data: &mut Self::Data,
         uistate: &mut Self::State,
     ) -> ControlUI<Self::Action, Self::Error> {
+        let t0 = SystemTime::now();
+
         let area = frame.size();
 
         let layout = {
@@ -373,6 +415,12 @@ impl TuiApp for FormOneApp {
                     _
                 )
             }
+            Some(MenuItem::FTable) => {
+                tr!(
+                    repaint_scrolled_ftable(&event, frame, layout, data, uistate),
+                    _
+                )
+            }
             Some(MenuItem::List) => {
                 tr!(
                     repaint_scrolled_list(&event, frame, layout, data, uistate),
@@ -394,7 +442,15 @@ impl TuiApp for FormOneApp {
             frame.render_stateful_widget(err, layout.area, &mut uistate.g.error_dlg);
         }
 
-        let status = StatusLine::new().style(uistate.g.theme.status_style());
+        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+        uistate.g.status.status(1, format!("{:?}", el).to_string());
+
+        let status = StatusLine::new()
+            .styles([
+                uistate.g.theme.status_style(),
+                uistate.g.theme.status_style().on_red(),
+            ])
+            .layout([Constraint::Fill(1), Constraint::Length(15)]);
         frame.render_stateful_widget(status, layout.status, &mut uistate.g.status);
 
         Control::Continue
@@ -448,6 +504,7 @@ impl TuiApp for FormOneApp {
             Some(MenuItem::Date) => handle_dateinput(&event, data, uistate),
             Some(MenuItem::Paragraph) => handle_scrolled_paragraph(&event, data, uistate),
             Some(MenuItem::Table) => handle_scrolled_table(&event, data, uistate),
+            Some(MenuItem::FTable) => handle_scrolled_ftable(&event, data, uistate),
             Some(MenuItem::List) => handle_scrolled_list(&event, data, uistate),
             Some(MenuItem::TextArea) => handle_textarea(&event, data, uistate),
             Some(MenuItem::Tree) => handle_tree(&event, data, uistate),
@@ -501,6 +558,7 @@ fn repaint_menu(
         .add("DateField", MenuItem::Date)
         .add("Scrolling", MenuItem::Paragraph)
         .add("Table", MenuItem::Table)
+        .add("FTable", MenuItem::FTable)
         .add("List", MenuItem::List)
         .add("TextArea", MenuItem::TextArea)
         .add("Other", MenuItem::Tree)
@@ -1180,9 +1238,8 @@ fn repaint_scrolled_table(
         Direction::Horizontal,
         [
             Constraint::Fill(2),
-            Constraint::Fill(1),
             Constraint::Fill(2),
-            Constraint::Fill(1),
+            Constraint::Fill(2),
         ],
     )
     .split(Rect::new(
@@ -1196,9 +1253,8 @@ fn repaint_scrolled_table(
         Direction::Horizontal,
         [
             Constraint::Fill(2),
-            Constraint::Fill(1),
             Constraint::Fill(2),
-            Constraint::Fill(1),
+            Constraint::Fill(2),
         ],
     )
     .split(Rect::new(
@@ -1211,14 +1267,13 @@ fn repaint_scrolled_table(
     let l_table1 = Span::from("Single selection, external scroll").underlined();
     let w_table1 = create_sample_table().styles(uistate.g.theme.table_style());
     let w_table1 = Scrolled::new(w_table1);
-
-    let l_table2 = Span::from("Multiple selection, internal scroll").underlined();
-    let w_table2 = create_sample_table().styles(uistate.g.theme.table_style());
-
     frame.render_widget(l_table1, l_title[0]);
     frame.render_stateful_widget(w_table1, l_columns[0], &mut uistate.scrolled_table.table1);
-    frame.render_widget(l_table2, l_title[2]);
-    frame.render_stateful_widget(w_table2, l_columns[2], &mut uistate.scrolled_table.table2);
+
+    // let l_table2 = Span::from("Multiple selection, internal scroll").underlined();
+    // let w_table2 = create_sample_table().styles(uistate.g.theme.table_style());
+    // frame.render_widget(l_table2, l_title[1]);
+    // frame.render_stateful_widget(w_table2, l_columns[1], &mut uistate.scrolled_table.table2);
 
     ControlUI::Continue
 }
@@ -1386,6 +1441,103 @@ fn handle_scrolled_table(
 
     check_break!(uistate.scrolled_table.table1.handle(event, DefaultKeys));
     check_break!(uistate.scrolled_table.table2.handle(event, DefaultKeys));
+
+    Control::Continue
+}
+
+fn repaint_scrolled_ftable(
+    event: &RepaintEvent,
+    frame: &mut Frame<'_>,
+    layout: FormOneAppLayout,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let l_title = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Fill(2), Constraint::Fill(2)],
+    )
+    .split(Rect::new(
+        layout.area.x,
+        layout.area.y,
+        layout.area.width,
+        1,
+    ));
+
+    let l_columns = Layout::new(
+        Direction::Horizontal,
+        [Constraint::Fill(2), Constraint::Fill(2)],
+    )
+    .split(Rect::new(
+        layout.area.x,
+        layout.area.y + 1,
+        layout.area.width,
+        layout.area.height - 1,
+    ));
+
+    struct FSample1<'a>(&'a [[usize; 10]]);
+
+    impl<'a> TableData<'a> for FSample1<'a> {
+        fn rows(&self) -> usize {
+            self.0.len()
+        }
+
+        fn columns(&self) -> usize {
+            10
+        }
+
+        fn row_height(&self, row: usize) -> u16 {
+            1
+        }
+
+        fn render_cell(
+            &self,
+            column: usize,
+            row: usize,
+            style: Style,
+            area: Rect,
+            buf: &mut Buffer,
+        ) {
+            if let Some(row) = self.0.get(row) {
+                if let Some(cell) = row.get(column) {
+                    Span::from(format!("{}", cell).as_str())
+                        .style(style)
+                        .render(area, buf)
+                }
+            }
+        }
+    }
+
+    let s0 = FSample1(&data.sample1);
+
+    let w_table3 = FTable::default()
+        .data(&s0)
+        .widths([10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
+        .column_spacing(1)
+        .layout_width(130);
+
+    let w_table3 = Scrolled::new(w_table3);
+    frame.render_stateful_widget(w_table3, l_columns[0], &mut uistate.scrolled_ftable.table1);
+
+    ControlUI::Continue
+}
+
+fn focus_ftable(state: &FormScrolledFTable) -> Focus<'_> {
+    Focus::new([(state.table1.focus(), state.table1.area())])
+}
+
+fn handle_scrolled_ftable(
+    event: &Event,
+    data: &mut FormOneData,
+    uistate: &mut FormOneState,
+) -> Control {
+    let state = &mut uistate.scrolled_ftable;
+
+    focus_ftable(state)
+        .append(focus_menu(&uistate.menu))
+        .handle(event, DefaultKeys)
+        .on_action_do(|_| uistate.g.repaint.set());
+
+    check_break!(uistate.scrolled_ftable.table1.handle(event, DefaultKeys));
 
     Control::Continue
 }

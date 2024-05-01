@@ -12,7 +12,7 @@ use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
-use ratatui::style::{Modifier, Style};
+use ratatui::style::{Modifier, Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -214,7 +214,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         Layout::horizontal(widths)
             .flex(self.flex)
             .spacing(self.column_spacing)
-            .split_with_spacers(area);
+            .split_with_spacers(area)
     }
 }
 
@@ -257,16 +257,16 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
         state.col_page_len = 0;
 
         let mut row = state.row_offset;
-        let mut y = state.table_area.y;
+        let mut row_area = Rect::new(
+            state.table_area.x,
+            state.table_area.y,
+            state.table_area.width,
+            0,
+        );
         loop {
-            let row_height = data.row_height(row);
+            row_area.height = data.row_height(row);
 
-            state.row_areas.push(Rect::new(
-                state.table_area.x,
-                state.table_area.y,
-                state.table_area.width,
-                row_height,
-            ));
+            state.row_areas.push(row_area);
             state.row_page_len += 1;
 
             let style = if state.selection.is_selected(row) {
@@ -282,21 +282,29 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
             let mut col = state.col_offset;
             let x0 = l_columns[col].x;
             loop {
-                let l_col = l_columns[col];
                 let cell_area = Rect::new(
-                    state.table_area.x + l_col.x - x0,
-                    y,
-                    l_col.width,
-                    row_height,
+                    row_area.x + l_columns[col].x - x0,
+                    row_area.y,
+                    l_columns[col].width,
+                    row_area.height,
+                )
+                .intersection(area);
+
+                let space_area = Rect::new(
+                    row_area.x + l_spacers[col + 1].x - x0,
+                    row_area.y,
+                    l_spacers[col + 1].width,
+                    row_area.height,
                 )
                 .intersection(area);
 
                 state.col_page_len += 1;
 
-                buf.set_style(l_spacers[col + 1], style);
+                buf.set_style(space_area, style);
+                buf.set_style(cell_area, style);
                 data.render_cell(col, row, style, cell_area, buf);
 
-                if l_col.x + l_col.width >= state.table_area.right() {
+                if cell_area.right() >= state.table_area.right() {
                     break;
                 }
                 if col + 1 >= data.columns() {
@@ -306,7 +314,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
                 col += 1;
             }
 
-            if y + row_height >= state.table_area.bottom() {
+            if row_area.bottom() >= state.table_area.bottom() {
                 break;
             }
             if row + 1 >= data.rows() {
@@ -314,11 +322,11 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
             }
 
             row += 1;
-            y += row_height;
+            row_area.y += row_area.height;
         }
 
-        state.max_row_offset = state.row_len; // todo
-        state.max_col_offset = state.col_len; // todo
+        state.max_row_offset = state.row_len;
+        state.max_col_offset = state.col_len;
     }
 }
 
