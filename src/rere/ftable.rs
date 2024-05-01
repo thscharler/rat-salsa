@@ -19,10 +19,10 @@ use std::marker::PhantomData;
 use std::rc::Rc;
 
 /// Trait for the table-data.
+///
+/// Implement this trait on a struct that holds a reference to your data.
 pub trait TableData<'a> {
-    fn rows(&self) -> usize;
-
-    fn columns(&self) -> usize;
+    fn size(&self) -> (usize, usize);
 
     fn row_height(&self, row: usize) -> u16;
 
@@ -30,6 +30,10 @@ pub trait TableData<'a> {
 }
 
 /// Furious table.
+///
+///
+///
+///
 pub struct FTable<'a, Selection> {
     data: DataRepr<'a>,
 
@@ -57,8 +61,7 @@ enum DataRepr<'a> {
 
 impl<'a, Selection: Debug> Debug for FTable<'a, Selection> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        let rows = self.data_ref().rows();
-        let columns = self.data_ref().columns();
+        let (columns, rows) = self.data_ref().size();
         f.debug_struct("FTable")
             .field("rows", &rows)
             .field("columns", &columns)
@@ -195,10 +198,18 @@ impl<'a, Selection> FTable<'a, Selection> {
         }
     }
 
-    fn layout_columns(&self, mut area: Rect) -> (Rc<[Rect]>, Rc<[Rect]>) {
+    fn total_width(&self, area_width: u16) -> u16 {
+        if let Some(layout_width) = self.layout_width {
+            layout_width
+        } else {
+            area_width
+        }
+    }
+
+    fn layout_columns(&self, columns: usize, mut area: Rect) -> (Rc<[Rect]>, Rc<[Rect]>) {
         let widths;
         let widths = if self.widths.is_empty() {
-            widths = vec![Constraint::Fill(1); self.data_ref().columns()];
+            widths = vec![Constraint::Fill(1); columns];
             widths.as_slice()
         } else {
             self.widths.as_slice()
@@ -207,9 +218,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         area.x = 0;
         area.y = 0;
         area.height = 0;
-        if let Some(layout_width) = self.layout_width {
-            area.width = layout_width;
-        }
+        area.width = self.total_width(area.width);
 
         Layout::horizontal(widths)
             .flex(self.flex)
@@ -224,17 +233,19 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let data = self.data_ref();
 
+        let (columns, rows) = data.size();
+
         // limits
-        if state.row_offset >= data.rows() {
-            state.row_offset = data.rows().saturating_sub(1);
+        if state.row_offset >= rows {
+            state.row_offset = rows.saturating_sub(1);
         }
-        if state.col_offset >= data.columns() {
-            state.col_offset = data.columns().saturating_sub(1);
+        if state.col_offset >= columns {
+            state.col_offset = columns.saturating_sub(1);
         }
 
         // state
-        state.row_len = data.rows();
-        state.col_len = data.columns();
+        state.rows = rows;
+        state.columns = columns;
         state.area = self.block.inner_if_some(area);
 
         // vertical layout
@@ -248,8 +259,8 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
         state.table_area = l_rows[1];
 
         // horizontal layout
-        let (l_columns, l_spacers) = self.layout_columns(state.table_area);
-        assert_eq!(l_columns.len(), data.columns());
+        let (l_columns, l_spacers) = self.layout_columns(columns, state.table_area);
+        assert_eq!(l_columns.len(), columns);
 
         // render visible
         state.row_areas.clear();
@@ -300,14 +311,14 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
 
                 state.col_page_len += 1;
 
-                buf.set_style(space_area, style);
+                buf.set_style(space_area, style.on_gray());
                 buf.set_style(cell_area, style);
                 data.render_cell(col, row, style, cell_area, buf);
 
                 if cell_area.right() >= state.table_area.right() {
                     break;
                 }
-                if col + 1 >= data.columns() {
+                if col + 1 >= columns {
                     break;
                 }
 
@@ -317,7 +328,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
             if row_area.bottom() >= state.table_area.bottom() {
                 break;
             }
-            if row + 1 >= data.rows() {
+            if row + 1 >= rows {
                 break;
             }
 
@@ -325,8 +336,30 @@ impl<'a, Selection: ListSelection> StatefulWidget for FTable<'a, Selection> {
             row_area.y += row_area.height;
         }
 
-        state.max_row_offset = state.row_len;
-        state.max_col_offset = state.col_len;
+        'f: {
+            let mut page_height = 0;
+            for r in (0..rows).rev() {
+                let row_height = data.row_height(r);
+                if page_height + row_height >= state.area.height {
+                    state.max_row_offset = r + 1;
+                    break 'f;
+                }
+                page_height += row_height;
+            }
+            state.max_row_offset = 0;
+        }
+
+        'f: {
+            let total_width = self.total_width(state.area.width);
+            let total_right = state.area.x + total_width;
+            for (c, rect) in l_columns.iter().rev().enumerate() {
+                if total_right - rect.right() > state.area.width {
+                    state.max_col_offset = c;
+                    break 'f;
+                }
+            }
+            state.max_col_offset = 0;
+        }
     }
 }
 
@@ -366,8 +399,8 @@ pub struct FTableState<Selection> {
     pub table_area: Rect,
     pub row_areas: Vec<Rect>,
 
-    pub row_len: usize,
-    pub col_len: usize,
+    pub rows: usize,
+    pub columns: usize,
 
     pub row_offset: usize,
     pub col_offset: usize,
@@ -392,8 +425,8 @@ impl<Selection: Default> Default for FTableState<Selection> {
             area: Default::default(),
             table_area: Default::default(),
             row_areas: Default::default(),
-            row_len: 0,
-            col_len: 0,
+            rows: 0,
+            columns: 0,
             row_offset: 0,
             col_offset: 0,
             row_page_len: 0,
@@ -444,25 +477,25 @@ impl<Selection> HasScrolling for FTableState<Selection> {
     }
 
     fn set_v_offset(&mut self, offset: usize) -> ScrollOutcome {
-        if offset < self.row_len {
+        if offset < self.rows {
             self.row_offset = offset;
             ScrollOutcome::Exact
-        } else if self.row_offset == self.row_len.saturating_sub(1) {
+        } else if self.row_offset == self.rows.saturating_sub(1) {
             ScrollOutcome::AtLimit
         } else {
-            self.row_offset = self.row_len.saturating_sub(1);
+            self.row_offset = self.rows.saturating_sub(1);
             ScrollOutcome::Limited
         }
     }
 
     fn set_h_offset(&mut self, offset: usize) -> ScrollOutcome {
-        if offset < self.col_len {
+        if offset < self.columns {
             self.col_offset = offset;
             ScrollOutcome::Exact
-        } else if self.col_offset == self.col_len.saturating_sub(1) {
+        } else if self.col_offset == self.columns.saturating_sub(1) {
             ScrollOutcome::AtLimit
         } else {
-            self.col_offset = self.col_len.saturating_sub(1);
+            self.col_offset = self.columns.saturating_sub(1);
             ScrollOutcome::Limited
         }
     }
@@ -567,7 +600,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for FTableState<SingleSelection> {
         let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Down) => {
-                    self.selection.next(1, self.row_len - 1);
+                    self.selection.next(1, self.rows - 1);
                     self.scroll_to_selected();
                     ControlUI::Change
                 }
@@ -577,7 +610,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for FTableState<SingleSelection> {
                     ControlUI::Change
                 }
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    self.selection.select(Some(self.row_len - 1));
+                    self.selection.select(Some(self.rows - 1));
                     self.scroll_to_selected();
                     ControlUI::Change
                 }
@@ -593,7 +626,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>> for FTableState<SingleSelection> {
                 }
                 ct_event!(keycode press PageDown) => {
                     self.selection
-                        .next(self.table_area.height as usize / 2, self.row_len - 1);
+                        .next(self.table_area.height as usize / 2, self.rows - 1);
                     self.scroll_to_selected();
                     ControlUI::Change
                 }
@@ -633,7 +666,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for FTableState<SingleSel
                 if self.area.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.mouse.set_drag();
-                        self.selection.select_clamped(new_row, self.row_len - 1);
+                        self.selection.select_clamped(new_row, self.rows - 1);
                         ControlUI::Change
                     } else {
                         ControlUI::NoChange
@@ -647,7 +680,7 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for FTableState<SingleSel
                     let pos = Position::new(*column, *row);
                     let new_row = self.row_at_drag(pos);
                     self.mouse.set_drag();
-                    self.selection.select_clamped(new_row, self.row_len - 1);
+                    self.selection.select_clamped(new_row, self.rows - 1);
                     self.scroll_to_selected();
                     ControlUI::Change
                 } else {
@@ -686,12 +719,8 @@ pub mod text {
     }
 
     impl<'a> TableData<'a> for TextTableData<'a> {
-        fn rows(&self) -> usize {
-            self.rows.len()
-        }
-
-        fn columns(&self) -> usize {
-            self.columns
+        fn size(&self) -> (usize, usize) {
+            (self.columns, self.rows.len())
         }
 
         fn row_height(&self, r: usize) -> u16 {
