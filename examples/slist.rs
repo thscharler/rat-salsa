@@ -8,18 +8,18 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
-use log::debug;
 use rat_scrolled::adapter::list::{ListS, ListSState};
 use rat_scrolled::events::{DefaultKeys, HandleEvent, Outcome};
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
+use ratatui::style::{Style, Stylize};
+use ratatui::widgets::{ListDirection, StatefulWidget};
 use ratatui::{Frame, Terminal};
 use std::io::{stdout, Stdout};
 use std::iter::repeat_with;
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -70,6 +70,8 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State {
         list1: Default::default(),
         list2: Default::default(),
+        list3: Default::default(),
+        list4: Default::default(),
     };
 
     run_ui(&mut data, &mut state)
@@ -99,6 +101,8 @@ struct Data {
 struct State {
     pub(crate) list1: ScrolledState<ListSState>,
     pub(crate) list2: ScrolledState<ListSState>,
+    pub(crate) list3: ScrolledState<ListSState>,
+    pub(crate) list4: ScrolledState<ListSState>,
 }
 
 fn run_ui(data: &mut Data, state: &mut State) -> Result<(), anyhow::Error> {
@@ -199,13 +203,34 @@ fn handle_event(
 }
 
 fn repaint_lists(area: Rect, buf: &mut Buffer, data: &mut Data, state: &mut State) {
-    let l = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).split(area);
+    let l = Layout::horizontal([
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+        Constraint::Fill(1),
+    ])
+    .split(area);
 
     let list1 = Scrolled::new(ListS::new(data.sample1.iter().map(|v| v.to_string())));
     list1.render(l[0], buf, &mut state.list1);
 
     let list2 = Scrolled::new(ListS::new(data.sample2.iter().map(|v| v.to_string())));
     list2.render(l[1], buf, &mut state.list2);
+
+    let list3 = Scrolled::new(
+        ListS::new(data.sample1.iter().map(|v| v.to_string()))
+            .highlight_symbol("&")
+            .highlight_style(Style::default().on_red())
+            .scroll_selection()
+            .scroll_padding(2),
+    );
+    list3.render(l[2], buf, &mut state.list3);
+
+    let list4 = Scrolled::new(
+        ListS::new(data.sample2.iter().map(|v| v.to_string()))
+            .direction(ListDirection::BottomToTop),
+    );
+    list4.render(l[3], buf, &mut state.list4);
 }
 
 fn handle_lists(
@@ -214,12 +239,20 @@ fn handle_lists(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     match HandleEvent::handle(&mut state.list1, event, false, DefaultKeys) {
-        Ok(Outcome::NotUsed) => {}
-        r => return r,
+        Outcome::NotUsed => {}
+        r => return Ok(r),
     };
     match HandleEvent::handle(&mut state.list2, event, false, DefaultKeys) {
-        Ok(Outcome::NotUsed) => {}
-        r => return r,
+        Outcome::NotUsed => {}
+        r => return Ok(r),
+    };
+    match HandleEvent::handle(&mut state.list3, event, false, DefaultKeys) {
+        Outcome::NotUsed => {}
+        r => return Ok(r),
+    };
+    match HandleEvent::handle(&mut state.list4, event, false, DefaultKeys) {
+        Outcome::NotUsed => {}
+        r => return Ok(r),
     };
 
     Ok(Outcome::NotUsed)

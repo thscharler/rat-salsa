@@ -1,7 +1,6 @@
 use crate::_private::NonExhaustive;
 use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
 use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
-use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget};
@@ -110,8 +109,6 @@ impl ScrollingState for ParagraphSState {
     }
 
     fn set_vertical_offset(&mut self, offset: usize) -> ScrollingOutcome {
-        debug!("set vert {}->{} || {}", self.v_offset, offset, self.v_len);
-
         let old_offset = min(self.v_offset, self.v_len.saturating_sub(1));
         let new_offset = min(offset, self.v_len.saturating_sub(1));
 
@@ -125,13 +122,10 @@ impl ScrollingState for ParagraphSState {
     }
 
     fn set_horizontal_offset(&mut self, offset: usize) -> ScrollingOutcome {
-        debug!("set hor {}->{} || {}", self.h_offset, offset, self.h_len);
-
         let old_offset = min(self.h_offset, self.h_len.saturating_sub(1));
         let new_offset = min(offset, self.h_len.saturating_sub(1));
 
         self.h_offset = new_offset;
-        debug!("new hor {}", self.h_offset);
 
         if new_offset > old_offset {
             ScrollingOutcome::Scrolled

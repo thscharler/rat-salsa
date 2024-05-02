@@ -97,12 +97,19 @@ pub trait ScrollingState {
     }
 }
 
-/// A widget that can differentiate between these two states can use this as a flag.
+/// A widget that can differentiate between these states can use this as a flag.
 /// It's the job of the widget to implement the difference.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+///
+/// But in the end this is probably to many choices for most widgets, so this is
+/// pretty useless. A widget will better signal its capabilities in its
+/// own terminology.
+///
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum ScrollingPolicy {
     Selection,
-    Offset,
+    #[default]
+    ItemOffset,
+    LineOffset,
 }
 
 mod _private {
