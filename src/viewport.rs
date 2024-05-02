@@ -2,7 +2,8 @@
 //! A viewport that allows scrolling of a Widget.
 //!
 use crate::_private::NonExhaustive;
-use crate::{Outcome, ScrollingOutcome, ScrollingState, ScrollingWidget};
+use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
+use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};
@@ -199,6 +200,10 @@ impl ScrollingState for ViewportState {
         self.area.height as usize
     }
 
+    fn vertical_scroll(&self) -> usize {
+        self.area.height as usize / 10
+    }
+
     fn horizontal_max_offset(&self) -> usize {
         self.viewport_area.width.saturating_sub(self.area.width) as usize
     }
@@ -209,6 +214,10 @@ impl ScrollingState for ViewportState {
 
     fn horizontal_page(&self) -> usize {
         self.area.width as usize
+    }
+
+    fn horizontal_scroll(&self) -> usize {
+        self.area.width as usize / 10
     }
 
     fn set_vertical_offset(&mut self, offset: usize) -> ScrollingOutcome {
@@ -239,18 +248,25 @@ impl ScrollingState for ViewportState {
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    _state: &mut ViewportState,
-    _focus: bool,
-    _event: &crossterm::event::Event,
-) -> Outcome {
-    Outcome::Unused
+impl HandleEvent<crossterm::event::Event, DefaultKeys, Outcome> for ViewportState {
+    fn handle(
+        &mut self,
+        _event: &crossterm::event::Event,
+        _focus: bool,
+        _keymap: DefaultKeys,
+    ) -> Outcome {
+        Outcome::NotUsed
+    }
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(
-    _state: &mut ViewportState,
-    _event: &crossterm::event::Event,
-) -> Outcome {
-    Outcome::Unused
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewportState {
+    fn handle(
+        &mut self,
+        _event: &crossterm::event::Event,
+        _focus: bool,
+        _keymap: MouseOnly,
+    ) -> Outcome {
+        Outcome::NotUsed
+    }
 }

@@ -1,4 +1,6 @@
-mod crossterm;
+pub mod adapter;
+pub(crate) mod crossterm;
+pub mod events;
 pub mod scrolled;
 pub mod viewport;
 
@@ -45,8 +47,10 @@ pub trait ScrollingState {
     fn vertical_offset(&self) -> usize;
     /// Vertical page-size at the current offset.
     fn vertical_page(&self) -> usize;
+    /// Suggested scroll per scroll-event.
+    fn vertical_scroll(&self) -> usize;
 
-    // Maximum offset that is accessible with scrolling.
+    /// Maximum offset that is accessible with scrolling.
     ///
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
@@ -55,6 +59,8 @@ pub trait ScrollingState {
     fn horizontal_offset(&self) -> usize;
     /// Horizontal page-size at the current offset.
     fn horizontal_page(&self) -> usize;
+    /// Suggested scroll per scroll-event.
+    fn horizontal_scroll(&self) -> usize;
 
     /// Change the vertical offset.
     ///
@@ -97,17 +103,6 @@ pub trait ScrollingState {
 pub enum ScrollingPolicy {
     Selection,
     Offset,
-}
-
-/// Result value for event-handling.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Outcome {
-    /// The given event was not handled at all.
-    Unused,
-    /// The event was handled, no repaint necessary.
-    Unchanged,
-    /// The event was handled, repaint necessary.
-    Changed,
 }
 
 mod _private {

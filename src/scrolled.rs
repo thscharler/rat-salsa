@@ -7,8 +7,10 @@
 ///
 ///
 use crate::_private::NonExhaustive;
+use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
 use crate::viewport::Viewport;
-use crate::{ct_event, Outcome, ScrollingOutcome, ScrollingState, ScrollingWidget};
+use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
+use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};
@@ -598,11 +600,11 @@ impl<WState: ScrollingState> ScrolledState<WState> {
 
     /// Scroll down by n, but limited by the max_offset + overscroll
     pub fn limited_scroll_down(&mut self, n: usize) -> ScrollingOutcome {
-        let voffset = min(
+        let v_offset = min(
             self.widget.vertical_offset() + n,
             self.widget.vertical_max_offset() + self.v_overscroll,
         );
-        self.set_vertical_offset(voffset)
+        self.set_vertical_offset(v_offset)
     }
 
     /// Scroll down by n, but limited by the max_offset + overscroll
@@ -619,156 +621,179 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     }
 }
 
-/// Handle events for the Scrolled widget and the scrollbars.
-pub fn handle_events<WState: ScrollingState>(
-    state: &mut ScrolledState<WState>,
-    _focus: bool,
-    event: &crossterm::event::Event,
-) -> Outcome {
-    // Don't do key-events here. That's up to the widget, it has more
-    // information about the indented behaviour.
+impl<WState> HandleEvent<crossterm::event::Event, DefaultKeys, Outcome> for ScrolledState<WState>
+where
+    WState: ScrollingState
+        + HandleEvent<crossterm::event::Event, DefaultKeys, Outcome>
+        + HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        focus: bool,
+        _keymap: DefaultKeys,
+    ) -> Outcome {
+        // Don't do key-events here. That's up to the widget, it has more
+        // information about the indented behaviour.
 
-    // Do handle some mouse events here.
-    // * mouse interactions with the scroll-bars.
-    // * scrolling.
-    handle_mouse_events(state, event)
+        // Do handle some mouse events here.
+        // * mouse interactions with the scroll-bars.
+        // * scrolling.
+        let r = HandleEvent::handle(self, event, focus, MouseOnly);
+
+        // Let the widget handle the rest.
+        match r {
+            Outcome::NotUsed => HandleEvent::handle(&mut self.widget, event, focus, DefaultKeys),
+            _ => r,
+        }
+    }
 }
 
 /// Handle events for the Scrolled widget and the scrollbars.
-pub fn handle_mouse_events<WState: ScrollingState>(
-    state: &mut ScrolledState<WState>,
-    event: &crossterm::event::Event,
-) -> Outcome {
-    match event {
-        ct_event!(mouse down Left for column,row) => {
-            // Click in the scrollbar sets the offset to some absolute position.
-            let o = if let Some(vscroll_area) = state.v_scrollbar_area {
-                if vscroll_area.contains(Position::new(*column, *row)) {
-                    let row = row.saturating_sub(vscroll_area.y) as usize;
-                    // max_v_offset is inclusive, so height should be too.
-                    let height = vscroll_area.height.saturating_sub(1) as usize;
+impl<WState> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ScrolledState<WState>
+where
+    WState: ScrollingState + HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        focus: bool,
+        _keymap: MouseOnly,
+    ) -> Outcome {
+        let r = match event {
+            ct_event!(mouse down Left for column,row) => {
+                // Click in the scrollbar sets the offset to some absolute position.
+                let o = if let Some(vscroll_area) = self.v_scrollbar_area {
+                    if vscroll_area.contains(Position::new(*column, *row)) {
+                        let row = row.saturating_sub(vscroll_area.y) as usize;
+                        // max_v_offset is inclusive, so height should be too.
+                        let height = vscroll_area.height.saturating_sub(1) as usize;
 
-                    let pos = (state.widget.vertical_max_offset() * row) / height;
+                        let pos = (self.widget.vertical_max_offset() * row) / height;
 
-                    state.v_drag = true;
-                    state.widget.set_vertical_offset(pos);
+                        self.v_drag = true;
+                        self.widget.set_vertical_offset(pos);
 
+                        Outcome::Changed
+                    } else {
+                        Outcome::NotUsed
+                    }
+                } else {
+                    Outcome::NotUsed
+                };
+                if o != Outcome::NotUsed {
+                    return o;
+                }
+                let o = if let Some(hscroll_area) = self.h_scrollbar_area {
+                    if hscroll_area.contains(Position::new(*column, *row)) {
+                        let col = column.saturating_sub(hscroll_area.x) as usize;
+                        let width = hscroll_area.width.saturating_sub(1) as usize;
+
+                        let pos = (self.widget.horizontal_max_offset() * col) / width;
+
+                        self.h_drag = true;
+                        self.widget.set_horizontal_offset(pos);
+
+                        Outcome::Changed
+                    } else {
+                        Outcome::NotUsed
+                    }
+                } else {
+                    Outcome::NotUsed
+                };
+                if o != Outcome::NotUsed {
+                    return o;
+                }
+                Outcome::NotUsed
+            }
+            ct_event!(mouse drag Left for column, row) => {
+                // dragging around the scroll bar
+                let o = if self.v_drag {
+                    if let Some(vscroll_area) = self.v_scrollbar_area {
+                        let row = row.saturating_sub(vscroll_area.y) as usize;
+                        let height = vscroll_area.height.saturating_sub(1) as usize;
+
+                        let pos = (self.widget.vertical_max_offset() * row) / height;
+                        self.set_limited_vertical_offset(pos);
+
+                        Outcome::Changed
+                    } else {
+                        Outcome::NotUsed
+                    }
+                } else {
+                    Outcome::NotUsed
+                };
+                if o != Outcome::NotUsed {
+                    return o;
+                }
+                let o = if self.h_drag {
+                    if let Some(hscroll_area) = self.h_scrollbar_area {
+                        let col = column.saturating_sub(hscroll_area.x) as usize;
+                        let width = hscroll_area.width.saturating_sub(1) as usize;
+
+                        let pos = (col * self.widget.horizontal_max_offset()) / width;
+                        self.set_limited_horizontal_offset(pos);
+
+                        Outcome::Changed
+                    } else {
+                        Outcome::NotUsed
+                    }
+                } else {
+                    Outcome::NotUsed
+                };
+                if o != Outcome::NotUsed {
+                    return o;
+                }
+                Outcome::NotUsed
+            }
+
+            ct_event!(mouse moved) => {
+                // reset drag
+                self.v_drag = false;
+                self.h_drag = false;
+                Outcome::NotUsed
+            }
+
+            ct_event!(scroll down for column, row) => {
+                if self.area.contains(Position::new(*column, *row)) {
+                    self.limited_scroll_down(self.widget.vertical_scroll());
                     Outcome::Changed
                 } else {
-                    Outcome::Unused
+                    Outcome::NotUsed
                 }
-            } else {
-                Outcome::Unused
-            };
-            if o != Outcome::Unused {
-                return o;
             }
-            let o = if let Some(hscroll_area) = state.h_scrollbar_area {
-                if hscroll_area.contains(Position::new(*column, *row)) {
-                    let col = column.saturating_sub(hscroll_area.x) as usize;
-                    let width = hscroll_area.width.saturating_sub(1) as usize;
-
-                    let pos = (state.widget.horizontal_max_offset() * col) / width;
-
-                    state.h_drag = true;
-                    state.widget.set_horizontal_offset(pos);
-
+            ct_event!(scroll up for column, row) => {
+                if self.area.contains(Position::new(*column, *row)) {
+                    self.widget.scroll_up(self.widget.vertical_scroll());
                     Outcome::Changed
                 } else {
-                    Outcome::Unused
+                    Outcome::NotUsed
                 }
-            } else {
-                Outcome::Unused
-            };
-            if o != Outcome::Unused {
-                return o;
             }
-            Outcome::Unused
-        }
-        ct_event!(mouse drag Left for column, row) => {
-            // dragging around the scroll bar
-            let o = if state.v_drag {
-                if let Some(vscroll_area) = state.v_scrollbar_area {
-                    let row = row.saturating_sub(vscroll_area.y) as usize;
-                    let height = vscroll_area.height.saturating_sub(1) as usize;
-
-                    let pos = (state.widget.vertical_max_offset() * row) / height;
-                    state.set_limited_vertical_offset(pos);
-
+            ct_event!(scroll ALT down for column, row) => {
+                // right scroll with ALT. shift doesn't work?
+                if self.area.contains(Position::new(*column, *row)) {
+                    self.limited_scroll_right(self.widget.horizontal_scroll());
                     Outcome::Changed
                 } else {
-                    Outcome::Unused
+                    Outcome::NotUsed
                 }
-            } else {
-                Outcome::Unused
-            };
-            if o != Outcome::Unused {
-                return o;
             }
-            let o = if state.h_drag {
-                if let Some(hscroll_area) = state.h_scrollbar_area {
-                    let col = column.saturating_sub(hscroll_area.x) as usize;
-                    let width = hscroll_area.width.saturating_sub(1) as usize;
-
-                    let pos = (col * state.widget.horizontal_max_offset()) / width;
-                    state.set_limited_horizontal_offset(pos);
-
+            ct_event!(scroll ALT up for column, row) => {
+                // right scroll with ALT. shift doesn't work?
+                if self.area.contains(Position::new(*column, *row)) {
+                    self.widget.scroll_left(self.widget.horizontal_scroll());
                     Outcome::Changed
                 } else {
-                    Outcome::Unused
+                    Outcome::NotUsed
                 }
-            } else {
-                Outcome::Unused
-            };
-            if o != Outcome::Unused {
-                return o;
             }
-            Outcome::Unused
-        }
+            _ => Outcome::NotUsed,
+        };
 
-        ct_event!(mouse moved) => {
-            // reset drag
-            state.v_drag = false;
-            state.h_drag = false;
-            Outcome::Unused
+        match r {
+            Outcome::NotUsed => HandleEvent::handle(&mut self.widget, event, focus, MouseOnly),
+            _ => r,
         }
-
-        ct_event!(scroll down for column, row) => {
-            if state.area.contains(Position::new(*column, *row)) {
-                state.limited_scroll_down(state.widget.vertical_page() / 10);
-                Outcome::Changed
-            } else {
-                Outcome::Unused
-            }
-        }
-        ct_event!(scroll up for column, row) => {
-            if state.area.contains(Position::new(*column, *row)) {
-                state.widget.scroll_up(state.widget.vertical_page() / 10);
-                Outcome::Changed
-            } else {
-                Outcome::Unused
-            }
-        }
-        ct_event!(scroll ALT down for column, row) => {
-            // right scroll with ALT. shift doesn't work?
-            if state.area.contains(Position::new(*column, *row)) {
-                state.limited_scroll_right(state.widget.horizontal_page() / 10);
-                Outcome::Changed
-            } else {
-                Outcome::Unused
-            }
-        }
-        ct_event!(scroll ALT up for column, row) => {
-            // right scroll with ALT. shift doesn't work?
-            if state.area.contains(Position::new(*column, *row)) {
-                state
-                    .widget
-                    .scroll_left(state.widget.horizontal_page() / 10);
-                Outcome::Changed
-            } else {
-                Outcome::Unused
-            }
-        }
-        _ => Outcome::Unused,
     }
 }
