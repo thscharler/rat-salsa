@@ -23,7 +23,7 @@ pub struct TreeS<'a, Identifier> {
     node_no_children_symbol: Option<&'a str>,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TreeSState<Identifier> {
     pub area: Rect,
 
@@ -266,6 +266,14 @@ where
     ) -> Outcome {
         if focus {
             match event {
+                ct_event!(keycode press Home) => {
+                    self.widget.select_first();
+                    Outcome::Changed
+                }
+                ct_event!(keycode press End) => {
+                    self.widget.select_last();
+                    Outcome::Changed
+                }
                 ct_event!(keycode press Left) => {
                     self.widget.key_left();
                     Outcome::Changed
@@ -276,12 +284,16 @@ where
                 }
                 ct_event!(keycode press Up) => {
                     // TODO: doesn't work for now.
-                    // self.widget.key_up();
+                    self.widget.key_up();
                     Outcome::Changed
                 }
                 ct_event!(keycode press Down) => {
                     // TODO: doesn't work for now.
-                    // self.widget.key_down();
+                    self.widget.key_down();
+                    Outcome::Changed
+                }
+                ct_event!(key press ' ') => {
+                    self.widget.toggle_selected();
                     Outcome::Changed
                 }
                 _ => Outcome::NotUsed,

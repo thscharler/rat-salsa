@@ -17,6 +17,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{ListDirection, StatefulWidget};
 use ratatui::{Frame, Terminal};
+use std::fs;
 use std::io::{stdout, Stdout};
 use std::iter::repeat_with;
 use std::time::Duration;
@@ -78,6 +79,7 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 fn setup_logging() -> Result<(), anyhow::Error> {
+    fs::remove_file("log.log")?;
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
