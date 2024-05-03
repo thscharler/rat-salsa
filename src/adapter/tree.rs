@@ -1,16 +1,16 @@
 use crate::_private::NonExhaustive;
 use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
 use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
-#[allow(unused_imports)]
-use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::Block;
 use std::fmt::Debug;
 use std::hash::Hash;
-use tui_tree_widget::{Tree, TreeItem, TreeState};
+use tui_tree_widget::{TreeItem, TreeState};
 
+/// This is currently dysfunctional.
+/// Waiting for upstream changes.
 #[derive(Debug, Default, Clone)]
 pub struct TreeS<'a, Identifier> {
     items: Vec<TreeItem<'a, Identifier>>,
@@ -89,20 +89,21 @@ impl<'a, Identifier> ScrollingWidget<TreeSState<Identifier>> for TreeS<'a, Ident
 where
     Identifier: Debug + Clone + PartialEq + Eq + Hash,
 {
-    fn need_scroll(&self, area: Rect, state: &mut TreeSState<Identifier>) -> (bool, bool) {
-        let flattened = state.widget.flatten(&self.items);
-
-        let mut has_vscroll = false;
-        let mut height = 0;
-        for item in &flattened {
-            height += item.item.height();
-            if height > area.height as usize {
-                has_vscroll = true;
-                break;
-            }
-        }
-
-        (false, has_vscroll)
+    fn need_scroll(&self, _area: Rect, _state: &mut TreeSState<Identifier>) -> (bool, bool) {
+        // let flattened = state.widget.flatten(&self.items);
+        //
+        // let mut has_vscroll = false;
+        // let mut height = 0;
+        // for item in &flattened {
+        //     height += item.item.height();
+        //     if height > area.height as usize {
+        //         has_vscroll = true;
+        //         break;
+        //     }
+        // }
+        //
+        // (false, has_vscroll)
+        (false, false)
     }
 }
 
@@ -112,76 +113,76 @@ where
 {
     type State = TreeSState<Identifier>;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-
-        let flattened = state.widget.flatten(&self.items);
-
-        // calculate max offset
-        let mut n = 0;
-        let mut height = 0;
-        for item in flattened.iter().rev() {
-            height += item.item.height();
-            if height > area.height as usize {
-                break;
-            }
-            n += 1;
-        }
-        state.max_v_offset = flattened.len() - n;
-
-        // calculate current page
-        let ensure_index_in_view = if !state.widget.selected().is_empty() {
-            flattened
-                .iter()
-                .position(|flattened| flattened.identifier == state.widget.selected())
-        } else {
-            None
-        };
-
-        // Ensure last line is still visible
-        let mut start = state
-            .widget
-            .get_offset()
-            .min(flattened.len().saturating_sub(1));
-        if let Some(ensure_index_in_view) = ensure_index_in_view {
-            start = start.min(ensure_index_in_view);
-        }
-
-        let mut n = 0;
-        let mut height = 0;
-        for item in flattened.iter().skip(start) {
-            height += item.item.height();
-            if height > area.height as usize {
-                break;
-            }
-            n += 1;
-        }
-        state.v_page_len = n;
-
-        // render
-        let mut tree = Tree::new(self.items).unwrap_or(Tree::new(Vec::new()).expect("tree"));
-        if let Some(block) = self.block {
-            tree = tree.block(block);
-        }
-        if let Some(style) = self.style {
-            tree = tree.style(style);
-        }
-        if let Some(highlight_style) = self.highlight_style {
-            tree = tree.highlight_style(highlight_style);
-        }
-        if let Some(highlight_symbol) = self.highlight_symbol {
-            tree = tree.highlight_symbol(highlight_symbol);
-        }
-        if let Some(node_closed_symbol) = self.node_closed_symbol {
-            tree = tree.node_closed_symbol(node_closed_symbol);
-        }
-        if let Some(node_open_symbol) = self.node_open_symbol {
-            tree = tree.node_open_symbol(node_open_symbol);
-        }
-        if let Some(node_no_children_symbol) = self.node_no_children_symbol {
-            tree = tree.node_no_children_symbol(node_no_children_symbol);
-        }
-        tree.render(area, buf, &mut state.widget);
+    fn render(self, _area: Rect, _buf: &mut Buffer, _state: &mut Self::State) {
+        // state.area = area;
+        //
+        // let flattened = state.widget.flatten(&self.items);
+        //
+        // // calculate max offset
+        // let mut n = 0;
+        // let mut height = 0;
+        // for item in flattened.iter().rev() {
+        //     height += item.item.height();
+        //     if height > area.height as usize {
+        //         break;
+        //     }
+        //     n += 1;
+        // }
+        // state.max_v_offset = flattened.len() - n;
+        //
+        // // calculate current page
+        // let ensure_index_in_view = if !state.widget.selected().is_empty() {
+        //     flattened
+        //         .iter()
+        //         .position(|flattened| flattened.identifier == state.widget.selected())
+        // } else {
+        //     None
+        // };
+        //
+        // // Ensure last line is still visible
+        // let mut start = state
+        //     .widget
+        //     .get_offset()
+        //     .min(flattened.len().saturating_sub(1));
+        // if let Some(ensure_index_in_view) = ensure_index_in_view {
+        //     start = start.min(ensure_index_in_view);
+        // }
+        //
+        // let mut n = 0;
+        // let mut height = 0;
+        // for item in flattened.iter().skip(start) {
+        //     height += item.item.height();
+        //     if height > area.height as usize {
+        //         break;
+        //     }
+        //     n += 1;
+        // }
+        // state.v_page_len = n;
+        //
+        // // render
+        // let mut tree = Tree::new(self.items).unwrap_or(Tree::new(Vec::new()).expect("tree"));
+        // if let Some(block) = self.block {
+        //     tree = tree.block(block);
+        // }
+        // if let Some(style) = self.style {
+        //     tree = tree.style(style);
+        // }
+        // if let Some(highlight_style) = self.highlight_style {
+        //     tree = tree.highlight_style(highlight_style);
+        // }
+        // if let Some(highlight_symbol) = self.highlight_symbol {
+        //     tree = tree.highlight_symbol(highlight_symbol);
+        // }
+        // if let Some(node_closed_symbol) = self.node_closed_symbol {
+        //     tree = tree.node_closed_symbol(node_closed_symbol);
+        // }
+        // if let Some(node_open_symbol) = self.node_open_symbol {
+        //     tree = tree.node_open_symbol(node_open_symbol);
+        // }
+        // if let Some(node_no_children_symbol) = self.node_no_children_symbol {
+        //     tree = tree.node_no_children_symbol(node_no_children_symbol);
+        // }
+        // tree.render(area, buf, &mut state.widget);
     }
 }
 

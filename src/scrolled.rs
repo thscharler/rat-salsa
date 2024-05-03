@@ -10,7 +10,6 @@ use crate::_private::NonExhaustive;
 use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
 use crate::viewport::Viewport;
 use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
-use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};
