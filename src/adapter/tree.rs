@@ -12,6 +12,7 @@ use tui_tree_widget::{TreeItem, TreeState};
 /// This is currently dysfunctional.
 /// Waiting for upstream changes.
 #[derive(Debug, Default, Clone)]
+#[allow(dead_code)]
 pub struct TreeS<'a, Identifier> {
     items: Vec<TreeItem<'a, Identifier>>,
     block: Option<Block<'a>>,
@@ -89,21 +90,10 @@ impl<'a, Identifier> ScrollingWidget<TreeSState<Identifier>> for TreeS<'a, Ident
 where
     Identifier: Debug + Clone + PartialEq + Eq + Hash,
 {
-    fn need_scroll(&self, _area: Rect, _state: &mut TreeSState<Identifier>) -> (bool, bool) {
-        // let flattened = state.widget.flatten(&self.items);
-        //
-        // let mut has_vscroll = false;
-        // let mut height = 0;
-        // for item in &flattened {
-        //     height += item.item.height();
-        //     if height > area.height as usize {
-        //         has_vscroll = true;
-        //         break;
-        //     }
-        // }
-        //
-        // (false, has_vscroll)
-        (false, false)
+    fn need_scroll(&self, area: Rect, state: &mut TreeSState<Identifier>) -> (bool, bool) {
+        let height = state.widget.total_required_height(&self.items);
+        let v_scroll = height > area.height as usize;
+        (false, v_scroll)
     }
 }
 

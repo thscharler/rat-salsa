@@ -1,12 +1,11 @@
 use crate::_private::NonExhaustive;
 use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
 use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
-use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style};
 use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState, Widget};
-use std::cmp::min;
+use std::cmp::{max, min};
 
 ///
 /// Extensions for [ratatui::widgets::List]
@@ -16,15 +15,9 @@ pub struct ListS<'a> {
     list: List<'a>,
     block: Option<Block<'a>>,
     items: Vec<ListItem<'a>>,
-    scroll_selection: bool,
 
-    // todo: pub scroll: ScrollPolicy
-    /// Base style
-    base_style: Style,
-    /// Style for selected + not focused.
-    select_style: Style,
-    /// Style for selected + focused.
-    focus_style: Style,
+    scroll_selection: bool,
+    scroll_by: Option<usize>,
 }
 
 impl<'a> Default for ListS<'a> {
@@ -34,9 +27,7 @@ impl<'a> Default for ListS<'a> {
             block: Default::default(),
             items: Default::default(),
             scroll_selection: false,
-            base_style: Default::default(),
-            select_style: Default::default(),
-            focus_style: Default::default(),
+            scroll_by: None,
         }
     }
 }
@@ -54,9 +45,7 @@ impl<'a> ListS<'a> {
             block: Default::default(),
             items,
             scroll_selection: false,
-            base_style: Default::default(),
-            select_style: Default::default(),
-            focus_style: Default::default(),
+            scroll_by: None,
         }
     }
 
@@ -72,6 +61,11 @@ impl<'a> ListS<'a> {
 
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self
+    }
+
+    pub fn scroll_by(mut self, step: usize) -> Self {
+        self.scroll_by = Some(step);
         self
     }
 
@@ -95,11 +89,6 @@ impl<'a> ListS<'a> {
         self
     }
 
-    pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.base_style = style.into();
-        self
-    }
-
     pub fn highlight_symbol(mut self, highlight_symbol: &'a str) -> Self {
         self.list = self.list.highlight_symbol(highlight_symbol);
         self
@@ -110,13 +99,13 @@ impl<'a> ListS<'a> {
         self
     }
 
-    pub fn repeat_highlight_symbol(mut self, repeat: bool) -> Self {
-        self.list = self.list.repeat_highlight_symbol(repeat);
+    pub fn highlight_spacing(mut self, value: HighlightSpacing) -> Self {
+        self.list = self.list.highlight_spacing(value);
         self
     }
 
-    pub fn highlight_spacing(mut self, value: HighlightSpacing) -> Self {
-        self.list = self.list.highlight_spacing(value);
+    pub fn repeat_highlight_symbol(mut self, repeat: bool) -> Self {
+        self.list = self.list.repeat_highlight_symbol(repeat);
         self
     }
 
@@ -183,6 +172,11 @@ impl<'a> StatefulWidget for ListS<'a> {
             }
         }
         state.v_page_len = state.item_areas.len();
+        state.v_scroll_by = if let Some(scroll_by) = self.scroll_by {
+            scroll_by
+        } else {
+            max(state.v_page_len / 10, 1)
+        };
 
         // v_max_offset
 
@@ -215,6 +209,7 @@ pub struct ListSState {
     pub widget: ListState,
 
     pub scroll_selection: bool,
+    pub v_scroll_by: usize,
     pub v_len: usize,
     pub v_max_offset: usize,
     pub v_page_len: usize,
@@ -233,6 +228,7 @@ impl Default for ListSState {
         Self {
             widget: Default::default(),
             scroll_selection: false,
+            v_scroll_by: 0,
             v_len: 0,
             v_max_offset: 0,
             v_page_len: 0,
@@ -354,7 +350,7 @@ impl ScrollingState for ListSState {
     }
 
     fn vertical_scroll(&self) -> usize {
-        self.v_page_len / 10
+        self.v_scroll_by
     }
 
     fn horizontal_max_offset(&self) -> usize {
@@ -382,7 +378,6 @@ impl ScrollingState for ListSState {
             let new_select = min(position, self.v_len.saturating_sub(1));
 
             *self.widget.selected_mut() = Some(new_select);
-            debug!("new select {:?}", self.widget.selected());
 
             if new_select > old_select {
                 ScrollingOutcome::Scrolled

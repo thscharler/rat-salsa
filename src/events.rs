@@ -17,7 +17,7 @@ pub trait HandleEvent<Event, KeyMap, R> {
     fn handle(&mut self, event: &Event, focus: bool, keymap: KeyMap) -> R;
 }
 
-/// Result value for event-handling.
+/// Result value for event-handling. Used widgets in this crate.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
     /// The given event was not handled at all.
