@@ -58,9 +58,9 @@ pub mod data {
 
 pub mod state {
     use crate::theme::{Theme, ONEDARK};
+    use rat_input::button::ButtonStyle;
     use rat_input::input::TextInputStyle;
     use rat_input::masked_input::MaskedInputStyle;
-    use rat_salsa::widget::button::ButtonStyle;
     use rat_salsa::widget::input::TextInputExtState;
     use rat_salsa::widget::mask_input::MaskedInputExtState;
     use rat_salsa::widget::message::{StatusDialogState, StatusDialogStyle, StatusLineState};
@@ -109,8 +109,8 @@ pub mod state {
         pub fn input_style(&self) -> TextInputStyle {
             TextInputStyle {
                 style: Style::default().fg(self.theme.black).bg(self.theme.base05),
-                focus: Style::default().fg(self.theme.black).bg(self.theme.green),
-                select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
+                focus: Some(Style::default().fg(self.theme.black).bg(self.theme.green)),
+                select: Some(Style::default().fg(self.theme.black).bg(self.theme.base0e)),
                 ..Default::default()
             }
         }
@@ -118,9 +118,9 @@ pub mod state {
         pub fn input_mask_style(&self) -> MaskedInputStyle {
             MaskedInputStyle {
                 style: Style::default().fg(self.theme.black).bg(self.theme.base05),
-                focus: Style::default().fg(self.theme.black).bg(self.theme.green),
-                select: Style::default().fg(self.theme.black).bg(self.theme.base0e),
-                invalid: Style::default().bg(Color::Red),
+                focus: Some(Style::default().fg(self.theme.black).bg(self.theme.green)),
+                select: Some(Style::default().fg(self.theme.black).bg(self.theme.base0e)),
+                invalid: Some(Style::default().bg(Color::Red)),
                 ..Default::default()
             }
         }
@@ -131,17 +131,26 @@ pub mod state {
                     .fg(self.theme.black)
                     .bg(self.theme.purple)
                     .bold(),
-                focus: Style::default()
-                    .fg(self.theme.black)
-                    .bg(self.theme.green)
-                    .bold(),
-                armed: Style::default()
-                    .fg(self.theme.black)
-                    .bg(self.theme.orange)
-                    .bold(),
+                focus: Some(
+                    Style::default()
+                        .fg(self.theme.black)
+                        .bg(self.theme.green)
+                        .bold(),
+                ),
+                armed: Some(
+                    Style::default()
+                        .fg(self.theme.black)
+                        .bg(self.theme.orange)
+                        .bold(),
+                ),
                 ..Default::default()
             }
         }
+
+        pub fn statusline_style(&self) -> Vec<Style> {
+            vec![self.status_style()]
+        }
+
         pub fn status_dialog_style(&self) -> StatusDialogStyle {
             StatusDialogStyle {
                 style: self.status_style(),
@@ -241,12 +250,12 @@ pub mod app {
 
             tr!(repaint_mask0(event, frame, layout[0], data, uistate), _);
 
-            let statusdialog = StatusDialog::new().style(uistate.g.status_dialog_style());
+            let statusdialog = StatusDialog::new().styles(uistate.g.status_dialog_style());
             let mut err_dialog = &mut uistate.g.error_dlg;
             if err_dialog.active {
                 frame.render_stateful_widget(statusdialog, layout[0], &mut err_dialog);
             }
-            let status = StatusLine::new().style(uistate.g.status_style());
+            let status = StatusLine::new().styles(uistate.g.statusline_style());
             let mut msg = &mut uistate.g.status;
             frame.render_stateful_widget(status, layout[2], &mut msg);
 
@@ -360,7 +369,7 @@ pub mod app {
 
         let label_edit = Span::from("Datum");
 
-        let edit = MaskedInputExt::default().style(uistate.g.input_mask_style());
+        let edit = MaskedInputExt::default().styles(uistate.g.input_mask_style());
         let label_parsed = Span::from("Parsed");
         let parsed = Span::from(data.datum.format("%d.%m.%Y").to_string());
         let label_compact = Span::from("No spaces");
@@ -377,7 +386,7 @@ pub mod app {
         frame.render_widget(mask, l_edit0.widget(3));
 
         let label_edit = Span::from("Text");
-        let edit = TextInputExt::default().style(uistate.g.input_style());
+        let edit = TextInputExt::default().styles(uistate.g.input_style());
         frame.render_widget(label_edit, l_edit1.label(0));
         frame.render_frame_widget(edit, l_edit1.widget(0), &mut uistate.mask0.input_1);
 

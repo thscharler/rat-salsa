@@ -14,8 +14,8 @@ use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
+use rat_input::input;
 use rat_input::input::{TextInput, TextInputState, TextInputStyle};
-use rat_input::{input, Outcome};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::Block;
@@ -38,14 +38,14 @@ impl<'a> Default for TextInputExt<'a> {
 
 impl<'a> TextInputExt<'a> {
     /// Set the combined style.
-    pub fn style(mut self, style: TextInputStyle) -> Self {
-        self.widget = self.widget.style(style);
+    pub fn styles(mut self, style: TextInputStyle) -> Self {
+        self.widget = self.widget.styles(style);
         self
     }
 
     /// Base text style.
-    pub fn base_style(mut self, style: impl Into<Style>) -> Self {
-        self.widget = self.widget.base_style(style);
+    pub fn style(mut self, style: impl Into<Style>) -> Self {
+        self.widget = self.widget.style(style);
         self
     }
 
@@ -125,9 +125,9 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputExtState {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let focused = self.is_focused();
         match input::handle_events(&mut self.widget, focused, event) {
-            Outcome::Unused => ControlUI::Continue,
-            Outcome::Unchanged => ControlUI::NoChange,
-            Outcome::Changed => ControlUI::Change,
+            rat_input::events::Outcome::NotUsed => ControlUI::Continue,
+            rat_input::events::Outcome::Unchanged => ControlUI::NoChange,
+            rat_input::events::Outcome::Changed => ControlUI::Change,
         }
     }
 }
@@ -135,9 +135,9 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputExtState {
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputExtState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         match input::handle_mouse_events(&mut self.widget, event) {
-            Outcome::Unused => ControlUI::Continue,
-            Outcome::Unchanged => ControlUI::NoChange,
-            Outcome::Changed => ControlUI::Change,
+            rat_input::events::Outcome::NotUsed => ControlUI::Continue,
+            rat_input::events::Outcome::Unchanged => ControlUI::NoChange,
+            rat_input::events::Outcome::Changed => ControlUI::Change,
         }
     }
 }

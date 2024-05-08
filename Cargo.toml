@@ -1,7 +1,7 @@
 [package]
 name = "rat-salsa"
 version = "0.17.0"
-authors = ["thomasscharler <thscharler@gmail.com>"]
+authors = ["thscharler <thscharler@gmail.com>"]
 edition = "2021"
 description = "ratatui widgets and a crossterm event-loop"
 license = "MIT/Apache-2.0"
@@ -61,6 +61,10 @@ format_num_pattern = "0.9"
 [dependencies.rat-input]
 version = "0.9"
 path = "../rat-input"
+
+[dependencies.rat-scrolled]
+version = "0.1"
+path = "../rat-scrolled"
 
 #[dependencies.ratatui]
 #version = "0.26"

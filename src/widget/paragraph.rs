@@ -14,7 +14,6 @@ use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, Paragraph, Widget, Wrap};
 use std::cell::Cell;
-use std::cmp::min;
 
 #[derive(Debug)]
 pub struct ParagraphExt<'a> {

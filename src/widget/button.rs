@@ -1,249 +1,174 @@
 //!
 //! A simple button.
 //!
+use crate::FocusFlag;
 use crate::_private::NonExhaustive;
-use crate::{ct_event, FocusFlag};
 use crate::{ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
 use crossterm::event::Event;
-#[allow(unused_imports)]
-use log::debug;
+use rat_input::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
+use rat_input::events::HandleEvent;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
 use ratatui::widgets::StatefulWidget;
-use ratatui::widgets::Widget;
 use std::fmt::Debug;
 
 /// Simple button.
 #[derive(Debug)]
-pub struct Button<'a, A> {
-    text: Line<'a>,
-    action: A,
-    style: Style,
-    focus_style: Style,
-    armed_style: Style,
+pub struct ButtonExt<'a> {
+    widget: Button<'a>,
 }
 
-/// Composite style.
-#[derive(Debug)]
-pub struct ButtonStyle {
-    pub style: Style,
-    pub focus: Style,
-    pub armed: Style,
-    pub non_exhaustive: NonExhaustive,
-}
-
-impl Default for ButtonStyle {
+impl<'a> Default for ButtonExt<'a> {
     fn default() -> Self {
         Self {
-            style: Default::default(),
-            focus: Default::default(),
-            armed: Default::default(),
-            non_exhaustive: NonExhaustive,
+            widget: Default::default(),
         }
     }
 }
 
-impl<'a, A: Default> Default for Button<'a, A> {
-    fn default() -> Self {
-        Self {
-            text: Default::default(),
-            action: Default::default(),
-            style: Default::default(),
-            focus_style: Default::default(),
-            armed_style: Default::default(),
-        }
-    }
-}
-
-impl<'a, A: Default> Button<'a, A> {
+impl<'a> ButtonExt<'a> {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn action(mut self, action: A) -> Self {
-        self.action = action;
+    pub fn styles(mut self, styles: ButtonStyle) -> Self {
+        self.widget = self.widget.styles(styles);
         self
     }
 
-    pub fn style(mut self, styles: ButtonStyle) -> Self {
-        self.style = styles.style;
-        self.armed_style = styles.armed;
-        self.focus_style = styles.focus;
-        self
-    }
-
-    pub fn base_style(mut self, style: impl Into<Style>) -> Self {
-        self.style = style.into();
+    pub fn style(mut self, style: impl Into<Style>) -> Self {
+        self.widget = self.widget.style(style);
         self
     }
 
     pub fn focus_style(mut self, style: impl Into<Style>) -> Self {
-        self.focus_style = style.into();
+        self.widget = self.widget.focus_style(style);
         self
     }
 
     pub fn armed_style(mut self, style: impl Into<Style>) -> Self {
-        self.armed_style = style.into();
+        self.widget = self.widget.armed_style(style);
         self
     }
 }
 
-impl<'a, A: Default> From<&'a str> for Button<'a, A> {
+impl<'a> From<&'a str> for ButtonExt<'a> {
     fn from(value: &'a str) -> Self {
         Self {
-            text: Line::from(value),
-            ..Default::default()
+            widget: Button::from(value),
         }
     }
 }
 
-impl<'a, A: Default> From<String> for Button<'a, A> {
+impl<'a> From<String> for ButtonExt<'a> {
     fn from(value: String) -> Self {
         Self {
-            text: Line::from(value),
-            ..Default::default()
+            widget: Button::from(value),
         }
     }
 }
 
-impl<'a, A: Default> From<Span<'a>> for Button<'a, A> {
+impl<'a> From<Span<'a>> for ButtonExt<'a> {
     fn from(value: Span<'a>) -> Self {
         Self {
-            text: Line::from(value),
-            ..Default::default()
+            widget: Button::from(value),
         }
     }
 }
 
-impl<'a, A: Default, const N: usize> From<[Span<'a>; N]> for Button<'a, A> {
+impl<'a, const N: usize> From<[Span<'a>; N]> for ButtonExt<'a> {
     fn from(value: [Span<'a>; N]) -> Self {
         Self {
-            text: Line::from(Vec::from(value)),
-            ..Default::default()
+            widget: Button::from(value),
         }
     }
 }
 
-impl<'a, A: Default> From<Vec<Span<'a>>> for Button<'a, A> {
+impl<'a> From<Vec<Span<'a>>> for ButtonExt<'a> {
     fn from(value: Vec<Span<'a>>) -> Self {
         Self {
-            text: Line::from(value),
-            ..Default::default()
+            widget: Button::from(value),
         }
     }
 }
 
-impl<'a, A: Default> From<Line<'a>> for Button<'a, A> {
+impl<'a> From<Line<'a>> for ButtonExt<'a> {
     fn from(value: Line<'a>) -> Self {
         Self {
-            text: value,
-            ..Default::default()
+            widget: Button::from(value),
         }
     }
 }
 
 /// Button state.
-#[derive(Debug, Default)]
-pub struct ButtonState<A> {
+#[derive(Debug)]
+pub struct ButtonExtState {
+    pub widget: ButtonState,
     pub focus: FocusFlag,
-    pub area: Rect,
-    pub armed: bool,
-    pub action: A,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
-impl<A> ButtonState<A> {
-    //
-    pub fn action(&mut self) -> Option<A>
-    where
-        A: Clone,
-    {
-        if self.armed {
-            self.armed = false;
-            Some(self.action.clone())
-        } else {
-            None
+impl Default for ButtonExtState {
+    fn default() -> Self {
+        Self {
+            widget: Default::default(),
+            focus: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
 
-impl<'a, A> StatefulWidget for Button<'a, A> {
-    type State = ButtonState<A>;
+impl ButtonExtState {}
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.text = self.text.patch_style(self.style);
-        if state.focus.get() {
-            self.text = self.text.patch_style(self.focus_style);
-        }
-        if state.armed {
-            self.text = self.text.patch_style(self.armed_style);
-        }
-        state.area = area;
-        state.action = self.action;
+impl<'a> StatefulWidget for ButtonExt<'a> {
+    type State = ButtonExtState;
 
-        self.text.render(area, buf);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.widget.render(area, buf, &mut state.widget)
     }
 }
 
-impl<A> HasFocusFlag for ButtonState<A> {
+impl HasFocusFlag for ButtonExtState {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 
     fn area(&self) -> Rect {
-        self.area
+        self.widget.area
     }
 }
 
-impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for ButtonState<A> {
-    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
-        let res = if self.is_focused() {
-            match event {
-                ct_event!(keycode press Enter) => {
-                    self.armed = true;
-                    ControlUI::Change
-                }
-                ct_event!(keycode release Enter) => match self.action() {
-                    Some(a) => ControlUI::Run(a),
-                    None => ControlUI::NoChange,
-                },
-                _ => ControlUI::Continue,
+impl<E> HandleCrossterm<ControlUI<bool, E>, DefaultKeys> for ButtonExtState {
+    fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<bool, E> {
+        if self.is_focused() {
+            match self.widget.handle(event, rat_input::events::FocusKeys) {
+                ButtonOutcome::NotUsed => ControlUI::Continue,
+                ButtonOutcome::Unchanged => ControlUI::NoChange,
+                ButtonOutcome::Changed => ControlUI::Change,
+                ButtonOutcome::Pressed => ControlUI::Run(true),
             }
         } else {
-            ControlUI::Continue
-        };
-
-        res.on_continue(|| {
-            <Self as HandleCrossterm<ControlUI<A, E>, MouseOnly>>::handle(self, event, MouseOnly)
-        })
+            match self.widget.handle(event, rat_input::events::MouseOnly) {
+                ButtonOutcome::NotUsed => ControlUI::Continue,
+                ButtonOutcome::Unchanged => ControlUI::NoChange,
+                ButtonOutcome::Changed => ControlUI::Change,
+                ButtonOutcome::Pressed => ControlUI::Run(true),
+            }
+        }
     }
 }
 
-impl<A: Clone, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for ButtonState<A> {
-    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        match event {
-            ct_event!(mouse down Left for column, row)
-            | ct_event!(mouse drag Left for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.armed = true;
-                    ControlUI::Change
-                } else {
-                    ControlUI::Continue
-                }
-            }
-            ct_event!(mouse up Left for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    match self.action() {
-                        Some(a) => ControlUI::Run(a),
-                        None => ControlUI::NoChange,
-                    }
-                } else {
-                    ControlUI::Continue
-                }
-            }
-            _ => ControlUI::Continue,
+impl<E> HandleCrossterm<ControlUI<bool, E>, MouseOnly> for ButtonExtState {
+    fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<bool, E> {
+        match self.widget.handle(event, rat_input::events::MouseOnly) {
+            ButtonOutcome::NotUsed => ControlUI::Continue,
+            ButtonOutcome::Unchanged => ControlUI::NoChange,
+            ButtonOutcome::Changed => ControlUI::Change,
+            ButtonOutcome::Pressed => ControlUI::Run(true),
         }
     }
 }

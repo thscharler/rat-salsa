@@ -7,11 +7,11 @@ use crossterm::event::Event;
 use format_num_pattern::NumberSymbols;
 #[allow(unused_imports)]
 use log::debug;
+use rat_input::button::ButtonStyle;
 use rat_input::input::TextInputStyle;
 use rat_input::masked_input::MaskedInputStyle;
 use rat_salsa::layout::{layout_edit, EditConstraint};
 use rat_salsa::rere::ftable::{FTable, FTableState, TableData};
-use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::date_input::{DateInput, DateInputState};
 use rat_salsa::widget::input::{TextInputExt, TextInputExtState};
 use rat_salsa::widget::list::{ListExt, ListExtState, ListExtStyle};
@@ -438,7 +438,7 @@ impl TuiApp for FormOneApp {
         tr!(repaint_menu(&event, frame, layout, data, uistate), _);
 
         if uistate.g.error_dlg.active {
-            let err = StatusDialog::new().style(uistate.g.theme.status_dialog_style());
+            let err = StatusDialog::new().styles(uistate.g.theme.status_dialog_style());
             frame.render_stateful_widget(err, layout.area, &mut uistate.g.error_dlg);
         }
 
@@ -647,24 +647,24 @@ fn repaint_textinput(
     );
     let mut l2 = l2.iter();
 
-    let w_text = TextInputExt::default().style(uistate.g.theme.input_style());
-    let w_decimal = TextInputExt::default().style(uistate.g.theme.input_style());
-    let w_float = TextInputExt::default().style(uistate.g.theme.input_style());
+    let w_text = TextInputExt::default().styles(uistate.g.theme.input_style());
+    let w_decimal = TextInputExt::default().styles(uistate.g.theme.input_style());
+    let w_float = TextInputExt::default().styles(uistate.g.theme.input_style());
 
-    let w_color = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
+    let w_color = MaskedInputExt::default().styles(uistate.g.theme.input_mask_style());
     let w_ipv4 = MaskedInputExt::default()
         .show_compact(true)
-        .style(uistate.g.theme.input_mask_style());
-    let w_creditcard = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
+        .styles(uistate.g.theme.input_mask_style());
+    let w_creditcard = MaskedInputExt::default().styles(uistate.g.theme.input_mask_style());
     let w_date = MaskedInputExt::default()
         .show_compact(true)
-        .style(uistate.g.theme.input_mask_style());
-    let w_name = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
-    let w_dec_7_2 = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
-    let w_euro = MaskedInputExt::default().style(uistate.g.theme.input_mask_style());
+        .styles(uistate.g.theme.input_mask_style());
+    let w_name = MaskedInputExt::default().styles(uistate.g.theme.input_mask_style());
+    let w_dec_7_2 = MaskedInputExt::default().styles(uistate.g.theme.input_mask_style());
+    let w_euro = MaskedInputExt::default().styles(uistate.g.theme.input_mask_style());
     let w_exp = MaskedInputExt::default()
         .show_compact(true)
-        .style(uistate.g.theme.input_mask_style());
+        .styles(uistate.g.theme.input_mask_style());
 
     frame.render_widget(Span::from("Plain text input").underlined(), l0.label());
     frame.render_widget(Span::from("Text"), l0.label());
@@ -901,9 +901,9 @@ fn repaint_dateinput(
     );
     let mut l0 = l0.iter();
 
-    let w_date1 = DateInput::default().style(uistate.g.theme.input_mask_style());
-    let w_date2 = DateInput::default().style(uistate.g.theme.input_mask_style());
-    let w_date3 = DateInput::default().style(uistate.g.theme.input_mask_style());
+    let w_date1 = DateInput::default().styles(uistate.g.theme.input_mask_style());
+    let w_date2 = DateInput::default().styles(uistate.g.theme.input_mask_style());
+    let w_date3 = DateInput::default().styles(uistate.g.theme.input_mask_style());
 
     frame.render_widget(Span::from("Date input").underlined(), l0.label());
     frame.render_widget(Span::from("Date 1"), l0.label());
@@ -1236,11 +1236,7 @@ fn repaint_scrolled_table(
 ) -> Control {
     let l_title = Layout::new(
         Direction::Horizontal,
-        [
-            Constraint::Fill(2),
-            Constraint::Fill(2),
-            Constraint::Fill(2),
-        ],
+        [Constraint::Fill(2), Constraint::Fill(2)],
     )
     .split(Rect::new(
         layout.area.x,
@@ -1251,11 +1247,7 @@ fn repaint_scrolled_table(
 
     let l_columns = Layout::new(
         Direction::Horizontal,
-        [
-            Constraint::Fill(2),
-            Constraint::Fill(2),
-            Constraint::Fill(2),
-        ],
+        [Constraint::Fill(2), Constraint::Fill(2)],
     )
     .split(Rect::new(
         layout.area.x,
@@ -1265,7 +1257,7 @@ fn repaint_scrolled_table(
     ));
 
     let l_table1 = Span::from("Single selection, external scroll").underlined();
-    let w_table1 = create_sample_table().styles(uistate.g.theme.table_style());
+    let w_table1 = create_sample_table(data).styles(uistate.g.theme.table_style());
     let w_table1 = Scrolled::new(w_table1);
     frame.render_widget(l_table1, l_title[0]);
     frame.render_stateful_widget(w_table1, l_columns[0], &mut uistate.scrolled_table.table1);
@@ -1278,145 +1270,32 @@ fn repaint_scrolled_table(
     ControlUI::Continue
 }
 
-fn create_sample_table<'a, SEL>() -> TableExt<'a, SEL> {
-    TableExt::from_iter(
-        [
-            ["1", "2", "3", "4"],
-            ["2", "3", "4", "5"],
-            ["3", "4", "5", "6"],
-            ["4", "5", "6", "7"],
-            ["5", "6", "7", "8"],
-            ["6", "7", "8", "9"],
-            ["7", "8", "9", "10"],
-            ["8", "9", "10", "11"],
-            ["9", "10", "11", "12"],
-            ["10", "11", "12", "13"],
-            ["11", "12", "13", "14"],
-            ["12", "13", "14", "15"],
-            ["13", "14", "15", "16"],
-            ["14", "15", "16", "17"],
-            ["15", "16", "17", "18"],
-            ["16", "17", "18", "19"],
-            ["17", "18", "19", "20"],
-            ["18", "19", "20", "21"],
-            ["19", "20", "21", "22"],
-            ["20", "21", "22", "23"],
-            ["21", "22", "23", "24"],
-            ["22", "23", "24", "25"],
-            ["23", "24", "25", "26"],
-            ["24", "25", "26", "27"],
-            ["25", "26", "27", "28"],
-            ["26", "27", "28", "29"],
-            ["27", "28", "29", "30"],
-            ["28", "29", "30", "31"],
-            ["29", "30", "31", "32"],
-            ["30", "31", "32", "33"],
-            ["31", "32", "33", "34"],
-            ["32", "33", "34", "35"],
-            ["33", "34", "35", "36"],
-            ["34", "35", "36", "37"],
-            ["35", "36", "37", "38"],
-            ["36", "37", "38", "39"],
-            ["37", "38", "39", "40"],
-            ["38", "39", "40", "41"],
-            ["39", "40", "41", "42"],
-            ["40", "41", "42", "43"],
-            ["41", "42", "43", "44"],
-            ["42", "43", "44", "45"],
-            ["43", "44", "45", "46"],
-            ["44", "45", "46", "47"],
-            ["45", "46", "47", "48"],
-            ["46", "47", "48", "49"],
-            ["47", "48", "49", "50"],
-            ["48", "49", "50", "51"],
-            ["49", "50", "51", "52"],
-            ["50", "51", "52", "53"],
-            ["51", "52", "53", "54"],
-            ["52", "53", "54", "55"],
-            ["53", "54", "55", "56"],
-            ["54", "55", "56", "57"],
-            ["55", "56", "57", "58"],
-            ["56", "57", "58", "59"],
-            ["57", "58", "59", "60"],
-            ["58", "59", "60", "61"],
-            ["59", "60", "61", "62"],
-            ["60", "61", "62", "63"],
-            ["61", "62", "63", "64"],
-            ["62", "63", "64", "65"],
-            ["63", "64", "65", "66"],
-            ["64", "65", "66", "67"],
-            ["65", "66", "67", "68"],
-            ["66", "67", "68", "69"],
-            ["67", "68", "69", "70"],
-            ["68", "69", "70", "71"],
-            ["69", "70", "71", "72"],
-            ["70", "71", "72", "73"],
-            ["71", "72", "73", "74"],
-            ["72", "73", "74", "75"],
-            ["73", "74", "75", "76"],
-            ["74", "75", "76", "77"],
-            ["75", "76", "77", "78"],
-            ["76", "77", "78", "79"],
-            ["77", "78", "79", "80"],
-            ["78", "79", "80", "81"],
-            ["79", "80", "81", "82"],
-            ["80", "81", "82", "83"],
-            ["81", "82", "83", "84"],
-            ["82", "83", "84", "85"],
-            ["83", "84", "85", "86"],
-            ["84", "85", "86", "87"],
-            ["85", "86", "87", "88"],
-            ["86", "87", "88", "89"],
-            ["87", "88", "89", "90"],
-            ["88", "89", "90", "91"],
-            ["89", "90", "91", "92"],
-            ["90", "91", "92", "93"],
-            ["91", "92", "93", "94"],
-            ["92", "93", "94", "95"],
-            ["93", "94", "95", "96"],
-            ["94", "95", "96", "97"],
-            ["95", "96", "97", "98"],
-            ["96", "97", "98", "99"],
-            ["97", "98", "99", "100"],
-            ["98", "99", "100", "101"],
-            ["99", "100", "101", "102"],
-            ["100", "101", "102", "103"],
-            ["101", "102", "103", "104"],
-            ["102", "103", "104", "105"],
-            ["103", "104", "105", "106"],
-            ["104", "105", "106", "107"],
-            ["105", "106", "107", "108"],
-            ["106", "107", "108", "109"],
-            ["107", "108", "109", "110"],
-            ["108", "109", "110", "111"],
-            ["109", "110", "111", "112"],
-            ["110", "111", "112", "113"],
-            ["111", "112", "113", "114"],
-            ["112", "113", "114", "115"],
-            ["113", "114", "115", "116"],
-            ["114", "115", "116", "117"],
-            ["115", "116", "117", "118"],
-            ["116", "117", "118", "119"],
-            ["117", "118", "119", "120"],
-            ["118", "119", "120", "121"],
-            ["119", "120", "121", "122"],
-            ["120", "121", "122", "123"],
-        ]
-        .into_iter()
-        .map(|v| {
-            Row::new([
-                Span::from(v[0]),
-                Span::from(v[1]),
-                Span::from(v[2]),
-                Span::from(v[3]),
-            ])
-        }),
-    )
+fn create_sample_table<'a, SEL>(data: &mut FormOneData) -> TableExt<'a, SEL> {
+    TableExt::from_iter(data.sample1.iter().take(1000).map(|v| {
+        Row::new([
+            Span::from(v[0].to_string()),
+            Span::from(v[1].to_string()),
+            Span::from(v[2].to_string()),
+            Span::from(v[3].to_string()),
+            Span::from(v[4].to_string()),
+            Span::from(v[5].to_string()),
+            Span::from(v[6].to_string()),
+            Span::from(v[7].to_string()),
+            Span::from(v[8].to_string()),
+            Span::from(v[9].to_string()),
+        ])
+    }))
     .widths([
-        Constraint::Length(5),
-        Constraint::Length(5),
-        Constraint::Length(5),
-        Constraint::Length(5),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
+        Constraint::Length(8),
     ])
 }
 
@@ -1477,12 +1356,8 @@ fn repaint_scrolled_ftable(
     struct FSample1<'a>(&'a [[usize; 10]]);
 
     impl<'a> TableData<'a> for FSample1<'a> {
-        fn rows(&self) -> usize {
-            self.0.len()
-        }
-
-        fn columns(&self) -> usize {
-            10
+        fn size(&self) -> (usize, usize) {
+            (10, self.0.len())
         }
 
         fn row_height(&self, row: usize) -> u16 {
@@ -1916,9 +1791,9 @@ impl Theme {
     pub fn input_style(&self) -> TextInputStyle {
         TextInputStyle {
             style: Style::default().fg(self.black).bg(self.base05),
-            focus: Style::default().fg(self.black).bg(self.green),
-            select: Style::default().fg(self.black).bg(self.base0e),
-            invalid: Style::default().red().underlined(),
+            focus: Some(Style::default().fg(self.black).bg(self.green)),
+            select: Some(Style::default().fg(self.black).bg(self.base0e)),
+            invalid: Some(Style::default().red().underlined()),
             ..TextInputStyle::default()
         }
     }
@@ -1926,9 +1801,9 @@ impl Theme {
     pub fn input_mask_style(&self) -> MaskedInputStyle {
         MaskedInputStyle {
             style: Style::default().fg(self.black).bg(self.base05),
-            focus: Style::default().fg(self.black).bg(self.green),
-            select: Style::default().fg(self.black).bg(self.base0e),
-            invalid: Style::default().red().underlined(),
+            focus: Some(Style::default().fg(self.black).bg(self.green)),
+            select: Some(Style::default().fg(self.black).bg(self.base0e)),
+            invalid: Some(Style::default().red().underlined()),
             ..Default::default()
         }
     }
@@ -1936,8 +1811,8 @@ impl Theme {
     pub fn button_style(&self) -> ButtonStyle {
         ButtonStyle {
             style: Style::default().fg(self.black).bg(self.purple).bold(),
-            focus: Style::default().fg(self.black).bg(self.green).bold(),
-            armed: Style::default().fg(self.black).bg(self.orange).bold(),
+            focus: Some(Style::default().fg(self.black).bg(self.green).bold()),
+            armed: Some(Style::default().fg(self.black).bg(self.orange).bold()),
             ..Default::default()
         }
     }

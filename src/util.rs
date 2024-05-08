@@ -2,7 +2,6 @@ use crossterm::event::{Event, KeyCode, KeyEvent};
 use log::debug;
 use ratatui::text::Span;
 use std::cmp::min;
-use std::marker::PhantomData;
 
 /// Sum all widths.
 pub(crate) fn span_width(spans: &[Span<'_>]) -> u16 {

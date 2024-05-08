@@ -2,9 +2,9 @@
 
 use crossbeam::channel::Sender;
 use crossterm::event::Event;
+use rat_input::button::ButtonStyle;
 use rat_input::input::TextInputStyle;
 use rat_input::masked_input::MaskedInputStyle;
-use rat_salsa::widget::button::ButtonStyle;
 use rat_salsa::widget::menuline::{MenuLine, MenuLineState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
@@ -171,11 +171,11 @@ impl TuiApp for MinimalApp {
 
         // dialog use a flag for control
         if uistate.g.error_dlg.active {
-            let err = StatusDialog::new().style(uistate.g.theme.status_dialog_style());
+            let err = StatusDialog::new().styles(uistate.g.theme.status_dialog_style());
             frame.render_stateful_widget(err, layout.area, &mut uistate.g.error_dlg);
         }
 
-        let status = StatusLine::new().style(uistate.g.theme.status_style());
+        let status = StatusLine::new().styles(uistate.g.theme.statusline_style());
         frame.render_stateful_widget(status, layout.status, &mut uistate.g.status);
 
         Control::Continue
@@ -382,8 +382,8 @@ impl Theme {
     pub fn input_style(&self) -> TextInputStyle {
         TextInputStyle {
             style: Style::default().fg(self.black).bg(self.base05),
-            focus: Style::default().fg(self.black).bg(self.green),
-            select: Style::default().fg(self.black).bg(self.base0e),
+            focus: Some(Style::default().fg(self.black).bg(self.green)),
+            select: Some(Style::default().fg(self.black).bg(self.base0e)),
             ..Default::default()
         }
     }
@@ -391,9 +391,9 @@ impl Theme {
     pub fn input_mask_style(&self) -> MaskedInputStyle {
         MaskedInputStyle {
             style: Style::default().fg(self.black).bg(self.base05),
-            focus: Style::default().fg(self.black).bg(self.green),
-            select: Style::default().fg(self.black).bg(self.base0e),
-            invalid: Style::default().bg(Color::Red),
+            focus: Some(Style::default().fg(self.black).bg(self.green)),
+            select: Some(Style::default().fg(self.black).bg(self.base0e)),
+            invalid: Some(Style::default().bg(Color::Red)),
             ..Default::default()
         }
     }
@@ -401,10 +401,14 @@ impl Theme {
     pub fn button_style(&self) -> ButtonStyle {
         ButtonStyle {
             style: Style::default().fg(self.black).bg(self.purple).bold(),
-            focus: Style::default().fg(self.black).bg(self.green).bold(),
-            armed: Style::default().fg(self.black).bg(self.orange).bold(),
+            focus: Some(Style::default().fg(self.black).bg(self.green).bold()),
+            armed: Some(Style::default().fg(self.black).bg(self.orange).bold()),
             ..Default::default()
         }
+    }
+
+    pub fn statusline_style(&self) -> Vec<Style> {
+        vec![self.status_style()]
     }
 
     pub fn status_dialog_style(&self) -> StatusDialogStyle {

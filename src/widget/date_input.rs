@@ -24,14 +24,14 @@ pub struct DateInput<'a> {
 
 impl<'a> DateInput<'a> {
     /// Set the combined style.
-    pub fn style(mut self, style: MaskedInputStyle) -> Self {
-        self.input = self.input.style(style);
+    pub fn styles(mut self, style: MaskedInputStyle) -> Self {
+        self.input = self.input.styles(style);
         self
     }
 
     /// Base text style.
-    pub fn base_style(mut self, style: impl Into<Style>) -> Self {
-        self.input = self.input.base_style(style);
+    pub fn style(mut self, style: impl Into<Style>) -> Self {
+        self.input = self.input.style(style);
         self
     }
 

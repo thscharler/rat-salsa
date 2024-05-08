@@ -7,8 +7,8 @@ use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 use format_num_pattern::NumberSymbols;
 #[allow(unused_imports)]
 use log::debug;
+use rat_input::masked_input;
 use rat_input::masked_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
-use rat_input::{masked_input, Outcome};
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::Block;
@@ -38,14 +38,14 @@ impl<'a> MaskedInputExt<'a> {
     }
 
     /// Set the combined style.
-    pub fn style(mut self, style: MaskedInputStyle) -> Self {
-        self.widget = self.widget.style(style);
+    pub fn styles(mut self, style: MaskedInputStyle) -> Self {
+        self.widget = self.widget.styles(style);
         self
     }
 
     /// Base text style.
-    pub fn base_style(mut self, style: impl Into<Style>) -> Self {
-        self.widget = self.widget.base_style(style);
+    pub fn style(mut self, style: impl Into<Style>) -> Self {
+        self.widget = self.widget.style(style);
         self
     }
 
@@ -127,9 +127,9 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
         match masked_input::handle_events(&mut self.widget, self.focus.get(), event) {
-            Ok(Outcome::Changed) => ControlUI::Change,
-            Ok(Outcome::Unchanged) => ControlUI::NoChange,
-            Ok(Outcome::Unused) => ControlUI::Continue,
+            Ok(rat_input::events::Outcome::Changed) => ControlUI::Change,
+            Ok(rat_input::events::Outcome::Unchanged) => ControlUI::NoChange,
+            Ok(rat_input::events::Outcome::NotUsed) => ControlUI::Continue,
             Err(e) => ControlUI::Err(e.into()),
         }
     }
@@ -141,9 +141,9 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
         match masked_input::handle_mouse_events(&mut self.widget, event) {
-            Ok(Outcome::Changed) => ControlUI::Change,
-            Ok(Outcome::Unchanged) => ControlUI::NoChange,
-            Ok(Outcome::Unused) => ControlUI::Continue,
+            Ok(rat_input::events::Outcome::Changed) => ControlUI::Change,
+            Ok(rat_input::events::Outcome::Unchanged) => ControlUI::NoChange,
+            Ok(rat_input::events::Outcome::NotUsed) => ControlUI::Continue,
             Err(e) => ControlUI::Err(e.into()),
         }
     }

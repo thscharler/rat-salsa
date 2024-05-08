@@ -3,7 +3,7 @@
 //!
 
 use crate::layout::layout_dialog;
-use crate::widget::button::{Button, ButtonState, ButtonStyle};
+use crate::widget::button::{ButtonExt, ButtonExtState};
 use crate::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use crate::widget::scrolled::{Scrolled, ScrolledState};
 use crate::ControlUI;
@@ -13,13 +13,13 @@ use crate::{DefaultKeys, HandleCrossterm};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
+use rat_input::button::ButtonStyle;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Margin, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, Clear, Widget};
 use std::fmt::Debug;
-use std::io::IsTerminal;
 
 /// Basic status line.
 #[derive(Debug, Default)]
@@ -125,7 +125,7 @@ pub struct StatusDialogState {
     pub active: bool,
     pub area: Rect,
     pub message: ScrolledState<ParagraphExtState>,
-    pub button: ButtonState<bool>,
+    pub button: ButtonExtState,
     pub log: String,
     pub non_exhaustive: NonExhaustive,
 }
@@ -139,14 +139,14 @@ impl StatusDialog {
     }
 
     /// Combined style
-    pub fn style(mut self, styles: StatusDialogStyle) -> Self {
+    pub fn styles(mut self, styles: StatusDialogStyle) -> Self {
         self.style = styles.style;
         self.button_style = styles.button;
         self
     }
 
     /// Base style
-    pub fn base_style(mut self, style: impl Into<Style>) -> Self {
+    pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
         self
     }
@@ -229,7 +229,7 @@ impl StatefulWidget for StatusDialog {
             let para = ParagraphExt::new(text);
             let scrolled_para = Scrolled::new(para);
 
-            let ok = Button::from("Ok").style(self.button_style).action(true);
+            let ok = ButtonExt::from("Ok").styles(self.button_style);
 
             Clear.render(l_dlg.dialog, buf);
             block.render(l_dlg.dialog, buf);
