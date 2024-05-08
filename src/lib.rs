@@ -27,5 +27,5 @@ pub trait HandleEvent<Event, KeyMap, R> {
     /// * self - Should be the widget state.
     /// * event - Event
     /// * keymap - Which keymapping. Predefined are FocusKeys and MouseOnly.
-    fn handle(&mut self, event: Event, keymap: KeyMap) -> R;
+    fn handle(&mut self, event: &Event, keymap: KeyMap) -> R;
 }
