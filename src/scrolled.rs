@@ -7,9 +7,10 @@
 ///
 ///
 use crate::_private::NonExhaustive;
-use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
+use crate::events::Outcome;
 use crate::viewport::Viewport;
-use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
+use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
+use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};

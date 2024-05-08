@@ -2,8 +2,9 @@
 //! A viewport that allows scrolling of a Widget.
 //!
 use crate::_private::NonExhaustive;
-use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
+use crate::events::Outcome;
 use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
+use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};

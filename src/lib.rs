@@ -1,5 +1,4 @@
 pub mod adapter;
-pub(crate) mod crossterm;
 pub mod events;
 pub mod scrolled;
 pub mod viewport;

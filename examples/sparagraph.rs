@@ -8,8 +8,9 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
+use rat_event::{HandleEvent, MouseOnly};
 use rat_scrolled::adapter::paragraph::{ParagraphS, ParagraphSState};
-use rat_scrolled::events::{HandleEvent, MouseOnly, Outcome};
+use rat_scrolled::events::Outcome;
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;

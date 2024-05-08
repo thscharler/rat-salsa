@@ -2,8 +2,9 @@
 /// Extensions for [ratatui::widgets::Table]
 ///
 use crate::_private::NonExhaustive;
-use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
-use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
+use crate::events::Outcome;
+use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
+use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::prelude::*;
