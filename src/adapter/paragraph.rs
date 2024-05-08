@@ -1,5 +1,5 @@
 use crate::_private::NonExhaustive;
-use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
+use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
@@ -207,24 +207,14 @@ impl<'a> StatefulWidget for ParagraphS<'a> {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, DefaultKeys, Outcome> for ParagraphSState {
-    fn handle(
-        &mut self,
-        _event: &crossterm::event::Event,
-        _focus: bool,
-        _keymap: DefaultKeys,
-    ) -> Outcome {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ParagraphSState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         Outcome::NotUsed
     }
 }
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSState {
-    fn handle(
-        &mut self,
-        _event: &crossterm::event::Event,
-        _focus: bool,
-        _keymap: MouseOnly,
-    ) -> Outcome {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         Outcome::NotUsed
     }
 }

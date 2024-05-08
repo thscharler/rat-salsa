@@ -9,7 +9,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use rat_scrolled::adapter::tree::{TreeS, TreeSState};
-use rat_scrolled::events::{DefaultKeys, HandleEvent, Outcome};
+use rat_scrolled::events::{FocusKeys, HandleEvent, Outcome};
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -275,7 +275,7 @@ fn handle_lists(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    match HandleEvent::handle(&mut state.tree1, event, true, DefaultKeys) {
+    match HandleEvent::handle(&mut state.tree1, event, FocusKeys) {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };

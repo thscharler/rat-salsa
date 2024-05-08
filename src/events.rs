@@ -1,5 +1,8 @@
+/// Keybindings when focused.
+///
+/// Also handles all events that are MouseOnly.
 #[derive(Debug, Default)]
-pub struct DefaultKeys;
+pub struct FocusKeys;
 
 #[derive(Debug, Default)]
 pub struct MouseOnly;
@@ -14,7 +17,7 @@ pub trait HandleEvent<Event, KeyMap, R> {
     /// * event - Event
     /// * focus - The widget has the input focus
     /// * keymap - Which keymapping. Predefined are DefaultKeys and MouseOnly.
-    fn handle(&mut self, event: &Event, focus: bool, keymap: KeyMap) -> R;
+    fn handle(&mut self, event: &Event, keymap: KeyMap) -> R;
 }
 
 /// Result value for event-handling. Used widgets in this crate.

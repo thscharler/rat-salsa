@@ -1,5 +1,5 @@
 use crate::_private::NonExhaustive;
-use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
+use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
@@ -403,65 +403,51 @@ impl ScrollingState for ListSState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, DefaultKeys, Outcome> for ListSState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        focus: bool,
-        _keymap: DefaultKeys,
-    ) -> Outcome {
-        let r = if focus {
-            match event {
-                ct_event!(keycode press Down) => {
-                    self.select_next(1);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Up) => {
-                    self.select_prev(1);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    *self.selected_mut() = Some(self.v_len.saturating_sub(1));
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                    *self.selected_mut() = Some(0);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press PageUp) => {
-                    self.select_prev(self.vertical_page() / 2);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press PageDown) => {
-                    self.select_next(self.vertical_page() / 2);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                _ => Outcome::NotUsed,
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListSState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+        let r = match event {
+            ct_event!(keycode press Down) => {
+                self.select_next(1);
+                self.scroll_to_selected();
+                Outcome::Changed
             }
-        } else {
-            Outcome::NotUsed
+            ct_event!(keycode press Up) => {
+                self.select_prev(1);
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
+                *self.selected_mut() = Some(self.v_len.saturating_sub(1));
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
+                *self.selected_mut() = Some(0);
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            ct_event!(keycode press PageUp) => {
+                self.select_prev(self.vertical_page() / 2);
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            ct_event!(keycode press PageDown) => {
+                self.select_next(self.vertical_page() / 2);
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            _ => Outcome::NotUsed,
         };
 
         match r {
-            Outcome::NotUsed => HandleEvent::handle(self, event, focus, MouseOnly),
+            Outcome::NotUsed => HandleEvent::handle(self, event, MouseOnly),
             _ => Outcome::NotUsed,
         }
     }
 }
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        _focus: bool,
-        _keymap: MouseOnly,
-    ) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         let r = match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {

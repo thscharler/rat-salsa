@@ -1,5 +1,5 @@
 use crate::_private::NonExhaustive;
-use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
+use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -244,53 +244,43 @@ where
     }
 }
 
-impl<Identifier> HandleEvent<crossterm::event::Event, DefaultKeys, Outcome>
-    for TreeSState<Identifier>
+impl<Identifier> HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TreeSState<Identifier>
 where
     Identifier: Debug + Clone + PartialEq + Eq + Hash,
 {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        focus: bool,
-        _keymap: DefaultKeys,
-    ) -> Outcome {
-        if focus {
-            match event {
-                ct_event!(keycode press Home) => {
-                    self.widget.select_first();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press End) => {
-                    self.widget.select_last();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Left) => {
-                    self.widget.key_left();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Right) => {
-                    self.widget.key_right();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Up) => {
-                    // TODO: doesn't work for now.
-                    self.widget.key_up();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Down) => {
-                    // TODO: doesn't work for now.
-                    self.widget.key_down();
-                    Outcome::Changed
-                }
-                ct_event!(key press ' ') => {
-                    self.widget.toggle_selected();
-                    Outcome::Changed
-                }
-                _ => Outcome::NotUsed,
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+        match event {
+            ct_event!(keycode press Home) => {
+                self.widget.select_first();
+                Outcome::Changed
             }
-        } else {
-            Outcome::NotUsed
+            ct_event!(keycode press End) => {
+                self.widget.select_last();
+                Outcome::Changed
+            }
+            ct_event!(keycode press Left) => {
+                self.widget.key_left();
+                Outcome::Changed
+            }
+            ct_event!(keycode press Right) => {
+                self.widget.key_right();
+                Outcome::Changed
+            }
+            ct_event!(keycode press Up) => {
+                // TODO: doesn't work for now.
+                self.widget.key_up();
+                Outcome::Changed
+            }
+            ct_event!(keycode press Down) => {
+                // TODO: doesn't work for now.
+                self.widget.key_down();
+                Outcome::Changed
+            }
+            ct_event!(key press ' ') => {
+                self.widget.toggle_selected();
+                Outcome::Changed
+            }
+            _ => Outcome::NotUsed,
         }
     }
 }
@@ -299,12 +289,7 @@ impl<Identifier> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Tr
 where
     Identifier: Debug + Clone + PartialEq + Eq + Hash,
 {
-    fn handle(
-        &mut self,
-        _event: &crossterm::event::Event,
-        _focus: bool,
-        _keymap: MouseOnly,
-    ) -> Outcome {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         Outcome::NotUsed
     }
 }

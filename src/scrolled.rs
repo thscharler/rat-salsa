@@ -7,7 +7,7 @@
 ///
 ///
 use crate::_private::NonExhaustive;
-use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
+use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 use crate::viewport::Viewport;
 use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
@@ -620,29 +620,24 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     }
 }
 
-impl<WState> HandleEvent<crossterm::event::Event, DefaultKeys, Outcome> for ScrolledState<WState>
+impl<WState> HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ScrolledState<WState>
 where
     WState: ScrollingState
-        + HandleEvent<crossterm::event::Event, DefaultKeys, Outcome>
+        + HandleEvent<crossterm::event::Event, FocusKeys, Outcome>
         + HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
 {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        focus: bool,
-        _keymap: DefaultKeys,
-    ) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         // Don't do key-events here. That's up to the widget, it has more
         // information about the indented behaviour.
 
         // Do handle some mouse events here.
         // * mouse interactions with the scroll-bars.
         // * scrolling.
-        let r = HandleEvent::handle(self, event, focus, MouseOnly);
+        let r = HandleEvent::handle(self, event, MouseOnly);
 
         // Let the widget handle the rest.
         match r {
-            Outcome::NotUsed => HandleEvent::handle(&mut self.widget, event, focus, DefaultKeys),
+            Outcome::NotUsed => HandleEvent::handle(&mut self.widget, event, FocusKeys),
             _ => r,
         }
     }
@@ -653,12 +648,7 @@ impl<WState> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Scroll
 where
     WState: ScrollingState + HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
 {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        focus: bool,
-        _keymap: MouseOnly,
-    ) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         let r = match event {
             ct_event!(mouse down Left for column,row) => {
                 // Click in the scrollbar sets the offset to some absolute position.
@@ -791,7 +781,7 @@ where
         };
 
         match r {
-            Outcome::NotUsed => HandleEvent::handle(&mut self.widget, event, focus, MouseOnly),
+            Outcome::NotUsed => HandleEvent::handle(&mut self.widget, event, MouseOnly),
             _ => r,
         }
     }

@@ -2,7 +2,7 @@
 /// Extensions for [ratatui::widgets::Table]
 ///
 use crate::_private::NonExhaustive;
-use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
+use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 use crate::{ct_event, ScrollingOutcome, ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
@@ -504,53 +504,44 @@ impl TableSState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, DefaultKeys, Outcome> for TableSState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        focus: bool,
-        _keymap: DefaultKeys,
-    ) -> Outcome {
-        let res = if focus {
-            match event {
-                ct_event!(keycode press Down) => {
-                    self.select_next(1);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press Up) => {
-                    self.select_prev(1);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    self.select(Some(self.v_len - 1));
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                    self.select(Some(0));
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press PageUp) => {
-                    self.select_prev(self.table_area.height as usize / 2);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                ct_event!(keycode press PageDown) => {
-                    self.select_next(self.table_area.height as usize / 2);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                }
-                _ => Outcome::NotUsed,
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TableSState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+        let res = match event {
+            ct_event!(keycode press Down) => {
+                self.select_next(1);
+                self.scroll_to_selected();
+                Outcome::Changed
             }
-        } else {
-            Outcome::NotUsed
+            ct_event!(keycode press Up) => {
+                self.select_prev(1);
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
+                self.select(Some(self.v_len - 1));
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
+                self.select(Some(0));
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            ct_event!(keycode press PageUp) => {
+                self.select_prev(self.table_area.height as usize / 2);
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            ct_event!(keycode press PageDown) => {
+                self.select_next(self.table_area.height as usize / 2);
+                self.scroll_to_selected();
+                Outcome::Changed
+            }
+            _ => Outcome::NotUsed,
         };
 
         if res == Outcome::NotUsed {
-            HandleEvent::handle(self, event, focus, MouseOnly)
+            HandleEvent::handle(self, event, MouseOnly)
         } else {
             res
         }
@@ -558,12 +549,7 @@ impl HandleEvent<crossterm::event::Event, DefaultKeys, Outcome> for TableSState 
 }
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        _focus: bool,
-        _keymap: MouseOnly,
-    ) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
@@ -621,24 +607,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
 pub struct DoubleClick;
 
 impl HandleEvent<crossterm::event::Event, DoubleClick, Option<usize>> for TableSState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        focus: bool,
-        _keymap: DoubleClick,
-    ) -> Option<usize> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: DoubleClick) -> Option<usize> {
         match event {
-            ct_event!(keycode press Enter) => {
-                if focus {
-                    if let Some(lead) = self.selected() {
-                        Some(lead)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                }
-            }
             ct_event!(mouse up Left for column,row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
@@ -683,16 +653,7 @@ impl HandleEvent<crossterm::event::Event, DoubleClick, Option<usize>> for TableS
 pub struct DeleteRow;
 
 impl HandleEvent<crossterm::event::Event, DeleteRow, Option<usize>> for TableSState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        focus: bool,
-        _keymap: DeleteRow,
-    ) -> Option<usize> {
-        if !focus {
-            return None;
-        }
-
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: DeleteRow) -> Option<usize> {
         match event {
             ct_event!(keycode press Delete) => {
                 if let Some(sel) = self.selected() {

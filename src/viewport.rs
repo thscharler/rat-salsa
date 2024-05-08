@@ -2,7 +2,7 @@
 //! A viewport that allows scrolling of a Widget.
 //!
 use crate::_private::NonExhaustive;
-use crate::events::{DefaultKeys, HandleEvent, MouseOnly, Outcome};
+use crate::events::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
@@ -248,25 +248,15 @@ impl ScrollingState for ViewportState {
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-impl HandleEvent<crossterm::event::Event, DefaultKeys, Outcome> for ViewportState {
-    fn handle(
-        &mut self,
-        _event: &crossterm::event::Event,
-        _focus: bool,
-        _keymap: DefaultKeys,
-    ) -> Outcome {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ViewportState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         Outcome::NotUsed
     }
 }
 
 /// Handle only mouse-events.
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewportState {
-    fn handle(
-        &mut self,
-        _event: &crossterm::event::Event,
-        _focus: bool,
-        _keymap: MouseOnly,
-    ) -> Outcome {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         Outcome::NotUsed
     }
 }

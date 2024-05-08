@@ -9,7 +9,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use rat_scrolled::adapter::paragraph::{ParagraphS, ParagraphSState};
-use rat_scrolled::events::{DefaultKeys, HandleEvent, Outcome};
+use rat_scrolled::events::{HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -255,11 +255,11 @@ fn handle_text(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    match HandleEvent::handle(&mut state.text1, event, false, DefaultKeys) {
+    match HandleEvent::handle(&mut state.text1, event, MouseOnly) {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };
-    match HandleEvent::handle(&mut state.text2, event, false, DefaultKeys) {
+    match HandleEvent::handle(&mut state.text2, event, MouseOnly) {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };
