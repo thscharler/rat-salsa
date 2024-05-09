@@ -124,6 +124,11 @@ impl DateInputStateExt {
         self.widget.set_formats(pattern, locale)
     }
 
+    /// Set a display mask overlay.
+    pub fn set_display_mask<S: Into<String>>(&mut self, display: S) {
+        self.widget.widget.set_display_mask(display);
+    }
+
     pub fn value(&self) -> Result<NaiveDate, chrono::ParseError> {
         self.widget.value()
     }
