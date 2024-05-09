@@ -127,9 +127,9 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
         match masked_input::handle_events(&mut self.widget, self.focus.get(), event) {
-            Ok(rat_input::Outcome::Changed) => ControlUI::Change,
-            Ok(rat_input::Outcome::Unchanged) => ControlUI::NoChange,
-            Ok(rat_input::Outcome::NotUsed) => ControlUI::Continue,
+            Ok(rat_input::event::Outcome::Changed) => ControlUI::Change,
+            Ok(rat_input::event::Outcome::Unchanged) => ControlUI::NoChange,
+            Ok(rat_input::event::Outcome::NotUsed) => ControlUI::Continue,
             Err(e) => ControlUI::Err(e.into()),
         }
     }
@@ -141,9 +141,9 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
         match masked_input::handle_mouse_events(&mut self.widget, event) {
-            Ok(rat_input::Outcome::Changed) => ControlUI::Change,
-            Ok(rat_input::Outcome::Unchanged) => ControlUI::NoChange,
-            Ok(rat_input::Outcome::NotUsed) => ControlUI::Continue,
+            Ok(rat_input::event::Outcome::Changed) => ControlUI::Change,
+            Ok(rat_input::event::Outcome::Unchanged) => ControlUI::NoChange,
+            Ok(rat_input::event::Outcome::NotUsed) => ControlUI::Continue,
             Err(e) => ControlUI::Err(e.into()),
         }
     }

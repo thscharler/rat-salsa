@@ -8,9 +8,8 @@ use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use rat_input::date_input::{DateInput, DateInputState};
-use rat_input::event::HandleEvent;
+use rat_input::event::{HandleEvent, Outcome};
 use rat_input::masked_input::MaskedInputStyle;
-use rat_input::Outcome;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::Style;
 use ratatui::Frame;

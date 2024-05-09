@@ -125,9 +125,9 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputExtState {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let focused = self.is_focused();
         match input::handle_events(&mut self.widget, focused, event) {
-            rat_input::Outcome::NotUsed => ControlUI::Continue,
-            rat_input::Outcome::Unchanged => ControlUI::NoChange,
-            rat_input::Outcome::Changed => ControlUI::Change,
+            rat_input::event::Outcome::NotUsed => ControlUI::Continue,
+            rat_input::event::Outcome::Unchanged => ControlUI::NoChange,
+            rat_input::event::Outcome::Changed => ControlUI::Change,
         }
     }
 }
@@ -135,9 +135,9 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputExtState {
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputExtState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         match input::handle_mouse_events(&mut self.widget, event) {
-            rat_input::Outcome::NotUsed => ControlUI::Continue,
-            rat_input::Outcome::Unchanged => ControlUI::NoChange,
-            rat_input::Outcome::Changed => ControlUI::Change,
+            rat_input::event::Outcome::NotUsed => ControlUI::Continue,
+            rat_input::event::Outcome::Unchanged => ControlUI::NoChange,
+            rat_input::event::Outcome::Changed => ControlUI::Change,
         }
     }
 }

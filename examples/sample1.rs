@@ -16,7 +16,7 @@ use rat_salsa::widget::date_input::{DateInputExt, DateInputStateExt};
 use rat_salsa::widget::input::{TextInputExt, TextInputExtState};
 use rat_salsa::widget::list::{ListExt, ListExtState, ListExtStyle};
 use rat_salsa::widget::mask_input::{MaskedInputExt, MaskedInputExtState};
-use rat_salsa::widget::menuline::{HotKeyAlt, MenuLine, MenuLineState, MenuStyle};
+use rat_salsa::widget::menuline::{HotKeyAlt, MenuLineExt, MenuLineExtState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
@@ -107,7 +107,7 @@ pub enum FormOneAction {}
 pub struct FormOneState {
     pub g: GeneralState,
 
-    pub menu: MenuLineState<MenuItem>,
+    pub menu: MenuLineExtState<MenuItem>,
 
     pub textinput: FormTextInput,
     pub dateinput: FormDateInput,
@@ -551,7 +551,7 @@ fn repaint_menu(
     data: &mut FormOneData,
     uistate: &mut FormOneState,
 ) -> Control {
-    let menu = MenuLine::new()
+    let menu = MenuLineExt::new()
         .style(uistate.g.theme.menu_style())
         .title("Select form:")
         .add("TextField", MenuItem::Text)
@@ -569,7 +569,7 @@ fn repaint_menu(
     Control::Continue
 }
 
-fn focus_menu(state: &MenuLineState<MenuItem>) -> Focus<'_> {
+fn focus_menu(state: &MenuLineExtState<MenuItem>) -> Focus<'_> {
     Focus::new([(state.focus(), state.area())])
 }
 

@@ -5,7 +5,7 @@ use crossterm::event::Event;
 use rat_input::button::ButtonStyle;
 use rat_input::input::TextInputStyle;
 use rat_input::masked_input::MaskedInputStyle;
-use rat_salsa::widget::menuline::{MenuLine, MenuLineState, MenuStyle};
+use rat_salsa::widget::menuline::{MenuLineExt, MenuLineExtState, MenuStyle};
 use rat_salsa::widget::message::{
     StatusDialog, StatusDialogState, StatusDialogStyle, StatusLine, StatusLineState,
 };
@@ -71,7 +71,7 @@ pub struct GeneralState {
 
 #[derive(Debug)]
 pub struct Mask0 {
-    pub menu: MenuLineState<u16>,
+    pub menu: MenuLineExtState<u16>,
 }
 
 impl Default for GeneralState {
@@ -283,7 +283,7 @@ fn repaint_mask0(
     // TODO: repaint_mask
 
     // paint the menu-line
-    let menu = MenuLine::new()
+    let menu = MenuLineExt::new()
         .style(uistate.g.theme.menu_style())
         .add("_Quit", 0u16); // menu item, _ denotes a shortcut.
                              // 0u16 is the item action. available as type parameter.
