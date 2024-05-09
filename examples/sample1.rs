@@ -12,7 +12,7 @@ use rat_input::input::TextInputStyle;
 use rat_input::masked_input::MaskedInputStyle;
 use rat_salsa::layout::{layout_edit, EditConstraint};
 use rat_salsa::rere::ftable::{FTable, FTableState, TableData};
-use rat_salsa::widget::date_input::{DateInput, DateInputState};
+use rat_salsa::widget::date_input::{DateInputExt, DateInputStateExt};
 use rat_salsa::widget::input::{TextInputExt, TextInputExtState};
 use rat_salsa::widget::list::{ListExt, ListExtState, ListExtStyle};
 use rat_salsa::widget::mask_input::{MaskedInputExt, MaskedInputExtState};
@@ -161,9 +161,9 @@ pub struct FormTextInput {
 
 #[derive(Debug)]
 pub struct FormDateInput {
-    pub date1: DateInputState,
-    pub date2: DateInputState,
-    pub date3: DateInputState,
+    pub date1: DateInputStateExt,
+    pub date2: DateInputStateExt,
+    pub date3: DateInputStateExt,
 }
 
 #[derive(Debug)]
@@ -901,9 +901,9 @@ fn repaint_dateinput(
     );
     let mut l0 = l0.iter();
 
-    let w_date1 = DateInput::default().styles(uistate.g.theme.input_mask_style());
-    let w_date2 = DateInput::default().styles(uistate.g.theme.input_mask_style());
-    let w_date3 = DateInput::default().styles(uistate.g.theme.input_mask_style());
+    let w_date1 = DateInputExt::default().styles(uistate.g.theme.input_mask_style());
+    let w_date2 = DateInputExt::default().styles(uistate.g.theme.input_mask_style());
+    let w_date3 = DateInputExt::default().styles(uistate.g.theme.input_mask_style());
 
     frame.render_widget(Span::from("Date input").underlined(), l0.label());
     frame.render_widget(Span::from("Date 1"), l0.label());
@@ -923,19 +923,19 @@ fn repaint_dateinput(
         let mut ec = Vec::new();
         ec.push(EditConstraint::EmptyRows(2));
         ec.push(EditConstraint::Empty);
-        for _ in 0..r.input.widget.value.tokens().len() {
+        for _ in 0..r.widget.widget.value.tokens().len() {
             ec.push(EditConstraint::TitleLabel);
         }
 
         let l1 = layout_edit(l_columns[1], &ec);
         let mut l1 = l1.iter();
 
-        for (i, t) in r.input.widget.value.tokens().iter().enumerate() {
+        for (i, t) in r.widget.widget.value.tokens().iter().enumerate() {
             let mut w_info = Span::from(format!(
                 "#{}:{}:{}-{}   {:?} | {:?}",
                 t.nr_id, t.sec_id, t.sec_start, t.sec_end, t.peek_left, t.right
             ));
-            if i == r.input.cursor() {
+            if i == r.widget.widget.cursor() {
                 w_info = w_info.on_cyan();
             }
             frame.render_widget(w_info, l1.label());
@@ -955,26 +955,32 @@ fn repaint_dateinput(
         let l2 = layout_edit(l_columns[2], &ec);
         let mut l2 = l2.iter();
 
-        frame.render_widget(Span::from(format!("value={}", r.input.value())), l2.label());
+        frame.render_widget(Span::from(format!("value={:?}", r.value())), l2.label());
         frame.render_widget(
-            Span::from(format!("compact={}", r.input.compact_value())),
+            Span::from(format!("compact={}", r.widget.widget.compact_value())),
             l2.label(),
         );
         frame.render_widget(Span::from(format!("parse={:?}", r.value())), l2.label());
-        frame.render_widget(Span::from(format!("pattern={}", r.pattern)), l2.label());
-        frame.render_widget(Span::from(format!("mask={}", r.input.mask())), l2.label());
         frame.render_widget(
-            Span::from(format!("display={}", r.input.display_mask())),
+            Span::from(format!("pattern={}", r.widget.pattern)),
+            l2.label(),
+        );
+        frame.render_widget(
+            Span::from(format!("mask={}", r.widget.widget.mask())),
+            l2.label(),
+        );
+        frame.render_widget(
+            Span::from(format!("display={}", r.widget.widget.display_mask())),
             l2.label(),
         );
         frame.render_widget(
             Span::from(format!(
                 "o={} w={} c={} s={}:{}",
-                r.input.offset(),
-                r.input.widget.value.width(),
-                r.input.cursor(),
-                r.input.selection().start,
-                r.input.selection().end
+                r.widget.widget.offset(),
+                r.widget.widget.value.width(),
+                r.widget.widget.cursor(),
+                r.widget.widget.selection().start,
+                r.widget.widget.selection().end
             )),
             l2.label(),
         );

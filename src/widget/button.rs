@@ -7,7 +7,7 @@ use crate::{ControlUI, HasFocusFlag};
 use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
 use crossterm::event::Event;
 use rat_input::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
-use rat_input::events::HandleEvent;
+use rat_input::event::HandleEvent;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -145,14 +145,14 @@ impl HasFocusFlag for ButtonExtState {
 impl<E> HandleCrossterm<ControlUI<bool, E>, DefaultKeys> for ButtonExtState {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<bool, E> {
         if self.is_focused() {
-            match self.widget.handle(event, rat_input::events::FocusKeys) {
+            match self.widget.handle(event, rat_input::event::FocusKeys) {
                 ButtonOutcome::NotUsed => ControlUI::Continue,
                 ButtonOutcome::Unchanged => ControlUI::NoChange,
                 ButtonOutcome::Changed => ControlUI::Change,
                 ButtonOutcome::Pressed => ControlUI::Run(true),
             }
         } else {
-            match self.widget.handle(event, rat_input::events::MouseOnly) {
+            match self.widget.handle(event, rat_input::event::MouseOnly) {
                 ButtonOutcome::NotUsed => ControlUI::Continue,
                 ButtonOutcome::Unchanged => ControlUI::NoChange,
                 ButtonOutcome::Changed => ControlUI::Change,
@@ -164,7 +164,7 @@ impl<E> HandleCrossterm<ControlUI<bool, E>, DefaultKeys> for ButtonExtState {
 
 impl<E> HandleCrossterm<ControlUI<bool, E>, MouseOnly> for ButtonExtState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<bool, E> {
-        match self.widget.handle(event, rat_input::events::MouseOnly) {
+        match self.widget.handle(event, rat_input::event::MouseOnly) {
             ButtonOutcome::NotUsed => ControlUI::Continue,
             ButtonOutcome::Unchanged => ControlUI::NoChange,
             ButtonOutcome::Changed => ControlUI::Change,
