@@ -3,11 +3,6 @@ use log::debug;
 use ratatui::text::Span;
 use std::cmp::min;
 
-/// Sum all widths.
-pub(crate) fn span_width(spans: &[Span<'_>]) -> u16 {
-    spans.iter().map(|v| v.width() as u16).sum()
-}
-
 /// Select previous.
 pub(crate) fn prev_opt(select: Option<usize>, change: usize) -> Option<usize> {
     if let Some(select) = select {
