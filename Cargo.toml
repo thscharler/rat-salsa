@@ -54,32 +54,17 @@ rust_decimal = "1.34"
 rust_decimal_macros = "1.34"
 pure-rust-locales = "0.8"
 memchr = "2.7.2"
-tui-textarea = { version = "0.4.0", features = ["ratatui", "crossterm"] }
-tui-tree-widget = "0.19.0"
+#tui-textarea = { version = "0.4.0", features = ["ratatui", "crossterm"] }
+#tui-tree-widget = "0.19.0"
 format_num_pattern = "0.9"
 
 [dependencies.rat-input]
-version = "0.11"
+version = "0.12"
 path = "../rat-input"
 
 [dependencies.rat-scrolled]
 version = "0.1"
 path = "../rat-scrolled"
-
-#[dependencies.ratatui]
-#version = "0.26"
-#features = ["unstable-widget-ref", "unstable-rendered-line-info"]
-#path = "../ratatui"
-
-#[dependencies.tui-textarea]
-#version = "0.4.0"
-#features = ["crossterm", "ratatui"]
-#path = "../tui-textarea"
-
-#[dependencies.tui-tree-widget]
-#version = "0.19.0"
-#features = []
-#path = "../tui-rs-tree-widget"
 
 [dev-dependencies]
 fern = "0.6"
