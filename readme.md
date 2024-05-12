@@ -13,7 +13,7 @@ This widget uses the [TableData](crate::TableData) trait instead of rendering al
 table-cells and putting them into a Vec. This way rendering time only depends on
 the screen-size not on the size of your data.
 
-![image](./ftable.gif)
+![image](https://github.com/thscharler/rat-ftable/blob/master/ftable.gif?raw=true)
 
 More bullet points:
 
