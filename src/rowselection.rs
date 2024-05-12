@@ -2,8 +2,9 @@ use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::layout::Position;
-use std::cmp::{max, min};
+use std::cmp::min;
 
+/// Allows selecting a single row of the table.
 #[derive(Debug, Default, Clone)]
 pub struct RowSelection {
     pub lead_row: Option<usize>,
@@ -32,14 +33,17 @@ impl RowSelection {
         Self::default()
     }
 
+    /// The current selected row.
     pub fn selected(&self) -> Option<usize> {
         self.lead_row
     }
 
+    /// Select a row.
     pub fn select(&mut self, select: Option<usize>) {
         self.lead_row = select;
     }
 
+    /// Select a row, clamp between 0 and maximum.
     pub fn select_clamped(&mut self, select: usize, maximum: usize) {
         if select <= maximum {
             self.lead_row = Some(select);
@@ -48,6 +52,7 @@ impl RowSelection {
         }
     }
 
+    /// Select the next row, clamp between 0 and maximum.
     pub fn next(&mut self, n: usize, maximum: usize) {
         self.lead_row = match self.lead_row {
             None => Some(0),
@@ -55,6 +60,7 @@ impl RowSelection {
         };
     }
 
+    /// Select the previous row, clamp between 0 and maximum.
     pub fn prev(&mut self, n: usize) {
         self.lead_row = match self.lead_row {
             None => Some(0),

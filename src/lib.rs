@@ -1,6 +1,7 @@
 mod cellselection;
 mod noselection;
 mod rowselection;
+mod rowsetselection;
 mod table;
 pub mod textdata;
 pub mod util;
@@ -15,10 +16,16 @@ pub trait TableData<'a> {
     fn size(&self) -> (usize, usize);
 
     /// Row height.
-    fn row_height(&self, row: usize) -> u16;
+    #[allow(unused_variables)]
+    fn row_height(&self, row: usize) -> u16 {
+        1
+    }
 
     /// Row style.
-    fn row_style(&self, row: usize) -> Style;
+    #[allow(unused_variables)]
+    fn row_style(&self, row: usize) -> Style {
+        Style::default()
+    }
 
     /// Render the cell given by column/row.
     fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer);
@@ -45,6 +52,7 @@ pub mod selection {
     pub use crate::cellselection::CellSelection;
     pub use crate::noselection::NoSelection;
     pub use crate::rowselection::RowSelection;
+    pub use crate::rowsetselection::RowSetSelection;
 }
 
 pub mod event {

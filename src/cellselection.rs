@@ -4,6 +4,9 @@ use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::layout::Position;
 use std::cmp::min;
 
+/// Select a single cell in the table.
+///
+/// This one covers cell/column/row selection.
 #[derive(Debug, Default, Clone)]
 pub struct CellSelection {
     pub lead_cell: Option<(usize, usize)>,
@@ -28,18 +31,22 @@ impl TableSelection for CellSelection {
 }
 
 impl CellSelection {
+    /// New
     pub fn new() -> CellSelection {
         Self::default()
     }
 
+    /// Selected cell.
     pub fn selected(&self) -> Option<(usize, usize)> {
         self.lead_cell
     }
 
+    /// Select a cell.
     pub fn select_cell(&mut self, select: Option<(usize, usize)>) {
         self.lead_cell = select;
     }
 
+    /// Select a row. Column stays the same.
     pub fn select_row(&mut self, select: Option<usize>) {
         self.lead_cell = match self.lead_cell {
             None => match select {
@@ -53,6 +60,7 @@ impl CellSelection {
         }
     }
 
+    /// Select a column, row stays the same.
     pub fn select_column(&mut self, select: Option<usize>) {
         self.lead_cell = match self.lead_cell {
             None => match select {
@@ -66,6 +74,7 @@ impl CellSelection {
         }
     }
 
+    /// Select a cell, clamp between 0 and maximum.
     pub fn select_clamped(&mut self, select: (usize, usize), maximum: (usize, usize)) {
         let col = if select.0 <= maximum.0 {
             select.0
@@ -81,6 +90,7 @@ impl CellSelection {
         self.lead_cell = Some((col, row))
     }
 
+    /// Select the next row, clamp between 0 and maximum.
     pub fn next_row(&mut self, n: usize, maximum: usize) {
         self.lead_cell = match self.lead_cell {
             None => Some((0, 0)),
@@ -88,6 +98,7 @@ impl CellSelection {
         };
     }
 
+    /// Select the previous row, clamp between 0 and maximum.
     pub fn prev_row(&mut self, n: usize) {
         self.lead_cell = match self.lead_cell {
             None => Some((0, 0)),
@@ -95,6 +106,7 @@ impl CellSelection {
         };
     }
 
+    /// Select the next column, clamp between 0 and maximum.
     pub fn next_column(&mut self, n: usize, maximum: usize) {
         self.lead_cell = match self.lead_cell {
             None => Some((0, 0)),
@@ -102,6 +114,7 @@ impl CellSelection {
         };
     }
 
+    /// Select the previous row, clamp between 0 and maximum.
     pub fn prev_column(&mut self, n: usize) {
         self.lead_cell = match self.lead_cell {
             None => Some((0, 0)),

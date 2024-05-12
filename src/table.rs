@@ -6,10 +6,14 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::style::Style;
 use ratatui::widgets::{StatefulWidget, StatefulWidgetRef, WidgetRef};
+use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
+/// FTable widget.
+///
+/// See [FTable::data] for a sample.
 #[derive(Debug, Default, Clone)]
 pub struct FTable<'a, Selection> {
     data: DataRepr<'a>,
@@ -33,8 +37,6 @@ pub struct FTable<'a, Selection> {
 
     focus: bool,
 
-    scroll_cols: bool,
-
     _phantom: PhantomData<Selection>,
 }
 
@@ -57,6 +59,7 @@ pub struct FTableStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
+/// FTable state.
 #[derive(Debug, Clone)]
 pub struct FTableState<Selection> {
     pub area: Rect,
@@ -72,20 +75,32 @@ pub struct FTableState<Selection> {
     /// Total footer area.
     pub footer_area: Rect,
 
+    /// Row count.
     pub rows: usize,
+    /// Column count.
     pub columns: usize,
 
+    /// Current row offset. Automatically capped at rows-1.
     pub row_offset: usize,
+    /// Current column offset. Automatically capped at columns-1.
     pub col_offset: usize,
 
+    /// Current page len as items.
     pub row_page_len: usize,
+    /// Current page width as columns.
     pub col_page_len: usize,
 
+    /// Maximum offset for row-scrolling. Can be set higher, but this
+    /// offset guarantees a full page display.
     pub max_row_offset: usize,
+    /// Maximum offset for column-scrolling. Can be set higher, but this
+    /// offset guarantees a full page display.
     pub max_col_offset: usize,
 
+    /// Selection data.
     pub selection: Selection,
 
+    /// Helper for mouse interactions.
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
@@ -104,6 +119,10 @@ impl<'a> Default for DataRepr<'a> {
 }
 
 impl<'a, Selection> FTable<'a, Selection> {
+    /// Create a new FTable with preformatted data. For compatibility
+    /// with ratatui.
+    ///
+    /// Use of [FTable::data] is preferred.
     pub fn new<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
@@ -125,6 +144,9 @@ impl<'a, Selection> FTable<'a, Selection> {
         }
     }
 
+    /// Set preformatted row-data. For compatibility with ratatui.
+    ///
+    /// Use of [FTable::data] is preferred.
     pub fn rows<T>(mut self, rows: T) -> Self
     where
         T: IntoIterator<Item = Row<'a>>,
@@ -141,24 +163,86 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Set a reference to the TableData facade to your data.
+    ///
+    /// The way to go is to define a small struct that contains just a
+    /// reference to your data. Then implement TableData for this struct.
+    ///
+    /// ```rust no_run
+    /// use ratatui::buffer::Buffer;
+    /// use ratatui::layout::Rect;
+    /// use ratatui::prelude::Style;
+    /// use ratatui::text::Span;
+    /// use ratatui::widgets::Widget;
+    /// use rat_ftable::{FTable, FTableState, TableData};
+    ///
+    /// # struct SampleRow;
+    /// # let area = Rect::default();
+    /// # let mut buf = Buffer::empty(area);
+    /// # let buf = &mut buf;
+    ///
+    /// struct Data1<'a>(&'a [SampleRow]);
+    ///
+    /// impl<'a> TableData<'a> for Data1<'a> {
+    ///     // returns (cols, rows)
+    ///     fn size(&self) -> (usize, usize) {
+    ///         (5, self.0.len())
+    ///     }
+    ///
+    ///     fn row_height(&self, row: usize) -> u16 {
+    ///         // to some calculations ...
+    ///         1
+    ///     }
+    ///
+    ///     fn row_style(&self, row: usize) -> Style {
+    ///         // to some calculations ...
+    ///         Style::default()
+    ///     }
+    ///
+    ///     fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
+    ///         if let Some(data) = self.0.get(row) {
+    ///             let rend = match column {
+    ///                 0 => Span::from("column1"),
+    ///                 1 => Span::from("column2"),
+    ///                 2 => Span::from("column3"),
+    ///                 _ => return
+    ///             };
+    ///             rend.render(area, buf);
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// // When you are creating the table widget you hand over a reference
+    /// // to the facade struct.
+    ///
+    /// let my_data_somewhere_else = vec![SampleRow;999999];
+    /// let mut table_state_somewhere_else = FTableState::default();
+    ///
+    /// let tabledata1 = Data1(&my_data_somewhere_else);
+    /// let table1 = FTable::default().data(&tabledata1);
+    /// table1.render(area, buf, &mut table_state_somewhere_else);
+    /// ```
     #[inline]
     pub fn data(mut self, data: &'a dyn TableData<'a>) -> Self {
         self.data = DataRepr::Ref(data);
         self
     }
 
+    /// Set the table-header.
     #[inline]
     pub fn header(mut self, header: Row<'a>) -> Self {
         self.header = Some(header);
         self
     }
 
+    /// Set the table-footer.
     #[inline]
     pub fn footer(mut self, footer: Row<'a>) -> Self {
         self.footer = Some(footer);
         self
     }
 
+    /// Column widths as Constraints.
     pub fn widths<I>(mut self, widths: I) -> Self
     where
         I: IntoIterator,
@@ -176,24 +260,30 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Flex for layout.
     #[inline]
     pub fn flex(mut self, flex: Flex) -> Self {
         self.flex = flex;
         self
     }
 
+    /// Spacing between columns.
     #[inline]
     pub fn column_spacing(mut self, spacing: u16) -> Self {
         self.column_spacing = spacing;
         self
     }
 
+    /// Overrides the width of the rendering area for layout purposes.
+    /// Layout uses this width, even if it means that some columns are
+    /// not visible.
     #[inline]
     pub fn layout_width(mut self, width: u16) -> Self {
         self.layout_width = Some(width);
         self
     }
 
+    /// Set all styles as a bundle.
     #[inline]
     pub fn styles(mut self, styles: FTableStyle) -> Self {
         self.style = styles.style;
@@ -206,48 +296,65 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Base style for the table.
     #[inline]
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         self.style = style.into();
         self
     }
 
+    /// Style for a selected row. The chosen selection must support
+    /// row-selection for this to take effect.
     #[inline]
     pub fn select_row_style<S: Into<Style>>(mut self, select_style: S) -> Self {
         self.select_row_style = select_style.into();
         self
     }
 
+    /// Style for a selected column. The chosen selection must support
+    /// column-selection for this to take effect.
     #[inline]
     pub fn select_column_style<S: Into<Style>>(mut self, select_style: S) -> Self {
         self.select_column_style = select_style.into();
         self
     }
 
+    /// Style for a selected cell. The chosen selection must support
+    /// cell-selection for this to take effect.
     #[inline]
     pub fn select_cell_style<S: Into<Style>>(mut self, select_style: S) -> Self {
         self.select_cell_style = select_style.into();
         self
     }
 
+    /// Style for a selected header cell. The chosen selection must
+    /// support column-selection for this to take effect.
     #[inline]
     pub fn select_header_style<S: Into<Style>>(mut self, select_style: S) -> Self {
         self.select_header_style = select_style.into();
         self
     }
 
+    /// Style for a selected footer cell. The chosen selection must
+    /// support column-selection for this to take effect.
     #[inline]
     pub fn select_footer_style<S: Into<Style>>(mut self, select_style: S) -> Self {
         self.select_footer_style = select_style.into();
         self
     }
 
+    /// This style will be patched onto the selection to indicate that
+    /// the widget has the input focus.
+    ///
+    /// The selection must support some kind of selection for this to
+    /// be effective.
     #[inline]
     pub fn focus_style<S: Into<Style>>(mut self, focus_style: S) -> Self {
         self.focus_style = focus_style.into();
         self
     }
 
+    /// Indicates that this widget has the input focus.
     #[inline]
     pub fn focus(mut self, focus: bool) -> Self {
         self.focus = focus;
@@ -264,6 +371,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         }
     }
 
+    #[inline]
     fn total_width(&self, area_width: u16) -> u16 {
         if let Some(layout_width) = self.layout_width {
             layout_width
@@ -272,11 +380,18 @@ impl<'a, Selection> FTable<'a, Selection> {
         }
     }
 
+    // Do the column-layout. Fill in missing columns, if necessary.
     #[inline]
     fn layout_columns(&self, columns: usize, width: u16) -> (Rc<[Rect]>, Rc<[Rect]>) {
-        let widths;
+        let mut widths;
         let widths = if self.widths.is_empty() {
             widths = vec![Constraint::Fill(1); columns];
+            widths.as_slice()
+        } else if self.widths.len() != columns {
+            widths = self.widths.clone();
+            while widths.len() < columns {
+                widths.push(Constraint::Fill(1));
+            }
             widths.as_slice()
         } else {
             self.widths.as_slice()
@@ -290,6 +405,7 @@ impl<'a, Selection> FTable<'a, Selection> {
             .split_with_spacers(area)
     }
 
+    // Layout header/table/footer
     #[inline]
     fn layout_areas(&self, area: Rect) -> Rc<[Rect]> {
         let heights = vec![
@@ -346,28 +462,28 @@ where
         let (l_columns, l_spacers) = self.layout_columns(columns, state.area.width);
 
         // maximum offsets
-        'f: {
+        {
+            state.max_row_offset = 0;
             let mut page_height = 0;
             for r in (0..rows).rev() {
                 let row_height = data.row_height(r);
-                if page_height + row_height >= state.area.height {
+                if page_height + row_height >= state.table_area.height {
                     state.max_row_offset = r + 1;
-                    break 'f;
+                    break;
                 }
                 page_height += row_height;
             }
-            state.max_row_offset = 0;
         }
-        'f: {
-            let total_width = self.total_width(state.area.width);
-            let total_right = state.area.x + total_width;
-            for (c, rect) in l_columns.iter().rev().enumerate() {
-                if total_right - rect.left() < state.area.width {
+        {
+            state.max_col_offset = 0;
+            let total_width = self.total_width(state.table_area.width);
+            let total_right = state.table_area.x + total_width;
+            for c in (0..columns).rev() {
+                if total_right - l_columns[c].left() < state.area.width {
                     state.max_col_offset = c;
-                    break 'f;
+                    break;
                 }
             }
-            state.max_col_offset = 0;
         }
 
         // column areas
@@ -777,7 +893,7 @@ impl<Selection: TableSelection> FTableState<Selection> {
 
     /// Scroll down by n items.
     pub fn scroll_down(&mut self, n: usize) -> bool {
-        self.set_row_offset(self.row_offset + n)
+        self.set_row_offset(min(self.row_offset + n, self.max_row_offset))
     }
 
     /// Scroll up by n items.
@@ -787,19 +903,11 @@ impl<Selection: TableSelection> FTableState<Selection> {
 
     /// Scroll down by n items.
     pub fn scroll_right(&mut self, n: usize) -> bool {
-        self.set_column_offset(self.col_offset + n)
+        self.set_column_offset(min(self.col_offset + n, self.max_col_offset))
     }
 }
 
 impl<Selection: TableSelection> FTableState<Selection> {
-    pub fn selection(&self) -> &Selection {
-        &self.selection
-    }
-
-    pub fn selection_mut(&mut self) -> &mut Selection {
-        &mut self.selection
-    }
-
     /// Scroll to selected.
     pub fn scroll_to_selected(&mut self) {
         if let Some((selected_col, selected_row)) = self.selection.lead_selection() {

@@ -4,6 +4,8 @@ use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::layout::Position;
 use std::cmp::max;
 
+/// Doesn't do any selection for the table.
+/// But it implements scrolling via mouse and keyboard.
 #[derive(Debug, Default, Clone)]
 pub struct NoSelection;
 
