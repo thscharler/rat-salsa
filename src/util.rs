@@ -1,6 +1,5 @@
 use crossterm::event::{Event, KeyCode, KeyEvent};
 use log::debug;
-use ratatui::text::Span;
 use std::cmp::min;
 
 /// Select previous.
