@@ -53,7 +53,7 @@ rat-event = "0.10"
 [dependencies.tui-tree-widget]
 version = "0.19.0"
 features = []
-path = "../tui-rs-tree-widget"
+#path = "../tui-rs-tree-widget"
 
 [dev-dependencies]
 fern = "0.6"
