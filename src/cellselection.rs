@@ -2,121 +2,166 @@ use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::layout::Position;
-use std::cmp::{max, min};
+use std::cmp::min;
 
 #[derive(Debug, Default, Clone)]
-pub struct RowSelection {
-    pub lead_row: Option<usize>,
+pub struct CellSelection {
+    pub lead_cell: Option<(usize, usize)>,
 }
 
-impl TableSelection for RowSelection {
+impl TableSelection for CellSelection {
     fn is_selected_row(&self, row: usize) -> bool {
-        self.lead_row == Some(row)
+        self.lead_cell.map(|(_scol, srow)| srow) == Some(row)
     }
 
-    fn is_selected_column(&self, _column: usize) -> bool {
-        false
+    fn is_selected_column(&self, column: usize) -> bool {
+        self.lead_cell.map(|(scol, _srow)| scol) == Some(column)
     }
 
-    fn is_selected_cell(&self, _column: usize, _row: usize) -> bool {
-        false
+    fn is_selected_cell(&self, col: usize, row: usize) -> bool {
+        self.lead_cell == Some((col, row))
     }
 
     fn lead_selection(&self) -> Option<(usize, usize)> {
-        self.lead_row.map(|v| (0, v))
+        self.lead_cell
     }
 }
 
-impl RowSelection {
-    pub fn new() -> RowSelection {
+impl CellSelection {
+    pub fn new() -> CellSelection {
         Self::default()
     }
 
-    pub fn selected(&self) -> Option<usize> {
-        self.lead_row
+    pub fn selected(&self) -> Option<(usize, usize)> {
+        self.lead_cell
     }
 
-    pub fn select(&mut self, select: Option<usize>) {
-        self.lead_row = select;
+    pub fn select_cell(&mut self, select: Option<(usize, usize)>) {
+        self.lead_cell = select;
     }
 
-    pub fn select_clamped(&mut self, select: usize, maximum: usize) {
-        if select <= maximum {
-            self.lead_row = Some(select);
-        } else {
-            self.lead_row = Some(maximum);
+    pub fn select_row(&mut self, select: Option<usize>) {
+        self.lead_cell = match self.lead_cell {
+            None => match select {
+                None => None,
+                Some(r) => Some((0, r)),
+            },
+            Some((scol, _srow)) => match select {
+                None => None,
+                Some(r) => Some((scol, r)),
+            },
         }
     }
 
-    pub fn next(&mut self, n: usize, maximum: usize) {
-        self.lead_row = match self.lead_row {
-            None => Some(0),
-            Some(v) => Some(min(v + n, maximum)),
+    pub fn select_column(&mut self, select: Option<usize>) {
+        self.lead_cell = match self.lead_cell {
+            None => match select {
+                None => None,
+                Some(c) => Some((c, 0)),
+            },
+            Some((_scol, srow)) => match select {
+                None => None,
+                Some(c) => Some((c, srow)),
+            },
+        }
+    }
+
+    pub fn select_clamped(&mut self, select: (usize, usize), maximum: (usize, usize)) {
+        let col = if select.0 <= maximum.0 {
+            select.0
+        } else {
+            maximum.0
+        };
+        let row = if select.1 <= maximum.1 {
+            select.1
+        } else {
+            maximum.1
+        };
+
+        self.lead_cell = Some((col, row))
+    }
+
+    pub fn next_row(&mut self, n: usize, maximum: usize) {
+        self.lead_cell = match self.lead_cell {
+            None => Some((0, 0)),
+            Some((scol, srow)) => Some((scol, min(srow + n, maximum))),
         };
     }
 
-    pub fn prev(&mut self, n: usize) {
-        self.lead_row = match self.lead_row {
-            None => Some(0),
-            Some(v) => {
-                if v >= n {
-                    Some(v - n)
-                } else {
-                    Some(0)
-                }
-            }
+    pub fn prev_row(&mut self, n: usize) {
+        self.lead_cell = match self.lead_cell {
+            None => Some((0, 0)),
+            Some((scol, srow)) => Some((scol, if srow >= n { srow - n } else { 0 })),
+        };
+    }
+
+    pub fn next_column(&mut self, n: usize, maximum: usize) {
+        self.lead_cell = match self.lead_cell {
+            None => Some((0, 0)),
+            Some((scol, srow)) => Some((min(scol + n, maximum), srow)),
+        };
+    }
+
+    pub fn prev_column(&mut self, n: usize) {
+        self.lead_cell = match self.lead_cell {
+            None => Some((0, 0)),
+            Some((scol, srow)) => Some((if scol >= n { scol - n } else { 0 }, srow)),
         };
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSelection> {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<CellSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = match event {
             ct_event!(keycode press Down) => {
-                self.selection.next(1, self.rows - 1);
+                self.selection.next_row(1, self.rows - 1);
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press Up) => {
-                self.selection.prev(1);
+                self.selection.prev_row(1);
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                self.selection.select(Some(self.rows - 1));
+                self.selection.select_row(Some(self.rows - 1));
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                self.selection.select(Some(0));
+                self.selection.select_row(Some(0));
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press PageUp) => {
-                self.selection.prev(self.table_area.height as usize);
+                self.selection.prev_row(self.table_area.height as usize);
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press PageDown) => {
                 self.selection
-                    .next(self.table_area.height as usize, self.rows - 1);
+                    .next_row(self.table_area.height as usize, self.rows - 1);
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press Right) => {
-                self.scroll_right(1);
+                self.selection.next_column(1, self.columns - 1);
+                self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press Left) => {
-                self.scroll_left(1);
+                self.selection.prev_column(1);
+                self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                self.set_column_offset(self.max_col_offset);
+                self.selection.select_column(Some(self.columns - 1));
+                self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                self.set_column_offset(0);
+                self.selection.select_column(Some(0));
+                self.scroll_to_selected();
                 Outcome::Changed
             }
             _ => Outcome::NotUsed,
@@ -130,7 +175,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<RowSelection> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<CellSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(scroll down for column,row) => {
@@ -168,9 +213,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             ct_event!(mouse down Left for column, row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
-                    if let Some(new_row) = self.row_at_clicked(pos) {
+                    if let Some(new_cell) = self.cell_at_clicked(pos) {
                         self.mouse.set_drag();
-                        self.selection.select_clamped(new_row, self.rows - 1);
+                        self.selection
+                            .select_clamped(new_cell, (self.columns - 1, self.rows - 1));
                         Outcome::Changed
                     } else {
                         Outcome::Unchanged
@@ -182,9 +228,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             ct_event!(mouse drag Left for column, row) => {
                 if self.mouse.do_drag() {
                     let pos = Position::new(*column, *row);
-                    let new_row = self.row_at_drag(pos);
-                    self.mouse.set_drag();
-                    self.selection.select_clamped(new_row, self.rows - 1);
+                    let new_cell = self.cell_at_drag(pos);
+                    self.selection
+                        .select_clamped(new_cell, (self.columns - 1, self.rows - 1));
                     self.scroll_to_selected();
                     Outcome::Changed
                 } else {

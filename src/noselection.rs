@@ -100,7 +100,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<No
             }
             ct_event!(scroll ALT down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(1);
+                    self.scroll_right(1);
                     Outcome::Changed
                 } else {
                     Outcome::NotUsed
@@ -108,7 +108,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<No
             }
             ct_event!(scroll ALT up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(1);
+                    self.scroll_left(1);
                     Outcome::Changed
                 } else {
                     Outcome::NotUsed

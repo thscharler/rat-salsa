@@ -1,3 +1,4 @@
+mod cellselection;
 mod noselection;
 mod rowselection;
 mod table;
@@ -41,6 +42,7 @@ pub trait TableSelection {
 pub use table::{FTable, FTableState, FTableStyle};
 
 pub mod selection {
+    pub use crate::cellselection::CellSelection;
     pub use crate::noselection::NoSelection;
     pub use crate::rowselection::RowSelection;
 }

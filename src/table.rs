@@ -33,6 +33,8 @@ pub struct FTable<'a, Selection> {
 
     focus: bool,
 
+    scroll_cols: bool,
+
     _phantom: PhantomData<Selection>,
 }
 
@@ -65,11 +67,10 @@ pub struct FTableState<Selection> {
     pub table_area: Rect,
     /// Area per visible row.
     pub row_areas: Vec<Rect>,
+    /// Area per visible column.
+    pub column_areas: Vec<Rect>,
     /// Total footer area.
     pub footer_area: Rect,
-
-    /// Rects for the columns. Only x and width are actually set.
-    pub column_areas: Vec<Rect>,
 
     pub rows: usize,
     pub columns: usize,
@@ -369,6 +370,45 @@ where
             state.max_col_offset = 0;
         }
 
+        // column areas
+        {
+            state.column_areas.clear();
+            state.col_page_len = 0;
+
+            let mut col = state.col_offset;
+            loop {
+                if col >= columns {
+                    break;
+                }
+
+                let column_area = Rect::new(
+                    state.table_area.x + l_columns[col].x - l_columns[state.col_offset].x,
+                    state.table_area.y,
+                    l_columns[col].width,
+                    state.table_area.height,
+                )
+                .intersection(state.table_area);
+
+                // todo??
+                let _space_area = Rect::new(
+                    state.table_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
+                    state.table_area.y,
+                    l_spacers[col + 1].width,
+                    state.table_area.height,
+                )
+                .intersection(state.table_area);
+
+                state.column_areas.push(column_area);
+                state.col_page_len += 1;
+
+                if column_area.right() >= state.table_area.right() {
+                    break;
+                }
+
+                col += 1;
+            }
+        }
+
         // render header
         if let Some(header) = &self.header {
             let header_style = if header.style != Style::default() {
@@ -520,7 +560,6 @@ where
 
                 state.row_areas.push(row_area);
                 state.row_page_len += 1;
-                state.col_page_len = 0; // reset here, a bit weird though
 
                 let mut col = state.col_offset;
                 loop {
@@ -543,8 +582,6 @@ where
                         row_area.height,
                     )
                     .intersection(state.table_area);
-
-                    state.col_page_len += 1;
 
                     let mut select_style = if state.selection.is_selected_cell(col, row) {
                         self.select_cell_style
@@ -622,6 +659,27 @@ impl<Selection: Default> Default for FTableState<Selection> {
 }
 
 impl<Selection> FTableState<Selection> {
+    /// Cell at given position.
+    pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
+        let col = self.column_at_clicked(pos);
+        let row = self.row_at_clicked(pos);
+
+        match (col, row) {
+            (Some(col), Some(row)) => Some((col, row)),
+            _ => None,
+        }
+    }
+
+    /// Column at given position.
+    pub fn column_at_clicked(&self, pos: Position) -> Option<usize> {
+        for (i, r) in self.column_areas.iter().enumerate() {
+            if r.contains(pos) {
+                return Some(self.col_offset + i);
+            }
+        }
+        None
+    }
+
     /// Row at given position.
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
         for (i, r) in self.row_areas.iter().enumerate() {
@@ -632,40 +690,55 @@ impl<Selection> FTableState<Selection> {
         None
     }
 
+    /// Cell when dragging. Can go outside the area.
+    pub fn cell_at_drag(&self, pos: Position) -> (usize, usize) {
+        let col = self.column_at_drag(pos);
+        let row = self.row_at_drag(pos);
+
+        (col, row)
+    }
+
     /// Row when dragging. Can go outside the area.
     pub fn row_at_drag(&self, pos: Position) -> usize {
-        let offset = self.row_offset;
-        for (i, r) in self.row_areas.iter().enumerate() {
-            if pos.y >= r.y && pos.y < r.y + r.height {
-                return offset + i;
-            }
+        if let Some(row) = self.row_at_clicked(pos) {
+            return row;
         }
 
-        let offset = self.row_offset as isize;
-        let rr = if pos.y < self.table_area.y {
-            // assume row-height=1 for outside the box.
-            let min_row = self.table_area.y as isize;
-            offset - (min_row - pos.y as isize)
-        } else if pos.y >= self.table_area.y + self.table_area.height {
-            let max_row = self.table_area.y as isize + self.table_area.height as isize;
-            let vis_rows = self.row_areas.len() as isize;
-            offset + vis_rows + (pos.y as isize - max_row)
+        // assume row-height=1 for outside the box.
+        let relative = if pos.y < self.table_area.top() {
+            pos.y as isize - self.table_area.top() as isize
+        } else if let Some(last) = self.row_areas.last() {
+            pos.y as isize - last.bottom() as isize + self.row_areas.len() as isize
         } else {
-            if let Some(last) = self.row_areas.last() {
-                // count from last row.
-                let min_row = last.y as isize + last.height as isize;
-                let vis_rows = self.row_areas.len() as isize;
-                offset + vis_rows + (pos.y as isize - min_row)
-            } else {
-                // empty table, count from header
-                let min_row = self.table_area.y as isize + self.table_area.height as isize;
-                offset + (pos.y as isize - min_row)
-            }
+            pos.y as isize - self.table_area.top() as isize
         };
-        if rr < 0 {
+
+        let new_offset = self.row_offset as isize + relative;
+        if new_offset < 0 {
             0
         } else {
-            rr as usize
+            new_offset as usize
+        }
+    }
+
+    /// Column when dragging. Can go outside the area.
+    pub fn column_at_drag(&self, pos: Position) -> usize {
+        if let Some(column) = self.column_at_clicked(pos) {
+            return column;
+        }
+
+        // change by 1 column if outside the box
+        let relative = if pos.x < self.table_area.left() {
+            -1
+        } else {
+            1
+        };
+
+        let new_offset = self.col_offset as isize + relative;
+        if new_offset < 0 {
+            0
+        } else {
+            new_offset as usize
         }
     }
 }
@@ -729,9 +802,20 @@ impl<Selection: TableSelection> FTableState<Selection> {
 
     /// Scroll to selected.
     pub fn scroll_to_selected(&mut self) {
-        if let Some((sel_col, sel_row)) = self.selection.lead_selection() {
-            self.row_offset = sel_row;
-            self.col_offset = sel_col;
+        if let Some((selected_col, selected_row)) = self.selection.lead_selection() {
+            if self.row_offset + self.row_page_len <= selected_row {
+                self.set_row_offset(selected_row - self.row_page_len + 1);
+            }
+            if self.row_offset > selected_row {
+                self.set_row_offset(selected_row);
+            }
+
+            if self.col_offset + self.col_page_len <= selected_col {
+                self.set_column_offset(selected_col - self.col_page_len + 1);
+            }
+            if self.col_offset > selected_col {
+                self.set_column_offset(selected_col);
+            }
         }
     }
 }
