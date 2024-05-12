@@ -6,7 +6,7 @@ use std::cmp::min;
 
 /// Select a single cell in the table.
 ///
-/// This one covers cell/column/row selection.
+/// This one supports cell + column + row selection.
 #[derive(Debug, Default, Clone)]
 pub struct CellSelection {
     pub lead_cell: Option<(usize, usize)>,
@@ -49,28 +49,16 @@ impl CellSelection {
     /// Select a row. Column stays the same.
     pub fn select_row(&mut self, select: Option<usize>) {
         self.lead_cell = match self.lead_cell {
-            None => match select {
-                None => None,
-                Some(r) => Some((0, r)),
-            },
-            Some((scol, _srow)) => match select {
-                None => None,
-                Some(r) => Some((scol, r)),
-            },
+            None => select.map(|v| (0, v)),
+            Some((scol, _)) => select.map(|v| (scol, v)),
         }
     }
 
     /// Select a column, row stays the same.
     pub fn select_column(&mut self, select: Option<usize>) {
         self.lead_cell = match self.lead_cell {
-            None => match select {
-                None => None,
-                Some(c) => Some((c, 0)),
-            },
-            Some((_scol, srow)) => match select {
-                None => None,
-                Some(c) => Some((c, srow)),
-            },
+            None => select.map(|v| (v, 0)),
+            Some((_, srow)) => select.map(|v| (v, srow)),
         }
     }
 

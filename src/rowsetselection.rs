@@ -9,6 +9,7 @@ use std::mem;
 /// Allows selection an active range of rows.
 /// The current range can be retired to a set of selected rows.
 ///
+/// This one only supports row-selection.
 #[derive(Debug, Default, Clone)]
 pub struct RowSetSelection {
     pub anchor: Option<usize>,
@@ -17,6 +18,7 @@ pub struct RowSetSelection {
 }
 
 impl TableSelection for RowSetSelection {
+    #[allow(clippy::collapsible_else_if)]
     fn is_selected_row(&self, row: usize) -> bool {
         if let Some(mut anchor) = self.anchor {
             if let Some(mut lead) = self.lead {
@@ -130,6 +132,7 @@ impl RowSetSelection {
         selected
     }
 
+    #[allow(clippy::collapsible_else_if)]
     fn fill(anchor: Option<usize>, lead: Option<usize>, selection: &mut HashSet<usize>) {
         if let Some(mut anchor) = anchor {
             if let Some(mut lead) = lead {

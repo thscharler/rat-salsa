@@ -5,6 +5,8 @@ use ratatui::layout::Position;
 use std::cmp::min;
 
 /// Allows selecting a single row of the table.
+///
+/// This one only supports row-selection.
 #[derive(Debug, Default, Clone)]
 pub struct RowSelection {
     pub lead_row: Option<usize>,

@@ -4,8 +4,9 @@ use crate::util::MouseFlags;
 use crate::{TableData, TableSelection};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
-use ratatui::style::Style;
-use ratatui::widgets::{StatefulWidget, StatefulWidgetRef, WidgetRef};
+use ratatui::prelude::BlockExt;
+use ratatui::style::{Style, Styled};
+use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -25,6 +26,8 @@ pub struct FTable<'a, Selection> {
     flex: Flex,
     column_spacing: u16,
     layout_width: Option<u16>,
+
+    block: Option<Block<'a>>,
 
     style: Style,
 
@@ -135,7 +138,6 @@ impl<'a, Selection> FTable<'a, Selection> {
         let data = TextTableData {
             columns: widths.len(),
             rows: rows.into_iter().map(|v| v.into()).collect(),
-            ..Default::default()
         };
         Self {
             data: DataRepr::Text(data),
@@ -283,6 +285,13 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Draws a block around the table widget.
+    #[inline]
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block);
+        self
+    }
+
     /// Set all styles as a bundle.
     #[inline]
     pub fn styles(mut self, styles: FTableStyle) -> Self {
@@ -364,6 +373,7 @@ impl<'a, Selection> FTable<'a, Selection> {
 
 impl<'a, Selection> FTable<'a, Selection> {
     #[inline]
+    #[allow(clippy::borrow_deref_ref)]
     fn data_ref(&self) -> &dyn TableData<'a> {
         match &self.data {
             DataRepr::Text(v) => &*v,
@@ -418,6 +428,19 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 }
 
+impl<'a, Selection> Styled for FTable<'a, Selection> {
+    type Item = Self;
+
+    fn style(&self) -> Style {
+        self.style
+    }
+
+    fn set_style<S: Into<Style>>(mut self, style: S) -> Self::Item {
+        self.style = style.into();
+        self
+    }
+}
+
 impl<'a, Selection> StatefulWidget for FTable<'a, Selection>
 where
     Selection: TableSelection,
@@ -453,13 +476,14 @@ where
         state.area = area;
 
         // vertical layout
-        let l_rows = self.layout_areas(area);
+        let inner_area = self.block.inner_if_some(area);
+        let l_rows = self.layout_areas(inner_area);
         state.header_area = l_rows[0];
         state.table_area = l_rows[1];
         state.footer_area = l_rows[2];
 
         // horizontal layout
-        let (l_columns, l_spacers) = self.layout_columns(columns, state.area.width);
+        let (l_columns, l_spacers) = self.layout_columns(columns, state.table_area.width);
 
         // maximum offsets
         {
@@ -468,7 +492,7 @@ where
             for r in (0..rows).rev() {
                 let row_height = data.row_height(r);
                 if page_height + row_height >= state.table_area.height {
-                    state.max_row_offset = r + 1;
+                    state.max_row_offset = r;
                     break;
                 }
                 page_height += row_height;
@@ -476,10 +500,9 @@ where
         }
         {
             state.max_col_offset = 0;
-            let total_width = self.total_width(state.table_area.width);
-            let total_right = state.table_area.x + total_width;
+            let max_right = l_columns.last().map(|v| v.right()).unwrap_or(0);
             for c in (0..columns).rev() {
-                if total_right - l_columns[c].left() < state.area.width {
+                if max_right - l_columns[c].left() >= state.table_area.width {
                     state.max_col_offset = c;
                     break;
                 }
@@ -524,6 +547,9 @@ where
                 col += 1;
             }
         }
+
+        // render block
+        self.block.render(area, buf);
 
         // render header
         if let Some(header) = &self.header {

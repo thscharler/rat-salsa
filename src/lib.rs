@@ -1,3 +1,5 @@
+#![doc = include_str!("../readme.md")]
+
 mod cellselection;
 mod noselection;
 mod rowselection;
@@ -49,6 +51,7 @@ pub trait TableSelection {
 pub use table::{FTable, FTableState, FTableStyle};
 
 pub mod selection {
+    //! Different selection models for FTable.
     pub use crate::cellselection::CellSelection;
     pub use crate::noselection::NoSelection;
     pub use crate::rowselection::RowSelection;
@@ -56,6 +59,8 @@ pub mod selection {
 }
 
 pub mod event {
+    //! Rexported eventhandling traits.
+
     pub use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 
     /// Result type for event-handling. Used by widgets in this crate.

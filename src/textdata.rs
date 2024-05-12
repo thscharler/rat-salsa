@@ -1,3 +1,8 @@
+//!
+//! Implements a Row and a Cell struct that are compatible to ratatui.
+//! You only need these if you use preformatted data.
+//!
+
 use crate::TableData;
 use crate::_private::NonExhaustive;
 use ratatui::buffer::Buffer;
@@ -6,14 +11,14 @@ use ratatui::prelude::{Style, Text};
 use ratatui::style::Styled;
 use ratatui::widgets::WidgetRef;
 
-#[derive(Debug, Clone)]
-pub struct TextTableData<'a> {
-    pub columns: usize,
-    pub rows: Vec<Row<'a>>,
-
-    pub non_exhaustive: NonExhaustive,
+/// Internal impl for TableData using prerendered Cells.
+#[derive(Debug, Default, Clone)]
+pub(crate) struct TextTableData<'a> {
+    pub(crate) columns: usize,
+    pub(crate) rows: Vec<Row<'a>>,
 }
 
+/// Rows of the table.
 #[derive(Debug, Clone)]
 pub struct Row<'a> {
     pub cells: Vec<Cell<'a>>,
@@ -25,36 +30,13 @@ pub struct Row<'a> {
     pub non_exhaustive: NonExhaustive,
 }
 
+/// A single cell of the table.
 #[derive(Debug, Clone)]
 pub struct Cell<'a> {
     pub content: Text<'a>,
     pub style: Style,
 
     pub non_exhaustive: NonExhaustive,
-}
-
-impl<'a> Default for TextTableData<'a> {
-    fn default() -> Self {
-        Self {
-            columns: 0,
-            rows: Default::default(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
-impl<'a> TextTableData<'a> {
-    pub fn new<T>(columns: usize, rows: T) -> Self
-    where
-        T: IntoIterator,
-        T::Item: Into<Row<'a>>,
-    {
-        Self {
-            columns,
-            rows: rows.into_iter().map(|v| v.into()).collect(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
 }
 
 impl<'a> TableData<'a> for TextTableData<'a> {
@@ -124,6 +106,7 @@ where
 }
 
 impl<'a> Row<'a> {
+    /// New row of data cells.
     pub fn new<T>(cells: T) -> Self
     where
         T: IntoIterator,
@@ -136,6 +119,7 @@ impl<'a> Row<'a> {
         }
     }
 
+    /// Set the data cells for the row.
     pub fn cells<T>(mut self, cells: T) -> Self
     where
         T: IntoIterator,
@@ -145,27 +129,32 @@ impl<'a> Row<'a> {
         self
     }
 
+    /// Set the row-height.
     #[inline]
     pub fn height(mut self, height: u16) -> Self {
         self.height = height;
         self
     }
 
+    /// Add some margin.
     pub fn top_margin(mut self, margin: u16) -> Self {
         self.top_margin = margin;
         self
     }
 
+    /// Add some margin.
     pub fn bottom_margin(mut self, margin: u16) -> Self {
         self.bottom_margin = margin;
         self
     }
 
+    /// Rowstyle.
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         self.style = style.into();
         self
     }
 
+    /// Access to the cell.
     pub fn cell<'b: 'a>(&'b self, c: usize) -> Option<&'a Cell<'a>> {
         if let Some(t) = self.cells.get(c) {
             Some(t)
@@ -211,6 +200,7 @@ impl<'a> Styled for Cell<'a> {
 }
 
 impl<'a> Cell<'a> {
+    /// New Cell.
     pub fn new<T>(content: T) -> Self
     where
         T: Into<Text<'a>>,
@@ -222,6 +212,7 @@ impl<'a> Cell<'a> {
         }
     }
 
+    /// Set the cell content.
     pub fn content<T>(mut self, content: T) -> Self
     where
         T: Into<Text<'a>>,
@@ -230,6 +221,7 @@ impl<'a> Cell<'a> {
         self
     }
 
+    /// Cell style.
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         self.style = style.into();
         self
