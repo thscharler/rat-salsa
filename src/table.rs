@@ -814,22 +814,12 @@ impl<Selection> FTableState<Selection> {
 
     /// Column at given position.
     pub fn column_at_clicked(&self, pos: Position) -> Option<usize> {
-        for (i, r) in self.column_areas.iter().enumerate() {
-            if r.contains(pos) {
-                return Some(self.col_offset + i);
-            }
-        }
-        None
+        rat_event::util::column_at_clicked(&self.column_areas, pos.x).map(|v| self.col_offset + v)
     }
 
     /// Row at given position.
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        for (i, r) in self.row_areas.iter().enumerate() {
-            if r.contains(pos) {
-                return Some(self.row_offset + i);
-            }
-        }
-        None
+        rat_event::util::row_at_clicked(&self.row_areas, pos.y).map(|v| self.row_offset + v)
     }
 
     /// Cell when dragging. Can go outside the area.
@@ -842,45 +832,19 @@ impl<Selection> FTableState<Selection> {
 
     /// Row when dragging. Can go outside the area.
     pub fn row_at_drag(&self, pos: Position) -> usize {
-        if let Some(row) = self.row_at_clicked(pos) {
-            return row;
-        }
-
-        // assume row-height=1 for outside the box.
-        let relative = if pos.y < self.table_area.top() {
-            pos.y as isize - self.table_area.top() as isize
-        } else if let Some(last) = self.row_areas.last() {
-            pos.y as isize - last.bottom() as isize + self.row_areas.len() as isize
-        } else {
-            pos.y as isize - self.table_area.top() as isize
-        };
-
-        let new_offset = self.row_offset as isize + relative;
-        if new_offset < 0 {
-            0
-        } else {
-            new_offset as usize
+        match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.y) {
+            Ok(v) => self.row_offset + v,
+            Err(v) if v <= 0 => self.row_offset.saturating_sub((-v) as usize),
+            Err(v) => self.row_offset + self.row_areas.len() + v as usize,
         }
     }
 
     /// Column when dragging. Can go outside the area.
     pub fn column_at_drag(&self, pos: Position) -> usize {
-        if let Some(column) = self.column_at_clicked(pos) {
-            return column;
-        }
-
-        // change by 1 column if outside the box
-        let relative = if pos.x < self.table_area.left() {
-            -1
-        } else {
-            1
-        };
-
-        let new_offset = self.col_offset as isize + relative;
-        if new_offset < 0 {
-            0
-        } else {
-            new_offset as usize
+        match rat_event::util::column_at_drag(self.table_area, &self.column_areas, pos.x) {
+            Ok(v) => self.col_offset + v,
+            Err(v) if v <= 0 => self.col_offset.saturating_sub(1),
+            Err(_v) => self.col_offset + self.column_areas.len() + 1,
         }
     }
 }
