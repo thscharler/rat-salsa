@@ -1,3 +1,12 @@
+# 0.12.0
+
+* Add trait UsedEvent to enable layering of widgets. Provides the
+  information whether an event has been consumed by a inner layer.
+
+# 0.11.0
+
+* Add utils for row_at_clicked, column_at_clicked, row_at_drag, column_at_drag.
+
 # 0.10.0
 
 * Fix handle() to take a &Event instead of an Event. This was so in the

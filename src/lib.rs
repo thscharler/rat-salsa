@@ -22,11 +22,21 @@ pub struct MouseOnly;
 /// for the state type. Thereby it can modify any state, and it can
 /// return an arbitrary result, that fits the widget.
 ///
-pub trait HandleEvent<Event, KeyMap, R> {
+pub trait HandleEvent<Event, KeyMap, R: UsedEvent> {
     /// Handle an event.
     ///
     /// * self - Should be the widget state.
     /// * event - Event
     /// * keymap - Which keymapping. Predefined are FocusKeys and MouseOnly.
     fn handle(&mut self, event: &Event, keymap: KeyMap) -> R;
+}
+
+/// When composing several widgets, the minimum information from the outcome
+/// of the inner widget is, whether it used & consumed the event.
+///
+/// This allows shortcutting the event-handling and prevents double
+/// interactions with the event. The inner widget can special case an event,
+/// and the fallback behaviour on the outer layer should not run too.
+pub trait UsedEvent {
+    fn used_event(&self) -> bool;
 }
