@@ -8,9 +8,9 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
+use log::debug;
 use rat_event::{HandleEvent, MouseOnly};
 use rat_scrolled::adapter::list::{ListS, ListSState};
-use rat_scrolled::events::Outcome;
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -22,6 +22,16 @@ use std::fs;
 use std::io::{stdout, Stdout};
 use std::iter::repeat_with;
 use std::time::Duration;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+    /// The given event was not handled at all.
+    NotUsed,
+    /// The event was handled, no repaint necessary.
+    Unchanged,
+    /// The event was handled, repaint necessary.
+    Changed,
+}
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -94,6 +104,21 @@ fn setup_logging() -> Result<(), anyhow::Error> {
         .chain(fern::log_file("log.log")?)
         .apply()?;
     Ok(())
+}
+
+impl From<rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>> for Outcome {
+    fn from(value: rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>) -> Self {
+        match value {
+            rat_scrolled::event::Outcome::Inner(i) => match i {
+                rat_scrolled::adapter::Outcome::NotUsed => Outcome::NotUsed,
+                rat_scrolled::adapter::Outcome::Unchanged => Outcome::Unchanged,
+                rat_scrolled::adapter::Outcome::Changed => Outcome::Changed,
+            },
+            rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
+            rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
+            rat_scrolled::event::Outcome::Changed => Outcome::Changed,
+        }
+    }
 }
 
 struct Data {
@@ -214,10 +239,16 @@ fn repaint_lists(area: Rect, buf: &mut Buffer, data: &mut Data, state: &mut Stat
     ])
     .split(area);
 
-    let list1 = Scrolled::new(ListS::new(data.sample1.iter().map(|v| v.to_string())));
+    let list1 = Scrolled::new(
+        ListS::new(data.sample1.iter().map(|v| v.to_string()))
+            .highlight_style(Style::default().reversed()),
+    );
     list1.render(l[0], buf, &mut state.list1);
 
-    let list2 = Scrolled::new(ListS::new(data.sample2.iter().map(|v| v.to_string())));
+    let list2 = Scrolled::new(
+        ListS::new(data.sample2.iter().map(|v| v.to_string()))
+            .highlight_style(Style::default().reversed()),
+    );
     list2.render(l[1], buf, &mut state.list2);
 
     let list3 = Scrolled::new(
@@ -231,6 +262,7 @@ fn repaint_lists(area: Rect, buf: &mut Buffer, data: &mut Data, state: &mut Stat
 
     let list4 = Scrolled::new(
         ListS::new(data.sample2.iter().map(|v| v.to_string()))
+            .highlight_style(Style::default().reversed())
             .direction(ListDirection::BottomToTop),
     );
     list4.render(l[3], buf, &mut state.list4);
@@ -241,19 +273,21 @@ fn handle_lists(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    match HandleEvent::handle(&mut state.list1, event, MouseOnly) {
+    debug!("before {:?}", state.list1);
+    match state.list1.handle(event, MouseOnly).into() {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };
-    match HandleEvent::handle(&mut state.list2, event, MouseOnly) {
+    debug!("after {:?}", state.list1);
+    match state.list2.handle(event, MouseOnly).into() {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };
-    match HandleEvent::handle(&mut state.list3, event, MouseOnly) {
+    match state.list3.handle(event, MouseOnly).into() {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };
-    match HandleEvent::handle(&mut state.list4, event, MouseOnly) {
+    match state.list4.handle(event, MouseOnly).into() {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };

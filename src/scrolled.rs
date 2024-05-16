@@ -1,16 +1,15 @@
 ///
 /// Add scrolling behaviour to a widget.
 ///
-/// Scrolled acts as a wrapper around a widget that implements HasVerticalScroll.
-/// No HasHorizontalScroll at the moment, probably never will be and instead
-/// a HasScroll covering both.
-///
+/// [Scrolled] acts as a wrapper around a widget that implements [ScrollingWidget].
+/// There is a second trait [ScrollingState] necessary for the state.
 ///
 use crate::_private::NonExhaustive;
-use crate::events::Outcome;
+use crate::event::Outcome;
+use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use crate::viewport::Viewport;
-use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
+use crate::{ScrollingState, ScrollingWidget};
+use rat_event::ct_event;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};
@@ -50,14 +49,21 @@ pub struct Scrolled<'a, T> {
 /// Scrolled state.
 #[derive(Debug, Clone)]
 pub struct ScrolledState<WidgetState> {
+    /// State of the scrolled widget.
     pub widget: WidgetState,
 
+    /// Total screen area.
     pub area: Rect,
+    /// View area.
     pub view_area: Rect,
+    /// Scrollbar area.
     pub h_scrollbar_area: Option<Rect>,
+    /// Scrollbar area.
     pub v_scrollbar_area: Option<Rect>,
 
+    /// Allow overscroll by n items.
     pub v_overscroll: usize,
+    /// Allow overscroll by n items.
     pub h_overscroll: usize,
 
     /// mouse action in progress
@@ -67,7 +73,8 @@ pub struct ScrolledState<WidgetState> {
     pub non_exhaustive: NonExhaustive,
 }
 
-/// This policy plus ScrollParam allow to decide what to show.
+/// This policy plus the result of [ScrollingWidget::need_scroll]
+/// allow to decide what to show.
 #[derive(Debug, Default, Clone, Copy)]
 pub enum ScrollbarPolicy {
     Always,
@@ -93,6 +100,7 @@ pub enum HScrollPosition {
 }
 
 impl<'a, T> Scrolled<'a, T> {
+    /// New scrolled widget.
     pub fn new(inner: T) -> Self {
         Self {
             widget: inner,
@@ -151,51 +159,66 @@ impl<'a, T> Scrolled<'a, T> {
         self
     }
 
+    /// Block around the scrolled widget. The scrollbars are drawn
+    /// as part of the block.
+    ///
+    /// Attention: There must be a border at the sides where you want
+    /// the scrollbars. Otherwise, the calculations for the scrollbar placement
+    /// will be off somewhat.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
 
+    /// Symbol for the Scrollbar.
     pub fn thumb_symbol(mut self, thumb_symbol: &'a str) -> Self {
         self.thumb_symbol = Some(thumb_symbol);
         self
     }
 
+    /// Style for the Scrollbar.
     pub fn thumb_style<S: Into<Style>>(mut self, thumb_style: S) -> Self {
         self.thumb_style = Some(thumb_style.into());
         self
     }
 
+    /// Symbol for the Scrollbar.
     pub fn track_symbol(mut self, track_symbol: Option<&'a str>) -> Self {
         self.track_symbol = track_symbol;
         self
     }
 
+    /// Style for the Scrollbar.
     pub fn track_style<S: Into<Style>>(mut self, track_style: S) -> Self {
         self.track_style = Some(track_style.into());
         self
     }
 
+    /// Symbol for the Scrollbar.
     pub fn begin_symbol(mut self, begin_symbol: Option<&'a str>) -> Self {
         self.begin_symbol = begin_symbol;
         self
     }
 
+    /// Style for the Scrollbar.
     pub fn begin_style<S: Into<Style>>(mut self, begin_style: S) -> Self {
         self.begin_style = Some(begin_style.into());
         self
     }
 
+    /// Symbol for the Scrollbar.
     pub fn end_symbol(mut self, end_symbol: Option<&'a str>) -> Self {
         self.end_symbol = end_symbol;
         self
     }
 
+    /// Style for the Scrollbar.
     pub fn end_style<S: Into<Style>>(mut self, end_style: S) -> Self {
         self.end_style = Some(end_style.into());
         self
     }
 
+    /// Set all Scrollbar symbols.
     pub fn symbols(mut self, symbols: Set) -> Self {
         self.thumb_symbol = Some(symbols.thumb);
         if self.track_symbol.is_some() {
@@ -210,6 +233,7 @@ impl<'a, T> Scrolled<'a, T> {
         self
     }
 
+    /// Set a style for all Scrollbar styles.
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         let style = style.into();
         self.track_style = Some(style);
@@ -224,7 +248,13 @@ impl<'a, W> Scrolled<'a, Viewport<W>>
 where
     W: Widget,
 {
-    /// Create a new Scrolled widget with a viewport and the given viewed widget.
+    /// Create a Scrolled<Viewport<W>> widget for widgets without builtin
+    /// scrolling behaviour.
+    ///
+    /// You need to set a [viewport_size](Scrolled::viewport_size] for the
+    /// area the inner widget shall receive.
+    ///
+    /// See [Viewport] too.
     pub fn new_viewport(inner: W) -> Scrolled<'a, Viewport<W>> {
         Self {
             widget: Viewport::new(inner),
@@ -258,6 +288,7 @@ where
         self
     }
 
+    /// Fill char for the empty space outside the rendered buffer.
     pub fn viewport_fill_char(mut self, fill_char: char) -> Self {
         self.widget = self.widget.fill_char(fill_char);
         self
@@ -483,7 +514,8 @@ fn render_impl<FnRender, W, WState>(
 }
 
 impl ScrollbarPolicy {
-    fn apply(&self, scroll: bool) -> bool {
+    /// Apply the policy to the scroll-flag received from the inner widget.
+    pub fn apply(&self, scroll: bool) -> bool {
         match self {
             ScrollbarPolicy::Always => true,
             ScrollbarPolicy::AsNeeded => scroll,
@@ -493,7 +525,8 @@ impl ScrollbarPolicy {
 }
 
 impl HScrollPosition {
-    fn orientation(&self) -> ScrollbarOrientation {
+    /// Convert to ScrollbarOrientation.
+    pub fn orientation(&self) -> ScrollbarOrientation {
         match self {
             HScrollPosition::Top => ScrollbarOrientation::HorizontalTop,
             HScrollPosition::Bottom => ScrollbarOrientation::HorizontalBottom,
@@ -502,7 +535,8 @@ impl HScrollPosition {
 }
 
 impl VScrollPosition {
-    fn orientation(&self) -> ScrollbarOrientation {
+    /// Convert to ScrollbarOrientation.
+    pub fn orientation(&self) -> ScrollbarOrientation {
         match self {
             VScrollPosition::Left => ScrollbarOrientation::VerticalLeft,
             VScrollPosition::Right => ScrollbarOrientation::VerticalRight,
@@ -543,14 +577,14 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     /// Due to overscroll it's possible that this is an invalid
     /// offset for the widget. The widget must deal with this
     /// situation.
-    pub fn set_vertical_offset(&mut self, offset: usize) -> ScrollingOutcome {
+    pub fn set_vertical_offset(&mut self, offset: usize) -> bool {
         self.widget.set_vertical_offset(offset)
     }
 
     /// Change the offset.
     ///
     /// Limits the offset to max_v_offset + v_overscroll.
-    pub fn set_limited_vertical_offset(&mut self, offset: usize) -> ScrollingOutcome {
+    pub fn set_limited_vertical_offset(&mut self, offset: usize) -> bool {
         let voffset = min(
             offset,
             self.widget.vertical_max_offset() + self.v_overscroll,
@@ -563,14 +597,14 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     /// Due to overscroll it's possible that this is an invalid
     /// offset for the widget. The widget must deal with this
     /// situation.
-    pub fn set_horizontal_offset(&mut self, offset: usize) -> ScrollingOutcome {
+    pub fn set_horizontal_offset(&mut self, offset: usize) -> bool {
         self.widget.set_horizontal_offset(offset)
     }
 
     /// Change the offset
     ///
     /// Limits the offset to max_v_offset + v_overscroll.
-    pub fn set_limited_horizontal_offset(&mut self, offset: usize) -> ScrollingOutcome {
+    pub fn set_limited_horizontal_offset(&mut self, offset: usize) -> bool {
         let hoffset = min(
             offset,
             self.widget.horizontal_max_offset() + self.h_overscroll,
@@ -579,27 +613,27 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     }
 
     /// Scroll up by n.
-    pub fn scroll_up(&mut self, n: usize) -> ScrollingOutcome {
+    pub fn scroll_up(&mut self, n: usize) -> bool {
         self.set_vertical_offset(self.vertical_offset().saturating_sub(n))
     }
 
     /// Scroll down by n.
-    pub fn scroll_down(&mut self, n: usize) -> ScrollingOutcome {
+    pub fn scroll_down(&mut self, n: usize) -> bool {
         self.set_vertical_offset(self.vertical_offset() + n)
     }
 
     /// Scroll up by n.
-    pub fn scroll_left(&mut self, n: usize) -> ScrollingOutcome {
+    pub fn scroll_left(&mut self, n: usize) -> bool {
         self.set_horizontal_offset(self.horizontal_offset().saturating_sub(n))
     }
 
     /// Scroll down by n.
-    pub fn scroll_right(&mut self, n: usize) -> ScrollingOutcome {
+    pub fn scroll_right(&mut self, n: usize) -> bool {
         self.set_horizontal_offset(self.horizontal_offset() + n)
     }
 
     /// Scroll down by n, but limited by the max_offset + overscroll
-    pub fn limited_scroll_down(&mut self, n: usize) -> ScrollingOutcome {
+    pub fn limited_scroll_down(&mut self, n: usize) -> bool {
         let v_offset = min(
             self.widget.vertical_offset() + n,
             self.widget.vertical_max_offset() + self.v_overscroll,
@@ -608,7 +642,7 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     }
 
     /// Scroll down by n, but limited by the max_offset + overscroll
-    pub fn limited_scroll_right(&mut self, n: usize) -> ScrollingOutcome {
+    pub fn limited_scroll_right(&mut self, n: usize) -> bool {
         let hoffset = min(
             self.widget.horizontal_offset() + n,
             self.widget.horizontal_max_offset() + self.h_overscroll,
@@ -621,13 +655,15 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     }
 }
 
-impl<WState> HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ScrolledState<WState>
+impl<R, WState> HandleEvent<crossterm::event::Event, FocusKeys, Outcome<R>>
+    for ScrolledState<WState>
 where
     WState: ScrollingState
-        + HandleEvent<crossterm::event::Event, FocusKeys, Outcome>
-        + HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
+        + HandleEvent<crossterm::event::Event, FocusKeys, R>
+        + HandleEvent<crossterm::event::Event, MouseOnly, R>,
+    R: PartialEq,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
         // Don't do key-events here. That's up to the widget, it has more
         // information about the indented behaviour.
 
@@ -638,18 +674,23 @@ where
 
         // Let the widget handle the rest.
         match r {
-            Outcome::NotUsed => HandleEvent::handle(&mut self.widget, event, FocusKeys),
+            Outcome::NotUsed => {
+                let r = HandleEvent::handle(&mut self.widget, event, FocusKeys);
+                Outcome::Inner(r)
+            }
             _ => r,
         }
     }
 }
 
 /// Handle events for the Scrolled widget and the scrollbars.
-impl<WState> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ScrolledState<WState>
+impl<R, WState> HandleEvent<crossterm::event::Event, MouseOnly, Outcome<R>>
+    for ScrolledState<WState>
 where
-    WState: ScrollingState + HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
+    WState: ScrollingState + HandleEvent<crossterm::event::Event, MouseOnly, R>,
+    R: PartialEq,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
         let r = match event {
             ct_event!(mouse down Left for column,row) => {
                 // Click in the scrollbar sets the offset to some absolute position.
@@ -782,7 +823,10 @@ where
         };
 
         match r {
-            Outcome::NotUsed => HandleEvent::handle(&mut self.widget, event, MouseOnly),
+            Outcome::NotUsed => {
+                let r = HandleEvent::handle(&mut self.widget, event, MouseOnly);
+                Outcome::Inner(r)
+            }
             _ => r,
         }
     }

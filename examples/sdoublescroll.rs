@@ -295,3 +295,74 @@ fn handle_text(
 
     Ok(Outcome::NotUsed)
 }
+
+mod double_widget {
+    use crossterm::event::Event;
+    use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+    use rat_scrolled::adapter::paragraph::{ParagraphS, ParagraphSState};
+    use rat_scrolled::event::Outcome;
+    use rat_scrolled::scrolled::{Scrolled, ScrolledState};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::prelude::StatefulWidget;
+
+    pub struct DoubleView<'a> {
+        pub first: Scrolled<'a, ParagraphS<'a>>,
+        pub second: Scrolled<'a, ParagraphS<'a>>,
+    }
+
+    pub struct DoubleViewState {
+        pub first: ScrolledState<ParagraphSState>,
+        pub second: ScrolledState<ParagraphSState>,
+    }
+
+    impl<'a> StatefulWidget for DoubleView<'a> {
+        type State = DoubleViewState;
+
+        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+            let l0 = Layout::new(
+                Direction::Vertical,
+                [Constraint::Fill(1), Constraint::Fill(1)],
+            )
+            .split(area);
+
+            self.first.render(l0[0], buf, &mut state.first);
+            self.second.render(l0[1], buf, &mut state.second);
+        }
+    }
+
+    impl
+        HandleEvent<
+            crossterm::event::Event,
+            FocusKeys,
+            rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>,
+        > for DoubleViewState
+    {
+        fn handle(
+            &mut self,
+            event: &Event,
+            keymap: FocusKeys,
+        ) -> Outcome<rat_scrolled::adapter::Outcome> {
+            // self.first.handle(event, FocusKeys)
+
+            // without a concept for focus this is hard to describe
+            Outcome::NotUsed
+        }
+    }
+
+    impl
+        HandleEvent<
+            crossterm::event::Event,
+            MouseOnly,
+            rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>,
+        > for DoubleViewState
+    {
+        fn handle(
+            &mut self,
+            event: &Event,
+            keymap: MouseOnly,
+        ) -> Outcome<rat_scrolled::adapter::Outcome> {
+            todo!()
+        }
+    }
+}

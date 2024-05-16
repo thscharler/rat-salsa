@@ -1,7 +1,6 @@
 // use crate::_private::NonExhaustive;
 // use crate::events::Outcome;
 // use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
-// use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 // use ratatui::buffer::Buffer;
 // use ratatui::layout::Rect;
 // use ratatui::prelude::{StatefulWidget, Style};

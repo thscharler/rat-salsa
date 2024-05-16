@@ -1,6 +1,6 @@
 use crate::_private::NonExhaustive;
-use crate::events::Outcome;
-use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
+use crate::adapter::Outcome;
+use crate::{ScrollingState, ScrollingWidget};
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
@@ -77,62 +77,64 @@ impl Default for ParagraphSState {
 }
 
 impl ScrollingState for ParagraphSState {
+    #[inline]
     fn vertical_max_offset(&self) -> usize {
         self.v_len.saturating_sub(self.para_area.height as usize)
     }
 
+    #[inline]
     fn vertical_offset(&self) -> usize {
         self.v_offset
     }
 
+    #[inline]
     fn vertical_page(&self) -> usize {
         self.para_area.height as usize
     }
 
+    #[inline]
     fn vertical_scroll(&self) -> usize {
         self.para_area.height as usize / 10
     }
 
+    #[inline]
     fn horizontal_max_offset(&self) -> usize {
         self.h_len.saturating_sub(self.para_area.width as usize)
     }
 
+    #[inline]
     fn horizontal_offset(&self) -> usize {
         self.h_offset
     }
 
+    #[inline]
     fn horizontal_page(&self) -> usize {
         self.para_area.width as usize
     }
 
+    #[inline]
     fn horizontal_scroll(&self) -> usize {
         self.para_area.width as usize / 10
     }
 
-    fn set_vertical_offset(&mut self, offset: usize) -> ScrollingOutcome {
+    #[inline]
+    fn set_vertical_offset(&mut self, offset: usize) -> bool {
         let old_offset = min(self.v_offset, self.v_len.saturating_sub(1));
         let new_offset = min(offset, self.v_len.saturating_sub(1));
 
         self.v_offset = new_offset;
 
-        if new_offset > old_offset {
-            ScrollingOutcome::Scrolled
-        } else {
-            ScrollingOutcome::Denied
-        }
+        new_offset != old_offset
     }
 
-    fn set_horizontal_offset(&mut self, offset: usize) -> ScrollingOutcome {
+    #[inline]
+    fn set_horizontal_offset(&mut self, offset: usize) -> bool {
         let old_offset = min(self.h_offset, self.h_len.saturating_sub(1));
         let new_offset = min(offset, self.h_len.saturating_sub(1));
 
         self.h_offset = new_offset;
 
-        if new_offset > old_offset {
-            ScrollingOutcome::Scrolled
-        } else {
-            ScrollingOutcome::Denied
-        }
+        new_offset != old_offset
     }
 }
 

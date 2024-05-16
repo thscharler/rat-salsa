@@ -1,30 +1,21 @@
-pub mod adapter;
-pub mod scrolled;
-pub mod viewport;
+# Scrolled and Viewport widgets
 
-use ratatui::layout::Rect;
-use std::cmp::max;
+## Requirements for Scrolled
 
+There are two traits for the widget that should be scrolled.
+
+For the widget struct:
+
+```rust
 pub trait ScrollingWidget<State> {
     /// Widget wants a (horizontal, vertical) scrollbar.
     fn need_scroll(&self, area: Rect, state: &mut State) -> (bool, bool);
 }
+```
 
-/// Trait for the widget-state of a scrollable widget.
-///
-/// This trait works purely in item-space, none of the values
-/// correspond to screen coordinates.
-///
-/// The current visible page is represented as the pair (offset, page_len).
-/// The limit for scrolling is given as max_offset, which is the maximum offset
-/// where a full page can still be displayed. Note that the total length of
-/// the widgets data is NOT max_offset + page_len. The page_len can be different for
-/// every offset selected. Only if the offset is set to max_offset and after
-/// the next round of rendering len == max_offset + page_len will hold true.
-///
-/// The offset can be set to any value possible for usize. It's the widgets job
-/// to limit the value if necessary. Of course, it's possible for a user of this
-/// trait to set their own limits.
+For the widget state:
+
+```rust
 pub trait ScrollingState {
     /// Maximum offset that is accessible with scrolling.
     ///
@@ -94,40 +85,13 @@ pub trait ScrollingState {
         self.set_horizontal_offset(self.horizontal_offset() + n)
     }
 }
+```
 
-// /// A widget that can differentiate between these states can use this as a flag.
-// /// It's the job of the widget to implement the difference.
-// ///
-// /// But in the end this is probably to many choices for most widgets, so this is
-// /// pretty useless. A widget will better signal its capabilities in its
-// /// own terminology.
-// ///
-// #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, Hash)]
-// pub enum ScrollingPolicy {
-//     Selection,
-//     #[default]
-//     ItemOffset,
-//     LineOffset,
-// }
+## Widget [Scrolled](crate::Scrolled)
 
-pub mod event {
-    pub use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+Does the scrolling and display of the ScrollBars.
 
-    /// Result value for event-handling. Used widgets in this crate.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub enum Outcome<R> {
-        /// Outcome of the inner widget.
-        Inner(R),
-        /// The given event was not handled at all.
-        NotUsed,
-        /// The event was handled, no repaint necessary.
-        Unchanged,
-        /// The event was handled, repaint necessary.
-        Changed,
-    }
-}
 
-mod _private {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct NonExhaustive;
-}
+
+
+

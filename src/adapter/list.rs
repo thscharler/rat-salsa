@@ -1,7 +1,9 @@
 use crate::_private::NonExhaustive;
-use crate::events::Outcome;
-use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
+use crate::adapter::Outcome;
+use crate::event::{FocusKeys, HandleEvent, MouseOnly};
+use crate::{ScrollingState, ScrollingWidget};
+use log::debug;
+use rat_event::ct_event;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style};
@@ -275,48 +277,16 @@ impl ListSState {
 
     /// Row at the given position.
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        for (i, r) in self.item_areas.iter().enumerate() {
-            if r.contains(pos) {
-                return Some(self.offset() + i);
-            }
-        }
-        None
+        rat_event::util::row_at_clicked(&self.item_areas, pos.y).map(|v| self.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     pub fn row_at_drag(&self, pos: Position) -> usize {
         let offset = self.offset();
-        for (i, r) in self.item_areas.iter().enumerate() {
-            if pos.y >= r.y && pos.y < r.y + r.height {
-                return offset + i;
-            }
-        }
-
-        let offset = self.offset() as isize;
-        let rr = if pos.y < self.list_area.y {
-            // assume row-height=1 for outside the box.
-            let min_row = self.list_area.y as isize;
-            offset + (pos.y as isize - min_row)
-        } else if pos.y >= self.list_area.y + self.list_area.height {
-            let max_row = self.list_area.y as isize + self.list_area.height as isize;
-            let vis_rows = self.item_areas.len() as isize;
-            offset + vis_rows + (pos.y as isize - max_row)
-        } else {
-            if let Some(last) = self.item_areas.last() {
-                // count from last row.
-                let min_row = last.y as isize + last.height as isize;
-                let vis_rows = self.item_areas.len() as isize;
-                offset + vis_rows + (pos.y as isize - min_row)
-            } else {
-                // empty list, count from header
-                let min_row = self.list_area.y as isize;
-                offset + (pos.y as isize - min_row)
-            }
-        };
-        if rr < 0 {
-            0
-        } else {
-            rr as usize
+        match rat_event::util::row_at_drag(self.list_area, &self.item_areas, pos.y) {
+            Ok(v) => offset + v,
+            Err(v) if v <= 0 => offset.saturating_sub((-v) as usize),
+            Err(v) => offset + self.item_areas.len() + v as usize,
         }
     }
 
@@ -334,10 +304,12 @@ impl ListSState {
 }
 
 impl ScrollingState for ListSState {
+    #[inline]
     fn vertical_max_offset(&self) -> usize {
         self.v_max_offset
     }
 
+    #[inline]
     fn vertical_offset(&self) -> usize {
         if self.scroll_selection {
             self.widget.selected().unwrap_or(0)
@@ -346,31 +318,38 @@ impl ScrollingState for ListSState {
         }
     }
 
+    #[inline]
     fn vertical_page(&self) -> usize {
         self.v_page_len
     }
 
+    #[inline]
     fn vertical_scroll(&self) -> usize {
         self.v_scroll_by
     }
 
+    #[inline]
     fn horizontal_max_offset(&self) -> usize {
         0
     }
 
+    #[inline]
     fn horizontal_offset(&self) -> usize {
         0
     }
 
+    #[inline]
     fn horizontal_page(&self) -> usize {
         0
     }
 
+    #[inline]
     fn horizontal_scroll(&self) -> usize {
         0
     }
 
-    fn set_vertical_offset(&mut self, position: usize) -> ScrollingOutcome {
+    #[inline]
+    fn set_vertical_offset(&mut self, position: usize) -> bool {
         if self.scroll_selection {
             let old_select = min(
                 self.widget.selected().unwrap_or(0),
@@ -380,27 +359,20 @@ impl ScrollingState for ListSState {
 
             *self.widget.selected_mut() = Some(new_select);
 
-            if new_select > old_select {
-                ScrollingOutcome::Scrolled
-            } else {
-                ScrollingOutcome::Denied
-            }
+            new_select != old_select
         } else {
             let old_offset = min(self.widget.offset(), self.v_len.saturating_sub(1));
             let new_offset = min(position, self.v_len.saturating_sub(1));
 
             *self.widget.offset_mut() = new_offset;
 
-            if new_offset > old_offset {
-                ScrollingOutcome::Scrolled
-            } else {
-                ScrollingOutcome::Denied
-            }
+            new_offset != old_offset
         }
     }
 
-    fn set_horizontal_offset(&mut self, _offset: usize) -> ScrollingOutcome {
-        ScrollingOutcome::Denied
+    #[inline]
+    fn set_horizontal_offset(&mut self, _offset: usize) -> bool {
+        false
     }
 }
 

@@ -2,8 +2,8 @@
 //! A viewport that allows scrolling of a Widget.
 //!
 use crate::_private::NonExhaustive;
-use crate::events::Outcome;
-use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
+use crate::event::Outcome;
+use crate::{ScrollingState, ScrollingWidget};
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
@@ -188,6 +188,25 @@ impl Default for ViewportState {
     }
 }
 
+impl ViewportState {
+    /// Relocate mouse-events for use inside the viewport.
+    pub fn relocate_crossterm(&self, event: &crossterm::event::Event) -> crossterm::event::Event {
+        match event {
+            crossterm::event::Event::FocusGained => event.clone(),
+            crossterm::event::Event::FocusLost => event.clone(),
+            crossterm::event::Event::Key(_) => event.clone(),
+            crossterm::event::Event::Mouse(m) => {
+                let mut m = m.clone();
+                m.column = m.column + self.h_offset as u16;
+                m.row = m.row + self.v_offset as u16;
+                crossterm::event::Event::Mouse(m)
+            }
+            crossterm::event::Event::Paste(_) => event.clone(),
+            crossterm::event::Event::Resize(_, _) => event.clone(),
+        }
+    }
+}
+
 impl ScrollingState for ViewportState {
     fn vertical_max_offset(&self) -> usize {
         self.viewport_area.height.saturating_sub(self.area.height) as usize
@@ -221,43 +240,45 @@ impl ScrollingState for ViewportState {
         self.area.width as usize / 10
     }
 
-    fn set_vertical_offset(&mut self, offset: usize) -> ScrollingOutcome {
+    fn set_vertical_offset(&mut self, offset: usize) -> bool {
+        let old_offset = self.v_offset;
+
         if self.v_offset < self.viewport_area.height as usize {
             self.v_offset = offset;
-            ScrollingOutcome::Scrolled
-        } else if self.v_offset == self.viewport_area.height.saturating_sub(1) as usize {
-            ScrollingOutcome::Denied
-        } else {
+        } else if self.v_offset >= self.viewport_area.height as usize {
             self.v_offset = self.viewport_area.height.saturating_sub(1) as usize;
-            ScrollingOutcome::Scrolled
         }
+
+        old_offset != self.v_offset
     }
 
-    fn set_horizontal_offset(&mut self, offset: usize) -> ScrollingOutcome {
+    fn set_horizontal_offset(&mut self, offset: usize) -> bool {
+        let old_offset = self.h_offset;
+
         if self.h_offset < self.viewport_area.width as usize {
             self.h_offset = offset;
-            ScrollingOutcome::Scrolled
-        } else if self.h_offset == self.viewport_area.width.saturating_sub(1) as usize {
-            ScrollingOutcome::Denied
-        } else {
+        } else if self.h_offset >= self.viewport_area.width as usize {
             self.h_offset = self.viewport_area.width.saturating_sub(1) as usize;
-            ScrollingOutcome::Scrolled
         }
+
+        old_offset != self.h_offset
     }
 }
 
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ViewportState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+impl<R> HandleEvent<crossterm::event::Event, FocusKeys, Outcome<R>> for ViewportState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
+        // not supported for now. would need to translate the coordinates of the event too?
         Outcome::NotUsed
     }
 }
 
 /// Handle only mouse-events.
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewportState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl<R> HandleEvent<crossterm::event::Event, MouseOnly, Outcome<R>> for ViewportState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
+        // not supported for now. would need to translate the coordinates of the event too?
         Outcome::NotUsed
     }
 }

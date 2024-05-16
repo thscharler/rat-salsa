@@ -10,7 +10,6 @@ use crossterm::terminal::{
 use crossterm::ExecutableCommand;
 use rat_event::{HandleEvent, MouseOnly};
 use rat_scrolled::adapter::table::{TableS, TableSState};
-use rat_scrolled::events::Outcome;
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -93,6 +92,31 @@ fn setup_logging() -> Result<(), anyhow::Error> {
         .chain(fern::log_file("log.log")?)
         .apply()?;
     Ok(())
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+    /// The given event was not handled at all.
+    NotUsed,
+    /// The event was handled, no repaint necessary.
+    Unchanged,
+    /// The event was handled, repaint necessary.
+    Changed,
+}
+
+impl From<rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>> for Outcome {
+    fn from(value: rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>) -> Self {
+        match value {
+            rat_scrolled::event::Outcome::Inner(i) => match i {
+                rat_scrolled::adapter::Outcome::NotUsed => Outcome::NotUsed,
+                rat_scrolled::adapter::Outcome::Unchanged => Outcome::Unchanged,
+                rat_scrolled::adapter::Outcome::Changed => Outcome::Changed,
+            },
+            rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
+            rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
+            rat_scrolled::event::Outcome::Changed => Outcome::Changed,
+        }
+    }
 }
 
 struct Data {
@@ -264,11 +288,11 @@ fn handle_lists(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    match HandleEvent::handle(&mut state.table1, event, MouseOnly) {
+    match HandleEvent::handle(&mut state.table1, event, MouseOnly).into() {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };
-    match HandleEvent::handle(&mut state.table2, event, MouseOnly) {
+    match HandleEvent::handle(&mut state.table2, event, MouseOnly).into() {
         Outcome::NotUsed => {}
         r => return Ok(r),
     };

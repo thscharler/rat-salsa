@@ -1,10 +1,13 @@
 ///
 /// Extensions for [ratatui::widgets::Table]
 ///
+/// This is limited to Tables with row-heights == 1.
+///
 use crate::_private::NonExhaustive;
-use crate::events::Outcome;
-use crate::{ScrollingOutcome, ScrollingState, ScrollingWidget};
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
+use crate::adapter::Outcome;
+use crate::event::{FocusKeys, HandleEvent, MouseOnly};
+use crate::{ScrollingState, ScrollingWidget};
+use rat_event::ct_event;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::prelude::*;
@@ -82,6 +85,7 @@ impl<'a, State> ScrollingWidget<State> for TableS<'a> {
 }
 
 impl<'a> TableS<'a> {
+    /// New Table.
     pub fn new<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
@@ -101,6 +105,7 @@ impl<'a> TableS<'a> {
         }
     }
 
+    /// Set data rows
     pub fn rows<T>(mut self, rows: T) -> Self
     where
         T: IntoIterator<Item = Row<'a>>,
@@ -110,31 +115,37 @@ impl<'a> TableS<'a> {
         self
     }
 
+    /// Set scroll stepping.
     pub fn scroll_by(mut self, n: usize) -> Self {
         self.scroll_by = Some(n);
         self
     }
 
+    /// Scroll the selection.
     pub fn scroll_selection(mut self) -> Self {
         self.scroll_selection = true;
         self
     }
 
+    /// Scroll the offset.
     pub fn scroll_offset(mut self) -> Self {
         self.scroll_selection = false;
         self
     }
 
+    /// Set the header.
     pub fn header(mut self, header: Row<'a>) -> Self {
         self.header = Some(header);
         self
     }
 
+    /// Set the footer.
     pub fn footer(mut self, footer: Row<'a>) -> Self {
         self.footer = Some(footer);
         self
     }
 
+    /// Column widths
     pub fn widths<I>(mut self, widths: I) -> Self
     where
         I: IntoIterator,
@@ -144,41 +155,49 @@ impl<'a> TableS<'a> {
         self
     }
 
+    /// Spacing
     pub fn column_spacing(mut self, spacing: u16) -> Self {
         self.table = self.table.column_spacing(spacing);
         self
     }
 
+    /// Block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.table = self.table.block(block);
         self
     }
 
+    /// Style
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         self.table = self.table.style(style);
         self
     }
 
+    /// Style for selection
     pub fn highlight_style<S: Into<Style>>(mut self, style: S) -> Self {
         self.table = self.table.highlight_style(style);
         self
     }
 
+    /// Extra symbol for selection
     pub fn highlight_symbol<T: Into<Text<'a>>>(mut self, select_symbol: T) -> Self {
         self.table = self.table.highlight_symbol(select_symbol);
         self
     }
 
+    /// Spacing
     pub fn highlight_spacing(mut self, value: HighlightSpacing) -> Self {
         self.table = self.table.highlight_spacing(value);
         self
     }
 
+    /// Spacing
     pub fn select_spacing(mut self, value: HighlightSpacing) -> Self {
         self.table = self.table.highlight_spacing(value);
         self
     }
 
+    /// Flex layout.
     pub fn flex(mut self, flex: Flex) -> Self {
         self.table = self.table.flex(flex);
         self
@@ -217,7 +236,7 @@ impl<'a> StatefulWidget for TableS<'a> {
         for _row in self.rows.iter().skip(state.offset()) {
             // TODO: as long as height_with_margin() is not accessible we are limited
             //       to single row tables.
-            // row_area.height = row.height_with_margin();
+            // row_area.height = _row.height_with_margin();
             row_area.height = 1;
 
             state.row_areas.push(row_area);
@@ -287,20 +306,32 @@ where
 /// Extended TableState, contains a [ratatui::widgets::TableState].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TableSState {
+    /// inner widget
     pub widget: TableState,
 
+    /// Scroll the selection.
     pub scroll_selection: bool,
+    /// Scroll step size.
     pub v_scroll_by: usize,
+    /// Total length.
     pub v_len: usize,
+    /// Current page size
     pub v_page: usize,
+    /// Maximum offset
     pub v_max_offset: usize,
 
+    /// Complete area.
     pub area: Rect,
+    /// Header
     pub header_area: Rect,
+    /// Table content
     pub table_area: Rect,
+    /// Visible rows.
     pub row_areas: Vec<Rect>,
+    /// Footer
     pub footer_area: Rect,
 
+    /// Mouse behaviour.
     pub mouse_drag: bool,
     pub mouse_click: Option<SystemTime>,
 
@@ -329,6 +360,7 @@ impl Default for TableSState {
 }
 
 impl ScrollingState for TableSState {
+    #[inline]
     fn vertical_max_offset(&self) -> usize {
         if self.scroll_selection {
             self.v_len.saturating_sub(1)
@@ -337,6 +369,7 @@ impl ScrollingState for TableSState {
         }
     }
 
+    #[inline]
     fn vertical_offset(&self) -> usize {
         if self.scroll_selection {
             self.widget.selected().unwrap_or(0)
@@ -345,31 +378,38 @@ impl ScrollingState for TableSState {
         }
     }
 
+    #[inline]
     fn vertical_page(&self) -> usize {
         self.v_page
     }
 
+    #[inline]
     fn vertical_scroll(&self) -> usize {
         self.v_scroll_by
     }
 
+    #[inline]
     fn horizontal_max_offset(&self) -> usize {
         0
     }
 
+    #[inline]
     fn horizontal_offset(&self) -> usize {
         0
     }
 
+    #[inline]
     fn horizontal_page(&self) -> usize {
         0
     }
 
+    #[inline]
     fn horizontal_scroll(&self) -> usize {
         0
     }
 
-    fn set_vertical_offset(&mut self, position: usize) -> ScrollingOutcome {
+    #[inline]
+    fn set_vertical_offset(&mut self, position: usize) -> bool {
         if self.scroll_selection {
             let old_select = min(
                 self.widget.selected().unwrap_or(0),
@@ -379,11 +419,7 @@ impl ScrollingState for TableSState {
 
             *self.widget.selected_mut() = Some(new_select);
 
-            if new_select > old_select {
-                ScrollingOutcome::Scrolled
-            } else {
-                ScrollingOutcome::Denied
-            }
+            new_select != old_select
         } else {
             let old_offset = min(self.vertical_offset(), self.v_len.saturating_sub(1));
             let new_offset = min(position, self.v_len.saturating_sub(1));
@@ -392,59 +428,66 @@ impl ScrollingState for TableSState {
 
             // For scrolling purposes the selection of ratatui::Table is never None,
             // instead it defaults out to 0 which prohibits any scrolling attempt.
-            // We do our own selection, so we don't really care.
+            // Losing the selection here is a bit inconvenient, but this is more of a demo
+            // anyway.
             *self.widget.selected_mut() = Some(self.widget.offset());
 
-            if new_offset > old_offset {
-                ScrollingOutcome::Scrolled
-            } else {
-                ScrollingOutcome::Denied
-            }
+            new_offset != old_offset
         }
     }
 
-    fn set_horizontal_offset(&mut self, _offset: usize) -> ScrollingOutcome {
-        ScrollingOutcome::Denied
+    #[inline]
+    fn set_horizontal_offset(&mut self, _offset: usize) -> bool {
+        false
     }
 }
 
 impl TableSState {
+    #[inline]
     pub fn with_offset(mut self, offset: usize) -> Self {
         self.widget = self.widget.with_offset(offset);
         self
     }
 
+    #[inline]
     pub fn offset(&self) -> usize {
         self.widget.offset()
     }
 
+    #[inline]
     pub fn offset_mut(&mut self) -> &mut usize {
         self.widget.offset_mut()
     }
 
+    #[inline]
     pub fn selected(&self) -> Option<usize> {
         self.widget.selected()
     }
 
+    #[inline]
     pub fn selection_mut(&mut self) -> &mut Option<usize> {
         self.widget.selected_mut()
     }
 
+    #[inline]
     pub fn select(&mut self, position: Option<usize>) {
         self.widget.select(position)
     }
 
+    #[inline]
     pub fn select_next(&mut self, relative: usize) {
         let selected = self.widget.selected().unwrap_or(0);
         self.widget.select(Some(selected + relative));
     }
 
+    #[inline]
     pub fn select_prev(&mut self, relative: usize) {
         let selected = self.widget.selected().unwrap_or(0);
         self.widget.select(Some(selected.saturating_sub(relative)));
     }
 
     /// Row at given position.
+    #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
         for (i, r) in self.row_areas.iter().enumerate() {
             if r.contains(pos) {
@@ -455,44 +498,31 @@ impl TableSState {
     }
 
     /// Row when dragging. Can go outside the area.
+    #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
-        let offset = self.offset();
-        for (i, r) in self.row_areas.iter().enumerate() {
-            // needs only to be in the same row. outside the widget is ok.
-            if pos.y >= r.y && pos.y < r.y + r.height {
-                return offset + i;
-            }
+        if let Some(row) = self.row_at_clicked(pos) {
+            return row;
         }
 
-        let offset = self.offset() as isize;
-        let rr = if pos.y < self.table_area.y {
-            // assume row-height=1 for outside the box.
-            let min_row = self.table_area.y as isize;
-            offset - (min_row - pos.y as isize)
-        } else if pos.y >= self.table_area.y + self.table_area.height {
-            let max_row = self.table_area.y as isize + self.table_area.height as isize;
-            let vis_rows = self.row_areas.len() as isize;
-            offset + vis_rows + (pos.y as isize - max_row)
+        // assume row-height=1 for outside the box.
+        let relative = if pos.y < self.table_area.top() {
+            pos.y as isize - self.table_area.top() as isize
+        } else if let Some(last) = self.row_areas.last() {
+            pos.y as isize - last.bottom() as isize + self.row_areas.len() as isize
         } else {
-            if let Some(last) = self.row_areas.last() {
-                // count from last row.
-                let min_row = last.y as isize + last.height as isize;
-                let vis_rows = self.row_areas.len() as isize;
-                offset + vis_rows + (pos.y as isize - min_row)
-            } else {
-                // empty table, count from header
-                let min_row = self.table_area.y as isize + self.table_area.height as isize;
-                offset + (pos.y as isize - min_row)
-            }
+            pos.y as isize - self.table_area.top() as isize
         };
-        if rr < 0 {
+
+        let new_offset = self.offset() as isize + relative;
+        if new_offset < 0 {
             0
         } else {
-            rr as usize
+            new_offset as usize
         }
     }
 
     /// Scroll to selected.
+    #[inline]
     pub fn scroll_to_selected(&mut self) {
         if let Some(selected) = self.selected() {
             if self.vertical_offset() + self.row_areas.len() <= selected {
