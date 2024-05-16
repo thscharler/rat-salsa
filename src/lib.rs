@@ -1,6 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
 pub mod crossterm;
+pub mod util;
 
 /// Default key bindings when focused.
 /// Also handles all events that are MouseOnly.

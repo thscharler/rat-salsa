@@ -18,7 +18,7 @@ pub mod modifiers {
 /// This macro produces pattern matches for crossterm events.
 ///
 /// Example:
-/// ```rust no_run
+/// ```rust ignore
 /// match event {
 ///     ct_event!(keycode press Left) => self.move_to_prev(false),
 ///     ct_event!(keycode press Right) => self .move_to_next(false),

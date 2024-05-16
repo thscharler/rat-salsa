@@ -1,6 +1,6 @@
 [package]
 name = "rat-event"
-version = "0.10.0"
+version = "0.11.0"
 edition = "2021"
 description = "ratatui event handler trait for widgets"
 license = "MIT/Apache-2.0"
@@ -44,6 +44,7 @@ variant_size_differences = "warn"
 
 [dependencies]
 crossterm = "0.27"
+ratatui = { version = "0.26", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
 
 [dev-dependencies]
 fern = "0.6"
