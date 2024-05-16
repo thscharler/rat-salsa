@@ -40,3 +40,27 @@ pub trait HandleEvent<Event, KeyMap, R: UsedEvent> {
 pub trait UsedEvent {
     fn used_event(&self) -> bool;
 }
+
+impl<V, E> UsedEvent for Result<V, E>
+where
+    V: UsedEvent,
+{
+    fn used_event(&self) -> bool {
+        match self {
+            Ok(v) => v.used_event(),
+            Err(e) => true,
+        }
+    }
+}
+
+impl<V> UsedEvent for Option<V>
+where
+    V: UsedEvent,
+{
+    fn used_event(&self) -> bool {
+        match self {
+            Some(v) => v.used_event(),
+            None => true,
+        }
+    }
+}

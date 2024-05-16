@@ -1,3 +1,7 @@
+# 0.12.1
+
+* Impl UsedEvent for Result<T,E> and Option<T> where T: UsedEvent.
+
 # 0.12.0
 
 * Add trait UsedEvent to enable layering of widgets. Provides the
