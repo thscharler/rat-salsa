@@ -58,4 +58,5 @@ features = []
 [dev-dependencies]
 fern = "0.6"
 anyhow = "1.0.82"
+rat-input = { version = "0.13" }
 

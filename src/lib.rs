@@ -129,6 +129,45 @@ pub mod event {
         Changed,
     }
 
+    impl<R> Outcome<Outcome<R>> {
+        /// Compact two layers of Outcome to one.
+        pub fn flatten(self) -> Outcome<R> {
+            match self {
+                Outcome::Inner(i) => match i {
+                    Outcome::Inner(i) => Outcome::Inner(i),
+                    Outcome::NotUsed => Outcome::NotUsed,
+                    Outcome::Unchanged => Outcome::Unchanged,
+                    Outcome::Changed => Outcome::Changed,
+                },
+                Outcome::NotUsed => Outcome::NotUsed,
+                Outcome::Unchanged => Outcome::Unchanged,
+                Outcome::Changed => Outcome::Changed,
+            }
+        }
+    }
+
+    impl<R> Outcome<Outcome<Outcome<R>>> {
+        /// Compact three layers of Outcome to one.
+        pub fn flatten2(self) -> Outcome<R> {
+            match self {
+                Outcome::Inner(i) => match i {
+                    Outcome::Inner(i) => match i {
+                        Outcome::Inner(i) => Outcome::Inner(i),
+                        Outcome::NotUsed => Outcome::NotUsed,
+                        Outcome::Unchanged => Outcome::Unchanged,
+                        Outcome::Changed => Outcome::Changed,
+                    },
+                    Outcome::NotUsed => Outcome::NotUsed,
+                    Outcome::Unchanged => Outcome::Unchanged,
+                    Outcome::Changed => Outcome::Changed,
+                },
+                Outcome::NotUsed => Outcome::NotUsed,
+                Outcome::Unchanged => Outcome::Unchanged,
+                Outcome::Changed => Outcome::Changed,
+            }
+        }
+    }
+
     impl<R> UsedEvent for Outcome<R>
     where
         R: UsedEvent,

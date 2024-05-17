@@ -9,6 +9,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
+use rat_input::statusline::{StatusLine, StatusLineState};
 use rat_scrolled::adapter::paragraph::ParagraphS;
 use rat_scrolled::event::{HandleEvent, MouseOnly};
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
@@ -16,11 +17,13 @@ use rat_scrolled::viewport::ViewportState;
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect, Size};
+use ratatui::prelude::Style;
+use ratatui::style::Stylize;
 use ratatui::widgets::{StatefulWidget, Wrap};
 use ratatui::{Frame, Terminal};
 use std::fs;
 use std::io::{stdout, Stdout};
-use std::time::Duration;
+use std::time::{Duration, SystemTime};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
@@ -43,72 +46,6 @@ impl From<rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>> for Outc
             rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
             rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
             rat_scrolled::event::Outcome::Changed => Outcome::Changed,
-        }
-    }
-}
-
-impl
-    From<
-        rat_scrolled::event::Outcome<
-            rat_scrolled::event::Outcome<
-                rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>,
-            >,
-        >,
-    > for Outcome
-{
-    fn from(
-        value: rat_scrolled::event::Outcome<
-            rat_scrolled::event::Outcome<
-                rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>,
-            >,
-        >,
-    ) -> Self {
-        match value {
-            rat_scrolled::event::Outcome::Inner(i) => match i {
-                rat_scrolled::event::Outcome::Inner(i) => match i {
-                    rat_scrolled::event::Outcome::Inner(i) => match i {
-                        rat_scrolled::adapter::Outcome::NotUsed => Outcome::NotUsed,
-                        rat_scrolled::adapter::Outcome::Unchanged => Outcome::Unchanged,
-                        rat_scrolled::adapter::Outcome::Changed => Outcome::Changed,
-                    },
-                    rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
-                    rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
-                    rat_scrolled::event::Outcome::Changed => Outcome::Changed,
-                },
-                rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
-                rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
-                rat_scrolled::event::Outcome::Changed => Outcome::Changed,
-            },
-            rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
-            rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
-            rat_scrolled::event::Outcome::Changed => Outcome::Changed,
-        }
-    }
-}
-
-impl
-    From<rat_scrolled::event::Outcome<rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>>>
-    for Outcome
-{
-    fn from(
-        value: rat_scrolled::event::Outcome<
-            rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>,
-        >,
-    ) -> Self {
-        match value {
-            rat_scrolled::event::Outcome::Inner(i) => match i {
-                rat_scrolled::event::Outcome::Inner(i) => match i {
-                    rat_scrolled::adapter::Outcome::NotUsed => Outcome::NotUsed,
-                    rat_scrolled::adapter::Outcome::Unchanged => Outcome::Unchanged,
-                    rat_scrolled::adapter::Outcome::Changed => Outcome::Changed,
-                },
-                rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
-                rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
-                rat_scrolled::event::Outcome::Changed => Outcome::Unchanged,
-            },
-            rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
-            rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
-            rat_scrolled::event::Outcome::Changed => Outcome::Unchanged,
         }
     }
 }
@@ -203,7 +140,9 @@ Total average precipitation in the Craters of the Moon area is between 15–20 i
 
     let mut state = State {
         double: ScrolledState::default(),
+        status: Default::default(),
     };
+    state.status.status(0, "Ctrl+Q to quit.");
 
     run_ui(&mut data, &mut state)
 }
@@ -225,6 +164,7 @@ struct Data {
 
 struct State {
     pub(crate) double: ScrolledState<ViewportState<DoubleViewState>>,
+    pub(crate) status: StatusLineState,
 }
 
 fn run_ui(data: &mut Data, state: &mut State) -> Result<(), anyhow::Error> {
@@ -294,10 +234,32 @@ fn repaint_ui(
 }
 
 fn repaint_tui(frame: &mut Frame<'_>, data: &mut Data, state: &mut State) {
+    let t0 = SystemTime::now();
+
     let area = frame.size();
     let buffer = frame.buffer_mut();
 
-    repaint_text(area, buffer, data, state);
+    let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+
+    repaint_text(l1[0], buffer, data, state);
+
+    let status1 = StatusLine::new()
+        .layout([
+            Constraint::Fill(1),
+            Constraint::Length(17),
+            Constraint::Length(17),
+        ])
+        .styles([
+            Style::default().black().on_dark_gray(),
+            Style::default().white().on_blue(),
+            Style::default().white().on_light_blue(),
+        ]);
+
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state
+        .status
+        .status(1, format!("Render {:?}", el).to_string());
+    frame.render_stateful_widget(status1, l1[1], &mut state.status);
 }
 
 fn handle_event(
@@ -305,6 +267,8 @@ fn handle_event(
     data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
+    let t0 = SystemTime::now();
+
     use crossterm::event::Event;
     match event {
         Event::Key(KeyEvent {
@@ -320,6 +284,11 @@ fn handle_event(
     }
 
     let r = handle_text(&event, data, state)?;
+
+    let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+    state
+        .status
+        .status(2, format!("Handle {:?}", el).to_string());
 
     Ok(r)
 }
@@ -340,8 +309,7 @@ fn handle_text(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r: Outcome;
-    r = state.double.handle(event, MouseOnly).into();
+    let r = state.double.handle(event, MouseOnly).flatten2().into();
     match r {
         Outcome::NotUsed => {}
         r => return Ok(r),
