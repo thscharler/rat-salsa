@@ -1,3 +1,6 @@
+not functional;
+
+
 use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
@@ -8,9 +11,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
-use rat_event::{FocusKeys, HandleEvent, MouseOnly};
-use rat_scrolled::adapter::tree::{TreeS, TreeSState};
-use rat_scrolled::events::Outcome;
+use rat_event::{FocusKeys, HandleEvent};
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -22,6 +23,8 @@ use std::fs;
 use std::io::{stdout, Stdout};
 use std::time::Duration;
 use tui_tree_widget::TreeItem;
+
+mod adapter;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;

@@ -26,10 +26,6 @@ pub trait ScrollingState {
     fn vertical_offset(&self) -> usize;
     /// Vertical page-size at the current offset.
     fn vertical_page(&self) -> usize;
-    /// Suggested scroll per scroll-event.
-    fn vertical_scroll(&self) -> usize {
-        max(self.vertical_page() / 10, 1)
-    }
 
     /// Maximum offset that is accessible with scrolling.
     ///
@@ -40,10 +36,6 @@ pub trait ScrollingState {
     fn horizontal_offset(&self) -> usize;
     /// Horizontal page-size at the current offset.
     fn horizontal_page(&self) -> usize;
-    /// Suggested scroll per scroll-event.
-    fn horizontal_scroll(&self) -> usize {
-        max(self.horizontal_page() / 10, 1)
-    }
 
     /// Change the vertical offset.
     ///
@@ -60,36 +52,25 @@ pub trait ScrollingState {
     ///
     /// The widget returns true if the offset changed at all.
     fn set_horizontal_offset(&mut self, offset: usize) -> bool;
-
-    /// Scroll up by n items.
-    /// The widget returns true if the offset changed at all.
-    fn scroll_up(&mut self, n: usize) -> bool {
-        self.set_vertical_offset(self.vertical_offset().saturating_sub(n))
-    }
-
-    /// Scroll down by n items.
-    /// The widget returns true if the offset changed at all.
-    fn scroll_down(&mut self, n: usize) -> bool {
-        self.set_vertical_offset(self.vertical_offset() + n)
-    }
-
-    /// Scroll up by n items.
-    /// The widget returns true if the offset changed at all.
-    fn scroll_left(&mut self, n: usize) -> bool {
-        self.set_horizontal_offset(self.horizontal_offset().saturating_sub(n))
-    }
-
-    /// Scroll down by n items.
-    /// The widget returns true if the offset changed at all.
-    fn scroll_right(&mut self, n: usize) -> bool {
-        self.set_horizontal_offset(self.horizontal_offset() + n)
-    }
 }
 ```
 
-## Widget [Scrolled](crate::Scrolled)
+## Widget [Scrolled](crate::scrolled::Scrolled)
 
 Does the scrolling and display of the ScrollBars.
+
+## Widget [View](crate::view::View) and [Viewport](crate::viewport::Viewport)
+
+Create a separate buffer, render the widget to this temp buffer.
+Then apply a col/row based offset and copy the temp buffer to
+the actual one.
+
+The reason for two of those is: I can't impl the StatefulWidget
+trait in a way that it works with both Widget and StatefulWidget.
+So View works for Widget and Viewport for StatefulWidget.
+
+There are convenience methods in Scrolled to add a View/Viewport.
+
 
 
 

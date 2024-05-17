@@ -1,6 +1,4 @@
-use crate::_private::NonExhaustive;
 use crate::adapter::Outcome;
-use crate::{ScrollingState, ScrollingWidget};
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
@@ -9,6 +7,8 @@ use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, Paragraph, Widget, Wrap};
 use std::cmp::min;
+use rat_scrolled::{ScrollingState, ScrollingWidget};
+use crate::adapter::_private::NonExhaustive;
 
 ///
 /// Adapter for ratatui::widget::Paragraph

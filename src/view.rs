@@ -1,4 +1,4 @@
-/// A view allows scrolling of a widget without builtin
+/// A view allows scrolling of a `Widget` without builtin
 /// support for scrolling.
 ///
 /// View and Viewport are the same in functionality.

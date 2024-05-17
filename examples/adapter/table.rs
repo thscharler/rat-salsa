@@ -3,11 +3,10 @@
 ///
 /// This is limited to Tables with row-heights == 1.
 ///
-use crate::_private::NonExhaustive;
 use crate::adapter::Outcome;
-use crate::event::{FocusKeys, HandleEvent, MouseOnly};
-use crate::{ScrollingState, ScrollingWidget};
-use rat_event::{ct_event, UsedEvent};
+use crate::adapter::_private::NonExhaustive;
+use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::prelude::*;

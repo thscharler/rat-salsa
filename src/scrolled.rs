@@ -250,10 +250,10 @@ impl<'a, W> Scrolled<'a, View<W>>
 where
     W: Widget,
 {
-    /// Create a Scrolled<View<W>> widget for widgets without builtin
+    /// Create a `Scrolled<View<W>>` widget for widgets without builtin
     /// scrolling behaviour.
     ///
-    /// You need to set a [viewport_size](Scrolled::viewport_size] for the
+    /// You need to set a [view_size](Scrolled::view_size()) for the
     /// area the inner widget shall receive.
     ///
     /// See [Viewport] too.
@@ -295,10 +295,10 @@ impl<'a, W> Scrolled<'a, Viewport<W>>
 where
     W: StatefulWidget,
 {
-    /// Create a Scrolled<Viewport<W>> widget for widgets without builtin
+    /// Create a `Scrolled<Viewport<W>>` widget for widgets without builtin
     /// scrolling behaviour.
     ///
-    /// You need to set a [viewport_size](Scrolled::viewport_size] for the
+    /// You need to set a [view_size](Scrolled::view_size()) for the
     /// area the inner widget shall receive.
     ///
     /// See [Viewport] too.

@@ -1,5 +1,5 @@
-/// A viewport allows scrolling of a widget without builtin
-/// support for scrolling.
+/// A viewport allows scrolling of a `StatefulWidget` without
+/// builtin support for scrolling.
 ///
 /// View and Viewport are the same in functionality.
 ///
@@ -168,9 +168,9 @@ impl<S> ViewportState<S> {
             crossterm::event::Event::FocusLost => event.clone(),
             crossterm::event::Event::Key(_) => event.clone(),
             crossterm::event::Event::Mouse(m) => {
-                let mut m = m.clone();
-                m.column = m.column + self.h_offset as u16;
-                m.row = m.row + self.v_offset as u16;
+                let mut m = *m;
+                m.column += self.h_offset as u16;
+                m.row += self.v_offset as u16;
                 crossterm::event::Event::Mouse(m)
             }
             crossterm::event::Event::Paste(_) => event.clone(),
@@ -229,9 +229,7 @@ impl<S> ScrollingState for ViewportState<S> {
     }
 }
 
-/// Handle all events.
-/// Text events are only processed if focus is true.
-/// Mouse events are processed if they are in range.
+/// Handle events if the widget has the focus.
 impl<R, S> HandleEvent<crossterm::event::Event, FocusKeys, Outcome<R>> for ViewportState<S>
 where
     S: HandleEvent<crossterm::event::Event, FocusKeys, R>,

@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+
+use crate::adapter::list::{ListS, ListSState};
 use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
@@ -10,7 +13,6 @@ use crossterm::terminal::{
 use crossterm::ExecutableCommand;
 use log::debug;
 use rat_event::{HandleEvent, MouseOnly};
-use rat_scrolled::adapter::list::{ListS, ListSState};
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -22,6 +24,8 @@ use std::fs;
 use std::io::{stdout, Stdout};
 use std::iter::repeat_with;
 use std::time::Duration;
+
+pub mod adapter;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Outcome {
@@ -106,13 +110,13 @@ fn setup_logging() -> Result<(), anyhow::Error> {
     Ok(())
 }
 
-impl From<rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>> for Outcome {
-    fn from(value: rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>) -> Self {
+impl From<rat_scrolled::event::Outcome<adapter::Outcome>> for Outcome {
+    fn from(value: rat_scrolled::event::Outcome<adapter::Outcome>) -> Self {
         match value {
             rat_scrolled::event::Outcome::Inner(i) => match i {
-                rat_scrolled::adapter::Outcome::NotUsed => Outcome::NotUsed,
-                rat_scrolled::adapter::Outcome::Unchanged => Outcome::Unchanged,
-                rat_scrolled::adapter::Outcome::Changed => Outcome::Changed,
+                adapter::Outcome::NotUsed => Outcome::NotUsed,
+                adapter::Outcome::Unchanged => Outcome::Unchanged,
+                adapter::Outcome::Changed => Outcome::Changed,
             },
             rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
             rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,

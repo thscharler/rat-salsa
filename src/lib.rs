@@ -1,14 +1,21 @@
-pub mod adapter;
-pub mod scrolled;
+#![doc = include_str!("../readme.md")]
+
+mod scrolled;
 mod util;
-pub mod view;
-pub mod viewport;
+mod view;
+mod viewport;
 
 use ratatui::layout::Rect;
 use std::cmp::max;
 
+pub use scrolled::{HScrollPosition, ScrollbarPolicy, Scrolled, ScrolledState, VScrollPosition};
+pub use view::{View, ViewState};
+pub use viewport::{Viewport, ViewportState};
+
+/// Trait for the widget struct of a scrollable widget.
 pub trait ScrollingWidget<State> {
     /// Widget wants a (horizontal, vertical) scrollbar.
+    /// This gets combined with the [ScrollbarPolicy].
     fn need_scroll(&self, area: Rect, state: &mut State) -> (bool, bool);
 }
 

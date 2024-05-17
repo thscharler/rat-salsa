@@ -1,13 +1,13 @@
-use crate::_private::NonExhaustive;
 use crate::adapter::Outcome;
-use crate::event::{FocusKeys, HandleEvent, MouseOnly};
-use crate::{ScrollingState, ScrollingWidget};
 use rat_event::ct_event;
+use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style};
 use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState, Widget};
 use std::cmp::{max, min};
+use rat_scrolled::{ScrollingState, ScrollingWidget};
+use crate::adapter::_private::NonExhaustive;
 
 ///
 /// Extensions for [ratatui::widgets::List]
