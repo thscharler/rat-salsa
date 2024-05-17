@@ -1,4 +1,4 @@
-/// A viewport allows scrolling of a widget without builtin
+/// A view allows scrolling of a widget without builtin
 /// support for scrolling.
 ///
 /// View and Viewport are the same in functionality.
@@ -10,61 +10,52 @@ use crate::_private::NonExhaustive;
 use crate::event::Outcome;
 use crate::util::copy_buffer;
 use crate::{ScrollingState, ScrollingWidget};
-use log::debug;
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
-use ratatui::prelude::StatefulWidget;
+use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::style::Style;
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::mem;
 
-/// The viewport has its own size that is used to create
-/// the buffer where the contained widget is rendered.
-///
-/// This buffer is the base for scrolling behaviour.
+/// View has its own size, and can contain a stateless widget
+/// that will be rendered to a view sized buffer.
+/// This buffer is then offset and written to the actual
+/// frame buffer.
 #[derive(Debug, Default, Clone)]
-pub struct Viewport<T> {
-    /// The widget.
+pub struct View<T> {
     widget: T,
-    /// Viewport size.
-    /// There is only need for a size, the widget gets a buffer with
-    /// x and y set to the rendering area.
+    /// Size of the view. The widget is drawn to a separate buffer
+    /// with this size. x and y are set to the rendering area.
     view_size: Size,
-    /// Style for the empty space, when scrolling goes beyond the
-    /// buffer size.
+    /// Style for any area outside the contained widget.
     style: Style,
 }
 
-/// State of the viewport.
 #[derive(Debug, Clone)]
-pub struct ViewportState<S> {
-    pub widget: S,
-
-    /// The drawing area of the viewport.
+pub struct ViewState {
+    /// The drawing area for the view.
     pub area: Rect,
-    /// The viewport area that the contained widget sees.
+    /// The view area that the inner widget sees.
     pub view_area: Rect,
-    /// Scroll offset
+    /// Horizontal offset
     pub h_offset: usize,
-    /// Scroll offset.
+    /// Vertical offset
     pub v_offset: usize,
 
     /// Only construct with `..Default::default()`.
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<T> Viewport<T> {
-    /// New viewport.
+impl<T> View<T> {
     pub fn new(inner: T) -> Self {
         Self {
-            style: Default::default(),
             widget: inner,
             view_size: Default::default(),
+            style: Default::default(),
         }
     }
 
-    /// Size for the inner widget.
     pub fn view_size(mut self, size: Size) -> Self {
         self.view_size = size;
         self
@@ -77,42 +68,42 @@ impl<T> Viewport<T> {
     }
 }
 
-impl<T> StatefulWidgetRef for Viewport<T>
+impl<T> StatefulWidgetRef for View<T>
 where
-    T: StatefulWidgetRef,
+    T: WidgetRef,
 {
-    type State = ViewportState<T::State>;
+    type State = ViewState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_impl(self, area, buf, state, |area, buf, state| {
-            self.widget.render_ref(area, buf, state);
-        });
+        render_impl(self, area, buf, state, |area, buf| {
+            self.widget.render_ref(area, buf);
+        })
     }
 }
 
-impl<T> StatefulWidget for Viewport<T>
+impl<T> StatefulWidget for View<T>
 where
-    T: StatefulWidget + Default,
+    T: Widget + Default,
 {
-    type State = ViewportState<T::State>;
+    type State = ViewState;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let inner = mem::take(&mut self.widget);
 
-        render_impl(&self, area, buf, state, |area, buf, state| {
-            inner.render(area, buf, state);
+        render_impl(&self, area, buf, state, |area, buf| {
+            inner.render(area, buf);
         });
     }
 }
 
-fn render_impl<T, S, FnRender>(
-    widget: &Viewport<T>,
+fn render_impl<T, FnRender>(
+    widget: &View<T>,
     area: Rect,
     buf: &mut Buffer,
-    state: &mut ViewportState<S>,
+    state: &mut ViewState,
     render_inner: FnRender,
 ) where
-    FnRender: FnOnce(Rect, &mut Buffer, &mut S),
+    FnRender: FnOnce(Rect, &mut Buffer),
 {
     state.area = area;
     state.view_area = Rect::new(
@@ -124,7 +115,7 @@ fn render_impl<T, S, FnRender>(
 
     let mut tmp = Buffer::empty(state.view_area);
 
-    render_inner(state.view_area, &mut tmp, &mut state.widget);
+    render_inner(state.view_area, &mut tmp);
 
     copy_buffer(
         state.view_area,
@@ -137,9 +128,9 @@ fn render_impl<T, S, FnRender>(
     );
 }
 
-impl<State, T> ScrollingWidget<State> for Viewport<T>
+impl<State, T> ScrollingWidget<State> for View<T>
 where
-    T: StatefulWidget,
+    T: Widget,
 {
     fn need_scroll(&self, area: Rect, _state: &mut State) -> (bool, bool) {
         (
@@ -149,39 +140,19 @@ where
     }
 }
 
-impl<S: Default> Default for ViewportState<S> {
+impl Default for ViewState {
     fn default() -> Self {
         Self {
-            widget: S::default(),
             area: Default::default(),
+            view_area: Default::default(),
             h_offset: 0,
             v_offset: 0,
             non_exhaustive: NonExhaustive,
-            view_area: Default::default(),
         }
     }
 }
 
-impl<S> ViewportState<S> {
-    /// Relocate mouse-events for use inside the viewport.
-    pub fn relocate_crossterm(&self, event: &crossterm::event::Event) -> crossterm::event::Event {
-        match event {
-            crossterm::event::Event::FocusGained => event.clone(),
-            crossterm::event::Event::FocusLost => event.clone(),
-            crossterm::event::Event::Key(_) => event.clone(),
-            crossterm::event::Event::Mouse(m) => {
-                let mut m = m.clone();
-                m.column = m.column + self.h_offset as u16;
-                m.row = m.row + self.v_offset as u16;
-                crossterm::event::Event::Mouse(m)
-            }
-            crossterm::event::Event::Paste(_) => event.clone(),
-            crossterm::event::Event::Resize(_, _) => event.clone(),
-        }
-    }
-}
-
-impl<S> ScrollingState for ViewportState<S> {
+impl ScrollingState for ViewState {
     fn vertical_max_offset(&self) -> usize {
         self.view_area.height.saturating_sub(self.area.height) as usize
     }
@@ -192,10 +163,6 @@ impl<S> ScrollingState for ViewportState<S> {
 
     fn vertical_page(&self) -> usize {
         self.area.height as usize
-    }
-
-    fn vertical_scroll(&self) -> usize {
-        self.area.height as usize / 10
     }
 
     fn horizontal_max_offset(&self) -> usize {
@@ -210,10 +177,6 @@ impl<S> ScrollingState for ViewportState<S> {
         self.area.width as usize
     }
 
-    fn horizontal_scroll(&self) -> usize {
-        self.area.width as usize / 10
-    }
-
     fn set_vertical_offset(&mut self, offset: usize) -> bool {
         let old_offset = self.v_offset;
 
@@ -222,6 +185,7 @@ impl<S> ScrollingState for ViewportState<S> {
         } else if self.v_offset >= self.view_area.height as usize {
             self.v_offset = self.view_area.height.saturating_sub(1) as usize;
         }
+
         old_offset != self.v_offset
     }
 
@@ -241,27 +205,23 @@ impl<S> ScrollingState for ViewportState<S> {
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-impl<R, S> HandleEvent<crossterm::event::Event, FocusKeys, Outcome<R>> for ViewportState<S>
+impl<R> HandleEvent<crossterm::event::Event, FocusKeys, Outcome<R>> for ViewState
 where
-    S: HandleEvent<crossterm::event::Event, FocusKeys, R>,
     R: UsedEvent,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
-        let event = self.relocate_crossterm(event);
-        let r = self.widget.handle(&event, FocusKeys);
-        Outcome::Inner(r)
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
+        // not supported for now. would need to translate the coordinates of the event too?
+        Outcome::NotUsed
     }
 }
 
 /// Handle only mouse-events.
-impl<R, S> HandleEvent<crossterm::event::Event, MouseOnly, Outcome<R>> for ViewportState<S>
+impl<R> HandleEvent<crossterm::event::Event, MouseOnly, Outcome<R>> for ViewState
 where
-    S: HandleEvent<crossterm::event::Event, MouseOnly, R>,
     R: UsedEvent,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
-        let event = self.relocate_crossterm(event);
-        let r = self.widget.handle(&event, MouseOnly);
-        Outcome::Inner(r)
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
+        // not supported for now. would need to translate the coordinates of the event too?
+        Outcome::NotUsed
     }
 }

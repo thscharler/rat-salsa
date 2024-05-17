@@ -1,3 +1,5 @@
+use rat_event::UsedEvent;
+
 pub mod list;
 pub mod paragraph;
 pub mod table;
@@ -11,4 +13,10 @@ pub enum Outcome {
     Unchanged,
     /// The event was handled, repaint necessary.
     Changed,
+}
+
+impl UsedEvent for Outcome {
+    fn used_event(&self) -> bool {
+        *self != Outcome::NotUsed
+    }
 }

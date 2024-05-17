@@ -7,9 +7,11 @@
 use crate::_private::NonExhaustive;
 use crate::event::Outcome;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly};
+use crate::view::View;
 use crate::viewport::Viewport;
 use crate::{ScrollingState, ScrollingWidget};
-use rat_event::ct_event;
+use log::debug;
+use rat_event::{ct_event, UsedEvent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};
@@ -244,9 +246,54 @@ impl<'a, T> Scrolled<'a, T> {
     }
 }
 
-impl<'a, W> Scrolled<'a, Viewport<W>>
+impl<'a, W> Scrolled<'a, View<W>>
 where
     W: Widget,
+{
+    /// Create a Scrolled<View<W>> widget for widgets without builtin
+    /// scrolling behaviour.
+    ///
+    /// You need to set a [viewport_size](Scrolled::viewport_size] for the
+    /// area the inner widget shall receive.
+    ///
+    /// See [Viewport] too.
+    pub fn new_view(inner: W) -> Scrolled<'a, View<W>> {
+        Self {
+            widget: View::new(inner),
+            h_overscroll: 0,
+            v_overscroll: 0,
+            h_scroll_policy: Default::default(),
+            v_scroll_policy: Default::default(),
+            h_scroll_position: Default::default(),
+            v_scroll_position: Default::default(),
+            block: None,
+            thumb_symbol: None,
+            thumb_style: None,
+            track_symbol: None,
+            track_style: None,
+            begin_symbol: None,
+            begin_style: None,
+            end_symbol: None,
+            end_style: None,
+        }
+    }
+
+    /// Size for the inner widget.
+    pub fn view_size(mut self, size: Size) -> Self {
+        self.widget = self.widget.view_size(size);
+        self
+    }
+
+    /// Style for the empty space outside the rendered buffer.
+    pub fn view_style(mut self, style: Style) -> Self {
+        self.widget = self.widget.style(style);
+        self
+    }
+}
+
+impl<'a, W> Scrolled<'a, Viewport<W>>
+where
+    W: StatefulWidget,
 {
     /// Create a Scrolled<Viewport<W>> widget for widgets without builtin
     /// scrolling behaviour.
@@ -277,20 +324,14 @@ where
     }
 
     /// Size for the inner widget.
-    pub fn viewport_size(mut self, size: Size) -> Self {
-        self.widget = self.widget.viewport_size(size);
+    pub fn view_size(mut self, size: Size) -> Self {
+        self.widget = self.widget.view_size(size);
         self
     }
 
     /// Style for the empty space outside the rendered buffer.
-    pub fn viewport_style(mut self, style: Style) -> Self {
+    pub fn view_style(mut self, style: Style) -> Self {
         self.widget = self.widget.style(style);
-        self
-    }
-
-    /// Fill char for the empty space outside the rendered buffer.
-    pub fn viewport_fill_char(mut self, fill_char: char) -> Self {
-        self.widget = self.widget.fill_char(fill_char);
         self
     }
 }
@@ -572,44 +613,30 @@ impl<WState: ScrollingState> ScrolledState<WState> {
         self.widget.horizontal_offset()
     }
 
-    /// Change the offset.
+    /// Change the offset. Limits the offset to max_v_offset + v_overscroll.
     ///
     /// Due to overscroll it's possible that this is an invalid
     /// offset for the widget. The widget must deal with this
     /// situation.
     pub fn set_vertical_offset(&mut self, offset: usize) -> bool {
-        self.widget.set_vertical_offset(offset)
-    }
-
-    /// Change the offset.
-    ///
-    /// Limits the offset to max_v_offset + v_overscroll.
-    pub fn set_limited_vertical_offset(&mut self, offset: usize) -> bool {
         let voffset = min(
             offset,
             self.widget.vertical_max_offset() + self.v_overscroll,
         );
-        self.set_vertical_offset(voffset)
+        self.widget.set_vertical_offset(voffset)
     }
 
-    /// Change the offset.
+    /// Change the offset. Limits the offset to max_h_offset + h_overscroll.
     ///
     /// Due to overscroll it's possible that this is an invalid
     /// offset for the widget. The widget must deal with this
     /// situation.
     pub fn set_horizontal_offset(&mut self, offset: usize) -> bool {
-        self.widget.set_horizontal_offset(offset)
-    }
-
-    /// Change the offset
-    ///
-    /// Limits the offset to max_v_offset + v_overscroll.
-    pub fn set_limited_horizontal_offset(&mut self, offset: usize) -> bool {
         let hoffset = min(
             offset,
             self.widget.horizontal_max_offset() + self.h_overscroll,
         );
-        self.set_horizontal_offset(hoffset)
+        self.widget.set_horizontal_offset(hoffset)
     }
 
     /// Scroll up by n.
@@ -617,23 +644,8 @@ impl<WState: ScrollingState> ScrolledState<WState> {
         self.set_vertical_offset(self.vertical_offset().saturating_sub(n))
     }
 
-    /// Scroll down by n.
-    pub fn scroll_down(&mut self, n: usize) -> bool {
-        self.set_vertical_offset(self.vertical_offset() + n)
-    }
-
-    /// Scroll up by n.
-    pub fn scroll_left(&mut self, n: usize) -> bool {
-        self.set_horizontal_offset(self.horizontal_offset().saturating_sub(n))
-    }
-
-    /// Scroll down by n.
-    pub fn scroll_right(&mut self, n: usize) -> bool {
-        self.set_horizontal_offset(self.horizontal_offset() + n)
-    }
-
     /// Scroll down by n, but limited by the max_offset + overscroll
-    pub fn limited_scroll_down(&mut self, n: usize) -> bool {
+    pub fn scroll_down(&mut self, n: usize) -> bool {
         let v_offset = min(
             self.widget.vertical_offset() + n,
             self.widget.vertical_max_offset() + self.v_overscroll,
@@ -641,8 +653,13 @@ impl<WState: ScrollingState> ScrolledState<WState> {
         self.set_vertical_offset(v_offset)
     }
 
-    /// Scroll down by n, but limited by the max_offset + overscroll
-    pub fn limited_scroll_right(&mut self, n: usize) -> bool {
+    /// Scroll up by n.
+    pub fn scroll_left(&mut self, n: usize) -> bool {
+        self.set_horizontal_offset(self.horizontal_offset().saturating_sub(n))
+    }
+
+    /// Scroll right by n, but limited by the max_offset + overscroll
+    pub fn scroll_right(&mut self, n: usize) -> bool {
         let hoffset = min(
             self.widget.horizontal_offset() + n,
             self.widget.horizontal_max_offset() + self.h_overscroll,
@@ -661,24 +678,14 @@ where
     WState: ScrollingState
         + HandleEvent<crossterm::event::Event, FocusKeys, R>
         + HandleEvent<crossterm::event::Event, MouseOnly, R>,
-    R: PartialEq,
+    R: PartialEq + UsedEvent,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
-        // Don't do key-events here. That's up to the widget, it has more
-        // information about the indented behaviour.
-
-        // Do handle some mouse events here.
-        // * mouse interactions with the scroll-bars.
-        // * scrolling.
-        let r = HandleEvent::handle(self, event, MouseOnly);
-
-        // Let the widget handle the rest.
-        match r {
-            Outcome::NotUsed => {
-                let r = HandleEvent::handle(&mut self.widget, event, FocusKeys);
-                Outcome::Inner(r)
-            }
-            _ => r,
+        let r = self.widget.handle(event, FocusKeys);
+        if !r.used_event() {
+            self.handle(event, MouseOnly)
+        } else {
+            Outcome::Inner(r)
         }
     }
 }
@@ -688,146 +695,125 @@ impl<R, WState> HandleEvent<crossterm::event::Event, MouseOnly, Outcome<R>>
     for ScrolledState<WState>
 where
     WState: ScrollingState + HandleEvent<crossterm::event::Event, MouseOnly, R>,
-    R: PartialEq,
+    R: PartialEq + UsedEvent,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
-        let r = match event {
-            ct_event!(mouse down Left for column,row) => {
-                // Click in the scrollbar sets the offset to some absolute position.
-                let o = if let Some(vscroll_area) = self.v_scrollbar_area {
-                    if vscroll_area.contains(Position::new(*column, *row)) {
-                        let row = row.saturating_sub(vscroll_area.y) as usize;
-                        // max_v_offset is inclusive, so height should be too.
-                        let height = vscroll_area.height.saturating_sub(1) as usize;
-
-                        let pos = (self.widget.vertical_max_offset() * row) / height;
-
-                        self.v_drag = true;
-                        self.widget.set_vertical_offset(pos);
-
-                        Outcome::Changed
-                    } else {
-                        Outcome::NotUsed
-                    }
-                } else {
-                    Outcome::NotUsed
-                };
-                if o != Outcome::NotUsed {
-                    return o;
-                }
-                let o = if let Some(hscroll_area) = self.h_scrollbar_area {
-                    if hscroll_area.contains(Position::new(*column, *row)) {
-                        let col = column.saturating_sub(hscroll_area.x) as usize;
-                        let width = hscroll_area.width.saturating_sub(1) as usize;
-
-                        let pos = (self.widget.horizontal_max_offset() * col) / width;
-
-                        self.h_drag = true;
-                        self.widget.set_horizontal_offset(pos);
-
-                        Outcome::Changed
-                    } else {
-                        Outcome::NotUsed
-                    }
-                } else {
-                    Outcome::NotUsed
-                };
-                if o != Outcome::NotUsed {
-                    return o;
-                }
-                Outcome::NotUsed
-            }
-            ct_event!(mouse drag Left for column, row) => {
-                // dragging around the scroll bar
-                let o = if self.v_drag {
+        let r = self.widget.handle(event, MouseOnly);
+        if !r.used_event() {
+            match event {
+                ct_event!(mouse down Left for column,row) => {
+                    // Click in the scrollbar sets the offset to some absolute position.
                     if let Some(vscroll_area) = self.v_scrollbar_area {
-                        let row = row.saturating_sub(vscroll_area.y) as usize;
-                        let height = vscroll_area.height.saturating_sub(1) as usize;
+                        if vscroll_area.contains(Position::new(*column, *row)) {
+                            let row = row.saturating_sub(vscroll_area.y) as usize;
+                            // max_v_offset is inclusive, so height should be too.
+                            let height = vscroll_area.height.saturating_sub(1) as usize;
 
-                        let pos = (self.widget.vertical_max_offset() * row) / height;
-                        self.set_limited_vertical_offset(pos);
+                            let pos = (self.widget.vertical_max_offset() * row) / height;
 
-                        Outcome::Changed
-                    } else {
-                        Outcome::NotUsed
+                            self.v_drag = true;
+                            if self.widget.set_vertical_offset(pos) {
+                                return Outcome::Changed;
+                            } else {
+                                return Outcome::NotUsed;
+                            }
+                        }
                     }
-                } else {
-                    Outcome::NotUsed
-                };
-                if o != Outcome::NotUsed {
-                    return o;
-                }
-                let o = if self.h_drag {
                     if let Some(hscroll_area) = self.h_scrollbar_area {
-                        let col = column.saturating_sub(hscroll_area.x) as usize;
-                        let width = hscroll_area.width.saturating_sub(1) as usize;
+                        if hscroll_area.contains(Position::new(*column, *row)) {
+                            let col = column.saturating_sub(hscroll_area.x) as usize;
+                            let width = hscroll_area.width.saturating_sub(1) as usize;
 
-                        let pos = (col * self.widget.horizontal_max_offset()) / width;
-                        self.set_limited_horizontal_offset(pos);
+                            let pos = (self.widget.horizontal_max_offset() * col) / width;
 
-                        Outcome::Changed
-                    } else {
-                        Outcome::NotUsed
+                            self.h_drag = true;
+                            if self.widget.set_horizontal_offset(pos) {
+                                return Outcome::Changed;
+                            } else {
+                                return Outcome::NotUsed;
+                            }
+                        }
                     }
-                } else {
-                    Outcome::NotUsed
-                };
-                if o != Outcome::NotUsed {
-                    return o;
                 }
-                Outcome::NotUsed
-            }
+                ct_event!(mouse drag Left for column, row) => {
+                    // dragging around the scroll bar
+                    if self.v_drag {
+                        if let Some(vscroll_area) = self.v_scrollbar_area {
+                            let row = row.saturating_sub(vscroll_area.y) as usize;
+                            let height = vscroll_area.height.saturating_sub(1) as usize;
 
-            ct_event!(mouse moved) => {
-                // reset drag
-                self.v_drag = false;
-                self.h_drag = false;
-                Outcome::NotUsed
-            }
+                            let pos = (self.widget.vertical_max_offset() * row) / height;
+                            if self.set_vertical_offset(pos) {
+                                return Outcome::Changed;
+                            } else {
+                                return Outcome::NotUsed;
+                            }
+                        }
+                    }
+                    if self.h_drag {
+                        if let Some(hscroll_area) = self.h_scrollbar_area {
+                            let col = column.saturating_sub(hscroll_area.x) as usize;
+                            let width = hscroll_area.width.saturating_sub(1) as usize;
 
-            ct_event!(scroll down for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.limited_scroll_down(self.widget.vertical_scroll());
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
+                            let pos = (col * self.widget.horizontal_max_offset()) / width;
+                            if self.set_horizontal_offset(pos) {
+                                return Outcome::Changed;
+                            } else {
+                                return Outcome::NotUsed;
+                            }
+                        }
+                    }
                 }
-            }
-            ct_event!(scroll up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.widget.scroll_up(self.widget.vertical_scroll());
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(scroll ALT down for column, row) => {
-                // right scroll with ALT. shift doesn't work?
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.limited_scroll_right(self.widget.horizontal_scroll());
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(scroll ALT up for column, row) => {
-                // right scroll with ALT. shift doesn't work?
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.widget.scroll_left(self.widget.horizontal_scroll());
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            _ => Outcome::NotUsed,
-        };
 
-        match r {
-            Outcome::NotUsed => {
-                let r = HandleEvent::handle(&mut self.widget, event, MouseOnly);
-                Outcome::Inner(r)
+                ct_event!(mouse moved) => {
+                    // reset drag
+                    self.v_drag = false;
+                    self.h_drag = false;
+                }
+
+                ct_event!(scroll down for column, row) => {
+                    if self.area.contains(Position::new(*column, *row)) {
+                        if self.scroll_down(self.widget.vertical_scroll()) {
+                            return Outcome::Changed;
+                        } else {
+                            return Outcome::NotUsed;
+                        }
+                    }
+                }
+                ct_event!(scroll up for column, row) => {
+                    if self.area.contains(Position::new(*column, *row)) {
+                        if self.widget.scroll_up(self.widget.vertical_scroll()) {
+                            return Outcome::Changed;
+                        } else {
+                            return Outcome::NotUsed;
+                        }
+                    }
+                }
+                ct_event!(scroll ALT down for column, row) => {
+                    // right scroll with ALT. shift doesn't work?
+                    if self.area.contains(Position::new(*column, *row)) {
+                        if self.scroll_right(self.widget.horizontal_scroll()) {
+                            return Outcome::Changed;
+                        } else {
+                            return Outcome::NotUsed;
+                        }
+                    }
+                }
+                ct_event!(scroll ALT up for column, row) => {
+                    // right scroll with ALT. shift doesn't work?
+                    if self.area.contains(Position::new(*column, *row)) {
+                        if self.widget.scroll_left(self.widget.horizontal_scroll()) {
+                            return Outcome::Changed;
+                        } else {
+                            return Outcome::NotUsed;
+                        }
+                    }
+                }
+                _ => {}
             }
-            _ => r,
+            Outcome::NotUsed
+        } else {
+            Outcome::Inner(r)
         }
     }
 }

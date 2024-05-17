@@ -2,7 +2,6 @@ use crate::_private::NonExhaustive;
 use crate::adapter::Outcome;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use crate::{ScrollingState, ScrollingWidget};
-use log::debug;
 use rat_event::ct_event;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};

@@ -1,5 +1,7 @@
 pub mod adapter;
 pub mod scrolled;
+mod util;
+pub mod view;
 pub mod viewport;
 
 use ratatui::layout::Rect;
@@ -111,6 +113,7 @@ pub trait ScrollingState {
 // }
 
 pub mod event {
+    use rat_event::UsedEvent;
     pub use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 
     /// Result value for event-handling. Used widgets in this crate.
@@ -124,6 +127,20 @@ pub mod event {
         Unchanged,
         /// The event was handled, repaint necessary.
         Changed,
+    }
+
+    impl<R> UsedEvent for Outcome<R>
+    where
+        R: UsedEvent,
+    {
+        fn used_event(&self) -> bool {
+            match self {
+                Outcome::Inner(v) => v.used_event(),
+                Outcome::NotUsed => false,
+                Outcome::Unchanged => true,
+                Outcome::Changed => true,
+            }
+        }
     }
 }
 

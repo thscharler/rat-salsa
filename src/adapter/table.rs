@@ -7,7 +7,7 @@ use crate::_private::NonExhaustive;
 use crate::adapter::Outcome;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use crate::{ScrollingState, ScrollingWidget};
-use rat_event::ct_event;
+use rat_event::{ct_event, UsedEvent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::prelude::*;
@@ -489,35 +489,17 @@ impl TableSState {
     /// Row at given position.
     #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        for (i, r) in self.row_areas.iter().enumerate() {
-            if r.contains(pos) {
-                return Some(self.offset() + i);
-            }
-        }
-        None
+        rat_event::util::row_at_clicked(&self.row_areas, pos.y).map(|v| self.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
-        if let Some(row) = self.row_at_clicked(pos) {
-            return row;
-        }
-
-        // assume row-height=1 for outside the box.
-        let relative = if pos.y < self.table_area.top() {
-            pos.y as isize - self.table_area.top() as isize
-        } else if let Some(last) = self.row_areas.last() {
-            pos.y as isize - last.bottom() as isize + self.row_areas.len() as isize
-        } else {
-            pos.y as isize - self.table_area.top() as isize
-        };
-
-        let new_offset = self.offset() as isize + relative;
-        if new_offset < 0 {
-            0
-        } else {
-            new_offset as usize
+        let offset = self.offset();
+        match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.y) {
+            Ok(v) => offset + v,
+            Err(v) if v <= 0 => offset.saturating_sub((-v) as usize),
+            Err(v) => offset + self.row_areas.len() + v as usize,
         }
     }
 
@@ -637,17 +619,34 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
 #[derive(Debug)]
 pub struct DoubleClick;
 
-impl HandleEvent<crossterm::event::Event, DoubleClick, Option<usize>> for TableSState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: DoubleClick) -> Option<usize> {
+#[derive(Debug, PartialEq, Eq)]
+pub enum DoubleClickOutcome {
+    NotUsed,
+    Clicked(usize),
+    None,
+}
+
+impl UsedEvent for DoubleClickOutcome {
+    fn used_event(&self) -> bool {
+        *self != DoubleClickOutcome::NotUsed
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome> for TableSState {
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        _keymap: DoubleClick,
+    ) -> DoubleClickOutcome {
         match event {
             ct_event!(mouse up Left for column,row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
                     let Some(select) = self.row_at_clicked(pos) else {
-                        return None;
+                        return DoubleClickOutcome::None;
                     };
                     let Some(old_select) = self.selected() else {
-                        return None;
+                        return DoubleClickOutcome::None;
                     };
 
                     if select == old_select {
@@ -660,19 +659,19 @@ impl HandleEvent<crossterm::event::Event, DoubleClick, Option<usize>> for TableS
                             .unwrap_or_default();
 
                         if triggered {
-                            Some(old_select)
+                            DoubleClickOutcome::Clicked(old_select)
                         } else {
-                            None
+                            DoubleClickOutcome::None
                         }
                     } else {
                         self.mouse_click = Some(SystemTime::now());
-                        None
+                        DoubleClickOutcome::None
                     }
                 } else {
-                    None
+                    DoubleClickOutcome::NotUsed
                 }
             }
-            _ => None,
+            _ => DoubleClickOutcome::NotUsed,
         }
     }
 }
@@ -683,17 +682,30 @@ impl HandleEvent<crossterm::event::Event, DoubleClick, Option<usize>> for TableS
 #[derive(Debug)]
 pub struct DeleteRow;
 
-impl HandleEvent<crossterm::event::Event, DeleteRow, Option<usize>> for TableSState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: DeleteRow) -> Option<usize> {
+#[derive(Debug, PartialEq, Eq)]
+pub enum DeleteRowOutcome {
+    NotUsed,
+    Delete(usize),
+    None,
+}
+
+impl UsedEvent for DeleteRowOutcome {
+    fn used_event(&self) -> bool {
+        *self != DeleteRowOutcome::NotUsed
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, DeleteRow, DeleteRowOutcome> for TableSState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: DeleteRow) -> DeleteRowOutcome {
         match event {
             ct_event!(keycode press Delete) => {
                 if let Some(sel) = self.selected() {
-                    Some(sel)
+                    DeleteRowOutcome::Delete(sel)
                 } else {
-                    None
+                    DeleteRowOutcome::None
                 }
             }
-            _ => None,
+            _ => DeleteRowOutcome::NotUsed,
         }
     }
 }

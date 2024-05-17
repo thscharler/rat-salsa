@@ -1,3 +1,4 @@
+use crate::double_widget::{DoubleView, DoubleViewState};
 use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
@@ -8,12 +9,15 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
-use rat_scrolled::adapter::paragraph::{ParagraphS, ParagraphSState};
+use log::debug;
+use rat_event::ct_event;
+use rat_scrolled::adapter::paragraph::ParagraphS;
 use rat_scrolled::event::{HandleEvent, MouseOnly};
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
+use rat_scrolled::viewport::ViewportState;
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Layout, Rect, Size};
 use ratatui::widgets::{StatefulWidget, Wrap};
 use ratatui::{Frame, Terminal};
 use std::fs;
@@ -41,6 +45,72 @@ impl From<rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>> for Outc
             rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
             rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
             rat_scrolled::event::Outcome::Changed => Outcome::Changed,
+        }
+    }
+}
+
+impl
+    From<
+        rat_scrolled::event::Outcome<
+            rat_scrolled::event::Outcome<
+                rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>,
+            >,
+        >,
+    > for Outcome
+{
+    fn from(
+        value: rat_scrolled::event::Outcome<
+            rat_scrolled::event::Outcome<
+                rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>,
+            >,
+        >,
+    ) -> Self {
+        match value {
+            rat_scrolled::event::Outcome::Inner(i) => match i {
+                rat_scrolled::event::Outcome::Inner(i) => match i {
+                    rat_scrolled::event::Outcome::Inner(i) => match i {
+                        rat_scrolled::adapter::Outcome::NotUsed => Outcome::NotUsed,
+                        rat_scrolled::adapter::Outcome::Unchanged => Outcome::Unchanged,
+                        rat_scrolled::adapter::Outcome::Changed => Outcome::Changed,
+                    },
+                    rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
+                    rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
+                    rat_scrolled::event::Outcome::Changed => Outcome::Changed,
+                },
+                rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
+                rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
+                rat_scrolled::event::Outcome::Changed => Outcome::Changed,
+            },
+            rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
+            rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
+            rat_scrolled::event::Outcome::Changed => Outcome::Changed,
+        }
+    }
+}
+
+impl
+    From<rat_scrolled::event::Outcome<rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>>>
+    for Outcome
+{
+    fn from(
+        value: rat_scrolled::event::Outcome<
+            rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome>,
+        >,
+    ) -> Self {
+        match value {
+            rat_scrolled::event::Outcome::Inner(i) => match i {
+                rat_scrolled::event::Outcome::Inner(i) => match i {
+                    rat_scrolled::adapter::Outcome::NotUsed => Outcome::NotUsed,
+                    rat_scrolled::adapter::Outcome::Unchanged => Outcome::Unchanged,
+                    rat_scrolled::adapter::Outcome::Changed => Outcome::Changed,
+                },
+                rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
+                rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
+                rat_scrolled::event::Outcome::Changed => Outcome::Unchanged,
+            },
+            rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
+            rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
+            rat_scrolled::event::Outcome::Changed => Outcome::Unchanged,
         }
     }
 }
@@ -134,8 +204,7 @@ Total average precipitation in the Craters of the Moon area is between 15–20 i
     };
 
     let mut state = State {
-        text1: Default::default(),
-        text2: Default::default(),
+        double: ScrolledState::default(),
     };
 
     run_ui(&mut data, &mut state)
@@ -144,14 +213,7 @@ Total average precipitation in the Craters of the Moon area is between 15–20 i
 fn setup_logging() -> Result<(), anyhow::Error> {
     fs::remove_file("log.log")?;
     fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{} {} {}]\n",
-                record.level(),
-                record.target(),
-                message
-            ))
-        })
+        .format(|out, message, _record| out.finish(format_args!("{}\n", message)))
         .level(log::LevelFilter::Debug)
         .chain(fern::log_file("log.log")?)
         .apply()?;
@@ -164,8 +226,7 @@ struct Data {
 }
 
 struct State {
-    pub(crate) text1: ScrolledState<ParagraphSState>,
-    pub(crate) text2: ScrolledState<ParagraphSState>,
+    pub(crate) double: ScrolledState<ViewportState<DoubleViewState>>,
 }
 
 fn run_ui(data: &mut Data, state: &mut State) -> Result<(), anyhow::Error> {
@@ -268,11 +329,12 @@ fn handle_event(
 fn repaint_text(area: Rect, buf: &mut Buffer, data: &mut Data, state: &mut State) {
     let l = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).split(area);
 
-    let text1 = Scrolled::new(ParagraphS::new(data.sample1.clone())).vertical_overscroll(5);
-    text1.render(l[0], buf, &mut state.text1);
-
-    let text2 = Scrolled::new(ParagraphS::new(data.sample2.clone()).wrap(Wrap { trim: true }));
-    text2.render(l[1], buf, &mut state.text2);
+    let double = Scrolled::new_viewport(DoubleView::new(
+        ParagraphS::new(data.sample1.clone()).wrap(Wrap::default()),
+        ParagraphS::new(data.sample2.clone()).wrap(Wrap::default()),
+    ))
+    .view_size(Size::new(40, 40));
+    double.render(l[0], buf, &mut state.double);
 }
 
 fn handle_text(
@@ -280,14 +342,8 @@ fn handle_text(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let mut r: Outcome;
-
-    r = state.text1.handle(event, MouseOnly).into();
-    match r {
-        Outcome::NotUsed => {}
-        r => return Ok(r),
-    };
-    r = state.text2.handle(event, MouseOnly).into();
+    let r: Outcome;
+    r = state.double.handle(event, MouseOnly).into();
     match r {
         Outcome::NotUsed => {}
         r => return Ok(r),
@@ -297,23 +353,33 @@ fn handle_text(
 }
 
 mod double_widget {
-    use crossterm::event::Event;
-    use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+    use log::debug;
+    use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, UsedEvent};
     use rat_scrolled::adapter::paragraph::{ParagraphS, ParagraphSState};
-    use rat_scrolled::event::Outcome;
     use rat_scrolled::scrolled::{Scrolled, ScrolledState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::prelude::StatefulWidget;
 
-    pub struct DoubleView<'a> {
-        pub first: Scrolled<'a, ParagraphS<'a>>,
-        pub second: Scrolled<'a, ParagraphS<'a>>,
+    #[derive(Debug, Default)]
+    pub(crate) struct DoubleView<'a> {
+        pub(crate) first: Scrolled<'a, ParagraphS<'a>>,
+        pub(crate) second: Scrolled<'a, ParagraphS<'a>>,
     }
 
-    pub struct DoubleViewState {
-        pub first: ScrolledState<ParagraphSState>,
-        pub second: ScrolledState<ParagraphSState>,
+    #[derive(Debug, Default)]
+    pub(crate) struct DoubleViewState {
+        pub(crate) first: ScrolledState<ParagraphSState>,
+        pub(crate) second: ScrolledState<ParagraphSState>,
+    }
+
+    impl<'a> DoubleView<'a> {
+        pub(crate) fn new(first: ParagraphS<'a>, second: ParagraphS<'a>) -> Self {
+            Self {
+                first: Scrolled::new(first),
+                second: Scrolled::new(second),
+            }
+        }
     }
 
     impl<'a> StatefulWidget for DoubleView<'a> {
@@ -322,12 +388,16 @@ mod double_widget {
         fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
             let l0 = Layout::new(
                 Direction::Vertical,
-                [Constraint::Fill(1), Constraint::Fill(1)],
+                [
+                    Constraint::Fill(1),
+                    Constraint::Length(1),
+                    Constraint::Fill(1),
+                ],
             )
             .split(area);
 
             self.first.render(l0[0], buf, &mut state.first);
-            self.second.render(l0[1], buf, &mut state.second);
+            self.second.render(l0[2], buf, &mut state.second);
         }
     }
 
@@ -340,13 +410,12 @@ mod double_widget {
     {
         fn handle(
             &mut self,
-            event: &Event,
-            keymap: FocusKeys,
-        ) -> Outcome<rat_scrolled::adapter::Outcome> {
+            _event: &crossterm::event::Event,
+            _keymap: FocusKeys,
+        ) -> rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome> {
             // self.first.handle(event, FocusKeys)
-
             // without a concept for focus this is hard to describe
-            Outcome::NotUsed
+            rat_scrolled::event::Outcome::NotUsed
         }
     }
 
@@ -359,10 +428,14 @@ mod double_widget {
     {
         fn handle(
             &mut self,
-            event: &Event,
-            keymap: MouseOnly,
-        ) -> Outcome<rat_scrolled::adapter::Outcome> {
-            todo!()
+            event: &crossterm::event::Event,
+            _keymap: MouseOnly,
+        ) -> rat_scrolled::event::Outcome<rat_scrolled::adapter::Outcome> {
+            let mut r = self.first.handle(event, MouseOnly);
+            if !r.used_event() {
+                r = self.second.handle(event, MouseOnly);
+            }
+            r
         }
     }
 }
