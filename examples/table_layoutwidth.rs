@@ -47,6 +47,9 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
         status: Default::default(),
     };
+    state
+        .status
+        .status(0, "Ctrl+Q to quit. Alt+Scroll for horizontal scroll.");
 
     run_ui(&mut data, &mut state)
 }

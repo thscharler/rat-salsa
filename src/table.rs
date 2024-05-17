@@ -73,7 +73,7 @@ pub struct FTableState<Selection> {
     pub table_area: Rect,
     /// Area per visible row.
     pub row_areas: Vec<Rect>,
-    /// Area per visible column.
+    /// Area per visible column, also contains the following spacer if any.
     pub column_areas: Vec<Rect>,
     /// Total footer area.
     pub footer_area: Rect,
@@ -523,19 +523,18 @@ where
                 let column_area = Rect::new(
                     state.table_area.x + l_columns[col].x - l_columns[state.col_offset].x,
                     state.table_area.y,
-                    l_columns[col].width,
+                    l_columns[col].width + l_spacers[col + 1].width,
                     state.table_area.height,
                 )
                 .intersection(state.table_area);
 
-                // todo??
-                let _space_area = Rect::new(
-                    state.table_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
-                    state.table_area.y,
-                    l_spacers[col + 1].width,
-                    state.table_area.height,
-                )
-                .intersection(state.table_area);
+                // let space_area = Rect::new(
+                //     state.table_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
+                //     state.table_area.y,
+                //     l_spacers[col + 1].width,
+                //     state.table_area.height,
+                // )
+                // .intersection(state.table_area);
 
                 state.column_areas.push(column_area);
                 state.col_page_len += 1;

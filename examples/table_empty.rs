@@ -8,19 +8,14 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
-use format_num_pattern::NumberFormat;
 use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
-use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableState, TableData};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::prelude::Widget;
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Color, Style, Stylize};
-use ratatui::text::{Span, Text};
 use ratatui::{Frame, Terminal};
 use std::fs;
 use std::io::{stdout, Stdout};
@@ -35,6 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
         status: Default::default(),
     };
+    state.status.status(0, "Ctrl+Q to quit.");
 
     run_ui(&mut data, &mut state)
 }
