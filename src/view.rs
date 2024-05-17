@@ -24,6 +24,7 @@ use std::mem;
 /// frame buffer.
 #[derive(Debug, Default, Clone)]
 pub struct View<T> {
+    /// The widget.
     widget: T,
     /// Size of the view. The widget is drawn to a separate buffer
     /// with this size. x and y are set to the rendering area.
@@ -32,6 +33,7 @@ pub struct View<T> {
     style: Style,
 }
 
+/// State of the view.
 #[derive(Debug, Clone)]
 pub struct ViewState {
     /// The drawing area for the view.
@@ -48,14 +50,16 @@ pub struct ViewState {
 }
 
 impl<T> View<T> {
+    /// New view.
     pub fn new(inner: T) -> Self {
         Self {
+            style: Default::default(),
             widget: inner,
             view_size: Default::default(),
-            style: Default::default(),
         }
     }
 
+    /// Size for the inner widget.
     pub fn view_size(mut self, size: Size) -> Self {
         self.view_size = size;
         self
@@ -77,7 +81,7 @@ where
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_impl(self, area, buf, state, |area, buf| {
             self.widget.render_ref(area, buf);
-        })
+        });
     }
 }
 
@@ -210,7 +214,6 @@ where
     R: UsedEvent,
 {
     fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
-        // not supported for now. would need to translate the coordinates of the event too?
         Outcome::NotUsed
     }
 }
@@ -221,7 +224,6 @@ where
     R: UsedEvent,
 {
     fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
-        // not supported for now. would need to translate the coordinates of the event too?
         Outcome::NotUsed
     }
 }

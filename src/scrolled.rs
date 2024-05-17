@@ -10,7 +10,7 @@ use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use crate::view::View;
 use crate::viewport::Viewport;
 use crate::{ScrollingState, ScrollingWidget};
-use log::debug;
+use crossterm::event::{MouseEvent, MouseEventKind};
 use rat_event::{ct_event, UsedEvent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
@@ -77,7 +77,7 @@ pub struct ScrolledState<WidgetState> {
 
 /// This policy plus the result of [ScrollingWidget::need_scroll]
 /// allow to decide what to show.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum ScrollbarPolicy {
     Always,
     #[default]
@@ -86,7 +86,7 @@ pub enum ScrollbarPolicy {
 }
 
 /// Position of the vertical scrollbar.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum VScrollPosition {
     Left,
     #[default]
@@ -94,7 +94,7 @@ pub enum VScrollPosition {
 }
 
 /// Position of the horizontal scrollbar.
-#[derive(Debug, Default, Clone, Copy)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 pub enum HScrollPosition {
     Top,
     #[default]
@@ -362,9 +362,25 @@ where
     type State = ScrolledState<W::State>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let scroll_param = self
-            .widget
-            .need_scroll(self.block.inner_if_some(area), &mut state.widget);
+        // reduced area for the widget to account for possible scrollbars.
+        let view_area = if self.block.is_some() {
+            // block should already account for the scrollbars.
+            self.block.inner_if_some(area)
+        } else {
+            let w = if self.h_scroll_policy != ScrollbarPolicy::Never {
+                area.width - 1
+            } else {
+                area.width
+            };
+            let h = if self.v_scroll_policy != ScrollbarPolicy::Never {
+                area.height - 1
+            } else {
+                area.height
+            };
+            Rect::new(area.x, area.y, w, h)
+        };
+
+        let scroll_param = self.widget.need_scroll(view_area, &mut state.widget);
 
         let inner = mem::take(&mut self.widget);
 
@@ -698,16 +714,39 @@ where
     R: PartialEq + UsedEvent,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
-        let r = self.widget.handle(event, MouseOnly);
+        let r = match event {
+            crossterm::event::Event::Mouse(MouseEvent {
+                kind:
+                    MouseEventKind::Down(_)
+                    | MouseEventKind::Up(_)
+                    | MouseEventKind::ScrollDown
+                    | MouseEventKind::ScrollUp
+                    | MouseEventKind::ScrollLeft
+                    | MouseEventKind::ScrollRight,
+                column,
+                row,
+                ..
+            }) => {
+                // only forward certain mouse events if they are inside
+                // the view_area. this prevents scrollbar collisions.
+                if self.view_area.contains(Position::new(*column, *row)) {
+                    Outcome::Inner(self.widget.handle(event, MouseOnly))
+                } else {
+                    Outcome::NotUsed
+                }
+            }
+            _ => Outcome::Inner(self.widget.handle(event, MouseOnly)),
+        };
+
         if !r.used_event() {
             match event {
                 ct_event!(mouse down Left for column,row) => {
                     // Click in the scrollbar sets the offset to some absolute position.
                     if let Some(vscroll_area) = self.v_scrollbar_area {
                         if vscroll_area.contains(Position::new(*column, *row)) {
-                            let row = row.saturating_sub(vscroll_area.y) as usize;
-                            // max_v_offset is inclusive, so height should be too.
-                            let height = vscroll_area.height.saturating_sub(1) as usize;
+                            // correct for the top `^` and bottom `v` arrows.
+                            let row = row.saturating_sub(vscroll_area.y).saturating_sub(1) as usize;
+                            let height = vscroll_area.height.saturating_sub(2) as usize;
 
                             let pos = (self.widget.vertical_max_offset() * row) / height;
 
@@ -721,8 +760,10 @@ where
                     }
                     if let Some(hscroll_area) = self.h_scrollbar_area {
                         if hscroll_area.contains(Position::new(*column, *row)) {
-                            let col = column.saturating_sub(hscroll_area.x) as usize;
-                            let width = hscroll_area.width.saturating_sub(1) as usize;
+                            // correct for the left `<` and right `>` arrows.
+                            let col =
+                                column.saturating_sub(hscroll_area.x).saturating_sub(1) as usize;
+                            let width = hscroll_area.width.saturating_sub(2) as usize;
 
                             let pos = (self.widget.horizontal_max_offset() * col) / width;
 
@@ -739,8 +780,9 @@ where
                     // dragging around the scroll bar
                     if self.v_drag {
                         if let Some(vscroll_area) = self.v_scrollbar_area {
-                            let row = row.saturating_sub(vscroll_area.y) as usize;
-                            let height = vscroll_area.height.saturating_sub(1) as usize;
+                            // correct for the top `^` and bottom `v` arrows.
+                            let row = row.saturating_sub(vscroll_area.y).saturating_sub(1) as usize;
+                            let height = vscroll_area.height.saturating_sub(2) as usize;
 
                             let pos = (self.widget.vertical_max_offset() * row) / height;
                             if self.set_vertical_offset(pos) {
@@ -752,8 +794,10 @@ where
                     }
                     if self.h_drag {
                         if let Some(hscroll_area) = self.h_scrollbar_area {
-                            let col = column.saturating_sub(hscroll_area.x) as usize;
-                            let width = hscroll_area.width.saturating_sub(1) as usize;
+                            // correct for the left `<` and right `>` arrows.
+                            let col =
+                                column.saturating_sub(hscroll_area.x).saturating_sub(1) as usize;
+                            let width = hscroll_area.width.saturating_sub(2) as usize;
 
                             let pos = (col * self.widget.horizontal_max_offset()) / width;
                             if self.set_horizontal_offset(pos) {
@@ -813,7 +857,7 @@ where
             }
             Outcome::NotUsed
         } else {
-            Outcome::Inner(r)
+            r
         }
     }
 }

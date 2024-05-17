@@ -9,8 +9,6 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
-use log::debug;
-use rat_event::ct_event;
 use rat_scrolled::adapter::paragraph::ParagraphS;
 use rat_scrolled::event::{HandleEvent, MouseOnly};
 use rat_scrolled::scrolled::{Scrolled, ScrolledState};
@@ -353,8 +351,7 @@ fn handle_text(
 }
 
 mod double_widget {
-    use log::debug;
-    use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+    use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
     use rat_scrolled::adapter::paragraph::{ParagraphS, ParagraphSState};
     use rat_scrolled::scrolled::{Scrolled, ScrolledState};
     use ratatui::buffer::Buffer;

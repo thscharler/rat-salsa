@@ -2,6 +2,10 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::style::Style;
 
+/// Copy a tmp buffer to another buf.
+/// The tmp-buffer is offset by h_offset/v_offset.
+/// Any outside area is cleared and set to empty_style.
+/// Everything is clipped to the target area.
 pub(crate) fn copy_buffer(
     view_area: Rect,
     mut tmp: Buffer,

@@ -10,8 +10,7 @@ use crate::_private::NonExhaustive;
 use crate::event::Outcome;
 use crate::util::copy_buffer;
 use crate::{ScrollingState, ScrollingWidget};
-use log::debug;
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
@@ -19,35 +18,34 @@ use ratatui::style::Style;
 use ratatui::widgets::StatefulWidgetRef;
 use std::mem;
 
-/// The viewport has its own size that is used to create
-/// the buffer where the contained widget is rendered.
-///
-/// This buffer is the base for scrolling behaviour.
+/// View has its own size, and can contain a stateful widget
+/// that will be rendered to a view sized buffer.
+/// This buffer is then offset and written to the actual
+/// frame buffer.
 #[derive(Debug, Default, Clone)]
 pub struct Viewport<T> {
     /// The widget.
     widget: T,
-    /// Viewport size.
-    /// There is only need for a size, the widget gets a buffer with
-    /// x and y set to the rendering area.
+    /// Size of the view. The widget is drawn to a separate buffer
+    /// with this size. x and y are set to the rendering area.
     view_size: Size,
-    /// Style for the empty space, when scrolling goes beyond the
-    /// buffer size.
+    /// Style for any area outside the contained widget.
     style: Style,
 }
 
 /// State of the viewport.
 #[derive(Debug, Clone)]
 pub struct ViewportState<S> {
+    /// Widget state.
     pub widget: S,
 
-    /// The drawing area of the viewport.
+    /// The drawing area for the viewport.
     pub area: Rect,
-    /// The viewport area that the contained widget sees.
+    /// The viewport area that the inner widget sees.
     pub view_area: Rect,
-    /// Scroll offset
+    /// Horizontal offset
     pub h_offset: usize,
-    /// Scroll offset.
+    /// Vertical offset
     pub v_offset: usize,
 
     /// Only construct with `..Default::default()`.
@@ -154,10 +152,10 @@ impl<S: Default> Default for ViewportState<S> {
         Self {
             widget: S::default(),
             area: Default::default(),
+            view_area: Default::default(),
             h_offset: 0,
             v_offset: 0,
             non_exhaustive: NonExhaustive,
-            view_area: Default::default(),
         }
     }
 }
@@ -194,10 +192,6 @@ impl<S> ScrollingState for ViewportState<S> {
         self.area.height as usize
     }
 
-    fn vertical_scroll(&self) -> usize {
-        self.area.height as usize / 10
-    }
-
     fn horizontal_max_offset(&self) -> usize {
         self.view_area.width.saturating_sub(self.area.width) as usize
     }
@@ -210,10 +204,6 @@ impl<S> ScrollingState for ViewportState<S> {
         self.area.width as usize
     }
 
-    fn horizontal_scroll(&self) -> usize {
-        self.area.width as usize / 10
-    }
-
     fn set_vertical_offset(&mut self, offset: usize) -> bool {
         let old_offset = self.v_offset;
 
@@ -222,6 +212,7 @@ impl<S> ScrollingState for ViewportState<S> {
         } else if self.v_offset >= self.view_area.height as usize {
             self.v_offset = self.view_area.height.saturating_sub(1) as usize;
         }
+
         old_offset != self.v_offset
     }
 
