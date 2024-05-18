@@ -81,10 +81,24 @@ pub trait HasFocusFlag {
 /// The result `f` indicates whether the focus has changed.
 #[derive(Debug, Default)]
 pub struct Focus<'a> {
+    /// Summarizes all the contained FocusFlags.
+    /// If any of them has the focus set, this will
+    /// be set too.
+    ///
+    /// This can help if you build compound widgets.
+    accu: Option<&'a FocusFlag>,
     /// Areas for each widget.
-    pub areas: Vec<Rect>,
+    areas: Vec<Rect>,
     /// List of flags.
-    pub focus: Vec<&'a FocusFlag>,
+    focus: Vec<&'a FocusFlag>,
+    /// List of sub-accumulators and their dependencies.
+    /// Keeps track of all the Flags of a compound widget and its
+    /// accumulator.
+    ///
+    /// This is filled if you call [Focus::append]. The accu of the
+    /// appended Focus and all its focus-flags are added. And
+    /// all the sub_accu of it are appended too.
+    sub_accu: Vec<(&'a FocusFlag, Vec<&'a FocusFlag>)>,
 }
 
 impl FocusFlag {
@@ -213,16 +227,52 @@ impl<'a> IntoIterator for Focus<'a> {
 }
 
 impl<'a> Focus<'a> {
+    /// Construct a new focus list.
     pub fn new(list: &[&'a dyn HasFocusFlag]) -> Self {
-        Focus::default().append(list)
+        let mut s = Focus::default();
+        for f in list {
+            s.focus.push(f.focus());
+            s.areas.push(f.area());
+        }
+        s
     }
 
-    /// Add more to the focus cycle.
-    pub fn append(mut self, list: &[&'a dyn HasFocusFlag]) -> Self {
+    /// Construct a new focus list with an accumulator.
+    ///
+    /// The accumulator might be useful if you create compound widgets.
+    /// Then you can have the focus state for each contained widget,
+    /// and an overall state for the compound.
+    ///
+    /// If your compound widget contains compound widgets itself, you let
+    /// each of the components create their own Focus and add everything
+    /// together with [append](Focus::append).
+    ///
+    pub fn new_accu(accu: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
+        let mut s = Self {
+            accu: Some(accu.focus()),
+            ..Focus::default()
+        };
         for f in list {
-            self.focus.push(f.focus());
-            self.areas.push(f.area());
+            s.focus.push(f.focus());
+            s.areas.push(f.area());
         }
+        s
+    }
+
+    /// Add a sub-focus cycle.
+    ///
+    /// All its widgets are appended to this list. If the sub-cycle
+    /// has an accumulator it's added to the accumulators. All
+    /// sub-accumulators are appended too.
+    pub fn append(mut self, list: Focus<'a>) -> Self {
+        if let Some(accu) = list.accu {
+            self.sub_accu.push((accu, list.focus.clone()))
+        }
+        for (a, l) in list.sub_accu {
+            self.sub_accu.push((a, l));
+        }
+        self.focus.extend(list.focus);
+        self.areas.extend(list.areas);
         self
     }
 
@@ -239,6 +289,35 @@ impl<'a> Focus<'a> {
         }
     }
 
+    // accumulate everything
+    fn accumulate(&self) {
+        if let Some(accu) = self.accu {
+            accu.focus.set(false);
+            for p in self.focus.iter() {
+                if p.focus.get() {
+                    accu.focus.set(true);
+                    break;
+                }
+            }
+        }
+
+        for (accu, list) in &self.sub_accu {
+            let mut any_gained = false;
+            let mut any_lost = false;
+            let mut any_focused = false;
+
+            for f in list {
+                any_gained |= f.gained.get();
+                any_lost |= f.lost.get();
+                any_focused |= f.focus.get();
+            }
+
+            accu.focus.set(any_focused);
+            accu.lost.set(any_lost && !any_gained);
+            accu.gained.set(any_gained && !any_lost);
+        }
+    }
+
     /// Sets the focus to the widget.
     ///
     /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
@@ -248,6 +327,7 @@ impl<'a> Focus<'a> {
             f.focus.set(true);
             f.gained.set(true);
         }
+        self.accumulate();
     }
 
     /// Sets the focus to the widget with `tag`.
@@ -260,6 +340,7 @@ impl<'a> Focus<'a> {
             f.focus.set(true);
             f.gained.set(true);
         }
+        self.accumulate();
     }
 
     /// Reset lost + gained flags.
@@ -268,6 +349,10 @@ impl<'a> Focus<'a> {
         for p in self.focus.iter() {
             p.lost.set(false);
             p.gained.set(false);
+        }
+        for (p, _) in self.sub_accu.iter() {
+            p.gained.set(false);
+            p.lost.set(false);
         }
     }
 
@@ -282,6 +367,7 @@ impl<'a> Focus<'a> {
             f.focus.set(true);
             f.gained.set(true);
         }
+        self.accumulate();
     }
 
     /// Focus the next widget in the cycle.
@@ -297,12 +383,14 @@ impl<'a> Focus<'a> {
                 let n = next_circular(i, self.focus.len());
                 self.focus[n].focus.set(true);
                 self.focus[n].gained.set(true);
-                return i != n;
+                self.accumulate();
+                return true;
             }
         }
         if !self.focus.is_empty() {
             self.focus[0].focus.set(true);
             self.focus[0].gained.set(true);
+            self.accumulate();
             return true;
         }
 
@@ -322,12 +410,14 @@ impl<'a> Focus<'a> {
                 let n = prev_circular(i, self.focus.len());
                 self.focus[n].focus.set(true);
                 self.focus[n].gained.set(true);
-                return i != n;
+                self.accumulate();
+                return true;
             }
         }
         if !self.focus.is_empty() {
             self.focus[0].focus.set(true);
             self.focus[0].gained.set(true);
+            self.accumulate();
             return true;
         }
         false
