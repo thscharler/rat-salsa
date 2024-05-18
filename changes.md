@@ -1,3 +1,8 @@
+# 0.12.2
+
+* Add general `Outcome` type as a baseline what can be expected
+  from any widget.
+
 # 0.12.1
 
 * Impl UsedEvent for Result<T,E> and Option<T> where T: UsedEvent.

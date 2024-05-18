@@ -48,7 +48,7 @@ where
     fn used_event(&self) -> bool {
         match self {
             Ok(v) => v.used_event(),
-            Err(e) => true,
+            Err(_) => true,
         }
     }
 }
