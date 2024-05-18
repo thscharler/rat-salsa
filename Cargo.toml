@@ -59,11 +59,11 @@ memchr = "2.7.2"
 format_num_pattern = "0.9"
 
 [dependencies.rat-input]
-version = "0.12"
+version = "0.13"
 path = "../rat-input"
 
 [dependencies.rat-scrolled]
-version = "0.1"
+version = "0.10"
 path = "../rat-scrolled"
 
 [dev-dependencies]

@@ -326,7 +326,7 @@ impl MaskedInputExtState {
     }
 
     /// Set the cursor position from a visual position relative to the origin.
-    pub fn set_offset_relative_cursor(&mut self, rpos: isize, extend_selection: bool) {
+    pub fn set_visual_cursor(&mut self, rpos: isize, extend_selection: bool) {
         self.widget.set_visual_cursor(rpos, extend_selection);
     }
 
