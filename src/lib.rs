@@ -6,7 +6,7 @@ mod view;
 mod viewport;
 
 use ratatui::layout::Rect;
-use std::cmp::max;
+use std::cmp::{max, min};
 
 pub use scrolled::{HScrollPosition, ScrollbarPolicy, Scrolled, ScrolledState, VScrollPosition};
 pub use view::{View, ViewState};
@@ -88,7 +88,7 @@ pub trait ScrollingState {
     /// Scroll down by n items.
     /// The widget returns true if the offset changed at all.
     fn scroll_down(&mut self, n: usize) -> bool {
-        self.set_vertical_offset(self.vertical_offset() + n)
+        self.set_vertical_offset(min(self.vertical_offset() + n, self.vertical_max_offset()))
     }
 
     /// Scroll up by n items.
@@ -100,7 +100,10 @@ pub trait ScrollingState {
     /// Scroll down by n items.
     /// The widget returns true if the offset changed at all.
     fn scroll_right(&mut self, n: usize) -> bool {
-        self.set_horizontal_offset(self.horizontal_offset() + n)
+        self.set_horizontal_offset(min(
+            self.horizontal_offset() + n,
+            self.horizontal_max_offset(),
+        ))
     }
 }
 

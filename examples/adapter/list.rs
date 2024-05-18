@@ -1,13 +1,13 @@
 use crate::adapter::Outcome;
+use crate::adapter::_private::NonExhaustive;
 use rat_event::ct_event;
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style};
 use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState, Widget};
 use std::cmp::{max, min};
-use rat_scrolled::{ScrollingState, ScrollingWidget};
-use crate::adapter::_private::NonExhaustive;
 
 ///
 /// Extensions for [ratatui::widgets::List]
@@ -423,7 +423,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
         let r = match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(self.vertical_page() / 10);
+                    self.scroll_down(self.vertical_scroll());
                     Outcome::Changed
                 } else {
                     Outcome::NotUsed
@@ -431,7 +431,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(self.vertical_page() / 10);
+                    self.scroll_up(self.vertical_scroll());
                     Outcome::Changed
                 } else {
                     Outcome::NotUsed
