@@ -5,6 +5,7 @@ use rat_event::util::Outcome;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
+use std::fmt::{Debug, Formatter};
 use std::iter::Zip;
 use std::{ptr, vec};
 
@@ -20,7 +21,7 @@ pub mod event {
 /// See [HasFocusFlag], [on_gained!](crate::on_gained!) and
 /// [on_lost!](crate::on_lost!).
 ///
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default, PartialEq, Eq)]
 pub struct FocusFlag {
     /// Focus.
     pub focus: Cell<bool>,
@@ -62,6 +63,16 @@ pub trait HasFocusFlag {
     }
 }
 
+impl Debug for FocusFlag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FocusFlag")
+            .field("focus", &self.focus.get())
+            .field("gained", &self.gained.get())
+            .field("lost", &self.lost.get())
+            .finish()
+    }
+}
+
 /// Keeps track of the focus.
 ///
 /// It works by adding a [FocusFlag] to the State of a widget.
@@ -87,10 +98,14 @@ pub struct Focus<'a> {
     ///
     /// This can help if you build compound widgets.
     accu: Option<&'a FocusFlag>,
+    /// Area for the whole compound. Only set if accu is some.
+    area: Rect,
+
     /// Areas for each widget.
     areas: Vec<Rect>,
     /// List of flags.
     focus: Vec<&'a FocusFlag>,
+
     /// List of sub-accumulators and their dependencies.
     /// Keeps track of all the Flags of a compound widget and its
     /// accumulator.
@@ -98,7 +113,7 @@ pub struct Focus<'a> {
     /// This is filled if you call [Focus::append]. The accu of the
     /// appended Focus and all its focus-flags are added. And
     /// all the sub_accu of it are appended too.
-    sub_accu: Vec<(&'a FocusFlag, Vec<&'a FocusFlag>)>,
+    sub_accu: Vec<(&'a FocusFlag, Rect, Vec<&'a FocusFlag>)>,
 }
 
 impl FocusFlag {
@@ -250,6 +265,7 @@ impl<'a> Focus<'a> {
     pub fn new_accu(accu: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
         let mut s = Self {
             accu: Some(accu.focus()),
+            area: accu.area(),
             ..Focus::default()
         };
         for f in list {
@@ -264,15 +280,15 @@ impl<'a> Focus<'a> {
     /// All its widgets are appended to this list. If the sub-cycle
     /// has an accumulator it's added to the accumulators. All
     /// sub-accumulators are appended too.
-    pub fn append(mut self, list: Focus<'a>) -> Self {
-        if let Some(accu) = list.accu {
-            self.sub_accu.push((accu, list.focus.clone()))
+    pub fn append(mut self, focus: Focus<'a>) -> Self {
+        for (focus, area, list) in focus.sub_accu {
+            self.sub_accu.push((focus, area, list));
         }
-        for (a, l) in list.sub_accu {
-            self.sub_accu.push((a, l));
+        if let Some(accu) = focus.accu {
+            self.sub_accu.push((accu, focus.area, focus.focus.clone()))
         }
-        self.focus.extend(list.focus);
-        self.areas.extend(list.areas);
+        self.focus.extend(focus.focus);
+        self.areas.extend(focus.areas);
         self
     }
 
@@ -301,7 +317,7 @@ impl<'a> Focus<'a> {
             }
         }
 
-        for (accu, list) in &self.sub_accu {
+        for (f, _, list) in &self.sub_accu {
             let mut any_gained = false;
             let mut any_lost = false;
             let mut any_focused = false;
@@ -312,9 +328,9 @@ impl<'a> Focus<'a> {
                 any_focused |= f.focus.get();
             }
 
-            accu.focus.set(any_focused);
-            accu.lost.set(any_lost && !any_gained);
-            accu.gained.set(any_gained && !any_lost);
+            f.focus.set(any_focused);
+            f.lost.set(any_lost && !any_gained);
+            f.gained.set(any_gained && !any_lost);
         }
     }
 
@@ -350,7 +366,7 @@ impl<'a> Focus<'a> {
             p.lost.set(false);
             p.gained.set(false);
         }
-        for (p, _) in self.sub_accu.iter() {
+        for (p, _, _) in self.sub_accu.iter() {
             p.gained.set(false);
             p.lost.set(false);
         }
@@ -368,6 +384,39 @@ impl<'a> Focus<'a> {
             f.gained.set(true);
         }
         self.accumulate();
+    }
+
+    /// Change to focus to the given position.
+    ///
+    pub fn focus_at(&self, col: u16, row: u16) -> bool {
+        debug!("focus {:#?}", self);
+
+        let pos = Position::new(col, row);
+        for (idx, area) in self.areas.iter().enumerate() {
+            if area.contains(pos) {
+                debug!("widget area {:?}", area);
+                self.focus_idx(idx);
+                return true;
+            }
+        }
+        for (_, area, list) in self.sub_accu.iter() {
+            if area.contains(pos) {
+                debug!("sub area {:?}", area);
+                if let Some(ff) = list.first() {
+                    self.focus(ff);
+                    return true;
+                }
+            }
+        }
+        if self.area.contains(pos) {
+            debug!("main area {:?}", self.area);
+            if let Some(ff) = self.focus.first() {
+                self.focus(ff);
+                return true;
+            }
+        }
+
+        false
     }
 
     /// Focus the next widget in the cycle.
@@ -447,12 +496,10 @@ impl<'a> HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for Focus<'a> 
         match event {
             ct_event!(keycode press Tab) => {
                 self.next();
-                debug!("tab next -> Changed");
                 Outcome::Changed
             }
             ct_event!(keycode press SHIFT-Tab) | ct_event!(keycode press SHIFT-BackTab) => {
                 self.prev();
-                debug!("tab prev -> Changed");
                 Outcome::Changed
             }
             _ => self.handle(event, MouseOnly),
@@ -464,14 +511,12 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus<'a> 
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse down Left for column, row) => {
-                for (idx, area) in self.areas.iter().enumerate() {
-                    if area.contains(Position::new(*column, *row)) {
-                        self.focus_idx(idx);
-                        return Outcome::Changed;
-                    }
+                if self.focus_at(*column, *row) {
+                    return Outcome::Changed;
+                } else {
+                    self.reset_lost_gained();
+                    Outcome::NotUsed
                 }
-                self.reset_lost_gained();
-                Outcome::NotUsed
             }
             _ => {
                 self.reset_lost_gained();

@@ -220,6 +220,9 @@ fn repaint_input(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
 }
 
 fn focus_input(state: &mut State) -> Focus<'_> {
+    debug!("sub1 {:#?}", state.sub1.focus());
+    debug!("sub3 {:#?}", state.sub3.focus());
+    debug!("sub4 {:#?}", state.sub4.focus());
     Focus::new(&[])
         .append(state.sub1.focus())
         .append(state.sub3.focus())
@@ -254,7 +257,6 @@ fn handle_input(
 
 pub mod substratum2 {
     use crate::substratum1::{Substratum, SubstratumState};
-    use crossterm::event::Event;
     use log::debug;
     use rat_event::util::Outcome;
     use rat_event::{FocusKeys, HandleEvent, UsedEvent};
@@ -283,6 +285,7 @@ pub mod substratum2 {
     #[derive(Debug, Default)]
     pub struct Substratum2State {
         pub focus: FocusFlag,
+        pub area: Rect,
         pub stratum1: SubstratumState,
         pub stratum2: SubstratumState,
     }
@@ -291,6 +294,8 @@ pub mod substratum2 {
         type State = Substratum2State;
 
         fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+            state.area = area;
+
             let inner = self.block.inner_if_some(area);
 
             self.block = if state.focus.get() {
@@ -317,6 +322,8 @@ pub mod substratum2 {
 
     impl Substratum2State {
         pub fn focus(&self) -> Focus<'_> {
+            debug!("stratum1 {:#?}", self.stratum1.focus());
+            debug!("stratum2 {:#?}", self.stratum2.focus());
             Focus::new_accu(self, &[])
                 .append(self.stratum1.focus())
                 .append(self.stratum2.focus())
@@ -339,12 +346,12 @@ pub mod substratum2 {
         }
 
         fn area(&self) -> Rect {
-            Rect::default()
+            self.area
         }
     }
 
     impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for Substratum2State {
-        fn handle(&mut self, event: &Event, _keymap: FocusKeys) -> Outcome {
+        fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
             let r = self.stratum1.handle(event, FocusKeys);
             if r.used_event() {
                 debug!("vv1 {:?}", r);
@@ -394,6 +401,7 @@ pub mod substratum1 {
     #[derive(Debug, Default)]
     pub struct SubstratumState {
         pub focus: FocusFlag,
+        pub area: Rect,
         pub input1: TextInputFState,
         pub input2: TextInputFState,
         pub input3: TextInputFState,
@@ -404,6 +412,8 @@ pub mod substratum1 {
         type State = SubstratumState;
 
         fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+            state.area = area;
+
             let inner = self.block.inner_if_some(area);
 
             self.block = if state.focus.get() {
@@ -488,7 +498,7 @@ pub mod substratum1 {
         }
 
         fn area(&self) -> Rect {
-            Rect::default() // todo?!!
+            self.area
         }
     }
 
