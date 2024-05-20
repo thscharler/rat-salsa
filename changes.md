@@ -1,3 +1,8 @@
+# 0.11.4
+
+* add need_scroll() for Scrollbars.
+* remove StatefulWidgetRef. Not useful here.
+
 # 0.11.3
 
 * Use rat-event::Outcome
