@@ -5,6 +5,7 @@ mod noselection;
 mod rowselection;
 mod rowsetselection;
 mod table;
+
 pub mod textdata;
 pub mod util;
 

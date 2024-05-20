@@ -6,9 +6,13 @@ use std::cmp::min;
 
 /// Allows selecting a single row of the table.
 ///
+/// This is the right one if you want a list-style selection
+/// for your table.
+///
 /// This one only supports row-selection.
 #[derive(Debug, Default, Clone)]
 pub struct RowSelection {
+    /// Selected row.
     pub lead_row: Option<usize>,
 }
 
@@ -31,6 +35,7 @@ impl TableSelection for RowSelection {
 }
 
 impl RowSelection {
+    /// New selection.
     pub fn new() -> RowSelection {
         Self::default()
     }

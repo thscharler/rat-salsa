@@ -11,7 +11,7 @@ use ratatui::prelude::{Style, Text};
 use ratatui::style::Styled;
 use ratatui::widgets::WidgetRef;
 
-/// Internal impl for TableData using prerendered Cells.
+/// Internal impl for TableData using pre-rendered Cells.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct TextTableData<'a> {
     pub(crate) columns: usize,

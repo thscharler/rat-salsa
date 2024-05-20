@@ -9,6 +9,7 @@ use std::cmp::min;
 /// This one supports cell + column + row selection.
 #[derive(Debug, Default, Clone)]
 pub struct CellSelection {
+    /// Selected cell.
     pub lead_cell: Option<(usize, usize)>,
 }
 

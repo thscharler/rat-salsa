@@ -6,13 +6,16 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Styled};
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
+use ratatui::widgets::{Block, StatefulWidget, Widget, WidgetRef};
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::rc::Rc;
 
 /// FTable widget.
+///
+/// Can be used like a ratatui::Table, but the benefits only
+/// show if you use [FTable::data] to set the table data.
 ///
 /// See [FTable::data] for a sample.
 #[derive(Debug, Default, Clone)]
@@ -65,6 +68,7 @@ pub struct FTableStyle {
 /// FTable state.
 #[derive(Debug, Clone)]
 pub struct FTableState<Selection> {
+    /// Total area.
     pub area: Rect,
 
     /// Total header area.
@@ -170,7 +174,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// The way to go is to define a small struct that contains just a
     /// reference to your data. Then implement TableData for this struct.
     ///
-    /// ```rust no_run
+    /// ```rust ignore
     /// use ratatui::buffer::Buffer;
     /// use ratatui::layout::Rect;
     /// use ratatui::prelude::Style;
@@ -219,6 +223,8 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///
     /// let my_data_somewhere_else = vec![SampleRow;999999];
     /// let mut table_state_somewhere_else = FTableState::default();
+    ///
+    /// // ...
     ///
     /// let tabledata1 = Data1(&my_data_somewhere_else);
     /// let table1 = FTable::default().data(&tabledata1);
@@ -372,15 +378,59 @@ impl<'a, Selection> FTable<'a, Selection> {
 }
 
 impl<'a, Selection> FTable<'a, Selection> {
+    /// Returns a reference to the `TableData`.
     #[inline]
     #[allow(clippy::borrow_deref_ref)]
-    fn data_ref(&self) -> &dyn TableData<'a> {
+    pub fn data_ref(&self) -> &dyn TableData<'a> {
         match &self.data {
             DataRepr::Text(v) => &*v,
             DataRepr::Ref(v) => *v,
         }
     }
 
+    /// Does this table need scrollbars?
+    /// Returns (horizontal, vertical)
+    pub fn need_scroll(&self, area: Rect) -> (bool, bool) {
+        //
+        // Attention: This must be kept in sync with the actual rendering.
+        //
+
+        let data = self.data_ref();
+        let (columns, rows) = data.size();
+
+        // vertical layout
+        let inner_area = self.block.inner_if_some(area);
+        let l_rows = self.layout_areas(inner_area);
+        let table_area = l_rows[1];
+
+        // horizontal layout
+        let (l_columns, _) = self.layout_columns(columns, table_area.width);
+
+        // maximum offsets
+        let vertical = 'f: {
+            let mut page_height = 0;
+            for r in 0..rows {
+                let row_height = data.row_height(r);
+                if page_height + row_height >= table_area.height {
+                    break 'f true;
+                }
+                page_height += row_height;
+            }
+            false
+        };
+        let horizontal = 'f: {
+            for c in 0..columns {
+                if l_columns[c].right() >= table_area.width {
+                    break 'f true;
+                }
+            }
+            false
+        };
+
+        (horizontal, vertical)
+    }
+
+    // area_width or layout_width
     #[inline]
     fn total_width(&self, area_width: u16) -> u16 {
         if let Some(layout_width) = self.layout_width {
@@ -448,17 +498,6 @@ where
     type State = FTableState<Selection>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.render_ref(area, buf, state);
-    }
-}
-
-impl<'a, Selection> StatefulWidgetRef for FTable<'a, Selection>
-where
-    Selection: TableSelection,
-{
-    type State = FTableState<Selection>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let data = self.data_ref();
         let (columns, rows) = data.size();
 

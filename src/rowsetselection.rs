@@ -7,13 +7,24 @@ use std::collections::HashSet;
 use std::mem;
 
 /// Allows selection an active range of rows.
-/// The current range can be retired to a set of selected rows.
+///
+/// The current range can be retired to a set of selected rows,
+/// and a new range be started. This allows multiple interval
+/// selection and deselection of certain rows.
 ///
 /// This one only supports row-selection.
 #[derive(Debug, Default, Clone)]
 pub struct RowSetSelection {
+    /// Start of the active selection.
     pub anchor: Option<usize>,
+    /// Current end of the active selection.
     pub lead: Option<usize>,
+    /// Retired rows. This doesn't contain the rows
+    /// between anchor and lead.
+    ///
+    /// You can call [RowSetSelection::transfer_lead_anchor] to
+    /// add the anchor-lead range. This resets anchor and lead though.
+    /// Or iterate the complete range and call [RowSetSelection::is_selected_row].
     pub selected: HashSet<usize>,
 }
 
@@ -55,6 +66,7 @@ impl TableSelection for RowSetSelection {
 }
 
 impl RowSetSelection {
+    /// New selection.
     pub fn new() -> RowSetSelection {
         RowSetSelection {
             anchor: None,
