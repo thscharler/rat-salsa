@@ -50,8 +50,8 @@ crossterm = "0.27"
 log = "0.4"
 rat-event = "0.12"
 rat-focus = "0.9"
-rat-ftable = { version = "0.12", path = "../rat-ftable" }
-rat-input = { version = "0.14", path = "../rat-input" }
+rat-ftable = "0.12"
+rat-input = "0.14"
 rat-scrolled = "0.10"
 
 chrono = { version = "0.4", features = ["unstable-locales"] }
