@@ -1,3 +1,7 @@
+# 0.12.0
+
+* Last should have been 0.12.0 instead of 0.11.4
+
 # 0.11.4
 
 * add need_scroll() for Scrollbars.

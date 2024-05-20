@@ -11,7 +11,7 @@ use crossterm::ExecutableCommand;
 use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
-use rat_ftable::{FTable, FTableState, TableData};
+use rat_ftable::{FTable, FTableState};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -187,7 +187,7 @@ fn handle_event(
     Ok(r)
 }
 
-fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut State) {
+fn repaint_table(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mut State) {
     let l0 = Layout::horizontal([
         Constraint::Length(10),
         Constraint::Fill(1),
