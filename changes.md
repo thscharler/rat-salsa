@@ -1,3 +1,8 @@
+# 0.12.1
+
+* Wrongly used area dimensions in some places.
+* Add inherent methods for different selection models.
+
 # 0.12.0
 
 * Last should have been 0.12.0 instead of 0.11.4

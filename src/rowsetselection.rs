@@ -228,24 +228,22 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 }
 
                 ct_event!(keycode press PageUp) => {
-                    self.selection.prev(self.table_area.height as usize, false);
+                    self.selection.prev(self.row_page_len, false);
                     self.scroll_to_selected();
                     Outcome::Changed
                 }
                 ct_event!(keycode press SHIFT-PageUp) => {
-                    self.selection.prev(self.table_area.height as usize, true);
+                    self.selection.prev(self.row_page_len, true);
                     self.scroll_to_selected();
                     Outcome::Changed
                 }
                 ct_event!(keycode press PageDown) => {
-                    self.selection
-                        .next(self.table_area.height as usize, self.rows - 1, false);
+                    self.selection.next(self.row_page_len, self.rows - 1, false);
                     self.scroll_to_selected();
                     Outcome::Changed
                 }
                 ct_event!(keycode press SHIFT-PageDown) => {
-                    self.selection
-                        .next(self.table_area.height as usize, self.rows - 1, true);
+                    self.selection.next(self.row_page_len, self.rows - 1, true);
                     self.scroll_to_selected();
                     Outcome::Changed
                 }
@@ -266,7 +264,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
         match event {
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(self.table_area.height as usize / 10);
+                    self.scroll_up(min(self.row_page_len / 10,1));
                     Outcome::Changed
                 } else {
                     Outcome::NotUsed
@@ -274,7 +272,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             }
             ct_event!(scroll down for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(self.table_area.height as usize / 10);
+                    self.scroll_down(min(self.row_page_len /10,1));
                     Outcome::Changed
                 } else {
                     Outcome::NotUsed

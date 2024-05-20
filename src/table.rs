@@ -1,4 +1,5 @@
 use crate::_private::NonExhaustive;
+use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::textdata::{Row, TextTableData};
 use crate::util::MouseFlags;
 use crate::{TableData, TableSelection};
@@ -8,6 +9,7 @@ use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget, Widget, WidgetRef};
 use std::cmp::min;
+use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use std::rc::Rc;
@@ -838,7 +840,7 @@ impl<Selection: Default> Default for FTableState<Selection> {
     }
 }
 
-impl<Selection> FTableState<Selection> {
+impl<Selection: TableSelection> FTableState<Selection> {
     /// Cell at given position.
     pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
         let col = self.column_at_clicked(pos);
@@ -885,9 +887,7 @@ impl<Selection> FTableState<Selection> {
             Err(_v) => self.col_offset + self.column_areas.len() + 1,
         }
     }
-}
 
-impl<Selection: TableSelection> FTableState<Selection> {
     /// Change the vertical offset.
     /// Returns true, if there was some change to the offset, even
     /// if clipped.
@@ -933,9 +933,7 @@ impl<Selection: TableSelection> FTableState<Selection> {
     pub fn scroll_right(&mut self, n: usize) -> bool {
         self.set_column_offset(min(self.col_offset + n, self.max_col_offset))
     }
-}
 
-impl<Selection: TableSelection> FTableState<Selection> {
     /// Scroll to selected.
     pub fn scroll_to_selected(&mut self) {
         if let Some((selected_col, selected_row)) = self.selection.lead_selection() {
@@ -953,5 +951,104 @@ impl<Selection: TableSelection> FTableState<Selection> {
                 self.set_column_offset(selected_col);
             }
         }
+    }
+}
+
+impl FTableState<RowSelection> {
+    #[inline]
+    pub fn selected(&self) -> Option<usize> {
+        self.selection.selected()
+    }
+
+    #[inline]
+    pub fn select(&mut self, row: Option<usize>) {
+        self.selection.select(row);
+    }
+
+    /// Select a row, clamp between 0 and maximum.
+    #[inline]
+    pub fn select_clamped(&mut self, select: usize, maximum: usize) {
+        self.selection.select_clamped(select, maximum);
+    }
+}
+
+impl FTableState<RowSetSelection> {
+    #[inline]
+    pub fn selected(&self) -> HashSet<usize> {
+        self.selection.selected()
+    }
+
+    #[inline]
+    pub fn set_lead(&mut self, lead: Option<usize>, extend: bool) {
+        self.selection.set_lead(lead, extend);
+    }
+
+    /// Set a new lead, at the same time limit the lead to max.
+    #[inline]
+    pub fn set_lead_clamped(&mut self, lead: usize, max: usize, extend: bool) {
+        self.selection.set_lead_clamped(lead, max, extend);
+    }
+
+    /// Current lead.
+    #[inline]
+    pub fn lead(&self) -> Option<usize> {
+        self.selection.lead()
+    }
+
+    /// Current anchor.
+    #[inline]
+    pub fn anchor(&self) -> Option<usize> {
+        self.selection.anchor()
+    }
+
+    /// Clear the selection.
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.selection.clear();
+    }
+
+    /// Add to selection.
+    #[inline]
+    pub fn add_selected(&mut self, idx: usize) {
+        self.selection.add(idx);
+    }
+
+    /// Remove from selection. Only works for retired selections, not for the
+    /// active anchor-lead range.
+    #[inline]
+    pub fn remove_selected(&mut self, idx: usize) {
+        self.selection.remove(idx);
+    }
+}
+
+impl FTableState<CellSelection> {
+    /// Selected cell.
+    #[inline]
+    pub fn selected(&self) -> Option<(usize, usize)> {
+        self.selection.selected()
+    }
+
+    /// Select a cell.
+    #[inline]
+    pub fn select_cell(&mut self, select: Option<(usize, usize)>) {
+        self.selection.select_cell(select);
+    }
+
+    /// Select a row. Column stays the same.
+    #[inline]
+    pub fn select_row(&mut self, select: Option<usize>) {
+        self.selection.select_row(select);
+    }
+
+    /// Select a column, row stays the same.
+    #[inline]
+    pub fn select_column(&mut self, select: Option<usize>) {
+        self.selection.select_column(select);
+    }
+
+    /// Select a cell, clamp between 0 and maximum.
+    #[inline]
+    pub fn select_clamped(&mut self, select: (usize, usize), maximum: (usize, usize)) {
+        self.selection.select_clamped(select, maximum);
     }
 }
