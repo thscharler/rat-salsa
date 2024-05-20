@@ -254,14 +254,15 @@ impl<'a> Focus<'a> {
 
     /// Construct a new focus list with an accumulator.
     ///
-    /// The accumulator might be useful if you create compound widgets.
-    /// Then you can have the focus state for each contained widget,
-    /// and an overall state for the compound.
+    /// The accumulator has its focus set if any of the contained
+    /// flags has the focus.
     ///
-    /// If your compound widget contains compound widgets itself, you let
-    /// each of the components create their own Focus and add everything
-    /// together with [append](Focus::append).
+    /// If you have a Focus you can append the Focus of a subcomponent
+    /// with [append](Focus::append). In that case the accumulator
+    /// of the subcomponent gets its lost+gained flags set too, if
+    /// you switch the focus between different subcomponents.
     ///
+    /// See `examples/focus_recursive` and `examples/focus_recursive2`
     pub fn new_accu(accu: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
         let mut s = Self {
             accu: Some(accu.focus()),
