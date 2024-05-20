@@ -5,6 +5,7 @@ pub mod calender;
 pub mod date_input;
 pub mod ftable;
 pub mod input;
+pub mod list;
 pub mod masked_input;
 pub mod menuline;
 

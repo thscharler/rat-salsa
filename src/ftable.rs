@@ -5,7 +5,9 @@ use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::max;
+use std::collections::HashSet;
 
+use rat_ftable::selection::{CellSelection, RowSelection, RowSetSelection};
 pub use rat_ftable::{FTableStyle, TableData, TableSelection};
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
@@ -287,42 +289,146 @@ impl<Selection: Default> Default for FTableState<Selection> {
     }
 }
 
-impl<Selection> FTableState<Selection> {
+impl<Selection: TableSelection> FTableState<Selection> {
     /// Cell at given position.
+    #[inline]
     pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
         self.widget.cell_at_clicked(pos)
     }
 
     /// Column at given position.
+    #[inline]
     pub fn column_at_clicked(&self, pos: Position) -> Option<usize> {
         self.widget.column_at_clicked(pos)
     }
 
     /// Row at given position.
+    #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
         self.widget.row_at_clicked(pos)
     }
 
     /// Cell when dragging. Can go outside the area.
+    #[inline]
     pub fn cell_at_drag(&self, pos: Position) -> (usize, usize) {
         self.widget.cell_at_drag(pos)
     }
 
     /// Row when dragging. Can go outside the area.
+    #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
         self.widget.row_at_drag(pos)
     }
 
     /// Column when dragging. Can go outside the area.
+    #[inline]
     pub fn column_at_drag(&self, pos: Position) -> usize {
         self.widget.column_at_drag(pos)
     }
-}
 
-impl<Selection: TableSelection> FTableState<Selection> {
     /// Scroll to selected.
+    #[inline]
     pub fn scroll_to_selected(&mut self) {
         self.widget.scroll_to_selected()
+    }
+}
+
+impl FTableState<RowSelection> {
+    #[inline]
+    pub fn selected(&self) -> Option<usize> {
+        self.widget.selected()
+    }
+
+    #[inline]
+    pub fn select(&mut self, row: Option<usize>) {
+        self.widget.select(row);
+    }
+
+    /// Select a row, clamp between 0 and maximum.
+    #[inline]
+    pub fn select_clamped(&mut self, select: usize, maximum: usize) {
+        self.widget.select_clamped(select, maximum);
+    }
+}
+
+impl FTableState<RowSetSelection> {
+    #[inline]
+    pub fn selected(&self) -> HashSet<usize> {
+        self.widget.selected()
+    }
+
+    #[inline]
+    pub fn set_lead(&mut self, lead: Option<usize>, extend: bool) {
+        self.widget.set_lead(lead, extend);
+    }
+
+    /// Set a new lead, at the same time limit the lead to max.
+    #[inline]
+    pub fn set_lead_clamped(&mut self, lead: usize, max: usize, extend: bool) {
+        self.widget.set_lead_clamped(lead, max, extend);
+    }
+
+    /// Current lead.
+    #[inline]
+    pub fn lead(&self) -> Option<usize> {
+        self.widget.lead()
+    }
+
+    /// Current anchor.
+    #[inline]
+    pub fn anchor(&self) -> Option<usize> {
+        self.widget.anchor()
+    }
+
+    /// Clear the selection.
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.widget.clear_selection();
+    }
+
+    /// Add to selection.
+    #[inline]
+    pub fn add_selected(&mut self, idx: usize) {
+        self.widget.add_selected(idx);
+    }
+
+    /// Remove from selection. Only works for retired selections, not for the
+    /// active anchor-lead range.
+    #[inline]
+    pub fn remove_selected(&mut self, idx: usize) {
+        self.widget.remove_selected(idx);
+    }
+}
+
+impl FTableState<CellSelection> {
+    /// Selected cell.
+    #[inline]
+    pub fn selected(&self) -> Option<(usize, usize)> {
+        self.widget.selected()
+    }
+
+    /// Select a cell.
+    #[inline]
+    pub fn select_cell(&mut self, select: Option<(usize, usize)>) {
+        self.widget.select_cell(select);
+    }
+
+    /// Select a row. Column stays the same.
+    #[inline]
+    pub fn select_row(&mut self, select: Option<usize>) {
+        self.widget.select_row(select);
+    }
+
+    /// Select a column, row stays the same.
+    #[inline]
+    pub fn select_column(&mut self, select: Option<usize>) {
+        self.widget.select_column(select);
+    }
+
+    /// Select a cell, clamp between 0 and maximum.
+    #[inline]
+    pub fn select_clamped(&mut self, select: (usize, usize), maximum: (usize, usize)) {
+        self.widget.select_clamped(select, maximum);
     }
 }
 
