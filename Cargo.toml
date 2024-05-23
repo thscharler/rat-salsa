@@ -59,7 +59,7 @@ memchr = "2.7.2"
 format_num_pattern = "0.9"
 
 [dependencies.rat-input]
-version = "0.13"
+version = "0.14"
 path = "../rat-input"
 
 [dependencies.rat-scrolled]

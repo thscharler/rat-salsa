@@ -115,12 +115,12 @@ impl DateInputStateExt {
     ///
     /// generates a mask according to the format and overwrites whatever
     /// set_mask() did.
-    pub fn set_formats<S: AsRef<str>>(
+    pub fn set_format_loc<S: AsRef<str>>(
         &mut self,
         pattern: S,
         locale: chrono::Locale,
     ) -> Result<(), fmt::Error> {
-        self.widget.set_formats(pattern, locale)
+        self.widget.set_format_loc(pattern, locale)
     }
 
     /// Set a display mask overlay.
