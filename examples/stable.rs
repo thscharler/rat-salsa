@@ -12,7 +12,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use rat_event::{HandleEvent, MouseOnly};
-use rat_scrolled::scrolled::{Scrolled, ScrolledState};
+use rat_scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};

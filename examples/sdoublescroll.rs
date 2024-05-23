@@ -14,8 +14,8 @@ use crossterm::terminal::{
 use crossterm::ExecutableCommand;
 use rat_input::statusline::{StatusLine, StatusLineState};
 use rat_scrolled::event::{HandleEvent, MouseOnly};
-use rat_scrolled::scrolled::{Scrolled, ScrolledState};
-use rat_scrolled::viewport::ViewportState;
+use rat_scrolled::ViewportState;
+use rat_scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect, Size};
@@ -326,7 +326,7 @@ mod double_widget {
     use crate::adapter;
     use adapter::paragraph::{ParagraphS, ParagraphSState};
     use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
-    use rat_scrolled::scrolled::{Scrolled, ScrolledState};
+    use rat_scrolled::{Scrolled, ScrolledState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::prelude::StatefulWidget;
