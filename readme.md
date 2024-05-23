@@ -16,3 +16,45 @@ separate crates:
 * [rat-input](https://docs.rs/rat-input/latest/rat_input/): Collection of widgets, but kept at a baseline level.
 * [rat-ftable](https://docs.rs/rat-ftable/latest/rat_ftable/): Table widget for large data-sets.
 
+## Widget list
+
+* Button
+
+Basic button.
+
+* TextInput
+
+Plain text input.
+
+* DateInput
+
+Date values.
+
+* MaskedInput
+
+Complex input masks.
+
+* FTable
+
+FTable with backing TableData trait for large tables.
+Renders in O(1)
+
+* List
+
+Wrapper around ratatui::List with custom selection models.
+
+* MenuLine
+
+Basic menu.
+
+* MsgDialog
+
+Basic message dialog.
+
+* StatusLine
+
+Statusline with multiple sections.
+
+* calender::Month
+
+Calender display.

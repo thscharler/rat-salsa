@@ -1,16 +1,16 @@
 use crate::_private::NonExhaustive;
 use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_ftable::selection::{CellSelection, RowSelection, RowSetSelection};
 use rat_ftable::textdata::Row;
+use rat_scrolled::{ScrollingState, ScrollingWidget};
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::max;
 use std::collections::HashSet;
 
-use rat_ftable::selection::{CellSelection, RowSelection, RowSetSelection};
 pub use rat_ftable::{FTableStyle, TableData, TableSelection};
-use rat_scrolled::{ScrollingState, ScrollingWidget};
-use ratatui::buffer::Buffer;
 
 pub mod selection {
     pub use rat_ftable::selection::{CellSelection, NoSelection, RowSelection, RowSetSelection};
