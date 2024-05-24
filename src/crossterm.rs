@@ -247,4 +247,11 @@ macro_rules! ct_event {
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
+
+    (resized) => {
+        crossterm::event::Event::Resize(_, _)
+    };
+    (resized for $col:ident, $row:ident ) => {
+        crossterm::event::Event::Resize($col, $row)
+    };
 }

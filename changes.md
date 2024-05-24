@@ -1,3 +1,7 @@
+# 0.12.3
+
+* Extend ct_event!
+
 # 0.12.2
 
 * Add general `Outcome` type as a baseline what can be expected
