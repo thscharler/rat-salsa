@@ -127,10 +127,9 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
         match masked_input::handle_events(&mut self.widget, self.focus.get(), event) {
-            Ok(rat_input::event::Outcome::Changed) => ControlUI::Change,
-            Ok(rat_input::event::Outcome::Unchanged) => ControlUI::NoChange,
-            Ok(rat_input::event::Outcome::NotUsed) => ControlUI::Continue,
-            Err(e) => ControlUI::Err(e.into()),
+            rat_input::event::Outcome::Changed => ControlUI::Change,
+            rat_input::event::Outcome::Unchanged => ControlUI::NoChange,
+            rat_input::event::Outcome::NotUsed => ControlUI::Continue,
         }
     }
 }
@@ -141,10 +140,9 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
         match masked_input::handle_mouse_events(&mut self.widget, event) {
-            Ok(rat_input::event::Outcome::Changed) => ControlUI::Change,
-            Ok(rat_input::event::Outcome::Unchanged) => ControlUI::NoChange,
-            Ok(rat_input::event::Outcome::NotUsed) => ControlUI::Continue,
-            Err(e) => ControlUI::Err(e.into()),
+            rat_input::event::Outcome::Changed => ControlUI::Change,
+            rat_input::event::Outcome::Unchanged => ControlUI::NoChange,
+            rat_input::event::Outcome::NotUsed => ControlUI::Continue,
         }
     }
 }
@@ -351,23 +349,23 @@ impl MaskedInputExtState {
     }
 
     /// Insert a char at the current position.
-    pub fn insert_char(&mut self, c: char) -> Result<(), fmt::Error> {
+    pub fn insert_char(&mut self, c: char) {
         self.widget.insert_char(c)
     }
 
     /// Remove the selected range. The text will be replaced with the default value
     /// as defined by the mask.
-    pub fn remove_selection(&mut self, selection: Range<usize>) -> Result<(), fmt::Error> {
+    pub fn remove_selection(&mut self, selection: Range<usize>) {
         self.widget.remove_selection(selection)
     }
 
     /// Delete the char before the cursor.
-    pub fn delete_prev_char(&mut self) -> Result<(), fmt::Error> {
+    pub fn delete_prev_char(&mut self) {
         self.widget.delete_prev_char()
     }
 
     /// Delete the char after the cursor.
-    pub fn delete_next_char(&mut self) -> Result<(), fmt::Error> {
+    pub fn delete_next_char(&mut self) {
         self.widget.delete_next_char()
     }
 }

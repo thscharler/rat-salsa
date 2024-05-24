@@ -167,10 +167,9 @@ where
 {
     fn handle(&mut self, event: &Event, _keymap: ConvenientKeys) -> ControlUI<A, E> {
         match self.widget.handle(event, ConvenientKeys) {
-            Ok(Outcome::Changed) => ControlUI::Change,
-            Ok(Outcome::NotUsed) => ControlUI::Continue,
-            Ok(Outcome::Unchanged) => ControlUI::NoChange,
-            Err(e) => ControlUI::Err(e.into()),
+            Outcome::Changed => ControlUI::Change,
+            Outcome::NotUsed => ControlUI::Continue,
+            Outcome::Unchanged => ControlUI::NoChange,
         }
     }
 }
@@ -182,10 +181,9 @@ where
     fn handle(&mut self, event: &Event, _keymap: DefaultKeys) -> ControlUI<A, E> {
         let focus = self.is_focused();
         match rat_input::date_input::handle_events(&mut self.widget, focus, event) {
-            Ok(Outcome::Changed) => ControlUI::Change,
-            Ok(Outcome::Unchanged) => ControlUI::NoChange,
-            Ok(Outcome::NotUsed) => ControlUI::Continue,
-            Err(e) => ControlUI::Err(e.into()),
+            Outcome::Changed => ControlUI::Change,
+            Outcome::Unchanged => ControlUI::NoChange,
+            Outcome::NotUsed => ControlUI::Continue,
         }
     }
 }
