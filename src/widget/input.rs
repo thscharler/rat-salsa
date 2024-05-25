@@ -178,11 +178,6 @@ impl TextInputExtState {
         self.widget.value()
     }
 
-    /// Text
-    pub fn as_str(&self) -> &str {
-        self.widget.as_str()
-    }
-
     /// Empty.
     pub fn is_empty(&self) -> bool {
         self.widget.is_empty()
@@ -229,8 +224,8 @@ impl TextInputExtState {
     }
 
     /// Set the cursor position from a visual position relative to the origin.
-    pub fn set_visual_cursor(&mut self, rpos: isize, extend_selection: bool) -> bool {
-        self.widget.set_visual_cursor(rpos, extend_selection)
+    pub fn set_screen_cursor(&mut self, rpos: isize, extend_selection: bool) -> bool {
+        self.widget.set_screen_cursor(rpos, extend_selection)
     }
 
     /// Move to the next char.
@@ -249,8 +244,8 @@ impl TextInputExtState {
     }
 
     /// Replace the given range with a new string.
-    pub fn replace(&mut self, range: Range<usize>, new: &str) {
-        self.widget.replace(range, new);
+    pub fn remove(&mut self, range: Range<usize>) {
+        self.widget.remove(range);
     }
 
     /// Delete the char before the cursor.

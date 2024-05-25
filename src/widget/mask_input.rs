@@ -283,11 +283,6 @@ impl MaskedInputExtState {
         self.widget.compact_value()
     }
 
-    /// Value.
-    pub fn as_str(&self) -> &str {
-        self.widget.as_str()
-    }
-
     ///
     pub fn is_empty(&self) -> bool {
         self.widget.is_empty()
@@ -324,8 +319,8 @@ impl MaskedInputExtState {
     }
 
     /// Set the cursor position from a visual position relative to the origin.
-    pub fn set_visual_cursor(&mut self, rpos: isize, extend_selection: bool) {
-        self.widget.set_visual_cursor(rpos, extend_selection);
+    pub fn set_screen_cursor(&mut self, rpos: isize, extend_selection: bool) {
+        self.widget.set_screen_cursor(rpos, extend_selection);
     }
 
     /// Previous word boundary.
@@ -355,8 +350,8 @@ impl MaskedInputExtState {
 
     /// Remove the selected range. The text will be replaced with the default value
     /// as defined by the mask.
-    pub fn remove_selection(&mut self, selection: Range<usize>) {
-        self.widget.remove_selection(selection)
+    pub fn remove(&mut self, range: Range<usize>) {
+        self.widget.remove(range)
     }
 
     /// Delete the char before the cursor.
