@@ -352,12 +352,6 @@ impl MaskedInputState {
         self.widget.compact_value()
     }
 
-    /// Value.
-    #[inline]
-    pub fn as_str(&self) -> &str {
-        self.widget.as_str()
-    }
-
     ///
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -402,8 +396,8 @@ impl MaskedInputState {
 
     /// Set the cursor position from a visual position relative to the origin.
     #[inline]
-    pub fn set_visual_cursor(&mut self, rpos: isize, extend_selection: bool) -> bool {
-        self.widget.set_visual_cursor(rpos, extend_selection)
+    pub fn set_screen_cursor(&mut self, rpos: isize, extend_selection: bool) -> bool {
+        self.widget.set_screen_cursor(rpos, extend_selection)
     }
 
     /// The current text cursor as an absolute screen position.
@@ -445,8 +439,8 @@ impl MaskedInputState {
     /// Remove the selected range. The text will be replaced with the default value
     /// as defined by the mask.
     #[inline]
-    pub fn remove_selection(&mut self, selection: Range<usize>) {
-        self.widget.remove_selection(selection)
+    pub fn remove(&mut self, range: Range<usize>) {
+        self.widget.remove(range)
     }
 
     /// Delete the char before the cursor.

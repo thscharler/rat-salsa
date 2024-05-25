@@ -122,6 +122,10 @@ impl HasFocusFlag for TextInputState {
 }
 
 impl TextInputState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Reset to empty.
     #[inline]
     pub fn reset(&mut self) {
@@ -162,12 +166,6 @@ impl TextInputState {
     #[inline]
     pub fn value(&self) -> &str {
         self.widget.value()
-    }
-
-    /// Text
-    #[inline]
-    pub fn as_str(&self) -> &str {
-        self.widget.as_str()
     }
 
     /// Empty.
@@ -226,8 +224,8 @@ impl TextInputState {
 
     /// Set the cursor position from a visual position relative to the origin.
     #[inline]
-    pub fn set_visual_cursor(&mut self, rpos: isize, extend_selection: bool) -> bool {
-        self.widget.set_visual_cursor(rpos, extend_selection)
+    pub fn set_screen_cursor(&mut self, rpos: isize, extend_selection: bool) -> bool {
+        self.widget.set_screen_cursor(rpos, extend_selection)
     }
 
     /// The current text cursor as an absolute screen position.
@@ -256,8 +254,8 @@ impl TextInputState {
 
     /// Replace the given range with a new string.
     #[inline]
-    pub fn replace(&mut self, range: Range<usize>, new: &str) {
-        self.widget.replace(range, new)
+    pub fn remove(&mut self, range: Range<usize>) {
+        self.widget.remove(range)
     }
 
     /// Delete the char before the cursor.
