@@ -188,7 +188,7 @@ impl HasFocusFlag for DateInputState {
     }
 
     fn area(&self) -> Rect {
-        self.widget.widget.area
+        self.widget.widget.inner
     }
 }
 
