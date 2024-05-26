@@ -11,6 +11,7 @@ pub mod modifiers {
     pub const META: KeyModifiers = KeyModifiers::META;
     pub const SUPER: KeyModifiers = KeyModifiers::SUPER;
     pub const HYPER: KeyModifiers = KeyModifiers::HYPER;
+    pub const CONTROL_ALT: KeyModifiers = KeyModifiers::from_bits_truncate(0b0000_0110);
     pub const CONTROL_SHIFT: KeyModifiers = KeyModifiers::from_bits_truncate(0b0000_0011);
     pub const ALT_SHIFT: KeyModifiers = KeyModifiers::from_bits_truncate(0b0000_0101);
 }
