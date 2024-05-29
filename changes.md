@@ -1,3 +1,7 @@
+# 0.10.1
+
+* fixed versions.
+
 # 0.10.0
 
 * Doubling viewport to View/Viewport.

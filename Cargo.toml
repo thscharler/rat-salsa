@@ -1,6 +1,6 @@
 [package]
 name = "rat-scrolled"
-version = "0.10.0"
+version = "0.10.1"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui scroll widget and traits"
@@ -50,7 +50,7 @@ log = "0.4"
 rat-event = "0.12"
 #tui-tree-widget = "0.19.0"
 
-[dependencies.tui-tree-widget]
+[dev-sdependencies.tui-tree-widget]
 version = "0.19.0"
 features = []
 #path = "../tui-rs-tree-widget"
