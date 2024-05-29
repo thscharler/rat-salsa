@@ -52,5 +52,6 @@ rat-event = "0.12"
 [dev-dependencies]
 fern = "0.6"
 anyhow = "1.0.82"
-rat-input = { version = "0.13.1" }
+rat-input = { version = "0.15" }
+#rat-input = { version = "0.15", path = "../rat-input" }
 

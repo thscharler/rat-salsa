@@ -513,7 +513,7 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus<'a> 
         match event {
             ct_event!(mouse down Left for column, row) => {
                 if self.focus_at(*column, *row) {
-                    return Outcome::Changed;
+                    Outcome::Changed
                 } else {
                     self.reset_lost_gained();
                     Outcome::NotUsed
