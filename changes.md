@@ -1,3 +1,7 @@
+# 0.12.5
+
+* Remove ratatui-flag: unstable-widget-ref
+
 # 0.12.4
 
 * Add CONTROL_ALT
