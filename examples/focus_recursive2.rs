@@ -16,7 +16,7 @@ use rat_focus::Focus;
 use rat_input::event::{FocusKeys, HandleEvent, Outcome};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Layout, Position, Rect};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::Block;
 use ratatui::{Frame, Terminal};
@@ -214,7 +214,7 @@ fn repaint_input(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
             .screen_cursor()
             .or_else(|| state.sub4.screen_cursor())
     });
-    if let Some(Position { x, y }) = cursor {
+    if let Some((x, y)) = cursor {
         frame.set_cursor(x, y);
     }
 }
@@ -262,7 +262,7 @@ pub mod substratum2 {
     use rat_event::{FocusKeys, HandleEvent, UsedEvent};
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Position, Rect};
+    use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Stylize, Widget};
     use ratatui::widgets::{Block, StatefulWidget};
 
@@ -329,7 +329,7 @@ pub mod substratum2 {
                 .append(self.stratum2.focus())
         }
 
-        pub fn screen_cursor(&self) -> Option<Position> {
+        pub fn screen_cursor(&self) -> Option<(u16, u16)> {
             if self.stratum1.is_focused() {
                 self.stratum1.screen_cursor()
             } else if self.stratum2.is_focused() {
@@ -375,7 +375,7 @@ pub mod substratum1 {
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
     use rat_input::layout_edit::{layout_edit, EditConstraint};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Position, Rect};
+    use ratatui::layout::Rect;
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
     use ratatui::style::Stylize;
     use ratatui::widgets::{Block, Widget};
@@ -477,7 +477,7 @@ pub mod substratum1 {
             )
         }
 
-        pub fn screen_cursor(&self) -> Option<Position> {
+        pub fn screen_cursor(&self) -> Option<(u16, u16)> {
             if self.input1.is_focused() {
                 self.input1.screen_cursor()
             } else if self.input2.is_focused() {
@@ -504,22 +504,22 @@ pub mod substratum1 {
 
     impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for SubstratumState {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
-            let r = self.input1.handle(event, FocusKeys);
+            let mut r: Outcome = self.input1.handle(event, FocusKeys).into();
             if r.used_event() {
                 debug!("rr1 {:?}", r);
                 return r;
             }
-            let r = self.input2.handle(event, FocusKeys);
+            r = self.input2.handle(event, FocusKeys).into();
             if r.used_event() {
                 debug!("rr2 {:?}", r);
                 return r;
             }
-            let r = self.input3.handle(event, FocusKeys);
+            r = self.input3.handle(event, FocusKeys).into();
             if r.used_event() {
                 debug!("rr3 {:?}", r);
                 return r;
             }
-            let r = self.input4.handle(event, FocusKeys);
+            r = self.input4.handle(event, FocusKeys).into();
             if r.used_event() {
                 debug!("rr4 {:?}", r);
                 return r;

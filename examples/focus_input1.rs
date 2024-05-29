@@ -16,7 +16,7 @@ use rat_input::event::{FocusKeys, HandleEvent, Outcome};
 use rat_input::layout_edit::{layout_edit, EditConstraint};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
-use ratatui::layout::{Constraint, Layout, Position, Rect};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::{Frame, Terminal};
@@ -212,7 +212,7 @@ fn repaint_input(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
         .style(Style::default().black().on_green())
         .focus_style(Style::default().black().on_light_blue());
     frame.render_stateful_widget(input1, le.widget(), &mut state.input1);
-    if let Some(Position { x, y }) = state.input1.screen_cursor() {
+    if let Some((x, y)) = state.input1.screen_cursor() {
         if state.input1.is_focused() {
             frame.set_cursor(x, y);
         }
@@ -223,7 +223,7 @@ fn repaint_input(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
         .style(Style::default().black().on_green())
         .focus_style(Style::default().black().on_light_blue());
     frame.render_stateful_widget(input2, le.widget(), &mut state.input2);
-    if let Some(Position { x, y }) = state.input2.screen_cursor() {
+    if let Some((x, y)) = state.input2.screen_cursor() {
         if state.input2.is_focused() {
             frame.set_cursor(x, y);
         }
@@ -234,7 +234,7 @@ fn repaint_input(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
         .style(Style::default().black().on_green())
         .focus_style(Style::default().black().on_light_blue());
     frame.render_stateful_widget(input3, le.widget(), &mut state.input3);
-    if let Some(Position { x, y }) = state.input3.screen_cursor() {
+    if let Some((x, y)) = state.input3.screen_cursor() {
         if state.input3.is_focused() {
             frame.set_cursor(x, y);
         }
@@ -245,7 +245,7 @@ fn repaint_input(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
         .style(Style::default().black().on_green())
         .focus_style(Style::default().black().on_light_blue());
     frame.render_stateful_widget(input4, le.widget(), &mut state.input4);
-    if let Some(Position { x, y }) = state.input4.screen_cursor() {
+    if let Some((x, y)) = state.input4.screen_cursor() {
         if state.input4.is_focused() {
             frame.set_cursor(x, y);
         }
@@ -262,22 +262,20 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus_input(state).handle(event, FocusKeys);
-    debug!("focus {:?}", f);
 
-    let r = state.input1.handle(event, FocusKeys);
-    if r.used_event() {
-        debug!("r | f : {:?} : {:?} -> {:?}", r, f, r | f);
-        return Ok(r | f);
-    }
-    let r = state.input2.handle(event, FocusKeys);
+    let mut r: Outcome = state.input1.handle(event, FocusKeys).into();
     if r.used_event() {
         return Ok(r | f);
     }
-    let r = state.input3.handle(event, FocusKeys);
+    r = state.input2.handle(event, FocusKeys).into();
     if r.used_event() {
         return Ok(r | f);
     }
-    let r = state.input4.handle(event, FocusKeys);
+    r = state.input3.handle(event, FocusKeys).into();
+    if r.used_event() {
+        return Ok(r | f);
+    }
+    r = state.input4.handle(event, FocusKeys).into();
     if r.used_event() {
         return Ok(r | f);
     }

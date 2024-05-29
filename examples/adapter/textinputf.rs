@@ -1,10 +1,10 @@
 use crate::adapter::_private::NonExhaustive;
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
-use rat_input::event::Outcome;
+use rat_input::event::TextOutcome;
 use rat_input::input::{TextInput, TextInputState, TextInputStyle};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::{Block, StatefulWidgetRef};
 use std::ops::Range;
@@ -90,7 +90,7 @@ impl Default for TextInputFState {
 impl TextInputFState {
     /// Reset to empty.
     pub fn reset(&mut self) {
-        self.widget.reset();
+        self.widget.clear();
     }
 
     /// Offset shown.
@@ -114,7 +114,7 @@ impl TextInputFState {
     }
 
     /// Cursor position.
-    pub fn screen_cursor(&self) -> Option<Position> {
+    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
         self.widget.screen_cursor()
     }
 
@@ -126,11 +126,6 @@ impl TextInputFState {
     /// Text.
     pub fn value(&self) -> &str {
         self.widget.value()
-    }
-
-    /// Text
-    pub fn as_str(&self) -> &str {
-        self.widget.as_str()
     }
 
     /// Empty.
@@ -164,23 +159,13 @@ impl TextInputFState {
     }
 
     /// Selection.
-    pub fn selection_str(&self) -> &str {
-        self.widget.selection_str()
-    }
-
-    /// Previous word boundary
-    pub fn prev_word_boundary(&self) -> usize {
-        self.widget.prev_word_boundary()
-    }
-
-    /// Next word boundary
-    pub fn next_word_boundary(&self) -> usize {
-        self.widget.next_word_boundary()
+    pub fn selected_value(&self) -> &str {
+        self.widget.selected_value()
     }
 
     /// Set the cursor position from a visual position relative to the origin.
-    pub fn set_offset_relative_cursor(&mut self, rpos: isize, extend_selection: bool) {
-        self.widget.set_visual_cursor(rpos, extend_selection);
+    pub fn set_screen_cursor(&mut self, rpos: isize, extend_selection: bool) {
+        self.widget.set_screen_cursor(rpos, extend_selection);
     }
 
     /// Move to the next char.
@@ -199,8 +184,8 @@ impl TextInputFState {
     }
 
     /// Replace the given range with a new string.
-    pub fn replace(&mut self, range: Range<usize>, new: &str) {
-        self.widget.replace(range, new);
+    pub fn remove(&mut self, range: Range<usize>) {
+        self.widget.value.remove(range);
     }
 
     /// Delete the char before the cursor.
@@ -224,18 +209,18 @@ impl HasFocusFlag for TextInputFState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TextInputFState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextInputFState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
         } else {
-            Outcome::NotUsed
+            TextOutcome::NotUsed
         }
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TextInputFState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputFState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         self.widget.handle(event, MouseOnly)
     }
 }
