@@ -166,10 +166,14 @@ where
     E: From<fmt::Error>,
 {
     fn handle(&mut self, event: &Event, _keymap: ConvenientKeys) -> ControlUI<A, E> {
-        match self.widget.handle(event, ConvenientKeys) {
-            Outcome::Changed => ControlUI::Change,
-            Outcome::NotUsed => ControlUI::Continue,
-            Outcome::Unchanged => ControlUI::NoChange,
+        if self.is_focused() {
+            match self.widget.handle(event, ConvenientKeys) {
+                Outcome::Changed => ControlUI::Change,
+                Outcome::NotUsed => ControlUI::Continue,
+                Outcome::Unchanged => ControlUI::NoChange,
+            }
+        } else {
+            ControlUI::Continue
         }
     }
 }
