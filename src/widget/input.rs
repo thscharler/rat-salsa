@@ -14,9 +14,10 @@ use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
+use rat_input::event::TextOutcome;
 use rat_input::input;
 use rat_input::input::{TextInput, TextInputState, TextInputStyle};
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::Block;
 use ratatui::Frame;
@@ -83,12 +84,14 @@ impl<'a> FrameWidget for TextInputExt<'a> {
         self.widget = self
             .widget
             .focused(state.is_focused())
-            .valid(state.is_valid());
+            .invalid(!state.is_valid());
 
         frame.render_stateful_widget(self.widget, area, &mut state.widget);
 
-        if let Some(Position { x, y }) = state.widget.screen_cursor() {
-            frame.set_cursor(x, y);
+        if state.is_focused() {
+            if let Some((x, y)) = state.widget.screen_cursor() {
+                frame.set_cursor(x, y);
+            }
         }
     }
 }
@@ -125,9 +128,10 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputExtState {
     fn handle(&mut self, event: &Event, _: DefaultKeys) -> ControlUI<A, E> {
         let focused = self.is_focused();
         match input::handle_events(&mut self.widget, focused, event) {
-            rat_input::event::Outcome::NotUsed => ControlUI::Continue,
-            rat_input::event::Outcome::Unchanged => ControlUI::NoChange,
-            rat_input::event::Outcome::Changed => ControlUI::Change,
+            TextOutcome::NotUsed => ControlUI::Continue,
+            TextOutcome::Unchanged => ControlUI::NoChange,
+            TextOutcome::Changed => ControlUI::Change,
+            TextOutcome::TextChanged => ControlUI::Change,
         }
     }
 }
@@ -135,17 +139,18 @@ impl<A, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for TextInputExtState {
 impl<A, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for TextInputExtState {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
         match input::handle_mouse_events(&mut self.widget, event) {
-            rat_input::event::Outcome::NotUsed => ControlUI::Continue,
-            rat_input::event::Outcome::Unchanged => ControlUI::NoChange,
-            rat_input::event::Outcome::Changed => ControlUI::Change,
+            TextOutcome::NotUsed => ControlUI::Continue,
+            TextOutcome::Unchanged => ControlUI::NoChange,
+            TextOutcome::Changed => ControlUI::Change,
+            TextOutcome::TextChanged => ControlUI::Change,
         }
     }
 }
 
 impl TextInputExtState {
     /// Reset to empty.
-    pub fn reset(&mut self) {
-        self.widget.reset();
+    pub fn clear(&mut self) {
+        self.widget.clear();
     }
 
     /// Offset shown.
@@ -210,17 +215,7 @@ impl TextInputExtState {
 
     /// Selection.
     pub fn selection_str(&self) -> &str {
-        self.widget.selection_str()
-    }
-
-    /// Previous word boundary
-    pub fn prev_word_boundary(&self) -> usize {
-        self.widget.prev_word_boundary()
-    }
-
-    /// Next word boundary
-    pub fn next_word_boundary(&self) -> usize {
-        self.widget.next_word_boundary()
+        self.widget.selected_value()
     }
 
     /// Set the cursor position from a visual position relative to the origin.
@@ -245,7 +240,7 @@ impl TextInputExtState {
 
     /// Replace the given range with a new string.
     pub fn remove(&mut self, range: Range<usize>) {
-        self.widget.remove(range);
+        self.widget.delete_range(range);
     }
 
     /// Delete the char before the cursor.

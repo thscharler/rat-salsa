@@ -7,9 +7,10 @@ use crate::{FocusFlag, HasFocusFlag, HasValidFlag};
 use format_num_pattern::NumberSymbols;
 #[allow(unused_imports)]
 use log::debug;
+use rat_input::event::TextOutcome;
 use rat_input::masked_input;
 use rat_input::masked_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::Block;
 use ratatui::Frame;
@@ -84,12 +85,15 @@ impl<'a> FrameWidget for MaskedInputExt<'a> {
         self.widget = self
             .widget
             .focused(state.is_focused())
-            .valid(state.is_valid());
+            .invalid(!state.is_valid());
 
         frame.render_stateful_widget(self.widget, area, &mut state.widget);
 
-        if let Some(Position { x, y }) = state.widget.screen_cursor() {
-            frame.set_cursor(x, y);
+        debug!("screen_cursor {:?}", state.widget.screen_cursor());
+        if state.is_focused() {
+            if let Some((x, y)) = state.widget.screen_cursor() {
+                frame.set_cursor(x, y);
+            }
         }
     }
 }
@@ -127,9 +131,10 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: DefaultKeys) -> ControlUI<A, E> {
         match masked_input::handle_events(&mut self.widget, self.focus.get(), event) {
-            rat_input::event::Outcome::Changed => ControlUI::Change,
-            rat_input::event::Outcome::Unchanged => ControlUI::NoChange,
-            rat_input::event::Outcome::NotUsed => ControlUI::Continue,
+            TextOutcome::Changed => ControlUI::Change,
+            TextOutcome::NotUsed => ControlUI::Continue,
+            TextOutcome::Unchanged => ControlUI::NoChange,
+            TextOutcome::TextChanged => ControlUI::Change,
         }
     }
 }
@@ -140,9 +145,10 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> ControlUI<A, E> {
         match masked_input::handle_mouse_events(&mut self.widget, event) {
-            rat_input::event::Outcome::Changed => ControlUI::Change,
-            rat_input::event::Outcome::Unchanged => ControlUI::NoChange,
-            rat_input::event::Outcome::NotUsed => ControlUI::Continue,
+            TextOutcome::Changed => ControlUI::Change,
+            TextOutcome::NotUsed => ControlUI::Continue,
+            TextOutcome::Unchanged => ControlUI::NoChange,
+            TextOutcome::TextChanged => ControlUI::Change,
         }
     }
 }
@@ -161,7 +167,7 @@ impl MaskedInputExtState {
 
     /// Reset to empty.
     pub fn reset(&mut self) {
-        self.widget.reset();
+        self.widget.clear();
     }
 
     /// Offset shown.
@@ -315,22 +321,12 @@ impl MaskedInputExtState {
 
     /// Selection
     pub fn selection_str(&self) -> &str {
-        self.widget.selection_str()
+        self.widget.selected_value()
     }
 
     /// Set the cursor position from a visual position relative to the origin.
     pub fn set_screen_cursor(&mut self, rpos: isize, extend_selection: bool) {
         self.widget.set_screen_cursor(rpos, extend_selection);
-    }
-
-    /// Previous word boundary.
-    pub fn prev_word_boundary(&self) -> usize {
-        self.widget.prev_word_boundary()
-    }
-
-    /// Next word boundary.
-    pub fn next_word_boundary(&self) -> usize {
-        self.widget.next_word_boundary()
     }
 
     /// Move to the next char.
@@ -345,23 +341,23 @@ impl MaskedInputExtState {
 
     /// Insert a char at the current position.
     pub fn insert_char(&mut self, c: char) {
-        self.widget.insert_char(c)
+        self.widget.insert_char(c);
     }
 
     /// Remove the selected range. The text will be replaced with the default value
     /// as defined by the mask.
     pub fn remove(&mut self, range: Range<usize>) {
-        self.widget.remove(range)
+        self.widget.delete_range(range);
     }
 
     /// Delete the char before the cursor.
     pub fn delete_prev_char(&mut self) {
-        self.widget.delete_prev_char()
+        self.widget.delete_prev_char();
     }
 
     /// Delete the char after the cursor.
     pub fn delete_next_char(&mut self) {
-        self.widget.delete_next_char()
+        self.widget.delete_next_char();
     }
 }
 

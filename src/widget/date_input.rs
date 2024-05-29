@@ -8,9 +8,9 @@ use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use rat_input::date_input::{DateInput, DateInputState};
-use rat_input::event::{HandleEvent, Outcome};
+use rat_input::event::{HandleEvent, TextOutcome};
 use rat_input::masked_input::MaskedInputStyle;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::prelude::Style;
 use ratatui::Frame;
 use std::fmt;
@@ -62,12 +62,14 @@ impl<'a> FrameWidget for DateInputExt<'a> {
         self.widget = self
             .widget
             .focused(state.is_focused())
-            .valid(state.is_valid());
+            .invalid(!state.is_valid());
 
         frame.render_stateful_widget(self.widget, area, &mut state.widget);
 
-        if let Some(Position { x, y }) = state.screen_cursor() {
-            frame.set_cursor(x, y);
+        if state.is_focused() {
+            if let Some((x, y)) = state.screen_cursor() {
+                frame.set_cursor(x, y);
+            }
         }
     }
 }
@@ -140,7 +142,7 @@ impl DateInputStateExt {
         self.widget.select_all();
     }
 
-    pub fn screen_cursor(&self) -> Option<Position> {
+    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
         self.widget.screen_cursor()
     }
 }
@@ -168,9 +170,10 @@ where
     fn handle(&mut self, event: &Event, _keymap: ConvenientKeys) -> ControlUI<A, E> {
         if self.is_focused() {
             match self.widget.handle(event, ConvenientKeys) {
-                Outcome::Changed => ControlUI::Change,
-                Outcome::NotUsed => ControlUI::Continue,
-                Outcome::Unchanged => ControlUI::NoChange,
+                TextOutcome::Changed => ControlUI::Change,
+                TextOutcome::NotUsed => ControlUI::Continue,
+                TextOutcome::Unchanged => ControlUI::NoChange,
+                TextOutcome::TextChanged => ControlUI::Change,
             }
         } else {
             ControlUI::Continue
@@ -185,9 +188,10 @@ where
     fn handle(&mut self, event: &Event, _keymap: DefaultKeys) -> ControlUI<A, E> {
         let focus = self.is_focused();
         match rat_input::date_input::handle_events(&mut self.widget, focus, event) {
-            Outcome::Changed => ControlUI::Change,
-            Outcome::Unchanged => ControlUI::NoChange,
-            Outcome::NotUsed => ControlUI::Continue,
+            TextOutcome::Changed => ControlUI::Change,
+            TextOutcome::NotUsed => ControlUI::Continue,
+            TextOutcome::Unchanged => ControlUI::NoChange,
+            TextOutcome::TextChanged => ControlUI::Change,
         }
     }
 }
