@@ -40,11 +40,11 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<No
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                self.set_row_offset(self.max_row_offset);
+                self.set_vertical_offset(self.max_row_offset);
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                self.set_row_offset(0);
+                self.set_vertical_offset(0);
                 Outcome::Changed
             }
             ct_event!(keycode press PageUp) => {
@@ -64,11 +64,11 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<No
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                self.set_column_offset(self.max_col_offset);
+                self.set_horizontal_offset(self.max_col_offset);
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                self.set_column_offset(0);
+                self.set_horizontal_offset(0);
                 Outcome::Changed
             }
             _ => Outcome::NotUsed,

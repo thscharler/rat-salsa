@@ -8,7 +8,7 @@ use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget, Widget, WidgetRef};
-use std::cmp::min;
+use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
@@ -887,11 +887,62 @@ impl<Selection: TableSelection> FTableState<Selection> {
             Err(_v) => self.col_offset + self.column_areas.len() + 1,
         }
     }
+}
+
+impl<Selection: TableSelection> FTableState<Selection> {
+    /// Maximum offset that is accessible with scrolling.
+    ///
+    /// This is shorter than the length of the content by whatever fills the last page.
+    /// This is the base for the scrollbar content_length.
+    pub fn vertical_max_offset(&self) -> usize {
+        self.max_row_offset
+    }
+
+    /// Current vertical offset.
+    pub fn vertical_offset(&self) -> usize {
+        self.row_offset
+    }
+
+    /// Vertical page-size at the current offset.
+    pub fn vertical_page(&self) -> usize {
+        self.row_page_len
+    }
+
+    /// Suggested scroll per scroll-event.
+    pub fn vertical_scroll(&self) -> usize {
+        max(self.vertical_page() / 10, 1)
+    }
+
+    /// Maximum offset that is accessible with scrolling.
+    ///
+    /// This is shorter than the length of the content by whatever fills the last page.
+    /// This is the base for the scrollbar content_length.
+    pub fn horizontal_max_offset(&self) -> usize {
+        self.max_col_offset
+    }
+
+    /// Current horizontal offset.
+    pub fn horizontal_offset(&self) -> usize {
+        self.col_offset
+    }
+
+    /// Horizontal page-size at the current offset.
+    pub fn horizontal_page(&self) -> usize {
+        self.col_page_len
+    }
+
+    /// Suggested scroll per scroll-event.
+    pub fn horizontal_scroll(&self) -> usize {
+        max(self.horizontal_page() / 10, 1)
+    }
 
     /// Change the vertical offset.
-    /// Returns true, if there was some change to the offset, even
-    /// if clipped.
-    pub fn set_row_offset(&mut self, offset: usize) -> bool {
+    ///
+    /// Due to overscroll it's possible that this is an invalid offset for the widget.
+    /// The widget must deal with this situation.
+    ///
+    /// The widget returns true if the offset changed at all.
+    pub fn set_vertical_offset(&mut self, offset: usize) -> bool {
         let old_offset = self.row_offset;
         if offset >= self.rows {
             self.row_offset = self.rows;
@@ -902,9 +953,12 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 
     /// Change the horizontal offset.
-    /// Returns true, if there was some change to the offset, even
-    /// if clipped.
-    pub fn set_column_offset(&mut self, offset: usize) -> bool {
+    ///
+    /// Due to overscroll it's possible that this is an invalid offset for the widget.
+    /// The widget must deal with this situation.
+    ///
+    /// The widget returns true if the offset changed at all.
+    pub fn set_horizontal_offset(&mut self, offset: usize) -> bool {
         let old_offset = self.col_offset;
         if offset >= self.columns {
             self.col_offset = self.columns;
@@ -915,40 +969,47 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 
     /// Scroll up by n items.
+    /// The widget returns true if the offset changed at all.
     pub fn scroll_up(&mut self, n: usize) -> bool {
-        self.set_row_offset(self.row_offset.saturating_sub(n))
+        self.set_vertical_offset(self.vertical_offset().saturating_sub(n))
     }
 
     /// Scroll down by n items.
+    /// The widget returns true if the offset changed at all.
     pub fn scroll_down(&mut self, n: usize) -> bool {
-        self.set_row_offset(min(self.row_offset + n, self.max_row_offset))
+        self.set_vertical_offset(min(self.vertical_offset() + n, self.vertical_max_offset()))
     }
 
     /// Scroll up by n items.
+    /// The widget returns true if the offset changed at all.
     pub fn scroll_left(&mut self, n: usize) -> bool {
-        self.set_column_offset(self.col_offset.saturating_sub(n))
+        self.set_horizontal_offset(self.horizontal_offset().saturating_sub(n))
     }
 
     /// Scroll down by n items.
+    /// The widget returns true if the offset changed at all.
     pub fn scroll_right(&mut self, n: usize) -> bool {
-        self.set_column_offset(min(self.col_offset + n, self.max_col_offset))
+        self.set_horizontal_offset(min(
+            self.horizontal_offset() + n,
+            self.horizontal_max_offset(),
+        ))
     }
 
     /// Scroll to selected.
     pub fn scroll_to_selected(&mut self) {
         if let Some((selected_col, selected_row)) = self.selection.lead_selection() {
             if self.row_offset + self.row_page_len <= selected_row {
-                self.set_row_offset(selected_row - self.row_page_len + 1);
+                self.set_vertical_offset(selected_row - self.row_page_len + 1);
             }
             if self.row_offset > selected_row {
-                self.set_row_offset(selected_row);
+                self.set_vertical_offset(selected_row);
             }
 
             if self.col_offset + self.col_page_len <= selected_col {
-                self.set_column_offset(selected_col - self.col_page_len + 1);
+                self.set_horizontal_offset(selected_col - self.col_page_len + 1);
             }
             if self.col_offset > selected_col {
-                self.set_column_offset(selected_col);
+                self.set_horizontal_offset(selected_col);
             }
         }
     }

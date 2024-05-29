@@ -125,11 +125,11 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                self.set_column_offset(self.max_col_offset);
+                self.set_horizontal_offset(self.max_col_offset);
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                self.set_column_offset(0);
+                self.set_horizontal_offset(0);
                 Outcome::Changed
             }
             _ => Outcome::NotUsed,
