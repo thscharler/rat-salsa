@@ -101,8 +101,8 @@ impl Default for DateInputStateExt {
 
 impl DateInputStateExt {
     /// Reset to empty.
-    pub fn reset(&mut self) {
-        self.widget.reset();
+    pub fn clear(&mut self) {
+        self.widget.clear();
     }
 
     /// chrono format string.

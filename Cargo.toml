@@ -48,7 +48,7 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 crossbeam = "0.8"
 crossterm = "0.27"
 log = "0.4"
-ratatui = { version = "0.26", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
+ratatui = { version = "0.26", features = ["unstable-rendered-line-info"] }
 unicode-segmentation = "1.11"
 rust_decimal = "1.34"
 rust_decimal_macros = "1.34"
@@ -57,14 +57,10 @@ memchr = "2.7.2"
 #tui-textarea = { version = "0.4.0", features = ["ratatui", "crossterm"] }
 #tui-tree-widget = "0.19.0"
 format_num_pattern = "0.9"
-
-[dependencies.rat-input]
-version = "0.14"
-path = "../rat-input"
-
-[dependencies.rat-scrolled]
-version = "0.10"
-path = "../rat-scrolled"
+rat-input = { version = "0.15" }
+rat-scrolled = { version = "0.10" }
+#rat-input = { version = "0.15", path = "../rat-input" }
+#rat-scrolled = { version = "0.10", path = "../rat-scrolled" }
 
 [dev-dependencies]
 fern = "0.6"
