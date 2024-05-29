@@ -1,3 +1,7 @@
+# 0.13.1
+
+* Fix versions.
+
 # 0.13.0
 
 * Use the same names as the ScrollingState trait for the same functions.
