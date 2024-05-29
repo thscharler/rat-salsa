@@ -47,6 +47,7 @@ pub fn row_at_drag(encompassing: Rect, areas: &[Rect], y_pos: u16) -> Result<usi
     }
 
     // assume row-height=1 for outside the box.
+    #[allow(clippy::collapsible_else_if)]
     if y_pos < encompassing.top() {
         Err(y_pos as isize - encompassing.top() as isize)
     } else {
@@ -65,6 +66,7 @@ pub fn column_at_drag(encompassing: Rect, areas: &[Rect], x_pos: u16) -> Result<
     }
 
     // change by 1 column if outside the box
+    #[allow(clippy::collapsible_else_if)]
     if x_pos < encompassing.left() {
         Err(x_pos as isize - encompassing.left() as isize)
     } else {
