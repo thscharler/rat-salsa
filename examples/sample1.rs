@@ -1,7 +1,6 @@
 #![allow(unused_variables)]
 #![allow(clippy::needless_update)]
 
-use anyhow::anyhow;
 use crossbeam::channel::Sender;
 use crossterm::event::Event;
 use format_num_pattern::NumberSymbols;
@@ -11,7 +10,6 @@ use rat_input::button::ButtonStyle;
 use rat_input::input::TextInputStyle;
 use rat_input::masked_input::MaskedInputStyle;
 use rat_salsa::layout::{layout_edit, EditConstraint};
-use rat_salsa::rere::ftable::{FTable, FTableState, TableData};
 use rat_salsa::widget::date_input::{DateInputExt, DateInputStateExt};
 use rat_salsa::widget::input::{TextInputExt, TextInputExtState};
 use rat_salsa::widget::list::{ListExt, ListExtState, ListExtStyle};
@@ -23,28 +21,21 @@ use rat_salsa::widget::message::{
 use rat_salsa::widget::paragraph::{ParagraphExt, ParagraphExtState};
 use rat_salsa::widget::scrolled::{Scrolled, ScrolledState};
 use rat_salsa::widget::table::{TableExt, TableExtState, TableExtStyle};
-use rat_salsa::widget::text_area::{TextAreaExt, TextAreaExtState};
-use rat_salsa::widget::tree::{TreeExt, TreeExtState};
-use rat_salsa::widget::viewport::ViewportState;
 use rat_salsa::{
     check_break, match_focus, on_gained, on_lost, run_tui, tr, validate, ControlUI, DefaultKeys,
     Focus, HandleCrossterm, HasFocusFlag, HasValidFlag, RenderFrameWidget, Repaint, RepaintEvent,
     RunConfig, Timed, Timers, TuiApp,
 };
 use rat_salsa::{SetSelection, SingleSelection};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
+use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::prelude::{Color, Style};
 use ratatui::style::Stylize;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{
-    Bar, BarChart, BarGroup, Block, BorderType, Borders, ListItem, Row, Widget, Wrap,
-};
+use ratatui::widgets::{Block, BorderType, Borders, ListItem, Row, Wrap};
 use ratatui::Frame;
 use std::fs;
 use std::iter::repeat_with;
 use std::time::{Duration, SystemTime};
-use tui_tree_widget::TreeItem;
 
 fn main() -> Result<(), anyhow::Error> {
     _ = fs::remove_file("log.log");
@@ -113,10 +104,7 @@ pub struct FormOneState {
     pub dateinput: FormDateInput,
     pub scrolled_para: FormScrolledParagraph,
     pub scrolled_table: FormScrolledTable,
-    pub scrolled_ftable: FormScrolledFTable,
     pub scrolled_list: FormScrolledList,
-    pub text_area: FormTextArea,
-    pub scroll_other: FormOther,
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -125,10 +113,7 @@ pub enum MenuItem {
     Date,
     Paragraph,
     Table,
-    FTable,
     List,
-    TextArea,
-    Tree,
     Error,
     Quit,
 }
@@ -181,24 +166,8 @@ pub struct FormScrolledTable {
 }
 
 #[derive(Debug)]
-pub struct FormScrolledFTable {
-    pub table1: ScrolledState<FTableState<SingleSelection>>,
-}
-
-#[derive(Debug)]
 pub struct FormScrolledList {
     pub list1: ScrolledState<ListExtState<SingleSelection>>,
-}
-
-#[derive(Debug)]
-pub struct FormTextArea {
-    pub text: ScrolledState<TextAreaExtState<'static>>,
-}
-
-#[derive(Debug)]
-pub struct FormOther {
-    pub tree: ScrolledState<TreeExtState<usize>>,
-    pub chart: ScrolledState<ViewportState>,
 }
 
 impl FormOneState {
@@ -210,10 +179,7 @@ impl FormOneState {
             dateinput: FormDateInput::new(sym),
             scrolled_para: FormScrolledParagraph::new(),
             scrolled_table: FormScrolledTable::new(),
-            scrolled_ftable: FormScrolledFTable::new(),
             scrolled_list: FormScrolledList::new(),
-            text_area: FormTextArea::new(),
-            scroll_other: FormOther::new(),
         };
         s.menu.select(Some(0));
         s
@@ -299,35 +265,10 @@ impl FormScrolledTable {
     }
 }
 
-impl FormScrolledFTable {
-    pub fn new() -> Self {
-        Self {
-            table1: Default::default(),
-        }
-    }
-}
-
 impl FormScrolledList {
     pub fn new() -> Self {
         Self {
             list1: Default::default(),
-        }
-    }
-}
-
-impl FormTextArea {
-    pub fn new() -> Self {
-        Self {
-            text: Default::default(),
-        }
-    }
-}
-
-impl FormOther {
-    pub fn new() -> Self {
-        Self {
-            tree: Default::default(),
-            chart: Default::default(),
         }
     }
 }
@@ -415,23 +356,12 @@ impl TuiApp for FormOneApp {
                     _
                 )
             }
-            Some(MenuItem::FTable) => {
-                tr!(
-                    repaint_scrolled_ftable(&event, frame, layout, data, uistate),
-                    _
-                )
-            }
+
             Some(MenuItem::List) => {
                 tr!(
                     repaint_scrolled_list(&event, frame, layout, data, uistate),
                     _
                 )
-            }
-            Some(MenuItem::TextArea) => {
-                tr!(repaint_textarea(&event, frame, layout, data, uistate), _)
-            }
-            Some(MenuItem::Tree) => {
-                tr!(repaint_tree(&event, frame, layout, data, uistate), _)
             }
             _ => {}
         }
@@ -504,10 +434,7 @@ impl TuiApp for FormOneApp {
             Some(MenuItem::Date) => handle_dateinput(&event, data, uistate),
             Some(MenuItem::Paragraph) => handle_scrolled_paragraph(&event, data, uistate),
             Some(MenuItem::Table) => handle_scrolled_table(&event, data, uistate),
-            Some(MenuItem::FTable) => handle_scrolled_ftable(&event, data, uistate),
             Some(MenuItem::List) => handle_scrolled_list(&event, data, uistate),
-            Some(MenuItem::TextArea) => handle_textarea(&event, data, uistate),
-            Some(MenuItem::Tree) => handle_tree(&event, data, uistate),
             Some(MenuItem::Error) => handle_error(&event, data, uistate),
             _ => Control::Continue,
         });
@@ -552,16 +479,13 @@ fn repaint_menu(
     uistate: &mut FormOneState,
 ) -> Control {
     let menu = MenuLineExt::new()
-        .style(uistate.g.theme.menu_style())
+        .styles(uistate.g.theme.menu_style())
         .title("Select form:")
         .add("TextField", MenuItem::Text)
         .add("DateField", MenuItem::Date)
         .add("Scrolling", MenuItem::Paragraph)
         .add("Table", MenuItem::Table)
-        .add("FTable", MenuItem::FTable)
         .add("List", MenuItem::List)
-        .add("TextArea", MenuItem::TextArea)
-        .add("Other", MenuItem::Tree)
         .add("Error", MenuItem::Error)
         .add("_Quit", MenuItem::Quit);
     frame.render_stateful_widget(menu, layout.menu, &mut uistate.menu);
@@ -962,7 +886,7 @@ fn repaint_dateinput(
         );
         frame.render_widget(Span::from(format!("parse={:?}", r.value())), l2.label());
         frame.render_widget(
-            Span::from(format!("pattern={}", r.widget.pattern)),
+            Span::from(format!("pattern={}", r.widget.widget.mask())),
             l2.label(),
         );
         frame.render_widget(
@@ -1330,99 +1254,6 @@ fn handle_scrolled_table(
     Control::Continue
 }
 
-fn repaint_scrolled_ftable(
-    event: &RepaintEvent,
-    frame: &mut Frame<'_>,
-    layout: FormOneAppLayout,
-    data: &mut FormOneData,
-    uistate: &mut FormOneState,
-) -> Control {
-    let l_title = Layout::new(
-        Direction::Horizontal,
-        [Constraint::Fill(2), Constraint::Fill(2)],
-    )
-    .split(Rect::new(
-        layout.area.x,
-        layout.area.y,
-        layout.area.width,
-        1,
-    ));
-
-    let l_columns = Layout::new(
-        Direction::Horizontal,
-        [Constraint::Fill(2), Constraint::Fill(2)],
-    )
-    .split(Rect::new(
-        layout.area.x,
-        layout.area.y + 1,
-        layout.area.width,
-        layout.area.height - 1,
-    ));
-
-    struct FSample1<'a>(&'a [[usize; 10]]);
-
-    impl<'a> TableData<'a> for FSample1<'a> {
-        fn size(&self) -> (usize, usize) {
-            (10, self.0.len())
-        }
-
-        fn row_height(&self, row: usize) -> u16 {
-            1
-        }
-
-        fn render_cell(
-            &self,
-            column: usize,
-            row: usize,
-            style: Style,
-            area: Rect,
-            buf: &mut Buffer,
-        ) {
-            if let Some(row) = self.0.get(row) {
-                if let Some(cell) = row.get(column) {
-                    Span::from(format!("{}", cell).as_str())
-                        .style(style)
-                        .render(area, buf)
-                }
-            }
-        }
-    }
-
-    let s0 = FSample1(&data.sample1);
-
-    let w_table3 = FTable::default()
-        .data(&s0)
-        .widths([10, 10, 10, 10, 10, 10, 10, 10, 10, 10])
-        .column_spacing(1)
-        .layout_width(130);
-
-    let w_table3 = Scrolled::new(w_table3);
-    frame.render_stateful_widget(w_table3, l_columns[0], &mut uistate.scrolled_ftable.table1);
-
-    ControlUI::Continue
-}
-
-fn focus_ftable(state: &FormScrolledFTable) -> Focus<'_> {
-    Focus::new([(state.table1.focus(), state.table1.area())])
-}
-
-fn handle_scrolled_ftable(
-    event: &Event,
-    data: &mut FormOneData,
-    uistate: &mut FormOneState,
-) -> Control {
-    let state = &mut uistate.scrolled_ftable;
-
-    focus_ftable(state)
-        .append(focus_menu(&uistate.menu))
-        .handle(event, DefaultKeys)
-        .on_action_do(|_| uistate.g.repaint.set());
-
-    check_break!(uistate.scrolled_ftable.table1.handle(event, DefaultKeys));
-
-    Control::Continue
-}
-
 fn repaint_scrolled_list(
     event: &RepaintEvent,
     frame: &mut Frame<'_>,
@@ -1479,240 +1310,6 @@ fn handle_scrolled_list(
         .on_action_do(|_| uistate.g.repaint.set());
 
     uistate.scrolled_list.list1.handle(event, DefaultKeys)
-}
-
-fn repaint_textarea(
-    event: &RepaintEvent,
-    frame: &mut Frame<'_>,
-    layout: FormOneAppLayout,
-    data: &mut FormOneData,
-    uistate: &mut FormOneState,
-) -> Control {
-    let l_columns = Layout::new(
-        Direction::Horizontal,
-        [Constraint::Fill(5), Constraint::Fill(1)],
-    )
-    .split(Rect::new(
-        layout.area.x,
-        layout.area.y + 1,
-        layout.area.width,
-        layout.area.height - 1,
-    ));
-
-    let text_area = Scrolled::new(TextAreaExt::default());
-    frame.render_stateful_widget(text_area, l_columns[0], &mut uistate.text_area.text);
-
-    let l1 = layout_edit(
-        l_columns[1],
-        &[
-            EditConstraint::EmptyRows(2),
-            EditConstraint::Label("cur"),
-            EditConstraint::Widget(20),
-            EditConstraint::Label("rec"),
-            EditConstraint::Widget(20),
-            EditConstraint::Label("dim"),
-            EditConstraint::Widget(20),
-        ],
-    );
-    let mut l1 = l1.iter();
-
-    frame.render_widget(Span::from("cur"), l1.label());
-    frame.render_widget(
-        Span::from(format!("{:?}", uistate.text_area.text.widget.widget.cursor()).to_string()),
-        l1.widget(),
-    );
-    // TODO: rect() and dimensions() not implemented in the baseline
-    // frame.render_widget(Span::from("rec"), l1.label());
-    // frame.render_widget(
-    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.rect()).to_string()),
-    //     l1.widget(),
-    // );
-    // frame.render_widget(Span::from("dim"), l1.label());
-    // frame.render_widget(
-    //     Span::from(format!("{:?}", uistate.text_area.text.widget.widget.dimensions()).to_string()),
-    //     l1.widget(),
-    // );
-
-    ControlUI::Continue
-}
-
-fn focus_textarea(state: &FormTextArea) -> Focus<'_> {
-    Focus::new([(state.text.focus(), state.text.area())])
-}
-
-fn handle_textarea(
-    event: &Event,
-    data: &mut FormOneData,
-    uistate: &mut FormOneState,
-) -> ControlUI<FormOneAction, anyhow::Error> {
-    check_break!(focus_textarea(&uistate.text_area)
-        .append(focus_menu(&uistate.menu))
-        .handle(event, DefaultKeys)
-        .on_action(|_| { ControlUI::Change })
-        .map_err(|_| anyhow!("wtf")));
-
-    uistate.text_area.text.handle(event, DefaultKeys)
-}
-
-fn repaint_tree(
-    event: &RepaintEvent,
-    frame: &mut Frame<'_>,
-    layout: FormOneAppLayout,
-    data: &mut FormOneData,
-    uistate: &mut FormOneState,
-) -> Control {
-    let l_columns = Layout::new(
-        Direction::Horizontal,
-        [
-            Constraint::Fill(2),
-            Constraint::Fill(1),
-            Constraint::Fill(2),
-            Constraint::Fill(1),
-        ],
-    )
-    .split(Rect::new(
-        layout.area.x,
-        layout.area.y + 1,
-        layout.area.width,
-        layout.area.height - 1,
-    ));
-
-    let tree = Scrolled::new(TreeExt::new(vec![
-        tr!(TreeItem::new(
-            1,
-            "1",
-            vec![
-                TreeItem::new_leaf(10, "10"),
-                TreeItem::new_leaf(11, "11"),
-                TreeItem::new_leaf(12, "12"),
-                TreeItem::new_leaf(13, "13"),
-                TreeItem::new_leaf(14, "14"),
-                TreeItem::new_leaf(15, "15"),
-                TreeItem::new_leaf(16, "16"),
-                TreeItem::new_leaf(17, "17"),
-                TreeItem::new_leaf(18, "18"),
-                TreeItem::new_leaf(19, "19"),
-            ],
-        )),
-        tr!(TreeItem::new(
-            2,
-            "2",
-            vec![
-                TreeItem::new_leaf(20, "20"),
-                TreeItem::new_leaf(21, "21"),
-                TreeItem::new_leaf(22, "22"),
-                TreeItem::new_leaf(23, "23"),
-                TreeItem::new_leaf(24, "24"),
-                TreeItem::new_leaf(25, "25"),
-                TreeItem::new_leaf(26, "26"),
-                TreeItem::new_leaf(27, "27"),
-                TreeItem::new_leaf(28, "28"),
-                TreeItem::new_leaf(29, "29"),
-            ],
-        )),
-        tr!(TreeItem::new(
-            3,
-            "3",
-            vec![
-                TreeItem::new_leaf(30, "30"),
-                TreeItem::new_leaf(31, "31"),
-                TreeItem::new_leaf(32, "32"),
-                TreeItem::new_leaf(33, "33"),
-                TreeItem::new_leaf(34, "34"),
-                TreeItem::new_leaf(35, "35"),
-                TreeItem::new_leaf(36, "36"),
-                TreeItem::new_leaf(37, "37"),
-                TreeItem::new_leaf(38, "38"),
-                TreeItem::new_leaf(39, "39"),
-            ],
-        )),
-        tr!(TreeItem::new(
-            4,
-            "4",
-            vec![
-                TreeItem::new_leaf(40, "40"),
-                TreeItem::new_leaf(41, "41"),
-                TreeItem::new_leaf(42, "42"),
-                TreeItem::new_leaf(43, "43"),
-                TreeItem::new_leaf(44, "44"),
-                TreeItem::new_leaf(45, "45"),
-                TreeItem::new_leaf(46, "46"),
-                TreeItem::new_leaf(47, "47"),
-                TreeItem::new_leaf(48, "48"),
-                TreeItem::new_leaf(49, "49"),
-            ],
-        )),
-        tr!(TreeItem::new(
-            5,
-            "5",
-            vec![
-                TreeItem::new_leaf(50, "50"),
-                TreeItem::new_leaf(51, "51"),
-                TreeItem::new_leaf(52, "52"),
-                TreeItem::new_leaf(53, "53"),
-                TreeItem::new_leaf(54, "54"),
-                TreeItem::new_leaf(55, "55"),
-                TreeItem::new_leaf(56, "56"),
-                TreeItem::new_leaf(57, "57"),
-                TreeItem::new_leaf(58, "58"),
-                TreeItem::new_leaf(59, "59"),
-            ],
-        )),
-    ]));
-
-    for i in 0..60 {
-        uistate.scroll_other.tree.widget.widget.open(vec![i / 10]);
-        uistate
-            .scroll_other
-            .tree
-            .widget
-            .widget
-            .open(vec![i / 10, i]);
-    }
-    frame.render_stateful_widget(tree, l_columns[0], &mut uistate.scroll_other.tree);
-
-    let w_chart = BarChart::default()
-        .block(Block::default().title("BarChart").borders(Borders::ALL))
-        .bar_width(3)
-        .bar_gap(1)
-        .group_gap(3)
-        .bar_style(Style::new().yellow().on_red())
-        .value_style(Style::new().red().bold())
-        .label_style(Style::new().white())
-        .data(&[("B0", 0), ("B1", 2), ("B2", 4), ("B3", 3)])
-        .data(BarGroup::default().bars(&[Bar::default().value(10), Bar::default().value(20)]))
-        .max(4);
-
-    let w_chart = Scrolled::new_viewport(w_chart)
-        .viewport_size(Size::new(60, 60))
-        .viewport_style(Style::default().fg(uistate.g.theme.red))
-        .viewport_fill_char('∞')
-        .h_overscroll(10)
-        .v_overscroll(10);
-    frame.render_stateful_widget(w_chart, l_columns[2], &mut uistate.scroll_other.chart);
-
-    ControlUI::Continue
-}
-
-fn focus_tree(state: &FormOther) -> Focus<'_> {
-    Focus::new([(state.tree.focus(), state.tree.area())])
-}
-
-fn handle_tree(
-    event: &Event,
-    data: &mut FormOneData,
-    uistate: &mut FormOneState,
-) -> ControlUI<FormOneAction, anyhow::Error> {
-    check_break!(focus_tree(&uistate.scroll_other)
-        .append(focus_menu(&uistate.menu))
-        .handle(event, DefaultKeys)
-        .on_action(|_| { ControlUI::Change })
-        .map_err(|_| anyhow!("wtf")));
-
-    check_break!(uistate.scroll_other.tree.handle(event, DefaultKeys));
-    check_break!(uistate.scroll_other.chart.handle(event, DefaultKeys));
-
-    ControlUI::Continue
 }
 
 // -----------------------------------------------------------------------
@@ -1834,9 +1431,9 @@ impl Theme {
     pub fn menu_style(&self) -> MenuStyle {
         MenuStyle {
             style: Style::default().fg(self.white).bg(self.one_bg3).bold(),
-            title: Style::default().fg(self.black).bg(self.base0a).bold(),
-            select: Style::default().fg(self.black).bg(self.base0e).bold(),
-            focus: Style::default().fg(self.black).bg(self.green).bold(),
+            title: Some(Style::default().fg(self.black).bg(self.base0a).bold()),
+            select: Some(Style::default().fg(self.black).bg(self.base0e).bold()),
+            focus: Some(Style::default().fg(self.black).bg(self.green).bold()),
             ..Default::default()
         }
     }

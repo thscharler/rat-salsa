@@ -251,7 +251,7 @@ fn repaint_mask0(
     // TODO: repaint_mask
 
     let menu = MenuLineExt::new()
-        .style(uistate.g.theme.menu_style())
+        .styles(uistate.g.theme.menu_style())
         .add("_Quit", 0u16);
     frame.render_stateful_widget(menu, layout.menu, &mut uistate.mask0.menu);
 
@@ -380,9 +380,9 @@ impl Theme {
     pub fn menu_style(&self) -> MenuStyle {
         MenuStyle {
             style: Style::default().fg(self.white).bg(self.one_bg3).bold(),
-            title: Style::default().fg(self.black).bg(self.base0a).bold(),
-            select: Style::default().fg(self.black).bg(self.base0e).bold(),
-            focus: Style::default().fg(self.black).bg(self.green).bold(),
+            title: Some(Style::default().fg(self.black).bg(self.base0a).bold()),
+            select: Some(Style::default().fg(self.black).bg(self.base0e).bold()),
+            focus: Some(Style::default().fg(self.black).bg(self.green).bold()),
             ..Default::default()
         }
     }

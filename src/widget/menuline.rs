@@ -6,9 +6,11 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::{ControlUI, FocusFlag, HasFocusFlag};
-use crate::{DefaultKeys, HandleCrossterm, MouseOnly};
+use crate::{DefaultKeys, HandleCrossterm};
 use crossterm::event::Event;
-use rat_input::event::{FocusKeys, HandleEvent};
+#[allow(unused_imports)]
+use log::debug;
+use rat_input::event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_input::menuline::{MenuLine, MenuLineState, MenuOutcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
@@ -89,6 +91,7 @@ impl<'a, A> StatefulWidget for MenuLineExt<'a, A> {
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
+        state.action = self.action;
 
         self.widget = self.widget.focused(state.is_focused());
         self.widget.render(area, buf, &mut state.widget);
@@ -222,14 +225,23 @@ impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, DefaultKeys> for MenuLineExtSt
                 },
             }
         } else {
-            ControlUI::Continue
+            match self.widget.handle(event, MouseOnly) {
+                MenuOutcome::NotUsed => ControlUI::Continue,
+                MenuOutcome::Unchanged => ControlUI::NoChange,
+                MenuOutcome::Changed => ControlUI::Change,
+                MenuOutcome::Selected(_) => ControlUI::Change,
+                MenuOutcome::Activated(i) => match self.action.get(i) {
+                    Some(v) => ControlUI::Run(*v),
+                    None => ControlUI::Continue,
+                },
+            }
         }
     }
 }
 
 impl<A: Copy, E> HandleCrossterm<ControlUI<A, E>, MouseOnly> for MenuLineExtState<A> {
     fn handle(&mut self, event: &Event, _: MouseOnly) -> ControlUI<A, E> {
-        match self.widget.handle(event, rat_input::event::MouseOnly) {
+        match self.widget.handle(event, MouseOnly) {
             MenuOutcome::NotUsed => ControlUI::Continue,
             MenuOutcome::Unchanged => ControlUI::NoChange,
             MenuOutcome::Changed => ControlUI::Change,
