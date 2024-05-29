@@ -1,3 +1,7 @@
+# 0.13.0
+
+* Use the same names as the ScrollingState trait for the same functions.
+
 # 0.12.1
 
 * Wrongly used area dimensions in some places.
