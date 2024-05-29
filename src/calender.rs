@@ -101,10 +101,12 @@ impl Default for MonthState {
 }
 
 impl HasFocusFlag for MonthState {
+    #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 
+    #[inline]
     fn area(&self) -> Rect {
         self.widget.area
     }

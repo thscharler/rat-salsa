@@ -1,4 +1,6 @@
+//!
 //! Extension for [ratatui::widgets::List]
+//!
 
 use crate::_private::NonExhaustive;
 use crate::list::selection::{RowSelection, RowSetSelection};
@@ -38,8 +40,11 @@ pub struct List<'a, Selection> {
 
 #[derive(Debug, Clone)]
 pub struct ListStyle {
+    /// Style
     pub style: Style,
+    /// Style for selection
     pub select_style: Style,
+    /// Style for selection when focused.
     pub focus_style: Style,
 
     pub non_exhaustive: NonExhaustive,
@@ -47,19 +52,29 @@ pub struct ListStyle {
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ListState<Selection> {
+    /// Length in items.
     pub len: usize,
 
+    /// Offset
     pub v_offset: usize,
+    /// Max offset for full page.
     pub v_max_offset: usize,
+    /// Page length
     pub v_page_len: usize,
 
+    /// Total area
     pub area: Rect,
-    pub list_area: Rect,
+    /// Area inside the block.
+    pub inner: Rect,
+    /// Areas for the rendered items.
     pub item_areas: Vec<Rect>,
 
+    /// Focus
     pub focus: FocusFlag,
+    /// Selection model
     pub selection: Selection,
 
+    /// Helper for mouse events.
     pub mouse: MouseFlags,
 }
 
@@ -103,11 +118,13 @@ impl<'a, Selection> List<'a, Selection> {
         self
     }
 
+    #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
 
+    #[inline]
     pub fn styles(mut self, styles: ListStyle) -> Self {
         self.style = styles.style;
         self.select_style = styles.select_style;
@@ -115,30 +132,36 @@ impl<'a, Selection> List<'a, Selection> {
         self
     }
 
+    #[inline]
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         self.style = style.into();
         self
     }
 
+    #[inline]
     pub fn select_style<S: Into<Style>>(mut self, select_style: S) -> Self {
         self.select_style = select_style.into();
         self
     }
 
+    #[inline]
     pub fn focus_style<S: Into<Style>>(mut self, focus_style: S) -> Self {
         self.focus_style = focus_style.into();
         self
     }
 
+    #[inline]
     pub fn direction(mut self, direction: ListDirection) -> Self {
         self.direction = direction;
         self
     }
 
+    #[inline]
     pub fn len(&self) -> usize {
         self.items.len()
     }
 
+    #[inline]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
     }
@@ -177,23 +200,18 @@ impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
         state.area = area;
         state.len = self.len();
 
-        state.list_area = self.block.inner_if_some(area);
+        state.inner = self.block.inner_if_some(area);
 
         // area for each item
         state.item_areas.clear();
-        let mut item_area = Rect::new(
-            state.list_area.x,
-            state.list_area.y,
-            state.list_area.width,
-            1,
-        );
+        let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
         for item in self.items.iter().skip(state.offset()) {
             item_area.height = item.height() as u16;
 
             state.item_areas.push(item_area);
 
             item_area.y += item_area.height;
-            if item_area.y >= state.list_area.y + state.list_area.height {
+            if item_area.y >= state.inner.y + state.inner.height {
                 break;
             }
         }
@@ -204,7 +222,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
         let mut height = 0;
         for item in self.items.iter().rev() {
             height += item.height();
-            if height > state.list_area.height as usize {
+            if height > state.inner.height as usize {
                 break;
             }
             n += 1;
@@ -324,7 +342,7 @@ impl<Selection: ListSelection> ListState<Selection> {
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
-        match rat_event::util::row_at_drag(self.list_area, &self.item_areas, pos.y) {
+        match rat_event::util::row_at_drag(self.inner, &self.item_areas, pos.y) {
             Ok(v) => self.v_offset + v,
             Err(v) if v <= 0 => self.v_offset.saturating_sub((-v) as usize),
             Err(v) => self.v_offset + self.item_areas.len() + v as usize,
@@ -442,10 +460,12 @@ pub mod selection {
     pub type NoSelection = rat_ftable::selection::NoSelection;
 
     impl ListSelection for NoSelection {
+        #[inline]
         fn is_selected(&self, _n: usize) -> bool {
             false
         }
 
+        #[inline]
         fn lead_selection(&self) -> Option<usize> {
             None
         }
@@ -467,10 +487,12 @@ pub mod selection {
     pub type RowSelection = rat_ftable::selection::RowSelection;
 
     impl ListSelection for RowSelection {
+        #[inline]
         fn is_selected(&self, n: usize) -> bool {
             self.lead_row == Some(n)
         }
 
+        #[inline]
         fn lead_selection(&self) -> Option<usize> {
             self.lead_row
         }

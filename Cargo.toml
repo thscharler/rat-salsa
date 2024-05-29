@@ -45,8 +45,10 @@ unused_qualifications = "warn"
 variant_size_differences = "warn"
 
 [dependencies]
-ratatui = { version = "0.26", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
+ratatui = { version = "0.26", features = ["unstable-rendered-line-info"] }
 crossterm = "0.27"
+ropey = "1.6.1"
+pure-rust-locales = "0.8"
 log = "0.4"
 rat-event = "0.12"
 rat-focus = "0.9"
@@ -56,7 +58,6 @@ rat-scrolled = "0.10"
 
 chrono = { version = "0.4", features = ["unstable-locales"] }
 format_num_pattern = "0.9"
-
 
 [dev-dependencies]
 fern = "0.6"

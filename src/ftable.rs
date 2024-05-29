@@ -7,7 +7,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget};
-use std::cmp::max;
 use std::collections::HashSet;
 
 pub use rat_ftable::{FTableStyle, TableData, TableSelection};
@@ -250,10 +249,12 @@ impl<'a, Selection> FTable<'a, Selection> {
 impl<'a, Selection> Styled for FTable<'a, Selection> {
     type Item = Self;
 
+    #[inline]
     fn style(&self) -> Style {
         Styled::style(&self.widget)
     }
 
+    #[inline]
     fn set_style<S: Into<Style>>(mut self, style: S) -> Self::Item {
         self.widget = Styled::set_style(self.widget, style);
         self
@@ -261,6 +262,7 @@ impl<'a, Selection> Styled for FTable<'a, Selection> {
 }
 
 impl<'a, Selection> ScrollingWidget<FTableState<Selection>> for FTable<'a, Selection> {
+    #[inline]
     fn need_scroll(&self, area: Rect, _state: &mut FTableState<Selection>) -> (bool, bool) {
         self.widget.need_scroll(area)
     }
@@ -433,52 +435,64 @@ impl FTableState<CellSelection> {
 }
 
 impl<Selection: TableSelection> ScrollingState for FTableState<Selection> {
+    #[inline]
     fn vertical_max_offset(&self) -> usize {
-        self.widget.max_row_offset
+        self.widget.vertical_max_offset()
     }
 
+    #[inline]
     fn vertical_offset(&self) -> usize {
-        self.widget.row_offset
+        self.widget.vertical_offset()
     }
 
+    #[inline]
     fn vertical_page(&self) -> usize {
-        self.widget.row_page_len
+        self.widget.vertical_page()
     }
 
+    #[inline]
     fn vertical_scroll(&self) -> usize {
-        max(self.widget.row_page_len / 10, 1)
+        self.widget.vertical_scroll()
     }
 
+    #[inline]
     fn horizontal_max_offset(&self) -> usize {
-        self.widget.max_col_offset
+        self.widget.horizontal_max_offset()
     }
 
+    #[inline]
     fn horizontal_offset(&self) -> usize {
-        self.widget.col_offset
+        self.widget.horizontal_offset()
     }
 
+    #[inline]
     fn horizontal_page(&self) -> usize {
-        self.widget.col_page_len
+        self.widget.horizontal_page()
     }
 
+    #[inline]
     fn horizontal_scroll(&self) -> usize {
-        1
+        self.widget.horizontal_scroll()
     }
 
+    #[inline]
     fn set_vertical_offset(&mut self, offset: usize) -> bool {
-        self.widget.set_row_offset(offset)
+        self.widget.set_vertical_offset(offset)
     }
 
+    #[inline]
     fn set_horizontal_offset(&mut self, offset: usize) -> bool {
-        self.widget.set_column_offset(offset)
+        self.widget.set_horizontal_offset(offset)
     }
 }
 
 impl<Selection> HasFocusFlag for FTableState<Selection> {
+    #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 
+    #[inline]
     fn area(&self) -> Rect {
         self.widget.area
     }

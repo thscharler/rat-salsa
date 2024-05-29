@@ -71,6 +71,7 @@ impl<'a> MenuLine<'a> {
 
     /// Add item.
     #[inline]
+    #[allow(clippy::should_implement_trait)]
     pub fn add(mut self, menu_item: &'a str) -> Self {
         self.widget = self.widget.add(menu_item);
         self
@@ -108,6 +109,7 @@ impl Default for MenuLineState {
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl MenuLineState {
     pub fn new() -> Self {
         Self::default()

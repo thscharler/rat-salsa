@@ -1,4 +1,6 @@
-/// Button widget.
+//!
+//! Button widget.
+//!
 use crate::_private::NonExhaustive;
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -53,18 +55,21 @@ impl<'a> Button<'a> {
         self
     }
 
+    /// Style when the button is clicked but not yet released.
     #[inline]
     pub fn armed_style(mut self, style: impl Into<Style>) -> Self {
         self.widget = self.widget.armed_style(style);
         self
     }
 
+    /// Text
     #[inline]
     pub fn text(mut self, text: impl Into<Text<'a>>) -> Self {
         self.widget = self.widget.text(text);
         self
     }
 
+    /// Block
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.widget = self.widget.block(block);
@@ -142,10 +147,12 @@ impl<'a> StatefulWidgetRef for Button<'a> {
 }
 
 impl HasFocusFlag for ButtonState {
+    #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 
+    #[inline]
     fn area(&self) -> Rect {
         self.widget.area
     }

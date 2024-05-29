@@ -34,10 +34,15 @@ Date values.
 
 Complex input masks.
 
+* TextArea
+
+Textarea with text styling. Uses [ropey](https://docs.rs/ropey/latest/ropey/) backend,
+so should be good for long text too.
+
 * FTable
 
 FTable with backing TableData trait for large tables.
-Renders in O(1)
+Renders in O(1) in regard of the data size.
 
 * List
 

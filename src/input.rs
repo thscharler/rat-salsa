@@ -8,25 +8,25 @@
 //!
 //!
 //! The visual cursor must be set separately after rendering.
-//! It is accessible as [TextInputState::screen_cursor()] or [TextInputState::cursor] after rendering.
+//! It is accessible as [TextInputState::screen_cursor()] after rendering.
 //!
-//! Event handling by calling the freestanding fn [crate::masked_input::handle_events].
-//! There's [handle_mouse_events] if you want to override the default key bindings but keep
-//! the mouse behaviour.
+//! For event-handling call one of the HandleEvent implementations.
 //!
 
 use crate::_private::NonExhaustive;
-use rat_event::util::Outcome;
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_input::event::{ReadOnly, TextOutcome};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::Block;
 use std::ops::Range;
 
+pub use rat_input::input::core;
 pub use rat_input::input::TextInputStyle;
 
+/// Text input widget.
 #[derive(Debug, Default, Clone)]
 pub struct TextInput<'a> {
     widget: rat_input::input::TextInput<'a>,
@@ -36,7 +36,7 @@ pub struct TextInput<'a> {
 pub struct TextInputState {
     pub widget: rat_input::input::TextInputState,
     pub focus: FocusFlag,
-    pub valid: bool,
+    pub invalid: bool,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -95,7 +95,7 @@ impl<'a> StatefulWidget for TextInput<'a> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
             .focused(state.is_focused())
-            .valid(state.valid)
+            .invalid(state.invalid)
             .render(area, buf, &mut state.widget)
     }
 }
@@ -105,17 +105,19 @@ impl Default for TextInputState {
         Self {
             widget: Default::default(),
             focus: Default::default(),
-            valid: true,
+            invalid: false,
             non_exhaustive: NonExhaustive,
         }
     }
 }
 
 impl HasFocusFlag for TextInputState {
+    #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 
+    #[inline]
     fn area(&self) -> Rect {
         self.widget.area
     }
@@ -128,8 +130,8 @@ impl TextInputState {
 
     /// Reset to empty.
     #[inline]
-    pub fn reset(&mut self) {
-        self.widget.reset()
+    pub fn clear(&mut self) -> bool {
+        self.widget.clear()
     }
 
     /// Offset shown.
@@ -144,28 +146,34 @@ impl TextInputState {
         self.widget.set_offset(offset)
     }
 
-    /// Set the cursor position, reset selection.
-    #[inline]
-    pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) {
-        self.widget.set_cursor(cursor, extend_selection)
-    }
-
     /// Cursor position.
     #[inline]
     pub fn cursor(&self) -> usize {
         self.widget.cursor()
     }
 
-    /// Set text.
+    /// Set the cursor position, reset selection.
     #[inline]
-    pub fn set_value<S: Into<String>>(&mut self, s: S) {
-        self.widget.set_value(s)
+    pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) -> bool {
+        self.widget.set_cursor(cursor, extend_selection)
+    }
+
+    /// Selection anchor.
+    #[inline]
+    pub fn anchor(&self) -> usize {
+        self.widget.anchor()
     }
 
     /// Text.
     #[inline]
     pub fn value(&self) -> &str {
         self.widget.value()
+    }
+
+    /// Set text.
+    #[inline]
+    pub fn set_value<S: Into<String>>(&mut self, s: S) {
+        self.widget.set_value(s)
     }
 
     /// Empty.
@@ -188,91 +196,129 @@ impl TextInputState {
 
     /// Selection.
     #[inline]
-    pub fn set_selection(&mut self, anchor: usize, cursor: usize) {
-        self.widget.set_selection(anchor, cursor)
-    }
-
-    /// Selection.
-    #[inline]
-    pub fn select_all(&mut self) {
-        self.widget.select_all()
-    }
-
-    /// Selection.
-    #[inline]
     pub fn selection(&self) -> Range<usize> {
         self.widget.selection()
     }
 
     /// Selection.
     #[inline]
-    pub fn selection_str(&self) -> &str {
-        self.widget.selection_str()
+    pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
+        self.widget.set_selection(anchor, cursor)
     }
 
-    /// Previous word boundary
+    /// Selection.
     #[inline]
-    pub fn prev_word_boundary(&self) -> usize {
-        self.widget.prev_word_boundary()
+    pub fn select_all(&mut self) -> bool {
+        self.widget.select_all()
     }
 
-    /// Next word boundary
+    /// Selection.
     #[inline]
-    pub fn next_word_boundary(&self) -> usize {
-        self.widget.next_word_boundary()
+    pub fn selected_value(&self) -> &str {
+        self.widget.selected_value()
     }
 
-    /// Set the cursor position from a visual position relative to the origin.
+    /// Insert a char at the current position.
     #[inline]
-    pub fn set_screen_cursor(&mut self, rpos: isize, extend_selection: bool) -> bool {
-        self.widget.set_screen_cursor(rpos, extend_selection)
-    }
-
-    /// The current text cursor as an absolute screen position.
-    #[inline]
-    pub fn screen_cursor(&self) -> Option<Position> {
-        self.widget.screen_cursor()
-    }
-
-    /// Move to the next char.
-    #[inline]
-    pub fn move_to_next(&mut self, extend_selection: bool) {
-        self.widget.move_to_next(extend_selection)
-    }
-
-    /// Move to the previous char.
-    #[inline]
-    pub fn move_to_prev(&mut self, extend_selection: bool) {
-        self.widget.move_to_prev(extend_selection)
-    }
-
-    /// Insert a char a the current position.
-    #[inline]
-    pub fn insert_char(&mut self, c: char) {
+    pub fn insert_char(&mut self, c: char) -> bool {
         self.widget.insert_char(c)
     }
 
-    /// Replace the given range with a new string.
+    /// Deletes the given range.
     #[inline]
-    pub fn remove(&mut self, range: Range<usize>) {
-        self.widget.remove(range)
+    pub fn delete_range(&mut self, range: Range<usize>) -> bool {
+        self.widget.delete_range(range)
+    }
+
+    /// Deletes the next word.
+    #[inline]
+    pub fn delete_next_word(&mut self) -> bool {
+        self.widget.delete_next_word()
+    }
+
+    /// Deletes the given range.
+    #[inline]
+    pub fn delete_prev_word(&mut self) -> bool {
+        self.widget.delete_prev_word()
     }
 
     /// Delete the char before the cursor.
     #[inline]
-    pub fn delete_prev_char(&mut self) {
+    pub fn delete_prev_char(&mut self) -> bool {
         self.widget.delete_prev_char()
     }
 
     /// Delete the char after the cursor.
     #[inline]
-    pub fn delete_next_char(&mut self) {
+    pub fn delete_next_char(&mut self) -> bool {
         self.widget.delete_next_char()
+    }
+
+    #[inline]
+    pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
+        self.widget.move_to_next_word(extend_selection)
+    }
+
+    #[inline]
+    pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
+        self.widget.move_to_prev_word(extend_selection)
+    }
+
+    /// Move to the next char.
+    #[inline]
+    pub fn move_to_next(&mut self, extend_selection: bool) -> bool {
+        self.widget.move_to_next(extend_selection)
+    }
+
+    /// Move to the previous char.
+    #[inline]
+    pub fn move_to_prev(&mut self, extend_selection: bool) -> bool {
+        self.widget.move_to_prev(extend_selection)
+    }
+
+    /// Start of line
+    #[inline]
+    pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
+        self.widget.move_to_line_start(extend_selection)
+    }
+
+    // End of line
+    #[inline]
+    pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
+        self.widget.move_to_line_end(extend_selection)
+    }
+
+    /// Converts a grapheme based position to a screen position
+    /// relative to the widget area.
+    pub fn to_screen_col(&self, pos: usize) -> Option<u16> {
+        self.widget.to_screen_col(pos)
+    }
+
+    /// Converts from a widget relative screen coordinate to a grapheme index.
+    /// x is the relative screen position.
+    pub fn from_screen_col(&self, x: usize) -> Option<usize> {
+        self.widget.from_screen_col(x)
+    }
+
+    /// Set the cursor position from a visual position relative to the origin.
+    #[inline]
+    pub fn set_screen_cursor(&mut self, cursor: isize, extend_selection: bool) -> bool {
+        self.widget.set_screen_cursor(cursor, extend_selection)
+    }
+
+    /// The current text cursor as an absolute screen position.
+    #[inline]
+    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
+        if self.is_focused() {
+            self.widget.screen_cursor()
+        } else {
+            None
+        }
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TextInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextInputState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
         } else {
@@ -281,8 +327,18 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TextInputState
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TextInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
+        if self.is_focused() {
+            self.widget.handle(event, ReadOnly)
+        } else {
+            self.widget.handle(event, MouseOnly)
+        }
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         self.widget.handle(event, MouseOnly)
     }
 }
