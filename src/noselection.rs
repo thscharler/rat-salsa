@@ -31,45 +31,23 @@ impl TableSelection for NoSelection {
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<NoSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = match event {
-            ct_event!(keycode press Down) => {
-                self.scroll_down(1);
-                Outcome::Changed
-            }
-            ct_event!(keycode press Up) => {
-                self.scroll_up(1);
-                Outcome::Changed
-            }
+            ct_event!(keycode press Down) => self.scroll_down(1).into(),
+            ct_event!(keycode press Up) => self.scroll_up(1).into(),
             ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                self.set_vertical_offset(self.max_row_offset);
-                Outcome::Changed
+                self.set_vertical_offset(self.max_row_offset).into()
             }
             ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                self.set_vertical_offset(0);
-                Outcome::Changed
+                self.set_vertical_offset(0).into()
             }
-            ct_event!(keycode press PageUp) => {
-                self.scroll_up(self.row_page_len);
-                Outcome::Changed
-            }
-            ct_event!(keycode press PageDown) => {
-                self.scroll_down(self.row_page_len);
-                Outcome::Changed
-            }
-            ct_event!(keycode press Right) => {
-                self.scroll_right(1);
-                Outcome::Changed
-            }
-            ct_event!(keycode press Left) => {
-                self.scroll_left(1);
-                Outcome::Changed
-            }
+            ct_event!(keycode press PageUp) => self.scroll_up(self.row_page_len).into(),
+            ct_event!(keycode press PageDown) => self.scroll_down(self.row_page_len).into(),
+            ct_event!(keycode press Right) => self.scroll_right(1).into(),
+            ct_event!(keycode press Left) => self.scroll_left(1).into(),
             ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                self.set_horizontal_offset(self.max_col_offset);
-                Outcome::Changed
+                self.set_horizontal_offset(self.max_col_offset).into()
             }
             ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                self.set_horizontal_offset(0);
-                Outcome::Changed
+                self.set_horizontal_offset(0).into()
             }
             _ => Outcome::NotUsed,
         };
@@ -87,32 +65,28 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<No
         match event {
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(max(self.row_page_len / 10, 1));
-                    Outcome::Changed
+                    self.scroll_down(max(self.row_page_len / 10, 1)).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(max(self.row_page_len / 10, 1));
-                    Outcome::Changed
+                    self.scroll_up(max(self.row_page_len / 10, 1)).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_right(1);
-                    Outcome::Changed
+                    self.scroll_right(1).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_left(1);
-                    Outcome::Changed
+                    self.scroll_left(1).into()
                 } else {
                     Outcome::NotUsed
                 }

@@ -1,13 +1,13 @@
 use crate::_private::NonExhaustive;
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::textdata::{Row, TextTableData};
-use crate::util::MouseFlags;
 use crate::{TableData, TableSelection};
+use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Styled};
-use ratatui::widgets::{Block, StatefulWidget, Widget, WidgetRef};
+use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
@@ -641,7 +641,7 @@ where
                     if cell.style != Style::default() {
                         buf.set_style(cell_area, cell.style);
                     }
-                    cell.content.render_ref(cell_area, buf);
+                    cell.content.clone().render(cell_area, buf);
                 }
 
                 if cell_area.right() >= state.header_area.right() {
@@ -702,7 +702,7 @@ where
                     if cell.style != Style::default() {
                         buf.set_style(cell_area, cell.style);
                     }
-                    cell.content.render_ref(cell_area, buf);
+                    cell.content.clone().render(cell_area, buf);
                 }
 
                 if cell_area.right() >= state.footer_area.right() {
@@ -1091,25 +1091,25 @@ impl FTableState<CellSelection> {
 
     /// Select a cell.
     #[inline]
-    pub fn select_cell(&mut self, select: Option<(usize, usize)>) {
-        self.selection.select_cell(select);
+    pub fn select_cell(&mut self, select: Option<(usize, usize)>) -> bool {
+        self.selection.select_cell(select)
     }
 
     /// Select a row. Column stays the same.
     #[inline]
-    pub fn select_row(&mut self, select: Option<usize>) {
-        self.selection.select_row(select);
+    pub fn select_row(&mut self, select: Option<usize>) -> bool {
+        self.selection.select_row(select)
     }
 
     /// Select a column, row stays the same.
     #[inline]
-    pub fn select_column(&mut self, select: Option<usize>) {
-        self.selection.select_column(select);
+    pub fn select_column(&mut self, select: Option<usize>) -> bool {
+        self.selection.select_column(select)
     }
 
     /// Select a cell, clamp between 0 and maximum.
     #[inline]
-    pub fn select_clamped(&mut self, select: (usize, usize), maximum: (usize, usize)) {
-        self.selection.select_clamped(select, maximum);
+    pub fn select_clamped(&mut self, select: (usize, usize), maximum: (usize, usize)) -> bool {
+        self.selection.select_clamped(select, maximum)
     }
 }

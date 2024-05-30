@@ -46,29 +46,36 @@ impl RowSelection {
     }
 
     /// Select a row.
-    pub fn select(&mut self, select: Option<usize>) {
+    pub fn select(&mut self, select: Option<usize>) -> bool {
+        let old_row = self.lead_row;
         self.lead_row = select;
+        old_row != self.lead_row
     }
 
     /// Select a row, clamp between 0 and maximum.
-    pub fn select_clamped(&mut self, select: usize, maximum: usize) {
+    pub fn select_clamped(&mut self, select: usize, maximum: usize) -> bool {
+        let old_row = self.lead_row;
         if select <= maximum {
             self.lead_row = Some(select);
         } else {
             self.lead_row = Some(maximum);
         }
+        old_row != self.lead_row
     }
 
     /// Select the next row, clamp between 0 and maximum.
-    pub fn next(&mut self, n: usize, maximum: usize) {
+    pub fn next(&mut self, n: usize, maximum: usize) -> bool {
+        let old_row = self.lead_row;
         self.lead_row = match self.lead_row {
             None => Some(0),
             Some(v) => Some(min(v + n, maximum)),
         };
+        old_row != self.lead_row
     }
 
     /// Select the previous row, clamp between 0 and maximum.
-    pub fn prev(&mut self, n: usize) {
+    pub fn prev(&mut self, n: usize) -> bool {
+        let old_row = self.lead_row;
         self.lead_row = match self.lead_row {
             None => Some(0),
             Some(v) => {
@@ -79,6 +86,7 @@ impl RowSelection {
                 }
             }
         };
+        old_row != self.lead_row
     }
 }
 
@@ -86,51 +94,45 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = match event {
             ct_event!(keycode press Down) => {
-                self.selection.next(1, self.rows - 1);
+                let r = self.selection.next(1, self.rows - 1).into();
                 self.scroll_to_selected();
-                Outcome::Changed
+                r
             }
             ct_event!(keycode press Up) => {
-                self.selection.prev(1);
+                let r = self.selection.prev(1).into();
                 self.scroll_to_selected();
-                Outcome::Changed
+                r
             }
             ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                self.selection.select(Some(self.rows - 1));
+                let r = self.selection.select(Some(self.rows - 1)).into();
                 self.scroll_to_selected();
-                Outcome::Changed
+                r
             }
             ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                self.selection.select(Some(0));
+                let r = self.selection.select(Some(0)).into();
                 self.scroll_to_selected();
-                Outcome::Changed
+                r
             }
             ct_event!(keycode press PageUp) => {
-                self.selection.prev(self.table_area.height as usize);
+                let r = self.selection.prev(self.table_area.height as usize).into();
                 self.scroll_to_selected();
-                Outcome::Changed
+                r
             }
             ct_event!(keycode press PageDown) => {
-                self.selection
-                    .next(self.table_area.height as usize, self.rows - 1);
+                let r = self
+                    .selection
+                    .next(self.table_area.height as usize, self.rows - 1)
+                    .into();
                 self.scroll_to_selected();
-                Outcome::Changed
+                r
             }
-            ct_event!(keycode press Right) => {
-                self.scroll_right(1);
-                Outcome::Changed
-            }
-            ct_event!(keycode press Left) => {
-                self.scroll_left(1);
-                Outcome::Changed
-            }
+            ct_event!(keycode press Right) => self.scroll_right(1).into(),
+            ct_event!(keycode press Left) => self.scroll_left(1).into(),
             ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                self.set_horizontal_offset(self.max_col_offset);
-                Outcome::Changed
+                self.set_horizontal_offset(self.max_col_offset).into()
             }
             ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                self.set_horizontal_offset(0);
-                Outcome::Changed
+                self.set_horizontal_offset(0).into()
             }
             _ => Outcome::NotUsed,
         };
@@ -146,34 +148,38 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<RowSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
+            ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
+                let pos = Position::new(m.column, m.row);
+                let new_row = self.row_at_drag(pos);
+                let r = self.selection.select_clamped(new_row, self.rows - 1).into();
+                self.scroll_to_selected();
+                r
+            }
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(self.table_area.height as usize / 10);
-                    Outcome::Changed
+                    self.scroll_down(self.table_area.height as usize / 10)
+                        .into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(self.table_area.height as usize / 10);
-                    Outcome::Changed
+                    self.scroll_up(self.table_area.height as usize / 10).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_right(1);
-                    Outcome::Changed
+                    self.scroll_right(1).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_left(1);
-                    Outcome::Changed
+                    self.scroll_left(1).into()
                 } else {
                     Outcome::NotUsed
                 }
@@ -182,31 +188,13 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.mouse.set_drag();
-                        self.selection.select_clamped(new_row, self.rows - 1);
-                        Outcome::Changed
+                        self.selection.select_clamped(new_row, self.rows - 1).into()
                     } else {
                         Outcome::Unchanged
                     }
                 } else {
                     Outcome::NotUsed
                 }
-            }
-            ct_event!(mouse drag Left for column, row) => {
-                if self.mouse.do_drag() {
-                    let pos = Position::new(*column, *row);
-                    let new_row = self.row_at_drag(pos);
-                    self.mouse.set_drag();
-                    self.selection.select_clamped(new_row, self.rows - 1);
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(mouse moved) => {
-                self.mouse.clear_drag();
-                Outcome::NotUsed
             }
 
             _ => Outcome::NotUsed,

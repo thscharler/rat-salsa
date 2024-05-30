@@ -7,7 +7,6 @@ mod rowsetselection;
 mod table;
 
 pub mod textdata;
-pub mod util;
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -61,8 +60,9 @@ pub mod selection {
 
 pub mod event {
     //! Rexported eventhandling traits.
-    pub use rat_event::util::Outcome;
-    pub use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+    pub use rat_event::{
+        crossterm, ct_event, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome,
+    };
 }
 
 mod _private {

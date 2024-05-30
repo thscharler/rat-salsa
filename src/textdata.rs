@@ -9,7 +9,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Style, Text};
 use ratatui::style::Styled;
-use ratatui::widgets::WidgetRef;
+use ratatui::widgets::Widget;
 
 /// Internal impl for TableData using pre-rendered Cells.
 #[derive(Debug, Default, Clone)]
@@ -65,7 +65,7 @@ impl<'a> TableData<'a> for TextTableData<'a> {
             buf.set_style(area, row.style);
             if let Some(cell) = row.cell(c) {
                 buf.set_style(area, cell.style);
-                cell.content.render_ref(area, buf);
+                cell.content.clone().render(area, buf);
             }
         }
     }
