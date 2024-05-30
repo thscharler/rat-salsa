@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TextAreaExt","TextAreaExtState"]};
+window.SIDEBAR_ITEMS = {};

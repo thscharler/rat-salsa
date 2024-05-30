@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `rat-salsa\src\widget\tree.rs`."><title>tree.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="rat_salsa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.2 (25ef9e3d8 2024-04-09)" data-channel="1.77.2" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `rat-salsa\src\widget\tree.rs`."><title>tree.rs - source</title><script> if (window.location.protocol !== "file:") document.write(`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2">`)</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="rat_salsa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0 (9b00956e5 2024-04-29)" data-channel="1.78.0" data-search-js="search-42d8da7a6b9792c2.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../rat_salsa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -306,310 +306,310 @@
 <a href="#304" id="304">304</a>
 <a href="#305" id="305">305</a>
 <a href="#306" id="306">306</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
-<span class="kw">use crate</span>::{
-    ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
-    MouseOnly, ScrollOutcome, ScrollParam, ScrolledWidget,
-};
-<span class="kw">use </span>crossterm::event::Event;
-<span class="attr">#[allow(unused_imports)]
-</span><span class="kw">use </span>log::debug;
-<span class="kw">use </span>ratatui::buffer::Buffer;
-<span class="kw">use </span>ratatui::layout::Rect;
-<span class="kw">use </span>ratatui::prelude::{StatefulWidget, Style};
-<span class="kw">use </span>ratatui::widgets::Block;
-<span class="kw">use </span>std::fmt::Debug;
-<span class="kw">use </span>std::hash::Hash;
-<span class="kw">use </span>tui_tree_widget::{Tree, TreeItem, TreeState};
-
-<span class="attr">#[derive(Debug, Default, Clone)]
-</span><span class="kw">pub struct </span>TreeExt&lt;<span class="lifetime">'a</span>, Identifier&gt; {
-    items: Vec&lt;TreeItem&lt;<span class="lifetime">'a</span>, Identifier&gt;&gt;,
-    block: <span class="prelude-ty">Option</span>&lt;Block&lt;<span class="lifetime">'a</span>&gt;&gt;,
-    style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-    highlight_style: <span class="prelude-ty">Option</span>&lt;Style&gt;,
-    highlight_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-    node_closed_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-    node_open_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-    node_no_children_symbol: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
-}
-
-<span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>TreeExtState&lt;Identifier&gt; {
-    <span class="kw">pub </span>area: Rect,
-    <span class="kw">pub </span>focus: FocusFlag,
-
-    <span class="kw">pub </span>max_v_offset: usize,
-    <span class="kw">pub </span>v_page_len: usize,
-
-    <span class="kw">pub </span>widget: TreeState&lt;Identifier&gt;,
-
-    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Identifier&gt; TreeExt&lt;<span class="lifetime">'a</span>, Identifier&gt; {
-    <span class="kw">pub fn </span>new(items: Vec&lt;TreeItem&lt;<span class="lifetime">'a</span>, Identifier&gt;&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            items,
-            block: <span class="prelude-val">None</span>,
-            style: <span class="prelude-val">None</span>,
-            highlight_style: <span class="prelude-val">None</span>,
-            highlight_symbol: <span class="prelude-val">None</span>,
-            node_closed_symbol: <span class="prelude-val">None</span>,
-            node_open_symbol: <span class="prelude-val">None</span>,
-            node_no_children_symbol: <span class="prelude-val">None</span>,
-        }
-    }
-
-    <span class="kw">pub fn </span>block(<span class="kw-2">mut </span><span class="self">self</span>, block: Block&lt;<span class="lifetime">'a</span>&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.block = <span class="prelude-val">Some</span>(block);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub fn </span>style(<span class="kw-2">mut </span><span class="self">self</span>, style: Style) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.style = <span class="prelude-val">Some</span>(style);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub fn </span>highlight_style(<span class="kw-2">mut </span><span class="self">self</span>, style: Style) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.highlight_style = <span class="prelude-val">Some</span>(style);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub fn </span>highlight_symbol(<span class="kw-2">mut </span><span class="self">self</span>, highlight_symbol: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.highlight_symbol = <span class="prelude-val">Some</span>(highlight_symbol);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub fn </span>node_closed_symbol(<span class="kw-2">mut </span><span class="self">self</span>, symbol: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.node_closed_symbol = <span class="prelude-val">Some</span>(symbol);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub const fn </span>node_open_symbol(<span class="kw-2">mut </span><span class="self">self</span>, symbol: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.node_open_symbol = <span class="prelude-val">Some</span>(symbol);
-        <span class="self">self
-    </span>}
-
-    <span class="kw">pub const fn </span>node_no_children_symbol(<span class="kw-2">mut </span><span class="self">self</span>, symbol: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.node_no_children_symbol = <span class="prelude-val">Some</span>(symbol);
-        <span class="self">self
-    </span>}
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Identifier&gt; ScrolledWidget&lt;TreeExtState&lt;Identifier&gt;&gt; <span class="kw">for </span>TreeExt&lt;<span class="lifetime">'a</span>, Identifier&gt;
-<span class="kw">where
-    </span>Identifier: Debug + Clone + PartialEq + Eq + Hash,
-{
-    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, area: Rect, state: <span class="kw-2">&amp;mut </span>TreeExtState&lt;Identifier&gt;) -&gt; ScrollParam {
-        <span class="kw">let </span>flattened = state.widget.flatten(<span class="kw-2">&amp;</span><span class="self">self</span>.items);
-
-        <span class="kw">let </span><span class="kw-2">mut </span>has_vscroll = <span class="bool-val">false</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>height = <span class="number">0</span>;
-        <span class="kw">for </span>item <span class="kw">in </span><span class="kw-2">&amp;</span>flattened {
-            height += item.item.height();
-            <span class="kw">if </span>height &gt; area.height <span class="kw">as </span>usize {
-                has_vscroll = <span class="bool-val">true</span>;
-                <span class="kw">break</span>;
-            }
-        }
-
-        ScrollParam {
-            has_hscroll: <span class="bool-val">false</span>,
-            has_vscroll,
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, Identifier&gt; StatefulWidget <span class="kw">for </span>TreeExt&lt;<span class="lifetime">'a</span>, Identifier&gt;
-<span class="kw">where
-    </span>Identifier: Debug + Clone + PartialEq + Eq + Hash,
-{
-    <span class="kw">type </span>State = TreeExtState&lt;Identifier&gt;;
-
-    <span class="kw">fn </span>render(<span class="self">self</span>, area: Rect, buf: <span class="kw-2">&amp;mut </span>Buffer, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
-        state.area = area;
-
-        <span class="kw">let </span>flattened = state.widget.flatten(<span class="kw-2">&amp;</span><span class="self">self</span>.items);
-
-        <span class="comment">// calculate max offset
-        </span><span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">0</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>height = <span class="number">0</span>;
-        <span class="kw">for </span>item <span class="kw">in </span>flattened.iter().rev() {
-            height += item.item.height();
-            <span class="kw">if </span>height &gt; area.height <span class="kw">as </span>usize {
-                <span class="kw">break</span>;
-            }
-            n += <span class="number">1</span>;
-        }
-        state.max_v_offset = flattened.len() - n;
-
-        <span class="comment">// calculate current page
-        </span><span class="kw">let </span>ensure_index_in_view = <span class="kw">if </span>!state.widget.selected().is_empty() {
-            flattened
-                .iter()
-                .position(|flattened| flattened.identifier == state.widget.selected())
-        } <span class="kw">else </span>{
-            <span class="prelude-val">None
-        </span>};
-
-        <span class="comment">// Ensure last line is still visible
-        </span><span class="kw">let </span><span class="kw-2">mut </span>start = state
-            .widget
-            .get_offset()
-            .min(flattened.len().saturating_sub(<span class="number">1</span>));
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(ensure_index_in_view) = ensure_index_in_view {
-            start = start.min(ensure_index_in_view);
-        }
-
-        <span class="kw">let </span><span class="kw-2">mut </span>n = <span class="number">0</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>height = <span class="number">0</span>;
-        <span class="kw">for </span>item <span class="kw">in </span>flattened.iter().skip(start) {
-            height += item.item.height();
-            <span class="kw">if </span>height &gt; area.height <span class="kw">as </span>usize {
-                <span class="kw">break</span>;
-            }
-            n += <span class="number">1</span>;
-        }
-        state.v_page_len = n;
-
-        <span class="comment">// render
-        </span><span class="kw">let </span><span class="kw-2">mut </span>tree = Tree::new(<span class="self">self</span>.items).unwrap_or(Tree::new(Vec::new()).expect(<span class="string">"tree"</span>));
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(block) = <span class="self">self</span>.block {
-            tree = tree.block(block);
-        }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(style) = <span class="self">self</span>.style {
-            tree = tree.style(style);
-        }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(highlight_style) = <span class="self">self</span>.highlight_style {
-            tree = tree.highlight_style(highlight_style);
-        }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(highlight_symbol) = <span class="self">self</span>.highlight_symbol {
-            tree = tree.highlight_symbol(highlight_symbol);
-        }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(node_closed_symbol) = <span class="self">self</span>.node_closed_symbol {
-            tree = tree.node_closed_symbol(node_closed_symbol);
-        }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(node_open_symbol) = <span class="self">self</span>.node_open_symbol {
-            tree = tree.node_open_symbol(node_open_symbol);
-        }
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(node_no_children_symbol) = <span class="self">self</span>.node_no_children_symbol {
-            tree = tree.node_no_children_symbol(node_no_children_symbol);
-        }
-        tree.render(area, buf, <span class="kw-2">&amp;mut </span>state.widget);
-    }
-}
-
-<span class="kw">impl</span>&lt;Identifier: Default&gt; Default <span class="kw">for </span>TreeExtState&lt;Identifier&gt; {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            area: Default::default(),
-            focus: Default::default(),
-            max_v_offset: <span class="number">0</span>,
-            v_page_len: <span class="number">0</span>,
-            widget: TreeState::default(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;Identifier&gt; HasScrolling <span class="kw">for </span>TreeExtState&lt;Identifier&gt;
-<span class="kw">where
-    </span>Identifier: Debug + Clone + PartialEq + Eq + Hash,
-{
-    <span class="kw">fn </span>max_v_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.max_v_offset
-    }
-
-    <span class="kw">fn </span>max_h_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="number">0
-    </span>}
-
-    <span class="kw">fn </span>v_page_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.v_page_len
-    }
-
-    <span class="kw">fn </span>h_page_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="number">0
-    </span>}
-
-    <span class="kw">fn </span>v_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.widget.get_offset()
-    }
-
-    <span class="kw">fn </span>h_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="number">0
-    </span>}
-
-    <span class="kw">fn </span>set_v_offset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize) -&gt; ScrollOutcome {
-        <span class="kw">let </span>old_offset = <span class="self">self</span>.v_offset();
-        <span class="kw">if </span>old_offset &lt; offset {
-            <span class="self">self</span>.widget.scroll_down(offset - old_offset);
-            ScrollOutcome::Unknown
-        } <span class="kw">else </span>{
-            <span class="kw">if </span><span class="self">self</span>.widget.scroll_up(old_offset - offset) {
-                ScrollOutcome::Exact
-            } <span class="kw">else </span>{
-                ScrollOutcome::AtLimit
-            }
-        }
-    }
-
-    <span class="kw">fn </span>set_h_offset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _offset: usize) -&gt; ScrollOutcome {
-        ScrollOutcome::Denied
-    }
-}
-
-<span class="kw">impl</span>&lt;Identifier&gt; HasFocusFlag <span class="kw">for </span>TreeExtState&lt;Identifier&gt; {
-    <span class="kw">fn </span>focus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FocusFlag {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.focus
-    }
-
-    <span class="kw">fn </span>area(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Rect {
-        <span class="self">self</span>.area
-    }
-}
-
-<span class="kw">impl</span>&lt;Identifier, A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, DefaultKeys&gt; <span class="kw">for </span>TreeExtState&lt;Identifier&gt;
-<span class="kw">where
-    </span>Identifier: Debug + Clone + PartialEq + Eq + Hash,
-{
-    <span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, _keymap: DefaultKeys) -&gt; ControlUI&lt;A, E&gt; {
-        <span class="kw">if </span><span class="self">self</span>.is_focused() {
-            <span class="kw">match </span>event {
-                <span class="macro">ct_event!</span>(keycode press Left) =&gt; {
-                    <span class="self">self</span>.widget.key_left();
-                    ControlUI::Change
-                }
-                <span class="macro">ct_event!</span>(keycode press Right) =&gt; {
-                    <span class="self">self</span>.widget.key_right();
-                    ControlUI::Change
-                }
-                <span class="macro">ct_event!</span>(keycode press Up) =&gt; {
-                    <span class="comment">// TODO: doesn't work for now.
-                    // self.widget.key_up();
-                    </span>ControlUI::Change
-                }
-                <span class="macro">ct_event!</span>(keycode press Down) =&gt; {
-                    <span class="comment">// TODO: doesn't work for now.
-                    // self.widget.key_down();
-                    </span>ControlUI::Change
-                }
-                <span class="kw">_ </span>=&gt; ControlUI::Continue,
-            }
-        } <span class="kw">else </span>{
-            ControlUI::Continue
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;Identifier, A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, MouseOnly&gt; <span class="kw">for </span>TreeExtState&lt;Identifier&gt;
-<span class="kw">where
-    </span>Identifier: Debug + Clone + PartialEq + Eq + Hash,
-{
-    <span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _event: <span class="kw-2">&amp;</span>Event, _keymap: MouseOnly) -&gt; ControlUI&lt;A, E&gt; {
-        <span class="comment">// TODO: do something
-        </span>ControlUI::Continue
-    }
-}
-</code></pre></div></section></main></body></html>
+</pre></div><pre class="rust"><code><span class="comment">// use crate::_private::NonExhaustive;
+// use crate::{
+//     ct_event, ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling,
+//     MouseOnly, ScrollOutcome, ScrollParam, ScrolledWidget,
+// };
+// use crossterm::event::Event;
+// #[allow(unused_imports)]
+// use log::debug;
+// use ratatui::buffer::Buffer;
+// use ratatui::layout::Rect;
+// use ratatui::prelude::{StatefulWidget, Style};
+// use ratatui::widgets::Block;
+// use std::fmt::Debug;
+// use std::hash::Hash;
+// use tui_tree_widget::{Tree, TreeItem, TreeState};
+//
+// #[derive(Debug, Default, Clone)]
+// pub struct TreeExt&lt;'a, Identifier&gt; {
+//     items: Vec&lt;TreeItem&lt;'a, Identifier&gt;&gt;,
+//     block: Option&lt;Block&lt;'a&gt;&gt;,
+//     style: Option&lt;Style&gt;,
+//     highlight_style: Option&lt;Style&gt;,
+//     highlight_symbol: Option&lt;&amp;'a str&gt;,
+//     node_closed_symbol: Option&lt;&amp;'a str&gt;,
+//     node_open_symbol: Option&lt;&amp;'a str&gt;,
+//     node_no_children_symbol: Option&lt;&amp;'a str&gt;,
+// }
+//
+// #[derive(Debug, Clone)]
+// pub struct TreeExtState&lt;Identifier&gt; {
+//     pub area: Rect,
+//     pub focus: FocusFlag,
+//
+//     pub max_v_offset: usize,
+//     pub v_page_len: usize,
+//
+//     pub widget: TreeState&lt;Identifier&gt;,
+//
+//     pub non_exhaustive: NonExhaustive,
+// }
+//
+// impl&lt;'a, Identifier&gt; TreeExt&lt;'a, Identifier&gt; {
+//     pub fn new(items: Vec&lt;TreeItem&lt;'a, Identifier&gt;&gt;) -&gt; Self {
+//         Self {
+//             items,
+//             block: None,
+//             style: None,
+//             highlight_style: None,
+//             highlight_symbol: None,
+//             node_closed_symbol: None,
+//             node_open_symbol: None,
+//             node_no_children_symbol: None,
+//         }
+//     }
+//
+//     pub fn block(mut self, block: Block&lt;'a&gt;) -&gt; Self {
+//         self.block = Some(block);
+//         self
+//     }
+//
+//     pub fn style(mut self, style: Style) -&gt; Self {
+//         self.style = Some(style);
+//         self
+//     }
+//
+//     pub fn highlight_style(mut self, style: Style) -&gt; Self {
+//         self.highlight_style = Some(style);
+//         self
+//     }
+//
+//     pub fn highlight_symbol(mut self, highlight_symbol: &amp;'a str) -&gt; Self {
+//         self.highlight_symbol = Some(highlight_symbol);
+//         self
+//     }
+//
+//     pub fn node_closed_symbol(mut self, symbol: &amp;'a str) -&gt; Self {
+//         self.node_closed_symbol = Some(symbol);
+//         self
+//     }
+//
+//     pub const fn node_open_symbol(mut self, symbol: &amp;'a str) -&gt; Self {
+//         self.node_open_symbol = Some(symbol);
+//         self
+//     }
+//
+//     pub const fn node_no_children_symbol(mut self, symbol: &amp;'a str) -&gt; Self {
+//         self.node_no_children_symbol = Some(symbol);
+//         self
+//     }
+// }
+//
+// impl&lt;'a, Identifier&gt; ScrolledWidget&lt;TreeExtState&lt;Identifier&gt;&gt; for TreeExt&lt;'a, Identifier&gt;
+// where
+//     Identifier: Debug + Clone + PartialEq + Eq + Hash,
+// {
+//     fn need_scroll(&amp;self, area: Rect, state: &amp;mut TreeExtState&lt;Identifier&gt;) -&gt; ScrollParam {
+//         let flattened = state.widget.flatten(&amp;self.items);
+//
+//         let mut has_vscroll = false;
+//         let mut height = 0;
+//         for item in &amp;flattened {
+//             height += item.item.height();
+//             if height &gt; area.height as usize {
+//                 has_vscroll = true;
+//                 break;
+//             }
+//         }
+//
+//         ScrollParam {
+//             has_hscroll: false,
+//             has_vscroll,
+//         }
+//     }
+// }
+//
+// impl&lt;'a, Identifier&gt; StatefulWidget for TreeExt&lt;'a, Identifier&gt;
+// where
+//     Identifier: Debug + Clone + PartialEq + Eq + Hash,
+// {
+//     type State = TreeExtState&lt;Identifier&gt;;
+//
+//     fn render(self, area: Rect, buf: &amp;mut Buffer, state: &amp;mut Self::State) {
+//         state.area = area;
+//
+//         let flattened = state.widget.flatten(&amp;self.items);
+//
+//         // calculate max offset
+//         let mut n = 0;
+//         let mut height = 0;
+//         for item in flattened.iter().rev() {
+//             height += item.item.height();
+//             if height &gt; area.height as usize {
+//                 break;
+//             }
+//             n += 1;
+//         }
+//         state.max_v_offset = flattened.len() - n;
+//
+//         // calculate current page
+//         let ensure_index_in_view = if !state.widget.selected().is_empty() {
+//             flattened
+//                 .iter()
+//                 .position(|flattened| flattened.identifier == state.widget.selected())
+//         } else {
+//             None
+//         };
+//
+//         // Ensure last line is still visible
+//         let mut start = state
+//             .widget
+//             .get_offset()
+//             .min(flattened.len().saturating_sub(1));
+//         if let Some(ensure_index_in_view) = ensure_index_in_view {
+//             start = start.min(ensure_index_in_view);
+//         }
+//
+//         let mut n = 0;
+//         let mut height = 0;
+//         for item in flattened.iter().skip(start) {
+//             height += item.item.height();
+//             if height &gt; area.height as usize {
+//                 break;
+//             }
+//             n += 1;
+//         }
+//         state.v_page_len = n;
+//
+//         // render
+//         let mut tree = Tree::new(self.items).unwrap_or(Tree::new(Vec::new()).expect("tree"));
+//         if let Some(block) = self.block {
+//             tree = tree.block(block);
+//         }
+//         if let Some(style) = self.style {
+//             tree = tree.style(style);
+//         }
+//         if let Some(highlight_style) = self.highlight_style {
+//             tree = tree.highlight_style(highlight_style);
+//         }
+//         if let Some(highlight_symbol) = self.highlight_symbol {
+//             tree = tree.highlight_symbol(highlight_symbol);
+//         }
+//         if let Some(node_closed_symbol) = self.node_closed_symbol {
+//             tree = tree.node_closed_symbol(node_closed_symbol);
+//         }
+//         if let Some(node_open_symbol) = self.node_open_symbol {
+//             tree = tree.node_open_symbol(node_open_symbol);
+//         }
+//         if let Some(node_no_children_symbol) = self.node_no_children_symbol {
+//             tree = tree.node_no_children_symbol(node_no_children_symbol);
+//         }
+//         tree.render(area, buf, &amp;mut state.widget);
+//     }
+// }
+//
+// impl&lt;Identifier: Default&gt; Default for TreeExtState&lt;Identifier&gt; {
+//     fn default() -&gt; Self {
+//         Self {
+//             area: Default::default(),
+//             focus: Default::default(),
+//             max_v_offset: 0,
+//             v_page_len: 0,
+//             widget: TreeState::default(),
+//             non_exhaustive: NonExhaustive,
+//         }
+//     }
+// }
+//
+// impl&lt;Identifier&gt; HasScrolling for TreeExtState&lt;Identifier&gt;
+// where
+//     Identifier: Debug + Clone + PartialEq + Eq + Hash,
+// {
+//     fn max_v_offset(&amp;self) -&gt; usize {
+//         self.max_v_offset
+//     }
+//
+//     fn max_h_offset(&amp;self) -&gt; usize {
+//         0
+//     }
+//
+//     fn v_page_len(&amp;self) -&gt; usize {
+//         self.v_page_len
+//     }
+//
+//     fn h_page_len(&amp;self) -&gt; usize {
+//         0
+//     }
+//
+//     fn v_offset(&amp;self) -&gt; usize {
+//         self.widget.get_offset()
+//     }
+//
+//     fn h_offset(&amp;self) -&gt; usize {
+//         0
+//     }
+//
+//     fn set_v_offset(&amp;mut self, offset: usize) -&gt; ScrollOutcome {
+//         let old_offset = self.v_offset();
+//         if old_offset &lt; offset {
+//             self.widget.scroll_down(offset - old_offset);
+//             ScrollOutcome::Unknown
+//         } else {
+//             if self.widget.scroll_up(old_offset - offset) {
+//                 ScrollOutcome::Exact
+//             } else {
+//                 ScrollOutcome::AtLimit
+//             }
+//         }
+//     }
+//
+//     fn set_h_offset(&amp;mut self, _offset: usize) -&gt; ScrollOutcome {
+//         ScrollOutcome::Denied
+//     }
+// }
+//
+// impl&lt;Identifier&gt; HasFocusFlag for TreeExtState&lt;Identifier&gt; {
+//     fn focus(&amp;self) -&gt; &amp;FocusFlag {
+//         &amp;self.focus
+//     }
+//
+//     fn area(&amp;self) -&gt; Rect {
+//         self.area
+//     }
+// }
+//
+// impl&lt;Identifier, A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, DefaultKeys&gt; for TreeExtState&lt;Identifier&gt;
+// where
+//     Identifier: Debug + Clone + PartialEq + Eq + Hash,
+// {
+//     fn handle(&amp;mut self, event: &amp;Event, _keymap: DefaultKeys) -&gt; ControlUI&lt;A, E&gt; {
+//         if self.is_focused() {
+//             match event {
+//                 ct_event!(keycode press Left) =&gt; {
+//                     self.widget.key_left();
+//                     ControlUI::Change
+//                 }
+//                 ct_event!(keycode press Right) =&gt; {
+//                     self.widget.key_right();
+//                     ControlUI::Change
+//                 }
+//                 ct_event!(keycode press Up) =&gt; {
+//                     // TODO: doesn't work for now.
+//                     // self.widget.key_up();
+//                     ControlUI::Change
+//                 }
+//                 ct_event!(keycode press Down) =&gt; {
+//                     // TODO: doesn't work for now.
+//                     // self.widget.key_down();
+//                     ControlUI::Change
+//                 }
+//                 _ =&gt; ControlUI::Continue,
+//             }
+//         } else {
+//             ControlUI::Continue
+//         }
+//     }
+// }
+//
+// impl&lt;Identifier, A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, MouseOnly&gt; for TreeExtState&lt;Identifier&gt;
+// where
+//     Identifier: Debug + Clone + PartialEq + Eq + Hash,
+// {
+//     fn handle(&amp;mut self, _event: &amp;Event, _keymap: MouseOnly) -&gt; ControlUI&lt;A, E&gt; {
+//         // TODO: do something
+//         ControlUI::Continue
+//     }
+// }
+</span></code></pre></div></section></main></body></html>

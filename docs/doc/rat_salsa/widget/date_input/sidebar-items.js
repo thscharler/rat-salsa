@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["ConvenientKeys","DateInput","DateInputState"]};
+window.SIDEBAR_ITEMS = {"struct":["ConvenientKeys","DateInputExt","DateInputStateExt"]};

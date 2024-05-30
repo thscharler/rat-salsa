@@ -13,7 +13,7 @@ use log::debug;
 use rat_input::event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_input::menuline::{MenuLine, MenuLineState, MenuOutcome};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::prelude::Style;
 use ratatui::widgets::StatefulWidget;
 use std::fmt::Debug;
@@ -131,7 +131,7 @@ impl<A> MenuLineExtState<A> {
         self.widget.select_by_key(cc);
     }
 
-    pub fn item_at(&self, pos: Position) -> Option<usize> {
+    pub fn item_at(&self, pos: (u16, u16)) -> Option<usize> {
         self.widget.item_at(pos)
     }
 

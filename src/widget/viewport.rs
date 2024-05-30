@@ -13,7 +13,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::style::Style;
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::mem;
 
 /// The viewport has its own size that is used to create
@@ -82,18 +81,18 @@ impl<T> Viewport<T> {
     }
 }
 
-impl<T> StatefulWidgetRef for Viewport<T>
-where
-    T: WidgetRef,
-{
-    type State = ViewportState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_impl(self, area, buf, state, |area, buf| {
-            self.widget.render_ref(area, buf);
-        });
-    }
-}
+// impl<T> StatefulWidgetRef for Viewport<T>
+// where
+//     T: WidgetRef,
+// {
+//     type State = ViewportState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_impl(self, area, buf, state, |area, buf| {
+//             self.widget.render_ref(area, buf);
+//         });
+//     }
+// }
 
 impl<T> StatefulWidget for Viewport<T>
 where

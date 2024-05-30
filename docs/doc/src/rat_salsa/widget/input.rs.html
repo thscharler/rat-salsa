@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `rat-salsa\src\widget\input.rs`."><title>input.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="rat_salsa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.2 (25ef9e3d8 2024-04-09)" data-channel="1.77.2" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `rat-salsa\src\widget\input.rs`."><title>input.rs - source</title><script> if (window.location.protocol !== "file:") document.write(`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2">`)</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="rat_salsa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0 (9b00956e5 2024-04-29)" data-channel="1.78.0" data-search-js="search-42d8da7a6b9792c2.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../rat_salsa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -271,17 +271,6 @@
 <a href="#269" id="269">269</a>
 <a href="#270" id="270">270</a>
 <a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//!
 //! Text input widget.
 //!
@@ -298,8 +287,9 @@
 <span class="kw">use </span>crossterm::event::Event;
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span>log::debug;
+<span class="kw">use </span>rat_input::event::TextOutcome;
+<span class="kw">use </span>rat_input::input;
 <span class="kw">use </span>rat_input::input::{TextInput, TextInputState, TextInputStyle};
-<span class="kw">use </span>rat_input::{input, Outcome};
 <span class="kw">use </span>ratatui::layout::Rect;
 <span class="kw">use </span>ratatui::style::Style;
 <span class="kw">use </span>ratatui::widgets::Block;
@@ -322,14 +312,14 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; TextInputExt&lt;<span class="lifetime">'a</span>&gt; {
     <span class="doccomment">/// Set the combined style.
-    </span><span class="kw">pub fn </span>style(<span class="kw-2">mut </span><span class="self">self</span>, style: TextInputStyle) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.widget = <span class="self">self</span>.widget.style(style);
+    </span><span class="kw">pub fn </span>styles(<span class="kw-2">mut </span><span class="self">self</span>, style: TextInputStyle) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.widget = <span class="self">self</span>.widget.styles(style);
         <span class="self">self
     </span>}
 
     <span class="doccomment">/// Base text style.
-    </span><span class="kw">pub fn </span>base_style(<span class="kw-2">mut </span><span class="self">self</span>, style: <span class="kw">impl </span>Into&lt;Style&gt;) -&gt; <span class="self">Self </span>{
-        <span class="self">self</span>.widget = <span class="self">self</span>.widget.base_style(style);
+    </span><span class="kw">pub fn </span>style(<span class="kw-2">mut </span><span class="self">self</span>, style: <span class="kw">impl </span>Into&lt;Style&gt;) -&gt; <span class="self">Self </span>{
+        <span class="self">self</span>.widget = <span class="self">self</span>.widget.style(style);
         <span class="self">self
     </span>}
 
@@ -367,12 +357,14 @@
         <span class="self">self</span>.widget = <span class="self">self
             </span>.widget
             .focused(state.is_focused())
-            .valid(state.is_valid());
+            .invalid(!state.is_valid());
 
         frame.render_stateful_widget(<span class="self">self</span>.widget, area, <span class="kw-2">&amp;mut </span>state.widget);
 
         <span class="kw">if </span>state.is_focused() {
-            frame.set_cursor(state.widget.cursor.x, state.widget.cursor.y);
+            <span class="kw">if let </span><span class="prelude-val">Some</span>((x, y)) = state.widget.screen_cursor() {
+                frame.set_cursor(x, y);
+            }
         }
     }
 }
@@ -409,9 +401,10 @@
     </span><span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, <span class="kw">_</span>: DefaultKeys) -&gt; ControlUI&lt;A, E&gt; {
         <span class="kw">let </span>focused = <span class="self">self</span>.is_focused();
         <span class="kw">match </span>input::handle_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>.widget, focused, event) {
-            Outcome::Unused =&gt; ControlUI::Continue,
-            Outcome::Unchanged =&gt; ControlUI::NoChange,
-            Outcome::Changed =&gt; ControlUI::Change,
+            TextOutcome::NotUsed =&gt; ControlUI::Continue,
+            TextOutcome::Unchanged =&gt; ControlUI::NoChange,
+            TextOutcome::Changed =&gt; ControlUI::Change,
+            TextOutcome::TextChanged =&gt; ControlUI::Change,
         }
     }
 }
@@ -419,17 +412,18 @@
 <span class="kw">impl</span>&lt;A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, MouseOnly&gt; <span class="kw">for </span>TextInputExtState {
     <span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, <span class="kw">_</span>: MouseOnly) -&gt; ControlUI&lt;A, E&gt; {
         <span class="kw">match </span>input::handle_mouse_events(<span class="kw-2">&amp;mut </span><span class="self">self</span>.widget, event) {
-            Outcome::Unused =&gt; ControlUI::Continue,
-            Outcome::Unchanged =&gt; ControlUI::NoChange,
-            Outcome::Changed =&gt; ControlUI::Change,
+            TextOutcome::NotUsed =&gt; ControlUI::Continue,
+            TextOutcome::Unchanged =&gt; ControlUI::NoChange,
+            TextOutcome::Changed =&gt; ControlUI::Change,
+            TextOutcome::TextChanged =&gt; ControlUI::Change,
         }
     }
 }
 
 <span class="kw">impl </span>TextInputExtState {
     <span class="doccomment">/// Reset to empty.
-    </span><span class="kw">pub fn </span>reset(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="self">self</span>.widget.reset();
+    </span><span class="kw">pub fn </span>clear(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+        <span class="self">self</span>.widget.clear();
     }
 
     <span class="doccomment">/// Offset shown.
@@ -460,11 +454,6 @@
     <span class="doccomment">/// Text.
     </span><span class="kw">pub fn </span>value(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
         <span class="self">self</span>.widget.value()
-    }
-
-    <span class="doccomment">/// Text
-    </span><span class="kw">pub fn </span>as_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-        <span class="self">self</span>.widget.as_str()
     }
 
     <span class="doccomment">/// Empty.
@@ -499,23 +488,12 @@
 
     <span class="doccomment">/// Selection.
     </span><span class="kw">pub fn </span>selection_str(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-        <span class="self">self</span>.widget.selection_str()
-    }
-
-    <span class="doccomment">/// Previous word boundary
-    </span><span class="kw">pub fn </span>prev_word_boundary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.widget.prev_word_boundary()
-    }
-
-    <span class="doccomment">/// Next word boundary
-    </span><span class="kw">pub fn </span>next_word_boundary(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.widget.next_word_boundary()
+        <span class="self">self</span>.widget.selected_value()
     }
 
     <span class="doccomment">/// Set the cursor position from a visual position relative to the origin.
-    </span><span class="kw">pub fn </span>set_offset_relative_cursor(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rpos: isize, extend_selection: bool) {
-        <span class="self">self</span>.widget
-            .set_offset_relative_cursor(rpos, extend_selection);
+    </span><span class="kw">pub fn </span>set_screen_cursor(<span class="kw-2">&amp;mut </span><span class="self">self</span>, rpos: isize, extend_selection: bool) -&gt; bool {
+        <span class="self">self</span>.widget.set_screen_cursor(rpos, extend_selection)
     }
 
     <span class="doccomment">/// Move to the next char.
@@ -534,8 +512,8 @@
     }
 
     <span class="doccomment">/// Replace the given range with a new string.
-    </span><span class="kw">pub fn </span>replace(<span class="kw-2">&amp;mut </span><span class="self">self</span>, range: Range&lt;usize&gt;, new: <span class="kw-2">&amp;</span>str) {
-        <span class="self">self</span>.widget.replace(range, new);
+    </span><span class="kw">pub fn </span>remove(<span class="kw-2">&amp;mut </span><span class="self">self</span>, range: Range&lt;usize&gt;) {
+        <span class="self">self</span>.widget.delete_range(range);
     }
 
     <span class="doccomment">/// Delete the char before the cursor.

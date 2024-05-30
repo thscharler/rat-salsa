@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `rat-salsa\src\widget\text_area.rs`."><title>text_area.rs - source</title><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2"><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-5bc39a1768837dd0.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="rat_salsa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.77.2 (25ef9e3d8 2024-04-09)" data-channel="1.77.2" data-search-js="search-dd67cee4cfa65049.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-48f368f3872407c8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `rat-salsa\src\widget\text_area.rs`."><title>text_area.rs - source</title><script> if (window.location.protocol !== "file:") document.write(`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceSerif4-Regular-46f98efaafac5295.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Regular-018c141bf0843ffd.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/FiraSans-Medium-8f9a781e4970d388.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2"><link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2">`)</script><link rel="stylesheet" href="../../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../../static.files/rustdoc-e935ef01ae1c1829.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="rat_salsa" data-themes="" data-resource-suffix="" data-rustdoc-version="1.78.0 (9b00956e5 2024-04-29)" data-channel="1.78.0" data-search-js="search-42d8da7a6b9792c2.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../../static.files/storage-4c98445ec4002617.js"></script><script defer src="../../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-12cf3b4f4f9dc36d.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-04d5337699b92874.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-16x16-8b506e7a72182f1c.png"><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title">
             <h2>Files</h2></div></nav><div class="sidebar-resizer"></div>
     <main><nav class="sub"><form class="search-form"><span></span><div id="sidebar-button" tabindex="-1"><a href="../../../rat_salsa/all.html" title="show sidebar"></a></div><input class="search-input" name="search" aria-label="Run search in the documentation" autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"><div id="help-button" tabindex="-1"><a href="../../../help.html" title="help">?</a></div><div id="settings-menu" tabindex="-1"><a href="../../../settings.html" title="settings"><img width="22" height="22" alt="Change settings" src="../../../static.files/wheel-7b819b6101059cd0.svg"></a></div></form></nav><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
@@ -155,159 +155,159 @@
 <a href="#153" id="153">153</a>
 <a href="#154" id="154">154</a>
 <a href="#155" id="155">155</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::_private::NonExhaustive;
-<span class="kw">use crate</span>::{
-    ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling, MouseOnly,
-    ScrollOutcome, ScrollParam, ScrolledWidget,
-};
-<span class="kw">use </span>crossterm::event::Event;
-<span class="attr">#[allow(unused_imports)]
-</span><span class="kw">use </span>log::debug;
-<span class="kw">use </span>ratatui::buffer::Buffer;
-<span class="kw">use </span>ratatui::layout::Rect;
-<span class="kw">use </span>ratatui::widgets::StatefulWidget;
-<span class="kw">use </span>ratatui::widgets::Widget;
-<span class="kw">use </span>std::marker::PhantomData;
-<span class="kw">use </span>tui_textarea::{CursorMove, TextArea};
-
-<span class="attr">#[derive(Debug, Default, Clone)]
-</span><span class="kw">pub struct </span>TextAreaExt&lt;<span class="lifetime">'a</span>&gt; {
-    _phantom: PhantomData&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>()&gt;,
-}
-
-<span class="attr">#[derive(Debug, Clone)]
-</span><span class="kw">pub struct </span>TextAreaExtState&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">pub </span>area: Rect,
-    <span class="kw">pub </span>focus: FocusFlag,
-
-    <span class="kw">pub </span>max_v_offset: usize,
-    <span class="kw">pub </span>max_h_offset: usize,
-    <span class="kw">pub </span>widget: TextArea&lt;<span class="lifetime">'a</span>&gt;,
-
-    <span class="kw">pub </span>non_exhaustive: NonExhaustive,
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, State&gt; ScrolledWidget&lt;State&gt; <span class="kw">for </span>TextAreaExt&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>need_scroll(<span class="kw-2">&amp;</span><span class="self">self</span>, _area: Rect, _uistate: <span class="kw-2">&amp;mut </span>State) -&gt; ScrollParam {
-        ScrollParam {
-            has_hscroll: <span class="bool-val">true</span>,
-            has_vscroll: <span class="bool-val">true</span>,
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; StatefulWidget <span class="kw">for </span>TextAreaExt&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">type </span>State = TextAreaExtState&lt;<span class="lifetime">'a</span>&gt;;
-
-    <span class="kw">fn </span>render(<span class="self">self</span>, area: Rect, buf: <span class="kw-2">&amp;mut </span>Buffer, state: <span class="kw-2">&amp;mut </span><span class="self">Self</span>::State) {
-        state.area = area;
-        state.max_v_offset = state.widget.lines().len();
-        state.max_h_offset = state
-            .widget
-            .lines()
-            .iter()
-            .map(|v| v.len())
-            .max()
-            .unwrap_or_default();
-
-        <span class="kw">let </span>widget = state.widget.widget();
-        widget.render(area, buf);
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; Default <span class="kw">for </span>TextAreaExtState&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-        <span class="self">Self </span>{
-            area: Default::default(),
-            focus: Default::default(),
-            max_v_offset: <span class="number">0</span>,
-            max_h_offset: <span class="number">0</span>,
-            widget: Default::default(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; HasScrolling <span class="kw">for </span>TextAreaExtState&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>max_v_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.max_v_offset
-    }
-
-    <span class="kw">fn </span>max_h_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.max_h_offset
-    }
-
-    <span class="kw">fn </span>v_page_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.area.height <span class="kw">as </span>usize
-    }
-
-    <span class="kw">fn </span>h_page_len(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.area.width <span class="kw">as </span>usize
-    }
-
-    <span class="kw">fn </span>v_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="comment">// this is the closest we can get?
-        </span><span class="self">self</span>.widget.cursor().<span class="number">0
-    </span>}
-
-    <span class="kw">fn </span>h_offset(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; usize {
-        <span class="self">self</span>.widget.cursor().<span class="number">1
-    </span>}
-
-    <span class="kw">fn </span>set_v_offset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize) -&gt; ScrollOutcome {
-        <span class="self">self</span>.widget
-            .move_cursor(CursorMove::Jump(offset <span class="kw">as </span>u16, <span class="self">self</span>.h_offset() <span class="kw">as </span>u16));
-        ScrollOutcome::Unknown
-    }
-
-    <span class="kw">fn </span>set_h_offset(<span class="kw-2">&amp;mut </span><span class="self">self</span>, offset: usize) -&gt; ScrollOutcome {
-        <span class="self">self</span>.widget
-            .move_cursor(CursorMove::Jump(<span class="self">self</span>.v_offset() <span class="kw">as </span>u16, offset <span class="kw">as </span>u16));
-        ScrollOutcome::Unknown
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; HasFocusFlag <span class="kw">for </span>TextAreaExtState&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>focus(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>FocusFlag {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.focus
-    }
-
-    <span class="kw">fn </span>area(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Rect {
-        <span class="self">self</span>.area
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, DefaultKeys&gt; <span class="kw">for </span>TextAreaExtState&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, event: <span class="kw-2">&amp;</span>Event, _keymap: DefaultKeys) -&gt; ControlUI&lt;A, E&gt; {
-        <span class="kw">if </span><span class="self">self</span>.is_focused() {
-            <span class="self">self</span>.widget.input(event.clone());
-            ControlUI::Change
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.handle(event, MouseOnly)
-        }
-    }
-}
-
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, MouseOnly&gt; <span class="kw">for </span>TextAreaExtState&lt;<span class="lifetime">'a</span>&gt; {
-    <span class="kw">fn </span>handle(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _event: <span class="kw-2">&amp;</span>Event, _keymap: MouseOnly) -&gt; ControlUI&lt;A, E&gt; {
-        <span class="comment">// TODO: rect() not implemented in the baseline
-
-        // match event {
-        //     ct_event!(mouse up Left for column, row) =&gt; {
-        //         if self.area.contains(Position::new(*column, *row)) {
-        //             let column = *column - self.area.x + self.widget.rect().1;
-        //             let row = *row - self.area.y + self.widget.rect().0;
-        //
-        //             self.widget.move_cursor(CursorMove::Jump(row, column));
-        //             ControlUI::Change
-        //         } else {
-        //             ControlUI::Continue
-        //         }
-        //     }
-        //     _ =&gt; ControlUI::Continue,
-        // }
-
-        </span>ControlUI::Continue
-    }
-}
-</code></pre></div></section></main></body></html>
+</pre></div><pre class="rust"><code><span class="comment">// use crate::_private::NonExhaustive;
+// use crate::{
+//     ControlUI, DefaultKeys, FocusFlag, HandleCrossterm, HasFocusFlag, HasScrolling, MouseOnly,
+//     ScrollOutcome, ScrollParam, ScrolledWidget,
+// };
+// use crossterm::event::Event;
+// #[allow(unused_imports)]
+// use log::debug;
+// use ratatui::buffer::Buffer;
+// use ratatui::layout::Rect;
+// use ratatui::widgets::StatefulWidget;
+// use ratatui::widgets::Widget;
+// use std::marker::PhantomData;
+// use tui_textarea::{CursorMove, TextArea};
+//
+// #[derive(Debug, Default, Clone)]
+// pub struct TextAreaExt&lt;'a&gt; {
+//     _phantom: PhantomData&lt;&amp;'a ()&gt;,
+// }
+//
+// #[derive(Debug, Clone)]
+// pub struct TextAreaExtState&lt;'a&gt; {
+//     pub area: Rect,
+//     pub focus: FocusFlag,
+//
+//     pub max_v_offset: usize,
+//     pub max_h_offset: usize,
+//     pub widget: TextArea&lt;'a&gt;,
+//
+//     pub non_exhaustive: NonExhaustive,
+// }
+//
+// impl&lt;'a, State&gt; ScrolledWidget&lt;State&gt; for TextAreaExt&lt;'a&gt; {
+//     fn need_scroll(&amp;self, _area: Rect, _uistate: &amp;mut State) -&gt; ScrollParam {
+//         ScrollParam {
+//             has_hscroll: true,
+//             has_vscroll: true,
+//         }
+//     }
+// }
+//
+// impl&lt;'a&gt; StatefulWidget for TextAreaExt&lt;'a&gt; {
+//     type State = TextAreaExtState&lt;'a&gt;;
+//
+//     fn render(self, area: Rect, buf: &amp;mut Buffer, state: &amp;mut Self::State) {
+//         state.area = area;
+//         state.max_v_offset = state.widget.lines().len();
+//         state.max_h_offset = state
+//             .widget
+//             .lines()
+//             .iter()
+//             .map(|v| v.len())
+//             .max()
+//             .unwrap_or_default();
+//
+//         let widget = state.widget.widget();
+//         widget.render(area, buf);
+//     }
+// }
+//
+// impl&lt;'a&gt; Default for TextAreaExtState&lt;'a&gt; {
+//     fn default() -&gt; Self {
+//         Self {
+//             area: Default::default(),
+//             focus: Default::default(),
+//             max_v_offset: 0,
+//             max_h_offset: 0,
+//             widget: Default::default(),
+//             non_exhaustive: NonExhaustive,
+//         }
+//     }
+// }
+//
+// impl&lt;'a&gt; HasScrolling for TextAreaExtState&lt;'a&gt; {
+//     fn max_v_offset(&amp;self) -&gt; usize {
+//         self.max_v_offset
+//     }
+//
+//     fn max_h_offset(&amp;self) -&gt; usize {
+//         self.max_h_offset
+//     }
+//
+//     fn v_page_len(&amp;self) -&gt; usize {
+//         self.area.height as usize
+//     }
+//
+//     fn h_page_len(&amp;self) -&gt; usize {
+//         self.area.width as usize
+//     }
+//
+//     fn v_offset(&amp;self) -&gt; usize {
+//         // this is the closest we can get?
+//         self.widget.cursor().0
+//     }
+//
+//     fn h_offset(&amp;self) -&gt; usize {
+//         self.widget.cursor().1
+//     }
+//
+//     fn set_v_offset(&amp;mut self, offset: usize) -&gt; ScrollOutcome {
+//         self.widget
+//             .move_cursor(CursorMove::Jump(offset as u16, self.h_offset() as u16));
+//         ScrollOutcome::Unknown
+//     }
+//
+//     fn set_h_offset(&amp;mut self, offset: usize) -&gt; ScrollOutcome {
+//         self.widget
+//             .move_cursor(CursorMove::Jump(self.v_offset() as u16, offset as u16));
+//         ScrollOutcome::Unknown
+//     }
+// }
+//
+// impl&lt;'a&gt; HasFocusFlag for TextAreaExtState&lt;'a&gt; {
+//     fn focus(&amp;self) -&gt; &amp;FocusFlag {
+//         &amp;self.focus
+//     }
+//
+//     fn area(&amp;self) -&gt; Rect {
+//         self.area
+//     }
+// }
+//
+// impl&lt;'a, A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, DefaultKeys&gt; for TextAreaExtState&lt;'a&gt; {
+//     fn handle(&amp;mut self, event: &amp;Event, _keymap: DefaultKeys) -&gt; ControlUI&lt;A, E&gt; {
+//         if self.is_focused() {
+//             self.widget.input(event.clone());
+//             ControlUI::Change
+//         } else {
+//             self.handle(event, MouseOnly)
+//         }
+//     }
+// }
+//
+// impl&lt;'a, A, E&gt; HandleCrossterm&lt;ControlUI&lt;A, E&gt;, MouseOnly&gt; for TextAreaExtState&lt;'a&gt; {
+//     fn handle(&amp;mut self, _event: &amp;Event, _keymap: MouseOnly) -&gt; ControlUI&lt;A, E&gt; {
+//         // TODO: rect() not implemented in the baseline
+//
+//         // match event {
+//         //     ct_event!(mouse up Left for column, row) =&gt; {
+//         //         if self.area.contains(Position::new(*column, *row)) {
+//         //             let column = *column - self.area.x + self.widget.rect().1;
+//         //             let row = *row - self.area.y + self.widget.rect().0;
+//         //
+//         //             self.widget.move_cursor(CursorMove::Jump(row, column));
+//         //             ControlUI::Change
+//         //         } else {
+//         //             ControlUI::Continue
+//         //         }
+//         //     }
+//         //     _ =&gt; ControlUI::Continue,
+//         // }
+//
+//         ControlUI::Continue
+//     }
+// }
+</span></code></pre></div></section></main></body></html>

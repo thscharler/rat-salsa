@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Button","ButtonState","ButtonStyle"]};
+window.SIDEBAR_ITEMS = {"struct":["ButtonExt","ButtonExtState"]};

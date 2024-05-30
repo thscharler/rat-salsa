@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["TreeExt","TreeExtState"]};
+window.SIDEBAR_ITEMS = {};

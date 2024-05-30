@@ -19,8 +19,7 @@ use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};
 use ratatui::symbols::scrollbar::Set;
 use ratatui::widgets::{
-    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, StatefulWidgetRef,
-    Widget, WidgetRef,
+    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
 };
 use std::cmp::min;
 use std::mem;
@@ -266,23 +265,23 @@ where
     }
 }
 
-impl<'a, T> StatefulWidgetRef for Scrolled<'a, T>
-where
-    T: StatefulWidgetRef + ScrolledWidget<T::State>,
-    T::State: HasScrolling,
-{
-    type State = ScrolledState<T::State>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let scroll_param = self
-            .widget
-            .need_scroll(self.block.inner_if_some(area), &mut state.widget);
-
-        render_impl(self, area, buf, state, scroll_param, |area, buf, state| {
-            self.widget.render_ref(area, buf, state);
-        });
-    }
-}
+// impl<'a, T> StatefulWidgetRef for Scrolled<'a, T>
+// where
+//     T: StatefulWidgetRef + ScrolledWidget<T::State>,
+//     T::State: HasScrolling,
+// {
+//     type State = ScrolledState<T::State>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         let scroll_param = self
+//             .widget
+//             .need_scroll(self.block.inner_if_some(area), &mut state.widget);
+//
+//         render_impl(self, area, buf, state, scroll_param, |area, buf, state| {
+//             self.widget.render_ref(area, buf, state);
+//         });
+//     }
+// }
 
 impl<'a, T> StatefulWidget for Scrolled<'a, T>
 where
@@ -406,7 +405,7 @@ fn render_impl<FnRender, T, S>(
 
     render_inner(state.view_area, buf, &mut state.widget);
 
-    widget.block.render_ref(area, buf);
+    widget.block.render(area, buf);
 
     if let Some(vscrollbar_area) = state.v_scrollbar_area {
         let mut vscroll = Scrollbar::new(widget.v_scroll_position.orientation());
