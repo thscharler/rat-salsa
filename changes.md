@@ -1,3 +1,7 @@
+# 0.13.2
+
+* Switch MouseFlags to interior mutability.
+
 # 0.13.1
 
 * Further testing showed that MouseFlags can be simplified.

@@ -7,6 +7,7 @@ use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Position, Rect};
+use std::cell::Cell;
 use std::cmp::{max, min};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 
@@ -141,11 +142,11 @@ impl BitAndAssign for Outcome {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct MouseFlags {
     /// Flag for the first down.
-    pub click: bool,
+    pub click: Cell<bool>,
     /// Flag for the first up.
-    pub clack: bool,
+    pub clack: Cell<bool>,
     /// Drag enabled.
-    pub drag: bool,
+    pub drag: Cell<bool>,
 }
 
 impl MouseFlags {
@@ -160,7 +161,7 @@ impl MouseFlags {
     /// drag has been started with a click to the given area.
     ///
     /// This function handles that case.
-    pub fn drag(&mut self, area: Rect, event: &MouseEvent) -> bool {
+    pub fn drag(&self, area: Rect, event: &MouseEvent) -> bool {
         self.drag2(area, event, KeyModifiers::NONE)
     }
 
@@ -170,7 +171,7 @@ impl MouseFlags {
     /// drag has been started with a click to the given area.
     ///
     /// This function handles that case.
-    pub fn drag2(&mut self, area: Rect, event: &MouseEvent, filter: KeyModifiers) -> bool {
+    pub fn drag2(&self, area: Rect, event: &MouseEvent, filter: KeyModifiers) -> bool {
         match event {
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
@@ -179,9 +180,9 @@ impl MouseFlags {
                 modifiers,
             } if *modifiers == filter => {
                 if area.contains(Position::new(*column, *row)) {
-                    self.drag = true;
+                    self.drag.set(true);
                 } else {
-                    self.drag = false;
+                    self.drag.set(false);
                 }
             }
             MouseEvent {
@@ -189,7 +190,7 @@ impl MouseFlags {
                 modifiers,
                 ..
             } if *modifiers == filter => {
-                if self.drag {
+                if self.drag.get() {
                     return true;
                 }
             }
@@ -197,7 +198,7 @@ impl MouseFlags {
                 kind: MouseEventKind::Up(MouseButton::Left) | MouseEventKind::Moved,
                 ..
             } => {
-                self.drag = false;
+                self.drag.set(false);
             }
 
             _ => {}
@@ -219,7 +220,7 @@ impl MouseFlags {
     /// }
     /// ```
     ///
-    pub fn doubleclick(&mut self, area: Rect, event: &MouseEvent) -> bool {
+    pub fn doubleclick(&self, area: Rect, event: &MouseEvent) -> bool {
         self.doubleclick2(area, event, KeyModifiers::NONE)
     }
 
@@ -237,7 +238,7 @@ impl MouseFlags {
     /// }
     /// ```
     ///
-    pub fn doubleclick2(&mut self, area: Rect, event: &MouseEvent, filter: KeyModifiers) -> bool {
+    pub fn doubleclick2(&self, area: Rect, event: &MouseEvent, filter: KeyModifiers) -> bool {
         match event {
             MouseEvent {
                 kind: MouseEventKind::Down(MouseButton::Left),
@@ -246,11 +247,11 @@ impl MouseFlags {
                 modifiers,
             } if *modifiers == filter => {
                 if area.contains(Position::new(*column, *row)) {
-                    self.click = true;
-                    self.clack = false;
+                    self.click.set(true);
+                    self.clack.set(false);
                 } else {
-                    self.click = false;
-                    self.clack = false;
+                    self.click.set(false);
+                    self.clack.set(false);
                 }
             }
             MouseEvent {
@@ -260,16 +261,16 @@ impl MouseFlags {
                 modifiers,
             } if *modifiers == filter => {
                 if area.contains(Position::new(*column, *row)) {
-                    if self.click {
-                        if !self.clack {
-                            self.clack = true;
+                    if self.click.get() {
+                        if !self.clack.get() {
+                            self.clack.set(true);
                         } else {
                             return true;
                         }
                     }
                 } else {
-                    self.click = false;
-                    self.clack = false;
+                    self.click.set(false);
+                    self.clack.set(false);
                 }
             }
             _ => {}
