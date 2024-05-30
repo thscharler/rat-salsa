@@ -120,3 +120,13 @@ impl BitAndAssign for Outcome {
         *self = self.bitand(rhs);
     }
 }
+
+impl From<bool> for Outcome {
+    fn from(value: bool) -> Self {
+        if value {
+            Outcome::Changed
+        } else {
+            Outcome::Unchanged
+        }
+    }
+}
