@@ -265,8 +265,12 @@ impl MouseFlags {
                         if !self.clack.get() {
                             self.clack.set(true);
                         } else {
+                            self.click.set(false);
+                            self.clack.set(false);
                             return true;
                         }
+                    } else {
+                        // something else
                     }
                 } else {
                     self.click.set(false);

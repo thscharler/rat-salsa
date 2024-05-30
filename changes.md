@@ -1,3 +1,7 @@
+# 0.13.3
+
+* Reset immediately after doubleclick.
+
 # 0.13.2
 
 * Switch MouseFlags to interior mutability.
