@@ -1,3 +1,7 @@
+# 0.13.1
+
+* Further testing showed that MouseFlags can be simplified.
+
 # 0.13.0
 
 * Add MouseFlags for interactions like double-click and drag.

@@ -4,6 +4,8 @@
 
 use crate::ConsumedEvent;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+#[allow(unused_imports)]
+use log::debug;
 use ratatui::layout::{Position, Rect};
 use std::cmp::{max, min};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
@@ -144,17 +146,12 @@ pub struct MouseFlags {
     pub clack: bool,
     /// Drag enabled.
     pub drag: bool,
-    /// Drag is not a good indicator for a valid drag pos.
-    /// An option would do, but that's annoying.
-    pub some_drag_pos: bool,
-    /// Last drag pos, if drag is false this is reset to (0,0).
-    pub drag_pos: (u16, u16),
 }
 
 impl MouseFlags {
     /// Returns the last drag-position if drag is active.
-    pub fn drag_pos(&self) -> (u16, u16) {
-        self.drag_pos
+    pub fn pos_of(&self, event: &MouseEvent) -> (u16, u16) {
+        (event.column, event.row)
     }
 
     /// Checks if this is a drag event for the widget.
@@ -184,20 +181,15 @@ impl MouseFlags {
                 if area.contains(Position::new(*column, *row)) {
                     self.drag = true;
                 } else {
-                    self.some_drag_pos = false;
-                    self.drag_pos = (0, 0);
                     self.drag = false;
                 }
             }
             MouseEvent {
                 kind: MouseEventKind::Drag(MouseButton::Left),
-                column,
-                row,
                 modifiers,
+                ..
             } if *modifiers == filter => {
                 if self.drag {
-                    self.some_drag_pos = true;
-                    self.drag_pos = (*column, *row);
                     return true;
                 }
             }
@@ -205,8 +197,6 @@ impl MouseFlags {
                 kind: MouseEventKind::Up(MouseButton::Left) | MouseEventKind::Moved,
                 ..
             } => {
-                self.some_drag_pos = false;
-                self.drag_pos = (0, 0);
                 self.drag = false;
             }
 
