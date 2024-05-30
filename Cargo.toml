@@ -1,6 +1,6 @@
 [package]
 name = "rat-scrolled"
-version = "0.10.1"
+version = "0.11.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui scroll widget and traits"
@@ -47,8 +47,10 @@ variant_size_differences = "warn"
 ratatui = { version = "0.26", features = ["unstable-rendered-line-info"] }
 crossterm = "0.27"
 log = "0.4"
-rat-event = "0.12"
 #tui-tree-widget = "0.19.0"
+
+rat-event = { version = "0.14" }
+#rat-event = { version = "0.14", path = "../rat-event" }
 
 [dev-sdependencies.tui-tree-widget]
 version = "0.19.0"
@@ -58,6 +60,6 @@ features = []
 [dev-dependencies]
 fern = "0.6"
 anyhow = "1.0.82"
-#rat-input = { version = "0.15" }
-rat-input = { version = "0.15", path = "../rat-input" }
+rat-input = { version = "0.16" }
+#rat-input = { version = "0.16", path = "../rat-input" }
 
