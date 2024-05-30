@@ -12,6 +12,7 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
+use rat_event::Outcome;
 use rat_input::statusline::{StatusLine, StatusLineState};
 use rat_scrolled::event::{HandleEvent, MouseOnly};
 use rat_scrolled::ViewportState;
@@ -28,31 +29,6 @@ use std::io::{stdout, Stdout};
 use std::time::{Duration, SystemTime};
 
 pub mod adapter;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Outcome {
-    /// The given event was not handled at all.
-    NotUsed,
-    /// The event was handled, no repaint necessary.
-    Unchanged,
-    /// The event was handled, repaint necessary.
-    Changed,
-}
-
-impl From<rat_scrolled::event::Outcome<adapter::Outcome>> for Outcome {
-    fn from(value: rat_scrolled::event::Outcome<adapter::Outcome>) -> Self {
-        match value {
-            rat_scrolled::event::Outcome::Inner(i) => match i {
-                adapter::Outcome::NotUsed => Outcome::NotUsed,
-                adapter::Outcome::Unchanged => Outcome::Unchanged,
-                adapter::Outcome::Changed => Outcome::Changed,
-            },
-            rat_scrolled::event::Outcome::NotUsed => Outcome::NotUsed,
-            rat_scrolled::event::Outcome::Unchanged => Outcome::Unchanged,
-            rat_scrolled::event::Outcome::Changed => Outcome::Changed,
-        }
-    }
-}
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -325,7 +301,7 @@ fn handle_text(
 mod double_widget {
     use crate::adapter;
     use adapter::paragraph::{ParagraphS, ParagraphSState};
-    use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+    use rat_event::{FocusKeys, HandleEvent, MouseOnly};
     use rat_scrolled::{Scrolled, ScrolledState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -375,17 +351,17 @@ mod double_widget {
         HandleEvent<
             crossterm::event::Event,
             FocusKeys,
-            rat_scrolled::event::Outcome<adapter::Outcome>,
+            rat_scrolled::event::ScrollOutcome<adapter::Outcome>,
         > for DoubleViewState
     {
         fn handle(
             &mut self,
             _event: &crossterm::event::Event,
             _keymap: FocusKeys,
-        ) -> rat_scrolled::event::Outcome<adapter::Outcome> {
+        ) -> rat_scrolled::event::ScrollOutcome<adapter::Outcome> {
             // self.first.handle(event, FocusKeys)
             // without a concept for focus this is hard to describe
-            rat_scrolled::event::Outcome::NotUsed
+            rat_scrolled::event::ScrollOutcome::NotUsed
         }
     }
 
@@ -393,14 +369,14 @@ mod double_widget {
         HandleEvent<
             crossterm::event::Event,
             MouseOnly,
-            rat_scrolled::event::Outcome<adapter::Outcome>,
+            rat_scrolled::event::ScrollOutcome<adapter::Outcome>,
         > for DoubleViewState
     {
         fn handle(
             &mut self,
             event: &crossterm::event::Event,
             _keymap: MouseOnly,
-        ) -> rat_scrolled::event::Outcome<adapter::Outcome> {
+        ) -> rat_scrolled::event::ScrollOutcome<adapter::Outcome> {
             let mut r = self.first.handle(event, MouseOnly);
             if !r.used_event() {
                 r = self.second.handle(event, MouseOnly);

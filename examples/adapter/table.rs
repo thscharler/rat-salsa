@@ -3,9 +3,8 @@
 ///
 /// This is limited to Tables with row-heights == 1.
 ///
-use crate::adapter::Outcome;
 use crate::adapter::_private::NonExhaustive;
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+use rat_event::{ct_event, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
@@ -625,8 +624,8 @@ pub enum DoubleClickOutcome {
     None,
 }
 
-impl UsedEvent for DoubleClickOutcome {
-    fn used_event(&self) -> bool {
+impl ConsumedEvent for DoubleClickOutcome {
+    fn is_consumed(&self) -> bool {
         *self != DoubleClickOutcome::NotUsed
     }
 }
@@ -688,8 +687,8 @@ pub enum DeleteRowOutcome {
     None,
 }
 
-impl UsedEvent for DeleteRowOutcome {
-    fn used_event(&self) -> bool {
+impl ConsumedEvent for DeleteRowOutcome {
+    fn is_consumed(&self) -> bool {
         *self != DeleteRowOutcome::NotUsed
     }
 }

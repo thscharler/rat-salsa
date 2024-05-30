@@ -5,20 +5,19 @@
 /// There is a second trait [ScrollingState] necessary for the state.
 ///
 use crate::_private::NonExhaustive;
-use crate::event::Outcome;
+use crate::event::ScrollOutcome;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use crate::view::View;
 use crate::viewport::Viewport;
 use crate::{ScrollingState, ScrollingWidget};
 use crossterm::event::{MouseEvent, MouseEventKind};
-use rat_event::{ct_event, UsedEvent};
+use rat_event::{ct_event, ConsumedEvent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{BlockExt, Style};
 use ratatui::symbols::scrollbar::Set;
 use ratatui::widgets::{
-    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, StatefulWidgetRef,
-    Widget, WidgetRef,
+    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, Widget,
 };
 use std::cmp::min;
 use std::mem;
@@ -336,23 +335,23 @@ where
     }
 }
 
-impl<'a, W> StatefulWidgetRef for Scrolled<'a, W>
-where
-    W: StatefulWidgetRef + ScrollingWidget<W::State>,
-    W::State: ScrollingState,
-{
-    type State = ScrolledState<W::State>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let scroll_param = self
-            .widget
-            .need_scroll(self.block.inner_if_some(area), &mut state.widget);
-
-        render_impl(self, area, buf, state, scroll_param, |area, buf, state| {
-            self.widget.render_ref(area, buf, state);
-        });
-    }
-}
+// impl<'a, W> StatefulWidgetRef for Scrolled<'a, W>
+// where
+//     W: StatefulWidgetRef + ScrollingWidget<W::State>,
+//     W::State: ScrollingState,
+// {
+//     type State = ScrolledState<W::State>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         let scroll_param = self
+//             .widget
+//             .need_scroll(self.block.inner_if_some(area), &mut state.widget);
+//
+//         render_impl(self, area, buf, state, scroll_param, |area, buf, state| {
+//             self.widget.render_ref(area, buf, state);
+//         });
+//     }
+// }
 
 impl<'a, W> StatefulWidget for Scrolled<'a, W>
 where
@@ -492,7 +491,7 @@ fn render_impl<FnRender, W, WState>(
 
     render_inner(state.view_area, buf, &mut state.widget);
 
-    widget.block.render_ref(area, buf);
+    widget.block.render(area, buf);
 
     if let Some(vscrollbar_area) = state.v_scrollbar_area {
         let mut vscroll = Scrollbar::new(widget.v_scroll_position.orientation());
@@ -688,32 +687,32 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     }
 }
 
-impl<R, WState> HandleEvent<crossterm::event::Event, FocusKeys, Outcome<R>>
+impl<R, WState> HandleEvent<crossterm::event::Event, FocusKeys, ScrollOutcome<R>>
     for ScrolledState<WState>
 where
     WState: ScrollingState
         + HandleEvent<crossterm::event::Event, FocusKeys, R>
         + HandleEvent<crossterm::event::Event, MouseOnly, R>,
-    R: PartialEq + UsedEvent,
+    R: PartialEq + ConsumedEvent,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> ScrollOutcome<R> {
         let r = self.widget.handle(event, FocusKeys);
-        if !r.used_event() {
+        if !r.is_consumed() {
             self.handle(event, MouseOnly)
         } else {
-            Outcome::Inner(r)
+            ScrollOutcome::Inner(r)
         }
     }
 }
 
 /// Handle events for the Scrolled widget and the scrollbars.
-impl<R, WState> HandleEvent<crossterm::event::Event, MouseOnly, Outcome<R>>
+impl<R, WState> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<R>>
     for ScrolledState<WState>
 where
     WState: ScrollingState + HandleEvent<crossterm::event::Event, MouseOnly, R>,
-    R: PartialEq + UsedEvent,
+    R: PartialEq + ConsumedEvent,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> ScrollOutcome<R> {
         let r = match event {
             crossterm::event::Event::Mouse(MouseEvent {
                 kind:
@@ -730,15 +729,15 @@ where
                 // only forward certain mouse events if they are inside
                 // the view_area. this prevents scrollbar collisions.
                 if self.view_area.contains(Position::new(*column, *row)) {
-                    Outcome::Inner(self.widget.handle(event, MouseOnly))
+                    ScrollOutcome::Inner(self.widget.handle(event, MouseOnly))
                 } else {
-                    Outcome::NotUsed
+                    ScrollOutcome::NotUsed
                 }
             }
-            _ => Outcome::Inner(self.widget.handle(event, MouseOnly)),
+            _ => ScrollOutcome::Inner(self.widget.handle(event, MouseOnly)),
         };
 
-        if !r.used_event() {
+        if !r.is_consumed() {
             match event {
                 ct_event!(mouse down Left for column,row) => {
                     // Click in the scrollbar sets the offset to some absolute position.
@@ -752,9 +751,9 @@ where
 
                             self.v_drag = true;
                             if self.widget.set_vertical_offset(pos) {
-                                return Outcome::Changed;
+                                return ScrollOutcome::Changed;
                             } else {
-                                return Outcome::NotUsed;
+                                return ScrollOutcome::NotUsed;
                             }
                         }
                     }
@@ -769,9 +768,9 @@ where
 
                             self.h_drag = true;
                             if self.widget.set_horizontal_offset(pos) {
-                                return Outcome::Changed;
+                                return ScrollOutcome::Changed;
                             } else {
-                                return Outcome::NotUsed;
+                                return ScrollOutcome::NotUsed;
                             }
                         }
                     }
@@ -786,9 +785,9 @@ where
 
                             let pos = (self.widget.vertical_max_offset() * row) / height;
                             if self.set_vertical_offset(pos) {
-                                return Outcome::Changed;
+                                return ScrollOutcome::Changed;
                             } else {
-                                return Outcome::NotUsed;
+                                return ScrollOutcome::NotUsed;
                             }
                         }
                     }
@@ -801,9 +800,9 @@ where
 
                             let pos = (col * self.widget.horizontal_max_offset()) / width;
                             if self.set_horizontal_offset(pos) {
-                                return Outcome::Changed;
+                                return ScrollOutcome::Changed;
                             } else {
-                                return Outcome::NotUsed;
+                                return ScrollOutcome::NotUsed;
                             }
                         }
                     }
@@ -818,18 +817,18 @@ where
                 ct_event!(scroll down for column, row) => {
                     if self.area.contains(Position::new(*column, *row)) {
                         if self.scroll_down(self.widget.vertical_scroll()) {
-                            return Outcome::Changed;
+                            return ScrollOutcome::Changed;
                         } else {
-                            return Outcome::NotUsed;
+                            return ScrollOutcome::NotUsed;
                         }
                     }
                 }
                 ct_event!(scroll up for column, row) => {
                     if self.area.contains(Position::new(*column, *row)) {
                         if self.widget.scroll_up(self.widget.vertical_scroll()) {
-                            return Outcome::Changed;
+                            return ScrollOutcome::Changed;
                         } else {
-                            return Outcome::NotUsed;
+                            return ScrollOutcome::NotUsed;
                         }
                     }
                 }
@@ -837,9 +836,9 @@ where
                     // right scroll with ALT. shift doesn't work?
                     if self.area.contains(Position::new(*column, *row)) {
                         if self.scroll_right(self.widget.horizontal_scroll()) {
-                            return Outcome::Changed;
+                            return ScrollOutcome::Changed;
                         } else {
-                            return Outcome::NotUsed;
+                            return ScrollOutcome::NotUsed;
                         }
                     }
                 }
@@ -847,15 +846,15 @@ where
                     // right scroll with ALT. shift doesn't work?
                     if self.area.contains(Position::new(*column, *row)) {
                         if self.widget.scroll_left(self.widget.horizontal_scroll()) {
-                            return Outcome::Changed;
+                            return ScrollOutcome::Changed;
                         } else {
-                            return Outcome::NotUsed;
+                            return ScrollOutcome::NotUsed;
                         }
                     }
                 }
                 _ => {}
             }
-            Outcome::NotUsed
+            ScrollOutcome::NotUsed
         } else {
             r
         }

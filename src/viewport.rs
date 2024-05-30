@@ -7,15 +7,14 @@
 /// Viewport for [StatefulWidget]s.
 ///
 use crate::_private::NonExhaustive;
-use crate::event::Outcome;
+use crate::event::ScrollOutcome;
 use crate::util::copy_buffer;
 use crate::{ScrollingState, ScrollingWidget};
-use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
-use ratatui::widgets::StatefulWidgetRef;
 use std::mem;
 
 /// View has its own size, and can contain a stateful widget
@@ -75,18 +74,18 @@ impl<T> Viewport<T> {
     }
 }
 
-impl<T> StatefulWidgetRef for Viewport<T>
-where
-    T: StatefulWidgetRef,
-{
-    type State = ViewportState<T::State>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_impl(self, area, buf, state, |area, buf, state| {
-            self.widget.render_ref(area, buf, state);
-        });
-    }
-}
+// impl<T> StatefulWidgetRef for Viewport<T>
+// where
+//     T: StatefulWidgetRef,
+// {
+//     type State = ViewportState<T::State>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_impl(self, area, buf, state, |area, buf, state| {
+//             self.widget.render_ref(area, buf, state);
+//         });
+//     }
+// }
 
 impl<T> StatefulWidget for Viewport<T>
 where
@@ -230,27 +229,27 @@ impl<S> ScrollingState for ViewportState<S> {
 }
 
 /// Handle events if the widget has the focus.
-impl<R, S> HandleEvent<crossterm::event::Event, FocusKeys, Outcome<R>> for ViewportState<S>
+impl<R, S> HandleEvent<crossterm::event::Event, FocusKeys, ScrollOutcome<R>> for ViewportState<S>
 where
     S: HandleEvent<crossterm::event::Event, FocusKeys, R>,
-    R: UsedEvent,
+    R: ConsumedEvent,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> ScrollOutcome<R> {
         let event = self.relocate_crossterm(event);
         let r = self.widget.handle(&event, FocusKeys);
-        Outcome::Inner(r)
+        ScrollOutcome::Inner(r)
     }
 }
 
 /// Handle only mouse-events.
-impl<R, S> HandleEvent<crossterm::event::Event, MouseOnly, Outcome<R>> for ViewportState<S>
+impl<R, S> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<R>> for ViewportState<S>
 where
     S: HandleEvent<crossterm::event::Event, MouseOnly, R>,
-    R: UsedEvent,
+    R: ConsumedEvent,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> ScrollOutcome<R> {
         let event = self.relocate_crossterm(event);
         let r = self.widget.handle(&event, MouseOnly);
-        Outcome::Inner(r)
+        ScrollOutcome::Inner(r)
     }
 }

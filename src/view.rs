@@ -7,15 +7,14 @@
 /// Viewport for [StatefulWidget]s.
 ///
 use crate::_private::NonExhaustive;
-use crate::event::Outcome;
+use crate::event::ScrollOutcome;
 use crate::util::copy_buffer;
 use crate::{ScrollingState, ScrollingWidget};
-use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::style::Style;
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::mem;
 
 /// View has its own size, and can contain a stateless widget
@@ -72,18 +71,18 @@ impl<T> View<T> {
     }
 }
 
-impl<T> StatefulWidgetRef for View<T>
-where
-    T: WidgetRef,
-{
-    type State = ViewState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_impl(self, area, buf, state, |area, buf| {
-            self.widget.render_ref(area, buf);
-        });
-    }
-}
+// impl<T> StatefulWidgetRef for View<T>
+// where
+//     T: WidgetRef,
+// {
+//     type State = ViewState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_impl(self, area, buf, state, |area, buf| {
+//             self.widget.render_ref(area, buf);
+//         });
+//     }
+// }
 
 impl<T> StatefulWidget for View<T>
 where
@@ -209,21 +208,21 @@ impl ScrollingState for ViewState {
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-impl<R> HandleEvent<crossterm::event::Event, FocusKeys, Outcome<R>> for ViewState
+impl<R> HandleEvent<crossterm::event::Event, FocusKeys, ScrollOutcome<R>> for ViewState
 where
-    R: UsedEvent,
+    R: ConsumedEvent,
 {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome<R> {
-        Outcome::NotUsed
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> ScrollOutcome<R> {
+        ScrollOutcome::NotUsed
     }
 }
 
 /// Handle only mouse-events.
-impl<R> HandleEvent<crossterm::event::Event, MouseOnly, Outcome<R>> for ViewState
+impl<R> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<R>> for ViewState
 where
-    R: UsedEvent,
+    R: ConsumedEvent,
 {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome<R> {
-        Outcome::NotUsed
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> ScrollOutcome<R> {
+        ScrollOutcome::NotUsed
     }
 }

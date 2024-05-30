@@ -1,7 +1,5 @@
-use crate::adapter::Outcome;
 use crate::adapter::_private::NonExhaustive;
-use rat_event::ct_event;
-use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};

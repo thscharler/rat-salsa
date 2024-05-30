@@ -123,71 +123,83 @@ pub trait ScrollingState {
 // }
 
 pub mod event {
-    use rat_event::UsedEvent;
-    pub use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+    pub use rat_event::{
+        crossterm, ct_event, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome,
+    };
 
     /// Result value for event-handling. Used widgets in this crate.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub enum Outcome<R> {
-        /// Outcome of the inner widget.
-        Inner(R),
+    pub enum ScrollOutcome<R> {
         /// The given event was not handled at all.
         NotUsed,
         /// The event was handled, no repaint necessary.
         Unchanged,
         /// The event was handled, repaint necessary.
         Changed,
+        /// Outcome of the inner widget.
+        Inner(R),
     }
 
-    impl<R> Outcome<Outcome<R>> {
+    impl<T> From<ScrollOutcome<T>> for Outcome {
+        fn from(value: ScrollOutcome<T>) -> Self {
+            match value {
+                ScrollOutcome::NotUsed => Outcome::NotUsed,
+                ScrollOutcome::Unchanged => Outcome::Unchanged,
+                ScrollOutcome::Changed => Outcome::Changed,
+                ScrollOutcome::Inner(_) => Outcome::Changed,
+            }
+        }
+    }
+
+    impl<R> ScrollOutcome<ScrollOutcome<R>> {
         /// Compact two layers of Outcome to one.
-        pub fn flatten(self) -> Outcome<R> {
+        pub fn flatten(self) -> ScrollOutcome<R> {
             match self {
-                Outcome::Inner(i) => match i {
-                    Outcome::Inner(i) => Outcome::Inner(i),
-                    Outcome::NotUsed => Outcome::NotUsed,
-                    Outcome::Unchanged => Outcome::Unchanged,
-                    Outcome::Changed => Outcome::Changed,
+                ScrollOutcome::Inner(i) => match i {
+                    ScrollOutcome::Inner(i) => ScrollOutcome::Inner(i),
+                    ScrollOutcome::NotUsed => ScrollOutcome::NotUsed,
+                    ScrollOutcome::Unchanged => ScrollOutcome::Unchanged,
+                    ScrollOutcome::Changed => ScrollOutcome::Changed,
                 },
-                Outcome::NotUsed => Outcome::NotUsed,
-                Outcome::Unchanged => Outcome::Unchanged,
-                Outcome::Changed => Outcome::Changed,
+                ScrollOutcome::NotUsed => ScrollOutcome::NotUsed,
+                ScrollOutcome::Unchanged => ScrollOutcome::Unchanged,
+                ScrollOutcome::Changed => ScrollOutcome::Changed,
             }
         }
     }
 
-    impl<R> Outcome<Outcome<Outcome<R>>> {
+    impl<R> ScrollOutcome<ScrollOutcome<ScrollOutcome<R>>> {
         /// Compact three layers of Outcome to one.
-        pub fn flatten2(self) -> Outcome<R> {
+        pub fn flatten2(self) -> ScrollOutcome<R> {
             match self {
-                Outcome::Inner(i) => match i {
-                    Outcome::Inner(i) => match i {
-                        Outcome::Inner(i) => Outcome::Inner(i),
-                        Outcome::NotUsed => Outcome::NotUsed,
-                        Outcome::Unchanged => Outcome::Unchanged,
-                        Outcome::Changed => Outcome::Changed,
+                ScrollOutcome::Inner(i) => match i {
+                    ScrollOutcome::Inner(i) => match i {
+                        ScrollOutcome::Inner(i) => ScrollOutcome::Inner(i),
+                        ScrollOutcome::NotUsed => ScrollOutcome::NotUsed,
+                        ScrollOutcome::Unchanged => ScrollOutcome::Unchanged,
+                        ScrollOutcome::Changed => ScrollOutcome::Changed,
                     },
-                    Outcome::NotUsed => Outcome::NotUsed,
-                    Outcome::Unchanged => Outcome::Unchanged,
-                    Outcome::Changed => Outcome::Changed,
+                    ScrollOutcome::NotUsed => ScrollOutcome::NotUsed,
+                    ScrollOutcome::Unchanged => ScrollOutcome::Unchanged,
+                    ScrollOutcome::Changed => ScrollOutcome::Changed,
                 },
-                Outcome::NotUsed => Outcome::NotUsed,
-                Outcome::Unchanged => Outcome::Unchanged,
-                Outcome::Changed => Outcome::Changed,
+                ScrollOutcome::NotUsed => ScrollOutcome::NotUsed,
+                ScrollOutcome::Unchanged => ScrollOutcome::Unchanged,
+                ScrollOutcome::Changed => ScrollOutcome::Changed,
             }
         }
     }
 
-    impl<R> UsedEvent for Outcome<R>
+    impl<R> ConsumedEvent for ScrollOutcome<R>
     where
-        R: UsedEvent,
+        R: ConsumedEvent,
     {
-        fn used_event(&self) -> bool {
+        fn is_consumed(&self) -> bool {
             match self {
-                Outcome::Inner(v) => v.used_event(),
-                Outcome::NotUsed => false,
-                Outcome::Unchanged => true,
-                Outcome::Changed => true,
+                ScrollOutcome::Inner(v) => v.is_consumed(),
+                ScrollOutcome::NotUsed => false,
+                ScrollOutcome::Unchanged => true,
+                ScrollOutcome::Changed => true,
             }
         }
     }

@@ -1,3 +1,9 @@
+# 0.11.0
+
+* reorg of rat-event
+* rename Outcome to ScrollOutcome to avoid 4d-chess.
+* removed StatefulWidgetRef for now
+
 # 0.10.1
 
 * fixed versions.
