@@ -22,7 +22,7 @@ pub struct MouseOnly;
 /// for the state type. Thereby it can modify any state, and it can
 /// return an arbitrary result, that fits the widget.
 ///
-pub trait HandleEvent<Event, KeyMap, R: UsedEvent> {
+pub trait HandleEvent<Event, KeyMap, R: ConsumedEvent> {
     /// Handle an event.
     ///
     /// * self - Should be the widget state.
@@ -37,29 +37,29 @@ pub trait HandleEvent<Event, KeyMap, R: UsedEvent> {
 /// This allows shortcutting the event-handling and prevents double
 /// interactions with the event. The inner widget can special case an event,
 /// and the fallback behaviour on the outer layer should not run too.
-pub trait UsedEvent {
-    fn used_event(&self) -> bool;
+pub trait ConsumedEvent {
+    fn is_consumed(&self) -> bool;
 }
 
-impl<V, E> UsedEvent for Result<V, E>
+impl<V, E> ConsumedEvent for Result<V, E>
 where
-    V: UsedEvent,
+    V: ConsumedEvent,
 {
-    fn used_event(&self) -> bool {
+    fn is_consumed(&self) -> bool {
         match self {
-            Ok(v) => v.used_event(),
+            Ok(v) => v.is_consumed(),
             Err(_) => true,
         }
     }
 }
 
-impl<V> UsedEvent for Option<V>
+impl<V> ConsumedEvent for Option<V>
 where
-    V: UsedEvent,
+    V: ConsumedEvent,
 {
-    fn used_event(&self) -> bool {
+    fn is_consumed(&self) -> bool {
         match self {
-            Some(v) => v.used_event(),
+            Some(v) => v.is_consumed(),
             None => true,
         }
     }

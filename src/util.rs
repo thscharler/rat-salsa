@@ -2,8 +2,9 @@
 //! Some utility functions that pop up all the time.
 //!
 
-use crate::UsedEvent;
-use ratatui::layout::Rect;
+use crate::ConsumedEvent;
+use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use ratatui::layout::{Position, Rect};
 use std::cmp::{max, min};
 use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 
@@ -97,8 +98,8 @@ pub enum Outcome {
     Changed,
 }
 
-impl UsedEvent for Outcome {
-    fn used_event(&self) -> bool {
+impl ConsumedEvent for Outcome {
+    fn is_consumed(&self) -> bool {
         *self != Outcome::NotUsed
     }
 }
@@ -128,5 +129,161 @@ impl BitOrAssign for Outcome {
 impl BitAndAssign for Outcome {
     fn bitand_assign(&mut self, rhs: Self) {
         *self = self.bitand(rhs);
+    }
+}
+
+/// Some state for mouse interactions.
+///
+/// This helps with double-click and mouse drag recognition.
+/// Add this to your widget state.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct MouseFlags {
+    /// Flag for the first down.
+    pub click: bool,
+    /// Flag for the first up.
+    pub clack: bool,
+    /// Drag enabled.
+    pub drag: bool,
+    /// Drag is not a good indicator for a valid drag pos.
+    /// An option would do, but that's annoying.
+    pub some_drag_pos: bool,
+    /// Last drag pos, if drag is false this is reset to (0,0).
+    pub drag_pos: (u16, u16),
+}
+
+impl MouseFlags {
+    /// Returns the last drag-position if drag is active.
+    pub fn drag_pos(&self) -> (u16, u16) {
+        self.drag_pos
+    }
+
+    /// Checks if this is a drag event for the widget.
+    ///
+    /// It makes sense to allow drag events outside the given area, if the
+    /// drag has been started with a click to the given area.
+    ///
+    /// This function handles that case.
+    pub fn drag(&mut self, area: Rect, event: &MouseEvent) -> bool {
+        self.drag2(area, event, KeyModifiers::NONE)
+    }
+
+    /// Checks if this is a drag event for the widget.
+    ///
+    /// It makes sense to allow drag events outside the given area, if the
+    /// drag has been started with a click to the given area.
+    ///
+    /// This function handles that case.
+    pub fn drag2(&mut self, area: Rect, event: &MouseEvent, filter: KeyModifiers) -> bool {
+        match event {
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers,
+            } if *modifiers == filter => {
+                if area.contains(Position::new(*column, *row)) {
+                    self.drag = true;
+                } else {
+                    self.some_drag_pos = false;
+                    self.drag_pos = (0, 0);
+                    self.drag = false;
+                }
+            }
+            MouseEvent {
+                kind: MouseEventKind::Drag(MouseButton::Left),
+                column,
+                row,
+                modifiers,
+            } if *modifiers == filter => {
+                if self.drag {
+                    self.some_drag_pos = true;
+                    self.drag_pos = (*column, *row);
+                    return true;
+                }
+            }
+            MouseEvent {
+                kind: MouseEventKind::Up(MouseButton::Left) | MouseEventKind::Moved,
+                ..
+            } => {
+                self.some_drag_pos = false;
+                self.drag_pos = (0, 0);
+                self.drag = false;
+            }
+
+            _ => {}
+        }
+
+        false
+    }
+
+    /// Checks for double-click events.
+    ///
+    /// This can be integrated in the event-match with a guard:
+    ///
+    /// ```rust ignore
+    /// match event {
+    ///         Event::Mouse(m) if state.mouse.doubleclick(state.area, m) => {
+    ///             state.flip = !state.flip;
+    ///             Outcome::Changed
+    ///         }
+    /// }
+    /// ```
+    ///
+    pub fn doubleclick(&mut self, area: Rect, event: &MouseEvent) -> bool {
+        self.doubleclick2(area, event, KeyModifiers::NONE)
+    }
+
+    /// Checks for double-click events.
+    /// This one can have an extra KeyModifiers.
+    ///
+    /// This can be integrated in the event-match with a guard:
+    ///
+    /// ```rust ignore
+    /// match event {
+    ///         Event::Mouse(m) if state.mouse.doubleclick(state.area, m) => {
+    ///             state.flip = !state.flip;
+    ///             Outcome::Changed
+    ///         }
+    /// }
+    /// ```
+    ///
+    pub fn doubleclick2(&mut self, area: Rect, event: &MouseEvent, filter: KeyModifiers) -> bool {
+        match event {
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers,
+            } if *modifiers == filter => {
+                if area.contains(Position::new(*column, *row)) {
+                    self.click = true;
+                    self.clack = false;
+                } else {
+                    self.click = false;
+                    self.clack = false;
+                }
+            }
+            MouseEvent {
+                kind: MouseEventKind::Up(MouseButton::Left),
+                column,
+                row,
+                modifiers,
+            } if *modifiers == filter => {
+                if area.contains(Position::new(*column, *row)) {
+                    if self.click {
+                        if !self.clack {
+                            self.clack = true;
+                        } else {
+                            return true;
+                        }
+                    }
+                } else {
+                    self.click = false;
+                    self.clack = false;
+                }
+            }
+            _ => {}
+        }
+        false
     }
 }

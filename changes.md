@@ -1,3 +1,9 @@
+# 0.13.0
+
+* Add MouseFlags for interactions like double-click and drag.
+  Filtering those is non-trivial, this struct makes it easier.
+* Rename UsedEvent to ConsumedEvent. Fits the terminology better.
+
 # 0.12.5
 
 * Remove ratatui-flag: unstable-widget-ref

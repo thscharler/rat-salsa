@@ -51,6 +51,7 @@ pub mod modifiers {
 /// "key" ("press"|"release") (modifier "-")? "'" char "'"
 /// "keycode" ("press"|"release") (modifier "-")? keycode
 /// "mouse" ("down"|"up"|"drag") (modifier "-")? button "for" col_id "," row_id
+/// "mouse" "any" (modifier)? ("for" mouseevt)?
 /// "mouse" "moved" ("for" col_id "," row_id)?
 /// "scroll" ("up"|"down") "for" col_id "," row_id
 /// ```
@@ -178,6 +179,17 @@ macro_rules! ct_event {
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::$mod,
+        })
+    };
+
+
+    (mouse any for $mouse:ident) => {
+        crossterm::event::Event::Mouse($mouse)
+    };
+    (mouse any $mod:ident for $mouse:ident ) => {
+        crossterm::event::Event::Mouse($mouse @ crossterm::event::MouseEvent {
+            modifiers: $crate::crossterm::modifiers::$mod,
+            ..
         })
     };
 
