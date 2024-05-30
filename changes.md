@@ -1,3 +1,7 @@
+# 0.14.1
+
+* Add conversion from bool for Outcome.
+
 # 0.14.0
 
 * Reorg module layout. Outcome should be at the toplevel, everything
