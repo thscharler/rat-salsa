@@ -1,11 +1,11 @@
 use crate::_private::NonExhaustive;
-use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::{StatefulWidget, StatefulWidgetRef};
+use ratatui::widgets::StatefulWidget;
 
+use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 pub use rat_input::menuline::{HotKeyAlt, HotKeyCtrl, MenuOutcome, MenuStyle};
 
 #[derive(Debug, Default, Clone)]
@@ -78,16 +78,16 @@ impl<'a> MenuLine<'a> {
     }
 }
 
-impl<'a> StatefulWidgetRef for MenuLine<'a> {
-    type State = MenuLineState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .clone()
-            .focused(state.is_focused())
-            .render(area, buf, &mut state.widget)
-    }
-}
+// impl<'a> StatefulWidgetRef for MenuLine<'a> {
+//     type State = MenuLineState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         self.widget
+//             .clone()
+//             .focused(state.is_focused())
+//             .render(area, buf, &mut state.widget)
+//     }
+// }
 
 impl<'a> StatefulWidget for MenuLine<'a> {
     type State = MenuLineState;
@@ -136,7 +136,7 @@ impl MenuLineState {
     }
 
     #[inline]
-    pub fn item_at(&self, pos: Position) -> Option<usize> {
+    pub fn item_at(&self, pos: (u16, u16)) -> Option<usize> {
         self.widget.item_at(pos)
     }
 

@@ -14,7 +14,7 @@
 //!
 
 use crate::_private::NonExhaustive;
-use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_input::event::{ReadOnly, TextOutcome};
 use ratatui::buffer::Buffer;

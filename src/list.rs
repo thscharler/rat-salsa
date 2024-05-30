@@ -3,9 +3,9 @@
 //!
 
 use crate::_private::NonExhaustive;
+use crate::event::util::{row_at_clicked, row_at_drag, MouseFlags};
 use crate::list::selection::{RowSelection, RowSetSelection};
 use rat_focus::{FocusFlag, HasFocusFlag};
-use rat_input::util::MouseFlags;
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
@@ -336,13 +336,13 @@ impl<Selection: ListSelection> ListState<Selection> {
 
     #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        rat_event::util::row_at_clicked(&self.item_areas, pos.y).map(|v| self.v_offset + v)
+        row_at_clicked(&self.item_areas, pos.y).map(|v| self.v_offset + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
-        match rat_event::util::row_at_drag(self.inner, &self.item_areas, pos.y) {
+        match row_at_drag(self.inner, &self.item_areas, pos.y) {
             Ok(v) => self.v_offset + v,
             Err(v) if v <= 0 => self.v_offset.saturating_sub((-v) as usize),
             Err(v) => self.v_offset + self.item_areas.len() + v as usize,
@@ -392,7 +392,7 @@ impl ListState<RowSelection> {
     }
 
     #[inline]
-    pub fn select(&mut self, n: Option<usize>) {
+    pub fn select(&mut self, n: Option<usize>) -> bool {
         self.selection.select(n)
     }
 }
@@ -447,9 +447,9 @@ impl ListState<RowSetSelection> {
 }
 
 pub mod selection {
+    use crate::event::{ct_event, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
     use crate::list::{ListSelection, ListState};
-    use rat_event::util::Outcome;
-    use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+    use crossterm::event::KeyModifiers;
     use rat_focus::HasFocusFlag;
     use rat_ftable::TableSelection;
     use rat_scrolled::ScrollingState;
@@ -503,36 +503,43 @@ pub mod selection {
             let res = if self.is_focused() {
                 match event {
                     ct_event!(keycode press Down) => {
-                        self.selection.next(1, self.len.saturating_sub(1));
+                        let r = self.selection.next(1, self.len.saturating_sub(1)).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press Up) => {
-                        self.selection.prev(1);
+                        let r = self.selection.prev(1).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                        self.selection
-                            .select_clamped(self.len.saturating_sub(1), self.len.saturating_sub(1));
+                        let r = self
+                            .selection
+                            .select_clamped(self.len.saturating_sub(1), self.len.saturating_sub(1))
+                            .into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                        self.selection.select_clamped(0, self.len.saturating_sub(1));
+                        let r = self
+                            .selection
+                            .select_clamped(0, self.len.saturating_sub(1))
+                            .into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press PageUp) => {
-                        self.selection.prev(self.vertical_page() / 2);
+                        let r = self.selection.prev(self.vertical_page() / 2).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press PageDown) => {
-                        self.selection
-                            .next(self.vertical_page(), self.len.saturating_sub(1));
+                        let r = self
+                            .selection
+                            .next(self.vertical_page(), self.len.saturating_sub(1))
+                            .into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     _ => Outcome::NotUsed,
                 }
@@ -540,7 +547,7 @@ pub mod selection {
                 Outcome::NotUsed
             };
 
-            if !res.used_event() {
+            if !res.is_consumed() {
                 self.handle(event, MouseOnly)
             } else {
                 res
@@ -551,24 +558,25 @@ pub mod selection {
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<RowSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
             match event {
+                ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
+                    let new_row = self.row_at_drag((m.column, m.row).into());
+                    let r = self
+                        .selection
+                        .select_clamped(new_row, self.len.saturating_sub(1))
+                        .into();
+                    self.scroll_to_selected();
+                    r
+                }
                 ct_event!(scroll down for column,row) => {
                     if self.area.contains(Position::new(*column, *row)) {
-                        if self.scroll_down(self.vertical_page() / 10) {
-                            Outcome::Changed
-                        } else {
-                            Outcome::NotUsed
-                        }
+                        self.scroll_down(self.vertical_page() / 10).into()
                     } else {
                         Outcome::NotUsed
                     }
                 }
                 ct_event!(scroll up for column, row) => {
                     if self.area.contains(Position::new(*column, *row)) {
-                        if self.scroll_up(self.vertical_page() / 10) {
-                            Outcome::Changed
-                        } else {
-                            Outcome::NotUsed
-                        }
+                        self.scroll_up(self.vertical_page() / 10).into()
                     } else {
                         Outcome::NotUsed
                     }
@@ -577,33 +585,15 @@ pub mod selection {
                     let pos = Position::new(*column, *row);
                     if self.area.contains(pos) {
                         if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.mouse.set_drag();
                             self.selection
-                                .select_clamped(new_row, self.len.saturating_sub(1));
-                            Outcome::Changed
+                                .select_clamped(new_row, self.len.saturating_sub(1))
+                                .into()
                         } else {
                             Outcome::NotUsed
                         }
                     } else {
                         Outcome::NotUsed
                     }
-                }
-                ct_event!(mouse drag Left for column, row) => {
-                    if self.mouse.do_drag() {
-                        let pos = Position::new(*column, *row);
-                        let new_row = self.row_at_drag(pos);
-                        self.mouse.set_drag();
-                        self.selection
-                            .select_clamped(new_row, self.len.saturating_sub(1));
-                        self.scroll_to_selected();
-                        Outcome::Changed
-                    } else {
-                        Outcome::NotUsed
-                    }
-                }
-                ct_event!(mouse moved) => {
-                    self.mouse.clear_drag();
-                    Outcome::NotUsed
                 }
 
                 _ => Outcome::NotUsed,
@@ -646,65 +636,71 @@ pub mod selection {
             let res = {
                 match event {
                     ct_event!(keycode press Down) => {
-                        self.selection.next(1, self.len - 1, false);
+                        let r = self.selection.next(1, self.len - 1, false).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press SHIFT-Down) => {
-                        self.selection.next(1, self.len - 1, true);
+                        let r = self.selection.next(1, self.len - 1, true).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press Up) => {
-                        self.selection.prev(1, false);
+                        let r = self.selection.prev(1, false).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press SHIFT-Up) => {
-                        self.selection.prev(1, true);
+                        let r = self.selection.prev(1, true).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                        self.selection.set_lead(Some(self.len - 1), false);
+                        let r = self.selection.set_lead(Some(self.len - 1), false).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press SHIFT-End) => {
-                        self.selection.set_lead(Some(self.len - 1), true);
+                        let r = self.selection.set_lead(Some(self.len - 1), true).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                        self.selection.set_lead(Some(0), false);
+                        let r = self.selection.set_lead(Some(0), false).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press SHIFT-Home) => {
-                        self.selection.set_lead(Some(0), true);
+                        let r = self.selection.set_lead(Some(0), true).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
 
                     ct_event!(keycode press PageUp) => {
-                        self.selection.prev(self.v_page_len, false);
+                        let r = self.selection.prev(self.v_page_len, false).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press SHIFT-PageUp) => {
-                        self.selection.prev(self.v_page_len, true);
+                        let r = self.selection.prev(self.v_page_len, true).into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press PageDown) => {
-                        self.selection.next(self.v_page_len, self.len - 1, false);
+                        let r = self
+                            .selection
+                            .next(self.v_page_len, self.len - 1, false)
+                            .into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     ct_event!(keycode press SHIFT-PageDown) => {
-                        self.selection.next(self.v_page_len, self.len - 1, true);
+                        let r = self
+                            .selection
+                            .next(self.v_page_len, self.len - 1, true)
+                            .into();
                         self.scroll_to_selected();
-                        Outcome::Changed
+                        r
                     }
                     _ => Outcome::NotUsed,
                 }
@@ -721,18 +717,28 @@ pub mod selection {
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<RowSetSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> Outcome {
             match event {
+                ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)
+                    if self.mouse.drag(self.inner, m)
+                        || self.mouse.drag2(self.inner, m, KeyModifiers::CONTROL) =>
+                {
+                    let new_row = self.row_at_drag((m.column, m.row).into());
+                    let r = self
+                        .selection
+                        .set_lead_clamped(new_row, self.len - 1, true)
+                        .into();
+                    self.scroll_to_selected();
+                    r
+                }
                 ct_event!(scroll up for column, row) => {
                     if self.area.contains(Position::new(*column, *row)) {
-                        self.scroll_up(self.vertical_scroll());
-                        Outcome::Changed
+                        self.scroll_up(self.vertical_scroll()).into()
                     } else {
                         Outcome::NotUsed
                     }
                 }
                 ct_event!(scroll down for column, row) => {
                     if self.area.contains(Position::new(*column, *row)) {
-                        self.scroll_down(self.vertical_scroll());
-                        Outcome::Changed
+                        self.scroll_down(self.vertical_scroll()).into()
                     } else {
                         Outcome::NotUsed
                     }
@@ -741,10 +747,9 @@ pub mod selection {
                     let pos = Position::new(*column, *row);
                     if self.area.contains(pos) {
                         if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.mouse.set_drag();
                             self.selection
-                                .set_lead_clamped(new_row, self.len - 1, false);
-                            Outcome::Changed
+                                .set_lead_clamped(new_row, self.len - 1, false)
+                                .into()
                         } else {
                             Outcome::Unchanged
                         }
@@ -756,9 +761,9 @@ pub mod selection {
                     let pos = Position::new(*column, *row);
                     if self.area.contains(pos) {
                         if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.mouse.set_drag();
-                            self.selection.set_lead_clamped(new_row, self.len - 1, true);
-                            Outcome::Changed
+                            self.selection
+                                .set_lead_clamped(new_row, self.len - 1, true)
+                                .into()
                         } else {
                             Outcome::Unchanged
                         }
@@ -770,7 +775,6 @@ pub mod selection {
                     if self.area.contains(Position::new(*column, *row)) {
                         let pos = Position::new(*column, *row);
                         if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.mouse.set_drag();
                             self.selection.transfer_lead_anchor();
                             if self.selection.is_selected_row(new_row) {
                                 self.selection.remove(new_row);
@@ -784,22 +788,6 @@ pub mod selection {
                     } else {
                         Outcome::NotUsed
                     }
-                }
-                ct_event!(mouse drag Left for column, row)
-                | ct_event!(mouse drag CONTROL-Left for column, row) => {
-                    if self.mouse.do_drag() {
-                        let pos = Position::new(*column, *row);
-                        let new_row = self.row_at_drag(pos);
-                        self.selection.set_lead_clamped(new_row, self.len - 1, true);
-                        self.scroll_to_selected();
-                        Outcome::Changed
-                    } else {
-                        Outcome::NotUsed
-                    }
-                }
-                ct_event!(mouse moved) => {
-                    self.mouse.clear_drag();
-                    Outcome::NotUsed
                 }
 
                 _ => Outcome::NotUsed,

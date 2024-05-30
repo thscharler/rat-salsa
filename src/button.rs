@@ -2,14 +2,15 @@
 //! Button widget.
 //!
 use crate::_private::NonExhaustive;
-use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Line, Span, StatefulWidget, Style, Text};
-use ratatui::widgets::{Block, StatefulWidgetRef};
+use ratatui::widgets::Block;
 
+use crate::event::{FocusKeys, MouseOnly};
 pub use rat_input::button::{ButtonOutcome, ButtonStyle};
+use rat_input::event::HandleEvent;
 
 /// Button widget.
 #[derive(Debug, Default, Clone)]
@@ -135,16 +136,16 @@ impl<'a> StatefulWidget for Button<'a> {
     }
 }
 
-impl<'a> StatefulWidgetRef for Button<'a> {
-    type State = ButtonState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .clone()
-            .focused(state.is_focused())
-            .render(area, buf, &mut state.widget)
-    }
-}
+// impl<'a> StatefulWidgetRef for Button<'a> {
+//     type State = ButtonState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         self.widget
+//             .clone()
+//             .focused(state.is_focused())
+//             .render(area, buf, &mut state.widget)
+//     }
+// }
 
 impl HasFocusFlag for ButtonState {
     #[inline]

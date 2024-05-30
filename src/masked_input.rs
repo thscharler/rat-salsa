@@ -67,8 +67,8 @@
 //! For event-handling call one of the HandleEvent implementations.
 
 use crate::_private::NonExhaustive;
+use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use format_num_pattern::NumberSymbols;
-use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_input::event::{ReadOnly, TextOutcome};
 pub use rat_input::masked_input::MaskedInputStyle;

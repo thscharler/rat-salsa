@@ -4,7 +4,6 @@
 
 use crate::_private::NonExhaustive;
 use chrono::NaiveDate;
-use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_input::masked_input::MaskedInputStyle;
 use ratatui::buffer::Buffer;
@@ -13,6 +12,7 @@ use ratatui::prelude::Style;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt;
 
+use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 pub use rat_input::date_input::ConvenientKeys;
 use rat_input::event::{ReadOnly, TextOutcome};
 

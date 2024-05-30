@@ -1,3 +1,7 @@
+# 0.11.0
+
+* migrated after upstream change in rat-event
+
 # 0.10.0
 
 * Added all available widgets now.
