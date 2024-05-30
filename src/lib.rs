@@ -1,8 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
 use log::debug;
-use rat_event::util::Outcome;
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
@@ -11,8 +10,9 @@ use std::{ptr, vec};
 
 pub mod event {
     //! Rexported eventhandling traits.
-    pub use rat_event::util::Outcome;
-    pub use rat_event::{FocusKeys, HandleEvent, MouseOnly, UsedEvent};
+    pub use rat_event::{
+        crossterm, ct_event, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome,
+    };
 }
 
 /// Contains flags for the focus.

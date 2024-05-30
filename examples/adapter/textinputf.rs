@@ -6,7 +6,7 @@ use rat_input::input::{TextInput, TextInputState, TextInputStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
-use ratatui::widgets::{Block, StatefulWidgetRef};
+use ratatui::widgets::Block;
 use std::ops::Range;
 
 #[derive(Debug, Default)]
@@ -59,14 +59,14 @@ impl<'a> TextInputF<'a> {
     }
 }
 
-impl<'a> StatefulWidgetRef for TextInputF<'a> {
-    type State = TextInputFState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let widget = self.widget.clone().focused(state.is_focused());
-        widget.render(area, buf, &mut state.widget);
-    }
-}
+// impl<'a> StatefulWidgetRef for TextInputF<'a> {
+//     type State = TextInputFState;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         let widget = self.widget.clone().focused(state.is_focused());
+//         widget.render(area, buf, &mut state.widget);
+//     }
+// }
 
 impl<'a> StatefulWidget for TextInputF<'a> {
     type State = TextInputFState;

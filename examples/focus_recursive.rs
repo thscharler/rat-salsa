@@ -10,7 +10,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use log::debug;
-use rat_event::UsedEvent;
+use rat_event::ConsumedEvent;
 use rat_focus::Focus;
 use rat_input::event::{FocusKeys, HandleEvent, Outcome};
 use rat_input::statusline::{StatusLine, StatusLineState};
@@ -179,7 +179,7 @@ fn handle_event(
     }
 
     let r = handle_input(&event, data, state)?;
-    if r.used_event() {
+    if r.is_consumed() {
         debug!("handle_input {:?}", r);
     }
 
@@ -240,24 +240,24 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus_input(state).handle(event, FocusKeys);
-    if f.used_event() {
+    if f.is_consumed() {
         debug!("focus {:?}", f);
     }
 
     let r = state.sub1.handle(event, FocusKeys);
-    if r.used_event() {
+    if r.is_consumed() {
         return Ok(r | f);
     }
     let r = state.sub2.handle(event, FocusKeys);
-    if r.used_event() {
+    if r.is_consumed() {
         return Ok(r | f);
     }
     let r = state.sub3.handle(event, FocusKeys);
-    if r.used_event() {
+    if r.is_consumed() {
         return Ok(r | f);
     }
     let r = state.sub4.handle(event, FocusKeys);
-    if r.used_event() {
+    if r.is_consumed() {
         return Ok(r | f);
     }
 
@@ -267,8 +267,7 @@ fn handle_input(
 pub mod substratum1 {
     use crate::adapter::textinputf::{TextInputF, TextInputFState};
     use log::debug;
-    use rat_event::util::Outcome;
-    use rat_event::{FocusKeys, HandleEvent, UsedEvent};
+    use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
     use rat_input::layout_edit::{layout_edit, EditConstraint};
     use ratatui::buffer::Buffer;
@@ -399,22 +398,22 @@ pub mod substratum1 {
     impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for SubstratumState {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
             let mut r: Outcome = self.input1.handle(event, FocusKeys).into();
-            if r.used_event() {
+            if r.is_consumed() {
                 debug!("rr1 {:?}", r);
                 return r;
             }
             r = self.input2.handle(event, FocusKeys).into();
-            if r.used_event() {
+            if r.is_consumed() {
                 debug!("rr2 {:?}", r);
                 return r;
             }
             r = self.input3.handle(event, FocusKeys).into();
-            if r.used_event() {
+            if r.is_consumed() {
                 debug!("rr3 {:?}", r);
                 return r;
             }
             r = self.input4.handle(event, FocusKeys).into();
-            if r.used_event() {
+            if r.is_consumed() {
                 debug!("rr4 {:?}", r);
                 return r;
             }

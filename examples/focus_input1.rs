@@ -10,7 +10,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use log::debug;
-use rat_event::UsedEvent;
+use rat_event::ConsumedEvent;
 use rat_focus::{Focus, HasFocusFlag};
 use rat_input::event::{FocusKeys, HandleEvent, Outcome};
 use rat_input::layout_edit::{layout_edit, EditConstraint};
@@ -264,19 +264,19 @@ fn handle_input(
     let f = focus_input(state).handle(event, FocusKeys);
 
     let mut r: Outcome = state.input1.handle(event, FocusKeys).into();
-    if r.used_event() {
+    if r.is_consumed() {
         return Ok(r | f);
     }
     r = state.input2.handle(event, FocusKeys).into();
-    if r.used_event() {
+    if r.is_consumed() {
         return Ok(r | f);
     }
     r = state.input3.handle(event, FocusKeys).into();
-    if r.used_event() {
+    if r.is_consumed() {
         return Ok(r | f);
     }
     r = state.input4.handle(event, FocusKeys).into();
-    if r.used_event() {
+    if r.is_consumed() {
         return Ok(r | f);
     }
 
