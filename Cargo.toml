@@ -1,6 +1,6 @@
 [package]
 name = "rat-event"
-version = "0.14.0"
+version = "0.14.1"
 edition = "2021"
 description = "ratatui event handler trait for widgets"
 license = "MIT/Apache-2.0"
