@@ -1,3 +1,8 @@
+# 0.14.0
+
+* Reorg module layout. Outcome should be at the toplevel, everything
+  else is confusing for the dependend crates.
+
 # 0.13.3
 
 * Reset immediately after doubleclick.

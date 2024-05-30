@@ -2,14 +2,11 @@
 //! Some utility functions that pop up all the time.
 //!
 
-use crate::ConsumedEvent;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
-use std::cmp::{max, min};
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
 
 /// Which row of the given contains the position.
 /// This uses only the vertical components of the given areas.
@@ -79,59 +76,6 @@ pub fn column_at_drag(encompassing: Rect, areas: &[Rect], x_pos: u16) -> Result<
         } else {
             Err(x_pos as isize - encompassing.left() as isize)
         }
-    }
-}
-
-/// A baseline Outcome for event-handling.
-///
-/// A widget can define its own, if it has more things to report.
-/// It would be nice of the widget though, if its outcome would be
-/// convertible to this baseline.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub enum Outcome {
-    /// The given event has not been used at all.
-    NotUsed,
-    /// The event has been recognized, but the result was nil.
-    /// Further processing for this event may stop.
-    Unchanged,
-    /// The event has been recognized and there is some change
-    /// due to it.
-    /// Further processing for this event may stop.
-    /// Rendering the ui is advised.
-    Changed,
-}
-
-impl ConsumedEvent for Outcome {
-    fn is_consumed(&self) -> bool {
-        *self != Outcome::NotUsed
-    }
-}
-
-impl BitOr for Outcome {
-    type Output = Outcome;
-
-    fn bitor(self, rhs: Self) -> Self::Output {
-        max(self, rhs)
-    }
-}
-
-impl BitAnd for Outcome {
-    type Output = Outcome;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        min(self, rhs)
-    }
-}
-
-impl BitOrAssign for Outcome {
-    fn bitor_assign(&mut self, rhs: Self) {
-        *self = self.bitor(rhs);
-    }
-}
-
-impl BitAndAssign for Outcome {
-    fn bitand_assign(&mut self, rhs: Self) {
-        *self = self.bitand(rhs);
     }
 }
 
