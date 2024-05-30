@@ -1,5 +1,3 @@
-use rat_input::event::ConsumedEvent;
-
 pub mod list;
 pub mod paragraph;
 pub mod table;

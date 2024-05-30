@@ -12,7 +12,6 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use rat_event::{HandleEvent, MouseOnly, Outcome};
-use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scrolled, ScrolledState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;

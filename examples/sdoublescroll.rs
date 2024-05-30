@@ -301,7 +301,8 @@ fn handle_text(
 mod double_widget {
     use crate::adapter;
     use adapter::paragraph::{ParagraphS, ParagraphSState};
-    use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+    use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
+    use rat_scrolled::event::ScrollOutcome;
     use rat_scrolled::{Scrolled, ScrolledState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -347,38 +348,26 @@ mod double_widget {
         }
     }
 
-    impl
-        HandleEvent<
-            crossterm::event::Event,
-            FocusKeys,
-            rat_scrolled::event::ScrollOutcome<adapter::Outcome>,
-        > for DoubleViewState
-    {
+    impl HandleEvent<crossterm::event::Event, FocusKeys, ScrollOutcome<Outcome>> for DoubleViewState {
         fn handle(
             &mut self,
             _event: &crossterm::event::Event,
             _keymap: FocusKeys,
-        ) -> rat_scrolled::event::ScrollOutcome<adapter::Outcome> {
+        ) -> ScrollOutcome<Outcome> {
             // self.first.handle(event, FocusKeys)
             // without a concept for focus this is hard to describe
-            rat_scrolled::event::ScrollOutcome::NotUsed
+            ScrollOutcome::NotUsed
         }
     }
 
-    impl
-        HandleEvent<
-            crossterm::event::Event,
-            MouseOnly,
-            rat_scrolled::event::ScrollOutcome<adapter::Outcome>,
-        > for DoubleViewState
-    {
+    impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<Outcome>> for DoubleViewState {
         fn handle(
             &mut self,
             event: &crossterm::event::Event,
             _keymap: MouseOnly,
-        ) -> rat_scrolled::event::ScrollOutcome<adapter::Outcome> {
+        ) -> ScrollOutcome<Outcome> {
             let mut r = self.first.handle(event, MouseOnly);
-            if !r.used_event() {
+            if !r.is_consumed() {
                 r = self.second.handle(event, MouseOnly);
             }
             r
