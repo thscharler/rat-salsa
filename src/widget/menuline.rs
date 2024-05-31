@@ -123,23 +123,23 @@ impl<A> MenuLineExtState<A> {
         self.widget.selected()
     }
 
-    pub fn select(&mut self, select: Option<usize>) {
-        self.widget.select(select);
+    pub fn select(&mut self, select: Option<usize>) -> bool {
+        self.widget.select(select)
     }
 
-    pub fn select_by_key(&mut self, cc: char) {
-        self.widget.select_by_key(cc);
+    pub fn select_by_key(&mut self, cc: char) -> bool {
+        self.widget.select_by_key(cc)
     }
 
     pub fn item_at(&self, pos: (u16, u16)) -> Option<usize> {
         self.widget.item_at(pos)
     }
 
-    pub fn next(&mut self) {
+    pub fn next(&mut self) -> bool {
         self.widget.next()
     }
 
-    pub fn prev(&mut self) {
+    pub fn prev(&mut self) -> bool {
         self.widget.prev()
     }
 
