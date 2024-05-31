@@ -1,4 +1,12 @@
+//!
+//! A simple menu. No submenus.
+//!
+//! Supports hot-keys with '_' in the item text.
+//!
+
 use crate::_private::NonExhaustive;
+#[allow(unused_imports)]
+use log::debug;
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -8,14 +16,24 @@ use ratatui::widgets::StatefulWidget;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 pub use rat_input::menuline::{HotKeyAlt, HotKeyCtrl, MenuOutcome, MenuStyle};
 
+///
+/// Menu widget.
+///
+/// If the text exceeds the area width it wraps around.
+///
 #[derive(Debug, Default, Clone)]
 pub struct MenuLine<'a> {
     widget: rat_input::menuline::MenuLine<'a>,
 }
 
+///
+/// State for the menu widget
+///
 #[derive(Debug, Clone)]
 pub struct MenuLineState {
+    /// State of the inner widget.
     pub widget: rat_input::menuline::MenuLineState,
+    /// Focus flag.
     pub focus: FocusFlag,
 
     pub non_exhaustive: NonExhaustive,
@@ -111,51 +129,61 @@ impl Default for MenuLineState {
 
 #[allow(clippy::len_without_is_empty)]
 impl MenuLineState {
+    /// New
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Number of items.
     #[inline]
     pub fn len(&self) -> usize {
         self.widget.len()
     }
 
+    /// Selected index
     #[inline]
     pub fn selected(&self) -> Option<usize> {
         self.widget.selected
     }
 
+    /// Select
     #[inline]
-    pub fn select(&mut self, select: Option<usize>) {
+    pub fn select(&mut self, select: Option<usize>) -> bool {
         self.widget.select(select)
     }
 
+    /// Select by hotkey
     #[inline]
-    pub fn select_by_key(&mut self, cc: char) {
+    pub fn select_by_key(&mut self, cc: char) -> bool {
         self.widget.select_by_key(cc)
     }
 
+    /// Item at position.
     #[inline]
     pub fn item_at(&self, pos: (u16, u16)) -> Option<usize> {
         self.widget.item_at(pos)
     }
 
+    /// Next item.
     #[inline]
-    pub fn next(&mut self) {
+    pub fn next(&mut self) -> bool {
         self.widget.next()
     }
 
+    /// Previous item.
     #[inline]
-    pub fn prev(&mut self) {
+    pub fn prev(&mut self) -> bool {
         self.widget.prev()
     }
 }
 
 impl HasFocusFlag for MenuLineState {
+    /// Focus flag.
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
 
+    /// Focus area.
     fn area(&self) -> Rect {
         self.widget.area
     }
