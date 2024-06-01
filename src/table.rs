@@ -142,7 +142,6 @@ impl<'a, Selection> FTable<'a, Selection> {
     {
         let widths = widths.into_iter().map(|v| v.into()).collect::<Vec<_>>();
         let data = TextTableData {
-            columns: widths.len(),
             rows: rows.into_iter().map(|v| v.into()).collect(),
         };
         Self {
@@ -259,14 +258,6 @@ impl<'a, Selection> FTable<'a, Selection> {
         I::Item: Into<Constraint>,
     {
         self.widths = widths.into_iter().map(|v| v.into()).collect();
-
-        match &mut self.data {
-            DataRepr::Text(v) => {
-                v.columns = self.widths.len();
-            }
-            DataRepr::Ref(_) => {}
-        }
-
         self
     }
 
@@ -398,7 +389,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         //
 
         let data = self.data_ref();
-        let (columns, rows) = data.size();
+        let rows = data.rows();
 
         // vertical layout
         let inner_area = self.block.inner_if_some(area);
@@ -406,7 +397,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         let table_area = l_rows[1];
 
         // horizontal layout
-        let (l_columns, _) = self.layout_columns(columns, table_area.width);
+        let (l_columns, _) = self.layout_columns(table_area.width);
 
         // maximum offsets
         let vertical = 'f: {
@@ -421,8 +412,8 @@ impl<'a, Selection> FTable<'a, Selection> {
             false
         };
         let horizontal = 'f: {
-            for c in 0..columns {
-                if l_columns[c].right() >= table_area.width {
+            for c in l_columns.iter() {
+                if c.right() >= table_area.width {
                     break 'f true;
                 }
             }
@@ -444,16 +435,10 @@ impl<'a, Selection> FTable<'a, Selection> {
 
     // Do the column-layout. Fill in missing columns, if necessary.
     #[inline]
-    fn layout_columns(&self, columns: usize, width: u16) -> (Rc<[Rect]>, Rc<[Rect]>) {
+    fn layout_columns(&self, width: u16) -> (Rc<[Rect]>, Rc<[Rect]>) {
         let mut widths;
         let widths = if self.widths.is_empty() {
-            widths = vec![Constraint::Fill(1); columns];
-            widths.as_slice()
-        } else if self.widths.len() != columns {
-            widths = self.widths.clone();
-            while widths.len() < columns {
-                widths.push(Constraint::Fill(1));
-            }
+            widths = vec![Constraint::Fill(1); 0];
             widths.as_slice()
         } else {
             self.widths.as_slice()
@@ -501,7 +486,8 @@ where
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let data = self.data_ref();
-        let (columns, rows) = data.size();
+        let columns = self.widths.len();
+        let rows = data.rows();
 
         // limits
         if state.row_offset >= rows {
@@ -524,7 +510,7 @@ where
         state.footer_area = l_rows[2];
 
         // horizontal layout
-        let (l_columns, l_spacers) = self.layout_columns(columns, state.table_area.width);
+        let (l_columns, l_spacers) = self.layout_columns(state.table_area.width);
 
         // maximum offsets
         {

@@ -15,7 +15,7 @@ use ratatui::style::Style;
 /// Trait for accessing the table-data by the FTable.
 pub trait TableData<'a> {
     /// Size of the data.
-    fn size(&self) -> (usize, usize);
+    fn rows(&self) -> usize;
 
     /// Row height.
     #[allow(unused_variables)]
@@ -31,6 +31,21 @@ pub trait TableData<'a> {
 
     /// Render the cell given by column/row.
     fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer);
+}
+
+pub trait TableRowData<'a> {
+    /// Row height.
+    #[allow(unused_variables)]
+    fn row_height(&self, row: usize) -> u16 {
+        1
+    }
+
+    fn row_style(&self) -> Style {
+        Style::default()
+    }
+
+    /// Render the cell given by column/row.
+    fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer);
 }
 
 /// Trait for the different selection models used by FTable.

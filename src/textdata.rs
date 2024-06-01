@@ -14,7 +14,6 @@ use ratatui::widgets::Widget;
 /// Internal impl for TableData using pre-rendered Cells.
 #[derive(Debug, Default, Clone)]
 pub(crate) struct TextTableData<'a> {
-    pub(crate) columns: usize,
     pub(crate) rows: Vec<Row<'a>>,
 }
 
@@ -40,8 +39,8 @@ pub struct Cell<'a> {
 }
 
 impl<'a> TableData<'a> for TextTableData<'a> {
-    fn size(&self) -> (usize, usize) {
-        (self.columns, self.rows.len())
+    fn rows(&self) -> usize {
+        self.rows.len()
     }
 
     fn row_height(&self, r: usize) -> u16 {
