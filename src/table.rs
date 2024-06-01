@@ -3,6 +3,7 @@ use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::{TableData, TableRowData, TableSelection};
+use log::debug;
 use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
@@ -839,6 +840,8 @@ where
             if state.row_offset >= rows {
                 state.row_offset = rows.saturating_sub(1);
             }
+        } else {
+            // no validity check.
         }
         if state.col_offset >= state.columns {
             state.col_offset = state.columns.saturating_sub(1);
@@ -882,6 +885,7 @@ where
 
         let mut row = state.row_offset;
         let mut row_y = state.table_area.y;
+        let mut row_heights = Vec::new();
         data.skip(state.row_offset);
         loop {
             if !data.next() {
@@ -901,6 +905,7 @@ where
                 buf.set_style(row_area, data.row_style());
             }
 
+            row_heights.push(row_area.height);
             state.row_areas.push(row_area);
             state.row_page_len += 1;
 
@@ -964,13 +969,17 @@ where
         {
             if let Some(rows) = Some(state.rows) {
                 // skip to a guess for the last page.
-                // the guess uses row-height is 1.
-                data.skip(
-                    rows.saturating_sub(row)
-                        .saturating_sub(state.table_area.height as usize),
-                );
+                // the guess uses row-height is 1, which may read a few more lines than
+                // absolutely necessary.
+                let skip_rows = rows
+                    .saturating_sub(row)
+                    .saturating_sub(state.table_area.height as usize + 1);
+                // if we can still skip some rows, then the data so far is useless.
+                if skip_rows > 0 {
+                    row_heights.clear();
+                }
+                data.skip(skip_rows);
                 // collect the remaining row-heights.
-                let mut row_heights = Vec::new();
                 while data.next() {
                     row_heights.push(data.row_height());
                 }
