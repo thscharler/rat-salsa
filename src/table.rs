@@ -1,7 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::textdata::{Row, TextTableData};
-use crate::{TableData, TableSelection};
+use crate::{TableData, TableRowData, TableSelection};
 use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
@@ -12,6 +12,7 @@ use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
+use std::mem;
 use std::rc::Rc;
 
 /// FTable widget.
@@ -20,7 +21,7 @@ use std::rc::Rc;
 /// show if you use [FTable::data] to set the table data.
 ///
 /// See [FTable::data] for a sample.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct FTable<'a, Selection> {
     data: DataRepr<'a>,
 
@@ -48,10 +49,13 @@ pub struct FTable<'a, Selection> {
     _phantom: PhantomData<Selection>,
 }
 
-#[derive(Clone)]
+#[derive(Default)]
 enum DataRepr<'a> {
+    #[default]
+    None,
     Text(TextTableData<'a>),
     Ref(&'a dyn TableData<'a>),
+    Iter(&'a mut dyn Iterator<Item = &'a dyn TableRowData<'a>>, bool),
 }
 
 /// Combined style.
@@ -121,12 +125,6 @@ impl<'a> Debug for DataRepr<'a> {
     }
 }
 
-impl<'a> Default for DataRepr<'a> {
-    fn default() -> Self {
-        Self::Text(TextTableData::default())
-    }
-}
-
 impl<'a, Selection> FTable<'a, Selection> {
     /// Create a new FTable with preformatted data. For compatibility
     /// with ratatui.
@@ -163,7 +161,7 @@ impl<'a, Selection> FTable<'a, Selection> {
             DataRepr::Text(d) => {
                 d.rows = rows;
             }
-            DataRepr::Ref(_) => {
+            _ => {
                 unimplemented!("doesn't work that way");
             }
         }
@@ -234,6 +232,20 @@ impl<'a, Selection> FTable<'a, Selection> {
     #[inline]
     pub fn data(mut self, data: &'a dyn TableData<'a>) -> Self {
         self.data = DataRepr::Ref(data);
+        self
+    }
+
+    /// Alternative repr for the data is as an Iterator that yields a TableRowData.
+    ///
+    /// One caveat with this one is that it can't know whether to scroll or not.
+    ///
+    #[inline]
+    pub fn iter(
+        mut self,
+        data: &'a mut dyn Iterator<Item = &'a dyn TableRowData<'a>>,
+        need_vertical_scroll: bool,
+    ) -> Self {
+        self.data = DataRepr::Iter(data, need_vertical_scroll);
         self
     }
 
@@ -371,33 +383,55 @@ impl<'a, Selection> FTable<'a, Selection> {
 }
 
 impl<'a, Selection> FTable<'a, Selection> {
-    /// Returns a reference to the `TableData`.
-    #[inline]
-    #[allow(clippy::borrow_deref_ref)]
-    pub fn data_ref(&self) -> &dyn TableData<'a> {
-        match &self.data {
-            DataRepr::Text(v) => &*v,
-            DataRepr::Ref(v) => *v,
-        }
-    }
-
     /// Does this table need scrollbars?
     /// Returns (horizontal, vertical)
     pub fn need_scroll(&self, area: Rect) -> (bool, bool) {
         //
         // Attention: This must be kept in sync with the actual rendering.
         //
+        let inner_area = self.block.inner_if_some(area);
+        let l_rows = self.layout_areas(inner_area);
+        let table_area = l_rows[1];
 
-        let data = self.data_ref();
+        let vertical = match &self.data {
+            DataRepr::None => false,
+            DataRepr::Text(v) => self.need_scroll_tabledata(v, area),
+            DataRepr::Ref(v) => self.need_scroll_tabledata(*v, area),
+            DataRepr::Iter(v, s) => self.need_scroll_tableiter(v, *s, area),
+        };
+
+        // horizontal layout
+        let (l_columns, _) = self.layout_columns(table_area.width);
+        let horizontal = 'f: {
+            for c in l_columns.iter() {
+                if c.right() >= table_area.width {
+                    break 'f true;
+                }
+            }
+            false
+        };
+
+        (horizontal, vertical)
+    }
+
+    fn need_scroll_tableiter(
+        &self,
+        _data: &dyn Iterator<Item = &'a dyn TableRowData<'a>>,
+        need_v_scroll: bool,
+        _area: Rect,
+    ) -> bool {
+        // can't iterate of data here etc.
+        // a conservative guess just says 'yes'
+        need_v_scroll
+    }
+
+    fn need_scroll_tabledata(&self, data: &dyn TableData<'a>, area: Rect) -> bool {
         let rows = data.rows();
 
         // vertical layout
         let inner_area = self.block.inner_if_some(area);
         let l_rows = self.layout_areas(inner_area);
         let table_area = l_rows[1];
-
-        // horizontal layout
-        let (l_columns, _) = self.layout_columns(table_area.width);
 
         // maximum offsets
         let vertical = 'f: {
@@ -411,16 +445,8 @@ impl<'a, Selection> FTable<'a, Selection> {
             }
             false
         };
-        let horizontal = 'f: {
-            for c in l_columns.iter() {
-                if c.right() >= table_area.width {
-                    break 'f true;
-                }
-            }
-            false
-        };
 
-        (horizontal, vertical)
+        vertical
     }
 
     // area_width or layout_width
@@ -436,7 +462,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     // Do the column-layout. Fill in missing columns, if necessary.
     #[inline]
     fn layout_columns(&self, width: u16) -> (Rc<[Rect]>, Rc<[Rect]>) {
-        let mut widths;
+        let widths;
         let widths = if self.widths.is_empty() {
             widths = vec![Constraint::Fill(1); 0];
             widths.as_slice()
@@ -484,8 +510,35 @@ where
 {
     type State = FTableState<Selection>;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let data = self.data_ref();
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        match mem::take(&mut self.data) {
+            DataRepr::Text(v) => {
+                self.render_data(&v, area, buf, state);
+            }
+            DataRepr::Ref(v) => {
+                self.render_data(v, area, buf, state);
+            }
+            DataRepr::Iter(v, _) => {
+                self.render_iter(v, area, buf, state);
+            }
+            DataRepr::None => {
+                // noop
+            }
+        }
+    }
+}
+
+impl<'a, Selection> FTable<'a, Selection>
+where
+    Selection: TableSelection,
+{
+    fn render_data(
+        self,
+        data: &dyn TableData<'a>,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut FTableState<Selection>,
+    ) {
         let columns = self.widths.len();
         let rows = data.rows();
 
@@ -784,6 +837,15 @@ where
                 row_y += row_area.height;
             }
         }
+    }
+
+    fn render_iter(
+        self,
+        data: &mut dyn Iterator<Item = &'a dyn TableRowData<'a>>,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut FTableState<Selection>,
+    ) {
     }
 }
 
