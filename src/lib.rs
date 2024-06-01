@@ -36,7 +36,7 @@ pub trait TableData<'a> {
 pub trait TableRowData<'a> {
     /// Row height.
     #[allow(unused_variables)]
-    fn row_height(&self, row: usize) -> u16 {
+    fn row_height(&self) -> u16 {
         1
     }
 

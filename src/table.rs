@@ -1,5 +1,6 @@
 use crate::_private::NonExhaustive;
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
+use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::{TableData, TableRowData, TableSelection};
 use rat_event::util::MouseFlags;
@@ -10,7 +11,7 @@ use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::{max, min};
 use std::collections::HashSet;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 use std::rc::Rc;
@@ -49,13 +50,152 @@ pub struct FTable<'a, Selection> {
     _phantom: PhantomData<Selection>,
 }
 
-#[derive(Default)]
-enum DataRepr<'a> {
-    #[default]
-    None,
-    Text(TextTableData<'a>),
-    Ref(&'a dyn TableData<'a>),
-    Iter(&'a mut dyn Iterator<Item = &'a dyn TableRowData<'a>>, bool),
+mod data {
+    use crate::textdata::TextTableData;
+    use crate::{TableData, TableRowData};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::style::Style;
+    use std::fmt::{Debug, Formatter};
+    use std::mem;
+
+    #[derive(Default)]
+    pub(super) enum DataRepr<'a> {
+        #[default]
+        None,
+        Text(TextTableData<'a>),
+        Ref(&'a dyn TableData<'a>),
+        Iter(
+            &'a mut dyn Iterator<Item = &'a dyn TableRowData<'a>>,
+            Option<usize>,
+        ),
+    }
+
+    impl<'a> DataRepr<'a> {
+        pub(super) fn iter(self) -> (DataReprIter<'a>, Option<usize>) {
+            match self {
+                DataRepr::None => (DataReprIter::None, None),
+                DataRepr::Text(v) => {
+                    let rows = v.rows();
+                    (DataReprIter::IterText(v, None), Some(rows))
+                }
+                DataRepr::Ref(v) => {
+                    let rows = v.rows();
+                    (DataReprIter::IterRef(v, None), Some(rows))
+                }
+                DataRepr::Iter(v, rows) => (DataReprIter::IterIter(v, None, 0), rows),
+            }
+        }
+    }
+
+    impl<'a> Debug for DataRepr<'a> {
+        fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+            f.debug_struct("Data").finish()
+        }
+    }
+
+    #[derive(Default)]
+    pub(super) enum DataReprIter<'a> {
+        #[default]
+        None,
+        IterText(TextTableData<'a>, Option<usize>),
+        IterRef(&'a dyn TableData<'a>, Option<usize>),
+        IterIter(
+            &'a mut dyn Iterator<Item = &'a dyn TableRowData<'a>>,
+            Option<&'a dyn TableRowData<'a>>,
+            usize,
+        ),
+    }
+
+    impl<'a> DataReprIter<'a> {
+        pub(super) fn skip(&mut self, n: usize) {
+            match self {
+                DataReprIter::None => {}
+                DataReprIter::IterText(_, row) => {
+                    if let Some(row) = row {
+                        *row += n;
+                    } else if n > 0 {
+                        *row = Some(n - 1);
+                    } else {
+                        // skip 0
+                    }
+                }
+                DataReprIter::IterRef(_, row) => {
+                    if let Some(row) = row {
+                        *row += n;
+                    } else if n > 0 {
+                        *row = Some(n - 1);
+                    } else {
+                        // skip 0
+                    }
+                }
+                DataReprIter::IterIter(_, _, skip) => {
+                    *skip = n;
+                }
+            }
+        }
+
+        pub(super) fn next(&mut self) -> bool {
+            match self {
+                DataReprIter::None => false,
+                DataReprIter::IterText(v, row) => {
+                    let next = row.map_or(0, |row| row + 1);
+                    if next < v.rows() {
+                        *row = Some(next);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                DataReprIter::IterRef(v, row) => {
+                    let next = row.map_or(0, |row| row + 1);
+                    if next < v.rows() {
+                        *row = Some(next);
+                        true
+                    } else {
+                        false
+                    }
+                }
+                DataReprIter::IterIter(v, cur, skip) => {
+                    if *skip > 0 {
+                        *cur = v.nth(mem::take(skip));
+                    } else {
+                        *cur = v.next();
+                    }
+                    cur.is_some()
+                }
+            }
+        }
+
+        /// Row height.
+        pub(super) fn row_height(&self) -> u16 {
+            match self {
+                DataReprIter::None => 1,
+                DataReprIter::IterText(v, n) => v.row_height(n.expect("row")),
+                DataReprIter::IterRef(v, n) => v.row_height(n.expect("row")),
+                DataReprIter::IterIter(_, n, _) => n.expect("row").row_height(),
+            }
+        }
+
+        pub(super) fn row_style(&self) -> Style {
+            match self {
+                DataReprIter::None => Style::default(),
+                DataReprIter::IterText(v, n) => v.row_style(n.expect("row")),
+                DataReprIter::IterRef(v, n) => v.row_style(n.expect("row")),
+                DataReprIter::IterIter(_, n, _) => n.expect("row").row_style(),
+            }
+        }
+
+        /// Render the cell given by column/row.
+        pub(super) fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+            match self {
+                DataReprIter::None => {}
+                DataReprIter::IterText(v, n) => v.render_cell(column, n.expect("row"), area, buf),
+                DataReprIter::IterRef(v, n) => v.render_cell(column, n.expect("row"), area, buf),
+                DataReprIter::IterIter(_, n, _) => n.expect("row").render_cell(column, area, buf),
+            }
+        }
+    }
 }
 
 /// Combined style.
@@ -119,12 +259,6 @@ pub struct FTableState<Selection> {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> Debug for DataRepr<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Data").finish()
-    }
-}
-
 impl<'a, Selection> FTable<'a, Selection> {
     /// Create a new FTable with preformatted data. For compatibility
     /// with ratatui.
@@ -157,14 +291,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         T: IntoIterator<Item = Row<'a>>,
     {
         let rows = rows.into_iter().collect();
-        match &mut self.data {
-            DataRepr::Text(d) => {
-                d.rows = rows;
-            }
-            _ => {
-                unimplemented!("doesn't work that way");
-            }
-        }
+        self.data = DataRepr::Text(TextTableData { rows });
         self
     }
 
@@ -236,16 +363,22 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 
     /// Alternative repr for the data is as an Iterator that yields a TableRowData.
-    ///
-    /// One caveat with this one is that it can't know whether to scroll or not.
-    ///
     #[inline]
     pub fn iter(
         mut self,
         data: &'a mut dyn Iterator<Item = &'a dyn TableRowData<'a>>,
-        need_vertical_scroll: bool,
+        rows: Option<usize>,
     ) -> Self {
-        self.data = DataRepr::Iter(data, need_vertical_scroll);
+        if rows.is_some() {
+            // Take what is given.
+            self.data = DataRepr::Iter(data, rows);
+        } else {
+            let rows = data.size_hint().1;
+            // this might help with the nice iterator.
+            // if the upper bound is not None it might actually be useful.
+            // Anyway, I don't have a better guess.
+            self.data = DataRepr::Iter(data, rows);
+        }
         self
     }
 
@@ -397,7 +530,7 @@ impl<'a, Selection> FTable<'a, Selection> {
             DataRepr::None => false,
             DataRepr::Text(v) => self.need_scroll_tabledata(v, area),
             DataRepr::Ref(v) => self.need_scroll_tabledata(*v, area),
-            DataRepr::Iter(v, s) => self.need_scroll_tableiter(v, *s, area),
+            DataRepr::Iter(v, rows) => self.need_scroll_tableiter(v, *rows, area),
         };
 
         // horizontal layout
@@ -417,12 +550,19 @@ impl<'a, Selection> FTable<'a, Selection> {
     fn need_scroll_tableiter(
         &self,
         _data: &dyn Iterator<Item = &'a dyn TableRowData<'a>>,
-        need_v_scroll: bool,
-        _area: Rect,
+        rows: Option<usize>,
+        area: Rect,
     ) -> bool {
-        // can't iterate of data here etc.
-        // a conservative guess just says 'yes'
-        need_v_scroll
+        // can't iterate data here, have to guess.
+        // the guess is we have a constant row-height of 1.
+        let vertical = if let Some(rows) = rows {
+            rows >= area.height as usize
+        } else {
+            // don't know anything. guess we need it.
+            true
+        };
+
+        vertical
     }
 
     fn need_scroll_tabledata(&self, data: &dyn TableData<'a>, area: Rect) -> bool {
@@ -511,20 +651,8 @@ where
     type State = FTableState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        match mem::take(&mut self.data) {
-            DataRepr::Text(v) => {
-                self.render_data(&v, area, buf, state);
-            }
-            DataRepr::Ref(v) => {
-                self.render_data(v, area, buf, state);
-            }
-            DataRepr::Iter(v, _) => {
-                self.render_iter(v, area, buf, state);
-            }
-            DataRepr::None => {
-                // noop
-            }
-        }
+        let (iter, rows) = mem::take(&mut self.data).iter();
+        self.render_iter(iter, rows, area, buf, state);
     }
 }
 
@@ -554,6 +682,9 @@ where
         state.rows = rows;
         state.columns = columns;
         state.area = area;
+
+        // render block
+        self.block.render(area, buf);
 
         // vertical layout
         let inner_area = self.block.inner_if_some(area);
@@ -590,167 +721,11 @@ where
         }
 
         // column areas
-        {
-            state.column_areas.clear();
-            state.col_page_len = 0;
+        self.calculate_column_areas(columns, l_columns.as_ref(), l_spacers.as_ref(), state);
 
-            let mut col = state.col_offset;
-            loop {
-                if col >= columns {
-                    break;
-                }
-
-                let column_area = Rect::new(
-                    state.table_area.x + l_columns[col].x - l_columns[state.col_offset].x,
-                    state.table_area.y,
-                    l_columns[col].width + l_spacers[col + 1].width,
-                    state.table_area.height,
-                )
-                .intersection(state.table_area);
-
-                // let space_area = Rect::new(
-                //     state.table_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
-                //     state.table_area.y,
-                //     l_spacers[col + 1].width,
-                //     state.table_area.height,
-                // )
-                // .intersection(state.table_area);
-
-                state.column_areas.push(column_area);
-                state.col_page_len += 1;
-
-                if column_area.right() >= state.table_area.right() {
-                    break;
-                }
-
-                col += 1;
-            }
-        }
-
-        // render block
-        self.block.render(area, buf);
-
-        // render header
-        if let Some(header) = &self.header {
-            let header_style = if header.style != Style::default() {
-                header.style
-            } else {
-                self.style
-            };
-            if header_style != Style::default() {
-                buf.set_style(state.header_area, header_style);
-            }
-
-            let mut col = state.col_offset;
-            loop {
-                if col >= columns {
-                    break;
-                }
-
-                let cell_area = Rect::new(
-                    state.header_area.x + l_columns[col].x - l_columns[state.col_offset].x,
-                    state.header_area.y,
-                    l_columns[col].width,
-                    state.header_area.height,
-                )
-                .intersection(state.header_area);
-
-                let space_area = Rect::new(
-                    state.header_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
-                    state.header_area.y,
-                    l_spacers[col + 1].width,
-                    state.header_area.height,
-                )
-                .intersection(state.header_area);
-
-                let mut selected_style = if state.selection.is_selected_column(col) {
-                    self.select_header_style
-                } else {
-                    Style::default()
-                };
-                if self.focus {
-                    selected_style = selected_style.patch(self.focus_style);
-                }
-                if selected_style != Style::default() {
-                    buf.set_style(cell_area, selected_style);
-                    buf.set_style(space_area, selected_style);
-                }
-
-                if let Some(cell) = header.cells.get(col) {
-                    if cell.style != Style::default() {
-                        buf.set_style(cell_area, cell.style);
-                    }
-                    cell.content.clone().render(cell_area, buf);
-                }
-
-                if cell_area.right() >= state.header_area.right() {
-                    break;
-                }
-
-                col += 1;
-            }
-        }
-
-        // render footer
-        if let Some(footer) = &self.footer {
-            let footer_style = if footer.style != Style::default() {
-                footer.style
-            } else {
-                self.style
-            };
-            if footer_style != Style::default() {
-                buf.set_style(state.footer_area, footer_style);
-            }
-
-            let mut col = state.col_offset;
-            loop {
-                if col >= columns {
-                    break;
-                }
-
-                let cell_area = Rect::new(
-                    state.footer_area.x + l_columns[col].x - l_columns[state.col_offset].x,
-                    state.footer_area.y,
-                    l_columns[col].width,
-                    state.footer_area.height,
-                )
-                .intersection(state.footer_area);
-
-                let space_area = Rect::new(
-                    state.footer_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
-                    state.footer_area.y,
-                    l_spacers[col + 1].width,
-                    state.footer_area.height,
-                )
-                .intersection(state.footer_area);
-
-                let mut selected_style = if state.selection.is_selected_column(col) {
-                    self.select_footer_style
-                } else {
-                    Style::default()
-                };
-                if self.focus {
-                    selected_style = selected_style.patch(self.focus_style);
-                }
-                if selected_style != Style::default() {
-                    buf.set_style(cell_area, selected_style);
-                    buf.set_style(space_area, selected_style);
-                }
-
-                if let Some(cell) = footer.cells.get(col) {
-                    if cell.style != Style::default() {
-                        buf.set_style(cell_area, cell.style);
-                    }
-                    cell.content.clone().render(cell_area, buf);
-                }
-
-                if cell_area.right() >= state.footer_area.right() {
-                    break;
-                }
-
-                col += 1;
-            }
-        }
+        // render header & footer
+        self.render_header(columns, l_columns.as_ref(), l_spacers.as_ref(), buf, state);
+        self.render_footer(columns, l_columns.as_ref(), l_spacers.as_ref(), buf, state);
 
         // render table
         {
@@ -839,13 +814,370 @@ where
         }
     }
 
+    /// Render an Iterator over TableRowData.
+    ///
+    /// rows: If the row number is known, this can help.
+    ///
     fn render_iter(
         self,
-        data: &mut dyn Iterator<Item = &'a dyn TableRowData<'a>>,
+        mut data: DataReprIter<'a>,
+        rows: Option<usize>,
         area: Rect,
         buf: &mut Buffer,
         state: &mut FTableState<Selection>,
     ) {
+        if let Some(rows) = rows {
+            state.rows = rows;
+        } else {
+            // TODO: state.rows = None;
+        }
+        state.columns = self.widths.len();
+        state.area = area;
+
+        // offset validity
+        if let Some(rows) = rows {
+            if state.row_offset >= rows {
+                state.row_offset = rows.saturating_sub(1);
+            }
+        }
+        if state.col_offset >= state.columns {
+            state.col_offset = state.columns.saturating_sub(1);
+        }
+
+        // render block
+        self.block.render(area, buf);
+
+        // vertical layout
+        let inner_area = self.block.inner_if_some(area);
+        let l_rows = self.layout_areas(inner_area);
+        state.header_area = l_rows[0];
+        state.table_area = l_rows[1];
+        state.footer_area = l_rows[2];
+
+        // horizontal layout
+        let (l_columns, l_spacers) = self.layout_columns(state.table_area.width);
+        self.calculate_column_areas(state.columns, l_columns.as_ref(), l_spacers.as_ref(), state);
+
+        // render header & footer
+        self.render_header(
+            state.columns,
+            l_columns.as_ref(),
+            l_spacers.as_ref(),
+            buf,
+            state,
+        );
+        self.render_footer(
+            state.columns,
+            l_columns.as_ref(),
+            l_spacers.as_ref(),
+            buf,
+            state,
+        );
+
+        // render table
+        buf.set_style(state.table_area, self.style);
+
+        state.row_areas.clear();
+        state.row_page_len = 0;
+
+        let mut row = state.row_offset;
+        let mut row_y = state.table_area.y;
+        data.skip(state.row_offset);
+        loop {
+            if !data.next() {
+                break;
+            }
+
+            // we enforce a minimum row-height of 1.
+            let row_area = Rect::new(
+                state.table_area.x,
+                row_y,
+                state.table_area.height,
+                max(data.row_height(), 1),
+            )
+            .intersection(state.table_area);
+
+            if data.row_style() != Style::default() {
+                buf.set_style(row_area, data.row_style());
+            }
+
+            state.row_areas.push(row_area);
+            state.row_page_len += 1;
+
+            let mut col = state.col_offset;
+            loop {
+                if col >= state.columns {
+                    break;
+                }
+
+                let cell_area = Rect::new(
+                    row_area.x + l_columns[col].x - l_columns[state.col_offset].x,
+                    row_area.y,
+                    l_columns[col].width,
+                    row_area.height,
+                )
+                .intersection(state.table_area);
+
+                let space_area = Rect::new(
+                    row_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
+                    row_area.y,
+                    l_spacers[col + 1].width,
+                    row_area.height,
+                )
+                .intersection(state.table_area);
+
+                let mut select_style = if state.selection.is_selected_cell(col, row) {
+                    self.select_cell_style
+                } else if state.selection.is_selected_row(row) {
+                    self.select_row_style
+                } else if state.selection.is_selected_column(col) {
+                    self.select_column_style
+                } else {
+                    Style::default()
+                };
+                if self.focus {
+                    select_style = select_style.patch(self.focus_style);
+                }
+                if select_style != Style::default() {
+                    buf.set_style(cell_area, select_style);
+                    buf.set_style(space_area, select_style);
+                }
+
+                // TODO: give an optional select style to the renderer
+                data.render_cell(col, cell_area, buf);
+
+                if cell_area.right() >= state.table_area.right() {
+                    break;
+                }
+                col += 1;
+            }
+
+            if row_area.bottom() >= state.table_area.bottom() {
+                break;
+            }
+
+            row += 1;
+            row_y += row_area.height;
+        }
+
+        // maximum offsets
+        {
+            if let Some(rows) = Some(state.rows) {
+                // skip to a guess for the last page.
+                // the guess uses row-height is 1.
+                data.skip(
+                    rows.saturating_sub(row)
+                        .saturating_sub(state.table_area.height as usize),
+                );
+                // collect the remaining row-heights.
+                let mut row_heights = Vec::new();
+                while data.next() {
+                    row_heights.push(data.row_height());
+                }
+
+                let mut sum_heights = 0;
+                let mut n_rows = 0;
+                loop {
+                    if let Some(h) = row_heights.pop() {
+                        sum_heights += h;
+                    } else {
+                        break;
+                    }
+                    n_rows += 1;
+                    if sum_heights >= state.table_area.height {
+                        break;
+                    }
+                }
+                state.max_row_offset = rows - n_rows;
+            } else {
+                state.max_row_offset = usize::MAX;
+            }
+        }
+        {
+            state.max_col_offset = 0;
+            let max_right = l_columns.last().map(|v| v.right()).unwrap_or(0);
+            for c in (0..state.columns).rev() {
+                if max_right - l_columns[c].left() >= state.table_area.width {
+                    state.max_col_offset = c;
+                    break;
+                }
+            }
+        }
+    }
+
+    fn render_footer(
+        &self,
+        columns: usize,
+        l_columns: &[Rect],
+        l_spacers: &[Rect],
+        buf: &mut Buffer,
+        state: &mut FTableState<Selection>,
+    ) {
+        if let Some(footer) = &self.footer {
+            let footer_style = if footer.style != Style::default() {
+                footer.style
+            } else {
+                self.style
+            };
+            if footer_style != Style::default() {
+                buf.set_style(state.footer_area, footer_style);
+            }
+
+            let mut col = state.col_offset;
+            loop {
+                if col >= columns {
+                    break;
+                }
+
+                let cell_area = Rect::new(
+                    state.footer_area.x + l_columns[col].x - l_columns[state.col_offset].x,
+                    state.footer_area.y,
+                    l_columns[col].width,
+                    state.footer_area.height,
+                )
+                .intersection(state.footer_area);
+
+                let space_area = Rect::new(
+                    state.footer_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
+                    state.footer_area.y,
+                    l_spacers[col + 1].width,
+                    state.footer_area.height,
+                )
+                .intersection(state.footer_area);
+
+                let mut selected_style = if state.selection.is_selected_column(col) {
+                    self.select_footer_style
+                } else {
+                    Style::default()
+                };
+                if self.focus {
+                    selected_style = selected_style.patch(self.focus_style);
+                }
+                if selected_style != Style::default() {
+                    buf.set_style(cell_area, selected_style);
+                    buf.set_style(space_area, selected_style);
+                }
+
+                if let Some(cell) = footer.cells.get(col) {
+                    if cell.style != Style::default() {
+                        buf.set_style(cell_area, cell.style);
+                    }
+                    cell.content.clone().render(cell_area, buf);
+                }
+
+                if cell_area.right() >= state.footer_area.right() {
+                    break;
+                }
+
+                col += 1;
+            }
+        }
+    }
+
+    fn render_header(
+        &self,
+        columns: usize,
+        l_columns: &[Rect],
+        l_spacers: &[Rect],
+        buf: &mut Buffer,
+        state: &mut FTableState<Selection>,
+    ) {
+        if let Some(header) = &self.header {
+            let header_style = if header.style != Style::default() {
+                header.style
+            } else {
+                self.style
+            };
+            if header_style != Style::default() {
+                buf.set_style(state.header_area, header_style);
+            }
+
+            let mut col = state.col_offset;
+            loop {
+                if col >= columns {
+                    break;
+                }
+
+                let cell_area = Rect::new(
+                    state.header_area.x + l_columns[col].x - l_columns[state.col_offset].x,
+                    state.header_area.y,
+                    l_columns[col].width,
+                    state.header_area.height,
+                )
+                .intersection(state.header_area);
+
+                let space_area = Rect::new(
+                    state.header_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
+                    state.header_area.y,
+                    l_spacers[col + 1].width,
+                    state.header_area.height,
+                )
+                .intersection(state.header_area);
+
+                let mut selected_style = if state.selection.is_selected_column(col) {
+                    self.select_header_style
+                } else {
+                    Style::default()
+                };
+                if self.focus {
+                    selected_style = selected_style.patch(self.focus_style);
+                }
+                if selected_style != Style::default() {
+                    buf.set_style(cell_area, selected_style);
+                    buf.set_style(space_area, selected_style);
+                }
+
+                if let Some(cell) = header.cells.get(col) {
+                    if cell.style != Style::default() {
+                        buf.set_style(cell_area, cell.style);
+                    }
+                    cell.content.clone().render(cell_area, buf);
+                }
+
+                if cell_area.right() >= state.header_area.right() {
+                    break;
+                }
+
+                col += 1;
+            }
+        }
+    }
+
+    fn calculate_column_areas(
+        &self,
+        columns: usize,
+        l_columns: &[Rect],
+        l_spacers: &[Rect],
+        state: &mut FTableState<Selection>,
+    ) {
+        state.column_areas.clear();
+        state.col_page_len = 0;
+
+        let mut col = state.col_offset;
+        loop {
+            if col >= columns {
+                break;
+            }
+
+            // merge the column + the folling spacer as the
+            // column area.
+            let column_area = Rect::new(
+                state.table_area.x + l_columns[col].x - l_columns[state.col_offset].x,
+                state.table_area.y,
+                l_columns[col].width + l_spacers[col + 1].width,
+                state.table_area.height,
+            )
+            .intersection(state.table_area);
+
+            state.column_areas.push(column_area);
+            state.col_page_len += 1;
+
+            if column_area.right() >= state.table_area.right() {
+                break;
+            }
+
+            col += 1;
+        }
     }
 }
 

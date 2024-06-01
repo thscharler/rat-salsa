@@ -224,8 +224,8 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     struct Data1<'a>(&'a [Sample]);
 
     impl<'a> TableData<'a> for Data1<'a> {
-        fn size(&self) -> (usize, usize) {
-            (5, self.0.len())
+        fn rows(&self) -> usize {
+            self.0.len()
         }
 
         fn row_height(&self, _row: usize) -> u16 {
