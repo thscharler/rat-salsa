@@ -13,6 +13,11 @@ This widget uses the [TableData](crate::TableData) trait instead of rendering al
 table-cells and putting them into a Vec. This way rendering time only depends on
 the screen-size not on the size of your data.
 
+There is a variant that takes an Iterator of [TableRowData](crate::TableData).
+It has as few traps though. If the Iterator doesn't have an efficient skip() or
+if you can't give the number of rows this will iterate all your data for the
+necessary information. This might slow down everything a bit.
+
 ![image](https://github.com/thscharler/rat-ftable/blob/master/ftable.gif?raw=true)
 
 More bullet points:
