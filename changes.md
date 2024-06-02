@@ -1,3 +1,7 @@
+# 0.14.2
+
+* Add focus-lost, focus-gained and paste for completeness.
+
 # 0.14.1
 
 * Add conversion from bool for Outcome.

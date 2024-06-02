@@ -264,7 +264,16 @@ macro_rules! ct_event {
     (resized) => {
         crossterm::event::Event::Resize(_, _)
     };
-    (resized for $col:ident, $row:ident ) => {
-        crossterm::event::Event::Resize($col, $row)
+    (resized for $cols:ident, $rows:ident ) => {
+        crossterm::event::Event::Resize($cols, $rows)
+    };
+    (focus-gained) => {
+        crossterm::event::Event::FocusGained
+    };
+    (focus-lost) => {
+        crossterm::event::Event::FocusLost
+    };
+    (paste $value:ident) => {
+        crossterm::event::Event::Paste($value)
     };
 }
