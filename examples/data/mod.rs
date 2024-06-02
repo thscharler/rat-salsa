@@ -1,3 +1,5 @@
+pub mod render_tablestate;
+
 pub(crate) static DATA: [&str; 100964] = [
     "Lorem",
     "ipsum",

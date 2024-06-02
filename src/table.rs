@@ -5,12 +5,13 @@ use crate::textdata::{Row, TextTableData};
 use crate::{TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
-use log::warn;
+use log::{error, warn};
 use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Styled};
+use ratatui::style::{Style, Styled, Stylize};
+use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::{max, min};
 use std::collections::HashSet;
@@ -223,6 +224,8 @@ pub struct FTableState<Selection> {
 
     /// Row count.
     pub rows: usize,
+    // debug info
+    pub _counted_rows: usize,
     /// Column count.
     pub columns: usize,
 
@@ -356,14 +359,112 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 
     ///
-    /// Alternative representation for the data is as an Iterator that yields a TableRowData.
+    /// Alternative representation for the data as a kind of Iterator.
+    /// It uses interior iteration, which fits quite nice for this and
+    /// avoids handing out lifetime bound results of the actual iterator.
+    /// Which is a bit nightmarish to get right.
+    ///
     ///
     /// Caution: If you can't give the number of rows, the table will iterate over all
     /// the data.
     ///
+    /// ```rust
+    /// use std::iter::{Enumerate};
+    /// use std::slice::Iter;
+    /// use format_num_pattern::NumberFormat;
+    /// use ratatui::buffer::Buffer;
+    /// use ratatui::layout::{Constraint, Rect};
+    /// use ratatui::prelude::Color;
+    /// use ratatui::style::{Style, Stylize};
+    /// use ratatui::text::Span;
+    /// use ratatui::widgets::Widget;
+    /// use rat_ftable::{FTable, TableDataIter};
+    ///
+    /// struct Data {
+    ///     table_data: Vec<Sample>
+    /// }
+    ///
+    /// struct Sample {
+    ///     pub text: String
+    /// }
+    ///
+    /// let data = Data {
+    ///     table_data: vec![],
+    /// };
+    ///
+    /// struct RowIter1<'a> {
+    ///     iter: Enumerate<Iter<'a, Sample>>,
+    ///     item: Option<(usize, &'a Sample)>,
+    /// }
+    ///
+    /// impl<'a> TableDataIter<'a> for RowIter1<'a> {
+    ///     fn rows(&self) -> Option<usize> {
+    ///         // If you can, give the length. Otherwise,
+    ///         // the table will iterate all to find out a length.
+    ///         None
+    ///         // Some(100_000)
+    ///     }
+    ///
+    ///     /// Select the nth element from the current position.
+    ///     fn nth(&mut self, n: usize) -> bool {
+    ///         self.item = self.iter.nth(n);
+    ///         self.item.is_some()
+    ///     }
+    ///
+    ///     /// Select the next element.
+    ///     fn next(&mut self) -> bool {
+    ///         self.item = self.iter.next();
+    ///         self.item.is_some()
+    ///     }
+    ///
+    ///     /// Row height.
+    ///     fn row_height(&self) -> u16 {
+    ///         1
+    ///     }
+    ///
+    ///     /// Row style.
+    ///     fn row_style(&self) -> Style {
+    ///         Style::default()
+    ///     }
+    ///
+    ///     /// Render one cell.
+    ///     fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+    ///         let row = self.item.expect("data");
+    ///         match column {
+    ///             0 => {
+    ///                 let row_fmt = NumberFormat::new("000000").expect("fmt");
+    ///                 let span = Span::from(row_fmt.fmt_u(row.0));
+    ///                 buf.set_style(area, Style::new().black().bg(Color::from_u32(0xe7c787)));
+    ///                 span.render(area, buf);
+    ///             }
+    ///             1 => {
+    ///                 let span = Span::from(&row.1.text);
+    ///                 span.render(area, buf);
+    ///             }
+    ///             _ => {}
+    ///         }
+    ///     }
+    /// }
+    ///
+    /// let mut rit = RowIter1 {
+    ///     iter: data.table_data.iter().enumerate(),
+    ///     item: None,
+    /// };
+    ///
+    /// let table1 = FTable::default()
+    ///     .iter(&mut rit)
+    ///     .widths([
+    ///         Constraint::Length(6),
+    ///         Constraint::Length(20)
+    ///     ]);
+    ///
+    /// // table1.render(area, buf);
+    /// ```
+    ///
     #[inline]
     pub fn iter(mut self, data: &'a mut dyn TableDataIter<'a>) -> Self {
         if data.rows().is_none() {
+            #[cfg(debug_assertions)]
             warn!("FTable::iter - rows is None, this will be slower");
         }
         self.data = DataRepr::Iter(data);
@@ -629,7 +730,7 @@ impl<'a, Selection> Styled for FTable<'a, Selection> {
 
 impl<'a, Selection> StatefulWidget for FTable<'a, Selection>
 where
-    Selection: TableSelection,
+    Selection: TableSelection + Debug,
 {
     type State = FTableState<Selection>;
 
@@ -641,7 +742,7 @@ where
 
 impl<'a, Selection> FTable<'a, Selection>
 where
-    Selection: TableSelection,
+    Selection: TableSelection + Debug,
 {
     /// Render an Iterator over TableRowData.
     ///
@@ -712,6 +813,7 @@ where
         let mut row = state.row_offset;
         let mut row_y = state.table_area.y;
         let mut row_heights = Vec::new();
+        let mut insane_offset = false;
 
         if data.nth(state.row_offset) {
             loop {
@@ -790,11 +892,21 @@ where
                     break;
                 }
             }
+        } else {
+            // if this first skip fails all bets are off.
+            // reset to 0 and hope for a better day.
+            insane_offset = true;
         }
 
         // maximum offsets
         {
-            if let Some(rows) = data.rows() {
+            if insane_offset {
+                #[cfg(debug_assertions)]
+                warn!(
+                    "FTable::render:\n    offset {}\n    rows {}\n    iterated {}\ndon't match up",
+                    state.row_offset, state.rows, state._counted_rows
+                )
+            } else if let Some(rows) = data.rows() {
                 // skip to a guess for the last page.
                 // the guess uses row-height is 1, which may read a few more lines than
                 // absolutely necessary.
@@ -807,15 +919,22 @@ where
                 }
                 // collect the remaining row-heights.
                 if data.nth(skip_rows) {
+                    row += skip_rows;
                     loop {
                         row_heights.push(data.row_height());
+                        // don't need more.
+                        if row_heights.len() > state.table_area.height as usize + 1 {
+                            row_heights.remove(0);
+                        }
                         if !data.next() {
                             break;
                         }
+                        row += 1;
                     }
                 }
 
                 state.rows = rows;
+                state._counted_rows = row;
             } else {
                 while data.next() {
                     row_heights.push(data.row_height());
@@ -827,6 +946,7 @@ where
                 }
 
                 state.rows = row;
+                state._counted_rows = row;
             }
 
             let mut sum_heights = 0;
@@ -852,6 +972,21 @@ where
                     state.max_col_offset = c;
                     break;
                 }
+            }
+        }
+
+        if insane_offset {
+            let mut text = Text::from(
+                format!(
+                    "FTable::render:\n    offset {}\n    rows {}\n    iterated {}\ndon't match up",
+                    state.row_offset, state.rows, state._counted_rows
+                )
+                .to_string(),
+            );
+            text.white().on_red().render(state.table_area, buf);
+
+            if insane_offset {
+                state.row_offset = min(state.max_row_offset, state.row_offset);
             }
         }
     }
@@ -1057,6 +1192,7 @@ impl<Selection: Default> Default for FTableState<Selection> {
             row_areas: Default::default(),
             column_areas: Default::default(),
             rows: 0,
+            _counted_rows: 0,
             columns: 0,
             row_offset: 0,
             col_offset: 0,

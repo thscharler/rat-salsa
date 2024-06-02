@@ -1,3 +1,4 @@
+use crate::data::render_tablestate::render_tablestate;
 use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
@@ -9,11 +10,13 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use format_num_pattern::NumberFormat;
-use rat_event::{FocusKeys, HandleEvent};
+use log::debug;
+use rat_event::{ct_event, FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState, TableData};
+use rat_ftable::{FTable, FTableState, TableData, TableDataIter};
+use rat_input::layout_edit::{layout_edit, EditConstraint, LayoutEdit};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -24,10 +27,11 @@ use ratatui::text::Span;
 use ratatui::{Frame, Terminal};
 use std::fs;
 use std::io::{stdout, Stdout};
+use std::iter::Enumerate;
+use std::slice::Iter;
 use std::time::{Duration, SystemTime};
 
 mod data;
-mod table_insane_offset;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -41,11 +45,14 @@ fn main() -> Result<(), anyhow::Error> {
                 num2: rand::random(),
                 check: rand::random(),
             })
+            .take(100_010)
             .collect(),
     };
 
     let mut state = State {
         table: Default::default(),
+        report_rows: None,
+        edit: Default::default(),
         status: Default::default(),
     };
     state.status.status(0, "Ctrl+Q to quit.");
@@ -83,6 +90,8 @@ struct Data {
 
 struct State {
     pub(crate) table: FTableState<NoSelection>,
+    pub(crate) report_rows: Option<usize>,
+    pub(crate) edit: LayoutEdit,
     pub(crate) status: StatusLineState,
 }
 
@@ -216,64 +225,137 @@ fn handle_event(
 
 fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut State) {
     let l0 = Layout::horizontal([
-        Constraint::Length(10),
+        Constraint::Length(20),
         Constraint::Fill(1),
-        Constraint::Length(10),
+        Constraint::Length(35),
     ])
     .split(area);
 
-    struct Data1<'a>(&'a [Sample]);
+    let l1 = Layout::vertical([
+        Constraint::Length(5),
+        Constraint::Length(1),
+        Constraint::Fill(1),
+    ])
+    .split(l0[0]);
 
-    impl<'a> TableData<'a> for Data1<'a> {
-        fn rows(&self) -> usize {
-            self.0.len()
+    state.edit = layout_edit(
+        area,
+        &[
+            EditConstraint::TitleLabel,
+            EditConstraint::Widget(20),
+            EditConstraint::Widget(20),
+            EditConstraint::Widget(20),
+            EditConstraint::Widget(20),
+            EditConstraint::Widget(20),
+            EditConstraint::Empty,
+            EditConstraint::Widget(20),
+        ],
+    );
+    let mut lb = state.edit.iter();
+
+    "rows() reports".render(lb.label(), frame.buffer_mut());
+    let mut b_none = Span::from("None").white().on_dark_gray();
+    if state.report_rows == None {
+        b_none = b_none.on_gray();
+    }
+    frame.render_widget(b_none, lb.widget());
+    let mut b_none = Span::from("Too few").white().on_dark_gray();
+    if state.report_rows == Some(99900) {
+        b_none = b_none.on_gray();
+    }
+    frame.render_widget(b_none, lb.widget());
+    let mut b_none = Span::from("Circa").white().on_dark_gray();
+    if state.report_rows == Some(100000) {
+        b_none = b_none.on_gray();
+    }
+    frame.render_widget(b_none, lb.widget());
+    let mut b_none = Span::from("Exact").white().on_dark_gray();
+    if state.report_rows == Some(100010) {
+        b_none = b_none.on_gray();
+    }
+    frame.render_widget(b_none, lb.widget());
+    let mut b_none = Span::from("Too many").white().on_dark_gray();
+    if state.report_rows == Some(100100) {
+        b_none = b_none.on_gray();
+    }
+    frame.render_widget(b_none, lb.widget());
+
+    let goto = Span::from("GOTO 1_000_000").white().on_light_blue();
+    frame.render_widget(goto, lb.widget());
+
+    // table
+    struct RowIter1<'a> {
+        report_rows: Option<usize>,
+        iter: Enumerate<Iter<'a, Sample>>,
+        item: Option<(usize, &'a Sample)>,
+    }
+
+    impl<'a> TableDataIter<'a> for RowIter1<'a> {
+        fn rows(&self) -> Option<usize> {
+            // None
+            // Some(100_000)
+            self.report_rows
         }
 
-        fn row_height(&self, _row: usize) -> u16 {
+        fn nth(&mut self, n: usize) -> bool {
+            self.item = self.iter.nth(n);
+            self.item.is_some()
+        }
+
+        fn next(&mut self) -> bool {
+            self.item = self.iter.next();
+            self.item.is_some()
+        }
+
+        fn row_height(&self) -> u16 {
             1
         }
 
-        fn row_style(&self, _r: usize) -> Style {
+        fn row_style(&self) -> Style {
             Style::default()
         }
 
-        fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
-            if let Some(d) = self.0.get(row) {
-                match column {
-                    0 => {
-                        let row_fmt = NumberFormat::new("000000").expect("fmt");
-                        let span = Span::from(row_fmt.fmt_u(row));
-                        buf.set_style(area, Style::new().black().bg(Color::from_u32(0xe7c787)));
-                        span.render(area, buf);
-                    }
-                    1 => {
-                        let span = Span::from(d.text);
-                        span.render(area, buf);
-                    }
-                    2 => {
-                        let num1_fmt = NumberFormat::new("####0.00").expect("fmt");
-                        let span = Span::from(num1_fmt.fmt_u(d.num1));
-                        span.render(area, buf);
-                    }
-                    3 => {
-                        let num2_fmt = NumberFormat::new("####0.00").expect("fmt");
-                        let span = Span::from(num2_fmt.fmt_u(d.num2));
-                        span.render(area, buf);
-                    }
-                    4 => {
-                        let cc = if d.check { "\u{2622}" } else { "\u{2623}" };
-                        let span = Span::from(cc);
-                        span.render(area, buf);
-                    }
-                    _ => {}
+        fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+            let row = self.item.expect("data");
+            match column {
+                0 => {
+                    let row_fmt = NumberFormat::new("000000").expect("fmt");
+                    let span = Span::from(row_fmt.fmt_u(row.0));
+                    buf.set_style(area, Style::new().black().bg(Color::from_u32(0xe7c787)));
+                    span.render(area, buf);
                 }
+                1 => {
+                    let span = Span::from(row.1.text);
+                    span.render(area, buf);
+                }
+                2 => {
+                    let num1_fmt = NumberFormat::new("####0.00").expect("fmt");
+                    let span = Span::from(num1_fmt.fmt_u(row.1.num1));
+                    span.render(area, buf);
+                }
+                3 => {
+                    let num2_fmt = NumberFormat::new("####0.00").expect("fmt");
+                    let span = Span::from(num2_fmt.fmt_u(row.1.num2));
+                    span.render(area, buf);
+                }
+                4 => {
+                    let cc = if row.1.check { "\u{2622}" } else { "\u{2623}" };
+                    let span = Span::from(cc);
+                    span.render(area, buf);
+                }
+                _ => {}
             }
         }
     }
 
-    let data1 = Data1(&data.table_data);
+    let mut rr = RowIter1 {
+        report_rows: state.report_rows,
+        iter: data.table_data.iter().enumerate(),
+        item: None,
+    };
+
     let table1 = FTable::default()
-        .data(&data1)
+        .iter(&mut rr)
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),
@@ -299,6 +381,8 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
         .flex(Flex::End)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
     frame.render_stateful_widget(table1, l0[1], &mut state.table);
+
+    render_tablestate(&state.table, l0[2], frame.buffer_mut());
 }
 
 fn handle_table(
@@ -306,7 +390,42 @@ fn handle_table(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r = state.table.handle(event, FocusKeys);
+    let r0 = 'f: {
+        match event {
+            ct_event!(mouse down Left for x,y) => match state.edit.widget_at((*x, *y)) {
+                Some(0) => {
+                    state.report_rows = None;
+                    break 'f Outcome::Changed;
+                }
+                Some(1) => {
+                    state.report_rows = Some(99_900);
+                    break 'f Outcome::Changed;
+                }
+                Some(2) => {
+                    state.report_rows = Some(100_000);
+                    break 'f Outcome::Changed;
+                }
+                Some(3) => {
+                    state.report_rows = Some(100_010);
+                    break 'f Outcome::Changed;
+                }
+                Some(4) => {
+                    state.report_rows = Some(100_100);
+                    break 'f Outcome::Changed;
+                }
+                Some(5) => {
+                    state.table.row_offset = 1_000_000;
+                    break 'f Outcome::Changed;
+                }
+                _ => {
+                    break 'f Outcome::NotUsed;
+                }
+            },
+            _ => Outcome::NotUsed,
+        }
+    };
 
-    Ok(r)
+    let r1 = state.table.handle(event, FocusKeys);
+
+    Ok(r0 | r1)
 }
