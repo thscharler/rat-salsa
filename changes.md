@@ -1,3 +1,10 @@
+# 0.14.3
+
+* Add default impl for some of TableDataIter's functions.
+* rendering: switch the row counter to Option<usize>, which is
+  fundamentally more correct. This helped fix some quirks
+  if the provided row-count is wrong.
+
 # 0.14.2
 
 * Add focus-lost, focus-gained and paste for completeness.
