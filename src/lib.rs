@@ -7,6 +7,7 @@ mod rowsetselection;
 mod table;
 
 pub mod textdata;
+mod util;
 
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

@@ -2,6 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
+use crate::util::revert_style;
 use crate::{TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
@@ -13,6 +14,7 @@ use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Styled, Stylize};
 use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
+use std::cell::Cell;
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -42,14 +44,21 @@ pub struct FTable<'a, Selection> {
 
     style: Style,
 
-    select_row_style: Style,
-    select_column_style: Style,
-    select_cell_style: Style,
-    select_header_style: Style,
-    select_footer_style: Style,
-    focus_style: Style,
+    select_row_style: Option<Style>,
+    show_row_focus: bool,
+    select_column_style: Option<Style>,
+    show_column_focus: bool,
+    select_cell_style: Option<Style>,
+    show_cell_focus: bool,
+    select_header_style: Option<Style>,
+    show_header_focus: bool,
+    select_footer_style: Option<Style>,
+    show_footer_focus: bool,
 
     focus: bool,
+    focus_style: Option<Style>,
+
+    scroll_gap: Cell<bool>,
 
     _phantom: PhantomData<Selection>,
 }
@@ -196,12 +205,20 @@ mod data {
 #[derive(Debug)]
 pub struct FTableStyle {
     pub style: Style,
-    pub select_row_style: Style,
-    pub select_column_style: Style,
-    pub select_cell_style: Style,
-    pub select_header_style: Style,
-    pub select_footer_style: Style,
-    pub focus_style: Style,
+    pub select_row_style: Option<Style>,
+    pub select_column_style: Option<Style>,
+    pub select_cell_style: Option<Style>,
+    pub select_header_style: Option<Style>,
+    pub select_footer_style: Option<Style>,
+
+    pub show_row_focus: bool,
+    pub show_column_focus: bool,
+    pub show_cell_focus: bool,
+    pub show_header_focus: bool,
+    pub show_footer_focus: bool,
+
+    pub focus_style: Option<Style>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -529,59 +546,96 @@ impl<'a, Selection> FTable<'a, Selection> {
     #[inline]
     pub fn styles(mut self, styles: FTableStyle) -> Self {
         self.style = styles.style;
+
         self.select_row_style = styles.select_row_style;
+        self.show_row_focus = styles.show_row_focus;
         self.select_column_style = styles.select_column_style;
+        self.show_column_focus = styles.show_column_focus;
         self.select_cell_style = styles.select_cell_style;
+        self.show_cell_focus = styles.show_cell_focus;
         self.select_header_style = styles.select_header_style;
+        self.show_header_focus = styles.show_header_focus;
         self.select_footer_style = styles.select_footer_style;
+        self.show_footer_focus = styles.show_footer_focus;
+
         self.focus_style = styles.focus_style;
         self
     }
 
     /// Base style for the table.
     #[inline]
-    pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.style = style.into();
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
         self
     }
 
     /// Style for a selected row. The chosen selection must support
     /// row-selection for this to take effect.
     #[inline]
-    pub fn select_row_style<S: Into<Style>>(mut self, select_style: S) -> Self {
-        self.select_row_style = select_style.into();
+    pub fn select_row_style(mut self, select_style: Option<Style>) -> Self {
+        self.select_row_style = select_style;
+        self
+    }
+
+    #[inline]
+    pub fn show_row_focus(mut self, show: bool) -> Self {
+        self.show_row_focus = show;
         self
     }
 
     /// Style for a selected column. The chosen selection must support
     /// column-selection for this to take effect.
     #[inline]
-    pub fn select_column_style<S: Into<Style>>(mut self, select_style: S) -> Self {
-        self.select_column_style = select_style.into();
+    pub fn select_column_style(mut self, select_style: Option<Style>) -> Self {
+        self.select_column_style = select_style;
+        self
+    }
+
+    #[inline]
+    pub fn show_column_focus(mut self, show: bool) -> Self {
+        self.show_column_focus = show;
         self
     }
 
     /// Style for a selected cell. The chosen selection must support
     /// cell-selection for this to take effect.
     #[inline]
-    pub fn select_cell_style<S: Into<Style>>(mut self, select_style: S) -> Self {
-        self.select_cell_style = select_style.into();
+    pub fn select_cell_style(mut self, select_style: Option<Style>) -> Self {
+        self.select_cell_style = select_style;
+        self
+    }
+
+    #[inline]
+    pub fn show_cell_focus(mut self, show: bool) -> Self {
+        self.show_cell_focus = show;
         self
     }
 
     /// Style for a selected header cell. The chosen selection must
     /// support column-selection for this to take effect.
     #[inline]
-    pub fn select_header_style<S: Into<Style>>(mut self, select_style: S) -> Self {
-        self.select_header_style = select_style.into();
+    pub fn select_header_style(mut self, select_style: Option<Style>) -> Self {
+        self.select_header_style = select_style;
+        self
+    }
+
+    #[inline]
+    pub fn show_header_focus(mut self, show: bool) -> Self {
+        self.show_header_focus = show;
         self
     }
 
     /// Style for a selected footer cell. The chosen selection must
     /// support column-selection for this to take effect.
     #[inline]
-    pub fn select_footer_style<S: Into<Style>>(mut self, select_style: S) -> Self {
-        self.select_footer_style = select_style.into();
+    pub fn select_footer_style(mut self, select_style: Option<Style>) -> Self {
+        self.select_footer_style = select_style;
+        self
+    }
+
+    #[inline]
+    pub fn show_footer_focus(mut self, show: bool) -> Self {
+        self.show_footer_focus = show;
         self
     }
 
@@ -591,8 +645,8 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// The selection must support some kind of selection for this to
     /// be effective.
     #[inline]
-    pub fn focus_style<S: Into<Style>>(mut self, focus_style: S) -> Self {
-        self.focus_style = focus_style.into();
+    pub fn focus_style(mut self, focus_style: Option<Style>) -> Self {
+        self.focus_style = focus_style;
         self
     }
 
@@ -621,6 +675,12 @@ impl<'a, Selection> FTable<'a, Selection> {
             DataRepr::Ref(v) => self.need_scroll_tabledata(*v, area),
             DataRepr::Iter(v) => self.need_scroll_tableiter(*v, area),
         };
+
+        // Hack to get some spacing between the last column and
+        // the scrollbar.
+        if vertical {
+            self.scroll_gap.set(true);
+        }
 
         // horizontal layout
         let (l_columns, _) = self.layout_columns(table_area.width);
@@ -676,10 +736,15 @@ impl<'a, Selection> FTable<'a, Selection> {
     // area_width or layout_width
     #[inline]
     fn total_width(&self, area_width: u16) -> u16 {
-        if let Some(layout_width) = self.layout_width {
+        let w = if let Some(layout_width) = self.layout_width {
             layout_width
         } else {
             area_width
+        };
+        if self.scroll_gap.get() {
+            w - 1
+        } else {
+            w
         }
     }
 
@@ -856,19 +921,21 @@ where
                     )
                     .intersection(state.table_area);
 
-                    let mut select_style = if state.selection.is_selected_cell(col, row) {
-                        self.select_cell_style
+                    let select_style = if state.selection.is_selected_cell(col, row) {
+                        self.patch_select(self.select_cell_style, self.show_cell_focus)
                     } else if state.selection.is_selected_row(row) {
-                        self.select_row_style
+                        // row selection should always show.
+                        if self.select_row_style.is_some() {
+                            self.patch_select(self.select_row_style, self.show_row_focus)
+                        } else {
+                            self.patch_select(Some(revert_style(self.style)), self.show_row_focus)
+                        }
                     } else if state.selection.is_selected_column(col) {
-                        self.select_column_style
+                        self.patch_select(self.select_column_style, self.show_column_focus)
                     } else {
-                        Style::default()
+                        None
                     };
-                    if self.focus {
-                        select_style = select_style.patch(self.focus_style);
-                    }
-                    if select_style != Style::default() {
+                    if let Some(select_style) = select_style {
                         buf.set_style(cell_area, select_style);
                         buf.set_style(space_area, select_style);
                     }
@@ -1031,18 +1098,14 @@ where
                 )
                 .intersection(state.footer_area);
 
-                let mut selected_style = if state.selection.is_selected_column(col) {
-                    self.select_footer_style
-                } else {
-                    Style::default()
+                if state.selection.is_selected_column(col) {
+                    if let Some(selected_style) =
+                        self.patch_select(self.select_footer_style, self.show_footer_focus)
+                    {
+                        buf.set_style(cell_area, selected_style);
+                        buf.set_style(space_area, selected_style);
+                    }
                 };
-                if self.focus {
-                    selected_style = selected_style.patch(self.focus_style);
-                }
-                if selected_style != Style::default() {
-                    buf.set_style(cell_area, selected_style);
-                    buf.set_style(space_area, selected_style);
-                }
 
                 if let Some(cell) = footer.cells.get(col) {
                     if cell.style != Style::default() {
@@ -1100,18 +1163,14 @@ where
                 )
                 .intersection(state.header_area);
 
-                let mut selected_style = if state.selection.is_selected_column(col) {
-                    self.select_header_style
-                } else {
-                    Style::default()
+                if state.selection.is_selected_column(col) {
+                    if let Some(selected_style) =
+                        self.patch_select(self.select_header_style, self.show_header_focus)
+                    {
+                        buf.set_style(cell_area, selected_style);
+                        buf.set_style(space_area, selected_style);
+                    }
                 };
-                if self.focus {
-                    selected_style = selected_style.patch(self.focus_style);
-                }
-                if selected_style != Style::default() {
-                    buf.set_style(cell_area, selected_style);
-                    buf.set_style(space_area, selected_style);
-                }
 
                 if let Some(cell) = header.cells.get(col) {
                     if cell.style != Style::default() {
@@ -1165,6 +1224,22 @@ where
             col += 1;
         }
     }
+
+    fn patch_select(&self, style: Option<Style>, show: bool) -> Option<Style> {
+        if let Some(style) = style {
+            if let Some(focus_style) = self.focus_style {
+                if self.focus && show {
+                    Some(style.patch(focus_style))
+                } else {
+                    Some(style)
+                }
+            } else {
+                Some(style)
+            }
+        } else {
+            None
+        }
+    }
 }
 
 impl Default for FTableStyle {
@@ -1176,6 +1251,11 @@ impl Default for FTableStyle {
             select_cell_style: Default::default(),
             select_header_style: Default::default(),
             select_footer_style: Default::default(),
+            show_row_focus: true,
+            show_column_focus: false,
+            show_cell_focus: false,
+            show_header_focus: false,
+            show_footer_focus: false,
             focus_style: Default::default(),
             non_exhaustive: NonExhaustive,
         }

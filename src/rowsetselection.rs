@@ -237,19 +237,25 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 }
 
                 ct_event!(keycode press PageUp) => {
-                    let r = self.selection.prev(self.row_page_len, false).into();
+                    let r = self
+                        .selection
+                        .prev(self.vertical_page().saturating_sub(1), false)
+                        .into();
                     self.scroll_to_selected();
                     r
                 }
                 ct_event!(keycode press SHIFT-PageUp) => {
-                    let r = self.selection.prev(self.row_page_len, true).into();
+                    let r = self
+                        .selection
+                        .prev(self.vertical_page().saturating_sub(1), true)
+                        .into();
                     self.scroll_to_selected();
                     r
                 }
                 ct_event!(keycode press PageDown) => {
                     let r = self
                         .selection
-                        .next(self.row_page_len, self.rows - 1, false)
+                        .next(self.vertical_page().saturating_sub(1), self.rows - 1, false)
                         .into();
                     self.scroll_to_selected();
                     r
@@ -257,7 +263,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 ct_event!(keycode press SHIFT-PageDown) => {
                     let r = self
                         .selection
-                        .next(self.row_page_len, self.rows - 1, true)
+                        .next(self.vertical_page().saturating_sub(1), self.rows - 1, true)
                         .into();
                     self.scroll_to_selected();
                     r

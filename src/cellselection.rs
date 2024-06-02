@@ -156,7 +156,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
             ct_event!(keycode press PageUp) => {
                 let r = self
                     .selection
-                    .prev_row(self.table_area.height as usize)
+                    .prev_row(self.vertical_page().saturating_sub(1))
                     .into();
                 self.scroll_to_selected();
                 r
@@ -164,7 +164,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
             ct_event!(keycode press PageDown) => {
                 let r = self
                     .selection
-                    .next_row(self.table_area.height as usize, self.rows - 1)
+                    .next_row(self.vertical_page().saturating_sub(1), self.rows - 1)
                     .into();
                 self.scroll_to_selected();
                 r

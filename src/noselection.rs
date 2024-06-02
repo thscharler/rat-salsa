@@ -39,8 +39,12 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<No
             ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
                 self.set_vertical_offset(0).into()
             }
-            ct_event!(keycode press PageUp) => self.scroll_up(self.row_page_len).into(),
-            ct_event!(keycode press PageDown) => self.scroll_down(self.row_page_len).into(),
+            ct_event!(keycode press PageUp) => self
+                .scroll_up(self.vertical_page().saturating_sub(1))
+                .into(),
+            ct_event!(keycode press PageDown) => self
+                .scroll_down(self.vertical_page().saturating_sub(1))
+                .into(),
             ct_event!(keycode press Right) => self.scroll_right(1).into(),
             ct_event!(keycode press Left) => self.scroll_left(1).into(),
             ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
