@@ -338,6 +338,23 @@ impl<'a> Focus<'a> {
     /// Sets the focus to the widget.
     ///
     /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
+    pub fn focus_widget_no_lost(&self, state: &'a dyn HasFocusFlag) {
+        let flag = state.focus();
+        self.focus_no_lost(flag);
+    }
+
+    /// Sets the focus to the widget with `tag`.
+    ///
+    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
+    /// before focus, gained and lost flag are all set.
+    pub fn focus_widget(&self, state: &'a dyn HasFocusFlag) {
+        let flag = state.focus();
+        self.focus(flag);
+    }
+
+    /// Sets the focus to the widget.
+    ///
+    /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
     pub fn focus_no_lost(&self, flag: &FocusFlag) {
         self.start_focus_change(false);
         if let Some(f) = self.focus.iter().find(|f| ptr::eq(**f, flag)) {
