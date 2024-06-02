@@ -13,9 +13,10 @@ pub fn render_tablestate<Selection: Debug>(
     let l = layout_edit(
         area,
         &[
-            EditConstraint::Label("rows"),
+            EditConstraint::Label("count_rows"),
             EditConstraint::Widget(20),
-            EditConstraint::Label("counted_rows"),
+            //
+            EditConstraint::Label("rows"),
             EditConstraint::Widget(20),
             EditConstraint::Label("row_offset"),
             EditConstraint::Widget(20),
@@ -23,6 +24,7 @@ pub fn render_tablestate<Selection: Debug>(
             EditConstraint::Widget(20),
             EditConstraint::Label("row_page_len"),
             EditConstraint::Widget(20),
+            //
             EditConstraint::Label("columns"),
             EditConstraint::Widget(20),
             EditConstraint::Label("col_offset"),
@@ -37,13 +39,13 @@ pub fn render_tablestate<Selection: Debug>(
     );
     let mut l = l.iter();
 
-    "rows".render(l.label(), buf);
-    format!("{}", state.rows)
+    "count_rows".render(l.label(), buf);
+    format!("{}", state._counted_rows)
         .to_string()
         .render(l.widget(), buf);
 
-    "counted_rows".render(l.label(), buf);
-    format!("{}", state._counted_rows)
+    "rows".render(l.label(), buf);
+    format!("{}", state.rows)
         .to_string()
         .render(l.widget(), buf);
 

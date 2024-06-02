@@ -10,6 +10,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use format_num_pattern::NumberFormat;
+#[allow(unused_imports)]
 use log::debug;
 use rat_event::{ct_event, FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
@@ -33,11 +34,16 @@ use std::time::{Duration, SystemTime};
 
 mod data;
 
+const SMALLER: usize = 90;
+const CIRCA: usize = 99;
+const EXACT: usize = 100;
+const GREATER: usize = 110;
+
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
     let mut data = Data {
-        table_data: data::DATA
+        table_data: crate::data::SMALL_DATA
             .iter()
             .map(|v| Sample {
                 text: *v,
@@ -45,7 +51,7 @@ fn main() -> Result<(), anyhow::Error> {
                 num2: rand::random(),
                 check: rand::random(),
             })
-            .take(100_010)
+            // .take(100_011)
             .collect(),
     };
 
@@ -63,14 +69,7 @@ fn main() -> Result<(), anyhow::Error> {
 fn setup_logging() -> Result<(), anyhow::Error> {
     fs::remove_file("log.log")?;
     fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{} {} {}]\n",
-                record.level(),
-                record.target(),
-                message
-            ))
-        })
+        .format(|out, message, record| out.finish(format_args!("{}", message)))
         .level(log::LevelFilter::Debug)
         .chain(fern::log_file("log.log")?)
         .apply()?;
@@ -260,22 +259,22 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     }
     frame.render_widget(b_none, lb.widget());
     let mut b_none = Span::from("Too few").white().on_dark_gray();
-    if state.report_rows == Some(99900) {
+    if state.report_rows == Some(SMALLER) {
         b_none = b_none.on_gray();
     }
     frame.render_widget(b_none, lb.widget());
     let mut b_none = Span::from("Circa").white().on_dark_gray();
-    if state.report_rows == Some(100000) {
+    if state.report_rows == Some(CIRCA) {
         b_none = b_none.on_gray();
     }
     frame.render_widget(b_none, lb.widget());
     let mut b_none = Span::from("Exact").white().on_dark_gray();
-    if state.report_rows == Some(100010) {
+    if state.report_rows == Some(EXACT) {
         b_none = b_none.on_gray();
     }
     frame.render_widget(b_none, lb.widget());
     let mut b_none = Span::from("Too many").white().on_dark_gray();
-    if state.report_rows == Some(100100) {
+    if state.report_rows == Some(GREATER) {
         b_none = b_none.on_gray();
     }
     frame.render_widget(b_none, lb.widget());
@@ -292,8 +291,6 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
 
     impl<'a> TableDataIter<'a> for RowIter1<'a> {
         fn rows(&self) -> Option<usize> {
-            // None
-            // Some(100_000)
             self.report_rows
         }
 
@@ -398,19 +395,19 @@ fn handle_table(
                     break 'f Outcome::Changed;
                 }
                 Some(1) => {
-                    state.report_rows = Some(99_900);
+                    state.report_rows = Some(SMALLER);
                     break 'f Outcome::Changed;
                 }
                 Some(2) => {
-                    state.report_rows = Some(100_000);
+                    state.report_rows = Some(CIRCA);
                     break 'f Outcome::Changed;
                 }
                 Some(3) => {
-                    state.report_rows = Some(100_010);
+                    state.report_rows = Some(EXACT);
                     break 'f Outcome::Changed;
                 }
                 Some(4) => {
-                    state.report_rows = Some(100_100);
+                    state.report_rows = Some(GREATER);
                     break 'f Outcome::Changed;
                 }
                 Some(5) => {

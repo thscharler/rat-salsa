@@ -875,12 +875,13 @@ where
         state.row_areas.clear();
         state.row_page_len = 0;
 
-        let mut row = state.row_offset;
+        let mut row = None;
         let mut row_y = state.table_area.y;
         let mut row_heights = Vec::new();
         let mut insane_offset = false;
 
         if data.nth(state.row_offset) {
+            row = Some(state.row_offset);
             loop {
                 // we enforce a minimum row-height of 1.
                 let row_area = Rect::new(
@@ -921,9 +922,9 @@ where
                     )
                     .intersection(state.table_area);
 
-                    let select_style = if state.selection.is_selected_cell(col, row) {
+                    let select_style = if state.selection.is_selected_cell(col, row.expect("row")) {
                         self.patch_select(self.select_cell_style, self.show_cell_focus)
-                    } else if state.selection.is_selected_row(row) {
+                    } else if state.selection.is_selected_row(row.expect("row")) {
                         // row selection should always show.
                         if self.select_row_style.is_some() {
                             self.patch_select(self.select_row_style, self.show_row_focus)
@@ -949,71 +950,89 @@ where
                     col += 1;
                 }
 
-                row += 1;
-                row_y += row_area.height;
-
                 if row_area.bottom() >= state.table_area.bottom() {
                     break;
                 }
                 if !data.next() {
                     break;
                 }
+                row = Some(row.expect("row") + 1);
+                row_y += row_area.height;
             }
         } else {
+            // can only guess whether the skip failed completely or partially.
+            // so don't alter row here.
+
             // if this first skip fails all bets are off.
-            // reset to 0 and hope for a better day.
-            insane_offset = true;
+            if data.rows().is_none() || data.rows() == Some(0) {
+                // this is ok
+            } else {
+                insane_offset = true;
+            }
         }
 
         // maximum offsets
         {
-            if insane_offset {
-                #[cfg(debug_assertions)]
-                warn!(
-                    "FTable::render:\n    offset {}\n    rows {}\n    iterated {}\ndon't match up",
-                    state.row_offset, state.rows, state._counted_rows
-                )
-            } else if let Some(rows) = data.rows() {
+            if let Some(rows) = data.rows() {
                 // skip to a guess for the last page.
                 // the guess uses row-height is 1, which may read a few more lines than
                 // absolutely necessary.
                 let skip_rows = rows
-                    .saturating_sub(row)
-                    .saturating_sub(state.table_area.height as usize + 1);
+                    .saturating_sub(row.map_or(0, |v| v + 1))
+                    .saturating_sub(state.table_area.height as usize);
                 // if we can still skip some rows, then the data so far is useless.
                 if skip_rows > 0 {
                     row_heights.clear();
                 }
+                let nth_row = 0;
                 // collect the remaining row-heights.
-                if data.nth(skip_rows) {
-                    row += skip_rows;
+                if data.nth(nth_row) {
+                    row = Some(row.map_or(nth_row, |row| row + nth_row + 1));
                     loop {
                         row_heights.push(data.row_height());
                         // don't need more.
-                        if row_heights.len() > state.table_area.height as usize + 1 {
+                        if row_heights.len() > state.table_area.height as usize {
                             row_heights.remove(0);
                         }
                         if !data.next() {
                             break;
                         }
-                        row += 1;
+                        row = Some(row.expect("row") + 1);
+                        // if the given number of rows is too small, we would overshoot here.
+                        if row.expect("row") > rows {
+                            break;
+                        }
                     }
+                    // we break before to have an accurate last page.
+                    // but we still want to report an error, if the count is off.
+                    while data.next() {
+                        row = Some(row.expect("row") + 1);
+                    }
+                } else {
+                    // skip failed, maybe again?
+                    // leave everything as is and report later.
+                }
+
+                // if the given number of rows is bigger, we miss out some.
+                // fill the gap with row-height 1 stabilizes behaviour.
+                while row_heights.len() < state.table_area.height as usize {
+                    row_heights.push(1);
                 }
 
                 state.rows = rows;
-                state._counted_rows = row;
+                state._counted_rows = row.map_or(0, |v| v + 1);
             } else {
                 while data.next() {
                     row_heights.push(data.row_height());
                     // don't need more.
-                    if row_heights.len() > state.table_area.height as usize + 1 {
+                    if row_heights.len() > state.table_area.height as usize {
                         row_heights.remove(0);
                     }
-                    row += 1;
+                    row = Some(row.map_or(0, |v| v + 1));
                 }
 
-                state.rows = row;
-                state._counted_rows = row;
+                state.rows = row.map_or(0, |v| v + 1);
+                state._counted_rows = row.map_or(0, |v| v + 1);
             }
 
             let mut sum_heights = 0;
@@ -1042,18 +1061,29 @@ where
             }
         }
 
-        if insane_offset {
-            let text = Text::from(
-                format!(
-                    "FTable::render:\n    offset {}\n    rows {}\n    iterated {}\ndon't match up",
-                    state.row_offset, state.rows, state._counted_rows
-                )
-                .to_string(),
-            );
-            text.white().on_red().render(state.table_area, buf);
-
+        #[cfg(debug_assertions)]
+        {
+            use std::fmt::Write;
+            let mut msg = String::new();
             if insane_offset {
-                state.row_offset = min(state.max_row_offset, state.row_offset);
+                _= write!(msg,
+                    "FTable::render:\n        offset {}\n        rows {}\n        iter-rows {}max\n    don't match up\n",
+                    state.row_offset, state.rows, state._counted_rows
+                );
+            }
+            if state.rows != state._counted_rows {
+                _ = write!(
+                    msg,
+                    "FTable::render:\n    rows {} don't match\n    iterated rows {}",
+                    state.rows, state._counted_rows
+                );
+            }
+            if msg.len() > 0 {
+                warn!("{}", &msg);
+                Text::from(msg)
+                    .white()
+                    .on_red()
+                    .render(state.table_area, buf);
             }
         }
     }

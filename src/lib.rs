@@ -52,16 +52,23 @@ pub trait TableDataIter<'a> {
     fn rows(&self) -> Option<usize>;
 
     /// Skips to the nth item, returns true if such an item exists.
+    /// nth(0) == next()
     fn nth(&mut self, n: usize) -> bool;
 
     /// Reads the next item, returns true if such an item exists.
-    fn next(&mut self) -> bool;
+    fn next(&mut self) -> bool {
+        self.nth(0)
+    }
 
     /// Row height for the current item.
-    fn row_height(&self) -> u16;
+    fn row_height(&self) -> u16 {
+        1
+    }
 
     /// Row style for the current line.
-    fn row_style(&self) -> Style;
+    fn row_style(&self) -> Style {
+        Style::default()
+    }
 
     /// Render the cell for the current line.
     fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer);
