@@ -1,3 +1,8 @@
+# 0.14.0
+
+* Add trait TableDataIter as a possible data-source.
+  This allows rendering the FTable when all you got is an iterator.
+
 # 0.13.1
 
 * Fix versions.
