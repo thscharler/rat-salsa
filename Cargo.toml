@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget"
-version = "0.10.0"
+version = "0.12.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -53,14 +53,14 @@ log = "0.4"
 
 #rat-event = { version = "0.14" }
 #rat-event = { version = "0.14", path = "../rat-event" }
-#rat-focus = { version = "0.10" }
-rat-focus = { version = "0.10", path = "../rat-focus" }
-#rat-ftable = { version = "0.14" }
-rat-ftable = { version = "0.14", path = "../rat-ftable" }
-#rat-input = { version = "0.16" }
-rat-input = { version = "0.16", path = "../rat-input" }
-#rat-scrolled = { version = "0.11" }
-rat-scrolled = { version = "0.11", path = "../rat-scrolled" }
+rat-focus = { version = "0.10" }
+#rat-focus = { version = "0.10", path = "../rat-focus" }
+rat-ftable = { version = "0.15" }
+#rat-ftable = { version = "0.15", path = "../rat-ftable" }
+rat-input = { version = "0.16" }
+#rat-input = { version = "0.16", path = "../rat-input" }
+rat-scrolled = { version = "0.11" }
+#rat-scrolled = { version = "0.11", path = "../rat-scrolled" }
 
 chrono = { version = "0.4", features = ["unstable-locales"] }
 format_num_pattern = "0.9"
