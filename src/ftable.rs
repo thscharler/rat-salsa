@@ -9,7 +9,7 @@ use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::collections::HashSet;
 
-pub use rat_ftable::{FTableStyle, TableData, TableSelection};
+pub use rat_ftable::{FTableStyle, TableData, TableDataIter, TableSelection};
 
 pub mod selection {
     pub use rat_ftable::selection::{CellSelection, NoSelection, RowSelection, RowSetSelection};
@@ -19,7 +19,7 @@ pub mod textdata {
     pub use rat_ftable::textdata::{Cell, Row};
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub struct FTable<'a, Selection> {
     widget: rat_ftable::FTable<'a, Selection>,
 }
@@ -123,6 +123,18 @@ impl<'a, Selection> FTable<'a, Selection> {
     #[inline]
     pub fn data(mut self, data: &'a dyn TableData<'a>) -> Self {
         self.widget = self.widget.data(data);
+        self
+    }
+
+    ///
+    /// Alternative representation for the data is as an Iterator that yields a TableRowData.
+    ///
+    /// Caution: If you can't give the number of rows, the table will iterate over all
+    /// the data.
+    ///
+    #[inline]
+    pub fn iter(mut self, data: &'a mut dyn TableDataIter<'a>) -> Self {
+        self.widget = self.widget.iter(data);
         self
     }
 

@@ -1,3 +1,7 @@
+# 0.12.0
+
+* update FTable
+
 # 0.11.0
 
 * migrated after upstream change in rat-event
