@@ -730,7 +730,7 @@ impl<'a, Selection> Styled for FTable<'a, Selection> {
 
 impl<'a, Selection> StatefulWidget for FTable<'a, Selection>
 where
-    Selection: TableSelection + Debug,
+    Selection: TableSelection,
 {
     type State = FTableState<Selection>;
 
@@ -742,7 +742,7 @@ where
 
 impl<'a, Selection> FTable<'a, Selection>
 where
-    Selection: TableSelection + Debug,
+    Selection: TableSelection,
 {
     /// Render an Iterator over TableRowData.
     ///

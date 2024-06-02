@@ -1,3 +1,7 @@
+# 0.15.2
+
+Forgot to remove Debug trait bounds.
+
 # 0.15.1
 
 Missed some warnings.
