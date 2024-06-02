@@ -1,6 +1,6 @@
 use crate::_private::NonExhaustive;
 use rat_focus::{FocusFlag, HasFocusFlag};
-use rat_ftable::selection::{CellSelection, RowSelection, RowSetSelection};
+use rat_ftable::selection::{CellSelection, NoSelection, RowSelection, RowSetSelection};
 use rat_ftable::textdata::Row;
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
@@ -9,6 +9,7 @@ use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::collections::HashSet;
 
+use crate::event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 pub use rat_ftable::{FTableStyle, TableData, TableDataIter, TableSelection};
 
 pub mod selection {
@@ -201,7 +202,7 @@ impl<'a, Selection> FTable<'a, Selection> {
 
     /// Base style for the table.
     #[inline]
-    pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
+    pub fn style(mut self, style: Style) -> Self {
         self.widget = self.widget.style(style);
         self
     }
@@ -209,40 +210,70 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// Style for a selected row. The chosen selection must support
     /// row-selection for this to take effect.
     #[inline]
-    pub fn select_row_style<S: Into<Style>>(mut self, select_style: S) -> Self {
+    pub fn select_row_style(mut self, select_style: Option<Style>) -> Self {
         self.widget = self.widget.select_row_style(select_style);
+        self
+    }
+
+    #[inline]
+    pub fn show_row_focus(mut self, show: bool) -> Self {
+        self.widget = self.widget.show_row_focus(show);
         self
     }
 
     /// Style for a selected column. The chosen selection must support
     /// column-selection for this to take effect.
     #[inline]
-    pub fn select_column_style<S: Into<Style>>(mut self, select_style: S) -> Self {
+    pub fn select_column_style(mut self, select_style: Option<Style>) -> Self {
         self.widget = self.widget.select_column_style(select_style);
+        self
+    }
+
+    #[inline]
+    pub fn show_column_focus(mut self, show: bool) -> Self {
+        self.widget = self.widget.show_column_focus(show);
         self
     }
 
     /// Style for a selected cell. The chosen selection must support
     /// cell-selection for this to take effect.
     #[inline]
-    pub fn select_cell_style<S: Into<Style>>(mut self, select_style: S) -> Self {
+    pub fn select_cell_style(mut self, select_style: Option<Style>) -> Self {
         self.widget = self.widget.select_cell_style(select_style);
+        self
+    }
+
+    #[inline]
+    pub fn show_cell_focus(mut self, show: bool) -> Self {
+        self.widget = self.widget.show_cell_focus(show);
         self
     }
 
     /// Style for a selected header cell. The chosen selection must
     /// support column-selection for this to take effect.
     #[inline]
-    pub fn select_header_style<S: Into<Style>>(mut self, select_style: S) -> Self {
+    pub fn select_header_style(mut self, select_style: Option<Style>) -> Self {
         self.widget = self.widget.select_header_style(select_style);
+        self
+    }
+
+    #[inline]
+    pub fn show_header_focus(mut self, show: bool) -> Self {
+        self.widget = self.widget.show_header_focus(show);
         self
     }
 
     /// Style for a selected footer cell. The chosen selection must
     /// support column-selection for this to take effect.
     #[inline]
-    pub fn select_footer_style<S: Into<Style>>(mut self, select_style: S) -> Self {
+    pub fn select_footer_style(mut self, select_style: Option<Style>) -> Self {
         self.widget = self.widget.select_footer_style(select_style);
+        self
+    }
+
+    #[inline]
+    pub fn show_footer_focus(mut self, show: bool) -> Self {
+        self.widget = self.widget.show_footer_focus(show);
         self
     }
 
@@ -252,7 +283,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// The selection must support some kind of selection for this to
     /// be effective.
     #[inline]
-    pub fn focus_style<S: Into<Style>>(mut self, focus_style: S) -> Self {
+    pub fn focus_style(mut self, focus_style: Option<Style>) -> Self {
         self.widget = self.widget.focus_style(focus_style);
         self
     }
@@ -347,6 +378,18 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 }
 
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<NoSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+        self.widget.handle(event, FocusKeys)
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<NoSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+        self.widget.handle(event, MouseOnly)
+    }
+}
+
 impl FTableState<RowSelection> {
     #[inline]
     pub fn selected(&self) -> Option<usize> {
@@ -362,6 +405,18 @@ impl FTableState<RowSelection> {
     #[inline]
     pub fn select_clamped(&mut self, select: usize, maximum: usize) {
         self.widget.select_clamped(select, maximum);
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+        self.widget.handle(event, FocusKeys)
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<RowSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+        self.widget.handle(event, MouseOnly)
     }
 }
 
@@ -414,6 +469,18 @@ impl FTableState<RowSetSelection> {
     }
 }
 
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSetSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> Outcome {
+        self.widget.handle(event, FocusKeys)
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<RowSetSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> Outcome {
+        self.widget.handle(event, MouseOnly)
+    }
+}
+
 impl FTableState<CellSelection> {
     /// Selected cell.
     #[inline]
@@ -443,6 +510,18 @@ impl FTableState<CellSelection> {
     #[inline]
     pub fn select_clamped(&mut self, select: (usize, usize), maximum: (usize, usize)) {
         self.widget.select_clamped(select, maximum);
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<CellSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+        self.widget.handle(event, FocusKeys)
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<CellSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+        self.widget.handle(event, MouseOnly)
     }
 }
 

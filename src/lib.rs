@@ -19,8 +19,8 @@ pub mod focus {
 
 pub mod scrolled {
     pub use rat_scrolled::{
-        HScrollPosition, ScrollbarPolicy, Scrolled, ScrolledState, ScrollingState, ScrollingWidget,
-        VScrollPosition, View, ViewState, Viewport, ViewportState,
+        HScrollPosition, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle, ScrollingState,
+        ScrollingWidget, VScrollPosition, View, ViewState, Viewport, ViewportState,
     };
 }
 
@@ -29,6 +29,7 @@ pub mod event {
         crossterm, ct_event, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome,
         ReadOnly, TextOutcome,
     };
+    pub use rat_scrolled::event::ScrollOutcome;
 }
 
 pub mod layout {
