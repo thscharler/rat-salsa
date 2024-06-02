@@ -12,7 +12,10 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 
+///
 /// Trait for accessing the table-data by the FTable.
+///
+/// This trait is suitable if the underlying data is random access.
 pub trait TableData<'a> {
     /// Size of the data.
     fn rows(&self) -> usize;
@@ -33,18 +36,33 @@ pub trait TableData<'a> {
     fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer);
 }
 
-pub trait TableRowData<'a> {
-    /// Row height.
-    #[allow(unused_variables)]
-    fn row_height(&self) -> u16 {
-        1
-    }
+/// Trait for accessing the table-data by the FTable.
+///
+/// This trait is suitable if the underlying data is an iterator.
+/// It uses internal iteration which allows much more leeway with
+/// borrowing & lifetimes.
+///
+pub trait TableDataIter<'a> {
+    /// Returns the number of rows, if known.
+    ///
+    /// If they are not known, all items will be iterated to
+    /// calculate things as the length of the table. Which will
+    /// be slower if you have many items.
+    fn rows(&self) -> Option<usize>;
 
-    fn row_style(&self) -> Style {
-        Style::default()
-    }
+    /// Skips to the nth item, returns true if such an item exists.
+    fn nth(&mut self, n: usize) -> bool;
 
-    /// Render the cell given by column/row.
+    /// Reads the next item, returns true if such an item exists.
+    fn next(&mut self) -> bool;
+
+    /// Row height for the current item.
+    fn row_height(&self) -> u16;
+
+    /// Row style for the current line.
+    fn row_style(&self) -> Style;
+
+    /// Render the cell for the current line.
     fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer);
 }
 

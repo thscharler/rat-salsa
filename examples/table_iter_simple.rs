@@ -13,7 +13,7 @@ use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState, TableData, TableRowData};
+use rat_ftable::{FTable, FTableState, TableData, TableDataIter};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -236,11 +236,34 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
         }
     }
 
-    struct RowData {
-        v: usize,
+    struct RowIter {
+        iter: Count,
+        item: u32,
     }
 
-    impl<'a> TableRowData<'a> for RowData {
+    impl<'a> TableDataIter<'a> for RowIter {
+        fn rows(&self) -> Option<usize> {
+            None
+        }
+
+        fn nth(&mut self, n: usize) -> bool {
+            if let Some(v) = self.iter.nth(n) {
+                self.item = v;
+                true
+            } else {
+                false
+            }
+        }
+
+        fn next(&mut self) -> bool {
+            if let Some(v) = self.iter.next() {
+                self.item = v;
+                true
+            } else {
+                false
+            }
+        }
+
         fn row_height(&self) -> u16 {
             1
         }
@@ -249,21 +272,17 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
             Style::default()
         }
 
-        fn render_cell(&self, _column: usize, area: Rect, buf: &mut Buffer) {
-            Span::from(self.v.to_string()).render(area, buf);
+        fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+            Span::from(self.item.to_string()).render(area, buf);
         }
     }
 
-    let data = Count(0);
+    let mut data = RowIter {
+        iter: Count(0),
+        item: 0,
+    };
     let table1 = FTable::default()
-        .iter(
-            Box::new(
-                data.skip(24)
-                    .filter(|v| v % 2 == 0)
-                    .map(|v| Box::new(RowData { v: v as usize }) as Box<dyn TableRowData>),
-            ),
-            None,
-        )
+        .iter(&mut data)
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),

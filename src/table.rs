@@ -2,8 +2,10 @@ use crate::_private::NonExhaustive;
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
-use crate::{TableData, TableRowData, TableSelection};
+use crate::{TableData, TableDataIter, TableSelection};
+#[allow(unused_imports)]
 use log::debug;
+use log::warn;
 use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
@@ -16,7 +18,6 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 use std::rc::Rc;
-use std::time::Instant;
 
 /// FTable widget.
 ///
@@ -54,12 +55,11 @@ pub struct FTable<'a, Selection> {
 
 mod data {
     use crate::textdata::TextTableData;
-    use crate::{TableData, TableRowData};
+    use crate::{TableData, TableDataIter};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::Style;
     use std::fmt::{Debug, Formatter};
-    use std::mem;
 
     #[derive(Default)]
     pub(super) enum DataRepr<'a> {
@@ -67,25 +67,16 @@ mod data {
         None,
         Text(TextTableData<'a>),
         Ref(&'a dyn TableData<'a>),
-        Iter(
-            Box<dyn Iterator<Item = Box<dyn TableRowData<'a>>>>,
-            Option<usize>,
-        ),
+        Iter(&'a mut dyn TableDataIter<'a>),
     }
 
     impl<'a> DataRepr<'a> {
-        pub(super) fn iter(self) -> (DataReprIter<'a>, Option<usize>) {
+        pub(super) fn iter(self) -> DataReprIter<'a> {
             match self {
-                DataRepr::None => (DataReprIter::None, None),
-                DataRepr::Text(v) => {
-                    let rows = v.rows();
-                    (DataReprIter::IterText(v, None), Some(rows))
-                }
-                DataRepr::Ref(v) => {
-                    let rows = v.rows();
-                    (DataReprIter::IterRef(v, None), Some(rows))
-                }
-                DataRepr::Iter(v, rows) => (DataReprIter::IterIter(v, None, 0), rows),
+                DataRepr::None => DataReprIter::None,
+                DataRepr::Text(v) => DataReprIter::IterText(v, None),
+                DataRepr::Ref(v) => DataReprIter::IterRef(v, None),
+                DataRepr::Iter(v) => DataReprIter::IterIter(v),
             }
         }
     }
@@ -102,123 +93,99 @@ mod data {
         None,
         IterText(TextTableData<'a>, Option<usize>),
         IterRef(&'a dyn TableData<'a>, Option<usize>),
-        IterIter(
-            Box<dyn Iterator<Item = Box<dyn TableRowData<'a>>>>,
-            Option<Box<dyn TableRowData<'a>>>,
-            usize,
-        ),
+        IterIter(&'a mut dyn TableDataIter<'a>),
     }
 
-    impl<'a> DataReprIter<'a> {
-        /// Skip the number of rows.
-        /// If n goes beyond the size of the underlying container
-        /// the access functions will panic.
-        ///
-        /// If the number of rows is not known this will choose a slower algorithm.
-        ///
-        /// Returns the number actually skipped.
-        pub(super) fn skip(&mut self, n: usize, rows_known: bool) -> usize {
+    impl<'a> TableDataIter<'a> for DataReprIter<'a> {
+        fn rows(&self) -> Option<usize> {
             match self {
-                DataReprIter::None => 0,
-                DataReprIter::IterText(_, row) => {
-                    if let Some(row) = row {
-                        *row += n;
-                    } else if n > 0 {
-                        *row = Some(n - 1);
-                    } else {
-                        // skip 0
-                    }
-                    n
-                }
-                DataReprIter::IterRef(_, row) => {
-                    if let Some(row) = row {
-                        *row += n;
-                    } else if n > 0 {
-                        *row = Some(n - 1);
-                    } else {
-                        // skip 0
-                    }
-                    n
-                }
-                DataReprIter::IterIter(v, _, skip) => {
-                    // if the rows are known, we can use skip, this should be accurate.
-                    if rows_known {
-                        *skip = n;
-                        n
-                    } else {
-                        let mut i = n;
-                        while i > 0 {
-                            if v.next().is_none() {
-                                break;
-                            }
-                            i -= 1;
-                        }
-                        n - i
-                    }
-                }
+                DataReprIter::None => Some(0),
+                DataReprIter::IterText(v, _) => Some(v.rows.len()),
+                DataReprIter::IterRef(v, _) => Some(v.rows()),
+                DataReprIter::IterIter(v) => v.rows(),
             }
         }
 
-        pub(super) fn next(&mut self) -> bool {
+        fn nth(&mut self, n: usize) -> bool {
             match self {
                 DataReprIter::None => false,
-                DataReprIter::IterText(v, row) => {
-                    let next = row.map_or(0, |row| row + 1);
-                    if next < v.rows() {
-                        *row = Some(next);
-                        true
-                    } else {
-                        false
+                DataReprIter::IterText(v, row) => match *row {
+                    None => {
+                        *row = Some(n);
+                        n < v.rows.len()
                     }
-                }
-                DataReprIter::IterRef(v, row) => {
-                    let next = row.map_or(0, |row| row + 1);
-                    if next < v.rows() {
-                        *row = Some(next);
-                        true
-                    } else {
-                        false
+                    Some(w) => {
+                        *row = Some(w + n);
+                        w + n < v.rows.len()
                     }
-                }
-                DataReprIter::IterIter(v, cur, skip) => {
-                    if *skip == 0 {
-                        *cur = v.next();
-                    } else {
-                        *cur = v.nth(mem::take(skip));
+                },
+                DataReprIter::IterRef(v, row) => match *row {
+                    None => {
+                        *row = Some(n);
+                        n < v.rows()
                     }
-                    cur.is_some()
-                }
+                    Some(w) => {
+                        *row = Some(w + n);
+                        w + n < v.rows()
+                    }
+                },
+                DataReprIter::IterIter(v) => v.nth(n),
+            }
+        }
+
+        fn next(&mut self) -> bool {
+            match self {
+                DataReprIter::None => false,
+                DataReprIter::IterText(v, row) => match *row {
+                    None => {
+                        *row = Some(0);
+                        0 < v.rows.len()
+                    }
+                    Some(w) => {
+                        *row = Some(w + 1);
+                        w + 1 < v.rows.len()
+                    }
+                },
+                DataReprIter::IterRef(v, row) => match *row {
+                    None => {
+                        *row = Some(0);
+                        0 < v.rows()
+                    }
+                    Some(w) => {
+                        *row = Some(w + 1);
+                        w + 1 < v.rows()
+                    }
+                },
+                DataReprIter::IterIter(v) => v.next(),
             }
         }
 
         /// Row height.
-        pub(super) fn row_height(&self) -> u16 {
+        fn row_height(&self) -> u16 {
             match self {
                 DataReprIter::None => 1,
                 DataReprIter::IterText(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterRef(v, n) => v.row_height(n.expect("row")),
-                DataReprIter::IterIter(_, n, _) => n.as_ref().expect("row").row_height(),
+                DataReprIter::IterIter(v) => v.row_height(),
             }
         }
 
-        pub(super) fn row_style(&self) -> Style {
+        fn row_style(&self) -> Style {
             match self {
                 DataReprIter::None => Style::default(),
                 DataReprIter::IterText(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterRef(v, n) => v.row_style(n.expect("row")),
-                DataReprIter::IterIter(_, n, _) => n.as_ref().expect("row").row_style(),
+                DataReprIter::IterIter(v) => v.row_style(),
             }
         }
 
         /// Render the cell given by column/row.
-        pub(super) fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
             match self {
                 DataReprIter::None => {}
                 DataReprIter::IterText(v, n) => v.render_cell(column, n.expect("row"), area, buf),
                 DataReprIter::IterRef(v, n) => v.render_cell(column, n.expect("row"), area, buf),
-                DataReprIter::IterIter(_, n, _) => {
-                    n.as_ref().expect("row").render_cell(column, area, buf)
-                }
+                DataReprIter::IterIter(v) => v.render_cell(column, area, buf),
             }
         }
     }
@@ -395,12 +362,11 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// the data.
     ///
     #[inline]
-    pub fn iter(
-        mut self,
-        data: Box<dyn Iterator<Item = Box<dyn TableRowData<'a>>>>,
-        rows: Option<usize>,
-    ) -> Self {
-        self.data = DataRepr::Iter(data, rows);
+    pub fn iter(mut self, data: &'a mut dyn TableDataIter<'a>) -> Self {
+        if data.rows().is_none() {
+            warn!("FTable::iter - rows is None, this will be slower");
+        }
+        self.data = DataRepr::Iter(data);
         self
     }
 
@@ -552,7 +518,7 @@ impl<'a, Selection> FTable<'a, Selection> {
             DataRepr::None => false,
             DataRepr::Text(v) => self.need_scroll_tabledata(v, area),
             DataRepr::Ref(v) => self.need_scroll_tabledata(*v, area),
-            DataRepr::Iter(v, rows) => self.need_scroll_tableiter(v, *rows, area),
+            DataRepr::Iter(v) => self.need_scroll_tableiter(*v, area),
         };
 
         // horizontal layout
@@ -569,15 +535,10 @@ impl<'a, Selection> FTable<'a, Selection> {
         (horizontal, vertical)
     }
 
-    fn need_scroll_tableiter(
-        &self,
-        _data: &dyn Iterator<Item = Box<dyn TableRowData<'a>>>,
-        rows: Option<usize>,
-        area: Rect,
-    ) -> bool {
+    fn need_scroll_tableiter(&self, data: &dyn TableDataIter<'a>, area: Rect) -> bool {
         // can't iterate data here, have to guess.
         // the guess is we have a constant row-height of 1.
-        let vertical = if let Some(rows) = rows {
+        let vertical = if let Some(rows) = data.rows() {
             rows >= area.height as usize
         } else {
             // don't know anything. guess we need it.
@@ -673,8 +634,8 @@ where
     type State = FTableState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let (iter, rows) = mem::take(&mut self.data).iter();
-        self.render_iter(iter, rows, area, buf, state);
+        let iter = mem::take(&mut self.data).iter();
+        self.render_iter(iter, area, buf, state);
     }
 }
 
@@ -689,16 +650,18 @@ where
     fn render_iter(
         self,
         mut data: DataReprIter<'a>,
-        rows: Option<usize>,
         area: Rect,
         buf: &mut Buffer,
         state: &mut FTableState<Selection>,
     ) {
+        if let Some(rows) = data.rows() {
+            state.rows = rows;
+        }
         state.columns = self.widths.len();
         state.area = area;
 
         // offset validity
-        if let Some(rows) = rows {
+        if let Some(rows) = data.rows() {
             if state.row_offset >= rows {
                 state.row_offset = rows.saturating_sub(1);
             }
@@ -746,94 +709,92 @@ where
         state.row_areas.clear();
         state.row_page_len = 0;
 
-        // this can't prevent scrolling beyond the last,
-        // but it's maxed out at last+1.
-        state.row_offset = data.skip(state.row_offset, rows.is_some());
-
         let mut row = state.row_offset;
         let mut row_y = state.table_area.y;
         let mut row_heights = Vec::new();
-        loop {
-            if !data.next() {
-                break;
-            }
 
-            // we enforce a minimum row-height of 1.
-            let row_area = Rect::new(
-                state.table_area.x,
-                row_y,
-                state.table_area.height,
-                max(data.row_height(), 1),
-            )
-            .intersection(state.table_area);
-
-            if data.row_style() != Style::default() {
-                buf.set_style(row_area, data.row_style());
-            }
-
-            row_heights.push(row_area.height);
-            state.row_areas.push(row_area);
-            state.row_page_len += 1;
-
-            let mut col = state.col_offset;
+        if data.nth(state.row_offset) {
             loop {
-                if col >= state.columns {
-                    break;
-                }
-
-                let cell_area = Rect::new(
-                    row_area.x + l_columns[col].x - l_columns[state.col_offset].x,
-                    row_area.y,
-                    l_columns[col].width,
-                    row_area.height,
+                // we enforce a minimum row-height of 1.
+                let row_area = Rect::new(
+                    state.table_area.x,
+                    row_y,
+                    state.table_area.height,
+                    max(data.row_height(), 1),
                 )
                 .intersection(state.table_area);
 
-                let space_area = Rect::new(
-                    row_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
-                    row_area.y,
-                    l_spacers[col + 1].width,
-                    row_area.height,
-                )
-                .intersection(state.table_area);
-
-                let mut select_style = if state.selection.is_selected_cell(col, row) {
-                    self.select_cell_style
-                } else if state.selection.is_selected_row(row) {
-                    self.select_row_style
-                } else if state.selection.is_selected_column(col) {
-                    self.select_column_style
-                } else {
-                    Style::default()
-                };
-                if self.focus {
-                    select_style = select_style.patch(self.focus_style);
-                }
-                if select_style != Style::default() {
-                    buf.set_style(cell_area, select_style);
-                    buf.set_style(space_area, select_style);
+                if data.row_style() != Style::default() {
+                    buf.set_style(row_area, data.row_style());
                 }
 
-                // TODO: give an optional select style to the renderer
-                data.render_cell(col, cell_area, buf);
+                row_heights.push(row_area.height);
+                state.row_areas.push(row_area);
+                state.row_page_len += 1;
 
-                if cell_area.right() >= state.table_area.right() {
+                let mut col = state.col_offset;
+                loop {
+                    if col >= state.columns {
+                        break;
+                    }
+
+                    let cell_area = Rect::new(
+                        row_area.x + l_columns[col].x - l_columns[state.col_offset].x,
+                        row_area.y,
+                        l_columns[col].width,
+                        row_area.height,
+                    )
+                    .intersection(state.table_area);
+
+                    let space_area = Rect::new(
+                        row_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
+                        row_area.y,
+                        l_spacers[col + 1].width,
+                        row_area.height,
+                    )
+                    .intersection(state.table_area);
+
+                    let mut select_style = if state.selection.is_selected_cell(col, row) {
+                        self.select_cell_style
+                    } else if state.selection.is_selected_row(row) {
+                        self.select_row_style
+                    } else if state.selection.is_selected_column(col) {
+                        self.select_column_style
+                    } else {
+                        Style::default()
+                    };
+                    if self.focus {
+                        select_style = select_style.patch(self.focus_style);
+                    }
+                    if select_style != Style::default() {
+                        buf.set_style(cell_area, select_style);
+                        buf.set_style(space_area, select_style);
+                    }
+
+                    // TODO: give an optional select style to the renderer
+                    data.render_cell(col, cell_area, buf);
+
+                    if cell_area.right() >= state.table_area.right() {
+                        break;
+                    }
+                    col += 1;
+                }
+
+                row += 1;
+                row_y += row_area.height;
+
+                if row_area.bottom() >= state.table_area.bottom() {
                     break;
                 }
-                col += 1;
+                if !data.next() {
+                    break;
+                }
             }
-
-            if row_area.bottom() >= state.table_area.bottom() {
-                break;
-            }
-
-            row += 1;
-            row_y += row_area.height;
         }
 
         // maximum offsets
         {
-            if let Some(rows) = rows {
+            if let Some(rows) = data.rows() {
                 // skip to a guess for the last page.
                 // the guess uses row-height is 1, which may read a few more lines than
                 // absolutely necessary.
@@ -844,22 +805,24 @@ where
                 if skip_rows > 0 {
                     row_heights.clear();
                 }
-                data.skip(skip_rows, true);
                 // collect the remaining row-heights.
-                while data.next() {
-                    row_heights.push(data.row_height());
+                if data.nth(skip_rows) {
+                    loop {
+                        row_heights.push(data.row_height());
+                        if !data.next() {
+                            break;
+                        }
+                    }
                 }
 
                 state.rows = rows;
             } else {
                 while data.next() {
                     row_heights.push(data.row_height());
-
                     // don't need more.
                     if row_heights.len() > state.table_area.height as usize + 1 {
                         row_heights.remove(0);
                     }
-
                     row += 1;
                 }
 

@@ -13,7 +13,7 @@ use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState, TableRowData};
+use rat_ftable::{FTable, FTableState, TableDataIter};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -24,6 +24,9 @@ use ratatui::text::Span;
 use ratatui::{Frame, Terminal};
 use std::fs;
 use std::io::{stdout, Stdout};
+use std::iter::{Enumerate, Skip};
+use std::marker::PhantomData;
+use std::slice::Iter;
 use std::time::{Duration, SystemTime};
 
 mod data;
@@ -40,6 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
                 num2: rand::random(),
                 check: rand::random(),
             })
+            .take(100_000)
             .collect(),
     };
 
@@ -221,9 +225,27 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     ])
     .split(area);
 
-    struct Row1<'a>(usize, &'a Sample);
+    struct RowIter1<'a> {
+        iter: Enumerate<Iter<'a, Sample>>,
+        item: Option<(usize, &'a Sample)>,
+    }
 
-    impl<'a> TableRowData<'a> for Row1<'a> {
+    impl<'a> TableDataIter<'a> for RowIter1<'a> {
+        fn rows(&self) -> Option<usize> {
+            None
+            // Some(100_000)
+        }
+
+        fn nth(&mut self, n: usize) -> bool {
+            self.item = self.iter.nth(n);
+            self.item.is_some()
+        }
+
+        fn next(&mut self) -> bool {
+            self.item = self.iter.next();
+            self.item.is_some()
+        }
+
         fn row_height(&self) -> u16 {
             1
         }
@@ -233,29 +255,30 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
         }
 
         fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+            let row = self.item.expect("data");
             match column {
                 0 => {
                     let row_fmt = NumberFormat::new("000000").expect("fmt");
-                    let span = Span::from(row_fmt.fmt_u(self.0));
+                    let span = Span::from(row_fmt.fmt_u(row.0));
                     buf.set_style(area, Style::new().black().bg(Color::from_u32(0xe7c787)));
                     span.render(area, buf);
                 }
                 1 => {
-                    let span = Span::from(self.1.text);
+                    let span = Span::from(row.1.text);
                     span.render(area, buf);
                 }
                 2 => {
                     let num1_fmt = NumberFormat::new("####0.00").expect("fmt");
-                    let span = Span::from(num1_fmt.fmt_u(self.1.num1));
+                    let span = Span::from(num1_fmt.fmt_u(row.1.num1));
                     span.render(area, buf);
                 }
                 3 => {
                     let num2_fmt = NumberFormat::new("####0.00").expect("fmt");
-                    let span = Span::from(num2_fmt.fmt_u(self.1.num2));
+                    let span = Span::from(num2_fmt.fmt_u(row.1.num2));
                     span.render(area, buf);
                 }
                 4 => {
-                    let cc = if self.1.check { "\u{2622}" } else { "\u{2623}" };
+                    let cc = if row.1.check { "\u{2622}" } else { "\u{2623}" };
                     let span = Span::from(cc);
                     span.render(area, buf);
                 }
@@ -264,14 +287,13 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
         }
     }
 
-    let iter1 = data
-        .table_data
-        .iter()
-        .enumerate()
-        .map(|(n, v)| Box::new(Row1(n, v)) as Box<dyn TableRowData<'_>>);
+    let mut rr = RowIter1 {
+        iter: data.table_data.iter().enumerate(),
+        item: None,
+    };
 
     let table1 = FTable::default()
-        .iter(Box::new(iter1), None)
+        .iter(&mut rr)
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),
