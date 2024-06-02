@@ -47,6 +47,18 @@ pub struct Scrolled<'a, T> {
     end_style: Option<Style>,
 }
 
+pub struct ScrolledStyle {
+    pub thumb_style: Option<Style>,
+    pub track_symbol: Option<&'static str>,
+    pub track_style: Option<Style>,
+    pub begin_symbol: Option<&'static str>,
+    pub begin_style: Option<Style>,
+    pub end_symbol: Option<&'static str>,
+    pub end_style: Option<Style>,
+
+    pub non_exhaustive: NonExhaustive,
+}
+
 /// Scrolled state.
 #[derive(Debug, Clone)]
 pub struct ScrolledState<WidgetState> {
@@ -168,6 +180,17 @@ impl<'a, T> Scrolled<'a, T> {
     /// will be off somewhat.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self
+    }
+
+    pub fn styles(mut self, styles: ScrolledStyle) -> Self {
+        self.thumb_style = styles.thumb_style;
+        self.track_symbol = styles.track_symbol;
+        self.track_style = styles.track_style;
+        self.begin_symbol = styles.begin_symbol;
+        self.begin_style = styles.begin_style;
+        self.end_symbol = styles.end_symbol;
+        self.end_style = styles.end_style;
         self
     }
 
@@ -334,24 +357,6 @@ where
         self
     }
 }
-
-// impl<'a, W> StatefulWidgetRef for Scrolled<'a, W>
-// where
-//     W: StatefulWidgetRef + ScrollingWidget<W::State>,
-//     W::State: ScrollingState,
-// {
-//     type State = ScrolledState<W::State>;
-//
-//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-//         let scroll_param = self
-//             .widget
-//             .need_scroll(self.block.inner_if_some(area), &mut state.widget);
-//
-//         render_impl(self, area, buf, state, scroll_param, |area, buf, state| {
-//             self.widget.render_ref(area, buf, state);
-//         });
-//     }
-// }
 
 impl<'a, W> StatefulWidget for Scrolled<'a, W>
 where
@@ -566,6 +571,21 @@ fn render_impl<FnRender, W, WState>(
             .viewport_content_length(view_len);
 
         hscroll.render(hscrollbar_area, buf, &mut hscroll_state);
+    }
+}
+
+impl Default for ScrolledStyle {
+    fn default() -> Self {
+        Self {
+            thumb_style: None,
+            track_symbol: None,
+            track_style: None,
+            begin_symbol: None,
+            begin_style: None,
+            end_symbol: None,
+            end_style: None,
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 
