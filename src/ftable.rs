@@ -380,7 +380,11 @@ impl<Selection: TableSelection> FTableState<Selection> {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<NoSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
-        self.widget.handle(event, FocusKeys)
+        if self.is_focused() {
+            self.widget.handle(event, FocusKeys)
+        } else {
+            self.widget.handle(event, MouseOnly)
+        }
     }
 }
 
@@ -410,7 +414,11 @@ impl FTableState<RowSelection> {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
-        self.widget.handle(event, FocusKeys)
+        if self.is_focused() {
+            self.widget.handle(event, FocusKeys)
+        } else {
+            self.widget.handle(event, MouseOnly)
+        }
     }
 }
 
@@ -471,7 +479,11 @@ impl FTableState<RowSetSelection> {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSetSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> Outcome {
-        self.widget.handle(event, FocusKeys)
+        if self.is_focused() {
+            self.widget.handle(event, FocusKeys)
+        } else {
+            self.widget.handle(event, MouseOnly)
+        }
     }
 }
 
@@ -515,7 +527,11 @@ impl FTableState<CellSelection> {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<CellSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
-        self.widget.handle(event, FocusKeys)
+        if self.is_focused() {
+            self.widget.handle(event, FocusKeys)
+        } else {
+            self.widget.handle(event, MouseOnly)
+        }
     }
 }
 

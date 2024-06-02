@@ -5,6 +5,7 @@
 //!
 
 use crate::_private::NonExhaustive;
+use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 #[allow(unused_imports)]
 use log::debug;
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -13,7 +14,6 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::widgets::StatefulWidget;
 
-use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 pub use rat_input::menuline::{HotKeyAlt, HotKeyCtrl, MenuOutcome, MenuStyle};
 
 ///
@@ -95,17 +95,6 @@ impl<'a> MenuLine<'a> {
         self
     }
 }
-
-// impl<'a> StatefulWidgetRef for MenuLine<'a> {
-//     type State = MenuLineState;
-//
-//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-//         self.widget
-//             .clone()
-//             .focused(state.is_focused())
-//             .render(area, buf, &mut state.widget)
-//     }
-// }
 
 impl<'a> StatefulWidget for MenuLine<'a> {
     type State = MenuLineState;
