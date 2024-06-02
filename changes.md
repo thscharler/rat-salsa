@@ -1,7 +1,12 @@
-# 0.14.0
+# 0.15.0
 
 * Add trait TableDataIter as a possible data-source.
   This allows rendering the FTable when all you got is an iterator.
+
+# 0.14.0
+
+* Use the method names from the ScrollingState trait.
+* Use new MouseFlags.
 
 # 0.13.1
 
