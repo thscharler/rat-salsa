@@ -1,3 +1,7 @@
+# 0.15.1
+
+Missed some warnings.
+
 # 0.15.0
 
 * Add trait TableDataIter as a possible data-source.

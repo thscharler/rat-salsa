@@ -5,7 +5,7 @@ use crate::textdata::{Row, TextTableData};
 use crate::{TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
-use log::{error, warn};
+use log::warn;
 use rat_event::util::MouseFlags;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
@@ -976,7 +976,7 @@ where
         }
 
         if insane_offset {
-            let mut text = Text::from(
+            let text = Text::from(
                 format!(
                     "FTable::render:\n    offset {}\n    rows {}\n    iterated {}\ndon't match up",
                     state.row_offset, state.rows, state._counted_rows
