@@ -47,6 +47,7 @@ pub struct Scrolled<'a, T> {
     end_style: Option<Style>,
 }
 
+#[derive(Debug, Clone)]
 pub struct ScrolledStyle {
     pub thumb_style: Option<Style>,
     pub track_symbol: Option<&'static str>,
