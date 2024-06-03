@@ -228,14 +228,6 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
             self.0.len()
         }
 
-        fn row_height(&self, _row: usize) -> u16 {
-            1
-        }
-
-        fn row_style(&self, _r: usize) -> Style {
-            Style::default()
-        }
-
         fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
             if let Some(d) = self.0.get(row) {
                 match column {
@@ -288,19 +280,19 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
                 Cell::from("Val2"),
                 Cell::from("State"),
             ])
-            .style(Style::new().black().bg(Color::Rgb(152, 195, 121))),
+            .style(Some(Style::new().black().bg(Color::Rgb(152, 195, 121)))),
         )
         .footer(
             Row::new(["a", "b", "c", "d", "e"])
-                .style(Style::new().black().bg(Color::Rgb(152, 195, 121))),
+                .style(Some(Style::new().black().bg(Color::Rgb(152, 195, 121)))),
         )
         .flex(Flex::End)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)))
-        .select_row_style(Style::default().bg(Color::Rgb(50, 50, 50)))
-        .select_column_style(Style::default().bg(Color::Rgb(30, 30, 30)))
-        .select_cell_style(Style::default().black().bg(Color::Rgb(128, 128, 128)))
-        .select_header_style(Style::default().bg(Color::Rgb(172, 215, 141)))
-        .select_footer_style(Style::default().bg(Color::Rgb(172, 215, 141)));
+        .select_row_style(Some(Style::default().bg(Color::Rgb(50, 50, 50))))
+        .select_column_style(Some(Style::default().bg(Color::Rgb(30, 30, 30))))
+        .select_cell_style(Some(Style::default().black().bg(Color::Rgb(128, 128, 128))))
+        .select_header_style(Some(Style::default().bg(Color::Rgb(172, 215, 141))))
+        .select_footer_style(Some(Style::default().bg(Color::Rgb(172, 215, 141))));
     frame.render_stateful_widget(table1, l0[1], &mut state.table);
 }
 

@@ -16,7 +16,7 @@ use rat_event::{ct_event, FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState, TableData, TableDataIter};
+use rat_ftable::{FTable, FTableState, TableDataIter};
 use rat_input::layout_edit::{layout_edit, EditConstraint, LayoutEdit};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
@@ -32,18 +32,18 @@ use std::iter::Enumerate;
 use std::slice::Iter;
 use std::time::{Duration, SystemTime};
 
-mod data;
-
 const SMALLER: usize = 90;
 const CIRCA: usize = 99;
 const EXACT: usize = 100;
 const GREATER: usize = 110;
 
+mod data;
+
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
     let mut data = Data {
-        table_data: crate::data::SMALL_DATA
+        table_data: data::SMALL_DATA
             .iter()
             .map(|v| Sample {
                 text: *v,
@@ -51,7 +51,6 @@ fn main() -> Result<(), anyhow::Error> {
                 num2: rand::random(),
                 check: rand::random(),
             })
-            // .take(100_011)
             .collect(),
     };
 
@@ -69,7 +68,7 @@ fn main() -> Result<(), anyhow::Error> {
 fn setup_logging() -> Result<(), anyhow::Error> {
     fs::remove_file("log.log")?;
     fern::Dispatch::new()
-        .format(|out, message, record| out.finish(format_args!("{}", message)))
+        .format(|out, message, _record| out.finish(format_args!("{}", message)))
         .level(log::LevelFilter::Debug)
         .chain(fern::log_file("log.log")?)
         .apply()?;
@@ -230,13 +229,6 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     ])
     .split(area);
 
-    let l1 = Layout::vertical([
-        Constraint::Length(5),
-        Constraint::Length(1),
-        Constraint::Fill(1),
-    ])
-    .split(l0[0]);
-
     state.edit = layout_edit(
         area,
         &[
@@ -299,19 +291,6 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
             self.item.is_some()
         }
 
-        fn next(&mut self) -> bool {
-            self.item = self.iter.next();
-            self.item.is_some()
-        }
-
-        fn row_height(&self) -> u16 {
-            1
-        }
-
-        fn row_style(&self) -> Style {
-            Style::default()
-        }
-
         fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
             let row = self.item.expect("data");
             match column {
@@ -369,11 +348,11 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
                 Cell::from("Val2"),
                 Cell::from("State"),
             ])
-            .style(Style::new().black().bg(Color::from_u32(0x98c379))),
+            .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
         )
         .footer(
             Row::new(["a", "b", "c", "d", "e"])
-                .style(Style::new().black().bg(Color::from_u32(0x98c379))),
+                .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
         )
         .flex(Flex::End)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));

@@ -9,8 +9,9 @@ mod table;
 pub mod textdata;
 mod util;
 
+use crate::textdata::Row;
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Constraint, Rect};
 use ratatui::style::Style;
 
 ///
@@ -21,6 +22,18 @@ pub trait TableData<'a> {
     /// Size of the data.
     fn rows(&self) -> usize;
 
+    /// Header can be obtained from here.
+    /// Alternative to setting on FTable.
+    fn header(&self) -> Option<Row<'a>> {
+        None
+    }
+
+    /// Footer can be obtained from here.
+    /// Alternative to setting on FTable.
+    fn footer(&self) -> Option<Row<'a>> {
+        None
+    }
+
     /// Row height.
     #[allow(unused_variables)]
     fn row_height(&self, row: usize) -> u16 {
@@ -29,8 +42,13 @@ pub trait TableData<'a> {
 
     /// Row style.
     #[allow(unused_variables)]
-    fn row_style(&self, row: usize) -> Style {
-        Style::default()
+    fn row_style(&self, row: usize) -> Option<Style> {
+        None
+    }
+
+    /// Column constraints.
+    fn widths(&self) -> Vec<Constraint> {
+        Vec::default()
     }
 
     /// Render the cell given by column/row.
@@ -51,6 +69,18 @@ pub trait TableDataIter<'a> {
     /// be slower if you have many items.
     fn rows(&self) -> Option<usize>;
 
+    /// Header can be obtained from here.
+    /// Alternative to setting on FTable.
+    fn header(&self) -> Option<Row<'a>> {
+        None
+    }
+
+    /// Footer can be obtained from here.
+    /// Alternative to setting on FTable.
+    fn footer(&self) -> Option<Row<'a>> {
+        None
+    }
+
     /// Skips to the nth item, returns true if such an item exists.
     /// nth(0) == next()
     fn nth(&mut self, n: usize) -> bool;
@@ -66,8 +96,13 @@ pub trait TableDataIter<'a> {
     }
 
     /// Row style for the current line.
-    fn row_style(&self) -> Style {
-        Style::default()
+    fn row_style(&self) -> Option<Style> {
+        None
+    }
+
+    /// Column constraints.
+    fn widths(&self) -> Vec<Constraint> {
+        Vec::default()
     }
 
     /// Render the cell for the current line.

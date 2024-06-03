@@ -24,7 +24,7 @@ pub struct Row<'a> {
     pub top_margin: u16,
     pub height: u16,
     pub bottom_margin: u16,
-    pub style: Style,
+    pub style: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -33,7 +33,7 @@ pub struct Row<'a> {
 #[derive(Debug, Clone)]
 pub struct Cell<'a> {
     pub content: Text<'a>,
-    pub style: Style,
+    pub style: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -51,19 +51,23 @@ impl<'a> TableData<'a> for TextTableData<'a> {
         }
     }
 
-    fn row_style(&self, r: usize) -> Style {
+    fn row_style(&self, r: usize) -> Option<Style> {
         if let Some(row) = self.rows.get(r) {
             row.style
         } else {
-            Style::default()
+            None
         }
     }
 
     fn render_cell(&self, c: usize, r: usize, area: Rect, buf: &mut Buffer) {
         if let Some(row) = self.rows.get(r) {
-            buf.set_style(area, row.style);
+            if let Some(style) = row.style {
+                buf.set_style(area, style);
+            }
             if let Some(cell) = row.cell(c) {
-                buf.set_style(area, cell.style);
+                if let Some(style) = cell.style {
+                    buf.set_style(area, style);
+                }
                 cell.content.clone().render(area, buf);
             }
         }
@@ -87,11 +91,12 @@ impl<'a> Styled for Row<'a> {
     type Item = Self;
 
     fn style(&self) -> Style {
-        self.style
+        self.style.unwrap_or_default()
     }
 
-    fn set_style<S: Into<Style>>(self, style: S) -> Self::Item {
-        self.style(style)
+    fn set_style<S: Into<Style>>(mut self, style: S) -> Self::Item {
+        self.style = Some(style.into());
+        self
     }
 }
 
@@ -148,8 +153,8 @@ impl<'a> Row<'a> {
     }
 
     /// Rowstyle.
-    pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.style = style.into();
+    pub fn style(mut self, style: Option<Style>) -> Self {
+        self.style = style;
         self
     }
 
@@ -190,11 +195,12 @@ impl<'a> Styled for Cell<'a> {
     type Item = Self;
 
     fn style(&self) -> Style {
-        self.style
+        self.style.unwrap_or_default()
     }
 
-    fn set_style<S: Into<Style>>(self, style: S) -> Self {
-        self.style(style)
+    fn set_style<S: Into<Style>>(mut self, style: S) -> Self {
+        self.style = Some(style.into());
+        self
     }
 }
 
@@ -221,8 +227,8 @@ impl<'a> Cell<'a> {
     }
 
     /// Cell style.
-    pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.style = style.into();
+    pub fn style(mut self, style: Option<Style>) -> Self {
+        self.style = style;
         self
     }
 }

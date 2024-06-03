@@ -1,4 +1,6 @@
-pub mod render_tablestate;
+#![allow(dead_code)]
+
+pub(crate) mod render_tablestate;
 
 pub(crate) static SMALL_DATA: [&str; 100] = [
     "Lorem",

@@ -1,3 +1,8 @@
+# 0.15.3
+
+* Add header(), footer() and widths() to TableData and TableDataIter traits.
+* Add header_style() and footer_style() to FTable and FTableStyle.
+
 # 0.15.2
 
 Forgot to remove Debug trait bounds.

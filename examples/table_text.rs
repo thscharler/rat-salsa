@@ -249,11 +249,11 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
                 Cell::from("Val2"),
                 Cell::from("State"),
             ])
-            .style(Style::new().black().bg(Color::from_u32(0x98c379))),
+            .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
         )
         .footer(
             Row::new(["a", "b", "c", "d", "e"])
-                .style(Style::new().black().bg(Color::from_u32(0x98c379))),
+                .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
         )
         .flex(Flex::End)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));

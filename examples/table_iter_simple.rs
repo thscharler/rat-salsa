@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
@@ -8,12 +10,11 @@ use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
-use format_num_pattern::NumberFormat;
 use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState, TableData, TableDataIter};
+use rat_ftable::{FTable, FTableState, TableDataIter};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -24,7 +25,6 @@ use ratatui::text::Span;
 use ratatui::{Frame, Terminal};
 use std::fs;
 use std::io::{stdout, Stdout};
-use std::iter::repeat_with;
 use std::time::{Duration, SystemTime};
 
 mod data;
@@ -214,7 +214,7 @@ fn handle_event(
     Ok(r)
 }
 
-fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut State) {
+fn repaint_table(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mut State) {
     let l0 = Layout::horizontal([
         Constraint::Length(10),
         Constraint::Fill(1),
@@ -264,15 +264,7 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
             }
         }
 
-        fn row_height(&self) -> u16 {
-            1
-        }
-
-        fn row_style(&self) -> Style {
-            Style::default()
-        }
-
-        fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, _column: usize, area: Rect, buf: &mut Buffer) {
             Span::from(self.item.to_string()).render(area, buf);
         }
     }
@@ -299,11 +291,11 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
                 Cell::from("Val2"),
                 Cell::from("State"),
             ])
-            .style(Style::new().black().bg(Color::from_u32(0x98c379))),
+            .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
         )
         .footer(
             Row::new(["a", "b", "c", "d", "e"])
-                .style(Style::new().black().bg(Color::from_u32(0x98c379))),
+                .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
         )
         .flex(Flex::End)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));

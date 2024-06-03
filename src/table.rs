@@ -42,6 +42,8 @@ pub struct FTable<'a, Selection> {
 
     block: Option<Block<'a>>,
 
+    header_style: Option<Style>,
+    footer_style: Option<Style>,
     style: Style,
 
     select_row_style: Option<Style>,
@@ -180,9 +182,9 @@ mod data {
             }
         }
 
-        fn row_style(&self) -> Style {
+        fn row_style(&self) -> Option<Style> {
             match self {
-                DataReprIter::None => Style::default(),
+                DataReprIter::None => None,
                 DataReprIter::IterText(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterRef(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_style(),
@@ -205,6 +207,9 @@ mod data {
 #[derive(Debug)]
 pub struct FTableStyle {
     pub style: Style,
+    pub header_style: Option<Style>,
+    pub footer_style: Option<Style>,
+
     pub select_row_style: Option<Style>,
     pub select_column_style: Option<Style>,
     pub select_cell_style: Option<Style>,
@@ -371,6 +376,9 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// ```
     #[inline]
     pub fn data(mut self, data: &'a dyn TableData<'a>) -> Self {
+        self.widths = data.widths();
+        self.header = data.header();
+        self.footer = data.footer();
         self.data = DataRepr::Ref(data);
         self
     }
@@ -484,6 +492,9 @@ impl<'a, Selection> FTable<'a, Selection> {
             #[cfg(debug_assertions)]
             warn!("FTable::iter - rows is None, this will be slower");
         }
+        self.header = data.header();
+        self.footer = data.footer();
+        self.widths = data.widths();
         self.data = DataRepr::Iter(data);
         self
     }
@@ -546,6 +557,8 @@ impl<'a, Selection> FTable<'a, Selection> {
     #[inline]
     pub fn styles(mut self, styles: FTableStyle) -> Self {
         self.style = styles.style;
+        self.header_style = styles.header_style;
+        self.footer_style = styles.footer_style;
 
         self.select_row_style = styles.select_row_style;
         self.show_row_focus = styles.show_row_focus;
@@ -566,6 +579,20 @@ impl<'a, Selection> FTable<'a, Selection> {
     #[inline]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self
+    }
+
+    /// Base style for the table.
+    #[inline]
+    pub fn header_style(mut self, style: Option<Style>) -> Self {
+        self.header_style = style;
+        self
+    }
+
+    /// Base style for the table.
+    #[inline]
+    pub fn footer_style(mut self, style: Option<Style>) -> Self {
+        self.footer_style = style;
         self
     }
 
@@ -892,8 +919,8 @@ where
                 )
                 .intersection(state.table_area);
 
-                if data.row_style() != Style::default() {
-                    buf.set_style(row_area, data.row_style());
+                if let Some(row_style) = data.row_style() {
+                    buf.set_style(row_area, row_style);
                 }
 
                 row_heights.push(row_area.height);
@@ -1097,13 +1124,12 @@ where
         state: &mut FTableState<Selection>,
     ) {
         if let Some(footer) = &self.footer {
-            let footer_style = if footer.style != Style::default() {
-                footer.style
-            } else {
-                self.style
-            };
-            if footer_style != Style::default() {
+            if let Some(footer_style) = footer.style {
                 buf.set_style(state.footer_area, footer_style);
+            } else if let Some(footer_style) = self.footer_style {
+                buf.set_style(state.footer_area, footer_style);
+            } else {
+                buf.set_style(state.footer_area, self.style);
             }
 
             let mut col = state.col_offset;
@@ -1138,8 +1164,8 @@ where
                 };
 
                 if let Some(cell) = footer.cells.get(col) {
-                    if cell.style != Style::default() {
-                        buf.set_style(cell_area, cell.style);
+                    if let Some(cell_style) = cell.style {
+                        buf.set_style(cell_area, cell_style);
                     }
                     cell.content.clone().render(cell_area, buf);
                 }
@@ -1162,13 +1188,12 @@ where
         state: &mut FTableState<Selection>,
     ) {
         if let Some(header) = &self.header {
-            let header_style = if header.style != Style::default() {
-                header.style
-            } else {
-                self.style
-            };
-            if header_style != Style::default() {
+            if let Some(header_style) = header.style {
                 buf.set_style(state.header_area, header_style);
+            } else if let Some(header_style) = self.header_style {
+                buf.set_style(state.header_area, header_style);
+            } else {
+                buf.set_style(state.header_area, self.style);
             }
 
             let mut col = state.col_offset;
@@ -1203,8 +1228,8 @@ where
                 };
 
                 if let Some(cell) = header.cells.get(col) {
-                    if cell.style != Style::default() {
-                        buf.set_style(cell_area, cell.style);
+                    if let Some(cell_style) = cell.style {
+                        buf.set_style(cell_area, cell_style);
                     }
                     cell.content.clone().render(cell_area, buf);
                 }
@@ -1276,17 +1301,19 @@ impl Default for FTableStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            select_row_style: Default::default(),
-            select_column_style: Default::default(),
-            select_cell_style: Default::default(),
-            select_header_style: Default::default(),
-            select_footer_style: Default::default(),
-            show_row_focus: true,
+            header_style: None,
+            footer_style: None,
+            select_row_style: None,
+            select_column_style: None,
+            select_cell_style: None,
+            select_header_style: None,
+            select_footer_style: None,
+            show_row_focus: false,
             show_column_focus: false,
             show_cell_focus: false,
             show_header_focus: false,
             show_footer_focus: false,
-            focus_style: Default::default(),
+            focus_style: None,
             non_exhaustive: NonExhaustive,
         }
     }

@@ -5,7 +5,7 @@ use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
 use std::fmt::Debug;
 
-pub fn render_tablestate<Selection: Debug>(
+pub(crate) fn render_tablestate<Selection: Debug>(
     state: &FTableState<Selection>,
     area: Rect,
     buf: &mut Buffer,

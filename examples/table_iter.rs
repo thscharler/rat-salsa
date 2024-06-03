@@ -24,8 +24,7 @@ use ratatui::text::Span;
 use ratatui::{Frame, Terminal};
 use std::fs;
 use std::io::{stdout, Stdout};
-use std::iter::{Enumerate, Skip};
-use std::marker::PhantomData;
+use std::iter::Enumerate;
 use std::slice::Iter;
 use std::time::{Duration, SystemTime};
 
@@ -233,25 +232,11 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     impl<'a> TableDataIter<'a> for RowIter1<'a> {
         fn rows(&self) -> Option<usize> {
             None
-            // Some(100_000)
         }
 
         fn nth(&mut self, n: usize) -> bool {
             self.item = self.iter.nth(n);
             self.item.is_some()
-        }
-
-        fn next(&mut self) -> bool {
-            self.item = self.iter.next();
-            self.item.is_some()
-        }
-
-        fn row_height(&self) -> u16 {
-            1
-        }
-
-        fn row_style(&self) -> Style {
-            Style::default()
         }
 
         fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
@@ -310,11 +295,11 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
                 Cell::from("Val2"),
                 Cell::from("State"),
             ])
-            .style(Style::new().black().bg(Color::from_u32(0x98c379))),
+            .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
         )
         .footer(
             Row::new(["a", "b", "c", "d", "e"])
-                .style(Style::new().black().bg(Color::from_u32(0x98c379))),
+                .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
         )
         .flex(Flex::End)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
