@@ -1,7 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
-use std::cmp::{max, min};
-use std::ops::{BitAnd, BitAndAssign, BitOr, BitOrAssign};
+use std::cmp::max;
+use std::ops::{BitOr, BitOrAssign};
 
 pub mod crossterm;
 pub mod util;
