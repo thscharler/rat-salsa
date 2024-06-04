@@ -142,6 +142,11 @@ pub mod event {
     };
 
     /// Just checks for double-click on the table.
+    ///
+    /// Events for this event-map must be processed *before* calling
+    /// any other event-handling routines for the same table.
+    /// Otherwise, the regular event-handling might interfere with
+    /// recognition of double-clicks by consuming the first click.
     #[derive(Debug, Default)]
     pub struct DoubleClick;
 
