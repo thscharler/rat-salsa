@@ -1,4 +1,5 @@
 use crate::_private::NonExhaustive;
+use crate::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
@@ -8,6 +9,7 @@ use crate::{TableData, TableDataIter, TableSelection};
 use log::debug;
 use log::warn;
 use rat_event::util::MouseFlags;
+use rat_event::{ct_event, FocusKeys, HandleEvent, Outcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
@@ -61,6 +63,8 @@ pub struct FTable<'a, Selection> {
     focus_style: Option<Style>,
 
     scroll_gap: Cell<bool>,
+
+    debug: bool,
 
     _phantom: PhantomData<Selection>,
 }
@@ -683,6 +687,11 @@ impl<'a, Selection> FTable<'a, Selection> {
         self.focus = focus;
         self
     }
+
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.debug = debug;
+        self
+    }
 }
 
 impl<'a, Selection> FTable<'a, Selection> {
@@ -769,7 +778,7 @@ impl<'a, Selection> FTable<'a, Selection> {
             area_width
         };
         if self.scroll_gap.get() {
-            w - 1
+            w.saturating_sub(1)
         } else {
             w
         }
@@ -1344,7 +1353,7 @@ impl<Selection: Default> Default for FTableState<Selection> {
     }
 }
 
-impl<Selection: TableSelection> FTableState<Selection> {
+impl<Selection> FTableState<Selection> {
     /// Cell at given position.
     pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
         let col = self.column_at_clicked(pos);
@@ -1394,6 +1403,12 @@ impl<Selection: TableSelection> FTableState<Selection> {
 }
 
 impl<Selection: TableSelection> FTableState<Selection> {
+    /// Sets both offsets to 0.
+    pub fn clear_offset(&mut self) {
+        self.row_offset = 0;
+        self.col_offset = 0;
+    }
+
     /// Maximum offset that is accessible with scrolling.
     ///
     /// This is shorter than the length of the content by whatever fills the last page.
@@ -1520,6 +1535,30 @@ impl<Selection: TableSelection> FTableState<Selection> {
 }
 
 impl FTableState<RowSelection> {
+    /// Scroll selection instead of offset.
+    #[inline]
+    pub fn set_scroll_selected(&mut self, scroll: bool) {
+        self.selection.set_scroll_selected(scroll);
+    }
+
+    /// Scroll selection instead of offset.
+    #[inline]
+    pub fn scroll_selected(&self) -> bool {
+        self.selection.scroll_selected()
+    }
+
+    /// Clear offsets and selection.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.clear_offset();
+        self.clear_selection();
+    }
+
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.selection.clear();
+    }
+
     #[inline]
     pub fn selected(&self) -> Option<usize> {
         self.selection.selected()
@@ -1538,6 +1577,19 @@ impl FTableState<RowSelection> {
 }
 
 impl FTableState<RowSetSelection> {
+    /// Clear offsets and selection.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.clear_offset();
+        self.clear_selection();
+    }
+
+    /// Clear the selection.
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.selection.clear();
+    }
+
     #[inline]
     pub fn selected(&self) -> HashSet<usize> {
         self.selection.selected()
@@ -1566,12 +1618,6 @@ impl FTableState<RowSetSelection> {
         self.selection.anchor()
     }
 
-    /// Clear the selection.
-    #[inline]
-    pub fn clear_selection(&mut self) {
-        self.selection.clear();
-    }
-
     /// Add to selection.
     #[inline]
     pub fn add_selected(&mut self, idx: usize) {
@@ -1587,6 +1633,18 @@ impl FTableState<RowSetSelection> {
 }
 
 impl FTableState<CellSelection> {
+    /// Clear offsets and selection.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.clear_offset();
+        self.clear_selection();
+    }
+
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.selection.clear();
+    }
+
     /// Selected cell.
     #[inline]
     pub fn selected(&self) -> Option<(usize, usize)> {
@@ -1615,5 +1673,48 @@ impl FTableState<CellSelection> {
     #[inline]
     pub fn select_clamped(&mut self, select: (usize, usize), maximum: (usize, usize)) -> bool {
         self.selection.select_clamped(select, maximum)
+    }
+}
+
+impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome>
+    for FTableState<Selection>
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        _keymap: DoubleClick,
+    ) -> DoubleClickOutcome {
+        match event {
+            ct_event!(mouse any for m) if self.mouse.doubleclick(self.table_area, m) => {
+                if let Some((col, row)) = self.cell_at_clicked((m.column, m.row).into()) {
+                    DoubleClickOutcome::ClickClick(col, row)
+                } else {
+                    DoubleClickOutcome::Unchanged
+                }
+            }
+            _ => DoubleClickOutcome::NotUsed,
+        }
+    }
+}
+
+impl<Selection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
+    for FTableState<Selection>
+where
+    Self: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
+{
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: EditKeys) -> EditOutcome {
+        match event {
+            ct_event!(keycode press Insert) => EditOutcome::Insert,
+            ct_event!(keycode press Delete) => EditOutcome::Remove,
+            ct_event!(keycode press Enter) => EditOutcome::Edit,
+
+            ct_event!(keycode release  Insert)
+            | ct_event!(keycode release Delete)
+            | ct_event!(keycode release Enter) => EditOutcome::Unchanged,
+
+            _ => {
+                <Self as HandleEvent<_, FocusKeys, Outcome>>::handle(self, event, FocusKeys).into()
+            }
+        }
     }
 }

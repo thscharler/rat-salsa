@@ -139,6 +139,97 @@ pub mod event {
     pub use rat_event::{
         crossterm, ct_event, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome,
     };
+
+    /// Just checks for double-click on the table.
+    #[derive(Debug, Default)]
+    pub struct DoubleClick;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum DoubleClickOutcome {
+        /// The given event has not been used at all.
+        NotUsed,
+        /// The event has been recognized, but the result was nil.
+        /// Further processing for this event may stop.
+        Unchanged,
+        /// The event has been recognized and there is some change
+        /// due to it.
+        /// Further processing for this event may stop.
+        /// Rendering the ui is advised.
+        Changed,
+        /// Double click found. Contains (column, row)
+        ClickClick(usize, usize),
+    }
+
+    impl From<DoubleClickOutcome> for Outcome {
+        fn from(value: DoubleClickOutcome) -> Self {
+            match value {
+                DoubleClickOutcome::NotUsed => Outcome::NotUsed,
+                DoubleClickOutcome::Unchanged => Outcome::Unchanged,
+                DoubleClickOutcome::Changed => Outcome::Changed,
+                DoubleClickOutcome::ClickClick(_, _) => Outcome::Changed,
+            }
+        }
+    }
+
+    impl ConsumedEvent for DoubleClickOutcome {
+        fn is_consumed(&self) -> bool {
+            !matches!(self, DoubleClickOutcome::NotUsed)
+        }
+    }
+
+    /// Activates editing behaviour in addition to the normal
+    /// table event handling.
+    #[derive(Debug, Default)]
+    pub struct EditKeys;
+
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum EditOutcome {
+        /// The given event has not been used at all.
+        NotUsed,
+        /// The event has been recognized, but the result was nil.
+        /// Further processing for this event may stop.
+        Unchanged,
+        /// The event has been recognized and there is some change
+        /// due to it.
+        /// Further processing for this event may stop.
+        /// Rendering the ui is advised.
+        Changed,
+        /// Insert at the selection.
+        Insert,
+        /// Remove the selection.
+        Remove,
+        /// Edit the selection.
+        Edit,
+    }
+
+    impl From<Outcome> for EditOutcome {
+        fn from(value: Outcome) -> Self {
+            match value {
+                Outcome::NotUsed => EditOutcome::NotUsed,
+                Outcome::Unchanged => EditOutcome::Unchanged,
+                Outcome::Changed => EditOutcome::Changed,
+            }
+        }
+    }
+
+    impl From<EditOutcome> for Outcome {
+        fn from(value: EditOutcome) -> Self {
+            match value {
+                EditOutcome::NotUsed => Outcome::NotUsed,
+                EditOutcome::Unchanged => Outcome::Unchanged,
+                EditOutcome::Changed => Outcome::Changed,
+                EditOutcome::Insert => Outcome::Changed,
+                EditOutcome::Remove => Outcome::Changed,
+                EditOutcome::Edit => Outcome::Changed,
+            }
+        }
+    }
+
+    impl ConsumedEvent for EditOutcome {
+        fn is_consumed(&self) -> bool {
+            !matches!(self, EditOutcome::NotUsed)
+        }
+    }
 }
 
 mod _private {

@@ -37,6 +37,12 @@ impl CellSelection {
         Self::default()
     }
 
+    /// Clear the selection.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.lead_cell = None;
+    }
+
     /// Selected cell.
     pub fn selected(&self) -> Option<(usize, usize)> {
         self.lead_cell
@@ -134,7 +140,10 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = match event {
             ct_event!(keycode press Down) => {
-                let r = self.selection.next_row(1, self.rows - 1).into();
+                let r = self
+                    .selection
+                    .next_row(1, self.rows.saturating_sub(1))
+                    .into();
                 self.scroll_to_selected();
                 r
             }
@@ -144,7 +153,10 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
                 r
             }
             ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                let r = self.selection.select_row(Some(self.rows - 1)).into();
+                let r = self
+                    .selection
+                    .select_row(Some(self.rows.saturating_sub(1)))
+                    .into();
                 self.scroll_to_selected();
                 r
             }
@@ -164,13 +176,19 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
             ct_event!(keycode press PageDown) => {
                 let r = self
                     .selection
-                    .next_row(self.vertical_page().saturating_sub(1), self.rows - 1)
+                    .next_row(
+                        self.vertical_page().saturating_sub(1),
+                        self.rows.saturating_sub(1),
+                    )
                     .into();
                 self.scroll_to_selected();
                 r
             }
             ct_event!(keycode press Right) => {
-                let r = self.selection.next_column(1, self.columns - 1).into();
+                let r = self
+                    .selection
+                    .next_column(1, self.columns.saturating_sub(1))
+                    .into();
                 self.scroll_to_selected();
                 r
             }
@@ -180,7 +198,10 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
                 r
             }
             ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                let r = self.selection.select_column(Some(self.columns - 1)).into();
+                let r = self
+                    .selection
+                    .select_column(Some(self.columns.saturating_sub(1)))
+                    .into();
                 self.scroll_to_selected();
                 r
             }
@@ -208,7 +229,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ce
                 let new_cell = self.cell_at_drag(pos);
                 let r = self
                     .selection
-                    .select_clamped(new_cell, (self.columns - 1, self.rows - 1))
+                    .select_clamped(
+                        new_cell,
+                        (self.columns.saturating_sub(1), self.rows.saturating_sub(1)),
+                    )
                     .into();
                 self.scroll_to_selected();
                 r
@@ -247,7 +271,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ce
                 if self.area.contains(pos) {
                     if let Some(new_cell) = self.cell_at_clicked(pos) {
                         self.selection
-                            .select_clamped(new_cell, (self.columns - 1, self.rows - 1))
+                            .select_clamped(
+                                new_cell,
+                                (self.columns.saturating_sub(1), self.rows.saturating_sub(1)),
+                            )
                             .into()
                     } else {
                         Outcome::Unchanged

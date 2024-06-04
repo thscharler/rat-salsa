@@ -14,6 +14,8 @@ use std::cmp::min;
 pub struct RowSelection {
     /// Selected row.
     pub lead_row: Option<usize>,
+    /// Scrolls the selection instead of the offset.
+    pub scroll_selected: bool,
 }
 
 impl TableSelection for RowSelection {
@@ -38,6 +40,20 @@ impl RowSelection {
     /// New selection.
     pub fn new() -> RowSelection {
         Self::default()
+    }
+
+    pub fn clear(&mut self) {
+        self.lead_row = None;
+    }
+
+    /// Scroll selection instead of offset.
+    pub fn set_scroll_selected(&mut self, scroll: bool) {
+        self.scroll_selected = scroll;
+    }
+
+    /// Scroll selection instead of offset.
+    pub fn scroll_selected(&self) -> bool {
+        self.scroll_selected
     }
 
     /// The current selected row.
@@ -94,7 +110,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = match event {
             ct_event!(keycode press Down) => {
-                let r = self.selection.next(1, self.rows - 1).into();
+                let r = self.selection.next(1, self.rows.saturating_sub(1)).into();
                 self.scroll_to_selected();
                 r
             }
@@ -104,7 +120,10 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 r
             }
             ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                let r = self.selection.select(Some(self.rows - 1)).into();
+                let r = self
+                    .selection
+                    .select(Some(self.rows.saturating_sub(1)))
+                    .into();
                 self.scroll_to_selected();
                 r
             }
@@ -124,7 +143,10 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
             ct_event!(keycode press PageDown) => {
                 let r = self
                     .selection
-                    .next(self.vertical_page().saturating_sub(1), self.rows - 1)
+                    .next(
+                        self.vertical_page().saturating_sub(1),
+                        self.rows.saturating_sub(1),
+                    )
                     .into();
                 self.scroll_to_selected();
                 r
@@ -154,21 +176,36 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
                 let pos = Position::new(m.column, m.row);
                 let new_row = self.row_at_drag(pos);
-                let r = self.selection.select_clamped(new_row, self.rows - 1).into();
+                let r = self
+                    .selection
+                    .select_clamped(new_row, self.rows.saturating_sub(1))
+                    .into();
                 self.scroll_to_selected();
                 r
             }
             ct_event!(scroll down for column,row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(self.table_area.height as usize / 10)
-                        .into()
+                    if self.selection.scroll_selected {
+                        let r = self.selection.next(1, self.rows.saturating_sub(1));
+                        self.scroll_to_selected();
+                        r.into()
+                    } else {
+                        self.scroll_down(self.table_area.height as usize / 10)
+                            .into()
+                    }
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(self.table_area.height as usize / 10).into()
+                    if self.selection.scroll_selected {
+                        let r = self.selection.prev(1);
+                        self.scroll_to_selected();
+                        r.into()
+                    } else {
+                        self.scroll_up(self.table_area.height as usize / 10).into()
+                    }
                 } else {
                     Outcome::NotUsed
                 }
@@ -191,7 +228,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.selection.select_clamped(new_row, self.rows - 1).into()
+                        self.selection
+                            .select_clamped(new_row, self.rows.saturating_sub(1))
+                            .into()
                     } else {
                         Outcome::Unchanged
                     }

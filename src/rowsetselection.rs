@@ -196,12 +196,18 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
         let res = {
             match event {
                 ct_event!(keycode press Down) => {
-                    let r = self.selection.next(1, self.rows - 1, false).into();
+                    let r = self
+                        .selection
+                        .next(1, self.rows.saturating_sub(1), false)
+                        .into();
                     self.scroll_to_selected();
                     r
                 }
                 ct_event!(keycode press SHIFT-Down) => {
-                    let r = self.selection.next(1, self.rows - 1, true).into();
+                    let r = self
+                        .selection
+                        .next(1, self.rows.saturating_sub(1), true)
+                        .into();
                     self.scroll_to_selected();
                     r
                 }
@@ -216,12 +222,18 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                     r
                 }
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    let r = self.selection.set_lead(Some(self.rows - 1), false).into();
+                    let r = self
+                        .selection
+                        .set_lead(Some(self.rows.saturating_sub(1)), false)
+                        .into();
                     self.scroll_to_selected();
                     r
                 }
                 ct_event!(keycode press SHIFT-End) => {
-                    let r = self.selection.set_lead(Some(self.rows - 1), true).into();
+                    let r = self
+                        .selection
+                        .set_lead(Some(self.rows.saturating_sub(1)), true)
+                        .into();
                     self.scroll_to_selected();
                     r
                 }
@@ -255,7 +267,11 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 ct_event!(keycode press PageDown) => {
                     let r = self
                         .selection
-                        .next(self.vertical_page().saturating_sub(1), self.rows - 1, false)
+                        .next(
+                            self.vertical_page().saturating_sub(1),
+                            self.rows.saturating_sub(1),
+                            false,
+                        )
                         .into();
                     self.scroll_to_selected();
                     r
@@ -263,7 +279,11 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 ct_event!(keycode press SHIFT-PageDown) => {
                     let r = self
                         .selection
-                        .next(self.vertical_page().saturating_sub(1), self.rows - 1, true)
+                        .next(
+                            self.vertical_page().saturating_sub(1),
+                            self.rows.saturating_sub(1),
+                            true,
+                        )
                         .into();
                     self.scroll_to_selected();
                     r
@@ -291,7 +311,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 let new_row = self.row_at_drag(pos);
                 let r = self
                     .selection
-                    .set_lead_clamped(new_row, self.rows - 1, true)
+                    .set_lead_clamped(new_row, self.rows.saturating_sub(1), true)
                     .into();
                 self.scroll_to_selected();
                 r
@@ -315,7 +335,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 if self.area.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.selection
-                            .set_lead_clamped(new_row, self.rows - 1, false)
+                            .set_lead_clamped(new_row, self.rows.saturating_sub(1), false)
                             .into()
                     } else {
                         Outcome::Unchanged
@@ -329,7 +349,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 if self.area.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.selection
-                            .set_lead_clamped(new_row, self.rows - 1, true)
+                            .set_lead_clamped(new_row, self.rows.saturating_sub(1), true)
                             .into()
                     } else {
                         Outcome::Unchanged
@@ -346,8 +366,11 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                         if self.selection.is_selected_row(new_row) {
                             self.selection.remove(new_row);
                         } else {
-                            self.selection
-                                .set_lead_clamped(new_row, self.rows - 1, true);
+                            self.selection.set_lead_clamped(
+                                new_row,
+                                self.rows.saturating_sub(1),
+                                true,
+                            );
                         }
                         Outcome::Changed
                     } else {
