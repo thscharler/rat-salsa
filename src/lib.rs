@@ -27,8 +27,8 @@ pub mod scrolled {
 pub mod event {
     pub use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
     pub use rat_input::event::{
-        crossterm, ct_event, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome,
-        ReadOnly, TextOutcome,
+        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly,
+        Outcome, ReadOnly, TextOutcome,
     };
     pub use rat_scrolled::event::ScrollOutcome;
 }
