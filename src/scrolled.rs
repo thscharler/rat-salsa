@@ -373,12 +373,12 @@ where
             self.block.inner_if_some(area)
         } else {
             let w = if self.h_scroll_policy != ScrollbarPolicy::Never {
-                area.width - 1
+                area.width.saturating_sub(1)
             } else {
                 area.width
             };
             let h = if self.v_scroll_policy != ScrollbarPolicy::Never {
-                area.height - 1
+                area.height.saturating_sub(1)
             } else {
                 area.height
             };
