@@ -1558,6 +1558,11 @@ impl FTableState<RowSelection> {
     }
 
     #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.selection.has_selection()
+    }
+
+    #[inline]
     pub fn selected(&self) -> Option<usize> {
         self.selection.selected()
     }
@@ -1586,6 +1591,11 @@ impl FTableState<RowSetSelection> {
     #[inline]
     pub fn clear_selection(&mut self) {
         self.selection.clear();
+    }
+
+    #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.selection.has_selection()
     }
 
     #[inline]
@@ -1647,6 +1657,11 @@ impl FTableState<CellSelection> {
     #[inline]
     pub fn selected(&self) -> Option<(usize, usize)> {
         self.selection.selected()
+    }
+
+    #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.selection.has_selection()
     }
 
     /// Select a cell.

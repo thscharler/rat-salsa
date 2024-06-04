@@ -61,6 +61,11 @@ impl RowSelection {
         self.lead_row
     }
 
+    /// Has some selection.
+    pub fn has_selection(&self) -> bool {
+        self.lead_row.is_some()
+    }
+
     /// Select a row.
     pub fn select(&mut self, select: Option<usize>) -> bool {
         let old_row = self.lead_row;

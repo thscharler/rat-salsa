@@ -48,6 +48,11 @@ impl CellSelection {
         self.lead_cell
     }
 
+    #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.lead_cell.is_some()
+    }
+
     /// Select a cell.
     pub fn select_cell(&mut self, select: Option<(usize, usize)>) -> bool {
         let old_cell = self.lead_cell;

@@ -146,6 +146,11 @@ impl RowSetSelection {
         self.lead = None;
     }
 
+    /// Has some selection.
+    pub fn has_selection(&self) -> bool {
+        self.lead.is_some() || !self.selected.is_empty()
+    }
+
     /// Set of all selected rows. Clones the retired set and adds the current anchor..lead range.
     pub fn selected(&self) -> HashSet<usize> {
         let mut selected = self.selected.clone();
