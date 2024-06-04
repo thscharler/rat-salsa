@@ -11,6 +11,8 @@ use crate::view::View;
 use crate::viewport::Viewport;
 use crate::{ScrollingState, ScrollingWidget};
 use crossterm::event::{MouseEvent, MouseEventKind};
+#[allow(unused_imports)]
+use log::debug;
 use rat_event::{ct_event, ConsumedEvent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect, Size};
@@ -418,80 +420,44 @@ fn render_impl<FnRender, W, WState>(
     // If there is a block set, assume there is a right and a bottom border too.
     // Currently, there is no way to know it. Overwriting part of the content is
     // ok in this case.
-    if has_vscroll && has_hscroll {
+    if has_vscroll {
         let mut vscrollbar_area = area.columns().last().expect("scroll");
         if widget.block.is_some() {
             vscrollbar_area.y += 1;
-            vscrollbar_area.height -= 2;
+            vscrollbar_area.height = vscrollbar_area.height.saturating_sub(1);
+            if has_hscroll {
+                vscrollbar_area.height = vscrollbar_area.height.saturating_sub(1);
+            }
         } else {
-            vscrollbar_area.height -= 1;
+            // fine
         }
         state.v_scrollbar_area = Some(vscrollbar_area);
+    }
 
+    if has_hscroll {
         let mut hscrollbar_area = area.rows().last().expect("scroll");
         if widget.block.is_some() {
             hscrollbar_area.x += 1;
-            hscrollbar_area.width -= 2;
+            hscrollbar_area.width = hscrollbar_area.width.saturating_sub(1);
+            if has_vscroll {
+                hscrollbar_area.width = hscrollbar_area.width.saturating_sub(1);
+            }
         } else {
-            hscrollbar_area.width -= 1;
+            // fine
         }
         state.h_scrollbar_area = Some(hscrollbar_area);
+    }
 
-        if let Some(block) = widget.block.as_ref() {
-            state.view_area = block.inner(area);
-        } else {
-            state.view_area = area;
-            state.view_area.width -= 1;
-            state.view_area.height -= 1;
-        }
-    } else if has_vscroll {
-        let mut vscrollbar_area = area.columns().last().expect("scroll");
-        if widget.block.is_some() {
-            vscrollbar_area.y += 1;
-            vscrollbar_area.height -= 1;
-        } else {
-            vscrollbar_area.height -= 0;
-        }
-        state.v_scrollbar_area = Some(vscrollbar_area);
-
-        state.h_scrollbar_area = None;
-
-        if let Some(block) = widget.block.as_ref() {
-            state.view_area = block.inner(area);
-        } else {
-            state.view_area = area;
-            state.view_area.width -= 1;
-            state.view_area.height -= 0;
-        }
-    } else if has_hscroll {
-        state.v_scrollbar_area = None;
-
-        let mut hscrollbar_area = area.rows().last().expect("scroll");
-        if widget.block.is_some() {
-            hscrollbar_area.x += 1;
-            hscrollbar_area.width -= 1;
-        } else {
-            hscrollbar_area.width -= 0;
-        }
-        state.h_scrollbar_area = Some(hscrollbar_area);
-
-        if let Some(block) = widget.block.as_ref() {
-            state.view_area = block.inner(area);
-        } else {
-            state.view_area = area;
-            state.view_area.width -= 0;
-            state.view_area.height -= 1;
-        }
+    // calculate actual view area
+    if let Some(block) = widget.block.as_ref() {
+        state.view_area = block.inner(area);
     } else {
-        state.v_scrollbar_area = None;
-        state.h_scrollbar_area = None;
-
-        if let Some(block) = widget.block.as_ref() {
-            state.view_area = block.inner(area);
-        } else {
-            state.view_area = area;
-            state.view_area.width -= 0;
-            state.view_area.height -= 0;
+        state.view_area = area;
+        if has_vscroll {
+            state.view_area.width = state.view_area.width.saturating_sub(1);
+        }
+        if has_hscroll {
+            state.view_area.height = state.view_area.height.saturating_sub(1);
         }
     }
 
@@ -530,10 +496,17 @@ fn render_impl<FnRender, W, WState>(
         let offset = state.widget.vertical_offset();
         let view_len = state.widget.vertical_page();
 
-        let mut vscroll_state = ScrollbarState::new(max_offset)
-            .position(offset)
-            .viewport_content_length(view_len);
-        vscroll.render(vscrollbar_area, buf, &mut vscroll_state);
+        if max_offset == 0 {
+            // when max_offset is 0, Scrollbar doesn't do anything.
+            if let Some(track_style) = widget.track_style {
+                buf.set_style(vscrollbar_area, track_style);
+            }
+        } else {
+            let mut vscroll_state = ScrollbarState::new(max_offset)
+                .position(offset)
+                .viewport_content_length(view_len);
+            vscroll.render(vscrollbar_area, buf, &mut vscroll_state);
+        }
     }
 
     if let Some(hscrollbar_area) = state.h_scrollbar_area {
@@ -567,11 +540,18 @@ fn render_impl<FnRender, W, WState>(
         let offset = state.widget.horizontal_offset();
         let view_len = state.widget.horizontal_page();
 
-        let mut hscroll_state = ScrollbarState::new(max_offset)
-            .position(offset)
-            .viewport_content_length(view_len);
+        if max_offset == 0 {
+            // when max_offset is 0, Scrollbar doesn't do anything.
+            if let Some(track_style) = widget.track_style {
+                buf.set_style(hscrollbar_area, track_style);
+            }
+        } else {
+            let mut hscroll_state = ScrollbarState::new(max_offset)
+                .position(offset)
+                .viewport_content_length(view_len);
 
-        hscroll.render(hscrollbar_area, buf, &mut hscroll_state);
+            hscroll.render(hscrollbar_area, buf, &mut hscroll_state);
+        }
     }
 }
 
