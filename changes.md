@@ -1,3 +1,9 @@
+# 0.11.1
+
+* add ScrolledStyle for setting all styles at once.
+
+* fix potential `- 1` panic
+
 # 0.11.0
 
 * reorg of rat-event
