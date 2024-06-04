@@ -89,23 +89,20 @@ pub enum Outcome {
 
 impl ConsumedEvent for Outcome {
     fn is_consumed(&self) -> bool {
-        *self != Outcome::NotUsed
+        !matches!(self, Outcome::NotUsed)
     }
 }
 
 impl BitOr for Outcome {
     type Output = Outcome;
 
+    /// Returns max(left, right).
+    ///
+    /// That means
+    /// `Outcome::NotUsed | Outcome::Changed == Outcome::Changed`,
+    /// which should be the expected result.
     fn bitor(self, rhs: Self) -> Self::Output {
         max(self, rhs)
-    }
-}
-
-impl BitAnd for Outcome {
-    type Output = Outcome;
-
-    fn bitand(self, rhs: Self) -> Self::Output {
-        min(self, rhs)
     }
 }
 
@@ -115,12 +112,9 @@ impl BitOrAssign for Outcome {
     }
 }
 
-impl BitAndAssign for Outcome {
-    fn bitand_assign(&mut self, rhs: Self) {
-        *self = self.bitand(rhs);
-    }
-}
-
+/// Event functions in widgets often return bool to indicate
+/// a meaningful change occured. This converts `true / false` to
+///` Outcome::Changed / Outcome::Unchanged`.
 impl From<bool> for Outcome {
     fn from(value: bool) -> Self {
         if value {
@@ -129,4 +123,51 @@ impl From<bool> for Outcome {
             Outcome::Unchanged
         }
     }
+}
+
+/// Breaks the control-flow if the result of the block implements
+/// [ConsumedEvent] and [ConsumedEvent::is_consumed] is true for
+/// the result.
+///
+/// It then does the classic `into()`-conversion and returns.
+///
+/// Special widget result-types are encourage to map down to Outcome
+/// as a baseline.
+///
+/// *The difference to [flow] is that this one Ok-wraps the result.*
+#[macro_export]
+macro_rules! flow {
+    ($x:expr) => {{
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if !r.is_consumed() {
+            return r.into();
+        } else {
+            _ = r;
+        }
+    }};
+}
+
+/// Breaks the control-flow if the result of the block implements
+/// [ConsumedEvent] and [ConsumedEvent::is_consumed] is true for
+/// the result.
+///
+/// It then does the classic `into()`-conversion and wraps the
+/// result in `Ok()`.
+///
+/// Special widget result-types are encourage to map down to Outcome
+/// as a baseline.
+///
+/// *The difference to [flow] is that this one Ok-wraps the result.*
+#[macro_export]
+macro_rules! flow_ok {
+    ($x:expr) => {{
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            return Ok(r.into());
+        } else {
+            _ = r;
+        }
+    }};
 }
