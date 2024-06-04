@@ -1,5 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
+#[allow(unused_imports)]
+use log::debug;
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_ftable::selection::{CellSelection, NoSelection, RowSelection, RowSetSelection};
 use rat_ftable::textdata::Row;
