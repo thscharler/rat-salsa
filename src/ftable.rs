@@ -441,6 +441,11 @@ impl FTableState<RowSelection> {
     }
 
     #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.widget.has_selection()
+    }
+
+    #[inline]
     pub fn select(&mut self, row: Option<usize>) {
         self.widget.select(row);
     }
@@ -484,6 +489,11 @@ impl FTableState<RowSetSelection> {
     #[inline]
     pub fn selected(&self) -> HashSet<usize> {
         self.widget.selected()
+    }
+
+    #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.widget.has_selection()
     }
 
     #[inline]
@@ -555,6 +565,11 @@ impl FTableState<CellSelection> {
     #[inline]
     pub fn selected(&self) -> Option<(usize, usize)> {
         self.widget.selected()
+    }
+
+    #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.widget.has_selection()
     }
 
     /// Select a cell.
