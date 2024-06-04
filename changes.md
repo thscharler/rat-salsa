@@ -1,13 +1,12 @@
-# 0.14.3
+# 0.14.2
 
 * Add default impl for some of TableDataIter's functions.
 * rendering: switch the row counter to Option<usize>, which is
   fundamentally more correct. This helped fix some quirks
   if the provided row-count is wrong.
-
-# 0.14.2
-
-* Add focus-lost, focus-gained and paste for completeness.
+* Add focus-lost, focus-gained and paste for completeness to ct_event.
+* Move flow! up here from rat-salsa as it can be commonly useful.
+  Complement flow! with flow_ok! which Ok-wraps its result.
 
 # 0.14.1
 
