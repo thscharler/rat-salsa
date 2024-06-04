@@ -46,6 +46,10 @@ pub mod statusline {
     pub use rat_input::statusline::{StatusLine, StatusLineState};
 }
 
+pub mod fill {
+    pub use rat_input::fill::Fill;
+}
+
 mod _private {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct NonExhaustive;
