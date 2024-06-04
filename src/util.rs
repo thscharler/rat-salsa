@@ -44,7 +44,7 @@ pub(crate) fn prev_circular(select: usize, max: usize) -> usize {
     if select > 0 {
         select - 1
     } else {
-        max - 1
+        max.saturating_sub(1)
     }
 }
 
