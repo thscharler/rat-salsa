@@ -335,6 +335,16 @@ impl<'a> Focus<'a> {
         }
     }
 
+    /// Set the initial state for all widgets.
+    /// This ensures that there is only one focused widget.
+    /// The first widget in the list gets the focus.
+    pub fn init(&self) {
+        self.start_focus_change(false);
+        if let Some(first) = self.focus.first() {
+            first.focus.set(true);
+        }
+    }
+
     /// Sets the focus to the widget.
     ///
     /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
