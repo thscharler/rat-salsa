@@ -734,15 +734,8 @@ impl<'a, Selection> FTable<'a, Selection> {
 
     fn need_scroll_tableiter(&self, data: &dyn TableDataIter<'a>, area: Rect) -> bool {
         // can't iterate data here, have to guess.
-        // the guess is we have a constant row-height of 1.
-        let vertical = if let Some(rows) = data.rows() {
-            rows >= area.height as usize
-        } else {
-            // don't know anything. guess we need it.
-            true
-        };
-
-        vertical
+        // the guess is `true`.
+        true
     }
 
     fn need_scroll_tabledata(&self, data: &dyn TableData<'a>, area: Rect) -> bool {
@@ -1694,7 +1687,7 @@ impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOut
                 if let Some((col, row)) = self.cell_at_clicked((m.column, m.row).into()) {
                     DoubleClickOutcome::ClickClick(col, row)
                 } else {
-                    DoubleClickOutcome::Unchanged
+                    DoubleClickOutcome::NotUsed
                 }
             }
             _ => DoubleClickOutcome::NotUsed,

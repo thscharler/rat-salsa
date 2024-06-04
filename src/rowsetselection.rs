@@ -338,7 +338,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                             .set_lead_clamped(new_row, self.rows.saturating_sub(1), false)
                             .into()
                     } else {
-                        Outcome::Unchanged
+                        Outcome::NotUsed
                     }
                 } else {
                     Outcome::NotUsed
@@ -352,7 +352,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                             .set_lead_clamped(new_row, self.rows.saturating_sub(1), true)
                             .into()
                     } else {
-                        Outcome::Unchanged
+                        Outcome::NotUsed
                     }
                 } else {
                     Outcome::NotUsed
@@ -374,7 +374,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                         }
                         Outcome::Changed
                     } else {
-                        Outcome::Unchanged
+                        Outcome::NotUsed
                     }
                 } else {
                     Outcome::NotUsed

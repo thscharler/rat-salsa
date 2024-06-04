@@ -232,7 +232,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                             .select_clamped(new_row, self.rows.saturating_sub(1))
                             .into()
                     } else {
-                        Outcome::Unchanged
+                        Outcome::NotUsed
                     }
                 } else {
                     Outcome::NotUsed

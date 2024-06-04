@@ -277,7 +277,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ce
                             )
                             .into()
                     } else {
-                        Outcome::Unchanged
+                        Outcome::NotUsed
                     }
                 } else {
                     Outcome::NotUsed
