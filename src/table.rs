@@ -732,7 +732,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         (horizontal, vertical)
     }
 
-    fn need_scroll_tableiter(&self, data: &dyn TableDataIter<'a>, area: Rect) -> bool {
+    fn need_scroll_tableiter(&self, _data: &dyn TableDataIter<'a>, _area: Rect) -> bool {
         // can't iterate data here, have to guess.
         // the guess is `true`.
         true
