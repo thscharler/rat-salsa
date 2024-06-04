@@ -417,19 +417,15 @@ impl<'a> Focus<'a> {
     /// Change to focus to the given position.
     ///
     pub fn focus_at(&self, col: u16, row: u16) -> bool {
-        debug!("focus {:#?}", self);
-
         let pos = Position::new(col, row);
         for (idx, area) in self.areas.iter().enumerate() {
             if area.contains(pos) {
-                debug!("widget area {:?}", area);
                 self.focus_idx(idx);
                 return true;
             }
         }
         for (_, area, list) in self.sub_accu.iter() {
             if area.contains(pos) {
-                debug!("sub area {:?}", area);
                 if let Some(ff) = list.first() {
                     self.focus(ff);
                     return true;
@@ -437,7 +433,6 @@ impl<'a> Focus<'a> {
             }
         }
         if self.area.contains(pos) {
-            debug!("main area {:?}", self.area);
             if let Some(ff) = self.focus.first() {
                 self.focus(ff);
                 return true;
