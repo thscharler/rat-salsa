@@ -1049,10 +1049,14 @@ where
                     // leave everything as is and report later.
                 }
 
-                // if the given number of rows is bigger, we miss out some.
-                // fill the gap with row-height 1 stabilizes behaviour.
-                while row_heights.len() < state.table_area.height as usize {
-                    row_heights.push(1);
+                // if the number of rows is less then the render-area,
+                // this should be equal. If not it indicates the next problem.
+                if row_heights.len() < rows {
+                    // if the given number of rows is bigger, we miss out some.
+                    // fill the gap with row-height 1 stabilizes behaviour.
+                    while row_heights.len() < state.table_area.height as usize {
+                        row_heights.push(1);
+                    }
                 }
 
                 state.rows = rows;
@@ -1084,6 +1088,7 @@ where
                     break;
                 }
             }
+
             state.max_row_offset = state.rows - n_rows;
         }
         {
