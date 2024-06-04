@@ -1,4 +1,5 @@
 use crate::_private::NonExhaustive;
+use crate::event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_ftable::selection::{CellSelection, NoSelection, RowSelection, RowSetSelection};
 use rat_ftable::textdata::Row;
@@ -9,7 +10,7 @@ use ratatui::style::{Style, Styled};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::collections::HashSet;
 
-use crate::event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
 pub use rat_ftable::{FTableStyle, TableData, TableDataIter, TableSelection};
 
 pub mod selection {
@@ -287,6 +288,12 @@ impl<'a, Selection> FTable<'a, Selection> {
         self.widget = self.widget.focus_style(focus_style);
         self
     }
+
+    #[inline]
+    pub fn debug(mut self, debug: bool) -> Self {
+        self.widget = self.widget.debug(debug);
+        self
+    }
 }
 
 impl<'a, Selection> Styled for FTable<'a, Selection> {
@@ -335,6 +342,20 @@ impl<Selection: Default> Default for FTableState<Selection> {
 }
 
 impl<Selection: TableSelection> FTableState<Selection> {
+    /// Sets both offsets to 0.
+    #[inline]
+    pub fn clear_offset(&mut self) {
+        self.widget.clear_offset();
+    }
+
+    /// Scroll to selected.
+    #[inline]
+    pub fn scroll_to_selected(&mut self) {
+        self.widget.scroll_to_selected()
+    }
+}
+
+impl<Selection> FTableState<Selection> {
     /// Cell at given position.
     #[inline]
     pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
@@ -370,12 +391,6 @@ impl<Selection: TableSelection> FTableState<Selection> {
     pub fn column_at_drag(&self, pos: Position) -> usize {
         self.widget.column_at_drag(pos)
     }
-
-    /// Scroll to selected.
-    #[inline]
-    pub fn scroll_to_selected(&mut self) {
-        self.widget.scroll_to_selected()
-    }
 }
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<NoSelection> {
@@ -395,6 +410,29 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<No
 }
 
 impl FTableState<RowSelection> {
+    /// Scroll selection instead of offset.
+    #[inline]
+    pub fn set_scroll_selected(&mut self, scroll: bool) {
+        self.widget.set_scroll_selected(scroll);
+    }
+
+    /// Scroll selection instead of offset.
+    #[inline]
+    pub fn scroll_selected(&self) -> bool {
+        self.widget.scroll_selected()
+    }
+
+    /// Clear offsets and selection.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.widget.clear();
+    }
+
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.widget.clear_selection();
+    }
+
     #[inline]
     pub fn selected(&self) -> Option<usize> {
         self.widget.selected()
@@ -429,6 +467,18 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
 }
 
 impl FTableState<RowSetSelection> {
+    /// Clear offsets and selection.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.widget.clear();
+    }
+
+    /// Clear the selection.
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.widget.clear_selection();
+    }
+
     #[inline]
     pub fn selected(&self) -> HashSet<usize> {
         self.widget.selected()
@@ -455,12 +505,6 @@ impl FTableState<RowSetSelection> {
     #[inline]
     pub fn anchor(&self) -> Option<usize> {
         self.widget.anchor()
-    }
-
-    /// Clear the selection.
-    #[inline]
-    pub fn clear_selection(&mut self) {
-        self.widget.clear_selection();
     }
 
     /// Add to selection.
@@ -494,6 +538,17 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
 }
 
 impl FTableState<CellSelection> {
+    /// Clear offsets and selection.
+    #[inline]
+    pub fn clear(&mut self) {
+        self.widget.clear();
+    }
+
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.widget.clear_selection();
+    }
+
     /// Selected cell.
     #[inline]
     pub fn selected(&self) -> Option<(usize, usize)> {
@@ -538,6 +593,37 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<CellSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         self.widget.handle(event, MouseOnly)
+    }
+}
+
+impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome>
+    for FTableState<Selection>
+where
+    rat_ftable::FTableState<Selection>:
+        HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome>,
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        _keymap: DoubleClick,
+    ) -> DoubleClickOutcome {
+        self.widget.handle(event, DoubleClick)
+    }
+}
+
+impl<Selection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
+    for FTableState<Selection>
+where
+    rat_ftable::FTableState<Selection>: HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
+    rat_ftable::FTableState<Selection>: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
+    rat_ftable::FTableState<Selection>: HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>,
+{
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: EditKeys) -> EditOutcome {
+        if self.is_focused() {
+            self.widget.handle(event, EditKeys)
+        } else {
+            self.widget.handle(event, MouseOnly).into()
+        }
     }
 }
 
