@@ -136,16 +136,15 @@ impl<'a> StatefulWidget for Button<'a> {
     }
 }
 
-// impl<'a> StatefulWidgetRef for Button<'a> {
-//     type State = ButtonState;
-//
-//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-//         self.widget
-//             .clone()
-//             .focused(state.is_focused())
-//             .render(area, buf, &mut state.widget)
-//     }
-// }
+impl Default for ButtonState {
+    fn default() -> Self {
+        Self {
+            widget: Default::default(),
+            focus: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
 
 impl HasFocusFlag for ButtonState {
     #[inline]
