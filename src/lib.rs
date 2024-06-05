@@ -142,6 +142,14 @@ impl FocusFlag {
     pub fn gained(&self) -> bool {
         self.gained.get()
     }
+
+    /// Reset all flags to false.
+    #[inline]
+    pub fn clear(&self) {
+        self.focus.set(false);
+        self.lost.set(false);
+        self.gained.set(false);
+    }
 }
 
 /// Does a match on the state struct of a widget. If `widget_state.lost_focus()` is true
@@ -293,6 +301,31 @@ impl<'a> Focus<'a> {
         self.focus.extend(focus.focus);
         self.areas.extend(focus.areas);
         self
+    }
+
+    /// Add a single widget.
+    pub fn add(&mut self, f: &'a dyn HasFocusFlag) -> &mut Self {
+        self.focus.push(f.focus());
+        self.areas.push(f.area());
+        self
+    }
+
+    /// Add a list of widgets.
+    pub fn add_all(&mut self, list: &[&'a dyn HasFocusFlag]) -> &mut Self {
+        for f in list {
+            self.focus.push(f.focus());
+            self.areas.push(f.area());
+        }
+        self
+    }
+
+    /// Resets the list of widgets. Useful when some widgets are
+    /// only focusable conditionally. Their focus-state must be reset,
+    /// otherwise they might react to the wrong events.
+    pub fn reset_all(&self, list: &[&'a dyn HasFocusFlag]) {
+        for f in list {
+            f.focus().clear();
+        }
     }
 
     // reset flags for a new round.
