@@ -319,7 +319,9 @@ impl TextInputState {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
-        if self.is_focused() {
+        if self.gained_focus() {
+            TextOutcome::NotUsed
+        } else if self.is_focused() {
             self.widget.handle(event, FocusKeys)
         } else {
             self.widget.handle(event, MouseOnly)
@@ -329,7 +331,9 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextInputS
 
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
-        if self.is_focused() {
+        if self.gained_focus() {
+            TextOutcome::NotUsed
+        } else if self.is_focused() {
             self.widget.handle(event, ReadOnly)
         } else {
             self.widget.handle(event, MouseOnly)
@@ -339,6 +343,10 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputSt
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
-        self.widget.handle(event, MouseOnly)
+        if self.gained_focus() {
+            TextOutcome::NotUsed
+        } else {
+            self.widget.handle(event, MouseOnly)
+        }
     }
 }
