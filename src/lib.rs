@@ -25,6 +25,8 @@ pub mod event {
 ///
 #[derive(Clone, Default, PartialEq, Eq)]
 pub struct FocusFlag {
+    /// Field name for debugging purposes.
+    pub name: Cell<&'static str>,
     /// Focus.
     pub focus: Cell<bool>,
     /// This widget just gained the focus. This flag is set by [Focus::handle]
@@ -68,6 +70,7 @@ pub trait HasFocusFlag {
 impl Debug for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FocusFlag")
+            .field("name", &self.name.get())
             .field("focus", &self.focus.get())
             .field("gained", &self.gained.get())
             .field("lost", &self.lost.get())
@@ -94,6 +97,7 @@ impl Debug for FocusFlag {
 /// The result `f` indicates whether the focus has changed.
 #[derive(Debug, Default)]
 pub struct Focus<'a> {
+    log: Cell<bool>,
     /// Summarizes all the contained FocusFlags.
     /// If any of them has the focus set, this will
     /// be set too.
@@ -129,6 +133,18 @@ impl FocusFlag {
     #[inline]
     pub fn set(&self) {
         self.focus.set(true);
+    }
+
+    /// Set the field-name.
+    #[inline]
+    pub fn set_name(&self, name: &'static str) {
+        self.name.set(name);
+    }
+
+    /// Get the field-name.
+    #[inline]
+    pub fn name(&self) -> &'static str {
+        self.name.get()
     }
 
     /// Just lost the focus.
@@ -262,15 +278,16 @@ impl<'a> Focus<'a> {
         s
     }
 
-    /// Construct a new focus list with an accumulator.
+    /// Construct a new focus list for a container widget.
     ///
-    /// The accumulator has its focus set if any of the contained
-    /// flags has the focus.
+    /// The focus-flag for the container accumulates all the flags.
+    /// If any has focus, the container has the focus too.
+    /// Focus-gained and focus-lost are only set if the focus
+    /// leaves the container.
     ///
-    /// If you have a Focus you can append the Focus of a subcomponent
-    /// with [append](Focus::append). In that case the accumulator
-    /// of the subcomponent gets its lost+gained flags set too, if
-    /// you switch the focus between different subcomponents.
+    /// The container widget itself interacts with the mouse too.
+    /// If no single widget is hit with the mouse, but the area of
+    /// the container is, the first widget gets the focus.
     ///
     /// See `examples/focus_recursive` and `examples/focus_recursive2`
     pub fn new_accu(accu: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
@@ -286,12 +303,32 @@ impl<'a> Focus<'a> {
         s
     }
 
+    /// Construct a new focus list with group accumulator.
+    ///
+    /// This is meant for some loose grouping of widgets, for which
+    /// you want an overview.
+    ///
+    /// The same rules apply as for new_accu(), but with this one
+    /// there is no overall area for mouse interaction.
+    pub fn new_grp(accu: &'a FocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
+        let mut s = Self {
+            accu: Some(accu),
+            area: Rect::default(),
+            ..Focus::default()
+        };
+        for f in list {
+            s.focus.push(f.focus());
+            s.areas.push(f.area());
+        }
+        s
+    }
+
     /// Add a sub-focus cycle.
     ///
     /// All its widgets are appended to this list. If the sub-cycle
-    /// has an accumulator it's added to the accumulators. All
-    /// sub-accumulators are appended too.
-    pub fn append(mut self, focus: Focus<'a>) -> Self {
+    /// has an accumulator it's added to the sub-accumulators. All
+    /// sub-sub-accumulators are appended too.
+    pub fn append(&mut self, focus: Focus<'a>) -> &mut Self {
         for (focus, area, list) in focus.sub_accu {
             self.sub_accu.push((focus, area, list));
         }
@@ -319,17 +356,161 @@ impl<'a> Focus<'a> {
         self
     }
 
-    /// Resets the list of widgets. Useful when some widgets are
-    /// only focusable conditionally. Their focus-state must be reset,
-    /// otherwise they might react to the wrong events.
-    pub fn reset_all(&self, list: &[&'a dyn HasFocusFlag]) {
-        for f in list {
-            f.focus().clear();
-        }
+    /// Writes a log for each operation.
+    pub fn enable_log(&self, log: bool) {
+        self.log.set(log)
     }
 
+    /// Set the initial state for all widgets.
+    /// This ensures that there is only one focused widget.
+    /// The first widget in the list gets the focus.
+    pub fn init(&self) {
+        if self.log.get() {
+            debug!("init focus");
+        }
+        self.core_init();
+    }
+
+    /// Clears the focus state for all widgets.
+    /// This is useful, if part of your widgets are temporarily
+    /// exempt from focus handling, and should therefore not
+    /// have any focus-flags set to avoid problems with
+    /// event-handling.
+    pub fn clear(&self) {
+        if self.log.get() {
+            debug!("clear focus");
+        }
+        self.core_clear();
+    }
+
+    /// Sets the focus to the widget.
+    ///
+    /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
+    pub fn focus_widget_no_lost(&self, state: &'a dyn HasFocusFlag) {
+        let flag = state.focus();
+        self.focus_no_lost(flag);
+    }
+
+    /// Sets the focus to the widget with `tag`.
+    ///
+    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
+    /// before focus, gained and lost flag are all set.
+    pub fn focus_widget(&self, state: &'a dyn HasFocusFlag) {
+        let flag = state.focus();
+        self.focus(flag);
+    }
+
+    /// Sets the focus to the widget.
+    ///
+    /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
+    pub fn focus_no_lost(&self, flag: &FocusFlag) {
+        if self.log.get() {
+            debug!("focus_no_lost {:?}", flag);
+        }
+        self.core_focus_no_lost(flag);
+    }
+
+    /// Sets the focus to the widget with `tag`.
+    ///
+    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
+    /// before focus, gained and lost flag are all set.
+    pub fn focus(&self, flag: &FocusFlag) {
+        if self.log.get() {
+            debug!("focus {:?}", flag);
+        }
+        self.core_focus(flag);
+    }
+
+    /// Returns the focused widget as FocusFlag.
+    ///
+    /// This is mainly for debugging purposes.
+    /// For control-flow [match_focus] or [on_gained] or [on_lost]
+    /// will be nicer.
+    pub fn focused(&self) -> Option<&'a FocusFlag> {
+        self.core_focused()
+    }
+
+    /// Returns the widget that lost the focus as FocusFlag.
+    ///
+    /// This is mainly for debugging purposes.
+    /// For control-flow [match_focus] or [on_gained] or [on_lost]
+    /// will be nicer.
+    pub fn lost_focus(&self) -> Option<&'a FocusFlag> {
+        self.core_lost_focus()
+    }
+
+    /// Returns the widget that gained the focus as FocusFlag.
+    ///
+    /// This is mainly for debugging purposes.
+    /// For control-flow [match_focus] or [on_gained] or [on_lost]
+    /// will be nicer.
+    pub fn gained_focus(&self) -> Option<&'a FocusFlag> {
+        self.core_gained_focus()
+    }
+
+    /// Reset lost + gained flags.
+    /// This is done automatically in `HandleEvent::handle()` for every event.
+    pub fn reset_lost_gained(&self) {
+        if self.log.get() {
+            debug!("reset_lost_gained");
+        }
+        self.core_reset_lost_gained();
+    }
+
+    /// Change the focus.
+    ///
+    /// Sets the focus, gained and lost flags.
+    ///
+    /// If the field at idx has the focus all three are set.
+    pub fn focus_idx(&self, idx: usize) {
+        if self.log.get() {
+            debug!("focus_idx {}", idx);
+        }
+        self.core_focus_idx(idx);
+    }
+
+    /// Change to focus to the given position.
+    ///
+    pub fn focus_at(&self, col: u16, row: u16) -> bool {
+        if self.log.get() {
+            debug!("focus_at {},{}", col, row);
+        }
+        self.core_focus_at(col, row)
+    }
+
+    /// Focus the next widget in the cycle.
+    ///
+    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
+    /// before focus, gained and lost flag are all set.
+    ///
+    /// If no field has the focus the first one gets it.
+    pub fn next(&self) -> bool {
+        if self.log.get() {
+            debug!("next {:?}", self.core_focused());
+        }
+        self.core_next()
+    }
+
+    /// Focus the previous widget in the cycle.
+    ///
+    /// Sets the focus and lost flags. If this ends up with the same widget as
+    /// before it returns *true* and sets the focus, gained and lost flag.
+    ///
+    /// If no field has the focus the first one gets it.
+    pub fn prev(&self) -> bool {
+        if self.log.get() {
+            debug!("prev {:?}", self.core_focused());
+        }
+        self.core_prev()
+    }
+}
+
+impl<'a> Focus<'a> {
     // reset flags for a new round.
-    fn start_focus_change(&self, set_lost: bool) {
+    fn core_start_focus_change(&self, set_lost: bool) {
+        if self.log.get() {
+            debug!("start_focus_change {}", set_lost);
+        }
         for p in self.focus.iter() {
             if set_lost {
                 p.lost.set(p.focus.get());
@@ -342,7 +523,7 @@ impl<'a> Focus<'a> {
     }
 
     // accumulate everything
-    fn accumulate(&self) {
+    fn core_accumulate(&self) {
         if let Some(accu) = self.accu {
             accu.focus.set(false);
             for p in self.focus.iter() {
@@ -370,61 +551,42 @@ impl<'a> Focus<'a> {
         }
     }
 
-    /// Set the initial state for all widgets.
-    /// This ensures that there is only one focused widget.
-    /// The first widget in the list gets the focus.
-    pub fn init(&self) {
-        self.start_focus_change(false);
+    fn core_init(&self) {
+        self.core_start_focus_change(false);
         if let Some(first) = self.focus.first() {
             first.focus.set(true);
         }
     }
 
-    /// Sets the focus to the widget.
-    ///
-    /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
-    pub fn focus_widget_no_lost(&self, state: &'a dyn HasFocusFlag) {
-        let flag = state.focus();
-        self.focus_no_lost(flag);
+    fn core_clear(&self) {
+        self.accu.map(|v| v.clear());
+        for f in &self.focus {
+            f.clear();
+        }
+        for (f, _, _) in &self.sub_accu {
+            f.clear();
+        }
     }
 
-    /// Sets the focus to the widget with `tag`.
-    ///
-    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
-    /// before focus, gained and lost flag are all set.
-    pub fn focus_widget(&self, state: &'a dyn HasFocusFlag) {
-        let flag = state.focus();
-        self.focus(flag);
-    }
-
-    /// Sets the focus to the widget.
-    ///
-    /// Sets focus and gained but not lost. This can be used to prevent validation of the field.
-    pub fn focus_no_lost(&self, flag: &FocusFlag) {
-        self.start_focus_change(false);
+    fn core_focus_no_lost(&self, flag: &FocusFlag) {
+        self.core_start_focus_change(false);
         if let Some(f) = self.focus.iter().find(|f| ptr::eq(**f, flag)) {
             f.focus.set(true);
             f.gained.set(true);
         }
-        self.accumulate();
+        self.core_accumulate();
     }
 
-    /// Sets the focus to the widget with `tag`.
-    ///
-    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
-    /// before focus, gained and lost flag are all set.
-    pub fn focus(&self, flag: &FocusFlag) {
-        self.start_focus_change(true);
+    fn core_focus(&self, flag: &FocusFlag) {
+        self.core_start_focus_change(true);
         if let Some(f) = self.focus.iter().find(|f| ptr::eq(**f, flag)) {
             f.focus.set(true);
             f.gained.set(true);
         }
-        self.accumulate();
+        self.core_accumulate();
     }
 
-    /// Reset lost + gained flags.
-    /// This is done automatically in `HandleEvent::handle()` for every event.
-    pub fn reset_lost_gained(&self) {
+    fn core_reset_lost_gained(&self) {
         for p in self.focus.iter() {
             p.lost.set(false);
             p.gained.set(false);
@@ -435,41 +597,43 @@ impl<'a> Focus<'a> {
         }
     }
 
-    /// Change the focus.
-    ///
-    /// Sets the focus, gained and lost flags.
-    ///
-    /// If the field at idx has the focus all three are set.
-    pub fn focus_idx(&self, idx: usize) {
-        self.start_focus_change(true);
+    fn core_focus_idx(&self, idx: usize) {
+        self.core_start_focus_change(true);
         if let Some(f) = self.focus.get(idx) {
             f.focus.set(true);
             f.gained.set(true);
         }
-        self.accumulate();
+        self.core_accumulate();
     }
 
-    /// Change to focus to the given position.
-    ///
-    pub fn focus_at(&self, col: u16, row: u16) -> bool {
+    fn core_focus_at(&self, col: u16, row: u16) -> bool {
         let pos = Position::new(col, row);
         for (idx, area) in self.areas.iter().enumerate() {
             if area.contains(pos) {
+                if self.log.get() {
+                    debug!("found area for {:?}", self.focus[idx]);
+                }
                 self.focus_idx(idx);
                 return true;
             }
         }
-        for (_, area, list) in self.sub_accu.iter() {
+        for (accu, area, list) in self.sub_accu.iter() {
             if area.contains(pos) {
                 if let Some(ff) = list.first() {
-                    self.focus(ff);
+                    if self.log.get() {
+                        debug!("focus container {:?}", accu);
+                    }
+                    self.core_focus(ff);
                     return true;
                 }
             }
         }
         if self.area.contains(pos) {
+            if self.log.get() {
+                debug!("focus container {:?}", self.accu);
+            }
             if let Some(ff) = self.focus.first() {
-                self.focus(ff);
+                self.core_focus(ff);
                 return true;
             }
         }
@@ -477,57 +641,57 @@ impl<'a> Focus<'a> {
         false
     }
 
-    /// Focus the next widget in the cycle.
-    ///
-    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
-    /// before focus, gained and lost flag are all set.
-    ///
-    /// If no field has the focus the first one gets it.
-    pub fn next(&self) -> bool {
-        self.start_focus_change(true);
+    fn core_next(&self) -> bool {
+        self.core_start_focus_change(true);
         for (i, p) in self.focus.iter().enumerate() {
             if p.lost.get() {
                 let n = next_circular(i, self.focus.len());
                 self.focus[n].focus.set(true);
                 self.focus[n].gained.set(true);
-                self.accumulate();
+                self.core_accumulate();
                 return true;
             }
         }
         if !self.focus.is_empty() {
             self.focus[0].focus.set(true);
             self.focus[0].gained.set(true);
-            self.accumulate();
+            self.core_accumulate();
             return true;
         }
 
         false
     }
 
-    /// Focus the previous widget in the cycle.
-    ///
-    /// Sets the focus and lost flags. If this ends up with the same widget as
-    /// before it returns *true* and sets the focus, gained and lost flag.
-    ///
-    /// If no field has the focus the first one gets it.
-    pub fn prev(&self) -> bool {
-        self.start_focus_change(true);
+    fn core_prev(&self) -> bool {
+        self.core_start_focus_change(true);
         for (i, p) in self.focus.iter().enumerate() {
             if p.lost.get() {
                 let n = prev_circular(i, self.focus.len());
                 self.focus[n].focus.set(true);
                 self.focus[n].gained.set(true);
-                self.accumulate();
+                self.core_accumulate();
                 return true;
             }
         }
         if !self.focus.is_empty() {
             self.focus[0].focus.set(true);
             self.focus[0].gained.set(true);
-            self.accumulate();
+            self.core_accumulate();
             return true;
         }
         false
+    }
+
+    fn core_focused(&self) -> Option<&'a FocusFlag> {
+        self.focus.iter().find(|v| v.get()).map(|v| *v)
+    }
+
+    fn core_lost_focus(&self) -> Option<&'a FocusFlag> {
+        self.focus.iter().find(|v| v.lost()).map(|v| *v)
+    }
+
+    fn core_gained_focus(&self) -> Option<&'a FocusFlag> {
+        self.focus.iter().find(|v| v.gained()).map(|v| *v)
     }
 }
 
@@ -553,11 +717,23 @@ impl<'a> HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for Focus<'a> 
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         match event {
             ct_event!(keycode press Tab) => {
-                self.next();
+                if self.log.get() {
+                    debug!("Tab {:?}", self.core_focused());
+                }
+                self.core_next();
+                if self.log.get() {
+                    debug!("=> {:?}", self.core_focused());
+                }
                 Outcome::Changed
             }
             ct_event!(keycode press SHIFT-Tab) | ct_event!(keycode press SHIFT-BackTab) => {
-                self.prev();
+                if self.log.get() {
+                    debug!("BackTab {:?}", self.core_focused());
+                }
+                self.core_prev();
+                if self.log.get() {
+                    debug!("=> {:?}", self.core_focused());
+                }
                 Outcome::Changed
             }
             _ => self.handle(event, MouseOnly),
@@ -569,15 +745,24 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus<'a> 
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse down Left for column, row) => {
-                if self.focus_at(*column, *row) {
+                if self.log.get() {
+                    debug!("mouse down {},{}", column, row);
+                }
+                if self.core_focus_at(*column, *row) {
+                    if self.log.get() {
+                        debug!("=> {:?}", self.core_focused());
+                    }
                     Outcome::Changed
                 } else {
-                    self.reset_lost_gained();
+                    if self.log.get() {
+                        debug!("=> None");
+                    }
+                    self.core_reset_lost_gained();
                     Outcome::NotUsed
                 }
             }
             _ => {
-                self.reset_lost_gained();
+                self.core_reset_lost_gained();
                 Outcome::NotUsed
             }
         }
