@@ -244,7 +244,11 @@ pub struct FTableState<Selection> {
     /// Area per visible row.
     pub row_areas: Vec<Rect>,
     /// Area per visible column, also contains the following spacer if any.
+    /// Good for click-hit checks.
     pub column_areas: Vec<Rect>,
+    /// Area per visible column, *without* the following spacer.
+    /// Good for rendering over a cell.
+    pub base_column_areas: Vec<Rect>,
     /// Total footer area.
     pub footer_area: Rect,
 
@@ -1258,6 +1262,7 @@ where
         state: &mut FTableState<Selection>,
     ) {
         state.column_areas.clear();
+        state.base_column_areas.clear();
         state.col_page_len = 0;
 
         let mut col = state.col_offset;
@@ -1268,15 +1273,21 @@ where
 
             // merge the column + the folling spacer as the
             // column area.
-            let column_area = Rect::new(
+            let mut column_area = Rect::new(
                 state.table_area.x + l_columns[col].x - l_columns[state.col_offset].x,
                 state.table_area.y,
-                l_columns[col].width + l_spacers[col + 1].width,
+                l_columns[col].width,
                 state.table_area.height,
-            )
-            .intersection(state.table_area);
+            );
+            state
+                .base_column_areas
+                .push(column_area.intersection(state.table_area));
 
-            state.column_areas.push(column_area);
+            column_area.width += l_spacers[col + 1].width;
+            state
+                .column_areas
+                .push(column_area.intersection(state.table_area));
+
             state.col_page_len += 1;
 
             if column_area.right() >= state.table_area.right() {
@@ -1335,6 +1346,7 @@ impl<Selection: Default> Default for FTableState<Selection> {
             footer_area: Default::default(),
             row_areas: Default::default(),
             column_areas: Default::default(),
+            base_column_areas: Default::default(),
             rows: 0,
             _counted_rows: 0,
             columns: 0,
@@ -1352,6 +1364,27 @@ impl<Selection: Default> Default for FTableState<Selection> {
 }
 
 impl<Selection> FTableState<Selection> {
+    /// Returns the column-areas for the given row, if it is visible.
+    ///
+    /// Attention: These areas might be 0-length if the column is scrolled
+    /// beyond the table-area.
+    ///
+    /// See: [FTableState::scroll_to]
+    pub fn row_cells(&self, row: usize) -> Option<Vec<Rect>> {
+        if row < self.row_offset || row >= self.row_offset + self.row_page_len {
+            return None;
+        }
+
+        let mut areas = Vec::new();
+
+        let r = self.row_areas[row];
+        for c in &self.base_column_areas {
+            areas.push(Rect::new(c.x, r.y, c.width, r.height));
+        }
+
+        Some(areas)
+    }
+
     /// Cell at given position.
     pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
         let col = self.column_at_clicked(pos);
@@ -1512,22 +1545,27 @@ impl<Selection: TableSelection> FTableState<Selection> {
         ))
     }
 
+    /// Scroll to position.
+    pub fn scroll_to(&mut self, pos: (usize, usize)) {
+        if self.row_offset + self.row_page_len <= pos.1 {
+            self.set_vertical_offset(pos.1 - self.row_page_len + 1);
+        }
+        if self.row_offset > pos.1 {
+            self.set_vertical_offset(pos.1);
+        }
+
+        if self.col_offset + self.col_page_len <= pos.0 {
+            self.set_horizontal_offset(pos.0 - self.col_page_len + 1);
+        }
+        if self.col_offset > pos.0 {
+            self.set_horizontal_offset(pos.0);
+        }
+    }
+
     /// Scroll to selected.
     pub fn scroll_to_selected(&mut self) {
-        if let Some((selected_col, selected_row)) = self.selection.lead_selection() {
-            if self.row_offset + self.row_page_len <= selected_row {
-                self.set_vertical_offset(selected_row - self.row_page_len + 1);
-            }
-            if self.row_offset > selected_row {
-                self.set_vertical_offset(selected_row);
-            }
-
-            if self.col_offset + self.col_page_len <= selected_col {
-                self.set_horizontal_offset(selected_col - self.col_page_len + 1);
-            }
-            if self.col_offset > selected_col {
-                self.set_horizontal_offset(selected_col);
-            }
+        if let Some(selected) = self.selection.lead_selection() {
+            self.scroll_to(selected)
         }
     }
 }
