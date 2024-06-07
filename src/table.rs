@@ -22,7 +22,6 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 use std::rc::Rc;
-use std::time::Instant;
 
 #[cfg(debug_assertions)]
 use log::warn;
@@ -938,6 +937,7 @@ where
         state.row_areas.clear();
         state.row_page_len = 0;
 
+        // TODO: render directly, if this is not necessary.
         let mut row_buf = Buffer::empty(Rect::new(0, 0, width, 1));
         let mut row = None;
         let mut row_y = state.table_area.y;
@@ -970,6 +970,8 @@ where
 
                 if let Some(row_style) = ctx.row_style {
                     row_buf.set_style(row_area, row_style);
+                } else {
+                    row_buf.set_style(row_area, self.style);
                 }
 
                 row_heights.push(row_area.height);
