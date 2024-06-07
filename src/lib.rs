@@ -34,8 +34,6 @@ pub struct FTableContext {
     /// Selection style if any.
     pub select_style: Option<Style>,
 
-    /// Raw cell area before clipping to the table area.
-    pub raw_area: Rect,
     /// Spacing after the cell. It's guaranteed that this
     /// is writeable in the buffer given to render_cell.
     pub space_area: Rect,

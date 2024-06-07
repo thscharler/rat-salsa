@@ -14,7 +14,7 @@ use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState, TableDataIter};
+use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -264,7 +264,7 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
             }
         }
 
-        fn render_cell(&self, _column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer) {
             Span::from(self.item.to_string()).render(area, buf);
         }
     }

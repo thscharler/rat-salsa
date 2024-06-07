@@ -16,7 +16,7 @@ use rat_event::{ct_event, FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState, TableDataIter};
+use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
 use rat_input::layout_edit::{layout_edit, EditConstraint, LayoutEdit};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
@@ -43,7 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
     let mut data = Data {
-        table_data: data::SMALL_DATA
+        table_data: data::DATA
             .iter()
             .map(|v| Sample {
                 text: *v,
@@ -57,6 +57,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State {
         table: Default::default(),
         report_rows: None,
+        no_row_count: false,
         edit: Default::default(),
         status: Default::default(),
     };
@@ -89,6 +90,7 @@ struct Data {
 struct State {
     pub(crate) table: FTableState<NoSelection>,
     pub(crate) report_rows: Option<usize>,
+    pub(crate) no_row_count: bool,
     pub(crate) edit: LayoutEdit,
     pub(crate) status: StatusLineState,
 }
@@ -240,6 +242,8 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
             EditConstraint::Widget(20),
             EditConstraint::Empty,
             EditConstraint::Widget(20),
+            EditConstraint::Empty,
+            EditConstraint::Widget(20),
         ],
     );
     let mut lb = state.edit.iter();
@@ -271,6 +275,12 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     }
     frame.render_widget(b_none, lb.widget());
 
+    let mut nocount = Span::from("no_row_count").white().on_light_blue();
+    if state.no_row_count {
+        nocount = nocount.on_red();
+    }
+    frame.render_widget(nocount, lb.widget());
+
     let goto = Span::from("GOTO 1_000_000").white().on_light_blue();
     frame.render_widget(goto, lb.widget());
 
@@ -291,7 +301,7 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
             self.item.is_some()
         }
 
-        fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, _ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer) {
             let row = self.item.expect("data");
             match column {
                 0 => {
@@ -332,6 +342,7 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
 
     let table1 = FTable::default()
         .iter(&mut rr)
+        .no_row_count(state.no_row_count)
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),
@@ -390,7 +401,11 @@ fn handle_table(
                     break 'f Outcome::Changed;
                 }
                 Some(5) => {
-                    state.table.row_offset = 1_000_000;
+                    state.no_row_count = !state.no_row_count;
+                    break 'f Outcome::Changed;
+                }
+                Some(6) => {
+                    state.table.row_offset = 99900; // 1_000_000;
                     break 'f Outcome::Changed;
                 }
                 _ => {

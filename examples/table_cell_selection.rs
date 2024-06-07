@@ -13,7 +13,7 @@ use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::CellSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState, TableData};
+use rat_ftable::{FTable, FTableContext, FTableState, TableData};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -228,7 +228,14 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
             self.0.len()
         }
 
-        fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(
+            &self,
+            ctx: &FTableContext,
+            column: usize,
+            row: usize,
+            area: Rect,
+            buf: &mut Buffer,
+        ) {
             if let Some(d) = self.0.get(row) {
                 match column {
                     0 => {

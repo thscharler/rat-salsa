@@ -3,19 +3,17 @@ use crate::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
-use crate::util::revert_style;
+use crate::util::{revert_style, transfer_buffer};
 use crate::{FTableContext, TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
-use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, FocusKeys, HandleEvent, Outcome};
 use ratatui::buffer::Buffer;
 // TODO: remove Position
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Stylize};
-use ratatui::text::Text;
+use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cell::Cell;
 use std::cmp::{max, min};
@@ -24,6 +22,14 @@ use std::fmt::Debug;
 use std::marker::PhantomData;
 use std::mem;
 use std::rc::Rc;
+use std::time::Instant;
+
+#[cfg(debug_assertions)]
+use log::warn;
+#[cfg(debug_assertions)]
+use ratatui::style::Stylize;
+#[cfg(debug_assertions)]
+use ratatui::text::Text;
 
 /// FTable widget.
 ///
@@ -34,6 +40,7 @@ use std::rc::Rc;
 #[derive(Debug, Default)]
 pub struct FTable<'a, Selection> {
     data: DataRepr<'a>,
+    no_row_count: bool,
 
     header: Option<Row<'a>>,
     footer: Option<Row<'a>>,
@@ -525,6 +532,28 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// If you work with an TableDataIter to fill the table, and
+    /// if you don't return a count with rows(), FTable will run
+    /// through all your iterator to find the actual number of rows.
+    ///
+    /// This may take its time.
+    ///
+    /// If you set no_row_count(true), this part will be skipped, and
+    /// the row count will be set to an estimate of usize::MAX.
+    /// This will destroy your ability to jump to the end of the data,
+    /// but otherwise it's fine.
+    /// You can still page-down through the data, and if you ever
+    /// reach the end, the correct row-count can be established.
+    ///
+    /// _Extra info_: This might be only useful if you have a LOT of data.
+    /// In my test it changed from 1.5ms to 150µs for about 100.000 rows.
+    /// And 1.5ms is still not that much ... so you probably want to
+    /// test without this first and then decide.
+    pub fn no_row_count(mut self, no_row_count: bool) -> Self {
+        self.no_row_count = no_row_count;
+        self
+    }
+
     /// Set the table-header.
     #[inline]
     pub fn header(mut self, header: Row<'a>) -> Self {
@@ -741,15 +770,8 @@ impl<'a, Selection> FTable<'a, Selection> {
         }
 
         // horizontal layout
-        let (l_columns, _) = self.layout_columns(table_area.width);
-        let horizontal = 'f: {
-            for c in l_columns.iter() {
-                if c.right() >= table_area.width {
-                    break 'f true;
-                }
-            }
-            false
-        };
+        let (width, _, _) = self.layout_columns(table_area.width);
+        let horizontal = width >= table_area.width;
 
         (horizontal, vertical)
     }
@@ -801,7 +823,7 @@ impl<'a, Selection> FTable<'a, Selection> {
 
     // Do the column-layout. Fill in missing columns, if necessary.
     #[inline]
-    fn layout_columns(&self, width: u16) -> (Rc<[Rect]>, Rc<[Rect]>) {
+    fn layout_columns(&self, width: u16) -> (u16, Rc<[Rect]>, Rc<[Rect]>) {
         let widths;
         let widths = if self.widths.is_empty() {
             widths = vec![Constraint::Fill(1); 0];
@@ -810,12 +832,15 @@ impl<'a, Selection> FTable<'a, Selection> {
             self.widths.as_slice()
         };
 
-        let area = Rect::new(0, 0, self.total_width(width), 0);
+        let width = self.total_width(width);
+        let area = Rect::new(0, 0, width, 0);
 
-        Layout::horizontal(widths)
+        let (layout, spacers) = Layout::horizontal(widths)
             .flex(self.flex)
             .spacing(self.column_spacing)
-            .split_with_spacers(area)
+            .split_with_spacers(area);
+
+        (width, layout, spacers)
     }
 
     // Layout header/table/footer
@@ -888,7 +913,7 @@ where
         state.footer_area = l_rows[2];
 
         // horizontal layout
-        let (l_columns, l_spacers) = self.layout_columns(state.table_area.width);
+        let (width, l_columns, l_spacers) = self.layout_columns(state.table_area.width);
         self.calculate_column_areas(state.columns, l_columns.as_ref(), l_spacers.as_ref(), state);
 
         // render header & footer
@@ -913,9 +938,11 @@ where
         state.row_areas.clear();
         state.row_page_len = 0;
 
+        let mut row_buf = Buffer::empty(Rect::new(0, 0, width, 1));
         let mut row = None;
         let mut row_y = state.table_area.y;
         let mut row_heights = Vec::new();
+        #[allow(unused_variables)]
         let mut insane_offset = false;
 
         let mut ctx = FTableContext {
@@ -926,7 +953,6 @@ where
             style: self.style,
             row_style: None,
             select_style: None,
-            raw_area: Default::default(),
             space_area: Default::default(),
             non_exhaustive: NonExhaustive,
         };
@@ -934,8 +960,22 @@ where
         if data.nth(state.row_offset) {
             row = Some(state.row_offset);
             loop {
-                // we enforce a minimum row-height of 1.
-                let row_area = Rect::new(
+                ctx.row_style = data.row_style();
+                // We render each row to a temporary buffer.
+                // For ease of use we start each row at 0,0.
+                // We still only render at least partially visible cells.
+                let row_area = Rect::new(0, 0, width, max(data.row_height(), 1));
+                // resize should work fine unless the row-heights vary wildly.
+                row_buf.resize(row_area);
+
+                if let Some(row_style) = ctx.row_style {
+                    row_buf.set_style(row_area, row_style);
+                }
+
+                row_heights.push(row_area.height);
+
+                // Target area for the finished row.
+                let visible_row = Rect::new(
                     state.table_area.x,
                     row_y,
                     state.table_area.width,
@@ -943,13 +983,7 @@ where
                 )
                 .intersection(state.table_area);
 
-                ctx.row_style = data.row_style();
-                if let Some(row_style) = ctx.row_style {
-                    buf.set_style(row_area, row_style);
-                }
-
-                row_heights.push(row_area.height);
-                state.row_areas.push(row_area);
+                state.row_areas.push(visible_row);
                 state.row_page_len += 1;
 
                 let mut col = state.col_offset;
@@ -958,21 +992,14 @@ where
                         break;
                     }
 
-                    ctx.raw_area = Rect::new(
-                        row_area.x + l_columns[col].x - l_columns[state.col_offset].x,
-                        row_area.y,
-                        l_columns[col].width,
-                        row_area.height,
-                    );
-                    let cell_area = ctx.raw_area.intersection(state.table_area);
-
+                    let cell_area =
+                        Rect::new(l_columns[col].x, 0, l_columns[col].width, row_area.height);
                     ctx.space_area = Rect::new(
-                        row_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
-                        row_area.y,
+                        l_spacers[col + 1].x,
+                        0,
                         l_spacers[col + 1].width,
                         row_area.height,
-                    )
-                    .intersection(state.table_area);
+                    );
 
                     ctx.select_style = if state.selection.is_selected_cell(col, row.expect("row")) {
                         ctx.selected_cell = true;
@@ -1001,11 +1028,11 @@ where
                         None
                     };
                     if let Some(select_style) = ctx.select_style {
-                        buf.set_style(cell_area, select_style);
-                        buf.set_style(ctx.space_area, select_style);
+                        row_buf.set_style(cell_area, select_style);
+                        row_buf.set_style(ctx.space_area, select_style);
                     }
 
-                    data.render_cell(&ctx, col, cell_area, buf);
+                    data.render_cell(&ctx, col, cell_area, &mut row_buf);
 
                     if cell_area.right() >= state.table_area.right() {
                         break;
@@ -1013,7 +1040,15 @@ where
                     col += 1;
                 }
 
-                if row_area.bottom() >= state.table_area.bottom() {
+                // render shifted and clipped row.
+                transfer_buffer(
+                    &mut row_buf,
+                    l_columns[state.col_offset].x,
+                    visible_row,
+                    buf,
+                );
+
+                if visible_row.bottom() >= state.table_area.bottom() {
                     break;
                 }
                 if !data.next() {
@@ -1047,7 +1082,7 @@ where
                 if skip_rows > 0 {
                     row_heights.clear();
                 }
-                let nth_row = 0;
+                let nth_row = skip_rows;
                 // collect the remaining row-heights.
                 if data.nth(nth_row) {
                     row = Some(row.map_or(nth_row, |row| row + nth_row + 1));
@@ -1087,6 +1122,20 @@ where
                 }
 
                 state.rows = rows;
+                state._counted_rows = row.map_or(0, |v| v + 1);
+            } else if self.no_row_count {
+                if row.is_some() {
+                    if data.next() {
+                        // try one past page
+                        row = Some(row.expect("row") + 1);
+                        if data.next() {
+                            // have an unknown number of rows left.
+                            row = Some(usize::MAX - 1);
+                        }
+                    }
+                }
+
+                state.rows = row.map_or(0, |v| v + 1);
                 state._counted_rows = row.map_or(0, |v| v + 1);
             } else {
                 while data.next() {
@@ -1831,7 +1880,7 @@ where
             ct_event!(keycode press Delete) => EditOutcome::Remove,
             ct_event!(keycode press Enter) => EditOutcome::Edit,
             ct_event!(keycode press Down) => {
-                if let Some((column, row)) = self.selection.lead_selection() {
+                if let Some((_column, row)) = self.selection.lead_selection() {
                     if row == self.rows().saturating_sub(1) {
                         return EditOutcome::Append;
                     }
