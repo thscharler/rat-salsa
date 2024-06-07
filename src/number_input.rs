@@ -1,35 +1,37 @@
 //!
-//! A widget for date-input using [chrono](https://docs.rs/chrono/latest/chrono/)
+//! A widget for number-input using [format_num_pattern](https://docs.rs/format_num_pattern/latest)
 //!
 
 use crate::_private::NonExhaustive;
-use chrono::NaiveDate;
+use format_num_pattern::NumberFmtError;
+use pure_rust_locales::Locale;
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_input::masked_input::MaskedInputStyle;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Style;
 use ratatui::widgets::{Block, StatefulWidget};
-use std::fmt;
+use std::fmt::{Debug, Display, LowerExp};
+use std::str::FromStr;
 
 use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 pub use rat_input::date_input::ConvenientKeys;
 use rat_input::event::{ReadOnly, TextOutcome};
 
-/// Widget for dates.
+/// Widget for numbers.
 #[derive(Debug, Default, Clone)]
-pub struct DateInput<'a> {
-    widget: rat_input::date_input::DateInput<'a>,
+pub struct NumberInput<'a> {
+    widget: rat_input::number_input::NumberInput<'a>,
 }
 
 /// State.
 ///
-/// Use `DateInputState::new(_pattern_)` to set the date pattern.
+/// Use `NumberInputState::new(_pattern_)` to set the date pattern.
 ///
 #[derive(Debug, Clone)]
-pub struct DateInputState {
+pub struct NumberInputState {
     /// Base line widget.
-    pub widget: rat_input::date_input::DateInputState,
+    pub widget: rat_input::number_input::NumberInputState,
     /// Focus
     pub focus: FocusFlag,
     /// Valid flag
@@ -38,7 +40,7 @@ pub struct DateInputState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> DateInput<'a> {
+impl<'a> NumberInput<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -92,8 +94,8 @@ impl<'a> DateInput<'a> {
     }
 }
 
-impl<'a> StatefulWidget for DateInput<'a> {
-    type State = DateInputState;
+impl<'a> StatefulWidget for NumberInput<'a> {
+    type State = NumberInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -103,7 +105,7 @@ impl<'a> StatefulWidget for DateInput<'a> {
     }
 }
 
-impl Default for DateInputState {
+impl Default for NumberInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
@@ -114,18 +116,18 @@ impl Default for DateInputState {
     }
 }
 
-impl DateInputState {
-    pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, fmt::Error> {
+impl NumberInputState {
+    pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, NumberFmtError> {
         Ok(Self {
-            widget: rat_input::date_input::DateInputState::new(pattern)?,
+            widget: rat_input::number_input::NumberInputState::new(pattern)?,
             ..Default::default()
         })
     }
 
     #[inline]
-    pub fn new_loc<S: AsRef<str>>(pattern: S, locale: chrono::Locale) -> Result<Self, fmt::Error> {
+    pub fn new_loc<S: AsRef<str>>(pattern: S, locale: Locale) -> Result<Self, NumberFmtError> {
         Ok(Self {
-            widget: rat_input::date_input::DateInputState::new_loc(pattern, locale)?,
+            widget: rat_input::number_input::NumberInputState::new_loc(pattern, locale)?,
             ..Default::default()
         })
     }
@@ -136,28 +138,28 @@ impl DateInputState {
         self.widget.clear();
     }
 
-    /// chrono format string.
+    /// format_num_pattern format string.
     #[inline]
     pub fn format(&self) -> &str {
         self.widget.format()
     }
 
-    /// chrono locale.
+    /// format_num_pattern locale.
     #[inline]
-    pub fn locale(&self) -> chrono::Locale {
+    pub fn locale(&self) -> Locale {
         self.widget.locale()
     }
 
-    /// chrono format string.
+    /// format_num_pattern format string.
     ///
     /// generates a mask according to the format and overwrites whatever
     /// set_mask() did.
     #[inline]
-    pub fn set_format<S: AsRef<str>>(&mut self, pattern: S) -> Result<(), fmt::Error> {
+    pub fn set_format<S: AsRef<str>>(&mut self, pattern: S) -> Result<(), NumberFmtError> {
         self.widget.set_format(pattern)
     }
 
-    /// chrono format string.
+    /// format_num_pattern format string.
     ///
     /// generates a mask according to the format and overwrites whatever
     /// set_mask() did.
@@ -165,19 +167,22 @@ impl DateInputState {
     pub fn set_format_loc<S: AsRef<str>>(
         &mut self,
         pattern: S,
-        locale: chrono::Locale,
-    ) -> Result<(), fmt::Error> {
+        locale: Locale,
+    ) -> Result<(), NumberFmtError> {
         self.widget.set_format_loc(pattern, locale)
     }
 
     #[inline]
-    pub fn value(&self) -> Result<NaiveDate, chrono::ParseError> {
+    pub fn value<T: FromStr>(&self) -> Result<T, NumberFmtError> {
         self.widget.value()
     }
 
     #[inline]
-    pub fn set_value(&mut self, date: NaiveDate) {
-        self.widget.set_value(date)
+    pub fn set_value<T: LowerExp + Display + Debug>(
+        &mut self,
+        number: T,
+    ) -> Result<(), NumberFmtError> {
+        self.widget.set_value(number)
     }
 
     #[inline]
@@ -191,7 +196,7 @@ impl DateInputState {
     }
 }
 
-impl HasFocusFlag for DateInputState {
+impl HasFocusFlag for NumberInputState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
@@ -203,17 +208,7 @@ impl HasFocusFlag for DateInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ConvenientKeys, TextOutcome> for DateInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: ConvenientKeys) -> TextOutcome {
-        if self.is_focused() {
-            self.widget.handle(event, ConvenientKeys)
-        } else {
-            self.widget.handle(event, MouseOnly)
-        }
-    }
-}
-
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for DateInputState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for NumberInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -223,7 +218,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for DateInputS
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for DateInputState {
+impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for NumberInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, ReadOnly)
@@ -233,7 +228,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for DateInputSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for DateInputState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for NumberInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         self.widget.handle(event, MouseOnly)
     }

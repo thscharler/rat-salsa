@@ -9,6 +9,7 @@ pub mod input;
 pub mod list;
 pub mod masked_input;
 pub mod menuline;
+pub mod number_input;
 pub mod textarea;
 
 pub use pure_rust_locales::Locale;

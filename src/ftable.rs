@@ -8,12 +8,12 @@ use rat_ftable::textdata::Row;
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
-use ratatui::style::{Style, Styled};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::collections::HashSet;
 
 use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
-pub use rat_ftable::{FTableStyle, TableData, TableDataIter, TableSelection};
+pub use rat_ftable::{FTableContext, FTableStyle, TableData, TableDataIter, TableSelection};
 
 pub mod selection {
     pub use rat_ftable::selection::{CellSelection, NoSelection, RowSelection, RowSetSelection};
@@ -37,11 +37,19 @@ pub struct FTableState<Selection> {
 }
 
 impl<'a, Selection> FTable<'a, Selection> {
+    /// New, empty Table.
+    pub fn new() -> Self
+    where
+        Selection: Default,
+    {
+        Self::default()
+    }
+
     /// Create a new FTable with preformatted data. For compatibility
     /// with ratatui.
     ///
     /// Use of [FTable::data] is preferred.
-    pub fn new<R, C>(rows: R, widths: C) -> Self
+    pub fn new_ratatui<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
         R::Item: Into<Row<'a>>,
@@ -50,7 +58,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         Selection: Default,
     {
         Self {
-            widget: rat_ftable::FTable::new(rows, widths),
+            widget: rat_ftable::FTable::new_ratatui(rows, widths),
         }
     }
 
@@ -210,6 +218,20 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Base style for the table.
+    #[inline]
+    pub fn header_style(mut self, style: Option<Style>) -> Self {
+        self.widget = self.widget.header_style(style);
+        self
+    }
+
+    /// Base style for the table.
+    #[inline]
+    pub fn footer_style(mut self, style: Option<Style>) -> Self {
+        self.widget = self.widget.footer_style(style);
+        self
+    }
+
     /// Style for a selected row. The chosen selection must support
     /// row-selection for this to take effect.
     #[inline]
@@ -298,21 +320,6 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 }
 
-impl<'a, Selection> Styled for FTable<'a, Selection> {
-    type Item = Self;
-
-    #[inline]
-    fn style(&self) -> Style {
-        Styled::style(&self.widget)
-    }
-
-    #[inline]
-    fn set_style<S: Into<Style>>(mut self, style: S) -> Self::Item {
-        self.widget = Styled::set_style(self.widget, style);
-        self
-    }
-}
-
 impl<'a, Selection> ScrollingWidget<FTableState<Selection>> for FTable<'a, Selection> {
     #[inline]
     fn need_scroll(&self, area: Rect, _state: &mut FTableState<Selection>) -> (bool, bool) {
@@ -343,21 +350,30 @@ impl<Selection: Default> Default for FTableState<Selection> {
     }
 }
 
-impl<Selection: TableSelection> FTableState<Selection> {
-    /// Sets both offsets to 0.
-    #[inline]
-    pub fn clear_offset(&mut self) {
-        self.widget.clear_offset();
-    }
-
-    /// Scroll to selected.
-    #[inline]
-    pub fn scroll_to_selected(&mut self) {
-        self.widget.scroll_to_selected()
-    }
-}
-
 impl<Selection> FTableState<Selection> {
+    /// Number of rows.
+    #[inline]
+    pub fn rows(&self) -> usize {
+        self.widget.rows()
+    }
+
+    /// Number of columns.
+    #[inline]
+    pub fn columns(&self) -> usize {
+        self.widget.columns()
+    }
+
+    /// Returns the column-areas for the given row, if it is visible.
+    ///
+    /// Attention: These areas might be 0-length if the column is scrolled
+    /// beyond the table-area.
+    ///
+    /// See: [rat_ftable::FTableState::scroll_to]
+    #[inline]
+    pub fn row_cells(&self, row: usize) -> Option<Vec<Rect>> {
+        self.widget.row_cells(row)
+    }
+
     /// Cell at given position.
     #[inline]
     pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
@@ -393,6 +409,98 @@ impl<Selection> FTableState<Selection> {
     pub fn column_at_drag(&self, pos: Position) -> usize {
         self.widget.column_at_drag(pos)
     }
+
+    /// Sets both offsets to 0.
+    #[inline]
+    pub fn clear_offset(&mut self) {
+        self.widget.clear_offset();
+    }
+}
+
+impl<Selection: TableSelection> FTableState<Selection> {
+    /// Scroll to selected.
+    #[inline]
+    pub fn scroll_to_selected(&mut self) {
+        self.widget.scroll_to_selected()
+    }
+
+    /// Scroll to position.
+    #[inline]
+    pub fn scroll_to(&mut self, pos: (usize, usize)) {
+        self.widget.scroll_to(pos);
+    }
+}
+
+impl<Selection: TableSelection> ScrollingState for FTableState<Selection> {
+    #[inline]
+    fn vertical_max_offset(&self) -> usize {
+        self.widget.vertical_max_offset()
+    }
+
+    #[inline]
+    fn vertical_offset(&self) -> usize {
+        self.widget.vertical_offset()
+    }
+
+    #[inline]
+    fn vertical_page(&self) -> usize {
+        self.widget.vertical_page()
+    }
+
+    #[inline]
+    fn vertical_scroll(&self) -> usize {
+        self.widget.vertical_scroll()
+    }
+
+    #[inline]
+    fn horizontal_max_offset(&self) -> usize {
+        self.widget.horizontal_max_offset()
+    }
+
+    #[inline]
+    fn horizontal_offset(&self) -> usize {
+        self.widget.horizontal_offset()
+    }
+
+    #[inline]
+    fn horizontal_page(&self) -> usize {
+        self.widget.horizontal_page()
+    }
+
+    #[inline]
+    fn horizontal_scroll(&self) -> usize {
+        self.widget.horizontal_scroll()
+    }
+
+    #[inline]
+    fn set_vertical_offset(&mut self, offset: usize) -> bool {
+        self.widget.set_vertical_offset(offset)
+    }
+
+    #[inline]
+    fn set_horizontal_offset(&mut self, offset: usize) -> bool {
+        self.widget.set_horizontal_offset(offset)
+    }
+
+    #[inline]
+    fn scroll_up(&mut self, n: usize) -> bool {
+        self.widget.scroll_up(n)
+    }
+
+    #[inline]
+    fn scroll_down(&mut self, n: usize) -> bool {
+        self.widget.scroll_down(n)
+    }
+
+    #[inline]
+    fn scroll_left(&mut self, n: usize) -> bool {
+        self.widget.scroll_left(n)
+    }
+
+    #[inline]
+    fn scroll_right(&mut self, n: usize) -> bool {
+        self.widget.scroll_right(n)
+    }
 }
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<NoSelection> {
@@ -414,14 +522,14 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<No
 impl FTableState<RowSelection> {
     /// Scroll selection instead of offset.
     #[inline]
-    pub fn set_scroll_selected(&mut self, scroll: bool) {
-        self.widget.set_scroll_selected(scroll);
+    pub fn set_scroll_selection(&mut self, scroll: bool) {
+        self.widget.set_scroll_selection(scroll);
     }
 
     /// Scroll selection instead of offset.
     #[inline]
-    pub fn scroll_selected(&self) -> bool {
-        self.widget.scroll_selected()
+    pub fn scroll_selection(&self) -> bool {
+        self.widget.scroll_selection()
     }
 
     /// Clear offsets and selection.
@@ -430,19 +538,31 @@ impl FTableState<RowSelection> {
         self.widget.clear();
     }
 
+    /// Lock the current selection.
+    #[inline]
+    pub fn lock_selection(&mut self, lock: bool) {
+        self.widget.lock_selection(lock);
+    }
+
+    /// Current selection is locked?
+    #[inline]
+    pub fn is_selection_locked(&self) -> bool {
+        self.widget.is_selection_locked()
+    }
+
     #[inline]
     pub fn clear_selection(&mut self) {
         self.widget.clear_selection();
     }
 
     #[inline]
-    pub fn selected(&self) -> Option<usize> {
-        self.widget.selected()
+    pub fn has_selection(&mut self) -> bool {
+        self.widget.has_selection()
     }
 
     #[inline]
-    pub fn has_selection(&mut self) -> bool {
-        self.widget.has_selection()
+    pub fn selected(&self) -> Option<usize> {
+        self.widget.selected()
     }
 
     #[inline]
@@ -487,13 +607,13 @@ impl FTableState<RowSetSelection> {
     }
 
     #[inline]
-    pub fn selected(&self) -> HashSet<usize> {
-        self.widget.selected()
+    pub fn has_selection(&mut self) -> bool {
+        self.widget.has_selection()
     }
 
     #[inline]
-    pub fn has_selection(&mut self) -> bool {
-        self.widget.has_selection()
+    pub fn selected(&self) -> HashSet<usize> {
+        self.widget.selected()
     }
 
     #[inline]
@@ -641,58 +761,6 @@ where
         } else {
             self.widget.handle(event, MouseOnly).into()
         }
-    }
-}
-
-impl<Selection: TableSelection> ScrollingState for FTableState<Selection> {
-    #[inline]
-    fn vertical_max_offset(&self) -> usize {
-        self.widget.vertical_max_offset()
-    }
-
-    #[inline]
-    fn vertical_offset(&self) -> usize {
-        self.widget.vertical_offset()
-    }
-
-    #[inline]
-    fn vertical_page(&self) -> usize {
-        self.widget.vertical_page()
-    }
-
-    #[inline]
-    fn vertical_scroll(&self) -> usize {
-        self.widget.vertical_scroll()
-    }
-
-    #[inline]
-    fn horizontal_max_offset(&self) -> usize {
-        self.widget.horizontal_max_offset()
-    }
-
-    #[inline]
-    fn horizontal_offset(&self) -> usize {
-        self.widget.horizontal_offset()
-    }
-
-    #[inline]
-    fn horizontal_page(&self) -> usize {
-        self.widget.horizontal_page()
-    }
-
-    #[inline]
-    fn horizontal_scroll(&self) -> usize {
-        self.widget.horizontal_scroll()
-    }
-
-    #[inline]
-    fn set_vertical_offset(&mut self, offset: usize) -> bool {
-        self.widget.set_vertical_offset(offset)
-    }
-
-    #[inline]
-    fn set_horizontal_offset(&mut self, offset: usize) -> bool {
-        self.widget.set_horizontal_offset(offset)
     }
 }
 

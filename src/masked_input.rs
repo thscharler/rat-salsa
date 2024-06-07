@@ -168,7 +168,7 @@ impl Default for MaskedInputState {
         Self {
             widget: Default::default(),
             focus: Default::default(),
-            invalid: true,
+            invalid: false,
             non_exhaustive: NonExhaustive,
         }
     }
