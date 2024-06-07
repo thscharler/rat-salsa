@@ -135,9 +135,12 @@ impl From<bool> for Outcome {
 /// as a baseline.
 ///
 /// *The difference to [flow] is that this one Ok-wraps the result.*
+///
+/// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
+/// the result of the operation is written to the log.
 #[macro_export]
 macro_rules! flow {
-    (log $n:ident $x:expr) => {{
+    (log $n:ident: $x:expr) => {{
         use $crate::ConsumedEvent;
         let r = $x;
         if !r.is_consumed() {
@@ -171,7 +174,7 @@ macro_rules! flow {
 ///
 /// *The difference to [flow] is that this one Ok-wraps the result.*
 ///
-/// Extras: If you add a marker label as in `flow_ok!('here: {...});`
+/// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
 /// the result of the operation is written to the log.
 #[macro_export]
 macro_rules! flow_ok {
