@@ -4,16 +4,17 @@ use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::util::revert_style;
-use crate::{TableData, TableDataIter, TableSelection};
+use crate::{FTableContext, TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
 use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, FocusKeys, HandleEvent, Outcome};
 use ratatui::buffer::Buffer;
+// TODO: remove Position
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
-use ratatui::style::{Style, Styled, Stylize};
+use ratatui::style::{Style, Stylize};
 use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cell::Cell;
@@ -71,7 +72,7 @@ pub struct FTable<'a, Selection> {
 
 mod data {
     use crate::textdata::TextTableData;
-    use crate::{TableData, TableDataIter};
+    use crate::{FTableContext, TableData, TableDataIter};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::Style;
@@ -196,12 +197,16 @@ mod data {
         }
 
         /// Render the cell given by column/row.
-        fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer) {
             match self {
                 DataReprIter::None => {}
-                DataReprIter::IterText(v, n) => v.render_cell(column, n.expect("row"), area, buf),
-                DataReprIter::IterRef(v, n) => v.render_cell(column, n.expect("row"), area, buf),
-                DataReprIter::IterIter(v) => v.render_cell(column, area, buf),
+                DataReprIter::IterText(v, n) => {
+                    v.render_cell(ctx, column, n.expect("row"), area, buf)
+                }
+                DataReprIter::IterRef(v, n) => {
+                    v.render_cell(ctx, column, n.expect("row"), area, buf)
+                }
+                DataReprIter::IterIter(v) => v.render_cell(ctx, column, area, buf),
             }
         }
     }
@@ -246,8 +251,8 @@ pub struct FTableState<Selection> {
     /// Area per visible column, also contains the following spacer if any.
     /// Good for click-hit checks.
     pub column_areas: Vec<Rect>,
-    /// Area per visible column, *without* the following spacer.
-    /// Good for rendering over a cell.
+    /// Area for each defined column without the spacer.
+    /// Columns not visible will have width 0.
     pub base_column_areas: Vec<Rect>,
     /// Total footer area.
     pub footer_area: Rect,
@@ -286,11 +291,19 @@ pub struct FTableState<Selection> {
 }
 
 impl<'a, Selection> FTable<'a, Selection> {
+    /// New, empty Table.
+    pub fn new() -> Self
+    where
+        Selection: Default,
+    {
+        Self::default()
+    }
+
     /// Create a new FTable with preformatted data. For compatibility
     /// with ratatui.
     ///
     /// Use of [FTable::data] is preferred.
-    pub fn new<R, C>(rows: R, widths: C) -> Self
+    pub fn new_ratatui<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
         R::Item: Into<Row<'a>>,
@@ -411,7 +424,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// use ratatui::style::{Style, Stylize};
     /// use ratatui::text::Span;
     /// use ratatui::widgets::Widget;
-    /// use rat_ftable::{FTable, TableDataIter};
+    /// use rat_ftable::{FTable, FTableContext, TableDataIter};
     ///
     /// struct Data {
     ///     table_data: Vec<Sample>
@@ -461,7 +474,12 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///     }
     ///
     ///     /// Render one cell.
-    ///     fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer) {
+    ///     fn render_cell(&self,
+    ///                     ctx: &FTableContext,
+    ///                     column: usize,
+    ///                     area: Rect,
+    ///                     buf: &mut Buffer)
+    ///     {
     ///         let row = self.item.expect("data");
     ///         match column {
     ///             0 => {
@@ -813,19 +831,6 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 }
 
-impl<'a, Selection> Styled for FTable<'a, Selection> {
-    type Item = Self;
-
-    fn style(&self) -> Style {
-        self.style
-    }
-
-    fn set_style<S: Into<Style>>(mut self, style: S) -> Self::Item {
-        self.style = style.into();
-        self
-    }
-}
-
 impl<'a, Selection> StatefulWidget for FTable<'a, Selection>
 where
     Selection: TableSelection,
@@ -913,6 +918,19 @@ where
         let mut row_heights = Vec::new();
         let mut insane_offset = false;
 
+        let mut ctx = FTableContext {
+            focus: self.focus,
+            selected_cell: false,
+            selected_row: false,
+            selected_column: false,
+            style: self.style,
+            row_style: None,
+            select_style: None,
+            raw_area: Default::default(),
+            space_area: Default::default(),
+            non_exhaustive: NonExhaustive,
+        };
+
         if data.nth(state.row_offset) {
             row = Some(state.row_offset);
             loop {
@@ -920,12 +938,13 @@ where
                 let row_area = Rect::new(
                     state.table_area.x,
                     row_y,
-                    state.table_area.height,
+                    state.table_area.width,
                     max(data.row_height(), 1),
                 )
                 .intersection(state.table_area);
 
-                if let Some(row_style) = data.row_style() {
+                ctx.row_style = data.row_style();
+                if let Some(row_style) = ctx.row_style {
                     buf.set_style(row_area, row_style);
                 }
 
@@ -939,15 +958,15 @@ where
                         break;
                     }
 
-                    let cell_area = Rect::new(
+                    ctx.raw_area = Rect::new(
                         row_area.x + l_columns[col].x - l_columns[state.col_offset].x,
                         row_area.y,
                         l_columns[col].width,
                         row_area.height,
-                    )
-                    .intersection(state.table_area);
+                    );
+                    let cell_area = ctx.raw_area.intersection(state.table_area);
 
-                    let space_area = Rect::new(
+                    ctx.space_area = Rect::new(
                         row_area.x + l_spacers[col + 1].x - l_columns[state.col_offset].x,
                         row_area.y,
                         l_spacers[col + 1].width,
@@ -955,27 +974,38 @@ where
                     )
                     .intersection(state.table_area);
 
-                    let select_style = if state.selection.is_selected_cell(col, row.expect("row")) {
+                    ctx.select_style = if state.selection.is_selected_cell(col, row.expect("row")) {
+                        ctx.selected_cell = true;
+                        ctx.selected_row = false;
+                        ctx.selected_column = false;
                         self.patch_select(self.select_cell_style, self.show_cell_focus)
                     } else if state.selection.is_selected_row(row.expect("row")) {
-                        // row selection should always show.
+                        ctx.selected_cell = false;
+                        ctx.selected_row = true;
+                        ctx.selected_column = false;
+                        // use a fallback if no row-selected style is set.
                         if self.select_row_style.is_some() {
                             self.patch_select(self.select_row_style, self.show_row_focus)
                         } else {
                             self.patch_select(Some(revert_style(self.style)), self.show_row_focus)
                         }
                     } else if state.selection.is_selected_column(col) {
+                        ctx.selected_cell = false;
+                        ctx.selected_row = false;
+                        ctx.selected_column = true;
                         self.patch_select(self.select_column_style, self.show_column_focus)
                     } else {
+                        ctx.selected_cell = false;
+                        ctx.selected_row = false;
+                        ctx.selected_column = false;
                         None
                     };
-                    if let Some(select_style) = select_style {
+                    if let Some(select_style) = ctx.select_style {
                         buf.set_style(cell_area, select_style);
-                        buf.set_style(space_area, select_style);
+                        buf.set_style(ctx.space_area, select_style);
                     }
 
-                    // TODO: give an optional select style to the renderer
-                    data.render_cell(col, cell_area, buf);
+                    data.render_cell(&ctx, col, cell_area, buf);
 
                     if cell_area.right() >= state.table_area.right() {
                         break;
@@ -1262,7 +1292,6 @@ where
         state: &mut FTableState<Selection>,
     ) {
         state.column_areas.clear();
-        state.base_column_areas.clear();
         state.col_page_len = 0;
 
         let mut col = state.col_offset;
@@ -1295,6 +1324,23 @@ where
             }
 
             col += 1;
+        }
+
+        // Base areas for every column.
+        state.base_column_areas.clear();
+        for col in 0..columns {
+            let column_area = if col < state.col_offset {
+                Rect::new(0, state.table_area.y, 0, state.table_area.height)
+            } else {
+                Rect::new(
+                    state.table_area.x + l_columns[col].x - l_columns[state.col_offset].x,
+                    state.table_area.y,
+                    l_columns[col].width,
+                    state.table_area.height,
+                )
+            };
+            let column_area = column_area.intersection(state.table_area);
+            state.base_column_areas.push(column_area);
         }
     }
 
@@ -1364,6 +1410,18 @@ impl<Selection: Default> Default for FTableState<Selection> {
 }
 
 impl<Selection> FTableState<Selection> {
+    /// Number of rows.
+    #[inline]
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+
+    /// Number of columns.
+    #[inline]
+    pub fn columns(&self) -> usize {
+        self.columns
+    }
+
     /// Returns the column-areas for the given row, if it is visible.
     ///
     /// Attention: These areas might be 0-length if the column is scrolled
@@ -1431,15 +1489,41 @@ impl<Selection> FTableState<Selection> {
             Err(_v) => self.col_offset + self.column_areas.len() + 1,
         }
     }
-}
 
-impl<Selection: TableSelection> FTableState<Selection> {
     /// Sets both offsets to 0.
     pub fn clear_offset(&mut self) {
         self.row_offset = 0;
         self.col_offset = 0;
     }
+}
 
+impl<Selection: TableSelection> FTableState<Selection> {
+    /// Scroll to selected.
+    pub fn scroll_to_selected(&mut self) {
+        if let Some(selected) = self.selection.lead_selection() {
+            self.scroll_to(selected)
+        }
+    }
+
+    /// Scroll to position.
+    pub fn scroll_to(&mut self, pos: (usize, usize)) {
+        if self.row_offset + self.row_page_len <= pos.1 {
+            self.set_vertical_offset(pos.1 - self.row_page_len + 1);
+        }
+        if self.row_offset > pos.1 {
+            self.set_vertical_offset(pos.1);
+        }
+
+        if self.col_offset + self.col_page_len <= pos.0 {
+            self.set_horizontal_offset(pos.0 - self.col_page_len + 1);
+        }
+        if self.col_offset > pos.0 {
+            self.set_horizontal_offset(pos.0);
+        }
+    }
+}
+
+impl<Selection: TableSelection> FTableState<Selection> {
     /// Maximum offset that is accessible with scrolling.
     ///
     /// This is shorter than the length of the content by whatever fills the last page.
@@ -1544,42 +1628,18 @@ impl<Selection: TableSelection> FTableState<Selection> {
             self.horizontal_max_offset(),
         ))
     }
-
-    /// Scroll to position.
-    pub fn scroll_to(&mut self, pos: (usize, usize)) {
-        if self.row_offset + self.row_page_len <= pos.1 {
-            self.set_vertical_offset(pos.1 - self.row_page_len + 1);
-        }
-        if self.row_offset > pos.1 {
-            self.set_vertical_offset(pos.1);
-        }
-
-        if self.col_offset + self.col_page_len <= pos.0 {
-            self.set_horizontal_offset(pos.0 - self.col_page_len + 1);
-        }
-        if self.col_offset > pos.0 {
-            self.set_horizontal_offset(pos.0);
-        }
-    }
-
-    /// Scroll to selected.
-    pub fn scroll_to_selected(&mut self) {
-        if let Some(selected) = self.selection.lead_selection() {
-            self.scroll_to(selected)
-        }
-    }
 }
 
 impl FTableState<RowSelection> {
     /// Scroll selection instead of offset.
     #[inline]
-    pub fn set_scroll_selected(&mut self, scroll: bool) {
+    pub fn set_scroll_selection(&mut self, scroll: bool) {
         self.selection.set_scroll_selected(scroll);
     }
 
     /// Scroll selection instead of offset.
     #[inline]
-    pub fn scroll_selected(&self) -> bool {
+    pub fn scroll_selection(&self) -> bool {
         self.selection.scroll_selected()
     }
 
@@ -1588,6 +1648,18 @@ impl FTableState<RowSelection> {
     pub fn clear(&mut self) {
         self.clear_offset();
         self.clear_selection();
+    }
+
+    /// Lock the current selection.
+    #[inline]
+    pub fn lock_selection(&mut self, lock: bool) {
+        self.selection.set_locked(lock);
+    }
+
+    /// Current selection is locked?
+    #[inline]
+    pub fn is_selection_locked(&self) -> bool {
+        self.selection.locked()
     }
 
     #[inline]
@@ -1748,7 +1820,7 @@ impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOut
     }
 }
 
-impl<Selection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
+impl<Selection: TableSelection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
     for FTableState<Selection>
 where
     Self: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
@@ -1758,10 +1830,19 @@ where
             ct_event!(keycode press Insert) => EditOutcome::Insert,
             ct_event!(keycode press Delete) => EditOutcome::Remove,
             ct_event!(keycode press Enter) => EditOutcome::Edit,
+            ct_event!(keycode press Down) => {
+                if let Some((column, row)) = self.selection.lead_selection() {
+                    if row == self.rows().saturating_sub(1) {
+                        return EditOutcome::Append;
+                    }
+                }
+                <Self as HandleEvent<_, FocusKeys, Outcome>>::handle(self, event, FocusKeys).into()
+            }
 
             ct_event!(keycode release  Insert)
             | ct_event!(keycode release Delete)
-            | ct_event!(keycode release Enter) => EditOutcome::Unchanged,
+            | ct_event!(keycode release Enter)
+            | ct_event!(keycode release Down) => EditOutcome::Unchanged,
 
             _ => {
                 <Self as HandleEvent<_, FocusKeys, Outcome>>::handle(self, event, FocusKeys).into()

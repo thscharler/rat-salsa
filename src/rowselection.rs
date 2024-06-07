@@ -67,7 +67,7 @@ impl RowSelection {
     }
 
     /// Is the selection locked in place.
-    pub fn locked(&mut self) -> bool {
+    pub fn locked(&self) -> bool {
         self.locked
     }
 

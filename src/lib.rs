@@ -14,6 +14,35 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::style::Style;
 
+/// Render-context for rendering a table-cell.
+#[derive(Debug)]
+pub struct FTableContext {
+    /// Focus flag is set.
+    pub focus: bool,
+
+    /// Cell is selected.
+    pub selected_cell: bool,
+    /// Row of the cell is selected.
+    pub selected_row: bool,
+    /// Column of the cell is selected.
+    pub selected_column: bool,
+
+    /// Base style
+    pub style: Style,
+    /// Row style if any.
+    pub row_style: Option<Style>,
+    /// Selection style if any.
+    pub select_style: Option<Style>,
+
+    /// Raw cell area before clipping to the table area.
+    pub raw_area: Rect,
+    /// Spacing after the cell. It's guaranteed that this
+    /// is writeable in the buffer given to render_cell.
+    pub space_area: Rect,
+
+    pub non_exhaustive: NonExhaustive,
+}
+
 ///
 /// Trait for accessing the table-data by the FTable.
 ///
@@ -52,7 +81,18 @@ pub trait TableData<'a> {
     }
 
     /// Render the cell given by column/row.
-    fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer);
+    ///
+    /// * ctx - a lot of context data.
+    /// * full_area - area of the cell as defined.
+    /// * area - area of the cell currently visible.
+    fn render_cell(
+        &self,
+        ctx: &FTableContext,
+        column: usize,
+        row: usize,
+        area: Rect,
+        buf: &mut Buffer,
+    );
 }
 
 /// Trait for accessing the table-data by the FTable.
@@ -106,7 +146,11 @@ pub trait TableDataIter<'a> {
     }
 
     /// Render the cell for the current line.
-    fn render_cell(&self, column: usize, area: Rect, buf: &mut Buffer);
+    ///
+    /// * ctx - a lot of context data.
+    /// * full_area - area of the cell as defined.
+    /// * area - area of the cell currently visible.
+    fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer);
 }
 
 /// Trait for the different selection models used by FTable.
@@ -124,6 +168,7 @@ pub trait TableSelection {
     fn lead_selection(&self) -> Option<(usize, usize)>;
 }
 
+use crate::_private::NonExhaustive;
 pub use table::{FTable, FTableState, FTableStyle};
 
 pub mod selection {
@@ -206,6 +251,8 @@ pub mod event {
         Remove,
         /// Edit the selection.
         Edit,
+        /// Append after last row.
+        Append,
     }
 
     impl From<Outcome> for EditOutcome {
@@ -224,9 +271,10 @@ pub mod event {
                 EditOutcome::NotUsed => Outcome::NotUsed,
                 EditOutcome::Unchanged => Outcome::Unchanged,
                 EditOutcome::Changed => Outcome::Changed,
-                EditOutcome::Insert => Outcome::Changed,
-                EditOutcome::Remove => Outcome::Changed,
-                EditOutcome::Edit => Outcome::Changed,
+                EditOutcome::Insert => Outcome::Unchanged,
+                EditOutcome::Remove => Outcome::Unchanged,
+                EditOutcome::Edit => Outcome::Unchanged,
+                EditOutcome::Append => Outcome::Unchanged,
             }
         }
     }
