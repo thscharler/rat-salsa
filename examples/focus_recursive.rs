@@ -228,10 +228,10 @@ fn repaint_input(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
 
 fn focus_input(state: &mut State) -> Focus<'_> {
     Focus::new(&[])
-        .append(state.sub1.focus())
-        .append(state.sub2.focus())
-        .append(state.sub3.focus())
-        .append(state.sub4.focus())
+        .add_focus(state.sub1.focus())
+        .add_focus(state.sub2.focus())
+        .add_focus(state.sub3.focus())
+        .add_focus(state.sub4.focus())
 }
 
 fn handle_input(

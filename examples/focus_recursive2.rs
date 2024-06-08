@@ -224,9 +224,9 @@ fn focus_input(state: &mut State) -> Focus<'_> {
     debug!("sub3 {:#?}", state.sub3.focus());
     debug!("sub4 {:#?}", state.sub4.focus());
     Focus::new(&[])
-        .append(state.sub1.focus())
-        .append(state.sub3.focus())
-        .append(state.sub4.focus())
+        .add_focus(state.sub1.focus())
+        .add_focus(state.sub3.focus())
+        .add_focus(state.sub4.focus())
 }
 
 fn handle_input(
@@ -324,8 +324,8 @@ pub mod substratum2 {
             debug!("stratum1 {:#?}", self.stratum1.focus());
             debug!("stratum2 {:#?}", self.stratum2.focus());
             Focus::new_accu(self, &[])
-                .append(self.stratum1.focus())
-                .append(self.stratum2.focus())
+                .add_focus(self.stratum1.focus())
+                .add_focus(self.stratum2.focus())
         }
 
         pub fn screen_cursor(&self) -> Option<(u16, u16)> {

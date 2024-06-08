@@ -67,6 +67,12 @@ pub trait HasFocusFlag {
     }
 }
 
+/// Is this a container widget of sorts.
+pub trait HasFocus {
+    /// Returns a Focus struct.
+    fn focus(&self) -> Focus<'_>;
+}
+
 impl Debug for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FocusFlag")
@@ -116,7 +122,7 @@ pub struct Focus<'a> {
     /// Keeps track of all the Flags of a compound widget and its
     /// accumulator.
     ///
-    /// This is filled if you call [Focus::append]. The accu of the
+    /// This is filled if you call [Focus::add_focus]. The accu of the
     /// appended Focus and all its focus-flags are added. And
     /// all the sub_accu of it are appended too.
     sub_accu: Vec<(&'a FocusFlag, Rect, Vec<&'a FocusFlag>)>,
@@ -323,12 +329,19 @@ impl<'a> Focus<'a> {
         s
     }
 
+    /// Add a single widget.
+    pub fn add_flag(&mut self, flag: &'a FocusFlag, area: Rect) -> &mut Self {
+        self.focus.push(flag);
+        self.areas.push(area);
+        self
+    }
+
     /// Add a sub-focus cycle.
     ///
     /// All its widgets are appended to this list. If the sub-cycle
     /// has an accumulator it's added to the sub-accumulators. All
     /// sub-sub-accumulators are appended too.
-    pub fn append(&mut self, focus: Focus<'a>) -> &mut Self {
+    pub fn add_focus(&mut self, focus: Focus<'a>) -> &mut Self {
         for (focus, area, list) in focus.sub_accu {
             self.sub_accu.push((focus, area, list));
         }
@@ -337,6 +350,12 @@ impl<'a> Focus<'a> {
         }
         self.focus.extend(focus.focus);
         self.areas.extend(focus.areas);
+        self
+    }
+
+    /// Add a container widget.
+    pub fn add_container(&mut self, container: &'a dyn HasFocus) -> &mut Self {
+        self.add_focus(container.focus());
         self
     }
 
