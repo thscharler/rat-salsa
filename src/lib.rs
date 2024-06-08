@@ -15,7 +15,9 @@ pub mod textarea;
 pub use pure_rust_locales::Locale;
 
 pub mod focus {
-    pub use rat_focus::{match_focus, on_gained, on_lost, Focus, FocusFlag, HasFocusFlag};
+    pub use rat_focus::{
+        match_focus, on_gained, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag,
+    };
 }
 
 pub mod scrolled {
