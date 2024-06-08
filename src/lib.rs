@@ -25,13 +25,28 @@ pub struct MouseOnly;
 /// for the state type. Thereby it can modify any state, and it can
 /// return an arbitrary result, that fits the widget.
 ///
-pub trait HandleEvent<Event, KeyMap, R: ConsumedEvent> {
+pub trait HandleEvent<Event, Qualifier, R: ConsumedEvent> {
     /// Handle an event.
     ///
     /// * self - Should be the widget state.
     /// * event - Event
-    /// * keymap - Which keymapping. Predefined are FocusKeys and MouseOnly.
-    fn handle(&mut self, event: &Event, keymap: KeyMap) -> R;
+    /// * qualifier - Allows specifying/restricting the behaviour of the
+    ///   event-handler.
+    ///
+    ///   This library defines two possible types:
+    ///   * FocusKeys - The event-handler does all the interactions for
+    ///     a focused widget. This calls the event-handler for MouseOnly too.
+    ///   * MouseOnly - Interactions for a non-focused widget. Mostly only
+    ///     reacting to mouse-events. But might check for hotkeys or the like.
+    ///
+    /// Further ideas:
+    /// * ReadOnly
+    /// * Additional special behaviour like DoubleClick, HotKeyAlt, HotKeyCtrl.
+    /// * Opt-in behaviour like different key-bindings.
+    /// * Configurable key-map.
+    /// * Other context or configuration parameters.
+    ///
+    fn handle(&mut self, event: &Event, qualifier: Qualifier) -> R;
 }
 
 /// When composing several widgets, the minimum information from the outcome
@@ -143,7 +158,7 @@ macro_rules! flow {
     (log $n:ident: $x:expr) => {{
         use $crate::ConsumedEvent;
         let r = $x;
-        if !r.is_consumed() {
+        if r.is_consumed() {
             debug!("{} {:#?}", stringify!($n), r);
             return r.into();
         } else {
@@ -154,7 +169,7 @@ macro_rules! flow {
     ($x:expr) => {{
         use $crate::ConsumedEvent;
         let r = $x;
-        if !r.is_consumed() {
+        if r.is_consumed() {
             return r.into();
         } else {
             _ = r;

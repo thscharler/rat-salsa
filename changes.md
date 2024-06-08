@@ -1,3 +1,10 @@
+# 0.14.3
+
+* refactor: Rename KeyMap type parameter to `Qualifier`. This parameter
+  is worth more than just a simple key-map.
+
+* Fix: flow!() had it's if the wrong way around.
+
 # 0.14.2
 
 * Add default impl for some of TableDataIter's functions.
