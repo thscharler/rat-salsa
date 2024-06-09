@@ -1,3 +1,19 @@
+# 0.15.4
+
+* adds FEditTable for editing support
+* add FTableContext for extra information when rendering cells.
+* change rendering to render each row to a temp buffer.
+  prepare for char-wise horizontal scrolling, and helps with
+  clipping.
+
+* add FTable::no_row_count() for Iterators with no known length.
+* add FTable::rows(), FTable::columns()
+* rename FTable::new() to FTable::new_ratatui().
+* remove Styled impl
+
+* FTableState::base_column_areas are now created for *all* columns,
+  not only the visible ones. But they may be clipped to nothing.
+
 # 0.15.3
 
 * Add flags for which selection the focus color should apply when focused.
