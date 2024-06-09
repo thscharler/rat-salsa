@@ -942,7 +942,7 @@ where
         let mut row = None;
         let mut row_y = state.table_area.y;
         let mut row_heights = Vec::new();
-        #[allow(unused_variables)]
+        #[cfg(debug_assertions)]
         let mut insane_offset = false;
 
         let mut ctx = FTableContext {
@@ -1067,7 +1067,10 @@ where
             if data.rows().is_none() || data.rows() == Some(0) {
                 // this is ok
             } else {
-                insane_offset = true;
+                #[cfg(debug_assertions)]
+                {
+                    insane_offset = true;
+                }
             }
         }
 
@@ -1473,13 +1476,14 @@ impl<Selection> FTableState<Selection> {
         self.columns
     }
 
-    /// Returns the column-areas for the given row, if it is visible.
+    /// Returns the whole row-area and the cell-areas for the
+    /// given row, if it is visible.
     ///
     /// Attention: These areas might be 0-length if the column is scrolled
     /// beyond the table-area.
     ///
     /// See: [FTableState::scroll_to]
-    pub fn row_cells(&self, row: usize) -> Option<Vec<Rect>> {
+    pub fn row_cells(&self, row: usize) -> Option<(Rect, Vec<Rect>)> {
         if row < self.row_offset || row >= self.row_offset + self.row_page_len {
             return None;
         }
@@ -1491,7 +1495,7 @@ impl<Selection> FTableState<Selection> {
             areas.push(Rect::new(c.x, r.y, c.width, r.height));
         }
 
-        Some(areas)
+        Some((r, areas))
     }
 
     /// Cell at given position.
