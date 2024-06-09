@@ -100,6 +100,22 @@ macro_rules! ct_event {
         })
     };
 
+    (keycode press F($code:literal)) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::F($code),
+            modifiers: $crate::crossterm::modifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Press,
+            ..
+        })
+    };
+    (keycode press $mod:ident-F($code:literal)) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::F($code),
+            modifiers: $crate::crossterm::modifiers::$mod,
+            kind: crossterm::event::KeyEventKind::Press,
+            ..
+        })
+    };
     (keycode press $code:ident) => {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::$code,
@@ -113,6 +129,22 @@ macro_rules! ct_event {
             code: crossterm::event::KeyCode::$code,
             modifiers: $crate::crossterm::modifiers::$mod,
             kind: crossterm::event::KeyEventKind::Press,
+            ..
+        })
+    };
+    (keycode release F($code:literal)) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::F($code),
+            modifiers: $crate::crossterm::modifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Release,
+            ..
+        })
+    };
+    (keycode release $mod:ident-F($code:literal)) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::F($code),
+            modifiers: $crate::crossterm::modifiers::$mod,
+            kind: crossterm::event::KeyEventKind::Release,
             ..
         })
     };
