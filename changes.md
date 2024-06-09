@@ -4,6 +4,7 @@
   is worth more than just a simple key-map.
 
 * Fix: flow!() had it's if the wrong way around.
+* Fix: ct_event!() couldn't handle F-keys.
 
 # 0.14.2
 
