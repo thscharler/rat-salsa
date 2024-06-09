@@ -370,7 +370,7 @@ impl<Selection> FTableState<Selection> {
     ///
     /// See: [rat_ftable::FTableState::scroll_to]
     #[inline]
-    pub fn row_cells(&self, row: usize) -> Option<Vec<Rect>> {
+    pub fn row_cells(&self, row: usize) -> Option<(Rect, Vec<Rect>)> {
         self.widget.row_cells(row)
     }
 

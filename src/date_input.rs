@@ -187,7 +187,11 @@ impl DateInputState {
 
     #[inline]
     pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        self.widget.screen_cursor()
+        if self.is_focused() {
+            self.widget.screen_cursor()
+        } else {
+            None
+        }
     }
 }
 
