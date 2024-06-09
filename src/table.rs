@@ -538,18 +538,6 @@ impl RTableState<RowSelection> {
         self.widget.clear();
     }
 
-    /// Lock the current selection.
-    #[inline]
-    pub fn lock_selection(&mut self, lock: bool) {
-        self.widget.lock_selection(lock);
-    }
-
-    /// Current selection is locked?
-    #[inline]
-    pub fn is_selection_locked(&self) -> bool {
-        self.widget.is_selection_locked()
-    }
-
     #[inline]
     pub fn clear_selection(&mut self) {
         self.widget.clear_selection();
