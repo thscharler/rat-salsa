@@ -2,7 +2,8 @@
 
 * Prefix all widgets with 'R' to disambiguate from their rat-input cousins.
 
-* add NumberInput
+* add REditTable
+* add RNumberInput
 * add HasFocus for container widgets.
 
 * fix: screen_cursor() should only return a value if the widget
