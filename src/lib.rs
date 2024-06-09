@@ -23,8 +23,8 @@ pub mod focus {
 
 pub mod scrolled {
     pub use rat_scrolled::{
-        HScrollPosition, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle, ScrollingState,
-        ScrollingWidget, VScrollPosition, View, ViewState, Viewport, ViewportState,
+        HScrollPosition, Inner, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle,
+        ScrollingState, ScrollingWidget, VScrollPosition, View, ViewState, Viewport, ViewportState,
     };
 }
 

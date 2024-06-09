@@ -110,60 +110,64 @@ where
             _ => EditOutcome::NotUsed,
         });
 
-        if let Some(edit_state) = self.edit.as_mut() {
-            flow!(edit_state.handle(event, qualifier));
+        if self.focus.get() {
+            if let Some(edit_state) = self.edit.as_mut() {
+                flow!(edit_state.handle(event, qualifier));
 
-            flow!(match event {
-                ct_event!(keycode press Esc) => {
-                    EditOutcome::Cancel
-                }
-                ct_event!(keycode press Enter) | ct_event!(keycode press Up) => {
-                    EditOutcome::Commit
-                }
-                ct_event!(keycode press Down) => {
-                    if self.table.selected() != Some(self.table.rows().saturating_sub(1)) {
-                        EditOutcome::Commit
-                    } else {
-                        EditOutcome::NotUsed
-                    }
-                }
-                _ => EditOutcome::NotUsed,
-            });
-
-            EditOutcome::NotUsed
-        } else {
-            if self.focus.get() {
                 flow!(match event {
-                    ct_event!(keycode press Insert) => {
-                        EditOutcome::Insert
+                    ct_event!(keycode press Esc) => {
+                        EditOutcome::Cancel
                     }
-                    ct_event!(keycode press Delete) => {
-                        EditOutcome::Remove
+                    ct_event!(keycode press Enter) | ct_event!(keycode press Up) => {
+                        EditOutcome::Commit
                     }
-                    ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
-                        EditOutcome::Edit
-                    }
-                    ct_event!(keycode press Down) => 'f: {
-                        if let Some((_column, row)) = self.table.selection.lead_selection() {
-                            if row == self.table.rows().saturating_sub(1) {
-                                break 'f EditOutcome::Append;
-                            }
+                    ct_event!(keycode press Down) => {
+                        if self.table.selected() != Some(self.table.rows().saturating_sub(1)) {
+                            EditOutcome::Commit
+                        } else {
+                            EditOutcome::NotUsed
                         }
-                        EditOutcome::NotUsed
                     }
-                    _ => {
-                        EditOutcome::NotUsed
-                    }
+                    _ => EditOutcome::NotUsed,
                 });
 
-                match self.table.handle(event, FocusKeys) {
-                    Outcome::NotUsed => EditOutcome::NotUsed,
-                    Outcome::Unchanged => EditOutcome::Unchanged,
-                    Outcome::Changed => EditOutcome::Changed,
-                }
+                EditOutcome::NotUsed
             } else {
-                EditOutcome::Unchanged
+                if self.focus.get() {
+                    flow!(match event {
+                        ct_event!(keycode press Insert) => {
+                            EditOutcome::Insert
+                        }
+                        ct_event!(keycode press Delete) => {
+                            EditOutcome::Remove
+                        }
+                        ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
+                            EditOutcome::Edit
+                        }
+                        ct_event!(keycode press Down) => 'f: {
+                            if let Some((_column, row)) = self.table.selection.lead_selection() {
+                                if row == self.table.rows().saturating_sub(1) {
+                                    break 'f EditOutcome::Append;
+                                }
+                            }
+                            EditOutcome::NotUsed
+                        }
+                        _ => {
+                            EditOutcome::NotUsed
+                        }
+                    });
+
+                    match self.table.handle(event, FocusKeys) {
+                        Outcome::NotUsed => EditOutcome::NotUsed,
+                        Outcome::Unchanged => EditOutcome::Unchanged,
+                        Outcome::Changed => EditOutcome::Changed,
+                    }
+                } else {
+                    EditOutcome::Unchanged
+                }
             }
+        } else {
+            EditOutcome::NotUsed
         }
     }
 }
