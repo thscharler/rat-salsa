@@ -113,11 +113,16 @@ impl<'a> Row<'a> {
         T: IntoIterator,
         T::Item: Into<Cell<'a>>,
     {
-        Self {
+        let mut s = Self {
             cells: cells.into_iter().map(|v| v.into()).collect(),
             height: 1,
             ..Default::default()
+        };
+        // content heigth
+        if let Some(height) = s.cells.iter().map(|v| v.content.height()).max() {
+            s.height = height as u16;
         }
+        s
     }
 
     /// Set the data cells for the row.

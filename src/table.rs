@@ -777,7 +777,7 @@ impl<'a, Selection> FTable<'a, Selection> {
 
         // horizontal layout
         let (width, _, _) = self.layout_columns(table_area.width);
-        let horizontal = width >= table_area.width;
+        let horizontal = width > table_area.width;
 
         (horizontal, vertical)
     }
