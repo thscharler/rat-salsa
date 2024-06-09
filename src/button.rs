@@ -14,13 +14,13 @@ use rat_input::event::HandleEvent;
 
 /// Button widget.
 #[derive(Debug, Default, Clone)]
-pub struct Button<'a> {
+pub struct RButton<'a> {
     widget: rat_input::button::Button<'a>,
 }
 
 /// Button state.
 #[derive(Debug, Clone)]
-pub struct ButtonState {
+pub struct RButtonState {
     /// Button state
     pub widget: rat_input::button::ButtonState,
     /// Data for focus handling.
@@ -29,7 +29,7 @@ pub struct ButtonState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> Button<'a> {
+impl<'a> RButton<'a> {
     /// New button.
     pub fn new() -> Self {
         Self::default()
@@ -78,7 +78,7 @@ impl<'a> Button<'a> {
     }
 }
 
-impl<'a> From<&'a str> for Button<'a> {
+impl<'a> From<&'a str> for RButton<'a> {
     fn from(value: &'a str) -> Self {
         Self {
             widget: value.into(),
@@ -86,7 +86,7 @@ impl<'a> From<&'a str> for Button<'a> {
     }
 }
 
-impl<'a> From<String> for Button<'a> {
+impl<'a> From<String> for RButton<'a> {
     fn from(value: String) -> Self {
         Self {
             widget: value.into(),
@@ -94,7 +94,7 @@ impl<'a> From<String> for Button<'a> {
     }
 }
 
-impl<'a> From<Span<'a>> for Button<'a> {
+impl<'a> From<Span<'a>> for RButton<'a> {
     fn from(value: Span<'a>) -> Self {
         Self {
             widget: value.into(),
@@ -102,7 +102,7 @@ impl<'a> From<Span<'a>> for Button<'a> {
     }
 }
 
-impl<'a, const N: usize> From<[Span<'a>; N]> for Button<'a> {
+impl<'a, const N: usize> From<[Span<'a>; N]> for RButton<'a> {
     fn from(value: [Span<'a>; N]) -> Self {
         Self {
             widget: value.into(),
@@ -110,7 +110,7 @@ impl<'a, const N: usize> From<[Span<'a>; N]> for Button<'a> {
     }
 }
 
-impl<'a> From<Vec<Span<'a>>> for Button<'a> {
+impl<'a> From<Vec<Span<'a>>> for RButton<'a> {
     fn from(value: Vec<Span<'a>>) -> Self {
         Self {
             widget: value.into(),
@@ -118,7 +118,7 @@ impl<'a> From<Vec<Span<'a>>> for Button<'a> {
     }
 }
 
-impl<'a> From<Line<'a>> for Button<'a> {
+impl<'a> From<Line<'a>> for RButton<'a> {
     fn from(value: Line<'a>) -> Self {
         Self {
             widget: value.into(),
@@ -126,8 +126,8 @@ impl<'a> From<Line<'a>> for Button<'a> {
     }
 }
 
-impl<'a> StatefulWidget for Button<'a> {
-    type State = ButtonState;
+impl<'a> StatefulWidget for RButton<'a> {
+    type State = RButtonState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -136,7 +136,7 @@ impl<'a> StatefulWidget for Button<'a> {
     }
 }
 
-impl Default for ButtonState {
+impl Default for RButtonState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
@@ -146,7 +146,7 @@ impl Default for ButtonState {
     }
 }
 
-impl HasFocusFlag for ButtonState {
+impl HasFocusFlag for RButtonState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
@@ -158,7 +158,7 @@ impl HasFocusFlag for ButtonState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, ButtonOutcome> for ButtonState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, ButtonOutcome> for RButtonState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> ButtonOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -168,7 +168,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, ButtonOutcome> for ButtonSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for RButtonState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> ButtonOutcome {
         self.widget.handle(event, MouseOnly)
     }

@@ -14,19 +14,19 @@ use ratatui::widgets::Block;
 use ropey::{Rope, RopeSlice};
 
 #[derive(Debug, Default, Clone)]
-pub struct TextArea<'a> {
+pub struct RTextArea<'a> {
     widget: rat_input::textarea::TextArea<'a>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TextAreaState {
+pub struct RTextAreaState {
     pub widget: rat_input::textarea::TextAreaState,
     pub focus: FocusFlag,
 
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> TextArea<'a> {
+impl<'a> RTextArea<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -75,8 +75,8 @@ impl<'a> TextArea<'a> {
     }
 }
 
-impl<'a> StatefulWidget for TextArea<'a> {
-    type State = TextAreaState;
+impl<'a> StatefulWidget for RTextArea<'a> {
+    type State = RTextAreaState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -85,14 +85,14 @@ impl<'a> StatefulWidget for TextArea<'a> {
     }
 }
 
-impl<'a> ScrollingWidget<TextAreaState> for TextArea<'a> {
-    fn need_scroll(&self, area: Rect, state: &mut TextAreaState) -> (bool, bool) {
+impl<'a> ScrollingWidget<RTextAreaState> for RTextArea<'a> {
+    fn need_scroll(&self, area: Rect, state: &mut RTextAreaState) -> (bool, bool) {
         let sy = state.widget.line_len() > area.height as usize;
         (true, sy)
     }
 }
 
-impl Default for TextAreaState {
+impl Default for RTextAreaState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
@@ -102,7 +102,7 @@ impl Default for TextAreaState {
     }
 }
 
-impl HasFocusFlag for TextAreaState {
+impl HasFocusFlag for RTextAreaState {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -112,7 +112,7 @@ impl HasFocusFlag for TextAreaState {
     }
 }
 
-impl TextAreaState {
+impl RTextAreaState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -433,7 +433,7 @@ impl TextAreaState {
     }
 }
 
-impl ScrollingState for TextAreaState {
+impl ScrollingState for RTextAreaState {
     fn vertical_max_offset(&self) -> usize {
         self.widget.vertical_max_offset()
     }
@@ -467,7 +467,7 @@ impl ScrollingState for TextAreaState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextAreaState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for RTextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -477,7 +477,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextAreaSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaState {
+impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for RTextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, ReadOnly)
@@ -487,7 +487,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for RTextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, MouseOnly)

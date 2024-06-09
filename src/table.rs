@@ -24,19 +24,19 @@ pub mod textdata {
 }
 
 #[derive(Debug, Default)]
-pub struct FTable<'a, Selection> {
+pub struct RTable<'a, Selection> {
     widget: rat_ftable::FTable<'a, Selection>,
 }
 
 #[derive(Debug, Clone)]
-pub struct FTableState<Selection> {
+pub struct RTableState<Selection> {
     pub widget: rat_ftable::FTableState<Selection>,
     pub focus: FocusFlag,
 
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, Selection> FTable<'a, Selection> {
+impl<'a, Selection> RTable<'a, Selection> {
     /// New, empty Table.
     pub fn new() -> Self
     where
@@ -48,7 +48,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// Create a new FTable with preformatted data. For compatibility
     /// with ratatui.
     ///
-    /// Use of [FTable::data] is preferred.
+    /// Use of [RTable::data] is preferred.
     pub fn new_ratatui<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
@@ -64,7 +64,7 @@ impl<'a, Selection> FTable<'a, Selection> {
 
     /// Set preformatted row-data. For compatibility with ratatui.
     ///
-    /// Use of [FTable::data] is preferred.
+    /// Use of [RTable::data] is preferred.
     pub fn rows<T>(mut self, rows: T) -> Self
     where
         T: IntoIterator<Item = Row<'a>>,
@@ -320,18 +320,18 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 }
 
-impl<'a, Selection> ScrollingWidget<FTableState<Selection>> for FTable<'a, Selection> {
+impl<'a, Selection> ScrollingWidget<RTableState<Selection>> for RTable<'a, Selection> {
     #[inline]
-    fn need_scroll(&self, area: Rect, _state: &mut FTableState<Selection>) -> (bool, bool) {
+    fn need_scroll(&self, area: Rect, _state: &mut RTableState<Selection>) -> (bool, bool) {
         self.widget.need_scroll(area)
     }
 }
 
-impl<'a, Selection> StatefulWidget for FTable<'a, Selection>
+impl<'a, Selection> StatefulWidget for RTable<'a, Selection>
 where
     Selection: TableSelection,
 {
-    type State = FTableState<Selection>;
+    type State = RTableState<Selection>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -340,7 +340,7 @@ where
     }
 }
 
-impl<Selection: Default> Default for FTableState<Selection> {
+impl<Selection: Default> Default for RTableState<Selection> {
     fn default() -> Self {
         Self {
             widget: rat_ftable::FTableState::default(),
@@ -350,7 +350,7 @@ impl<Selection: Default> Default for FTableState<Selection> {
     }
 }
 
-impl<Selection> FTableState<Selection> {
+impl<Selection> RTableState<Selection> {
     /// Number of rows.
     #[inline]
     pub fn rows(&self) -> usize {
@@ -417,7 +417,7 @@ impl<Selection> FTableState<Selection> {
     }
 }
 
-impl<Selection: TableSelection> FTableState<Selection> {
+impl<Selection: TableSelection> RTableState<Selection> {
     /// Scroll to selected.
     #[inline]
     pub fn scroll_to_selected(&mut self) {
@@ -431,7 +431,7 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 }
 
-impl<Selection: TableSelection> ScrollingState for FTableState<Selection> {
+impl<Selection: TableSelection> ScrollingState for RTableState<Selection> {
     #[inline]
     fn vertical_max_offset(&self) -> usize {
         self.widget.vertical_max_offset()
@@ -503,7 +503,7 @@ impl<Selection: TableSelection> ScrollingState for FTableState<Selection> {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<NoSelection> {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RTableState<NoSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -513,13 +513,13 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<No
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<NoSelection> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RTableState<NoSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         self.widget.handle(event, MouseOnly)
     }
 }
 
-impl FTableState<RowSelection> {
+impl RTableState<RowSelection> {
     /// Scroll selection instead of offset.
     #[inline]
     pub fn set_scroll_selection(&mut self, scroll: bool) {
@@ -577,7 +577,7 @@ impl FTableState<RowSelection> {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSelection> {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RTableState<RowSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -587,13 +587,13 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<RowSelection> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RTableState<RowSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         self.widget.handle(event, MouseOnly)
     }
 }
 
-impl FTableState<RowSetSelection> {
+impl RTableState<RowSetSelection> {
     /// Clear offsets and selection.
     #[inline]
     pub fn clear(&mut self) {
@@ -653,7 +653,7 @@ impl FTableState<RowSetSelection> {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSetSelection> {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RTableState<RowSetSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> Outcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -663,13 +663,13 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<RowSetSelection> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RTableState<RowSetSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> Outcome {
         self.widget.handle(event, MouseOnly)
     }
 }
 
-impl FTableState<CellSelection> {
+impl RTableState<CellSelection> {
     /// Clear offsets and selection.
     #[inline]
     pub fn clear(&mut self) {
@@ -717,7 +717,7 @@ impl FTableState<CellSelection> {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<CellSelection> {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RTableState<CellSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -727,14 +727,14 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<CellSelection> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RTableState<CellSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         self.widget.handle(event, MouseOnly)
     }
 }
 
 impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome>
-    for FTableState<Selection>
+    for RTableState<Selection>
 where
     rat_ftable::FTableState<Selection>:
         HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome>,
@@ -749,7 +749,7 @@ where
 }
 
 impl<Selection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
-    for FTableState<Selection>
+    for RTableState<Selection>
 where
     rat_ftable::FTableState<Selection>: HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
     rat_ftable::FTableState<Selection>: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
@@ -764,7 +764,7 @@ where
     }
 }
 
-impl<Selection> HasFocusFlag for FTableState<Selection> {
+impl<Selection> HasFocusFlag for RTableState<Selection> {
     #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus

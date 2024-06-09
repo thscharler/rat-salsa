@@ -81,13 +81,13 @@ use std::ops::Range;
 
 /// Text input widget with input mask.
 #[derive(Debug, Default, Clone)]
-pub struct MaskedInput<'a> {
+pub struct RMaskedInput<'a> {
     widget: rat_input::masked_input::MaskedInput<'a>,
 }
 
 /// State of the input-mask.
 #[derive(Debug, Clone)]
-pub struct MaskedInputState {
+pub struct RMaskedInputState {
     /// Baseline widget.
     pub widget: rat_input::masked_input::MaskedInputState,
     /// Focus handling
@@ -98,7 +98,7 @@ pub struct MaskedInputState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> MaskedInput<'a> {
+impl<'a> RMaskedInput<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -152,8 +152,8 @@ impl<'a> MaskedInput<'a> {
     }
 }
 
-impl<'a> StatefulWidget for MaskedInput<'a> {
-    type State = MaskedInputState;
+impl<'a> StatefulWidget for RMaskedInput<'a> {
+    type State = RMaskedInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -163,7 +163,7 @@ impl<'a> StatefulWidget for MaskedInput<'a> {
     }
 }
 
-impl Default for MaskedInputState {
+impl Default for RMaskedInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
@@ -174,7 +174,7 @@ impl Default for MaskedInputState {
     }
 }
 
-impl HasFocusFlag for MaskedInputState {
+impl HasFocusFlag for RMaskedInputState {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -184,7 +184,7 @@ impl HasFocusFlag for MaskedInputState {
     }
 }
 
-impl MaskedInputState {
+impl RMaskedInputState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -491,7 +491,7 @@ impl MaskedInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for MaskedInputState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for RMaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
         if self.gained_focus() {
             TextOutcome::NotUsed
@@ -503,7 +503,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for MaskedInpu
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInputState {
+impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for RMaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         if self.gained_focus() {
             TextOutcome::NotUsed
@@ -515,7 +515,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInputState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for RMaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         if self.gained_focus() {
             TextOutcome::NotUsed

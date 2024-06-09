@@ -1,3 +1,15 @@
+# 0.12.2
+
+* Prefix all widgets with 'R' to disambiguate from their rat-input cousins.
+
+* add NumberInput
+* add HasFocus for container widgets.
+
+* fix: screen_cursor() should only return a value if the widget
+  is focused. not correct everywhere.
+* hack: Block event processing for TextInputState and MaskedInputState when gained_focus().
+  This avoids thrashing the selection with the focus-click.
+
 # 0.12.1
 
 * add various functions to FTable

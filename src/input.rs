@@ -8,7 +8,7 @@
 //!
 //!
 //! The visual cursor must be set separately after rendering.
-//! It is accessible as [TextInputState::screen_cursor()] after rendering.
+//! It is accessible as [RTextInputState::screen_cursor()] after rendering.
 //!
 //! For event-handling call one of the HandleEvent implementations.
 //!
@@ -28,12 +28,12 @@ pub use rat_input::input::TextInputStyle;
 
 /// Text input widget.
 #[derive(Debug, Default, Clone)]
-pub struct TextInput<'a> {
+pub struct RTextInput<'a> {
     widget: rat_input::input::TextInput<'a>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TextInputState {
+pub struct RTextInputState {
     pub widget: rat_input::input::TextInputState,
     pub focus: FocusFlag,
     pub invalid: bool,
@@ -41,7 +41,7 @@ pub struct TextInputState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> TextInput<'a> {
+impl<'a> RTextInput<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -89,8 +89,8 @@ impl<'a> TextInput<'a> {
     }
 }
 
-impl<'a> StatefulWidget for TextInput<'a> {
-    type State = TextInputState;
+impl<'a> StatefulWidget for RTextInput<'a> {
+    type State = RTextInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -100,7 +100,7 @@ impl<'a> StatefulWidget for TextInput<'a> {
     }
 }
 
-impl Default for TextInputState {
+impl Default for RTextInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
@@ -111,7 +111,7 @@ impl Default for TextInputState {
     }
 }
 
-impl HasFocusFlag for TextInputState {
+impl HasFocusFlag for RTextInputState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
@@ -123,7 +123,7 @@ impl HasFocusFlag for TextInputState {
     }
 }
 
-impl TextInputState {
+impl RTextInputState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -317,7 +317,7 @@ impl TextInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextInputState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for RTextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
         if self.gained_focus() {
             TextOutcome::NotUsed
@@ -329,7 +329,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextInputS
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputState {
+impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for RTextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         if self.gained_focus() {
             TextOutcome::NotUsed
@@ -341,7 +341,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for RTextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         if self.gained_focus() {
             TextOutcome::NotUsed

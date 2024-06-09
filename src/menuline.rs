@@ -22,7 +22,7 @@ pub use rat_input::menuline::{HotKeyAlt, HotKeyCtrl, MenuOutcome, MenuStyle};
 /// If the text exceeds the area width it wraps around.
 ///
 #[derive(Debug, Default, Clone)]
-pub struct MenuLine<'a> {
+pub struct RMenuLine<'a> {
     widget: rat_input::menuline::MenuLine<'a>,
 }
 
@@ -30,7 +30,7 @@ pub struct MenuLine<'a> {
 /// State for the menu widget
 ///
 #[derive(Debug, Clone)]
-pub struct MenuLineState {
+pub struct RMenuLineState {
     /// State of the inner widget.
     pub widget: rat_input::menuline::MenuLineState,
     /// Focus flag.
@@ -39,7 +39,7 @@ pub struct MenuLineState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> MenuLine<'a> {
+impl<'a> RMenuLine<'a> {
     /// New
     pub fn new() -> Self {
         Default::default()
@@ -96,8 +96,8 @@ impl<'a> MenuLine<'a> {
     }
 }
 
-impl<'a> StatefulWidget for MenuLine<'a> {
-    type State = MenuLineState;
+impl<'a> StatefulWidget for RMenuLine<'a> {
+    type State = RMenuLineState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -106,7 +106,7 @@ impl<'a> StatefulWidget for MenuLine<'a> {
     }
 }
 
-impl Default for MenuLineState {
+impl Default for RMenuLineState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
@@ -117,7 +117,7 @@ impl Default for MenuLineState {
 }
 
 #[allow(clippy::len_without_is_empty)]
-impl MenuLineState {
+impl RMenuLineState {
     /// New
     pub fn new() -> Self {
         Self::default()
@@ -166,7 +166,7 @@ impl MenuLineState {
     }
 }
 
-impl HasFocusFlag for MenuLineState {
+impl HasFocusFlag for RMenuLineState {
     /// Focus flag.
     fn focus(&self) -> &FocusFlag {
         &self.focus
@@ -178,19 +178,19 @@ impl HasFocusFlag for MenuLineState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, HotKeyCtrl, MenuOutcome> for MenuLineState {
+impl HandleEvent<crossterm::event::Event, HotKeyCtrl, MenuOutcome> for RMenuLineState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: HotKeyCtrl) -> MenuOutcome {
         self.widget.handle(event, HotKeyCtrl)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, HotKeyAlt, MenuOutcome> for MenuLineState {
+impl HandleEvent<crossterm::event::Event, HotKeyAlt, MenuOutcome> for RMenuLineState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: HotKeyAlt) -> MenuOutcome {
         self.widget.handle(event, HotKeyAlt)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuLineState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for RMenuLineState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> MenuOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -200,7 +200,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuLineSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for RMenuLineState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> MenuOutcome {
         self.widget.handle(event, MouseOnly)
     }

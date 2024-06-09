@@ -20,7 +20,7 @@ use rat_input::event::{ReadOnly, TextOutcome};
 
 /// Widget for numbers.
 #[derive(Debug, Default, Clone)]
-pub struct NumberInput<'a> {
+pub struct RNumberInput<'a> {
     widget: rat_input::number_input::NumberInput<'a>,
 }
 
@@ -29,7 +29,7 @@ pub struct NumberInput<'a> {
 /// Use `NumberInputState::new(_pattern_)` to set the date pattern.
 ///
 #[derive(Debug, Clone)]
-pub struct NumberInputState {
+pub struct RNumberInputState {
     /// Base line widget.
     pub widget: rat_input::number_input::NumberInputState,
     /// Focus
@@ -40,7 +40,7 @@ pub struct NumberInputState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> NumberInput<'a> {
+impl<'a> RNumberInput<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -94,8 +94,8 @@ impl<'a> NumberInput<'a> {
     }
 }
 
-impl<'a> StatefulWidget for NumberInput<'a> {
-    type State = NumberInputState;
+impl<'a> StatefulWidget for RNumberInput<'a> {
+    type State = RNumberInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -105,7 +105,7 @@ impl<'a> StatefulWidget for NumberInput<'a> {
     }
 }
 
-impl Default for NumberInputState {
+impl Default for RNumberInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
@@ -116,7 +116,7 @@ impl Default for NumberInputState {
     }
 }
 
-impl NumberInputState {
+impl RNumberInputState {
     pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, NumberFmtError> {
         Ok(Self {
             widget: rat_input::number_input::NumberInputState::new(pattern)?,
@@ -200,7 +200,7 @@ impl NumberInputState {
     }
 }
 
-impl HasFocusFlag for NumberInputState {
+impl HasFocusFlag for RNumberInputState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
@@ -212,7 +212,7 @@ impl HasFocusFlag for NumberInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for NumberInputState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for RNumberInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -222,7 +222,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for NumberInpu
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for NumberInputState {
+impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for RNumberInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, ReadOnly)
@@ -232,7 +232,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for NumberInput
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for NumberInputState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for RNumberInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         self.widget.handle(event, MouseOnly)
     }

@@ -26,7 +26,7 @@ pub trait ListSelection {
 }
 
 #[derive(Debug, Default, Clone)]
-pub struct List<'a, Selection> {
+pub struct RList<'a, Selection> {
     block: Option<Block<'a>>,
     items: Vec<ListItem<'a>>,
 
@@ -51,7 +51,7 @@ pub struct ListStyle {
 }
 
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
-pub struct ListState<Selection> {
+pub struct RListState<Selection> {
     /// Length in items.
     pub len: usize,
 
@@ -89,7 +89,7 @@ impl Default for ListStyle {
     }
 }
 
-impl<'a, Selection> List<'a, Selection> {
+impl<'a, Selection> RList<'a, Selection> {
     pub fn new<T>(items: T) -> Self
     where
         T: IntoIterator,
@@ -167,7 +167,7 @@ impl<'a, Selection> List<'a, Selection> {
     }
 }
 
-impl<'a, Item, Selection> FromIterator<Item> for List<'a, Selection>
+impl<'a, Item, Selection> FromIterator<Item> for RList<'a, Selection>
 where
     Item: Into<ListItem<'a>>,
 {
@@ -176,7 +176,7 @@ where
     }
 }
 
-impl<'a, State, Selection: ListSelection> ScrollingWidget<State> for List<'a, Selection> {
+impl<'a, State, Selection: ListSelection> ScrollingWidget<State> for RList<'a, Selection> {
     fn need_scroll(&self, area: Rect, _state: &mut State) -> (bool, bool) {
         let vertical = 'f: {
             let mut height = 0;
@@ -193,8 +193,8 @@ impl<'a, State, Selection: ListSelection> ScrollingWidget<State> for List<'a, Se
     }
 }
 
-impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
-    type State = ListState<Selection>;
+impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
+    type State = RListState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
@@ -261,7 +261,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
     }
 }
 
-impl<Selection> HasFocusFlag for ListState<Selection> {
+impl<Selection> HasFocusFlag for RListState<Selection> {
     #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
@@ -273,7 +273,7 @@ impl<Selection> HasFocusFlag for ListState<Selection> {
     }
 }
 
-impl<Selection> ScrollingState for ListState<Selection> {
+impl<Selection> ScrollingState for RListState<Selection> {
     #[inline]
     fn vertical_max_offset(&self) -> usize {
         self.v_max_offset
@@ -317,7 +317,7 @@ impl<Selection> ScrollingState for ListState<Selection> {
     }
 }
 
-impl<Selection: ListSelection> ListState<Selection> {
+impl<Selection: ListSelection> RListState<Selection> {
     #[inline]
     pub fn with_offset(mut self, offset: usize) -> Self {
         self.v_offset = offset;
@@ -373,7 +373,7 @@ impl<Selection: ListSelection> ListState<Selection> {
     }
 }
 
-impl ListState<RowSelection> {
+impl RListState<RowSelection> {
     #[inline]
     pub fn with_selected(mut self, selected: Option<usize>) -> Self {
         self.selection.lead_row = selected;
@@ -397,7 +397,7 @@ impl ListState<RowSelection> {
     }
 }
 
-impl ListState<RowSetSelection> {
+impl RListState<RowSetSelection> {
     #[inline]
     pub fn selected(&self) -> HashSet<usize> {
         self.selection.selected()
@@ -448,7 +448,7 @@ impl ListState<RowSetSelection> {
 
 pub mod selection {
     use crate::event::{ct_event, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
-    use crate::list::{ListSelection, ListState};
+    use crate::list::{ListSelection, RListState};
     use crossterm::event::KeyModifiers;
     use rat_focus::HasFocusFlag;
     use rat_ftable::TableSelection;
@@ -471,13 +471,13 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListState<NoSelection> {
+    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RListState<NoSelection> {
         fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
             Outcome::NotUsed
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<NoSelection> {
+    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RListState<NoSelection> {
         fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
             Outcome::NotUsed
         }
@@ -498,7 +498,7 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListState<RowSelection> {
+    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RListState<RowSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
             let res = if self.is_focused() {
                 match event {
@@ -555,7 +555,7 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<RowSelection> {
+    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RListState<RowSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
             match event {
                 ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
@@ -631,7 +631,7 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListState<RowSetSelection> {
+    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RListState<RowSetSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> Outcome {
             let res = {
                 match event {
@@ -726,7 +726,7 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<RowSetSelection> {
+    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RListState<RowSetSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> Outcome {
             match event {
                 ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)

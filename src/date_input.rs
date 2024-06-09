@@ -18,7 +18,7 @@ use rat_input::event::{ReadOnly, TextOutcome};
 
 /// Widget for dates.
 #[derive(Debug, Default, Clone)]
-pub struct DateInput<'a> {
+pub struct RDateInput<'a> {
     widget: rat_input::date_input::DateInput<'a>,
 }
 
@@ -27,7 +27,7 @@ pub struct DateInput<'a> {
 /// Use `DateInputState::new(_pattern_)` to set the date pattern.
 ///
 #[derive(Debug, Clone)]
-pub struct DateInputState {
+pub struct RDateInputState {
     /// Base line widget.
     pub widget: rat_input::date_input::DateInputState,
     /// Focus
@@ -38,7 +38,7 @@ pub struct DateInputState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> DateInput<'a> {
+impl<'a> RDateInput<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -92,8 +92,8 @@ impl<'a> DateInput<'a> {
     }
 }
 
-impl<'a> StatefulWidget for DateInput<'a> {
-    type State = DateInputState;
+impl<'a> StatefulWidget for RDateInput<'a> {
+    type State = RDateInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget
@@ -103,7 +103,7 @@ impl<'a> StatefulWidget for DateInput<'a> {
     }
 }
 
-impl Default for DateInputState {
+impl Default for RDateInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
@@ -114,7 +114,7 @@ impl Default for DateInputState {
     }
 }
 
-impl DateInputState {
+impl RDateInputState {
     pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, fmt::Error> {
         Ok(Self {
             widget: rat_input::date_input::DateInputState::new(pattern)?,
@@ -195,7 +195,7 @@ impl DateInputState {
     }
 }
 
-impl HasFocusFlag for DateInputState {
+impl HasFocusFlag for RDateInputState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
@@ -207,7 +207,7 @@ impl HasFocusFlag for DateInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ConvenientKeys, TextOutcome> for DateInputState {
+impl HandleEvent<crossterm::event::Event, ConvenientKeys, TextOutcome> for RDateInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ConvenientKeys) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, ConvenientKeys)
@@ -217,7 +217,7 @@ impl HandleEvent<crossterm::event::Event, ConvenientKeys, TextOutcome> for DateI
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for DateInputState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for RDateInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -227,7 +227,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for DateInputS
     }
 }
 
-impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for DateInputState {
+impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for RDateInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         if self.is_focused() {
             self.widget.handle(event, ReadOnly)
@@ -237,7 +237,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for DateInputSt
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for DateInputState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for RDateInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         self.widget.handle(event, MouseOnly)
     }
