@@ -1,11 +1,11 @@
 #![doc = include_str!("../readme.md")]
 
 mod cellselection;
+mod edit_table;
 mod noselection;
 mod rowselection;
 mod rowsetselection;
 mod table;
-
 pub mod textdata;
 mod util;
 
@@ -79,10 +79,7 @@ pub trait TableData<'a> {
     }
 
     /// Render the cell given by column/row.
-    ///
     /// * ctx - a lot of context data.
-    /// * full_area - area of the cell as defined.
-    /// * area - area of the cell currently visible.
     fn render_cell(
         &self,
         ctx: &FTableContext,
@@ -105,6 +102,8 @@ pub trait TableDataIter<'a> {
     /// If they are not known, all items will be iterated to
     /// calculate things as the length of the table. Which will
     /// be slower if you have many items.
+    ///
+    /// See [FTable::no_row_count]
     fn rows(&self) -> Option<usize>;
 
     /// Header can be obtained from here.
@@ -144,10 +143,7 @@ pub trait TableDataIter<'a> {
     }
 
     /// Render the cell for the current line.
-    ///
     /// * ctx - a lot of context data.
-    /// * full_area - area of the cell as defined.
-    /// * area - area of the cell currently visible.
     fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer);
 }
 
@@ -167,32 +163,54 @@ pub trait TableSelection {
 }
 
 use crate::_private::NonExhaustive;
-pub use table::{FTable, FTableState, FTableStyle};
 
-pub mod selection {
-    //! Different selection models for FTable.
-    pub use crate::cellselection::CellSelection;
-    pub use crate::noselection::NoSelection;
-    pub use crate::rowselection::RowSelection;
-    pub use crate::rowsetselection::RowSetSelection;
+pub use table::{handle_doubleclick_events, handle_edit_events, FTable, FTableState, FTableStyle};
+
+/// Editing support for FTable.
+pub mod edit {
+    pub use crate::edit_table::{handle_edit_events, EditorWidget, FEditTable, FEditTableState};
 }
 
+/// Different selection models for FTable.
+pub mod selection {
+    pub use crate::cellselection::CellSelection;
+    pub mod cellselection {
+        pub use crate::cellselection::{handle_events, handle_mouse_events};
+    }
+    pub use crate::noselection::NoSelection;
+    pub mod noselection {
+        pub use crate::noselection::{handle_events, handle_mouse_events};
+    }
+    pub use crate::rowselection::RowSelection;
+    pub mod rowselection {
+        pub use crate::rowselection::{handle_events, handle_mouse_events};
+    }
+    pub use crate::rowsetselection::RowSetSelection;
+    pub mod rowsetselection {
+        pub use crate::rowsetselection::{handle_events, handle_mouse_events};
+    }
+}
+
+/// Eventhandling.
 pub mod event {
-    //! Rexported eventhandling traits.
     pub use rat_event::{
         crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly,
         Outcome,
     };
 
-    /// Just checks for double-click on the table.
+    /// Event-handler for double-click on the table.
     ///
     /// Events for this event-map must be processed *before* calling
     /// any other event-handling routines for the same table.
     /// Otherwise, the regular event-handling might interfere with
     /// recognition of double-clicks by consuming the first click.
+    ///
+    /// See [handle_doubleclick_events](crate::handle_doubleclick_events),
+    ///     [FTableState as HandleEvent](../struct.FTableState.html#impl-HandleEvent<Event,+DoubleClick,+DoubleClickOutcome>-for-FTableState<Selection>)
     #[derive(Debug, Default)]
     pub struct DoubleClick;
 
+    /// Result type for double-click event-handling.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum DoubleClickOutcome {
         /// The given event has not been used at all.
@@ -228,9 +246,17 @@ pub mod event {
 
     /// Activates editing behaviour in addition to the normal
     /// table event handling.
+    ///
+    /// This is used in a bare-bones version directly for [FTableState](crate::FTableState),
+    /// or the fancy version using [EditFTableState](crate::edit::FEditTableState)
     #[derive(Debug, Default)]
     pub struct EditKeys;
 
+    /// Result of handling EditKeys.
+    ///
+    /// The [FTableState](crate::FTableState) and [EditFTableState](crate::edit::FEditTableState)
+    /// don't actually change your data, but this indicates what action
+    /// is requested.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum EditOutcome {
         /// The given event has not been used at all.
@@ -243,13 +269,22 @@ pub mod event {
         /// Further processing for this event may stop.
         /// Rendering the ui is advised.
         Changed,
-        /// Insert at the selection.
+        /// Cancel an ongoing edit.
+        Cancel,
+        /// Commit the current edit.
+        Commit,
+        /// Commit the edit, append a new line.
+        CommitAndAppend,
+        /// Commit the edit, edit next line.
+        CommitAndEdit,
+        /// Insert an item at the selection.
         Insert,
-        /// Remove the selection.
+        /// Remove the item at the selection.
         Remove,
-        /// Edit the selection.
+        /// Edit the item at the selection.
         Edit,
-        /// Append after last row.
+        /// Append an item after last row.
+        /// Might want to start the edit too.
         Append,
     }
 
@@ -273,6 +308,10 @@ pub mod event {
                 EditOutcome::Remove => Outcome::Unchanged,
                 EditOutcome::Edit => Outcome::Unchanged,
                 EditOutcome::Append => Outcome::Unchanged,
+                EditOutcome::Cancel => Outcome::Unchanged,
+                EditOutcome::Commit => Outcome::Unchanged,
+                EditOutcome::CommitAndAppend => Outcome::Unchanged,
+                EditOutcome::CommitAndEdit => Outcome::Unchanged,
             }
         }
     }

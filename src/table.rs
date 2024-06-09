@@ -1,3 +1,5 @@
+#![allow(clippy::collapsible_if)]
+
 use crate::_private::NonExhaustive;
 use crate::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
@@ -7,13 +9,18 @@ use crate::util::{revert_style, transfer_buffer};
 use crate::{FTableContext, TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
+#[cfg(debug_assertions)]
+use log::warn;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, FocusKeys, HandleEvent, Outcome};
+use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use ratatui::buffer::Buffer;
-// TODO: remove Position
-use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Position, Rect}; // TODO: remove Position
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
+#[cfg(debug_assertions)]
+use ratatui::style::Stylize;
+#[cfg(debug_assertions)]
+use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cell::Cell;
 use std::cmp::{max, min};
@@ -23,19 +30,12 @@ use std::marker::PhantomData;
 use std::mem;
 use std::rc::Rc;
 
-#[cfg(debug_assertions)]
-use log::warn;
-#[cfg(debug_assertions)]
-use ratatui::style::Stylize;
-#[cfg(debug_assertions)]
-use ratatui::text::Text;
-
 /// FTable widget.
 ///
 /// Can be used like a ratatui::Table, but the benefits only
-/// show if you use [FTable::data] to set the table data.
+/// show if you use [FTable::data] or [FTable::iter] to set the table data.
 ///
-/// See [FTable::data] for a sample.
+/// See [FTable::data] and [FTable::iter] for an example.
 #[derive(Debug, Default)]
 pub struct FTable<'a, Selection> {
     data: DataRepr<'a>,
@@ -156,6 +156,7 @@ mod data {
             }
         }
 
+        #[allow(clippy::len_zero)]
         fn next(&mut self) -> bool {
             match self {
                 DataReprIter::None => false,
@@ -418,7 +419,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///
     ///
     /// Caution: If you can't give the number of rows, the table will iterate over all
-    /// the data.
+    /// the data. See [FTable::no_row_count].
     ///
     /// ```rust
     /// use std::iter::{Enumerate};
@@ -658,6 +659,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Add the focus-style to the row-style if the table is focused.
     #[inline]
     pub fn show_row_focus(mut self, show: bool) -> Self {
         self.show_row_focus = show;
@@ -672,6 +674,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Add the focus-style to the column-style if the table is focused.
     #[inline]
     pub fn show_column_focus(mut self, show: bool) -> Self {
         self.show_column_focus = show;
@@ -686,6 +689,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Add the focus-style to the cell-style if the table is focused.
     #[inline]
     pub fn show_cell_focus(mut self, show: bool) -> Self {
         self.show_cell_focus = show;
@@ -700,6 +704,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Add the focus-style to the header-style if the table is focused.
     #[inline]
     pub fn show_header_focus(mut self, show: bool) -> Self {
         self.show_header_focus = show;
@@ -714,6 +719,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Add the footer-style to the table-style if the table is focused.
     #[inline]
     pub fn show_footer_focus(mut self, show: bool) -> Self {
         self.show_footer_focus = show;
@@ -738,6 +744,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Just some utility to help with debugging. Usually does nothing.
     pub fn debug(mut self, debug: bool) -> Self {
         self.debug = debug;
         self
@@ -781,6 +788,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         true
     }
 
+    #[allow(clippy::let_and_return)]
     fn need_scroll_tabledata(&self, data: &dyn TableData<'a>, area: Rect) -> bool {
         let rows = data.rows();
 
@@ -1158,12 +1166,8 @@ where
 
             let mut sum_heights = 0;
             let mut n_rows = 0;
-            loop {
-                if let Some(h) = row_heights.pop() {
-                    sum_heights += h;
-                } else {
-                    break;
-                }
+            while let Some(h) = row_heights.pop() {
+                sum_heights += h;
                 n_rows += 1;
                 if sum_heights >= state.table_area.height {
                     break;
@@ -1200,7 +1204,7 @@ where
                     state.rows, state._counted_rows
                 );
             }
-            if msg.len() > 0 {
+            if !msg.is_empty() {
                 warn!("{}", &msg);
                 Text::from(msg)
                     .white()
@@ -1705,18 +1709,6 @@ impl FTableState<RowSelection> {
         self.clear_selection();
     }
 
-    /// Lock the current selection.
-    #[inline]
-    pub fn lock_selection(&mut self, lock: bool) {
-        self.selection.set_locked(lock);
-    }
-
-    /// Current selection is locked?
-    #[inline]
-    pub fn is_selection_locked(&self) -> bool {
-        self.selection.locked()
-    }
-
     #[inline]
     pub fn clear_selection(&mut self) {
         self.selection.clear();
@@ -1857,6 +1849,7 @@ impl FTableState<CellSelection> {
 impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome>
     for FTableState<Selection>
 {
+    /// Handles double-click events on the table.
     fn handle(
         &mut self,
         event: &crossterm::event::Event,
@@ -1873,6 +1866,14 @@ impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOut
             _ => DoubleClickOutcome::NotUsed,
         }
     }
+}
+
+/// Handle all events for recognizing double-clicks.
+pub fn handle_doubleclick_events<Selection: TableSelection>(
+    state: &mut FTableState<Selection>,
+    event: &crossterm::event::Event,
+) -> DoubleClickOutcome {
+    state.handle(event, DoubleClick)
 }
 
 impl<Selection: TableSelection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
@@ -1903,5 +1904,25 @@ where
                 <Self as HandleEvent<_, FocusKeys, Outcome>>::handle(self, event, FocusKeys).into()
             }
         }
+    }
+}
+
+/// Handle all events.
+/// Text events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_edit_events<Selection: TableSelection>(
+    state: &mut FTableState<Selection>,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> EditOutcome
+where
+    FTableState<Selection>: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
+    FTableState<Selection>: HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
+{
+    if focus {
+        state.handle(event, EditKeys)
+    } else {
+        let r = state.handle(event, MouseOnly);
+        r.into()
     }
 }

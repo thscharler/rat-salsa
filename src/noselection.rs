@@ -99,3 +99,26 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<No
         }
     }
 }
+
+/// Handle all events.
+/// Table events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_events(
+    state: &mut FTableState<NoSelection>,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    if focus {
+        state.handle(event, FocusKeys)
+    } else {
+        state.handle(event, MouseOnly)
+    }
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(
+    state: &mut FTableState<NoSelection>,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    state.handle(event, MouseOnly)
+}

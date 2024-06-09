@@ -232,7 +232,7 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
 
         fn render_cell(
             &self,
-            ctx: &FTableContext,
+            _ctx: &FTableContext,
             column: usize,
             row: usize,
             area: Rect,

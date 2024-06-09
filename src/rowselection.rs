@@ -14,8 +14,6 @@ use std::cmp::min;
 pub struct RowSelection {
     /// Selected row.
     pub lead_row: Option<usize>,
-    /// Lock selection.
-    pub locked: bool,
     /// Scrolls the selection instead of the offset.
     pub scroll_selected: bool,
 }
@@ -47,7 +45,6 @@ impl RowSelection {
     /// Clear the selection. Locked state is removed and
     /// lead_row set to None.
     pub fn clear(&mut self) {
-        self.locked = false;
         self.lead_row = None;
     }
 
@@ -59,16 +56,6 @@ impl RowSelection {
     /// Scroll selection instead of offset.
     pub fn scroll_selected(&self) -> bool {
         self.scroll_selected
-    }
-
-    /// Lock selection. No changes to lead_row will go through.
-    pub fn set_locked(&mut self, lock: bool) {
-        self.locked = lock;
-    }
-
-    /// Is the selection locked in place.
-    pub fn locked(&self) -> bool {
-        self.locked
     }
 
     /// The current selected row.
@@ -84,36 +71,28 @@ impl RowSelection {
     /// Select a row.
     pub fn select(&mut self, select: Option<usize>) -> bool {
         let old_row = self.lead_row;
-        if !self.locked {
-            self.lead_row = select;
-        }
+        self.lead_row = select;
         old_row != self.lead_row
     }
 
     /// Select a row, clamp between 0 and maximum.
     pub fn select_clamped(&mut self, select: usize, maximum: usize) -> bool {
         let old_row = self.lead_row;
-        if !self.locked {
-            self.lead_row = Some(min(select, maximum));
-        }
+        self.lead_row = Some(min(select, maximum));
         old_row != self.lead_row
     }
 
     /// Select the next row, clamp between 0 and maximum.
     pub fn next(&mut self, n: usize, maximum: usize) -> bool {
         let old_row = self.lead_row;
-        if !self.locked {
-            self.lead_row = Some(self.lead_row.map_or(0, |v| min(v + n, maximum)));
-        }
+        self.lead_row = Some(self.lead_row.map_or(0, |v| min(v + n, maximum)));
         old_row != self.lead_row
     }
 
     /// Select the previous row, clamp between 0 and maximum.
     pub fn prev(&mut self, n: usize) -> bool {
         let old_row = self.lead_row;
-        if !self.locked {
-            self.lead_row = Some(self.lead_row.map_or(0, |v| v.saturating_sub(n)));
-        }
+        self.lead_row = Some(self.lead_row.map_or(0, |v| v.saturating_sub(n)));
         old_row != self.lead_row
     }
 }
@@ -254,4 +233,27 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             _ => Outcome::NotUsed,
         }
     }
+}
+
+/// Handle all events.
+/// Table events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_events(
+    state: &mut FTableState<RowSelection>,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    if focus {
+        state.handle(event, FocusKeys)
+    } else {
+        state.handle(event, MouseOnly)
+    }
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(
+    state: &mut FTableState<RowSelection>,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    state.handle(event, MouseOnly)
 }

@@ -264,7 +264,7 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
             }
         }
 
-        fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, _ctx: &FTableContext, _column: usize, area: Rect, buf: &mut Buffer) {
             Span::from(self.item.to_string()).render(area, buf);
         }
     }
