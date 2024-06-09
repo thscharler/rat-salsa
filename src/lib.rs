@@ -140,9 +140,8 @@ impl From<bool> for Outcome {
     }
 }
 
-/// Breaks the control-flow if the result of the block implements
-/// [ConsumedEvent] and [ConsumedEvent::is_consumed] is true for
-/// the result.
+/// Breaks the control-flow if the block returns a value
+/// for with [ConsumedEvent::is_consumed] is true.
 ///
 /// It then does the classic `into()`-conversion and returns.
 ///
@@ -177,9 +176,8 @@ macro_rules! flow {
     }};
 }
 
-/// Breaks the control-flow if the result of the block implements
-/// [ConsumedEvent] and [ConsumedEvent::is_consumed] is true for
-/// the result.
+/// Breaks and Ok-wraps the control-flow if the block
+/// returns a value for with [ConsumedEvent::is_consumed] is true.
 ///
 /// It then does the classic `into()`-conversion and wraps the
 /// result in `Ok()`.
