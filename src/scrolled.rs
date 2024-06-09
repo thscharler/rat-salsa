@@ -10,7 +10,6 @@ use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use crate::view::View;
 use crate::viewport::Viewport;
 use crate::{ScrollingState, ScrollingWidget};
-use crossterm::event::{MouseEvent, MouseEventKind};
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{ct_event, ConsumedEvent};
@@ -688,13 +687,41 @@ impl<WState: ScrollingState> ScrolledState<WState> {
     }
 }
 
+/// A way to call event-handlers for the inner widget.
+///
+/// call the event-handler for DoubleClick on the inner widget.
+/// ```rust ignore
+/// scroll_state.handle(event, Inner(DoubleClick))
+/// ```
+///
+/// or call it on inner directly
+///
+/// ```rust ignore
+/// scroll_state.inner.handle(event, DoubleClick)
+/// ```
+#[derive(Debug)]
+pub struct Inner<Qualifier>(pub Qualifier);
+
+/// Forward event-handling to the inner widget.
+impl<WState, Q, R> HandleEvent<crossterm::event::Event, Inner<Q>, ScrollOutcome<R>>
+    for ScrolledState<WState>
+where
+    WState: ScrollingState + HandleEvent<crossterm::event::Event, Q, R>,
+    R: ConsumedEvent,
+{
+    fn handle(&mut self, event: &crossterm::event::Event, qualifier: Inner<Q>) -> ScrollOutcome<R> {
+        ScrollOutcome::Inner(self.widget.handle(event, qualifier.0))
+    }
+}
+
+/// Handle events or the scrolled widget and forward to the inner widget.
 impl<R, WState> HandleEvent<crossterm::event::Event, FocusKeys, ScrollOutcome<R>>
     for ScrolledState<WState>
 where
     WState: ScrollingState
         + HandleEvent<crossterm::event::Event, FocusKeys, R>
         + HandleEvent<crossterm::event::Event, MouseOnly, R>,
-    R: PartialEq + ConsumedEvent,
+    R: ConsumedEvent,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> ScrollOutcome<R> {
         let r = self.widget.handle(event, FocusKeys);
@@ -711,37 +738,33 @@ impl<R, WState> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<R>
     for ScrolledState<WState>
 where
     WState: ScrollingState + HandleEvent<crossterm::event::Event, MouseOnly, R>,
-    R: PartialEq + ConsumedEvent,
+    R: ConsumedEvent,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> ScrollOutcome<R> {
         let r = match event {
-            crossterm::event::Event::Mouse(MouseEvent {
-                kind:
-                    MouseEventKind::Down(_)
-                    | MouseEventKind::Up(_)
-                    | MouseEventKind::ScrollDown
-                    | MouseEventKind::ScrollUp
-                    | MouseEventKind::ScrollLeft
-                    | MouseEventKind::ScrollRight,
-                column,
-                row,
-                ..
-            }) => {
-                // only forward certain mouse events if they are inside
-                // the view_area. this prevents scrollbar collisions.
+            // these are the events where the scrolled widget might
+            // compete with the widget. these are only forwarded if
+            // inside the view area.
+            ct_event!(mouse down Left for row,column)
+            | ct_event!(scroll down for column, row)
+            | ct_event!(scroll up for column, row)
+            | ct_event!(scroll ALT down for column, row)
+            | ct_event!(scroll ALT up for column, row) => {
                 if self.view_area.contains(Position::new(*column, *row)) {
                     ScrollOutcome::Inner(self.widget.handle(event, MouseOnly))
                 } else {
                     ScrollOutcome::NotUsed
                 }
             }
+            // the rest is simply forwarded
             _ => ScrollOutcome::Inner(self.widget.handle(event, MouseOnly)),
         };
 
         if !r.is_consumed() {
             match event {
+                // Click on one of the scrollbar sets the offset to
+                // the scaled up position.
                 ct_event!(mouse down Left for column,row) => {
-                    // Click in the scrollbar sets the offset to some absolute position.
                     if let Some(vscroll_area) = self.v_scrollbar_area {
                         if vscroll_area.contains(Position::new(*column, *row)) {
                             // correct for the top `^` and bottom `v` arrows.
@@ -776,8 +799,8 @@ where
                         }
                     }
                 }
+                // the same as before with drag events.
                 ct_event!(mouse drag Left for column, row) => {
-                    // dragging around the scroll bar
                     if self.v_drag {
                         if let Some(vscroll_area) = self.v_scrollbar_area {
                             // correct for the top `^` and bottom `v` arrows.
@@ -785,6 +808,7 @@ where
                             let height = vscroll_area.height.saturating_sub(2) as usize;
 
                             let pos = (self.widget.vertical_max_offset() * row) / height;
+
                             if self.set_vertical_offset(pos) {
                                 return ScrollOutcome::Changed;
                             } else {
@@ -833,8 +857,8 @@ where
                         }
                     }
                 }
+                // right scroll with ALT down. shift doesn't work?
                 ct_event!(scroll ALT down for column, row) => {
-                    // right scroll with ALT. shift doesn't work?
                     if self.area.contains(Position::new(*column, *row)) {
                         if self.scroll_right(self.widget.horizontal_scroll()) {
                             return ScrollOutcome::Changed;
@@ -843,8 +867,8 @@ where
                         }
                     }
                 }
+                // left scroll with ALT up. shift doesn't work?
                 ct_event!(scroll ALT up for column, row) => {
-                    // right scroll with ALT. shift doesn't work?
                     if self.area.contains(Position::new(*column, *row)) {
                         if self.widget.scroll_left(self.widget.horizontal_scroll()) {
                             return ScrollOutcome::Changed;

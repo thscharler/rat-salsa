@@ -9,7 +9,8 @@ use ratatui::layout::Rect;
 use std::cmp::{max, min};
 
 pub use scrolled::{
-    HScrollPosition, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle, VScrollPosition,
+    HScrollPosition, Inner, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle,
+    VScrollPosition,
 };
 pub use view::{View, ViewState};
 pub use viewport::{Viewport, ViewportState};
