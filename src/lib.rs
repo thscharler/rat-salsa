@@ -1,3 +1,5 @@
+#![doc = include_str!("../readme.md")]
+
 use crate::event::RepaintEvent;
 use rat_widget::button::ButtonOutcome;
 use rat_widget::event::{
@@ -126,11 +128,13 @@ impl<Action> From<EditOutcome> for Control<Action> {
     }
 }
 
+///
+/// Event-handler traits and Keybindings.
+///
 pub mod event {
-    //!
-    //! Event-handler traits and Keybindings.
-    //!
     use crate::TimeOut;
+
+    pub use rat_widget::event::{ct_event, flow_ok};
 
     /// Gives some extra information why a repaint was triggered.
     #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -140,9 +144,4 @@ pub mod event {
         /// A timer triggered this.
         Timer(TimeOut),
     }
-}
-
-mod _private {
-    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-    pub struct NonExhaustive;
 }

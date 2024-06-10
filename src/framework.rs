@@ -1,4 +1,3 @@
-use crate::_private::NonExhaustive;
 use crate::event::RepaintEvent::{Repaint, Timer};
 use crate::timer::{TimerHandle, Timers};
 use crate::{Control, RepaintEvent, TimeOut, TimerDef, TimerEvent};
@@ -121,8 +120,6 @@ pub struct AppContext<'a, Global, Action, Error> {
     tasks: Tasks<'a, Action, Error>,
     /// Queue foreground tasks.
     queue: &'a ControlQueue<Action, Error>,
-
-    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a, Global, Action, Error> AppContext<'a, Global, Action, Error> {
@@ -139,6 +136,13 @@ impl<'a, Global, Action, Error> AppContext<'a, Global, Action, Error> {
     }
 
     /// Add a background worker task.
+    ///
+    /// ```rust ignore
+    /// let cancel = ctx.spawn(Box::new(|cancel, send| {
+    ///     // ... do stuff
+    ///     Ok(Control::Continue)
+    /// }));
+    /// ```
     #[inline]
     pub fn spawn(&self, task: Task<Action, Error>) -> Result<Cancel, SendError<()>>
     where
@@ -174,8 +178,6 @@ pub struct RenderContext<'a, Global, Action, Error> {
     pub area: Rect,
     /// Output cursor position. Set after rendering is complete.
     pub cursor: Option<(u16, u16)>,
-
-    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a, Global, Action, Error> RenderContext<'a, Global, Action, Error> {
@@ -290,7 +292,6 @@ where
         timers: &timers,
         tasks: Tasks { send: &worker.send },
         queue: &queue,
-        non_exhaustive: NonExhaustive,
     };
 
     let mut sleep = Duration::from_millis(10);
@@ -413,7 +414,6 @@ where
             counter: frame.count(),
             area: frame_area,
             cursor: None,
-            non_exhaustive: NonExhaustive,
         };
 
         res = app.render(&reason, frame_area, frame.buffer_mut(), state, &mut ctx);

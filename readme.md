@@ -145,7 +145,7 @@ AppContext contains
 
 * field `g` for the global state data.
 * add_timer(), remove_timer()
-* spawn() - Runs the closure given and returns an Arc<Mutex<bool>>
+* spawn() - Runs the closure given and returns an `Arc<Mutex<bool>>`
   that is shared with the worker thread to support basic
   cancellation support.
 * queue() - Queues additional results from event-handling.
