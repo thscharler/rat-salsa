@@ -1,3 +1,8 @@
+# 0.21.0
+
+Moved everything from rat-salsa2 back to rat-salsa, now that it is no
+longer in use.
+
 # 0.20.2
 
 * complete refactor:
