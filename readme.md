@@ -95,3 +95,76 @@ as timers, responses from background tasks, input events.
 
 ## Control
 
+The result-type for event-handling:
+
+* Continue - poll the next event.
+* Break - Does nothing for the main loop, but can be used with `flow_ok!`
+  to break early from event-handling.
+* Repaint - Renders the application.
+* Action - Calls into the action handlers.
+* Quit - Quit the application.
+
+The result of an event is processed immediately after the
+function returns, before polling new events. This way an action
+can trigger another action which triggers the repaint without
+other events intervening.
+
+If you ever need to return more than one result from event-handling,
+you can hand it to AppContext/RenderContext::queue(). Events
+in the queue are processed in order, and the return value of
+the event-handler comes last. If an error is returned, everything
+send to the queue will be executed nonetheless.
+
+## AppWidget and AppEvents
+
+AppWidget is styled after StatefulWidget.
+
+Additionaly it gets
+
+* event - RepaintEvent to differentiate a timed repaint from an
+  application driven repaint.
+* ctx - RenderContext
+
+AppEvents packs together the currently supported event-handlers.
+
+* init - called at application startup before the first repaint.
+* timer - application timers
+* crossterm - crossterm events.
+* action - application supplied actions.
+* error - error handling
+
+Each of them get some event and an AppContext.
+
+## AppContext and RenderContext
+
+AppContext and RenderContext are not the same, the latter
+has rendering specific information not available in the
+general case.
+
+AppContext contains
+
+* field `g` for the global state data.
+* add_timer(), remove_timer()
+* spawn() - Runs the closure given and returns an Arc<Mutex<bool>>
+  that is shared with the worker thread to support basic
+  cancellation support.
+* queue() - Queues additional results from event-handling.
+
+        Remark: _The main reason for this is focus-handling.
+                When handling the click to focus a widget, the same
+                click event should interact with the widget. This gives
+                two results from event-handling. The focus change wants
+                a Control::Repaint, and the widget might have its own 
+                ideas. So now you queue() the focus result and go on
+                with event-handling. 
+
+RenderContext has the same as AppContext plus
+
+* frame counter
+* frame area
+* cursor position for displaying the cursor.
+
+## Example
+
+There is no example here, that would be too much.
+The examples directory contains minimal.rs and showcase.rs.
