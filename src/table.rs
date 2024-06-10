@@ -79,6 +79,8 @@ pub struct FTable<'a, Selection> {
 mod data {
     use crate::textdata::TextTableData;
     use crate::{FTableContext, TableData, TableDataIter};
+    #[allow(unused_imports)]
+    use log::debug;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::Style;
@@ -138,8 +140,8 @@ mod data {
                         n < v.rows.len()
                     }
                     Some(w) => {
-                        *row = Some(w + n);
-                        w + n < v.rows.len()
+                        *row = Some(w + n + 1);
+                        w + n + 1 < v.rows.len()
                     }
                 },
                 DataReprIter::IterRef(v, row) => match *row {
@@ -148,8 +150,8 @@ mod data {
                         n < v.rows()
                     }
                     Some(w) => {
-                        *row = Some(w + n);
-                        w + n < v.rows()
+                        *row = Some(w + n + 1);
+                        w + n + 1 < v.rows()
                     }
                 },
                 DataReprIter::IterIter(v) => v.nth(n),
@@ -157,31 +159,9 @@ mod data {
         }
 
         #[allow(clippy::len_zero)]
+        #[inline]
         fn next(&mut self) -> bool {
-            match self {
-                DataReprIter::None => false,
-                DataReprIter::IterText(v, row) => match *row {
-                    None => {
-                        *row = Some(0);
-                        0 < v.rows.len()
-                    }
-                    Some(w) => {
-                        *row = Some(w + 1);
-                        w + 1 < v.rows.len()
-                    }
-                },
-                DataReprIter::IterRef(v, row) => match *row {
-                    None => {
-                        *row = Some(0);
-                        0 < v.rows()
-                    }
-                    Some(w) => {
-                        *row = Some(w + 1);
-                        w + 1 < v.rows()
-                    }
-                },
-                DataReprIter::IterIter(v) => v.next(),
-            }
+            self.nth(0)
         }
 
         /// Row height.
@@ -1124,19 +1104,12 @@ where
                     // leave everything as is and report later.
                 }
 
-                // if the number of rows is less then the render-area,
-                // this should be equal. If not it indicates the next problem.
-                if row_heights.len() < rows {
-                    // if the given number of rows is bigger, we miss out some.
-                    // fill the gap with row-height 1 stabilizes behaviour.
-                    while row_heights.len() < state.table_area.height as usize {
-                        row_heights.push(1);
-                    }
-                }
-
                 state.rows = rows;
                 state._counted_rows = row.map_or(0, |v| v + 1);
             } else if self.no_row_count {
+                // We need to feel out a bit beyond the page, otherwise
+                // we can't really stabilize the row count and the
+                // display starts flickering.
                 if row.is_some() {
                     if data.next() {
                         // try one past page
@@ -1151,9 +1124,10 @@ where
                 state.rows = row.map_or(0, |v| v + 1);
                 state._counted_rows = row.map_or(0, |v| v + 1);
             } else {
+                // Read all the rest to establish the exact row-count.
                 while data.next() {
                     row_heights.push(data.row_height());
-                    // don't need more.
+                    // don't need more info. drop the oldest.
                     if row_heights.len() > state.table_area.height as usize {
                         row_heights.remove(0);
                     }
@@ -1174,7 +1148,12 @@ where
                 }
             }
 
-            state.max_row_offset = state.rows - n_rows;
+            // have we got a page worth of data?
+            if sum_heights < state.table_area.height {
+                state.max_row_offset = 0;
+            } else {
+                state.max_row_offset = state.rows - n_rows;
+            }
         }
         {
             state.max_col_offset = 0;
