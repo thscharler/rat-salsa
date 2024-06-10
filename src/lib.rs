@@ -11,19 +11,11 @@ mod timer;
 pub use framework::{run_tui, AppContext, AppEvents, AppWidget, RenderContext, RunConfig};
 pub use timer::{TimeOut, TimerDef, TimerEvent, TimerHandle};
 
-/// Result type for most event-handling functions.
+/// Result of event-handling.
 ///
-/// This controls the main event loop and the running of the
-/// event-handling functions.
-///
-/// For the event-handling functions there is the [flow!] macro,
-/// that is used to encapsulate calls to further event-handling
-/// functions. It returns early if the result is anything but Continue.
-///
-/// In the event-loop Repaint and Action call out to the corresponding
-/// event-handler functions. Continue and Break both wait for
-/// new incoming events. Quit quits the application.
-///
+/// The macro
+/// [rat-event::flow_ok!](https://docs.rs/rat-event/latest/rat_event/macro.flow_ok.html)
+/// provides control-flow using this enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[must_use]
 pub enum Control<Action> {

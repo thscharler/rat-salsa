@@ -1,4 +1,5 @@
 use crate::_private::NonExhaustive;
+use crate::event::RepaintEvent::{Repaint, Timer};
 use crate::timer::{TimerHandle, Timers};
 use crate::{Control, RepaintEvent, TimeOut, TimerDef, TimerEvent};
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
@@ -21,8 +22,9 @@ use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::io::{stdout, Stdout};
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use std::thread::{sleep, JoinHandle};
+use std::thread::JoinHandle;
 use std::time::Duration;
 use std::{io, mem, thread};
 
@@ -118,7 +120,7 @@ pub struct AppContext<'a, Global, Action, Error> {
     /// Start background tasks.
     tasks: Tasks<'a, Action, Error>,
     /// Queue foreground tasks.
-    queue: &'a Queue<Control<Action>>,
+    queue: &'a ControlQueue<Action, Error>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -149,7 +151,8 @@ impl<'a, Global, Action, Error> AppContext<'a, Global, Action, Error> {
     /// Queue additional results.
     #[inline]
     pub fn queue(&self, ctrl: impl Into<Control<Action>>) {
-        self.queue.queue(ctrl.into())
+        let v: Control<Action> = ctrl.into();
+        self.queue.push(v.into())
     }
 }
 
@@ -163,7 +166,7 @@ pub struct RenderContext<'a, Global, Action, Error> {
     /// Start background tasks.
     tasks: Tasks<'a, Action, Error>,
     /// Queue foreground tasks.
-    queue: &'a Queue<Control<Action>>,
+    queue: &'a ControlQueue<Action, Error>,
 
     /// Frame counter.
     pub counter: usize,
@@ -201,14 +204,9 @@ impl<'a, Global, Action, Error> RenderContext<'a, Global, Action, Error> {
     /// Queue additional results.
     #[inline]
     pub fn queue(&self, ctrl: impl Into<Control<Action>>) {
-        self.queue.queue(ctrl.into())
+        let v: Control<Action> = ctrl.into();
+        self.queue.push(v.into())
     }
-}
-
-enum PollNext {
-    Timers,
-    Workers,
-    Crossterm,
 }
 
 /// Captures some parameters for [run_tui()].
@@ -279,14 +277,13 @@ where
     Action: Send + 'static,
     Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
-    use RepaintEvent::*;
-
     let mut term = Terminal::new(CrosstermBackend::new(stdout()))?;
     term.clear()?;
 
     let timers = Timers::default();
-    let queue = Queue::default();
     let worker = ThreadPool::<Action, Error>::build(cfg.n_threats);
+    let queue = ControlQueue::default();
+    let poll = PollQueue::default();
 
     let mut appctx = AppContext {
         g: global,
@@ -296,10 +293,7 @@ where
         non_exhaustive: NonExhaustive,
     };
 
-    // to not starve any event source everyone is polled and put in this queue.
-    // they are not polled again before the queue is not empty.
-    let mut poll_queue = VecDeque::new();
-    let mut poll_sleep = Duration::from_millis(10);
+    let mut sleep = Duration::from_millis(10);
 
     // init
     state.init(&mut appctx)?;
@@ -307,84 +301,80 @@ where
     // initial repaint.
     _ = repaint_tui(&mut app, Repaint, state, &mut term, &mut appctx)?;
 
-    let mut flow = Ok(Control::Continue);
     let nice = 'ui: loop {
         // panic on worker panic
         if !worker.check_liveness() {
             break 'ui false;
         }
 
-        // queued stuff first
-        if matches!(flow, Ok(Control::Continue)) && poll_queued(&queue) {
-            flow = read_queued(&queue);
-        }
-
-        // poll other events
-        flow = if matches!(flow, Ok(Control::Continue)) {
-            if poll_queue.is_empty() {
+        if queue.is_empty() {
+            if poll.is_empty() {
                 if poll_timers(&timers) {
-                    poll_queue.push_back(PollNext::Timers);
+                    poll.push(Poll::Timers);
                 }
                 if poll_workers(&worker) {
-                    poll_queue.push_back(PollNext::Workers);
+                    poll.push(Poll::Workers);
                 }
                 if poll_crossterm()? {
-                    poll_queue.push_back(PollNext::Crossterm);
+                    poll.push(Poll::Crossterm);
                 }
             }
-
-            if poll_queue.is_empty() {
-                let t = calculate_sleep(&timers, poll_sleep);
-                sleep(t);
-                if poll_sleep < Duration::from_millis(10) {
+            if poll.is_empty() {
+                let t = calculate_sleep(&timers, sleep);
+                thread::sleep(t);
+                if sleep < Duration::from_millis(10) {
                     // Back off slowly.
-                    poll_sleep += Duration::from_micros(100);
+                    sleep += Duration::from_micros(100);
                 }
-                Ok(Control::Continue)
             } else {
-                // short sleep after a series of successfull polls.
-                //
-                // there can be some delay before consecutive events are available to
-                // poll_crossterm().
-                // this happens with windows-terminal, which pastes by sending each char as a
-                // key-event. the normal sleep interval is noticeable in that case. with
-                // the shorter sleep it's still not instantaneous but ok-ish.
-                // For all other cases 10ms seems to work fine.
-                // Note: could make this configurable too.
-                poll_sleep = Duration::from_micros(100);
-
-                match poll_queue.pop_front() {
-                    None => Ok(Control::Continue),
-
-                    Some(PollNext::Timers) => match read_timers(&timers) {
-                        Some(TimerEvent::Repaint(evt)) => {
-                            repaint_tui(&mut app, Timer(evt), state, &mut term, &mut appctx)
-                        }
-                        Some(TimerEvent::Application(evt)) => {
-                            state.timer(&evt, &mut appctx) //
-                        }
-                        None => Ok(Control::Continue),
-                    },
-
-                    Some(PollNext::Workers) => read_workers(&worker),
-
-                    Some(PollNext::Crossterm) => match read_crossterm() {
-                        Ok(event) => state.crossterm(&event, &mut appctx),
-                        Err(e) => Err(e),
-                    },
-                }
+                // Shorter sleep immediately after an event.
+                sleep = Duration::from_micros(100);
             }
-        } else {
-            flow
-        };
+        }
 
-        flow = match flow {
-            Ok(Control::Continue) => Ok(Control::Continue),
-            Ok(Control::Break) => Ok(Control::Continue),
-            Ok(Control::Repaint) => repaint_tui(&mut app, Repaint, state, &mut term, &mut appctx),
-            Ok(Control::Action(mut action)) => state.action(&mut action, &mut appctx),
-            Ok(Control::Quit) => break 'ui true,
-            Err(e) => state.error(e, &mut appctx),
+        if queue.is_empty() {
+            match poll.take() {
+                Some(Poll::Timers) => {
+                    if let Some(t) = read_timers(&timers) {
+                        queue.push(ControlB::Timer(t));
+                    }
+                }
+                Some(Poll::Workers) => queue.push(read_workers(&worker).into()),
+                Some(Poll::Crossterm) => match read_crossterm() {
+                    Ok(event) => queue.push(ControlB::Crossterm(event)),
+                    Err(err) => queue.push(ControlB::Error(err.into())),
+                },
+                None => {}
+            }
+        }
+
+        match queue.take() {
+            None => {}
+            Some(ControlB::Continue) => {}
+            Some(ControlB::Break) => {}
+            Some(ControlB::Repaint) => {
+                queue.push(repaint_tui(&mut app, Repaint, state, &mut term, &mut appctx).into());
+            }
+            Some(ControlB::Action(mut action)) => {
+                queue.push(state.action(&mut action, &mut appctx).into());
+            }
+            Some(ControlB::Quit) => {
+                break 'ui true;
+            }
+            Some(ControlB::Error(err)) => {
+                queue.push(state.error(err, &mut appctx).into());
+            }
+            Some(ControlB::Timer(TimerEvent::Repaint(timeout))) => {
+                queue.push(
+                    repaint_tui(&mut app, Timer(timeout), state, &mut term, &mut appctx).into(),
+                );
+            }
+            Some(ControlB::Timer(TimerEvent::Application(timeout))) => {
+                queue.push(state.timer(&timeout, &mut appctx).into());
+            }
+            Some(ControlB::Crossterm(event)) => {
+                queue.push(state.crossterm(&event, &mut appctx).into());
+            }
         }
     };
 
@@ -404,12 +394,12 @@ fn repaint_tui<App, Global, Action, Error>(
     state: &mut App::State,
     term: &mut Terminal<CrosstermBackend<Stdout>>,
     ctx: &mut AppContext<'_, Global, Action, Error>,
-) -> Result<Control<Action>, Error>
+) -> Result<(), Error>
 where
     App: AppWidget<Global, Action, Error>,
     Error: From<io::Error>,
 {
-    let mut res = Ok(Control::Continue);
+    let mut res = Ok(());
 
     _ = term.hide_cursor();
 
@@ -426,9 +416,7 @@ where
             non_exhaustive: NonExhaustive,
         };
 
-        res = app
-            .render(&reason, frame_area, frame.buffer_mut(), state, &mut ctx)
-            .map(|_| Control::Continue);
+        res = app.render(&reason, frame_area, frame.buffer_mut(), state, &mut ctx);
 
         if let Some((cursor_x, cursor_y)) = ctx.cursor {
             frame.set_cursor(cursor_x, cursor_y);
@@ -436,20 +424,6 @@ where
     })?;
 
     res
-}
-
-fn poll_queued<Action>(queue: &Queue<Control<Action>>) -> bool {
-    !queue.queue.borrow().is_empty()
-}
-
-fn read_queued<Action, Error>(queue: &Queue<Control<Action>>) -> Result<Control<Action>, Error>
-where
-    Error: From<TryRecvError>,
-{
-    match queue.queue.borrow_mut().pop_front() {
-        None => return Err(TryRecvError::Empty.into()),
-        Some(v) => Ok(v),
-    }
 }
 
 fn poll_timers(timers: &Timers) -> bool {
@@ -480,14 +454,8 @@ fn poll_crossterm() -> Result<bool, io::Error> {
     crossterm::event::poll(Duration::from_millis(0))
 }
 
-fn read_crossterm<Error>() -> Result<crossterm::event::Event, Error>
-where
-    Error: From<io::Error>,
-{
-    match crossterm::event::read() {
-        Ok(evt) => Ok(evt),
-        Err(err) => Err(err.into()),
-    }
+fn read_crossterm() -> Result<crossterm::event::Event, io::Error> {
+    crossterm::event::read()
 }
 
 fn calculate_sleep(timers: &Timers, max: Duration) -> Duration {
@@ -498,15 +466,86 @@ fn calculate_sleep(timers: &Timers, max: Duration) -> Duration {
     }
 }
 
-/// Queue for additional event-handling results.
-///
-/// Use [AppContext::queue] to append.
 #[derive(Debug)]
-struct Queue<T> {
-    queue: RefCell<VecDeque<T>>,
+enum Poll {
+    Timers,
+    Workers,
+    Crossterm,
 }
 
-impl<T> Default for Queue<T> {
+/// Queue for storing successful polls.
+#[derive(Debug, Default)]
+struct PollQueue {
+    queue: RefCell<VecDeque<Poll>>,
+}
+
+impl PollQueue {
+    fn is_empty(&self) -> bool {
+        self.queue.borrow().is_empty()
+    }
+
+    fn take(&self) -> Option<Poll> {
+        self.queue.borrow_mut().pop_front()
+    }
+
+    fn push(&self, poll: Poll) {
+        self.queue.borrow_mut().push_back(poll);
+    }
+}
+
+/// Queue for event-handling results.
+#[derive(Debug)]
+struct ControlQueue<Action, Error> {
+    queue: RefCell<VecDeque<ControlB<Action, Error>>>,
+}
+
+#[derive(Debug)]
+enum ControlB<Action, Error> {
+    Continue,
+    Break,
+    Repaint,
+    Action(Action),
+    Quit,
+    Error(Error),
+    Timer(TimerEvent),
+    Crossterm(crossterm::event::Event),
+}
+
+impl<Action, Error> From<Control<Action>> for ControlB<Action, Error> {
+    fn from(value: Control<Action>) -> Self {
+        match value {
+            Control::Continue => ControlB::Continue,
+            Control::Break => ControlB::Break,
+            Control::Repaint => ControlB::Repaint,
+            Control::Action(a) => ControlB::Action(a),
+            Control::Quit => ControlB::Quit,
+        }
+    }
+}
+
+impl<Action, Error> From<Result<(), Error>> for ControlB<Action, Error> {
+    fn from(value: Result<(), Error>) -> Self {
+        match value {
+            Ok(_) => ControlB::Continue,
+            Err(e) => ControlB::Error(e),
+        }
+    }
+}
+
+impl<Action, Error> From<Result<Control<Action>, Error>> for ControlB<Action, Error> {
+    fn from(value: Result<Control<Action>, Error>) -> Self {
+        match value {
+            Ok(Control::Continue) => ControlB::Continue,
+            Ok(Control::Break) => ControlB::Break,
+            Ok(Control::Repaint) => ControlB::Repaint,
+            Ok(Control::Action(a)) => ControlB::Action(a),
+            Ok(Control::Quit) => ControlB::Quit,
+            Err(e) => ControlB::Error(e),
+        }
+    }
+}
+
+impl<Action, Error> Default for ControlQueue<Action, Error> {
     fn default() -> Self {
         Self {
             queue: RefCell::new(VecDeque::default()),
@@ -514,9 +553,16 @@ impl<T> Default for Queue<T> {
     }
 }
 
-impl<T> Queue<T> {
-    /// Enqueue more results from event-handling.
-    fn queue(&self, ctrl: T) {
+impl<Action, Error> ControlQueue<Action, Error> {
+    fn is_empty(&self) -> bool {
+        self.queue.borrow().is_empty()
+    }
+
+    fn take(&self) -> Option<ControlB<Action, Error>> {
+        self.queue.borrow_mut().pop_front()
+    }
+
+    fn push(&self, ctrl: ControlB<Action, Error>) {
         self.queue.borrow_mut().push_back(ctrl);
     }
 }

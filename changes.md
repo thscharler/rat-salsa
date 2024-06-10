@@ -1,3 +1,13 @@
+# 0.21.1
+
+Fixed several future problems with ordering the events in the presence
+of AppContext::queue(). Changed to use a single queue for external events
+and results. External events are only polled again after all internal
+results have been processed. This way there is a well-defined order
+for the internal results and a guarantee that no external interference
+can occur between processing two internal results. Which probably
+would provide food for some headaches.
+
 # 0.21.0
 
 Moved everything from rat-salsa2 back to rat-salsa, now that it is no
