@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["basic","button","calendar","date_input","input","list","mask_input","menuline","message","paragraph","scrolled","table","text_area","tree","viewport"],"struct":["MouseFlags"]};

@@ -11,16 +11,17 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use log::debug;
-use ratatui::backend::CrosstermBackend;
+use ratatui::backend::{Backend, CrosstermBackend};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::Terminal;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::cmp::min;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::io::{stdout, Stdout};
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
+use std::rc::Rc;
 use std::sync::{Arc, Mutex};
 use std::thread::{sleep, JoinHandle};
 use std::time::Duration;
@@ -113,6 +114,9 @@ type Cancel = Arc<Mutex<bool>>;
 pub struct AppContext<'a, Global, Action, Error> {
     /// Some global state for the application.
     pub g: &'a mut Global,
+
+    /// The terminal.
+    term: Rc<RefCell<Terminal<CrosstermBackend<Stdout>>>>,
     /// Application timers.
     timers: &'a Timers,
     /// Start background tasks.
@@ -150,6 +154,12 @@ impl<'a, Global, Action, Error> AppContext<'a, Global, Action, Error> {
     #[inline]
     pub fn queue(&self, ctrl: impl Into<Control<Action>>) {
         self.queue.queue(ctrl.into())
+    }
+
+    /// Access the terminal implementation.
+    #[inline]
+    pub fn terminal(&self) -> RefMut<Terminal<CrosstermBackend<Stdout>>> {
+        self.term.borrow_mut()
     }
 }
 
@@ -282,6 +292,8 @@ where
     Action: Send + 'static,
     Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
+    use RepaintEvent::*;
+
     let mut term = Terminal::new(CrosstermBackend::new(stdout()))?;
     term.clear()?;
 
@@ -291,6 +303,7 @@ where
 
     let mut appctx = AppContext {
         g: global,
+        term: Rc::new(RefCell::new(term)),
         timers: &timers,
         tasks: Tasks { send: &worker.send },
         queue: &queue,
@@ -306,13 +319,7 @@ where
     state.init(&mut appctx)?;
 
     // initial repaint.
-    _ = repaint_tui(
-        &mut app,
-        &mut appctx,
-        &mut term,
-        RepaintEvent::Repaint,
-        state,
-    )?;
+    _ = repaint_tui(&mut app, Repaint, state, &mut appctx)?;
 
     let mut flow = Ok(Control::Continue);
     let nice = 'ui: loop {
@@ -364,14 +371,12 @@ where
                     None => Ok(Control::Continue),
 
                     Some(PollNext::Timers) => match read_timers(&timers) {
-                        Some(TimerEvent::Repaint(evt)) => repaint_tui(
-                            &mut app,
-                            &mut appctx,
-                            &mut term,
-                            RepaintEvent::Timer(evt),
-                            state,
-                        ),
-                        Some(TimerEvent::Application(evt)) => state.timer(&evt, &mut appctx),
+                        Some(TimerEvent::Repaint(evt)) => {
+                            repaint_tui(&mut app, Timer(evt), state, &mut appctx)
+                        }
+                        Some(TimerEvent::Application(evt)) => {
+                            state.timer(&evt, &mut appctx) //
+                        }
                         None => Ok(Control::Continue),
                     },
 
@@ -390,13 +395,7 @@ where
         flow = match flow {
             Ok(Control::Continue) => Ok(Control::Continue),
             Ok(Control::Break) => Ok(Control::Continue),
-            Ok(Control::Repaint) => repaint_tui(
-                &mut app,
-                &mut appctx,
-                &mut term,
-                RepaintEvent::Repaint,
-                state,
-            ),
+            Ok(Control::Repaint) => repaint_tui(&mut app, Repaint, state, &mut appctx),
             Ok(Control::Action(mut action)) => state.action(&mut action, &mut appctx),
             Ok(Control::Quit) => break 'ui true,
             Err(e) => state.error(e, &mut appctx),
@@ -415,16 +414,16 @@ where
 
 fn repaint_tui<App, Global, Action, Error>(
     app: &mut App,
-    ctx: &mut AppContext<'_, Global, Action, Error>,
-    term: &mut Terminal<CrosstermBackend<Stdout>>,
     reason: RepaintEvent,
     state: &mut App::State,
+    ctx: &mut AppContext<'_, Global, Action, Error>,
 ) -> Result<Control<Action>, Error>
 where
     App: AppWidget<Global, Action, Error>,
     Error: From<io::Error>,
 {
     let mut res = Ok(Control::Continue);
+    let mut term = ctx.terminal();
 
     _ = term.hide_cursor();
 

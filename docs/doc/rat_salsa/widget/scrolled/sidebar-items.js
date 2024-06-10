@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["HScrollPosition","ScrollbarPolicy","VScrollPosition"],"struct":["Scrolled","ScrolledState"]};
