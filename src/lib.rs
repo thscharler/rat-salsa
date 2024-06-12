@@ -15,6 +15,8 @@ pub mod textarea;
 
 pub use pure_rust_locales::Locale;
 
+/// Module for focus-handling functionality.
+/// For details see [rat-focus](https://docs.rs/rat-focus)
 pub mod focus {
     pub use rat_focus::{
         match_focus, on_gained, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag,
