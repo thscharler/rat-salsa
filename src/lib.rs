@@ -1,8 +1,34 @@
+//!
+//! Some theming support.
+//!
+//! Splits the theme in two parts:
+//! * Scheme - The underlying color-scheme with enough colors to play
+//!   around.
+//!
+//! * One concrete DarkTheme that takes that scheme and produces Styles
+//!   for widgets. This intentionally doesn't adhere to any trait, just
+//!   provides some baselines for each widget type.
+//!   You can use this as is, or copy it and adapt it for your applications
+//!   needs.
+
 use ratatui::prelude::Color;
 
 pub mod dark_theme;
 pub mod imperial;
+pub mod radium;
 
+/// Color scheme.
+///
+/// This provides the palette used for a theme.
+///
+/// The ideas packed in here are
+/// * provide two colors for highlighting and accents.
+/// * I always want some white, black and gray.
+/// * I don't want to miss out anything, so go once
+///   round the hue in HSV. Take steps of 30° then we
+///   hit pretty much anything interesting.
+/// * Just one variant of each color is not enough, make it 4.
+///
 #[derive(Debug, Default, Clone)]
 pub struct Scheme {
     pub white: [Color; 4],
@@ -70,11 +96,14 @@ impl Scheme {
         ]
     }
 
-    /// Gives back black or white as the text-color for the
-    /// given background color.
+    /// This gives back `white[3]` or `black[0]` for text foreground
+    /// providing good contrast to the given background.
     ///
     /// This converts RGB to grayscale and takes the grayscale value
-    /// of VGA cyan as threshold.
+    /// of VGA cyan as threshold, which is about 105 out of 255.
+    /// This point is a bit arbitrary, just based on what I
+    /// perceive as acceptable. But it produces a good reading
+    /// contrast in my experience.
     ///
     /// For the named colors it takes the VGA equivalent as a base.
     /// For indexed colors it splits the range in half as an estimate.

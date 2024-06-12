@@ -8,8 +8,14 @@ use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::scrolled::ScrolledStyle;
 use rat_widget::table::FTableStyle;
 use ratatui::prelude::Style;
-use ratatui::style::Stylize;
 
+/// One sample theme which prefers dark colors from the color-scheme
+/// and generates styles for widgets.
+///
+/// The widget set fits for the widgets provided by
+/// [rat-widget](https://www.docs.rs/rat-widget), for other needs
+/// take it as an idea for your own implementation.
+///
 #[derive(Debug)]
 pub struct DarkTheme {
     s: Scheme,
@@ -23,54 +29,66 @@ impl DarkTheme {
 }
 
 impl DarkTheme {
+    /// Some display name.
     pub fn name(&self) -> &str {
         &self.name
     }
 
+    /// Hint at dark.
     pub fn dark_theme(&self) -> bool {
         true
     }
 
+    /// The underlying scheme.
     pub fn scheme(&self) -> &Scheme {
         &self.s
     }
 
+    /// Focus style
     pub fn focus(&self) -> Style {
         let bg = self.s.primary[2];
         Style::default().fg(self.s.text_color(bg)).bg(bg)
     }
 
+    /// Selection style
     pub fn select(&self) -> Style {
         let bg = self.s.secondary[1];
         Style::default().fg(self.s.text_color(bg)).bg(bg)
     }
 
+    /// Text field style.
     pub fn text_input(&self) -> Style {
         Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
     }
 
+    /// Focused text field style.
     pub fn text_focus(&self) -> Style {
         let bg = self.s.primary[0];
         Style::default().fg(self.s.text_color(bg)).bg(bg)
     }
 
+    /// Text selection style.
     pub fn text_select(&self) -> Style {
         let bg = self.s.secondary[0];
         Style::default().fg(self.s.text_color(bg)).bg(bg)
     }
 
+    /// Data display style. Used for lists, tables, ...
     pub fn data(&self) -> Style {
         Style::default().fg(self.s.white[0]).bg(self.s.black[1])
     }
 
+    /// Background for dialogs.
     pub fn dialog_style(&self) -> Style {
         Style::default().fg(self.s.white[2]).bg(self.s.gray[1])
     }
 
+    /// Style for the status line.
     pub fn status_style(&self) -> Style {
         Style::default().fg(self.s.white[0]).bg(self.s.black[2])
     }
 
+    /// Complete TextInputStyle
     pub fn input_style(&self) -> TextInputStyle {
         TextInputStyle {
             style: self.text_input(),
@@ -80,6 +98,7 @@ impl DarkTheme {
         }
     }
 
+    /// Complete MaskedInputStyle
     pub fn inputmask_style(&self) -> MaskedInputStyle {
         MaskedInputStyle {
             style: self.text_input(),
@@ -90,6 +109,7 @@ impl DarkTheme {
         }
     }
 
+    /// Complete MenuStyle
     pub fn menu_style(&self) -> MenuStyle {
         let menu = Style::default().fg(self.s.white[3]).bg(self.s.black[2]);
         MenuStyle {
@@ -101,6 +121,7 @@ impl DarkTheme {
         }
     }
 
+    /// Complete FTableStyle
     pub fn table_style(&self) -> FTableStyle {
         FTableStyle {
             style: self.data(),
@@ -111,6 +132,7 @@ impl DarkTheme {
         }
     }
 
+    /// Complete ListStyle
     pub fn list_style(&self) -> ListStyle {
         ListStyle {
             style: self.data(),
@@ -120,6 +142,7 @@ impl DarkTheme {
         }
     }
 
+    /// Complete ButtonStyle
     pub fn button_style(&self) -> ButtonStyle {
         ButtonStyle {
             style: Style::default().fg(self.s.white[0]).bg(self.s.primary[0]),
@@ -129,26 +152,34 @@ impl DarkTheme {
         }
     }
 
+    /// Complete ScrolledStyle
     pub fn scrolled_style(&self) -> ScrolledStyle {
         let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
+        let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
         ScrolledStyle {
             thumb_style: Some(style),
             track_style: Some(style),
-            begin_style: Some(style),
-            end_style: Some(style),
+            begin_style: Some(arrow_style),
+            end_style: Some(arrow_style),
             ..Default::default()
         }
     }
 
+    /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
+    /// This is what I need for the
+    /// [minimal](https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs)
+    /// example, which shows timings for Render/Event/Action.
     pub fn statusline_style(&self) -> Vec<Style> {
+        let s = &self.s;
         vec![
             self.status_style(),
-            Style::default().fg(self.s.white[0]).bg(self.s.blue[3]),
-            Style::default().fg(self.s.white[0]).bg(self.s.blue[2]),
-            Style::default().fg(self.s.white[0]).bg(self.s.blue[1]),
+            Style::default().fg(s.text_color(s.white[0])).bg(s.blue[3]),
+            Style::default().fg(s.text_color(s.white[0])).bg(s.blue[2]),
+            Style::default().fg(s.text_color(s.white[0])).bg(s.blue[1]),
         ]
     }
 
+    /// Complete MsgDialogStyle.
     pub fn msg_dialog_style(&self) -> MsgDialogStyle {
         MsgDialogStyle {
             style: self.status_style(),

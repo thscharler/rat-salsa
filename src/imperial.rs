@@ -1,5 +1,10 @@
 use crate::Scheme;
 
+/// Imperial scheme.
+///
+/// Uses purple and gold for primary/secondary.
+/// Other colors are bright, strong and slightly smudged.
+///
 pub const IMPERIAL: Scheme = Scheme {
     primary: Scheme::linear4(0x300057, 0x8c00fd),
     secondary: Scheme::linear4(0x574b00, 0xffde00),
