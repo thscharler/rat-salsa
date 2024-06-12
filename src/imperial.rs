@@ -1,8 +1,8 @@
 use crate::Scheme;
 
 pub const IMPERIAL: Scheme = Scheme {
-    primary: Scheme::linear4(0x4d008b, 0x8c00fd),
-    secondary: Scheme::linear4(0x8a7800, 0xffde00),
+    primary: Scheme::linear4(0x300057, 0x8c00fd),
+    secondary: Scheme::linear4(0x574b00, 0xffde00),
 
     white: Scheme::linear4(0xdedfe3, 0xf6f6f3),
     black: Scheme::linear4(0x0f1014, 0x2a2b37),

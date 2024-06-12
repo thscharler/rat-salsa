@@ -1,40 +1,9 @@
-use rat_widget::button::ButtonStyle;
-use rat_widget::input::TextInputStyle;
-use rat_widget::list::ListStyle;
-use rat_widget::masked_input::MaskedInputStyle;
-use rat_widget::menuline::MenuStyle;
-use rat_widget::msgdialog::MsgDialogStyle;
-use rat_widget::scrolled::ScrolledStyle;
-use rat_widget::table::FTableStyle;
-use ratatui::prelude::{Color, Style};
+use ratatui::prelude::Color;
 
-pub mod dark;
+pub mod dark_theme;
 pub mod imperial;
 
-pub trait Theme {
-    fn name(&self) -> &str;
-    fn dark_theme(&self) -> bool;
-    fn scheme(&self) -> &Scheme;
-
-    fn focus(&self) -> Color;
-    fn focus_fg(&self) -> Color;
-    fn select(&self) -> Color;
-    fn select_fg(&self) -> Color;
-
-    fn input_style(&self) -> TextInputStyle;
-    fn inputmask_style(&self) -> MaskedInputStyle;
-    fn menu_style(&self) -> MenuStyle;
-    fn table_style(&self) -> FTableStyle;
-    fn list_style(&self) -> ListStyle;
-    fn button_style(&self) -> ButtonStyle;
-    fn scrolled_style(&self) -> ScrolledStyle;
-    fn dialog_style(&self) -> Style;
-    fn status_style(&self) -> Style;
-    fn statusline_style(&self) -> Vec<Style>;
-    fn msg_dialog_style(&self) -> MsgDialogStyle;
-}
-
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct Scheme {
     pub white: [Color; 4],
     pub black: [Color; 4],
