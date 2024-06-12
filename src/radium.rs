@@ -2,7 +2,7 @@ use crate::Scheme;
 
 /// An adaption of nvchad's radium theme.
 ///
-/// -- credits to original radium theme from https://github.com/dharmx
+/// -- credits to original radium theme from <https://github.com/dharmx>
 pub const RADIUM: Scheme = Scheme {
     primary: Scheme::linear4(0x21b07c, 0x37d99e),
     secondary: Scheme::linear4(0x9759b5, 0xb68acb),
