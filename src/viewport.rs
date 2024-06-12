@@ -15,7 +15,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
-use std::mem;
 
 /// View has its own size, and can contain a stateful widget
 /// that will be rendered to a view sized buffer.
@@ -74,64 +73,31 @@ impl<T> Viewport<T> {
     }
 }
 
-// impl<T> StatefulWidgetRef for Viewport<T>
-// where
-//     T: StatefulWidgetRef,
-// {
-//     type State = ViewportState<T::State>;
-//
-//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-//         render_impl(self, area, buf, state, |area, buf, state| {
-//             self.widget.render_ref(area, buf, state);
-//         });
-//     }
-// }
-
 impl<T> StatefulWidget for Viewport<T>
 where
-    T: StatefulWidget + Default,
+    T: StatefulWidget,
 {
     type State = ViewportState<T::State>;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let inner = mem::take(&mut self.widget);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        state.area = area;
+        state.view_area = Rect::new(area.x, area.y, self.view_size.width, self.view_size.height);
 
-        render_impl(&self, area, buf, state, |area, buf, state| {
-            inner.render(area, buf, state);
-        });
+        let mut tmp = Buffer::empty(state.view_area);
+
+        self.widget
+            .render(state.view_area, &mut tmp, &mut state.widget);
+
+        copy_buffer(
+            state.view_area,
+            tmp,
+            state.v_offset,
+            state.h_offset,
+            self.style,
+            area,
+            buf,
+        );
     }
-}
-
-fn render_impl<T, S, FnRender>(
-    widget: &Viewport<T>,
-    area: Rect,
-    buf: &mut Buffer,
-    state: &mut ViewportState<S>,
-    render_inner: FnRender,
-) where
-    FnRender: FnOnce(Rect, &mut Buffer, &mut S),
-{
-    state.area = area;
-    state.view_area = Rect::new(
-        area.x,
-        area.y,
-        widget.view_size.width,
-        widget.view_size.height,
-    );
-
-    let mut tmp = Buffer::empty(state.view_area);
-
-    render_inner(state.view_area, &mut tmp, &mut state.widget);
-
-    copy_buffer(
-        state.view_area,
-        tmp,
-        state.v_offset,
-        state.h_offset,
-        widget.style,
-        area,
-        buf,
-    );
 }
 
 impl<State, T> ScrollingWidget<State> for Viewport<T>
