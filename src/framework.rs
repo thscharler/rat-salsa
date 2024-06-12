@@ -21,7 +21,6 @@ use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::io::{stdout, Stdout};
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::Duration;
