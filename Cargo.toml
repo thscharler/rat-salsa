@@ -56,3 +56,4 @@ rat-widget = { version = "0.12", path = "../rat-widget" }
 fern = "0.6"
 humantime = "2.1"
 anyhow = "1.0"
+rat-theme = { version = "0.1", path = "../rat-theme" }
