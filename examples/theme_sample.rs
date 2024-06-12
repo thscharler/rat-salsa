@@ -7,11 +7,10 @@ use crossterm::event::Event;
 use log::debug;
 use rat_salsa::event::RepaintEvent;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig, TimeOut};
-use rat_theme::dark::DarkTheme;
+use rat_theme::dark_theme::DarkTheme;
 use rat_theme::imperial::IMPERIAL;
-use rat_theme::Theme;
 use rat_widget::event::{ct_event, flow_ok, FocusKeys, HandleEvent};
-use rat_widget::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -28,7 +27,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = MinimalConfig::default();
-    let theme = Box::new(DarkTheme::new("ImperialDark".into(), IMPERIAL));
+    let theme = DarkTheme::new("ImperialDark".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
     let app = MinimalApp;
@@ -51,13 +50,13 @@ fn main() -> Result<(), Error> {
 
 pub struct GlobalState {
     pub cfg: MinimalConfig,
-    pub theme: Box<dyn Theme>,
+    pub theme: DarkTheme,
     pub status: RefCell<StatusLineState>,
     pub error_dlg: RefCell<MsgDialogState>,
 }
 
 impl GlobalState {
-    fn new(cfg: MinimalConfig, theme: Box<dyn Theme>) -> Self {
+    fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
         Self {
             cfg,
             theme,
@@ -222,6 +221,7 @@ impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
 }
 
 mod mask0 {
+    use crate::show_scheme::{ShowScheme, ShowSchemeState};
     use crate::{AppContext, GlobalState, MinimalAction, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
@@ -229,13 +229,15 @@ mod mask0 {
     use log::debug;
     use rat_salsa::event::RepaintEvent;
     use rat_salsa::{AppEvents, AppWidget, Control};
+    use rat_theme::dark_theme::DarkTheme;
+    use rat_theme::imperial::IMPERIAL;
+    use rat_theme::radium::RADIUM;
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
     use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
+    use rat_widget::scrolled::{Scrolled, ScrolledState, ViewportState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::style::Stylize;
-    use ratatui::text::{Line, Span};
-    use ratatui::widgets::{StatefulWidget, Widget};
+    use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
+    use ratatui::widgets::StatefulWidget;
 
     #[derive(Debug)]
     pub(crate) struct Mask0;
@@ -243,12 +245,16 @@ mod mask0 {
     #[derive(Debug)]
     pub struct Mask0State {
         pub menu: RMenuLineState,
+        pub scroll: ScrolledState<ViewportState<ShowSchemeState>>,
+        pub theme: u8,
     }
 
     impl Default for Mask0State {
         fn default() -> Self {
             let s = Self {
                 menu: Default::default(),
+                scroll: Default::default(),
+                theme: 0,
             };
             s.menu.focus.set();
             s
@@ -274,81 +280,10 @@ mod mask0 {
             )
             .split(area);
 
-            let l0 = Layout::new(
-                Direction::Horizontal,
-                [
-                    Constraint::Fill(1),
-                    Constraint::Length(56),
-                    Constraint::Fill(1),
-                ],
-            )
-            .split(r[0]);
-
-            let l1 = Layout::new(
-                Direction::Vertical,
-                [
-                    Constraint::Fill(1),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Length(2),
-                    Constraint::Fill(1),
-                ],
-            )
-            .split(l0[1]);
-
-            let sc = &ctx.g.theme.scheme();
-            for (i, c) in [
-                sc.primary,
-                sc.secondary,
-                sc.white,
-                sc.black,
-                sc.gray,
-                sc.red,
-                sc.orange,
-                sc.yellow,
-                sc.limegreen,
-                sc.green,
-                sc.bluegreen,
-                sc.cyan,
-                sc.blue,
-                sc.deepblue,
-                sc.purple,
-                sc.magenta,
-                sc.redpink,
-            ]
-            .iter()
-            .enumerate()
-            {
-                Line::from(vec![
-                    Span::from("     DARK     ")
-                        .bg(c[0])
-                        .fg(sc.text_color(c[0])),
-                    Span::from("     MID1     ")
-                        .bg(c[1])
-                        .fg(sc.text_color(c[1])),
-                    Span::from("     MID2     ")
-                        .bg(c[2])
-                        .fg(sc.text_color(c[2])),
-                    Span::from("     LITE     ")
-                        .bg(c[3])
-                        .fg(sc.text_color(c[3])),
-                ])
-                .render(l1[i + 1], buf);
-            }
+            Scrolled::new_viewport(ShowScheme::new(ctx.g.theme.scheme()))
+                .styles(ctx.g.theme.scrolled_style())
+                .view_size(Size::new(area.width - 4, 34))
+                .render(r[0], buf, &mut state.scroll);
 
             let menu = RMenuLine::new()
                 .styles(ctx.g.theme.menu_style())
@@ -379,12 +314,13 @@ mod mask0 {
                     Control::Break
                 }
                 MenuOutcome::Activated(1) => {
-                    _ = ctx.spawn(Box::new(|cancel, send| {
-                        Ok(Control::Action(MinimalAction::Message(
-                            "another background task finished ...".into(),
-                        )))
-                    }));
-                    Control::Break
+                    self.theme = (self.theme + 1) % 2;
+                    match self.theme {
+                        0 => ctx.g.theme = DarkTheme::new("ImperialDark".into(), IMPERIAL),
+                        1 => ctx.g.theme = DarkTheme::new("RadiumDark".into(), RADIUM),
+                        _ => {}
+                    }
+                    Control::Repaint
                 }
                 MenuOutcome::Activated(3) => {
                     Control::Quit
@@ -395,7 +331,146 @@ mod mask0 {
                 }
             });
 
+            flow_ok!(self.scroll.handle(event, FocusKeys));
+
             Ok(Control::Continue)
+        }
+    }
+}
+
+// -----------------------------------------------------------------------
+
+mod show_scheme {
+    use rat_theme::Scheme;
+    use rat_widget::event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
+    use rat_widget::focus::{FocusFlag, HasFocusFlag};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::prelude::{Line, Span, StatefulWidget};
+    use ratatui::style::Stylize;
+    use ratatui::widgets::Widget;
+
+    #[derive(Debug)]
+    pub struct ShowScheme<'a> {
+        scheme: &'a Scheme,
+    }
+
+    #[derive(Debug, Default)]
+    pub struct ShowSchemeState {
+        focus: FocusFlag,
+        area: Rect,
+    }
+
+    impl HasFocusFlag for ShowSchemeState {
+        fn focus(&self) -> &FocusFlag {
+            &self.focus
+        }
+
+        fn area(&self) -> Rect {
+            self.area
+        }
+    }
+
+    impl<'a> ShowScheme<'a> {
+        pub fn new(scheme: &'a Scheme) -> Self {
+            Self { scheme }
+        }
+    }
+
+    impl<'a> StatefulWidget for ShowScheme<'a> {
+        type State = ShowSchemeState;
+
+        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+            state.area = area;
+
+            let l0 = Layout::new(
+                Direction::Horizontal,
+                [
+                    Constraint::Fill(1),
+                    Constraint::Length(66),
+                    Constraint::Fill(1),
+                ],
+            )
+            .split(area);
+
+            let l1 = Layout::new(
+                Direction::Vertical,
+                [
+                    Constraint::Fill(1),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Length(2),
+                    Constraint::Fill(1),
+                ],
+            )
+            .split(l0[1]);
+
+            let sc = self.scheme;
+            for (i, (n, c)) in [
+                ("primary", sc.primary),
+                ("secondary", sc.secondary),
+                ("white", sc.white),
+                ("black", sc.black),
+                ("gray", sc.gray),
+                ("red", sc.red),
+                ("orange", sc.orange),
+                ("yellow", sc.yellow),
+                ("limegreen", sc.limegreen),
+                ("green", sc.green),
+                ("bluegreen", sc.bluegreen),
+                ("cyan", sc.cyan),
+                ("blue", sc.blue),
+                ("deepblue", sc.deepblue),
+                ("purple", sc.purple),
+                ("magenta", sc.magenta),
+                ("redpink", sc.redpink),
+            ]
+            .iter()
+            .enumerate()
+            {
+                Line::from(vec![
+                    Span::from(format!("{:10}", n)),
+                    Span::from("     DARK     ")
+                        .bg(c[0])
+                        .fg(sc.text_color(c[0])),
+                    Span::from("     MID1     ")
+                        .bg(c[1])
+                        .fg(sc.text_color(c[1])),
+                    Span::from("     MID2     ")
+                        .bg(c[2])
+                        .fg(sc.text_color(c[2])),
+                    Span::from("     LITE     ")
+                        .bg(c[3])
+                        .fg(sc.text_color(c[3])),
+                ])
+                .render(l1[i + 1], buf);
+            }
+        }
+    }
+
+    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ShowSchemeState {
+        fn handle(&mut self, event: &crossterm::event::Event, qualifier: FocusKeys) -> Outcome {
+            Outcome::NotUsed
+        }
+    }
+
+    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ShowSchemeState {
+        fn handle(&mut self, event: &crossterm::event::Event, qualifier: MouseOnly) -> Outcome {
+            Outcome::NotUsed
         }
     }
 }
