@@ -57,6 +57,19 @@ pub trait HandleEvent<Event, Qualifier, R: ConsumedEvent> {
 /// and the fallback behaviour on the outer layer should not run too.
 pub trait ConsumedEvent {
     fn is_consumed(&self) -> bool;
+
+    /// Or-Else chaining with `is_consumed()` as the split.
+    fn or_else<F>(self, f: F) -> Self
+    where
+        F: FnOnce() -> Self,
+        Self: Sized,
+    {
+        if self.is_consumed() {
+            self
+        } else {
+            f()
+        }
+    }
 }
 
 impl<V, E> ConsumedEvent for Result<V, E>
