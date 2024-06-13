@@ -432,7 +432,7 @@ impl<'a> Focus<'a> {
     /// Sets the focus to the widget with `tag`.
     ///
     /// Sets the focus, gained and lost flags. If this ends up with the same widget as
-    /// before focus, gained and lost flag are all set.
+    /// before focus, gained and lost flag are not set.
     pub fn focus(&self, flag: &FocusFlag) {
         if self.log.get() {
             debug!("focus {:?}", flag);
@@ -591,7 +591,7 @@ impl<'a> Focus<'a> {
         self.core_start_focus_change(false);
         if let Some(f) = self.focus.iter().find(|f| ptr::eq(**f, flag)) {
             f.focus.set(true);
-            f.gained.set(true);
+            f.gained.set(false);
         }
         self.core_accumulate();
     }
@@ -600,7 +600,12 @@ impl<'a> Focus<'a> {
         self.core_start_focus_change(true);
         if let Some(f) = self.focus.iter().find(|f| ptr::eq(**f, flag)) {
             f.focus.set(true);
-            f.gained.set(true);
+            if f.lost.get() {
+                // lost == gained -> noop
+                f.lost.set(false);
+            } else {
+                f.gained.set(true);
+            }
         }
         self.core_accumulate();
     }
@@ -620,7 +625,12 @@ impl<'a> Focus<'a> {
         self.core_start_focus_change(true);
         if let Some(f) = self.focus.get(idx) {
             f.focus.set(true);
-            f.gained.set(true);
+            if f.lost.get() {
+                // lost == gained -> noop
+                f.lost.set(false);
+            } else {
+                f.gained.set(true);
+            }
         }
         self.core_accumulate();
     }
