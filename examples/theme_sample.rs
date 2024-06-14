@@ -282,7 +282,7 @@ mod mask0 {
 
             Scrolled::new_viewport(ShowScheme::new(ctx.g.theme.scheme()))
                 .styles(ctx.g.theme.scrolled_style())
-                .view_size(Size::new(area.width - 4, 34))
+                .view_size(Size::new(area.width - 4, 40))
                 .render(r[0], buf, &mut state.scroll);
 
             let menu = RMenuLine::new()
@@ -419,10 +419,12 @@ mod show_scheme {
             )
             .split(l0[1]);
 
+            "Theme\ncolors".render(l1[0], buf);
+
             let sc = self.scheme;
             for (i, (n, c)) in [
                 ("primary", sc.primary),
-                ("secondary", sc.secondary),
+                ("sec\nondary", sc.secondary),
                 ("white", sc.white),
                 ("black", sc.black),
                 ("gray", sc.gray),
