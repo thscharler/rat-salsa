@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme"
-version = "0.1.0"
+version = "0.10.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -48,5 +48,5 @@ variant_size_differences = "warn"
 ratatui = { version = "0.26", features = ["unstable-rendered-line-info"] }
 crossterm = "0.27"
 log = "0.4"
-#rat-widget = { version = "0.12" }
-rat-widget = { version = "0.12", path = "../rat-widget" }
+rat-widget = { version = "0.12" }
+#rat-widget = { version = "0.12", path = "../rat-widget" }
