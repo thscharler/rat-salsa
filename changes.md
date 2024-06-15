@@ -1,3 +1,9 @@
+# 0.21.2
+
+* refactor: AppWidget::render() removes mut from self parameter.
+  this matches better with ratatui. should be good enough usually.
+* add theme example
+
 # 0.21.1
 
 Fixed several future problems with ordering the events in the presence
