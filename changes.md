@@ -1,3 +1,9 @@
+# 0.10.3
+
+feature: add name for Focus debugging.
+fix: lost&gained shouldn't be set if the focus stays the same. there might
+be an exception for single field focus lists, but I think this should not be covered here.
+
 # 0.10.2
 
 * feature: add HasFocus trait for container widgets.
