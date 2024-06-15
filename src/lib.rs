@@ -1,15 +1,4 @@
-//!
-//! Some theming support.
-//!
-//! Splits the theme in two parts:
-//! * Scheme - The underlying color-scheme with enough colors to play
-//!   around.
-//!
-//! * One concrete DarkTheme that takes that scheme and produces Styles
-//!   for widgets. This intentionally doesn't adhere to any trait, just
-//!   provides some baselines for each widget type.
-//!   You can use this as is, or copy it and adapt it for your applications
-//!   needs.
+#![doc = include_str!("../readme.md")]
 
 use ratatui::prelude::Color;
 
