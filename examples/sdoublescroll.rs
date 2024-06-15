@@ -128,7 +128,7 @@ Total average precipitation in the Craters of the Moon area is between 15–20 i
 }
 
 fn setup_logging() -> Result<(), anyhow::Error> {
-    fs::remove_file("log.log")?;
+    _ = fs::remove_file("log.log");
     fern::Dispatch::new()
         .format(|out, message, _record| out.finish(format_args!("{}\n", message)))
         .level(log::LevelFilter::Debug)

@@ -1,5 +1,6 @@
 #![doc = include_str!("../readme.md")]
 
+mod inner;
 mod scrolled;
 mod util;
 mod view;

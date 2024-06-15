@@ -8,6 +8,7 @@
 ///
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
+use crate::inner::{InnerOwned, InnerRef, InnerWidget};
 use crate::util::copy_buffer;
 use crate::{ScrollingState, ScrollingWidget};
 use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, MouseOnly};
@@ -15,6 +16,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::style::Style;
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 
 /// View has its own size, and can contain a stateless widget
 /// that will be rendered to a view sized buffer.
@@ -24,6 +26,11 @@ use ratatui::style::Style;
 pub struct View<T> {
     /// The widget.
     widget: T,
+    view: ViewImpl,
+}
+
+#[derive(Debug, Default, Clone)]
+struct ViewImpl {
     /// Size of the view. The widget is drawn to a separate buffer
     /// with this size. x and y are set to the rendering area.
     view_size: Size,
@@ -51,22 +58,35 @@ impl<T> View<T> {
     /// New view.
     pub fn new(inner: T) -> Self {
         Self {
-            style: Default::default(),
             widget: inner,
-            view_size: Default::default(),
+            view: Default::default(),
         }
     }
 
     /// Size for the inner widget.
     pub fn view_size(mut self, size: Size) -> Self {
-        self.view_size = size;
+        self.view.view_size = size;
         self
     }
 
     /// Style for the empty space outside the rendered buffer.
     pub fn style(mut self, style: Style) -> Self {
-        self.style = style;
+        self.view.style = style;
         self
+    }
+}
+
+impl<T> StatefulWidgetRef for View<T>
+where
+    T: WidgetRef,
+{
+    type State = ViewState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let inner = InnerRef {
+            inner: &self.widget,
+        };
+        render_ref(&self.view, inner, area, buf, state);
     }
 }
 
@@ -77,23 +97,34 @@ where
     type State = ViewState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-        state.view_area = Rect::new(area.x, area.y, self.view_size.width, self.view_size.height);
-
-        let mut tmp = Buffer::empty(state.view_area);
-
-        self.widget.render(state.view_area, &mut tmp);
-
-        copy_buffer(
-            state.view_area,
-            tmp,
-            state.v_offset,
-            state.h_offset,
-            self.style,
-            area,
-            buf,
-        );
+        let inner = InnerOwned { inner: self.widget };
+        render_ref(&self.view, inner, area, buf, state)
     }
+}
+
+fn render_ref<W>(
+    view: &ViewImpl,
+    inner: impl InnerWidget<W, ()>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut ViewState,
+) {
+    state.area = area;
+    state.view_area = Rect::new(area.x, area.y, view.view_size.width, view.view_size.height);
+
+    let mut tmp = Buffer::empty(state.view_area);
+
+    inner.render_inner(state.view_area, &mut tmp, &mut ());
+
+    copy_buffer(
+        state.view_area,
+        tmp,
+        state.v_offset,
+        state.h_offset,
+        view.style,
+        area,
+        buf,
+    );
 }
 
 impl<State, T> ScrollingWidget<State> for View<T>
@@ -102,8 +133,8 @@ where
 {
     fn need_scroll(&self, area: Rect, _state: &mut State) -> (bool, bool) {
         (
-            area.width < self.view_size.width,
-            area.height < self.view_size.height,
+            area.width < self.view.view_size.width,
+            area.height < self.view.view_size.height,
         )
     }
 }

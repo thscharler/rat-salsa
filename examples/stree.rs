@@ -41,7 +41,7 @@ fn main() {
 // }
 //
 // fn setup_logging() -> Result<(), anyhow::Error> {
-//     fs::remove_file("log.log")?;
+//     _ = fs::remove_file("log.log");
 //     fern::Dispatch::new()
 //         .format(|out, message, record| {
 //             out.finish(format_args!(
