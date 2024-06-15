@@ -1,5 +1,7 @@
-* Impl StatefulWidgetRef and WidgetRef for this.
-* Add keymap Inner(KeyMap) for forwarding events to the inner widget.
+# 0.11.2
+
+* feature: impl StatefulWidgetRef and WidgetRef for this.
+* feature: Add keymap Inner(KeyMap) for forwarding events to the inner widget.
 
 # 0.11.1
 
