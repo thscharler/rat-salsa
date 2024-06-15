@@ -13,7 +13,7 @@ use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
+use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter, TableDataIterClone};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -21,6 +21,7 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::Widget;
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::Span;
+use ratatui::widgets::StatefulWidgetRef;
 use ratatui::{Frame, Terminal};
 use std::fs;
 use std::io::{stdout, Stdout};
@@ -224,12 +225,19 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     ])
     .split(area);
 
+    #[derive(Clone)]
     struct RowIter1<'a> {
         iter: Enumerate<Iter<'a, Sample>>,
         item: Option<(usize, &'a Sample)>,
     }
 
-    impl<'a> TableDataIter<'a> for RowIter1<'a> {
+    impl<'a> TableDataIterClone<'a> for RowIter1<'a> {
+        fn cloned(&self) -> Box<dyn TableDataIterClone<'a> + 'a> {
+            let a = self.clone();
+            let c: Box<dyn TableDataIterClone<'a>> = Box::new(a);
+            c
+        }
+
         fn rows(&self) -> Option<usize> {
             None
         }
@@ -272,13 +280,13 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
         }
     }
 
-    let mut rr = RowIter1 {
+    let rr = RowIter1 {
         iter: data.table_data.iter().enumerate(),
         item: None,
     };
 
     let table1 = FTable::default()
-        .iter(&mut rr)
+        .iter_clone(rr)
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),
@@ -303,7 +311,8 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
         )
         .flex(Flex::End)
         .style(Style::default().bg(Color::Rgb(25, 25, 25)));
-    frame.render_stateful_widget(table1, l0[1], &mut state.table);
+
+    table1.render_ref(l0[1], frame.buffer_mut(), &mut state.table);
 }
 
 fn handle_table(
