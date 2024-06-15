@@ -591,7 +591,9 @@ impl<'a> Focus<'a> {
     }
 
     fn core_clear(&self) {
-        self.accu.map(|v| v.clear());
+        if let Some(v) = self.accu {
+            v.clear()
+        }
         for f in &self.focus {
             f.clear();
         }
@@ -725,15 +727,15 @@ impl<'a> Focus<'a> {
     }
 
     fn core_focused(&self) -> Option<&'a FocusFlag> {
-        self.focus.iter().find(|v| v.get()).map(|v| *v)
+        self.focus.iter().find(|v| v.get()).copied()
     }
 
     fn core_lost_focus(&self) -> Option<&'a FocusFlag> {
-        self.focus.iter().find(|v| v.lost()).map(|v| *v)
+        self.focus.iter().find(|v| v.lost()).copied()
     }
 
     fn core_gained_focus(&self) -> Option<&'a FocusFlag> {
-        self.focus.iter().find(|v| v.gained()).map(|v| *v)
+        self.focus.iter().find(|v| v.gained()).copied()
     }
 }
 
