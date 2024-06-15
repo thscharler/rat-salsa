@@ -1,3 +1,11 @@
+* feature: support StatefulWidgetRef
+    * add cloned() to TableDataIter for support.
+* breaking: change data() and iter() to take an impl Trait instead of
+  &dyn Trait. Aligns better with builders.
+
+* fix horizontal scrollbar
+* fix nth() implementation
+
 # 0.15.4
 
 * adds FEditTable for editing support
