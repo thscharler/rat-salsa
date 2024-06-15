@@ -1,3 +1,8 @@
+# 0.15.5
+
+* breaking: move focus and invalid from the widget to the state.
+  this didn't work for StatefulWidgetRef. Use rat-focus:FocusFlag, but just
+  as a bool for rendering.
 * feature: support StatefulWidgetRef
     * add cloned() to TableDataIter for support.
 * breaking: change data() and iter() to take an impl Trait instead of
