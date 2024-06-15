@@ -255,15 +255,6 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
             }
         }
 
-        fn next(&mut self) -> bool {
-            if let Some(v) = self.iter.next() {
-                self.item = v;
-                true
-            } else {
-                false
-            }
-        }
-
         fn render_cell(&self, _ctx: &FTableContext, _column: usize, area: Rect, buf: &mut Buffer) {
             Span::from(self.item.to_string()).render(area, buf);
         }

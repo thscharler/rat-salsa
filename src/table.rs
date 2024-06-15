@@ -85,7 +85,6 @@ mod data {
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::{Style, Stylize};
-    use std::cell::Cell;
     use std::fmt::{Debug, Formatter};
 
     #[derive(Default)]
@@ -107,15 +106,6 @@ mod data {
             }
         }
 
-        pub(super) fn is_render_ref_compat(&self) -> bool {
-            match self {
-                DataRepr::None => true,
-                DataRepr::Text(_) => true,
-                DataRepr::Data(_) => true,
-                DataRepr::Iter(_) => false,
-            }
-        }
-
         pub(super) fn iter<'b>(&'b self) -> DataReprIter<'a, 'b> {
             match self {
                 DataRepr::None => DataReprIter::None,
@@ -126,7 +116,7 @@ mod data {
                     if let Some(v) = v.cloned() {
                         DataReprIter::IterIter(v)
                     } else {
-                        DataReprIter::Invalid(None, Default::default())
+                        DataReprIter::Invalid(None)
                     }
                 }
             }
@@ -143,24 +133,22 @@ mod data {
     pub(super) enum DataReprIter<'a, 'b> {
         #[default]
         None,
-        Invalid(Option<usize>, Cell<u16>),
+        Invalid(Option<usize>),
         IterText(TextTableData<'a>, Option<usize>),
         IterData(Box<dyn TableData<'a> + 'a>, Option<usize>),
         IterDataRef(&'b dyn TableData<'a>, Option<usize>),
         IterIter(Box<dyn TableDataIter<'a> + 'a>),
-        IterIterRef(&'b mut dyn TableDataIter<'a>),
     }
 
     impl<'a, 'b> TableDataIter<'a> for DataReprIter<'a, 'b> {
         fn rows(&self) -> Option<usize> {
             match self {
                 DataReprIter::None => Some(0),
-                DataReprIter::Invalid(_, _) => Some(1),
+                DataReprIter::Invalid(_) => Some(1),
                 DataReprIter::IterText(v, _) => Some(v.rows.len()),
                 DataReprIter::IterData(v, _) => Some(v.rows()),
                 DataReprIter::IterDataRef(v, _) => Some(v.rows()),
                 DataReprIter::IterIter(v) => v.rows(),
-                DataReprIter::IterIterRef(v) => v.rows(),
             }
         }
 
@@ -178,12 +166,11 @@ mod data {
 
             match self {
                 DataReprIter::None => false,
-                DataReprIter::Invalid(row, _) => incr(row, 1),
+                DataReprIter::Invalid(row) => incr(row, 1),
                 DataReprIter::IterText(v, row) => incr(row, v.rows.len()),
                 DataReprIter::IterData(v, row) => incr(row, v.rows()),
                 DataReprIter::IterDataRef(v, row) => incr(row, v.rows()),
                 DataReprIter::IterIter(v) => v.nth(n),
-                DataReprIter::IterIterRef(v) => v.nth(n),
             }
         }
 
@@ -191,24 +178,22 @@ mod data {
         fn row_height(&self) -> u16 {
             match self {
                 DataReprIter::None => 1,
-                DataReprIter::Invalid(_, _) => 1,
+                DataReprIter::Invalid(_) => 1,
                 DataReprIter::IterText(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterData(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterDataRef(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_height(),
-                DataReprIter::IterIterRef(v) => v.row_height(),
             }
         }
 
         fn row_style(&self) -> Option<Style> {
             match self {
                 DataReprIter::None => None,
-                DataReprIter::Invalid(_, _) => Some(Style::new().white().on_red()),
+                DataReprIter::Invalid(_) => Some(Style::new().white().on_red()),
                 DataReprIter::IterText(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterData(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterDataRef(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_style(),
-                DataReprIter::IterIterRef(v) => v.row_style(),
             }
         }
 
@@ -216,7 +201,7 @@ mod data {
         fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer) {
             match self {
                 DataReprIter::None => {}
-                DataReprIter::Invalid(_, x0) => {
+                DataReprIter::Invalid(_) => {
                     if column == 0 {
                         #[cfg(debug_assertions)]
                         warn!("FTable::render_ref - TableDataIter must implement a valid cloned() for this to work.");
@@ -239,7 +224,6 @@ mod data {
                     v.render_cell(ctx, column, n.expect("row"), area, buf)
                 }
                 DataReprIter::IterIter(v) => v.render_cell(ctx, column, area, buf),
-                DataReprIter::IterIterRef(v) => v.render_cell(ctx, column, area, buf),
             }
         }
     }
