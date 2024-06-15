@@ -96,7 +96,7 @@ impl<'a> RMenuLine<'a> {
 impl<'a> StatefulWidgetRef for RMenuLine<'a> {
     type State = RMenuLineState;
 
-    fn render_ref(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.widget.render_ref(area, buf, &mut state.widget)
     }
 }

@@ -135,9 +135,7 @@ impl<'a> StatefulWidget for RButton<'a> {
     type State = RButtonState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .focused(state.is_focused())
-            .render(area, buf, &mut state.widget)
+        self.widget.render(area, buf, &mut state.widget)
     }
 }
 

@@ -131,7 +131,7 @@ impl<'a, Selection> RTable<'a, Selection> {
     /// table1.render(area, buf, &mut table_state_somewhere_else);
     /// ```
     #[inline]
-    pub fn data(mut self, data: &'a dyn TableData<'a>) -> Self {
+    pub fn data(mut self, data: impl TableData<'a> + 'a) -> Self {
         self.widget = self.widget.data(data);
         self
     }
@@ -143,7 +143,7 @@ impl<'a, Selection> RTable<'a, Selection> {
     /// the data.
     ///
     #[inline]
-    pub fn iter(mut self, data: &'a mut dyn TableDataIter<'a>) -> Self {
+    pub fn iter(mut self, data: impl TableDataIter<'a> + 'a) -> Self {
         self.widget = self.widget.iter(data);
         self
     }
