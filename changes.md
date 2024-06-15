@@ -1,3 +1,6 @@
+* Impl StatefulWidgetRef and WidgetRef for this.
+* Add keymap Inner(KeyMap) for forwarding events to the inner widget.
+
 # 0.11.1
 
 * add ScrolledStyle for setting all styles at once.
