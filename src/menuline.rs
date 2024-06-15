@@ -157,6 +157,7 @@ impl RMenuLineState {
 
     /// Next item.
     #[inline]
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> bool {
         self.widget.next()
     }
