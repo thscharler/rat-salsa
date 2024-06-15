@@ -103,6 +103,9 @@ impl Debug for FocusFlag {
 /// The result `f` indicates whether the focus has changed.
 #[derive(Debug, Default)]
 pub struct Focus<'a> {
+    /// Name for the cycle.
+    name: String,
+    /// Focus logging
     log: Cell<bool>,
     /// Summarizes all the contained FocusFlags.
     /// If any of them has the focus set, this will
@@ -378,6 +381,16 @@ impl<'a> Focus<'a> {
     /// Writes a log for each operation.
     pub fn enable_log(&self, log: bool) {
         self.log.set(log)
+    }
+
+    /// Set a name for debugging.
+    pub fn set_name(&mut self, name: impl Into<String>) {
+        self.name = name.into();
+    }
+
+    /// Name for debugging.
+    pub fn name(&self) -> &str {
+        self.name.as_str()
     }
 
     /// Set the initial state for all widgets.
