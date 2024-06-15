@@ -350,8 +350,8 @@ where
     }
 }
 
-fn render_ref<'a, W, S>(
-    scrolled: &ScrolledImpl<'a>,
+fn render_ref<W, S>(
+    scrolled: &ScrolledImpl<'_>,
     inner: impl InnerWidget<W, S> + ScrollingWidget<S>,
     area: Rect,
     buf: &mut Buffer,
