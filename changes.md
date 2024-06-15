@@ -1,3 +1,9 @@
+# 0.14.4
+
+* feature: add or_else() to ConsumedEvent
+* fix: rename focus-gained and focus-lost to focus_gained and focus_lost.
+  rustfmt formatted those weirdly.
+
 # 0.14.3
 
 * refactor: Rename KeyMap type parameter to `Qualifier`. This parameter
