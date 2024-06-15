@@ -147,6 +147,64 @@ pub trait TableDataIter<'a> {
     fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer);
 }
 
+/// Trait for accessing the table-data by the FTable, when using StatefulWidgetRef.
+///
+/// This is the same as TableDataIter and adds cloned(). This is necessary, as the
+/// iterator cannot rewind and must be cloned for each call to render_ref().
+pub trait TableDataIterClone<'a> {
+    /// StatefulWidgetRef needs a clone of the iterator for every render.
+    fn cloned(&self) -> Box<dyn TableDataIterClone<'a> + 'a>;
+
+    /// Returns the number of rows, if known.
+    ///
+    /// If they are not known, all items will be iterated to
+    /// calculate things as the length of the table. Which will
+    /// be slower if you have many items.
+    ///
+    /// See [FTable::no_row_count]
+    fn rows(&self) -> Option<usize>;
+
+    /// Header can be obtained from here.
+    /// Alternative to setting on FTable.
+    fn header(&self) -> Option<Row<'a>> {
+        None
+    }
+
+    /// Footer can be obtained from here.
+    /// Alternative to setting on FTable.
+    fn footer(&self) -> Option<Row<'a>> {
+        None
+    }
+
+    /// Skips to the nth item, returns true if such an item exists.
+    /// nth(0) == next()
+    fn nth(&mut self, n: usize) -> bool;
+
+    /// Reads the next item, returns true if such an item exists.
+    fn next(&mut self) -> bool {
+        self.nth(0)
+    }
+
+    /// Row height for the current item.
+    fn row_height(&self) -> u16 {
+        1
+    }
+
+    /// Row style for the current line.
+    fn row_style(&self) -> Option<Style> {
+        None
+    }
+
+    /// Column constraints.
+    fn widths(&self) -> Vec<Constraint> {
+        Vec::default()
+    }
+
+    /// Render the cell for the current line.
+    /// * ctx - a lot of context data.
+    fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer);
+}
+
 /// Trait for the different selection models used by FTable.
 pub trait TableSelection {
     /// Row is selected. This can be separate from `is_selected_cell`.

@@ -6,7 +6,7 @@ use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::util::{revert_style, transfer_buffer};
-use crate::{FTableContext, TableData, TableDataIter, TableSelection};
+use crate::{FTableContext, TableData, TableDataIter, TableDataIterClone, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
 #[cfg(debug_assertions)]
@@ -21,7 +21,7 @@ use ratatui::style::Style;
 use ratatui::style::Stylize;
 #[cfg(debug_assertions)]
 use ratatui::text::Text;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget};
 use std::cell::Cell;
 use std::cmp::{max, min};
 use std::collections::HashSet;
@@ -78,9 +78,10 @@ pub struct FTable<'a, Selection> {
 
 mod data {
     use crate::textdata::TextTableData;
-    use crate::{FTableContext, TableData, TableDataIter};
+    use crate::{FTableContext, TableData, TableDataIter, TableDataIterClone};
     #[allow(unused_imports)]
     use log::debug;
+    use log::warn;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::Style;
@@ -93,15 +94,31 @@ mod data {
         Text(TextTableData<'a>),
         Data(&'a dyn TableData<'a>),
         Iter(&'a mut dyn TableDataIter<'a>),
+        Clone(Box<dyn TableDataIterClone<'a> + 'a>),
     }
 
     impl<'a> DataRepr<'a> {
-        pub(super) fn iter(self) -> DataReprIter<'a> {
+        pub(super) fn into_iter<'b>(self) -> DataReprIter<'a, 'a> {
             match self {
                 DataRepr::None => DataReprIter::None,
                 DataRepr::Text(v) => DataReprIter::IterText(v, None),
                 DataRepr::Data(v) => DataReprIter::IterData(v, None),
                 DataRepr::Iter(v) => DataReprIter::IterIter(v),
+                DataRepr::Clone(v) => DataReprIter::IterClone(v),
+            }
+        }
+
+        pub(super) fn iter<'b>(&'b self) -> DataReprIter<'a, 'b> {
+            match self {
+                DataRepr::None => DataReprIter::None,
+                DataRepr::Text(v) => DataReprIter::IterData(v, None),
+                DataRepr::Data(v) => DataReprIter::IterData(*v, None),
+                DataRepr::Iter(v) => {
+                    #[cfg(debug_assertions)]
+                    warn!("FTable::render_ref - TableDataIter doesn't work with render_ref. Use TableDateIterClone instead.");
+                    DataReprIter::None
+                }
+                DataRepr::Clone(v) => DataReprIter::IterClone(v.cloned()),
             }
         }
     }
@@ -113,21 +130,24 @@ mod data {
     }
 
     #[derive(Default)]
-    pub(super) enum DataReprIter<'a> {
+    pub(super) enum DataReprIter<'a, 'b> {
         #[default]
         None,
         IterText(TextTableData<'a>, Option<usize>),
-        IterData(&'a dyn TableData<'a>, Option<usize>),
-        IterIter(&'a mut dyn TableDataIter<'a>),
+        IterData(&'b dyn TableData<'a>, Option<usize>),
+        IterIter(&'b mut dyn TableDataIter<'a>),
+
+        IterClone(Box<dyn TableDataIterClone<'a> + 'a>),
     }
 
-    impl<'a> TableDataIter<'a> for DataReprIter<'a> {
+    impl<'a, 'b> TableDataIter<'a> for DataReprIter<'a, 'b> {
         fn rows(&self) -> Option<usize> {
             match self {
                 DataReprIter::None => Some(0),
                 DataReprIter::IterText(v, _) => Some(v.rows.len()),
                 DataReprIter::IterData(v, _) => Some(v.rows()),
                 DataReprIter::IterIter(v) => v.rows(),
+                DataReprIter::IterClone(v) => v.rows(),
             }
         }
 
@@ -155,6 +175,7 @@ mod data {
                     }
                 },
                 DataReprIter::IterIter(v) => v.nth(n),
+                DataReprIter::IterClone(v) => v.nth(n),
             }
         }
 
@@ -171,6 +192,7 @@ mod data {
                 DataReprIter::IterText(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterData(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_height(),
+                DataReprIter::IterClone(v) => v.row_height(),
             }
         }
 
@@ -180,6 +202,7 @@ mod data {
                 DataReprIter::IterText(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterData(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_style(),
+                DataReprIter::IterClone(v) => v.row_style(),
             }
         }
 
@@ -194,6 +217,7 @@ mod data {
                     v.render_cell(ctx, column, n.expect("row"), area, buf)
                 }
                 DataReprIter::IterIter(v) => v.render_cell(ctx, column, area, buf),
+                DataReprIter::IterClone(v) => v.render_cell(ctx, column, area, buf),
             }
         }
     }
@@ -501,14 +525,27 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///
     #[inline]
     pub fn iter(mut self, data: &'a mut dyn TableDataIter<'a>) -> Self {
+        #[cfg(debug_assertions)]
         if data.rows().is_none() {
-            #[cfg(debug_assertions)]
             warn!("FTable::iter - rows is None, this will be slower");
         }
         self.header = data.header();
         self.footer = data.footer();
         self.widths = data.widths();
         self.data = DataRepr::Iter(data);
+        self
+    }
+
+    #[inline]
+    pub fn iter_clone(mut self, data: impl TableDataIterClone<'a> + 'a) -> Self {
+        #[cfg(debug_assertions)]
+        if data.rows().is_none() {
+            warn!("FTable::iter_clone - rows is None, this will be slower");
+        }
+        self.header = data.header();
+        self.footer = data.footer();
+        self.widths = data.widths();
+        self.data = DataRepr::Clone(Box::new(data));
         self
     }
 
@@ -747,6 +784,7 @@ impl<'a, Selection> FTable<'a, Selection> {
             DataRepr::Text(v) => self.need_scroll_tabledata(v, area),
             DataRepr::Data(v) => self.need_scroll_tabledata(*v, area),
             DataRepr::Iter(v) => self.need_scroll_tableiter(*v, area),
+            DataRepr::Clone(v) => self.need_scroll_tableiter_clone(v.as_ref(), area),
         };
 
         // Hack to get some spacing between the last column and
@@ -763,6 +801,12 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 
     fn need_scroll_tableiter(&self, _data: &dyn TableDataIter<'a>, _area: Rect) -> bool {
+        // can't iterate data here, have to guess.
+        // the guess is `true`.
+        true
+    }
+
+    fn need_scroll_tableiter_clone(&self, _data: &dyn TableDataIterClone<'a>, _area: Rect) -> bool {
         // can't iterate data here, have to guess.
         // the guess is `true`.
         true
@@ -843,6 +887,18 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 }
 
+impl<'a, Selection> StatefulWidgetRef for FTable<'a, Selection>
+where
+    Selection: TableSelection,
+{
+    type State = FTableState<Selection>;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let iter = self.data.iter();
+        self.render_iter(iter, area, buf, state);
+    }
+}
+
 impl<'a, Selection> StatefulWidget for FTable<'a, Selection>
 where
     Selection: TableSelection,
@@ -850,7 +906,7 @@ where
     type State = FTableState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let iter = mem::take(&mut self.data).iter();
+        let iter = mem::take(&mut self.data).into_iter();
         self.render_iter(iter, area, buf, state);
     }
 }
@@ -863,9 +919,9 @@ where
     ///
     /// rows: If the row number is known, this can help.
     ///
-    fn render_iter(
-        self,
-        mut data: DataReprIter<'a>,
+    fn render_iter<'b>(
+        &self,
+        mut data: DataReprIter<'a, 'b>,
         area: Rect,
         buf: &mut Buffer,
         state: &mut FTableState<Selection>,
