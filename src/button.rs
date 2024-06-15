@@ -6,7 +6,7 @@ use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Line, Span, StatefulWidget, Style, Text};
-use ratatui::widgets::Block;
+use ratatui::widgets::{Block, StatefulWidgetRef};
 
 use crate::event::{FocusKeys, MouseOnly};
 pub use rat_input::button::{ButtonOutcome, ButtonStyle};
@@ -23,9 +23,6 @@ pub struct RButton<'a> {
 pub struct RButtonState {
     /// Button state
     pub widget: rat_input::button::ButtonState,
-    /// Data for focus handling.
-    pub focus: FocusFlag,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -126,6 +123,14 @@ impl<'a> From<Line<'a>> for RButton<'a> {
     }
 }
 
+impl<'a> StatefulWidgetRef for RButton<'a> {
+    type State = RButtonState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.widget.render_ref(area, buf, &mut state.widget);
+    }
+}
+
 impl<'a> StatefulWidget for RButton<'a> {
     type State = RButtonState;
 
@@ -140,7 +145,6 @@ impl Default for RButtonState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -149,7 +153,7 @@ impl Default for RButtonState {
 impl HasFocusFlag for RButtonState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.focus
     }
 
     #[inline]

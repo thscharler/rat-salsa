@@ -6,7 +6,7 @@
 
 use crate::event::EditOutcome;
 use crossterm::event::Event;
-use rat_focus::{Focus, FocusFlag, HasFocus};
+use rat_focus::{Focus, HasFocus};
 use rat_ftable::event::util::MouseFlags;
 use rat_ftable::event::{ct_event, flow, FocusKeys, HandleEvent, Outcome};
 use rat_ftable::selection::RowSelection;
@@ -14,6 +14,7 @@ use rat_ftable::TableSelection;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
+use ratatui::widgets::StatefulWidgetRef;
 
 pub use rat_ftable::edit::EditorWidget;
 pub use rat_ftable::{FTable, FTableState};
@@ -33,8 +34,6 @@ pub struct REditTable<'a, Editor: 'a> {
 /// If the edit-state is set, this widget switches to edit-mode.
 #[derive(Debug, Default)]
 pub struct REditTableState<EditorState> {
-    pub focus: FocusFlag,
-
     /// Backing table.
     pub table: FTableState<RowSelection>,
     /// Editor state.
@@ -52,6 +51,17 @@ where
     }
 }
 
+impl<'a, Editor> StatefulWidgetRef for REditTable<'a, Editor>
+where
+    Editor: EditorWidget + 'a,
+{
+    type State = REditTableState<Editor::State>;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_ref(self, area, buf, state);
+    }
+}
+
 impl<'a, Editor> StatefulWidget for REditTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
@@ -59,17 +69,28 @@ where
     type State = REditTableState<Editor::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.table
-            .focus(state.focus.get())
-            .render(area, buf, &mut state.table);
+        render_ref(&self, area, buf, state);
+    }
+}
 
-        if let Some(edit_state) = &mut state.edit {
-            // expect a selected row
-            if let Some(row) = state.table.selected() {
-                // but it might be out of view
-                if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
-                    self.edit.render(row_area, &cell_areas, buf, edit_state);
-                }
+fn render_ref<'a, Editor>(
+    widget: &REditTable<'a, Editor>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut REditTableState<Editor::State>,
+) where
+    Editor: EditorWidget + 'a,
+{
+    widget.table.render_ref(area, buf, &mut state.table);
+
+    if let Some(edit_state) = &mut state.edit {
+        // expect a selected row
+        if let Some(row) = state.table.selected() {
+            // but it might be out of view
+            if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
+                widget
+                    .edit
+                    .render_ref(row_area, &cell_areas, buf, edit_state);
             }
         }
     }
@@ -84,7 +105,7 @@ where
         if let Some(edit_state) = self.edit.as_ref() {
             f.add_container(edit_state);
         } else {
-            f.add_flag(&self.focus, self.table.area);
+            f.add_flag(&self.table.focus, self.table.area);
         }
         f
     }
@@ -110,7 +131,7 @@ where
             _ => EditOutcome::NotUsed,
         });
 
-        if self.focus.get() {
+        if self.table.focus.get() {
             if let Some(edit_state) = self.edit.as_mut() {
                 flow!(edit_state.handle(event, qualifier));
 
@@ -133,7 +154,7 @@ where
 
                 EditOutcome::NotUsed
             } else {
-                if self.focus.get() {
+                if self.table.focus.get() {
                     flow!(match event {
                         ct_event!(keycode press Insert) => {
                             EditOutcome::Insert

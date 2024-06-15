@@ -10,7 +10,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
-use ratatui::widgets::Block;
+use ratatui::widgets::{Block, StatefulWidgetRef};
 use ropey::{Rope, RopeSlice};
 
 #[derive(Debug, Default, Clone)]
@@ -21,8 +21,6 @@ pub struct RTextArea<'a> {
 #[derive(Debug, Clone)]
 pub struct RTextAreaState {
     pub widget: rat_input::textarea::TextAreaState,
-    pub focus: FocusFlag,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -75,13 +73,19 @@ impl<'a> RTextArea<'a> {
     }
 }
 
+impl<'a> StatefulWidgetRef for RTextArea<'a> {
+    type State = RTextAreaState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.widget.render_ref(area, buf, &mut state.widget)
+    }
+}
+
 impl<'a> StatefulWidget for RTextArea<'a> {
     type State = RTextAreaState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .focused(state.is_focused())
-            .render(area, buf, &mut state.widget)
+        self.widget.render(area, buf, &mut state.widget)
     }
 }
 
@@ -96,7 +100,6 @@ impl Default for RTextAreaState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -104,7 +107,7 @@ impl Default for RTextAreaState {
 
 impl HasFocusFlag for RTextAreaState {
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.focus
     }
 
     fn area(&self) -> Rect {

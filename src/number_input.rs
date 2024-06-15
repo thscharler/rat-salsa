@@ -10,7 +10,7 @@ use rat_input::masked_input::MaskedInputStyle;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Style;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
 use std::fmt::{Debug, Display, LowerExp};
 use std::ops::Range;
 use std::str::FromStr;
@@ -33,11 +33,6 @@ pub struct RNumberInput<'a> {
 pub struct RNumberInputState {
     /// Base line widget.
     pub widget: rat_input::number_input::NumberInputState,
-    /// Focus
-    pub focus: FocusFlag,
-    /// Valid flag
-    pub invalid: bool,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -95,14 +90,19 @@ impl<'a> RNumberInput<'a> {
     }
 }
 
+impl<'a> StatefulWidgetRef for RNumberInput<'a> {
+    type State = RNumberInputState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.widget.render_ref(area, buf, &mut state.widget);
+    }
+}
+
 impl<'a> StatefulWidget for RNumberInput<'a> {
     type State = RNumberInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .focused(state.is_focused())
-            .invalid(state.invalid)
-            .render(area, buf, &mut state.widget)
+        self.widget.render(area, buf, &mut state.widget)
     }
 }
 
@@ -110,8 +110,6 @@ impl Default for RNumberInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            focus: Default::default(),
-            invalid: false,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -165,6 +163,18 @@ impl RNumberInputState {
         locale: Locale,
     ) -> Result<(), NumberFmtError> {
         self.widget.set_format_loc(pattern, locale)
+    }
+
+    /// Renders the widget in invalid style.
+    #[inline]
+    pub fn set_invalid(&mut self, invalid: bool) {
+        self.widget.set_invalid(invalid);
+    }
+
+    /// Renders the widget in invalid style.
+    #[inline]
+    pub fn get_invalid(&self) -> bool {
+        self.widget.get_invalid()
     }
 
     /// Reset to empty.
@@ -374,7 +384,7 @@ impl RNumberInputState {
 impl HasFocusFlag for RNumberInputState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.widget.focus
     }
 
     #[inline]

@@ -9,7 +9,7 @@ use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Position, Rect};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
 use std::collections::HashSet;
 
 use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
@@ -31,8 +31,6 @@ pub struct RTable<'a, Selection> {
 #[derive(Debug, Clone)]
 pub struct RTableState<Selection> {
     pub widget: rat_ftable::FTableState<Selection>,
-    pub focus: FocusFlag,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -327,6 +325,17 @@ impl<'a, Selection> ScrollingWidget<RTableState<Selection>> for RTable<'a, Selec
     }
 }
 
+impl<'a, Selection> StatefulWidgetRef for RTable<'a, Selection>
+where
+    Selection: TableSelection,
+{
+    type State = RTableState<Selection>;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.widget.render_ref(area, buf, &mut state.widget);
+    }
+}
+
 impl<'a, Selection> StatefulWidget for RTable<'a, Selection>
 where
     Selection: TableSelection,
@@ -334,9 +343,7 @@ where
     type State = RTableState<Selection>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .focus(state.is_focused())
-            .render(area, buf, &mut state.widget);
+        self.widget.render(area, buf, &mut state.widget);
     }
 }
 
@@ -344,7 +351,6 @@ impl<Selection: Default> Default for RTableState<Selection> {
     fn default() -> Self {
         Self {
             widget: rat_ftable::FTableState::default(),
-            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -755,7 +761,7 @@ where
 impl<Selection> HasFocusFlag for RTableState<Selection> {
     #[inline]
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.focus
     }
 
     #[inline]

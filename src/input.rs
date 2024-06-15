@@ -20,7 +20,7 @@ use rat_input::event::{ReadOnly, TextOutcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
-use ratatui::widgets::Block;
+use ratatui::widgets::{Block, StatefulWidgetRef};
 use std::ops::Range;
 
 pub use rat_input::input::core;
@@ -35,9 +35,6 @@ pub struct RTextInput<'a> {
 #[derive(Debug, Clone)]
 pub struct RTextInputState {
     pub widget: rat_input::input::TextInputState,
-    pub focus: FocusFlag,
-    pub invalid: bool,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -89,14 +86,19 @@ impl<'a> RTextInput<'a> {
     }
 }
 
+impl<'a> StatefulWidgetRef for RTextInput<'a> {
+    type State = RTextInputState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.widget.render_ref(area, buf, &mut state.widget)
+    }
+}
+
 impl<'a> StatefulWidget for RTextInput<'a> {
     type State = RTextInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .focused(state.is_focused())
-            .invalid(state.invalid)
-            .render(area, buf, &mut state.widget)
+        self.widget.render(area, buf, &mut state.widget)
     }
 }
 
@@ -104,8 +106,6 @@ impl Default for RTextInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            focus: Default::default(),
-            invalid: false,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -114,7 +114,7 @@ impl Default for RTextInputState {
 impl HasFocusFlag for RTextInputState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.focus
     }
 
     #[inline]
@@ -126,6 +126,18 @@ impl HasFocusFlag for RTextInputState {
 impl RTextInputState {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Renders the widget in invalid style.
+    #[inline]
+    pub fn set_invalid(&mut self, invalid: bool) {
+        self.widget.set_invalid(invalid);
+    }
+
+    /// Renders the widget in invalid style.
+    #[inline]
+    pub fn get_invalid(&self) -> bool {
+        self.widget.get_invalid()
     }
 
     /// Reset to empty.

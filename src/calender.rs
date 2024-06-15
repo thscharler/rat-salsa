@@ -7,6 +7,7 @@ use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::widgets::StatefulWidgetRef;
 
 pub use rat_input::calendar::MonthStyle;
 
@@ -18,8 +19,6 @@ pub struct RMonth {
 #[derive(Debug, Clone)]
 pub struct RMonthState {
     pub widget: rat_input::calendar::MonthState,
-    pub focus: FocusFlag,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -82,6 +81,14 @@ impl RMonth {
     }
 }
 
+impl StatefulWidgetRef for RMonth {
+    type State = RMonthState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.widget.render_ref(area, buf, &mut state.widget);
+    }
+}
+
 impl StatefulWidget for RMonth {
     type State = RMonthState;
 
@@ -94,7 +101,6 @@ impl Default for RMonthState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -103,7 +109,7 @@ impl Default for RMonthState {
 impl HasFocusFlag for RMonthState {
     #[inline]
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.focus
     }
 
     #[inline]

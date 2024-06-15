@@ -12,7 +12,7 @@ use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::StatefulWidget;
+use ratatui::widgets::{StatefulWidget, StatefulWidgetRef};
 
 pub use rat_input::menuline::{HotKeyAlt, HotKeyCtrl, MenuOutcome, MenuStyle};
 
@@ -33,9 +33,6 @@ pub struct RMenuLine<'a> {
 pub struct RMenuLineState {
     /// State of the inner widget.
     pub widget: rat_input::menuline::MenuLineState,
-    /// Focus flag.
-    pub focus: FocusFlag,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -96,13 +93,19 @@ impl<'a> RMenuLine<'a> {
     }
 }
 
+impl<'a> StatefulWidgetRef for RMenuLine<'a> {
+    type State = RMenuLineState;
+
+    fn render_ref(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        self.widget.render_ref(area, buf, &mut state.widget)
+    }
+}
+
 impl<'a> StatefulWidget for RMenuLine<'a> {
     type State = RMenuLineState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .focused(state.is_focused())
-            .render(area, buf, &mut state.widget)
+        self.widget.render(area, buf, &mut state.widget)
     }
 }
 
@@ -110,7 +113,6 @@ impl Default for RMenuLineState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -169,7 +171,7 @@ impl RMenuLineState {
 impl HasFocusFlag for RMenuLineState {
     /// Focus flag.
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.focus
     }
 
     /// Focus area.

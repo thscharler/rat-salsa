@@ -90,11 +90,6 @@ pub struct RMaskedInput<'a> {
 pub struct RMaskedInputState {
     /// Baseline widget.
     pub widget: rat_input::masked_input::MaskedInputState,
-    /// Focus handling
-    pub focus: FocusFlag,
-    /// Valid flag
-    pub invalid: bool,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -156,10 +151,7 @@ impl<'a> StatefulWidget for RMaskedInput<'a> {
     type State = RMaskedInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget
-            .focused(state.is_focused())
-            .invalid(state.invalid)
-            .render(area, buf, &mut state.widget)
+        self.widget.render(area, buf, &mut state.widget)
     }
 }
 
@@ -167,8 +159,6 @@ impl Default for RMaskedInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            focus: Default::default(),
-            invalid: false,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -176,7 +166,7 @@ impl Default for RMaskedInputState {
 
 impl HasFocusFlag for RMaskedInputState {
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.focus
     }
 
     fn area(&self) -> Rect {
@@ -195,6 +185,18 @@ impl RMaskedInputState {
             widget: rat_input::masked_input::MaskedInputState::new_with_symbols(sym),
             ..Default::default()
         }
+    }
+
+    /// Renders the widget in invalid style.
+    #[inline]
+    pub fn set_invalid(&mut self, invalid: bool) {
+        self.widget.set_invalid(invalid);
+    }
+
+    /// Renders the widget in invalid style.
+    #[inline]
+    pub fn get_invalid(&self) -> bool {
+        self.widget.get_invalid()
     }
 
     /// Reset to empty.
