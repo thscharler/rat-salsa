@@ -3,7 +3,7 @@
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
 use std::iter::Zip;
@@ -651,9 +651,9 @@ impl<'a> Focus<'a> {
     }
 
     fn core_focus_at(&self, col: u16, row: u16) -> bool {
-        let pos = Position::new(col, row);
+        let pos = (col, row);
         for (idx, area) in self.areas.iter().enumerate() {
-            if area.contains(pos) {
+            if area.contains(pos.into()) {
                 if self.log.get() {
                     debug!("found area for {:?}", self.focus[idx]);
                 }
@@ -662,7 +662,7 @@ impl<'a> Focus<'a> {
             }
         }
         for (accu, area, list) in self.sub_accu.iter() {
-            if area.contains(pos) {
+            if area.contains(pos.into()) {
                 if let Some(ff) = list.first() {
                     if self.log.get() {
                         debug!("focus container {:?}", accu);
@@ -672,7 +672,7 @@ impl<'a> Focus<'a> {
                 }
             }
         }
-        if self.area.contains(pos) {
+        if self.area.contains(pos.into()) {
             if self.log.get() {
                 debug!("focus container {:?}", self.accu);
             }
