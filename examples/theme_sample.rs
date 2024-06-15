@@ -48,6 +48,7 @@ fn main() -> Result<(), Error> {
 
 // -----------------------------------------------------------------------
 
+#[derive(Debug)]
 pub struct GlobalState {
     pub cfg: MinimalConfig,
     pub theme: DarkTheme,
@@ -79,11 +80,11 @@ pub enum MinimalAction {
 // -----------------------------------------------------------------------
 
 #[derive(Debug)]
-pub struct MinimalApp;
+struct MinimalApp;
 
 #[derive(Debug, Default)]
-pub struct MinimalState {
-    pub mask0: Mask0State,
+struct MinimalState {
+    mask0: Mask0State,
 }
 
 impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
@@ -220,7 +221,7 @@ impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
     }
 }
 
-mod mask0 {
+pub mod mask0 {
     use crate::show_scheme::{ShowScheme, ShowSchemeState};
     use crate::{AppContext, GlobalState, MinimalAction, RenderContext};
     use anyhow::Error;
@@ -240,7 +241,7 @@ mod mask0 {
     use ratatui::widgets::StatefulWidget;
 
     #[derive(Debug)]
-    pub(crate) struct Mask0;
+    pub struct Mask0;
 
     #[derive(Debug)]
     pub struct Mask0State {
@@ -256,7 +257,7 @@ mod mask0 {
                 scroll: Default::default(),
                 theme: 0,
             };
-            s.menu.focus.set();
+            s.menu.widget.focus.set();
             s
         }
     }
@@ -340,7 +341,7 @@ mod mask0 {
 
 // -----------------------------------------------------------------------
 
-mod show_scheme {
+pub mod show_scheme {
     use rat_theme::Scheme;
     use rat_widget::event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
     use rat_widget::focus::{FocusFlag, HasFocusFlag};
@@ -357,8 +358,8 @@ mod show_scheme {
 
     #[derive(Debug, Default)]
     pub struct ShowSchemeState {
-        focus: FocusFlag,
-        area: Rect,
+        pub focus: FocusFlag,
+        pub area: Rect,
     }
 
     impl HasFocusFlag for ShowSchemeState {
@@ -480,7 +481,7 @@ mod show_scheme {
 // -----------------------------------------------------------------------
 
 fn setup_logging() -> Result<(), Error> {
-    fs::remove_file("log.log")?;
+    _ = fs::remove_file("log.log");
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(

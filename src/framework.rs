@@ -40,7 +40,7 @@ pub trait AppWidget<Global, Action, Error> {
 
     /// Renders an application widget.
     fn render(
-        &mut self,
+        &self,
         event: &RepaintEvent,
         area: Rect,
         buf: &mut Buffer,

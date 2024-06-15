@@ -227,6 +227,7 @@ mod mask0 {
     use rat_salsa::event::RepaintEvent;
     use rat_salsa::{AppEvents, AppWidget, Control};
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
+    use rat_widget::focus::HasFocusFlag;
     use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -245,7 +246,7 @@ mod mask0 {
             let s = Self {
                 menu: Default::default(),
             };
-            s.menu.focus.set();
+            s.menu.focus().set();
             s
         }
     }
@@ -499,7 +500,7 @@ mod theme {
 }
 
 fn setup_logging() -> Result<(), Error> {
-    fs::remove_file("log.log")?;
+    _ = fs::remove_file("log.log");
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
