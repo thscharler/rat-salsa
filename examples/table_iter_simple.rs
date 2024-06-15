@@ -269,12 +269,11 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
         }
     }
 
-    let mut data = RowIter {
-        iter: Count(0),
-        item: 0,
-    };
     let table1 = FTable::default()
-        .iter(&mut data)
+        .iter(RowIter {
+            iter: Count(0),
+            item: 0,
+        })
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),

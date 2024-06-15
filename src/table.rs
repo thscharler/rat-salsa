@@ -92,13 +92,13 @@ mod data {
         #[default]
         None,
         Text(TextTableData<'a>),
-        Data(&'a dyn TableData<'a>),
-        Iter(&'a mut dyn TableDataIter<'a>),
+        Data(Box<dyn TableData<'a> + 'a>),
+        Iter(Box<dyn TableDataIter<'a> + 'a>),
         Clone(Box<dyn TableDataIterClone<'a> + 'a>),
     }
 
     impl<'a> DataRepr<'a> {
-        pub(super) fn into_iter<'b>(self) -> DataReprIter<'a, 'a> {
+        pub(super) fn into_iter(self) -> DataReprIter<'a, 'a> {
             match self {
                 DataRepr::None => DataReprIter::None,
                 DataRepr::Text(v) => DataReprIter::IterText(v, None),
@@ -111,9 +111,9 @@ mod data {
         pub(super) fn iter<'b>(&'b self) -> DataReprIter<'a, 'b> {
             match self {
                 DataRepr::None => DataReprIter::None,
-                DataRepr::Text(v) => DataReprIter::IterData(v, None),
-                DataRepr::Data(v) => DataReprIter::IterData(*v, None),
-                DataRepr::Iter(v) => {
+                DataRepr::Text(v) => DataReprIter::IterDataRef(v, None),
+                DataRepr::Data(v) => DataReprIter::IterDataRef(v.as_ref(), None),
+                DataRepr::Iter(_) => {
                     #[cfg(debug_assertions)]
                     warn!("FTable::render_ref - TableDataIter doesn't work with render_ref. Use TableDateIterClone instead.");
                     DataReprIter::None
@@ -134,9 +134,10 @@ mod data {
         #[default]
         None,
         IterText(TextTableData<'a>, Option<usize>),
-        IterData(&'b dyn TableData<'a>, Option<usize>),
-        IterIter(&'b mut dyn TableDataIter<'a>),
-
+        IterData(Box<dyn TableData<'a> + 'a>, Option<usize>),
+        IterDataRef(&'b dyn TableData<'a>, Option<usize>),
+        IterIter(Box<dyn TableDataIter<'a> + 'a>),
+        IterIterRef(&'b mut dyn TableDataIter<'a>),
         IterClone(Box<dyn TableDataIterClone<'a> + 'a>),
     }
 
@@ -146,35 +147,32 @@ mod data {
                 DataReprIter::None => Some(0),
                 DataReprIter::IterText(v, _) => Some(v.rows.len()),
                 DataReprIter::IterData(v, _) => Some(v.rows()),
+                DataReprIter::IterDataRef(v, _) => Some(v.rows()),
                 DataReprIter::IterIter(v) => v.rows(),
+                DataReprIter::IterIterRef(v) => v.rows(),
                 DataReprIter::IterClone(v) => v.rows(),
             }
         }
 
         fn nth(&mut self, n: usize) -> bool {
+            let incr = |row: &mut Option<usize>, rows: usize| match *row {
+                None => {
+                    *row = Some(n);
+                    n < rows
+                }
+                Some(w) => {
+                    *row = Some(w + n + 1);
+                    w + n + 1 < rows
+                }
+            };
+
             match self {
                 DataReprIter::None => false,
-                DataReprIter::IterText(v, row) => match *row {
-                    None => {
-                        *row = Some(n);
-                        n < v.rows.len()
-                    }
-                    Some(w) => {
-                        *row = Some(w + n + 1);
-                        w + n + 1 < v.rows.len()
-                    }
-                },
-                DataReprIter::IterData(v, row) => match *row {
-                    None => {
-                        *row = Some(n);
-                        n < v.rows()
-                    }
-                    Some(w) => {
-                        *row = Some(w + n + 1);
-                        w + n + 1 < v.rows()
-                    }
-                },
+                DataReprIter::IterText(v, row) => incr(row, v.rows.len()),
+                DataReprIter::IterData(v, row) => incr(row, v.rows()),
+                DataReprIter::IterDataRef(v, row) => incr(row, v.rows()),
                 DataReprIter::IterIter(v) => v.nth(n),
+                DataReprIter::IterIterRef(v) => v.nth(n),
                 DataReprIter::IterClone(v) => v.nth(n),
             }
         }
@@ -191,7 +189,9 @@ mod data {
                 DataReprIter::None => 1,
                 DataReprIter::IterText(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterData(v, n) => v.row_height(n.expect("row")),
+                DataReprIter::IterDataRef(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_height(),
+                DataReprIter::IterIterRef(v) => v.row_height(),
                 DataReprIter::IterClone(v) => v.row_height(),
             }
         }
@@ -201,7 +201,9 @@ mod data {
                 DataReprIter::None => None,
                 DataReprIter::IterText(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterData(v, n) => v.row_style(n.expect("row")),
+                DataReprIter::IterDataRef(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_style(),
+                DataReprIter::IterIterRef(v) => v.row_style(),
                 DataReprIter::IterClone(v) => v.row_style(),
             }
         }
@@ -216,7 +218,11 @@ mod data {
                 DataReprIter::IterData(v, n) => {
                     v.render_cell(ctx, column, n.expect("row"), area, buf)
                 }
+                DataReprIter::IterDataRef(v, n) => {
+                    v.render_cell(ctx, column, n.expect("row"), area, buf)
+                }
                 DataReprIter::IterIter(v) => v.render_cell(ctx, column, area, buf),
+                DataReprIter::IterIterRef(v) => v.render_cell(ctx, column, area, buf),
                 DataReprIter::IterClone(v) => v.render_cell(ctx, column, area, buf),
             }
         }
@@ -350,13 +356,13 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// The way to go is to define a small struct that contains just a
     /// reference to your data. Then implement TableData for this struct.
     ///
-    /// ```rust ignore
+    /// ```rust
     /// use ratatui::buffer::Buffer;
     /// use ratatui::layout::Rect;
     /// use ratatui::prelude::Style;
     /// use ratatui::text::Span;
-    /// use ratatui::widgets::Widget;
-    /// use rat_ftable::{FTable, FTableState, TableData};
+    /// use ratatui::widgets::{StatefulWidget, Widget};
+    /// use rat_ftable::{FTable, FTableContext, FTableState, TableData};
     ///
     /// # struct SampleRow;
     /// # let area = Rect::default();
@@ -366,9 +372,8 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// struct Data1<'a>(&'a [SampleRow]);
     ///
     /// impl<'a> TableData<'a> for Data1<'a> {
-    ///     // returns (cols, rows)
-    ///     fn size(&self) -> (usize, usize) {
-    ///         (5, self.0.len())
+    ///     fn rows(&self) -> usize {
+    ///         self.0.len()
     ///     }
     ///
     ///     fn row_height(&self, row: usize) -> u16 {
@@ -381,7 +386,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///         Style::default()
     ///     }
     ///
-    ///     fn render_cell(&self, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
+    ///     fn render_cell(&self, ctx: &FTableContext, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
     ///         if let Some(data) = self.0.get(row) {
     ///             let rend = match column {
     ///                 0 => Span::from("column1"),
@@ -402,16 +407,15 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///
     /// // ...
     ///
-    /// let tabledata1 = Data1(&my_data_somewhere_else);
-    /// let table1 = FTable::default().data(&tabledata1);
+    /// let table1 = FTable::default().data(Data1(&my_data_somewhere_else));
     /// table1.render(area, buf, &mut table_state_somewhere_else);
     /// ```
     #[inline]
-    pub fn data(mut self, data: &'a dyn TableData<'a>) -> Self {
+    pub fn data(mut self, data: impl TableData<'a> + 'a) -> Self {
         self.widths = data.widths();
         self.header = data.header();
         self.footer = data.footer();
-        self.data = DataRepr::Data(data);
+        self.data = DataRepr::Data(Box::new(data));
         self
     }
 
@@ -434,20 +438,23 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// use ratatui::prelude::Color;
     /// use ratatui::style::{Style, Stylize};
     /// use ratatui::text::Span;
-    /// use ratatui::widgets::Widget;
-    /// use rat_ftable::{FTable, FTableContext, TableDataIter};
+    /// use ratatui::widgets::{Widget, StatefulWidget};
+    /// use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
     ///
-    /// struct Data {
-    ///     table_data: Vec<Sample>
-    /// }
-    ///
-    /// struct Sample {
-    ///     pub text: String
-    /// }
-    ///
-    /// let data = Data {
-    ///     table_data: vec![],
-    /// };
+    /// # struct Data {
+    /// #     table_data: Vec<Sample>
+    /// # }
+    /// #
+    /// # struct Sample {
+    /// #     pub text: String
+    /// # }
+    /// #
+    /// # let data = Data {
+    /// #     table_data: vec![],
+    /// # };
+    /// # let area = Rect::default();
+    /// # let mut buf = Buffer::empty(area);
+    /// # let buf = &mut buf;
     ///
     /// struct RowIter1<'a> {
     ///     iter: Enumerate<Iter<'a, Sample>>,
@@ -465,12 +472,6 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///     /// Select the nth element from the current position.
     ///     fn nth(&mut self, n: usize) -> bool {
     ///         self.item = self.iter.nth(n);
-    ///         self.item.is_some()
-    ///     }
-    ///
-    ///     /// Select the next element.
-    ///     fn next(&mut self) -> bool {
-    ///         self.item = self.iter.next();
     ///         self.item.is_some()
     ///     }
     ///
@@ -520,11 +521,13 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///         Constraint::Length(20)
     ///     ]);
     ///
-    /// // table1.render(area, buf);
+    /// let mut table_state_somewhere_else = FTableState::default();
+    ///
+    /// table1.render(area, buf, &mut table_state_somewhere_else);
     /// ```
     ///
     #[inline]
-    pub fn iter(mut self, data: &'a mut dyn TableDataIter<'a>) -> Self {
+    pub fn iter(mut self, data: impl TableDataIter<'a> + 'a) -> Self {
         #[cfg(debug_assertions)]
         if data.rows().is_none() {
             warn!("FTable::iter - rows is None, this will be slower");
@@ -532,7 +535,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         self.header = data.header();
         self.footer = data.footer();
         self.widths = data.widths();
-        self.data = DataRepr::Iter(data);
+        self.data = DataRepr::Iter(Box::new(data));
         self
     }
 
@@ -782,8 +785,8 @@ impl<'a, Selection> FTable<'a, Selection> {
         let vertical = match &self.data {
             DataRepr::None => false,
             DataRepr::Text(v) => self.need_scroll_tabledata(v, area),
-            DataRepr::Data(v) => self.need_scroll_tabledata(*v, area),
-            DataRepr::Iter(v) => self.need_scroll_tableiter(*v, area),
+            DataRepr::Data(v) => self.need_scroll_tabledata(v.as_ref(), area),
+            DataRepr::Iter(v) => self.need_scroll_tableiter(v.as_ref(), area),
             DataRepr::Clone(v) => self.need_scroll_tableiter_clone(v.as_ref(), area),
         };
 

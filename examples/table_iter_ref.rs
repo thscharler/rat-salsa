@@ -13,7 +13,7 @@ use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter, TableDataIterClone};
+use rat_ftable::{FTable, FTableContext, FTableState, TableDataIterClone};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -280,13 +280,11 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
         }
     }
 
-    let rr = RowIter1 {
-        iter: data.table_data.iter().enumerate(),
-        item: None,
-    };
-
     let table1 = FTable::default()
-        .iter_clone(rr)
+        .iter_clone(RowIter1 {
+            iter: data.table_data.iter().enumerate(),
+            item: None,
+        })
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),
