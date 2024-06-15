@@ -1,7 +1,6 @@
 use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
-use ratatui::layout::Position;
 use std::cmp::max;
 
 /// Doesn't do any selection for the table.
@@ -68,28 +67,28 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<No
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(scroll down for column,row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_down(max(self.row_page_len / 10, 1)).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_up(max(self.row_page_len / 10, 1)).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT down for column,row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_right(1).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_left(1).into()
                 } else {
                     Outcome::NotUsed

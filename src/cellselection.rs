@@ -1,7 +1,6 @@
 use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
-use ratatui::layout::Position;
 use std::cmp::min;
 
 /// Select a single cell in the table.
@@ -230,8 +229,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ce
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
-                let pos = Position::new(m.column, m.row);
-                let new_cell = self.cell_at_drag(pos);
+                let new_cell = self.cell_at_drag((m.column, m.row));
                 let r = self
                     .selection
                     .select_clamped(
@@ -243,7 +241,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ce
                 r
             }
             ct_event!(scroll down for column,row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_down(self.table_area.height as usize / 10)
                         .into()
                 } else {
@@ -251,29 +249,29 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ce
                 }
             }
             ct_event!(scroll up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_up(self.table_area.height as usize / 10).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT down for column,row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_right(1).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_left(1).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(mouse down Left for column, row) => {
-                let pos = Position::new(*column, *row);
-                if self.area.contains(pos) {
+                let pos = (*column, *row);
+                if self.area.contains(pos.into()) {
                     if let Some(new_cell) = self.cell_at_clicked(pos) {
                         self.selection
                             .select_clamped(

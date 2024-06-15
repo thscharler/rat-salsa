@@ -15,7 +15,7 @@ use rat_event::util::MouseFlags;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use rat_focus::FocusFlag;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Position, Rect}; // TODO: remove Position
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 #[cfg(debug_assertions)]
@@ -960,7 +960,6 @@ where
         state.row_areas.clear();
         state.row_page_len = 0;
 
-        // TODO: render directly, if this is not necessary.
         let mut row_buf = Buffer::empty(Rect::new(0, 0, width, 1));
         let mut row = None;
         let mut row_y = state.table_area.y;
@@ -1556,7 +1555,7 @@ impl<Selection> FTableState<Selection> {
     }
 
     /// Cell at given position.
-    pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
+    pub fn cell_at_clicked(&self, pos: (u16, u16)) -> Option<(usize, usize)> {
         let col = self.column_at_clicked(pos);
         let row = self.row_at_clicked(pos);
 
@@ -1567,17 +1566,17 @@ impl<Selection> FTableState<Selection> {
     }
 
     /// Column at given position.
-    pub fn column_at_clicked(&self, pos: Position) -> Option<usize> {
-        rat_event::util::column_at_clicked(&self.column_areas, pos.x).map(|v| self.col_offset + v)
+    pub fn column_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
+        rat_event::util::column_at_clicked(&self.column_areas, pos.0).map(|v| self.col_offset + v)
     }
 
     /// Row at given position.
-    pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        rat_event::util::row_at_clicked(&self.row_areas, pos.y).map(|v| self.row_offset + v)
+    pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
+        rat_event::util::row_at_clicked(&self.row_areas, pos.1).map(|v| self.row_offset + v)
     }
 
     /// Cell when dragging. Can go outside the area.
-    pub fn cell_at_drag(&self, pos: Position) -> (usize, usize) {
+    pub fn cell_at_drag(&self, pos: (u16, u16)) -> (usize, usize) {
         let col = self.column_at_drag(pos);
         let row = self.row_at_drag(pos);
 
@@ -1585,8 +1584,8 @@ impl<Selection> FTableState<Selection> {
     }
 
     /// Row when dragging. Can go outside the area.
-    pub fn row_at_drag(&self, pos: Position) -> usize {
-        match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.y) {
+    pub fn row_at_drag(&self, pos: (u16, u16)) -> usize {
+        match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.1) {
             Ok(v) => self.row_offset + v,
             Err(v) if v <= 0 => self.row_offset.saturating_sub((-v) as usize),
             Err(v) => self.row_offset + self.row_areas.len() + v as usize,
@@ -1594,8 +1593,8 @@ impl<Selection> FTableState<Selection> {
     }
 
     /// Column when dragging. Can go outside the area.
-    pub fn column_at_drag(&self, pos: Position) -> usize {
-        match rat_event::util::column_at_drag(self.table_area, &self.column_areas, pos.x) {
+    pub fn column_at_drag(&self, pos: (u16, u16)) -> usize {
+        match rat_event::util::column_at_drag(self.table_area, &self.column_areas, pos.0) {
             Ok(v) => self.col_offset + v,
             Err(v) if v <= 0 => self.col_offset.saturating_sub(1),
             Err(_v) => self.col_offset + self.column_areas.len() + 1,

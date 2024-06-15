@@ -2,7 +2,6 @@ use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use crossterm::event::KeyModifiers;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
-use ratatui::layout::Position;
 use std::cmp::min;
 use std::collections::HashSet;
 use std::mem;
@@ -312,8 +311,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 if self.mouse.drag(self.table_area, m)
                     || self.mouse.drag2(self.table_area, m, KeyModifiers::CONTROL) =>
             {
-                let pos = Position::new(m.column, m.row);
-                let new_row = self.row_at_drag(pos);
+                let new_row = self.row_at_drag((m.column, m.row).into());
                 let r = self
                     .selection
                     .set_lead_clamped(new_row, self.rows.saturating_sub(1), true)
@@ -322,22 +320,22 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 r
             }
             ct_event!(scroll up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_up(min(self.row_page_len / 10, 1)).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll down for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_down(min(self.row_page_len / 10, 1)).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(mouse down Left for column, row) => {
-                let pos = Position::new(*column, *row);
-                if self.area.contains(pos) {
+                let pos = (*column, *row);
+                if self.area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.selection
                             .set_lead_clamped(new_row, self.rows.saturating_sub(1), false)
@@ -350,8 +348,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 }
             }
             ct_event!(mouse down ALT-Left for column, row) => {
-                let pos = Position::new(*column, *row);
-                if self.area.contains(pos) {
+                let pos = (*column, *row);
+                if self.area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.selection
                             .set_lead_clamped(new_row, self.rows.saturating_sub(1), true)
@@ -364,8 +362,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 }
             }
             ct_event!(mouse down CONTROL-Left for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    let pos = Position::new(*column, *row);
+                let pos = (*column, *row);
+                if self.area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.selection.transfer_lead_anchor();
                         if self.selection.is_selected_row(new_row) {

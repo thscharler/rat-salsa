@@ -1,7 +1,6 @@
 use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
-use ratatui::layout::Position;
 use std::cmp::min;
 
 /// Allows selecting a single row of the table.
@@ -165,7 +164,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
-                let pos = Position::new(m.column, m.row);
+                let pos = (m.column, m.row);
                 let new_row = self.row_at_drag(pos);
                 let r = self
                     .selection
@@ -175,7 +174,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 r
             }
             ct_event!(scroll down for column,row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     if self.selection.scroll_selected {
                         let r = self.selection.next(1, self.rows.saturating_sub(1));
                         self.scroll_to_selected();
@@ -189,7 +188,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 }
             }
             ct_event!(scroll up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     if self.selection.scroll_selected {
                         let r = self.selection.prev(1);
                         self.scroll_to_selected();
@@ -202,22 +201,22 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 }
             }
             ct_event!(scroll ALT down for column,row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_right(1).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
+                if self.area.contains((*column, *row).into()) {
                     self.scroll_left(1).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(mouse down Left for column, row) => {
-                let pos = Position::new(*column, *row);
-                if self.area.contains(pos) {
+                let pos = (*column, *row);
+                if self.area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
                         self.selection
                             .select_clamped(new_row, self.rows.saturating_sub(1))
