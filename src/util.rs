@@ -5,7 +5,7 @@
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 #[allow(unused_imports)]
 use log::debug;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use std::cell::Cell;
 
 /// Which row of the given contains the position.
@@ -123,7 +123,7 @@ impl MouseFlags {
                 row,
                 modifiers,
             } if *modifiers == filter => {
-                if area.contains(Position::new(*column, *row)) {
+                if area.contains((*column, *row).into()) {
                     self.drag.set(true);
                 } else {
                     self.drag.set(false);
@@ -190,7 +190,7 @@ impl MouseFlags {
                 row,
                 modifiers,
             } if *modifiers == filter => {
-                if area.contains(Position::new(*column, *row)) {
+                if area.contains((*column, *row).into()) {
                     self.click.set(true);
                     self.clack.set(false);
                 } else {
@@ -204,7 +204,7 @@ impl MouseFlags {
                 row,
                 modifiers,
             } if *modifiers == filter => {
-                if area.contains(Position::new(*column, *row)) {
+                if area.contains((*column, *row).into()) {
                     if self.click.get() {
                         if !self.clack.get() {
                             self.clack.set(true);
