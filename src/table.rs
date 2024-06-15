@@ -13,6 +13,7 @@ use log::debug;
 use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_focus::FocusFlag;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect}; // TODO: remove Position
 use ratatui::prelude::BlockExt;
@@ -66,7 +67,6 @@ pub struct FTable<'a, Selection> {
     select_footer_style: Option<Style>,
     show_footer_focus: bool,
 
-    focus: bool,
     focus_style: Option<Style>,
 
     scroll_gap: Cell<bool>,
@@ -272,6 +272,9 @@ pub struct FTableStyle {
 /// FTable state.
 #[derive(Debug, Clone)]
 pub struct FTableState<Selection> {
+    /// Current focus state.
+    pub focus: FocusFlag,
+
     /// Total area.
     pub area: Rect,
 
@@ -760,13 +763,6 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
-    /// Indicates that this widget has the input focus.
-    #[inline]
-    pub fn focus(mut self, focus: bool) -> Self {
-        self.focus = focus;
-        self
-    }
-
     /// Just some utility to help with debugging. Usually does nothing.
     pub fn debug(mut self, debug: bool) -> Self {
         self.debug = debug;
@@ -989,7 +985,7 @@ where
         let mut insane_offset = false;
 
         let mut ctx = FTableContext {
-            focus: self.focus,
+            focus: state.focus.get(),
             selected_cell: false,
             selected_row: false,
             selected_column: false,
@@ -1052,22 +1048,38 @@ where
                         ctx.selected_cell = true;
                         ctx.selected_row = false;
                         ctx.selected_column = false;
-                        self.patch_select(self.select_cell_style, self.show_cell_focus)
+                        self.patch_select(
+                            self.select_cell_style,
+                            state.focus.get(),
+                            self.show_cell_focus,
+                        )
                     } else if state.selection.is_selected_row(row.expect("row")) {
                         ctx.selected_cell = false;
                         ctx.selected_row = true;
                         ctx.selected_column = false;
                         // use a fallback if no row-selected style is set.
                         if self.select_row_style.is_some() {
-                            self.patch_select(self.select_row_style, self.show_row_focus)
+                            self.patch_select(
+                                self.select_row_style,
+                                state.focus.get(),
+                                self.show_row_focus,
+                            )
                         } else {
-                            self.patch_select(Some(revert_style(self.style)), self.show_row_focus)
+                            self.patch_select(
+                                Some(revert_style(self.style)),
+                                state.focus.get(),
+                                self.show_row_focus,
+                            )
                         }
                     } else if state.selection.is_selected_column(col) {
                         ctx.selected_cell = false;
                         ctx.selected_row = false;
                         ctx.selected_column = true;
-                        self.patch_select(self.select_column_style, self.show_column_focus)
+                        self.patch_select(
+                            self.select_column_style,
+                            state.focus.get(),
+                            self.show_column_focus,
+                        )
                     } else {
                         ctx.selected_cell = false;
                         ctx.selected_row = false;
@@ -1290,9 +1302,11 @@ where
                 .intersection(state.footer_area);
 
                 if state.selection.is_selected_column(col) {
-                    if let Some(selected_style) =
-                        self.patch_select(self.select_footer_style, self.show_footer_focus)
-                    {
+                    if let Some(selected_style) = self.patch_select(
+                        self.select_footer_style,
+                        state.focus.get(),
+                        self.show_footer_focus,
+                    ) {
                         buf.set_style(cell_area, selected_style);
                         buf.set_style(space_area, selected_style);
                     }
@@ -1354,9 +1368,11 @@ where
                 .intersection(state.header_area);
 
                 if state.selection.is_selected_column(col) {
-                    if let Some(selected_style) =
-                        self.patch_select(self.select_header_style, self.show_header_focus)
-                    {
+                    if let Some(selected_style) = self.patch_select(
+                        self.select_header_style,
+                        state.focus.get(),
+                        self.show_header_focus,
+                    ) {
                         buf.set_style(cell_area, selected_style);
                         buf.set_style(space_area, selected_style);
                     }
@@ -1438,10 +1454,10 @@ where
         }
     }
 
-    fn patch_select(&self, style: Option<Style>, show: bool) -> Option<Style> {
+    fn patch_select(&self, style: Option<Style>, focus: bool, show: bool) -> Option<Style> {
         if let Some(style) = style {
             if let Some(focus_style) = self.focus_style {
-                if self.focus && show {
+                if focus && show {
                     Some(style.patch(focus_style))
                 } else {
                     Some(style)
@@ -1480,6 +1496,7 @@ impl Default for FTableStyle {
 impl<Selection: Default> Default for FTableState<Selection> {
     fn default() -> Self {
         Self {
+            focus: Default::default(),
             area: Default::default(),
             header_area: Default::default(),
             table_area: Default::default(),
@@ -1504,6 +1521,22 @@ impl<Selection: Default> Default for FTableState<Selection> {
 }
 
 impl<Selection> FTableState<Selection> {
+    /// Renders the widget in focused style.
+    ///
+    /// This flag is not used for event-handling.
+    #[inline]
+    pub fn set_focused(&mut self, focus: bool) {
+        self.focus.focus.set(focus);
+    }
+
+    /// Renders the widget in focused style.
+    ///
+    /// This flag is not used for event-handling.
+    #[inline]
+    pub fn is_focused(&mut self) -> bool {
+        self.focus.focus.get()
+    }
+
     /// Number of rows.
     #[inline]
     pub fn rows(&self) -> usize {

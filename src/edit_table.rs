@@ -12,6 +12,7 @@ use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
+use ratatui::widgets::StatefulWidgetRef;
 
 /// Widget that supports row-wise editing of a table.
 ///
@@ -44,7 +45,13 @@ pub trait EditorWidget {
     type State;
 
     /// Standard render call, but with added areas for each cell.
-    fn render(self, area: Rect, cell_areas: &[Rect], buf: &mut Buffer, state: &mut Self::State);
+    fn render_ref(
+        &self,
+        area: Rect,
+        cell_areas: &[Rect],
+        buf: &mut Buffer,
+        state: &mut Self::State,
+    );
 }
 
 impl<'a, Editor> FEditTable<'a, Editor>
@@ -56,6 +63,17 @@ where
     }
 }
 
+impl<'a, Editor> StatefulWidgetRef for FEditTable<'a, Editor>
+where
+    Editor: EditorWidget + 'a,
+{
+    type State = FEditTableState<Editor::State>;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_ref(self, area, buf, state);
+    }
+}
+
 impl<'a, Editor> StatefulWidget for FEditTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
@@ -63,15 +81,28 @@ where
     type State = FEditTableState<Editor::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.table.render(area, buf, &mut state.table);
+        render_ref(&self, area, buf, state);
+    }
+}
 
-        if let Some(edit_state) = &mut state.edit {
-            // expect a selected row
-            if let Some(row) = state.table.selected() {
-                // but it might be out of view
-                if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
-                    self.edit.render(row_area, &cell_areas, buf, edit_state);
-                }
+fn render_ref<'a, Editor>(
+    widget: &FEditTable<'a, Editor>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut FEditTableState<Editor::State>,
+) where
+    Editor: EditorWidget + 'a,
+{
+    widget.table.render_ref(area, buf, &mut state.table);
+
+    if let Some(edit_state) = &mut state.edit {
+        // expect a selected row
+        if let Some(row) = state.table.selected() {
+            // but it might be out of view
+            if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
+                widget
+                    .edit
+                    .render_ref(row_area, &cell_areas, buf, edit_state);
             }
         }
     }
