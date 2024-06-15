@@ -1,3 +1,10 @@
+# 0.12.3
+
+* impl StatefulWidgetRef for widgets.
+    * this moved focus and invalid up to the rat-input widgets (et al.)
+* date_input and number_input should provide all functions.
+* fix: REditTable should use the focus flag.
+
 # 0.12.2
 
 * Prefix all widgets with 'R' to disambiguate from their rat-input cousins.
