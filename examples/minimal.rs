@@ -88,7 +88,7 @@ impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
     type State = MinimalState;
 
     fn render(
-        &mut self,
+        &self,
         event: &RepaintEvent,
         area: Rect,
         buf: &mut Buffer,
@@ -255,7 +255,7 @@ mod mask0 {
         type State = Mask0State;
 
         fn render(
-            &mut self,
+            &self,
             event: &RepaintEvent,
             area: Rect,
             buf: &mut Buffer,

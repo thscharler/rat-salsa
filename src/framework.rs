@@ -299,7 +299,7 @@ where
     state.init(&mut appctx)?;
 
     // initial repaint.
-    _ = repaint_tui(&mut app, Repaint, state, &mut term, &mut appctx)?;
+    repaint_tui(&mut app, Repaint, state, &mut term, &mut appctx)?;
 
     let nice = 'ui: loop {
         // panic on worker panic
