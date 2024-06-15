@@ -7,7 +7,7 @@ use rat_ftable::selection::{CellSelection, NoSelection, RowSelection, RowSetSele
 use rat_ftable::textdata::Row;
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Position, Rect};
+use ratatui::layout::{Constraint, Flex, Rect};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
 use std::collections::HashSet;
@@ -382,37 +382,37 @@ impl<Selection> RTableState<Selection> {
 
     /// Cell at given position.
     #[inline]
-    pub fn cell_at_clicked(&self, pos: Position) -> Option<(usize, usize)> {
+    pub fn cell_at_clicked(&self, pos: (u16, u16)) -> Option<(usize, usize)> {
         self.widget.cell_at_clicked(pos)
     }
 
     /// Column at given position.
     #[inline]
-    pub fn column_at_clicked(&self, pos: Position) -> Option<usize> {
+    pub fn column_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
         self.widget.column_at_clicked(pos)
     }
 
     /// Row at given position.
     #[inline]
-    pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
+    pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
         self.widget.row_at_clicked(pos)
     }
 
     /// Cell when dragging. Can go outside the area.
     #[inline]
-    pub fn cell_at_drag(&self, pos: Position) -> (usize, usize) {
+    pub fn cell_at_drag(&self, pos: (u16, u16)) -> (usize, usize) {
         self.widget.cell_at_drag(pos)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
-    pub fn row_at_drag(&self, pos: Position) -> usize {
+    pub fn row_at_drag(&self, pos: (u16, u16)) -> usize {
         self.widget.row_at_drag(pos)
     }
 
     /// Column when dragging. Can go outside the area.
     #[inline]
-    pub fn column_at_drag(&self, pos: Position) -> usize {
+    pub fn column_at_drag(&self, pos: (u16, u16)) -> usize {
         self.widget.column_at_drag(pos)
     }
 
