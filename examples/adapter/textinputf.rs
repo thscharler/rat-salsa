@@ -17,8 +17,6 @@ pub struct TextInputF<'a> {
 #[derive(Debug, Clone)]
 pub struct TextInputFState {
     pub widget: TextInputState,
-    pub focus: FocusFlag,
-
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -72,8 +70,7 @@ impl<'a> StatefulWidget for TextInputF<'a> {
     type State = TextInputFState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let widget = self.widget.clone().focused(state.is_focused());
-        widget.render(area, buf, &mut state.widget);
+        self.widget.render(area, buf, &mut state.widget);
     }
 }
 
@@ -81,7 +78,6 @@ impl Default for TextInputFState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -201,7 +197,7 @@ impl TextInputFState {
 
 impl HasFocusFlag for TextInputFState {
     fn focus(&self) -> &FocusFlag {
-        &self.focus
+        &self.widget.focus
     }
 
     fn area(&self) -> Rect {

@@ -44,7 +44,7 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 fn setup_logging() -> Result<(), anyhow::Error> {
-    fs::remove_file("log.log")?;
+    _ = fs::remove_file("log.log");
     fern::Dispatch::new()
         .format(|out, message, _record| out.finish(format_args!("{}", message)))
         .level(log::LevelFilter::Debug)
@@ -227,11 +227,12 @@ fn repaint_input(frame: &mut Frame<'_>, area: Rect, _data: &mut Data, state: &mu
 }
 
 fn focus_input(state: &mut State) -> Focus<'_> {
-    Focus::new(&[])
-        .add_focus(state.sub1.focus())
+    let mut f = Focus::new(&[]);
+    f.add_focus(state.sub1.focus())
         .add_focus(state.sub2.focus())
         .add_focus(state.sub3.focus())
-        .add_focus(state.sub4.focus())
+        .add_focus(state.sub4.focus());
+    f
 }
 
 fn handle_input(

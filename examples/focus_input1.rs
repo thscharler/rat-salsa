@@ -38,14 +38,14 @@ fn main() -> Result<(), anyhow::Error> {
         input4: Default::default(),
         status: Default::default(),
     };
-    state.input1.focus.set();
+    state.input1.widget.focus.set();
     state.status.status(0, "Ctrl+Q to quit.");
 
     run_ui(&mut data, &mut state)
 }
 
 fn setup_logging() -> Result<(), anyhow::Error> {
-    fs::remove_file("log.log")?;
+    _ = fs::remove_file("log.log");
     fern::Dispatch::new()
         .format(|out, message, _record| out.finish(format_args!("{}", message)))
         .level(log::LevelFilter::Debug)

@@ -44,7 +44,7 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 fn setup_logging() -> Result<(), anyhow::Error> {
-    fs::remove_file("log.log")?;
+    _ = fs::remove_file("log.log");
     fern::Dispatch::new()
         .format(|out, message, _record| out.finish(format_args!("{}", message)))
         .level(log::LevelFilter::Debug)
@@ -223,10 +223,11 @@ fn focus_input(state: &mut State) -> Focus<'_> {
     debug!("sub1 {:#?}", state.sub1.focus());
     debug!("sub3 {:#?}", state.sub3.focus());
     debug!("sub4 {:#?}", state.sub4.focus());
-    Focus::new(&[])
-        .add_focus(state.sub1.focus())
+    let mut f = Focus::new(&[]);
+    f.add_focus(state.sub1.focus())
         .add_focus(state.sub3.focus())
-        .add_focus(state.sub4.focus())
+        .add_focus(state.sub4.focus());
+    f
 }
 
 fn handle_input(
@@ -323,9 +324,10 @@ pub mod substratum2 {
         pub fn focus(&self) -> Focus<'_> {
             debug!("stratum1 {:#?}", self.stratum1.focus());
             debug!("stratum2 {:#?}", self.stratum2.focus());
-            Focus::new_accu(self, &[])
-                .add_focus(self.stratum1.focus())
-                .add_focus(self.stratum2.focus())
+            let mut f = Focus::new_accu(self, &[]);
+            f.add_focus(self.stratum1.focus())
+                .add_focus(self.stratum2.focus());
+            f
         }
 
         pub fn screen_cursor(&self) -> Option<(u16, u16)> {
