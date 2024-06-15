@@ -13,7 +13,7 @@ use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableContext, FTableState, TableDataIterClone};
+use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;
@@ -231,12 +231,12 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
         item: Option<(usize, &'a Sample)>,
     }
 
-    impl<'a> TableDataIterClone<'a> for RowIter1<'a> {
-        fn cloned(&self) -> Box<dyn TableDataIterClone<'a> + 'a> {
-            let a = self.clone();
-            let c: Box<dyn TableDataIterClone<'a>> = Box::new(a);
-            c
-        }
+    impl<'a> TableDataIter<'a> for RowIter1<'a> {
+        // fn cloned(&self) -> Box<dyn TableDataIter<'a> + 'a> {
+        //     let a = self.clone();
+        //     let c: Box<dyn TableDataIter<'a>> = Box::new(a);
+        //     c
+        // }
 
         fn rows(&self) -> Option<usize> {
             None
@@ -281,7 +281,7 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     }
 
     let table1 = FTable::default()
-        .iter_clone(RowIter1 {
+        .iter(RowIter1 {
             iter: data.table_data.iter().enumerate(),
             item: None,
         })
@@ -290,7 +290,7 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
             Constraint::Length(20),
             Constraint::Length(15),
             Constraint::Length(15),
-            Constraint::Length(3),
+            Constraint::Length(13),
         ])
         .column_spacing(1)
         .header(

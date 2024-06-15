@@ -6,7 +6,7 @@ use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::util::{revert_style, transfer_buffer};
-use crate::{FTableContext, TableData, TableDataIter, TableDataIterClone, TableSelection};
+use crate::{FTableContext, TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
 #[cfg(debug_assertions)]
@@ -78,13 +78,14 @@ pub struct FTable<'a, Selection> {
 
 mod data {
     use crate::textdata::TextTableData;
-    use crate::{FTableContext, TableData, TableDataIter, TableDataIterClone};
+    use crate::{FTableContext, TableData, TableDataIter};
     #[allow(unused_imports)]
     use log::debug;
     use log::warn;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
-    use ratatui::style::Style;
+    use ratatui::style::{Style, Stylize};
+    use std::cell::Cell;
     use std::fmt::{Debug, Formatter};
 
     #[derive(Default)]
@@ -94,7 +95,6 @@ mod data {
         Text(TextTableData<'a>),
         Data(Box<dyn TableData<'a> + 'a>),
         Iter(Box<dyn TableDataIter<'a> + 'a>),
-        Clone(Box<dyn TableDataIterClone<'a> + 'a>),
     }
 
     impl<'a> DataRepr<'a> {
@@ -104,7 +104,15 @@ mod data {
                 DataRepr::Text(v) => DataReprIter::IterText(v, None),
                 DataRepr::Data(v) => DataReprIter::IterData(v, None),
                 DataRepr::Iter(v) => DataReprIter::IterIter(v),
-                DataRepr::Clone(v) => DataReprIter::IterClone(v),
+            }
+        }
+
+        pub(super) fn is_render_ref_compat(&self) -> bool {
+            match self {
+                DataRepr::None => true,
+                DataRepr::Text(_) => true,
+                DataRepr::Data(_) => true,
+                DataRepr::Iter(_) => false,
             }
         }
 
@@ -113,12 +121,14 @@ mod data {
                 DataRepr::None => DataReprIter::None,
                 DataRepr::Text(v) => DataReprIter::IterDataRef(v, None),
                 DataRepr::Data(v) => DataReprIter::IterDataRef(v.as_ref(), None),
-                DataRepr::Iter(_) => {
-                    #[cfg(debug_assertions)]
-                    warn!("FTable::render_ref - TableDataIter doesn't work with render_ref. Use TableDateIterClone instead.");
-                    DataReprIter::None
+                DataRepr::Iter(v) => {
+                    // TableDataIter might not implement a valid cloned().
+                    if let Some(v) = v.cloned() {
+                        DataReprIter::IterIter(v)
+                    } else {
+                        DataReprIter::Invalid(None, Default::default())
+                    }
                 }
-                DataRepr::Clone(v) => DataReprIter::IterClone(v.cloned()),
             }
         }
     }
@@ -133,24 +143,24 @@ mod data {
     pub(super) enum DataReprIter<'a, 'b> {
         #[default]
         None,
+        Invalid(Option<usize>, Cell<u16>),
         IterText(TextTableData<'a>, Option<usize>),
         IterData(Box<dyn TableData<'a> + 'a>, Option<usize>),
         IterDataRef(&'b dyn TableData<'a>, Option<usize>),
         IterIter(Box<dyn TableDataIter<'a> + 'a>),
         IterIterRef(&'b mut dyn TableDataIter<'a>),
-        IterClone(Box<dyn TableDataIterClone<'a> + 'a>),
     }
 
     impl<'a, 'b> TableDataIter<'a> for DataReprIter<'a, 'b> {
         fn rows(&self) -> Option<usize> {
             match self {
                 DataReprIter::None => Some(0),
+                DataReprIter::Invalid(_, _) => Some(1),
                 DataReprIter::IterText(v, _) => Some(v.rows.len()),
                 DataReprIter::IterData(v, _) => Some(v.rows()),
                 DataReprIter::IterDataRef(v, _) => Some(v.rows()),
                 DataReprIter::IterIter(v) => v.rows(),
                 DataReprIter::IterIterRef(v) => v.rows(),
-                DataReprIter::IterClone(v) => v.rows(),
             }
         }
 
@@ -168,43 +178,37 @@ mod data {
 
             match self {
                 DataReprIter::None => false,
+                DataReprIter::Invalid(row, _) => incr(row, 1),
                 DataReprIter::IterText(v, row) => incr(row, v.rows.len()),
                 DataReprIter::IterData(v, row) => incr(row, v.rows()),
                 DataReprIter::IterDataRef(v, row) => incr(row, v.rows()),
                 DataReprIter::IterIter(v) => v.nth(n),
                 DataReprIter::IterIterRef(v) => v.nth(n),
-                DataReprIter::IterClone(v) => v.nth(n),
             }
-        }
-
-        #[allow(clippy::len_zero)]
-        #[inline]
-        fn next(&mut self) -> bool {
-            self.nth(0)
         }
 
         /// Row height.
         fn row_height(&self) -> u16 {
             match self {
                 DataReprIter::None => 1,
+                DataReprIter::Invalid(_, _) => 1,
                 DataReprIter::IterText(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterData(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterDataRef(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_height(),
                 DataReprIter::IterIterRef(v) => v.row_height(),
-                DataReprIter::IterClone(v) => v.row_height(),
             }
         }
 
         fn row_style(&self) -> Option<Style> {
             match self {
                 DataReprIter::None => None,
+                DataReprIter::Invalid(_, _) => Some(Style::new().white().on_red()),
                 DataReprIter::IterText(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterData(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterDataRef(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_style(),
                 DataReprIter::IterIterRef(v) => v.row_style(),
-                DataReprIter::IterClone(v) => v.row_style(),
             }
         }
 
@@ -212,6 +216,19 @@ mod data {
         fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer) {
             match self {
                 DataReprIter::None => {}
+                DataReprIter::Invalid(_, x0) => {
+                    if column == 0 {
+                        #[cfg(debug_assertions)]
+                        warn!("FTable::render_ref - TableDataIter must implement a valid cloned() for this to work.");
+
+                        buf.set_string(
+                            area.x,
+                            area.y,
+                            "TableDataIter must implement a valid cloned() for this",
+                            Style::default(),
+                        );
+                    }
+                }
                 DataReprIter::IterText(v, n) => {
                     v.render_cell(ctx, column, n.expect("row"), area, buf)
                 }
@@ -223,7 +240,6 @@ mod data {
                 }
                 DataReprIter::IterIter(v) => v.render_cell(ctx, column, area, buf),
                 DataReprIter::IterIterRef(v) => v.render_cell(ctx, column, area, buf),
-                DataReprIter::IterClone(v) => v.render_cell(ctx, column, area, buf),
             }
         }
     }
@@ -539,19 +555,6 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
-    #[inline]
-    pub fn iter_clone(mut self, data: impl TableDataIterClone<'a> + 'a) -> Self {
-        #[cfg(debug_assertions)]
-        if data.rows().is_none() {
-            warn!("FTable::iter_clone - rows is None, this will be slower");
-        }
-        self.header = data.header();
-        self.footer = data.footer();
-        self.widths = data.widths();
-        self.data = DataRepr::Clone(Box::new(data));
-        self
-    }
-
     /// If you work with an TableDataIter to fill the table, and
     /// if you don't return a count with rows(), FTable will run
     /// through all your iterator to find the actual number of rows.
@@ -787,7 +790,6 @@ impl<'a, Selection> FTable<'a, Selection> {
             DataRepr::Text(v) => self.need_scroll_tabledata(v, area),
             DataRepr::Data(v) => self.need_scroll_tabledata(v.as_ref(), area),
             DataRepr::Iter(v) => self.need_scroll_tableiter(v.as_ref(), area),
-            DataRepr::Clone(v) => self.need_scroll_tableiter_clone(v.as_ref(), area),
         };
 
         // Hack to get some spacing between the last column and
@@ -804,12 +806,6 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 
     fn need_scroll_tableiter(&self, _data: &dyn TableDataIter<'a>, _area: Rect) -> bool {
-        // can't iterate data here, have to guess.
-        // the guess is `true`.
-        true
-    }
-
-    fn need_scroll_tableiter_clone(&self, _data: &dyn TableDataIterClone<'a>, _area: Rect) -> bool {
         // can't iterate data here, have to guess.
         // the guess is `true`.
         true
@@ -1035,6 +1031,8 @@ where
                 state.row_areas.push(visible_row);
                 state.row_page_len += 1;
 
+                // todo: render_row
+
                 let mut col = state.col_offset;
                 loop {
                     if col >= state.columns {
@@ -1100,7 +1098,7 @@ where
                 if visible_row.bottom() >= state.table_area.bottom() {
                     break;
                 }
-                if !data.next() {
+                if !data.nth(0) {
                     break;
                 }
                 row = Some(row.expect("row") + 1);
@@ -1144,7 +1142,7 @@ where
                         if row_heights.len() > state.table_area.height as usize {
                             row_heights.remove(0);
                         }
-                        if !data.next() {
+                        if !data.nth(0) {
                             break;
                         }
                         row = Some(row.expect("row") + 1);
@@ -1155,7 +1153,7 @@ where
                     }
                     // we break before to have an accurate last page.
                     // but we still want to report an error, if the count is off.
-                    while data.next() {
+                    while data.nth(0) {
                         row = Some(row.expect("row") + 1);
                     }
                 } else {
@@ -1170,10 +1168,10 @@ where
                 // we can't really stabilize the row count and the
                 // display starts flickering.
                 if row.is_some() {
-                    if data.next() {
+                    if data.nth(0) {
                         // try one past page
                         row = Some(row.expect("row") + 1);
-                        if data.next() {
+                        if data.nth(0) {
                             // have an unknown number of rows left.
                             row = Some(usize::MAX - 1);
                         }
@@ -1184,7 +1182,7 @@ where
                 state._counted_rows = row.map_or(0, |v| v + 1);
             } else {
                 // Read all the rest to establish the exact row-count.
-                while data.next() {
+                while data.nth(0) {
                     row_heights.push(data.row_height());
                     // don't need more info. drop the oldest.
                     if row_heights.len() > state.table_area.height as usize {
