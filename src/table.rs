@@ -91,7 +91,7 @@ mod data {
         #[default]
         None,
         Text(TextTableData<'a>),
-        Ref(&'a dyn TableData<'a>),
+        Data(&'a dyn TableData<'a>),
         Iter(&'a mut dyn TableDataIter<'a>),
     }
 
@@ -100,7 +100,7 @@ mod data {
             match self {
                 DataRepr::None => DataReprIter::None,
                 DataRepr::Text(v) => DataReprIter::IterText(v, None),
-                DataRepr::Ref(v) => DataReprIter::IterRef(v, None),
+                DataRepr::Data(v) => DataReprIter::IterData(v, None),
                 DataRepr::Iter(v) => DataReprIter::IterIter(v),
             }
         }
@@ -117,7 +117,7 @@ mod data {
         #[default]
         None,
         IterText(TextTableData<'a>, Option<usize>),
-        IterRef(&'a dyn TableData<'a>, Option<usize>),
+        IterData(&'a dyn TableData<'a>, Option<usize>),
         IterIter(&'a mut dyn TableDataIter<'a>),
     }
 
@@ -126,7 +126,7 @@ mod data {
             match self {
                 DataReprIter::None => Some(0),
                 DataReprIter::IterText(v, _) => Some(v.rows.len()),
-                DataReprIter::IterRef(v, _) => Some(v.rows()),
+                DataReprIter::IterData(v, _) => Some(v.rows()),
                 DataReprIter::IterIter(v) => v.rows(),
             }
         }
@@ -144,7 +144,7 @@ mod data {
                         w + n + 1 < v.rows.len()
                     }
                 },
-                DataReprIter::IterRef(v, row) => match *row {
+                DataReprIter::IterData(v, row) => match *row {
                     None => {
                         *row = Some(n);
                         n < v.rows()
@@ -169,7 +169,7 @@ mod data {
             match self {
                 DataReprIter::None => 1,
                 DataReprIter::IterText(v, n) => v.row_height(n.expect("row")),
-                DataReprIter::IterRef(v, n) => v.row_height(n.expect("row")),
+                DataReprIter::IterData(v, n) => v.row_height(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_height(),
             }
         }
@@ -178,7 +178,7 @@ mod data {
             match self {
                 DataReprIter::None => None,
                 DataReprIter::IterText(v, n) => v.row_style(n.expect("row")),
-                DataReprIter::IterRef(v, n) => v.row_style(n.expect("row")),
+                DataReprIter::IterData(v, n) => v.row_style(n.expect("row")),
                 DataReprIter::IterIter(v) => v.row_style(),
             }
         }
@@ -190,7 +190,7 @@ mod data {
                 DataReprIter::IterText(v, n) => {
                     v.render_cell(ctx, column, n.expect("row"), area, buf)
                 }
-                DataReprIter::IterRef(v, n) => {
+                DataReprIter::IterData(v, n) => {
                     v.render_cell(ctx, column, n.expect("row"), area, buf)
                 }
                 DataReprIter::IterIter(v) => v.render_cell(ctx, column, area, buf),
@@ -387,7 +387,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         self.widths = data.widths();
         self.header = data.header();
         self.footer = data.footer();
-        self.data = DataRepr::Ref(data);
+        self.data = DataRepr::Data(data);
         self
     }
 
@@ -745,7 +745,7 @@ impl<'a, Selection> FTable<'a, Selection> {
         let vertical = match &self.data {
             DataRepr::None => false,
             DataRepr::Text(v) => self.need_scroll_tabledata(v, area),
-            DataRepr::Ref(v) => self.need_scroll_tabledata(*v, area),
+            DataRepr::Data(v) => self.need_scroll_tabledata(*v, area),
             DataRepr::Iter(v) => self.need_scroll_tableiter(*v, area),
         };
 
