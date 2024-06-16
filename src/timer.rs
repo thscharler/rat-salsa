@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 /// Holds all the timers.
 #[derive(Debug, Default)]
-pub(crate) struct Timers {
+pub struct Timers {
     tags: Cell<usize>,
     timers: RefCell<Vec<TimerImpl>>,
 }

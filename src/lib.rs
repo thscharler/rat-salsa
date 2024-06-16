@@ -7,6 +7,7 @@ use rat_widget::event::{
 };
 use rat_widget::menuline::MenuOutcome;
 
+pub mod f3;
 mod framework;
 mod timer;
 
