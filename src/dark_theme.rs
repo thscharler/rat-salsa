@@ -7,6 +7,7 @@ use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::scrolled::ScrolledStyle;
 use rat_widget::table::FTableStyle;
+use rat_widget::textarea::TextAreaStyle;
 use ratatui::prelude::Style;
 
 /// One sample theme which prefers dark colors from the color-scheme
@@ -42,6 +43,108 @@ impl DarkTheme {
     /// The underlying scheme.
     pub fn scheme(&self) -> &Scheme {
         &self.s
+    }
+
+    /// Create a style from the given white shade.
+    /// n is `0..=3`
+    pub fn white(&self, n: usize) -> Style {
+        self.s.style(self.s.white[n])
+    }
+
+    /// Create a style from the given black shade.
+    /// n is `0..=3`
+    pub fn black(&self, n: usize) -> Style {
+        self.s.style(self.s.black[n])
+    }
+
+    /// Create a style from the given gray shade.
+    /// n is `0..=3`
+    pub fn gray(&self, n: usize) -> Style {
+        self.s.style(self.s.gray[n])
+    }
+
+    /// Create a style from the given red shade.
+    /// n is `0..=3`
+    pub fn red(&self, n: usize) -> Style {
+        self.s.style(self.s.red[n])
+    }
+
+    /// Create a style from the given orange shade.
+    /// n is `0..=3`
+    pub fn orange(&self, n: usize) -> Style {
+        self.s.style(self.s.orange[n])
+    }
+
+    /// Create a style from the given yellow shade.
+    /// n is `0..=3`
+    pub fn yellow(&self, n: usize) -> Style {
+        self.s.style(self.s.yellow[n])
+    }
+
+    /// Create a style from the given limegreen shade.
+    /// n is `0..=3`
+    pub fn limegreen(&self, n: usize) -> Style {
+        self.s.style(self.s.limegreen[n])
+    }
+
+    /// Create a style from the given green shade.
+    /// n is `0..=3`
+    pub fn green(&self, n: usize) -> Style {
+        self.s.style(self.s.green[n])
+    }
+
+    /// Create a style from the given bluegreen shade.
+    /// n is `0..=3`
+    pub fn bluegreen(&self, n: usize) -> Style {
+        self.s.style(self.s.bluegreen[n])
+    }
+
+    /// Create a style from the given cyan shade.
+    /// n is `0..=3`
+    pub fn cyan(&self, n: usize) -> Style {
+        self.s.style(self.s.cyan[n])
+    }
+
+    /// Create a style from the given blue shade.
+    /// n is `0..=3`
+    pub fn blue(&self, n: usize) -> Style {
+        self.s.style(self.s.blue[n])
+    }
+
+    /// Create a style from the given deepblue shade.
+    /// n is `0..=3`
+    pub fn deepblue(&self, n: usize) -> Style {
+        self.s.style(self.s.deepblue[n])
+    }
+
+    /// Create a style from the given purple shade.
+    /// n is `0..=3`
+    pub fn purple(&self, n: usize) -> Style {
+        self.s.style(self.s.purple[n])
+    }
+
+    /// Create a style from the given magenta shade.
+    /// n is `0..=3`
+    pub fn magenta(&self, n: usize) -> Style {
+        self.s.style(self.s.magenta[n])
+    }
+
+    /// Create a style from the given redpink shade.
+    /// n is `0..=3`
+    pub fn redpink(&self, n: usize) -> Style {
+        self.s.style(self.s.redpink[n])
+    }
+
+    /// Create a style from the given primary shade.
+    /// n is `0..=3`
+    pub fn primary(&self, n: usize) -> Style {
+        self.s.style(self.s.primary[n])
+    }
+
+    /// Create a style from the given secondary shade.
+    /// n is `0..=3`
+    pub fn secondary(&self, n: usize) -> Style {
+        self.s.style(self.s.secondary[n])
     }
 
     /// Focus style
@@ -86,6 +189,16 @@ impl DarkTheme {
     /// Style for the status line.
     pub fn status_style(&self) -> Style {
         Style::default().fg(self.s.white[0]).bg(self.s.black[2])
+    }
+
+    /// Complete TextAreaStyle
+    pub fn textarea_style(&self) -> TextAreaStyle {
+        TextAreaStyle {
+            style: self.text_input(),
+            focus: Some(self.text_focus()),
+            select: Some(self.text_select()),
+            ..TextAreaStyle::default()
+        }
     }
 
     /// Complete TextInputStyle

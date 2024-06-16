@@ -1,6 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
 use ratatui::prelude::Color;
+use ratatui::style::Style;
 
 pub mod dark_theme;
 pub mod imperial;
@@ -42,6 +43,10 @@ pub struct Scheme {
 }
 
 impl Scheme {
+    pub fn style(&self, color: Color) -> Style {
+        Style::new().bg(color).fg(self.text_color(color))
+    }
+
     /// Linear interpolation between the two colors.
     pub const fn linear4(c0: u32, c1: u32) -> [Color; 4] {
         // 1/3
