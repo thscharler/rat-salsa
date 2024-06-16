@@ -67,6 +67,30 @@ where
             ],
         })
     }
+
+    /// Number of threads.
+    pub fn threads(mut self, n: usize) -> Self {
+        self.n_threats = n;
+        self
+    }
+
+    /// Terminal is a rat-salsa::terminal::Terminal not a ratatui::Terminal.
+    pub fn term(mut self, term: impl Terminal<App, Global, Action, Error> + 'static) -> Self {
+        self.term = Box::new(term);
+        self
+    }
+
+    /// Remove default PollEvents.
+    pub fn no_poll(mut self) -> Self {
+        self.poll.clear();
+        self
+    }
+
+    /// Add poll
+    pub fn poll(mut self, poll: impl PollEvents<App, Global, Action, Error> + 'static) -> Self {
+        self.poll.push(Box::new(poll));
+        self
+    }
 }
 
 /// Handle for which EventPoll wants to be read.
@@ -205,6 +229,67 @@ where
 }
 
 /// Run the event-loop
+///
+/// The shortest version I can come up with:
+/// ```
+/// use crossterm::event::Event;
+/// use rat_salsa::event::{ct_event, flow_ok};
+/// use rat_salsa::{run_tui, AppContext, AppEvents, AppWidget, Control, RenderContext, RunConfig};
+/// use ratatui::buffer::Buffer;
+/// use ratatui::layout::Rect;
+/// use ratatui::style::Stylize;
+/// use ratatui::text::Span;
+/// use ratatui::widgets::Widget;
+///
+/// #[derive(Debug)]
+/// struct MainApp;
+///
+/// #[derive(Debug)]
+/// struct MainState;
+///
+/// impl AppWidget<(), (), anyhow::Error> for MainApp {
+///     type State = MainState;
+///
+///     fn render(
+///         &self,
+///         area: Rect,
+///         buf: &mut Buffer,
+///         _state: &mut Self::State,
+///         _ctx: &mut RenderContext<'_, ()>,
+///     ) -> Result<(), anyhow::Error> {
+///         Span::from("Hello world")
+///             .white()
+///             .on_blue()
+///             .render(area, buf);
+///         Ok(())
+///     }
+/// }
+///
+/// impl AppEvents<(), (), anyhow::Error> for MainState {
+///     fn crossterm(
+///         &mut self,
+///         event: &Event,
+///         _ctx: &mut AppContext<'_, (), (), anyhow::Error>,
+///     ) -> Result<Control<()>, anyhow::Error> {
+///         flow_ok!(match event {
+///             ct_event!(key press 'q') => Control::Quit,
+///             _ => Control::Continue,
+///         });
+///
+///         Ok(Control::Continue)
+///     }
+/// }
+///
+/// #[test]
+/// fn main() -> Result<(), anyhow::Error> {
+///     run_tui(MainApp, &mut (), &mut MainState, RunConfig::default()?)?;
+///     Ok(())
+/// }
+///
+/// ```
+///
+/// Maybe `examples/minimal.rs` is more useful.
+///
 pub fn run_tui<Widget, Global, Action, Error>(
     app: Widget,
     global: &mut Global,

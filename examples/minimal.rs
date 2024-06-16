@@ -1,13 +1,14 @@
 #![allow(unused_variables)]
 
 use crate::mask0::{Mask0, Mask0State};
-use crate::theme::Theme;
 use anyhow::Error;
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
+use rat_theme::dark_theme::DarkTheme;
+use rat_theme::imperial::IMPERIAL;
 use rat_widget::event::{ct_event, flow_ok, FocusKeys, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -25,7 +26,8 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = MinimalConfig::default();
-    let mut global = GlobalState::new(config, &theme::ONEDARK);
+    let theme = DarkTheme::new("ImperialDark".into(), IMPERIAL);
+    let mut global = GlobalState::new(config, theme);
 
     let app = MinimalApp;
     let mut state = MinimalState::default();
@@ -34,10 +36,7 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig {
-            n_threats: 1,
-            ..RunConfig::default()?
-        },
+        RunConfig::default()?.threads(1),
     )?;
 
     Ok(())
@@ -48,13 +47,13 @@ fn main() -> Result<(), Error> {
 #[derive(Debug)]
 pub struct GlobalState {
     pub cfg: MinimalConfig,
-    pub theme: &'static Theme,
+    pub theme: DarkTheme,
     pub status: RefCell<StatusLineState>,
     pub error_dlg: RefCell<MsgDialogState>,
 }
 
 impl GlobalState {
-    fn new(cfg: MinimalConfig, theme: &'static Theme) -> Self {
+    fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
         Self {
             cfg,
             theme,
@@ -105,7 +104,7 @@ impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
         Mask0.render(r[0], buf, &mut state.mask0, ctx)?;
 
         if ctx.g.error_dlg.borrow().active {
-            let err = MsgDialog::new().styles(ctx.g.theme.status_dialog_style());
+            let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
             err.render(r[0], buf, &mut ctx.g.error_dlg.borrow_mut());
         }
 
@@ -318,185 +317,6 @@ mod mask0 {
             Ok(Control::Continue)
         }
     }
-}
-
-// -----------------------------------------------------------------------
-
-mod theme {
-    use rat_widget::button::ButtonStyle;
-    use rat_widget::input::TextInputStyle;
-    use rat_widget::masked_input::MaskedInputStyle;
-    use rat_widget::menuline::MenuStyle;
-    use rat_widget::msgdialog::MsgDialogStyle;
-    use ratatui::style::{Color, Style, Stylize};
-
-    #[derive(Debug, Default)]
-    pub struct Theme {
-        pub name: &'static str,
-        pub dark_theme: bool,
-
-        pub white: Color,
-        pub darker_black: Color,
-        pub black: Color,
-        pub black2: Color,
-        pub one_bg: Color,
-        pub one_bg2: Color,
-        pub one_bg3: Color,
-        pub grey: Color,
-        pub grey_fg: Color,
-        pub grey_fg2: Color,
-        pub light_grey: Color,
-        pub red: Color,
-        pub baby_pink: Color,
-        pub pink: Color,
-        pub line: Color,
-        pub green: Color,
-        pub vibrant_green: Color,
-        pub nord_blue: Color,
-        pub blue: Color,
-        pub yellow: Color,
-        pub sun: Color,
-        pub purple: Color,
-        pub dark_purple: Color,
-        pub teal: Color,
-        pub orange: Color,
-        pub cyan: Color,
-        pub statusline_bg: Color,
-        pub lightbg: Color,
-        pub pmenu_bg: Color,
-        pub folder_bg: Color,
-
-        pub base00: Color,
-        pub base01: Color,
-        pub base02: Color,
-        pub base03: Color,
-        pub base04: Color,
-        pub base05: Color,
-        pub base06: Color,
-        pub base07: Color,
-        pub base08: Color,
-        pub base09: Color,
-        pub base0a: Color,
-        pub base0b: Color,
-        pub base0c: Color,
-        pub base0d: Color,
-        pub base0e: Color,
-        pub base0f: Color,
-    }
-
-    impl Theme {
-        pub fn status_style(&self) -> Style {
-            Style::default().fg(self.white).bg(self.one_bg3)
-        }
-
-        pub fn input_style(&self) -> TextInputStyle {
-            TextInputStyle {
-                style: Style::default().fg(self.black).bg(self.base05),
-                focus: Some(Style::default().fg(self.black).bg(self.green)),
-                select: Some(Style::default().fg(self.black).bg(self.base0e)),
-                ..TextInputStyle::default()
-            }
-        }
-
-        pub fn input_mask_style(&self) -> MaskedInputStyle {
-            MaskedInputStyle {
-                style: Style::default().fg(self.black).bg(self.base05),
-                focus: Some(Style::default().fg(self.black).bg(self.green)),
-                select: Some(Style::default().fg(self.black).bg(self.base0e)),
-                invalid: Some(Style::default().bg(Color::Red)),
-                ..Default::default()
-            }
-        }
-
-        pub fn button_style(&self) -> ButtonStyle {
-            ButtonStyle {
-                style: Style::default().fg(self.black).bg(self.purple).bold(),
-                focus: Some(Style::default().fg(self.black).bg(self.green).bold()),
-                armed: Some(Style::default().fg(self.black).bg(self.orange).bold()),
-                ..Default::default()
-            }
-        }
-
-        pub fn statusline_style(&self) -> Vec<Style> {
-            vec![
-                self.status_style(),
-                Style::default().white().on_blue(),
-                Style::default().white().on_light_blue(),
-                Style::default().white().on_gray(),
-            ]
-        }
-
-        pub fn status_dialog_style(&self) -> MsgDialogStyle {
-            MsgDialogStyle {
-                style: self.status_style(),
-                button: self.button_style(),
-                ..Default::default()
-            }
-        }
-
-        pub fn menu_style(&self) -> MenuStyle {
-            MenuStyle {
-                style: Style::default().fg(self.white).bg(self.one_bg3).bold(),
-                title: Some(Style::default().fg(self.black).bg(self.base0a).bold()),
-                select: Some(Style::default().fg(self.black).bg(self.base0e).bold()),
-                focus: Some(Style::default().fg(self.black).bg(self.green).bold()),
-                ..Default::default()
-            }
-        }
-    }
-
-    pub(crate) static ONEDARK: Theme = Theme {
-        name: "onedark",
-        dark_theme: false,
-
-        white: Color::from_u32(0xabb2bf),
-        darker_black: Color::from_u32(0x1b1f27),
-        black: Color::from_u32(0x1e222a), //  nvim bg
-        black2: Color::from_u32(0x252931),
-        one_bg: Color::from_u32(0x282c34), // real bg of onedark
-        one_bg2: Color::from_u32(0x353b45),
-        one_bg3: Color::from_u32(0x373b43),
-        grey: Color::from_u32(0x42464e),
-        grey_fg: Color::from_u32(0x565c64),
-        grey_fg2: Color::from_u32(0x6f737b),
-        light_grey: Color::from_u32(0x6f737b),
-        red: Color::from_u32(0xe06c75),
-        baby_pink: Color::from_u32(0xDE8C92),
-        pink: Color::from_u32(0xff75a0),
-        line: Color::from_u32(0x31353d), // for lines like vertsplit
-        green: Color::from_u32(0x98c379),
-        vibrant_green: Color::from_u32(0x7eca9c),
-        nord_blue: Color::from_u32(0x81A1C1),
-        blue: Color::from_u32(0x61afef),
-        yellow: Color::from_u32(0xe7c787),
-        sun: Color::from_u32(0xEBCB8B),
-        purple: Color::from_u32(0xde98fd),
-        dark_purple: Color::from_u32(0xc882e7),
-        teal: Color::from_u32(0x519ABA),
-        orange: Color::from_u32(0xfca2aa),
-        cyan: Color::from_u32(0xa3b8ef),
-        statusline_bg: Color::from_u32(0x22262e),
-        lightbg: Color::from_u32(0x2d3139),
-        pmenu_bg: Color::from_u32(0x61afef),
-        folder_bg: Color::from_u32(0x61afef),
-
-        base00: Color::from_u32(0x1e222a),
-        base01: Color::from_u32(0x353b45),
-        base02: Color::from_u32(0x3e4451),
-        base03: Color::from_u32(0x545862),
-        base04: Color::from_u32(0x565c64),
-        base05: Color::from_u32(0xabb2bf),
-        base06: Color::from_u32(0xb6bdca),
-        base07: Color::from_u32(0xc8ccd4),
-        base08: Color::from_u32(0xe06c75),
-        base09: Color::from_u32(0xd19a66),
-        base0a: Color::from_u32(0xe5c07b),
-        base0b: Color::from_u32(0x98c379),
-        base0c: Color::from_u32(0x56b6c2),
-        base0d: Color::from_u32(0x61afef),
-        base0e: Color::from_u32(0xc678dd),
-        base0f: Color::from_u32(0xbe5046),
-    };
 }
 
 fn setup_logging() -> Result<(), Error> {
