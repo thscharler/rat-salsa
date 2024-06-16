@@ -473,30 +473,34 @@ impl ScrollingState for RTextAreaState {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for RTextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
-        if self.is_focused() {
+        if self.gained_focus() {
+            TextOutcome::NotUsed
+        } else if self.is_focused() {
             self.widget.handle(event, FocusKeys)
         } else {
-            TextOutcome::NotUsed
+            self.widget.handle(event, MouseOnly)
         }
     }
 }
 
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for RTextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
-        if self.is_focused() {
+        if self.gained_focus() {
+            TextOutcome::NotUsed
+        } else if self.is_focused() {
             self.widget.handle(event, ReadOnly)
         } else {
-            TextOutcome::NotUsed
+            self.widget.handle(event, MouseOnly)
         }
     }
 }
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for RTextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
-        if self.is_focused() {
-            self.widget.handle(event, MouseOnly)
-        } else {
+        if self.gained_focus() {
             TextOutcome::NotUsed
+        } else {
+            self.widget.handle(event, MouseOnly)
         }
     }
 }
