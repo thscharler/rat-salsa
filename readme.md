@@ -84,14 +84,14 @@ There is more:
 This function runs the event-loop.
 
 * app - The main AppWidget that handles the whole application.
-* global - Globale state stuff. Put your config, theme, logging, database connection
+* global - Global state stuff. Put your config, theme, logging, database connection
   and the like here.
 * state - Initial state of the app widget.
 * cfg - Some tweaks for the event loop.
 
 Polls all event-sources and ensures an equal time-share for each source,
-should one of them start flooding. For now the event-sources are fixed
-as timers, responses from background tasks, input events.
+should one of them start flooding. The default sources are Timers, Crossterm and
+Task-Results. You can add your own to cfg.
 
 ## Control
 
@@ -121,8 +121,6 @@ AppWidget is styled after StatefulWidget.
 
 Additionaly it gets
 
-* event - RepaintEvent to differentiate a timed repaint from an
-  application driven repaint.
 * ctx - RenderContext
 
 AppEvents packs together the currently supported event-handlers.
@@ -150,7 +148,7 @@ AppContext contains
   cancellation support.
 * queue() - Queues additional results from event-handling.
 
-        Remark: _The main reason for this is focus-handling.
+        Remark: The main reason for this is focus-handling.
                 When handling the click to focus a widget, the same
                 click event should interact with the widget. This gives
                 two results from event-handling. The focus change wants
@@ -158,8 +156,11 @@ AppContext contains
                 ideas. So now you queue() the focus result and go on
                 with event-handling. 
 
-RenderContext has the same as AppContext plus
+RenderContext contains
 
+* field `g` for the global state data.
+* timeout - When the repaint was triggered by a repaint-timer this
+  is the timeout that occurred.
 * frame counter
 * frame area
 * cursor position for displaying the cursor.

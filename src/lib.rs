@@ -1,18 +1,28 @@
 #![doc = include_str!("../readme.md")]
 
-use crate::event::RepaintEvent;
+use crossbeam::channel::{SendError, Sender};
 use rat_widget::button::ButtonOutcome;
 use rat_widget::event::{
     ConsumedEvent, DoubleClickOutcome, EditOutcome, Outcome, ScrollOutcome, TextOutcome,
 };
 use rat_widget::menuline::MenuOutcome;
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
+use std::fmt::Debug;
 
-pub mod f3;
+pub(crate) mod control_queue;
 mod framework;
-mod timer;
+pub mod poll;
+pub mod terminal;
+mod threadpool;
+pub mod timer;
 
-pub use framework::{run_tui, AppContext, AppEvents, AppWidget, RenderContext, RunConfig};
-pub use timer::{TimeOut, TimerDef, TimerEvent, TimerHandle};
+use crate::control_queue::ControlQueue;
+use crate::threadpool::ThreadPool;
+use crate::timer::{TimeOut, TimerDef, TimerHandle, Timers};
+
+pub use framework::{run_tui, RunConfig};
+pub use threadpool::Cancel;
 
 /// Result of event-handling.
 ///
@@ -130,19 +140,181 @@ impl<Action> From<EditOutcome> for Control<Action> {
 }
 
 ///
+/// A trait for application level widgets.
+///
+/// This trait is an anlog to ratatui's StatefulWidget, and
+/// does only the rendering part. It's extended with all the
+/// extras needed in an application.
+///
+#[allow(unused_variables)]
+pub trait AppWidget<Global, Action, Error>
+where
+    Action: 'static + Send + Debug,
+    Error: 'static + Send + Debug,
+{
+    /// Type of the State.
+    type State: AppEvents<Global, Action, Error> + Debug;
+
+    /// Renders an application widget.
+    fn render(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Self::State,
+        ctx: &mut RenderContext<'_, Global>,
+    ) -> Result<(), Error>;
+}
+
+///
+/// Eventhandling for application level widgets.
+///
+/// This one collects all currently defined events.
+/// Implement this one on the state struct.
+///
+#[allow(unused_variables)]
+pub trait AppEvents<Global, Action, Error>
+where
+    Action: 'static + Send + Debug,
+    Error: 'static + Send + Debug,
+{
+    /// Initialize the application. Runs before the first repaint.
+    fn init(&mut self, ctx: &mut AppContext<'_, Global, Action, Error>) -> Result<(), Error> {
+        Ok(())
+    }
+
+    /// Timeout event.
+    fn timer(
+        &mut self,
+        event: &TimeOut,
+        ctx: &mut AppContext<'_, Global, Action, Error>,
+    ) -> Result<Control<Action>, Error> {
+        Ok(Control::Continue)
+    }
+
+    /// Crossterm event.
+    fn crossterm(
+        &mut self,
+        event: &crossterm::event::Event,
+        ctx: &mut AppContext<'_, Global, Action, Error>,
+    ) -> Result<Control<Action>, Error> {
+        Ok(Control::Continue)
+    }
+
+    /// Run an action.
+    fn action(
+        &mut self,
+        event: &mut Action,
+        ctx: &mut AppContext<'_, Global, Action, Error>,
+    ) -> Result<Control<Action>, Error> {
+        Ok(Control::Continue)
+    }
+
+    /// Do error handling.
+    fn error(
+        &self,
+        event: Error,
+        ctx: &mut AppContext<'_, Global, Action, Error>,
+    ) -> Result<Control<Action>, Error> {
+        Ok(Control::Continue)
+    }
+}
+
+/// A collection of context data used by the application.
+#[derive(Debug)]
+pub struct AppContext<'a, Global, Action, Error>
+where
+    Action: 'static + Send + Debug,
+    Error: 'static + Send + Debug,
+{
+    /// Some global state for the application.
+    pub g: &'a mut Global,
+    /// Current timeout, if any.
+    pub timeout: Option<TimeOut>,
+
+    /// Application timers.
+    pub(crate) timers: &'a Timers,
+    /// Background tasks.
+    pub(crate) tasks: &'a ThreadPool<Action, Error>,
+    /// Queue foreground tasks.
+    queue: &'a ControlQueue<Action, Error>,
+}
+
+/// A collection of context data used for rendering.
+#[derive(Debug)]
+pub struct RenderContext<'a, Global> {
+    /// Some global state for the application.
+    pub g: &'a mut Global,
+    /// Current timeout that triggered the repaint.
+    pub timeout: Option<TimeOut>,
+
+    /// Frame counter.
+    pub counter: usize,
+    /// Frame area.
+    pub area: Rect,
+    /// Output cursor position. Set after rendering is complete.
+    pub cursor: Option<(u16, u16)>,
+}
+
+impl<'a, Global, Action, Error> AppContext<'a, Global, Action, Error>
+where
+    Action: 'static + Send + Debug,
+    Error: 'static + Send + Debug,
+{
+    /// Add a timer.
+    #[inline]
+    pub fn add_timer(&self, t: TimerDef) -> TimerHandle {
+        self.timers.add(t)
+    }
+
+    /// Remove a timer.
+    #[inline]
+    pub fn remove_timer(&self, tag: TimerHandle) {
+        self.timers.remove(tag)
+    }
+
+    /// Add a background worker task.
+    ///
+    /// ```rust ignore
+    /// let cancel = ctx.spawn(|cancel, send| {
+    ///     // ... do stuff
+    ///     Ok(Control::Continue)
+    /// });
+    /// ```
+    #[inline]
+    pub fn spawn(
+        &self,
+        task: impl FnOnce(
+                Cancel,
+                &Sender<Result<Control<Action>, Error>>,
+            ) -> Result<Control<Action>, Error>
+            + Send
+            + 'static,
+    ) -> Result<Cancel, SendError<()>>
+    where
+        Action: 'static + Send + Debug,
+        Error: 'static + Send + Debug,
+    {
+        self.tasks.send(task)
+    }
+
+    /// Queue additional results.
+    ///
+    /// X
+    #[inline]
+    pub fn queue(&self, ctrl: impl Into<Control<Action>>) {
+        self.queue.push(Ok(ctrl.into()))
+    }
+
+    /// Queue additional results.
+    #[inline]
+    pub fn queue_result(&self, ctrl: Result<Control<Action>, Error>) {
+        self.queue.push(ctrl)
+    }
+}
+
+///
 /// Event-handler traits and Keybindings.
 ///
 pub mod event {
-    use crate::TimeOut;
-
     pub use rat_widget::event::{ct_event, flow_ok};
-
-    /// Gives some extra information why a repaint was triggered.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-    pub enum RepaintEvent {
-        /// There was a [Repaint](crate::Control::Repaint) or the change flag has been set.
-        Repaint,
-        /// A timer triggered this.
-        Timer(TimeOut),
-    }
 }

@@ -5,8 +5,8 @@ use anyhow::Error;
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
-use rat_salsa::event::RepaintEvent;
-use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig, TimeOut};
+use rat_salsa::timer::TimeOut;
+use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::imperial::IMPERIAL;
 use rat_widget::event::{ct_event, flow_ok, FocusKeys, HandleEvent};
@@ -21,7 +21,7 @@ use std::fs;
 use std::time::{Duration, SystemTime};
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MinimalAction, Error>;
-type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState, MinimalAction, Error>;
+type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -39,7 +39,7 @@ fn main() -> Result<(), Error> {
         &mut state,
         RunConfig {
             n_threats: 1,
-            ..RunConfig::default()
+            ..RunConfig::default()?
         },
     )?;
 
@@ -92,7 +92,6 @@ impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
 
     fn render(
         &self,
-        event: &RepaintEvent,
         area: Rect,
         buf: &mut Buffer,
         state: &mut Self::State,
@@ -106,7 +105,7 @@ impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
         )
         .split(area);
 
-        Mask0.render(event, r[0], buf, &mut state.mask0, ctx)?;
+        Mask0.render(r[0], buf, &mut state.mask0, ctx)?;
 
         if ctx.g.error_dlg.borrow().active {
             let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
@@ -228,7 +227,6 @@ pub mod mask0 {
     use crossterm::event::Event;
     #[allow(unused_imports)]
     use log::debug;
-    use rat_salsa::event::RepaintEvent;
     use rat_salsa::{AppEvents, AppWidget, Control};
     use rat_theme::dark_theme::DarkTheme;
     use rat_theme::imperial::IMPERIAL;
@@ -267,7 +265,6 @@ pub mod mask0 {
 
         fn render(
             &self,
-            event: &RepaintEvent,
             area: Rect,
             buf: &mut Buffer,
             state: &mut Self::State,
@@ -307,11 +304,11 @@ pub mod mask0 {
             // TODO: handle_mask
             flow_ok!(match self.menu.handle(event, FocusKeys) {
                 MenuOutcome::Activated(0) => {
-                    _ = ctx.spawn(Box::new(|cancel, send| {
+                    _ = ctx.spawn(|cancel, send| {
                         Ok(Control::Action(MinimalAction::Message(
                             "hello from the other side".into(),
                         )))
-                    }));
+                    });
                     Control::Break
                 }
                 MenuOutcome::Activated(1) => {

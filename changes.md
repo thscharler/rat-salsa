@@ -1,3 +1,20 @@
+# 0.22.0
+
+* Restart the loop once more:
+    * Remove RepaintEvent. Move the TimeOut to RenderContext instead.
+    * Add trait EventPoll. This abstracts away all event-handling,
+      and allows adding custom event-sources.
+        * Implement PollTimers, PollCrossterm, PollTasks this way,
+          and just make those the default set.
+    * Add trait Terminal. This encapsulates the ratatui::Terminal.
+        * Make the terminal init sequences customizable.
+        * Allows other Backends, while not adding to the type variables.
+    * Extend RunConfig with
+        * render - RenderUI impl
+        * events - List of EventPoll.
+    * Remove functions add_timer(), remove_timer(), spawn() and queue() from RenderContext.
+      This is not needed while rendering.
+
 # 0.21.2
 
 * refactor: AppWidget::render() removes mut from self parameter.

@@ -1,3 +1,7 @@
+//!
+//! Support for application and repaint timers.
+//!
+
 #[allow(unused_imports)]
 use log::debug;
 use std::cell::{Cell, RefCell};
@@ -5,7 +9,7 @@ use std::time::{Duration, Instant};
 
 /// Holds all the timers.
 #[derive(Debug, Default)]
-pub struct Timers {
+pub(crate) struct Timers {
     tags: Cell<usize>,
     timers: RefCell<Vec<TimerImpl>>,
 }
