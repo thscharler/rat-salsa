@@ -4,7 +4,6 @@ use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_input::event::{ReadOnly, TextOutcome};
 pub use rat_input::textarea::core;
 use rat_input::textarea::core::{RopeGraphemes, TextRange};
-use rat_input::textarea::TextAreaStyle;
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -12,6 +11,8 @@ use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidgetRef};
 use ropey::{Rope, RopeSlice};
+
+pub use rat_input::textarea::TextAreaStyle;
 
 #[derive(Debug, Default, Clone)]
 pub struct RTextArea<'a> {
