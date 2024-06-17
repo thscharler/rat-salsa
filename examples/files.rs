@@ -3,7 +3,6 @@
 use crate::FilesAction::{Message, ReadDir, Update, UpdateFile};
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
-use crossterm::cursor::Show;
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
@@ -12,28 +11,27 @@ use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::imperial::IMPERIAL;
 use rat_widget::event::{
-    ct_event, flow_ok, DoubleClick, DoubleClickOutcome, EditKeys, FocusKeys, HandleEvent, Outcome,
-    ReadOnly, ScrollOutcome,
+    ct_event, flow_ok, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome, ReadOnly,
+    ScrollOutcome,
 };
-use rat_widget::focus::{match_focus, on_lost, Focus, HasFocus, HasFocusFlag};
+use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::scrolled::{Inner, Scrolled, ScrolledState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
-use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{FTableContext, RTable, RTableState, TableData};
 use rat_widget::textarea::{RTextArea, RTextAreaState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Style;
-use ratatui::text::Text;
-use ratatui::widgets::{StatefulWidget, Widget};
-use std::borrow::Cow;
+use ratatui::symbols::border;
+use ratatui::text::{Line, Text};
+use ratatui::widgets::block::Title;
+use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
 use std::cell::RefCell;
-use std::ffi::{OsStr, OsString};
-use std::ops::Deref;
-use std::path::{Path, PathBuf};
+use std::ffi::OsString;
+use std::path::PathBuf;
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use std::{fs, mem};
@@ -116,9 +114,9 @@ pub struct FilesApp;
 
 #[derive(Debug, Default)]
 pub struct FilesState {
-    pub current_dir: PathBuf,
+    pub main_dir: PathBuf,
     pub sub_dirs: Vec<OsString>,
-    pub files: Vec<OsString>,
+    pub files: Vec<(OsString, bool)>,
 
     pub w_dirs: ScrolledState<RTableState<RowSelection>>,
     pub w_files: ScrolledState<RTableState<RowSelection>>,
@@ -126,8 +124,11 @@ pub struct FilesState {
     pub w_menu: RMenuLineState,
 }
 
+#[allow(dead_code)]
 struct FileData<'a> {
-    files: &'a [OsString],
+    dir: Option<PathBuf>,
+    files: &'a [(OsString, bool)],
+    dir_style: Style,
 }
 
 impl<'a> TableData<'a> for FileData<'a> {
@@ -147,11 +148,30 @@ impl<'a> TableData<'a> for FileData<'a> {
         area: Rect,
         buf: &mut Buffer,
     ) {
-        let item = &self.files[row];
+        let (name, isdir) = &self.files[row];
         match column {
             0 => {
-                let name = item.to_string_lossy();
-                name.render(area, buf);
+                let name = name.to_string_lossy();
+                if name.as_ref() == ".." {
+                    let mut l = Line::from(name.as_ref());
+                    if let Some(dir) = &self.dir {
+                        if let Some(parent) = dir.parent() {
+                            if let Some(parent) = parent.parent() {
+                                l.push_span(" > ");
+                                if let Some(name) = parent.file_name() {
+                                    l.push_span(name.to_string_lossy().into_owned());
+                                }
+                            }
+                        }
+                    }
+                    l.render(area, buf);
+                } else {
+                    let mut l = Line::from(name.as_ref());
+                    if *isdir {
+                        l.push_span(" >");
+                    }
+                    l.render(area, buf);
+                }
             }
             _ => {}
         }
@@ -159,6 +179,7 @@ impl<'a> TableData<'a> for FileData<'a> {
 }
 
 struct DirData<'a> {
+    dir: Option<PathBuf>,
     dirs: &'a [OsString],
 }
 
@@ -183,7 +204,29 @@ impl<'a> TableData<'a> for DirData<'a> {
         match column {
             0 => {
                 let name = item.to_string_lossy();
-                name.render(area, buf);
+                if name.as_ref() == "." {
+                    let mut l = Line::from(name.as_ref());
+                    if let Some(dir) = &self.dir {
+                        l.push_span(" == ");
+                        if let Some(name) = dir.file_name() {
+                            l.push_span(name.to_string_lossy().into_owned());
+                        }
+                    }
+                    l.render(area, buf);
+                } else if name.as_ref() == ".." {
+                    let mut l = Line::from(name.as_ref());
+                    if let Some(dir) = &self.dir {
+                        if let Some(parent) = dir.parent() {
+                            l.push_span(" > ");
+                            if let Some(name) = parent.file_name() {
+                                l.push_span(name.to_string_lossy().into_owned());
+                            }
+                        }
+                    }
+                    l.render(area, buf);
+                } else {
+                    name.render(area, buf);
+                }
             }
             _ => {}
         }
@@ -225,13 +268,14 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
         .split(r[2]);
 
         // -----------------------------------------------------
-        Text::from(state.current_dir.to_string_lossy())
+        Text::from(state.main_dir.to_string_lossy())
             .style(ctx.g.theme.bluegreen(0))
             .render(r[0], buf);
 
         Scrolled::new(
             RTable::new()
                 .data(DirData {
+                    dir: Some(state.main_dir.clone()),
                     dirs: &state.sub_dirs,
                 })
                 .styles(ctx.g.theme.table_style()),
@@ -242,16 +286,43 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
         Scrolled::new(
             RTable::new()
                 .data(FileData {
+                    dir: state.current_dir(),
                     files: &state.files,
+                    dir_style: ctx.g.theme.gray(0),
                 })
                 .styles(ctx.g.theme.table_style()),
         )
         .styles(ctx.g.theme.scrolled_style())
         .render(c[1], buf, &mut state.w_files);
 
-        Scrolled::new(RTextArea::new().styles(ctx.g.theme.textarea_style()))
+        let title = if state.w_data.widget.is_focused() {
+            Title::from(Line::from("Content").style(ctx.g.theme.focus()))
+        } else {
+            Title::from("Content")
+        };
+        let set = border::Set {
+            top_left: " ",
+            top_right: " ",
+            bottom_left: " ",
+            bottom_right: " ",
+            vertical_left: " ",
+            vertical_right: " ",
+            horizontal_top: " ",
+            horizontal_bottom: " ",
+        };
+
+        let mut content_style = ctx.g.theme.textarea_style();
+        content_style.style = ctx.g.theme.black(2);
+        Scrolled::new(RTextArea::new().styles(content_style))
             .styles(ctx.g.theme.scrolled_style())
+            .block(
+                Block::bordered()
+                    .borders(Borders::TOP | Borders::BOTTOM | Borders::RIGHT)
+                    .border_set(set)
+                    .title(title),
+            )
             .render(c[2], buf, &mut state.w_data);
+        ctx.cursor = state.w_data.widget.screen_cursor();
 
         let menu = RMenuLine::new()
             .styles(ctx.g.theme.menu_style())
@@ -288,16 +359,12 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
 
 impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
     fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-        self.current_dir = if let Ok(dot) = PathBuf::from(".").canonicalize() {
+        self.main_dir = if let Ok(dot) = PathBuf::from(".").canonicalize() {
             dot
         } else {
             PathBuf::from(".")
         };
-        ctx.queue(Control::Action(ReadDir(
-            Full,
-            self.current_dir.clone(),
-            None,
-        )));
+        ctx.queue(Control::Action(ReadDir(Full, self.main_dir.clone(), None)));
 
         self.w_dirs.widget.set_scroll_selection(true);
         self.w_dirs.widget.focus().set();
@@ -456,19 +523,19 @@ impl FilesState {
                 if sub == &OsString::from(".") {
                     Ok(Control::Action(ReadDir(
                         Current,
-                        self.current_dir.clone(),
+                        self.main_dir.clone(),
                         None,
                     )))
                 } else if sub == &OsString::from("..") {
                     Ok(Control::Action(ReadDir(
                         Parent,
-                        self.current_dir.clone(),
+                        self.main_dir.clone(),
                         None,
                     )))
                 } else {
                     Ok(Control::Action(ReadDir(
                         SubDir,
-                        self.current_dir.clone(),
+                        self.main_dir.clone(),
                         Some(sub.clone()),
                     )))
                 }
@@ -571,13 +638,18 @@ impl FilesState {
             None
         };
 
+        let path = mem::take(path);
+        let sub = mem::take(sub);
+        let ddd = mem::take(ddd);
+        let fff = mem::take(fff);
+
         match rel {
             Full => {
-                self.current_dir = mem::take(path);
+                self.main_dir = path;
                 self.sub_dirs.clear();
-                self.sub_dirs.extend_from_slice(ddd);
+                self.sub_dirs.extend(ddd.into_iter());
                 self.files.clear();
-                self.files.extend_from_slice(fff);
+                self.files.extend(fff.into_iter().map(|v| (v, false)));
 
                 self.w_dirs.widget.select(Some(0));
                 self.w_files.widget.select(Some(0));
@@ -585,23 +657,23 @@ impl FilesState {
             Parent => {
                 if selected == Some(OsString::from("..")) {
                     self.files.clear();
-                    self.files.extend_from_slice(ddd);
-                    self.files.extend_from_slice(fff);
+                    self.files.extend(ddd.into_iter().map(|v| (v, true)));
+                    self.files.extend(fff.into_iter().map(|v| (v, false)));
                     self.w_files.widget.select(Some(0));
                 }
             }
             Current => {
                 if selected == Some(OsString::from(".")) {
                     self.files.clear();
-                    self.files.extend_from_slice(fff);
+                    self.files.extend(fff.into_iter().map(|v| (v, false)));
                     self.w_files.widget.select(Some(0));
                 }
             }
             SubDir => {
                 if selected == sub.as_ref().cloned() {
                     self.files.clear();
-                    self.files.extend_from_slice(ddd);
-                    self.files.extend_from_slice(fff);
+                    self.files.extend(ddd.into_iter().map(|v| (v, true)));
+                    self.files.extend(fff.into_iter().map(|v| (v, false)));
                     self.w_files.widget.select(Some(0));
                 }
             }
@@ -643,8 +715,6 @@ impl FilesState {
             let mut ddd = Vec::new();
             if rel == Full {
                 ddd.push(".".into());
-            }
-            if rel == Full || rel == Parent {
                 ddd.push("..".into());
             }
             let mut fff = Vec::new();
@@ -657,7 +727,6 @@ impl FilesState {
                     }
                 };
                 if cancel {
-                    debug!("cancel");
                     return Ok(Control::Continue);
                 }
 
@@ -679,7 +748,7 @@ impl FilesState {
         if let Some(n) = self.w_dirs.widget.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from("..") {
-                    if let Some(file) = self.current_dir.parent() {
+                    if let Some(file) = self.main_dir.parent() {
                         ctx.queue(Control::Action(ReadDir(
                             Full,
                             file.to_path_buf(),
@@ -690,7 +759,7 @@ impl FilesState {
                 } else if sub == &OsString::from(".") {
                     // noop
                 } else {
-                    let file = self.current_dir.join(sub);
+                    let file = self.main_dir.join(sub);
                     ctx.queue(Control::Action(ReadDir(Full, file, None)))
                 }
             }
@@ -698,15 +767,15 @@ impl FilesState {
         Ok(Control::Continue)
     }
 
-    fn current_file(&mut self) -> Option<PathBuf> {
+    fn current_dir(&mut self) -> Option<PathBuf> {
         let dir = if let Some(n) = self.w_dirs.widget.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from("..") {
-                    self.current_dir.parent().map(|v| v.to_path_buf())
+                    self.main_dir.parent().map(|v| v.to_path_buf())
                 } else if sub == &OsString::from(".") {
-                    Some(self.current_dir.clone())
+                    Some(self.main_dir.clone())
                 } else {
-                    Some(self.current_dir.join(sub))
+                    Some(self.main_dir.join(sub))
                 }
             } else {
                 None
@@ -715,8 +784,17 @@ impl FilesState {
             None
         };
 
+        dir
+    }
+
+    fn current_file(&mut self) -> Option<PathBuf> {
+        let dir = self.current_dir();
+
         let file = if let Some(n) = self.w_files.widget.selected() {
-            self.files.get(n).map(|v| dir.map(|d| d.join(v))).flatten()
+            self.files
+                .get(n)
+                .map(|(v, _)| dir.map(|d| d.join(v)))
+                .flatten()
         } else {
             None
         };
