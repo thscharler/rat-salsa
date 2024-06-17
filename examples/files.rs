@@ -1,8 +1,9 @@
 #![allow(unused_variables)]
 
-use crate::FilesAction::{Message, ReadDir, ReadFile, Update, UpdateFile};
+use crate::FilesAction::{Message, ReadDir, Update, UpdateFile};
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
+use crossterm::cursor::Show;
 use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
@@ -18,7 +19,7 @@ use rat_widget::focus::{match_focus, on_lost, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::scrolled::{Scrolled, ScrolledState};
+use rat_widget::scrolled::{Inner, Scrolled, ScrolledState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{FTableContext, RTable, RTableState, TableData};
@@ -33,6 +34,7 @@ use std::cell::RefCell;
 use std::ffi::{OsStr, OsString};
 use std::ops::Deref;
 use std::path::{Path, PathBuf};
+use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use std::{fs, mem};
 
@@ -89,7 +91,6 @@ pub struct FilesConfig {}
 pub enum FilesAction {
     Message(String),
     ReadDir(Relative, PathBuf, Option<OsString>),
-    ReadFile(PathBuf),
     Update(
         Relative,
         PathBuf,
@@ -384,12 +385,12 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         });
         flow_ok!(match self.w_dirs.handle(event, FocusKeys) {
             ScrollOutcome::Inner(Outcome::Changed) => {
-                self.show_files()?
+                self.show_dir()?
             }
             v => Control::from(v),
         });
 
-        flow_ok!(self.w_data.handle(event, FocusKeys));
+        flow_ok!(self.w_data.handle(event, Inner(ReadOnly)));
 
         flow_ok!(match self.w_menu.handle(event, FocusKeys) {
             MenuOutcome::Activated(0) => {
@@ -425,11 +426,8 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
             Update(rel, path, subdir, ddd, fff) =>
                 self.update_dirs(*rel, path, subdir, ddd, fff, ctx)?,
-            ReadFile(path) => {
-                self.read_file(path, ctx)?
-            }
             UpdateFile(path, text) => {
-                self.update_file(path, text, ctx)?
+                self.update_preview(path, text, ctx)?
             }
         });
 
@@ -452,7 +450,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
 }
 
 impl FilesState {
-    fn show_files(&mut self) -> Result<Control<FilesAction>, Error> {
+    fn show_dir(&mut self) -> Result<Control<FilesAction>, Error> {
         if let Some(n) = self.w_dirs.widget.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from(".") {
@@ -483,7 +481,7 @@ impl FilesState {
         }
     }
 
-    fn update_file(
+    fn update_preview(
         &mut self,
         path: &mut PathBuf,
         text: &mut String,
@@ -491,10 +489,67 @@ impl FilesState {
     ) -> Result<Control<FilesAction>, Error> {
         let sel = self.current_file();
         let path = mem::take(path);
-        let text = mem::take(text);
+        let mut text = mem::take(text);
 
         if Some(path) == sel {
-            self.w_data.widget.set_value(text.as_str()); // todo: might be slow?
+            let hex = 'f: {
+                for c in text.chars().take(32) {
+                    if c < '\x20' && c != '\n' && c != '\r' {
+                        break 'f true;
+                    }
+                }
+                false
+            };
+
+            if hex {
+                use std::fmt::Write;
+
+                let mut v = String::new();
+                let mut mm = String::new();
+                let mut b0 = Vec::new();
+                let mut b1 = String::new();
+                let hex = [
+                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+                ];
+
+                _ = write!(mm, "{:8x} ", 0);
+                for (n, b) in text.bytes().enumerate() {
+                    b0.push(hex[(b / 16) as usize] as u8);
+                    b0.push(hex[(b % 16) as usize] as u8);
+                    if n % 16 == 7 {
+                        b0.push(b' ');
+                    }
+
+                    if b < b'\x20' {
+                        b1.push(' ');
+                    } else {
+                        b1.push(b as char);
+                    }
+
+                    if n > 0 && (n + 1) % 16 == 0 {
+                        v.push_str(mm.as_str());
+                        v.push_str(from_utf8(&b0).expect("str"));
+                        v.push(' ');
+                        v.push_str(b1.as_str());
+                        v.push('\n');
+
+                        b0.clear();
+                        b1.clear();
+
+                        mm.clear();
+                        _ = write!(mm, "{:08x} ", n + 1);
+                    }
+                }
+                v.push_str(mm.as_str());
+                _ = write!(v, "{:33}", from_utf8(&b0).expect("str"));
+                v.push(' ');
+                v.push_str(b1.as_str());
+                v.push('\n');
+
+                text = v;
+            }
+
+            self.w_data.widget.set_value(text.as_str());
             Ok(Control::Repaint)
         } else {
             Ok(Control::Continue)
@@ -552,22 +607,9 @@ impl FilesState {
             }
         }
 
+        _ = self.show_file(ctx)?;
+
         Ok(Control::Repaint)
-    }
-
-    fn read_file(
-        &mut self,
-        path: &mut PathBuf,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesAction>, Error> {
-        let path = mem::take(path);
-
-        _ = ctx.spawn(move |can, snd| {
-            let data = fs::read_to_string(&path)?;
-            Ok(Control::Action(UpdateFile(path, data)))
-        });
-
-        Ok(Control::Continue)
     }
 
     fn read_dir(
@@ -686,13 +728,12 @@ impl FilesState {
         let file = self.current_file();
 
         if let Some(file) = file {
-            if let Some(ext) = file.extension() {
-                let ext = ext.to_string_lossy();
-
-                match ext.as_ref() {
-                    "rs" | "toml" => return Ok(Control::Action(ReadFile(file))),
-                    _ => {}
-                }
+            if file.is_file() {
+                _ = ctx.spawn(move |can, snd| {
+                    let data = fs::read_to_string(&file)?;
+                    Ok(Control::Action(UpdateFile(file, data)))
+                });
+                return Ok(Control::Continue);
             }
         }
 
