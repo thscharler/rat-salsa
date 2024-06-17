@@ -57,9 +57,6 @@ where
                     match t_recv.recv() {
                         Ok((cancel, task)) => {
                             let flow = task(cancel, &t_send);
-                            if flow.is_ok() {
-                                debug!("send back {:?}", flow);
-                            }
                             if let Err(err) = t_send.send(flow) {
                                 debug!("{:?}", err);
                                 break 'l;
@@ -137,9 +134,6 @@ where
     where
         Error: From<TryRecvError>,
     {
-        if !self.recv.is_empty() {
-            debug!("recv {:?}", self.recv);
-        }
         match self.recv.try_recv() {
             Ok(v) => v,
             Err(TryRecvError::Empty) => Ok(Control::Continue),
