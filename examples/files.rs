@@ -96,7 +96,7 @@ pub enum FilesAction {
         Vec<OsString>,
         Vec<OsString>,
     ),
-    UpdateFile(PathBuf, String),
+    UpdateFile(PathBuf, Vec<u8>),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -551,27 +551,28 @@ impl FilesState {
     fn update_preview(
         &mut self,
         path: &mut PathBuf,
-        text: &mut String,
+        text: &mut Vec<u8>,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<FilesAction>, Error> {
         let sel = self.current_file();
         let path = mem::take(path);
-        let mut text = mem::take(text);
+        let text = mem::take(text);
 
         if Some(path) == sel {
             let hex = 'f: {
-                for c in text.chars().take(32) {
-                    if c < '\x20' && c != '\n' && c != '\r' {
+                for c in text.iter().take(32) {
+                    if *c < 0x20 && *c != b'\n' && *c != b'\r' {
                         break 'f true;
                     }
                 }
                 false
             };
 
-            if hex {
+            let mut v = String::new();
+            let w;
+            let str_text = if hex {
                 use std::fmt::Write;
 
-                let mut v = String::new();
                 let mut mm = String::new();
                 let mut b0 = Vec::new();
                 let mut b1 = String::new();
@@ -580,17 +581,17 @@ impl FilesState {
                 ];
 
                 _ = write!(mm, "{:8x} ", 0);
-                for (n, b) in text.bytes().enumerate() {
+                for (n, b) in text.iter().enumerate() {
                     b0.push(hex[(b / 16) as usize] as u8);
                     b0.push(hex[(b % 16) as usize] as u8);
                     if n % 16 == 7 {
                         b0.push(b' ');
                     }
 
-                    if b < b'\x20' {
+                    if *b < 0x20 {
                         b1.push(' ');
                     } else {
-                        b1.push(b as char);
+                        b1.push(*b as char);
                     }
 
                     if n > 0 && (n + 1) % 16 == 0 {
@@ -613,10 +614,13 @@ impl FilesState {
                 v.push_str(b1.as_str());
                 v.push('\n');
 
-                text = v;
-            }
+                v.as_str()
+            } else {
+                w = String::from_utf8_lossy(&text);
+                w.as_ref()
+            };
 
-            self.w_data.widget.set_value(text.as_str());
+            self.w_data.widget.set_value(str_text);
             Ok(Control::Repaint)
         } else {
             Ok(Control::Continue)
@@ -807,16 +811,22 @@ impl FilesState {
 
         if let Some(file) = file {
             if file.is_file() {
-                _ = ctx.spawn(move |can, snd| {
-                    let data = fs::read_to_string(&file)?;
-                    Ok(Control::Action(UpdateFile(file, data)))
+                _ = ctx.spawn(move |can, snd| match fs::read(&file) {
+                    Ok(data) => Ok(Control::Action(UpdateFile(file, data))),
+                    Err(e) => Ok(Control::Action(UpdateFile(
+                        file,
+                        format!("{:?}", e).to_string().into_bytes(),
+                    ))),
                 });
-                return Ok(Control::Continue);
+                Ok(Control::Repaint)
+            } else {
+                self.w_data.widget.set_value("");
+                Ok(Control::Repaint)
             }
+        } else {
+            self.w_data.widget.set_value("");
+            Ok(Control::Repaint)
         }
-
-        self.w_data.widget.set_value("");
-        Ok(Control::Repaint)
     }
 
     fn follow_file(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
