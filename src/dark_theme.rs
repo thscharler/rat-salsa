@@ -195,7 +195,7 @@ impl DarkTheme {
     pub fn textarea_style(&self) -> TextAreaStyle {
         TextAreaStyle {
             style: self.data(),
-            focus: Some(self.text_focus()),
+            focus: Some(self.focus()),
             select: Some(self.text_select()),
             ..TextAreaStyle::default()
         }
