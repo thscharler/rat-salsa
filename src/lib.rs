@@ -19,7 +19,7 @@ pub use pure_rust_locales::Locale;
 /// For details see [rat-focus](https://docs.rs/rat-focus)
 pub mod focus {
     pub use rat_focus::{
-        match_focus, on_gained, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag,
+        match_focus, on_gained, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag, ZRect,
     };
 }
 
