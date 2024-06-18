@@ -43,6 +43,8 @@ pub struct Focus<'a> {
     areas: Vec<Rect>,
     /// Areas for each widget split in regions.
     z_areas: Vec<&'a [ZRect]>,
+    /// Keyboard navigable
+    navigable: Vec<bool>,
     /// List of flags.
     focus: Vec<&'a FocusFlag>,
 
@@ -52,142 +54,6 @@ pub struct Focus<'a> {
     /// container_focus of the appended Focus and all its focus-flags
     /// are added. And all the sub_container's of it are appended too.
     sub_container: Vec<(&'a FocusFlag, Vec<&'a FocusFlag>)>,
-}
-
-impl FocusFlag {
-    /// Has the focus.
-    #[inline]
-    pub fn get(&self) -> bool {
-        self.focus.get()
-    }
-
-    /// Set the focus.
-    #[inline]
-    pub fn set(&self) {
-        self.focus.set(true);
-    }
-
-    /// Set the field-name.
-    #[inline]
-    pub fn set_name(&self, name: &'static str) {
-        self.name.set(name);
-    }
-
-    /// Get the field-name.
-    #[inline]
-    pub fn name(&self) -> &'static str {
-        self.name.get()
-    }
-
-    /// Just lost the focus.
-    #[inline]
-    pub fn lost(&self) -> bool {
-        self.lost.get()
-    }
-
-    /// Just gained the focus.
-    #[inline]
-    pub fn gained(&self) -> bool {
-        self.gained.get()
-    }
-
-    /// Reset all flags to false.
-    #[inline]
-    pub fn clear(&self) {
-        self.focus.set(false);
-        self.lost.set(false);
-        self.gained.set(false);
-    }
-}
-
-/// Does a match on the state struct of a widget. If `widget_state.lost_focus()` is true
-/// the block is executed. This requires that `widget_state` implements [HasFocusFlag],
-/// but that's the basic requirement for this whole crate.
-///
-/// ```rust ignore
-/// use rat_focus::on_lost;
-///
-/// on_lost!(
-///     state.field1 => {
-///         // do checks
-///     },
-///     state.field2 => {
-///         // do checks
-///     }
-/// );
-/// ```
-#[macro_export]
-macro_rules! on_lost {
-    ($($field:expr => $validate:expr),*) => {{
-        use $crate::HasFocusFlag;
-        $(if $field.lost_focus() { _ = $validate })*
-    }};
-}
-
-/// Does a match on the state struct of a widget. If `widget_state.gained_focus()` is true
-/// the block is executed. This requires that `widget_state` implements [HasFocusFlag],
-/// but that's the basic requirement for this whole crate.
-///
-/// ```rust ignore
-/// use rat_focus::on_gained;
-///
-/// on_gained!(
-///     state.field1 => {
-///         // do prep
-///     },
-///     state.field2 => {
-///         // do prep
-///     }
-/// );
-/// ```
-#[macro_export]
-macro_rules! on_gained {
-    ($($field:expr => $validate:expr),*) => {{
-        use $crate::HasFocusFlag;
-        $(if $field.gained_focus() { _ = $validate })*
-    }};
-}
-
-/// Does a match on the state struct of a widget. If
-/// `widget_state.is_focused()` is true the block is executed.
-/// There is a `_` branch too, that is evaluated if none of the
-/// given widget-states has the focus.
-///
-/// This requires that `widget_state` implements [HasFocusFlag],
-/// but that's the basic requirement for this whole crate.
-///
-/// ```rust ignore
-/// use rat_focus::match_focus;
-///
-/// let res = match_focus!(
-///     state.field1 => {
-///         // do this
-///         true
-///     },
-///     state.field2 => {
-///         // do that
-///         true
-///     },
-///     _ => {
-///         false
-///     }
-/// );
-///
-/// if res {
-///     // react
-/// }
-/// ```
-///
-#[macro_export]
-macro_rules! match_focus {
-    ($($field:expr => $block:expr),* $(, _ => $final:expr)?) => {{
-        use $crate::HasFocusFlag;
-        if false {
-            unreachable!();
-        }
-        $(else if $field.is_focused() { $block })*
-        $(else { $final })?
-    }};
 }
 
 impl<'a> IntoIterator for Focus<'a> {
@@ -207,6 +73,7 @@ impl<'a> Focus<'a> {
             s.focus.push(f.focus());
             s.areas.push(f.area());
             s.z_areas.push(f.z_areas());
+            s.navigable.push(f.navigable());
         }
         s
     }
@@ -234,6 +101,7 @@ impl<'a> Focus<'a> {
             s.focus.push(f.focus());
             s.areas.push(f.area());
             s.z_areas.push(f.z_areas());
+            s.navigable.push(f.navigable());
         }
         s
     }
@@ -256,16 +124,18 @@ impl<'a> Focus<'a> {
             s.focus.push(f.focus());
             s.areas.push(f.area());
             s.z_areas.push(f.z_areas());
+            s.navigable.push(f.navigable());
         }
         s
     }
 
     /// Add a single widget.
-    /// This doesn't add any z_areas.
+    /// This doesn't add any z_areas and assumes navigable is true.
     pub fn add_flag(&mut self, flag: &'a FocusFlag, area: Rect) -> &mut Self {
         self.focus.push(flag);
         self.areas.push(area);
         self.z_areas.push(&[]);
+        self.navigable.push(true);
         self
     }
 
@@ -284,6 +154,7 @@ impl<'a> Focus<'a> {
         self.focus.extend(focus.focus);
         self.areas.extend(focus.areas);
         self.z_areas.extend(focus.z_areas);
+        self.navigable.extend(focus.navigable);
         self
     }
 
@@ -298,6 +169,7 @@ impl<'a> Focus<'a> {
         self.focus.push(f.focus());
         self.areas.push(f.area());
         self.z_areas.push(f.z_areas());
+        self.navigable.push(f.navigable());
         self
     }
 
@@ -307,6 +179,7 @@ impl<'a> Focus<'a> {
             self.focus.push(f.focus());
             self.areas.push(f.area());
             self.z_areas.push(f.z_areas());
+            self.navigable.push(f.navigable());
         }
         self
     }
@@ -435,7 +308,6 @@ impl<'a> Focus<'a> {
     }
 
     /// Change to focus to the given position.
-    ///
     pub fn focus_at(&self, col: u16, row: u16) -> bool {
         if self.log.get() {
             debug!("focus_at {},{}", col, row);
@@ -517,9 +389,8 @@ impl<'a> Focus<'a> {
     }
 
     fn core_init(&self) {
-        self.core_start_focus_change(false);
-        if let Some(first) = self.focus.first() {
-            first.focus.set(true);
+        if let Some(n) = self.core_first_navigable_idx() {
+            self.core_focus_idx(n);
         }
     }
 
@@ -614,10 +485,13 @@ impl<'a> Focus<'a> {
 
         // process in order, last is on top if more than one.
         if let Some(max_last) = z_order.iter().max_by(|v, w| v.1.cmp(&w.1)) {
-            self.focus_idx(max_last.0);
+            self.core_focus_idx(max_last.0);
             return true;
         }
 
+        // todo: miss container focus for sub-containers???
+
+        // todo: weakly reasoned
         if self.area.contains(pos.into()) {
             if self.log.get() {
                 debug!("focus container {:?}", self.container_focus);
@@ -633,8 +507,8 @@ impl<'a> Focus<'a> {
                                 self.container_focus, z_idx
                             );
                         }
-                        if let Some(ff) = self.focus.first() {
-                            self.core_focus(ff);
+                        if let Some(n) = self.core_first_navigable_idx() {
+                            self.core_focus_idx(n);
                             return true;
                         }
                     }
@@ -642,8 +516,8 @@ impl<'a> Focus<'a> {
                 // if only the main area matched, this is a dud.
             } else {
                 // only a main area, fine.
-                if let Some(ff) = self.focus.first() {
-                    self.core_focus(ff);
+                if let Some(n) = self.core_first_navigable_idx() {
+                    self.core_focus_idx(n);
                     return true;
                 }
             }
@@ -653,44 +527,72 @@ impl<'a> Focus<'a> {
     }
 
     fn core_next(&self) -> bool {
-        self.core_start_focus_change(true);
         for (i, p) in self.focus.iter().enumerate() {
             if p.lost.get() {
-                let n = next_circular(i, self.focus.len());
-                self.focus[n].focus.set(true);
-                self.focus[n].gained.set(true);
-                self.core_accumulate();
+                let n = self.core_next_navigable_idx(i);
+                self.core_focus_idx(n);
                 return true;
             }
         }
-        if !self.focus.is_empty() {
-            self.focus[0].focus.set(true);
-            self.focus[0].gained.set(true);
-            self.core_accumulate();
+        if let Some(n) = self.core_first_navigable_idx() {
+            self.core_focus_idx(n);
             return true;
         }
-
         false
     }
 
     fn core_prev(&self) -> bool {
-        self.core_start_focus_change(true);
         for (i, p) in self.focus.iter().enumerate() {
             if p.lost.get() {
-                let n = prev_circular(i, self.focus.len());
-                self.focus[n].focus.set(true);
-                self.focus[n].gained.set(true);
-                self.core_accumulate();
+                let n = self.core_prev_navigable(i);
+                self.core_focus_idx(n);
                 return true;
             }
         }
-        if !self.focus.is_empty() {
-            self.focus[0].focus.set(true);
-            self.focus[0].gained.set(true);
-            self.core_accumulate();
+        if let Some(n) = self.core_first_navigable_idx() {
+            self.core_focus_idx(n);
             return true;
         }
         false
+    }
+
+    fn core_first_navigable_idx(&self) -> Option<usize> {
+        let mut n = 0;
+        loop {
+            n = next_circular(n, self.focus.len());
+            if self.navigable[n] {
+                return Some(n);
+            }
+            if n == 0 {
+                return None;
+            }
+        }
+    }
+
+    fn core_next_navigable_idx(&self, start: usize) -> usize {
+        let mut n = start;
+        loop {
+            n = next_circular(n, self.focus.len());
+            if self.navigable[n] {
+                return n;
+            }
+            if n == start {
+                return n;
+            }
+        }
+    }
+
+    fn core_prev_navigable(&self, start: usize) -> usize {
+        let mut n = start;
+        loop {
+            n = prev_circular(n, self.focus.len());
+            if self.navigable[n] {
+                return n;
+            }
+            if n == start {
+                return n;
+            }
+        }
     }
 
     fn core_focused(&self) -> Option<&'a FocusFlag> {

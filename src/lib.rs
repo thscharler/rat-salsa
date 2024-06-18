@@ -55,7 +55,7 @@ pub trait HasFocusFlag {
     /// Access the area for mouse focus.
     fn area(&self) -> Rect;
 
-    /// The component might have several disjointed areas.
+    /// The widget might have several disjointed areas.
     /// This is the case if it is showing a popup, but there
     /// might be other causes.
     ///
@@ -64,6 +64,12 @@ pub trait HasFocusFlag {
     /// area() is the union of all areas given here.
     fn z_areas(&self) -> &[ZRect] {
         &[]
+    }
+
+    /// The widget is focusable, but doesn't want to partake
+    /// in keyboard navigation.
+    fn navigable(&self) -> bool {
+        true
     }
 
     /// Focused?
@@ -97,4 +103,140 @@ impl Debug for FocusFlag {
             .field("lost", &self.lost.get())
             .finish()
     }
+}
+
+impl FocusFlag {
+    /// Has the focus.
+    #[inline]
+    pub fn get(&self) -> bool {
+        self.focus.get()
+    }
+
+    /// Set the focus.
+    #[inline]
+    pub fn set(&self) {
+        self.focus.set(true);
+    }
+
+    /// Set the field-name.
+    #[inline]
+    pub fn set_name(&self, name: &'static str) {
+        self.name.set(name);
+    }
+
+    /// Get the field-name.
+    #[inline]
+    pub fn name(&self) -> &'static str {
+        self.name.get()
+    }
+
+    /// Just lost the focus.
+    #[inline]
+    pub fn lost(&self) -> bool {
+        self.lost.get()
+    }
+
+    /// Just gained the focus.
+    #[inline]
+    pub fn gained(&self) -> bool {
+        self.gained.get()
+    }
+
+    /// Reset all flags to false.
+    #[inline]
+    pub fn clear(&self) {
+        self.focus.set(false);
+        self.lost.set(false);
+        self.gained.set(false);
+    }
+}
+
+/// Does a match on the state struct of a widget. If `widget_state.lost_focus()` is true
+/// the block is executed. This requires that `widget_state` implements [HasFocusFlag],
+/// but that's the basic requirement for this whole crate.
+///
+/// ```rust ignore
+/// use rat_focus::on_lost;
+///
+/// on_lost!(
+///     state.field1 => {
+///         // do checks
+///     },
+///     state.field2 => {
+///         // do checks
+///     }
+/// );
+/// ```
+#[macro_export]
+macro_rules! on_lost {
+    ($($field:expr => $validate:expr),*) => {{
+        use $crate::HasFocusFlag;
+        $(if $field.lost_focus() { _ = $validate })*
+    }};
+}
+
+/// Does a match on the state struct of a widget. If `widget_state.gained_focus()` is true
+/// the block is executed. This requires that `widget_state` implements [HasFocusFlag],
+/// but that's the basic requirement for this whole crate.
+///
+/// ```rust ignore
+/// use rat_focus::on_gained;
+///
+/// on_gained!(
+///     state.field1 => {
+///         // do prep
+///     },
+///     state.field2 => {
+///         // do prep
+///     }
+/// );
+/// ```
+#[macro_export]
+macro_rules! on_gained {
+    ($($field:expr => $validate:expr),*) => {{
+        use $crate::HasFocusFlag;
+        $(if $field.gained_focus() { _ = $validate })*
+    }};
+}
+
+/// Does a match on the state struct of a widget. If
+/// `widget_state.is_focused()` is true the block is executed.
+/// There is a `_` branch too, that is evaluated if none of the
+/// given widget-states has the focus.
+///
+/// This requires that `widget_state` implements [HasFocusFlag],
+/// but that's the basic requirement for this whole crate.
+///
+/// ```rust ignore
+/// use rat_focus::match_focus;
+///
+/// let res = match_focus!(
+///     state.field1 => {
+///         // do this
+///         true
+///     },
+///     state.field2 => {
+///         // do that
+///         true
+///     },
+///     _ => {
+///         false
+///     }
+/// );
+///
+/// if res {
+///     // react
+/// }
+/// ```
+///
+#[macro_export]
+macro_rules! match_focus {
+    ($($field:expr => $block:expr),* $(, _ => $final:expr)?) => {{
+        use $crate::HasFocusFlag;
+        if false {
+            unreachable!();
+        }
+        $(else if $field.is_focused() { $block })*
+        $(else { $final })?
+    }};
 }
