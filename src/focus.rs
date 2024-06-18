@@ -1,4 +1,4 @@
-use crate::{FocusFlag, HasFocus, HasFocusFlag};
+use crate::{FocusFlag, HasFocus, HasFocusFlag, ZRect};
 use log::debug;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use ratatui::layout::Rect;
@@ -29,28 +29,29 @@ pub struct Focus<'a> {
     name: String,
     /// Focus logging
     log: Cell<bool>,
-    /// Summarizes all the contained FocusFlags.
-    /// If any of them has the focus set, this will
-    /// be set too.
-    ///
-    /// This can help if you build compound widgets.
-    accu: Option<&'a FocusFlag>,
-    /// Area for the whole compound. Only set if accu is some.
+
+    /// Area for the whole compound. Only valid if container_focus is Some().
     area: Rect,
+    /// Area split in regions. Only valid if container_focus is Some().
+    z_area: &'a [ZRect],
+    /// Summarizes all the contained FocusFlags.
+    /// If any of them has the focus set, this will be set too.
+    /// This can help if you build compound widgets.
+    container_focus: Option<&'a FocusFlag>,
 
     /// Areas for each widget.
     areas: Vec<Rect>,
+    /// Areas for each widget split in regions.
+    z_areas: Vec<&'a [ZRect]>,
     /// List of flags.
     focus: Vec<&'a FocusFlag>,
 
-    /// List of sub-accumulators and their dependencies.
-    /// Keeps track of all the Flags of a compound widget and its
-    /// accumulator.
+    /// List of sub-containers and their dependencies.
     ///
-    /// This is filled if you call [Focus::add_focus]. The accu of the
-    /// appended Focus and all its focus-flags are added. And
-    /// all the sub_accu of it are appended too.
-    sub_accu: Vec<(&'a FocusFlag, Rect, Vec<&'a FocusFlag>)>,
+    /// This is filled if you call [Focus::add_focus]. The
+    /// container_focus of the appended Focus and all its focus-flags
+    /// are added. And all the sub_container's of it are appended too.
+    sub_container: Vec<(&'a FocusFlag, Vec<&'a FocusFlag>)>,
 }
 
 impl FocusFlag {
@@ -205,6 +206,7 @@ impl<'a> Focus<'a> {
         for f in list {
             s.focus.push(f.focus());
             s.areas.push(f.area());
+            s.z_areas.push(f.z_areas());
         }
         s
     }
@@ -221,15 +223,17 @@ impl<'a> Focus<'a> {
     /// the container is, the first widget gets the focus.
     ///
     /// See `examples/focus_recursive` and `examples/focus_recursive2`
-    pub fn new_accu(accu: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
+    pub fn new_accu(container: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
         let mut s = Self {
-            accu: Some(accu.focus()),
-            area: accu.area(),
+            container_focus: Some(container.focus()),
+            area: container.area(),
+            z_area: container.z_areas(),
             ..Focus::default()
         };
         for f in list {
             s.focus.push(f.focus());
             s.areas.push(f.area());
+            s.z_areas.push(f.z_areas());
         }
         s
     }
@@ -241,23 +245,27 @@ impl<'a> Focus<'a> {
     ///
     /// The same rules apply as for new_accu(), but with this one
     /// there is no overall area for mouse interaction.
-    pub fn new_grp(accu: &'a FocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
+    pub fn new_grp(grp: &'a FocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
         let mut s = Self {
-            accu: Some(accu),
-            area: Rect::default(),
+            container_focus: Some(grp),
+            area: Default::default(),
+            z_area: Default::default(),
             ..Focus::default()
         };
         for f in list {
             s.focus.push(f.focus());
             s.areas.push(f.area());
+            s.z_areas.push(f.z_areas());
         }
         s
     }
 
     /// Add a single widget.
+    /// This doesn't add any z_areas.
     pub fn add_flag(&mut self, flag: &'a FocusFlag, area: Rect) -> &mut Self {
         self.focus.push(flag);
         self.areas.push(area);
+        self.z_areas.push(&[]);
         self
     }
 
@@ -267,14 +275,15 @@ impl<'a> Focus<'a> {
     /// has an accumulator it's added to the sub-accumulators. All
     /// sub-sub-accumulators are appended too.
     pub fn add_focus(&mut self, focus: Focus<'a>) -> &mut Self {
-        for (focus, area, list) in focus.sub_accu {
-            self.sub_accu.push((focus, area, list));
+        for (focus, list) in focus.sub_container {
+            self.sub_container.push((focus, list));
         }
-        if let Some(accu) = focus.accu {
-            self.sub_accu.push((accu, focus.area, focus.focus.clone()))
+        if let Some(accu) = focus.container_focus {
+            self.sub_container.push((accu, focus.focus.clone()))
         }
         self.focus.extend(focus.focus);
         self.areas.extend(focus.areas);
+        self.z_areas.extend(focus.z_areas);
         self
     }
 
@@ -288,6 +297,7 @@ impl<'a> Focus<'a> {
     pub fn add(&mut self, f: &'a dyn HasFocusFlag) -> &mut Self {
         self.focus.push(f.focus());
         self.areas.push(f.area());
+        self.z_areas.push(f.z_areas());
         self
     }
 
@@ -296,6 +306,7 @@ impl<'a> Focus<'a> {
         for f in list {
             self.focus.push(f.focus());
             self.areas.push(f.area());
+            self.z_areas.push(f.z_areas());
         }
         self
     }
@@ -478,7 +489,7 @@ impl<'a> Focus<'a> {
 
     // accumulate everything
     fn core_accumulate(&self) {
-        if let Some(accu) = self.accu {
+        if let Some(accu) = self.container_focus {
             accu.focus.set(false);
             for p in self.focus.iter() {
                 if p.focus.get() {
@@ -488,7 +499,7 @@ impl<'a> Focus<'a> {
             }
         }
 
-        for (f, _, list) in &self.sub_accu {
+        for (f, list) in &self.sub_container {
             let mut any_gained = false;
             let mut any_lost = false;
             let mut any_focused = false;
@@ -513,13 +524,13 @@ impl<'a> Focus<'a> {
     }
 
     fn core_clear(&self) {
-        if let Some(v) = self.accu {
+        if let Some(v) = self.container_focus {
             v.clear()
         }
         for f in &self.focus {
             f.clear();
         }
-        for (f, _, _) in &self.sub_accu {
+        for (f, _) in &self.sub_container {
             f.clear();
         }
     }
@@ -552,7 +563,7 @@ impl<'a> Focus<'a> {
             p.lost.set(false);
             p.gained.set(false);
         }
-        for (p, _, _) in self.sub_accu.iter() {
+        for (p, _) in self.sub_container.iter() {
             p.gained.set(false);
             p.lost.set(false);
         }
@@ -573,34 +584,68 @@ impl<'a> Focus<'a> {
     }
 
     fn core_focus_at(&self, col: u16, row: u16) -> bool {
-        let pos = (col, row);
+        let pos = (col, row).into();
+
+        let mut z_order = Vec::new();
         for (idx, area) in self.areas.iter().enumerate() {
-            if area.contains(pos.into()) {
+            if area.contains(pos) {
                 if self.log.get() {
-                    debug!("found area for {:?}", self.focus[idx]);
+                    debug!(
+                        "found area for {:?}, check {:?}",
+                        self.focus[idx], self.z_areas[idx]
+                    );
                 }
-                self.focus_idx(idx);
-                return true;
+                // check for split
+                if !self.z_areas[idx].is_empty() {
+                    for (z_idx, z) in self.z_areas[idx].into_iter().enumerate() {
+                        // use all matching areas. might differ in z.
+                        if z.contains(pos) {
+                            if self.log.get() {
+                                debug!("found z-area for {:?}+{:?}", self.focus[idx], z_idx);
+                            }
+                            z_order.push((idx, z.z));
+                        }
+                    }
+                } else {
+                    z_order.push((idx, 0));
+                }
             }
         }
-        for (accu, area, list) in self.sub_accu.iter() {
-            if area.contains(pos.into()) {
-                if let Some(ff) = list.first() {
-                    if self.log.get() {
-                        debug!("focus container {:?}", accu);
+
+        // process in order, last is on top if more than one.
+        if let Some(max_last) = z_order.iter().max_by(|v, w| v.1.cmp(&w.1)) {
+            self.focus_idx(max_last.0);
+            return true;
+        }
+
+        if self.area.contains(pos.into()) {
+            if self.log.get() {
+                debug!("focus container {:?}", self.container_focus);
+            }
+            // if disjointed areas exist, value them.
+            if !self.z_area.is_empty() {
+                for (z_idx, z) in self.z_area.into_iter().enumerate() {
+                    // use all matching areas. might differ in z.
+                    if z.contains(pos) {
+                        if self.log.get() {
+                            debug!(
+                                "focus container z-area {:?}+{:?}",
+                                self.container_focus, z_idx
+                            );
+                        }
+                        if let Some(ff) = self.focus.first() {
+                            self.core_focus(ff);
+                            return true;
+                        }
                     }
+                }
+                // if only the main area matched, this is a dud.
+            } else {
+                // only a main area, fine.
+                if let Some(ff) = self.focus.first() {
                     self.core_focus(ff);
                     return true;
                 }
-            }
-        }
-        if self.area.contains(pos.into()) {
-            if self.log.get() {
-                debug!("focus container {:?}", self.accu);
-            }
-            if let Some(ff) = self.focus.first() {
-                self.core_focus(ff);
-                return true;
             }
         }
 

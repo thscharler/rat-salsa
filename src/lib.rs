@@ -1,6 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
 mod focus;
+mod zrect;
 
 #[allow(unused_imports)]
 use log::debug;
@@ -8,10 +9,9 @@ use rat_event::HandleEvent;
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
-use std::iter::Zip;
-use std::{ptr, vec};
 
 pub use crate::focus::Focus;
+pub use crate::zrect::ZRect;
 
 pub mod event {
     //! Rexported eventhandling traits.
@@ -54,6 +54,17 @@ pub trait HasFocusFlag {
 
     /// Access the area for mouse focus.
     fn area(&self) -> Rect;
+
+    /// The component might have several disjointed areas.
+    /// This is the case if it is showing a popup, but there
+    /// might be other causes.
+    ///
+    /// This is seen as a higher resolution image of the
+    /// area given with area(). That means the result of
+    /// area() is the union of all areas given here.
+    fn z_areas(&self) -> &[ZRect] {
+        &[]
+    }
 
     /// Focused?
     fn is_focused(&self) -> bool {
