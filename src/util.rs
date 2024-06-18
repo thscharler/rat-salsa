@@ -8,6 +8,17 @@ use log::debug;
 use ratatui::layout::Rect;
 use std::cell::Cell;
 
+/// Which of the given rects is at the position.
+///
+pub fn item_at_clicked(areas: &[Rect], x_pos: u16, y_pos: u16) -> Option<usize> {
+    for (i, r) in areas.iter().enumerate() {
+        if y_pos >= r.top() && y_pos < r.bottom() && x_pos >= r.left() && x_pos < r.right() {
+            return Some(i);
+        }
+    }
+    None
+}
+
 /// Which row of the given contains the position.
 /// This uses only the vertical components of the given areas.
 ///
