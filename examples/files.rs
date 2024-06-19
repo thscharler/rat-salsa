@@ -1,15 +1,17 @@
 #![allow(unused_variables)]
+#![allow(unreachable_pub)]
 
+use crate::popup_menu::{MenuPopup, MenuPopupState};
 use crate::FilesAction::{Message, ReadDir, Update, UpdateFile};
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
-use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::imperial::IMPERIAL;
+use rat_theme::radium::RADIUM;
 use rat_widget::event::{
     ct_event, flow_ok, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome, ReadOnly,
     ScrollOutcome,
@@ -28,7 +30,7 @@ use ratatui::style::Style;
 use ratatui::symbols::border;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::block::Title;
-use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
+use ratatui::widgets::{Block, Borders, StatefulWidget, StatefulWidgetRef, Widget};
 use std::cell::RefCell;
 use std::ffi::OsString;
 use std::path::PathBuf;
@@ -121,7 +123,9 @@ pub struct FilesState {
     pub w_dirs: ScrolledState<RTableState<RowSelection>>,
     pub w_files: ScrolledState<RTableState<RowSelection>>,
     pub w_data: ScrolledState<RTextAreaState>,
+
     pub w_menu: RMenuLineState,
+    pub w_sub_style: MenuPopupState,
 }
 
 #[allow(dead_code)]
@@ -327,8 +331,21 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
         let menu = RMenuLine::new()
             .styles(ctx.g.theme.menu_style())
             .title("[-.-]")
+            .add("_Theme")
             .add("_Quit");
         menu.render(r[3], buf, &mut state.w_menu);
+
+        // -----------------------------------------------------
+
+        if state.w_sub_style.is_focused() {
+            MenuPopup {
+                items: vec!["Imperial", "Radium"],
+                style: ctx.g.theme.black(3),
+                focus: Some(ctx.g.theme.focus()),
+                block: None,
+            }
+            .render_ref(state.w_menu.widget.areas[0], buf, &mut state.w_sub_style);
+        }
 
         // -----------------------------------------------------
 
@@ -369,7 +386,6 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         self.w_dirs.widget.set_scroll_selection(true);
         self.w_dirs.widget.focus().set();
         self.w_files.widget.set_scroll_selection(true);
-        self.w_menu.select(Some(0));
 
         Ok(())
     }
@@ -384,7 +400,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
 
     fn crossterm(
         &mut self,
-        event: &Event,
+        event: &crossterm::event::Event,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<FilesAction>, Error> {
         use crossterm::event::*;
@@ -410,6 +426,43 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         });
 
         ctx.queue(self.focus().handle(event, FocusKeys));
+
+        flow_ok!(match self.w_sub_style.handle(event, FocusKeys) {
+            MenuOutcome::Selected(0) => {
+                ctx.g.theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+                Control::Repaint
+            }
+            MenuOutcome::Selected(1) => {
+                ctx.g.theme = DarkTheme::new("Radium".into(), RADIUM);
+                Control::Repaint
+            }
+            MenuOutcome::Activated(0) => {
+                ctx.g.theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+                self.focus().focus_widget(&self.w_menu);
+                Control::Repaint
+            }
+            MenuOutcome::Activated(1) => {
+                ctx.g.theme = DarkTheme::new("Radium".into(), RADIUM);
+                self.focus().focus_widget(&self.w_menu);
+                Control::Repaint
+            }
+            r => r.into(),
+        });
+
+        flow_ok!(match self.w_menu.handle(event, FocusKeys) {
+            MenuOutcome::Selected(0) => {
+                self.w_sub_style.focus.set();
+                Control::Repaint
+            }
+            MenuOutcome::Selected(1) => {
+                self.w_sub_style.focus.clear();
+                Control::Repaint
+            }
+            MenuOutcome::Activated(1) => {
+                Control::Quit
+            }
+            v => v.into(),
+        });
 
         flow_ok!(match_focus!(
             self.w_files.widget => {
@@ -456,15 +509,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
             v => Control::from(v),
         });
-
         flow_ok!(self.w_data.handle(event, Inner(ReadOnly)));
-
-        flow_ok!(match self.w_menu.handle(event, FocusKeys) {
-            MenuOutcome::Activated(0) => {
-                Control::Quit
-            }
-            v => v.into(),
-        });
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         ctx.g
@@ -844,12 +889,17 @@ impl FilesState {
 
 impl HasFocus for FilesState {
     fn focus(&self) -> Focus<'_> {
-        Focus::new(&[
+        let mut f = Focus::new(&[
             &self.w_dirs.widget,
             &self.w_files.widget,
             &self.w_data.widget,
             &self.w_menu,
-        ])
+        ]);
+        f.enable_log(true);
+        if self.w_sub_style.is_focused() {
+            f.add(&self.w_sub_style);
+        }
+        f
     }
 }
 
@@ -869,4 +919,147 @@ fn setup_logging() -> Result<(), Error> {
         .chain(fern::log_file("log.log")?)
         .apply()?;
     Ok(())
+}
+
+mod popup_menu {
+    use log::debug;
+    use rat_widget::event::util::item_at_clicked;
+    use rat_widget::event::{ct_event, FocusKeys, HandleEvent};
+    use rat_widget::fill::Fill;
+    use rat_widget::focus::{FocusFlag, HasFocusFlag, ZRect};
+    use rat_widget::menuline::MenuOutcome;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::style::{Style, Stylize};
+    use ratatui::widgets::{Block, StatefulWidgetRef, Widget};
+    use std::cmp::min;
+
+    #[derive(Debug)]
+    pub struct MenuPopup<'a> {
+        pub items: Vec<&'a str>,
+
+        /// Base style
+        pub style: Style,
+        /// There is no selection style, as the popup disappears as soon
+        /// as it looses the focus.
+        pub focus: Option<Style>,
+        /// Block.
+        pub block: Option<Block<'a>>,
+    }
+
+    #[derive(Debug, Default)]
+    pub struct MenuPopupState {
+        /// Focus flag
+        pub focus: FocusFlag,
+
+        /// Base area.
+        pub area: Rect,
+        /// z-areas
+        pub z_area: [ZRect; 1],
+        /// Item rects
+        pub items: Vec<Rect>,
+
+        /// Selection.
+        pub selected: Option<usize>,
+    }
+
+    impl HasFocusFlag for MenuPopupState {
+        fn focus(&self) -> &FocusFlag {
+            &self.focus
+        }
+
+        fn area(&self) -> Rect {
+            self.area
+        }
+
+        fn z_areas(&self) -> &[ZRect] {
+            &self.z_area
+        }
+    }
+
+    /// Doesn't use the area as a content boundary, instead it
+    /// uses the (x,y) coordinates as anchor for the popup.
+    impl<'a> StatefulWidgetRef for MenuPopup<'a> {
+        type State = MenuPopupState;
+
+        fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+            let text_width = self.items.iter().map(|v| v.len()).max().unwrap_or(15) as u16;
+
+            let area = Rect::new(
+                area.x - 2,
+                area.y
+                    .saturating_sub(self.items.len() as u16)
+                    .saturating_sub(2),
+                text_width + 4,
+                self.items.len() as u16 + 2,
+            );
+
+            state.area = area;
+            state.z_area = [(1, area).into()];
+            state.items.clear();
+
+            Fill::new().style(self.style).render(area, buf);
+            self.block.render(area, buf);
+
+            let mut row_area = Rect::new(area.x + 2, area.y + 1, area.width - 4, 1);
+            for (n, txt) in self.items.iter().enumerate() {
+                let style = if state.selected == Some(n) {
+                    if let Some(select) = self.focus {
+                        select
+                    } else {
+                        Style::default().on_yellow()
+                    }
+                } else {
+                    self.style
+                };
+
+                buf.set_stringn(row_area.x, row_area.y, txt, text_width as usize, style);
+
+                state.items.push(row_area);
+                row_area.y += 1;
+            }
+        }
+    }
+
+    impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuPopupState {
+        fn handle(&mut self, event: &crossterm::event::Event, qualifier: FocusKeys) -> MenuOutcome {
+            if self.is_focused() {
+                match event {
+                    ct_event!(keycode press Up) => {
+                        self.selected = self
+                            .selected
+                            .map_or(Some(self.items.len().saturating_sub(1)), |v| {
+                                Some(v.saturating_sub(1))
+                            });
+                        MenuOutcome::Selected(self.selected.expect("selected"))
+                    }
+                    ct_event!(keycode press Down) => {
+                        self.selected = self.selected.map_or(Some(0), |v| {
+                            Some(min(v + 1, self.items.len().saturating_sub(1)))
+                        });
+                        MenuOutcome::Selected(self.selected.expect("selected"))
+                    }
+                    ct_event!(keycode press Enter) => {
+                        if let Some(select) = self.selected {
+                            MenuOutcome::Activated(select)
+                        } else {
+                            MenuOutcome::NotUsed
+                        }
+                    }
+                    ct_event!(mouse down Left for x,y) => {
+                        debug!("click some {:?} <> {:?}", self.items, (*x, *y));
+                        if let Some(idx) = item_at_clicked(&self.items, *x, *y) {
+                            self.selected = Some(idx);
+                            MenuOutcome::Activated(idx)
+                        } else {
+                            MenuOutcome::NotUsed
+                        }
+                    }
+                    _ => MenuOutcome::NotUsed,
+                }
+            } else {
+                MenuOutcome::NotUsed
+            }
+        }
+    }
 }
