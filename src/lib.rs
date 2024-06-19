@@ -5,7 +5,6 @@ mod zrect;
 
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::HandleEvent;
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
