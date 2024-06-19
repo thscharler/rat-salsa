@@ -625,11 +625,13 @@ mod core {
                         change = true;
                     }
 
-                    if let Some(n) = self.first_navigable(0) {
-                        self.__start_change(true);
-                        self.__focus(n, true);
-                        self.__accumulate();
-                        return true;
+                    if change {
+                        if let Some(n) = self.first_navigable(0) {
+                            self.__start_change(true);
+                            self.__focus(n, true);
+                            self.__accumulate();
+                            return true;
+                        }
                     }
                 }
             }
