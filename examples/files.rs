@@ -22,6 +22,7 @@ use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::scrolled::{Inner, Scrolled, ScrolledState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
+use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{FTableContext, RTable, RTableState, TableData};
 use rat_widget::textarea::{RTextArea, RTextAreaState};
 use ratatui::buffer::Buffer;
@@ -97,6 +98,7 @@ pub enum FilesAction {
         Option<OsString>,
         Vec<OsString>,
         Vec<OsString>,
+        Option<String>,
     ),
     UpdateFile(PathBuf, Vec<u8>),
 }
@@ -119,6 +121,7 @@ pub struct FilesState {
     pub main_dir: PathBuf,
     pub sub_dirs: Vec<OsString>,
     pub files: Vec<(OsString, bool)>,
+    pub err: Option<String>,
 
     pub w_dirs: ScrolledState<RTableState<RowSelection>>,
     pub w_files: ScrolledState<RTableState<RowSelection>>,
@@ -132,12 +135,22 @@ pub struct FilesState {
 struct FileData<'a> {
     dir: Option<PathBuf>,
     files: &'a [(OsString, bool)],
+    err: &'a Option<String>,
     dir_style: Style,
+    err_style: Style,
 }
 
 impl<'a> TableData<'a> for FileData<'a> {
     fn rows(&self) -> usize {
         self.files.len()
+    }
+
+    fn header(&self) -> Option<Row<'a>> {
+        if let Some(err) = self.err {
+            Some(Row::new([Cell::from(err.as_str())]).style(Some(self.err_style)))
+        } else {
+            None
+        }
     }
 
     fn widths(&self) -> Vec<Constraint> {
@@ -292,7 +305,9 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 .data(FileData {
                     dir: state.current_dir(),
                     files: &state.files,
+                    err: &state.err,
                     dir_style: ctx.g.theme.gray(0),
+                    err_style: ctx.g.theme.red(1),
                 })
                 .styles(ctx.g.theme.table_style()),
         )
@@ -337,7 +352,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
 
         // -----------------------------------------------------
 
-        if state.w_sub_style.is_focused() {
+        if state.w_sub_style.active {
             MenuPopup {
                 items: vec!["Imperial", "Radium"],
                 style: ctx.g.theme.black(3),
@@ -386,6 +401,8 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         self.w_dirs.widget.set_scroll_selection(true);
         self.w_dirs.widget.focus().set();
         self.w_files.widget.set_scroll_selection(true);
+
+        self.w_sub_style.selected = Some(0);
 
         Ok(())
     }
@@ -438,24 +455,24 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
             MenuOutcome::Activated(0) => {
                 ctx.g.theme = DarkTheme::new("Imperial".into(), IMPERIAL);
-                self.focus().focus_widget(&self.w_menu);
+                self.w_sub_style.active(false);
                 Control::Repaint
             }
             MenuOutcome::Activated(1) => {
                 ctx.g.theme = DarkTheme::new("Radium".into(), RADIUM);
-                self.focus().focus_widget(&self.w_menu);
+                self.w_sub_style.active(false);
                 Control::Repaint
             }
             r => r.into(),
         });
 
         flow_ok!(match self.w_menu.handle(event, FocusKeys) {
-            MenuOutcome::Selected(0) => {
-                self.w_sub_style.focus.set();
+            MenuOutcome::Selected(0) | MenuOutcome::Activated(0) => {
+                self.w_sub_style.flip_active();
                 Control::Repaint
             }
             MenuOutcome::Selected(1) => {
-                self.w_sub_style.focus.clear();
+                self.w_sub_style.active(false);
                 Control::Repaint
             }
             MenuOutcome::Activated(1) => {
@@ -536,8 +553,8 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             ReadDir(rel, path, sub) => {
                 self.read_dir(*rel, path, sub, ctx)?
             }
-            Update(rel, path, subdir, ddd, fff) =>
-                self.update_dirs(*rel, path, subdir, ddd, fff, ctx)?,
+            Update(rel, path, subdir, ddd, fff, err) =>
+                self.update_dirs(*rel, path, subdir, ddd, fff, err, ctx)?,
             UpdateFile(path, text) => {
                 self.update_preview(path, text, ctx)?
             }
@@ -679,6 +696,7 @@ impl FilesState {
         sub: &mut Option<OsString>,
         ddd: &mut Vec<OsString>,
         fff: &mut Vec<OsString>,
+        err: &mut Option<String>,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<FilesAction>, Error> {
         let selected = if let Some(n) = self.w_dirs.widget.selected() {
@@ -691,6 +709,8 @@ impl FilesState {
         let sub = mem::take(sub);
         let ddd = mem::take(ddd);
         let fff = mem::take(fff);
+
+        self.err = mem::take(err);
 
         match rel {
             Full => {
@@ -759,35 +779,48 @@ impl FilesState {
                 return Ok(Control::Continue);
             };
 
-            let r = fs::read_dir(read_path)?;
-
-            let mut ddd = Vec::new();
-            if rel == Full {
-                ddd.push(".".into());
-                ddd.push("..".into());
-            }
-            let mut fff = Vec::new();
-            for f in r {
-                let cancel = {
-                    if let Ok(guard) = can.lock() {
-                        *guard
-                    } else {
-                        true
+            match fs::read_dir(read_path) {
+                Ok(r) => {
+                    let mut ddd = Vec::new();
+                    if rel == Full {
+                        ddd.push(".".into());
+                        ddd.push("..".into());
                     }
-                };
-                if cancel {
-                    return Ok(Control::Continue);
-                }
+                    let mut fff = Vec::new();
+                    for f in r {
+                        let cancel = {
+                            if let Ok(guard) = can.lock() {
+                                *guard
+                            } else {
+                                true
+                            }
+                        };
+                        if cancel {
+                            return Ok(Control::Continue);
+                        }
 
-                if let Ok(f) = f {
-                    if f.metadata()?.is_dir() {
-                        ddd.push(f.file_name());
-                    } else {
-                        fff.push(f.file_name());
+                        if let Ok(f) = f {
+                            if f.metadata()?.is_dir() {
+                                ddd.push(f.file_name());
+                            } else {
+                                fff.push(f.file_name());
+                            }
+                        }
                     }
+                    Ok(Control::Action(Update(rel, path, sub, ddd, fff, None)))
+                }
+                Err(e) => {
+                    let msg = format!("{:?}", e);
+                    Ok(Control::Action(Update(
+                        rel,
+                        path,
+                        sub,
+                        Vec::default(),
+                        Vec::default(),
+                        Some(msg),
+                    )))
                 }
             }
-            Ok(Control::Action(Update(rel, path, sub, ddd, fff)))
         });
 
         Ok(Control::Continue)
@@ -896,7 +929,7 @@ impl HasFocus for FilesState {
             &self.w_menu,
         ]);
         f.enable_log(true);
-        if self.w_sub_style.is_focused() {
+        if self.w_sub_style.active {
             f.add(&self.w_sub_style);
         }
         f
@@ -922,7 +955,6 @@ fn setup_logging() -> Result<(), Error> {
 }
 
 mod popup_menu {
-    use log::debug;
     use rat_widget::event::util::item_at_clicked;
     use rat_widget::event::{ct_event, FocusKeys, HandleEvent};
     use rat_widget::fill::Fill;
@@ -949,6 +981,8 @@ mod popup_menu {
 
     #[derive(Debug, Default)]
     pub struct MenuPopupState {
+        /// Active/Visible
+        pub active: bool,
         /// Focus flag
         pub focus: FocusFlag,
 
@@ -963,6 +997,20 @@ mod popup_menu {
         pub selected: Option<usize>,
     }
 
+    impl MenuPopupState {
+        /// Show the popup.
+        pub fn flip_active(&mut self) {
+            self.active = !self.active;
+            self.focus.focus.set(self.active);
+        }
+
+        /// Show the popup.
+        pub fn active(&mut self, active: bool) {
+            self.active = active;
+            self.focus.focus.set(active);
+        }
+    }
+
     impl HasFocusFlag for MenuPopupState {
         fn focus(&self) -> &FocusFlag {
             &self.focus
@@ -974,6 +1022,10 @@ mod popup_menu {
 
         fn z_areas(&self) -> &[ZRect] {
             &self.z_area
+        }
+
+        fn navigable(&self) -> bool {
+            false
         }
     }
 
@@ -1047,7 +1099,6 @@ mod popup_menu {
                         }
                     }
                     ct_event!(mouse down Left for x,y) => {
-                        debug!("click some {:?} <> {:?}", self.items, (*x, *y));
                         if let Some(idx) = item_at_clicked(&self.items, *x, *y) {
                             self.selected = Some(idx);
                             MenuOutcome::Activated(idx)
@@ -1058,7 +1109,13 @@ mod popup_menu {
                     _ => MenuOutcome::NotUsed,
                 }
             } else {
-                MenuOutcome::NotUsed
+                // hide when the focus is lost.
+                if self.active {
+                    self.active = false;
+                    MenuOutcome::Changed
+                } else {
+                    MenuOutcome::NotUsed
+                }
             }
         }
     }
