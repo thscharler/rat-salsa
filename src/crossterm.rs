@@ -75,6 +75,13 @@ macro_rules! ct_event {
             ..
         })
     };
+    (key press ANY-$keychar:pat) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::Char($keychar),
+            kind: crossterm::event::KeyEventKind::Press,
+            ..
+        })
+    };
     (key press $mod:ident-$keychar:pat) => {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::Char($keychar),
@@ -87,6 +94,14 @@ macro_rules! ct_event {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::crossterm::modifiers::NONE,
+            kind: crossterm::event::KeyEventKind::Release,
+            ..
+        })
+    };
+    (key release ANY-$keychar:pat) => {
+        crossterm::event::Event::Key(crossterm::event::KeyEvent {
+            code: crossterm::event::KeyCode::Char($keychar),
+            modifiers: $crate::crossterm::modifiers::$mod,
             kind: crossterm::event::KeyEventKind::Release,
             ..
         })
