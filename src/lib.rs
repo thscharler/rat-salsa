@@ -1,11 +1,16 @@
 #![doc = include_str!("../readme.md")]
 
+use crate::dark_theme::DarkTheme;
+use crate::imperial::IMPERIAL;
+use crate::radium::RADIUM;
+use crate::tundra::TUNDRA;
 use ratatui::prelude::Color;
 use ratatui::style::Style;
 
 pub mod dark_theme;
 pub mod imperial;
 pub mod radium;
+pub mod tundra;
 
 /// Color scheme.
 ///
@@ -153,4 +158,12 @@ impl Scheme {
             },
         }
     }
+}
+
+pub fn dark_themes() -> Vec<DarkTheme> {
+    vec![
+        DarkTheme::new("Imperial".to_string(), IMPERIAL),
+        DarkTheme::new("Radium".to_string(), RADIUM),
+        DarkTheme::new("Tundra".to_string(), TUNDRA),
+    ]
 }

@@ -17,7 +17,7 @@ use ratatui::prelude::Style;
 /// [rat-widget](https://www.docs.rs/rat-widget), for other needs
 /// take it as an idea for your own implementation.
 ///
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DarkTheme {
     s: Scheme,
     name: String,
