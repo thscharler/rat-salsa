@@ -5,10 +5,11 @@ use crate::popup_menu::{MenuPopup, MenuPopupState};
 use crate::FilesAction::{Message, ReadDir, Update, UpdateFile};
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
+use crossbeam::channel::Sender;
 #[allow(unused_imports)]
 use log::debug;
 use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
+use rat_salsa::{run_tui, AppEvents, AppWidget, Cancel, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::imperial::IMPERIAL;
 use rat_theme::radium::RADIUM;
@@ -34,7 +35,7 @@ use ratatui::widgets::block::Title;
 use ratatui::widgets::{Block, Borders, StatefulWidget, StatefulWidgetRef, Widget};
 use std::cell::RefCell;
 use std::ffi::OsString;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use std::{fs, mem};
@@ -100,7 +101,7 @@ pub enum FilesAction {
         Vec<OsString>,
         Option<String>,
     ),
-    UpdateFile(PathBuf, Vec<u8>),
+    UpdateFile(PathBuf, String),
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -122,6 +123,8 @@ pub struct FilesState {
     pub sub_dirs: Vec<OsString>,
     pub files: Vec<(OsString, bool)>,
     pub err: Option<String>,
+
+    pub cancel_show: Option<Cancel>,
 
     pub w_dirs: ScrolledState<RTableState<RowSelection>>,
     pub w_files: ScrolledState<RTableState<RowSelection>>,
@@ -346,8 +349,8 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
         let menu = RMenuLine::new()
             .styles(ctx.g.theme.menu_style())
             .title("[-.-]")
-            .add("_Theme")
-            .add("_Quit");
+            .add_str("_Theme")
+            .add_str("_Quit");
         menu.render(r[3], buf, &mut state.w_menu);
 
         // -----------------------------------------------------
@@ -359,7 +362,11 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 focus: Some(ctx.g.theme.focus()),
                 block: None,
             }
-            .render_ref(state.w_menu.widget.areas[0], buf, &mut state.w_sub_style);
+            .render_ref(
+                state.w_menu.widget.item_areas[0],
+                buf,
+                &mut state.w_sub_style,
+            );
         }
 
         // -----------------------------------------------------
@@ -516,6 +523,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         });
         flow_ok!(match self.w_files.handle(event, FocusKeys) {
             ScrollOutcome::Inner(Outcome::Changed) => {
+                debug!("w_files changed -> show_file");
                 self.show_file(ctx)?
             }
             r => r.into(),
@@ -613,7 +621,7 @@ impl FilesState {
     fn update_preview(
         &mut self,
         path: &mut PathBuf,
-        text: &mut Vec<u8>,
+        text: &mut String,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<FilesAction>, Error> {
         let sel = self.current_file();
@@ -621,68 +629,7 @@ impl FilesState {
         let text = mem::take(text);
 
         if Some(path) == sel {
-            let hex = 'f: {
-                for c in text.iter().take(32) {
-                    if *c < 0x20 && *c != b'\n' && *c != b'\r' {
-                        break 'f true;
-                    }
-                }
-                false
-            };
-
-            let mut v = String::new();
-            let w;
-            let str_text = if hex {
-                use std::fmt::Write;
-
-                let mut mm = String::new();
-                let mut b0 = Vec::new();
-                let mut b1 = String::new();
-                let hex = [
-                    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
-                ];
-
-                _ = write!(mm, "{:8x} ", 0);
-                for (n, b) in text.iter().enumerate() {
-                    b0.push(hex[(b / 16) as usize] as u8);
-                    b0.push(hex[(b % 16) as usize] as u8);
-                    if n % 16 == 7 {
-                        b0.push(b' ');
-                    }
-
-                    if *b < 0x20 {
-                        b1.push(' ');
-                    } else {
-                        b1.push(*b as char);
-                    }
-
-                    if n > 0 && (n + 1) % 16 == 0 {
-                        v.push_str(mm.as_str());
-                        v.push_str(from_utf8(&b0).expect("str"));
-                        v.push(' ');
-                        v.push_str(b1.as_str());
-                        v.push('\n');
-
-                        b0.clear();
-                        b1.clear();
-
-                        mm.clear();
-                        _ = write!(mm, "{:08x} ", n + 1);
-                    }
-                }
-                v.push_str(mm.as_str());
-                _ = write!(v, "{:33}", from_utf8(&b0).expect("str"));
-                v.push(' ');
-                v.push_str(b1.as_str());
-                v.push('\n');
-
-                v.as_str()
-            } else {
-                w = String::from_utf8_lossy(&text);
-                w.as_ref()
-            };
-
-            self.w_data.widget.set_value(str_text);
+            self.w_data.widget.set_value(text);
             Ok(Control::Repaint)
         } else {
             Ok(Control::Continue)
@@ -748,6 +695,7 @@ impl FilesState {
             }
         }
 
+        debug!("update dirs -> show_file");
         _ = self.show_file(ctx)?;
 
         Ok(Control::Repaint)
@@ -889,13 +837,25 @@ impl FilesState {
 
         if let Some(file) = file {
             if file.is_file() {
-                _ = ctx.spawn(move |can, snd| match fs::read(&file) {
-                    Ok(data) => Ok(Control::Action(UpdateFile(file, data))),
+                if let Some(cancel_show) = &self.cancel_show {
+                    if let Ok(mut cancel_guard) = cancel_show.lock() {
+                        *cancel_guard = true;
+                    }
+                }
+
+                let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
+                    Ok(data) => {
+                        let str_data = FilesState::to_display_text(can, snd, &file, &data)?;
+                        Ok(Control::Action(UpdateFile(file, str_data)))
+                    }
                     Err(e) => Ok(Control::Action(UpdateFile(
                         file,
-                        format!("{:?}", e).to_string().into_bytes(),
+                        format!("{:?}", e).to_string(),
                     ))),
-                });
+                })?;
+
+                self.cancel_show = Some(cancel_show);
+
                 Ok(Control::Repaint)
             } else {
                 self.w_data.widget.set_value("");
@@ -905,6 +865,94 @@ impl FilesState {
             self.w_data.widget.set_value("");
             Ok(Control::Repaint)
         }
+    }
+
+    fn to_display_text(
+        can: Cancel,
+        snd: &Sender<Result<Control<FilesAction>, Error>>,
+        file: &Path,
+        text: &Vec<u8>,
+    ) -> Result<String, Error> {
+        let hex = 'f: {
+            for c in text.iter().take(1024) {
+                if *c < 0x20 && *c != b'\n' && *c != b'\r' {
+                    break 'f true;
+                }
+            }
+            false
+        };
+
+        let str_text = if hex {
+            use std::fmt::Write;
+
+            let mut v = String::new();
+
+            let mut mm = String::new();
+            let mut b0 = Vec::new();
+            let mut b1 = String::new();
+            let hex = [
+                '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', 'A', 'B', 'C', 'D', 'E', 'F',
+            ];
+            let mut mega = 0;
+
+            _ = write!(mm, "{:8x} ", 0);
+            for (n, b) in text.iter().enumerate() {
+                b0.push(hex[(b / 16) as usize] as u8);
+                b0.push(hex[(b % 16) as usize] as u8);
+                if n % 16 == 7 {
+                    b0.push(b' ');
+                }
+
+                if *b < 0x20 {
+                    b1.push('_');
+                } else if *b < 0x7F {
+                    b1.push(*b as char);
+                } else if *b < 0xA0 {
+                    b1.push('_')
+                } else {
+                    b1.push(*b as char);
+                }
+
+                if n > 0 && (n + 1) % 16 == 0 {
+                    v.push_str(mm.as_str());
+                    v.push_str(from_utf8(&b0).expect("str"));
+                    v.push(' ');
+                    v.push_str(b1.as_str());
+                    v.push('\n');
+
+                    b0.clear();
+                    b1.clear();
+
+                    mm.clear();
+                    _ = write!(mm, "{:08x} ", n + 1);
+                }
+
+                if v.len() / 10_000_000 > mega {
+                    if let Ok(can_guard) = can.lock() {
+                        if *can_guard {
+                            return Ok("!Canceled!".to_string());
+                        }
+                    }
+
+                    mega = v.len() / 10_000_000;
+
+                    // let mut v_part = v.clone();
+                    let mut v_part = String::new();
+                    _ = write!(v_part, "\n ... loading ... {}\n", mega);
+                    _ = snd.send(Ok(Control::Action(UpdateFile(file.to_path_buf(), v_part))));
+                }
+            }
+            v.push_str(mm.as_str());
+            _ = write!(v, "{:33}", from_utf8(&b0).expect("str"));
+            v.push(' ');
+            v.push_str(b1.as_str());
+            v.push('\n');
+            v
+        } else {
+            String::from_utf8_lossy(&text).to_string()
+        };
+
+        Ok(str_text)
     }
 
     fn follow_file(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
@@ -1078,18 +1126,28 @@ mod popup_menu {
             if self.is_focused() {
                 match event {
                     ct_event!(keycode press Up) => {
+                        let old = self.selected;
                         self.selected = self
                             .selected
                             .map_or(Some(self.items.len().saturating_sub(1)), |v| {
                                 Some(v.saturating_sub(1))
                             });
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if old != self.selected {
+                            MenuOutcome::Selected(self.selected.expect("selected"))
+                        } else {
+                            MenuOutcome::Unchanged
+                        }
                     }
                     ct_event!(keycode press Down) => {
+                        let old = self.selected;
                         self.selected = self.selected.map_or(Some(0), |v| {
                             Some(min(v + 1, self.items.len().saturating_sub(1)))
                         });
-                        MenuOutcome::Selected(self.selected.expect("selected"))
+                        if old != self.selected {
+                            MenuOutcome::Selected(self.selected.expect("selected"))
+                        } else {
+                            MenuOutcome::Unchanged
+                        }
                     }
                     ct_event!(keycode press Enter) => {
                         if let Some(select) = self.selected {

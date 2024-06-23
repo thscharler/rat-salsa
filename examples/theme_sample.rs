@@ -285,10 +285,10 @@ pub mod mask0 {
 
             let menu = RMenuLine::new()
                 .styles(ctx.g.theme.menu_style())
-                .add("One")
-                .add("Two")
-                .add("Three")
-                .add("_Quit");
+                .add_str("One")
+                .add_str("Two")
+                .add_str("Three")
+                .add_str("_Quit");
             menu.render(r[1], buf, &mut state.menu);
 
             Ok(())
