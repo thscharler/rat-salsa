@@ -8,6 +8,7 @@ pub mod edit_table;
 pub mod input;
 pub mod list;
 pub mod masked_input;
+pub mod menubar;
 pub mod menuline;
 pub mod number_input;
 pub mod popup_menu;
@@ -35,7 +36,7 @@ pub mod event {
     pub use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
     pub use rat_input::event::{
         crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly,
-        Outcome, ReadOnly, TextOutcome,
+        Outcome, Popup, ReadOnly, TextOutcome,
     };
     pub use rat_scrolled::event::ScrollOutcome;
 }

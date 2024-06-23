@@ -1,6 +1,7 @@
 use crate::_private::NonExhaustive;
-use crate::event::{FocusKeys, HandleEvent, MouseOnly};
+use crate::event::{HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
+use rat_input::event::Popup;
 use rat_input::menuline::{MenuOutcome, MenuStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -11,7 +12,7 @@ use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
 pub use rat_input::popup_menu::Placement;
 
 /// Popup menu.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone)]
 pub struct RPopupMenu<'a> {
     widget: rat_input::popup_menu::PopupMenu<'a>,
 }
@@ -229,10 +230,10 @@ impl HasFocusFlag for RPopupMenuState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for RPopupMenuState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> MenuOutcome {
+impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for RPopupMenuState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Popup) -> MenuOutcome {
         if self.is_focused() {
-            self.widget.handle(event, FocusKeys)
+            self.widget.handle(event, Popup)
         } else {
             self.widget.handle(event, MouseOnly)
         }
