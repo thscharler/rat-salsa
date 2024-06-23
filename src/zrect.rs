@@ -4,20 +4,20 @@ use ratatui::layout::{Columns, Margin, Offset, Position, Positions, Rect, Rows, 
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct ZRect {
     /// Coordinates
-    pub z: u16,
-    pub y: u16,
     pub x: u16,
+    pub y: u16,
+    pub z: u16,
 
-    pub height: u16,
     pub width: u16,
+    pub height: u16,
 }
 
 impl From<Rect> for ZRect {
     fn from(base_plane: Rect) -> Self {
         Self {
-            z: 0,
-            y: base_plane.y,
             x: base_plane.x,
+            y: base_plane.y,
+            z: 0,
             width: base_plane.width,
             height: base_plane.height,
         }
@@ -28,9 +28,9 @@ impl From<(u16, Rect)> for ZRect {
     #[inline]
     fn from(plane_rect: (u16, Rect)) -> Self {
         Self {
-            z: plane_rect.0,
-            y: plane_rect.1.y,
             x: plane_rect.1.x,
+            y: plane_rect.1.y,
+            z: plane_rect.0,
             width: plane_rect.1.width,
             height: plane_rect.1.height,
         }
@@ -40,9 +40,10 @@ impl From<(u16, Rect)> for ZRect {
 impl From<(Position, Size)> for ZRect {
     fn from((position, size): (Position, Size)) -> Self {
         Self {
-            z: 0,
-            y: position.y,
             x: position.x,
+            y: position.y,
+            z: 0,
+
             width: size.width,
             height: size.height,
         }
@@ -51,9 +52,9 @@ impl From<(Position, Size)> for ZRect {
 
 impl ZRect {
     pub const ZERO: Self = Self {
-        z: 0,
-        y: 0,
         x: 0,
+        y: 0,
+        z: 0,
 
         width: 0,
         height: 0,
@@ -143,24 +144,27 @@ impl ZRect {
         ZRect::from((self.z, self.as_rect().offset(offset)))
     }
 
-    /// Returns a new `Rect` that contains both the current one and the given one.
-    #[must_use = "method returns the modified value"]
-    pub fn union(self, other: Self) -> Self {
-        ZRect::from((self.z, self.as_rect().union(other.as_rect())))
-    }
+    // TODO: unclear what this means for different z.
 
-    /// Returns a new `Rect` that is the intersection of the current one and the given one.
-    ///
-    /// If the two `Rect`s do not intersect, the returned `Rect` will have no area.
-    #[must_use = "method returns the modified value"]
-    pub fn intersection(self, other: Self) -> Self {
-        ZRect::from((self.z, self.as_rect().intersection(other.as_rect())))
-    }
-
-    /// Returns true if the two `Rect`s intersect.
-    pub const fn intersects(self, other: Self) -> bool {
-        self.as_rect().intersects(other.as_rect())
-    }
+    //
+    // /// Returns a new `Rect` that contains both the current one and the given one.
+    // #[must_use = "method returns the modified value"]
+    // pub fn union(self, other: Self) -> Self {
+    //     ZRect::from((self.z, self.as_rect().union(other.as_rect())))
+    // }
+    //
+    // /// Returns a new `Rect` that is the intersection of the current one and the given one.
+    // ///
+    // /// If the two `Rect`s do not intersect, the returned `Rect` will have no area.
+    // #[must_use = "method returns the modified value"]
+    // pub fn intersection(self, other: Self) -> Self {
+    //     ZRect::from((self.z, self.as_rect().intersection(other.as_rect())))
+    // }
+    //
+    // /// Returns true if the two `Rect`s intersect.
+    // pub const fn intersects(self, other: Self) -> bool {
+    //     self.as_rect().intersects(other.as_rect())
+    // }
 
     /// Returns true if the given position is inside the `Rect`.
     ///
@@ -177,34 +181,36 @@ impl ZRect {
         self.as_rect().contains(position)
     }
 
-    /// Clamp this `Rect` to fit inside the other `Rect`.
-    ///
-    /// If the width or height of this `Rect` is larger than the other `Rect`, it will be clamped to
-    /// the other `Rect`'s width or height.
-    ///
-    /// If the left or top coordinate of this `Rect` is smaller than the other `Rect`, it will be
-    /// clamped to the other `Rect`'s left or top coordinate.
-    ///
-    /// If the right or bottom coordinate of this `Rect` is larger than the other `Rect`, it will be
-    /// clamped to the other `Rect`'s right or bottom coordinate.
-    ///
-    /// This is different from [`Rect::intersection`] because it will move this `Rect` to fit inside
-    /// the other `Rect`, while [`Rect::intersection`] instead would keep this `Rect`'s position and
-    /// truncate its size to only that which is inside the other `Rect`.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// # use ratatui::prelude::*;
-    /// # fn render(frame: &mut Frame) {
-    /// let area = frame.size();
-    /// let rect = Rect::new(0, 0, 100, 100).clamp(area);
-    /// # }
-    /// ```
-    #[must_use = "method returns the modified value"]
-    pub fn clamp(self, other: Self) -> Self {
-        ZRect::from((self.z, self.as_rect().clamp(other.as_rect())))
-    }
+    // TODO: unclear what this means for different z.
+
+    // /// Clamp this `Rect` to fit inside the other `Rect`.
+    // ///
+    // /// If the width or height of this `Rect` is larger than the other `Rect`, it will be clamped to
+    // /// the other `Rect`'s width or height.
+    // ///
+    // /// If the left or top coordinate of this `Rect` is smaller than the other `Rect`, it will be
+    // /// clamped to the other `Rect`'s left or top coordinate.
+    // ///
+    // /// If the right or bottom coordinate of this `Rect` is larger than the other `Rect`, it will be
+    // /// clamped to the other `Rect`'s right or bottom coordinate.
+    // ///
+    // /// This is different from [`Rect::intersection`] because it will move this `Rect` to fit inside
+    // /// the other `Rect`, while [`Rect::intersection`] instead would keep this `Rect`'s position and
+    // /// truncate its size to only that which is inside the other `Rect`.
+    // ///
+    // /// # Examples
+    // ///
+    // /// ```rust
+    // /// # use ratatui::prelude::*;
+    // /// # fn render(frame: &mut Frame) {
+    // /// let area = frame.size();
+    // /// let rect = Rect::new(0, 0, 100, 100).clamp(area);
+    // /// # }
+    // /// ```
+    // #[must_use = "method returns the modified value"]
+    // pub fn clamp(self, other: Self) -> Self {
+    //     ZRect::from((self.z, self.as_rect().clamp(other.as_rect())))
+    // }
 
     /// An iterator over rows within the `Rect`.
     ///
