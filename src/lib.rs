@@ -70,6 +70,8 @@ impl<Action> From<MenuOutcome> for Control<Action> {
             MenuOutcome::Changed => Control::Repaint,
             MenuOutcome::Selected(_) => Control::Repaint,
             MenuOutcome::Activated(_) => Control::Repaint,
+            MenuOutcome::MenuSelected(_, _) => Control::Repaint,
+            MenuOutcome::MenuActivated(_, _) => Control::Repaint,
         }
     }
 }
