@@ -12,6 +12,7 @@ use rat_salsa::{run_tui, AppEvents, AppWidget, Cancel, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::imperial::IMPERIAL;
 use rat_theme::radium::RADIUM;
+use rat_theme::tundra::TUNDRA;
 use rat_widget::event::{
     ct_event, flow_ok, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome, Popup,
     ReadOnly, ScrollOutcome,
@@ -257,7 +258,7 @@ static MENU: StaticMenu = StaticMenu {
     menu: &[
         (
             "_Theme", //
-            &["Imperial", "Radium"],
+            &["Imperial", "Radium", "Tundra"],
         ),
         (
             "_Quit", //
@@ -461,6 +462,10 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
                 ctx.g.theme = DarkTheme::new("Radium".into(), RADIUM);
                 Control::Repaint
             }
+            MenuOutcome::MenuSelected(0, 2) => {
+                ctx.g.theme = DarkTheme::new("Tundra".into(), TUNDRA);
+                Control::Repaint
+            }
             MenuOutcome::MenuActivated(0, 0) => {
                 ctx.g.theme = DarkTheme::new("Imperial".into(), IMPERIAL);
                 self.w_menu.set_popup_active(false);
@@ -468,6 +473,11 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
             MenuOutcome::MenuActivated(0, 1) => {
                 ctx.g.theme = DarkTheme::new("Radium".into(), RADIUM);
+                self.w_menu.set_popup_active(false);
+                Control::Repaint
+            }
+            MenuOutcome::MenuActivated(0, 2) => {
+                ctx.g.theme = DarkTheme::new("Tundra".into(), TUNDRA);
                 self.w_menu.set_popup_active(false);
                 Control::Repaint
             }

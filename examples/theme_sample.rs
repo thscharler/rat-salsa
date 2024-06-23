@@ -229,8 +229,10 @@ pub mod mask0 {
     use log::debug;
     use rat_salsa::{AppEvents, AppWidget, Control};
     use rat_theme::dark_theme::DarkTheme;
+    use rat_theme::dark_themes;
     use rat_theme::imperial::IMPERIAL;
     use rat_theme::radium::RADIUM;
+    use rat_theme::tundra::TUNDRA;
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
     use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
     use rat_widget::scrolled::{Scrolled, ScrolledState, ViewportState};
@@ -245,7 +247,7 @@ pub mod mask0 {
     pub struct Mask0State {
         pub menu: RMenuLineState,
         pub scroll: ScrolledState<ViewportState<ShowSchemeState>>,
-        pub theme: u8,
+        pub theme: usize,
     }
 
     impl Default for Mask0State {
@@ -278,16 +280,14 @@ pub mod mask0 {
             )
             .split(area);
 
-            Scrolled::new_viewport(ShowScheme::new(ctx.g.theme.scheme()))
+            Scrolled::new_viewport(ShowScheme::new(ctx.g.theme.name(), ctx.g.theme.scheme()))
                 .styles(ctx.g.theme.scrolled_style())
                 .view_size(Size::new(area.width - 4, 40))
                 .render(r[0], buf, &mut state.scroll);
 
             let menu = RMenuLine::new()
                 .styles(ctx.g.theme.menu_style())
-                .add_str("One")
-                .add_str("Two")
-                .add_str("Three")
+                .add_str("Switch Theme")
                 .add_str("_Quit");
             menu.render(r[1], buf, &mut state.menu);
 
@@ -304,23 +304,12 @@ pub mod mask0 {
             // TODO: handle_mask
             flow_ok!(match self.menu.handle(event, FocusKeys) {
                 MenuOutcome::Activated(0) => {
-                    _ = ctx.spawn(|cancel, send| {
-                        Ok(Control::Action(MinimalAction::Message(
-                            "hello from the other side".into(),
-                        )))
-                    });
-                    Control::Break
-                }
-                MenuOutcome::Activated(1) => {
-                    self.theme = (self.theme + 1) % 2;
-                    match self.theme {
-                        0 => ctx.g.theme = DarkTheme::new("ImperialDark".into(), IMPERIAL),
-                        1 => ctx.g.theme = DarkTheme::new("RadiumDark".into(), RADIUM),
-                        _ => {}
-                    }
+                    let themes = dark_themes();
+                    self.theme = (self.theme + 1) % themes.len();
+                    ctx.g.theme = themes[self.theme].clone();
                     Control::Repaint
                 }
-                MenuOutcome::Activated(3) => {
+                MenuOutcome::Activated(1) => {
                     Control::Quit
                 }
                 v => {
@@ -350,6 +339,7 @@ pub mod show_scheme {
 
     #[derive(Debug)]
     pub struct ShowScheme<'a> {
+        name: &'a str,
         scheme: &'a Scheme,
     }
 
@@ -370,8 +360,8 @@ pub mod show_scheme {
     }
 
     impl<'a> ShowScheme<'a> {
-        pub fn new(scheme: &'a Scheme) -> Self {
-            Self { scheme }
+        pub fn new(name: &'a str, scheme: &'a Scheme) -> Self {
+            Self { name, scheme }
         }
     }
 
@@ -417,7 +407,7 @@ pub mod show_scheme {
             )
             .split(l0[1]);
 
-            "Theme\ncolors".render(l1[0], buf);
+            self.name.render(l1[0], buf);
 
             let sc = self.scheme;
             for (i, (n, c)) in [
