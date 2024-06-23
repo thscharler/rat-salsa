@@ -1,60 +1,35 @@
-//!
-//! Draws a simple line menu.
-//!
-//! If the render area has more than one line, this will
-//! linebreak if necessary.
-//!
-//! ## Navigation keys
-//! If you give plain-text strings as items, the underscore
-//! designates a navigation key. If you hit the key, the matching
-//! item is selected. On the second hit, the matching item is
-//! activated.
-//!
 use crate::_private::NonExhaustive;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly};
-#[allow(unused_imports)]
-use log::debug;
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
+use rat_input::menuline::{MenuOutcome, MenuStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::Line;
 use ratatui::style::Style;
-use ratatui::widgets::{StatefulWidget, StatefulWidgetRef};
+use ratatui::text::Line;
+use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
 
-pub use rat_input::menuline::{MenuOutcome, MenuStyle};
+pub use rat_input::popup_menu::Placement;
 
-///
-/// Menu widget.
-///
-/// If the text exceeds the area width it wraps around.
-///
-#[derive(Debug, Default, Clone)]
-pub struct RMenuLine<'a> {
-    widget: rat_input::menuline::MenuLine<'a>,
+/// Popup menu.
+#[derive(Debug, Default)]
+pub struct RPopupMenu<'a> {
+    widget: rat_input::popup_menu::PopupMenu<'a>,
 }
 
-///
-/// State for the menu widget
-///
+/// Popup menu state.
 #[derive(Debug, Clone)]
-pub struct RMenuLineState {
-    /// State of the inner widget.
-    pub widget: rat_input::menuline::MenuLineState,
+pub struct RPopupMenuState {
+    pub focus: FocusFlag,
+    pub widget: rat_input::popup_menu::PopupMenuState,
+    pub z_areas: [ZRect; 1],
 
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> RMenuLine<'a> {
+impl<'a> RPopupMenu<'a> {
     /// New
     pub fn new() -> Self {
         Default::default()
-    }
-
-    /// Title text.
-    #[inline]
-    pub fn title(mut self, title: impl Into<Line<'a>>) -> Self {
-        self.widget = self.widget.title(title);
-        self
     }
 
     /// Add a formatted item.
@@ -72,6 +47,19 @@ impl<'a> RMenuLine<'a> {
         self
     }
 
+    /// Fixed width for the menu.
+    /// If not set it uses 1.5 times the length of the longest item.
+    pub fn width(mut self, width: u16) -> Self {
+        self.widget = self.widget.width(width);
+        self
+    }
+
+    /// Placement relative to the render-area.
+    pub fn placement(mut self, placement: Placement) -> Self {
+        self.widget = self.widget.placement(placement);
+        self
+    }
+
     /// Combined style.
     #[inline]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
@@ -86,55 +74,80 @@ impl<'a> RMenuLine<'a> {
         self
     }
 
-    /// Menu-title style.
-    #[inline]
-    pub fn title_style(mut self, style: Style) -> Self {
-        self.widget = self.widget.title_style(style);
-        self
-    }
-
     /// Selection
-    #[inline]
-    pub fn select_style(mut self, style: Style) -> Self {
-        self.widget = self.widget.select_style(style);
-        self
-    }
-
-    /// Selection + Focus
     #[inline]
     pub fn focus_style(mut self, style: Style) -> Self {
         self.widget = self.widget.focus_style(style);
         self
     }
+
+    /// Block for borders.
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.widget = self.widget.block(block);
+        self
+    }
 }
 
-impl<'a> StatefulWidgetRef for RMenuLine<'a> {
-    type State = RMenuLineState;
+impl<'a> StatefulWidgetRef for RPopupMenu<'a> {
+    type State = RPopupMenuState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget.render_ref(area, buf, &mut state.widget)
+        if state.active() {
+            self.widget.render_ref(area, buf, &mut state.widget);
+            state.z_areas[0] = ZRect::from((1, state.widget.area));
+        } else {
+            state.clear();
+        }
     }
 }
 
-impl<'a> StatefulWidget for RMenuLine<'a> {
-    type State = RMenuLineState;
+impl<'a> StatefulWidget for RPopupMenu<'a> {
+    type State = RPopupMenuState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.widget.render(area, buf, &mut state.widget)
+        if state.active() {
+            self.widget.render(area, buf, &mut state.widget);
+            state.z_areas[0] = ZRect::from((1, state.widget.area));
+        } else {
+            state.clear();
+        }
     }
 }
 
-impl Default for RMenuLineState {
+impl Default for RPopupMenuState {
     fn default() -> Self {
         Self {
+            focus: Default::default(),
             widget: Default::default(),
+            z_areas: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
 }
 
-#[allow(clippy::len_without_is_empty)]
-impl RMenuLineState {
+impl RPopupMenuState {
+    /// Reset the state to defaults.
+    pub fn clear(&mut self) {
+        *self = Default::default();
+    }
+
+    /// Show the popup.
+    pub fn flip_active(&mut self) {
+        self.focus.focus.set(!self.focus.get());
+    }
+
+    /// Show the popup.
+    pub fn active(&self) -> bool {
+        self.is_focused()
+    }
+
+    /// Show the popup.
+    pub fn set_active(&self, active: bool) {
+        self.focus.focus.set(active);
+    }
+}
+
+impl RPopupMenuState {
     /// New
     pub fn new() -> Self {
         Self::default()
@@ -195,19 +208,28 @@ impl RMenuLineState {
     }
 }
 
-impl HasFocusFlag for RMenuLineState {
+impl HasFocusFlag for RPopupMenuState {
     /// Focus flag.
     fn focus(&self) -> &FocusFlag {
-        &self.widget.focus
+        &self.focus
     }
 
     /// Focus area.
     fn area(&self) -> Rect {
         self.widget.area
     }
+
+    /// Widget area with z index.
+    fn z_areas(&self) -> &[ZRect] {
+        &self.z_areas
+    }
+
+    fn navigable(&self) -> bool {
+        false
+    }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for RMenuLineState {
+impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for RPopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> MenuOutcome {
         if self.is_focused() {
             self.widget.handle(event, FocusKeys)
@@ -217,7 +239,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for RMenuLineS
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for RMenuLineState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for RPopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> MenuOutcome {
         self.widget.handle(event, MouseOnly)
     }

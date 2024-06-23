@@ -10,6 +10,7 @@ pub mod list;
 pub mod masked_input;
 pub mod menuline;
 pub mod number_input;
+pub mod popup_menu;
 pub mod table;
 pub mod textarea;
 
