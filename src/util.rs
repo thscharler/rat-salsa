@@ -105,7 +105,7 @@ pub struct MouseFlags {
 }
 
 impl MouseFlags {
-    /// Returns the last drag-position if drag is active.
+    /// Returns column/row extracted from the Mouse-Event.
     pub fn pos_of(&self, event: &MouseEvent) -> (u16, u16) {
         (event.column, event.row)
     }

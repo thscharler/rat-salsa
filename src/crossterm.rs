@@ -101,7 +101,6 @@ macro_rules! ct_event {
     (key release ANY-$keychar:pat) => {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::Char($keychar),
-            modifiers: $crate::crossterm::modifiers::$mod,
             kind: crossterm::event::KeyEventKind::Release,
             ..
         })
