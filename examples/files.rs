@@ -1,7 +1,6 @@
 #![allow(unused_variables)]
 #![allow(unreachable_pub)]
 
-use crate::popup_menu::{MenuPopup, MenuPopupState};
 use crate::FilesAction::{Message, ReadDir, Update, UpdateFile};
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
@@ -21,6 +20,7 @@ use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::popup_menu::{Placement, RPopupMenu, RPopupMenuState};
 use rat_widget::scrolled::{Inner, Scrolled, ScrolledState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
@@ -131,7 +131,7 @@ pub struct FilesState {
     pub w_data: ScrolledState<RTextAreaState>,
 
     pub w_menu: RMenuLineState,
-    pub w_sub_style: MenuPopupState,
+    pub w_sub_style: RPopupMenuState,
 }
 
 #[allow(dead_code)]
@@ -355,19 +355,16 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
 
         // -----------------------------------------------------
 
-        if state.w_sub_style.active {
-            MenuPopup {
-                items: vec!["Imperial", "Radium"],
-                style: ctx.g.theme.black(3),
-                focus: Some(ctx.g.theme.focus()),
-                block: None,
-            }
-            .render_ref(
+        RPopupMenu::new()
+            .styles(ctx.g.theme.menu_style())
+            .placement(Placement::Top)
+            .add_str("Imperial")
+            .add_str("Radium")
+            .render(
                 state.w_menu.widget.item_areas[0],
                 buf,
                 &mut state.w_sub_style,
             );
-        }
 
         // -----------------------------------------------------
 
@@ -408,8 +405,6 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         self.w_dirs.widget.set_scroll_selection(true);
         self.w_dirs.widget.focus().set();
         self.w_files.widget.set_scroll_selection(true);
-
-        self.w_sub_style.selected = Some(0);
 
         Ok(())
     }
@@ -462,12 +457,12 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
             MenuOutcome::Activated(0) => {
                 ctx.g.theme = DarkTheme::new("Imperial".into(), IMPERIAL);
-                self.w_sub_style.active(false);
+                self.w_sub_style.set_active(false);
                 Control::Repaint
             }
             MenuOutcome::Activated(1) => {
                 ctx.g.theme = DarkTheme::new("Radium".into(), RADIUM);
-                self.w_sub_style.active(false);
+                self.w_sub_style.set_active(false);
                 Control::Repaint
             }
             r => r.into(),
@@ -479,7 +474,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
                 Control::Repaint
             }
             MenuOutcome::Selected(1) => {
-                self.w_sub_style.active(false);
+                self.w_sub_style.set_active(false);
                 Control::Repaint
             }
             MenuOutcome::Activated(1) => {
@@ -975,11 +970,9 @@ impl HasFocus for FilesState {
             &self.w_files.widget,
             &self.w_data.widget,
             &self.w_menu,
+            &self.w_sub_style,
         ]);
         f.enable_log(true);
-        if self.w_sub_style.active {
-            f.add(&self.w_sub_style);
-        }
         f
     }
 }
@@ -1002,179 +995,179 @@ fn setup_logging() -> Result<(), Error> {
     Ok(())
 }
 
-mod popup_menu {
-    use rat_widget::event::util::item_at_clicked;
-    use rat_widget::event::{ct_event, FocusKeys, HandleEvent};
-    use rat_widget::fill::Fill;
-    use rat_widget::focus::{FocusFlag, HasFocusFlag, ZRect};
-    use rat_widget::menuline::MenuOutcome;
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::{Block, StatefulWidgetRef, Widget};
-    use std::cmp::min;
-
-    #[derive(Debug)]
-    pub struct MenuPopup<'a> {
-        pub items: Vec<&'a str>,
-
-        /// Base style
-        pub style: Style,
-        /// There is no selection style, as the popup disappears as soon
-        /// as it looses the focus.
-        pub focus: Option<Style>,
-        /// Block.
-        pub block: Option<Block<'a>>,
-    }
-
-    #[derive(Debug, Default)]
-    pub struct MenuPopupState {
-        /// Active/Visible
-        pub active: bool,
-        /// Focus flag
-        pub focus: FocusFlag,
-
-        /// Base area.
-        pub area: Rect,
-        /// z-areas
-        pub z_area: [ZRect; 1],
-        /// Item rects
-        pub items: Vec<Rect>,
-
-        /// Selection.
-        pub selected: Option<usize>,
-    }
-
-    impl MenuPopupState {
-        /// Show the popup.
-        pub fn flip_active(&mut self) {
-            self.active = !self.active;
-            self.focus.focus.set(self.active);
-        }
-
-        /// Show the popup.
-        pub fn active(&mut self, active: bool) {
-            self.active = active;
-            self.focus.focus.set(active);
-        }
-    }
-
-    impl HasFocusFlag for MenuPopupState {
-        fn focus(&self) -> &FocusFlag {
-            &self.focus
-        }
-
-        fn area(&self) -> Rect {
-            self.area
-        }
-
-        fn z_areas(&self) -> &[ZRect] {
-            &self.z_area
-        }
-
-        fn navigable(&self) -> bool {
-            false
-        }
-    }
-
-    /// Doesn't use the area as a content boundary, instead it
-    /// uses the (x,y) coordinates as anchor for the popup.
-    impl<'a> StatefulWidgetRef for MenuPopup<'a> {
-        type State = MenuPopupState;
-
-        fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-            let text_width = self.items.iter().map(|v| v.len()).max().unwrap_or(15) as u16;
-
-            let area = Rect::new(
-                area.x - 2,
-                area.y
-                    .saturating_sub(self.items.len() as u16)
-                    .saturating_sub(2),
-                text_width + 4,
-                self.items.len() as u16 + 2,
-            );
-
-            state.area = area;
-            state.z_area = [(1, area).into()];
-            state.items.clear();
-
-            Fill::new().style(self.style).render(area, buf);
-            self.block.render(area, buf);
-
-            let mut row_area = Rect::new(area.x + 2, area.y + 1, area.width - 4, 1);
-            for (n, txt) in self.items.iter().enumerate() {
-                let style = if state.selected == Some(n) {
-                    if let Some(select) = self.focus {
-                        select
-                    } else {
-                        Style::default().on_yellow()
-                    }
-                } else {
-                    self.style
-                };
-
-                buf.set_stringn(row_area.x, row_area.y, txt, text_width as usize, style);
-
-                state.items.push(row_area);
-                row_area.y += 1;
-            }
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuPopupState {
-        fn handle(&mut self, event: &crossterm::event::Event, qualifier: FocusKeys) -> MenuOutcome {
-            if self.is_focused() {
-                match event {
-                    ct_event!(keycode press Up) => {
-                        let old = self.selected;
-                        self.selected = self
-                            .selected
-                            .map_or(Some(self.items.len().saturating_sub(1)), |v| {
-                                Some(v.saturating_sub(1))
-                            });
-                        if old != self.selected {
-                            MenuOutcome::Selected(self.selected.expect("selected"))
-                        } else {
-                            MenuOutcome::Unchanged
-                        }
-                    }
-                    ct_event!(keycode press Down) => {
-                        let old = self.selected;
-                        self.selected = self.selected.map_or(Some(0), |v| {
-                            Some(min(v + 1, self.items.len().saturating_sub(1)))
-                        });
-                        if old != self.selected {
-                            MenuOutcome::Selected(self.selected.expect("selected"))
-                        } else {
-                            MenuOutcome::Unchanged
-                        }
-                    }
-                    ct_event!(keycode press Enter) => {
-                        if let Some(select) = self.selected {
-                            MenuOutcome::Activated(select)
-                        } else {
-                            MenuOutcome::NotUsed
-                        }
-                    }
-                    ct_event!(mouse down Left for x,y) => {
-                        if let Some(idx) = item_at_clicked(&self.items, *x, *y) {
-                            self.selected = Some(idx);
-                            MenuOutcome::Activated(idx)
-                        } else {
-                            MenuOutcome::NotUsed
-                        }
-                    }
-                    _ => MenuOutcome::NotUsed,
-                }
-            } else {
-                // hide when the focus is lost.
-                if self.active {
-                    self.active = false;
-                    MenuOutcome::Changed
-                } else {
-                    MenuOutcome::NotUsed
-                }
-            }
-        }
-    }
-}
+// mod popup_menu {
+//     use rat_widget::event::util::item_at_clicked;
+//     use rat_widget::event::{ct_event, FocusKeys, HandleEvent};
+//     use rat_widget::fill::Fill;
+//     use rat_widget::focus::{FocusFlag, HasFocusFlag, ZRect};
+//     use rat_widget::menuline::MenuOutcome;
+//     use ratatui::buffer::Buffer;
+//     use ratatui::layout::Rect;
+//     use ratatui::style::{Style, Stylize};
+//     use ratatui::widgets::{Block, StatefulWidgetRef, Widget};
+//     use std::cmp::min;
+//
+//     #[derive(Debug)]
+//     pub struct MenuPopup<'a> {
+//         pub items: Vec<&'a str>,
+//
+//         /// Base style
+//         pub style: Style,
+//         /// There is no selection style, as the popup disappears as soon
+//         /// as it looses the focus.
+//         pub focus: Option<Style>,
+//         /// Block.
+//         pub block: Option<Block<'a>>,
+//     }
+//
+//     #[derive(Debug, Default)]
+//     pub struct MenuPopupState {
+//         /// Active/Visible
+//         pub active: bool,
+//         /// Focus flag
+//         pub focus: FocusFlag,
+//
+//         /// Base area.
+//         pub area: Rect,
+//         /// z-areas
+//         pub z_area: [ZRect; 1],
+//         /// Item rects
+//         pub items: Vec<Rect>,
+//
+//         /// Selection.
+//         pub selected: Option<usize>,
+//     }
+//
+//     impl MenuPopupState {
+//         /// Show the popup.
+//         pub fn flip_active(&mut self) {
+//             self.active = !self.active;
+//             self.focus.focus.set(self.active);
+//         }
+//
+//         /// Show the popup.
+//         pub fn active(&mut self, active: bool) {
+//             self.active = active;
+//             self.focus.focus.set(active);
+//         }
+//     }
+//
+//     impl HasFocusFlag for MenuPopupState {
+//         fn focus(&self) -> &FocusFlag {
+//             &self.focus
+//         }
+//
+//         fn area(&self) -> Rect {
+//             self.area
+//         }
+//
+//         fn z_areas(&self) -> &[ZRect] {
+//             &self.z_area
+//         }
+//
+//         fn navigable(&self) -> bool {
+//             false
+//         }
+//     }
+//
+//     /// Doesn't use the area as a content boundary, instead it
+//     /// uses the (x,y) coordinates as anchor for the popup.
+//     impl<'a> StatefulWidgetRef for MenuPopup<'a> {
+//         type State = MenuPopupState;
+//
+//         fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//             let text_width = self.items.iter().map(|v| v.len()).max().unwrap_or(15) as u16;
+//
+//             let area = Rect::new(
+//                 area.x - 2,
+//                 area.y
+//                     .saturating_sub(self.items.len() as u16)
+//                     .saturating_sub(2),
+//                 text_width + 4,
+//                 self.items.len() as u16 + 2,
+//             );
+//
+//             state.area = area;
+//             state.z_area = [(1, area).into()];
+//             state.items.clear();
+//
+//             Fill::new().style(self.style).render(area, buf);
+//             self.block.render(area, buf);
+//
+//             let mut row_area = Rect::new(area.x + 2, area.y + 1, area.width - 4, 1);
+//             for (n, txt) in self.items.iter().enumerate() {
+//                 let style = if state.selected == Some(n) {
+//                     if let Some(select) = self.focus {
+//                         select
+//                     } else {
+//                         Style::default().on_yellow()
+//                     }
+//                 } else {
+//                     self.style
+//                 };
+//
+//                 buf.set_stringn(row_area.x, row_area.y, txt, text_width as usize, style);
+//
+//                 state.items.push(row_area);
+//                 row_area.y += 1;
+//             }
+//         }
+//     }
+//
+//     impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuPopupState {
+//         fn handle(&mut self, event: &crossterm::event::Event, qualifier: FocusKeys) -> MenuOutcome {
+//             if self.is_focused() {
+//                 match event {
+//                     ct_event!(keycode press Up) => {
+//                         let old = self.selected;
+//                         self.selected = self
+//                             .selected
+//                             .map_or(Some(self.items.len().saturating_sub(1)), |v| {
+//                                 Some(v.saturating_sub(1))
+//                             });
+//                         if old != self.selected {
+//                             MenuOutcome::Selected(self.selected.expect("selected"))
+//                         } else {
+//                             MenuOutcome::Unchanged
+//                         }
+//                     }
+//                     ct_event!(keycode press Down) => {
+//                         let old = self.selected;
+//                         self.selected = self.selected.map_or(Some(0), |v| {
+//                             Some(min(v + 1, self.items.len().saturating_sub(1)))
+//                         });
+//                         if old != self.selected {
+//                             MenuOutcome::Selected(self.selected.expect("selected"))
+//                         } else {
+//                             MenuOutcome::Unchanged
+//                         }
+//                     }
+//                     ct_event!(keycode press Enter) => {
+//                         if let Some(select) = self.selected {
+//                             MenuOutcome::Activated(select)
+//                         } else {
+//                             MenuOutcome::NotUsed
+//                         }
+//                     }
+//                     ct_event!(mouse down Left for x,y) => {
+//                         if let Some(idx) = item_at_clicked(&self.items, *x, *y) {
+//                             self.selected = Some(idx);
+//                             MenuOutcome::Activated(idx)
+//                         } else {
+//                             MenuOutcome::NotUsed
+//                         }
+//                     }
+//                     _ => MenuOutcome::NotUsed,
+//                 }
+//             } else {
+//                 // hide when the focus is lost.
+//                 if self.active {
+//                     self.active = false;
+//                     MenuOutcome::Changed
+//                 } else {
+//                     MenuOutcome::NotUsed
+//                 }
+//             }
+//         }
+//     }
+// }
