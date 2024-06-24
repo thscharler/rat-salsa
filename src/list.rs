@@ -1,5 +1,5 @@
 //!
-//! Extension for [ratatui::widgets::List]
+//! Extension for [ratatui::List](https://docs.rs/ratatui/latest/ratatui/widgets/struct.List.html)
 //!
 
 use crate::_private::NonExhaustive;

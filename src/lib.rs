@@ -25,6 +25,7 @@ pub mod focus {
     };
 }
 
+/// Scrolled widget and viewports.
 pub mod scrolled {
     pub use rat_scrolled::{
         HScrollPosition, Inner, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle,
@@ -32,6 +33,7 @@ pub mod scrolled {
     };
 }
 
+/// Event-handling traits and types.
 pub mod event {
     pub use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
     pub use rat_input::event::{
@@ -41,19 +43,24 @@ pub mod event {
     pub use rat_scrolled::event::ScrollOutcome;
 }
 
+/// Layout calculation.
 pub mod layout {
     pub use rat_input::layout_dialog::{layout_dialog, LayoutDialog};
     pub use rat_input::layout_edit::{layout_edit, EditConstraint, LayoutEdit, LayoutEditIterator};
+    pub use rat_input::layout_grid::layout_grid;
 }
 
+/// Basic message dialog.
 pub mod msgdialog {
     pub use rat_input::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
 }
 
+/// Statusbar.
 pub mod statusline {
     pub use rat_input::statusline::{StatusLine, StatusLineState};
 }
 
+/// Fill an area with a Style and a symbol.
 pub mod fill {
     pub use rat_input::fill::Fill;
 }

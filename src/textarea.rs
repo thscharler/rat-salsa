@@ -1,9 +1,14 @@
+//!
+//! Text-area, see [rat-input::TextArea](https://docs.rs/rat-input/latest/rat_input/textarea/index.html)
+//!
+
 use crate::_private::NonExhaustive;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_input::event::{ReadOnly, TextOutcome};
 pub use rat_input::textarea::core;
 use rat_input::textarea::core::{RopeGraphemes, TextRange};
+use rat_input::textarea::TextAreaState;
 use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -14,11 +19,47 @@ use ropey::{Rope, RopeSlice};
 
 pub use rat_input::textarea::TextAreaStyle;
 
+/// Text area widget.
+///
+/// Backend used is [ropey](https://docs.rs/ropey/latest/ropey/), so large
+/// texts are no problem. Editing time increases with the number of
+/// styles applied. Everything below a million styles should be fine.
+///
+/// For emoji support this uses
+/// [unicode_display_width](https://docs.rs/unicode-display-width/latest/unicode_display_width/index.html)
+/// which helps with those double-width emojis. Input of emojis
+/// strongly depends on the terminal. It may or may not work.
+/// And even with display there are sometimes strange glitches
+/// that I haven't found yet.
+///
+/// Keyboard and mouse are implemented for crossterm, but it should be
+/// trivial to extend to other event-types. Every interaction is available
+/// as function on the state.
+///
+/// Scrolling doesn't depend on the cursor, but the editing and move
+/// functions take care that the cursor stays visible.
+///
+/// Wordwrap is not available. For display only use
+/// [Paragraph](https://docs.rs/ratatui/latest/ratatui/widgets/struct.Paragraph.html), as
+/// for editing: why?
+///
+/// You can directly access the underlying Rope for readonly purposes, and
+/// conversion from/to byte/char positions are available. That should probably be
+/// enough to write a parser that generates some styling.
+///
+/// The cursor must set externally on the ratatui Frame as usual.
+/// [screen_cursor](TextAreaState::screen_cursor) gives you the correct value.
+/// There is the inverse too [set_screen_cursor](TextAreaState::set_screen_cursor)
+/// For more interactions you can use [from_screen_col](TextAreaState::from_screen_col),
+/// and [to_screen_col](TextAreaState::to_screen_col). They calculate everything,
+/// even in the presence of more complex graphemes and those double-width emojis.
+///
 #[derive(Debug, Default, Clone)]
 pub struct RTextArea<'a> {
     widget: rat_input::textarea::TextArea<'a>,
 }
 
+/// State for the text-area.
 #[derive(Debug, Clone)]
 pub struct RTextAreaState {
     pub widget: rat_input::textarea::TextAreaState,

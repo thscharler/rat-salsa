@@ -1,3 +1,23 @@
+//!
+//! This widget draws a popup-menu.
+//!
+//! It diverges from other widgets as this widget doesn't draw
+//! *inside* the given area but aims to stay *outside* of it.
+//!
+//! You can give a [Placement] where the popup-menu should appear
+//! relative to the given area.
+//!
+//! If you want it to appear at a mouse-click position, use a
+//! `Rect::new(mouse_x, mouse_y, 0,0)` area.
+//! If you want it to appear next to a given widget, use
+//! the widgets drawing area.
+//!
+//! ## Navigation keys
+//! If you give plain-text strings as items, the underscore
+//! designates a navigation key. If you hit the key, the matching
+//! item is selected. On the second hit, the matching item is
+//! activated.
+//!
 use crate::_private::NonExhaustive;
 use crate::event::{HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag, ZRect};

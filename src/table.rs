@@ -1,3 +1,7 @@
+//!
+//! Table widget, see [rat-ftable](https://docs.rs/rat-ftable/latest/rat_ftable/) for details.
+//!
+
 use crate::_private::NonExhaustive;
 use crate::event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
 #[allow(unused_imports)]
@@ -13,6 +17,7 @@ use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
 use std::collections::HashSet;
 
 use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
+use rat_ftable::FTable;
 pub use rat_ftable::{FTableContext, FTableStyle, TableData, TableDataIter, TableSelection};
 
 pub mod selection {
@@ -23,11 +28,18 @@ pub mod textdata {
     pub use rat_ftable::textdata::{Cell, Row};
 }
 
+/// RTable widget.
+///
+/// Can be used like a ratatui::Table, but the benefits only
+/// show if you use [RTable::data] or [RTable::iter] to set the table data.
+///
+/// See [RTable::data] and [RTable::iter] for an example.
 #[derive(Debug, Default)]
 pub struct RTable<'a, Selection> {
     widget: rat_ftable::FTable<'a, Selection>,
 }
 
+/// Table state.
 #[derive(Debug, Clone)]
 pub struct RTableState<Selection> {
     pub widget: rat_ftable::FTableState<Selection>,
