@@ -1,15 +1,47 @@
 # Focus handling
 
-This crate works by adding a [FocusFlag](crate::FocusFlag) to each
-widgets state.
+This crate works by adding a [FocusFlag](crate::FocusFlag) to each widget's state.
 
-[Focus](crate::Focus) is list of references to all relevant focus-flags.
-It has methods next() and prev() that can change the focus. This way
-each widget has its focused-state nearby and the list of focusable
-widget can be constructed flexibly.
+[Focus](crate::Focus) is used to collect the list of FocusFlags.
+It only holds references to the FocusFlags in the order the widgets
+are navigated. It is always constructed anew, this way any state dependent
+changes to the order/set of the widgets can be simply coded.
 
-The trait [HasFocusFlag](crate::HasFocusFlag) mediates between the
-two sides.
+Focus::next()/Focus::prev() do the actual navigation. They change the
+active FocusFlag. Additionally, there are fields for focus-lost and
+focus-gained that are changed too.
+
+The widget should implement [HasFocusFlag](crate::HasFocusFlag) for it's state, which
+makes coding easier.
+
+## Event-Handling
+
+Event-handling is implemented for crossterm and uses only Tab/Backtab.
+
+Focus implements [HandleEvent](https://docs.rs/rat-event/latest/rat_event/trait.HandleEvent.html)
+for event-handling.
+
+You can use also the function `handle_focus()` if you prefer.
+
+These return Outcome::Changed whenever something focus related changes.
+
+## Mouse
+
+Mouse support exists of course.
+
+The trait HasFocusFlag has two methods to support this:
+
+* area() - Returns the area of the widget that should react to mouse-clicks.
+* z_areas() - Extends area(). Widgets can return more than one ZRect
+  for mouse interaction, and each of those has an extra z-index to
+  handle overlapping areas. Those can occur whenever the widget wants
+  to render a popup/overlay on top of other widgets.
+
+  This method is defaulted to return nothing which is good enough
+  for most widgets.
+
+  If z_areas is used, area must return the union of all Rects.
+  Area is used as fast filter, z_areas are used for the details.
 
 ## Macros
 
@@ -19,23 +51,33 @@ providing a match like syntax.
 
 ## Composition
 
-There is support for composite widgets too. You can use `Focus::new_accu()`
-to create the focus cycle. There you can give one extra FocusFlag
-that will contain a summary of the focus-state for all contained
-widgets.
+There is support for composite widgets too.
 
-If any of the contained widgets is focused, the summary will have the
-focus flag too. Lost and Gained work that if any contained widget
-gained the focus and no other contained widget lost it, only
-then will the composite widget have a gained flag set. Lost works
-vice versa.
+Use `Focus::new_container()` to create the list of widgets in a container.
+This takes one extra FocusFlag which creates a summary of the individual
+FocusFlags of each widget. This way the container widget has an answer to
+'Does any of my widgets have the focus?'. The container can also have
+its own area. If the container area is clicked and not some specific widget,
+the first widget in the container gets the focus.
 
-There is the method [Focus::append], which can append another focus cycle.
-This can stack to arbitrary depth.
+Lost/Gained also work for the whole container.
 
-There is a nice demo to illustrate this with `focus_recursive2`.
+The trait [HasFocus](crate::HasFocus) indicates the existence of this behaviour.
+Focus has a method `add_container()` for this too.
 
+        There is a lighter version of a container too. 
+        `Focus::new_grp()` creates a list of widgets, but without a container
+        area.
 
+Focus can handle recursive containers too.
 
+## HasFocusFlag
 
+In addition to the before-mentioned methods there are
 
+* navigable() - The widget can indicate that it is not reachable with
+  key navigation.
+* is_focused(), lost_focus(), gained_focus() - These are useful when
+  writing the application. 
+
+  
