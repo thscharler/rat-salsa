@@ -33,8 +33,7 @@ impl<'a> Focus<'a> {
     /// the container is, the first widget gets the focus.
     ///
     /// See `examples/focus_recursive` and `examples/focus_recursive2`
-    // todo: rename
-    pub fn new_accu(c: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
+    pub fn new_container(c: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
         let mut ff = Focus::default();
         ff.core.set_container(c.focus(), c.area(), c.z_areas());
         for f in list {
@@ -836,4 +835,16 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus<'a> 
             }
         }
     }
+}
+
+/// Handle all events.
+/// Text events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_focus(focus: &mut Focus<'_>, event: &crossterm::event::Event) -> Outcome {
+    HandleEvent::handle(focus, event, FocusKeys)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_focus(focus: &mut Focus<'_>, event: &crossterm::event::Event) -> Outcome {
+    HandleEvent::handle(focus, event, MouseOnly)
 }

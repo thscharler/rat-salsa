@@ -9,7 +9,7 @@ use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
 
-pub use crate::focus::Focus;
+pub use crate::focus::{handle_focus, handle_mouse_focus, Focus};
 pub use crate::zrect::ZRect;
 
 pub mod event {

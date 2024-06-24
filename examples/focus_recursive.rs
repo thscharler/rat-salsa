@@ -365,7 +365,7 @@ pub mod substratum1 {
 
     impl SubstratumState {
         pub fn focus(&self) -> Focus<'_> {
-            Focus::new_accu(
+            Focus::new_container(
                 self,
                 &[&self.input1, &self.input2, &self.input3, &self.input4],
             )

@@ -324,7 +324,7 @@ pub mod substratum2 {
         pub fn focus(&self) -> Focus<'_> {
             debug!("stratum1 {:#?}", self.stratum1.focus());
             debug!("stratum2 {:#?}", self.stratum2.focus());
-            let mut f = Focus::new_accu(self, &[]);
+            let mut f = Focus::new_container(self, &[]);
             f.add_focus(self.stratum1.focus())
                 .add_focus(self.stratum2.focus());
             f
@@ -471,7 +471,7 @@ pub mod substratum1 {
 
     impl SubstratumState {
         pub fn focus(&self) -> Focus<'_> {
-            Focus::new_accu(
+            Focus::new_container(
                 self,
                 &[&self.input1, &self.input2, &self.input3, &self.input4],
             )
