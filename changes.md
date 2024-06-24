@@ -1,3 +1,7 @@
+# 0.11.3
+
+* Better event-forwarding for Scrolled and ViewPort.
+
 # 0.11.2
 
 * feature: impl StatefulWidgetRef and WidgetRef for this.
