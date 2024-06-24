@@ -48,12 +48,10 @@ ratatui = { version = "0.26", features = ["unstable-rendered-line-info"] }
 crossterm = "0.27"
 log = "0.4"
 
-rat-event = { version = "0.14" }
-#rat-event = { version = "0.14", path = "../rat-event" }
+rat-event = { version = "0.14", path = "../rat-event" }
 
 [dev-dependencies]
 fern = "0.6"
 anyhow = "1.0.82"
-rat-input = { version = "0.16" }
-#rat-input = { version = "0.16", path = "../rat-input" }
+rat-input = { version = "0.16", path = "../rat-input" }
 
