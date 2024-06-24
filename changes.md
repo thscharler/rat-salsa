@@ -1,3 +1,9 @@
+# 0.12.4
+
+* fix: reexport TextAreaStyle
+* fix: Event-handling for TextArea
+* feature: Add RMenuBar, RPopupMenu.
+
 # 0.12.3
 
 * impl StatefulWidgetRef for widgets.
