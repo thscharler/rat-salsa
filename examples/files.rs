@@ -17,7 +17,7 @@ use rat_widget::event::{
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menubar::{MenuStructure, RMenuBar, RMenuBarState, RMenuPopup, StaticMenu};
+use rat_widget::menubar::{MenuStructure, RMenuBar, RMenuBarState, RMenuPopup};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
