@@ -228,11 +228,7 @@ pub mod mask0 {
     #[allow(unused_imports)]
     use log::debug;
     use rat_salsa::{AppEvents, AppWidget, Control};
-    use rat_theme::dark_theme::DarkTheme;
-    use rat_theme::dark_themes;
-    use rat_theme::imperial::IMPERIAL;
-    use rat_theme::radium::RADIUM;
-    use rat_theme::tundra::TUNDRA;
+    use rat_theme::dark_theme::dark_themes;
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
     use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
     use rat_widget::scrolled::{Scrolled, ScrolledState, ViewportState};

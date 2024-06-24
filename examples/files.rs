@@ -9,17 +9,15 @@ use crossbeam::channel::Sender;
 use log::debug;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Cancel, Control, RunConfig};
-use rat_theme::dark_theme::DarkTheme;
+use rat_theme::dark_theme::{dark_themes, DarkTheme};
 use rat_theme::imperial::IMPERIAL;
-use rat_theme::radium::RADIUM;
-use rat_theme::tundra::TUNDRA;
 use rat_widget::event::{
     ct_event, flow_ok, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome, Popup,
     ReadOnly, ScrollOutcome,
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menubar::{RMenuBar, RMenuBarState, RMenuPopup, StaticMenu};
+use rat_widget::menubar::{MenuStructure, RMenuBar, RMenuBarState, RMenuPopup, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
@@ -254,18 +252,26 @@ impl<'a> TableData<'a> for DirData<'a> {
     }
 }
 
-static MENU: StaticMenu = StaticMenu {
-    menu: &[
-        (
-            "_Theme", //
-            &["Imperial", "Radium", "Tundra"],
-        ),
-        (
-            "_Quit", //
-            &[],
-        ),
-    ],
-};
+struct Menu;
+
+impl<'a> MenuStructure<'a> for Menu {
+    fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)> {
+        vec![
+            (Line::from("Theme"), None), //
+            (Line::from("Quit"), None),
+        ]
+    }
+
+    fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)> {
+        match n {
+            0 => dark_themes()
+                .iter()
+                .map(|v| (v.name().to_string().into(), None))
+                .collect(),
+            _ => vec![],
+        }
+    }
+}
 
 impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
     type State = FilesState;
@@ -363,14 +369,14 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
         RMenuBar::new()
             .styles(ctx.g.theme.menu_style())
             .title("[-.-]")
-            .menu(&MENU)
+            .menu(&Menu)
             .render(r[3], buf, &mut state.w_menu);
 
         RMenuPopup::new()
             .styles(ctx.g.theme.menu_style())
             .block(Block::bordered())
             .placement(Placement::Top)
-            .menu(&MENU)
+            .menu(&Menu)
             .render(r[3], buf, &mut state.w_menu);
 
         // -----------------------------------------------------
@@ -454,37 +460,27 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         ctx.queue(self.focus().handle(event, FocusKeys));
 
         flow_ok!(match self.w_menu.handle(event, Popup) {
-            MenuOutcome::MenuSelected(0, 0) => {
-                ctx.g.theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+            MenuOutcome::MenuSelected(0, n) => {
+                ctx.g.theme = dark_themes()[n].clone();
                 Control::Repaint
             }
-            MenuOutcome::MenuSelected(0, 1) => {
-                ctx.g.theme = DarkTheme::new("Radium".into(), RADIUM);
-                Control::Repaint
-            }
-            MenuOutcome::MenuSelected(0, 2) => {
-                ctx.g.theme = DarkTheme::new("Tundra".into(), TUNDRA);
-                Control::Repaint
-            }
-            MenuOutcome::MenuActivated(0, 0) => {
-                ctx.g.theme = DarkTheme::new("Imperial".into(), IMPERIAL);
+            MenuOutcome::MenuActivated(0, n) => {
+                ctx.g.theme = dark_themes()[n].clone();
                 self.w_menu.set_popup_active(false);
                 Control::Repaint
             }
-            MenuOutcome::MenuActivated(0, 1) => {
-                ctx.g.theme = DarkTheme::new("Radium".into(), RADIUM);
-                self.w_menu.set_popup_active(false);
-                Control::Repaint
-            }
-            MenuOutcome::MenuActivated(0, 2) => {
-                ctx.g.theme = DarkTheme::new("Tundra".into(), TUNDRA);
-                self.w_menu.set_popup_active(false);
-                Control::Repaint
+            MenuOutcome::Activated(1) => {
+                Control::Quit
             }
             r => r.into(),
         });
 
-        flow_ok!(self.w_menu.handle(event, FocusKeys));
+        flow_ok!(match self.w_menu.handle(event, FocusKeys) {
+            MenuOutcome::Activated(1) => {
+                Control::Quit
+            }
+            r => r.into(),
+        });
 
         flow_ok!(match_focus!(
             self.w_files.widget => {
