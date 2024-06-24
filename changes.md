@@ -1,3 +1,8 @@
+# 0.22.1
+
+* add files.rs example
+* DarkTheme adds methods to create styles directly from scheme colors.
+
 # 0.22.0
 
 * Restart the loop once more:
