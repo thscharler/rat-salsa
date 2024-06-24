@@ -1,3 +1,12 @@
+# 0.10.4
+
+* feature: Add ZRect, a Rect with z-order. HasFocusFlag can not only return
+  one Rect as the focusable area, but multiple ZRects for component-area +
+  popup area.
+* feature: Add HasFocusFlag::navigable(), denotes if a field can be reached
+  with normal keyboard focus.
+* refactor: Rename Focus::new_accu to new_container.
+
 # 0.10.3
 
 feature: add name for Focus debugging.
