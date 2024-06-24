@@ -18,6 +18,15 @@ pub struct FocusKeys;
 #[derive(Debug, Default)]
 pub struct MouseOnly;
 
+/// Runs only the event-handling for the popup-parts of a widget.
+/// These should be run before the standard `FocusKey` or `MouseOnly` event-handlers,
+/// to mitigate the front/back problem of overlaying widgets.
+///
+/// There is no separate `MouseOnlyPopup`, as popups should always have the
+/// input focus.
+#[derive(Debug)]
+pub struct Popup;
+
 ///
 /// A very broad trait for an event handler for widgets.
 ///
