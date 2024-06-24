@@ -1,3 +1,12 @@
+# 0.14.5
+
+* add item_at_clicked() helper
+* add `ct_event!(key ANY-'k')` matches any modifier.
+* add Popup event qualifier. Used to split the event-handling
+  of a widget in baseline and special treatment for popup/overlays
+  This helps with the 'what has been clicked' problem of popups.
+  Do all popup handling first and regular handling later.
+
 # 0.14.4
 
 * feature: add or_else() to ConsumedEvent
