@@ -1,5 +1,11 @@
 #![doc = include_str!("../readme.md")]
 
+use crate::imperial::IMPERIAL;
+use crate::monekai::MONEKAI;
+use crate::monochrome::MONOCHROME;
+use crate::oxocarbon::OXOCARBON;
+use crate::radium::RADIUM;
+use crate::tundra::TUNDRA;
 use ratatui::prelude::Color;
 use ratatui::style::Style;
 
@@ -7,6 +13,7 @@ pub mod dark_theme;
 pub mod imperial;
 pub mod monekai;
 pub mod monochrome;
+pub mod oxocarbon;
 pub mod radium;
 pub mod tundra;
 
@@ -156,4 +163,15 @@ impl Scheme {
             },
         }
     }
+}
+
+pub fn color_schemes() -> Vec<(String, Scheme)> {
+    vec![
+        ("Imperial".to_string(), IMPERIAL),
+        ("Radium".to_string(), RADIUM),
+        ("Tundra".to_string(), TUNDRA),
+        ("Monochrome".to_string(), MONOCHROME),
+        ("Monekai".to_string(), MONEKAI),
+        ("OxoCarbon".to_string(), OXOCARBON),
+    ]
 }

@@ -1,6 +1,7 @@
 use crate::imperial::IMPERIAL;
 use crate::monekai::MONEKAI;
 use crate::monochrome::MONOCHROME;
+use crate::oxocarbon::OXOCARBON;
 use crate::radium::RADIUM;
 use crate::tundra::TUNDRA;
 use crate::Scheme;
@@ -22,6 +23,7 @@ pub fn dark_themes() -> Vec<DarkTheme> {
         DarkTheme::new("Tundra".to_string(), TUNDRA),
         DarkTheme::new("Monochrome".to_string(), MONOCHROME),
         DarkTheme::new("Monekai".to_string(), MONEKAI),
+        DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
     ]
 }
 
