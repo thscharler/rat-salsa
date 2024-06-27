@@ -25,7 +25,7 @@ use rat_widget::popup_menu::Placement;
 use rat_widget::scrolled::{Inner, Scrolled, ScrolledState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
-use rat_widget::table::{FTableContext, RTable, RTableState, TableData};
+use rat_widget::table::{FTable, FTableContext, FTableState, TableData};
 use rat_widget::textarea::{TextArea, TextAreaState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -127,8 +127,8 @@ pub struct FilesState {
 
     pub cancel_show: Option<Cancel>,
 
-    pub w_dirs: ScrolledState<RTableState<RowSelection>>,
-    pub w_files: ScrolledState<RTableState<RowSelection>>,
+    pub w_dirs: ScrolledState<FTableState<RowSelection>>,
+    pub w_files: ScrolledState<FTableState<RowSelection>>,
     pub w_data: ScrolledState<TextAreaState>,
 
     pub w_menu: RMenuBarState,
@@ -314,7 +314,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .render(r[0], buf);
 
         Scrolled::new(
-            RTable::new()
+            FTable::new()
                 .data(DirData {
                     dir: Some(state.main_dir.clone()),
                     dirs: &state.sub_dirs,
@@ -325,7 +325,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
         .render(c[0], buf, &mut state.w_dirs);
 
         Scrolled::new(
-            RTable::new()
+            FTable::new()
                 .data(FileData {
                     dir: state.current_dir(),
                     files: &state.files,
