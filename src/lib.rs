@@ -46,9 +46,10 @@ pub mod event {
 
 /// Layout calculation.
 pub mod layout {
-    pub use rat_input::layout_dialog::{layout_dialog, LayoutDialog};
-    pub use rat_input::layout_edit::{layout_edit, EditConstraint, LayoutEdit, LayoutEditIterator};
-    pub use rat_input::layout_grid::{layout_grid, layout_middle};
+    pub use rat_input::layout::{
+        layout_dialog, layout_edit, layout_grid, layout_middle, EditConstraint, LayoutDialog,
+        LayoutEdit, LayoutEditIterator,
+    };
 }
 
 /// Basic message dialog.
