@@ -225,7 +225,7 @@ mod mask0 {
     use rat_salsa::{AppEvents, AppWidget, Control};
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
     use rat_widget::focus::HasFocusFlag;
-    use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
+    use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::widgets::StatefulWidget;
@@ -235,7 +235,7 @@ mod mask0 {
 
     #[derive(Debug)]
     pub struct Mask0State {
-        pub menu: RMenuLineState,
+        pub menu: MenuLineState,
     }
 
     impl Default for Mask0State {
@@ -266,7 +266,7 @@ mod mask0 {
             )
             .split(area);
 
-            let menu = RMenuLine::new()
+            let menu = MenuLine::new()
                 .styles(ctx.g.theme.menu_style())
                 .add_str("One")
                 .add_str("Two")

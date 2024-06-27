@@ -230,7 +230,7 @@ pub mod mask0 {
     use rat_salsa::{AppEvents, AppWidget, Control};
     use rat_theme::dark_themes;
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
-    use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
+    use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
     use rat_widget::scrolled::{Scrolled, ScrolledState, ViewportState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
@@ -241,7 +241,7 @@ pub mod mask0 {
 
     #[derive(Debug)]
     pub struct Mask0State {
-        pub menu: RMenuLineState,
+        pub menu: MenuLineState,
         pub scroll: ScrolledState<ViewportState<ShowSchemeState>>,
         pub theme: usize,
     }
@@ -253,7 +253,7 @@ pub mod mask0 {
                 scroll: Default::default(),
                 theme: 0,
             };
-            s.menu.widget.focus.set(true);
+            s.menu.focus.set(true);
             s
         }
     }
@@ -281,7 +281,7 @@ pub mod mask0 {
                 .view_size(Size::new(area.width - 4, 40))
                 .render(r[0], buf, &mut state.scroll);
 
-            let menu = RMenuLine::new()
+            let menu = MenuLine::new()
                 .styles(ctx.g.theme.menu_style())
                 .add_str("Switch Theme")
                 .add_str("_Quit");
