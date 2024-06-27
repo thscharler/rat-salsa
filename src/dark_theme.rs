@@ -1,9 +1,3 @@
-use crate::imperial::IMPERIAL;
-use crate::monekai::MONEKAI;
-use crate::monochrome::MONOCHROME;
-use crate::oxocarbon::OXOCARBON;
-use crate::radium::RADIUM;
-use crate::tundra::TUNDRA;
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
 use rat_widget::input::TextInputStyle;
@@ -15,17 +9,6 @@ use rat_widget::scrolled::ScrolledStyle;
 use rat_widget::table::FTableStyle;
 use rat_widget::textarea::TextAreaStyle;
 use ratatui::prelude::Style;
-
-pub fn dark_themes() -> Vec<DarkTheme> {
-    vec![
-        DarkTheme::new("Imperial".to_string(), IMPERIAL),
-        DarkTheme::new("Radium".to_string(), RADIUM),
-        DarkTheme::new("Tundra".to_string(), TUNDRA),
-        DarkTheme::new("Monochrome".to_string(), MONOCHROME),
-        DarkTheme::new("Monekai".to_string(), MONEKAI),
-        DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
-    ]
-}
 
 /// One sample theme which prefers dark colors from the color-scheme
 /// and generates styles for widgets.

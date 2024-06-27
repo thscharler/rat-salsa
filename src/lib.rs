@@ -1,5 +1,6 @@
 #![doc = include_str!("../readme.md")]
 
+use crate::dark_theme::DarkTheme;
 use crate::imperial::IMPERIAL;
 use crate::monekai::MONEKAI;
 use crate::monochrome::MONOCHROME;
@@ -10,12 +11,22 @@ use ratatui::prelude::Color;
 use ratatui::style::Style;
 
 pub mod dark_theme;
-pub mod imperial;
-pub mod monekai;
-pub mod monochrome;
-pub mod oxocarbon;
-pub mod radium;
-pub mod tundra;
+mod imperial;
+mod monekai;
+mod monochrome;
+mod oxocarbon;
+mod radium;
+mod tundra;
+
+/// Color schemes
+pub mod scheme {
+    pub use crate::imperial::IMPERIAL;
+    pub use crate::monekai::MONEKAI;
+    pub use crate::monochrome::MONOCHROME;
+    pub use crate::oxocarbon::OXOCARBON;
+    pub use crate::radium::RADIUM;
+    pub use crate::tundra::TUNDRA;
+}
 
 /// Color scheme.
 ///
@@ -173,5 +184,16 @@ pub fn color_schemes() -> Vec<(String, Scheme)> {
         ("Monochrome".to_string(), MONOCHROME),
         ("Monekai".to_string(), MONEKAI),
         ("OxoCarbon".to_string(), OXOCARBON),
+    ]
+}
+
+pub fn dark_themes() -> Vec<DarkTheme> {
+    vec![
+        DarkTheme::new("Imperial".to_string(), IMPERIAL),
+        DarkTheme::new("Radium".to_string(), RADIUM),
+        DarkTheme::new("Tundra".to_string(), TUNDRA),
+        DarkTheme::new("Monochrome".to_string(), MONOCHROME),
+        DarkTheme::new("Monekai".to_string(), MONEKAI),
+        DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
     ]
 }
