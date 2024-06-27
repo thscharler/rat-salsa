@@ -3,7 +3,6 @@
 
 pub mod edit_table;
 pub mod list;
-pub mod masked_input;
 pub mod menubar;
 pub mod menuline;
 pub mod number_input;
@@ -65,6 +64,11 @@ pub mod fill {
 /// TextInput
 pub mod input {
     pub use rat_input::input::{core, TextInput, TextInputState, TextInputStyle};
+}
+
+/// Textinput with an input mask
+pub mod masked_input {
+    pub use rat_input::masked_input::{core, MaskedInput, MaskedInputState, MaskedInputStyle};
 }
 
 /// Basic message dialog.
