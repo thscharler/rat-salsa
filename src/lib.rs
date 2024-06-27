@@ -1,10 +1,8 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
 
-pub mod edit_table;
 pub mod list;
 pub mod menubar;
-pub mod table;
 mod util;
 
 pub use pure_rust_locales::Locale;
@@ -92,6 +90,14 @@ pub mod scrolled {
     pub use rat_scrolled::{
         HScrollPosition, Inner, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle,
         ScrollingState, ScrollingWidget, VScrollPosition, View, ViewState, Viewport, ViewportState,
+    };
+}
+
+/// F-Table
+pub mod table {
+    pub use rat_ftable::{
+        edit, selection, textdata, FTable, FTableContext, FTableState, FTableStyle, TableData,
+        TableDataIter, TableSelection,
     };
 }
 
