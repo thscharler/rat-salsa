@@ -342,7 +342,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for RMenuBarSt
 
         let r = self.menu.handle(event, MouseOnly);
         match r {
-            MenuOutcome::Selected(n) => {
+            MenuOutcome::Selected(_) => {
                 self.set_popup_active(!self.popup_active());
             }
             _ => {}
