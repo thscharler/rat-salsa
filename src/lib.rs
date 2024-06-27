@@ -6,7 +6,6 @@ pub mod list;
 pub mod menubar;
 pub mod popup_menu;
 pub mod table;
-pub mod textarea;
 mod util;
 
 pub use pure_rust_locales::Locale;
@@ -90,6 +89,11 @@ pub mod scrolled {
         HScrollPosition, Inner, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle,
         ScrollingState, ScrollingWidget, VScrollPosition, View, ViewState, Viewport, ViewportState,
     };
+}
+
+/// Text area.
+pub mod textarea {
+    pub use rat_input::textarea::{core, graphemes, TextArea, TextAreaState, TextAreaStyle};
 }
 
 /// Statusbar.
