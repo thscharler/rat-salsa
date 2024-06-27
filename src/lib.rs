@@ -1,7 +1,6 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
 
-pub mod button;
 pub mod calender;
 pub mod date_input;
 pub mod edit_table;
@@ -18,22 +17,6 @@ mod util;
 
 pub use pure_rust_locales::Locale;
 
-/// Module for focus-handling functionality.
-/// For details see [rat-focus](https://docs.rs/rat-focus)
-pub mod focus {
-    pub use rat_focus::{
-        match_focus, on_gained, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag, ZRect,
-    };
-}
-
-/// Scrolled widget and viewports.
-pub mod scrolled {
-    pub use rat_scrolled::{
-        HScrollPosition, Inner, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle,
-        ScrollingState, ScrollingWidget, VScrollPosition, View, ViewState, Viewport, ViewportState,
-    };
-}
-
 /// Event-handling traits and types.
 pub mod event {
     pub use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
@@ -44,6 +27,14 @@ pub mod event {
     pub use rat_scrolled::event::ScrollOutcome;
 }
 
+/// Module for focus-handling functionality.
+/// For details see [rat-focus](https://docs.rs/rat-focus)
+pub mod focus {
+    pub use rat_focus::{
+        match_focus, on_gained, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag, ZRect,
+    };
+}
+
 /// Layout calculation.
 pub mod layout {
     pub use rat_input::layout::{
@@ -52,19 +43,34 @@ pub mod layout {
     };
 }
 
-/// Basic message dialog.
-pub mod msgdialog {
-    pub use rat_input::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
-}
+// --- widget modules here --- (alphabetical)
 
-/// Statusbar.
-pub mod statusline {
-    pub use rat_input::statusline::{StatusLine, StatusLineState};
+/// Button widget.
+pub mod button {
+    pub use rat_input::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 }
 
 /// Fill an area with a Style and a symbol.
 pub mod fill {
     pub use rat_input::fill::Fill;
+}
+
+/// Basic message dialog.
+pub mod msgdialog {
+    pub use rat_input::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
+}
+
+/// Scrolled widget and viewports.
+pub mod scrolled {
+    pub use rat_scrolled::{
+        HScrollPosition, Inner, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle,
+        ScrollingState, ScrollingWidget, VScrollPosition, View, ViewState, Viewport, ViewportState,
+    };
+}
+
+/// Statusbar.
+pub mod statusline {
+    pub use rat_input::statusline::{StatusLine, StatusLineState};
 }
 
 mod _private {
