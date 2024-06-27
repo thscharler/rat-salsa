@@ -113,8 +113,8 @@ impl FocusFlag {
 
     /// Set the focus.
     #[inline]
-    pub fn set(&self) {
-        self.focus.set(true);
+    pub fn set(&self, focus: bool) {
+        self.focus.set(focus);
     }
 
     /// Set the field-name.
