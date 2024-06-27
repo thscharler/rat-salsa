@@ -230,7 +230,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
         state.v_max_offset = state.len.saturating_sub(n);
 
         let (style, select_style) = if state.is_focused() {
-            (self.focus_style, self.select_style.patch(self.focus_style))
+            (self.style, self.focus_style)
         } else {
             (self.style, self.select_style)
         };
