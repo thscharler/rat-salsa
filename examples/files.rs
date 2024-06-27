@@ -26,7 +26,7 @@ use rat_widget::scrolled::{Inner, Scrolled, ScrolledState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{FTableContext, RTable, RTableState, TableData};
-use rat_widget::textarea::{RTextArea, RTextAreaState};
+use rat_widget::textarea::{TextArea, TextAreaState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::Style;
@@ -129,7 +129,7 @@ pub struct FilesState {
 
     pub w_dirs: ScrolledState<RTableState<RowSelection>>,
     pub w_files: ScrolledState<RTableState<RowSelection>>,
-    pub w_data: ScrolledState<RTextAreaState>,
+    pub w_data: ScrolledState<TextAreaState>,
 
     pub w_menu: RMenuBarState,
 }
@@ -356,7 +356,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
 
         let mut content_style = ctx.g.theme.textarea_style();
         content_style.style = ctx.g.theme.black(2);
-        Scrolled::new(RTextArea::new().styles(content_style))
+        Scrolled::new(TextArea::new().styles(content_style))
             .styles(ctx.g.theme.scrolled_style())
             .block(
                 Block::bordered()
