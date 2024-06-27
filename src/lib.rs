@@ -1,7 +1,6 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
 
-pub mod calender;
 pub mod date_input;
 pub mod edit_table;
 pub mod input;
@@ -48,6 +47,11 @@ pub mod layout {
 /// Button widget.
 pub mod button {
     pub use rat_input::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
+}
+
+/// Calendar month widget.
+pub mod calendar {
+    pub use rat_input::calendar::{Month, MonthState, MonthStyle};
 }
 
 /// Fill an area with a Style and a symbol.
