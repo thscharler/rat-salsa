@@ -1,7 +1,6 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
 
-pub mod date_input;
 pub mod edit_table;
 pub mod input;
 pub mod list;
@@ -52,6 +51,11 @@ pub mod button {
 /// Calendar month widget.
 pub mod calendar {
     pub use rat_input::calendar::{Month, MonthState, MonthStyle};
+}
+
+/// Date input using chrono.
+pub mod date_input {
+    pub use rat_input::date_input::{ConvenientKeys, DateInput, DateInputState};
 }
 
 /// Fill an area with a Style and a symbol.
