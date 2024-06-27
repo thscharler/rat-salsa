@@ -4,7 +4,6 @@
 pub mod edit_table;
 pub mod list;
 pub mod menubar;
-pub mod menuline;
 pub mod number_input;
 pub mod popup_menu;
 pub mod table;
@@ -69,6 +68,11 @@ pub mod input {
 /// Textinput with an input mask
 pub mod masked_input {
     pub use rat_input::masked_input::{core, MaskedInput, MaskedInputState, MaskedInputStyle};
+}
+
+/// Menu as a single Text-line.
+pub mod menuline {
+    pub use rat_input::menuline::{MenuLine, MenuLineState, MenuOutcome, MenuStyle};
 }
 
 /// Basic message dialog.

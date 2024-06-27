@@ -12,7 +12,7 @@
 //! `FocusKeys` handling.
 //!
 use crate::event::{flow, FocusKeys, HandleEvent, MouseOnly};
-use crate::menuline::{RMenuLine, RMenuLineState};
+use crate::menuline::{MenuLine, MenuLineState};
 use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
 use rat_input::event::Popup;
 use rat_input::menuline::{MenuOutcome, MenuStyle};
@@ -31,7 +31,7 @@ pub use rat_input::menubar::{MenuStructure, StaticMenu};
 /// [RMenuPopup].
 #[derive(Debug, Default, Clone)]
 pub struct RMenuBar<'a> {
-    menu: RMenuLine<'a>,
+    menu: MenuLine<'a>,
 }
 
 /// Menubar widget.
@@ -46,7 +46,7 @@ pub struct RMenuPopup<'a> {
 /// State for the menubar.
 #[derive(Debug, Default, Clone)]
 pub struct RMenuBarState {
-    pub menu: RMenuLineState,
+    pub menu: MenuLineState,
     pub popup_active: bool,
     pub popup: PopupMenuState,
 
@@ -188,8 +188,8 @@ fn render_menubar(widget: &RMenuBar<'_>, area: Rect, buf: &mut Buffer, state: &m
     widget.menu.render_ref(area, buf, &mut state.menu);
 
     // Combined area + each part with a z-index.
-    state.area = state.menu.widget.area;
-    state.z_areas = [ZRect::from((0, state.menu.widget.area)), ZRect::default()];
+    state.area = state.menu.area;
+    state.z_areas = [ZRect::from((0, state.menu.area)), ZRect::default()];
 }
 
 impl<'a> StatefulWidgetRef for RMenuPopup<'a> {
@@ -215,8 +215,8 @@ fn render_menu_popup(
     state: &mut RMenuBarState,
 ) {
     // Combined area + each part with a z-index.
-    state.area = state.menu.widget.area;
-    state.z_areas = [ZRect::from((0, state.menu.widget.area)), ZRect::default()];
+    state.area = state.menu.area;
+    state.z_areas = [ZRect::from((0, state.menu.area)), ZRect::default()];
 
     let Some(selected) = state.menu.selected() else {
         return;
@@ -234,11 +234,11 @@ fn render_menu_popup(
         }
 
         if len > 0 {
-            let area = state.menu.widget.item_areas[selected];
+            let area = state.menu.item_areas[selected];
             popup.render(area, buf, &mut state.popup);
 
             // Combined area + each part with a z-index.
-            state.area = state.menu.widget.area.union(state.popup.area);
+            state.area = state.menu.area.union(state.popup.area);
             state.z_areas[1] = ZRect::from((1, state.popup.area));
         }
     } else {
@@ -266,7 +266,7 @@ impl RMenuBarState {
 
 impl HasFocusFlag for RMenuBarState {
     fn focus(&self) -> &FocusFlag {
-        &self.menu.widget.focus
+        &self.menu.focus
     }
 
     fn area(&self) -> Rect {
