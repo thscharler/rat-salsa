@@ -13,7 +13,7 @@ use log::debug;
 use rat_event::ConsumedEvent;
 use rat_focus::{Focus, HasFocusFlag};
 use rat_input::event::{FocusKeys, HandleEvent, Outcome};
-use rat_input::layout_edit::{layout_edit, EditConstraint};
+use rat_input::layout::{layout_edit, EditConstraint};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
