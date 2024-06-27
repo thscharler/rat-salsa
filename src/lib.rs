@@ -1,9 +1,6 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
 
-pub mod menubar;
-mod util;
-
 pub use pure_rust_locales::Locale;
 
 /// Event-handling traits and types.
@@ -65,6 +62,11 @@ pub mod list;
 /// Textinput with an input mask
 pub mod masked_input {
     pub use rat_input::masked_input::{core, MaskedInput, MaskedInputState, MaskedInputStyle};
+}
+
+/// Menubar with submenus.
+pub mod menubar {
+    pub use rat_input::menubar::{MenuBar, MenuBarState, MenuPopup, MenuStructure, StaticMenu};
 }
 
 /// Menu as a single Text-line.
