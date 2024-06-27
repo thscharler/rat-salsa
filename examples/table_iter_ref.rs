@@ -11,7 +11,7 @@ use crossterm::ExecutableCommand;
 use format_num_pattern::NumberFormat;
 use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::NoSelection;
+use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
 use rat_input::statusline::{StatusLine, StatusLineState};
@@ -232,11 +232,11 @@ fn repaint_table(frame: &mut Frame<'_>, area: Rect, data: &mut Data, state: &mut
     }
 
     impl<'a> TableDataIter<'a> for RowIter1<'a> {
-        // fn cloned(&self) -> Box<dyn TableDataIter<'a> + 'a> {
-        //     let a = self.clone();
-        //     let c: Box<dyn TableDataIter<'a>> = Box::new(a);
-        //     c
-        // }
+        fn cloned(&self) -> Option<Box<dyn TableDataIter<'a> + 'a>> {
+            let a = self.clone();
+            let c: Box<dyn TableDataIter<'a>> = Box::new(a);
+            Some(c)
+        }
 
         fn rows(&self) -> Option<usize> {
             None
@@ -318,7 +318,6 @@ fn handle_table(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r = state.table.handle(event, FocusKeys);
-
+    let r = noselection::handle_events(&mut state.table, true, event);
     Ok(r)
 }

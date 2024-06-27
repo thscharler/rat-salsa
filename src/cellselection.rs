@@ -306,11 +306,8 @@ pub fn handle_events(
     focus: bool,
     event: &crossterm::event::Event,
 ) -> Outcome {
-    if focus {
-        state.handle(event, FocusKeys)
-    } else {
-        state.handle(event, MouseOnly)
-    }
+    state.focus.set(focus);
+    state.handle(event, FocusKeys)
 }
 
 /// Handle only mouse-events.

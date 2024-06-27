@@ -1944,10 +1944,6 @@ where
     FTableState<Selection>: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
     FTableState<Selection>: HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
 {
-    if focus {
-        state.handle(event, EditKeys)
-    } else {
-        let r = state.handle(event, MouseOnly);
-        r.into()
-    }
+    state.focus.set(focus);
+    state.handle(event, EditKeys)
 }

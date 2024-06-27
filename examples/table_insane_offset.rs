@@ -14,7 +14,7 @@ use format_num_pattern::NumberFormat;
 use log::debug;
 use rat_event::{ct_event, FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::NoSelection;
+use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
 use rat_input::layout::{layout_edit, EditConstraint, LayoutEdit};
@@ -414,7 +414,8 @@ fn handle_table(
         }
     };
 
-    let r1 = state.table.handle(event, FocusKeys);
+    let r1 = noselection::handle_events(&mut state.table, true, event);
+    // let r1 = state.table.handle(event, FocusKeys);
 
     Ok(r0 | r1)
 }
