@@ -27,6 +27,12 @@ pub struct MouseOnly;
 #[derive(Debug)]
 pub struct Popup;
 
+/// Runs the event-handling for a dialog like widget.
+/// Such widgets consume all incoming events. This blocks every widget in
+/// the 'background'.
+#[derive(Debug)]
+pub struct Dialog;
+
 ///
 /// A very broad trait for an event handler for widgets.
 ///
