@@ -2,7 +2,6 @@
 #![allow(clippy::collapsible_else_if)]
 
 pub mod edit_table;
-pub mod input;
 pub mod list;
 pub mod masked_input;
 pub mod menubar;
@@ -61,6 +60,11 @@ pub mod date_input {
 /// Fill an area with a Style and a symbol.
 pub mod fill {
     pub use rat_input::fill::Fill;
+}
+
+/// TextInput
+pub mod input {
+    pub use rat_input::input::{core, TextInput, TextInputState, TextInputStyle};
 }
 
 /// Basic message dialog.
