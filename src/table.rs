@@ -17,7 +17,6 @@ use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
 use std::collections::HashSet;
 
 use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
-use rat_ftable::FTable;
 pub use rat_ftable::{FTableContext, FTableStyle, TableData, TableDataIter, TableSelection};
 
 pub mod selection {
