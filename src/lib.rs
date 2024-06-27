@@ -65,8 +65,10 @@ pub trait HasFocusFlag {
         &[]
     }
 
-    /// The widget is focusable, but doesn't want to partake
-    /// in keyboard navigation.
+    /// If the widget is focusable, but doesn't want to partake
+    /// in keyboard navigation it returns false here.
+    ///
+    /// Default is true.
     fn navigable(&self) -> bool {
         true
     }
