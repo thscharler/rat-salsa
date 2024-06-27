@@ -14,6 +14,7 @@ pub mod number_input;
 pub mod popup_menu;
 pub mod table;
 pub mod textarea;
+mod util;
 
 pub use pure_rust_locales::Locale;
 
@@ -37,8 +38,8 @@ pub mod scrolled {
 pub mod event {
     pub use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
     pub use rat_input::event::{
-        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly,
-        Outcome, Popup, ReadOnly, TextOutcome,
+        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, Dialog, FocusKeys, HandleEvent,
+        MouseOnly, Outcome, Popup, ReadOnly, TextOutcome,
     };
     pub use rat_scrolled::event::ScrollOutcome;
 }
@@ -47,7 +48,7 @@ pub mod event {
 pub mod layout {
     pub use rat_input::layout_dialog::{layout_dialog, LayoutDialog};
     pub use rat_input::layout_edit::{layout_edit, EditConstraint, LayoutEdit, LayoutEditIterator};
-    pub use rat_input::layout_grid::layout_grid;
+    pub use rat_input::layout_grid::{layout_grid, layout_middle};
 }
 
 /// Basic message dialog.

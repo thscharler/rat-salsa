@@ -306,22 +306,17 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for RMenuBarSt
             self.set_popup_active(false);
         }
 
-        let old_selected = self.menu.selected();
-        let r = if self.menu.is_focused() {
-            self.menu.handle(event, FocusKeys)
+        if self.menu.is_focused() {
+            match self.menu.handle(event, FocusKeys) {
+                r @ MenuOutcome::Selected(_) => {
+                    self.popup_active = !self.popup_active;
+                    r
+                }
+                r => r,
+            }
         } else {
             self.menu.handle(event, MouseOnly)
-        };
-        match r {
-            MenuOutcome::Selected(n) => {
-                if old_selected == Some(n) {
-                    self.set_popup_active(!self.popup_active());
-                }
-            }
-            _ => {}
-        };
-
-        r
+        }
     }
 }
 
@@ -345,13 +340,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for RMenuBarSt
             MenuOutcome::NotUsed
         });
 
-        let old_selected = self.menu.selected();
         let r = self.menu.handle(event, MouseOnly);
         match r {
             MenuOutcome::Selected(n) => {
-                if old_selected == Some(n) {
-                    self.set_popup_active(!self.popup_active());
-                }
+                self.set_popup_active(!self.popup_active());
             }
             _ => {}
         };
