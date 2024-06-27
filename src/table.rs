@@ -13,7 +13,8 @@ use log::debug;
 use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
-use rat_focus::FocusFlag;
+use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_scrolled::{ScrollingState, ScrollingWidget};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::BlockExt;
@@ -24,7 +25,7 @@ use ratatui::style::Stylize;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget};
 use std::cell::Cell;
-use std::cmp::{max, min};
+use std::cmp::max;
 use std::collections::HashSet;
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -755,10 +756,10 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 }
 
-impl<'a, Selection> FTable<'a, Selection> {
+impl<'a, Selection> ScrollingWidget<FTableState<Selection>> for FTable<'a, Selection> {
     /// Does this table need scrollbars?
     /// Returns (horizontal, vertical)
-    pub fn need_scroll(&self, area: Rect) -> (bool, bool) {
+    fn need_scroll(&self, area: Rect, _state: &mut FTableState<Selection>) -> (bool, bool) {
         //
         // Attention: This must be kept in sync with the actual rendering.
         //
@@ -785,7 +786,9 @@ impl<'a, Selection> FTable<'a, Selection> {
 
         (horizontal, vertical)
     }
+}
 
+impl<'a, Selection> FTable<'a, Selection> {
     fn need_scroll_tableiter(&self, _data: &dyn TableDataIter<'a>, _area: Rect) -> bool {
         // can't iterate data here, have to guess.
         // the guess is `true`.
@@ -1504,23 +1507,19 @@ impl<Selection: Default> Default for FTableState<Selection> {
     }
 }
 
+impl<Selection> HasFocusFlag for FTableState<Selection> {
+    #[inline]
+    fn focus(&self) -> &FocusFlag {
+        &self.focus
+    }
+
+    #[inline]
+    fn area(&self) -> Rect {
+        self.area
+    }
+}
+
 impl<Selection> FTableState<Selection> {
-    /// Renders the widget in focused style.
-    ///
-    /// This flag is not used for event-handling.
-    #[inline]
-    pub fn set_focused(&mut self, focus: bool) {
-        self.focus.focus.set(focus);
-    }
-
-    /// Renders the widget in focused style.
-    ///
-    /// This flag is not used for event-handling.
-    #[inline]
-    pub fn is_focused(&mut self) -> bool {
-        self.focus.focus.get()
-    }
-
     /// Number of rows.
     #[inline]
     pub fn rows(&self) -> usize {
@@ -1635,27 +1634,27 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 }
 
-impl<Selection: TableSelection> FTableState<Selection> {
+impl<Selection: TableSelection> ScrollingState for FTableState<Selection> {
     /// Maximum offset that is accessible with scrolling.
     ///
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
-    pub fn vertical_max_offset(&self) -> usize {
+    fn vertical_max_offset(&self) -> usize {
         self.max_row_offset
     }
 
     /// Current vertical offset.
-    pub fn vertical_offset(&self) -> usize {
+    fn vertical_offset(&self) -> usize {
         self.row_offset
     }
 
     /// Vertical page-size at the current offset.
-    pub fn vertical_page(&self) -> usize {
+    fn vertical_page(&self) -> usize {
         self.row_page_len
     }
 
     /// Suggested scroll per scroll-event.
-    pub fn vertical_scroll(&self) -> usize {
+    fn vertical_scroll(&self) -> usize {
         max(self.vertical_page() / 10, 1)
     }
 
@@ -1663,22 +1662,22 @@ impl<Selection: TableSelection> FTableState<Selection> {
     ///
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
-    pub fn horizontal_max_offset(&self) -> usize {
+    fn horizontal_max_offset(&self) -> usize {
         self.max_col_offset
     }
 
     /// Current horizontal offset.
-    pub fn horizontal_offset(&self) -> usize {
+    fn horizontal_offset(&self) -> usize {
         self.col_offset
     }
 
     /// Horizontal page-size at the current offset.
-    pub fn horizontal_page(&self) -> usize {
+    fn horizontal_page(&self) -> usize {
         self.col_page_len
     }
 
     /// Suggested scroll per scroll-event.
-    pub fn horizontal_scroll(&self) -> usize {
+    fn horizontal_scroll(&self) -> usize {
         max(self.horizontal_page() / 10, 1)
     }
 
@@ -1688,7 +1687,7 @@ impl<Selection: TableSelection> FTableState<Selection> {
     /// The widget must deal with this situation.
     ///
     /// The widget returns true if the offset changed at all.
-    pub fn set_vertical_offset(&mut self, offset: usize) -> bool {
+    fn set_vertical_offset(&mut self, offset: usize) -> bool {
         let old_offset = self.row_offset;
         if offset >= self.rows {
             self.row_offset = self.rows;
@@ -1704,7 +1703,7 @@ impl<Selection: TableSelection> FTableState<Selection> {
     /// The widget must deal with this situation.
     ///
     /// The widget returns true if the offset changed at all.
-    pub fn set_horizontal_offset(&mut self, offset: usize) -> bool {
+    fn set_horizontal_offset(&mut self, offset: usize) -> bool {
         let old_offset = self.col_offset;
         if offset >= self.columns {
             self.col_offset = self.columns;
@@ -1712,33 +1711,6 @@ impl<Selection: TableSelection> FTableState<Selection> {
             self.col_offset = offset;
         }
         old_offset != self.col_offset
-    }
-
-    /// Scroll up by n items.
-    /// The widget returns true if the offset changed at all.
-    pub fn scroll_up(&mut self, n: usize) -> bool {
-        self.set_vertical_offset(self.vertical_offset().saturating_sub(n))
-    }
-
-    /// Scroll down by n items.
-    /// The widget returns true if the offset changed at all.
-    pub fn scroll_down(&mut self, n: usize) -> bool {
-        self.set_vertical_offset(min(self.vertical_offset() + n, self.vertical_max_offset()))
-    }
-
-    /// Scroll up by n items.
-    /// The widget returns true if the offset changed at all.
-    pub fn scroll_left(&mut self, n: usize) -> bool {
-        self.set_horizontal_offset(self.horizontal_offset().saturating_sub(n))
-    }
-
-    /// Scroll down by n items.
-    /// The widget returns true if the offset changed at all.
-    pub fn scroll_right(&mut self, n: usize) -> bool {
-        self.set_horizontal_offset(min(
-            self.horizontal_offset() + n,
-            self.horizontal_max_offset(),
-        ))
     }
 }
 

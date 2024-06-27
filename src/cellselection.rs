@@ -1,6 +1,8 @@
 use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
+use rat_focus::HasFocusFlag;
+use rat_scrolled::ScrollingState;
 use std::cmp::min;
 
 /// Select a single cell in the table.
@@ -142,79 +144,83 @@ impl CellSelection {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<CellSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
-        let res = match event {
-            ct_event!(keycode press Down) => {
-                let r = self
-                    .selection
-                    .next_row(1, self.rows.saturating_sub(1))
-                    .into();
-                self.scroll_to_selected();
-                r
+        let res = if self.is_focused() {
+            match event {
+                ct_event!(keycode press Down) => {
+                    let r = self
+                        .selection
+                        .next_row(1, self.rows.saturating_sub(1))
+                        .into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press Up) => {
+                    let r = self.selection.prev_row(1).into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
+                    let r = self
+                        .selection
+                        .select_row(Some(self.rows.saturating_sub(1)))
+                        .into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
+                    let r = self.selection.select_row(Some(0)).into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press PageUp) => {
+                    let r = self
+                        .selection
+                        .prev_row(self.vertical_page().saturating_sub(1))
+                        .into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press PageDown) => {
+                    let r = self
+                        .selection
+                        .next_row(
+                            self.vertical_page().saturating_sub(1),
+                            self.rows.saturating_sub(1),
+                        )
+                        .into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press Right) => {
+                    let r = self
+                        .selection
+                        .next_column(1, self.columns.saturating_sub(1))
+                        .into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press Left) => {
+                    let r = self.selection.prev_column(1).into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
+                    let r = self
+                        .selection
+                        .select_column(Some(self.columns.saturating_sub(1)))
+                        .into();
+                    self.scroll_to_selected();
+                    r
+                }
+                ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
+                    let r = self.selection.select_column(Some(0)).into();
+                    self.scroll_to_selected();
+                    r
+                }
+                _ => Outcome::NotUsed,
             }
-            ct_event!(keycode press Up) => {
-                let r = self.selection.prev_row(1).into();
-                self.scroll_to_selected();
-                r
-            }
-            ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                let r = self
-                    .selection
-                    .select_row(Some(self.rows.saturating_sub(1)))
-                    .into();
-                self.scroll_to_selected();
-                r
-            }
-            ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                let r = self.selection.select_row(Some(0)).into();
-                self.scroll_to_selected();
-                r
-            }
-            ct_event!(keycode press PageUp) => {
-                let r = self
-                    .selection
-                    .prev_row(self.vertical_page().saturating_sub(1))
-                    .into();
-                self.scroll_to_selected();
-                r
-            }
-            ct_event!(keycode press PageDown) => {
-                let r = self
-                    .selection
-                    .next_row(
-                        self.vertical_page().saturating_sub(1),
-                        self.rows.saturating_sub(1),
-                    )
-                    .into();
-                self.scroll_to_selected();
-                r
-            }
-            ct_event!(keycode press Right) => {
-                let r = self
-                    .selection
-                    .next_column(1, self.columns.saturating_sub(1))
-                    .into();
-                self.scroll_to_selected();
-                r
-            }
-            ct_event!(keycode press Left) => {
-                let r = self.selection.prev_column(1).into();
-                self.scroll_to_selected();
-                r
-            }
-            ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                let r = self
-                    .selection
-                    .select_column(Some(self.columns.saturating_sub(1)))
-                    .into();
-                self.scroll_to_selected();
-                r
-            }
-            ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                let r = self.selection.select_column(Some(0)).into();
-                self.scroll_to_selected();
-                r
-            }
-            _ => Outcome::NotUsed,
+        } else {
+            Outcome::NotUsed
         };
 
         if res == Outcome::NotUsed {

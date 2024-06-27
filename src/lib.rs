@@ -171,7 +171,7 @@ pub use table::{handle_doubleclick_events, handle_edit_events, FTable, FTableSta
 
 /// Editing support for FTable.
 pub mod edit {
-    pub use crate::edit_table::{handle_edit_events, EditorWidget, FEditTable, FEditTableState};
+    pub use crate::edit_table::{handle_edit_events, EditFTable, EditFTableState, EditorWidget};
 }
 
 /// Different selection models for FTable.
@@ -251,13 +251,13 @@ pub mod event {
     /// table event handling.
     ///
     /// This is used in a bare-bones version directly for [FTableState](crate::FTableState),
-    /// or the fancy version using [EditFTableState](crate::edit::FEditTableState)
+    /// or the fancy version using [EditFTableState](crate::edit::EditFTableState)
     #[derive(Debug, Default)]
     pub struct EditKeys;
 
     /// Result of handling EditKeys.
     ///
-    /// The [FTableState](crate::FTableState) and [EditFTableState](crate::edit::FEditTableState)
+    /// The [FTableState](crate::FTableState) and [EditFTableState](crate::edit::EditFTableState)
     /// don't actually change your data, but this indicates what action
     /// is requested.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

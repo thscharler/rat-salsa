@@ -2,6 +2,8 @@ use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use crossterm::event::KeyModifiers;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
+use rat_focus::HasFocusFlag;
+use rat_scrolled::ScrollingState;
 use std::cmp::min;
 use std::collections::HashSet;
 use std::mem;
@@ -197,7 +199,7 @@ impl RowSetSelection {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSetSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> Outcome {
-        let res = {
+        let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Down) => {
                     let r = self
@@ -294,6 +296,8 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 }
                 _ => Outcome::NotUsed,
             }
+        } else {
+            Outcome::NotUsed
         };
 
         if res == Outcome::NotUsed {

@@ -9,6 +9,7 @@ use crate::rowselection::RowSelection;
 use crate::{FTable, TableSelection};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_focus::{Focus, HasFocus, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
@@ -19,7 +20,7 @@ use ratatui::widgets::StatefulWidgetRef;
 /// It's parameterized with a `Editor` widget, that renders
 /// the input line.
 #[derive(Debug)]
-pub struct FEditTable<'a, Editor: EditorWidget + 'a> {
+pub struct EditFTable<'a, Editor: EditorWidget + 'a> {
     table: FTable<'a, RowSelection>,
     edit: Editor,
 }
@@ -28,7 +29,7 @@ pub struct FEditTable<'a, Editor: EditorWidget + 'a> {
 ///
 /// If the edit-state is set, this widget switches to edit-mode.
 #[derive(Debug, Default)]
-pub struct FEditTableState<EditorState> {
+pub struct EditFTableState<EditorState> {
     /// Backing table.
     pub table: crate::FTableState<RowSelection>,
     /// Editor state.
@@ -54,7 +55,7 @@ pub trait EditorWidget {
     );
 }
 
-impl<'a, Editor> FEditTable<'a, Editor>
+impl<'a, Editor> EditFTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
 {
@@ -63,22 +64,22 @@ where
     }
 }
 
-impl<'a, Editor> StatefulWidgetRef for FEditTable<'a, Editor>
+impl<'a, Editor> StatefulWidgetRef for EditFTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
 {
-    type State = FEditTableState<Editor::State>;
+    type State = EditFTableState<Editor::State>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }
 
-impl<'a, Editor> StatefulWidget for FEditTable<'a, Editor>
+impl<'a, Editor> StatefulWidget for EditFTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
 {
-    type State = FEditTableState<Editor::State>;
+    type State = EditFTableState<Editor::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(&self, area, buf, state);
@@ -86,10 +87,10 @@ where
 }
 
 fn render_ref<'a, Editor>(
-    widget: &FEditTable<'a, Editor>,
+    widget: &EditFTable<'a, Editor>,
     area: Rect,
     buf: &mut Buffer,
-    state: &mut FEditTableState<Editor::State>,
+    state: &mut EditFTableState<Editor::State>,
 ) where
     Editor: EditorWidget + 'a,
 {
@@ -108,8 +109,23 @@ fn render_ref<'a, Editor>(
     }
 }
 
+impl<EditorState> HasFocus for EditFTableState<EditorState>
+where
+    EditorState: HasFocus,
+{
+    fn focus(&self) -> Focus<'_> {
+        let mut f = Focus::default();
+        if let Some(edit_state) = self.edit.as_ref() {
+            f.add_container(edit_state);
+        } else {
+            f.add_flag(&self.table.focus, self.table.area);
+        }
+        f
+    }
+}
+
 impl<EState, EQualifier> HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>
-    for FEditTableState<EState>
+    for EditFTableState<EState>
 where
     EState: HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>,
 {
@@ -129,56 +145,60 @@ where
             _ => EditOutcome::NotUsed,
         });
 
-        if let Some(edit_state) = self.edit.as_mut() {
-            flow!(edit_state.handle(event, qualifier));
+        if self.table.is_focused() {
+            if let Some(edit_state) = self.edit.as_mut() {
+                flow!(edit_state.handle(event, qualifier));
 
-            flow!(match event {
-                ct_event!(keycode press Esc) => {
-                    EditOutcome::Cancel
-                }
-                ct_event!(keycode press Enter) | ct_event!(keycode press Up) => {
-                    EditOutcome::Commit
-                }
-                ct_event!(keycode press Down) => {
-                    if self.table.selected() != Some(self.table.rows().saturating_sub(1)) {
-                        EditOutcome::Commit
-                    } else {
-                        EditOutcome::NotUsed
+                flow!(match event {
+                    ct_event!(keycode press Esc) => {
+                        EditOutcome::Cancel
                     }
-                }
-                _ => EditOutcome::NotUsed,
-            });
-
-            EditOutcome::NotUsed
-        } else {
-            flow!(match event {
-                ct_event!(keycode press Insert) => {
-                    EditOutcome::Insert
-                }
-                ct_event!(keycode press Delete) => {
-                    EditOutcome::Remove
-                }
-                ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
-                    EditOutcome::Edit
-                }
-                ct_event!(keycode press Down) => 'f: {
-                    if let Some((_column, row)) = self.table.selection.lead_selection() {
-                        if row == self.table.rows().saturating_sub(1) {
-                            break 'f EditOutcome::Append;
+                    ct_event!(keycode press Enter) | ct_event!(keycode press Up) => {
+                        EditOutcome::Commit
+                    }
+                    ct_event!(keycode press Down) => {
+                        if self.table.selected() != Some(self.table.rows().saturating_sub(1)) {
+                            EditOutcome::Commit
+                        } else {
+                            EditOutcome::NotUsed
                         }
                     }
-                    EditOutcome::NotUsed
-                }
-                _ => {
-                    EditOutcome::NotUsed
-                }
-            });
+                    _ => EditOutcome::NotUsed,
+                });
 
-            match self.table.handle(event, FocusKeys) {
-                Outcome::NotUsed => EditOutcome::NotUsed,
-                Outcome::Unchanged => EditOutcome::Unchanged,
-                Outcome::Changed => EditOutcome::Changed,
+                EditOutcome::NotUsed
+            } else {
+                flow!(match event {
+                    ct_event!(keycode press Insert) => {
+                        EditOutcome::Insert
+                    }
+                    ct_event!(keycode press Delete) => {
+                        EditOutcome::Remove
+                    }
+                    ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
+                        EditOutcome::Edit
+                    }
+                    ct_event!(keycode press Down) => 'f: {
+                        if let Some((_column, row)) = self.table.selection.lead_selection() {
+                            if row == self.table.rows().saturating_sub(1) {
+                                break 'f EditOutcome::Append;
+                            }
+                        }
+                        EditOutcome::NotUsed
+                    }
+                    _ => {
+                        EditOutcome::NotUsed
+                    }
+                });
+
+                match self.table.handle(event, FocusKeys) {
+                    Outcome::NotUsed => EditOutcome::NotUsed,
+                    Outcome::Unchanged => EditOutcome::Unchanged,
+                    Outcome::Changed => EditOutcome::Changed,
+                }
             }
+        } else {
+            self.table.handle(event, MouseOnly).into()
         }
     }
 }
@@ -191,7 +211,7 @@ where
 /// The qualifier indicates which event-handler for EState will
 /// be called. Or it can be used to pass in some context.
 pub fn handle_edit_events<EState, EQualifier>(
-    state: &mut FEditTableState<EState>,
+    state: &mut EditFTableState<EState>,
     focus: bool,
     event: &crossterm::event::Event,
     qualifier: EQualifier,
@@ -199,10 +219,6 @@ pub fn handle_edit_events<EState, EQualifier>(
 where
     EState: HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>,
 {
-    if focus {
-        state.handle(event, qualifier)
-    } else {
-        let r = state.table.handle(event, MouseOnly);
-        r.into()
-    }
+    state.table.focus.set(focus);
+    state.handle(event, qualifier)
 }
