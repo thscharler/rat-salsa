@@ -298,6 +298,7 @@ pub mod substratum1 {
     #[derive(Debug, Default)]
     pub struct SubstratumState {
         pub focus: FocusFlag,
+        pub area: Rect,
         pub input1: TextInputFState,
         pub input2: TextInputFState,
         pub input3: TextInputFState,
@@ -309,6 +310,7 @@ pub mod substratum1 {
 
         fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
             let inner = self.block.inner_if_some(area);
+            state.area = area;
 
             self.block = if state.focus.get() {
                 if let Some(block) = self.block {
@@ -392,7 +394,7 @@ pub mod substratum1 {
         }
 
         fn area(&self) -> Rect {
-            Rect::default() // todo?!!
+            self.area
         }
     }
 

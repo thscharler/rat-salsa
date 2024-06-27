@@ -370,11 +370,13 @@ mod core {
         }
 
         pub(super) fn add_focus(&mut self, focus: FocusCore<'a>) {
-            if let Some(container) = focus.container {
-                self.sub_container.push((container, focus.focus.clone()));
-            }
+            // container area probably overlaps with the areas of sub-containers.
+            // search those first.
             for v in focus.sub_container {
                 self.sub_container.push(v);
+            }
+            if let Some(container) = focus.container {
+                self.sub_container.push((container, focus.focus.clone()));
             }
 
             self.focus.extend(focus.focus);
