@@ -569,14 +569,26 @@ pub mod selection {
                 }
                 ct_event!(scroll down for column,row) => {
                     if self.area.contains(Position::new(*column, *row)) {
-                        self.scroll_down(self.vertical_page() / 10).into()
+                        if self.selection.scroll_selected {
+                            let r = self.selection.next(1, self.len.saturating_sub(1));
+                            self.scroll_to_selected();
+                            r.into()
+                        } else {
+                            self.scroll_down(self.vertical_page() / 10).into()
+                        }
                     } else {
                         Outcome::NotUsed
                     }
                 }
                 ct_event!(scroll up for column, row) => {
                     if self.area.contains(Position::new(*column, *row)) {
-                        self.scroll_up(self.vertical_page() / 10).into()
+                        if self.selection.scroll_selected {
+                            let r = self.selection.prev(1);
+                            self.scroll_to_selected();
+                            r.into()
+                        } else {
+                            self.scroll_up(self.vertical_page() / 10).into()
+                        }
                     } else {
                         Outcome::NotUsed
                     }

@@ -1,7 +1,6 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
 
-pub mod list;
 pub mod menubar;
 mod util;
 
@@ -59,6 +58,9 @@ pub mod fill {
 pub mod input {
     pub use rat_input::input::{core, TextInput, TextInputState, TextInputStyle};
 }
+
+/// Ratatui list adapter.
+pub mod list;
 
 /// Textinput with an input mask
 pub mod masked_input {
