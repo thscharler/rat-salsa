@@ -17,7 +17,7 @@ use rat_ftable::event::Outcome;
 use rat_ftable::selection::NoSelection;
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
-use rat_input::layout_edit::{layout_edit, EditConstraint, LayoutEdit};
+use rat_input::layout::{layout_edit, EditConstraint, LayoutEdit};
 use rat_input::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::buffer::Buffer;

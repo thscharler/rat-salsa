@@ -1,5 +1,5 @@
 use rat_ftable::FTableState;
-use rat_input::layout_edit::{layout_edit, EditConstraint};
+use rat_input::layout::{layout_edit, EditConstraint};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
