@@ -38,7 +38,7 @@ fn main() -> Result<(), anyhow::Error> {
         input4: Default::default(),
         status: Default::default(),
     };
-    state.input1.widget.focus.set();
+    state.input1.widget.focus.set(true);
     state.status.status(0, "Ctrl+Q to quit.");
 
     run_ui(&mut data, &mut state)
