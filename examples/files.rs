@@ -18,7 +18,7 @@ use rat_widget::event::{
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menubar::{MenuStructure, RMenuBar, RMenuBarState, RMenuPopup};
+use rat_widget::menubar::{MenuBar, MenuBarState, MenuPopup, MenuStructure};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
@@ -131,7 +131,7 @@ pub struct FilesState {
     pub w_files: ScrolledState<FTableState<RowSelection>>,
     pub w_data: ScrolledState<TextAreaState>,
 
-    pub w_menu: RMenuBarState,
+    pub w_menu: MenuBarState,
 }
 
 #[allow(dead_code)]
@@ -367,13 +367,13 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .render(c[2], buf, &mut state.w_data);
         ctx.cursor = state.w_data.widget.screen_cursor();
 
-        RMenuBar::new()
+        MenuBar::new()
             .styles(ctx.g.theme.menu_style())
             .title("[-.-]")
             .menu(&Menu)
             .render(r[3], buf, &mut state.w_menu);
 
-        RMenuPopup::new()
+        MenuPopup::new()
             .styles(ctx.g.theme.menu_style())
             .block(Block::bordered())
             .placement(Placement::Top)
