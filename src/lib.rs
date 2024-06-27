@@ -4,7 +4,6 @@
 pub mod edit_table;
 pub mod list;
 pub mod menubar;
-pub mod number_input;
 pub mod popup_menu;
 pub mod table;
 pub mod textarea;
@@ -78,6 +77,11 @@ pub mod menuline {
 /// Basic message dialog.
 pub mod msgdialog {
     pub use rat_input::msgdialog::{MsgDialog, MsgDialogState, MsgDialogStyle};
+}
+
+/// Numeric input.
+pub mod number_input {
+    pub use rat_input::number_input::{NumberInput, NumberInputState};
 }
 
 /// Scrolled widget and viewports.
