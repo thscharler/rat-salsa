@@ -8,7 +8,7 @@ use log::debug;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
-use rat_theme::imperial::IMPERIAL;
+use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{ct_event, flow_ok, FocusKeys, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -26,7 +26,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = MinimalConfig::default();
-    let theme = DarkTheme::new("ImperialDark".into(), IMPERIAL);
+    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
     let app = MinimalApp;
@@ -243,7 +243,7 @@ mod mask0 {
             let s = Self {
                 menu: Default::default(),
             };
-            s.menu.focus().set();
+            s.menu.focus().set(true);
             s
         }
     }

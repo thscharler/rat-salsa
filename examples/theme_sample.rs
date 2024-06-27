@@ -8,7 +8,7 @@ use log::debug;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
-use rat_theme::imperial::IMPERIAL;
+use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{ct_event, flow_ok, FocusKeys, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -27,7 +27,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = MinimalConfig::default();
-    let theme = DarkTheme::new("ImperialDark".into(), IMPERIAL);
+    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
     let app = MinimalApp;
@@ -228,7 +228,7 @@ pub mod mask0 {
     #[allow(unused_imports)]
     use log::debug;
     use rat_salsa::{AppEvents, AppWidget, Control};
-    use rat_theme::dark_theme::dark_themes;
+    use rat_theme::dark_themes;
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
     use rat_widget::menuline::{MenuOutcome, RMenuLine, RMenuLineState};
     use rat_widget::scrolled::{Scrolled, ScrolledState, ViewportState};
@@ -253,7 +253,7 @@ pub mod mask0 {
                 scroll: Default::default(),
                 theme: 0,
             };
-            s.menu.widget.focus.set();
+            s.menu.widget.focus.set(true);
             s
         }
     }

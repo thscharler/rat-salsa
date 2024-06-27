@@ -9,8 +9,9 @@ use crossbeam::channel::Sender;
 use log::debug;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Cancel, Control, RunConfig};
-use rat_theme::dark_theme::{dark_themes, DarkTheme};
-use rat_theme::imperial::IMPERIAL;
+use rat_theme::dark_theme::DarkTheme;
+use rat_theme::dark_themes;
+use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{
     ct_event, flow_ok, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome, Popup,
     ReadOnly, ScrollOutcome,
@@ -47,7 +48,7 @@ fn main() -> Result<(), Error> {
     setup_logging()?;
 
     let config = FilesConfig::default();
-    let theme = DarkTheme::new("ImperialDark".into(), IMPERIAL);
+    let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
     let app = FilesApp;
@@ -416,7 +417,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         ctx.queue(Control::Action(ReadDir(Full, self.main_dir.clone(), None)));
 
         self.w_dirs.widget.set_scroll_selection(true);
-        self.w_dirs.widget.focus().set();
+        self.w_dirs.widget.focus().set(true);
         self.w_files.widget.set_scroll_selection(true);
 
         Ok(())
