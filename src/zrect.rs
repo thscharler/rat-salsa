@@ -126,7 +126,7 @@ impl ZRect {
     /// If the margin is larger than the `Rect`, the returned `Rect` will have no area.
     #[must_use = "method returns the modified value"]
     #[inline]
-    pub fn inner(self, margin: &Margin) -> Self {
+    pub fn inner(self, margin: Margin) -> Self {
         ZRect::from((self.z, self.as_rect().inner(margin)))
     }
 
