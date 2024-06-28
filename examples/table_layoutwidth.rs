@@ -11,7 +11,7 @@ use crossterm::ExecutableCommand;
 use format_num_pattern::NumberFormat;
 use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::NoSelection;
+use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableContext, FTableState, TableData};
 use rat_input::statusline::{StatusLine, StatusLineState};
@@ -306,7 +306,6 @@ fn handle_table(
     _data: &mut Data,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r = state.table.handle(event, FocusKeys);
-
+    let r = noselection::handle_events(&mut state.table, true, event);
     Ok(r)
 }

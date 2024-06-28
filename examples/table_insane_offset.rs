@@ -415,7 +415,5 @@ fn handle_table(
     };
 
     let r1 = noselection::handle_events(&mut state.table, true, event);
-    // let r1 = state.table.handle(event, FocusKeys);
-
     Ok(r0 | r1)
 }
