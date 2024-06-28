@@ -9,7 +9,6 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use format_num_pattern::NumberFormat;
-use rat_event::{FocusKeys, HandleEvent};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};

@@ -46,7 +46,7 @@ variant_size_differences = "warn"
 
 [dependencies]
 crossterm = "0.27"
-ratatui = { version = "0.26", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
+ratatui = { version = "0.27", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
 log = "0.4"
 
 rat-event = { version = "0.14", path = "../rat-event" }

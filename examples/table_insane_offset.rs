@@ -12,7 +12,7 @@ use crossterm::ExecutableCommand;
 use format_num_pattern::NumberFormat;
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{ct_event, FocusKeys, HandleEvent};
+use rat_event::ct_event;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
@@ -43,7 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
 
     let mut data = Data {
-        table_data: data::DATA
+        table_data: data::SMALL_DATA
             .iter()
             .map(|v| Sample {
                 text: *v,
