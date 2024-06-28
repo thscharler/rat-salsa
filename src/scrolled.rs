@@ -386,6 +386,8 @@ fn render_ref<W, S>(
     let has_hscroll = scrolled.h_scroll_policy.apply(scroll_param.0);
     let has_vscroll = scrolled.v_scroll_policy.apply(scroll_param.1);
 
+    debug!("scroll {:?} {:?}", has_hscroll, has_vscroll);
+
     // Calculate the areas for the scrollbars and the view-area.
     // If there is a block set, assume there is a right and a bottom border too.
     // Currently, there is no way to know it. Overwriting part of the content is
@@ -395,11 +397,10 @@ fn render_ref<W, S>(
         if scrolled.block.is_some() {
             vscrollbar_area.y += 1;
             vscrollbar_area.height = vscrollbar_area.height.saturating_sub(1);
-            if has_hscroll {
-                vscrollbar_area.height = vscrollbar_area.height.saturating_sub(1);
-            }
-        } else {
-            // fine
+        }
+        if has_hscroll {
+            debug!("double scroll");
+            vscrollbar_area.height = vscrollbar_area.height.saturating_sub(1);
         }
         state.v_scrollbar_area = Some(vscrollbar_area);
     }
@@ -409,11 +410,9 @@ fn render_ref<W, S>(
         if scrolled.block.is_some() {
             hscrollbar_area.x += 1;
             hscrollbar_area.width = hscrollbar_area.width.saturating_sub(1);
-            if has_vscroll {
-                hscrollbar_area.width = hscrollbar_area.width.saturating_sub(1);
-            }
-        } else {
-            // fine
+        }
+        if has_vscroll {
+            hscrollbar_area.width = hscrollbar_area.width.saturating_sub(1);
         }
         state.h_scrollbar_area = Some(hscrollbar_area);
     }
