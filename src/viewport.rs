@@ -229,7 +229,9 @@ impl<S> ScrollingState for ViewportState<S> {
     }
 }
 
-/// Handle events if the widget has the focus.
+/// Handle events.
+/// This forwards to the inner widget and corrects all
+/// positions in the event.
 impl<R, Q, S> HandleEvent<crossterm::event::Event, Q, ScrollOutcome<R>> for ViewportState<S>
 where
     S: HandleEvent<crossterm::event::Event, Q, R>,

@@ -11,7 +11,7 @@ use crate::event::ScrollOutcome;
 use crate::inner::{InnerOwned, InnerRef, InnerWidget};
 use crate::util::copy_buffer;
 use crate::{ScrollingState, ScrollingWidget};
-use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{ConsumedEvent, HandleEvent};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};
@@ -204,21 +204,11 @@ impl ScrollingState for ViewState {
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-impl<R> HandleEvent<crossterm::event::Event, FocusKeys, ScrollOutcome<R>> for ViewState
+impl<R, Q> HandleEvent<crossterm::event::Event, Q, ScrollOutcome<R>> for ViewState
 where
     R: ConsumedEvent,
 {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> ScrollOutcome<R> {
-        ScrollOutcome::NotUsed
-    }
-}
-
-/// Handle only mouse-events.
-impl<R> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<R>> for ViewState
-where
-    R: ConsumedEvent,
-{
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> ScrollOutcome<R> {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: Q) -> ScrollOutcome<R> {
         ScrollOutcome::NotUsed
     }
 }

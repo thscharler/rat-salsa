@@ -1,3 +1,5 @@
+#![allow(unreachable_pub)]
+
 pub mod list;
 pub mod paragraph;
 pub mod table;
