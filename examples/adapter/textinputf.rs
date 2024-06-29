@@ -1,3 +1,4 @@
+#![allow(dead_code)]
 use crate::adapter::_private::NonExhaustive;
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};

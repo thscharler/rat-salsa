@@ -1,3 +1,5 @@
+#![allow(unreachable_pub)]
+
 pub mod textinputf;
 
 mod _private {
