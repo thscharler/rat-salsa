@@ -1,8 +1,9 @@
 #![allow(dead_code)]
+#![allow(unreachable_pub)]
 
-pub(crate) mod render_tablestate;
+pub mod render_tablestate;
 
-pub(crate) static SMALL_DATA: [&str; 100] = [
+pub static SMALL_DATA: [&str; 100] = [
     "Lorem",
     "ipsum",
     "dolor",
@@ -105,7 +106,7 @@ pub(crate) static SMALL_DATA: [&str; 100] = [
     "amet.",
 ];
 
-pub(crate) static DATA: [&str; 100000] = [
+pub static DATA: [&str; 100000] = [
     "Lorem",
     "ipsum",
     "dolor",

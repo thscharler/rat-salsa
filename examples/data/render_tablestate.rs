@@ -1,3 +1,5 @@
+#![allow(unreachable_pub)]
+
 use rat_ftable::FTableState;
 use rat_input::layout::{layout_edit, EditConstraint};
 use ratatui::buffer::Buffer;
@@ -5,7 +7,7 @@ use ratatui::layout::Rect;
 use ratatui::widgets::Widget;
 use std::fmt::Debug;
 
-pub(crate) fn render_tablestate<Selection: Debug>(
+pub fn render_tablestate<Selection: Debug>(
     state: &FTableState<Selection>,
     area: Rect,
     buf: &mut Buffer,
