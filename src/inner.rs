@@ -1,4 +1,3 @@
-use crate::ScrollingWidget;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
@@ -16,15 +15,6 @@ pub(crate) struct InnerStatefulOwned<W> {
     pub(crate) inner: W,
 }
 
-impl<W, S> ScrollingWidget<S> for InnerStatefulOwned<W>
-where
-    W: ScrollingWidget<S>,
-{
-    fn need_scroll(&self, area: Rect, state: &mut S) -> (bool, bool) {
-        self.inner.need_scroll(area, state)
-    }
-}
-
 impl<W, S> InnerWidget<W, S> for InnerStatefulOwned<W>
 where
     W: StatefulWidget<State = S>,
@@ -39,15 +29,6 @@ where
 
 pub(crate) struct InnerStatefulRef<'a, W> {
     pub(crate) inner: &'a W,
-}
-
-impl<'a, W, S> ScrollingWidget<S> for InnerStatefulRef<'a, W>
-where
-    W: ScrollingWidget<S>,
-{
-    fn need_scroll(&self, area: Rect, state: &mut S) -> (bool, bool) {
-        self.inner.need_scroll(area, state)
-    }
 }
 
 impl<'a, W, S> InnerWidget<W, S> for InnerStatefulRef<'a, W>

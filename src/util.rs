@@ -9,8 +9,8 @@ use ratatui::style::Style;
 pub(crate) fn copy_buffer(
     view_area: Rect,
     mut tmp: Buffer,
-    v_offset: usize,
     h_offset: usize,
+    v_offset: usize,
     empty_style: Style,
     area: Rect,
     buf: &mut Buffer,

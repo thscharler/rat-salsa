@@ -1,69 +1,82 @@
-/// A viewport allows scrolling of a `StatefulWidget` without
-/// builtin support for scrolling.
-///
-/// View and Viewport are the same in functionality.
-///
-/// The difference is that View works for [Widget]s and
-/// Viewport for [StatefulWidget]s.
-///
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
 use crate::inner::{InnerStatefulOwned, InnerStatefulRef, InnerWidget};
 use crate::util::copy_buffer;
-use crate::{ScrollingState, ScrollingWidget};
-use rat_event::{ConsumedEvent, HandleEvent};
+use crate::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
-use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef};
 
-/// View has its own size, and can contain a stateful widget
+/// Viewport has its own size, and can contain a stateful widget
 /// that will be rendered to a view sized buffer.
 /// This buffer is then offset and written to the actual
 /// frame buffer.
 #[derive(Debug, Default, Clone)]
-pub struct Viewport<T> {
-    /// The widget.
+pub struct Viewport<'a, T> {
     widget: T,
-    viewport: ViewportImpl,
+    viewport: ViewportImpl<'a>,
 }
 
 #[derive(Debug, Default, Clone)]
-struct ViewportImpl {
-    /// Size of the view. The widget is drawn to a separate buffer
-    /// with this size. x and y are set to the rendering area.
+struct ViewportImpl<'a> {
+    block: Option<Block<'a>>,
+    hscroll: Option<Scroll<'a>>,
+    vscroll: Option<Scroll<'a>>,
     view_size: Size,
-    /// Style for any area outside the contained widget.
     style: Style,
 }
 
 /// State of the viewport.
 #[derive(Debug, Clone)]
 pub struct ViewportState<S> {
-    /// Widget state.
     pub widget: S,
 
-    /// The drawing area for the viewport.
+    /// Complete area of the viewport.
     pub area: Rect,
+    /// Inner area of the viewport.
+    pub inner_area: Rect,
     /// The viewport area that the inner widget sees.
     pub view_area: Rect,
-    /// Horizontal offset
-    pub h_offset: usize,
-    /// Vertical offset
-    pub v_offset: usize,
+    /// Horizontal scroll
+    pub hscroll: ScrollState,
+    /// Vertical scroll
+    pub vscroll: ScrollState,
 
     /// Only construct with `..Default::default()`.
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<T> Viewport<T> {
+impl<'a, T> Viewport<'a, T> {
     /// New viewport.
     pub fn new(inner: T) -> Self {
         Self {
             widget: inner,
-            viewport: ViewportImpl::default(),
+            viewport: Default::default(),
         }
+    }
+
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.viewport.block = Some(block);
+        self
+    }
+
+    pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.viewport.hscroll = Some(scroll.clone().override_horizontal());
+        self.viewport.vscroll = Some(scroll.override_vertical());
+        self
+    }
+
+    pub fn hscroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.viewport.hscroll = Some(scroll.override_horizontal());
+        self
+    }
+
+    pub fn vscroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.viewport.hscroll = Some(scroll.override_vertical());
+        self
     }
 
     /// Size for the inner widget.
@@ -79,7 +92,7 @@ impl<T> Viewport<T> {
     }
 }
 
-impl<T> StatefulWidgetRef for Viewport<T>
+impl<'a, T> StatefulWidgetRef for Viewport<'a, T>
 where
     T: StatefulWidgetRef,
 {
@@ -93,7 +106,7 @@ where
     }
 }
 
-impl<T> StatefulWidget for Viewport<T>
+impl<'a, T> StatefulWidget for Viewport<'a, T>
 where
     T: StatefulWidget,
 {
@@ -106,45 +119,58 @@ where
 }
 
 fn render_ref<W, S>(
-    viewport: &ViewportImpl,
-    inner: impl InnerWidget<W, S>,
+    viewport: &ViewportImpl<'_>,
+    widget: impl InnerWidget<W, S>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut ViewportState<S>,
 ) {
     state.area = area;
+
+    let (hscroll_area, vscroll_area, inner_area) = layout_scroll(
+        area,
+        viewport.block.as_ref(),
+        viewport.hscroll.as_ref(),
+        viewport.vscroll.as_ref(),
+    );
+    state.inner_area = inner_area;
+
     state.view_area = Rect::new(
-        area.x,
-        area.y,
+        inner_area.x,
+        inner_area.y,
         viewport.view_size.width,
         viewport.view_size.height,
     );
 
-    let mut tmp = Buffer::empty(state.view_area);
+    state.hscroll.max_offset =
+        state.view_area.width.saturating_sub(state.inner_area.width) as usize;
+    state.hscroll.page_len = state.inner_area.width as usize;
+    state.vscroll.max_offset = state
+        .view_area
+        .height
+        .saturating_sub(state.inner_area.height) as usize;
+    state.vscroll.page_len = state.inner_area.height as usize;
 
-    inner.render_inner(state.view_area, &mut tmp, &mut state.widget);
+    viewport.block.render_ref(area, buf);
+    if let Some(hscroll) = &viewport.hscroll {
+        hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
+    }
+    if let Some(vscroll) = &viewport.vscroll {
+        vscroll.render_ref(vscroll_area, buf, &mut state.vscroll);
+    }
+
+    let mut tmp = Buffer::empty(state.view_area);
+    widget.render_inner(state.view_area, &mut tmp, &mut state.widget);
 
     copy_buffer(
         state.view_area,
         tmp,
-        state.v_offset,
-        state.h_offset,
+        state.hscroll.offset,
+        state.vscroll.offset,
         viewport.style,
-        area,
+        state.inner_area,
         buf,
     );
-}
-
-impl<State, T> ScrollingWidget<State> for Viewport<T>
-where
-    T: StatefulWidget,
-{
-    fn need_scroll(&self, area: Rect, _state: &mut State) -> (bool, bool) {
-        (
-            area.width < self.viewport.view_size.width,
-            area.height < self.viewport.view_size.height,
-        )
-    }
 }
 
 impl<S: Default> Default for ViewportState<S> {
@@ -152,9 +178,10 @@ impl<S: Default> Default for ViewportState<S> {
         Self {
             widget: S::default(),
             area: Default::default(),
+            inner_area: Default::default(),
             view_area: Default::default(),
-            h_offset: 0,
-            v_offset: 0,
+            hscroll: Default::default(),
+            vscroll: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -169,8 +196,8 @@ impl<S> ViewportState<S> {
             crossterm::event::Event::Key(_) => event.clone(),
             crossterm::event::Event::Mouse(m) => {
                 let mut m = *m;
-                m.column += self.h_offset as u16;
-                m.row += self.v_offset as u16;
+                m.column += self.hscroll.offset as u16;
+                m.row += self.vscroll.offset as u16;
                 crossterm::event::Event::Mouse(m)
             }
             crossterm::event::Event::Paste(_) => event.clone(),
@@ -179,67 +206,82 @@ impl<S> ViewportState<S> {
     }
 }
 
-impl<S> ScrollingState for ViewportState<S> {
-    fn vertical_max_offset(&self) -> usize {
-        self.view_area.height.saturating_sub(self.area.height) as usize
+impl<S> ViewportState<S> {
+    pub fn vertical_offset(&self) -> usize {
+        self.vscroll.offset
     }
 
-    fn vertical_offset(&self) -> usize {
-        self.v_offset
+    pub fn set_vertical_offset(&mut self, offset: usize) -> bool {
+        let old = self.vscroll.offset;
+        self.vscroll.set_offset(offset);
+        old != self.vscroll.offset
     }
 
-    fn vertical_page(&self) -> usize {
-        self.area.height as usize
+    pub fn vertical_page_len(&self) -> usize {
+        self.vscroll.page_len
     }
 
-    fn horizontal_max_offset(&self) -> usize {
-        self.view_area.width.saturating_sub(self.area.width) as usize
+    pub fn horizontal_offset(&self) -> usize {
+        self.hscroll.offset
     }
 
-    fn horizontal_offset(&self) -> usize {
-        self.h_offset
+    pub fn set_horizontal_offset(&mut self, offset: usize) -> bool {
+        let old = self.hscroll.offset;
+        self.hscroll.set_offset(offset);
+        old != self.hscroll.offset
     }
 
-    fn horizontal_page(&self) -> usize {
-        self.area.width as usize
+    pub fn horizontal_page_len(&self) -> usize {
+        self.hscroll.page_len
     }
 
-    fn set_vertical_offset(&mut self, offset: usize) -> bool {
-        let old_offset = self.v_offset;
-
-        if self.v_offset < self.view_area.height as usize {
-            self.v_offset = offset;
-        } else if self.v_offset >= self.view_area.height as usize {
-            self.v_offset = self.view_area.height.saturating_sub(1) as usize;
-        }
-
-        old_offset != self.v_offset
+    pub fn horizontal_scroll_to(&mut self, pos: usize) -> bool {
+        self.hscroll.set_offset(pos)
     }
 
-    fn set_horizontal_offset(&mut self, offset: usize) -> bool {
-        let old_offset = self.h_offset;
+    pub fn vertical_scroll_to(&mut self, pos: usize) -> bool {
+        self.vscroll.set_offset(pos)
+    }
 
-        if self.h_offset < self.view_area.width as usize {
-            self.h_offset = offset;
-        } else if self.h_offset >= self.view_area.width as usize {
-            self.h_offset = self.view_area.width.saturating_sub(1) as usize;
-        }
-
-        old_offset != self.h_offset
+    pub fn scroll(&mut self, delta_h: isize, delta_v: isize) -> bool {
+        self.hscroll.change_offset(delta_h) || self.vscroll.change_offset(delta_v)
     }
 }
 
-/// Handle events.
-/// This forwards to the inner widget and corrects all
-/// positions in the event.
-impl<R, Q, S> HandleEvent<crossterm::event::Event, Q, ScrollOutcome<R>> for ViewportState<S>
+impl<R, Q, S> HandleEvent<crossterm::event::Event, Q, R> for ViewportState<S>
 where
     S: HandleEvent<crossterm::event::Event, Q, R>,
-    R: ConsumedEvent,
+    R: From<Outcome> + ConsumedEvent,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, keymap: Q) -> ScrollOutcome<R> {
-        let event = self.relocate_crossterm(event);
-        let r = self.widget.handle(&event, keymap);
-        ScrollOutcome::Inner(r)
+    fn handle(&mut self, event: &crossterm::event::Event, qualifier: Q) -> R {
+        flow!(match self.hscroll.handle(event, MouseOnly) {
+            ScrollOutcome::Offset(v) => {
+                Outcome::from(self.horizontal_scroll_to(v))
+            }
+            r => Outcome::from(r),
+        });
+        flow!(match self.vscroll.handle(event, MouseOnly) {
+            ScrollOutcome::Offset(v) => {
+                Outcome::from(self.vertical_scroll_to(v))
+            }
+            r => Outcome::from(r),
+        });
+
+        flow!(self
+            .widget
+            .handle(&self.relocate_crossterm(event), qualifier));
+
+        flow!(
+            match ScrollArea(self.inner_area, Some(&self.hscroll), Some(&self.vscroll))
+                .handle(event, MouseOnly)
+            {
+                ScrollOutcome::Delta(h, v) => {
+                    Outcome::from(self.scroll(h, v))
+                }
+                r => Outcome::from(r),
+            }
+        );
+
+        Outcome::NotUsed.into()
     }
 }

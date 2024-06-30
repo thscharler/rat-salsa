@@ -3,12 +3,12 @@
 use crate::adapter::paragraph::ParagraphS;
 use crate::double_widget::{DoubleView, DoubleViewState};
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::Outcome;
-use rat_scrolled::event::{HandleEvent, MouseOnly};
-use rat_scrolled::ViewportState;
-use rat_scrolled::{Scrolled, ScrolledState};
+use rat_event::{flow_ok, HandleEvent, MouseOnly, Outcome};
+use rat_scrolled::viewport::{Viewport, ViewportState};
+use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Layout, Rect, Size};
-use ratatui::widgets::{StatefulWidget, Wrap};
+use ratatui::style::{Style, Stylize};
+use ratatui::widgets::{Block, StatefulWidget, Wrap};
 use ratatui::Frame;
 
 mod adapter;
@@ -103,7 +103,7 @@ Total average precipitation in the Craters of the Moon area is between 15–20 i
     };
 
     let mut state = State {
-        double: ScrolledState::default(),
+        double: Default::default(),
     };
 
     run_ui(handle_text, repaint_text, &mut data, &mut state)
@@ -115,7 +115,7 @@ struct Data {
 }
 
 struct State {
-    pub(crate) double: ScrolledState<ViewportState<DoubleViewState>>,
+    pub(crate) double: ViewportState<DoubleViewState>,
 }
 
 fn repaint_text(
@@ -127,12 +127,19 @@ fn repaint_text(
 ) -> Result<(), anyhow::Error> {
     let l = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).split(area);
 
-    let double = Scrolled::new_viewport(DoubleView::new(
-        ParagraphS::new(data.sample1.clone()).wrap(Wrap::default()),
-        ParagraphS::new(data.sample2.clone()).wrap(Wrap::default()),
+    Viewport::new(DoubleView::new(
+        ParagraphS::new(data.sample1.clone())
+            .wrap(Wrap::default())
+            .block(Block::bordered())
+            .scroll(Scroll::new().style(Style::new().on_cyan())),
+        ParagraphS::new(data.sample2.clone())
+            .wrap(Wrap::default())
+            .block(Block::bordered())
+            .scroll(Scroll::new().style(Style::new().on_cyan())),
     ))
-    .view_size(Size::new(40, 40));
-    double.render(l[0], frame.buffer_mut(), &mut state.double);
+    .view_size(Size::new(40, 40))
+    .scroll(Scroll::new())
+    .render(l[0], frame.buffer_mut(), &mut state.double);
 
     Ok(())
 }
@@ -143,43 +150,33 @@ fn handle_text(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r = state.double.handle(event, MouseOnly).flatten2().into();
-    match r {
-        Outcome::NotUsed => {}
-        r => return Ok(r),
-    };
-
+    flow_ok!(state.double.handle(event, MouseOnly));
     Ok(Outcome::NotUsed)
 }
 
 mod double_widget {
     use crate::adapter;
     use adapter::paragraph::{ParagraphS, ParagraphSState};
-    use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
-    use rat_scrolled::event::ScrollOutcome;
-    use rat_scrolled::{Scrolled, ScrolledState};
+    use rat_event::{flow, HandleEvent, MouseOnly, Outcome};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::prelude::StatefulWidget;
 
     #[derive(Debug, Default)]
     pub(crate) struct DoubleView<'a> {
-        pub(crate) first: Scrolled<'a, ParagraphS<'a>>,
-        pub(crate) second: Scrolled<'a, ParagraphS<'a>>,
+        pub(crate) first: ParagraphS<'a>,
+        pub(crate) second: ParagraphS<'a>,
     }
 
     #[derive(Debug, Default)]
     pub(crate) struct DoubleViewState {
-        pub(crate) first: ScrolledState<ParagraphSState>,
-        pub(crate) second: ScrolledState<ParagraphSState>,
+        pub(crate) first: ParagraphSState,
+        pub(crate) second: ParagraphSState,
     }
 
     impl<'a> DoubleView<'a> {
         pub(crate) fn new(first: ParagraphS<'a>, second: ParagraphS<'a>) -> Self {
-            Self {
-                first: Scrolled::new(first),
-                second: Scrolled::new(second),
-            }
+            Self { first, second }
         }
     }
 
@@ -202,28 +199,11 @@ mod double_widget {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, ScrollOutcome<Outcome>> for DoubleViewState {
-        fn handle(
-            &mut self,
-            _event: &crossterm::event::Event,
-            _keymap: FocusKeys,
-        ) -> ScrollOutcome<Outcome> {
-            // without a concept for focus this is hard to describe
-            ScrollOutcome::NotUsed
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome<Outcome>> for DoubleViewState {
-        fn handle(
-            &mut self,
-            event: &crossterm::event::Event,
-            _keymap: MouseOnly,
-        ) -> ScrollOutcome<Outcome> {
-            let mut r = self.first.handle(event, MouseOnly);
-            if !r.is_consumed() {
-                r = self.second.handle(event, MouseOnly);
-            }
-            r
+    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for DoubleViewState {
+        fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+            flow!(self.first.handle(event, MouseOnly));
+            flow!(self.second.handle(event, MouseOnly));
+            Outcome::NotUsed
         }
     }
 }

@@ -3,11 +3,11 @@
 use crate::adapter::table::{TableS, TableSState};
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{HandleEvent, MouseOnly, Outcome};
-use rat_scrolled::{Scrolled, ScrolledState};
+use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Text;
-use ratatui::widgets::{Cell, Row, StatefulWidget};
+use ratatui::widgets::{Block, Cell, Row, StatefulWidget};
 use ratatui::Frame;
 use std::iter::repeat_with;
 
@@ -26,38 +26,6 @@ fn main() -> Result<(), anyhow::Error> {
         })
         .take(2000)
         .collect::<Vec<i32>>(),
-        sample2: vec![
-            "Lorem",
-            "ipsum",
-            "dolor",
-            "sit",
-            "amet,",
-            "consetetur",
-            "sadipscing",
-            "elitr,",
-            "sed",
-            "diam",
-            "nonumy",
-            "eirmod",
-            "tempor",
-            "invidunt",
-            "ut",
-            "labore",
-            "et",
-            "dolore",
-            "magna",
-            "aliquyam",
-            "erat,",
-            "sed",
-            "diam",
-            "voluptua.",
-            "At",
-            "vero",
-            "eos",
-            "et",
-            "accusam",
-            "et",
-        ],
     };
 
     let mut state = State {
@@ -70,12 +38,11 @@ fn main() -> Result<(), anyhow::Error> {
 
 struct Data {
     pub(crate) sample1: Vec<i32>,
-    pub(crate) sample2: Vec<&'static str>,
 }
 
 struct State {
-    pub(crate) table1: ScrolledState<TableSState>,
-    pub(crate) table2: ScrolledState<TableSState>,
+    pub(crate) table1: TableSState,
+    pub(crate) table2: TableSState,
 }
 
 fn repaint_lists(
@@ -85,49 +52,22 @@ fn repaint_lists(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).split(area);
+    let l = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)])
+        .spacing(1)
+        .split(area);
 
-    let table1 = Scrolled::new(
-        TableS::new(
-            data.sample1.iter().map(|v| {
-                Row::new([
-                    Cell::new(Text::from(v.to_string())),
-                    Cell::new(Text::from(v.to_string())),
-                    Cell::new(Text::from(v.to_string())),
-                    Cell::new(Text::from(v.to_string())),
-                    Cell::new(Text::from(v.to_string())),
-                    Cell::new(Text::from(v.to_string())),
-                    Cell::new(Text::from(v.to_string())),
-                    Cell::new(Text::from(v.to_string())),
-                    Cell::new(Text::from(v.to_string())),
-                ])
-            }),
-            [
-                Constraint::Length(5),
-                Constraint::Length(5),
-                Constraint::Length(5),
-                Constraint::Length(5),
-                Constraint::Length(5),
-                Constraint::Length(5),
-                Constraint::Length(5),
-                Constraint::Length(5),
-                Constraint::Length(5),
-            ],
-        )
-        .highlight_style(Style::default().on_red())
-        .scroll_selection()
-        .scroll_by(1),
-    );
-    table1.render(l[0], frame.buffer_mut(), &mut state.table1);
-
-    let table2 = Scrolled::new(TableS::new(
-        data.sample2.iter().map(|v| {
+    TableS::new(
+        data.sample1.iter().map(|v| {
             Row::new([
-                Cell::new(Text::from(*v)),
-                Cell::new(Text::from(*v)),
-                Cell::new(Text::from(*v)),
-                Cell::new(Text::from(*v)),
-                Cell::new(Text::from(*v)),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
             ])
         }),
         [
@@ -136,9 +76,50 @@ fn repaint_lists(
             Constraint::Length(5),
             Constraint::Length(5),
             Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
         ],
-    ));
-    table2.render(l[1], frame.buffer_mut(), &mut state.table2);
+    )
+    .highlight_style(Style::default().on_red())
+    .scroll_selection()
+    .block(Block::bordered())
+    .scroll(Scroll::new().style(Style::new().on_cyan()))
+    .style(Style::new().on_dark_gray())
+    .render(l[0], frame.buffer_mut(), &mut state.table1);
+
+    TableS::new(
+        data.sample1.iter().map(|v| {
+            Row::new([
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+                Cell::new(Text::from(v.to_string())),
+            ])
+        }),
+        [
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+            Constraint::Length(5),
+        ],
+    )
+    .highlight_style(Style::default().on_red())
+    .block(Block::bordered())
+    .scroll(Scroll::new().style(Style::new().on_cyan()))
+    .style(Style::new().on_dark_gray())
+    .render(l[1], frame.buffer_mut(), &mut state.table2);
 
     Ok(())
 }

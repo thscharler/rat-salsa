@@ -4,81 +4,41 @@
 /// This is limited to Tables with row-heights == 1.
 ///
 use crate::adapter::_private::NonExhaustive;
-use rat_event::{ct_event, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
-use rat_scrolled::{ScrollingState, ScrollingWidget};
+use rat_event::util::MouseFlags;
+use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_scrolled::event::ScrollOutcome;
+use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Position, Rect};
-use ratatui::prelude::*;
+use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::style::Style;
 use ratatui::text::Text;
-use ratatui::widgets::{Block, HighlightSpacing, Row, Table, TableState};
-use std::cmp::{max, min};
+use ratatui::widgets::{Block, HighlightSpacing, Row, StatefulWidget, Table, TableState, Widget};
 use std::fmt::Debug;
-use std::time::SystemTime;
 
 /// Add some minor fixes to [ratatui::widgets::Table]
 #[derive(Debug, Clone)]
 pub struct TableS<'a> {
-    ///
-    table: Table<'a>,
+    block: Option<Block<'a>>,
+    scroll: Option<Scroll<'a>>,
+    scroll_selection: bool,
 
-    ///
+    table: Table<'a>,
     rows: Vec<Row<'a>>,
     header: Option<Row<'a>>,
     footer: Option<Row<'a>>,
-
-    ///
-    scroll_selection: bool,
-    scroll_by: Option<usize>,
 }
 
 impl<'a> Default for TableS<'a> {
     fn default() -> Self {
         Self {
+            block: None,
             rows: Default::default(),
             header: None,
             footer: None,
             table: Default::default(),
             scroll_selection: false,
-            scroll_by: None,
+            scroll: None,
         }
-    }
-}
-
-impl<'a, State> ScrollingWidget<State> for TableS<'a> {
-    fn need_scroll(&self, area: Rect, _uistate: &mut State) -> (bool, bool) {
-        let v_scroll = 'f: {
-            // row layout
-            // TODO: as long as height_with_margin() is not accessible we are limited
-            //       to single row tables.
-            // let header_height = self.header.as_ref().map_or(0, |h| h.height_with_margin());
-            // let footer_height = self.footer.as_ref().map_or(0, |f| f.height_with_margin());
-
-            let header_height = 1;
-            let footer_height = 1;
-            let layout = Layout::vertical([
-                Constraint::Length(header_height),
-                Constraint::Min(0),
-                Constraint::Length(footer_height),
-            ])
-            .split(area);
-
-            let mut height = 0;
-            for _row in self.rows.iter() {
-                // TODO: as long as height_with_margin() is not accessible we are limited
-                //       to single row tables.
-                // row_area.height = row.height_with_margin();
-                let row_height = 1;
-
-                height += row_height;
-                if height >= layout[1].height {
-                    break 'f true;
-                }
-            }
-            false
-        };
-
-        (false, v_scroll)
     }
 }
 
@@ -94,12 +54,13 @@ impl<'a> TableS<'a> {
         let rows = rows.into_iter().map(|v| v.into()).collect::<Vec<_>>();
 
         Self {
+            block: None,
+            scroll: None,
             rows,
             header: None,
-            footer: None,
             table: Table::default().widths(widths),
             scroll_selection: false,
-            scroll_by: None,
+            footer: None,
         }
     }
 
@@ -113,9 +74,17 @@ impl<'a> TableS<'a> {
         self
     }
 
-    /// Set scroll stepping.
-    pub fn scroll_by(mut self, n: usize) -> Self {
-        self.scroll_by = Some(n);
+    /// Scrollbars
+    pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.scroll = Some(scroll.override_vertical());
+        self.block = None;
+        self
+    }
+
+    /// Block
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block);
+        self.scroll = None;
         self
     }
 
@@ -156,12 +125,6 @@ impl<'a> TableS<'a> {
     /// Spacing
     pub fn column_spacing(mut self, spacing: u16) -> Self {
         self.table = self.table.column_spacing(spacing);
-        self
-    }
-
-    /// Block
-    pub fn block(mut self, block: Block<'a>) -> Self {
-        self.table = self.table.block(block);
         self
     }
 
@@ -206,10 +169,12 @@ impl<'a> StatefulWidget for TableS<'a> {
     type State = TableSState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        // store to state
-        state.area = area;
         state.scroll_selection = self.scroll_selection;
-        state.v_len = self.rows.len();
+        state.len = self.rows.len();
+
+        let (_, scroll_area, inner) =
+            layout_scroll(area, self.block.as_ref(), None, self.scroll.as_ref());
+        state.area = inner;
 
         // row layout
         // TODO: as long as height_with_margin() is not accessible we are limited
@@ -217,8 +182,8 @@ impl<'a> StatefulWidget for TableS<'a> {
         // let header_height = self.header.as_ref().map_or(0, |h| h.height_with_margin());
         // let footer_height = self.footer.as_ref().map_or(0, |f| f.height_with_margin());
 
-        let header_height = 1;
-        let footer_height = 1;
+        let header_height = 0;
+        let footer_height = 0;
         let layout = Layout::vertical([
             Constraint::Length(header_height),
             Constraint::Min(0),
@@ -258,14 +223,18 @@ impl<'a> StatefulWidget for TableS<'a> {
             }
             n += 1;
         }
-        state.v_page = n;
-        state.v_scroll_by = if let Some(scroll_by) = self.scroll_by {
-            scroll_by
-        } else {
-            max(state.v_page / 10, 1)
-        };
-        state.v_max_offset = state.v_len - n;
+        state.scroll.page_len = n;
+        if state.scroll_selection {
+            state.scroll.scroll_by = Some(1);
+        }
+        state.scroll.max_offset = state.len - n;
 
+        self.block.render(area, buf);
+        if let Some(scroll) = self.scroll {
+            scroll.render(scroll_area, buf, &mut state.scroll);
+        }
+
+        *state.widget.offset_mut() = state.scroll.offset;
         // prepare table widget
         let table = self.table.rows(self.rows);
         let table = if let Some(header) = self.header {
@@ -278,8 +247,7 @@ impl<'a> StatefulWidget for TableS<'a> {
         } else {
             table
         };
-
-        StatefulWidget::render(table, area, buf, &mut state.widget);
+        StatefulWidget::render(table, inner, buf, &mut state.widget);
     }
 }
 
@@ -291,32 +259,29 @@ where
         let rows = iter.into_iter().map(|v| v.into()).collect::<Vec<_>>();
 
         Self {
+            block: None,
             rows,
             header: None,
             footer: None,
             table: Table::default(),
             scroll_selection: false,
-            scroll_by: None,
+            scroll: None,
         }
     }
 }
 
 /// Extended TableState, contains a [ratatui::widgets::TableState].
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct TableSState {
     /// inner widget
     pub widget: TableState,
 
+    /// Total length.
+    pub len: usize,
     /// Scroll the selection.
     pub scroll_selection: bool,
-    /// Scroll step size.
-    pub v_scroll_by: usize,
-    /// Total length.
-    pub v_len: usize,
-    /// Current page size
-    pub v_page: usize,
-    /// Maximum offset
-    pub v_max_offset: usize,
+    /// Scroll state
+    pub scroll: ScrollState,
 
     /// Complete area.
     pub area: Rect,
@@ -330,8 +295,7 @@ pub struct TableSState {
     pub footer_area: Rect,
 
     /// Mouse behaviour.
-    pub mouse_drag: bool,
-    pub mouse_click: Option<SystemTime>,
+    pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -340,123 +304,113 @@ impl Default for TableSState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
+            len: 0,
             scroll_selection: false,
-            v_scroll_by: 0,
-            v_len: 0,
-            v_page: 0,
-            v_max_offset: 0,
+            scroll: Default::default(),
             area: Default::default(),
             header_area: Default::default(),
             table_area: Default::default(),
             row_areas: Default::default(),
             footer_area: Default::default(),
-            mouse_drag: false,
-            mouse_click: None,
+            mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
 }
 
-impl ScrollingState for TableSState {
+impl TableSState {
     #[inline]
-    fn vertical_max_offset(&self) -> usize {
+    pub fn max_offset(&self) -> usize {
+        self.scroll.max_offset
+    }
+
+    #[inline]
+    pub fn offset(&self) -> usize {
+        self.scroll.offset
+    }
+
+    #[inline]
+    pub fn page_len(&self) -> usize {
+        self.scroll.page_len
+    }
+
+    #[inline]
+    pub fn scroll_by(&self) -> usize {
+        self.scroll.scroll_by()
+    }
+
+    #[inline]
+    pub fn set_offset(&mut self, position: usize) -> bool {
+        self.scroll.set_offset(position)
+    }
+
+    pub fn scroll_to(&mut self, pos: usize) -> bool {
         if self.scroll_selection {
-            self.v_len.saturating_sub(1)
-        } else {
-            self.v_max_offset
-        }
-    }
+            let old_select = self.widget.selected();
 
-    #[inline]
-    fn vertical_offset(&self) -> usize {
-        if self.scroll_selection {
-            self.widget.selected().unwrap_or(0)
-        } else {
-            self.widget.offset()
-        }
-    }
-
-    #[inline]
-    fn vertical_page(&self) -> usize {
-        self.v_page
-    }
-
-    #[inline]
-    fn vertical_scroll(&self) -> usize {
-        self.v_scroll_by
-    }
-
-    #[inline]
-    fn horizontal_max_offset(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn horizontal_offset(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn horizontal_page(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn horizontal_scroll(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn set_vertical_offset(&mut self, position: usize) -> bool {
-        if self.scroll_selection {
-            let old_select = min(
-                self.widget.selected().unwrap_or(0),
-                self.v_len.saturating_sub(1),
-            );
-            let new_select = min(position, self.v_len.saturating_sub(1));
-
+            let new_select = pos.clamp(0, self.len - 1);
             *self.widget.selected_mut() = Some(new_select);
+            self.scroll_to_selected();
 
-            new_select != old_select
+            self.widget.selected() != old_select
         } else {
-            let old_offset = min(self.vertical_offset(), self.v_len.saturating_sub(1));
-            let new_offset = min(position, self.v_len.saturating_sub(1));
+            let old_offset = self.scroll.offset;
 
+            let new_offset = pos;
+            self.scroll.set_offset(new_offset);
             *self.widget.offset_mut() = new_offset;
 
             // For scrolling purposes the selection of ratatui::Table is never None,
             // instead it defaults out to 0 which prohibits any scrolling attempt.
             // Losing the selection here is a bit inconvenient, but this is more of a demo
             // anyway.
-            *self.widget.selected_mut() = Some(self.widget.offset());
+            if let Some(selected) = self.widget.selected() {
+                if selected < new_offset {
+                    *self.widget.selected_mut() = Some(new_offset);
+                } else if selected >= new_offset + self.scroll.page_len {
+                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len);
+                }
+            }
 
-            new_offset != old_offset
+            self.scroll.offset() != old_offset
         }
     }
 
-    #[inline]
-    fn set_horizontal_offset(&mut self, _offset: usize) -> bool {
-        false
+    pub fn scroll(&mut self, n: isize) -> bool {
+        if self.scroll_selection {
+            let old_select = self.widget.selected();
+
+            let sel = self.widget.selected().unwrap_or(0) as isize;
+            let max = self.len.saturating_sub(1) as isize;
+            let new_select = (sel + n).clamp(0, max) as usize;
+            *self.widget.selected_mut() = Some(new_select);
+            self.scroll_to_selected();
+
+            self.widget.selected() != old_select
+        } else {
+            let old_offset = self.scroll.offset;
+
+            let new_offset = self.scroll.clamp_offset(self.scroll.offset as isize + n);
+            self.scroll.set_offset(new_offset);
+            *self.widget.offset_mut() = new_offset;
+            // For scrolling purposes the selection of ratatui::Table is never None,
+            // instead it defaults out to 0 which prohibits any scrolling attempt.
+            // Losing the selection here is a bit inconvenient, but this is more of a demo
+            // anyway.
+            if let Some(selected) = self.widget.selected() {
+                if selected < new_offset {
+                    *self.widget.selected_mut() = Some(new_offset);
+                } else if selected >= new_offset + self.scroll.page_len {
+                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len);
+                }
+            }
+
+            self.scroll.offset() != old_offset
+        }
     }
 }
 
 impl TableSState {
-    #[inline]
-    pub fn with_offset(mut self, offset: usize) -> Self {
-        self.widget = self.widget.with_offset(offset);
-        self
-    }
-
-    #[inline]
-    pub fn offset(&self) -> usize {
-        self.widget.offset()
-    }
-
-    #[inline]
-    pub fn offset_mut(&mut self) -> &mut usize {
-        self.widget.offset_mut()
-    }
-
     #[inline]
     pub fn selected(&self) -> Option<usize> {
         self.widget.selected()
@@ -487,13 +441,13 @@ impl TableSState {
     /// Row at given position.
     #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        rat_event::util::row_at_clicked(&self.row_areas, pos.y).map(|v| self.offset() + v)
+        rat_event::util::row_at_clicked(&self.row_areas, pos.y).map(|v| self.scroll.offset + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
-        let offset = self.offset();
+        let offset = self.scroll.offset;
         match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.y) {
             Ok(v) => offset + v,
             Err(v) if v <= 0 => offset.saturating_sub((-v) as usize),
@@ -505,11 +459,11 @@ impl TableSState {
     #[inline]
     pub fn scroll_to_selected(&mut self) {
         if let Some(selected) = self.selected() {
-            if self.vertical_offset() + self.row_areas.len() <= selected {
-                self.set_vertical_offset(selected - self.row_areas.len() + 1);
+            if selected >= self.scroll.offset + self.scroll.page_len {
+                self.set_offset(selected.saturating_sub(self.scroll.page_len * 9 / 10));
             }
-            if self.vertical_offset() > selected {
-                self.set_vertical_offset(selected);
+            if selected < self.scroll.offset {
+                self.set_offset(selected.saturating_sub(self.scroll.page_len * 1 / 10));
             }
         }
     }
@@ -529,7 +483,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TableSState {
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                self.select(Some(self.v_len - 1));
+                self.select(Some(self.len - 1));
                 self.scroll_to_selected();
                 Outcome::Changed
             }
@@ -561,28 +515,11 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TableSState {
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        match event {
-            ct_event!(scroll down for column,row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(self.vertical_scroll());
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(scroll up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(self.vertical_scroll());
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
+        flow!(match event {
             ct_event!(mouse down Left for column, row) => {
                 let pos = Position::new(*column, *row);
                 if self.area.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.mouse_drag = true;
                         self.select(Some(new_row));
                         Outcome::Changed
                     } else {
@@ -592,118 +529,25 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
                     Outcome::NotUsed
                 }
             }
-            ct_event!(mouse drag Left for column, row) => {
-                if self.mouse_drag {
-                    let pos = Position::new(*column, *row);
-                    let new_row = self.row_at_drag(pos);
-                    self.select(Some(new_row));
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(mouse moved) => {
-                self.mouse_drag = false;
-                Outcome::NotUsed
-            }
             _ => Outcome::NotUsed,
-        }
-    }
-}
+        });
 
-/// Extra mapping which does the double click a line in the table thing.
-/// Returns `Option<usize>` if a double click is detected.
-#[derive(Debug)]
-pub struct DoubleClick;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum DoubleClickOutcome {
-    NotUsed,
-    Clicked(usize),
-    None,
-}
-
-impl ConsumedEvent for DoubleClickOutcome {
-    fn is_consumed(&self) -> bool {
-        *self != DoubleClickOutcome::NotUsed
-    }
-}
-
-impl HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome> for TableSState {
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        _keymap: DoubleClick,
-    ) -> DoubleClickOutcome {
-        match event {
-            ct_event!(mouse up Left for column,row) => {
-                let pos = Position::new(*column, *row);
-                if self.area.contains(pos) {
-                    let Some(select) = self.row_at_clicked(pos) else {
-                        return DoubleClickOutcome::None;
-                    };
-                    let Some(old_select) = self.selected() else {
-                        return DoubleClickOutcome::None;
-                    };
-
-                    if select == old_select {
-                        let triggered = self
-                            .mouse_click
-                            .map(|v| {
-                                let t = v.elapsed().unwrap_or_default();
-                                t.as_millis() > 200
-                            })
-                            .unwrap_or_default();
-
-                        if triggered {
-                            DoubleClickOutcome::Clicked(old_select)
-                        } else {
-                            DoubleClickOutcome::None
-                        }
-                    } else {
-                        self.mouse_click = Some(SystemTime::now());
-                        DoubleClickOutcome::None
-                    }
-                } else {
-                    DoubleClickOutcome::NotUsed
-                }
+        flow!(match self.scroll.handle(event, MouseOnly) {
+            ScrollOutcome::Offset(v) => {
+                self.scroll_to(v).into()
             }
-            _ => DoubleClickOutcome::NotUsed,
-        }
-    }
-}
+            r => Outcome::from(r),
+        });
 
-/// Extra mapping that reacts to the delete-key in a table.
-///
-/// Returns [ControlUI::Run(usize)] for which row should be deleted.
-#[derive(Debug)]
-pub struct DeleteRow;
-
-#[derive(Debug, PartialEq, Eq)]
-pub enum DeleteRowOutcome {
-    NotUsed,
-    Delete(usize),
-    None,
-}
-
-impl ConsumedEvent for DeleteRowOutcome {
-    fn is_consumed(&self) -> bool {
-        *self != DeleteRowOutcome::NotUsed
-    }
-}
-
-impl HandleEvent<crossterm::event::Event, DeleteRow, DeleteRowOutcome> for TableSState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: DeleteRow) -> DeleteRowOutcome {
-        match event {
-            ct_event!(keycode press Delete) => {
-                if let Some(sel) = self.selected() {
-                    DeleteRowOutcome::Delete(sel)
-                } else {
-                    DeleteRowOutcome::None
+        flow!(
+            match ScrollArea(self.table_area, None, Some(&self.scroll)).handle(event, MouseOnly) {
+                ScrollOutcome::Delta(_, v) => {
+                    self.scroll(v).into()
                 }
+                r => Outcome::from(r),
             }
-            _ => DeleteRowOutcome::NotUsed,
-        }
+        );
+
+        Outcome::NotUsed
     }
 }

@@ -3,7 +3,7 @@
 use crate::adapter::list::{ListS, ListSState};
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{HandleEvent, MouseOnly, Outcome};
-use rat_scrolled::{Scrolled, ScrolledState};
+use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{ListDirection, StatefulWidget};
@@ -75,10 +75,10 @@ struct Data {
 }
 
 struct State {
-    pub(crate) list1: ScrolledState<ListSState>,
-    pub(crate) list2: ScrolledState<ListSState>,
-    pub(crate) list3: ScrolledState<ListSState>,
-    pub(crate) list4: ScrolledState<ListSState>,
+    pub(crate) list1: ListSState,
+    pub(crate) list2: ListSState,
+    pub(crate) list3: ListSState,
+    pub(crate) list4: ListSState,
 }
 
 fn repaint_lists(
@@ -96,33 +96,29 @@ fn repaint_lists(
     ])
     .split(area);
 
-    let list1 = Scrolled::new(
-        ListS::new(data.sample1.iter().map(|v| v.to_string()))
-            .highlight_style(Style::default().reversed()),
-    );
-    list1.render(l[0], frame.buffer_mut(), &mut state.list1);
+    ListS::new(data.sample1.iter().map(|v| v.to_string()))
+        .highlight_style(Style::default().reversed())
+        .scroll(Scroll::new())
+        .render(l[0], frame.buffer_mut(), &mut state.list1);
 
-    let list2 = Scrolled::new(
-        ListS::new(data.sample2.iter().map(|v| v.to_string()))
-            .highlight_style(Style::default().reversed()),
-    );
-    list2.render(l[1], frame.buffer_mut(), &mut state.list2);
+    ListS::new(data.sample2.iter().map(|v| v.to_string()))
+        .highlight_style(Style::default().reversed())
+        .scroll(Scroll::new())
+        .render(l[1], frame.buffer_mut(), &mut state.list2);
 
-    let list3 = Scrolled::new(
-        ListS::new(data.sample1.iter().map(|v| v.to_string()))
-            .highlight_symbol("&")
-            .highlight_style(Style::default().on_red())
-            .scroll_selection()
-            .scroll_padding(2),
-    );
-    list3.render(l[2], frame.buffer_mut(), &mut state.list3);
+    ListS::new(data.sample1.iter().map(|v| v.to_string()))
+        .highlight_symbol("&")
+        .highlight_style(Style::default().on_red())
+        .scroll(Scroll::new())
+        .scroll_selection()
+        .scroll_padding(2)
+        .render(l[2], frame.buffer_mut(), &mut state.list3);
 
-    let list4 = Scrolled::new(
-        ListS::new(data.sample2.iter().map(|v| v.to_string()))
-            .highlight_style(Style::default().reversed())
-            .direction(ListDirection::BottomToTop),
-    );
-    list4.render(l[3], frame.buffer_mut(), &mut state.list4);
+    ListS::new(data.sample2.iter().map(|v| v.to_string()))
+        .highlight_style(Style::default().reversed())
+        .direction(ListDirection::BottomToTop)
+        .scroll(Scroll::new())
+        .render(l[3], frame.buffer_mut(), &mut state.list4);
 
     Ok(())
 }

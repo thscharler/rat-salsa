@@ -1,33 +1,39 @@
 use crate::adapter::_private::NonExhaustive;
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
-use rat_scrolled::{ScrollingState, ScrollingWidget};
+use rat_event::util::MouseFlags;
+use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_scrolled::event::ScrollOutcome;
+use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
-use ratatui::prelude::{BlockExt, StatefulWidget, Style};
-use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState, Widget};
+use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::widgets::ListDirection::BottomToTop;
+use ratatui::widgets::{
+    Block, HighlightSpacing, List, ListDirection, ListItem, ListState, StatefulWidgetRef, WidgetRef,
+};
 use std::cmp::{max, min};
 
 ///
 /// Extensions for [ratatui::widgets::List]
 ///
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone)]
 pub struct ListS<'a> {
     list: List<'a>,
+    direction: ListDirection,
     block: Option<Block<'a>>,
-    items: Vec<ListItem<'a>>,
-
+    scroll: Option<Scroll<'a>>,
     scroll_selection: bool,
-    scroll_by: Option<usize>,
+    items: Vec<ListItem<'a>>,
 }
 
 impl<'a> Default for ListS<'a> {
     fn default() -> Self {
         Self {
             list: Default::default(),
+            direction: Default::default(),
             block: Default::default(),
-            items: Default::default(),
+            scroll: None,
             scroll_selection: false,
-            scroll_by: None,
+            items: Default::default(),
         }
     }
 }
@@ -42,10 +48,11 @@ impl<'a> ListS<'a> {
 
         Self {
             list: List::default(),
+            direction: Default::default(),
             block: Default::default(),
             items,
             scroll_selection: false,
-            scroll_by: None,
+            scroll: None,
         }
     }
 
@@ -64,8 +71,8 @@ impl<'a> ListS<'a> {
         self
     }
 
-    pub fn scroll_by(mut self, step: usize) -> Self {
-        self.scroll_by = Some(step);
+    pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.scroll = Some(scroll.override_vertical());
         self
     }
 
@@ -80,6 +87,7 @@ impl<'a> ListS<'a> {
     }
 
     pub fn direction(mut self, direction: ListDirection) -> Self {
+        self.direction = direction;
         self.list = self.list.direction(direction);
         self
     }
@@ -127,80 +135,76 @@ where
     }
 }
 
-impl<'a, State> ScrollingWidget<State> for ListS<'a> {
-    fn need_scroll(&self, _area: Rect, _uistate: &mut State) -> (bool, bool) {
-        // todo: decide scrolling
-        (false, true)
-    }
-}
-
-impl<'a> Widget for ListS<'a> {
-    fn render(self, area: Rect, buf: &mut Buffer)
-    where
-        Self: Sized,
-    {
-        StatefulWidget::render(self, area, buf, &mut ListSState::default());
-    }
-}
-
 impl<'a> StatefulWidget for ListS<'a> {
     type State = ListSState;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.scroll_selection = self.scroll_selection;
-        state.v_len = self.len();
+        state.len = self.len();
 
-        state.list_area = self.block.inner_if_some(area);
+        let scroll_area;
+        (_, scroll_area, state.inner) =
+            layout_scroll(area, self.block.as_ref(), None, self.scroll.as_ref());
 
         // area for each item
         state.item_areas.clear();
-        let mut item_area = Rect::new(
-            state.list_area.x,
-            state.list_area.y,
-            state.list_area.width,
-            1,
-        );
-        for item in self.items.iter().skip(state.offset()) {
-            item_area.height = item.height() as u16;
+        if self.direction == BottomToTop {
+            let mut item_area = Rect::new(
+                state.inner.x,
+                (state.inner.y + state.inner.height).saturating_sub(1),
+                state.inner.width,
+                1,
+            );
+            for item in self.items.iter().skip(state.offset()) {
+                item_area.height = item.height() as u16;
+                state.item_areas.push(item_area);
 
-            state.item_areas.push(item_area);
+                item_area.y = item_area.y.saturating_sub(item_area.height);
+                if item_area.y < state.inner.y {
+                    break;
+                }
+            }
+        } else {
+            let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
+            for item in self.items.iter().skip(state.offset()) {
+                item_area.height = item.height() as u16;
+                state.item_areas.push(item_area);
 
-            item_area.y += item_area.height;
-            if item_area.y >= state.list_area.y + state.list_area.height {
-                break;
+                item_area.y += item_area.height;
+                if item_area.y >= state.inner.y + state.inner.height {
+                    break;
+                }
             }
         }
-        state.v_page_len = state.item_areas.len();
-        state.v_scroll_by = if let Some(scroll_by) = self.scroll_by {
-            scroll_by
-        } else {
-            max(state.v_page_len / 10, 1)
-        };
+        state.scroll.page_len = state.item_areas.len();
 
         // v_max_offset
-
         if self.scroll_selection {
-            state.v_max_offset = state.v_len.saturating_sub(1);
+            state.scroll.max_offset = state.len.saturating_sub(1);
         } else {
             let mut n = 0;
             let mut height = 0;
             for item in self.items.iter().rev() {
                 height += item.height();
-                if height > state.list_area.height as usize {
+                if height > state.inner.height as usize {
                     break;
                 }
                 n += 1;
             }
-            state.v_max_offset = state.v_len.saturating_sub(n);
+            state.scroll.max_offset = state.len.saturating_sub(n);
         }
 
-        if let Some(block) = self.block {
-            self.list = self.list.block(block);
+        self.block.render_ref(area, buf);
+        if let Some(scroll) = &self.scroll {
+            scroll.render_ref(scroll_area, buf, &mut state.scroll);
         }
-        self.list = self.list.items(self.items);
-
-        StatefulWidget::render(self.list, area, buf, &mut state.widget);
+        StatefulWidget::render(
+            self.list.clone().items(self.items),
+            state.inner,
+            buf,
+            &mut state.widget,
+        );
     }
 }
 
@@ -208,17 +212,15 @@ impl<'a> StatefulWidget for ListS<'a> {
 pub struct ListSState {
     pub widget: ListState,
 
+    pub len: usize,
     pub scroll_selection: bool,
-    pub v_scroll_by: usize,
-    pub v_len: usize,
-    pub v_max_offset: usize,
-    pub v_page_len: usize,
+    pub scroll: ScrollState,
 
     pub area: Rect,
-    pub list_area: Rect,
+    pub inner: Rect,
     pub item_areas: Vec<Rect>,
 
-    pub mouse_drag: bool,
+    pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -228,34 +230,20 @@ impl Default for ListSState {
         Self {
             widget: Default::default(),
             scroll_selection: false,
-            v_scroll_by: 0,
-            v_len: 0,
-            v_max_offset: 0,
-            v_page_len: 0,
+            len: 0,
+            scroll: Default::default(),
             area: Default::default(),
-            list_area: Default::default(),
+            inner: Default::default(),
             item_areas: Default::default(),
-            mouse_drag: false,
+            mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
 }
 
 impl ListSState {
-    pub fn offset(&self) -> usize {
-        self.widget.offset()
-    }
-
-    pub fn offset_mut(&mut self) -> &mut usize {
-        self.widget.offset_mut()
-    }
-
     pub fn selected(&self) -> Option<usize> {
         self.widget.selected()
-    }
-
-    pub fn selected_mut(&mut self) -> &mut Option<usize> {
-        self.widget.selected_mut()
     }
 
     pub fn select(&mut self, index: Option<usize>) {
@@ -264,12 +252,12 @@ impl ListSState {
 
     pub fn select_next(&mut self, n: usize) {
         let idx = self.selected().unwrap_or(0);
-        *self.selected_mut() = Some(idx + n);
+        self.select(Some(idx + n));
     }
 
     pub fn select_prev(&mut self, n: usize) {
         let idx = self.selected().unwrap_or(0);
-        *self.selected_mut() = Some(idx.saturating_sub(n));
+        self.select(Some(idx.saturating_sub(n)));
     }
 
     /// Row at the given position.
@@ -280,7 +268,7 @@ impl ListSState {
     /// Row when dragging. Can go outside the area.
     pub fn row_at_drag(&self, pos: Position) -> usize {
         let offset = self.offset();
-        match rat_event::util::row_at_drag(self.list_area, &self.item_areas, pos.y) {
+        match rat_event::util::row_at_drag(self.inner, &self.item_areas, pos.y) {
             Ok(v) => offset + v,
             Err(v) if v <= 0 => offset.saturating_sub((-v) as usize),
             Err(v) => offset + self.item_areas.len() + v as usize,
@@ -290,86 +278,90 @@ impl ListSState {
     /// Scroll to selected.
     pub fn scroll_to_selected(&mut self) {
         if let Some(selected) = self.selected() {
-            if self.vertical_offset() + self.item_areas.len() <= selected {
-                self.set_vertical_offset(selected - self.item_areas.len() + 1);
+            if selected > self.offset() + self.item_areas.len() {
+                self.set_offset(selected - self.item_areas.len() + 1);
             }
-            if self.vertical_offset() > selected {
-                self.set_vertical_offset(selected);
+            if selected < self.offset() {
+                self.set_offset(selected);
             }
         }
     }
 }
 
-impl ScrollingState for ListSState {
+impl ListSState {
     #[inline]
-    fn vertical_max_offset(&self) -> usize {
-        self.v_max_offset
+    pub fn offset(&self) -> usize {
+        self.scroll.offset
     }
 
-    #[inline]
-    fn vertical_offset(&self) -> usize {
+    pub fn set_offset(&mut self, position: usize) -> bool {
+        self.scroll.set_offset(position)
+    }
+
+    pub fn scroll_to(&mut self, pos: usize) -> bool {
         if self.scroll_selection {
-            self.widget.selected().unwrap_or(0)
-        } else {
-            self.widget.offset()
-        }
-    }
+            let old_select = self.widget.selected();
 
-    #[inline]
-    fn vertical_page(&self) -> usize {
-        self.v_page_len
-    }
-
-    #[inline]
-    fn vertical_scroll(&self) -> usize {
-        self.v_scroll_by
-    }
-
-    #[inline]
-    fn horizontal_max_offset(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn horizontal_offset(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn horizontal_page(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn horizontal_scroll(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn set_vertical_offset(&mut self, position: usize) -> bool {
-        if self.scroll_selection {
-            let old_select = min(
-                self.widget.selected().unwrap_or(0),
-                self.v_len.saturating_sub(1),
-            );
-            let new_select = min(position, self.v_len.saturating_sub(1));
-
+            let new_select = pos;
             *self.widget.selected_mut() = Some(new_select);
+            self.scroll_to_selected();
 
-            new_select != old_select
+            self.widget.selected() != old_select
         } else {
-            let old_offset = min(self.widget.offset(), self.v_len.saturating_sub(1));
-            let new_offset = min(position, self.v_len.saturating_sub(1));
+            let old_offset = self.scroll.offset;
 
+            let new_offset = pos;
+            self.scroll.set_offset(new_offset);
             *self.widget.offset_mut() = new_offset;
 
-            new_offset != old_offset
+            // For scrolling purposes the selection of ratatui::Table is never None,
+            // instead it defaults out to 0 which prohibits any scrolling attempt.
+            // Losing the selection here is a bit inconvenient, but this is more of a demo
+            // anyway.
+            if let Some(selected) = self.widget.selected() {
+                if selected < new_offset {
+                    *self.widget.selected_mut() = Some(new_offset);
+                } else if selected >= new_offset + self.scroll.page_len {
+                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len);
+                }
+            }
+
+            self.scroll.offset() != old_offset
         }
     }
 
-    #[inline]
-    fn set_horizontal_offset(&mut self, _offset: usize) -> bool {
-        false
+    pub fn scroll(&mut self, n: isize) -> bool {
+        if self.scroll_selection {
+            let old_select = self.widget.selected();
+
+            let new_select = min(
+                max(self.widget.selected().unwrap_or(0) as isize + n, 0),
+                self.len.saturating_sub(1) as isize,
+            ) as usize;
+            *self.widget.selected_mut() = Some(new_select);
+            self.scroll_to_selected();
+
+            self.widget.selected() != old_select
+        } else {
+            let old_offset = self.scroll.offset;
+
+            let new_offset = self.scroll.clamp_offset(self.scroll.offset as isize + n);
+            self.scroll.set_offset(new_offset);
+            *self.widget.offset_mut() = new_offset;
+            // For scrolling purposes the selection of ratatui::Table is never None,
+            // instead it defaults out to 0 which prohibits any scrolling attempt.
+            // Losing the selection here is a bit inconvenient, but this is more of a demo
+            // anyway.
+            if let Some(selected) = self.widget.selected() {
+                if selected < new_offset {
+                    *self.widget.selected_mut() = Some(new_offset);
+                } else if selected >= new_offset + self.scroll.page_len {
+                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len);
+                }
+            }
+
+            self.scroll.offset() != old_offset
+        }
     }
 }
 
@@ -387,22 +379,22 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListSState {
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                *self.selected_mut() = Some(self.v_len.saturating_sub(1));
+                self.select(Some(self.len.saturating_sub(1)));
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                *self.selected_mut() = Some(0);
+                self.select(Some(0));
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press PageUp) => {
-                self.select_prev(self.vertical_page() / 2);
+                self.select_prev(self.scroll.page_len() / 2);
                 self.scroll_to_selected();
                 Outcome::Changed
             }
             ct_event!(keycode press PageDown) => {
-                self.select_next(self.vertical_page() / 2);
+                self.select_next(self.scroll.page_len() / 2);
                 self.scroll_to_selected();
                 Outcome::Changed
             }
@@ -418,28 +410,11 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListSState {
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        let r = match event {
-            ct_event!(scroll down for column,row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_down(self.vertical_scroll());
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(scroll up for column, row) => {
-                if self.area.contains(Position::new(*column, *row)) {
-                    self.scroll_up(self.vertical_scroll());
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
+        flow!(match event {
             ct_event!(mouse down Left for column, row) => {
                 let pos = Position::new(*column, *row);
-                if self.area.contains(pos) {
+                if self.inner.contains(pos) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.mouse_drag = true;
                         self.select(Some(new_row));
                         Outcome::Changed
                     } else {
@@ -449,25 +424,27 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
                     Outcome::NotUsed
                 }
             }
-            ct_event!(mouse drag Left for column, row) => {
-                if self.mouse_drag {
-                    let pos = Position::new(*column, *row);
-                    let new_row = self.row_at_drag(pos);
-                    self.select(Some(new_row));
-                    self.scroll_to_selected();
-                    Outcome::Changed
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(mouse moved) => {
-                self.mouse_drag = false;
-                Outcome::NotUsed
-            }
-
             _ => Outcome::NotUsed,
-        };
+        });
 
-        r
+        flow!(match self.scroll.handle(event, MouseOnly) {
+            ScrollOutcome::Offset(v) => {
+                self.scroll_to(v);
+                Outcome::Changed
+            }
+            r => r.into(),
+        });
+
+        flow!(
+            match ScrollArea(self.inner, None, Some(&self.scroll)).handle(event, MouseOnly) {
+                ScrollOutcome::Delta(_, v) => {
+                    self.scroll(v);
+                    Outcome::Changed
+                }
+                r => r.into(),
+            }
+        );
+
+        Outcome::NotUsed
     }
 }

@@ -239,11 +239,11 @@ fn handle_event<Data, State>(
 }
 
 pub fn setup_logging() -> Result<(), anyhow::Error> {
-    _ = fs::remove_file("../../../log.log");
+    _ = fs::remove_file("log.log");
     fern::Dispatch::new()
         .format(|out, message, _record| out.finish(format_args!("{}", message)))
         .level(log::LevelFilter::Debug)
-        .chain(fern::log_file("../../../log.log")?)
+        .chain(fern::log_file("log.log")?)
         .apply()?;
     Ok(())
 }
