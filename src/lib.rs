@@ -92,8 +92,8 @@ pub mod popup_menu {
 /// Scrolled widget and viewports.
 pub mod scrolled {
     pub use rat_scrolled::{
-        HScrollPosition, Inner, ScrollbarPolicy, Scrolled, ScrolledState, ScrolledStyle,
-        ScrollingState, ScrollingWidget, VScrollPosition, View, ViewState, Viewport, ViewportState,
+        layout_scroll, layout_scroll_inner, view, viewport, Scroll, ScrollArea, ScrollState,
+        ScrollbarPolicy, ScrolledStyle,
     };
 }
 

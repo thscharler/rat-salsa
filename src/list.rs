@@ -6,13 +6,12 @@ use crate::_private::NonExhaustive;
 use crate::event::util::{row_at_clicked, row_at_drag, MouseFlags};
 use crate::list::selection::{RowSelection, RowSetSelection};
 use rat_focus::{FocusFlag, HasFocusFlag};
-use rat_scrolled::{ScrollingState, ScrollingWidget};
+use rat_scrolled::{layout_scroll, Scroll, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
-use ratatui::prelude::{BlockExt, StatefulWidget};
+use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, ListDirection, ListItem};
-use std::cmp::min;
+use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidgetRef, WidgetRef};
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
@@ -28,6 +27,8 @@ pub trait ListSelection {
 #[derive(Debug, Default, Clone)]
 pub struct RList<'a, Selection> {
     block: Option<Block<'a>>,
+    scroll: Option<Scroll<'a>>,
+
     items: Vec<ListItem<'a>>,
 
     style: Style,
@@ -54,13 +55,8 @@ pub struct ListStyle {
 pub struct RListState<Selection> {
     /// Length in items.
     pub len: usize,
-
     /// Offset
-    pub v_offset: usize,
-    /// Max offset for full page.
-    pub v_max_offset: usize,
-    /// Page length
-    pub v_page_len: usize,
+    pub scroll: ScrollState,
 
     /// Total area
     pub area: Rect,
@@ -98,7 +94,8 @@ impl<'a, Selection> RList<'a, Selection> {
         let items = items.into_iter().map(|v| v.into()).collect();
 
         Self {
-            block: Default::default(),
+            block: None,
+            scroll: None,
             items,
             style: Default::default(),
             select_style: Default::default(),
@@ -176,22 +173,22 @@ where
     }
 }
 
-impl<'a, State, Selection: ListSelection> ScrollingWidget<State> for RList<'a, Selection> {
-    fn need_scroll(&self, area: Rect, _state: &mut State) -> (bool, bool) {
-        let vertical = 'f: {
-            let mut height = 0;
-            for item in self.items.iter() {
-                height += item.height() as u16;
-                if height >= area.height {
-                    break 'f true;
-                }
-            }
-            false
-        };
-
-        (false, vertical)
-    }
-}
+// impl<'a, State, Selection: ListSelection> ScrollingWidget<State> for RList<'a, Selection> {
+//     fn need_scroll(&self, area: Rect, _state: &mut State) -> (bool, bool) {
+//         let vertical = 'f: {
+//             let mut height = 0;
+//             for item in self.items.iter() {
+//                 height += item.height() as u16;
+//                 if height >= area.height {
+//                     break 'f true;
+//                 }
+//             }
+//             false
+//         };
+//
+//         (false, vertical)
+//     }
+// }
 
 impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
     type State = RListState<Selection>;
@@ -200,7 +197,9 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
         state.area = area;
         state.len = self.len();
 
-        state.inner = self.block.inner_if_some(area);
+        let (_, scroll_area, inner_area) =
+            layout_scroll(area, self.block.as_ref(), None, self.scroll.as_ref());
+        state.inner = inner_area;
 
         // area for each item
         state.item_areas.clear();
@@ -215,7 +214,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
                 break;
             }
         }
-        state.v_page_len = state.item_areas.len();
+        state.scroll.page_len = state.item_areas.len();
 
         // max_v_offset
         let mut n = 0;
@@ -227,13 +226,18 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
             }
             n += 1;
         }
-        state.v_max_offset = state.len.saturating_sub(n);
+        state.scroll.max_offset = state.len.saturating_sub(n);
 
         let (style, select_style) = if state.is_focused() {
             (self.style, self.focus_style)
         } else {
             (self.style, self.select_style)
         };
+
+        self.block.render_ref(area, buf);
+        if let Some(scroll) = self.scroll.as_ref() {
+            scroll.render_ref(scroll_area, buf, &mut state.scroll);
+        }
 
         // rendering
         self.items = self
@@ -249,15 +253,14 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
             })
             .collect();
 
-        let mut list = ratatui::widgets::List::default()
+        let mut list_state =
+            ratatui::widgets::ListState::default().with_offset(state.scroll.offset);
+
+        ratatui::widgets::List::default()
             .items(self.items)
             .style(self.style)
-            .direction(self.direction);
-        if let Some(block) = self.block {
-            list = list.block(block);
-        }
-        let mut list_state = ratatui::widgets::ListState::default().with_offset(state.v_offset);
-        list.render(area, buf, &mut list_state);
+            .direction(self.direction)
+            .render(area, buf, &mut list_state);
     }
 }
 
@@ -273,79 +276,53 @@ impl<Selection> HasFocusFlag for RListState<Selection> {
     }
 }
 
-impl<Selection> ScrollingState for RListState<Selection> {
+impl<Selection> RListState<Selection> {
     #[inline]
-    fn vertical_max_offset(&self) -> usize {
-        self.v_max_offset
+    pub fn max_offset(&self) -> usize {
+        self.scroll.max_offset
     }
 
     #[inline]
-    fn vertical_offset(&self) -> usize {
-        self.v_offset
+    pub fn offset(&self) -> usize {
+        self.scroll.offset
     }
 
     #[inline]
-    fn vertical_page(&self) -> usize {
-        self.v_page_len
+    pub fn page_len(&self) -> usize {
+        self.scroll.page_len
+    }
+
+    pub fn scroll_by(&self) -> usize {
+        self.scroll.scroll_by()
     }
 
     #[inline]
-    fn horizontal_max_offset(&self) -> usize {
-        0
+    pub fn set_offset(&mut self, offset: usize) -> bool {
+        self.scroll.set_offset(offset)
     }
 
-    #[inline]
-    fn horizontal_offset(&self) -> usize {
-        0
+    pub fn scroll_up(&mut self, delta: usize) -> bool {
+        self.scroll.change_offset(-(delta as isize))
     }
 
-    #[inline]
-    fn horizontal_page(&self) -> usize {
-        0
-    }
-
-    #[inline]
-    fn set_vertical_offset(&mut self, offset: usize) -> bool {
-        let old_offset = self.v_offset;
-        self.v_offset = min(offset, self.len.saturating_sub(1));
-        old_offset != self.v_offset
-    }
-
-    #[inline]
-    fn set_horizontal_offset(&mut self, _offset: usize) -> bool {
-        false
+    pub fn scroll_down(&mut self, delta: usize) -> bool {
+        self.scroll.change_offset(delta as isize)
     }
 }
 
 impl<Selection: ListSelection> RListState<Selection> {
     #[inline]
-    pub fn with_offset(mut self, offset: usize) -> Self {
-        self.v_offset = offset;
-        self
-    }
-
-    #[inline]
-    pub fn offset(&self) -> usize {
-        self.v_offset
-    }
-
-    #[inline]
-    pub fn offset_mut(&mut self) -> &mut usize {
-        &mut self.v_offset
-    }
-
-    #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        row_at_clicked(&self.item_areas, pos.y).map(|v| self.v_offset + v)
+        row_at_clicked(&self.item_areas, pos.y).map(|v| self.scroll.offset + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
         match row_at_drag(self.inner, &self.item_areas, pos.y) {
-            Ok(v) => self.v_offset + v,
-            Err(v) if v <= 0 => self.v_offset.saturating_sub((-v) as usize),
-            Err(v) => self.v_offset + self.item_areas.len() + v as usize,
+            Ok(v) => self.scroll.offset + v,
+            Err(v) if v <= 0 => self.scroll.offset.saturating_sub((-v) as usize),
+            Err(v) => self.scroll.offset + self.item_areas.len() + v as usize,
         }
     }
 
@@ -353,11 +330,11 @@ impl<Selection: ListSelection> RListState<Selection> {
     #[inline]
     pub fn scroll_to_selected(&mut self) {
         if let Some(selected) = self.selection.lead_selection() {
-            if self.vertical_offset() + self.item_areas.len() <= selected {
-                self.set_vertical_offset(selected - self.item_areas.len() + 1);
+            if self.offset() + self.item_areas.len() <= selected {
+                self.set_offset(selected - self.item_areas.len() + 1);
             }
-            if self.vertical_offset() > selected {
-                self.set_vertical_offset(selected);
+            if self.offset() > selected {
+                self.set_offset(selected);
             }
         }
     }
@@ -452,7 +429,6 @@ pub mod selection {
     use crossterm::event::KeyModifiers;
     use rat_focus::HasFocusFlag;
     use rat_ftable::TableSelection;
-    use rat_scrolled::ScrollingState;
     use ratatui::layout::Position;
     use std::mem;
 
@@ -529,14 +505,14 @@ pub mod selection {
                         r
                     }
                     ct_event!(keycode press PageUp) => {
-                        let r = self.selection.prev(self.vertical_page() / 2).into();
+                        let r = self.selection.prev(self.page_len() / 2).into();
                         self.scroll_to_selected();
                         r
                     }
                     ct_event!(keycode press PageDown) => {
                         let r = self
                             .selection
-                            .next(self.vertical_page(), self.len.saturating_sub(1))
+                            .next(self.page_len(), self.len.saturating_sub(1))
                             .into();
                         self.scroll_to_selected();
                         r
@@ -574,7 +550,7 @@ pub mod selection {
                             self.scroll_to_selected();
                             r.into()
                         } else {
-                            self.scroll_down(self.vertical_page() / 10).into()
+                            self.scroll_down(self.page_len() / 10).into()
                         }
                     } else {
                         Outcome::NotUsed
@@ -587,7 +563,7 @@ pub mod selection {
                             self.scroll_to_selected();
                             r.into()
                         } else {
-                            self.scroll_up(self.vertical_page() / 10).into()
+                            self.scroll_up(self.page_len() / 10).into()
                         }
                     } else {
                         Outcome::NotUsed
@@ -701,19 +677,19 @@ pub mod selection {
                     }
 
                     ct_event!(keycode press PageUp) => {
-                        let r = self.selection.prev(self.v_page_len, false).into();
+                        let r = self.selection.prev(self.page_len(), false).into();
                         self.scroll_to_selected();
                         r
                     }
                     ct_event!(keycode press SHIFT-PageUp) => {
-                        let r = self.selection.prev(self.v_page_len, true).into();
+                        let r = self.selection.prev(self.page_len(), true).into();
                         self.scroll_to_selected();
                         r
                     }
                     ct_event!(keycode press PageDown) => {
                         let r = self
                             .selection
-                            .next(self.v_page_len, self.len.saturating_sub(1), false)
+                            .next(self.page_len(), self.len.saturating_sub(1), false)
                             .into();
                         self.scroll_to_selected();
                         r
@@ -721,7 +697,7 @@ pub mod selection {
                     ct_event!(keycode press SHIFT-PageDown) => {
                         let r = self
                             .selection
-                            .next(self.v_page_len, self.len.saturating_sub(1), true)
+                            .next(self.page_len(), self.len.saturating_sub(1), true)
                             .into();
                         self.scroll_to_selected();
                         r
@@ -755,14 +731,14 @@ pub mod selection {
                 }
                 ct_event!(scroll up for column, row) => {
                     if self.area.contains(Position::new(*column, *row)) {
-                        self.scroll_up(self.vertical_scroll()).into()
+                        self.scroll_up(self.scroll_by()).into()
                     } else {
                         Outcome::NotUsed
                     }
                 }
                 ct_event!(scroll down for column, row) => {
                     if self.area.contains(Position::new(*column, *row)) {
-                        self.scroll_down(self.vertical_scroll()).into()
+                        self.scroll_down(self.scroll_by()).into()
                     } else {
                         Outcome::NotUsed
                     }
