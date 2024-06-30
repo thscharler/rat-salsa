@@ -1,8 +1,8 @@
 use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
-use rat_scrolled::ScrollingState;
+use rat_scrolled::event::ScrollOutcome;
 use std::cmp::min;
 
 /// Allows selecting a single row of the table.
@@ -128,7 +128,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 ct_event!(keycode press PageUp) => {
                     let r = self
                         .selection
-                        .prev(self.vertical_page().saturating_sub(1))
+                        .prev(self.vertical_page_len().saturating_sub(1))
                         .into();
                     self.scroll_to_selected();
                     r
@@ -137,7 +137,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                     let r = self
                         .selection
                         .next(
-                            self.vertical_page().saturating_sub(1),
+                            self.vertical_page_len().saturating_sub(1),
                             self.rows.saturating_sub(1),
                         )
                         .into();
@@ -146,9 +146,9 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 }
                 ct_event!(keycode press Right) => self.scroll_right(1).into(),
                 ct_event!(keycode press Left) => self.scroll_left(1).into(),
-                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                    self.set_horizontal_offset(self.max_col_offset).into()
-                }
+                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => self
+                    .set_horizontal_offset(self.horizontal_max_offset())
+                    .into(),
                 ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
                     self.set_horizontal_offset(0).into()
                 }
@@ -168,7 +168,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<RowSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        match event {
+        flow!(match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
                 let pos = (m.column, m.row);
                 let new_row = self.row_at_drag(pos);
@@ -180,41 +180,40 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 r
             }
             ct_event!(scroll down for column,row) => {
-                if self.area.contains((*column, *row).into()) {
+                if self.table_area.contains((*column, *row).into()) {
                     if self.selection.scroll_selected {
                         let r = self.selection.next(1, self.rows.saturating_sub(1));
                         self.scroll_to_selected();
                         r.into()
                     } else {
-                        self.scroll_down(self.table_area.height as usize / 10)
-                            .into()
+                        self.scroll_down(self.vertical_scroll_by()).into()
                     }
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll up for column, row) => {
-                if self.area.contains((*column, *row).into()) {
+                if self.table_area.contains((*column, *row).into()) {
                     if self.selection.scroll_selected {
                         let r = self.selection.prev(1);
                         self.scroll_to_selected();
                         r.into()
                     } else {
-                        self.scroll_up(self.table_area.height as usize / 10).into()
+                        self.scroll_up(self.vertical_scroll_by()).into()
                     }
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT down for column,row) => {
-                if self.area.contains((*column, *row).into()) {
+                if self.table_area.contains((*column, *row).into()) {
                     self.scroll_right(1).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll ALT up for column, row) => {
-                if self.area.contains((*column, *row).into()) {
+                if self.table_area.contains((*column, *row).into()) {
                     self.scroll_left(1).into()
                 } else {
                     Outcome::NotUsed
@@ -236,7 +235,22 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             }
 
             _ => Outcome::NotUsed,
-        }
+        });
+
+        flow!(match self.vscroll.handle(event, MouseOnly) {
+            ScrollOutcome::Offset(v) => {
+                Outcome::from(self.scroll_to_row(v))
+            }
+            r => r.into(),
+        });
+        flow!(match self.hscroll.handle(event, MouseOnly) {
+            ScrollOutcome::Offset(v) => {
+                Outcome::from(self.scroll_to_col(v))
+            }
+            r => r.into(),
+        });
+
+        Outcome::NotUsed
     }
 }
 

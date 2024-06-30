@@ -3,7 +3,6 @@ use crate::{FTableState, TableSelection};
 use crossterm::event::KeyModifiers;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
-use rat_scrolled::ScrollingState;
 use std::cmp::min;
 use std::collections::HashSet;
 use std::mem;
@@ -257,7 +256,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 ct_event!(keycode press PageUp) => {
                     let r = self
                         .selection
-                        .prev(self.vertical_page().saturating_sub(1), false)
+                        .prev(self.vertical_page_len().saturating_sub(1), false)
                         .into();
                     self.scroll_to_selected();
                     r
@@ -265,7 +264,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                 ct_event!(keycode press SHIFT-PageUp) => {
                     let r = self
                         .selection
-                        .prev(self.vertical_page().saturating_sub(1), true)
+                        .prev(self.vertical_page_len().saturating_sub(1), true)
                         .into();
                     self.scroll_to_selected();
                     r
@@ -274,7 +273,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                     let r = self
                         .selection
                         .next(
-                            self.vertical_page().saturating_sub(1),
+                            self.vertical_page_len().saturating_sub(1),
                             self.rows.saturating_sub(1),
                             false,
                         )
@@ -286,7 +285,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
                     let r = self
                         .selection
                         .next(
-                            self.vertical_page().saturating_sub(1),
+                            self.vertical_page_len().saturating_sub(1),
                             self.rows.saturating_sub(1),
                             true,
                         )
@@ -325,14 +324,14 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains((*column, *row).into()) {
-                    self.scroll_up(min(self.row_page_len / 10, 1)).into()
+                    self.scroll_up(self.vertical_scroll_by()).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll down for column, row) => {
                 if self.area.contains((*column, *row).into()) {
-                    self.scroll_down(min(self.row_page_len / 10, 1)).into()
+                    self.scroll_down(self.vertical_scroll_by()).into()
                 } else {
                     Outcome::NotUsed
                 }

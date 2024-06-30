@@ -2,7 +2,6 @@ use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
-use rat_scrolled::ScrollingState;
 use std::cmp::min;
 
 /// Select a single cell in the table.
@@ -175,7 +174,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
                 ct_event!(keycode press PageUp) => {
                     let r = self
                         .selection
-                        .prev_row(self.vertical_page().saturating_sub(1))
+                        .prev_row(self.vertical_page_len().saturating_sub(1))
                         .into();
                     self.scroll_to_selected();
                     r
@@ -184,7 +183,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
                     let r = self
                         .selection
                         .next_row(
-                            self.vertical_page().saturating_sub(1),
+                            self.vertical_page_len().saturating_sub(1),
                             self.rows.saturating_sub(1),
                         )
                         .into();
@@ -248,15 +247,14 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ce
             }
             ct_event!(scroll down for column,row) => {
                 if self.area.contains((*column, *row).into()) {
-                    self.scroll_down(self.table_area.height as usize / 10)
-                        .into()
+                    self.scroll_down(self.vertical_scroll_by()).into()
                 } else {
                     Outcome::NotUsed
                 }
             }
             ct_event!(scroll up for column, row) => {
                 if self.area.contains((*column, *row).into()) {
-                    self.scroll_up(self.table_area.height as usize / 10).into()
+                    self.scroll_up(self.vertical_scroll_by()).into()
                 } else {
                     Outcome::NotUsed
                 }

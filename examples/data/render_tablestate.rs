@@ -52,17 +52,17 @@ pub fn render_tablestate<Selection: Debug>(
         .render(l.widget(), buf);
 
     "row_offset".render(l.label(), buf);
-    format!("{}", state.row_offset)
+    format!("{}", state.vscroll.offset)
         .to_string()
         .render(l.widget(), buf);
 
     "max_row_offset".render(l.label(), buf);
-    format!("{}", state.max_row_offset)
+    format!("{}", state.vscroll.max_offset)
         .to_string()
         .render(l.widget(), buf);
 
     "row_page_len".render(l.label(), buf);
-    format!("{}", state.row_page_len)
+    format!("{}", state.vscroll.page_len)
         .to_string()
         .render(l.widget(), buf);
 
@@ -72,17 +72,17 @@ pub fn render_tablestate<Selection: Debug>(
         .render(l.widget(), buf);
 
     "col_offset".render(l.label(), buf);
-    format!("{}", state.col_offset)
+    format!("{}", state.hscroll.offset)
         .to_string()
         .render(l.widget(), buf);
 
     "max_col_offset".render(l.label(), buf);
-    format!("{}", state.max_col_offset)
+    format!("{}", state.hscroll.max_offset)
         .to_string()
         .render(l.widget(), buf);
 
     "col_page_len".render(l.label(), buf);
-    format!("{}", state.col_page_len)
+    format!("{}", state.hscroll.page_len)
         .to_string()
         .render(l.widget(), buf);
 

@@ -256,7 +256,7 @@ fn handle_table(
                     break 'f Outcome::Changed;
                 }
                 Some(6) => {
-                    state.table.row_offset = 99900; // 1_000_000;
+                    state.table.vscroll.offset = 99900; // 1_000_000;
                     break 'f Outcome::Changed;
                 }
                 _ => {
