@@ -9,7 +9,7 @@ use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
-use rat_widget::event::{ct_event, flow_ok, FocusKeys, HandleEvent};
+use rat_widget::event::{ct_event, flow_ok, Dialog, FocusKeys, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
@@ -158,11 +158,7 @@ impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
 
         flow_ok!({
             if ctx.g.error_dlg.borrow().active {
-                ctx.g
-                    .error_dlg
-                    .borrow_mut()
-                    .handle(&event, FocusKeys)
-                    .into()
+                ctx.g.error_dlg.borrow_mut().handle(&event, Dialog).into()
             } else {
                 Control::Continue
             }

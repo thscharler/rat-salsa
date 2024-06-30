@@ -13,8 +13,8 @@ use rat_theme::dark_theme::DarkTheme;
 use rat_theme::dark_themes;
 use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{
-    ct_event, flow_ok, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome, Popup,
-    ReadOnly, ScrollOutcome,
+    ct_event, flow_ok, Dialog, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome,
+    Popup, ReadOnly, ScrollOutcome,
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
@@ -22,7 +22,7 @@ use rat_widget::menubar::{MenuBar, MenuBarState, MenuPopup, MenuStructure};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
-use rat_widget::scrolled::{Inner, Scrolled, ScrolledState};
+use rat_widget::scrolled::Scroll;
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{FTable, FTableContext, FTableState, TableData};
@@ -127,9 +127,9 @@ pub struct FilesState {
 
     pub cancel_show: Option<Cancel>,
 
-    pub w_dirs: ScrolledState<FTableState<RowSelection>>,
-    pub w_files: ScrolledState<FTableState<RowSelection>>,
-    pub w_data: ScrolledState<TextAreaState>,
+    pub w_dirs: FTableState<RowSelection>,
+    pub w_files: FTableState<RowSelection>,
+    pub w_data: TextAreaState,
 
     pub w_menu: MenuBarState,
 }
@@ -313,32 +313,28 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .style(ctx.g.theme.bluegreen(0))
             .render(r[0], buf);
 
-        Scrolled::new(
-            FTable::new()
-                .data(DirData {
-                    dir: Some(state.main_dir.clone()),
-                    dirs: &state.sub_dirs,
-                })
-                .styles(ctx.g.theme.table_style()),
-        )
-        .styles(ctx.g.theme.scrolled_style())
-        .render(c[0], buf, &mut state.w_dirs);
+        FTable::new()
+            .data(DirData {
+                dir: Some(state.main_dir.clone()),
+                dirs: &state.sub_dirs,
+            })
+            .styles(ctx.g.theme.table_style())
+            .vscroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
+            .render(c[0], buf, &mut state.w_dirs);
 
-        Scrolled::new(
-            FTable::new()
-                .data(FileData {
-                    dir: state.current_dir(),
-                    files: &state.files,
-                    err: &state.err,
-                    dir_style: ctx.g.theme.gray(0),
-                    err_style: ctx.g.theme.red(1),
-                })
-                .styles(ctx.g.theme.table_style()),
-        )
-        .styles(ctx.g.theme.scrolled_style())
-        .render(c[1], buf, &mut state.w_files);
+        FTable::new()
+            .data(FileData {
+                dir: state.current_dir(),
+                files: &state.files,
+                err: &state.err,
+                dir_style: ctx.g.theme.gray(0),
+                err_style: ctx.g.theme.red(1),
+            })
+            .styles(ctx.g.theme.table_style())
+            .vscroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
+            .render(c[1], buf, &mut state.w_files);
 
-        let title = if state.w_data.widget.is_focused() {
+        let title = if state.w_data.is_focused() {
             Title::from(Line::from("Content").style(ctx.g.theme.focus()))
         } else {
             Title::from("Content")
@@ -356,8 +352,9 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
 
         let mut content_style = ctx.g.theme.textarea_style();
         content_style.style = ctx.g.theme.black(2);
-        Scrolled::new(TextArea::new().styles(content_style))
-            .styles(ctx.g.theme.scrolled_style())
+        TextArea::new()
+            .styles(content_style)
+            .scroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
             .block(
                 Block::bordered()
                     .borders(Borders::TOP | Borders::BOTTOM | Borders::RIGHT)
@@ -365,7 +362,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                     .title(title),
             )
             .render(c[2], buf, &mut state.w_data);
-        ctx.cursor = state.w_data.widget.screen_cursor();
+        ctx.cursor = state.w_data.screen_cursor();
 
         MenuBar::new()
             .styles(ctx.g.theme.menu_style())
@@ -416,9 +413,9 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         };
         ctx.queue(Control::Action(ReadDir(Full, self.main_dir.clone(), None)));
 
-        self.w_dirs.widget.set_scroll_selection(true);
-        self.w_dirs.widget.focus().set(true);
-        self.w_files.widget.set_scroll_selection(true);
+        self.w_dirs.set_scroll_selection(true);
+        self.w_dirs.focus().set(true);
+        self.w_files.set_scroll_selection(true);
 
         Ok(())
     }
@@ -448,11 +445,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
 
         flow_ok!({
             if ctx.g.error_dlg.borrow().active {
-                ctx.g
-                    .error_dlg
-                    .borrow_mut()
-                    .handle(&event, FocusKeys)
-                    .into()
+                ctx.g.error_dlg.borrow_mut().handle(&event, Dialog).into()
             } else {
                 Control::Continue
             }
@@ -484,7 +477,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         });
 
         flow_ok!(match_focus!(
-            self.w_files.widget => {
+            self.w_files => {
                 match event {
                     ct_event!(keycode press Enter) => {
                         self.follow_file(ctx)?
@@ -492,7 +485,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
                     _=> Control::Continue
                 }
             },
-            self.w_dirs.widget => {
+            self.w_dirs => {
                 match event {
                     ct_event!(keycode press Enter) => {
                         self.follow_dir(ctx)?
@@ -504,32 +497,32 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
                 Control::Continue
             }
         ));
-        flow_ok!(match self.w_files.widget.handle(event, DoubleClick) {
+        flow_ok!(match self.w_files.handle(event, DoubleClick) {
             DoubleClickOutcome::ClickClick(_, _) => {
                 self.follow_file(ctx)?
             }
             r => r.into(),
         });
-        flow_ok!(match self.w_dirs.widget.handle(event, DoubleClick) {
+        flow_ok!(match self.w_dirs.handle(event, DoubleClick) {
             DoubleClickOutcome::ClickClick(_, _) => {
                 self.follow_dir(ctx)?
             }
             r => r.into(),
         });
         flow_ok!(match self.w_files.handle(event, FocusKeys) {
-            ScrollOutcome::Inner(Outcome::Changed) => {
+            Outcome::Changed => {
                 debug!("w_files changed -> show_file");
                 self.show_file(ctx)?
             }
             r => r.into(),
         });
         flow_ok!(match self.w_dirs.handle(event, FocusKeys) {
-            ScrollOutcome::Inner(Outcome::Changed) => {
+            Outcome::Changed => {
                 self.show_dir()?
             }
             v => Control::from(v),
         });
-        flow_ok!(self.w_data.handle(event, Inner(ReadOnly)));
+        flow_ok!(self.w_data.handle(event, ReadOnly));
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         ctx.g
@@ -583,7 +576,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
 
 impl FilesState {
     fn show_dir(&mut self) -> Result<Control<FilesAction>, Error> {
-        if let Some(n) = self.w_dirs.widget.selected() {
+        if let Some(n) = self.w_dirs.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from(".") {
                     Ok(Control::Action(ReadDir(
@@ -624,7 +617,7 @@ impl FilesState {
         let text = mem::take(text);
 
         if Some(path) == sel {
-            self.w_data.widget.set_value(text);
+            self.w_data.set_value(text);
             Ok(Control::Repaint)
         } else {
             Ok(Control::Continue)
@@ -641,7 +634,7 @@ impl FilesState {
         err: &mut Option<String>,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<FilesAction>, Error> {
-        let selected = if let Some(n) = self.w_dirs.widget.selected() {
+        let selected = if let Some(n) = self.w_dirs.selected() {
             self.sub_dirs.get(n).cloned()
         } else {
             None
@@ -662,22 +655,22 @@ impl FilesState {
                 self.files.clear();
                 self.files.extend(fff.into_iter().map(|v| (v, false)));
 
-                self.w_dirs.widget.select(Some(0));
-                self.w_files.widget.select(Some(0));
+                self.w_dirs.select(Some(0));
+                self.w_files.select(Some(0));
             }
             Parent => {
                 if selected == Some(OsString::from("..")) {
                     self.files.clear();
                     self.files.extend(ddd.into_iter().map(|v| (v, true)));
                     self.files.extend(fff.into_iter().map(|v| (v, false)));
-                    self.w_files.widget.select(Some(0));
+                    self.w_files.select(Some(0));
                 }
             }
             Current => {
                 if selected == Some(OsString::from(".")) {
                     self.files.clear();
                     self.files.extend(fff.into_iter().map(|v| (v, false)));
-                    self.w_files.widget.select(Some(0));
+                    self.w_files.select(Some(0));
                 }
             }
             SubDir => {
@@ -685,7 +678,7 @@ impl FilesState {
                     self.files.clear();
                     self.files.extend(ddd.into_iter().map(|v| (v, true)));
                     self.files.extend(fff.into_iter().map(|v| (v, false)));
-                    self.w_files.widget.select(Some(0));
+                    self.w_files.select(Some(0));
                 }
             }
         }
@@ -770,7 +763,7 @@ impl FilesState {
     }
 
     fn follow_dir(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
-        if let Some(n) = self.w_dirs.widget.selected() {
+        if let Some(n) = self.w_dirs.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from("..") {
                     if let Some(file) = self.main_dir.parent() {
@@ -793,7 +786,7 @@ impl FilesState {
     }
 
     fn current_dir(&mut self) -> Option<PathBuf> {
-        let dir = if let Some(n) = self.w_dirs.widget.selected() {
+        let dir = if let Some(n) = self.w_dirs.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from("..") {
                     self.main_dir.parent().map(|v| v.to_path_buf())
@@ -815,7 +808,7 @@ impl FilesState {
     fn current_file(&mut self) -> Option<PathBuf> {
         let dir = self.current_dir();
 
-        let file = if let Some(n) = self.w_files.widget.selected() {
+        let file = if let Some(n) = self.w_files.selected() {
             self.files
                 .get(n)
                 .map(|(v, _)| dir.map(|d| d.join(v)))
@@ -853,11 +846,11 @@ impl FilesState {
 
                 Ok(Control::Repaint)
             } else {
-                self.w_data.widget.set_value("");
+                self.w_data.set_value("");
                 Ok(Control::Repaint)
             }
         } else {
-            self.w_data.widget.set_value("");
+            self.w_data.set_value("");
             Ok(Control::Repaint)
         }
     }
@@ -965,12 +958,7 @@ impl FilesState {
 
 impl HasFocus for FilesState {
     fn focus(&self) -> Focus<'_> {
-        let f = Focus::new(&[
-            &self.w_dirs.widget,
-            &self.w_files.widget,
-            &self.w_data.widget,
-            &self.w_menu,
-        ]);
+        let f = Focus::new(&[&self.w_dirs, &self.w_files, &self.w_data, &self.w_menu]);
         f.enable_log(true);
         f
     }

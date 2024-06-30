@@ -98,16 +98,14 @@ impl<Action> From<TextOutcome> for Control<Action> {
     }
 }
 
-impl<Action, R> From<ScrollOutcome<R>> for Control<Action>
-where
-    R: Into<Control<Action>>,
-{
-    fn from(value: ScrollOutcome<R>) -> Self {
+impl<Action> From<ScrollOutcome> for Control<Action> {
+    fn from(value: ScrollOutcome) -> Self {
         match value {
             ScrollOutcome::NotUsed => Control::Continue,
             ScrollOutcome::Unchanged => Control::Break,
             ScrollOutcome::Changed => Control::Repaint,
-            ScrollOutcome::Inner(v) => v.into(),
+            ScrollOutcome::Delta(_, _) => Control::Repaint,
+            ScrollOutcome::Offset(_) => Control::Repaint,
         }
     }
 }
