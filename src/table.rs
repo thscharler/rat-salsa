@@ -17,14 +17,12 @@ use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::{layout_scroll, Scroll, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 #[cfg(debug_assertions)]
 use ratatui::style::Stylize;
 #[cfg(debug_assertions)]
 use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
-use std::cell::Cell;
 use std::cmp::max;
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -872,15 +870,6 @@ where
         let (width, l_columns, l_spacers) = self.layout_columns(state.table_area.width);
         self.calculate_column_areas(state.columns, l_columns.as_ref(), l_spacers.as_ref(), state);
 
-        // render block+scroll
-        self.block.render_ref(area, buf);
-        if let Some(hscroll) = self.hscroll.as_ref() {
-            hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
-        }
-        if let Some(vscroll) = self.vscroll.as_ref() {
-            vscroll.render_ref(vscroll_area, buf, &mut state.vscroll);
-        }
-
         // render header & footer
         self.render_header(
             state.columns,
@@ -901,7 +890,7 @@ where
         buf.set_style(state.table_area, self.style);
 
         state.row_areas.clear();
-        state.vscroll.page_len = 0;
+        state.vscroll.set_page_len(0);
 
         let mut row_buf = Buffer::empty(Rect::new(0, 0, width, 1));
         let mut row = None;
@@ -922,8 +911,8 @@ where
             non_exhaustive: NonExhaustive,
         };
 
-        if data.nth(state.vscroll.offset) {
-            row = Some(state.vscroll.offset);
+        if data.nth(state.vscroll.offset()) {
+            row = Some(state.vscroll.offset());
             loop {
                 ctx.row_style = data.row_style();
                 // We render each row to a temporary buffer.
@@ -951,11 +940,11 @@ where
                 .intersection(state.table_area);
 
                 state.row_areas.push(visible_row);
-                state.vscroll.page_len += 1;
+                state.vscroll.set_page_len(state.vscroll.page_len() + 1);
 
                 // todo: render_row
 
-                let mut col = state.hscroll.offset;
+                let mut col = state.hscroll.offset();
                 loop {
                     if col >= state.columns {
                         break;
@@ -1028,7 +1017,7 @@ where
                 // render shifted and clipped row.
                 transfer_buffer(
                     &mut row_buf,
-                    l_columns[state.hscroll.offset].x,
+                    l_columns[state.hscroll.offset()].x,
                     visible_row,
                     buf,
                 );
@@ -1060,6 +1049,7 @@ where
         // maximum offsets
         #[allow(unused_variables)]
         let algorithm;
+        #[allow(unused_assignments)]
         {
             if let Some(rows) = data.rows() {
                 algorithm = 0;
@@ -1140,8 +1130,6 @@ where
                 state._counted_rows = row.map_or(0, |v| v + 1);
             }
 
-            debug!("row_heights {:?}", row_heights);
-
             let mut sum_heights = 0;
             let mut n_rows = 0;
             while let Some(h) = row_heights.pop() {
@@ -1154,20 +1142,29 @@ where
 
             // have we got a page worth of data?
             if sum_heights < state.table_area.height {
-                state.vscroll.max_offset = state.rows;
+                state.vscroll.set_max_offset(state.rows);
             } else {
-                state.vscroll.max_offset = state.rows - n_rows;
+                state.vscroll.set_max_offset(state.rows - n_rows);
             }
         }
         {
-            state.hscroll.max_offset = 0;
+            state.hscroll.set_max_offset(0);
             let max_right = l_columns.last().map(|v| v.right()).unwrap_or(0);
             for c in (0..state.columns).rev() {
                 if max_right - l_columns[c].left() >= state.table_area.width {
-                    state.hscroll.max_offset = c;
+                    state.hscroll.set_max_offset(c);
                     break;
                 }
             }
+        }
+
+        // render block+scroll
+        self.block.render_ref(area, buf);
+        if let Some(hscroll) = self.hscroll.as_ref() {
+            hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
+        }
+        if let Some(vscroll) = self.vscroll.as_ref() {
+            vscroll.render_ref(vscroll_area, buf, &mut state.vscroll);
         }
 
         #[cfg(debug_assertions)]
@@ -1177,7 +1174,7 @@ where
             if insane_offset {
                 _= write!(msg,
                           "FTable::render:\n        offset {}\n        rows {}\n        iter-rows {}max\n    don't match up\nCode X{}X",
-                          state.vscroll.offset, state.rows, state._counted_rows, algorithm
+                          state.vscroll.offset(), state.rows, state._counted_rows, algorithm
                 );
             }
             if state.rows != state._counted_rows {
@@ -1214,14 +1211,14 @@ where
                 buf.set_style(state.footer_area, self.style);
             }
 
-            let mut col = state.hscroll.offset;
+            let mut col = state.hscroll.offset();
             loop {
                 if col >= columns {
                     break;
                 }
 
                 let cell_area = Rect::new(
-                    state.footer_area.x + l_columns[col].x - l_columns[state.hscroll.offset].x,
+                    state.footer_area.x + l_columns[col].x - l_columns[state.hscroll.offset()].x,
                     state.footer_area.y,
                     l_columns[col].width,
                     state.footer_area.height,
@@ -1229,7 +1226,8 @@ where
                 .intersection(state.footer_area);
 
                 let space_area = Rect::new(
-                    state.footer_area.x + l_spacers[col + 1].x - l_columns[state.hscroll.offset].x,
+                    state.footer_area.x + l_spacers[col + 1].x
+                        - l_columns[state.hscroll.offset()].x,
                     state.footer_area.y,
                     l_spacers[col + 1].width,
                     state.footer_area.height,
@@ -1280,14 +1278,14 @@ where
                 buf.set_style(state.header_area, self.style);
             }
 
-            let mut col = state.hscroll.offset;
+            let mut col = state.hscroll.offset();
             loop {
                 if col >= columns {
                     break;
                 }
 
                 let cell_area = Rect::new(
-                    state.header_area.x + l_columns[col].x - l_columns[state.hscroll.offset].x,
+                    state.header_area.x + l_columns[col].x - l_columns[state.hscroll.offset()].x,
                     state.header_area.y,
                     l_columns[col].width,
                     state.header_area.height,
@@ -1295,7 +1293,8 @@ where
                 .intersection(state.header_area);
 
                 let space_area = Rect::new(
-                    state.header_area.x + l_spacers[col + 1].x - l_columns[state.hscroll.offset].x,
+                    state.header_area.x + l_spacers[col + 1].x
+                        - l_columns[state.hscroll.offset()].x,
                     state.header_area.y,
                     l_spacers[col + 1].width,
                     state.header_area.height,
@@ -1337,9 +1336,9 @@ where
         state: &mut FTableState<Selection>,
     ) {
         state.column_areas.clear();
-        state.hscroll.page_len = 0;
+        state.hscroll.set_page_len(0);
 
-        let mut col = state.hscroll.offset;
+        let mut col = state.hscroll.offset();
         loop {
             if col >= columns {
                 break;
@@ -1348,7 +1347,7 @@ where
             // merge the column + the folling spacer as the
             // column area.
             let mut column_area = Rect::new(
-                state.table_area.x + l_columns[col].x - l_columns[state.hscroll.offset].x,
+                state.table_area.x + l_columns[col].x - l_columns[state.hscroll.offset()].x,
                 state.table_area.y,
                 l_columns[col].width,
                 state.table_area.height,
@@ -1362,7 +1361,7 @@ where
                 .column_areas
                 .push(column_area.intersection(state.table_area));
 
-            state.hscroll.page_len += 1;
+            state.hscroll.set_page_len(state.hscroll.page_len() + 1);
 
             if column_area.right() >= state.table_area.right() {
                 break;
@@ -1374,11 +1373,11 @@ where
         // Base areas for every column.
         state.base_column_areas.clear();
         for col in 0..columns {
-            let column_area = if col < state.hscroll.offset {
+            let column_area = if col < state.hscroll.offset() {
                 Rect::new(0, state.table_area.y, 0, state.table_area.height)
             } else {
                 Rect::new(
-                    state.table_area.x + l_columns[col].x - l_columns[state.hscroll.offset].x,
+                    state.table_area.x + l_columns[col].x - l_columns[state.hscroll.offset()].x,
                     state.table_area.y,
                     l_columns[col].width,
                     state.table_area.height,
@@ -1484,7 +1483,7 @@ impl<Selection> FTableState<Selection> {
     ///
     /// See: [FTableState::scroll_to]
     pub fn row_cells(&self, row: usize) -> Option<(Rect, Vec<Rect>)> {
-        if row < self.vscroll.offset || row >= self.vscroll.offset + self.vscroll.page_len {
+        if row < self.vscroll.offset() || row >= self.vscroll.offset() + self.vscroll.page_len() {
             return None;
         }
 
@@ -1512,12 +1511,12 @@ impl<Selection> FTableState<Selection> {
     /// Column at given position.
     pub fn column_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
         rat_event::util::column_at_clicked(&self.column_areas, pos.0)
-            .map(|v| self.hscroll.offset + v)
+            .map(|v| self.hscroll.offset() + v)
     }
 
     /// Row at given position.
     pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
-        rat_event::util::row_at_clicked(&self.row_areas, pos.1).map(|v| self.vscroll.offset + v)
+        rat_event::util::row_at_clicked(&self.row_areas, pos.1).map(|v| self.vscroll.offset() + v)
     }
 
     /// Cell when dragging. Can go outside the area.
@@ -1531,25 +1530,25 @@ impl<Selection> FTableState<Selection> {
     /// Row when dragging. Can go outside the area.
     pub fn row_at_drag(&self, pos: (u16, u16)) -> usize {
         match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.1) {
-            Ok(v) => self.vscroll.offset + v,
-            Err(v) if v <= 0 => self.vscroll.offset.saturating_sub((-v) as usize),
-            Err(v) => self.vscroll.offset + self.row_areas.len() + v as usize,
+            Ok(v) => self.vscroll.offset() + v,
+            Err(v) if v <= 0 => self.vscroll.offset().saturating_sub((-v) as usize),
+            Err(v) => self.vscroll.offset() + self.row_areas.len() + v as usize,
         }
     }
 
     /// Column when dragging. Can go outside the area.
     pub fn column_at_drag(&self, pos: (u16, u16)) -> usize {
         match rat_event::util::column_at_drag(self.table_area, &self.column_areas, pos.0) {
-            Ok(v) => self.hscroll.offset + v,
-            Err(v) if v <= 0 => self.hscroll.offset.saturating_sub(1),
-            Err(_v) => self.hscroll.offset + self.column_areas.len() + 1,
+            Ok(v) => self.hscroll.offset() + v,
+            Err(v) if v <= 0 => self.hscroll.offset().saturating_sub(1),
+            Err(_v) => self.hscroll.offset() + self.column_areas.len() + 1,
         }
     }
 
     /// Sets both offsets to 0.
     pub fn clear_offset(&mut self) {
-        self.vscroll.offset = 0;
-        self.hscroll.offset = 0;
+        self.vscroll.set_offset(0);
+        self.hscroll.set_offset(0);
     }
 }
 
@@ -1567,9 +1566,9 @@ impl<Selection: TableSelection> FTableState<Selection> {
 
     /// Scroll to position.
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
-        if pos > self.vertical_offset() + self.vertical_page_len() {
+        if pos >= self.vertical_offset() + self.vertical_page_len() {
             self.set_vertical_offset(pos - self.vertical_page_len() + 1)
-        } else if pos <= self.vertical_offset() {
+        } else if pos < self.vertical_offset() {
             self.set_vertical_offset(pos)
         } else {
             false
@@ -1578,9 +1577,9 @@ impl<Selection: TableSelection> FTableState<Selection> {
 
     /// Scroll to position.
     pub fn scroll_to_col(&mut self, pos: usize) -> bool {
-        if pos > self.horizontal_offset() + self.horizontal_page_len() {
+        if pos >= self.horizontal_offset() + self.horizontal_page_len() {
             self.set_horizontal_offset(pos - self.horizontal_page_len() + 1)
-        } else if pos <= self.horizontal_offset() {
+        } else if pos < self.horizontal_offset() {
             self.set_horizontal_offset(pos)
         } else {
             false
@@ -1588,19 +1587,19 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 
     pub fn scroll_up(&mut self, delta: usize) -> bool {
-        self.vscroll.change_offset(-(delta as isize))
+        self.vscroll.scroll_up(delta)
     }
 
     pub fn scroll_down(&mut self, delta: usize) -> bool {
-        self.vscroll.change_offset(delta as isize)
+        self.vscroll.scroll_down(delta)
     }
 
     pub fn scroll_left(&mut self, delta: usize) -> bool {
-        self.hscroll.change_offset(-(delta as isize))
+        self.hscroll.scroll_left(delta)
     }
 
     pub fn scroll_right(&mut self, delta: usize) -> bool {
-        self.hscroll.change_offset(delta as isize)
+        self.hscroll.scroll_right(delta)
     }
 }
 
@@ -1610,17 +1609,17 @@ impl<Selection> FTableState<Selection> {
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
     pub fn vertical_max_offset(&self) -> usize {
-        self.vscroll.max_offset
+        self.vscroll.max_offset()
     }
 
     /// Current vertical offset.
     pub fn vertical_offset(&self) -> usize {
-        self.vscroll.offset
+        self.vscroll.offset()
     }
 
     /// Vertical page-size at the current offset.
     pub fn vertical_page_len(&self) -> usize {
-        self.vscroll.page_len
+        self.vscroll.page_len()
     }
 
     /// Suggested scroll per scroll-event.
@@ -1633,17 +1632,17 @@ impl<Selection> FTableState<Selection> {
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
     pub fn horizontal_max_offset(&self) -> usize {
-        self.hscroll.max_offset
+        self.hscroll.max_offset()
     }
 
     /// Current horizontal offset.
     pub fn horizontal_offset(&self) -> usize {
-        self.hscroll.offset
+        self.hscroll.offset()
     }
 
     /// Horizontal page-size at the current offset.
     pub fn horizontal_page_len(&self) -> usize {
-        self.hscroll.page_len
+        self.hscroll.page_len()
     }
 
     /// Suggested scroll per scroll-event.
