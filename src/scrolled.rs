@@ -19,7 +19,8 @@ use std::cmp::max;
 pub struct Scroll<'a> {
     policy: ScrollbarPolicy,
     orientation: ScrollbarOrientation,
-    overscroll_by: usize,
+    overscroll_by: Option<usize>,
+    scroll_by: Option<usize>,
 
     thumb_symbol: Option<&'a str>,
     thumb_style: Option<Style>,
@@ -90,9 +91,15 @@ impl<'a> Scroll<'a> {
         self
     }
 
-    /// Overscrolling
+    /// Set overscrolling.
     pub fn overscroll_by(mut self, overscroll: usize) -> Self {
-        self.overscroll_by = overscroll;
+        self.overscroll_by = Some(overscroll);
+        self
+    }
+
+    /// Override default scroll increment.
+    pub fn scroll_by(mut self, scroll: usize) -> Self {
+        self.scroll_by = Some(scroll);
         self
     }
 
@@ -468,6 +475,7 @@ fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         }
     }
     state.core.set_overscroll_by(scroll.overscroll_by);
+    state.core.set_scroll_by(scroll.scroll_by);
 
     state.area = area;
 
@@ -766,7 +774,7 @@ pub mod core {
         /// Scrolling step-size for mouse-scrolling
         scroll_by: Option<usize>,
         /// Allow overscroll by n items.
-        overscroll_by: usize,
+        overscroll_by: Option<usize>,
     }
 
     impl ScrollCore {
@@ -853,7 +861,7 @@ pub mod core {
         /// Calculate the offset limited to max_offset+overscroll_by.
         #[inline]
         pub fn limit_offset(&self, offset: usize) -> usize {
-            min(offset, self.max_offset.saturating_add(self.overscroll_by))
+            min(offset, self.max_offset.saturating_add(self.overscroll_by()))
         }
 
         /// Clamp an isize offset between 0 and max_offset+overscroll_by.
@@ -864,7 +872,7 @@ pub mod core {
             } else {
                 min(
                     offset as usize,
-                    self.max_offset.saturating_add(self.overscroll_by),
+                    self.max_offset.saturating_add(self.overscroll_by()),
                 )
             }
         }
@@ -920,12 +928,16 @@ pub mod core {
         /// Allowed over-scroll
         #[inline]
         pub fn overscroll_by(&self) -> usize {
-            self.overscroll_by
+            if let Some(overscroll_by) = self.overscroll_by {
+                overscroll_by
+            } else {
+                0
+            }
         }
 
         /// Allowed over-scroll
         #[inline]
-        pub fn set_overscroll_by(&mut self, overscroll_by: usize) {
+        pub fn set_overscroll_by(&mut self, overscroll_by: Option<usize>) {
             self.overscroll_by = overscroll_by;
         }
     }
