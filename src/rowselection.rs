@@ -3,6 +3,7 @@ use crate::{FTableState, TableSelection};
 use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
 use rat_scrolled::event::ScrollOutcome;
+use rat_scrolled::ScrollArea;
 use std::cmp::min;
 
 /// Allows selecting a single row of the table.
@@ -179,46 +180,6 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 self.scroll_to_selected();
                 r
             }
-            ct_event!(scroll down for column,row) => {
-                if self.table_area.contains((*column, *row).into()) {
-                    if self.selection.scroll_selected {
-                        let r = self.selection.next(1, self.rows.saturating_sub(1));
-                        self.scroll_to_selected();
-                        r.into()
-                    } else {
-                        self.scroll_down(self.vertical_scroll_by()).into()
-                    }
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(scroll up for column, row) => {
-                if self.table_area.contains((*column, *row).into()) {
-                    if self.selection.scroll_selected {
-                        let r = self.selection.prev(1);
-                        self.scroll_to_selected();
-                        r.into()
-                    } else {
-                        self.scroll_up(self.vertical_scroll_by()).into()
-                    }
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(scroll ALT down for column,row) => {
-                if self.table_area.contains((*column, *row).into()) {
-                    self.scroll_right(1).into()
-                } else {
-                    Outcome::NotUsed
-                }
-            }
-            ct_event!(scroll ALT up for column, row) => {
-                if self.table_area.contains((*column, *row).into()) {
-                    self.scroll_left(1).into()
-                } else {
-                    Outcome::NotUsed
-                }
-            }
             ct_event!(mouse down Left for column, row) => {
                 let pos = (*column, *row);
                 if self.area.contains(pos.into()) {
@@ -237,18 +198,51 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             _ => Outcome::NotUsed,
         });
 
-        flow!(match self.vscroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
-                Outcome::from(self.scroll_to_row(v))
+        let r = match ScrollArea(
+            self.table_area,
+            Some(&mut self.hscroll),
+            Some(&mut self.vscroll),
+        )
+        .handle(event, MouseOnly)
+        {
+            ScrollOutcome::Up(v) => {
+                if self.selection.scroll_selected {
+                    let r = self.selection.prev(v);
+                    let s = self.scroll_to_selected();
+                    r || s
+                } else {
+                    self.scroll_up(v)
+                }
             }
-            r => r.into(),
-        });
-        flow!(match self.hscroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
-                Outcome::from(self.scroll_to_col(v))
+            ScrollOutcome::Down(v) => {
+                if self.selection.scroll_selected {
+                    let r = self.selection.next(v, self.rows.saturating_sub(1));
+                    let s = self.scroll_to_selected();
+                    r || s
+                } else {
+                    self.scroll_down(v)
+                }
             }
-            r => r.into(),
-        });
+            ScrollOutcome::VPos(v) => {
+                if self.selection.scroll_selected {
+                    let r = self.selection.select(Some(v));
+                    let s = self.scroll_to_selected();
+                    r || s
+                } else {
+                    self.scroll_to_row(v)
+                }
+            }
+            ScrollOutcome::Left(v) => self.scroll_left(v),
+            ScrollOutcome::Right(v) => self.scroll_right(v),
+            ScrollOutcome::HPos(v) => self.scroll_to_col(v),
+
+            ScrollOutcome::NotUsed => false,
+            ScrollOutcome::Unchanged => false,
+            ScrollOutcome::Changed => true,
+        };
+        if r {
+            return Outcome::Changed;
+        }
 
         Outcome::NotUsed
     }
