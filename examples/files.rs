@@ -319,7 +319,11 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 dirs: &state.sub_dirs,
             })
             .styles(ctx.g.theme.table_style())
-            .vscroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
+            .vscroll(
+                Scroll::new()
+                    .styles(ctx.g.theme.scrolled_style())
+                    .scroll_by(1),
+            )
             .render(c[0], buf, &mut state.w_dirs);
 
         FTable::new()
@@ -331,7 +335,11 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 err_style: ctx.g.theme.red(1),
             })
             .styles(ctx.g.theme.table_style())
-            .vscroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
+            .vscroll(
+                Scroll::new()
+                    .styles(ctx.g.theme.scrolled_style())
+                    .scroll_by(1),
+            )
             .render(c[1], buf, &mut state.w_files);
 
         let title = if state.w_data.is_focused() {

@@ -274,7 +274,7 @@ pub mod mask0 {
             .split(area);
 
             Viewport::new(ShowScheme::new(ctx.g.theme.name(), ctx.g.theme.scheme()))
-                .scroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
+                .vscroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
                 .view_size(Size::new(area.width - 4, 40))
                 .render(r[0], buf, &mut state.scroll);
 
