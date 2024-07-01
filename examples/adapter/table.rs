@@ -536,14 +536,15 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
         });
 
         flow!(match self.scroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
+            ScrollOutcome::VPos(v) => {
                 self.scroll_to(v).into()
             }
             r => Outcome::from(r),
         });
 
         flow!(
-            match ScrollArea(self.table_area, None, Some(&self.scroll)).handle(event, MouseOnly) {
+            match ScrollArea(self.table_area, None, Some(&mut self.scroll)).handle(event, MouseOnly)
+            {
                 ScrollOutcome::Up(v) => {
                     Outcome::from(self.scroll(-(v as isize)))
                 }

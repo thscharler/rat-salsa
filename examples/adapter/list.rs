@@ -431,7 +431,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
         });
 
         flow!(match self.scroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
+            ScrollOutcome::VPos(v) => {
                 self.scroll_to(v);
                 Outcome::Changed
             }
@@ -439,7 +439,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
         });
 
         flow!(
-            match ScrollArea(self.inner, None, Some(&self.scroll)).handle(event, MouseOnly) {
+            match ScrollArea(self.inner, None, Some(&mut self.scroll)).handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => {
                     Outcome::from(self.scroll(-(v as isize)))
                 }

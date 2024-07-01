@@ -205,19 +205,19 @@ impl ParagraphSState {
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         flow!(match self.hscroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
+            ScrollOutcome::HPos(v) => {
                 self.set_horizontal_offset(v).into()
             }
             r => Outcome::from(r),
         });
         flow!(match self.vscroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
+            ScrollOutcome::VPos(v) => {
                 self.set_vertical_offset(v).into()
             }
             r => Outcome::from(r),
         });
         flow!(
-            match ScrollArea(self.inner, Some(&self.hscroll), Some(&self.vscroll))
+            match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
                 .handle(event, MouseOnly)
             {
                 ScrollOutcome::Up(v) => {
