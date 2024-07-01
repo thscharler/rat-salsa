@@ -34,8 +34,10 @@ pub mod event {
         Left(usize),
         /// Scroll delta when using HandleEvent for area scrolling.
         Right(usize),
-        /// Offset should change to this value.
-        Offset(usize),
+        /// Absolute position.
+        VPos(usize),
+        /// Absolute position.
+        HPos(usize),
     }
 
     impl ConsumedEvent for ScrollOutcome {
@@ -50,11 +52,12 @@ pub mod event {
                 ScrollOutcome::NotUsed => Outcome::NotUsed,
                 ScrollOutcome::Unchanged => Outcome::Unchanged,
                 ScrollOutcome::Changed => Outcome::Changed,
-                ScrollOutcome::Offset(_) => Outcome::Changed,
                 ScrollOutcome::Up(_) => Outcome::Changed,
                 ScrollOutcome::Down(_) => Outcome::Changed,
                 ScrollOutcome::Left(_) => Outcome::Changed,
                 ScrollOutcome::Right(_) => Outcome::Changed,
+                ScrollOutcome::VPos(_) => Outcome::Changed,
+                ScrollOutcome::HPos(_) => Outcome::Changed,
             }
         }
     }

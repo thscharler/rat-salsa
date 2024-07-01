@@ -623,7 +623,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollSt
                         let height = self.area.height.saturating_sub(2) as usize;
                         let pos = (self.core.max_offset() * row) / height;
 
-                        ScrollOutcome::Offset(pos)
+                        ScrollOutcome::VPos(pos)
                     } else {
                         ScrollOutcome::Unchanged
                     }
@@ -633,7 +633,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollSt
                         let col = m.column.saturating_sub(self.area.x).saturating_sub(1) as usize;
                         let width = self.area.width.saturating_sub(2) as usize;
                         let pos = (self.core.max_offset() * col) / width;
-                        ScrollOutcome::Offset(pos)
+                        ScrollOutcome::HPos(pos)
                     } else {
                         ScrollOutcome::Unchanged
                     }
@@ -646,14 +646,36 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollSt
                     let height = self.area.height.saturating_sub(2) as usize;
                     let pos = (self.core.max_offset() * row) / height;
 
-                    ScrollOutcome::Offset(pos)
+                    ScrollOutcome::VPos(pos)
                 } else {
                     // correct for the left `<` and right `>` arrows.
                     let col = col.saturating_sub(self.area.x).saturating_sub(1) as usize;
                     let width = self.area.width.saturating_sub(2) as usize;
                     let pos = (self.core.max_offset() * col) / width;
-                    ScrollOutcome::Offset(pos)
+                    ScrollOutcome::HPos(pos)
                 }
+            }
+            ct_event!(scroll down for col, row)
+                if self.core.is_vertical() && self.area.contains((*col, *row).into()) =>
+            {
+                ScrollOutcome::Down(self.scroll_by())
+            }
+            ct_event!(scroll up for col, row)
+                if self.core.is_vertical() && self.area.contains((*col, *row).into()) =>
+            {
+                ScrollOutcome::Up(self.scroll_by())
+            }
+            // right scroll with ALT down. shift doesn't work?
+            ct_event!(scroll ALT down for col, row)
+                if self.core.is_horizontal() && self.area.contains((*col, *row).into()) =>
+            {
+                ScrollOutcome::Right(self.scroll_by())
+            }
+            // left scroll with ALT up. shift doesn't work?
+            ct_event!(scroll ALT up for col, row)
+                if self.core.is_horizontal() && self.area.contains((*col, *row).into()) =>
+            {
+                ScrollOutcome::Left(self.scroll_by())
             }
             _ => ScrollOutcome::NotUsed,
         }
@@ -664,8 +686,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollSt
 #[derive(Debug)]
 pub struct ScrollArea<'a>(
     pub Rect,
-    pub Option<&'a ScrollState>,
-    pub Option<&'a ScrollState>,
+    pub Option<&'a mut ScrollState>,
+    pub Option<&'a mut ScrollState>,
 );
 
 /// Handle scrolling for the whole area spanned by the two scroll-states.
@@ -673,7 +695,7 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ScrollOutcome {
         let area = self.0;
 
-        if let Some(hscroll) = self.1 {
+        if let Some(hscroll) = &mut self.1 {
             flow!(match event {
                 // right scroll with ALT down. shift doesn't work?
                 ct_event!(scroll ALT down for column, row) => {
@@ -693,8 +715,9 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
                 }
                 _ => ScrollOutcome::NotUsed,
             });
+            flow!(hscroll.handle(event, MouseOnly));
         }
-        if let Some(vscroll) = self.2 {
+        if let Some(vscroll) = &mut self.2 {
             flow!(match event {
                 ct_event!(scroll down for column, row) => {
                     if area.contains(Position::new(*column, *row)) {
@@ -712,6 +735,7 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
                 }
                 _ => ScrollOutcome::NotUsed,
             });
+            flow!(vscroll.handle(event, MouseOnly));
         }
 
         ScrollOutcome::NotUsed

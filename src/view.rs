@@ -11,7 +11,7 @@ use crate::event::ScrollOutcome;
 use crate::inner::{InnerOwned, InnerRef, InnerWidget};
 use crate::util::copy_buffer;
 use crate::{layout_scroll, Scroll, ScrollArea, ScrollState};
-use rat_event::{flow, HandleEvent, MouseOnly, Outcome};
+use rat_event::{HandleEvent, MouseOnly, Outcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
@@ -251,39 +251,27 @@ impl ViewState {
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
-        flow!(match self.hscroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
-                Outcome::from(self.horizontal_scroll_to(v))
-            }
-            r => Outcome::from(r),
-        });
-        flow!(match self.vscroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
-                Outcome::from(self.vertical_scroll_to(v))
-            }
-            r => Outcome::from(r),
-        });
+        let r = match ScrollArea(
+            self.inner_area,
+            Some(&mut self.hscroll),
+            Some(&mut self.vscroll),
+        )
+        .handle(event, MouseOnly)
+        {
+            ScrollOutcome::Up(v) => self.scroll_up(v),
+            ScrollOutcome::Down(v) => self.scroll_down(v),
+            ScrollOutcome::Left(v) => self.scroll_left(v),
+            ScrollOutcome::Right(v) => self.scroll_right(v),
+            ScrollOutcome::VPos(v) => self.set_vertical_offset(v),
+            ScrollOutcome::HPos(v) => self.set_horizontal_offset(v),
+            ScrollOutcome::NotUsed => false,
+            ScrollOutcome::Unchanged => false,
+            ScrollOutcome::Changed => true,
+        };
+        if r {
+            return Outcome::Changed;
+        }
 
-        flow!(
-            match ScrollArea(self.inner_area, Some(&self.hscroll), Some(&self.vscroll))
-                .handle(event, MouseOnly)
-            {
-                ScrollOutcome::Up(v) => {
-                    Outcome::from(self.scroll_up(v))
-                }
-                ScrollOutcome::Down(v) => {
-                    Outcome::from(self.scroll_down(v))
-                }
-                ScrollOutcome::Left(v) => {
-                    Outcome::from(self.scroll_left(v))
-                }
-                ScrollOutcome::Right(v) => {
-                    Outcome::from(self.scroll_right(v))
-                }
-                r => r.into(),
-            }
-        );
-
-        Outcome::NotUsed.into()
+        Outcome::NotUsed
     }
 }

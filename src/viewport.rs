@@ -84,7 +84,7 @@ impl<'a, T> Viewport<'a, T> {
     }
 
     pub fn vscroll(mut self, scroll: Scroll<'a>) -> Self {
-        self.viewport.hscroll = Some(scroll.override_vertical());
+        self.viewport.vscroll = Some(scroll.override_vertical());
         self
     }
 
@@ -278,42 +278,30 @@ where
     R: From<Outcome> + ConsumedEvent + Debug,
 {
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: Q) -> R {
-        flow!(match self.hscroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
-                Outcome::from(self.horizontal_scroll_to(v))
-            }
-            r => Outcome::from(r),
-        });
-        flow!(match self.vscroll.handle(event, MouseOnly) {
-            ScrollOutcome::Offset(v) => {
-                Outcome::from(self.vertical_scroll_to(v))
-            }
-            r => Outcome::from(r),
-        });
-
         flow!(self
             .widget
             .handle(&self.relocate_crossterm(event), qualifier));
 
-        flow!(
-            match ScrollArea(self.inner_area, Some(&self.hscroll), Some(&self.vscroll))
-                .handle(event, MouseOnly)
-            {
-                ScrollOutcome::Up(v) => {
-                    Outcome::from(self.scroll_up(v))
-                }
-                ScrollOutcome::Down(v) => {
-                    Outcome::from(self.scroll_down(v))
-                }
-                ScrollOutcome::Left(v) => {
-                    Outcome::from(self.scroll_left(v))
-                }
-                ScrollOutcome::Right(v) => {
-                    Outcome::from(self.scroll_right(v))
-                }
-                r => r.into(),
-            }
-        );
+        let r = match ScrollArea(
+            self.inner_area,
+            Some(&mut self.hscroll),
+            Some(&mut self.vscroll),
+        )
+        .handle(event, MouseOnly)
+        {
+            ScrollOutcome::Up(v) => self.scroll_up(v),
+            ScrollOutcome::Down(v) => self.scroll_down(v),
+            ScrollOutcome::Left(v) => self.scroll_left(v),
+            ScrollOutcome::Right(v) => self.scroll_right(v),
+            ScrollOutcome::VPos(v) => self.set_vertical_offset(v),
+            ScrollOutcome::HPos(v) => self.set_horizontal_offset(v),
+            ScrollOutcome::NotUsed => false,
+            ScrollOutcome::Unchanged => false,
+            ScrollOutcome::Changed => true,
+        };
+        if r {
+            return Outcome::Changed.into();
+        }
 
         Outcome::NotUsed.into()
     }
