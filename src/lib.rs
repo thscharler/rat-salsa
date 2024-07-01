@@ -104,8 +104,11 @@ impl<Action> From<ScrollOutcome> for Control<Action> {
             ScrollOutcome::NotUsed => Control::Continue,
             ScrollOutcome::Unchanged => Control::Break,
             ScrollOutcome::Changed => Control::Repaint,
-            ScrollOutcome::Delta(_, _) => Control::Repaint,
             ScrollOutcome::Offset(_) => Control::Repaint,
+            ScrollOutcome::Up(_) => Control::Repaint,
+            ScrollOutcome::Down(_) => Control::Repaint,
+            ScrollOutcome::Left(_) => Control::Repaint,
+            ScrollOutcome::Right(_) => Control::Repaint,
         }
     }
 }

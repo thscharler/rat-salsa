@@ -9,7 +9,7 @@ use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
-use rat_widget::event::{ct_event, flow_ok, FocusKeys, HandleEvent};
+use rat_widget::event::{ct_event, flow_ok, Dialog, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
@@ -162,11 +162,7 @@ impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
 
         flow_ok!({
             if ctx.g.error_dlg.borrow().active {
-                ctx.g
-                    .error_dlg
-                    .borrow_mut()
-                    .handle(&event, FocusKeys)
-                    .into()
+                ctx.g.error_dlg.borrow_mut().handle(&event, Dialog).into()
             } else {
                 Control::Continue
             }
@@ -231,7 +227,8 @@ pub mod mask0 {
     use rat_theme::dark_themes;
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
     use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
-    use rat_widget::scrolled::{Scrolled, ScrolledState, ViewportState};
+    use rat_widget::scrolled::viewport::{Viewport, ViewportState};
+    use rat_widget::scrolled::Scroll;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
     use ratatui::widgets::StatefulWidget;
@@ -242,7 +239,7 @@ pub mod mask0 {
     #[derive(Debug)]
     pub struct Mask0State {
         pub menu: MenuLineState,
-        pub scroll: ScrolledState<ViewportState<ShowSchemeState>>,
+        pub scroll: ViewportState<ShowSchemeState>,
         pub theme: usize,
     }
 
@@ -276,8 +273,8 @@ pub mod mask0 {
             )
             .split(area);
 
-            Scrolled::new_viewport(ShowScheme::new(ctx.g.theme.name(), ctx.g.theme.scheme()))
-                .styles(ctx.g.theme.scrolled_style())
+            Viewport::new(ShowScheme::new(ctx.g.theme.name(), ctx.g.theme.scheme()))
+                .scroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
                 .view_size(Size::new(area.width - 4, 40))
                 .render(r[0], buf, &mut state.scroll);
 
