@@ -223,18 +223,18 @@ impl<'a> StatefulWidget for TableS<'a> {
             }
             n += 1;
         }
-        state.scroll.page_len = n;
+        state.scroll.set_page_len(n);
         if state.scroll_selection {
-            state.scroll.scroll_by = Some(1);
+            state.scroll.set_scroll_by(Some(1));
         }
-        state.scroll.max_offset = state.len - n;
+        state.scroll.set_max_offset(state.len - n);
 
         self.block.render(area, buf);
         if let Some(scroll) = self.scroll {
             scroll.render(scroll_area, buf, &mut state.scroll);
         }
 
-        *state.widget.offset_mut() = state.scroll.offset;
+        *state.widget.offset_mut() = state.scroll.offset();
         // prepare table widget
         let table = self.table.rows(self.rows);
         let table = if let Some(header) = self.header {
@@ -321,17 +321,17 @@ impl Default for TableSState {
 impl TableSState {
     #[inline]
     pub fn max_offset(&self) -> usize {
-        self.scroll.max_offset
+        self.scroll.max_offset()
     }
 
     #[inline]
     pub fn offset(&self) -> usize {
-        self.scroll.offset
+        self.scroll.offset()
     }
 
     #[inline]
     pub fn page_len(&self) -> usize {
-        self.scroll.page_len
+        self.scroll.page_len()
     }
 
     #[inline]
@@ -354,7 +354,7 @@ impl TableSState {
 
             self.widget.selected() != old_select
         } else {
-            let old_offset = self.scroll.offset;
+            let old_offset = self.scroll.offset();
 
             let new_offset = pos;
             self.scroll.set_offset(new_offset);
@@ -367,8 +367,8 @@ impl TableSState {
             if let Some(selected) = self.widget.selected() {
                 if selected < new_offset {
                     *self.widget.selected_mut() = Some(new_offset);
-                } else if selected >= new_offset + self.scroll.page_len {
-                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len);
+                } else if selected >= new_offset + self.scroll.page_len() {
+                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len());
                 }
             }
 
@@ -388,9 +388,12 @@ impl TableSState {
 
             self.widget.selected() != old_select
         } else {
-            let old_offset = self.scroll.offset;
+            let old_offset = self.scroll.offset();
 
-            let new_offset = self.scroll.clamp_offset(self.scroll.offset as isize + n);
+            let new_offset = self
+                .scroll
+                .core
+                .clamp_offset(self.scroll.offset() as isize + n);
             self.scroll.set_offset(new_offset);
             *self.widget.offset_mut() = new_offset;
             // For scrolling purposes the selection of ratatui::Table is never None,
@@ -400,8 +403,8 @@ impl TableSState {
             if let Some(selected) = self.widget.selected() {
                 if selected < new_offset {
                     *self.widget.selected_mut() = Some(new_offset);
-                } else if selected >= new_offset + self.scroll.page_len {
-                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len);
+                } else if selected >= new_offset + self.scroll.page_len() {
+                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len());
                 }
             }
 
@@ -441,13 +444,13 @@ impl TableSState {
     /// Row at given position.
     #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        rat_event::util::row_at_clicked(&self.row_areas, pos.y).map(|v| self.scroll.offset + v)
+        rat_event::util::row_at_clicked(&self.row_areas, pos.y).map(|v| self.scroll.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
-        let offset = self.scroll.offset;
+        let offset = self.scroll.offset();
         match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.y) {
             Ok(v) => offset + v,
             Err(v) if v <= 0 => offset.saturating_sub((-v) as usize),
@@ -459,11 +462,11 @@ impl TableSState {
     #[inline]
     pub fn scroll_to_selected(&mut self) {
         if let Some(selected) = self.selected() {
-            if selected >= self.scroll.offset + self.scroll.page_len {
-                self.set_offset(selected.saturating_sub(self.scroll.page_len * 9 / 10));
+            if selected >= self.scroll.offset() + self.scroll.page_len() {
+                self.set_offset(selected.saturating_sub(self.scroll.page_len() * 9 / 10));
             }
-            if selected < self.scroll.offset {
-                self.set_offset(selected.saturating_sub(self.scroll.page_len * 1 / 10));
+            if selected < self.scroll.offset() {
+                self.set_offset(selected.saturating_sub(self.scroll.page_len() * 1 / 10));
             }
         }
     }
@@ -541,8 +544,11 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
 
         flow!(
             match ScrollArea(self.table_area, None, Some(&self.scroll)).handle(event, MouseOnly) {
-                ScrollOutcome::Delta(_, v) => {
-                    self.scroll(v).into()
+                ScrollOutcome::Up(v) => {
+                    Outcome::from(self.scroll(-(v as isize)))
+                }
+                ScrollOutcome::Down(v) => {
+                    Outcome::from(self.scroll(v as isize))
                 }
                 r => Outcome::from(r),
             }

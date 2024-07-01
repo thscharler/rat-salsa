@@ -1,5 +1,6 @@
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
+use crate::scrolled::core::ScrollCore;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
@@ -9,7 +10,7 @@ use ratatui::symbols::scrollbar::Set;
 use ratatui::widgets::{
     Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, StatefulWidgetRef,
 };
-use std::cmp::{max, min};
+use std::cmp::max;
 
 /// Scrolling indicator.
 ///
@@ -18,7 +19,7 @@ use std::cmp::{max, min};
 pub struct Scroll<'a> {
     policy: ScrollbarPolicy,
     orientation: ScrollbarOrientation,
-    overscroll: usize,
+    overscroll_by: usize,
 
     thumb_symbol: Option<&'a str>,
     thumb_style: Option<Style>,
@@ -43,23 +44,9 @@ pub struct Scroll<'a> {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScrollState {
     pub area: Rect,
-
-    /// Maximum offset that is accessible with scrolling.
-    ///
-    /// This is shorter than the length of the content by whatever fills the last page.
-    /// This is the base for the scrollbar content_length.
-    pub max_offset: usize,
-    /// Current  offset.
-    pub offset: usize,
-    /// Page-size at the current offset.
-    pub page_len: usize,
-    /// Scrolling step-size for mouse-scrolling
-    pub scroll_by: Option<usize>,
-    /// Allow overscroll by n items.
-    pub overscroll_by: usize,
+    pub core: ScrollCore,
 
     pub mouse: MouseFlags,
-    pub orientation: ScrollbarOrientation,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -105,7 +92,7 @@ impl<'a> Scroll<'a> {
 
     /// Overscrolling
     pub fn overscroll_by(mut self, overscroll: usize) -> Self {
-        self.overscroll = overscroll;
+        self.overscroll_by = overscroll;
         self
     }
 
@@ -472,8 +459,15 @@ impl<'a> StatefulWidgetRef for Scroll<'a> {
 }
 
 fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut ScrollState) {
-    state.orientation = scroll.orientation.clone();
-    state.overscroll_by = scroll.overscroll;
+    match scroll.orientation {
+        ScrollbarOrientation::VerticalRight | ScrollbarOrientation::VerticalLeft => {
+            state.core.set_vertical(true);
+        }
+        ScrollbarOrientation::HorizontalBottom | ScrollbarOrientation::HorizontalTop => {
+            state.core.set_horizontal(true);
+        }
+    }
+    state.core.set_overscroll_by(scroll.overscroll_by);
 
     state.area = area;
 
@@ -505,13 +499,8 @@ impl Default for ScrollState {
     fn default() -> Self {
         Self {
             area: Default::default(),
-            max_offset: 0,
-            offset: 0,
-            page_len: 0,
-            scroll_by: None,
-            overscroll_by: 0,
+            core: Default::default(),
             mouse: Default::default(),
-            orientation: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -523,8 +512,9 @@ impl ScrollState {
     }
 
     /// Current vertical offset.
+    #[inline]
     pub fn offset(&self) -> usize {
-        self.offset
+        self.core.offset()
     }
 
     /// Change the offset. Limits the offset to max_v_offset + v_overscroll.
@@ -532,81 +522,85 @@ impl ScrollState {
     /// Due to overscroll it's possible that this is an invalid
     /// offset for the widget. The widget must deal with this
     /// situation.
+    #[inline]
     pub fn set_offset(&mut self, offset: usize) -> bool {
-        let old = self.offset;
-        self.offset = self.limited_offset(offset);
-        old != self.offset
+        self.core.set_offset(offset)
     }
 
-    /// Change the offset by some delta. Limits the offset to 0..max_v_offset + v_overscroll.
-    ///
-    /// Due to overscroll it's possible that this is an invalid
-    /// offset for the widget. The widget must deal with this
-    /// situation.
-    pub fn change_offset(&mut self, delta: isize) -> bool {
-        let old = self.offset;
+    /// Scroll to row.
+    #[inline]
+    pub fn scroll_to_pos(&mut self, pos: usize) -> bool {
+        self.core.scroll_to_pos(pos)
+    }
 
-        let offset = isize::try_from(self.offset).unwrap_or(isize::MAX);
-        let offset = offset.saturating_add(delta);
+    #[inline]
+    pub fn scroll_up(&mut self, delta: usize) -> bool {
+        self.core.dec_offset(delta)
+    }
 
-        self.offset = self.clamp_offset(offset);
-        old != self.offset
+    #[inline]
+    pub fn scroll_down(&mut self, delta: usize) -> bool {
+        self.core.inc_offset(delta)
+    }
+
+    #[inline]
+    pub fn scroll_left(&mut self, delta: usize) -> bool {
+        self.core.dec_offset(delta)
+    }
+
+    #[inline]
+    pub fn scroll_right(&mut self, delta: usize) -> bool {
+        self.core.inc_offset(delta)
     }
 
     /// Calculate the offset limited to max_offset+overscroll_by.
-    pub fn limited_offset(&self, offset: usize) -> usize {
-        min(offset, self.max_offset.saturating_add(self.overscroll_by))
-    }
-
-    /// Clamp the offset given as isize between 0 and max_offset+overscroll_by.
-    pub fn clamp_offset(&self, offset: isize) -> usize {
-        let max_offset = isize::try_from(self.max_offset).unwrap_or(isize::MAX);
-        let overscroll_by = isize::try_from(self.overscroll_by).unwrap_or(isize::MAX);
-        let max_offset = max_offset.saturating_add(overscroll_by);
-
-        offset.clamp(0, max_offset) as usize
+    #[inline]
+    pub fn limit_offset(&self, offset: usize) -> usize {
+        self.core.limit_offset(offset)
     }
 
     /// Maximum offset that is accessible with scrolling.
     ///
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
+    #[inline]
     pub fn max_offset(&self) -> usize {
-        self.max_offset
+        self.core.max_offset()
     }
 
     /// Maximum offset that is accessible with scrolling.
     ///
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
+    #[inline]
     pub fn set_max_offset(&mut self, max: usize) {
-        self.max_offset = max;
+        self.core.set_max_offset(max);
     }
 
     /// Page-size at the current offset.
+    #[inline]
     pub fn page_len(&self) -> usize {
-        self.page_len
+        self.core.page_len()
     }
 
     /// Page-size at the current offset.
+    #[inline]
     pub fn set_page_len(&mut self, page: usize) {
-        self.page_len = page;
+        self.core.set_page_len(page);
     }
 
     /// Suggested scroll per scroll-event.
     /// Defaults to 1/10 of the page
+    #[inline]
     pub fn scroll_by(&self) -> usize {
-        if let Some(scroll) = self.scroll_by {
-            max(scroll, 1)
-        } else {
-            max(self.page_len / 10, 1)
-        }
+        self.core.scroll_by()
     }
 
     /// Suggested scroll per scroll-event.
     /// Defaults to 1/10 of the page
+    #[inline]
     pub fn set_scroll_by(&mut self, scroll: Option<usize>) {
-        self.scroll_by = scroll;
+        self.core.set_scroll_by(scroll)
     }
 }
 
@@ -614,52 +608,43 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollSt
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ScrollOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
-                match self.orientation {
-                    ScrollbarOrientation::VerticalRight | ScrollbarOrientation::VerticalLeft => {
-                        if m.row >= self.area.y {
-                            // correct for the top `^` and bottom `v` arrows.
-                            let row = m.row.saturating_sub(self.area.y).saturating_sub(1) as usize;
-                            let height = self.area.height.saturating_sub(2) as usize;
-                            let pos = (self.max_offset * row) / height;
+                if self.core.is_vertical() {
+                    if m.row >= self.area.y {
+                        // correct for the top `^` and bottom `v` arrows.
+                        let row = m.row.saturating_sub(self.area.y).saturating_sub(1) as usize;
+                        let height = self.area.height.saturating_sub(2) as usize;
+                        let pos = (self.core.max_offset() * row) / height;
 
-                            ScrollOutcome::Offset(pos)
-                        } else {
-                            ScrollOutcome::Unchanged
-                        }
+                        ScrollOutcome::Offset(pos)
+                    } else {
+                        ScrollOutcome::Unchanged
                     }
-                    ScrollbarOrientation::HorizontalBottom
-                    | ScrollbarOrientation::HorizontalTop => {
-                        if m.column >= self.area.x {
-                            // correct for the left `<` and right `>` arrows.
-                            let col =
-                                m.column.saturating_sub(self.area.x).saturating_sub(1) as usize;
-                            let width = self.area.width.saturating_sub(2) as usize;
-                            let pos = (self.max_offset * col) / width;
-                            ScrollOutcome::Offset(pos)
-                        } else {
-                            ScrollOutcome::Unchanged
-                        }
+                } else {
+                    if m.column >= self.area.x {
+                        // correct for the left `<` and right `>` arrows.
+                        let col = m.column.saturating_sub(self.area.x).saturating_sub(1) as usize;
+                        let width = self.area.width.saturating_sub(2) as usize;
+                        let pos = (self.core.max_offset() * col) / width;
+                        ScrollOutcome::Offset(pos)
+                    } else {
+                        ScrollOutcome::Unchanged
                     }
                 }
             }
             ct_event!(mouse down Left for col, row) if self.area.contains((*col, *row).into()) => {
-                match self.orientation {
-                    ScrollbarOrientation::VerticalRight | ScrollbarOrientation::VerticalLeft => {
-                        // correct for the top `^` and bottom `v` arrows.
-                        let row = row.saturating_sub(self.area.y).saturating_sub(1) as usize;
-                        let height = self.area.height.saturating_sub(2) as usize;
-                        let pos = (self.max_offset * row) / height;
+                if self.core.is_vertical() {
+                    // correct for the top `^` and bottom `v` arrows.
+                    let row = row.saturating_sub(self.area.y).saturating_sub(1) as usize;
+                    let height = self.area.height.saturating_sub(2) as usize;
+                    let pos = (self.core.max_offset() * row) / height;
 
-                        ScrollOutcome::Offset(pos)
-                    }
-                    ScrollbarOrientation::HorizontalBottom
-                    | ScrollbarOrientation::HorizontalTop => {
-                        // correct for the left `<` and right `>` arrows.
-                        let col = col.saturating_sub(self.area.x).saturating_sub(1) as usize;
-                        let width = self.area.width.saturating_sub(2) as usize;
-                        let pos = (self.max_offset * col) / width;
-                        ScrollOutcome::Offset(pos)
-                    }
+                    ScrollOutcome::Offset(pos)
+                } else {
+                    // correct for the left `<` and right `>` arrows.
+                    let col = col.saturating_sub(self.area.x).saturating_sub(1) as usize;
+                    let width = self.area.width.saturating_sub(2) as usize;
+                    let pos = (self.core.max_offset() * col) / width;
+                    ScrollOutcome::Offset(pos)
                 }
             }
             _ => ScrollOutcome::NotUsed,
@@ -685,7 +670,7 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
                 // right scroll with ALT down. shift doesn't work?
                 ct_event!(scroll ALT down for column, row) => {
                     if area.contains(Position::new(*column, *row)) {
-                        ScrollOutcome::Delta(hscroll.scroll_by() as isize, 0)
+                        ScrollOutcome::Right(hscroll.scroll_by())
                     } else {
                         ScrollOutcome::NotUsed
                     }
@@ -693,7 +678,7 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
                 // left scroll with ALT up. shift doesn't work?
                 ct_event!(scroll ALT up for column, row) => {
                     if area.contains(Position::new(*column, *row)) {
-                        ScrollOutcome::Delta(-(hscroll.scroll_by() as isize), 0)
+                        ScrollOutcome::Left(hscroll.scroll_by())
                     } else {
                         ScrollOutcome::NotUsed
                     }
@@ -705,14 +690,14 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
             flow!(match event {
                 ct_event!(scroll down for column, row) => {
                     if area.contains(Position::new(*column, *row)) {
-                        ScrollOutcome::Delta(0, vscroll.scroll_by() as isize)
+                        ScrollOutcome::Down(vscroll.scroll_by())
                     } else {
                         ScrollOutcome::NotUsed
                     }
                 }
                 ct_event!(scroll up for column, row) => {
                     if area.contains(Position::new(*column, *row)) {
-                        ScrollOutcome::Delta(0, -(vscroll.scroll_by() as isize))
+                        ScrollOutcome::Up(vscroll.scroll_by())
                     } else {
                         ScrollOutcome::NotUsed
                     }
@@ -728,19 +713,19 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
 impl ScrollbarPolicy {
     fn scrollbar(self, state: &ScrollState) -> ScrollbarState {
         match self {
-            ScrollbarPolicy::Always => ScrollbarState::new(max(state.max_offset, 1))
-                .position(state.offset)
-                .viewport_content_length(state.page_len),
-            ScrollbarPolicy::AsNeeded => ScrollbarState::new(state.max_offset)
-                .position(state.offset)
-                .viewport_content_length(state.page_len),
+            ScrollbarPolicy::Always => ScrollbarState::new(max(state.core.max_offset(), 1))
+                .position(state.core.offset())
+                .viewport_content_length(state.core.page_len()),
+            ScrollbarPolicy::AsNeeded => ScrollbarState::new(state.core.max_offset())
+                .position(state.core.offset())
+                .viewport_content_length(state.core.page_len()),
         }
     }
 
     fn show_scrollbar(self, state: &ScrollState) -> bool {
         match self {
             ScrollbarPolicy::Always => true,
-            ScrollbarPolicy::AsNeeded => state.max_offset > 0,
+            ScrollbarPolicy::AsNeeded => state.core.max_offset() > 0,
         }
     }
 }
@@ -758,6 +743,190 @@ impl Default for ScrolledStyle {
             no_symbol: None,
             no_style: None,
             non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+pub mod core {
+    use std::cmp::{max, min};
+
+    #[derive(Debug, Default, Clone, PartialEq, Eq)]
+    pub struct ScrollCore {
+        /// Vertical scroll?
+        vertical: bool,
+        /// Maximum offset that is accessible with scrolling.
+        ///
+        /// This is shorter than the length of the content by whatever fills the last page.
+        /// This is the base for the scrollbar content_length.
+        max_offset: usize,
+        /// Current  offset.
+        offset: usize,
+        /// Page-size at the current offset.
+        page_len: usize,
+        /// Scrolling step-size for mouse-scrolling
+        scroll_by: Option<usize>,
+        /// Allow overscroll by n items.
+        overscroll_by: usize,
+    }
+
+    impl ScrollCore {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        /// Vertical scroll?
+        #[inline]
+        pub fn is_vertical(&self) -> bool {
+            self.vertical
+        }
+
+        #[inline]
+        pub fn set_vertical(&mut self, vertical: bool) {
+            self.vertical = vertical;
+        }
+
+        /// Horizontal scroll?
+        #[inline]
+        pub fn is_horizontal(&self) -> bool {
+            !self.vertical
+        }
+
+        #[inline]
+        pub fn set_horizontal(&mut self, horizontal: bool) {
+            self.vertical = !horizontal;
+        }
+
+        /// Current vertical offset.
+        #[inline]
+        pub fn offset(&self) -> usize {
+            self.offset
+        }
+
+        /// Change the offset. Limits the offset to max_v_offset + v_overscroll.
+        ///
+        /// Due to overscroll it's possible that this is an invalid
+        /// offset for the widget. The widget must deal with this
+        /// situation.
+        #[inline]
+        pub fn set_offset(&mut self, offset: usize) -> bool {
+            let old = self.offset;
+            self.offset = self.limit_offset(offset);
+            old != self.offset
+        }
+
+        /// Scroll to row.
+        #[inline]
+        pub fn scroll_to_pos(&mut self, pos: usize) -> bool {
+            let old = self.offset;
+            if pos >= self.offset + self.page_len {
+                self.offset = pos - self.page_len + 1;
+            } else if pos < self.offset {
+                self.offset = pos;
+            }
+            old != self.offset
+        }
+
+        /// Change the offset by some delta. Limits the offset to 0..max_v_offset + v_overscroll.
+        ///
+        /// Due to overscroll it's possible that this is an invalid
+        /// offset for the widget. The widget must deal with this
+        /// situation.
+        #[inline]
+        pub fn inc_offset(&mut self, delta: usize) -> bool {
+            let old = self.offset;
+            self.offset = self.limit_offset(self.offset.saturating_add(delta));
+            old != self.offset
+        }
+
+        /// Change the offset by some delta. Limits the offset to 0..max_v_offset + v_overscroll.
+        ///
+        /// Due to overscroll it's possible that this is an invalid
+        /// offset for the widget. The widget must deal with this
+        /// situation.
+        #[inline]
+        pub fn dec_offset(&mut self, delta: usize) -> bool {
+            let old = self.offset;
+            self.offset = self.limit_offset(self.offset.saturating_sub(delta));
+            old != self.offset
+        }
+
+        /// Calculate the offset limited to max_offset+overscroll_by.
+        #[inline]
+        pub fn limit_offset(&self, offset: usize) -> usize {
+            min(offset, self.max_offset.saturating_add(self.overscroll_by))
+        }
+
+        /// Clamp an isize offset between 0 and max_offset+overscroll_by.
+        #[inline]
+        pub fn clamp_offset(&self, offset: isize) -> usize {
+            if offset < 0 {
+                0
+            } else {
+                min(
+                    offset as usize,
+                    self.max_offset.saturating_add(self.overscroll_by),
+                )
+            }
+        }
+
+        /// Maximum offset that is accessible with scrolling.
+        ///
+        /// This is shorter than the length of the content by whatever fills the last page.
+        /// This is the base for the scrollbar content_length.
+        #[inline]
+        pub fn max_offset(&self) -> usize {
+            self.max_offset
+        }
+
+        /// Maximum offset that is accessible with scrolling.
+        ///
+        /// This is shorter than the length of the content by whatever fills the last page.
+        /// This is the base for the scrollbar content_length.
+        #[inline]
+        pub fn set_max_offset(&mut self, max: usize) {
+            self.max_offset = max;
+        }
+
+        /// Page-size at the current offset.
+        #[inline]
+        pub fn page_len(&self) -> usize {
+            self.page_len
+        }
+
+        /// Page-size at the current offset.
+        #[inline]
+        pub fn set_page_len(&mut self, page: usize) {
+            self.page_len = page;
+        }
+
+        /// Suggested scroll per scroll-event.
+        /// Defaults to 1/10 of the page
+        #[inline]
+        pub fn scroll_by(&self) -> usize {
+            if let Some(scroll) = self.scroll_by {
+                max(scroll, 1)
+            } else {
+                max(self.page_len / 10, 1)
+            }
+        }
+
+        /// Suggested scroll per scroll-event.
+        /// Defaults to 1/10 of the page
+        #[inline]
+        pub fn set_scroll_by(&mut self, scroll: Option<usize>) {
+            self.scroll_by = scroll;
+        }
+
+        /// Allowed over-scroll
+        #[inline]
+        pub fn overscroll_by(&self) -> usize {
+            self.overscroll_by
+        }
+
+        /// Allowed over-scroll
+        #[inline]
+        pub fn set_overscroll_by(&mut self, overscroll_by: usize) {
+            self.overscroll_by = overscroll_by;
         }
     }
 }

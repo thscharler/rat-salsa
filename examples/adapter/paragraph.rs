@@ -1,4 +1,5 @@
 use crate::adapter::_private::NonExhaustive;
+use log::debug;
 use rat_event::{flow, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
@@ -123,19 +124,21 @@ fn render_para(widget: &ParagraphS<'_>, area: Rect, buf: &mut Buffer, state: &mu
         widget.vscroll.as_ref(),
     );
 
-    state.hscroll.max_offset = if widget.is_wrap {
+    state.hscroll.set_max_offset(if widget.is_wrap {
         0
     } else {
         widget
             .widget
             .line_width()
             .saturating_sub(state.inner.width as usize)
-    };
-    state.hscroll.page_len = state.inner.width as usize;
+    });
+    state.hscroll.set_page_len(state.inner.width as usize);
 
     let lines = widget.widget.line_count(area.width) + 4; // 4 is an estimate. line_count seems not very accurate.
-    state.vscroll.max_offset = lines.saturating_sub(state.inner.height as usize);
-    state.vscroll.page_len = area.height as usize;
+    state
+        .vscroll
+        .set_max_offset(lines.saturating_sub(state.inner.height as usize));
+    state.vscroll.set_page_len(area.height as usize);
 
     widget.block.render_ref(area, buf);
     if let Some(vscroll) = &widget.vscroll {
@@ -148,7 +151,7 @@ fn render_para(widget: &ParagraphS<'_>, area: Rect, buf: &mut Buffer, state: &mu
     widget
         .widget
         .clone() // TODO: not optimal
-        .scroll((state.vscroll.offset as u16, state.hscroll.offset as u16))
+        .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16))
         .render(state.inner, buf);
 }
 
@@ -176,7 +179,7 @@ impl ParagraphSState {
     }
 
     pub fn horizontal_offset(&self) -> usize {
-        self.hscroll.offset
+        self.hscroll.offset()
     }
 
     pub fn set_horizontal_offset(&mut self, offset: usize) -> bool {
@@ -184,13 +187,19 @@ impl ParagraphSState {
     }
 
     pub fn hscroll(&mut self, n: isize) -> bool {
-        self.hscroll
-            .set_offset(self.hscroll.clamp_offset(self.hscroll.offset as isize + n))
+        self.hscroll.set_offset(
+            self.hscroll
+                .core
+                .clamp_offset(self.hscroll.offset() as isize + n),
+        )
     }
 
     pub fn vscroll(&mut self, n: isize) -> bool {
-        self.vscroll
-            .set_offset(self.vscroll.clamp_offset(self.vscroll.offset as isize + n))
+        self.vscroll.set_offset(
+            self.vscroll
+                .core
+                .clamp_offset(self.vscroll.offset() as isize + n),
+        )
     }
 }
 
@@ -212,19 +221,30 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSStat
             match ScrollArea(self.inner, Some(&self.hscroll), Some(&self.vscroll))
                 .handle(event, MouseOnly)
             {
-                ScrollOutcome::Delta(h, v) => {
-                    if h != 0 {
-                        if self.hscroll(h) {
-                            Outcome::Changed
-                        } else {
-                            Outcome::NotUsed
-                        }
-                    } else if v != 0 {
-                        if self.vscroll(v) {
-                            Outcome::Changed
-                        } else {
-                            Outcome::NotUsed
-                        }
+                ScrollOutcome::Up(v) => {
+                    if self.vscroll(-(v as isize)) {
+                        Outcome::Changed
+                    } else {
+                        Outcome::NotUsed
+                    }
+                }
+                ScrollOutcome::Down(v) => {
+                    if self.vscroll(v as isize) {
+                        Outcome::Changed
+                    } else {
+                        Outcome::NotUsed
+                    }
+                }
+                ScrollOutcome::Left(v) => {
+                    if self.hscroll(-(v as isize)) {
+                        Outcome::Changed
+                    } else {
+                        Outcome::NotUsed
+                    }
+                }
+                ScrollOutcome::Right(v) => {
+                    if self.hscroll(v as isize) {
+                        Outcome::Changed
                     } else {
                         Outcome::NotUsed
                     }

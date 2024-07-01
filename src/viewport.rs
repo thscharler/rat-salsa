@@ -1,14 +1,24 @@
+/// A viewport allows scrolling of a `StatefulWidget` without builtin
+/// support for scrolling.
+///
+/// View and Viewport are the same in functionality.
+///
+/// The difference is that View works for [Widget]s and
+/// Viewport for [StatefulWidget]s.
+///
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
 use crate::inner::{InnerStatefulOwned, InnerStatefulRef, InnerWidget};
 use crate::util::copy_buffer;
 use crate::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use log::debug;
 use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef};
+use std::fmt::Debug;
 
 /// Viewport has its own size, and can contain a stateful widget
 /// that will be rendered to a view sized buffer.
@@ -142,14 +152,17 @@ fn render_ref<W, S>(
         viewport.view_size.height,
     );
 
-    state.hscroll.max_offset =
-        state.view_area.width.saturating_sub(state.inner_area.width) as usize;
-    state.hscroll.page_len = state.inner_area.width as usize;
-    state.vscroll.max_offset = state
-        .view_area
-        .height
-        .saturating_sub(state.inner_area.height) as usize;
-    state.vscroll.page_len = state.inner_area.height as usize;
+    state
+        .hscroll
+        .set_max_offset(state.view_area.width.saturating_sub(state.inner_area.width) as usize);
+    state.hscroll.set_page_len(state.inner_area.width as usize);
+    state.vscroll.set_max_offset(
+        state
+            .view_area
+            .height
+            .saturating_sub(state.inner_area.height) as usize,
+    );
+    state.vscroll.set_page_len(state.inner_area.height as usize);
 
     viewport.block.render_ref(area, buf);
     if let Some(hscroll) = &viewport.hscroll {
@@ -165,8 +178,8 @@ fn render_ref<W, S>(
     copy_buffer(
         state.view_area,
         tmp,
-        state.hscroll.offset,
-        state.vscroll.offset,
+        state.hscroll.offset(),
+        state.vscroll.offset(),
         viewport.style,
         state.inner_area,
         buf,
@@ -196,8 +209,8 @@ impl<S> ViewportState<S> {
             crossterm::event::Event::Key(_) => event.clone(),
             crossterm::event::Event::Mouse(m) => {
                 let mut m = *m;
-                m.column += self.hscroll.offset as u16;
-                m.row += self.vscroll.offset as u16;
+                m.column += self.hscroll.offset() as u16;
+                m.row += self.vscroll.offset() as u16;
                 crossterm::event::Event::Mouse(m)
             }
             crossterm::event::Event::Paste(_) => event.clone(),
@@ -208,50 +221,62 @@ impl<S> ViewportState<S> {
 
 impl<S> ViewportState<S> {
     pub fn vertical_offset(&self) -> usize {
-        self.vscroll.offset
+        self.vscroll.offset()
     }
 
     pub fn set_vertical_offset(&mut self, offset: usize) -> bool {
-        let old = self.vscroll.offset;
+        let old = self.vscroll.offset();
         self.vscroll.set_offset(offset);
-        old != self.vscroll.offset
+        old != self.vscroll.offset()
     }
 
     pub fn vertical_page_len(&self) -> usize {
-        self.vscroll.page_len
+        self.vscroll.page_len()
     }
 
     pub fn horizontal_offset(&self) -> usize {
-        self.hscroll.offset
+        self.hscroll.offset()
     }
 
     pub fn set_horizontal_offset(&mut self, offset: usize) -> bool {
-        let old = self.hscroll.offset;
+        let old = self.hscroll.offset();
         self.hscroll.set_offset(offset);
-        old != self.hscroll.offset
+        old != self.hscroll.offset()
     }
 
     pub fn horizontal_page_len(&self) -> usize {
-        self.hscroll.page_len
+        self.hscroll.page_len()
     }
 
     pub fn horizontal_scroll_to(&mut self, pos: usize) -> bool {
-        self.hscroll.set_offset(pos)
+        self.hscroll.scroll_to_pos(pos)
     }
 
     pub fn vertical_scroll_to(&mut self, pos: usize) -> bool {
-        self.vscroll.set_offset(pos)
+        self.vscroll.scroll_to_pos(pos)
     }
 
-    pub fn scroll(&mut self, delta_h: isize, delta_v: isize) -> bool {
-        self.hscroll.change_offset(delta_h) || self.vscroll.change_offset(delta_v)
+    pub fn scroll_up(&mut self, delta: usize) -> bool {
+        self.vscroll.scroll_up(delta)
+    }
+
+    pub fn scroll_down(&mut self, delta: usize) -> bool {
+        self.vscroll.scroll_down(delta)
+    }
+
+    pub fn scroll_left(&mut self, delta: usize) -> bool {
+        self.hscroll.scroll_left(delta)
+    }
+
+    pub fn scroll_right(&mut self, delta: usize) -> bool {
+        self.hscroll.scroll_right(delta)
     }
 }
 
 impl<R, Q, S> HandleEvent<crossterm::event::Event, Q, R> for ViewportState<S>
 where
     S: HandleEvent<crossterm::event::Event, Q, R>,
-    R: From<Outcome> + ConsumedEvent,
+    R: From<Outcome> + ConsumedEvent + Debug,
 {
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: Q) -> R {
         flow!(match self.hscroll.handle(event, MouseOnly) {
@@ -275,10 +300,19 @@ where
             match ScrollArea(self.inner_area, Some(&self.hscroll), Some(&self.vscroll))
                 .handle(event, MouseOnly)
             {
-                ScrollOutcome::Delta(h, v) => {
-                    Outcome::from(self.scroll(h, v))
+                ScrollOutcome::Up(v) => {
+                    Outcome::from(self.scroll_up(v))
                 }
-                r => Outcome::from(r),
+                ScrollOutcome::Down(v) => {
+                    Outcome::from(self.scroll_down(v))
+                }
+                ScrollOutcome::Left(v) => {
+                    Outcome::from(self.scroll_left(v))
+                }
+                ScrollOutcome::Right(v) => {
+                    Outcome::from(self.scroll_right(v))
+                }
+                r => r.into(),
             }
         );
 

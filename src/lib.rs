@@ -7,7 +7,7 @@ pub mod view;
 pub mod viewport;
 
 pub use scrolled::{
-    layout_scroll, layout_scroll_inner, Scroll, ScrollArea, ScrollState, ScrollbarPolicy,
+    core, layout_scroll, layout_scroll_inner, Scroll, ScrollArea, ScrollState, ScrollbarPolicy,
     ScrolledStyle,
 };
 
@@ -27,8 +27,13 @@ pub mod event {
         /// Rendering the ui is advised.
         Changed,
         /// Scroll delta when using HandleEvent for area scrolling.
-        /// (∆col, ∆row)
-        Delta(isize, isize),
+        Up(usize),
+        /// Scroll delta when using HandleEvent for area scrolling.
+        Down(usize),
+        /// Scroll delta when using HandleEvent for area scrolling.
+        Left(usize),
+        /// Scroll delta when using HandleEvent for area scrolling.
+        Right(usize),
         /// Offset should change to this value.
         Offset(usize),
     }
@@ -46,7 +51,10 @@ pub mod event {
                 ScrollOutcome::Unchanged => Outcome::Unchanged,
                 ScrollOutcome::Changed => Outcome::Changed,
                 ScrollOutcome::Offset(_) => Outcome::Changed,
-                ScrollOutcome::Delta(_, _) => Outcome::Changed,
+                ScrollOutcome::Up(_) => Outcome::Changed,
+                ScrollOutcome::Down(_) => Outcome::Changed,
+                ScrollOutcome::Left(_) => Outcome::Changed,
+                ScrollOutcome::Right(_) => Outcome::Changed,
             }
         }
     }

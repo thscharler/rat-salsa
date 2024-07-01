@@ -177,11 +177,11 @@ impl<'a> StatefulWidget for ListS<'a> {
                 }
             }
         }
-        state.scroll.page_len = state.item_areas.len();
+        state.scroll.set_page_len(state.item_areas.len());
 
         // v_max_offset
         if self.scroll_selection {
-            state.scroll.max_offset = state.len.saturating_sub(1);
+            state.scroll.set_max_offset(state.len.saturating_sub(1));
         } else {
             let mut n = 0;
             let mut height = 0;
@@ -192,7 +192,7 @@ impl<'a> StatefulWidget for ListS<'a> {
                 }
                 n += 1;
             }
-            state.scroll.max_offset = state.len.saturating_sub(n);
+            state.scroll.set_max_offset(state.len.saturating_sub(n));
         }
 
         self.block.render_ref(area, buf);
@@ -291,7 +291,7 @@ impl ListSState {
 impl ListSState {
     #[inline]
     pub fn offset(&self) -> usize {
-        self.scroll.offset
+        self.scroll.offset()
     }
 
     pub fn set_offset(&mut self, position: usize) -> bool {
@@ -308,7 +308,7 @@ impl ListSState {
 
             self.widget.selected() != old_select
         } else {
-            let old_offset = self.scroll.offset;
+            let old_offset = self.scroll.offset();
 
             let new_offset = pos;
             self.scroll.set_offset(new_offset);
@@ -321,8 +321,8 @@ impl ListSState {
             if let Some(selected) = self.widget.selected() {
                 if selected < new_offset {
                     *self.widget.selected_mut() = Some(new_offset);
-                } else if selected >= new_offset + self.scroll.page_len {
-                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len);
+                } else if selected >= new_offset + self.scroll.page_len() {
+                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len());
                 }
             }
 
@@ -343,9 +343,12 @@ impl ListSState {
 
             self.widget.selected() != old_select
         } else {
-            let old_offset = self.scroll.offset;
+            let old_offset = self.scroll.offset();
 
-            let new_offset = self.scroll.clamp_offset(self.scroll.offset as isize + n);
+            let new_offset = self
+                .scroll
+                .core
+                .clamp_offset(self.scroll.offset() as isize + n);
             self.scroll.set_offset(new_offset);
             *self.widget.offset_mut() = new_offset;
             // For scrolling purposes the selection of ratatui::Table is never None,
@@ -355,8 +358,8 @@ impl ListSState {
             if let Some(selected) = self.widget.selected() {
                 if selected < new_offset {
                     *self.widget.selected_mut() = Some(new_offset);
-                } else if selected >= new_offset + self.scroll.page_len {
-                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len);
+                } else if selected >= new_offset + self.scroll.page_len() {
+                    *self.widget.selected_mut() = Some(new_offset + self.scroll.page_len());
                 }
             }
 
@@ -437,9 +440,11 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
 
         flow!(
             match ScrollArea(self.inner, None, Some(&self.scroll)).handle(event, MouseOnly) {
-                ScrollOutcome::Delta(_, v) => {
-                    self.scroll(v);
-                    Outcome::Changed
+                ScrollOutcome::Up(v) => {
+                    Outcome::from(self.scroll(-(v as isize)))
+                }
+                ScrollOutcome::Down(v) => {
+                    Outcome::from(self.scroll(v as isize))
                 }
                 r => r.into(),
             }
