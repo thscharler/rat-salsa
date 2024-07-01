@@ -810,6 +810,15 @@ pub mod core {
             self.offset
         }
 
+        /// Change the offset. Does no checks whatsoever.
+        /// Sometimes useful for tests.
+        #[inline]
+        pub fn set_raw_offset(&mut self, offset: usize) -> bool {
+            let old = self.offset;
+            self.offset = offset;
+            old != self.offset
+        }
+
         /// Change the offset. Limits the offset to max_v_offset + v_overscroll.
         ///
         /// Due to overscroll it's possible that this is an invalid

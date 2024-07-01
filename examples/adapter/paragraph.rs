@@ -1,5 +1,4 @@
 use crate::adapter::_private::NonExhaustive;
-use log::debug;
 use rat_event::{flow, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};

@@ -11,7 +11,6 @@ use crate::event::ScrollOutcome;
 use crate::inner::{InnerStatefulOwned, InnerStatefulRef, InnerWidget};
 use crate::util::copy_buffer;
 use crate::{layout_scroll, Scroll, ScrollArea, ScrollState};
-use log::debug;
 use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
