@@ -214,7 +214,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
                 break;
             }
         }
-        state.scroll.page_len = state.item_areas.len();
+        state.scroll.set_page_len(state.item_areas.len());
 
         // max_v_offset
         let mut n = 0;
@@ -226,7 +226,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
             }
             n += 1;
         }
-        state.scroll.max_offset = state.len.saturating_sub(n);
+        state.scroll.set_max_offset(state.len.saturating_sub(n));
 
         let (style, select_style) = if state.is_focused() {
             (self.style, self.focus_style)
@@ -254,7 +254,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
             .collect();
 
         let mut list_state =
-            ratatui::widgets::ListState::default().with_offset(state.scroll.offset);
+            ratatui::widgets::ListState::default().with_offset(state.scroll.offset());
 
         ratatui::widgets::List::default()
             .items(self.items)
@@ -279,17 +279,17 @@ impl<Selection> HasFocusFlag for RListState<Selection> {
 impl<Selection> RListState<Selection> {
     #[inline]
     pub fn max_offset(&self) -> usize {
-        self.scroll.max_offset
+        self.scroll.max_offset()
     }
 
     #[inline]
     pub fn offset(&self) -> usize {
-        self.scroll.offset
+        self.scroll.offset()
     }
 
     #[inline]
     pub fn page_len(&self) -> usize {
-        self.scroll.page_len
+        self.scroll.page_len()
     }
 
     pub fn scroll_by(&self) -> usize {
@@ -301,28 +301,30 @@ impl<Selection> RListState<Selection> {
         self.scroll.set_offset(offset)
     }
 
+    #[inline]
     pub fn scroll_up(&mut self, delta: usize) -> bool {
-        self.scroll.change_offset(-(delta as isize))
+        self.scroll.scroll_up(delta)
     }
 
+    #[inline]
     pub fn scroll_down(&mut self, delta: usize) -> bool {
-        self.scroll.change_offset(delta as isize)
+        self.scroll.scroll_down(delta)
     }
 }
 
 impl<Selection: ListSelection> RListState<Selection> {
     #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        row_at_clicked(&self.item_areas, pos.y).map(|v| self.scroll.offset + v)
+        row_at_clicked(&self.item_areas, pos.y).map(|v| self.scroll.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
         match row_at_drag(self.inner, &self.item_areas, pos.y) {
-            Ok(v) => self.scroll.offset + v,
-            Err(v) if v <= 0 => self.scroll.offset.saturating_sub((-v) as usize),
-            Err(v) => self.scroll.offset + self.item_areas.len() + v as usize,
+            Ok(v) => self.scroll.offset() + v,
+            Err(v) if v <= 0 => self.scroll.offset().saturating_sub((-v) as usize),
+            Err(v) => self.scroll.offset() + self.item_areas.len() + v as usize,
         }
     }
 
