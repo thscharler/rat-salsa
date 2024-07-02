@@ -3,7 +3,7 @@
 Throw away the whole concept. Using Scrolled as a container widget is
 very unwieldy.
 
-Replace with a Scrolled utility a la Block.
+Replace with an in internal Scroll<'a> utility a la Block.
 
 # 0.11.3
 
