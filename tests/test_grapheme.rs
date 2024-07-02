@@ -1,4 +1,4 @@
-use rat_input::textarea::graphemes::RopeGraphemesIdx;
+use rat_widget::textarea::graphemes::RopeGraphemesIdx;
 use ropey::{Rope, RopeSlice};
 
 #[test]

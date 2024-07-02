@@ -1,4 +1,4 @@
-use rat_input::textarea::core::InputCore;
+use rat_widget::textarea::core::InputCore;
 
 #[test]
 fn test_byte_at() {

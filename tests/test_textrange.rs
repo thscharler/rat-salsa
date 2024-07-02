@@ -1,4 +1,4 @@
-use rat_input::textarea::core::{InputCore, TextRange};
+use rat_widget::textarea::core::{InputCore, TextRange};
 use std::cmp::Ordering;
 #[allow(unused_imports)]
 use std::hint::black_box;
