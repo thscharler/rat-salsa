@@ -1,3 +1,8 @@
+# 0.13.0
+
+Move all the widgets from rat-input over here. The original reason for the
+split no longer applies, only the burden of maintaining the separation.
+
 # 0.12.4
 
 * fix: reexport TextAreaStyle

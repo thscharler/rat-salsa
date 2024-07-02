@@ -46,19 +46,27 @@ variant_size_differences = "warn"
 
 [dependencies]
 ratatui = { version = "0.27", features = ["unstable-rendered-line-info"] }
+chrono = { version = "0.4", features = ["unstable-locales"] }
 crossterm = "0.27"
 ropey = "1.6.1"
 pure-rust-locales = "0.8"
+unicode-segmentation = "1.11"
+unicode-width = "0.1.12"
+unicode-display-width = "0.3.0"
+rust_decimal = "1.34"
+rust_decimal_macros = "1.34"
+memchr = "2.7.2"
+format_num_pattern = "0.9"
 log = "0.4"
 
+rat-event = { version = "0.14", path = "../rat-event" }
 rat-focus = { version = "0.10", path = "../rat-focus" }
 rat-ftable = { version = "0.15", path = "../rat-ftable" }
 rat-input = { version = "0.16", path = "../rat-input" }
 rat-scrolled = { version = "0.11", path = "../rat-scrolled" }
 
-chrono = { version = "0.4", features = ["unstable-locales"] }
-format_num_pattern = "0.9"
 
 [dev-dependencies]
 fern = "0.6"
 anyhow = "1.0.82"
+lorem-rustum = "0.0.5"
