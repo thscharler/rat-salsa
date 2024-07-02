@@ -1006,11 +1006,7 @@ pub mod core {
         /// Allowed over-scroll
         #[inline]
         pub fn overscroll_by(&self) -> usize {
-            if let Some(overscroll_by) = self.overscroll_by {
-                overscroll_by
-            } else {
-                0
-            }
+            self.overscroll_by.unwrap_or_default()
         }
 
         /// Allowed over-scroll
