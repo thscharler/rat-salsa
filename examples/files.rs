@@ -869,9 +869,11 @@ impl FilesState {
         file: &Path,
         text: &Vec<u8>,
     ) -> Result<String, Error> {
+        let t0 = Some(SystemTime::now());
+
         let hex = 'f: {
             for c in text.iter().take(1024) {
-                if *c < 0x20 && *c != b'\n' && *c != b'\r' {
+                if *c < 0x20 && *c != b'\n' && *c != b'\r' && *c != b'\t' {
                     break 'f true;
                 }
             }
@@ -923,19 +925,19 @@ impl FilesState {
                     _ = write!(mm, "{:08x} ", n + 1);
                 }
 
-                if v.len() / 10_000_000 > mega {
+                if v.len() / 1_000_000 > mega {
                     if let Ok(can_guard) = can.lock() {
                         if *can_guard {
                             return Ok("!Canceled!".to_string());
                         }
                     }
 
-                    mega = v.len() / 10_000_000;
+                    mega = v.len() / 1_000_000;
 
                     // let mut v_part = v.clone();
-                    let mut v_part = String::new();
-                    _ = write!(v_part, "\n ... loading ... {}\n", mega);
-                    _ = snd.send(Ok(Control::Action(UpdateFile(file.to_path_buf(), v_part))));
+                    // let mut v_part = String::new();
+                    // _ = write!(v_part, "\n ... loading ... {}\n", mega);
+                    // _ = snd.send(Ok(Control::Action(UpdateFile(file.to_path_buf(), v_part))));
                 }
             }
             v.push_str(mm.as_str());
