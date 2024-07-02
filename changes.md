@@ -1,3 +1,7 @@
+# 0.22.2
+
+* refactor: adaptations for new internal Scroll<'a> instead of Scrolled widget.
+
 # 0.22.1
 
 * add files.rs example
