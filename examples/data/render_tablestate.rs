@@ -1,7 +1,7 @@
 #![allow(unreachable_pub)]
 
 use rat_ftable::FTableState;
-use rat_input::layout::{layout_edit, EditConstraint};
+use rat_widget::layout::{layout_edit, EditConstraint};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::Widget;

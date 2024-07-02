@@ -12,10 +12,10 @@ use crossterm::terminal::{
 use crossterm::ExecutableCommand;
 use log::error;
 use rat_event::{ConsumedEvent, Outcome};
-use rat_input::button::ButtonStyle;
-use rat_input::msgdialog;
-use rat_input::msgdialog::{MsgDialog, MsgDialogState};
-use rat_input::statusline::{StatusLine, StatusLineState};
+use rat_widget::button::ButtonStyle;
+use rat_widget::msgdialog;
+use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::Style;

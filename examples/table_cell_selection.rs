@@ -4,7 +4,7 @@ use rat_ftable::event::Outcome;
 use rat_ftable::selection::{cellselection, CellSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableContext, FTableState, TableData};
-use rat_input::statusline::StatusLineState;
+use rat_widget::statusline::StatusLineState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::Widget;

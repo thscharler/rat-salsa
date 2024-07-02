@@ -6,7 +6,7 @@ use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
-use rat_input::layout::{layout_edit, EditConstraint, LayoutEdit};
+use rat_widget::layout::{layout_edit, EditConstraint, LayoutEdit};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::Widget;
