@@ -1,3 +1,7 @@
+# 0.14.6
+
+* add Dialog qualifier
+
 # 0.14.5
 
 * add item_at_clicked() helper
