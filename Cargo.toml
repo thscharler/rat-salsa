@@ -61,9 +61,8 @@ log = "0.4"
 
 rat-event = { version = "0.14", path = "../rat-event" }
 rat-focus = { version = "0.10", path = "../rat-focus" }
-rat-ftable = { version = "0.15", path = "../rat-ftable" }
-rat-input = { version = "0.16", path = "../rat-input" }
-rat-scrolled = { version = "0.11", path = "../rat-scrolled" }
+rat-ftable = { version = "0.16", path = "../rat-ftable" }
+rat-scrolled = { version = "0.12", path = "../rat-scrolled" }
 
 
 [dev-dependencies]

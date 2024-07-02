@@ -79,7 +79,7 @@ impl<'a> MenuLine<'a> {
     /// Title text.
     #[inline]
     pub fn title(mut self, title: impl Into<Line<'a>>) -> Self {
-        self.title = Line::from(title.into());
+        self.title = title.into();
         self
     }
 
@@ -274,7 +274,7 @@ impl MenuLineState {
 
     /// Previous item.
     #[inline]
-    pub fn prev(&mut self) -> bool {
+    pub fn prev_item(&mut self) -> bool {
         let old = self.selected;
         self.selected = prev_opt(self.selected, 1, self.len());
         old != self.selected
@@ -282,7 +282,7 @@ impl MenuLineState {
 
     /// Next item.
     #[inline]
-    pub fn next(&mut self) -> bool {
+    pub fn next_item(&mut self) -> bool {
         let old = self.selected;
         self.selected = next_opt(self.selected, 1, self.len());
         old != self.selected
@@ -386,14 +386,14 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuLineSt
                     .map_or(MenuOutcome::Unchanged, |v| MenuOutcome::Selected(v)),
                 ct_event!(key press ANY-c) => self.navigate(*c),
                 ct_event!(keycode press Left) => {
-                    if self.prev() {
+                    if self.prev_item() {
                         MenuOutcome::Selected(self.selected.expect("selected"))
                     } else {
                         MenuOutcome::Unchanged
                     }
                 }
                 ct_event!(keycode press Right) => {
-                    if self.next() {
+                    if self.next_item() {
                         MenuOutcome::Selected(self.selected.expect("selected"))
                     } else {
                         MenuOutcome::Unchanged

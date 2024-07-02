@@ -1,9 +1,12 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
+#![allow(clippy::collapsible_if)]
+#![allow(clippy::if_same_then_else)]
+#![allow(clippy::clone_on_copy)]
+#![allow(clippy::assigning_clones)]
 
 pub use pure_rust_locales::Locale;
 
-/// Event-handling traits and types.
 pub mod event {
     //!
     //! Event-handler traits and Keybindings.

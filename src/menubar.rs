@@ -369,19 +369,17 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuBarSta
         });
 
         let old_selected = self.menu.selected();
-        let r = self.menu.handle(event, MouseOnly);
-        match r {
-            MenuOutcome::Selected(_) => {
+        match self.menu.handle(event, MouseOnly) {
+            r @ MenuOutcome::Selected(_) => {
                 if self.menu.selected == old_selected {
                     self.popup.flip_active();
                 } else {
                     self.popup.set_active(true);
                 }
+                r
             }
-            _ => {}
-        };
-
-        r
+            r => r,
+        }
     }
 }
 

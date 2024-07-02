@@ -364,7 +364,7 @@ impl PopupMenuState {
 
     /// Select the previous item.
     #[inline]
-    pub fn prev(&mut self) -> bool {
+    pub fn prev_item(&mut self) -> bool {
         let old = self.selected;
         self.selected = prev_opt(self.selected, 1, self.len());
         old != self.selected
@@ -372,7 +372,7 @@ impl PopupMenuState {
 
     /// Select the next item.
     #[inline]
-    pub fn next(&mut self) -> bool {
+    pub fn next_item(&mut self) -> bool {
         let old = self.selected;
         self.selected = next_opt(self.selected, 1, self.len());
         old != self.selected
@@ -419,14 +419,14 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
             match event {
                 ct_event!(key press ANY-c) => self.navigate(*c),
                 ct_event!(keycode press Up) => {
-                    if self.prev() {
+                    if self.prev_item() {
                         MenuOutcome::Selected(self.selected.expect("selected"))
                     } else {
                         MenuOutcome::Unchanged
                     }
                 }
                 ct_event!(keycode press Down) => {
-                    if self.next() {
+                    if self.next_item() {
                         MenuOutcome::Selected(self.selected.expect("selected"))
                     } else {
                         MenuOutcome::Unchanged
