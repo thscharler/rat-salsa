@@ -8,10 +8,11 @@ use crate::list::selection::{RowSelection, RowSetSelection};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::{layout_scroll, Scroll, ScrollState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidgetRef, WidgetRef};
+use std::cmp::min;
 use std::collections::HashSet;
 use std::marker::PhantomData;
 
@@ -22,6 +23,11 @@ pub trait ListSelection {
 
     /// Selection lead.
     fn lead_selection(&self) -> Option<usize>;
+
+    /// Scroll the selection instead of the offset.
+    fn scroll_selected(&self) -> bool {
+        false
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -54,7 +60,7 @@ pub struct ListStyle {
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct RListState<Selection> {
     /// Length in items.
-    pub len: usize,
+    pub rows: usize,
     /// Offset
     pub scroll: ScrollState,
 
@@ -173,29 +179,12 @@ where
     }
 }
 
-// impl<'a, State, Selection: ListSelection> ScrollingWidget<State> for RList<'a, Selection> {
-//     fn need_scroll(&self, area: Rect, _state: &mut State) -> (bool, bool) {
-//         let vertical = 'f: {
-//             let mut height = 0;
-//             for item in self.items.iter() {
-//                 height += item.height() as u16;
-//                 if height >= area.height {
-//                     break 'f true;
-//                 }
-//             }
-//             false
-//         };
-//
-//         (false, vertical)
-//     }
-// }
-
 impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
     type State = RListState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
-        state.len = self.len();
+        state.rows = self.len();
 
         let (_, scroll_area, inner_area) =
             layout_scroll(area, self.block.as_ref(), None, self.scroll.as_ref());
@@ -226,13 +215,20 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
             }
             n += 1;
         }
-        state.scroll.set_max_offset(state.len.saturating_sub(n));
+        state.scroll.set_max_offset(state.rows.saturating_sub(n));
 
         let (style, select_style) = if state.is_focused() {
             (self.style, self.focus_style)
         } else {
             (self.style, self.select_style)
         };
+
+        if state.selection.scroll_selected() {
+            let sel_row = state.selection.lead_selection().unwrap_or_default();
+            state.scroll.core.show_selection(sel_row, state.rows);
+        } else {
+            state.scroll.core.no_show_selection();
+        }
 
         self.block.render_ref(area, buf);
         if let Some(scroll) = self.scroll.as_ref() {
@@ -276,7 +272,12 @@ impl<Selection> HasFocusFlag for RListState<Selection> {
     }
 }
 
-impl<Selection> RListState<Selection> {
+impl<Selection: ListSelection> RListState<Selection> {
+    #[inline]
+    pub fn clear_offset(&mut self) {
+        self.scroll.set_offset(0);
+    }
+
     #[inline]
     pub fn max_offset(&self) -> usize {
         self.scroll.max_offset()
@@ -288,6 +289,11 @@ impl<Selection> RListState<Selection> {
     }
 
     #[inline]
+    pub fn set_offset(&mut self, offset: usize) -> bool {
+        self.scroll.set_offset(offset)
+    }
+
+    #[inline]
     pub fn page_len(&self) -> usize {
         self.scroll.page_len()
     }
@@ -296,67 +302,72 @@ impl<Selection> RListState<Selection> {
         self.scroll.scroll_by()
     }
 
+    /// Scroll to selected.
     #[inline]
-    pub fn set_offset(&mut self, offset: usize) -> bool {
-        self.scroll.set_offset(offset)
+    pub fn scroll_to_selected(&mut self) -> bool {
+        if let Some(selected) = self.selection.lead_selection() {
+            self.scroll_to(selected)
+        } else {
+            false
+        }
     }
 
     #[inline]
-    pub fn scroll_up(&mut self, delta: usize) -> bool {
-        self.scroll.scroll_up(delta)
+    pub fn scroll_to(&mut self, pos: usize) -> bool {
+        if pos >= self.offset() + self.page_len() {
+            self.set_offset(pos - self.page_len() + 1)
+        } else if pos < self.offset() {
+            self.set_offset(pos)
+        } else {
+            false
+        }
     }
 
     #[inline]
-    pub fn scroll_down(&mut self, delta: usize) -> bool {
-        self.scroll.scroll_down(delta)
+    pub fn scroll_up(&mut self, n: usize) -> bool {
+        self.scroll.scroll_up(n)
+    }
+
+    #[inline]
+    pub fn scroll_down(&mut self, n: usize) -> bool {
+        self.scroll.scroll_down(n)
     }
 }
 
 impl<Selection: ListSelection> RListState<Selection> {
     #[inline]
-    pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        row_at_clicked(&self.item_areas, pos.y).map(|v| self.scroll.offset() + v)
+    pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
+        row_at_clicked(&self.item_areas, pos.1).map(|v| self.scroll.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
-    pub fn row_at_drag(&self, pos: Position) -> usize {
-        match row_at_drag(self.inner, &self.item_areas, pos.y) {
+    pub fn row_at_drag(&self, pos: (u16, u16)) -> usize {
+        match row_at_drag(self.inner, &self.item_areas, pos.1) {
             Ok(v) => self.scroll.offset() + v,
             Err(v) if v <= 0 => self.scroll.offset().saturating_sub((-v) as usize),
             Err(v) => self.scroll.offset() + self.item_areas.len() + v as usize,
         }
     }
-
-    /// Scroll to selected.
-    #[inline]
-    pub fn scroll_to_selected(&mut self) {
-        if let Some(selected) = self.selection.lead_selection() {
-            if self.offset() + self.item_areas.len() <= selected {
-                self.set_offset(selected - self.item_areas.len() + 1);
-            }
-            if self.offset() > selected {
-                self.set_offset(selected);
-            }
-        }
-    }
-
-    #[inline]
-    pub fn selection(&self) -> &Selection {
-        &self.selection
-    }
-
-    #[inline]
-    pub fn selection_mut(&mut self) -> &mut Selection {
-        &mut self.selection
-    }
 }
 
 impl RListState<RowSelection> {
+    /// When scrolling the table, change the selection instead of the offset.
     #[inline]
-    pub fn with_selected(mut self, selected: Option<usize>) -> Self {
-        self.selection.lead_row = selected;
-        self
+    pub fn set_scroll_selection(&mut self, scroll: bool) {
+        self.selection.set_scroll_selected(scroll);
+    }
+
+    /// Clear the selection.
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.selection.clear();
+    }
+
+    /// Anything selected?
+    #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.selection.has_selection()
     }
 
     /// Returns the lead selection.
@@ -366,31 +377,75 @@ impl RListState<RowSelection> {
     }
 
     #[inline]
-    pub fn selected_mut(&mut self) -> &mut Option<usize> {
-        &mut self.selection.lead_row
+    pub fn select(&mut self, row: Option<usize>) -> bool {
+        if let Some(row) = row {
+            self.selection
+                .select(Some(min(row, self.rows.saturating_sub(1))))
+        } else {
+            self.selection.select(None)
+        }
     }
 
+    /// Move the selection to the given row.
+    /// Ensures the row is visible afterwards.
     #[inline]
-    pub fn select(&mut self, n: Option<usize>) -> bool {
-        self.selection.select(n)
+    pub fn move_to(&mut self, row: usize) -> bool {
+        let r = self.selection.move_to(row, self.rows.saturating_sub(1));
+        let s = self.scroll_to(self.selection.selected().expect("row"));
+        r || s
+    }
+
+    /// Move the selection up n rows.
+    /// Ensures the row is visible afterwards.
+    #[inline]
+    pub fn move_up(&mut self, n: usize) -> bool {
+        let r = self.selection.move_up(n, self.rows.saturating_sub(1));
+        let s = self.scroll_to(self.selection.selected().expect("row"));
+        r || s
+    }
+
+    /// Move the selection down n rows.
+    /// Ensures the row is visible afterwards.
+    #[inline]
+    pub fn move_down(&mut self, n: usize) -> bool {
+        let r = self.selection.move_down(n, self.rows.saturating_sub(1));
+        let s = self.scroll_to(self.selection.selected().expect("row"));
+        r || s
     }
 }
 
 impl RListState<RowSetSelection> {
+    /// Clear the selection.
+    #[inline]
+    pub fn clear_selection(&mut self) {
+        self.selection.clear();
+    }
+
+    /// Anything selected?
+    #[inline]
+    pub fn has_selection(&mut self) -> bool {
+        self.selection.has_selection()
+    }
+
     #[inline]
     pub fn selected(&self) -> HashSet<usize> {
         self.selection.selected()
     }
 
+    /// Change the lead-selection. Limits the value to the number of rows.
+    /// If extend is false the current selection is cleared and both lead and
+    /// anchor are set to the given value.
+    /// If extend is true, the anchor is kept where it is and lead is changed.
+    /// Everything in the range `anchor..lead` is selected. It doesn't matter
+    /// if anchor < lead.
     #[inline]
-    pub fn set_lead(&mut self, lead: Option<usize>, extend: bool) {
-        self.selection.set_lead(lead, extend);
-    }
-
-    /// Set a new lead, at the same time limit the lead to max.
-    #[inline]
-    pub fn set_lead_clamped(&mut self, lead: usize, max: usize, extend: bool) {
-        self.selection.set_lead_clamped(lead, max, extend);
+    pub fn set_lead(&mut self, row: Option<usize>, extend: bool) -> bool {
+        if let Some(row) = row {
+            self.selection
+                .set_lead(Some(min(row, self.rows.saturating_sub(1))), extend)
+        } else {
+            self.selection.set_lead(None, extend)
+        }
     }
 
     /// Current lead.
@@ -405,10 +460,17 @@ impl RListState<RowSetSelection> {
         self.selection.anchor()
     }
 
-    /// Clear the selection.
+    /// Set a new lead, at the same time limit the lead to max.
     #[inline]
-    pub fn clear_selection(&mut self) {
-        self.selection.clear();
+    pub fn set_lead_clamped(&mut self, lead: usize, max: usize, extend: bool) {
+        self.selection.move_to(lead, max, extend);
+    }
+
+    /// Retire the current anchor/lead selection to the set of selected rows.
+    /// Resets lead and anchor and starts a new selection round.
+    #[inline]
+    pub fn retire_selection(&mut self) {
+        self.selection.retire_selection();
     }
 
     /// Add to selection.
@@ -423,15 +485,49 @@ impl RListState<RowSetSelection> {
     pub fn remove_selected(&mut self, idx: usize) {
         self.selection.remove(idx);
     }
+
+    /// Move the selection to the given row.
+    /// Ensures the row is visible afterwards.
+    #[inline]
+    pub fn move_to(&mut self, row: usize, extend: bool) -> bool {
+        let r = self
+            .selection
+            .move_to(row, self.rows.saturating_sub(1), extend);
+        let s = self.scroll_to(self.selection.lead().expect("row"));
+        r || s
+    }
+
+    /// Move the selection up n rows.
+    /// Ensures the row is visible afterwards.
+    #[inline]
+    pub fn move_up(&mut self, n: usize, extend: bool) -> bool {
+        let r = self
+            .selection
+            .move_up(n, self.rows.saturating_sub(1), extend);
+        let s = self.scroll_to(self.selection.lead().expect("row"));
+        r || s
+    }
+
+    /// Move the selection down n rows.
+    /// Ensures the row is visible afterwards.
+    #[inline]
+    pub fn move_down(&mut self, n: usize, extend: bool) -> bool {
+        let r = self
+            .selection
+            .move_down(n, self.rows.saturating_sub(1), extend);
+        let s = self.scroll_to(self.selection.lead().expect("row"));
+        r || s
+    }
 }
 
 pub mod selection {
-    use crate::event::{ct_event, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
+    use crate::event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
     use crate::list::{ListSelection, RListState};
     use crossterm::event::KeyModifiers;
     use rat_focus::HasFocusFlag;
     use rat_ftable::TableSelection;
-    use ratatui::layout::Position;
+    use rat_scrolled::event::ScrollOutcome;
+    use rat_scrolled::ScrollArea;
     use std::mem;
 
     /// No selection
@@ -450,14 +546,58 @@ pub mod selection {
     }
 
     impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RListState<NoSelection> {
-        fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
-            Outcome::NotUsed
+        fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+            let res = if self.is_focused() {
+                match event {
+                    ct_event!(keycode press Down) => self.scroll_down(1).into(),
+                    ct_event!(keycode press Up) => self.scroll_up(1).into(),
+                    ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
+                        self.scroll_to(self.max_offset()).into()
+                    }
+                    ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
+                        self.scroll_to(0).into()
+                    }
+                    ct_event!(keycode press PageUp) => {
+                        self.scroll_up(self.page_len().saturating_sub(1)).into()
+                    }
+                    ct_event!(keycode press PageDown) => {
+                        self.scroll_down(self.page_len().saturating_sub(1)).into()
+                    }
+                    _ => Outcome::NotUsed,
+                }
+            } else {
+                Outcome::NotUsed
+            };
+
+            if res == Outcome::NotUsed {
+                self.handle(event, MouseOnly)
+            } else {
+                res
+            }
         }
     }
 
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RListState<NoSelection> {
-        fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-            Outcome::NotUsed
+        fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
+            let r = match ScrollArea(self.inner, None, Some(&mut self.scroll))
+                .handle(event, MouseOnly)
+            {
+                ScrollOutcome::Up(v) => self.scroll_up(v),
+                ScrollOutcome::Down(v) => self.scroll_down(v),
+                ScrollOutcome::VPos(v) => self.scroll_to(v),
+                ScrollOutcome::Left(_) => false,
+                ScrollOutcome::Right(_) => false,
+                ScrollOutcome::HPos(_) => false,
+
+                ScrollOutcome::NotUsed => false,
+                ScrollOutcome::Unchanged => false,
+                ScrollOutcome::Changed => true,
+            };
+            if r {
+                return Outcome::Changed;
+            }
+
+            Outcome::Unchanged
         }
     }
 
@@ -480,44 +620,19 @@ pub mod selection {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
             let res = if self.is_focused() {
                 match event {
-                    ct_event!(keycode press Down) => {
-                        let r = self.selection.next(1, self.len.saturating_sub(1)).into();
-                        self.scroll_to_selected();
-                        r
-                    }
-                    ct_event!(keycode press Up) => {
-                        let r = self.selection.prev(1).into();
-                        self.scroll_to_selected();
-                        r
-                    }
+                    ct_event!(keycode press Down) => self.move_down(1).into(),
+                    ct_event!(keycode press Up) => self.move_up(1).into(),
                     ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                        let r = self
-                            .selection
-                            .select_clamped(self.len.saturating_sub(1), self.len.saturating_sub(1))
-                            .into();
-                        self.scroll_to_selected();
-                        r
+                        self.move_to(self.rows.saturating_sub(1)).into()
                     }
                     ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                        let r = self
-                            .selection
-                            .select_clamped(0, self.len.saturating_sub(1))
-                            .into();
-                        self.scroll_to_selected();
-                        r
+                        self.move_to(0).into()
                     }
                     ct_event!(keycode press PageUp) => {
-                        let r = self.selection.prev(self.page_len() / 2).into();
-                        self.scroll_to_selected();
-                        r
+                        self.move_up(self.page_len().saturating_sub(1)).into()
                     }
                     ct_event!(keycode press PageDown) => {
-                        let r = self
-                            .selection
-                            .next(self.page_len(), self.len.saturating_sub(1))
-                            .into();
-                        self.scroll_to_selected();
-                        r
+                        self.move_down(self.page_len().saturating_sub(1)).into()
                     }
                     _ => Outcome::NotUsed,
                 }
@@ -525,7 +640,7 @@ pub mod selection {
                 Outcome::NotUsed
             };
 
-            if !res.is_consumed() {
+            if res == Outcome::NotUsed {
                 self.handle(event, MouseOnly)
             } else {
                 res
@@ -535,49 +650,14 @@ pub mod selection {
 
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RListState<RowSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-            match event {
+            flow!(match event {
                 ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
-                    let new_row = self.row_at_drag((m.column, m.row).into());
-                    let r = self
-                        .selection
-                        .select_clamped(new_row, self.len.saturating_sub(1))
-                        .into();
-                    self.scroll_to_selected();
-                    r
-                }
-                ct_event!(scroll down for column,row) => {
-                    if self.area.contains(Position::new(*column, *row)) {
-                        if self.selection.scroll_selected {
-                            let r = self.selection.next(1, self.len.saturating_sub(1));
-                            self.scroll_to_selected();
-                            r.into()
-                        } else {
-                            self.scroll_down(self.page_len() / 10).into()
-                        }
-                    } else {
-                        Outcome::NotUsed
-                    }
-                }
-                ct_event!(scroll up for column, row) => {
-                    if self.area.contains(Position::new(*column, *row)) {
-                        if self.selection.scroll_selected {
-                            let r = self.selection.prev(1);
-                            self.scroll_to_selected();
-                            r.into()
-                        } else {
-                            self.scroll_up(self.page_len() / 10).into()
-                        }
-                    } else {
-                        Outcome::NotUsed
-                    }
+                    self.move_to(self.row_at_drag((m.column, m.row))).into()
                 }
                 ct_event!(mouse down Left for column, row) => {
-                    let pos = Position::new(*column, *row);
-                    if self.area.contains(pos) {
-                        if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.selection
-                                .select_clamped(new_row, self.len.saturating_sub(1))
-                                .into()
+                    if self.inner.contains((*column, *row).into()) {
+                        if let Some(new_row) = self.row_at_clicked((*column, *row)) {
+                            self.move_to(new_row).into()
                         } else {
                             Outcome::NotUsed
                         }
@@ -587,7 +667,45 @@ pub mod selection {
                 }
 
                 _ => Outcome::NotUsed,
+            });
+
+            let r = match ScrollArea(self.inner, None, Some(&mut self.scroll))
+                .handle(event, MouseOnly)
+            {
+                ScrollOutcome::Up(v) => {
+                    if ListSelection::scroll_selected(&self.selection) {
+                        self.move_up(v)
+                    } else {
+                        self.scroll_up(v)
+                    }
+                }
+                ScrollOutcome::Down(v) => {
+                    if ListSelection::scroll_selected(&self.selection) {
+                        self.move_down(v)
+                    } else {
+                        self.scroll_down(v)
+                    }
+                }
+                ScrollOutcome::VPos(v) => {
+                    if ListSelection::scroll_selected(&self.selection) {
+                        self.move_to(v)
+                    } else {
+                        self.scroll_to(v)
+                    }
+                }
+                ScrollOutcome::Left(_) => false,
+                ScrollOutcome::Right(_) => false,
+                ScrollOutcome::HPos(_) => false,
+
+                ScrollOutcome::NotUsed => false,
+                ScrollOutcome::Unchanged => false,
+                ScrollOutcome::Changed => true,
+            };
+            if r {
+                return Outcome::Changed;
             }
+
+            Outcome::NotUsed
         }
     }
 
@@ -595,8 +713,8 @@ pub mod selection {
 
     impl ListSelection for RowSetSelection {
         fn is_selected(&self, n: usize) -> bool {
-            if let Some(mut anchor) = self.anchor {
-                if let Some(mut lead) = self.lead {
+            if let Some(mut anchor) = self.anchor_row {
+                if let Some(mut lead) = self.lead_row {
                     if lead < anchor {
                         mem::swap(&mut lead, &mut anchor);
                     }
@@ -606,7 +724,7 @@ pub mod selection {
                     }
                 }
             } else {
-                if let Some(lead) = self.lead {
+                if let Some(lead) = self.lead_row {
                     if n == lead {
                         return true;
                     }
@@ -617,95 +735,45 @@ pub mod selection {
         }
 
         fn lead_selection(&self) -> Option<usize> {
-            self.lead
+            self.lead_row
         }
     }
 
     impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RListState<RowSetSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> Outcome {
-            let res = {
+            let res = if self.is_focused() {
                 match event {
-                    ct_event!(keycode press Down) => {
-                        let r = self
-                            .selection
-                            .next(1, self.len.saturating_sub(1), false)
-                            .into();
-                        self.scroll_to_selected();
-                        r
-                    }
-                    ct_event!(keycode press SHIFT-Down) => {
-                        let r = self
-                            .selection
-                            .next(1, self.len.saturating_sub(1), true)
-                            .into();
-                        self.scroll_to_selected();
-                        r
-                    }
-                    ct_event!(keycode press Up) => {
-                        let r = self.selection.prev(1, false).into();
-                        self.scroll_to_selected();
-                        r
-                    }
-                    ct_event!(keycode press SHIFT-Up) => {
-                        let r = self.selection.prev(1, true).into();
-                        self.scroll_to_selected();
-                        r
-                    }
+                    ct_event!(keycode press Down) => self.move_down(1, false).into(),
+                    ct_event!(keycode press SHIFT-Down) => self.move_down(1, true).into(),
+                    ct_event!(keycode press Up) => self.move_up(1, false).into(),
+                    ct_event!(keycode press SHIFT-Up) => self.move_up(1, true).into(),
                     ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                        let r = self
-                            .selection
-                            .set_lead(Some(self.len.saturating_sub(1)), false)
-                            .into();
-                        self.scroll_to_selected();
-                        r
+                        self.move_to(self.rows.saturating_sub(1), false).into()
                     }
                     ct_event!(keycode press SHIFT-End) => {
-                        let r = self
-                            .selection
-                            .set_lead(Some(self.len.saturating_sub(1)), true)
-                            .into();
-                        self.scroll_to_selected();
-                        r
+                        self.move_to(self.rows.saturating_sub(1), true).into()
                     }
                     ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                        let r = self.selection.set_lead(Some(0), false).into();
-                        self.scroll_to_selected();
-                        r
+                        self.move_to(0, false).into()
                     }
-                    ct_event!(keycode press SHIFT-Home) => {
-                        let r = self.selection.set_lead(Some(0), true).into();
-                        self.scroll_to_selected();
-                        r
-                    }
+                    ct_event!(keycode press SHIFT-Home) => self.move_to(0, true).into(),
 
-                    ct_event!(keycode press PageUp) => {
-                        let r = self.selection.prev(self.page_len(), false).into();
-                        self.scroll_to_selected();
-                        r
-                    }
+                    ct_event!(keycode press PageUp) => self
+                        .move_up(self.page_len().saturating_sub(1), false)
+                        .into(),
                     ct_event!(keycode press SHIFT-PageUp) => {
-                        let r = self.selection.prev(self.page_len(), true).into();
-                        self.scroll_to_selected();
-                        r
+                        self.move_up(self.page_len().saturating_sub(1), true).into()
                     }
-                    ct_event!(keycode press PageDown) => {
-                        let r = self
-                            .selection
-                            .next(self.page_len(), self.len.saturating_sub(1), false)
-                            .into();
-                        self.scroll_to_selected();
-                        r
-                    }
-                    ct_event!(keycode press SHIFT-PageDown) => {
-                        let r = self
-                            .selection
-                            .next(self.page_len(), self.len.saturating_sub(1), true)
-                            .into();
-                        self.scroll_to_selected();
-                        r
-                    }
+                    ct_event!(keycode press PageDown) => self
+                        .move_down(self.page_len().saturating_sub(1), false)
+                        .into(),
+                    ct_event!(keycode press SHIFT-PageDown) => self
+                        .move_down(self.page_len().saturating_sub(1), true)
+                        .into(),
                     _ => Outcome::NotUsed,
                 }
+            } else {
+                Outcome::NotUsed
             };
 
             if res == Outcome::NotUsed {
@@ -718,86 +786,78 @@ pub mod selection {
 
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RListState<RowSetSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> Outcome {
-            match event {
+            flow!(match event {
                 ct_event!(mouse any for m) | ct_event!(mouse any CONTROL for m)
                     if self.mouse.drag(self.inner, m)
                         || self.mouse.drag2(self.inner, m, KeyModifiers::CONTROL) =>
                 {
-                    let new_row = self.row_at_drag((m.column, m.row).into());
-                    let r = self
-                        .selection
-                        .set_lead_clamped(new_row, self.len.saturating_sub(1), true)
-                        .into();
-                    self.scroll_to_selected();
-                    r
-                }
-                ct_event!(scroll up for column, row) => {
-                    if self.area.contains(Position::new(*column, *row)) {
-                        self.scroll_up(self.scroll_by()).into()
-                    } else {
-                        Outcome::NotUsed
-                    }
-                }
-                ct_event!(scroll down for column, row) => {
-                    if self.area.contains(Position::new(*column, *row)) {
-                        self.scroll_down(self.scroll_by()).into()
-                    } else {
-                        Outcome::NotUsed
-                    }
+                    self.move_to(self.row_at_drag((m.column, m.row)), true)
+                        .into()
                 }
                 ct_event!(mouse down Left for column, row) => {
-                    let pos = Position::new(*column, *row);
-                    if self.area.contains(pos) {
+                    let pos = (*column, *row);
+                    if self.inner.contains(pos.into()) {
                         if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.selection
-                                .set_lead_clamped(new_row, self.len.saturating_sub(1), false)
-                                .into()
+                            self.move_to(new_row, false).into()
                         } else {
-                            Outcome::Unchanged
+                            Outcome::NotUsed
                         }
                     } else {
                         Outcome::NotUsed
                     }
                 }
                 ct_event!(mouse down ALT-Left for column, row) => {
-                    let pos = Position::new(*column, *row);
-                    if self.area.contains(pos) {
+                    let pos = (*column, *row);
+                    if self.area.contains(pos.into()) {
                         if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.selection
-                                .set_lead_clamped(new_row, self.len.saturating_sub(1), true)
-                                .into()
+                            self.move_to(new_row, true).into()
                         } else {
-                            Outcome::Unchanged
+                            Outcome::NotUsed
                         }
                     } else {
                         Outcome::NotUsed
                     }
                 }
                 ct_event!(mouse down CONTROL-Left for column, row) => {
-                    if self.area.contains(Position::new(*column, *row)) {
-                        let pos = Position::new(*column, *row);
+                    let pos = (*column, *row);
+                    if self.area.contains(pos.into()) {
                         if let Some(new_row) = self.row_at_clicked(pos) {
-                            self.selection.transfer_lead_anchor();
+                            self.retire_selection();
                             if self.selection.is_selected_row(new_row) {
                                 self.selection.remove(new_row);
                             } else {
-                                self.selection.set_lead_clamped(
-                                    new_row,
-                                    self.len.saturating_sub(1),
-                                    true,
-                                );
+                                self.move_to(new_row, true);
                             }
                             Outcome::Changed
                         } else {
-                            Outcome::Unchanged
+                            Outcome::NotUsed
                         }
                     } else {
                         Outcome::NotUsed
                     }
                 }
-
                 _ => Outcome::NotUsed,
+            });
+
+            let r = match ScrollArea(self.inner, None, Some(&mut self.scroll))
+                .handle(event, MouseOnly)
+            {
+                ScrollOutcome::Up(v) => self.scroll_up(v),
+                ScrollOutcome::Down(v) => self.scroll_down(v),
+                ScrollOutcome::VPos(v) => self.scroll_to(v),
+                ScrollOutcome::Left(_) => false,
+                ScrollOutcome::Right(_) => false,
+                ScrollOutcome::HPos(_) => false,
+
+                ScrollOutcome::NotUsed => false,
+                ScrollOutcome::Unchanged => false,
+                ScrollOutcome::Changed => true,
+            };
+            if r {
+                return Outcome::Changed;
             }
+
+            Outcome::Unchanged
         }
     }
 }
