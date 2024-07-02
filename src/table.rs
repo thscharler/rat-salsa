@@ -767,29 +767,20 @@ impl<'a, Selection> FTable<'a, Selection> {
     // area_width or layout_width
     #[inline]
     fn total_width(&self, area_width: u16) -> u16 {
-        let w = if let Some(layout_width) = self.layout_width {
+        if let Some(layout_width) = self.layout_width {
             layout_width
         } else {
             area_width
-        };
-        w
+        }
     }
 
     // Do the column-layout. Fill in missing columns, if necessary.
     #[inline]
     fn layout_columns(&self, width: u16) -> (u16, Rc<[Rect]>, Rc<[Rect]>) {
-        let widths;
-        let widths = if self.widths.is_empty() {
-            widths = vec![Constraint::Fill(1); 0];
-            widths.as_slice()
-        } else {
-            self.widths.as_slice()
-        };
-
         let width = self.total_width(width);
         let area = Rect::new(0, 0, width, 0);
 
-        let (layout, spacers) = Layout::horizontal(widths)
+        let (layout, spacers) = Layout::horizontal(&self.widths)
             .flex(self.flex)
             .spacing(self.column_spacing)
             .split_with_spacers(area);
@@ -1992,7 +1983,7 @@ impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOut
     ) -> DoubleClickOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.table_area, m) => {
-                if let Some((col, row)) = self.cell_at_clicked((m.column, m.row).into()) {
+                if let Some((col, row)) = self.cell_at_clicked((m.column, m.row)) {
                     DoubleClickOutcome::ClickClick(col, row)
                 } else {
                     DoubleClickOutcome::NotUsed

@@ -132,11 +132,7 @@ where
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: EQualifier) -> EditOutcome {
         flow!(match event {
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.table.table_area, m) => {
-                if self
-                    .table
-                    .cell_at_clicked((m.column, m.row).into())
-                    .is_some()
-                {
+                if self.table.cell_at_clicked((m.column, m.row)).is_some() {
                     EditOutcome::Edit
                 } else {
                     EditOutcome::NotUsed
