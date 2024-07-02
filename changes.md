@@ -1,3 +1,9 @@
+# 0.10.5
+
+* change FocusFlag::set() to take a bool
+* fix: areas for sub-containers must be checked before the area of the container.
+  otherwise they probably never get a hit via mouse.
+
 # 0.10.4
 
 * feature: Add ZRect, a Rect with z-order. HasFocusFlag can not only return
