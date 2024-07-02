@@ -525,7 +525,7 @@ mod core {
 
                     // check for split areas
                     if !self.z_areas[idx].is_empty() {
-                        for z_area in self.z_areas[idx].into_iter() {
+                        for z_area in self.z_areas[idx] {
                             // use all matching areas. might differ in z.
                             if z_area.contains(pos) {
                                 if self.log.get() {
@@ -566,7 +566,7 @@ mod core {
 
                     // check for split areas
                     if !sub.z_area.is_empty() {
-                        for z_area in sub.z_area.into_iter() {
+                        for z_area in sub.z_area {
                             // use all matching areas. might differ in z.
                             if z_area.contains(pos) {
                                 if self.log.get() {
@@ -612,7 +612,7 @@ mod core {
 
                     // check for split areas
                     if !con.z_area.is_empty() {
-                        for z_area in con.z_area.into_iter() {
+                        for z_area in con.z_area {
                             // use all matching areas. might differ in z.
                             if z_area.contains(pos) {
                                 if self.log.get() {
@@ -732,7 +732,7 @@ mod core {
             if self.log.get() {
                 debug!("first navigable -> None");
             }
-            return None;
+            None
         }
 
         fn next_navigable(&self, start: usize) -> usize {
