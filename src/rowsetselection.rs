@@ -19,13 +19,13 @@ use std::mem;
 #[derive(Debug, Default, Clone)]
 pub struct RowSetSelection {
     /// Start of the active selection.
-    pub anchor: Option<usize>,
+    pub anchor_row: Option<usize>,
     /// Current end of the active selection.
-    pub lead: Option<usize>,
+    pub lead_row: Option<usize>,
     /// Retired rows. This doesn't contain the rows
     /// between anchor and lead.
     ///
-    /// You can call [RowSetSelection::transfer_lead_anchor] to
+    /// You can call [RowSetSelection::retire_selection] to
     /// add the anchor-lead range. This resets anchor and lead though.
     /// Or iterate the complete range and call [RowSetSelection::is_selected_row].
     pub selected: HashSet<usize>,
@@ -34,18 +34,17 @@ pub struct RowSetSelection {
 impl TableSelection for RowSetSelection {
     #[allow(clippy::collapsible_else_if)]
     fn is_selected_row(&self, row: usize) -> bool {
-        if let Some(mut anchor) = self.anchor {
-            if let Some(mut lead) = self.lead {
+        if let Some(mut anchor) = self.anchor_row {
+            if let Some(mut lead) = self.lead_row {
                 if lead < anchor {
                     mem::swap(&mut lead, &mut anchor);
                 }
-
                 if row >= anchor && row <= lead {
                     return true;
                 }
             }
         } else {
-            if let Some(lead) = self.lead {
+            if let Some(lead) = self.lead_row {
                 if row == lead {
                     return true;
                 }
@@ -64,7 +63,7 @@ impl TableSelection for RowSetSelection {
     }
 
     fn lead_selection(&self) -> Option<(usize, usize)> {
-        self.lead.map(|srow| (0, srow))
+        self.lead_row.map(|srow| (0, srow))
     }
 }
 
@@ -72,92 +71,105 @@ impl RowSetSelection {
     /// New selection.
     pub fn new() -> RowSetSelection {
         RowSetSelection {
-            anchor: None,
-            lead: None,
+            anchor_row: None,
+            lead_row: None,
             selected: HashSet::new(),
         }
     }
 
-    fn extend(&mut self, extend: bool) {
-        if extend {
-            if self.anchor.is_none() {
-                self.anchor = self.lead;
-            }
-        } else {
-            self.anchor = None;
-            self.selected.clear();
-        }
-    }
-
-    /// Select next. Maybe extend the range.
-    pub fn next(&mut self, n: usize, max: usize, extend: bool) -> bool {
-        let old_selection = (self.anchor, self.lead);
-        self.extend(extend);
-        self.lead = match self.lead {
-            None => Some(0),
-            Some(srow) => Some(min(srow + n, max)),
-        };
-        old_selection != (self.anchor, self.lead)
-    }
-
-    /// Select next. Maybe extend the range.
-    pub fn prev(&mut self, n: usize, extend: bool) -> bool {
-        let old_selection = (self.anchor, self.lead);
-        self.extend(extend);
-        self.lead = match self.lead {
-            None => Some(0),
-            Some(srow) => Some(srow.saturating_sub(n)),
-        };
-        old_selection != (self.anchor, self.lead)
-    }
-
-    /// Set a new lead. Maybe extend the range.
-    pub fn set_lead(&mut self, lead: Option<usize>, extend: bool) -> bool {
-        let old_selection = (self.anchor, self.lead);
-        self.extend(extend);
-        self.lead = lead;
-        old_selection != (self.anchor, self.lead)
-    }
-
-    /// Set a new lead, at the same time limit the lead to max.
-    pub fn set_lead_clamped(&mut self, lead: usize, max: usize, extend: bool) -> bool {
-        let old_selection = (self.anchor, self.lead);
-        self.extend(extend);
-        if lead <= max {
-            self.lead = Some(lead);
-        } else {
-            self.lead = Some(max);
-        }
-        old_selection != (self.anchor, self.lead)
+    /// Clear the selection.
+    pub fn clear(&mut self) {
+        self.anchor_row = None;
+        self.lead_row = None;
+        self.selected.clear();
     }
 
     /// Current lead.
     pub fn lead(&self) -> Option<usize> {
-        self.lead
+        self.lead_row
     }
 
     /// Current anchor.
     pub fn anchor(&self) -> Option<usize> {
-        self.anchor
-    }
-
-    /// Transfers the range anchor to lead to the selection set and reset both.
-    pub fn transfer_lead_anchor(&mut self) {
-        Self::fill(self.anchor, self.lead, &mut self.selected);
-        self.anchor = None;
-        self.lead = None;
-    }
-
-    /// Has some selection.
-    pub fn has_selection(&self) -> bool {
-        self.lead.is_some() || !self.selected.is_empty()
+        self.anchor_row
     }
 
     /// Set of all selected rows. Clones the retired set and adds the current anchor..lead range.
     pub fn selected(&self) -> HashSet<usize> {
         let mut selected = self.selected.clone();
-        Self::fill(self.anchor, self.lead, &mut selected);
+        Self::fill(self.anchor_row, self.lead_row, &mut selected);
         selected
+    }
+
+    /// Has some selection.
+    pub fn has_selection(&self) -> bool {
+        self.lead_row.is_some() || !self.selected.is_empty()
+    }
+
+    /// Set a new lead. Maybe extend the range.
+    pub fn set_lead(&mut self, lead: Option<usize>, extend: bool) -> bool {
+        let old_selection = (self.anchor_row, self.lead_row);
+        self.extend(extend);
+        self.lead_row = lead;
+        old_selection != (self.anchor_row, self.lead_row)
+    }
+
+    /// Transfers the range anchor to lead to the selection set and reset both.
+    pub fn retire_selection(&mut self) {
+        Self::fill(self.anchor_row, self.lead_row, &mut self.selected);
+        self.anchor_row = None;
+        self.lead_row = None;
+    }
+
+    /// Add to selection. Only works for retired selections, not for the
+    /// active anchor-lead range.
+    pub fn add(&mut self, idx: usize) {
+        self.selected.insert(idx);
+    }
+
+    /// Remove from selection. Only works for retired selections, not for the
+    /// active anchor-lead range.
+    pub fn remove(&mut self, idx: usize) {
+        self.selected.remove(&idx);
+    }
+
+    /// Set a new lead, at the same time limit the lead to max.
+    pub fn move_to(&mut self, lead: usize, max: usize, extend: bool) -> bool {
+        let old_selection = (self.anchor_row, self.lead_row);
+        self.extend(extend);
+        if lead <= max {
+            self.lead_row = Some(lead);
+        } else {
+            self.lead_row = Some(max);
+        }
+        old_selection != (self.anchor_row, self.lead_row)
+    }
+
+    /// Select next. Maybe extend the range.
+    pub fn move_down(&mut self, n: usize, maximum: usize, extend: bool) -> bool {
+        let old_selection = (self.anchor_row, self.lead_row);
+        self.extend(extend);
+        self.lead_row = Some(self.lead_row.map_or(0, |v| min(v + n, maximum)));
+        old_selection != (self.anchor_row, self.lead_row)
+    }
+
+    /// Select next. Maybe extend the range.
+    pub fn move_up(&mut self, n: usize, maximum: usize, extend: bool) -> bool {
+        let old_selection = (self.anchor_row, self.lead_row);
+        self.extend(extend);
+        self.lead_row = Some(self.lead_row.map_or(maximum, |v| v.saturating_sub(n)));
+        old_selection != (self.anchor_row, self.lead_row)
+    }
+
+    fn extend(&mut self, extend: bool) {
+        if extend {
+            if self.anchor_row.is_none() {
+                self.anchor_row = self.lead_row;
+            }
+        } else {
+            self.anchor_row = None;
+            self.selected.clear();
+        }
     }
 
     #[allow(clippy::collapsible_else_if)]
@@ -178,123 +190,39 @@ impl RowSetSelection {
             }
         }
     }
-
-    /// Clear the selection.
-    pub fn clear(&mut self) {
-        self.anchor = None;
-        self.lead = None;
-        self.selected.clear();
-    }
-
-    /// Add to selection.
-    pub fn add(&mut self, idx: usize) {
-        self.selected.insert(idx);
-    }
-
-    /// Remove from selection. Only works for retired selections, not for the
-    /// active anchor-lead range.
-    pub fn remove(&mut self, idx: usize) {
-        self.selected.remove(&idx);
-    }
 }
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSetSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> Outcome {
         let res = if self.is_focused() {
             match event {
-                ct_event!(keycode press Down) => {
-                    let r = self
-                        .selection
-                        .next(1, self.rows.saturating_sub(1), false)
-                        .into();
-                    self.scroll_to_selected();
-                    r
-                }
-                ct_event!(keycode press SHIFT-Down) => {
-                    let r = self
-                        .selection
-                        .next(1, self.rows.saturating_sub(1), true)
-                        .into();
-                    self.scroll_to_selected();
-                    r
-                }
-                ct_event!(keycode press Up) => {
-                    let r = self.selection.prev(1, false).into();
-                    self.scroll_to_selected();
-                    r
-                }
-                ct_event!(keycode press SHIFT-Up) => {
-                    let r = self.selection.prev(1, true).into();
-                    self.scroll_to_selected();
-                    r
-                }
+                ct_event!(keycode press Down) => self.move_down(1, false).into(),
+                ct_event!(keycode press SHIFT-Down) => self.move_down(1, true).into(),
+                ct_event!(keycode press Up) => self.move_up(1, false).into(),
+                ct_event!(keycode press SHIFT-Up) => self.move_up(1, true).into(),
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    let r = self
-                        .selection
-                        .set_lead(Some(self.rows.saturating_sub(1)), false)
-                        .into();
-                    self.scroll_to_selected();
-                    r
+                    self.move_to(self.rows.saturating_sub(1), false).into()
                 }
                 ct_event!(keycode press SHIFT-End) => {
-                    let r = self
-                        .selection
-                        .set_lead(Some(self.rows.saturating_sub(1)), true)
-                        .into();
-                    self.scroll_to_selected();
-                    r
+                    self.move_to(self.rows.saturating_sub(1), true).into()
                 }
                 ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                    let r = self.selection.set_lead(Some(0), false).into();
-                    self.scroll_to_selected();
-                    r
+                    self.move_to(0, false).into()
                 }
-                ct_event!(keycode press SHIFT-Home) => {
-                    let r = self.selection.set_lead(Some(0), true).into();
-                    self.scroll_to_selected();
-                    r
-                }
+                ct_event!(keycode press SHIFT-Home) => self.move_to(0, true).into(),
 
-                ct_event!(keycode press PageUp) => {
-                    let r = self
-                        .selection
-                        .prev(self.vertical_page_len().saturating_sub(1), false)
-                        .into();
-                    self.scroll_to_selected();
-                    r
-                }
+                ct_event!(keycode press PageUp) => self
+                    .move_up(self.page_len().saturating_sub(1), false)
+                    .into(),
                 ct_event!(keycode press SHIFT-PageUp) => {
-                    let r = self
-                        .selection
-                        .prev(self.vertical_page_len().saturating_sub(1), true)
-                        .into();
-                    self.scroll_to_selected();
-                    r
+                    self.move_up(self.page_len().saturating_sub(1), true).into()
                 }
-                ct_event!(keycode press PageDown) => {
-                    let r = self
-                        .selection
-                        .next(
-                            self.vertical_page_len().saturating_sub(1),
-                            self.rows.saturating_sub(1),
-                            false,
-                        )
-                        .into();
-                    self.scroll_to_selected();
-                    r
-                }
-                ct_event!(keycode press SHIFT-PageDown) => {
-                    let r = self
-                        .selection
-                        .next(
-                            self.vertical_page_len().saturating_sub(1),
-                            self.rows.saturating_sub(1),
-                            true,
-                        )
-                        .into();
-                    self.scroll_to_selected();
-                    r
-                }
+                ct_event!(keycode press PageDown) => self
+                    .move_down(self.page_len().saturating_sub(1), false)
+                    .into(),
+                ct_event!(keycode press SHIFT-PageDown) => self
+                    .move_down(self.page_len().saturating_sub(1), true)
+                    .into(),
                 _ => Outcome::NotUsed,
             }
         } else {
@@ -316,21 +244,14 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 if self.mouse.drag(self.table_area, m)
                     || self.mouse.drag2(self.table_area, m, KeyModifiers::CONTROL) =>
             {
-                let new_row = self.row_at_drag((m.column, m.row).into());
-                let r = self
-                    .selection
-                    .set_lead_clamped(new_row, self.rows.saturating_sub(1), true)
-                    .into();
-                self.scroll_to_selected();
-                r
+                self.move_to(self.row_at_drag((m.column, m.row)), true)
+                    .into()
             }
             ct_event!(mouse down Left for column, row) => {
                 let pos = (*column, *row);
-                if self.area.contains(pos.into()) {
+                if self.table_area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.selection
-                            .set_lead_clamped(new_row, self.rows.saturating_sub(1), false)
-                            .into()
+                        self.move_to(new_row, false).into()
                     } else {
                         Outcome::NotUsed
                     }
@@ -342,9 +263,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 let pos = (*column, *row);
                 if self.area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.selection
-                            .set_lead_clamped(new_row, self.rows.saturating_sub(1), true)
-                            .into()
+                        self.move_to(new_row, true).into()
                     } else {
                         Outcome::NotUsed
                     }
@@ -356,15 +275,11 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
                 let pos = (*column, *row);
                 if self.area.contains(pos.into()) {
                     if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.selection.transfer_lead_anchor();
+                        self.retire_selection();
                         if self.selection.is_selected_row(new_row) {
                             self.selection.remove(new_row);
                         } else {
-                            self.selection.set_lead_clamped(
-                                new_row,
-                                self.rows.saturating_sub(1),
-                                true,
-                            );
+                            self.move_to(new_row, true);
                         }
                         Outcome::Changed
                     } else {
@@ -377,12 +292,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             _ => Outcome::NotUsed,
         });
 
-        let r = match ScrollArea(
-            self.table_area,
-            Some(&mut self.hscroll),
-            Some(&mut self.vscroll),
-        )
-        .handle(event, MouseOnly)
+        let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
+            .handle(event, MouseOnly)
         {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),

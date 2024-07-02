@@ -163,6 +163,11 @@ pub trait TableSelection {
 
     /// Selection lead.
     fn lead_selection(&self) -> Option<(usize, usize)>;
+
+    /// Should scroll be in terms of the selection or in terms of the offset.
+    fn scroll_selected(&self) -> bool {
+        false
+    }
 }
 
 use crate::_private::NonExhaustive;

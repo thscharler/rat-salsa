@@ -36,6 +36,10 @@ impl TableSelection for RowSelection {
     fn lead_selection(&self) -> Option<(usize, usize)> {
         self.lead_row.map(|v| (0, v))
     }
+
+    fn scroll_selected(&self) -> bool {
+        self.scroll_selected
+    }
 }
 
 impl RowSelection {
@@ -44,8 +48,7 @@ impl RowSelection {
         Self::default()
     }
 
-    /// Clear the selection. Locked state is removed and
-    /// lead_row set to None.
+    /// Clear the selection.
     pub fn clear(&mut self) {
         self.lead_row = None;
     }
@@ -53,11 +56,6 @@ impl RowSelection {
     /// Scroll selection instead of offset.
     pub fn set_scroll_selected(&mut self, scroll: bool) {
         self.scroll_selected = scroll;
-    }
-
-    /// Scroll selection instead of offset.
-    pub fn scroll_selected(&self) -> bool {
-        self.scroll_selected
     }
 
     /// The current selected row.
@@ -71,30 +69,31 @@ impl RowSelection {
     }
 
     /// Select a row.
+    /// This function doesn't care if the given row actually exists in the table.
     pub fn select(&mut self, select: Option<usize>) -> bool {
         let old_row = self.lead_row;
         self.lead_row = select;
         old_row != self.lead_row
     }
 
-    /// Select a row, clamp between 0 and maximum.
-    pub fn select_clamped(&mut self, select: usize, maximum: usize) -> bool {
+    /// Select the given row, limit between 0 and maximum.
+    pub fn move_to(&mut self, select: usize, maximum: usize) -> bool {
         let old_row = self.lead_row;
         self.lead_row = Some(min(select, maximum));
         old_row != self.lead_row
     }
 
-    /// Select the next row, clamp between 0 and maximum.
-    pub fn next(&mut self, n: usize, maximum: usize) -> bool {
+    /// Select the next row, cap at maximum.
+    pub fn move_down(&mut self, n: usize, maximum: usize) -> bool {
         let old_row = self.lead_row;
         self.lead_row = Some(self.lead_row.map_or(0, |v| min(v + n, maximum)));
         old_row != self.lead_row
     }
 
-    /// Select the previous row, clamp between 0 and maximum.
-    pub fn prev(&mut self, n: usize) -> bool {
+    /// Select the previous row.
+    pub fn move_up(&mut self, n: usize, maximum: usize) -> bool {
         let old_row = self.lead_row;
-        self.lead_row = Some(self.lead_row.map_or(0, |v| v.saturating_sub(n)));
+        self.lead_row = Some(self.lead_row.map_or(maximum, |v| v.saturating_sub(n)));
         old_row != self.lead_row
     }
 }
@@ -103,55 +102,27 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = if self.is_focused() {
             match event {
-                ct_event!(keycode press Down) => {
-                    let r = self.selection.next(1, self.rows.saturating_sub(1)).into();
-                    self.scroll_to_selected();
-                    r
-                }
-                ct_event!(keycode press Up) => {
-                    let r = self.selection.prev(1).into();
-                    self.scroll_to_selected();
-                    r
-                }
+                ct_event!(keycode press Down) => self.move_down(1).into(),
+                ct_event!(keycode press Up) => self.move_up(1).into(),
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    let r = self
-                        .selection
-                        .select(Some(self.rows.saturating_sub(1)))
-                        .into();
-                    self.scroll_to_selected();
-                    r
+                    self.move_to(self.rows.saturating_sub(1)).into()
                 }
                 ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                    let r = self.selection.select(Some(0)).into();
-                    self.scroll_to_selected();
-                    r
+                    self.move_to(0).into()
                 }
                 ct_event!(keycode press PageUp) => {
-                    let r = self
-                        .selection
-                        .prev(self.vertical_page_len().saturating_sub(1))
-                        .into();
-                    self.scroll_to_selected();
-                    r
+                    self.move_up(self.page_len().saturating_sub(1)).into()
                 }
                 ct_event!(keycode press PageDown) => {
-                    let r = self
-                        .selection
-                        .next(
-                            self.vertical_page_len().saturating_sub(1),
-                            self.rows.saturating_sub(1),
-                        )
-                        .into();
-                    self.scroll_to_selected();
-                    r
+                    self.move_down(self.page_len().saturating_sub(1)).into()
                 }
                 ct_event!(keycode press Right) => self.scroll_right(1).into(),
                 ct_event!(keycode press Left) => self.scroll_left(1).into(),
-                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => self
-                    .set_horizontal_offset(self.horizontal_max_offset())
-                    .into(),
+                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
+                    self.scroll_to_col(self.col_max_offset()).into()
+                }
                 ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                    self.set_horizontal_offset(0).into()
+                    self.scroll_to_col(0).into()
                 }
                 _ => Outcome::NotUsed,
             }
@@ -171,22 +142,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         flow!(match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
-                let pos = (m.column, m.row);
-                let new_row = self.row_at_drag(pos);
-                let r = self
-                    .selection
-                    .select_clamped(new_row, self.rows.saturating_sub(1))
-                    .into();
-                self.scroll_to_selected();
-                r
+                self.move_to(self.row_at_drag((m.column, m.row))).into()
             }
             ct_event!(mouse down Left for column, row) => {
-                let pos = (*column, *row);
-                if self.area.contains(pos.into()) {
-                    if let Some(new_row) = self.row_at_clicked(pos) {
-                        self.selection
-                            .select_clamped(new_row, self.rows.saturating_sub(1))
-                            .into()
+                if self.table_area.contains((*column, *row).into()) {
+                    if let Some(new_row) = self.row_at_clicked((*column, *row)) {
+                        self.move_to(new_row).into()
                     } else {
                         Outcome::NotUsed
                     }
@@ -198,36 +159,26 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
             _ => Outcome::NotUsed,
         });
 
-        let r = match ScrollArea(
-            self.table_area,
-            Some(&mut self.hscroll),
-            Some(&mut self.vscroll),
-        )
-        .handle(event, MouseOnly)
+        let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
+            .handle(event, MouseOnly)
         {
             ScrollOutcome::Up(v) => {
-                if self.selection.scroll_selected {
-                    let r = self.selection.prev(v);
-                    let s = self.scroll_to_selected();
-                    r || s
+                if self.selection.scroll_selected() {
+                    self.move_up(v)
                 } else {
                     self.scroll_up(v)
                 }
             }
             ScrollOutcome::Down(v) => {
-                if self.selection.scroll_selected {
-                    let r = self.selection.next(v, self.rows.saturating_sub(1));
-                    let s = self.scroll_to_selected();
-                    r || s
+                if self.selection.scroll_selected() {
+                    self.move_down(v)
                 } else {
                     self.scroll_down(v)
                 }
             }
             ScrollOutcome::VPos(v) => {
                 if self.selection.scroll_selected {
-                    let r = self.selection.select(Some(v));
-                    let s = self.scroll_to_selected();
-                    r || s
+                    self.move_to(v)
                 } else {
                     self.scroll_to_row(v)
                 }

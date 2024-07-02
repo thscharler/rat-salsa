@@ -36,24 +36,24 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<No
                 ct_event!(keycode press Down) => self.scroll_down(1).into(),
                 ct_event!(keycode press Up) => self.scroll_up(1).into(),
                 ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    self.set_vertical_offset(self.vertical_max_offset()).into()
+                    self.scroll_to_row(self.row_max_offset()).into()
                 }
                 ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                    self.set_vertical_offset(0).into()
+                    self.scroll_to_row(0).into()
                 }
-                ct_event!(keycode press PageUp) => self
-                    .scroll_up(self.vertical_page_len().saturating_sub(1))
-                    .into(),
-                ct_event!(keycode press PageDown) => self
-                    .scroll_down(self.vertical_page_len().saturating_sub(1))
-                    .into(),
+                ct_event!(keycode press PageUp) => {
+                    self.scroll_up(self.page_len().saturating_sub(1)).into()
+                }
+                ct_event!(keycode press PageDown) => {
+                    self.scroll_down(self.page_len().saturating_sub(1)).into()
+                }
                 ct_event!(keycode press Right) => self.scroll_right(1).into(),
                 ct_event!(keycode press Left) => self.scroll_left(1).into(),
-                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => self
-                    .set_horizontal_offset(self.horizontal_max_offset())
-                    .into(),
+                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
+                    self.scroll_to_col(self.col_max_offset()).into()
+                }
                 ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                    self.set_horizontal_offset(0).into()
+                    self.scroll_to_col(0).into()
                 }
                 _ => Outcome::NotUsed,
             }
@@ -71,12 +71,8 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<No
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<NoSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        let r = match ScrollArea(
-            self.table_area,
-            Some(&mut self.hscroll),
-            Some(&mut self.vscroll),
-        )
-        .handle(event, MouseOnly)
+        let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
+            .handle(event, MouseOnly)
         {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),
