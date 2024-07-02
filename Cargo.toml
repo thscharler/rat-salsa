@@ -59,5 +59,4 @@ features = []
 [dev-dependencies]
 fern = "0.6"
 anyhow = "1.0.82"
-rat-widget = { version = "0.13", path = "../rat-widget" }
 
