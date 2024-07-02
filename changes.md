@@ -1,3 +1,10 @@
+# 0.16.0
+
+* refactor: replace Scrolled widget with internal handling via Scrolled<'a>.
+* sync naming methods
+
+* rename FEditTable to EditFTable
+
 # 0.15.5
 
 * breaking: move focus and invalid from the widget to the state.

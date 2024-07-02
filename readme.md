@@ -32,4 +32,3 @@ Eventhandling is currently crossterm only.
 In practice event-handling is calling 1 or 2 functions on the state, so this
 should be easy to map to other systems. (Contributions welcome :)
 
-
