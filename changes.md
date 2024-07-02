@@ -1,3 +1,8 @@
+# 0.10.2
+
+* Add: Oxocarbon
+* add color_schemes(), dark_themes() to get all current themes
+
 # 0.10.1
 
 * Add color-schemes: Tundra, Monekai, Monochrome
