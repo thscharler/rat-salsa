@@ -2,8 +2,8 @@
 use crate::adapter::_private::NonExhaustive;
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
-use rat_input::event::TextOutcome;
-use rat_input::input::{TextInput, TextInputState, TextInputStyle};
+use rat_widget::event::TextOutcome;
+use rat_widget::input::{TextInput, TextInputState, TextInputStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};

@@ -223,7 +223,7 @@ pub mod substratum1 {
     use log::debug;
     use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
-    use rat_input::layout::{layout_edit, EditConstraint};
+    use rat_widget::layout::{layout_edit, EditConstraint};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
