@@ -56,6 +56,7 @@ where
     Error: 'static + Send + Debug + From<io::Error> + From<TryRecvError>,
 {
     /// New configuration with some defaults.
+    #[allow(clippy::should_implement_trait)]
     pub fn default() -> Result<Self, Error> {
         Ok(Self {
             n_threats: 1,
@@ -280,7 +281,6 @@ where
 ///     }
 /// }
 ///
-/// #[test]
 /// fn main() -> Result<(), anyhow::Error> {
 ///     run_tui(MainApp, &mut (), &mut MainState, RunConfig::default()?)?;
 ///     Ok(())

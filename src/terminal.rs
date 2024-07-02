@@ -41,6 +41,7 @@ where
     /// Render the app widget.
     ///
     /// Creates the render-context, fetches the frame and calls render.
+    #[allow(clippy::needless_lifetimes)]
     fn render<'a, 'b>(
         &mut self,
         app: &mut App,
@@ -99,6 +100,7 @@ where
         Ok(())
     }
 
+    #[allow(clippy::needless_lifetimes)]
     fn render<'a, 'b>(
         &mut self,
         app: &mut App,

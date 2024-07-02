@@ -49,7 +49,7 @@ crossterm = "0.27"
 log = "0.4"
 ratatui = { version = "0.27", features = ["unstable-rendered-line-info"] }
 
-rat-widget = { version = "0.12", path = "../rat-widget" }
+rat-widget = { version = "0.13", path = "../rat-widget" }
 
 [dev-dependencies]
 fern = "0.6"
