@@ -1,10 +1,8 @@
 use crate::adapter::textinputf::{TextInputF, TextInputFState};
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::ConsumedEvent;
+use crate::mini_salsa::theme::THEME;
+use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
+use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
 use rat_focus::{Focus, HasFocusFlag};
-use rat_widget::event::{FocusKeys, HandleEvent, Outcome};
-use rat_widget::layout::{layout_edit, EditConstraint};
-use rat_widget::statusline::StatusLineState;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
@@ -23,10 +21,8 @@ fn main() -> Result<(), anyhow::Error> {
         input2: Default::default(),
         input3: Default::default(),
         input4: Default::default(),
-        status: Default::default(),
     };
-    state.input1.widget.focus.set(true);
-    state.status.status(0, "Ctrl+Q to quit.");
+    state.input1.focus.set(true);
 
     run_ui(handle_input, repaint_input, &mut data, &mut state)
 }
@@ -38,7 +34,6 @@ struct State {
     pub(crate) input2: TextInputFState,
     pub(crate) input3: TextInputFState,
     pub(crate) input4: TextInputFState,
-    pub(crate) status: StatusLineState,
 }
 
 fn repaint_input(
@@ -50,63 +45,54 @@ fn repaint_input(
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([Constraint::Length(25), Constraint::Fill(1)]).split(area);
 
-    let le = layout_edit(
+    let l_grid = layout_grid::<2, 4>(
         l0[0],
-        &[
-            EditConstraint::Label("Text 1"),
-            EditConstraint::Widget(15),
-            EditConstraint::Label("Text 2"),
-            EditConstraint::Widget(15),
-            EditConstraint::Label("Text 3"),
-            EditConstraint::Widget(15),
-            EditConstraint::Label("Text 4"),
-            EditConstraint::Widget(15),
-        ],
+        Layout::horizontal([Constraint::Length(10), Constraint::Length(20)]),
+        Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ]),
     );
-    let mut le = le.iter();
 
-    frame.render_widget(Span::from("Text 1"), le.label());
+    frame.render_widget(Span::from("Text 1"), l_grid[0][0]);
     let input1 = TextInputF::default()
-        .style(Style::default().black().on_green())
-        .focus_style(Style::default().black().on_light_blue());
-    frame.render_stateful_widget(input1, le.widget(), &mut state.input1);
-    if let Some((x, y)) = state.input1.screen_cursor() {
-        if state.input1.is_focused() {
-            frame.set_cursor(x, y);
-        }
-    }
+        .style(THEME.text_input())
+        .focus_style(THEME.text_input_focus());
+    frame.render_stateful_widget(input1, l_grid[1][0], &mut state.input1);
 
-    frame.render_widget(Span::from("Text 2"), le.label());
+    frame.render_widget(Span::from("Text 2"), l_grid[0][1]);
     let input2 = TextInputF::default()
-        .style(Style::default().black().on_green())
-        .focus_style(Style::default().black().on_light_blue());
-    frame.render_stateful_widget(input2, le.widget(), &mut state.input2);
-    if let Some((x, y)) = state.input2.screen_cursor() {
-        if state.input2.is_focused() {
-            frame.set_cursor(x, y);
-        }
-    }
+        .style(THEME.text_input())
+        .focus_style(THEME.text_input_focus());
+    frame.render_stateful_widget(input2, l_grid[1][1], &mut state.input2);
 
-    frame.render_widget(Span::from("Text 3"), le.label());
+    frame.render_widget(Span::from("Text 3"), l_grid[0][2]);
     let input3 = TextInputF::default()
-        .style(Style::default().black().on_green())
-        .focus_style(Style::default().black().on_light_blue());
-    frame.render_stateful_widget(input3, le.widget(), &mut state.input3);
-    if let Some((x, y)) = state.input3.screen_cursor() {
-        if state.input3.is_focused() {
-            frame.set_cursor(x, y);
-        }
-    }
+        .style(THEME.text_input())
+        .focus_style(THEME.text_input_focus());
+    frame.render_stateful_widget(input3, l_grid[1][2], &mut state.input3);
 
-    frame.render_widget(Span::from("Text 4"), le.label());
+    frame.render_widget(Span::from("Text 4"), l_grid[0][3]);
     let input4 = TextInputF::default()
-        .style(Style::default().black().on_green())
-        .focus_style(Style::default().black().on_light_blue());
-    frame.render_stateful_widget(input4, le.widget(), &mut state.input4);
-    if let Some((x, y)) = state.input4.screen_cursor() {
-        if state.input4.is_focused() {
-            frame.set_cursor(x, y);
-        }
+        .style(THEME.text_input())
+        .focus_style(THEME.text_input_focus());
+    frame.render_stateful_widget(input4, l_grid[1][3], &mut state.input4);
+
+    let cursor = if state.input1.is_focused() {
+        state.input1.screen_cursor()
+    } else if state.input2.is_focused() {
+        state.input2.screen_cursor()
+    } else if state.input3.is_focused() {
+        state.input3.screen_cursor()
+    } else if state.input4.is_focused() {
+        state.input4.screen_cursor()
+    } else {
+        None
+    };
+    if let Some(cursor) = cursor {
+        frame.set_cursor(cursor.0, cursor.1);
     }
 
     Ok(())

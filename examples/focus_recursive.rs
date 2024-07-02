@@ -120,14 +120,14 @@ fn handle_input(
 
 pub mod substratum1 {
     use crate::adapter::textinputf::{TextInputF, TextInputFState};
+    use crate::mini_salsa::layout_grid;
+    use crate::mini_salsa::theme::THEME;
     use log::debug;
     use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
-    use rat_widget::layout::{layout_edit, EditConstraint};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
+    use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
-    use ratatui::style::Stylize;
     use ratatui::widgets::{Block, Widget};
 
     #[derive(Debug, Default)]
@@ -167,7 +167,7 @@ pub mod substratum1 {
 
             self.block = if state.focus.get() {
                 if let Some(block) = self.block {
-                    Some(block.light_blue())
+                    Some(block.border_style(Style::default().fg(THEME.secondary[3])))
                 } else {
                     self.block
                 }
@@ -177,44 +177,40 @@ pub mod substratum1 {
 
             self.block.render(area, buf);
 
-            let le = layout_edit(
+            let l_grid = layout_grid::<2, 4>(
                 inner,
-                &[
-                    EditConstraint::Label("Text 1"),
-                    EditConstraint::Widget(15),
-                    EditConstraint::Label("Text 2"),
-                    EditConstraint::Widget(15),
-                    EditConstraint::Label("Text 3"),
-                    EditConstraint::Widget(15),
-                    EditConstraint::Label("Text 4"),
-                    EditConstraint::Widget(15),
-                ],
+                Layout::horizontal([Constraint::Length(10), Constraint::Length(20)]),
+                Layout::vertical([
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                    Constraint::Length(1),
+                ]),
             );
-            let mut le = le.iter();
 
-            Span::from("Text 1").render(le.label(), buf);
+            Span::from("Text 1").render(l_grid[0][0], buf);
             let input1 = TextInputF::default()
-                .style(Style::default().black().on_green())
-                .focus_style(Style::default().black().on_light_blue());
-            input1.render(le.widget(), buf, &mut state.input1);
+                .style(THEME.text_input())
+                .focus_style(THEME.text_input_focus());
+            input1.render(l_grid[1][0], buf, &mut state.input1);
 
-            Span::from("Text 2").render(le.label(), buf);
+            Span::from("Text 2").render(l_grid[0][1], buf);
             let input2 = TextInputF::default()
-                .style(Style::default().black().on_green())
-                .focus_style(Style::default().black().on_light_blue());
-            input2.render(le.widget(), buf, &mut state.input2);
+                .style(THEME.text_input())
+                .focus_style(THEME.text_input_focus());
+            input2.render(l_grid[1][1], buf, &mut state.input2);
 
-            Span::from("Text 3").render(le.label(), buf);
+            Span::from("Text 3").render(l_grid[0][2], buf);
             let input3 = TextInputF::default()
-                .style(Style::default().black().on_green())
-                .focus_style(Style::default().black().on_light_blue());
-            input3.render(le.widget(), buf, &mut state.input3);
+                .style(THEME.text_input())
+                .focus_style(THEME.text_input_focus());
+            input3.render(l_grid[1][2], buf, &mut state.input3);
 
-            Span::from("Text 4").render(le.label(), buf);
+            Span::from("Text 4").render(l_grid[0][3], buf);
             let input4 = TextInputF::default()
-                .style(Style::default().black().on_green())
-                .focus_style(Style::default().black().on_light_blue());
-            input4.render(le.widget(), buf, &mut state.input4);
+                .style(THEME.text_input())
+                .focus_style(THEME.text_input_focus());
+            input4.render(l_grid[1][3], buf, &mut state.input4);
         }
     }
 
