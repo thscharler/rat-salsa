@@ -7,7 +7,6 @@ use rat_ftable::{FTable, FTableState};
 use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::StatefulWidget;
-use ratatui::style::{Color, Style};
 use ratatui::widgets::{block, Block};
 use ratatui::Frame;
 

@@ -8,8 +8,6 @@ use rat_ftable::{FTable, FTableContext, FTableState, TableData};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Stylize;
-use ratatui::symbols::border::Set;
 use ratatui::text::Span;
 use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
