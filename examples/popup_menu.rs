@@ -97,7 +97,7 @@ fn handle_stuff(
 ) -> Result<Outcome, anyhow::Error> {
     let r1 = match popup_menu::handle_popup_events(&mut state.popup, event) {
         MenuOutcome::Activated(n) => {
-            istate.status.status(0, format!("Selected {}", n));
+            istate.status[0] = format!("Selected {}", n);
             Outcome::Changed
         }
         r => r.into(),

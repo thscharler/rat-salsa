@@ -79,11 +79,11 @@ fn handle_input(
     flow_ok!(
         match menubar::handle_popup_events(&mut state.menu, true, event) {
             MenuOutcome::MenuSelected(v, w) => {
-                istate.status.status(0, format!("Selected {}-{}", v, w));
+                istate.status[0] = format!("Selected {}-{}", v, w);
                 Outcome::Changed
             }
             MenuOutcome::MenuActivated(v, w) => {
-                istate.status.status(0, format!("Activated {}-{}", v, w));
+                istate.status[0] = format!("Activated {}-{}", v, w);
                 state.menu.set_popup_active(false);
                 Outcome::Changed
             }
@@ -93,11 +93,11 @@ fn handle_input(
 
     flow_ok!(match menubar::handle_events(&mut state.menu, true, event) {
         MenuOutcome::Selected(v) => {
-            istate.status.status(0, format!("Selected {}", v));
+            istate.status[0] = format!("Selected {}", v);
             Outcome::Changed
         }
         MenuOutcome::Activated(v) => {
-            istate.status.status(0, format!("Activated {}", v));
+            istate.status[0] = format!("Activated {}", v);
             match v {
                 3 => return Err(anyhow!("Quit")),
                 _ => {}
