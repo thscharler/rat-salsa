@@ -1,9 +1,7 @@
 # 0.12.0
 
 Throw away the whole concept. Using Scrolled as a container widget is
-very unwieldy.
-
-Replace with an in internal Scroll<'a> utility a la Block.
+very unwieldy. Replace with an in internal `Scroll<'a>` utility a la Block.
 
 # 0.11.3
 
