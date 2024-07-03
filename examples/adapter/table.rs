@@ -348,7 +348,7 @@ impl TableSState {
         if self.scroll_selection {
             let old_select = self.widget.selected();
 
-            let new_select = pos.clamp(0, self.len - 1);
+            let new_select = (pos * self.len) / self.scroll.max_offset();
             *self.widget.selected_mut() = Some(new_select);
             self.scroll_to_selected();
 

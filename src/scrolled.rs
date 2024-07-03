@@ -10,7 +10,7 @@ use ratatui::symbols::scrollbar::Set;
 use ratatui::widgets::{
     Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, StatefulWidgetRef,
 };
-use std::cmp::{max, min};
+use std::cmp::max;
 
 /// Scrolling indicator.
 ///
@@ -617,11 +617,7 @@ impl ScrollState {
         let pos = pos.saturating_sub(base).saturating_sub(1) as usize;
         let span = length.saturating_sub(2) as usize;
 
-        if let Some((_, total_length)) = self.core.selection() {
-            (total_length * pos) / span
-        } else {
-            (self.core.max_offset() * pos) / span
-        }
+        (self.core.max_offset() * pos) / span
     }
 }
 
@@ -751,20 +747,13 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
 
 impl ScrollbarPolicy {
     fn scrollbar(self, state: &ScrollState) -> ScrollbarState {
-        if let Some((selected, length)) = state.core.selection() {
-            let view_page_len = min(state.page_len(), length - selected);
-            ScrollbarState::new(length)
-                .position(selected)
-                .viewport_content_length(view_page_len)
-        } else {
-            match self {
-                ScrollbarPolicy::Always => ScrollbarState::new(max(state.core.max_offset(), 1))
-                    .position(state.core.offset())
-                    .viewport_content_length(state.core.page_len()),
-                ScrollbarPolicy::AsNeeded => ScrollbarState::new(state.core.max_offset())
-                    .position(state.core.offset())
-                    .viewport_content_length(state.core.page_len()),
-            }
+        match self {
+            ScrollbarPolicy::Always => ScrollbarState::new(max(state.core.max_offset(), 1))
+                .position(state.core.offset())
+                .viewport_content_length(state.core.page_len()),
+            ScrollbarPolicy::AsNeeded => ScrollbarState::new(state.core.max_offset())
+                .position(state.core.offset())
+                .viewport_content_length(state.core.page_len()),
         }
     }
 
@@ -809,14 +798,6 @@ pub mod core {
         max_offset: usize,
         /// Page-size at the current offset.
         page_len: usize,
-
-        /// Copy of the current selection/length.
-        /// If this value is set, Scroll switches its display mode from
-        /// 'show the range offset+page_len/max_offset' to 'show and indicator for selection/length'.
-        /// This is only a copy of the actual selection from whatever mechanism is used,
-        /// and should not be mistaken with it. Its sole use is to show a correct indicator, and
-        /// to map a position in the scrollbar back to a value useful for a selection.
-        selection: Option<(usize, usize)>,
 
         /// Scrolling step-size for mouse-scrolling
         scroll_by: Option<usize>,
@@ -961,27 +942,6 @@ pub mod core {
         #[inline]
         pub fn set_page_len(&mut self, page: usize) {
             self.page_len = page;
-        }
-
-        /// Show selection+length in the scrollbar instead of the offset+max_offset.
-        #[inline]
-        pub fn show_selection(&mut self, view_selection: usize, view_length: usize) {
-            self.selection = Some((view_selection, view_length));
-        }
-
-        /// Dont'show selection+length, use the standard offset+max_offset.
-        #[inline]
-        pub fn no_show_selection(&mut self) {
-            self.selection = None;
-        }
-
-        /// Clears the display of selection/length
-
-        /// Show the selection in the scrollbar instead of the range offset+page_len.
-        /// Needs a copy of the current selection.
-        #[inline]
-        pub fn selection(&self) -> Option<(usize, usize)> {
-            self.selection
         }
 
         /// Suggested scroll per scroll-event.
