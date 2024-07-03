@@ -223,13 +223,6 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
             (self.style, self.select_style)
         };
 
-        if state.selection.scroll_selected() {
-            let sel_row = state.selection.lead_selection().unwrap_or_default();
-            state.scroll.core.show_selection(sel_row, state.rows);
-        } else {
-            state.scroll.core.no_show_selection();
-        }
-
         self.block.render_ref(area, buf);
         if let Some(scroll) = self.scroll.as_ref() {
             scroll.render_ref(scroll_area, buf, &mut state.scroll);
@@ -356,6 +349,17 @@ impl RListState<RowSelection> {
     #[inline]
     pub fn set_scroll_selection(&mut self, scroll: bool) {
         self.selection.set_scroll_selected(scroll);
+    }
+
+    /// Scroll delivers a value between 0 and max_offset as offset.
+    /// This remaps the ratio to the selection with a range 0..row_len.
+    ///
+    pub(crate) fn remap_offset_selection(&self, offset: usize) -> usize {
+        if self.scroll.max_offset() > 0 {
+            (self.rows * offset) / self.scroll.max_offset()
+        } else {
+            0 // ???
+        }
     }
 
     /// Clear the selection.
@@ -674,21 +678,21 @@ pub mod selection {
             {
                 ScrollOutcome::Up(v) => {
                     if ListSelection::scroll_selected(&self.selection) {
-                        self.move_up(v)
+                        self.move_up(1)
                     } else {
                         self.scroll_up(v)
                     }
                 }
                 ScrollOutcome::Down(v) => {
                     if ListSelection::scroll_selected(&self.selection) {
-                        self.move_down(v)
+                        self.move_down(1)
                     } else {
                         self.scroll_down(v)
                     }
                 }
                 ScrollOutcome::VPos(v) => {
                     if ListSelection::scroll_selected(&self.selection) {
-                        self.move_to(v)
+                        self.move_to(self.remap_offset_selection(v))
                     } else {
                         self.scroll_to(v)
                     }
