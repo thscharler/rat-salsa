@@ -27,13 +27,13 @@ pub mod event {
         /// Further processing for this event may stop.
         /// Rendering the ui is advised.
         Changed,
-        /// Scroll delta when using HandleEvent for area scrolling.
+        /// Scroll delta.
         Up(usize),
-        /// Scroll delta when using HandleEvent for area scrolling.
+        /// Scroll delta.
         Down(usize),
-        /// Scroll delta when using HandleEvent for area scrolling.
+        /// Scroll delta.
         Left(usize),
-        /// Scroll delta when using HandleEvent for area scrolling.
+        /// Scroll delta.
         Right(usize),
         /// Absolute position.
         VPos(usize),

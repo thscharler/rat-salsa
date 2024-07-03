@@ -30,52 +30,18 @@ embedded in the widgets state.
   decent median between scroll speed and disorientation.
 * *offset* - The current offset used for display.
 
-Each widget decides on its own, how it wants to expose these values
-on the surface.
+## Widget implementation
 
-Proposed names are
-
-* vertical_offset()/set_vertical_offset()
-* vertical_page_len()
-* horizontal_offset()/set_horizontal_offset()
-* horizontal_page_len()
-
-The other values are probably not very useful at the surface level.
-If the widget has only vertical/horizontal scrolling the prefixes can
-be left out.
-
-These two are useful too
-
-* scroll() - relative scrolling using one or two isize parameters.
-  There is ScrolledState::change_offset() to support this.
-* scroll_to()/horizontal_scroll_to()/vertical_scroll_to() - Scroll
-  to an absolute offset.
-
-  Calls set_offset() directly, but is a good position to add
-  `scroll the selection instead of the offset` functionality.
-
-        Remark: Before I had a Scrolled<T> container widget, which
-        did all this. But using it this way proved very burdensome. 
-        * Widgets with non-trivial scrolling need their own support
-          anyway, Scrolled couldn't add much to that except showing
-          the scrollbars.
-        * The deep layering necessitated long dotted paths all the time.
-        * Forwarding to an event-handler for the contained widget
-          was some untertaking with wrapped event-handler qualifiers, 
-          and multiple layers of wrapped outcome-types. 
-        * And all that for some measly two scrollbars ...
-
-## Implementation
-
-* layout_scroll() can calculate the areas in the presence of one/two Scroll
+* `layout_scroll()` can calculate the areas in the presence of one/two Scroll
   and a Block, and makes all of them align smoothly (there are edge cases).
 
 * Scroll uses ScrollBarOrientation for the positioning of the scrollbars.
-  But I don't support horizontally layout scrollbars used for vertical
-  scrolling and vice versa. Where you accept a Scrolled, you should
-  immediately call override_vertical()/override_horizontal() to fix any
-  misalignment. Vertical scrollbars on the left side and horizontal scrollbars
-  on top are still fine.
+  With that there are the possible combinations VerticalLeft/VerticalRight
+  set as horizontal Scroll and vice versa.
+
+  Those are undesirable, and layout_scroll() panics when it gets one of
+  these combinations. You should call `override_vertical()` or `override_horizontal`
+  where you accept the Scroll to match the expectations.
 
 * If your widget has horizontal and vertical scrolling, a single scroll() function
   that sets both of them to the same scroll is nice.
@@ -83,15 +49,24 @@ These two are useful too
 * Event-handling
     * There is a MouseOnly event-handler for ScrollState. It reacts to mouse
       clicks and drag directly on the scrollbar-area, and returns a
-      ScrollOutcome::Offset. You have to change the actual offset to this
-      value, the event-handler doesn't do this for you. The reason is
-      `scroll my selection` mode. But you can use this value to set the
-      selection too.
-    * There is a helper struct ScrollArea, which implements a MouseOnly event-handler
-      for the mouse-wheel functionality. This one returns ScrollOutcome::Delta,
-      which, again, has to be used by your widget. At least this can avoid another
-      50 lines of often copied code. It uses ScrollUp/ScrollDown for vertical,
-      and ALT-ScrollUp/ScrollDown for horizontal scrolling.
+      ScrollOutcome.
+
+      The event-handler for ScrollState doesn't change the offset by itself,
+      that's up to the widget. This indirect approach gives the widget more
+      flexibility.
+
+    * `ScrollArea` is a small helper that implements a MouseOnly event-handler.
+      It consists of the widget-area and one or two Scroll. It covers all
+      the scrolling in the given area and the scrolling by the two ScrollBars.
+
+      This too just returns a ScrollOutcome and changes no values.
+
+    * Scroll modes. There are widgets which support switching between
+      'scroll-offset' and 'scroll-selection'. There is no direct support
+      for this in Scroll. But you can get a got result for the selection
+      if you rescale the offset as `(item_len * offset) / max_offset`.
+      This gives you a value in the range 0..item_len which can be used
+      as selection value.
 
 # View and Viewport
 

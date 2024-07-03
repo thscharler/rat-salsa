@@ -276,9 +276,14 @@ impl<'a> Scroll<'a> {
 
 /// Calculate the layout for the given scrollbars.
 /// This prevents overlaps in the corners, if both scrollbars are
-/// visible.
+/// visible, and tries to fit in the given block.
 ///
 /// Returns (h_area, v_area, inner_area).
+///
+/// Panic
+/// Panics if the orientation doesn't match.
+/// h_scroll doesn't accept ScrollBarOrientation::Vertical* and
+/// v_scroll doesn't accept ScrollBarOrientation::Horizontal*.
 pub fn layout_scroll(
     area: Rect,
     block: Option<&Block<'_>>,
@@ -290,10 +295,14 @@ pub fn layout_scroll(
         h_do_scroll = true;
         match h_scroll.orientation {
             ScrollbarOrientation::VerticalRight => {
-                unimplemented!()
+                unimplemented!(
+                    "ScrollbarOrientation::VerticalRight not supported for horizontal scrolling."
+                );
             }
             ScrollbarOrientation::VerticalLeft => {
-                unimplemented!()
+                unimplemented!(
+                    "ScrollbarOrientation::VerticalLeft not supported for horizontal scrolling."
+                );
             }
             ScrollbarOrientation::HorizontalBottom => {
                 if area.height > 0 {
@@ -333,10 +342,14 @@ pub fn layout_scroll(
                 }
             }
             ScrollbarOrientation::HorizontalBottom => {
-                unimplemented!()
+                unimplemented!(
+                    "ScrollbarOrientation::HorizontalBottom not supported for vertical scrolling."
+                );
             }
             ScrollbarOrientation::HorizontalTop => {
-                unimplemented!()
+                unimplemented!(
+                    "ScrollbarOrientation::HorizontalTop not supported for vertical scrolling."
+                );
             }
         }
     } else {
@@ -346,15 +359,6 @@ pub fn layout_scroll(
 
     if h_do_scroll && v_do_scroll {
         match h_scroll.map(|v| v.orientation.clone()) {
-            None => {
-                unreachable!()
-            }
-            Some(ScrollbarOrientation::VerticalRight) => {
-                unimplemented!()
-            }
-            Some(ScrollbarOrientation::VerticalLeft) => {
-                unimplemented!()
-            }
             Some(ScrollbarOrientation::HorizontalTop) => {
                 v_area.y += 1;
                 v_area.height = v_area.height.saturating_sub(1);
@@ -362,11 +366,13 @@ pub fn layout_scroll(
             Some(ScrollbarOrientation::HorizontalBottom) => {
                 v_area.height = v_area.height.saturating_sub(1);
             }
-        }
-        match v_scroll.map(|v| v.orientation.clone()) {
-            None => {
+            None
+            | Some(ScrollbarOrientation::VerticalRight)
+            | Some(ScrollbarOrientation::VerticalLeft) => {
                 unreachable!()
             }
+        }
+        match v_scroll.map(|v| v.orientation.clone()) {
             Some(ScrollbarOrientation::VerticalRight) => {
                 h_area.width = h_area.width.saturating_sub(1);
             }
@@ -374,11 +380,10 @@ pub fn layout_scroll(
                 h_area.x += 1;
                 h_area.width = h_area.width.saturating_sub(1);
             }
-            Some(ScrollbarOrientation::HorizontalTop) => {
-                unimplemented!()
-            }
-            Some(ScrollbarOrientation::HorizontalBottom) => {
-                unimplemented!()
+            None
+            | Some(ScrollbarOrientation::HorizontalTop)
+            | Some(ScrollbarOrientation::HorizontalBottom) => {
+                unreachable!()
             }
         }
     }
@@ -413,10 +418,10 @@ pub fn layout_scroll_inner(
         if let Some(h_scroll) = h_scroll {
             match h_scroll.orientation {
                 ScrollbarOrientation::VerticalRight => {
-                    unimplemented!()
+                    unimplemented!("ScrollbarOrientation::VerticalRight not supported for horizontal scrolling.");
                 }
                 ScrollbarOrientation::VerticalLeft => {
-                    unimplemented!()
+                    unimplemented!("ScrollbarOrientation::VerticalLeft not supported for horizontal scrolling.");
                 }
                 ScrollbarOrientation::HorizontalBottom => {
                     inner.height -= 1;
@@ -437,10 +442,12 @@ pub fn layout_scroll_inner(
                     inner.width = inner.width.saturating_sub(1);
                 }
                 ScrollbarOrientation::HorizontalBottom => {
-                    unimplemented!()
+                    unimplemented!("ScrollbarOrientation::HorizontalBottom not supported for vertical scrolling.");
                 }
                 ScrollbarOrientation::HorizontalTop => {
-                    unimplemented!()
+                    unimplemented!(
+                        "ScrollbarOrientation::HorizontalTop not supported for vertical scrolling."
+                    );
                 }
             }
         }
@@ -465,14 +472,7 @@ impl<'a> StatefulWidgetRef for Scroll<'a> {
 }
 
 fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut ScrollState) {
-    match scroll.orientation {
-        ScrollbarOrientation::VerticalRight | ScrollbarOrientation::VerticalLeft => {
-            state.core.set_vertical(true);
-        }
-        ScrollbarOrientation::HorizontalBottom | ScrollbarOrientation::HorizontalTop => {
-            state.core.set_horizontal(true);
-        }
-    }
+    state.core.set_orientation(scroll.orientation.clone());
     state.core.set_overscroll_by(scroll.overscroll_by);
     state.core.set_scroll_by(scroll.scroll_by);
 
@@ -534,7 +534,9 @@ impl ScrollState {
         self.core.set_offset(offset)
     }
 
-    /// Scroll to row.
+    /// Scroll to make the given pos visible. Adjusts the
+    /// offset just enough to make this happen. Does nothing if
+    /// the position is already visible.
     #[inline]
     pub fn scroll_to_pos(&mut self, pos: usize) -> bool {
         self.core.scroll_to_pos(pos)
@@ -608,6 +610,17 @@ impl ScrollState {
     #[inline]
     pub fn set_scroll_by(&mut self, scroll: Option<usize>) {
         self.core.set_scroll_by(scroll)
+    }
+
+    /// Allowed overscroll
+    #[inline]
+    pub fn overscroll_by(&self) -> usize {
+        self.core.overscroll_by()
+    }
+
+    /// Allowed overscroll
+    pub fn set_overscroll_by(&mut self, overscroll_by: Option<usize>) {
+        self.core.set_overscroll_by(overscroll_by);
     }
 }
 
@@ -783,12 +796,13 @@ impl Default for ScrolledStyle {
 }
 
 pub mod core {
+    use ratatui::widgets::ScrollbarOrientation;
     use std::cmp::{max, min};
 
     #[derive(Debug, Default, Clone, PartialEq, Eq)]
     pub struct ScrollCore {
         /// Vertical scroll?
-        vertical: bool,
+        orientation: ScrollbarOrientation,
         /// Current offset.
         offset: usize,
         /// Maximum offset that is accessible with scrolling.
@@ -810,26 +824,21 @@ pub mod core {
             Self::default()
         }
 
+        #[inline]
+        pub(crate) fn set_orientation(&mut self, orientation: ScrollbarOrientation) {
+            self.orientation = orientation;
+        }
+
         /// Vertical scroll?
         #[inline]
         pub fn is_vertical(&self) -> bool {
-            self.vertical
-        }
-
-        #[inline]
-        pub fn set_vertical(&mut self, vertical: bool) {
-            self.vertical = vertical;
+            self.orientation.is_vertical()
         }
 
         /// Horizontal scroll?
         #[inline]
         pub fn is_horizontal(&self) -> bool {
-            !self.vertical
-        }
-
-        #[inline]
-        pub fn set_horizontal(&mut self, horizontal: bool) {
-            self.vertical = !horizontal;
+            self.orientation.is_horizontal()
         }
 
         /// Current vertical offset.
