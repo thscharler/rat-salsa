@@ -1159,13 +1159,6 @@ where
             }
         }
 
-        if state.selection.scroll_selected() {
-            let (_sel_col, sel_row) = state.selection.lead_selection().unwrap_or_default();
-            state.vscroll.core.show_selection(sel_row, state.rows);
-        } else {
-            state.vscroll.core.no_show_selection();
-        }
-
         // render block+scroll
         self.block.render_ref(area, buf);
         if let Some(hscroll) = self.hscroll.as_ref() {
@@ -1748,6 +1741,17 @@ impl FTableState<RowSelection> {
                 .select(Some(min(row, self.rows.saturating_sub(1))))
         } else {
             self.selection.select(None)
+        }
+    }
+
+    /// Scroll delivers a value between 0 and max_offset as offset.
+    /// This remaps the ratio to the selection with a range 0..row_len.
+    ///
+    pub(crate) fn remap_offset_selection(&self, offset: usize) -> usize {
+        if self.vscroll.max_offset() > 0 {
+            (self.rows * offset) / self.vscroll.max_offset()
+        } else {
+            0 // ???
         }
     }
 

@@ -164,21 +164,21 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
         {
             ScrollOutcome::Up(v) => {
                 if self.selection.scroll_selected() {
-                    self.move_up(v)
+                    self.move_up(1)
                 } else {
                     self.scroll_up(v)
                 }
             }
             ScrollOutcome::Down(v) => {
                 if self.selection.scroll_selected() {
-                    self.move_down(v)
+                    self.move_down(1)
                 } else {
                     self.scroll_down(v)
                 }
             }
             ScrollOutcome::VPos(v) => {
                 if self.selection.scroll_selected {
-                    self.move_to(v)
+                    self.move_to(self.remap_offset_selection(v))
                 } else {
                     self.scroll_to_row(v)
                 }
