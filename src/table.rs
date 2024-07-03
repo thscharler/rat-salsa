@@ -1088,6 +1088,18 @@ where
 
                 state.rows = rows;
                 state._counted_rows = row.map_or(0, |v| v + 1);
+
+                // have we got a page worth of data?
+                if let Some(last_page) = state.calc_last_page(row_heights) {
+                    state.vscroll.set_max_offset(state.rows - last_page);
+                } else {
+                    // we don't have enough data to establish the last page.
+                    // either there are not enough rows or the given row-count
+                    // was off. make a guess.
+                    state.vscroll.set_max_offset(
+                        state.rows.saturating_sub(state.table_area.height as usize),
+                    );
+                }
             } else if self.no_row_count {
                 algorithm = 1;
 
@@ -1107,6 +1119,11 @@ where
 
                 state.rows = row.map_or(0, |v| v + 1);
                 state._counted_rows = row.map_or(0, |v| v + 1);
+                // rough estimate
+                state.vscroll.set_max_offset(usize::MAX - 1);
+                if state.vscroll.page_len() == 0 {
+                    state.vscroll.set_page_len(state.table_area.height as usize);
+                }
             } else {
                 algorithm = 2;
 
@@ -1122,23 +1139,13 @@ where
 
                 state.rows = row.map_or(0, |v| v + 1);
                 state._counted_rows = row.map_or(0, |v| v + 1);
-            }
 
-            let mut sum_heights = 0;
-            let mut n_rows = 0;
-            while let Some(h) = row_heights.pop() {
-                sum_heights += h;
-                n_rows += 1;
-                if sum_heights >= state.table_area.height {
-                    break;
+                // have we got a page worth of data?
+                if let Some(last_page) = state.calc_last_page(row_heights) {
+                    state.vscroll.set_max_offset(state.rows - last_page);
+                } else {
+                    state.vscroll.set_max_offset(0);
                 }
-            }
-
-            // have we got a page worth of data?
-            if sum_heights < state.table_area.height {
-                state.vscroll.set_max_offset(0);
-            } else {
-                state.vscroll.set_max_offset(state.rows - n_rows);
             }
         }
         {
@@ -1174,14 +1181,14 @@ where
             let mut msg = String::new();
             if insane_offset {
                 _= write!(msg,
-                          "FTable::render:\n        offset {}\n        rows {}\n        iter-rows {}max\n    don't match up\nCode X{}X",
+                          "FTable::render:\n        offset {}\n        rows {}\n        iter-rows {}max\n    don't match up\nCode X{}X\n",
                           state.vscroll.offset(), state.rows, state._counted_rows, algorithm
                 );
             }
             if state.rows != state._counted_rows {
                 _ = write!(
                     msg,
-                    "FTable::render:\n    rows {} don't match\n    iterated rows {}\nCode X{}X",
+                    "FTable::render:\n    rows {} don't match\n    iterated rows {}\nCode X{}X\n",
                     state.rows, state._counted_rows, algorithm
                 );
             }
@@ -1461,6 +1468,26 @@ impl<Selection> HasFocusFlag for FTableState<Selection> {
     #[inline]
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl<Selection> FTableState<Selection> {
+    fn calc_last_page(&self, mut row_heights: Vec<u16>) -> Option<usize> {
+        let mut sum_heights = 0;
+        let mut n_rows = 0;
+        while let Some(h) = row_heights.pop() {
+            sum_heights += h;
+            n_rows += 1;
+            if sum_heights >= self.table_area.height {
+                break;
+            }
+        }
+
+        if sum_heights < self.table_area.height {
+            None
+        } else {
+            Some(n_rows)
+        }
     }
 }
 
