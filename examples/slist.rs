@@ -6,7 +6,6 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Stylize;
 use ratatui::widgets::{ListDirection, StatefulWidget};
 use ratatui::Frame;
 use std::iter::repeat_with;

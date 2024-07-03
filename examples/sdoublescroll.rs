@@ -8,7 +8,6 @@ use rat_event::{flow_ok, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::viewport::{Viewport, ViewportState};
 use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Layout, Rect, Size};
-use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget, Wrap};
 use ratatui::Frame;
 
