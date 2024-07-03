@@ -9,7 +9,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 ///
 /// ```
 /// use ratatui::layout::{Constraint, Layout, Rect};
-/// use rat_input::layout::layout_grid;
+/// use rat_widget::layout::layout_grid;
 ///
 /// let area = Rect::new(0,0,100,100);
 ///
