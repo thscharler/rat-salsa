@@ -401,6 +401,14 @@ pub mod theme {
             Style::default().fg(self.text_color(bg)).bg(bg).underlined()
         }
 
+        pub fn block(&self) -> Style {
+            Style::default().fg(self.gray[1]).bg(self.black[1])
+        }
+
+        pub fn table(&self) -> Style {
+            Style::default().fg(self.white[1]).bg(self.black[0])
+        }
+
         pub fn style(&self, color: Color) -> Style {
             Style::new().bg(color).fg(self.text_color(color))
         }

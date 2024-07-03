@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::adapter::table::{TableS, TableSState};
+use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::Scroll;
@@ -82,11 +83,11 @@ fn repaint_lists(
             Constraint::Length(5),
         ],
     )
-    .highlight_style(Style::default().on_red())
+    .highlight_style(THEME.primary(2))
     .scroll_selection()
-    .block(Block::bordered())
-    .scroll(Scroll::new().style(Style::new().on_cyan()))
-    .style(Style::new().on_dark_gray())
+    .block(Block::bordered().style(THEME.block()))
+    .scroll(Scroll::new().style(THEME.block()))
+    .style(THEME.table())
     .render(l[0], frame.buffer_mut(), &mut state.table1);
 
     TableS::new(
@@ -115,10 +116,10 @@ fn repaint_lists(
             Constraint::Length(5),
         ],
     )
-    .highlight_style(Style::default().on_red())
-    .block(Block::bordered())
-    .scroll(Scroll::new().style(Style::new().on_cyan()))
-    .style(Style::new().on_dark_gray())
+    .highlight_style(THEME.primary(2))
+    .block(Block::bordered().style(THEME.block()))
+    .scroll(Scroll::new().style(THEME.block()))
+    .style(THEME.table())
     .render(l[1], frame.buffer_mut(), &mut state.table2);
 
     Ok(())

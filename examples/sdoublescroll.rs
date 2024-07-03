@@ -2,6 +2,7 @@
 
 use crate::adapter::paragraph::ParagraphS;
 use crate::double_widget::{DoubleView, DoubleViewState};
+use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{flow_ok, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::viewport::{Viewport, ViewportState};
@@ -130,15 +131,17 @@ fn repaint_text(
     Viewport::new(DoubleView::new(
         ParagraphS::new(data.sample1.clone())
             .wrap(Wrap::default())
-            .block(Block::bordered())
-            .scroll(Scroll::new().style(Style::new().on_cyan())),
+            .style(THEME.limegreen(0))
+            .block(Block::bordered().style(THEME.block()))
+            .scroll(Scroll::new().style(THEME.block())),
         ParagraphS::new(data.sample2.clone())
             .wrap(Wrap::default())
-            .block(Block::bordered())
-            .scroll(Scroll::new().style(Style::new().on_cyan())),
+            .style(THEME.bluegreen(0))
+            .block(Block::bordered().style(THEME.block()))
+            .scroll(Scroll::new().style(THEME.block())),
     ))
     .view_size(Size::new(40, 40))
-    .scroll(Scroll::new())
+    .vscroll(Scroll::new().style(THEME.block()))
     .render(l[0], frame.buffer_mut(), &mut state.double);
 
     Ok(())

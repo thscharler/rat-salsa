@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 
 use crate::adapter::paragraph::{ParagraphS, ParagraphSState};
+use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::Scroll;
@@ -92,16 +93,16 @@ fn repaint_text(
         .split(area);
 
     ParagraphS::new(data.sample1.clone())
-        .block(Block::bordered())
-        .scroll(Scroll::new().overscroll_by(5).style(Style::new().on_cyan()))
-        .style(Style::new().on_dark_gray())
+        .block(Block::bordered().style(THEME.block()))
+        .scroll(Scroll::new().overscroll_by(5).style(THEME.block()))
+        .style(THEME.text_input())
         .render(l[0], frame.buffer_mut(), &mut state.text1);
 
     ParagraphS::new(data.sample2.clone())
         .wrap(Wrap { trim: true })
-        .block(Block::bordered())
-        .scroll(Scroll::new().style(Style::new().on_cyan()))
-        .style(Style::new().on_dark_gray())
+        .block(Block::bordered().style(THEME.block()))
+        .scroll(Scroll::new().style(THEME.block()))
+        .style(THEME.text_input())
         .render(l[1], frame.buffer_mut(), &mut state.text2);
 
     Ok(())
