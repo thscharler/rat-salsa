@@ -1,15 +1,17 @@
+use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{cellselection, CellSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableContext, FTableState, TableData};
-use rat_widget::statusline::StatusLineState;
+use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::prelude::Widget;
-use ratatui::style::{Color, Style, Stylize};
+use ratatui::style::Stylize;
+use ratatui::symbols::border::Set;
 use ratatui::text::Span;
+use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
 
 mod data;
@@ -32,9 +34,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         table: Default::default(),
-        status: Default::default(),
     };
-    state.status.status(0, "Ctrl+Q to quit.");
 
     run_ui(handle_table, repaint_table, &mut data, &mut state)
 }
@@ -52,7 +52,6 @@ struct Data {
 
 struct State {
     pub(crate) table: FTableState<CellSelection>,
-    pub(crate) status: StatusLineState,
 }
 
 fn repaint_table(
@@ -62,12 +61,9 @@ fn repaint_table(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l0 = Layout::horizontal([
-        Constraint::Length(30),
-        Constraint::Fill(1),
-        Constraint::Length(30),
-    ])
-    .split(area);
+    let l0 = Layout::horizontal([Constraint::Percentage(61)])
+        .flex(Flex::Center)
+        .split(area);
 
     struct Data1<'a>(&'a [Sample]);
 
@@ -116,7 +112,7 @@ fn repaint_table(
         }
     }
 
-    let table1 = FTable::default()
+    FTable::default()
         .data(Data1(&data.table_data))
         .widths([
             Constraint::Length(6),
@@ -134,20 +130,23 @@ fn repaint_table(
                 Cell::from("Val2"),
                 Cell::from("State"),
             ])
-            .style(Some(Style::new().black().bg(Color::Rgb(152, 195, 121)))),
+            .style(Some(THEME.table_header())),
         )
-        .footer(
-            Row::new(["a", "b", "c", "d", "e"])
-                .style(Some(Style::new().black().bg(Color::Rgb(152, 195, 121)))),
+        .footer(Row::new(["a", "b", "c", "d", "e"]).style(Some(THEME.table_footer())))
+        .block(
+            Block::bordered()
+                .border_type(block::BorderType::Rounded)
+                .border_style(THEME.block()),
         )
+        .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)
-        .style(Style::default().bg(Color::Rgb(25, 25, 25)))
-        .select_row_style(Some(Style::default().bg(Color::Rgb(50, 50, 50))))
-        .select_column_style(Some(Style::default().bg(Color::Rgb(30, 30, 30))))
-        .select_cell_style(Some(Style::default().black().bg(Color::Rgb(128, 128, 128))))
-        .select_header_style(Some(Style::default().bg(Color::Rgb(172, 215, 141))))
-        .select_footer_style(Some(Style::default().bg(Color::Rgb(172, 215, 141))));
-    frame.render_stateful_widget(table1, l0[1], &mut state.table);
+        .style(THEME.table())
+        .select_row_style(Some(THEME.gray(3)))
+        .select_column_style(Some(THEME.black(1)))
+        .select_cell_style(Some(THEME.white(0)))
+        .select_header_style(Some(THEME.blue(0)))
+        .select_footer_style(Some(THEME.blue(0)))
+        .render(l0[0], frame.buffer_mut(), &mut state.table);
     Ok(())
 }
 

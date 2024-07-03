@@ -1,17 +1,18 @@
 use crate::data::render_tablestate::render_tablestate;
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::theme::THEME;
+use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
 use rat_event::ct_event;
+use rat_event::util::{item_at_clicked, row_at_clicked};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
-use rat_widget::layout::{layout_edit, EditConstraint, LayoutEdit};
+use rat_ftable::{FTable, FTableContext, FTableState, TableData, TableDataIter};
+use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::prelude::Widget;
-use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::Span;
+use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::iter::Enumerate;
 use std::slice::Iter;
@@ -64,7 +65,7 @@ struct State {
     pub(crate) table: FTableState<NoSelection>,
     pub(crate) report_rows: Option<usize>,
     pub(crate) no_row_count: bool,
-    pub(crate) edit: LayoutEdit,
+    pub(crate) edit: [[Rect; 10]; 1],
 }
 
 fn repaint_table(
@@ -75,64 +76,71 @@ fn repaint_table(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([
-        Constraint::Length(20),
-        Constraint::Fill(1),
         Constraint::Length(35),
+        Constraint::Fill(1),
+        Constraint::Length(20),
     ])
     .split(area);
 
-    state.edit = layout_edit(
-        area,
-        &[
-            EditConstraint::TitleLabel,
-            EditConstraint::Widget(20),
-            EditConstraint::Widget(20),
-            EditConstraint::Widget(20),
-            EditConstraint::Widget(20),
-            EditConstraint::Widget(20),
-            EditConstraint::Empty,
-            EditConstraint::Widget(20),
-            EditConstraint::Empty,
-            EditConstraint::Widget(20),
-        ],
+    let l1 = Layout::vertical([
+        Constraint::Length(1),
+        Constraint::Length(11),
+        Constraint::Length(11),
+    ])
+    .split(l0[0]);
+
+    state.edit = layout_grid::<1, 10>(
+        l1[1],
+        Layout::horizontal([Constraint::Length(20)]),
+        Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ]),
     );
-    let mut lb = state.edit.iter();
 
-    "rows() reports".render(lb.label(), frame.buffer_mut());
-    let mut b_none = Span::from("None").white().on_dark_gray();
+    "rows() reports".render(state.edit[0][0], frame.buffer_mut());
+    let mut b_none = Span::from("None").style(THEME.deepblue(0));
     if state.report_rows == None {
-        b_none = b_none.on_gray();
+        b_none = b_none.style(THEME.deepblue(3));
     }
-    frame.render_widget(b_none, lb.widget());
-    let mut b_none = Span::from("Too few").white().on_dark_gray();
+    frame.render_widget(b_none, state.edit[0][1]);
+    let mut b_none = Span::from("Too few").style(THEME.deepblue(0));
     if state.report_rows == Some(SMALLER) {
-        b_none = b_none.on_gray();
+        b_none = b_none.style(THEME.deepblue(3));
     }
-    frame.render_widget(b_none, lb.widget());
-    let mut b_none = Span::from("Circa").white().on_dark_gray();
+    frame.render_widget(b_none, state.edit[0][2]);
+    let mut b_none = Span::from("Circa").style(THEME.deepblue(0));
     if state.report_rows == Some(CIRCA) {
-        b_none = b_none.on_gray();
+        b_none = b_none.style(THEME.deepblue(3));
     }
-    frame.render_widget(b_none, lb.widget());
-    let mut b_none = Span::from("Exact").white().on_dark_gray();
+    frame.render_widget(b_none, state.edit[0][3]);
+    let mut b_none = Span::from("Exact").style(THEME.deepblue(0));
     if state.report_rows == Some(EXACT) {
-        b_none = b_none.on_gray();
+        b_none = b_none.style(THEME.deepblue(3));
     }
-    frame.render_widget(b_none, lb.widget());
-    let mut b_none = Span::from("Too many").white().on_dark_gray();
+    frame.render_widget(b_none, state.edit[0][4]);
+    let mut b_none = Span::from("Too many").style(THEME.deepblue(0));
     if state.report_rows == Some(GREATER) {
-        b_none = b_none.on_gray();
+        b_none = b_none.style(THEME.deepblue(3));
     }
-    frame.render_widget(b_none, lb.widget());
+    frame.render_widget(b_none, state.edit[0][5]);
 
-    let mut nocount = Span::from("no_row_count").white().on_light_blue();
+    let mut nocount = Span::from("no_row_count").style(THEME.deepblue(0));
     if state.no_row_count {
-        nocount = nocount.on_red();
+        nocount = nocount.style(THEME.deepblue(0).fg(THEME.red[3]));
     }
-    frame.render_widget(nocount, lb.widget());
+    frame.render_widget(nocount, state.edit[0][7]);
 
-    let goto = Span::from("GOTO 1_000_000").white().on_light_blue();
-    frame.render_widget(goto, lb.widget());
+    let goto = Span::from("GOTO 1_000_000").style(THEME.deepblue(0));
+    frame.render_widget(goto, state.edit[0][9]);
 
     // table
     struct RowIter1<'a> {
@@ -157,7 +165,6 @@ fn repaint_table(
                 0 => {
                     let row_fmt = NumberFormat::new("000000").expect("fmt");
                     let span = Span::from(row_fmt.fmt_u(row.0));
-                    buf.set_style(area, Style::new().black().bg(Color::from_u32(0xe7c787)));
                     span.render(area, buf);
                 }
                 1 => {
@@ -184,7 +191,7 @@ fn repaint_table(
         }
     }
 
-    let table1 = FTable::default()
+    FTable::default()
         .iter(RowIter1 {
             report_rows: state.report_rows,
             iter: data.table_data.iter().enumerate(),
@@ -207,17 +214,21 @@ fn repaint_table(
                 Cell::from("Val2"),
                 Cell::from("State"),
             ])
-            .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
+            .style(Some(THEME.table_header())),
         )
-        .footer(
-            Row::new(["a", "b", "c", "d", "e"])
-                .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
+        .footer(Row::new(["a", "b", "c", "d", "e"]).style(Some(THEME.table_footer())))
+        .block(
+            Block::bordered()
+                .border_type(block::BorderType::Rounded)
+                .border_style(THEME.block()),
         )
+        .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)
-        .style(Style::default().bg(Color::Rgb(25, 25, 25)));
-    frame.render_stateful_widget(table1, l0[1], &mut state.table);
+        .style(THEME.table())
+        .select_row_style(Some(THEME.gray(3)))
+        .render(l0[1], frame.buffer_mut(), &mut state.table);
 
-    render_tablestate(&state.table, l0[2], frame.buffer_mut());
+    render_tablestate(&state.table, l1[2], frame.buffer_mut());
 
     Ok(())
 }
@@ -230,33 +241,33 @@ fn handle_table(
 ) -> Result<Outcome, anyhow::Error> {
     let r0 = 'f: {
         match event {
-            ct_event!(mouse down Left for x,y) => match state.edit.widget_at((*x, *y)) {
-                Some(0) => {
+            ct_event!(mouse down Left for x,y) => match item_at_clicked(&state.edit[0], *x, *y) {
+                Some(1) => {
                     state.report_rows = None;
                     break 'f Outcome::Changed;
                 }
-                Some(1) => {
+                Some(2) => {
                     state.report_rows = Some(SMALLER);
                     break 'f Outcome::Changed;
                 }
-                Some(2) => {
+                Some(3) => {
                     state.report_rows = Some(CIRCA);
                     break 'f Outcome::Changed;
                 }
-                Some(3) => {
+                Some(4) => {
                     state.report_rows = Some(EXACT);
                     break 'f Outcome::Changed;
                 }
-                Some(4) => {
+                Some(5) => {
                     state.report_rows = Some(GREATER);
                     break 'f Outcome::Changed;
                 }
-                Some(5) => {
+                Some(7) => {
                     state.no_row_count = !state.no_row_count;
                     break 'f Outcome::Changed;
                 }
-                Some(6) => {
-                    state.table.vscroll.core.set_raw_offset(99900); // 1_000_000;
+                Some(9) => {
+                    state.table.vscroll.core.set_raw_offset(1_000_000); // 1_000_000;
                     break 'f Outcome::Changed;
                 }
                 _ => {

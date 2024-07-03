@@ -1,9 +1,14 @@
+use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
+use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableState};
-use ratatui::layout::{Constraint, Layout, Rect};
+use rat_scrolled::Scroll;
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::prelude::StatefulWidget;
 use ratatui::style::{Color, Style};
+use ratatui::widgets::{block, Block};
 use ratatui::Frame;
 
 mod mini_salsa;
@@ -33,15 +38,40 @@ fn repaint_table(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l0 = Layout::horizontal([
-        Constraint::Length(10),
-        Constraint::Fill(1),
-        Constraint::Length(10),
-    ])
-    .split(area);
+    let l0 = Layout::horizontal([Constraint::Percentage(61)])
+        .flex(Flex::Center)
+        .split(area);
 
-    let table1 = FTable::default().style(Style::default().bg(Color::Rgb(25, 25, 25)));
-    frame.render_stateful_widget(table1, l0[1], &mut state.table);
+    FTable::default()
+        .widths([
+            Constraint::Length(6),
+            Constraint::Length(20),
+            Constraint::Length(15),
+            Constraint::Length(15),
+            Constraint::Length(3),
+        ])
+        .column_spacing(1)
+        .header(
+            Row::new([
+                Cell::from("Nr"),
+                Cell::from("Text"),
+                Cell::from("Val1"),
+                Cell::from("Val2"),
+                Cell::from("State"),
+            ])
+            .style(Some(THEME.table_header())),
+        )
+        .footer(Row::new(["a", "b", "c", "d", "e"]).style(Some(THEME.table_footer())))
+        .block(
+            Block::bordered()
+                .border_type(block::BorderType::Rounded)
+                .border_style(THEME.block()),
+        )
+        .vscroll(Scroll::new().style(THEME.block()))
+        .flex(Flex::End)
+        .style(THEME.table())
+        .select_row_style(Some(THEME.gray(3)))
+        .render(l0[0], frame.buffer_mut(), &mut state.table);
 
     Ok(())
 }

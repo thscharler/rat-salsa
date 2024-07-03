@@ -1,14 +1,15 @@
+use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
+use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::prelude::Widget;
-use ratatui::style::{Color, Style, Stylize};
 use ratatui::text::Span;
+use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::iter::Enumerate;
 use std::slice::Iter;
@@ -61,12 +62,9 @@ fn repaint_table(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l0 = Layout::horizontal([
-        Constraint::Length(10),
-        Constraint::Fill(1),
-        Constraint::Length(10),
-    ])
-    .split(area);
+    let l0 = Layout::horizontal([Constraint::Percentage(61)])
+        .flex(Flex::Center)
+        .split(area);
 
     struct RowIter1<'a> {
         iter: Enumerate<Iter<'a, Sample>>,
@@ -89,7 +87,6 @@ fn repaint_table(
                 0 => {
                     let row_fmt = NumberFormat::new("000000").expect("fmt");
                     let span = Span::from(row_fmt.fmt_u(row.0));
-                    buf.set_style(area, Style::new().black().bg(Color::from_u32(0xe7c787)));
                     span.render(area, buf);
                 }
                 1 => {
@@ -116,7 +113,7 @@ fn repaint_table(
         }
     }
 
-    let table1 = FTable::default()
+    FTable::default()
         .iter(RowIter1 {
             iter: data.table_data.iter().enumerate(),
             item: None,
@@ -137,16 +134,19 @@ fn repaint_table(
                 Cell::from("Val2"),
                 Cell::from("State"),
             ])
-            .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
+            .style(Some(THEME.table_header())),
         )
-        .footer(
-            Row::new(["a", "b", "c", "d", "e"])
-                .style(Some(Style::new().black().bg(Color::from_u32(0x98c379)))),
+        .footer(Row::new(["a", "b", "c", "d", "e"]).style(Some(THEME.table_footer())))
+        .block(
+            Block::bordered()
+                .border_type(block::BorderType::Rounded)
+                .border_style(THEME.block()),
         )
+        .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)
-        .style(Style::default().bg(Color::Rgb(25, 25, 25)));
-    frame.render_stateful_widget(table1, l0[1], &mut state.table);
-
+        .style(THEME.table())
+        .select_row_style(Some(THEME.gray(3)))
+        .render(l0[0], frame.buffer_mut(), &mut state.table);
     Ok(())
 }
 
