@@ -384,10 +384,9 @@ pub fn layout_scroll(
     }
     if block.is_some() {
         v_area.y += 1;
-        v_area.height = v_area.height.saturating_sub(1);
-
+        v_area.height = v_area.height.saturating_sub(2);
         h_area.x += 1;
-        h_area.width = h_area.width.saturating_sub(1);
+        h_area.width = h_area.width.saturating_sub(2);
     }
 
     (
