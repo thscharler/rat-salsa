@@ -229,7 +229,6 @@ pub mod substratum1 {
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
-    use ratatui::style::Stylize;
     use ratatui::widgets::{Block, Widget};
 
     #[derive(Debug, Default)]

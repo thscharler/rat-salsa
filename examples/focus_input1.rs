@@ -4,7 +4,6 @@ use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
 use rat_focus::{Focus, HasFocusFlag};
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::Frame;
 
