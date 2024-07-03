@@ -2,6 +2,7 @@
 
 * refactor: replace Scrolled widget with internal handling via Scrolled<'a>.
 * sync naming methods
+* sync key-handling for the different selection-models
 
 * rename FEditTable to EditFTable
 
