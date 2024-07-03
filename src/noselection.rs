@@ -4,6 +4,7 @@ use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::ScrollArea;
+use std::cmp::max;
 
 /// Doesn't do any selection for the table.
 ///
@@ -33,27 +34,29 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<No
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = if self.is_focused() {
             match event {
-                ct_event!(keycode press Down) => self.scroll_down(1).into(),
                 ct_event!(keycode press Up) => self.scroll_up(1).into(),
-                ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
-                    self.scroll_to_row(self.row_max_offset()).into()
+                ct_event!(keycode press Down) => self.scroll_down(1).into(),
+                ct_event!(keycode press CONTROL-Up)
+                | ct_event!(keycode press CONTROL-Home)
+                | ct_event!(keycode press Home) => self.scroll_to_row(0).into(),
+                ct_event!(keycode press CONTROL-Down)
+                | ct_event!(keycode press CONTROL-End)
+                | ct_event!(keycode press End) => {
+                    self.scroll_to_row(self.rows.saturating_sub(1)).into()
                 }
-                ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                    self.scroll_to_row(0).into()
-                }
-                ct_event!(keycode press PageUp) => {
-                    self.scroll_up(self.page_len().saturating_sub(1)).into()
-                }
-                ct_event!(keycode press PageDown) => {
-                    self.scroll_down(self.page_len().saturating_sub(1)).into()
-                }
-                ct_event!(keycode press Right) => self.scroll_right(1).into(),
+
+                ct_event!(keycode press PageUp) => self
+                    .scroll_up(max(1, self.page_len().saturating_sub(1)))
+                    .into(),
+                ct_event!(keycode press PageDown) => self
+                    .scroll_down(max(1, self.page_len().saturating_sub(1)))
+                    .into(),
+
                 ct_event!(keycode press Left) => self.scroll_left(1).into(),
-                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
+                ct_event!(keycode press Right) => self.scroll_right(1).into(),
+                ct_event!(keycode press CONTROL-Left) => self.scroll_to_col(0).into(),
+                ct_event!(keycode press CONTROL-Right) => {
                     self.scroll_to_col(self.col_max_offset()).into()
-                }
-                ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
-                    self.scroll_to_col(0).into()
                 }
                 _ => Outcome::NotUsed,
             }

@@ -4,7 +4,7 @@ use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::ScrollArea;
-use std::cmp::min;
+use std::cmp::{max, min};
 
 /// Select a single cell in the table.
 ///
@@ -154,28 +154,31 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ce
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = if self.is_focused() {
             match event {
-                ct_event!(keycode press Down) => self.move_down(1).into(),
                 ct_event!(keycode press Up) => self.move_up(1).into(),
-                ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press End) => {
+                ct_event!(keycode press Down) => self.move_down(1).into(),
+                ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press CONTROL-Home) => {
+                    self.move_to_row(0).into()
+                }
+                ct_event!(keycode press CONTROL-Down) | ct_event!(keycode press CONTROL-End) => {
                     self.move_to_row(self.rows.saturating_sub(1)).into()
                 }
-                ct_event!(keycode press CONTROL-Up) | ct_event!(keycode press Home) => {
-                    self.move_to_row(self.rows.saturating_sub(0)).into()
-                }
-                ct_event!(keycode press PageUp) => {
-                    self.move_up(self.page_len().saturating_sub(1)).into()
-                }
-                ct_event!(keycode press PageDown) => {
-                    self.move_down(self.page_len().saturating_sub(1)).into()
-                }
-                ct_event!(keycode press Right) => self.move_right(1).into(),
+
+                ct_event!(keycode press PageUp) => self
+                    .move_up(max(1, self.page_len().saturating_sub(1)))
+                    .into(),
+                ct_event!(keycode press PageDown) => self
+                    .move_down(max(1, self.page_len().saturating_sub(1)))
+                    .into(),
+
                 ct_event!(keycode press Left) => self.move_left(1).into(),
-                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press SHIFT-End) => {
-                    self.move_to_col(self.columns.saturating_sub(1)).into()
-                }
-                ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press SHIFT-Home) => {
+                ct_event!(keycode press Right) => self.move_right(1).into(),
+                ct_event!(keycode press CONTROL-Left) | ct_event!(keycode press Home) => {
                     self.move_to_col(0).into()
                 }
+                ct_event!(keycode press CONTROL-Right) | ct_event!(keycode press End) => {
+                    self.move_to_col(self.columns.saturating_sub(1)).into()
+                }
+
                 _ => Outcome::NotUsed,
             }
         } else {
