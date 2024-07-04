@@ -246,6 +246,16 @@ pub mod event {
         }
     }
 
+    impl From<Outcome> for DoubleClickOutcome {
+        fn from(value: Outcome) -> Self {
+            match value {
+                Outcome::NotUsed => DoubleClickOutcome::NotUsed,
+                Outcome::Unchanged => DoubleClickOutcome::Unchanged,
+                Outcome::Changed => DoubleClickOutcome::Changed,
+            }
+        }
+    }
+
     impl ConsumedEvent for DoubleClickOutcome {
         fn is_consumed(&self) -> bool {
             !matches!(self, DoubleClickOutcome::NotUsed)
