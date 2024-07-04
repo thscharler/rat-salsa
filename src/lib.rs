@@ -22,6 +22,7 @@ use crate::threadpool::ThreadPool;
 use crate::timer::{TimeOut, TimerDef, TimerHandle, Timers};
 
 pub use framework::{run_tui, RunConfig};
+use rat_widget::file_dialog::FileOutcome;
 pub use threadpool::Cancel;
 
 /// Result of event-handling.
@@ -139,6 +140,18 @@ impl<Action> From<EditOutcome> for Control<Action> {
             EditOutcome::Commit => Control::Break,
             EditOutcome::CommitAndAppend => Control::Break,
             EditOutcome::CommitAndEdit => Control::Break,
+        }
+    }
+}
+
+impl<Action> From<FileOutcome> for Control<Action> {
+    fn from(value: FileOutcome) -> Self {
+        match value {
+            FileOutcome::NotUsed => Control::Continue,
+            FileOutcome::Unchanged => Control::Break,
+            FileOutcome::Changed => Control::Repaint,
+            FileOutcome::Cancel => Control::Repaint,
+            FileOutcome::Ok(_) => Control::Repaint,
         }
     }
 }
