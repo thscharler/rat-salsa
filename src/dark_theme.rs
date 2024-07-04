@@ -1,7 +1,7 @@
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
 use rat_widget::input::TextInputStyle;
-use rat_widget::list::ListStyle;
+use rat_widget::list::RListStyle;
 use rat_widget::masked_input::MaskedInputStyle;
 use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
@@ -246,8 +246,8 @@ impl DarkTheme {
     }
 
     /// Complete ListStyle
-    pub fn list_style(&self) -> ListStyle {
-        ListStyle {
+    pub fn list_style(&self) -> RListStyle {
+        RListStyle {
             style: self.data(),
             select_style: self.select(),
             focus_style: self.focus(),
