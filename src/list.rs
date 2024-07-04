@@ -17,7 +17,7 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 
 /// Trait for list-selection.
-pub trait ListSelection {
+pub trait RListSelection {
     /// Is selected.
     fn is_selected(&self, n: usize) -> bool;
 
@@ -46,7 +46,7 @@ pub struct RList<'a, Selection> {
 }
 
 #[derive(Debug, Clone)]
-pub struct ListStyle {
+pub struct RListStyle {
     /// Style
     pub style: Style,
     /// Style for selection
@@ -80,7 +80,7 @@ pub struct RListState<Selection> {
     pub mouse: MouseFlags,
 }
 
-impl Default for ListStyle {
+impl Default for RListStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -128,7 +128,13 @@ impl<'a, Selection> RList<'a, Selection> {
     }
 
     #[inline]
-    pub fn styles(mut self, styles: ListStyle) -> Self {
+    pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.scroll = Some(scroll);
+        self
+    }
+
+    #[inline]
+    pub fn styles(mut self, styles: RListStyle) -> Self {
         self.style = styles.style;
         self.select_style = styles.select_style;
         self.focus_style = styles.focus_style;
@@ -179,7 +185,7 @@ where
     }
 }
 
-impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
+impl<'a, Selection: RListSelection> StatefulWidget for RList<'a, Selection> {
     type State = RListState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -249,7 +255,7 @@ impl<'a, Selection: ListSelection> StatefulWidget for RList<'a, Selection> {
             .items(self.items)
             .style(self.style)
             .direction(self.direction)
-            .render(area, buf, &mut list_state);
+            .render(state.inner, buf, &mut list_state);
     }
 }
 
@@ -265,7 +271,7 @@ impl<Selection> HasFocusFlag for RListState<Selection> {
     }
 }
 
-impl<Selection: ListSelection> RListState<Selection> {
+impl<Selection: RListSelection> RListState<Selection> {
     #[inline]
     pub fn clear_offset(&mut self) {
         self.scroll.set_offset(0);
@@ -327,7 +333,7 @@ impl<Selection: ListSelection> RListState<Selection> {
     }
 }
 
-impl<Selection: ListSelection> RListState<Selection> {
+impl<Selection: RListSelection> RListState<Selection> {
     #[inline]
     pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
         row_at_clicked(&self.item_areas, pos.1).map(|v| self.scroll.offset() + v)
@@ -526,7 +532,7 @@ impl RListState<RowSetSelection> {
 
 pub mod selection {
     use crate::event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
-    use crate::list::{ListSelection, RListState};
+    use crate::list::{RListSelection, RListState};
     use crossterm::event::KeyModifiers;
     use rat_focus::HasFocusFlag;
     use rat_ftable::TableSelection;
@@ -537,7 +543,7 @@ pub mod selection {
     /// No selection
     pub type NoSelection = rat_ftable::selection::NoSelection;
 
-    impl ListSelection for NoSelection {
+    impl RListSelection for NoSelection {
         #[inline]
         fn is_selected(&self, _n: usize) -> bool {
             false
@@ -608,7 +614,7 @@ pub mod selection {
     /// Single element selection.
     pub type RowSelection = rat_ftable::selection::RowSelection;
 
-    impl ListSelection for RowSelection {
+    impl RListSelection for RowSelection {
         #[inline]
         fn is_selected(&self, n: usize) -> bool {
             self.lead_row == Some(n)
@@ -617,6 +623,10 @@ pub mod selection {
         #[inline]
         fn lead_selection(&self) -> Option<usize> {
             self.lead_row
+        }
+
+        fn scroll_selected(&self) -> bool {
+            self.scroll_selected
         }
     }
 
@@ -677,21 +687,21 @@ pub mod selection {
                 .handle(event, MouseOnly)
             {
                 ScrollOutcome::Up(v) => {
-                    if ListSelection::scroll_selected(&self.selection) {
+                    if RListSelection::scroll_selected(&self.selection) {
                         self.move_up(1)
                     } else {
                         self.scroll_up(v)
                     }
                 }
                 ScrollOutcome::Down(v) => {
-                    if ListSelection::scroll_selected(&self.selection) {
+                    if RListSelection::scroll_selected(&self.selection) {
                         self.move_down(1)
                     } else {
                         self.scroll_down(v)
                     }
                 }
                 ScrollOutcome::VPos(v) => {
-                    if ListSelection::scroll_selected(&self.selection) {
+                    if RListSelection::scroll_selected(&self.selection) {
                         self.move_to(self.remap_offset_selection(v))
                     } else {
                         self.scroll_to(v)
@@ -715,7 +725,7 @@ pub mod selection {
 
     pub type RowSetSelection = rat_ftable::selection::RowSetSelection;
 
-    impl ListSelection for RowSetSelection {
+    impl RListSelection for RowSetSelection {
         fn is_selected(&self, n: usize) -> bool {
             if let Some(mut anchor) = self.anchor_row {
                 if let Some(mut lead) = self.lead_row {

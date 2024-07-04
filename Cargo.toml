@@ -58,6 +58,8 @@ rust_decimal_macros = "1.34"
 memchr = "2.7.2"
 format_num_pattern = "0.9"
 log = "0.4"
+directories-next = "2.0.0"
+sysinfo = "0.30.12"
 
 rat-event = { version = "0.14", path = "../rat-event" }
 rat-focus = { version = "0.10", path = "../rat-focus" }

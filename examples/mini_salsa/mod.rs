@@ -250,6 +250,15 @@ pub fn layout_grid<const X: usize, const Y: usize>(
 }
 
 pub mod theme {
+    use rat_ftable::FTableStyle;
+    use rat_scrolled::ScrolledStyle;
+    use rat_widget::button::ButtonStyle;
+    use rat_widget::input::TextInputStyle;
+    use rat_widget::list::RListStyle;
+    use rat_widget::masked_input::MaskedInputStyle;
+    use rat_widget::menuline::MenuStyle;
+    use rat_widget::msgdialog::MsgDialogStyle;
+    use rat_widget::textarea::TextAreaStyle;
     use ratatui::style::{Color, Style, Stylize};
 
     #[derive(Debug, Default, Clone)]
@@ -415,6 +424,148 @@ pub mod theme {
 
         pub fn table_footer(&self) -> Style {
             Style::default().fg(self.white[1]).bg(self.blue[2])
+        }
+
+        /// Focused text field style.
+        pub fn text_focus(&self) -> Style {
+            let bg = self.primary[0];
+            Style::default().fg(self.text_color(bg)).bg(bg)
+        }
+
+        /// Text selection style.
+        pub fn text_select(&self) -> Style {
+            let bg = self.secondary[0];
+            Style::default().fg(self.text_color(bg)).bg(bg)
+        }
+
+        /// Data display style. Used for lists, tables, ...
+        pub fn data(&self) -> Style {
+            Style::default().fg(self.white[0]).bg(self.black[1])
+        }
+
+        /// Background for dialogs.
+        pub fn dialog_style(&self) -> Style {
+            Style::default().fg(self.white[2]).bg(self.gray[1])
+        }
+
+        /// Style for the status line.
+        pub fn status_style(&self) -> Style {
+            Style::default().fg(self.white[0]).bg(self.black[2])
+        }
+
+        /// Complete TextAreaStyle
+        pub fn textarea_style(&self) -> TextAreaStyle {
+            TextAreaStyle {
+                style: self.data(),
+                focus: Some(self.focus()),
+                select: Some(self.text_select()),
+                ..TextAreaStyle::default()
+            }
+        }
+
+        /// Complete TextInputStyle
+        pub fn input_style(&self) -> TextInputStyle {
+            TextInputStyle {
+                style: self.text_input(),
+                focus: Some(self.text_focus()),
+                select: Some(self.text_select()),
+                ..TextInputStyle::default()
+            }
+        }
+
+        /// Complete MaskedInputStyle
+        pub fn inputmask_style(&self) -> MaskedInputStyle {
+            MaskedInputStyle {
+                style: self.text_input(),
+                focus: Some(self.text_focus()),
+                select: Some(self.text_select()),
+                invalid: Some(Style::default().bg(self.red[3])),
+                ..Default::default()
+            }
+        }
+
+        /// Complete MenuStyle
+        pub fn menu_style(&self) -> MenuStyle {
+            let menu = Style::default().fg(self.white[3]).bg(self.black[2]);
+            MenuStyle {
+                style: menu,
+                title: Some(Style::default().fg(self.black[0]).bg(self.yellow[2])),
+                select: Some(menu),
+                focus: Some(self.focus()),
+                ..Default::default()
+            }
+        }
+
+        /// Complete FTableStyle
+        pub fn table_style(&self) -> FTableStyle {
+            FTableStyle {
+                style: self.data(),
+                select_row_style: Some(self.select()),
+                show_row_focus: true,
+                focus_style: Some(self.focus()),
+                ..Default::default()
+            }
+        }
+
+        /// Complete ListStyle
+        pub fn list_style(&self) -> Style {
+            self.data()
+        }
+
+        /// Complete ButtonStyle
+        pub fn button_style(&self) -> Style {
+            Style::default().fg(self.white[0]).bg(self.primary[0])
+        }
+
+        pub fn armed_style(&self) -> Style {
+            Style::default().fg(self.black[0]).bg(self.secondary[0])
+        }
+
+        /// Complete ScrolledStyle
+        pub fn scrolled_style(&self) -> ScrolledStyle {
+            let style = Style::default().fg(self.gray[0]).bg(self.black[1]);
+            let arrow_style = Style::default().fg(self.secondary[0]).bg(self.black[1]);
+            ScrolledStyle {
+                thumb_style: Some(style),
+                track_style: Some(style),
+                no_style: Some(style),
+                begin_style: Some(arrow_style),
+                end_style: Some(arrow_style),
+                ..Default::default()
+            }
+        }
+
+        /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
+        /// This is what I need for the
+        /// [minimal](https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs)
+        /// example, which shows timings for Render/Event/Action.
+        pub fn statusline_style(&self) -> Vec<Style> {
+            vec![
+                self.status_style(),
+                Style::default()
+                    .fg(self.text_color(self.white[0]))
+                    .bg(self.blue[3]),
+                Style::default()
+                    .fg(self.text_color(self.white[0]))
+                    .bg(self.blue[2]),
+                Style::default()
+                    .fg(self.text_color(self.white[0]))
+                    .bg(self.blue[1]),
+            ]
+        }
+
+        /// Complete MsgDialogStyle.
+        pub fn msg_dialog_style(&self) -> MsgDialogStyle {
+            MsgDialogStyle {
+                style: self.status_style(),
+                button: ButtonStyle {
+                    style: self.button_style(),
+                    focus: Some(self.focus()),
+                    armed: Some(self.armed_style()),
+                    ..Default::default()
+                },
+                ..Default::default()
+            }
         }
 
         pub fn style(&self, color: Color) -> Style {
