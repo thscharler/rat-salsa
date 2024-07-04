@@ -180,6 +180,14 @@ impl From<bool> for Outcome {
 ///
 /// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
 /// the result of the operation is written to the log.
+///
+/// Extras: Combining this with the result of focus-handling is tricky.
+/// The result of processing events for focus should not break early,
+/// as widgets probably want to act on the same event. That leads
+/// to two result-values to be considered.
+/// Therefore, one more extension for this macro:
+/// `flow_ok!(_do_something_with_an_outcome(), consider focus_outcome)`
+/// Where `focus_outcome` is the variable that holds the result.
 #[macro_export]
 macro_rules! flow {
     (log $n:ident: $x:expr) => {{
@@ -190,6 +198,16 @@ macro_rules! flow {
             return r.into();
         } else {
             debug!("{} continue", stringify!($n));
+            _ = r;
+        }
+    }};
+    ($x:expr, consider $f:expr) => {{
+        use std::cmp::max;
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            return max(r.into(), $f);
+        } else {
             _ = r;
         }
     }};
@@ -210,13 +228,18 @@ macro_rules! flow {
 /// It then does the classic `into()`-conversion and wraps the
 /// result in `Ok()`.
 ///
-/// Special widget result-types are encourage to map down to Outcome
-/// as a baseline.
-///
 /// *The difference to [flow] is that this one Ok-wraps the result.*
 ///
 /// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
 /// the result of the operation is written to the log.
+///
+/// Extras: Combining this with the result of focus-handling is tricky.
+/// The result of processing events for focus should not break early,
+/// as widgets probably want to act on the same event. That leads
+/// to two result-values to be considered.
+/// Therefore, one more extension for this macro:
+/// `flow_ok!(_do_something_with_an_outcome(), consider focus_outcome)`
+/// Where `focus_outcome` is the variable that holds the result.
 #[macro_export]
 macro_rules! flow_ok {
     (log $n:ident: $x:expr) => {{
@@ -227,6 +250,16 @@ macro_rules! flow_ok {
             return Ok(r.into());
         } else {
             debug!("{} continue", stringify!($n));
+            _ = r;
+        }
+    }};
+    ($x:expr, consider $f:expr) => {{
+        use std::cmp::max;
+        use $crate::ConsumedEvent;
+        let r = $x;
+        if r.is_consumed() {
+            return Ok(max(r.into(), $f));
+        } else {
             _ = r;
         }
     }};
