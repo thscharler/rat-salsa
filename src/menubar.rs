@@ -358,7 +358,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuBarSta
             if self.popup_active() {
                 match self.popup.handle(event, MouseOnly) {
                     MenuOutcome::Selected(n) => MenuOutcome::MenuSelected(selected, n),
-                    MenuOutcome::Activated(n) => MenuOutcome::MenuActivated(selected, n),
+                    MenuOutcome::Activated(n) => {
+                        self.set_popup_active(false);
+                        MenuOutcome::MenuActivated(selected, n)
+                    }
                     r => r,
                 }
             } else {
