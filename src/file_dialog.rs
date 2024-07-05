@@ -1,23 +1,26 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
-use crate::event::FileOutcome;
+use crate::edit_list::{EditRList, EditRListState};
+use crate::event::{FileOutcome, TextOutcome};
 use crate::fill::Fill;
 use crate::input::{TextInput, TextInputState, TextInputStyle};
 use crate::layout::{layout_dialog, layout_grid};
 use crate::list::selection::RowSelection;
 use crate::list::{RList, RListState, RListStyle};
 use crate::util::revert_style;
+use crossterm::event::Event;
 use directories_next::UserDirs;
 use log::debug;
 use normpath::{BasePath, BasePathBuf};
 use rat_event::{ct_event, flow, flow_ok, Dialog, FocusKeys, HandleEvent, Outcome};
-use rat_focus::{match_focus, on_lost, Focus, HasFocusFlag};
-use rat_ftable::event::DoubleClickOutcome;
+use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag};
+use rat_ftable::event::{DoubleClickOutcome, EditOutcome};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Margin, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style, Text, Widget};
-use ratatui::widgets::{Block, ListItem, WidgetRef};
+use ratatui::widgets::{Block, ListItem, StatefulWidgetRef, WidgetRef};
+use std::cmp::max;
 use std::ffi::OsString;
 use std::fmt::{Debug, Formatter};
 use std::io;
@@ -25,7 +28,7 @@ use std::path::{Path, PathBuf};
 use sysinfo::Disks;
 
 #[derive(Debug, Default, Clone)]
-pub struct FileOpen<'a> {
+pub struct FileDialog<'a> {
     block: Option<Block<'a>>,
 
     style: Style,
@@ -43,7 +46,7 @@ pub struct FileOpen<'a> {
 }
 
 #[derive(Debug)]
-pub struct FileStyle {
+pub struct FileDialogStyle {
     pub style: Style,
     pub list: Option<Style>,
     pub path: Option<Style>,
@@ -65,7 +68,7 @@ enum Mode {
     Dir,
 }
 
-pub struct FileOpenState {
+pub struct FileDialogState {
     pub active: bool,
 
     mode: Mode,
@@ -80,14 +83,15 @@ pub struct FileOpenState {
 
     path_state: TextInputState,
     root_state: RListState<RowSelection>,
-    dir_state: RListState<RowSelection>,
+    dir_state: EditRListState<EditDirNameState>,
     file_state: RListState<RowSelection>,
     name_state: TextInputState,
+    new_state: ButtonState,
     cancel_state: ButtonState,
     ok_state: ButtonState,
 }
 
-impl Debug for FileOpenState {
+impl Debug for FileDialogState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FileOpenState")
             .field("active", &self.active)
@@ -109,9 +113,9 @@ impl Debug for FileOpenState {
     }
 }
 
-impl Default for FileStyle {
+impl Default for FileDialogStyle {
     fn default() -> Self {
-        FileStyle {
+        FileDialogStyle {
             style: Default::default(),
             list: None,
             path: None,
@@ -126,7 +130,7 @@ impl Default for FileStyle {
     }
 }
 
-impl Default for FileOpenState {
+impl Default for FileDialogState {
     fn default() -> Self {
         let mut s = Self {
             active: false,
@@ -143,17 +147,18 @@ impl Default for FileOpenState {
             dir_state: Default::default(),
             file_state: Default::default(),
             name_state: Default::default(),
+            new_state: Default::default(),
             cancel_state: Default::default(),
             ok_state: Default::default(),
         };
         s.use_default_roots = true;
-        s.dir_state.set_scroll_selection(true);
+        s.dir_state.list.set_scroll_selection(true);
         s.file_state.set_scroll_selection(true);
         s
     }
 }
 
-impl<'a> FileOpen<'a> {
+impl<'a> FileDialog<'a> {
     pub fn new() -> Self {
         Self {
             block: None,
@@ -231,7 +236,7 @@ impl<'a> FileOpen<'a> {
         self
     }
 
-    pub fn styles(mut self, styles: FileStyle) -> Self {
+    pub fn styles(mut self, styles: FileDialogStyle) -> Self {
         self.style = styles.style;
         self.list_style = styles.list;
         self.path_style = styles.path;
@@ -324,8 +329,45 @@ impl<'a> FileOpen<'a> {
     }
 }
 
-impl<'a> StatefulWidget for FileOpen<'a> {
-    type State = FileOpenState;
+#[derive(Debug, Default)]
+struct EditDirName;
+
+#[derive(Debug, Default)]
+struct EditDirNameState {
+    edit_dir: TextInputState,
+}
+
+impl StatefulWidgetRef for EditDirName {
+    type State = EditDirNameState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        TextInput::new().render_ref(area, buf, &mut state.edit_dir);
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, FocusKeys, EditOutcome> for EditDirNameState {
+    fn handle(&mut self, event: &crossterm::event::Event, qualifier: FocusKeys) -> EditOutcome {
+        match self.edit_dir.handle(event, qualifier) {
+            TextOutcome::NotUsed => EditOutcome::NotUsed,
+            TextOutcome::Unchanged => EditOutcome::Unchanged,
+            TextOutcome::Changed => EditOutcome::Changed,
+            TextOutcome::TextChanged => EditOutcome::Changed,
+        }
+    }
+}
+
+impl HasFocusFlag for EditDirNameState {
+    fn focus(&self) -> &FocusFlag {
+        self.edit_dir.focus()
+    }
+
+    fn area(&self) -> Rect {
+        self.edit_dir.area()
+    }
+}
+
+impl<'a> StatefulWidget for FileDialog<'a> {
+    type State = FileDialogState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if !state.active {
@@ -383,7 +425,7 @@ impl<'a> StatefulWidget for FileOpen<'a> {
     }
 }
 
-fn render_open(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut FileOpenState) {
+fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
     let l_grid = layout_grid::<3, 3>(
         area,
         Layout::horizontal([
@@ -404,7 +446,6 @@ fn render_open(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     //
     let mut l_path = l_grid[1][1].union(l_grid[2][1]);
     l_path.width = l_path.width.saturating_sub(1);
-    debug!("path {:#?}", widget.style_path());
     TextInput::new()
         .styles(widget.style_path())
         .render(l_path, buf, &mut state.path_state);
@@ -417,17 +458,18 @@ fn render_open(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         .scroll(Scroll::new())
         .styles(widget.style_roots())
         .render(l_grid[0][2], buf, &mut state.root_state);
-    state.root_state.area = l_grid[0][2];
 
-    RList::default()
-        .items(state.dirs.iter().map(|v| {
-            let s = v.to_string_lossy();
-            ListItem::from(s)
-        }))
-        .scroll(Scroll::new())
-        .styles(widget.style_lists())
-        .render(l_grid[1][2], buf, &mut state.dir_state);
-    state.dir_state.area = l_grid[1][2];
+    EditRList::new(
+        RList::default()
+            .items(state.dirs.iter().map(|v| {
+                let s = v.to_string_lossy();
+                ListItem::from(s)
+            }))
+            .scroll(Scroll::new())
+            .styles(widget.style_lists()),
+        EditDirName,
+    )
+    .render(l_grid[1][2], buf, &mut state.dir_state);
 
     RList::default()
         .items(state.files.iter().map(|v| {
@@ -437,10 +479,9 @@ fn render_open(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         .scroll(Scroll::new())
         .styles(widget.style_lists())
         .render(l_grid[2][2], buf, &mut state.file_state);
-    state.file_state.area = l_grid[2][2];
 }
 
-fn render_save(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut FileOpenState) {
+fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
     let l_grid = layout_grid::<3, 4>(
         area,
         Layout::horizontal([
@@ -474,17 +515,18 @@ fn render_save(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         .scroll(Scroll::new())
         .styles(widget.style_roots())
         .render(l_grid[0][2], buf, &mut state.root_state);
-    state.root_state.area = l_grid[0][2];
 
-    RList::default()
-        .items(state.dirs.iter().map(|v| {
-            let s = v.to_string_lossy();
-            ListItem::from(s)
-        }))
-        .scroll(Scroll::new())
-        .styles(widget.style_lists())
-        .render(l_grid[1][2], buf, &mut state.dir_state);
-    state.dir_state.area = l_grid[1][2];
+    EditRList::new(
+        RList::default()
+            .items(state.dirs.iter().map(|v| {
+                let s = v.to_string_lossy();
+                ListItem::from(s)
+            }))
+            .scroll(Scroll::new())
+            .styles(widget.style_lists()),
+        EditDirName,
+    )
+    .render(l_grid[1][2], buf, &mut state.dir_state);
 
     RList::default()
         .items(state.files.iter().map(|v| {
@@ -494,14 +536,13 @@ fn render_save(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         .scroll(Scroll::new())
         .styles(widget.style_lists())
         .render(l_grid[2][2], buf, &mut state.file_state);
-    state.file_state.area = l_grid[2][2];
 
     TextInput::new()
         .styles(widget.style_name())
         .render(l_grid[2][3], buf, &mut state.name_state);
 }
 
-impl FileOpenState {
+impl FileDialogState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -639,7 +680,6 @@ impl FileOpenState {
             self.dirs = dirs;
             self.files = files;
 
-            debug!("set path {:?}", self.path);
             self.path_state.set_value(self.path.to_string_lossy());
             if self.path_state.value.width() != 0 {
                 // only works when this has been rendered once. todo:
@@ -647,11 +687,11 @@ impl FileOpenState {
             }
 
             if self.dirs.len() > 0 {
-                self.dir_state.select(Some(0));
+                self.dir_state.list.select(Some(0));
             } else {
-                self.dir_state.select(None);
+                self.dir_state.list.select(None);
             }
-            self.dir_state.set_offset(0);
+            self.dir_state.list.set_offset(0);
             if self.files.len() > 0 {
                 self.file_state.select(Some(0));
                 if let Some(name) = &self.save_name {
@@ -675,7 +715,7 @@ impl FileOpenState {
         }
     }
 
-    fn use_named_path(&mut self) -> Result<FileOutcome, io::Error> {
+    fn use_path_input(&mut self) -> Result<FileOutcome, io::Error> {
         let path = if cfg!(windows) {
             let path = BasePathBuf::new(self.path_state.value())?;
             let path = path.normalize_virtually()?;
@@ -717,7 +757,7 @@ impl FileOpenState {
     }
 
     fn chdir_selected(&mut self) -> Result<FileOutcome, io::Error> {
-        if let Some(select) = self.dir_state.selected() {
+        if let Some(select) = self.dir_state.list.selected() {
             if let Some(dir) = self.dirs.get(select).cloned() {
                 self.chdir(&dir)?;
                 return Ok(FileOutcome::Changed);
@@ -772,10 +812,10 @@ impl FileOpenState {
     }
 }
 
-impl FileOpenState {
+impl FileDialogState {
     fn focus(&self) -> Focus<'_> {
         let mut f = Focus::default();
-        f.add(&self.dir_state);
+        f.add_container(&self.dir_state);
         f.add(&self.file_state);
         if self.mode == Mode::Save {
             f.add(&self.name_state);
@@ -789,7 +829,7 @@ impl FileOpenState {
 }
 
 impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>>
-    for FileOpenState
+    for FileDialogState
 {
     fn handle(
         &mut self,
@@ -803,165 +843,233 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
             return Ok(FileOutcome::NotUsed);
         }
 
-        let mut focus_outcome = self.focus().handle(event, FocusKeys).into();
+        let focus_outcome = self.focus().handle(event, FocusKeys).into();
 
-        flow_ok!(self.path_state.handle(event, FocusKeys), consider focus_outcome);
-        if self.path_state.is_focused() {
-            flow_ok!(match event {
-                ct_event!(keycode press Enter) => {
-                    self.use_named_path()?;
-                    self.focus().focus_widget_no_lost(&self.dir_state);
-                    FileOutcome::Changed
-                }
-                _ => FileOutcome::NotUsed,
-            });
-        }
-        on_lost!(
-            self.path_state => {
-                self.use_named_path()?
-            }
-        );
-
+        flow_ok!(handle_path(self, event)?, consider focus_outcome);
         if self.mode == Mode::Save {
-            flow_ok!(self.name_state.handle(event, FocusKeys), consider focus_outcome);
-            if self.name_state.is_focused() {
-                flow_ok!(match event {
-                    ct_event!(keycode press Enter) => {
-                        self.choose_selected()
-                    }
-                    _ => FileOutcome::NotUsed,
-                });
-            }
-            on_lost!(
-                self.path_state => {
-                    self.set_path(&PathBuf::from(self.path_state.value()))?;
-                    focus_outcome = FileOutcome::Changed;
-                }
-            );
+            flow_ok!(handle_name(self, event)?, consider focus_outcome);
         }
+        flow_ok!(handle_files(self, event)?, consider focus_outcome);
+        flow_ok!(handle_dirs(self, event)?, consider focus_outcome);
+        flow_ok!(handle_roots(self, event)?, consider focus_outcome);
 
-        flow_ok!(match self.cancel_state.handle(event, FocusKeys) {
-            ButtonOutcome::Pressed => {
-                self.close_cancel()
-            }
-            _ => FileOutcome::NotUsed,
-        });
+        flow_ok!(handle_cancel(self, event)?);
+        flow_ok!(handle_ok(self, event)?);
+
+        Ok(max(FileOutcome::Unchanged, focus_outcome))
+    }
+}
+
+fn handle_ok(
+    state: &mut FileDialogState,
+    event: &crossterm::event::Event,
+) -> Result<FileOutcome, io::Error> {
+    flow_ok!(match state.ok_state.handle(event, FocusKeys) {
+        ButtonOutcome::Pressed => state.choose_selected(),
+        r => Outcome::from(r).into(),
+    });
+    Ok(FileOutcome::NotUsed)
+}
+
+fn handle_cancel(
+    state: &mut FileDialogState,
+    event: &crossterm::event::Event,
+) -> Result<FileOutcome, io::Error> {
+    flow_ok!(match state.cancel_state.handle(event, FocusKeys) {
+        ButtonOutcome::Pressed => {
+            state.close_cancel()
+        }
+        r => Outcome::from(r).into(),
+    });
+    flow_ok!(match event {
+        ct_event!(keycode press Esc) => {
+            state.close_cancel()
+        }
+        _ => FileOutcome::NotUsed,
+    });
+    Ok(FileOutcome::NotUsed)
+}
+
+fn handle_name(
+    state: &mut FileDialogState,
+    event: &crossterm::event::Event,
+) -> Result<FileOutcome, io::Error> {
+    flow_ok!(Outcome::from(state.name_state.handle(event, FocusKeys)));
+    if state.name_state.is_focused() {
         flow_ok!(match event {
-            ct_event!(keycode press Esc) => {
-                self.close_cancel()
+            ct_event!(keycode press Enter) => {
+                state.choose_selected()
             }
             _ => FileOutcome::NotUsed,
         });
+    }
+    Ok(FileOutcome::NotUsed)
+}
 
-        flow_ok!(match self.ok_state.handle(event, FocusKeys) {
-            ButtonOutcome::Pressed => {
-                self.choose_selected()
+fn handle_path(
+    state: &mut FileDialogState,
+    event: &crossterm::event::Event,
+) -> Result<FileOutcome, io::Error> {
+    flow_ok!(Outcome::from(state.path_state.handle(event, FocusKeys)));
+    if state.path_state.is_focused() {
+        flow_ok!(match event {
+            ct_event!(keycode press Enter) => {
+                state.use_path_input()?;
+                state.focus().focus_widget_no_lost(&state.dir_state.list);
+                FileOutcome::Changed
             }
-            r => r.into(),
+            _ => FileOutcome::NotUsed,
         });
+    }
+    on_lost!(
+        state.path_state => {
+            state.use_path_input()?
+        }
+    );
+    Ok(FileOutcome::NotUsed)
+}
 
-        let mut file_state_ext = (&mut self.file_state, self.files.as_slice());
-        flow_ok!(match file_state_ext.handle(event, Navigate) {
-            DoubleClickOutcome::ClickClick(_, _) => {
-                self.choose_selected()
+fn handle_roots(
+    state: &mut FileDialogState,
+    event: &crossterm::event::Event,
+) -> Result<FileOutcome, io::Error> {
+    flow_ok!(log root_state: match state.root_state.handle(event, FocusKeys) {
+        Outcome::Changed => {
+            state.chroot_selected()?
+        }
+        r => r.into(),
+    });
+    Ok(FileOutcome::NotUsed)
+}
+
+fn handle_dirs(
+    state: &mut FileDialogState,
+    event: &crossterm::event::Event,
+) -> Result<FileOutcome, io::Error> {
+    if state.dir_state.list.is_focused() {
+        flow_ok!(match event {
+            ct_event!(mouse any for m)
+                if state
+                    .dir_state
+                    .list
+                    .mouse
+                    .doubleclick(state.dir_state.list.inner, m) =>
+            {
+                state.chdir_selected()?
             }
-            DoubleClickOutcome::Changed => {
-                if self.mode == Mode::Save {
-                    self.name_selected()?
+            ct_event!(keycode press Enter) => {
+                state.chdir_selected()?
+            }
+            _ => FileOutcome::NotUsed,
+        });
+    }
+    flow_ok!(handle_nav(&mut state.dir_state.list, &state.dirs, event));
+    flow_ok!(match state.dir_state.handle(event, FocusKeys) {
+        EditOutcome::Cancel => {
+            state.dir_state.edit = None;
+            FileOutcome::Changed
+        }
+        EditOutcome::Commit | EditOutcome::CommitAndAppend | EditOutcome::CommitAndEdit => {
+            // TODO: this
+            FileOutcome::Changed
+        }
+        r => Outcome::from(r).into(),
+    });
+    Ok(FileOutcome::NotUsed)
+}
+
+fn handle_files(
+    state: &mut FileDialogState,
+    event: &crossterm::event::Event,
+) -> Result<FileOutcome, io::Error> {
+    if state.file_state.is_focused() {
+        flow_ok!(match event {
+            ct_event!(mouse any for m)
+                if state
+                    .file_state
+                    .mouse
+                    .doubleclick(state.file_state.inner, m) =>
+            {
+                state.choose_selected()
+            }
+            ct_event!(keycode press Enter) => {
+                state.choose_selected()
+            }
+            _ => FileOutcome::NotUsed,
+        });
+    }
+    flow_ok!(
+        match handle_nav(&mut state.file_state, &mut state.files, event) {
+            FileOutcome::Changed => {
+                if state.mode == Mode::Save {
+                    state.name_selected()?
                 } else {
                     FileOutcome::Changed
                 }
             }
-            r => r.into(),
-        }, consider focus_outcome);
-        if self.file_state.is_focused() {
-            flow_ok!(match event {
-                ct_event!(keycode press Enter) => {
-                    self.choose_selected()
-                }
-                _ => FileOutcome::NotUsed,
-            })
+            r => r,
         }
-
-        let mut dir_state_ext = (&mut self.dir_state, self.dirs.as_slice());
-        flow_ok!(match dir_state_ext.handle(event, Navigate) {
-            DoubleClickOutcome::ClickClick(_, _) => {
-                self.chdir_selected()?
+    );
+    flow_ok!(match state.file_state.handle(event, FocusKeys).into() {
+        FileOutcome::Changed => {
+            if state.mode == Mode::Save {
+                state.name_selected()?
+            } else {
+                FileOutcome::Changed
             }
-            r => r.into(),
-        }, consider focus_outcome);
-        if self.dir_state.is_focused() {
-            flow_ok!(match event {
-                ct_event!(keycode press Enter) => self.chdir_selected()?,
-                _ => FileOutcome::NotUsed,
-            })
         }
-
-        flow_ok!(match self.root_state.handle(event, FocusKeys) {
-            Outcome::Changed => {
-                self.chroot_selected()?
-            }
-            r => r.into(),
-        }, consider focus_outcome);
-
-        Ok(FileOutcome::Unchanged | focus_outcome)
-    }
+        r => r,
+    });
+    Ok(FileOutcome::NotUsed)
 }
 
-struct Navigate;
-
-impl HandleEvent<crossterm::event::Event, Navigate, DoubleClickOutcome>
-    for (&mut RListState<RowSelection>, &[OsString])
-{
-    fn handle(
-        &mut self,
-        event: &crossterm::event::Event,
-        _qualifier: Navigate,
-    ) -> DoubleClickOutcome {
-        let state = &mut self.0;
-        let nav = &self.1;
-
-        if state.is_focused() {
-            flow!(match event {
-                ct_event!(mouse any for m) if state.mouse.doubleclick(state.inner, m) => {
-                    DoubleClickOutcome::ClickClick(0, state.selected().expect("select"))
+fn handle_nav(
+    list: &mut RListState<RowSelection>,
+    nav: &[OsString],
+    event: &crossterm::event::Event,
+) -> FileOutcome {
+    if list.is_focused() {
+        flow!(match event {
+            ct_event!(key press c) => {
+                let next = find_next_by_key(*c, list.selected().unwrap_or(0), nav);
+                if let Some(next) = next {
+                    list.move_to(next).into()
+                } else {
+                    FileOutcome::Unchanged
                 }
-                ct_event!(key press c) => {
-                    let c = c.to_lowercase().next();
-                    let start = state.selected().unwrap_or(0);
-
-                    let mut idx = start;
-                    let mut selected = None;
-                    loop {
-                        idx += 1;
-                        if idx >= nav.len() {
-                            idx = 0;
-                        }
-                        if idx == start {
-                            break;
-                        }
-
-                        let nav = nav[idx]
-                            .to_string_lossy()
-                            .chars()
-                            .next()
-                            .map(|v| v.to_lowercase().next())
-                            .flatten();
-                        if c == nav {
-                            selected = Some(idx);
-                            break;
-                        }
-                    }
-
-                    if let Some(selected) = selected {
-                        state.move_to(selected);
-                    }
-                    DoubleClickOutcome::Changed
-                }
-                _ => DoubleClickOutcome::NotUsed,
-            });
-        }
-        flow!(state.handle(event, FocusKeys));
-        DoubleClickOutcome::NotUsed
+            }
+            _ => FileOutcome::NotUsed,
+        });
     }
+
+    FileOutcome::NotUsed
+}
+
+fn find_next_by_key(c: char, start: usize, names: &[OsString]) -> Option<usize> {
+    let c = c.to_lowercase().next();
+
+    let mut idx = start;
+    let mut selected = None;
+    loop {
+        idx += 1;
+        if idx >= names.len() {
+            idx = 0;
+        }
+        if idx == start {
+            break;
+        }
+
+        let nav = names[idx]
+            .to_string_lossy()
+            .chars()
+            .next()
+            .map(|v| v.to_lowercase().next())
+            .flatten();
+        if c == nav {
+            selected = Some(idx);
+            break;
+        }
+    }
+
+    selected
 }
