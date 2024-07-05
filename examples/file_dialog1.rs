@@ -109,7 +109,9 @@ fn handle_input(
                 Outcome::Changed
             }
             MenuOutcome::MenuActivated(0, 1) => {
-                state.file_open.save_dialog(&PathBuf::from("."))?;
+                state
+                    .file_open
+                    .save_dialog(&PathBuf::from("."), Some("sample.txt"))?;
                 Outcome::Changed
             }
             r => r.into(),

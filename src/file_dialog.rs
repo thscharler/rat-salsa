@@ -71,6 +71,7 @@ pub struct FileOpenState {
     mode: Mode,
 
     path: PathBuf,
+    save_name: Option<OsString>,
     dirs: Vec<OsString>,
     filter: Option<Box<dyn Fn(&Path) -> bool + 'static>>,
     files: Vec<OsString>,
@@ -92,6 +93,7 @@ impl Debug for FileOpenState {
             .field("active", &self.active)
             .field("mode", &self.mode)
             .field("path", &self.path)
+            .field("save_name", &self.save_name)
             .field("dirs", &self.dirs)
             .field("files", &self.files)
             .field("use_default_roots", &self.use_default_roots)
@@ -127,14 +129,15 @@ impl Default for FileStyle {
 impl Default for FileOpenState {
     fn default() -> Self {
         let mut s = Self {
-            active: Default::default(),
+            active: false,
             mode: Mode::Open,
             path: Default::default(),
-            dirs: Default::default(),
+            save_name: None,
+            dirs: vec![],
             filter: None,
-            files: Default::default(),
-            use_default_roots: true,
-            roots: Default::default(),
+            files: vec![],
+            use_default_roots: false,
+            roots: vec![],
             path_state: Default::default(),
             root_state: Default::default(),
             dir_state: Default::default(),
@@ -143,6 +146,7 @@ impl Default for FileOpenState {
             cancel_state: Default::default(),
             ok_state: Default::default(),
         };
+        s.use_default_roots = true;
         s.dir_state.set_scroll_selection(true);
         s.file_state.set_scroll_selection(true);
         s
@@ -556,9 +560,18 @@ impl FileOpenState {
         Ok(())
     }
 
-    pub fn save_dialog(&mut self, path: &Path) -> Result<(), io::Error> {
+    pub fn save_dialog(
+        &mut self,
+        path: &Path,
+        name: Option<impl AsRef<str>>,
+    ) -> Result<(), io::Error> {
         self.active = true;
         self.mode = Mode::Save;
+        self.save_name = if let Some(name) = name {
+            Some(OsString::from(name.as_ref()))
+        } else {
+            None
+        };
         self.set_path(path.into())?;
         if self.use_default_roots {
             self.default_roots(self.path.clone());
@@ -641,10 +654,18 @@ impl FileOpenState {
             self.dir_state.set_offset(0);
             if self.files.len() > 0 {
                 self.file_state.select(Some(0));
-                self.name_state.set_value(self.files[0].to_string_lossy());
+                if let Some(name) = &self.save_name {
+                    self.name_state.set_value(name.to_string_lossy());
+                } else {
+                    self.name_state.set_value(self.files[0].to_string_lossy());
+                }
             } else {
                 self.file_state.select(None);
-                self.name_state.set_value("");
+                if let Some(name) = &self.save_name {
+                    self.name_state.set_value(name.to_string_lossy());
+                } else {
+                    self.name_state.set_value("");
+                }
             }
             self.file_state.set_offset(0);
 
