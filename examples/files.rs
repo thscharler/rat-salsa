@@ -519,7 +519,6 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         });
         flow_ok!(match self.w_files.handle(event, FocusKeys) {
             Outcome::Changed => {
-                debug!("w_files changed -> show_file");
                 self.show_file(ctx)?
             }
             r => r.into(),
@@ -691,7 +690,6 @@ impl FilesState {
             }
         }
 
-        debug!("update dirs -> show_file");
         _ = self.show_file(ctx)?;
 
         Ok(Control::Repaint)
