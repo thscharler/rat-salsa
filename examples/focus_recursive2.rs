@@ -1,12 +1,12 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::substratum1::{Substratum, SubstratumState};
 use crate::substratum2::{Substratum2, Substratum2State};
-use log::debug;
 use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
 use rat_focus::Focus;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
 use ratatui::Frame;
+use std::cmp::max;
 
 mod adapter;
 mod mini_salsa;
@@ -71,9 +71,6 @@ fn repaint_input(
 }
 
 fn focus_input(state: &mut State) -> Focus<'_> {
-    debug!("sub1 {:#?}", state.sub1.focus());
-    debug!("sub3 {:#?}", state.sub3.focus());
-    debug!("sub4 {:#?}", state.sub4.focus());
     let mut f = Focus::new(&[]);
     f.add_focus(state.sub1.focus())
         .add_focus(state.sub3.focus())
@@ -88,24 +85,20 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus_input(state).handle(event, FocusKeys);
-    if f.is_consumed() {
-        debug!("focus {:?}", f);
-    }
-
     let r = state.sub1.handle(event, FocusKeys);
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
     let r = state.sub3.handle(event, FocusKeys);
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
     let r = state.sub4.handle(event, FocusKeys);
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
 
-    Ok(r | f)
+    Ok(max(r, f))
 }
 
 pub mod substratum2 {
@@ -206,12 +199,10 @@ pub mod substratum2 {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
             let r = self.stratum1.handle(event, FocusKeys);
             if r.is_consumed() {
-                debug!("vv1 {:?}", r);
                 return r;
             }
             let r = self.stratum2.handle(event, FocusKeys);
             if r.is_consumed() {
-                debug!("vv2{:?}", r);
                 return r;
             }
             Outcome::NotUsed
@@ -353,22 +344,18 @@ pub mod substratum1 {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
             let mut r: Outcome = self.input1.handle(event, FocusKeys).into();
             if r.is_consumed() {
-                debug!("rr1 {:?}", r);
                 return r;
             }
             r = self.input2.handle(event, FocusKeys).into();
             if r.is_consumed() {
-                debug!("rr2 {:?}", r);
                 return r;
             }
             r = self.input3.handle(event, FocusKeys).into();
             if r.is_consumed() {
-                debug!("rr3 {:?}", r);
                 return r;
             }
             r = self.input4.handle(event, FocusKeys).into();
             if r.is_consumed() {
-                debug!("rr4 {:?}", r);
                 return r;
             }
             Outcome::NotUsed

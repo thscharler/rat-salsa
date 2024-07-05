@@ -6,6 +6,7 @@ use rat_focus::Focus;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
 use ratatui::Frame;
+use std::cmp::max;
 
 mod adapter;
 mod mini_salsa;
@@ -94,28 +95,25 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus_input(state).handle(event, FocusKeys);
-    if f.is_consumed() {
-        debug!("focus {:?}", f);
-    }
 
     let r = state.sub1.handle(event, FocusKeys);
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
     let r = state.sub2.handle(event, FocusKeys);
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
     let r = state.sub3.handle(event, FocusKeys);
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
     let r = state.sub4.handle(event, FocusKeys);
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
 
-    Ok(r | f)
+    Ok(max(r, f))
 }
 
 pub mod substratum1 {
@@ -251,22 +249,18 @@ pub mod substratum1 {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
             let mut r: Outcome = self.input1.handle(event, FocusKeys).into();
             if r.is_consumed() {
-                debug!("rr1 {:?}", r);
                 return r;
             }
             r = self.input2.handle(event, FocusKeys).into();
             if r.is_consumed() {
-                debug!("rr2 {:?}", r);
                 return r;
             }
             r = self.input3.handle(event, FocusKeys).into();
             if r.is_consumed() {
-                debug!("rr3 {:?}", r);
                 return r;
             }
             r = self.input4.handle(event, FocusKeys).into();
             if r.is_consumed() {
-                debug!("rr4 {:?}", r);
                 return r;
             }
             Outcome::NotUsed
