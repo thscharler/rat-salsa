@@ -95,14 +95,6 @@ pub mod event {
         Ok(PathBuf),
     }
 
-    impl BitOr for FileOutcome {
-        type Output = FileOutcome;
-
-        fn bitor(self, rhs: Self) -> Self::Output {
-            max(self, rhs)
-        }
-    }
-
     impl From<FileOutcome> for Outcome {
         fn from(value: FileOutcome) -> Self {
             match value {
@@ -125,35 +117,13 @@ pub mod event {
         }
     }
 
-    impl From<DoubleClickOutcome> for FileOutcome {
-        fn from(value: DoubleClickOutcome) -> Self {
-            match value {
-                DoubleClickOutcome::NotUsed => FileOutcome::NotUsed,
-                DoubleClickOutcome::Unchanged => FileOutcome::Unchanged,
-                DoubleClickOutcome::Changed => FileOutcome::Changed,
-                DoubleClickOutcome::ClickClick(_, _) => FileOutcome::Changed,
-            }
-        }
-    }
-
-    impl From<TextOutcome> for FileOutcome {
-        fn from(value: TextOutcome) -> Self {
-            match value {
-                TextOutcome::NotUsed => FileOutcome::NotUsed,
-                TextOutcome::Unchanged => FileOutcome::Unchanged,
-                TextOutcome::Changed => FileOutcome::Changed,
-                TextOutcome::TextChanged => FileOutcome::Changed,
-            }
-        }
-    }
-
-    impl From<ButtonOutcome> for FileOutcome {
-        fn from(value: ButtonOutcome) -> Self {
-            match value {
-                ButtonOutcome::NotUsed => FileOutcome::NotUsed,
-                ButtonOutcome::Unchanged => FileOutcome::Unchanged,
-                ButtonOutcome::Changed => FileOutcome::Changed,
-                ButtonOutcome::Pressed => FileOutcome::Changed,
+    // Useful for converting most navigation/edit results.
+    impl From<bool> for FileOutcome {
+        fn from(value: bool) -> Self {
+            if value {
+                FileOutcome::Changed
+            } else {
+                FileOutcome::Unchanged
             }
         }
     }
@@ -165,8 +135,6 @@ pub mod event {
     }
 
     pub use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
-
-    use crate::button::ButtonOutcome;
     pub use rat_scrolled::event::ScrollOutcome;
 }
 
@@ -194,6 +162,7 @@ pub mod layout {
 pub mod button;
 pub mod calendar;
 pub mod date_input;
+pub mod edit_list;
 pub mod file_dialog;
 pub mod fill;
 pub mod input;
@@ -226,7 +195,6 @@ pub mod textarea;
 mod util;
 
 mod _private {
-    // todo: remvoe
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
     pub struct NonExhaustive;
 }
