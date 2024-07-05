@@ -1,6 +1,7 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::MiniSalsaState;
 use anyhow::anyhow;
+use log::debug;
 use rat_event::{flow_ok, Dialog, HandleEvent, Outcome};
 use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileOpen, FileOpenState};
@@ -33,7 +34,7 @@ pub struct State {
 
 static MENU: StaticMenu = StaticMenu {
     menu: &[
-        ("File", &["Open"]), //
+        ("File", &["Open", "Save"]), //
         ("Quit", &[]),
     ],
 };
@@ -63,13 +64,7 @@ fn repaint_input(
         );
 
         FileOpen::new()
-            .armed_style(THEME.armed_style())
-            .button_style(THEME.button_style())
-            .focus_style(THEME.focus())
-            .style(THEME.dialog_style())
-            .list_style(THEME.list_style())
-            .select_style(THEME.select())
-            .path_style(THEME.text_input())
+            .styles(THEME.file_dialog_style()) //
             .render(l, frame.buffer_mut(), &mut state.file_open);
 
         if let Some(cursor) = state.file_open.screen_cursor() {
@@ -109,9 +104,12 @@ fn handle_input(
 
     flow_ok!(
         match menubar::handle_popup_events(&mut state.menu, true, event) {
-            MenuOutcome::MenuActivated(v, w) => {
-                state.file_open.open(&PathBuf::from("."))?;
-                state.menu.set_popup_active(false);
+            MenuOutcome::MenuActivated(0, 0) => {
+                state.file_open.open_dialog(&PathBuf::from("."))?;
+                Outcome::Changed
+            }
+            MenuOutcome::MenuActivated(0, 1) => {
+                state.file_open.save_dialog(&PathBuf::from("."))?;
                 Outcome::Changed
             }
             r => r.into(),

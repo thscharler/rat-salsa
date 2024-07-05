@@ -253,6 +253,7 @@ pub mod theme {
     use rat_ftable::FTableStyle;
     use rat_scrolled::ScrolledStyle;
     use rat_widget::button::ButtonStyle;
+    use rat_widget::file_dialog::FileStyle;
     use rat_widget::input::TextInputStyle;
     use rat_widget::list::RListStyle;
     use rat_widget::masked_input::MaskedInputStyle;
@@ -552,6 +553,21 @@ pub mod theme {
                     .fg(self.text_color(self.white[0]))
                     .bg(self.blue[1]),
             ]
+        }
+
+        pub fn file_dialog_style(&self) -> FileStyle {
+            FileStyle {
+                style: self.dialog_style(),
+                list: Some(self.list_style()),
+                path: Some(self.text_input()),
+                name: Some(self.text_input()),
+                invalid: Some(Style::new().fg(self.red[3]).bg(self.gray[2])),
+                select: Some(self.select()),
+                focus: Some(self.focus()),
+                button: Some(self.button_style()),
+                armed: Some(self.armed_style()),
+                ..Default::default()
+            }
         }
 
         /// Complete MsgDialogStyle.
