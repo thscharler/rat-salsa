@@ -5,6 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::util::{row_at_clicked, row_at_drag, MouseFlags};
 use crate::list::selection::{RowSelection, RowSetSelection};
+use crate::util::revert_style;
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::{layout_scroll, Scroll, ScrollState};
 use ratatui::buffer::Buffer;
@@ -38,8 +39,8 @@ pub struct RList<'a, Selection> {
     items: Vec<ListItem<'a>>,
 
     style: Style,
-    select_style: Style,
-    focus_style: Style,
+    select_style: Option<Style>,
+    focus_style: Option<Style>,
     direction: ListDirection,
 
     _phantom: PhantomData<Selection>,
@@ -50,9 +51,9 @@ pub struct RListStyle {
     /// Style
     pub style: Style,
     /// Style for selection
-    pub select_style: Style,
+    pub select_style: Option<Style>,
     /// Style for selection when focused.
-    pub focus_style: Style,
+    pub focus_style: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -149,13 +150,13 @@ impl<'a, Selection> RList<'a, Selection> {
 
     #[inline]
     pub fn select_style<S: Into<Style>>(mut self, select_style: S) -> Self {
-        self.select_style = select_style.into();
+        self.select_style = Some(select_style.into());
         self
     }
 
     #[inline]
     pub fn focus_style<S: Into<Style>>(mut self, focus_style: S) -> Self {
-        self.focus_style = focus_style.into();
+        self.focus_style = Some(focus_style.into());
         self
     }
 
@@ -173,6 +174,22 @@ impl<'a, Selection> RList<'a, Selection> {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
+    }
+
+    fn defaulted_select(&self) -> Style {
+        if let Some(select) = self.select_style {
+            select
+        } else {
+            revert_style(self.style)
+        }
+    }
+
+    fn defaulted_focus(&self) -> Style {
+        if let Some(focus) = self.focus_style {
+            focus
+        } else {
+            revert_style(self.style)
+        }
     }
 }
 
@@ -224,9 +241,9 @@ impl<'a, Selection: RListSelection> StatefulWidget for RList<'a, Selection> {
         state.scroll.set_max_offset(state.rows.saturating_sub(n));
 
         let (style, select_style) = if state.is_focused() {
-            (self.style, self.focus_style)
+            (self.style, self.defaulted_focus())
         } else {
-            (self.style, self.select_style)
+            (self.style, self.defaulted_select())
         };
 
         self.block.render_ref(area, buf);
