@@ -117,7 +117,7 @@ impl<'a> Focus<'a> {
     ///
     /// This ensures that there is only one focused widget.
     /// The first widget in the list gets the focus.
-    pub fn init(&self) {
+    pub fn initial(&self) {
         if self.core.log.get() {
             debug!("init focus");
         }
