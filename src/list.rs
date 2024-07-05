@@ -10,12 +10,14 @@ use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::{layout_scroll, Scroll, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::{
+    Block, ListDirection, ListItem, StatefulWidget, StatefulWidgetRef, WidgetRef,
+};
 use std::cmp::min;
 use std::collections::HashSet;
 use std::marker::PhantomData;
+use std::mem;
 
 /// Trait for list-selection.
 pub trait RListSelection {
@@ -202,78 +204,95 @@ where
     }
 }
 
+impl<'a, Selection: RListSelection> StatefulWidgetRef for RList<'a, Selection> {
+    type State = RListState<Selection>;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_list(self, self.items.clone(), area, buf, state)
+    }
+}
+
 impl<'a, Selection: RListSelection> StatefulWidget for RList<'a, Selection> {
     type State = RListState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-        state.rows = self.len();
-
-        let (_, scroll_area, inner_area) =
-            layout_scroll(area, self.block.as_ref(), None, self.scroll.as_ref());
-        state.inner = inner_area;
-
-        // area for each item
-        state.item_areas.clear();
-        let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
-        for item in self.items.iter().skip(state.offset()) {
-            item_area.height = item.height() as u16;
-
-            state.item_areas.push(item_area);
-
-            item_area.y += item_area.height;
-            if item_area.y >= state.inner.y + state.inner.height {
-                break;
-            }
-        }
-        state.scroll.set_page_len(state.item_areas.len());
-
-        // max_v_offset
-        let mut n = 0;
-        let mut height = 0;
-        for item in self.items.iter().rev() {
-            height += item.height();
-            if height > state.inner.height as usize {
-                break;
-            }
-            n += 1;
-        }
-        state.scroll.set_max_offset(state.rows.saturating_sub(n));
-
-        let (style, select_style) = if state.is_focused() {
-            (self.style, self.defaulted_focus())
-        } else {
-            (self.style, self.defaulted_select())
-        };
-
-        self.block.render_ref(area, buf);
-        if let Some(scroll) = self.scroll.as_ref() {
-            scroll.render_ref(scroll_area, buf, &mut state.scroll);
-        }
-
-        // rendering
-        self.items = self
-            .items
-            .into_iter()
-            .enumerate()
-            .map(|(i, v)| {
-                if state.selection.is_selected(i) {
-                    v.style(select_style)
-                } else {
-                    v.style(style)
-                }
-            })
-            .collect();
-
-        let mut list_state =
-            ratatui::widgets::ListState::default().with_offset(state.scroll.offset());
-
-        ratatui::widgets::List::default()
-            .items(self.items)
-            .style(self.style)
-            .direction(self.direction)
-            .render(state.inner, buf, &mut list_state);
+        let items = mem::take(&mut self.items);
+        render_list(&self, items, area, buf, state)
     }
+}
+
+fn render_list<'a, Selection: RListSelection>(
+    widget: &RList<'a, Selection>,
+    items: Vec<ListItem<'a>>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut RListState<Selection>,
+) {
+    state.area = area;
+    state.rows = items.len();
+
+    let (_, scroll_area, inner_area) =
+        layout_scroll(area, widget.block.as_ref(), None, widget.scroll.as_ref());
+    state.inner = inner_area;
+
+    // area for each item
+    state.item_areas.clear();
+    let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
+    for item in items.iter().skip(state.offset()) {
+        item_area.height = item.height() as u16;
+
+        state.item_areas.push(item_area);
+
+        item_area.y += item_area.height;
+        if item_area.y >= state.inner.y + state.inner.height {
+            break;
+        }
+    }
+    state.scroll.set_page_len(state.item_areas.len());
+
+    // max_v_offset
+    let mut n = 0;
+    let mut height = 0;
+    for item in items.iter().rev() {
+        height += item.height();
+        if height > state.inner.height as usize {
+            break;
+        }
+        n += 1;
+    }
+    state.scroll.set_max_offset(state.rows.saturating_sub(n));
+
+    let (style, select_style) = if state.is_focused() {
+        (widget.style, widget.defaulted_focus())
+    } else {
+        (widget.style, widget.defaulted_select())
+    };
+
+    widget.block.render_ref(area, buf);
+    if let Some(scroll) = widget.scroll.as_ref() {
+        scroll.render_ref(scroll_area, buf, &mut state.scroll);
+    }
+
+    // rendering
+    let items = items
+        .into_iter()
+        .enumerate()
+        .map(|(i, v)| {
+            if state.selection.is_selected(i) {
+                v.style(select_style)
+            } else {
+                v.style(style)
+            }
+        })
+        .collect::<Vec<_>>();
+
+    let mut list_state = ratatui::widgets::ListState::default().with_offset(state.scroll.offset());
+
+    ratatui::widgets::List::default()
+        .items(items)
+        .style(widget.style)
+        .direction(widget.direction)
+        .render(state.inner, buf, &mut list_state);
 }
 
 impl<Selection> HasFocusFlag for RListState<Selection> {
@@ -289,6 +308,11 @@ impl<Selection> HasFocusFlag for RListState<Selection> {
 }
 
 impl<Selection: RListSelection> RListState<Selection> {
+    #[inline]
+    pub fn rows(&self) -> usize {
+        self.rows
+    }
+
     #[inline]
     pub fn clear_offset(&mut self) {
         self.scroll.set_offset(0);
