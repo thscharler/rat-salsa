@@ -1,22 +1,23 @@
-use crate::button::{Button, ButtonOutcome, ButtonState};
+use crate::_private::NonExhaustive;
+use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::event::FileOutcome;
-use crate::event::{ct_event, flow_ok, ConsumedEvent, Dialog, FocusKeys, HandleEvent, Outcome};
 use crate::fill::Fill;
-use crate::input::{TextInput, TextInputState};
+use crate::input::{TextInput, TextInputState, TextInputStyle};
 use crate::layout::{layout_dialog, layout_grid};
 use crate::list::selection::RowSelection;
-use crate::list::{RList, RListState};
+use crate::list::{RList, RListState, RListStyle};
 use crate::util::revert_style;
 use directories_next::UserDirs;
 use log::debug;
-use rat_event::flow;
+use normpath::{BasePath, BasePathBuf};
+use rat_event::{ct_event, flow, flow_ok, Dialog, FocusKeys, HandleEvent, Outcome};
 use rat_focus::{match_focus, on_lost, Focus, HasFocusFlag};
 use rat_ftable::event::DoubleClickOutcome;
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Margin, Rect};
 use ratatui::prelude::{BlockExt, StatefulWidget, Style, Text, Widget};
-use ratatui::widgets::{Block, ListItem};
+use ratatui::widgets::{Block, ListItem, WidgetRef};
 use std::ffi::OsString;
 use std::fmt::{Debug, Formatter};
 use std::io;
@@ -30,6 +31,8 @@ pub struct FileOpen<'a> {
     style: Style,
     list_style: Option<Style>,
     path_style: Option<Style>,
+    name_style: Option<Style>,
+    invalid_style: Option<Style>,
     select_style: Option<Style>,
     focus_style: Option<Style>,
     button_style: Option<Style>,
@@ -39,8 +42,33 @@ pub struct FileOpen<'a> {
     cancel_text: &'a str,
 }
 
+#[derive(Debug)]
+pub struct FileStyle {
+    pub style: Style,
+    pub list: Option<Style>,
+    pub path: Option<Style>,
+    pub name: Option<Style>,
+    pub invalid: Option<Style>,
+    pub select: Option<Style>,
+    pub focus: Option<Style>,
+    pub button: Option<Style>,
+    pub armed: Option<Style>,
+
+    pub non_exhaustive: NonExhaustive,
+}
+
+/// Dialog mode
+#[derive(Debug, PartialEq, Eq)]
+enum Mode {
+    Open,
+    Save,
+    Dir,
+}
+
 pub struct FileOpenState {
     pub active: bool,
+
+    mode: Mode,
 
     path: PathBuf,
     dirs: Vec<OsString>,
@@ -53,6 +81,7 @@ pub struct FileOpenState {
     root_state: RListState<RowSelection>,
     dir_state: RListState<RowSelection>,
     file_state: RListState<RowSelection>,
+    name_state: TextInputState,
     cancel_state: ButtonState,
     ok_state: ButtonState,
 }
@@ -61,6 +90,7 @@ impl Debug for FileOpenState {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FileOpenState")
             .field("active", &self.active)
+            .field("mode", &self.mode)
             .field("path", &self.path)
             .field("dirs", &self.dirs)
             .field("files", &self.files)
@@ -70,9 +100,27 @@ impl Debug for FileOpenState {
             .field("root_state", &self.root_state)
             .field("dir_state", &self.dir_state)
             .field("file_state", &self.file_state)
+            .field("name_state", &self.name_state)
             .field("cancel_state", &self.cancel_state)
             .field("ok_state", &self.ok_state)
             .finish()
+    }
+}
+
+impl Default for FileStyle {
+    fn default() -> Self {
+        FileStyle {
+            style: Default::default(),
+            list: None,
+            path: None,
+            name: None,
+            invalid: None,
+            select: None,
+            focus: None,
+            button: None,
+            armed: None,
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 
@@ -80,6 +128,7 @@ impl Default for FileOpenState {
     fn default() -> Self {
         let mut s = Self {
             active: Default::default(),
+            mode: Mode::Open,
             path: Default::default(),
             dirs: Default::default(),
             filter: None,
@@ -90,6 +139,7 @@ impl Default for FileOpenState {
             root_state: Default::default(),
             dir_state: Default::default(),
             file_state: Default::default(),
+            name_state: Default::default(),
             cancel_state: Default::default(),
             ok_state: Default::default(),
         };
@@ -106,6 +156,8 @@ impl<'a> FileOpen<'a> {
             style: Default::default(),
             list_style: None,
             path_style: None,
+            name_style: None,
+            invalid_style: None,
             select_style: None,
             focus_style: None,
             button_style: None,
@@ -145,6 +197,16 @@ impl<'a> FileOpen<'a> {
         self
     }
 
+    pub fn name_style(mut self, style: Style) -> Self {
+        self.name_style = Some(style);
+        self
+    }
+
+    pub fn invalid_style(mut self, style: Style) -> Self {
+        self.invalid_style = Some(style);
+        self
+    }
+
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
         self
@@ -163,6 +225,98 @@ impl<'a> FileOpen<'a> {
     pub fn armed_style(mut self, style: Style) -> Self {
         self.armed_style = Some(style);
         self
+    }
+
+    pub fn styles(mut self, styles: FileStyle) -> Self {
+        self.style = styles.style;
+        self.list_style = styles.list;
+        self.path_style = styles.path;
+        self.name_style = styles.name;
+        self.invalid_style = styles.invalid;
+        self.select_style = styles.select;
+        self.focus_style = styles.focus;
+        self.button_style = styles.button;
+        self.armed_style = styles.armed;
+        self
+    }
+
+    fn defaulted_focus(&self) -> Option<Style> {
+        if let Some(focus) = &self.focus_style {
+            Some(*focus)
+        } else {
+            Some(revert_style(self.style))
+        }
+    }
+
+    fn defaulted_select(&self) -> Option<Style> {
+        if let Some(select) = &self.select_style {
+            Some(*select)
+        } else {
+            Some(revert_style(self.style))
+        }
+    }
+
+    fn style_roots(&self) -> RListStyle {
+        RListStyle {
+            style: self.style,
+            select_style: self.defaulted_select(),
+            focus_style: self.defaulted_focus(),
+            ..Default::default()
+        }
+    }
+
+    fn style_lists(&self) -> RListStyle {
+        RListStyle {
+            style: if let Some(list) = self.list_style {
+                list
+            } else {
+                self.style
+            },
+            select_style: self.defaulted_select(),
+            focus_style: self.defaulted_focus(),
+            ..Default::default()
+        }
+    }
+
+    fn style_name(&self) -> TextInputStyle {
+        TextInputStyle {
+            style: if let Some(name) = self.name_style {
+                name
+            } else {
+                self.style
+            },
+            focus: self.defaulted_focus(),
+            select: self.defaulted_select(),
+            invalid: self.invalid_style,
+            ..Default::default()
+        }
+    }
+
+    fn style_path(&self) -> TextInputStyle {
+        TextInputStyle {
+            style: if let Some(path) = self.path_style {
+                path
+            } else {
+                self.style
+            },
+            focus: self.defaulted_focus(),
+            select: self.defaulted_select(),
+            invalid: self.invalid_style,
+            ..Default::default()
+        }
+    }
+
+    fn style_button(&self) -> ButtonStyle {
+        ButtonStyle {
+            style: if let Some(button) = self.button_style {
+                button
+            } else {
+                self.style
+            },
+            focus: self.defaulted_focus(),
+            armed: self.armed_style,
+            ..Default::default()
+        }
     }
 }
 
@@ -184,122 +338,163 @@ impl<'a> StatefulWidget for FileOpen<'a> {
             Flex::End,
         );
 
-        let l_grid = layout_grid::<3, 3>(
-            layout.area,
-            Layout::horizontal([
-                Constraint::Percentage(20),
-                Constraint::Percentage(30),
-                Constraint::Percentage(50),
-            ]),
-            Layout::new(
-                Direction::Vertical,
-                [
-                    Constraint::Length(1),
-                    Constraint::Length(1),
-                    Constraint::Fill(1),
-                ],
-            ),
-        );
-
-        //
-        let select_style = if let Some(select) = self.select_style {
-            select
-        } else {
-            revert_style(self.style)
-        };
-        let focus_style = if let Some(focus) = self.focus_style {
-            focus
-        } else {
-            revert_style(self.style)
-        };
-        let list_style = if let Some(list) = self.list_style {
-            list
-        } else {
-            self.style
-        };
-
-        //
         let inner = if self.block.is_some() {
             let inner = self.block.inner_if_some(area);
-            self.block.render(area, buf);
+            self.block.render_ref(area, buf);
             inner
         } else {
-            let block = Block::bordered().title(" Open ").style(self.style);
+            let block = Block::bordered()
+                .title(match state.mode {
+                    Mode::Open => " Open ",
+                    Mode::Save => " Save ",
+                    Mode::Dir => " Directory ",
+                })
+                .style(self.style);
             let inner = block.inner(area);
-            block.render(area, buf);
+            block.render_ref(area, buf);
             inner
         };
 
         Fill::new().style(self.style).render(inner, buf);
 
-        let mut path = TextInput::new()
-            .select_style(select_style)
-            .focus_style(focus_style);
-        if let Some(style) = self.path_style {
-            path = path.style(style);
+        match state.mode {
+            Mode::Open => {
+                render_open(&self, layout.area, buf, state);
+            }
+            Mode::Save => {
+                render_save(&self, layout.area, buf, state);
+            }
+            Mode::Dir => {}
         }
-        let mut l_path = l_grid[1][1].union(l_grid[2][1]);
-        l_path.width = l_path.width.saturating_sub(1);
-        path.render(l_path, buf, &mut state.path_state);
 
-        RList::default()
-            .items(state.roots.iter().map(|v| {
-                let s = v.0.to_string_lossy();
-                ListItem::from(format!("{}", s))
-            }))
-            .scroll(Scroll::new())
-            .style(self.style)
-            .focus_style(focus_style)
-            .select_style(select_style)
-            .render(l_grid[0][2], buf, &mut state.root_state);
-        state.root_state.area = l_grid[0][2];
-
-        RList::default()
-            .items(state.dirs.iter().map(|v| {
-                let s = v.to_string_lossy();
-                ListItem::from(s)
-            }))
-            .scroll(Scroll::new())
-            .style(list_style)
-            .focus_style(focus_style)
-            .select_style(select_style)
-            .render(l_grid[1][2], buf, &mut state.dir_state);
-        state.dir_state.area = l_grid[1][2];
-
-        RList::default()
-            .items(state.files.iter().map(|v| {
-                let s = v.to_string_lossy();
-                ListItem::from(s)
-            }))
-            .scroll(Scroll::new())
-            .style(list_style)
-            .focus_style(focus_style)
-            .select_style(select_style)
-            .render(l_grid[2][2], buf, &mut state.file_state);
-        state.file_state.area = l_grid[2][2];
-
-        let mut cancel = Button::new()
+        Button::new()
             .text(Text::from(self.cancel_text).alignment(Alignment::Center))
-            .focus_style(focus_style);
-        if let Some(style) = self.button_style {
-            cancel = cancel.style(style);
-        }
-        if let Some(style) = self.armed_style {
-            cancel = cancel.armed_style(style);
-        }
-        cancel.render(layout.button(0), buf, &mut state.cancel_state);
+            .styles(self.style_button())
+            .render(layout.button(0), buf, &mut state.cancel_state);
 
-        let mut ok = Button::new()
+        Button::new()
             .text(Text::from(self.ok_text).alignment(Alignment::Center))
-            .focus_style(focus_style);
-        if let Some(style) = self.button_style {
-            ok = ok.style(style);
-        }
-        if let Some(style) = self.armed_style {
-            ok = ok.armed_style(style);
-        }
-        ok.render(layout.button(1), buf, &mut state.ok_state);
+            .styles(self.style_button())
+            .render(layout.button(1), buf, &mut state.ok_state);
     }
+}
+
+fn render_open(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut FileOpenState) {
+    let l_grid = layout_grid::<3, 3>(
+        area,
+        Layout::horizontal([
+            Constraint::Percentage(20),
+            Constraint::Percentage(30),
+            Constraint::Percentage(50),
+        ]),
+        Layout::new(
+            Direction::Vertical,
+            [
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Fill(1),
+            ],
+        ),
+    );
+
+    //
+    let mut l_path = l_grid[1][1].union(l_grid[2][1]);
+    l_path.width = l_path.width.saturating_sub(1);
+    debug!("path {:#?}", widget.style_path());
+    TextInput::new()
+        .styles(widget.style_path())
+        .render(l_path, buf, &mut state.path_state);
+
+    RList::default()
+        .items(state.roots.iter().map(|v| {
+            let s = v.0.to_string_lossy();
+            ListItem::from(format!("{}", s))
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_roots())
+        .render(l_grid[0][2], buf, &mut state.root_state);
+    state.root_state.area = l_grid[0][2];
+
+    RList::default()
+        .items(state.dirs.iter().map(|v| {
+            let s = v.to_string_lossy();
+            ListItem::from(s)
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_lists())
+        .render(l_grid[1][2], buf, &mut state.dir_state);
+    state.dir_state.area = l_grid[1][2];
+
+    RList::default()
+        .items(state.files.iter().map(|v| {
+            let s = v.to_string_lossy();
+            ListItem::from(s)
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_lists())
+        .render(l_grid[2][2], buf, &mut state.file_state);
+    state.file_state.area = l_grid[2][2];
+}
+
+fn render_save(widget: &FileOpen<'_>, area: Rect, buf: &mut Buffer, state: &mut FileOpenState) {
+    let l_grid = layout_grid::<3, 4>(
+        area,
+        Layout::horizontal([
+            Constraint::Percentage(20),
+            Constraint::Percentage(30),
+            Constraint::Percentage(50),
+        ]),
+        Layout::new(
+            Direction::Vertical,
+            [
+                Constraint::Length(1),
+                Constraint::Length(1),
+                Constraint::Fill(1),
+                Constraint::Length(1),
+            ],
+        ),
+    );
+
+    //
+    let mut l_path = l_grid[1][1].union(l_grid[2][1]);
+    l_path.width = l_path.width.saturating_sub(1);
+    TextInput::new()
+        .styles(widget.style_path())
+        .render(l_path, buf, &mut state.path_state);
+
+    RList::default()
+        .items(state.roots.iter().map(|v| {
+            let s = v.0.to_string_lossy();
+            ListItem::from(format!("{}", s))
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_roots())
+        .render(l_grid[0][2], buf, &mut state.root_state);
+    state.root_state.area = l_grid[0][2];
+
+    RList::default()
+        .items(state.dirs.iter().map(|v| {
+            let s = v.to_string_lossy();
+            ListItem::from(s)
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_lists())
+        .render(l_grid[1][2], buf, &mut state.dir_state);
+    state.dir_state.area = l_grid[1][2];
+
+    RList::default()
+        .items(state.files.iter().map(|v| {
+            let s = v.to_string_lossy();
+            ListItem::from(s)
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_lists())
+        .render(l_grid[2][2], buf, &mut state.file_state);
+    state.file_state.area = l_grid[2][2];
+
+    TextInput::new()
+        .styles(widget.style_name())
+        .render(l_grid[2][3], buf, &mut state.name_state);
 }
 
 impl FileOpenState {
@@ -324,11 +519,12 @@ impl FileOpenState {
         self.roots.clear();
     }
 
-    fn default_roots(&mut self) {
+    /// Append the default roots.
+    pub fn default_roots(&mut self, start: PathBuf) {
         if let Some(user) = UserDirs::new() {
             self.roots.push((
                 OsString::from("Start"), //
-                self.path.clone(),
+                start,
             ));
             self.roots.push((
                 OsString::from("Home"), //
@@ -349,17 +545,29 @@ impl FileOpenState {
         self.root_state.select(Some(0));
     }
 
-    pub fn open(&mut self, path: &Path) -> Result<(), io::Error> {
+    pub fn open_dialog(&mut self, path: &Path) -> Result<(), io::Error> {
         self.active = true;
+        self.mode = Mode::Open;
         self.set_path(path.into())?;
         if self.use_default_roots {
-            self.default_roots();
+            self.default_roots(self.path.clone());
         }
-        self.focus().init();
+        self.focus().initial();
         Ok(())
     }
 
-    pub fn find_parent(&self, path: &Path) -> Option<PathBuf> {
+    pub fn save_dialog(&mut self, path: &Path) -> Result<(), io::Error> {
+        self.active = true;
+        self.mode = Mode::Save;
+        self.set_path(path.into())?;
+        if self.use_default_roots {
+            self.default_roots(self.path.clone());
+        }
+        self.focus().initial();
+        Ok(())
+    }
+
+    fn find_parent(&self, path: &Path) -> Option<PathBuf> {
         if path == Path::new(".") || path.file_name().is_none() {
             let parent = path.join("..");
             let canon_parent = parent.canonicalize().ok();
@@ -418,8 +626,12 @@ impl FileOpenState {
             self.dirs = dirs;
             self.files = files;
 
+            debug!("set path {:?}", self.path);
             self.path_state.set_value(self.path.to_string_lossy());
-            self.path_state.move_to_line_end(false);
+            if self.path_state.value.width() != 0 {
+                // only works when this has been rendered once. todo:
+                self.path_state.move_to_line_end(false);
+            }
 
             if self.dirs.len() > 0 {
                 self.dir_state.select(Some(0));
@@ -429,8 +641,10 @@ impl FileOpenState {
             self.dir_state.set_offset(0);
             if self.files.len() > 0 {
                 self.file_state.select(Some(0));
+                self.name_state.set_value(self.files[0].to_string_lossy());
             } else {
                 self.file_state.select(None);
+                self.name_state.set_value("");
             }
             self.file_state.set_offset(0);
 
@@ -440,7 +654,26 @@ impl FileOpenState {
         }
     }
 
-    pub fn chdir(&mut self, dir: &OsString) -> Result<FileOutcome, io::Error> {
+    fn use_named_path(&mut self) -> Result<FileOutcome, io::Error> {
+        let path = if cfg!(windows) {
+            let path = BasePathBuf::new(self.path_state.value())?;
+            let path = path.normalize_virtually()?;
+            path.into_path_buf()
+        } else {
+            PathBuf::from(self.path_state.value())
+        };
+
+        if !path.exists() || !path.is_dir() {
+            self.path_state.invalid = true;
+        } else {
+            self.path_state.invalid = false;
+            self.set_path(&path)?;
+        }
+
+        Ok(FileOutcome::Changed)
+    }
+
+    fn chdir(&mut self, dir: &OsString) -> Result<FileOutcome, io::Error> {
         if dir == &OsString::from("..") {
             if let Some(parent) = self.find_parent(&self.path) {
                 self.set_path(&parent)
@@ -452,7 +685,7 @@ impl FileOpenState {
         }
     }
 
-    pub fn chroot_selected(&mut self) -> Result<FileOutcome, io::Error> {
+    fn chroot_selected(&mut self) -> Result<FileOutcome, io::Error> {
         if let Some(select) = self.root_state.selected() {
             if let Some(d) = self.roots.get(select).cloned() {
                 self.set_path(&d.1)?;
@@ -462,7 +695,7 @@ impl FileOpenState {
         Ok(FileOutcome::Unchanged)
     }
 
-    pub fn chdir_selected(&mut self) -> Result<FileOutcome, io::Error> {
+    fn chdir_selected(&mut self) -> Result<FileOutcome, io::Error> {
         if let Some(select) = self.dir_state.selected() {
             if let Some(dir) = self.dirs.get(select).cloned() {
                 self.chdir(&dir)?;
@@ -472,19 +705,35 @@ impl FileOpenState {
         Ok(FileOutcome::Unchanged)
     }
 
+    fn name_selected(&mut self) -> Result<FileOutcome, io::Error> {
+        if let Some(select) = self.file_state.selected() {
+            if let Some(file) = self.files.get(select).cloned() {
+                let name = file.to_string_lossy();
+                self.name_state.set_value(name);
+                return Ok(FileOutcome::Changed);
+            }
+        }
+        Ok(FileOutcome::Unchanged)
+    }
+
     /// Cancel the dialog.
-    pub fn close_cancel(&mut self) -> FileOutcome {
+    fn close_cancel(&mut self) -> FileOutcome {
         self.active = false;
         FileOutcome::Cancel
     }
 
     /// Choose the selected and close the dialog.
-    pub fn choose_selected(&mut self) -> FileOutcome {
-        if let Some(select) = self.file_state.selected() {
-            if let Some(file) = self.files.get(select).cloned() {
-                self.active = false;
-                return FileOutcome::Ok(self.path.join(file));
+    fn choose_selected(&mut self) -> FileOutcome {
+        if self.mode == Mode::Open {
+            if let Some(select) = self.file_state.selected() {
+                if let Some(file) = self.files.get(select).cloned() {
+                    self.active = false;
+                    return FileOutcome::Ok(self.path.join(file));
+                }
             }
+        } else if self.mode == Mode::Save {
+            let path = self.path.join(self.name_state.value().trim());
+            return FileOutcome::Ok(path);
         }
         FileOutcome::Unchanged
     }
@@ -494,6 +743,9 @@ impl FileOpenState {
             self.path_state => {
                 self.path_state.screen_cursor()
             },
+            self.name_state => {
+                self.name_state.screen_cursor()
+            },
             _ => None
         )
     }
@@ -501,14 +753,17 @@ impl FileOpenState {
 
 impl FileOpenState {
     fn focus(&self) -> Focus<'_> {
-        Focus::new(&[
-            &self.dir_state,
-            &self.file_state,
-            &self.path_state,
-            &self.ok_state,
-            &self.cancel_state,
-            &self.root_state,
-        ])
+        let mut f = Focus::default();
+        f.add(&self.dir_state);
+        f.add(&self.file_state);
+        if self.mode == Mode::Save {
+            f.add(&self.name_state);
+        }
+        f.add(&self.ok_state);
+        f.add(&self.cancel_state);
+        f.add(&self.root_state);
+        f.add(&self.path_state);
+        f
     }
 }
 
@@ -528,19 +783,13 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
         }
 
         let mut focus_outcome = self.focus().handle(event, FocusKeys).into();
-        debug!("focus -> {:?}", focus_outcome);
 
         flow_ok!(self.path_state.handle(event, FocusKeys), consider focus_outcome);
         if self.path_state.is_focused() {
             flow_ok!(match event {
                 ct_event!(keycode press Enter) => {
-                    let path = PathBuf::from(self.path_state.value());
-                    if !path.exists() || !path.is_dir() {
-                        self.path_state.invalid = true;
-                    } else {
-                        self.path_state.invalid = false;
-                        self.set_path(&PathBuf::from(self.path_state.value()))?;
-                    }
+                    self.use_named_path()?;
+                    self.focus().focus_widget_no_lost(&self.dir_state);
                     FileOutcome::Changed
                 }
                 _ => FileOutcome::NotUsed,
@@ -548,10 +797,27 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
         }
         on_lost!(
             self.path_state => {
-                self.set_path(&PathBuf::from(self.path_state.value()))?;
-                focus_outcome = FileOutcome::Changed;
+                self.use_named_path()?
             }
         );
+
+        if self.mode == Mode::Save {
+            flow_ok!(self.name_state.handle(event, FocusKeys), consider focus_outcome);
+            if self.name_state.is_focused() {
+                flow_ok!(match event {
+                    ct_event!(keycode press Enter) => {
+                        self.choose_selected()
+                    }
+                    _ => FileOutcome::NotUsed,
+                });
+            }
+            on_lost!(
+                self.path_state => {
+                    self.set_path(&PathBuf::from(self.path_state.value()))?;
+                    focus_outcome = FileOutcome::Changed;
+                }
+            );
+        }
 
         flow_ok!(match self.cancel_state.handle(event, FocusKeys) {
             ButtonOutcome::Pressed => {
@@ -577,6 +843,13 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
         flow_ok!(match file_state_ext.handle(event, Navigate) {
             DoubleClickOutcome::ClickClick(_, _) => {
                 self.choose_selected()
+            }
+            DoubleClickOutcome::Changed => {
+                if self.mode == Mode::Save {
+                    self.name_selected()?
+                } else {
+                    FileOutcome::Changed
+                }
             }
             r => r.into(),
         }, consider focus_outcome);
@@ -635,8 +908,6 @@ impl HandleEvent<crossterm::event::Event, Navigate, DoubleClickOutcome>
                 ct_event!(key press c) => {
                     let c = c.to_lowercase().next();
                     let start = state.selected().unwrap_or(0);
-
-                    debug!("nav {:?}", nav);
 
                     let mut idx = start;
                     let mut selected = None;
