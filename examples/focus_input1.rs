@@ -6,6 +6,7 @@ use rat_focus::{Focus, HasFocusFlag};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::Frame;
+use std::cmp::max;
 
 mod adapter;
 mod mini_salsa;
@@ -111,20 +112,20 @@ fn handle_input(
 
     let mut r: Outcome = state.input1.handle(event, FocusKeys).into();
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
     r = state.input2.handle(event, FocusKeys).into();
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
     r = state.input3.handle(event, FocusKeys).into();
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
     r = state.input4.handle(event, FocusKeys).into();
     if r.is_consumed() {
-        return Ok(r | f);
+        return Ok(max(r, f));
     }
 
-    Ok(r | f)
+    Ok(max(r, f))
 }

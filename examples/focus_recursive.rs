@@ -1,6 +1,5 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::substratum1::{Substratum, SubstratumState};
-use log::debug;
 use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
 use rat_focus::Focus;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -120,7 +119,6 @@ pub mod substratum1 {
     use crate::adapter::textinputf::{TextInputF, TextInputFState};
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
-    use log::debug;
     use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
     use ratatui::buffer::Buffer;
