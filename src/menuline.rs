@@ -161,7 +161,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     state.item_areas.clear();
     state.navchar = widget.navchar.clone();
 
-    let select_style = if state.focus.get() {
+    let select_style = if state.is_focused() {
         if let Some(focus_style) = widget.focus_style {
             focus_style
         } else {
