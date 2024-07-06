@@ -1,8 +1,5 @@
 #![doc = include_str!("../readme.md")]
 
-use std::cmp::max;
-use std::ops::{BitOr, BitOrAssign};
-
 pub mod crossterm;
 pub mod util;
 
@@ -94,22 +91,22 @@ where
     fn is_consumed(&self) -> bool {
         match self {
             Ok(v) => v.is_consumed(),
-            Err(_) => true,
+            Err(_) => true, // this can somewhat be argued for.
         }
     }
 }
 
-impl<V> ConsumedEvent for Option<V>
-where
-    V: ConsumedEvent,
-{
-    fn is_consumed(&self) -> bool {
-        match self {
-            Some(v) => v.is_consumed(),
-            None => true,
-        }
-    }
-}
+// impl<V> ConsumedEvent for Option<V>
+// where
+//     V: ConsumedEvent,
+// {
+//     fn is_consumed(&self) -> bool {
+//         match self {
+//             Some(v) => v.is_consumed(),
+//             None => true,
+//         }
+//     }
+// }
 
 /// A baseline Outcome for event-handling.
 ///
@@ -136,24 +133,24 @@ impl ConsumedEvent for Outcome {
     }
 }
 
-impl BitOr for Outcome {
-    type Output = Outcome;
-
-    /// Returns max(left, right).
-    ///
-    /// That means
-    /// `Outcome::NotUsed | Outcome::Changed == Outcome::Changed`,
-    /// which should be the expected result.
-    fn bitor(self, rhs: Self) -> Self::Output {
-        max(self, rhs)
-    }
-}
-
-impl BitOrAssign for Outcome {
-    fn bitor_assign(&mut self, rhs: Self) {
-        *self = self.bitor(rhs);
-    }
-}
+// impl BitOr for Outcome {
+//     type Output = Outcome;
+//
+//     /// Returns max(left, right).
+//     ///
+//     /// That means
+//     /// `Outcome::NotUsed | Outcome::Changed == Outcome::Changed`,
+//     /// which should be the expected result.
+//     fn bitor(self, rhs: Self) -> Self::Output {
+//         max(self, rhs)
+//     }
+// }
+//
+// impl BitOrAssign for Outcome {
+//     fn bitor_assign(&mut self, rhs: Self) {
+//         *self = self.bitor(rhs);
+//     }
+// }
 
 /// Event functions in widgets often return bool to indicate
 /// a meaningful change occured. This converts `true / false` to
@@ -191,6 +188,7 @@ impl From<bool> for Outcome {
 #[macro_export]
 macro_rules! flow {
     (log $n:ident: $x:expr) => {{
+        use log::debug;
         use $crate::ConsumedEvent;
         let r = $x;
         if r.is_consumed() {
@@ -243,6 +241,7 @@ macro_rules! flow {
 #[macro_export]
 macro_rules! flow_ok {
     (log $n:ident: $x:expr) => {{
+        use log::debug;
         use $crate::ConsumedEvent;
         let r = $x;
         if r.is_consumed() {
