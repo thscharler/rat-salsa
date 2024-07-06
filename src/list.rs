@@ -238,17 +238,25 @@ fn render_list<'a, Selection: RListSelection>(
     // area for each item
     state.row_areas.clear();
     let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
+    let mut total_height = 0;
     for item in items.iter().skip(state.offset()) {
         item_area.height = item.height() as u16;
 
         state.row_areas.push(item_area);
 
         item_area.y += item_area.height;
-        if item_area.y >= state.inner.y + state.inner.height {
+        total_height += item_area.height;
+        if total_height >= state.inner.height {
             break;
         }
     }
-    state.scroll.set_page_len(state.row_areas.len());
+    if total_height < state.inner.height {
+        state.scroll.set_page_len(
+            state.row_areas.len() + state.inner.height as usize - total_height as usize,
+        );
+    } else {
+        state.scroll.set_page_len(state.row_areas.len());
+    }
 
     // max_v_offset
     let mut n = 0;
@@ -407,6 +415,7 @@ impl<Selection: RListSelection> RListState<Selection> {
 
 impl RListState<RowSelection> {
     /// Update the state to match adding items.
+    /// This corrects the number of rows, offset and selection.
     pub fn items_added(&mut self, pos: usize, n: usize) {
         self.rows += n;
         self.scroll.items_added(pos, n);
@@ -414,6 +423,7 @@ impl RListState<RowSelection> {
     }
 
     /// Update the state to match removing items.
+    /// This corrects the number of rows, offset and selection.
     pub fn items_removed(&mut self, pos: usize, n: usize) {
         self.rows -= n;
         self.scroll.items_removed(pos, n);
