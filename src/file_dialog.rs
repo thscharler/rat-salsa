@@ -8,13 +8,12 @@ use crate::layout::{layout_dialog, layout_grid};
 use crate::list::selection::RowSelection;
 use crate::list::{RList, RListState, RListStyle};
 use crate::util::revert_style;
-use crossterm::event::Event;
 use directories_next::UserDirs;
+#[allow(unused_imports)]
 use log::debug;
-use normpath::{BasePath, BasePathBuf};
 use rat_event::{ct_event, flow, flow_ok, Dialog, FocusKeys, HandleEvent, Outcome};
-use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag};
-use rat_ftable::event::{DoubleClickOutcome, EditOutcome};
+use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocusFlag};
+use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Margin, Rect};
@@ -23,8 +22,8 @@ use ratatui::widgets::{Block, ListItem, StatefulWidgetRef, WidgetRef};
 use std::cmp::max;
 use std::ffi::OsString;
 use std::fmt::{Debug, Formatter};
-use std::io;
 use std::path::{Path, PathBuf};
+use std::{fs, io};
 use sysinfo::Disks;
 
 #[derive(Debug, Default, Clone)]
@@ -62,6 +61,7 @@ pub struct FileDialogStyle {
 
 /// Dialog mode
 #[derive(Debug, PartialEq, Eq)]
+#[allow(dead_code)]
 enum Mode {
     Open,
     Save,
@@ -85,7 +85,7 @@ pub struct FileDialogState {
     root_state: RListState<RowSelection>,
     dir_state: EditRListState<EditDirNameState>,
     file_state: RListState<RowSelection>,
-    name_state: TextInputState,
+    save_name_state: TextInputState,
     new_state: ButtonState,
     cancel_state: ButtonState,
     ok_state: ButtonState,
@@ -106,7 +106,7 @@ impl Debug for FileDialogState {
             .field("root_state", &self.root_state)
             .field("dir_state", &self.dir_state)
             .field("file_state", &self.file_state)
-            .field("name_state", &self.name_state)
+            .field("name_state", &self.save_name_state)
             .field("cancel_state", &self.cancel_state)
             .field("ok_state", &self.ok_state)
             .finish()
@@ -146,7 +146,7 @@ impl Default for FileDialogState {
             root_state: Default::default(),
             dir_state: Default::default(),
             file_state: Default::default(),
-            name_state: Default::default(),
+            save_name_state: Default::default(),
             new_state: Default::default(),
             cancel_state: Default::default(),
             ok_state: Default::default(),
@@ -345,6 +345,12 @@ impl StatefulWidgetRef for EditDirName {
     }
 }
 
+impl EditDirNameState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        self.edit_dir.screen_cursor()
+    }
+}
+
 impl HandleEvent<crossterm::event::Event, FocusKeys, EditOutcome> for EditDirNameState {
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: FocusKeys) -> EditOutcome {
         match self.edit_dir.handle(event, qualifier) {
@@ -379,9 +385,13 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             Constraint::Fill(1),
             Constraint::Fill(1),
             Margin::new(1, 1),
-            [Constraint::Length(10), Constraint::Length(10)],
-            1,
-            Flex::End,
+            [
+                Constraint::Percentage(20),
+                Constraint::Percentage(30),
+                Constraint::Percentage(50),
+            ],
+            0,
+            Flex::Center,
         );
 
         let inner = if self.block.is_some() {
@@ -413,15 +423,27 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             Mode::Dir => {}
         }
 
+        let mut l_n = layout.buttons[1];
+        l_n.width = 10;
+        Button::new()
+            .text(Text::from("New").alignment(Alignment::Center))
+            .styles(self.style_button())
+            .render(l_n, buf, &mut state.new_state);
+
+        let l_oc = Layout::horizontal([Constraint::Length(10), Constraint::Length(10)])
+            .spacing(1)
+            .flex(Flex::End)
+            .split(layout.buttons[2]);
+
         Button::new()
             .text(Text::from(self.cancel_text).alignment(Alignment::Center))
             .styles(self.style_button())
-            .render(layout.button(0), buf, &mut state.cancel_state);
+            .render(l_oc[0], buf, &mut state.cancel_state);
 
         Button::new()
             .text(Text::from(self.ok_text).alignment(Alignment::Center))
             .styles(self.style_button())
-            .render(layout.button(1), buf, &mut state.ok_state);
+            .render(l_oc[1], buf, &mut state.ok_state);
     }
 }
 
@@ -537,9 +559,11 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         .styles(widget.style_lists())
         .render(l_grid[2][2], buf, &mut state.file_state);
 
-    TextInput::new()
-        .styles(widget.style_name())
-        .render(l_grid[2][3], buf, &mut state.name_state);
+    TextInput::new().styles(widget.style_name()).render(
+        l_grid[2][3],
+        buf,
+        &mut state.save_name_state,
+    );
 }
 
 impl FileDialogState {
@@ -652,7 +676,7 @@ impl FileDialogState {
             let mut dirs = Vec::new();
             let mut files = Vec::new();
 
-            if let Some(parent) = self.find_parent(&path) {
+            if self.find_parent(&path).is_some() {
                 dirs.push(OsString::from(".."));
             }
 
@@ -695,16 +719,17 @@ impl FileDialogState {
             if self.files.len() > 0 {
                 self.file_state.select(Some(0));
                 if let Some(name) = &self.save_name {
-                    self.name_state.set_value(name.to_string_lossy());
+                    self.save_name_state.set_value(name.to_string_lossy());
                 } else {
-                    self.name_state.set_value(self.files[0].to_string_lossy());
+                    self.save_name_state
+                        .set_value(self.files[0].to_string_lossy());
                 }
             } else {
                 self.file_state.select(None);
                 if let Some(name) = &self.save_name {
-                    self.name_state.set_value(name.to_string_lossy());
+                    self.save_name_state.set_value(name.to_string_lossy());
                 } else {
-                    self.name_state.set_value("");
+                    self.save_name_state.set_value("");
                 }
             }
             self.file_state.set_offset(0);
@@ -716,14 +741,7 @@ impl FileDialogState {
     }
 
     fn use_path_input(&mut self) -> Result<FileOutcome, io::Error> {
-        let path = if cfg!(windows) {
-            let path = BasePathBuf::new(self.path_state.value())?;
-            let path = path.normalize_virtually()?;
-            path.into_path_buf()
-        } else {
-            PathBuf::from(self.path_state.value())
-        };
-
+        let path = PathBuf::from(self.path_state.value());
         if !path.exists() || !path.is_dir() {
             self.path_state.invalid = true;
         } else {
@@ -770,11 +788,45 @@ impl FileDialogState {
         if let Some(select) = self.file_state.selected() {
             if let Some(file) = self.files.get(select).cloned() {
                 let name = file.to_string_lossy();
-                self.name_state.set_value(name);
+                self.save_name_state.set_value(name);
                 return Ok(FileOutcome::Changed);
             }
         }
         Ok(FileOutcome::Unchanged)
+    }
+
+    /// Start creating a directory.
+    fn start_edit_dir(&mut self) -> FileOutcome {
+        self.dirs.push(OsString::from(""));
+        self.dir_state.list.items_added(self.dirs.len(), 1);
+        self.dir_state.list.move_to(self.dirs.len() - 1);
+        let edit = EditDirNameState::default();
+        edit.focus().set(true);
+        self.dir_state.edit = Some(edit);
+        FileOutcome::Changed
+    }
+
+    fn cancel_edit_dir(&mut self) -> FileOutcome {
+        self.dirs.remove(self.dirs.len() - 1);
+        self.dir_state.edit = None;
+        FileOutcome::Changed
+    }
+
+    fn commit_edit_dir(&mut self) -> Result<FileOutcome, io::Error> {
+        if let Some(edit) = &mut self.dir_state.edit {
+            let name = edit.edit_dir.value().trim();
+            let path = self.path.join(name);
+            if let Err(_) = fs::create_dir(&path) {
+                edit.edit_dir.invalid = true;
+                Ok(FileOutcome::Changed)
+            } else {
+                self.dir_state.edit = None;
+                self.focus().focus_widget_no_lost(&self.save_name_state);
+                self.set_path(&path)
+            }
+        } else {
+            Ok(FileOutcome::Unchanged)
+        }
     }
 
     /// Cancel the dialog.
@@ -793,7 +845,7 @@ impl FileDialogState {
                 }
             }
         } else if self.mode == Mode::Save {
-            let path = self.path.join(self.name_state.value().trim());
+            let path = self.path.join(self.save_name_state.value().trim());
             return FileOutcome::Ok(path);
         }
         FileOutcome::Unchanged
@@ -804,8 +856,17 @@ impl FileDialogState {
             self.path_state => {
                 self.path_state.screen_cursor()
             },
-            self.name_state => {
-                self.name_state.screen_cursor()
+            self.save_name_state => {
+                self.save_name_state.screen_cursor()
+            },
+            self.dir_state.list => {
+                if let Some(edit) = &self.dir_state.edit {
+                    let s = edit.screen_cursor();
+                    debug!("cursor {:?}", s);
+                    s
+                } else {
+                    None
+                }
             },
             _ => None
         )
@@ -818,10 +879,11 @@ impl FileDialogState {
         f.add_container(&self.dir_state);
         f.add(&self.file_state);
         if self.mode == Mode::Save {
-            f.add(&self.name_state);
+            f.add(&self.save_name_state);
         }
         f.add(&self.ok_state);
         f.add(&self.cancel_state);
+        f.add(&self.new_state);
         f.add(&self.root_state);
         f.add(&self.path_state);
         f
@@ -853,11 +915,31 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
         flow_ok!(handle_dirs(self, event)?, consider focus_outcome);
         flow_ok!(handle_roots(self, event)?, consider focus_outcome);
 
+        flow_ok!(handle_new(self, event)?);
         flow_ok!(handle_cancel(self, event)?);
         flow_ok!(handle_ok(self, event)?);
 
         Ok(max(FileOutcome::Unchanged, focus_outcome))
     }
+}
+
+fn handle_new(
+    state: &mut FileDialogState,
+    event: &crossterm::event::Event,
+) -> Result<FileOutcome, io::Error> {
+    flow_ok!(match state.new_state.handle(event, FocusKeys) {
+        ButtonOutcome::Pressed => {
+            state.start_edit_dir()
+        }
+        r => Outcome::from(r).into(),
+    });
+    flow_ok!(match event {
+        ct_event!(key press CONTROL-'n') => {
+            state.start_edit_dir()
+        }
+        _ => FileOutcome::NotUsed,
+    });
+    Ok(FileOutcome::NotUsed)
 }
 
 fn handle_ok(
@@ -894,8 +976,10 @@ fn handle_name(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    flow_ok!(Outcome::from(state.name_state.handle(event, FocusKeys)));
-    if state.name_state.is_focused() {
+    flow_ok!(Outcome::from(
+        state.save_name_state.handle(event, FocusKeys)
+    ));
+    if state.save_name_state.is_focused() {
         flow_ok!(match event {
             ct_event!(keycode press Enter) => {
                 state.choose_selected()
@@ -946,34 +1030,38 @@ fn handle_dirs(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    if state.dir_state.list.is_focused() {
-        flow_ok!(match event {
-            ct_event!(mouse any for m)
-                if state
-                    .dir_state
-                    .list
-                    .mouse
-                    .doubleclick(state.dir_state.list.inner, m) =>
-            {
-                state.chdir_selected()?
-            }
-            ct_event!(keycode press Enter) => {
-                state.chdir_selected()?
-            }
-            _ => FileOutcome::NotUsed,
-        });
+    if state.dir_state.edit.is_none() {
+        if state.dir_state.list.is_focused() {
+            flow_ok!(match event {
+                ct_event!(mouse any for m)
+                    if state
+                        .dir_state
+                        .list
+                        .mouse
+                        .doubleclick(state.dir_state.list.inner, m) =>
+                {
+                    state.chdir_selected()?
+                }
+                ct_event!(keycode press Enter) => {
+                    state.chdir_selected()?
+                }
+                _ => FileOutcome::NotUsed,
+            });
+            flow_ok!(handle_nav(&mut state.dir_state.list, &state.dirs, event));
+        }
     }
-    flow_ok!(handle_nav(&mut state.dir_state.list, &state.dirs, event));
     flow_ok!(match state.dir_state.handle(event, FocusKeys) {
         EditOutcome::Cancel => {
-            state.dir_state.edit = None;
-            FileOutcome::Changed
+            state.cancel_edit_dir()
         }
         EditOutcome::Commit | EditOutcome::CommitAndAppend | EditOutcome::CommitAndEdit => {
-            // TODO: this
-            FileOutcome::Changed
+            state.commit_edit_dir()?
         }
-        r => Outcome::from(r).into(),
+        r => {
+            let rr = Outcome::from(r).into();
+            debug!("dirstate edit {:?}", rr);
+            rr
+        }
     });
     Ok(FileOutcome::NotUsed)
 }
@@ -997,19 +1085,19 @@ fn handle_files(
             }
             _ => FileOutcome::NotUsed,
         });
-    }
-    flow_ok!(
-        match handle_nav(&mut state.file_state, &mut state.files, event) {
-            FileOutcome::Changed => {
-                if state.mode == Mode::Save {
-                    state.name_selected()?
-                } else {
-                    FileOutcome::Changed
+        flow_ok!(
+            match handle_nav(&mut state.file_state, &mut state.files, event) {
+                FileOutcome::Changed => {
+                    if state.mode == Mode::Save {
+                        state.name_selected()?
+                    } else {
+                        FileOutcome::Changed
+                    }
                 }
+                r => r,
             }
-            r => r,
-        }
-    );
+        );
+    }
     flow_ok!(match state.file_state.handle(event, FocusKeys).into() {
         FileOutcome::Changed => {
             if state.mode == Mode::Save {
@@ -1028,20 +1116,17 @@ fn handle_nav(
     nav: &[OsString],
     event: &crossterm::event::Event,
 ) -> FileOutcome {
-    if list.is_focused() {
-        flow!(match event {
-            ct_event!(key press c) => {
-                let next = find_next_by_key(*c, list.selected().unwrap_or(0), nav);
-                if let Some(next) = next {
-                    list.move_to(next).into()
-                } else {
-                    FileOutcome::Unchanged
-                }
+    flow!(match event {
+        ct_event!(key press c) => {
+            let next = find_next_by_key(*c, list.selected().unwrap_or(0), nav);
+            if let Some(next) = next {
+                list.move_to(next).into()
+            } else {
+                FileOutcome::Unchanged
             }
-            _ => FileOutcome::NotUsed,
-        });
-    }
-
+        }
+        _ => FileOutcome::NotUsed,
+    });
     FileOutcome::NotUsed
 }
 
