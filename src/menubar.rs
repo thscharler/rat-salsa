@@ -16,7 +16,7 @@ use crate::menuline::{MenuLine, MenuLineState, MenuOutcome, MenuStyle};
 use crate::popup_menu::{Placement, PopupMenu, PopupMenuState};
 use crate::util::menu_str;
 use rat_event::{flow, FocusKeys, HandleEvent, MouseOnly};
-use rat_focus::{Focus, HasFocus, HasFocusFlag, ZRect};
+use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Line, StatefulWidget, Style};
@@ -287,18 +287,23 @@ impl MenuBarState {
     }
 }
 
-impl HasFocus for MenuBarState {
-    fn focus(&self) -> Focus<'_> {
-        let mut f = Focus::default();
-        f.add(&self.bar);
-        f.add(&self.popup);
-        f
+impl HasFocusFlag for MenuBarState {
+    fn focus(&self) -> &FocusFlag {
+        &self.bar.focus
+    }
+
+    fn area(&self) -> Rect {
+        self.area
+    }
+
+    fn z_areas(&self) -> &[ZRect] {
+        &self.z_areas
     }
 }
 
 impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenuBarState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
-        if !self.bar.is_focused() {
+        if !self.is_focused() {
             self.set_popup_active(false);
         }
 
@@ -320,7 +325,7 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenuBarState {
 
 impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuBarState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: FocusKeys) -> MenuOutcome {
-        if !self.bar.is_focused() {
+        if !self.is_focused() {
             self.set_popup_active(false);
         }
 
@@ -345,7 +350,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuBarSta
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuBarState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> MenuOutcome {
-        if !self.bar.is_focused() {
+        if !self.is_focused() {
             self.set_popup_active(false);
         }
 
