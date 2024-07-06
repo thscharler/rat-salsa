@@ -862,7 +862,6 @@ impl FileDialogState {
             self.dir_state.list => {
                 if let Some(edit) = &self.dir_state.edit {
                     let s = edit.screen_cursor();
-                    debug!("cursor {:?}", s);
                     s
                 } else {
                     None
@@ -1059,7 +1058,6 @@ fn handle_dirs(
         }
         r => {
             let rr = Outcome::from(r).into();
-            debug!("dirstate edit {:?}", rr);
             rr
         }
     });
