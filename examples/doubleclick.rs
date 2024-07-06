@@ -10,6 +10,7 @@ use ratatui::prelude::Widget;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::Frame;
+use std::cmp::max;
 
 mod mini_salsa;
 
@@ -179,5 +180,5 @@ fn handle_buttons(
         _ => Outcome::NotUsed,
     };
 
-    Ok(r1 | r2)
+    Ok(max(r1, r2))
 }

@@ -253,7 +253,7 @@ pub mod theme {
     use rat_ftable::FTableStyle;
     use rat_scrolled::ScrolledStyle;
     use rat_widget::button::ButtonStyle;
-    use rat_widget::file_dialog::FileStyle;
+    use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::input::TextInputStyle;
     use rat_widget::list::RListStyle;
     use rat_widget::masked_input::MaskedInputStyle;
@@ -522,6 +522,15 @@ pub mod theme {
             Style::default().fg(self.black[0]).bg(self.secondary[0])
         }
 
+        pub fn list_styles(&self) -> RListStyle {
+            RListStyle {
+                style: self.list_style(),
+                select_style: Some(self.select()),
+                focus_style: Some(self.focus()),
+                ..Default::default()
+            }
+        }
+
         /// Complete ScrolledStyle
         pub fn scrolled_style(&self) -> ScrolledStyle {
             let style = Style::default().fg(self.gray[0]).bg(self.black[1]);
@@ -555,8 +564,8 @@ pub mod theme {
             ]
         }
 
-        pub fn file_dialog_style(&self) -> FileStyle {
-            FileStyle {
+        pub fn file_dialog_style(&self) -> FileDialogStyle {
+            FileDialogStyle {
                 style: self.dialog_style(),
                 list: Some(self.list_style()),
                 path: Some(self.text_input()),

@@ -1,10 +1,11 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::MiniSalsaState;
 use anyhow::anyhow;
+#[allow(unused_imports)]
 use log::debug;
 use rat_event::{flow_ok, Dialog, HandleEvent, Outcome};
 use rat_widget::event::FileOutcome;
-use rat_widget::file_dialog::{FileOpen, FileOpenState};
+use rat_widget::file_dialog::{FileDialog, FileDialogState};
 use rat_widget::layout::layout_middle;
 use rat_widget::menubar;
 use rat_widget::menubar::{MenuBar, MenuBarState, MenuPopup, StaticMenu};
@@ -28,7 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
 
 #[derive(Debug, Default)]
 pub struct State {
-    pub(crate) file_open: FileOpenState,
+    pub(crate) file_open: FileDialogState,
     pub(crate) menu: MenuBarState,
 }
 
@@ -63,7 +64,7 @@ fn repaint_input(
             Constraint::Length(0),
         );
 
-        FileOpen::new()
+        FileDialog::new()
             .styles(THEME.file_dialog_style()) //
             .render(l, frame.buffer_mut(), &mut state.file_open);
 
