@@ -2,7 +2,6 @@ use crate::Scheme;
 use rat_widget::button::ButtonStyle;
 use rat_widget::input::TextInputStyle;
 use rat_widget::list::RListStyle;
-use rat_widget::masked_input::MaskedInputStyle;
 use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::scrolled::ScrolledStyle;
