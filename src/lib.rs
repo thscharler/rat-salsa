@@ -1,5 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
+use std::cmp::max;
+
 pub mod crossterm;
 pub mod util;
 
@@ -82,6 +84,15 @@ pub trait ConsumedEvent {
             f()
         }
     }
+
+    /// Chaining. Returns max(self, f()).
+    fn then<F>(self, f: F) -> Self
+    where
+        Self: Sized + Ord,
+        F: FnOnce() -> Self,
+    {
+        max(self, f())
+    }
 }
 
 impl<V, E> ConsumedEvent for Result<V, E>
@@ -95,18 +106,6 @@ where
         }
     }
 }
-
-// impl<V> ConsumedEvent for Option<V>
-// where
-//     V: ConsumedEvent,
-// {
-//     fn is_consumed(&self) -> bool {
-//         match self {
-//             Some(v) => v.is_consumed(),
-//             None => true,
-//         }
-//     }
-// }
 
 /// A baseline Outcome for event-handling.
 ///
@@ -132,25 +131,6 @@ impl ConsumedEvent for Outcome {
         !matches!(self, Outcome::NotUsed)
     }
 }
-
-// impl BitOr for Outcome {
-//     type Output = Outcome;
-//
-//     /// Returns max(left, right).
-//     ///
-//     /// That means
-//     /// `Outcome::NotUsed | Outcome::Changed == Outcome::Changed`,
-//     /// which should be the expected result.
-//     fn bitor(self, rhs: Self) -> Self::Output {
-//         max(self, rhs)
-//     }
-// }
-//
-// impl BitOrAssign for Outcome {
-//     fn bitor_assign(&mut self, rhs: Self) {
-//         *self = self.bitor(rhs);
-//     }
-// }
 
 /// Event functions in widgets often return bool to indicate
 /// a meaningful change occured. This converts `true / false` to
