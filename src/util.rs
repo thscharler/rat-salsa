@@ -84,13 +84,6 @@ pub(crate) fn prev(select: usize, change: usize) -> usize {
 
 /// Select next.
 pub(crate) fn next(select: usize, change: usize, len: usize) -> usize {
-    debug!(
-        "next {}+{} | {} -> {}",
-        select,
-        change,
-        len,
-        min(select + change, len.saturating_sub(1))
-    );
     min(select + change, len.saturating_sub(1))
 }
 
