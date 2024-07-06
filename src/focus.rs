@@ -99,8 +99,9 @@ impl<'a> Focus<'a> {
     }
 
     /// Writes a log for each operation.
-    pub fn enable_log(&self, log: bool) {
-        self.core.log.set(log)
+    pub fn enable_log(mut self, log: bool) -> Self {
+        self.core.log.set(log);
+        self
     }
 
     /// Set a name for debugging.
@@ -719,12 +720,12 @@ mod core {
         // first navigable starting at n.
         fn first_navigable(&self, start: usize) -> Option<usize> {
             if self.log.get() {
-                debug!("first navigable {:?}", self.focus[start].name);
+                debug!("first navigable {:?}", self.focus[start].name.get());
             }
             for n in start..self.len() {
                 if self.navigable[n] {
                     if self.log.get() {
-                        debug!("first navigable -> {:?}", self.focus[n].name);
+                        debug!("first navigable -> {:?}", self.focus[n].name.get());
                     }
                     return Some(n);
                 }
@@ -737,7 +738,7 @@ mod core {
 
         fn next_navigable(&self, start: usize) -> usize {
             if self.log.get() {
-                debug!("next navigable {:?}", self.focus[start].name);
+                debug!("next navigable {:?}", self.focus[start].name.get());
             }
 
             let mut n = start;
@@ -745,7 +746,7 @@ mod core {
                 n = if n + 1 < self.len() { n + 1 } else { 0 };
                 if self.navigable[n] {
                     if self.log.get() {
-                        debug!("next navigable -> {:?}", self.focus[n].name);
+                        debug!("next navigable -> {:?}", self.focus[n].name.get());
                     }
                     return n;
                 }
@@ -760,7 +761,7 @@ mod core {
 
         fn prev_navigable(&self, start: usize) -> usize {
             if self.log.get() {
-                debug!("prev navigable {:?}", self.focus[start].name);
+                debug!("prev navigable {:?}", self.focus[start].name.get());
             }
 
             let mut n = start;
@@ -768,7 +769,7 @@ mod core {
                 n = if n > 0 { n - 1 } else { self.len() - 1 };
                 if self.navigable[n] {
                     if self.log.get() {
-                        debug!("prev navigable -> {:?}", self.focus[n].name);
+                        debug!("prev navigable -> {:?}", self.focus[n].name.get());
                     }
                     return n;
                 }
