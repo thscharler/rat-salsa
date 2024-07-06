@@ -8,7 +8,7 @@ pub mod view;
 pub mod viewport;
 
 pub use scrolled::{
-    core, layout_scroll, layout_scroll_inner, Scroll, ScrollArea, ScrollState, ScrollbarPolicy,
+    layout_scroll, layout_scroll_inner, Scroll, ScrollArea, ScrollState, ScrollbarPolicy,
     ScrolledStyle,
 };
 
