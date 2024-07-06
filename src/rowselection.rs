@@ -76,6 +76,24 @@ impl RowSelection {
         old_row != self.lead_row
     }
 
+    /// Update the state to match adding items.
+    pub fn items_added(&mut self, pos: usize, n: usize) {
+        if let Some(lead_row) = self.lead_row {
+            if lead_row >= pos {
+                self.lead_row = Some(lead_row + n);
+            }
+        }
+    }
+
+    /// Update the state to match removing items.
+    pub fn items_removed(&mut self, pos: usize, n: usize) {
+        if let Some(lead_row) = self.lead_row {
+            if lead_row >= pos {
+                self.lead_row = Some(lead_row.saturating_sub(n));
+            }
+        }
+    }
+
     /// Select the given row, limit between 0 and maximum.
     pub fn move_to(&mut self, select: usize, maximum: usize) -> bool {
         let old_row = self.lead_row;
