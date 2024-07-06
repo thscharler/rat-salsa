@@ -72,7 +72,7 @@ pub struct RListState<Selection> {
     /// Area inside the block.
     pub inner: Rect,
     /// Areas for the rendered items.
-    pub item_areas: Vec<Rect>,
+    pub row_areas: Vec<Rect>,
 
     /// Focus
     pub focus: FocusFlag,
@@ -236,19 +236,19 @@ fn render_list<'a, Selection: RListSelection>(
     state.inner = inner_area;
 
     // area for each item
-    state.item_areas.clear();
+    state.row_areas.clear();
     let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
     for item in items.iter().skip(state.offset()) {
         item_area.height = item.height() as u16;
 
-        state.item_areas.push(item_area);
+        state.row_areas.push(item_area);
 
         item_area.y += item_area.height;
         if item_area.y >= state.inner.y + state.inner.height {
             break;
         }
     }
-    state.scroll.set_page_len(state.item_areas.len());
+    state.scroll.set_page_len(state.row_areas.len());
 
     // max_v_offset
     let mut n = 0;
@@ -324,6 +324,11 @@ impl<Selection: RListSelection> RListState<Selection> {
     }
 
     #[inline]
+    pub fn set_max_offset(&mut self, max: usize) {
+        self.scroll.set_max_offset(max);
+    }
+
+    #[inline]
     pub fn offset(&self) -> usize {
         self.scroll.offset()
     }
@@ -375,23 +380,46 @@ impl<Selection: RListSelection> RListState<Selection> {
 }
 
 impl<Selection: RListSelection> RListState<Selection> {
+    /// Returns the row-area for the given row, if it is visible.
+    pub fn row_area(&self, row: usize) -> Option<Rect> {
+        if row < self.scroll.offset() || row >= self.scroll.offset() + self.scroll.page_len() {
+            return None;
+        }
+
+        Some(self.row_areas[row - self.scroll.offset])
+    }
+
     #[inline]
     pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
-        row_at_clicked(&self.item_areas, pos.1).map(|v| self.scroll.offset() + v)
+        row_at_clicked(&self.row_areas, pos.1).map(|v| self.scroll.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: (u16, u16)) -> usize {
-        match row_at_drag(self.inner, &self.item_areas, pos.1) {
+        match row_at_drag(self.inner, &self.row_areas, pos.1) {
             Ok(v) => self.scroll.offset() + v,
             Err(v) if v <= 0 => self.scroll.offset().saturating_sub((-v) as usize),
-            Err(v) => self.scroll.offset() + self.item_areas.len() + v as usize,
+            Err(v) => self.scroll.offset() + self.row_areas.len() + v as usize,
         }
     }
 }
 
 impl RListState<RowSelection> {
+    /// Update the state to match adding items.
+    pub fn items_added(&mut self, pos: usize, n: usize) {
+        self.rows += n;
+        self.scroll.items_added(pos, n);
+        self.selection.items_added(pos, n);
+    }
+
+    /// Update the state to match removing items.
+    pub fn items_removed(&mut self, pos: usize, n: usize) {
+        self.rows -= n;
+        self.scroll.items_removed(pos, n);
+        self.selection.items_removed(pos, n);
+    }
+
     /// When scrolling the table, change the selection instead of the offset.
     #[inline]
     pub fn set_scroll_selection(&mut self, scroll: bool) {
@@ -429,15 +457,10 @@ impl RListState<RowSelection> {
 
     #[inline]
     pub fn select(&mut self, row: Option<usize>) -> bool {
-        if let Some(row) = row {
-            self.selection
-                .select(Some(min(row, self.rows.saturating_sub(1))))
-        } else {
-            self.selection.select(None)
-        }
+        self.selection.select(row)
     }
 
-    /// Move the selection to the given row.
+    /// Move the selection to the given row. Limits the movement to the row-count.
     /// Ensures the row is visible afterwards.
     #[inline]
     pub fn move_to(&mut self, row: usize) -> bool {

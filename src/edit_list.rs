@@ -1,6 +1,7 @@
 use crate::event::EditOutcome;
 use crate::list::selection::RowSelection;
 use crate::list::{RList, RListSelection, RListState};
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use rat_focus::{Focus, HasFocus, HasFocusFlag};
@@ -67,8 +68,8 @@ fn render_ref<'a, Editor>(
         // expect a selected row
         if let Some(row) = state.list.selected() {
             // but it might be out of view
-            if let Some(row_area) = state.list.item_areas.get(row) {
-                widget.edit.render_ref(*row_area, buf, edit_state);
+            if let Some(row_area) = state.list.row_area(row) {
+                widget.edit.render_ref(row_area, buf, edit_state);
             }
         }
     }
