@@ -14,6 +14,7 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
+use std::cmp::max;
 use std::iter::Enumerate;
 use std::slice::Iter;
 
@@ -267,7 +268,7 @@ fn handle_table(
                     break 'f Outcome::Changed;
                 }
                 Some(9) => {
-                    state.table.vscroll.core.set_raw_offset(1_000_000); // 1_000_000;
+                    state.table.vscroll.offset = 1_000_000; // 1_000_000;
                     break 'f Outcome::Changed;
                 }
                 _ => {
@@ -279,5 +280,5 @@ fn handle_table(
     };
 
     let r1 = noselection::handle_events(&mut state.table, true, event);
-    Ok(r0 | r1)
+    Ok(max(r0, r1))
 }
