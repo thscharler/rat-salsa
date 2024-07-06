@@ -249,8 +249,8 @@ impl DarkTheme {
     pub fn list_style(&self) -> RListStyle {
         RListStyle {
             style: self.data(),
-            select_style: self.select(),
-            focus_style: self.focus(),
+            select_style: Some(self.select()),
+            focus_style: Some(self.focus()),
             ..Default::default()
         }
     }
