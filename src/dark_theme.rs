@@ -207,18 +207,8 @@ impl DarkTheme {
             style: self.text_input(),
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
-            ..TextInputStyle::default()
-        }
-    }
-
-    /// Complete MaskedInputStyle
-    pub fn inputmask_style(&self) -> MaskedInputStyle {
-        MaskedInputStyle {
-            style: self.text_input(),
-            focus: Some(self.text_focus()),
-            select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.s.red[3])),
-            ..Default::default()
+            ..TextInputStyle::default()
         }
     }
 
