@@ -3,7 +3,8 @@
 use crossbeam::channel::{SendError, Sender};
 use rat_widget::button::ButtonOutcome;
 use rat_widget::event::{
-    ConsumedEvent, DoubleClickOutcome, EditOutcome, Outcome, ScrollOutcome, TextOutcome,
+    ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, Outcome, ScrollOutcome,
+    TextOutcome,
 };
 use rat_widget::menuline::MenuOutcome;
 use ratatui::buffer::Buffer;
@@ -22,7 +23,6 @@ use crate::threadpool::ThreadPool;
 use crate::timer::{TimeOut, TimerDef, TimerHandle, Timers};
 
 pub use framework::{run_tui, RunConfig};
-use rat_widget::file_dialog::FileOutcome;
 pub use threadpool::Cancel;
 
 /// Result of event-handling.
