@@ -5,6 +5,7 @@ use crate::FilesAction::{Message, ReadDir, Update, UpdateFile};
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
+use directories_next::UserDirs;
 #[allow(unused_imports)]
 use log::debug;
 use rat_salsa::timer::TimeOut;
@@ -40,6 +41,7 @@ use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 use std::{fs, mem};
+use sysinfo::Disks;
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, FilesAction, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
@@ -258,6 +260,7 @@ struct Menu;
 impl<'a> MenuStructure<'a> for Menu {
     fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)> {
         vec![
+            (Line::from("Roots"), None), //
             (Line::from("Theme"), None), //
             (Line::from("Quit"), None),
         ]
@@ -265,7 +268,11 @@ impl<'a> MenuStructure<'a> for Menu {
 
     fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)> {
         match n {
-            0 => dark_themes()
+            0 => fs_roots()
+                .iter()
+                .map(|v| (v.0.to_string().into(), None))
+                .collect(),
+            1 => dark_themes()
                 .iter()
                 .map(|v| (v.name().to_string().into(), None))
                 .collect(),
@@ -459,26 +466,35 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
         });
 
-        ctx.queue(self.focus().handle(event, FocusKeys));
+        ctx.queue(self.focus().enable_log(true).handle(event, FocusKeys));
 
         flow_ok!(match self.w_menu.handle(event, Popup) {
             MenuOutcome::MenuSelected(0, n) => {
-                ctx.g.theme = dark_themes()[n].clone();
+                debug!("select 0 {}", n);
                 Control::Repaint
             }
             MenuOutcome::MenuActivated(0, n) => {
-                ctx.g.theme = dark_themes()[n].clone();
-                self.w_menu.set_popup_active(false);
+                debug!("activate 0 {}", n);
+                if let Some(root) = fs_roots().get(n) {
+                    debug!("set root {:?}", root);
+                    self.main_dir = root.1.clone();
+                    ctx.queue(Control::Action(ReadDir(Full, self.main_dir.clone(), None)));
+                }
                 Control::Repaint
             }
-            MenuOutcome::Activated(1) => {
-                Control::Quit
+            MenuOutcome::MenuSelected(1, n) => {
+                ctx.g.theme = dark_themes()[n].clone();
+                Control::Repaint
+            }
+            MenuOutcome::MenuActivated(1, n) => {
+                ctx.g.theme = dark_themes()[n].clone();
+                Control::Repaint
             }
             r => r.into(),
         });
 
         flow_ok!(match self.w_menu.handle(event, FocusKeys) {
-            MenuOutcome::Activated(1) => {
+            MenuOutcome::Activated(2) => {
                 Control::Quit
             }
             r => r.into(),
@@ -932,10 +948,10 @@ impl FilesState {
 
                     mega = v.len() / 1_000_000;
 
-                    // let mut v_part = v.clone();
-                    // let mut v_part = String::new();
-                    // _ = write!(v_part, "\n ... loading ... {}\n", mega);
-                    // _ = snd.send(Ok(Control::Action(UpdateFile(file.to_path_buf(), v_part))));
+                    if mega == 1 {
+                        let mut v_part = v.clone();
+                        _ = snd.send(Ok(Control::Action(UpdateFile(file.to_path_buf(), v_part))));
+                    }
                 }
             }
             v.push_str(mm.as_str());
@@ -966,8 +982,11 @@ impl FilesState {
 
 impl HasFocus for FilesState {
     fn focus(&self) -> Focus<'_> {
-        let f = Focus::new(&[&self.w_dirs, &self.w_files, &self.w_data, &self.w_menu]);
-        f.enable_log(true);
+        let mut f = Focus::default();
+        f.add(&self.w_dirs);
+        f.add(&self.w_files);
+        f.add(&self.w_data);
+        f.add(&self.w_menu);
         f
     }
 }
@@ -975,17 +994,44 @@ impl HasFocus for FilesState {
 fn setup_logging() -> Result<(), Error> {
     _ = fs::remove_file("log.log");
     fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{} {} {}]\n        {}",
-                humantime::format_rfc3339_seconds(SystemTime::now()),
-                record.level(),
-                record.target(),
-                message
-            ))
-        })
+        .format(|out, message, _record| out.finish(format_args!("{}", message)))
         .level(log::LevelFilter::Debug)
         .chain(fern::log_file("log.log")?)
         .apply()?;
     Ok(())
+}
+
+fn fs_roots() -> Vec<(String, PathBuf)> {
+    let mut roots = Vec::new();
+    if let Some(user) = UserDirs::new() {
+        roots.push(("Home".into(), user.home_dir().to_path_buf()));
+        if let Some(dir) = user.document_dir() {
+            roots.push(("Documents".into(), dir.to_path_buf()));
+        }
+        if let Some(dir) = user.download_dir() {
+            roots.push(("Downloads".into(), dir.to_path_buf()));
+        }
+        if let Some(dir) = user.audio_dir() {
+            roots.push(("Audio".into(), dir.to_path_buf()));
+        }
+        if let Some(dir) = user.desktop_dir() {
+            roots.push(("Desktop".into(), dir.to_path_buf()));
+        }
+        if let Some(dir) = user.picture_dir() {
+            roots.push(("Pictures".into(), dir.to_path_buf()));
+        }
+        if let Some(dir) = user.video_dir() {
+            roots.push(("Video".into(), dir.to_path_buf()));
+        }
+    }
+
+    let disks = Disks::new_with_refreshed_list();
+    for d in disks.list() {
+        roots.push((
+            d.name().to_string_lossy().to_string(),
+            d.mount_point().to_path_buf(),
+        ));
+    }
+
+    roots
 }
