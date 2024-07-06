@@ -701,7 +701,7 @@ impl ScrollState {
         if self.offset >= pos {
             self.offset -= n;
         }
-        self.max_offset -= n;
+        self.max_offset = self.max_offset.saturating_sub(n);
     }
 }
 
