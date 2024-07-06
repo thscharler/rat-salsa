@@ -118,6 +118,13 @@ where
                     ct_event!(keycode press Enter) | ct_event!(keycode press Up) => {
                         EditOutcome::Commit
                     }
+                    ct_event!(keycode press Tab) => {
+                        if self.list.selected() != Some(self.list.rows().saturating_sub(1)) {
+                            EditOutcome::CommitAndEdit
+                        } else {
+                            EditOutcome::CommitAndAppend
+                        }
+                    }
                     ct_event!(keycode press Down) => {
                         if self.list.selected() != Some(self.list.rows().saturating_sub(1)) {
                             EditOutcome::Commit
@@ -163,4 +170,24 @@ where
             self.list.handle(event, MouseOnly).into()
         }
     }
+}
+
+/// Handle extended edit-events.
+///
+/// List events are only handled if focus is true.
+/// Mouse events are processed if they are in range.
+///
+/// The qualifier indicates which event-handler for EState will
+/// be called. Or it can be used to pass in some context.
+pub fn handle_edit_events<EState, EQualifier>(
+    state: &mut EditRListState<EState>,
+    focus: bool,
+    event: &crossterm::event::Event,
+    qualifier: EQualifier,
+) -> EditOutcome
+where
+    EState: HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>,
+{
+    state.list.focus.set(focus);
+    state.handle(event, qualifier)
 }
