@@ -4,7 +4,8 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
-use crate::masked_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
+use crate::input::TextInputStyle;
+use crate::masked_input::{MaskedInput, MaskedInputState};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use rat_event::{FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -55,7 +56,7 @@ impl<'a> NumberInput<'a> {
 
     /// Set the combined style.
     #[inline]
-    pub fn styles(mut self, style: MaskedInputStyle) -> Self {
+    pub fn styles(mut self, style: TextInputStyle) -> Self {
         self.widget = self.widget.styles(style);
         self
     }

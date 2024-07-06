@@ -4,7 +4,8 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
-use crate::masked_input::{MaskedInput, MaskedInputState, MaskedInputStyle};
+use crate::input::TextInputStyle;
+use crate::masked_input::{MaskedInput, MaskedInputState};
 use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use chrono::{Datelike, Days, Local, Months, NaiveDate};
 #[allow(unused_imports)]
@@ -56,7 +57,7 @@ impl<'a> DateInput<'a> {
 
     /// Set the combined style.
     #[inline]
-    pub fn styles(mut self, style: MaskedInputStyle) -> Self {
+    pub fn styles(mut self, style: TextInputStyle) -> Self {
         self.widget = self.widget.styles(style);
         self
     }

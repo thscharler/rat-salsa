@@ -71,7 +71,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
-use crate::input::TextInputState;
+use crate::input::{TextInputState, TextInputStyle};
 use crate::masked_input::core::InputMaskCore;
 use crate::util;
 use format_num_pattern::NumberSymbols;
@@ -99,16 +99,6 @@ pub struct MaskedInput<'a> {
     focus_style: Option<Style>,
     select_style: Option<Style>,
     invalid_style: Option<Style>,
-}
-
-/// Combined style.
-#[derive(Debug, Clone)]
-pub struct MaskedInputStyle {
-    pub style: Style,
-    pub focus: Option<Style>,
-    pub select: Option<Style>,
-    pub invalid: Option<Style>,
-    pub non_exhaustive: NonExhaustive,
 }
 
 /// State of the input-mask.
@@ -141,18 +131,6 @@ impl HasFocusFlag for MaskedInputState {
     }
 }
 
-impl Default for MaskedInputStyle {
-    fn default() -> Self {
-        Self {
-            style: Default::default(),
-            focus: Default::default(),
-            select: Default::default(),
-            invalid: Default::default(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
 impl<'a> MaskedInput<'a> {
     /// New
     pub fn new() -> Self {
@@ -169,7 +147,7 @@ impl<'a> MaskedInput<'a> {
 
     /// Set the combined style.
     #[inline]
-    pub fn styles(mut self, style: MaskedInputStyle) -> Self {
+    pub fn styles(mut self, style: TextInputStyle) -> Self {
         self.style = style.style;
         self.focus_style = style.focus;
         self.select_style = style.select;
