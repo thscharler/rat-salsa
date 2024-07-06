@@ -256,7 +256,6 @@ pub mod theme {
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::input::TextInputStyle;
     use rat_widget::list::RListStyle;
-    use rat_widget::masked_input::MaskedInputStyle;
     use rat_widget::menuline::MenuStyle;
     use rat_widget::msgdialog::MsgDialogStyle;
     use rat_widget::textarea::TextAreaStyle;
@@ -470,18 +469,8 @@ pub mod theme {
                 style: self.text_input(),
                 focus: Some(self.text_focus()),
                 select: Some(self.text_select()),
-                ..TextInputStyle::default()
-            }
-        }
-
-        /// Complete MaskedInputStyle
-        pub fn inputmask_style(&self) -> MaskedInputStyle {
-            MaskedInputStyle {
-                style: self.text_input(),
-                focus: Some(self.text_focus()),
-                select: Some(self.text_select()),
                 invalid: Some(Style::default().bg(self.red[3])),
-                ..Default::default()
+                ..TextInputStyle::default()
             }
         }
 
@@ -491,7 +480,7 @@ pub mod theme {
             MenuStyle {
                 style: menu,
                 title: Some(Style::default().fg(self.black[0]).bg(self.yellow[2])),
-                select: Some(menu),
+                select: Some(self.select()),
                 focus: Some(self.focus()),
                 ..Default::default()
             }
