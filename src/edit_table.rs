@@ -113,7 +113,7 @@ impl<EditorState> HasFocus for EditFTableState<EditorState>
 where
     EditorState: HasFocus,
 {
-    fn focus(&self) -> Focus<'_> {
+    fn focus(&self) -> Focus {
         let mut f = Focus::default();
         if let Some(edit_state) = self.edit.as_ref() {
             f.add_container(edit_state);
