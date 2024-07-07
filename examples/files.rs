@@ -949,8 +949,10 @@ impl FilesState {
                     mega = v.len() / 1_000_000;
 
                     if mega == 1 {
-                        let mut v_part = v.clone();
-                        _ = snd.send(Ok(Control::Action(UpdateFile(file.to_path_buf(), v_part))));
+                        _ = snd.send(Ok(Control::Action(UpdateFile(
+                            file.to_path_buf(),
+                            v.clone(),
+                        ))));
                     }
                 }
             }
