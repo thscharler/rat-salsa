@@ -14,15 +14,15 @@ use ratatui::widgets::{Widget, WidgetRef};
 /// for overlays or windows.
 #[derive(Debug)]
 pub struct Fill<'a> {
-    c: &'a str,
-    style: Style,
+    c: Option<&'a str>,
+    style: Option<Style>,
 }
 
 impl<'a> Default for Fill<'a> {
     fn default() -> Self {
         Self {
-            c: " ",
-            style: Default::default(),
+            c: None,
+            style: None,
         }
     }
 }
@@ -34,13 +34,13 @@ impl<'a> Fill<'a> {
 
     /// Sets the fill char as one graphem.
     pub fn fill_char(mut self, c: &'a str) -> Self {
-        self.c = c;
+        self.c = Some(c);
         self
     }
 
     /// Set the fill style.
     pub fn style(mut self, style: Style) -> Self {
-        self.style = style;
+        self.style = Some(style);
         self
     }
 }
@@ -62,11 +62,42 @@ impl<'a> Widget for Fill<'a> {
 
 fn render_ref(widget: &Fill<'_>, area: Rect, buf: &mut Buffer) {
     let area = buf.area.intersection(area);
-    for y in area.top()..area.bottom() {
-        for x in area.left()..area.right() {
-            let cell = buf.get_mut(x, y);
-            cell.set_symbol(widget.c);
-            cell.set_style(widget.style);
+    match (widget.c, widget.style) {
+        (Some(c), Some(s)) => {
+            for y in area.top()..area.bottom() {
+                for x in area.left()..area.right() {
+                    let cell = buf.get_mut(x, y);
+                    cell.reset();
+                    cell.set_symbol(c);
+                    cell.set_style(s);
+                }
+            }
+        }
+        (None, Some(s)) => {
+            for y in area.top()..area.bottom() {
+                for x in area.left()..area.right() {
+                    let cell = buf.get_mut(x, y);
+                    cell.reset();
+                    cell.set_style(s);
+                }
+            }
+        }
+        (Some(c), None) => {
+            for y in area.top()..area.bottom() {
+                for x in area.left()..area.right() {
+                    let cell = buf.get_mut(x, y);
+                    cell.reset();
+                    cell.set_symbol(c);
+                }
+            }
+        }
+        (None, None) => {
+            for y in area.top()..area.bottom() {
+                for x in area.left()..area.right() {
+                    let cell = buf.get_mut(x, y);
+                    cell.reset();
+                }
+            }
         }
     }
 }
