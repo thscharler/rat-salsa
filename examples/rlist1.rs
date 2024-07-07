@@ -204,7 +204,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn focus(state: &State) -> Focus<'_> {
+fn focus(state: &State) -> Focus {
     let mut f = Focus::default();
     f.add_container(&state.list1);
     f.add(&state.menu);

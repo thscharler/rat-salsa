@@ -80,12 +80,12 @@ impl<EditorState> HasFocus for EditRListState<EditorState>
 where
     EditorState: HasFocusFlag,
 {
-    fn focus(&self) -> Focus<'_> {
+    fn focus(&self) -> Focus {
         let mut f = Focus::default();
         if let Some(edit_state) = self.edit.as_ref() {
             f.add(edit_state);
         } else {
-            f.add_flag(&self.list.focus, self.list.area);
+            f.add(&self.list);
         }
         f
     }

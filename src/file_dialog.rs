@@ -858,7 +858,7 @@ impl FileDialogState {
 }
 
 impl FileDialogState {
-    fn focus(&self) -> Focus<'_> {
+    fn focus(&self) -> Focus {
         let mut f = Focus::default();
         f.add_container(&self.dir_state);
         f.add(&self.file_state);
