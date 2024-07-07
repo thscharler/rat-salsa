@@ -3,8 +3,8 @@
 use crossbeam::channel::{SendError, Sender};
 use rat_widget::button::ButtonOutcome;
 use rat_widget::event::{
-    ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, Outcome, ScrollOutcome,
-    TextOutcome,
+    ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, FocusKeys, HandleEvent, Outcome,
+    ScrollOutcome, TextOutcome,
 };
 use rat_widget::menuline::MenuOutcome;
 use ratatui::buffer::Buffer;
@@ -23,6 +23,7 @@ use crate::threadpool::ThreadPool;
 use crate::timer::{TimeOut, TimerDef, TimerHandle, Timers};
 
 pub use framework::{run_tui, RunConfig};
+use rat_widget::focus::Focus;
 pub use threadpool::Cancel;
 
 /// Result of event-handling.
@@ -245,6 +246,9 @@ where
 {
     /// Some global state for the application.
     pub g: &'a mut Global,
+    /// Can be set to hold a Focus, if necessary.
+    /// Will be reset after each event-handler.
+    pub focus: Option<Focus>,
     /// Current timeout, if any.
     pub timeout: Option<TimeOut>,
 
@@ -266,8 +270,6 @@ pub struct RenderContext<'a, Global> {
 
     /// Frame counter.
     pub counter: usize,
-    /// Frame area.
-    pub area: Rect,
     /// Output cursor position. Set after rendering is complete.
     pub cursor: Option<(u16, u16)>,
 }
@@ -315,17 +317,23 @@ where
     }
 
     /// Queue additional results.
-    ///
-    /// X
     #[inline]
     pub fn queue(&self, ctrl: impl Into<Control<Action>>) {
-        self.queue.push(Ok(ctrl.into()))
+        self.queue.push(Ok(ctrl.into()));
+    }
+
+    /// Queue an error.
+    pub fn queue_err(&self, err: Error) {
+        self.queue.push(Err(err));
     }
 
     /// Queue additional results.
     #[inline]
-    pub fn queue_result(&self, ctrl: Result<Control<Action>, Error>) {
-        self.queue.push(ctrl)
+    pub fn queue_result(&self, ctrl: Result<impl Into<Control<Action>>, Error>) {
+        match ctrl {
+            Ok(v) => self.queue.push(Ok(v.into())),
+            Err(e) => self.queue.push(Err(e)),
+        }
     }
 }
 

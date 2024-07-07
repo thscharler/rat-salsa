@@ -141,6 +141,7 @@ where
 
     let mut appctx = AppContext {
         g: global,
+        focus: None,
         timeout: None,
         timers: &timers,
         tasks: &tasks,
@@ -172,7 +173,7 @@ where
                         }
                         Ok(false) => {}
                         Err(e) => {
-                            appctx.queue_result(Err(e));
+                            appctx.queue_err(e);
                         }
                     }
                 }
@@ -213,7 +214,7 @@ where
             Some(Ok(Control::Break)) => {}
             Some(Ok(Control::Repaint)) => {
                 if let Err(e) = term.render(&mut app, state, &mut appctx) {
-                    appctx.queue_result(Err(e));
+                    appctx.queue_err(e);
                 }
             }
             Some(Ok(Control::Action(mut a))) => {
@@ -224,6 +225,8 @@ where
                 break 'ui;
             }
         }
+
+        appctx.focus = None;
     }
 
     Ok(())

@@ -256,7 +256,7 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
 }
 
 impl HasFocus for MDAppState {
-    fn focus(&self) -> Focus<'_> {
+    fn focus(&self) -> Focus {
         let mut f = Focus::default().enable_log(true);
         f.add(&self.menu);
         f.add_container(&self.editor);
@@ -302,7 +302,11 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         });
         flow_ok!(self.filedlg.handle(event, ())?);
 
-        ctx.queue_result(Ok(self.focus().handle(event, FocusKeys).into()));
+        // focus
+        let mut focus = self.focus();
+        let f = focus.handle(event, FocusKeys);
+        ctx.focus = Some(focus);
+        ctx.queue(f);
 
         flow_ok!(match self.menu.handle(event, Popup) {
             MenuOutcome::MenuActivated(0, 0) => {
@@ -357,6 +361,8 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
             }
             _ => Control::Continue,
         });
+
+        ctx.focus = Some(self.focus());
 
         // TODO: actions
         flow_ok!(self.editor.action(event, ctx)?);
@@ -414,7 +420,7 @@ mod mdedit {
     }
 
     impl HasFocus for MDEditState {
-        fn focus(&self) -> Focus<'_> {
+        fn focus(&self) -> Focus {
             Focus::new(&[&self.edit])
         }
     }
@@ -464,7 +470,7 @@ mod mdedit {
                 MDAction::Open(p) => {
                     let t = fs::read_to_string(p)?;
                     self.edit.set_value(t);
-                    // todo: wide area focus
+                    ctx.focus.as_ref().expect("focus").focus_widget(&self.edit);
                     Control::Repaint
                 }
                 MDAction::Save(_) => {

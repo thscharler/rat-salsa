@@ -983,7 +983,7 @@ impl FilesState {
 }
 
 impl HasFocus for FilesState {
-    fn focus(&self) -> Focus<'_> {
+    fn focus(&self) -> Focus {
         let mut f = Focus::default();
         f.add(&self.w_dirs);
         f.add(&self.w_files);

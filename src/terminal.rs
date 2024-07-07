@@ -120,7 +120,6 @@ where
                 g: ctx.g,
                 timeout: ctx.timeout,
                 counter: frame.count(),
-                area: frame.size(),
                 cursor: None,
             };
 
