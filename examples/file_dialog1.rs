@@ -121,7 +121,7 @@ fn handle_input(
 
     flow_ok!(match menubar::handle_events(&mut state.menu, true, event) {
         MenuOutcome::Activated(v) => {
-            if v == 3 {
+            if v == 1 {
                 return Err(anyhow!("Quit"));
             }
             Outcome::Changed

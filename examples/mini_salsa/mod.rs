@@ -251,7 +251,7 @@ pub fn layout_grid<const X: usize, const Y: usize>(
 
 pub mod theme {
     use rat_ftable::FTableStyle;
-    use rat_scrolled::ScrolledStyle;
+    use rat_scrolled::ScrollStyle;
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
     use rat_widget::input::TextInputStyle;
@@ -521,10 +521,10 @@ pub mod theme {
         }
 
         /// Complete ScrolledStyle
-        pub fn scrolled_style(&self) -> ScrolledStyle {
+        pub fn scrolled_style(&self) -> ScrollStyle {
             let style = Style::default().fg(self.gray[0]).bg(self.black[1]);
             let arrow_style = Style::default().fg(self.secondary[0]).bg(self.black[1]);
-            ScrolledStyle {
+            ScrollStyle {
                 thumb_style: Some(style),
                 track_style: Some(style),
                 no_style: Some(style),
@@ -562,8 +562,12 @@ pub mod theme {
                 invalid: Some(Style::new().fg(self.red[3]).bg(self.gray[2])),
                 select: Some(self.select()),
                 focus: Some(self.focus()),
-                button: Some(self.button_style()),
-                armed: Some(self.armed_style()),
+                button: Some(ButtonStyle {
+                    style: self.button_style(),
+                    focus: Some(self.focus()),
+                    armed: Some(self.armed_style()),
+                    ..Default::default()
+                }),
                 ..Default::default()
             }
         }
