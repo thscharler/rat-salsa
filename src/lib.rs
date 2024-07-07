@@ -252,3 +252,28 @@ macro_rules! flow_ok {
         }
     }};
 }
+
+/// One more control-flow macro with ConsumedEvent.
+///
+/// If you don't want to return early with is_consumed(), you
+/// can define a variable, and or_else! the different options.
+///
+/// ```rust
+/// let mut r;
+///
+/// r = first_activity();
+/// or_else!(r, second_activity());
+/// or_else!(r, third_activity());
+/// ```
+///
+/// This executes `second_activity` if !r.is_consumed() and stores the
+/// result in r. The same with `third_activity` ...
+///
+#[macro_export]
+macro_rules! or_else {
+    ($x:ident, $e:expr) => {
+        if !$crate::ConsumedEvent::is_consumed(&$x) {
+            $x = $e;
+        }
+    };
+}
