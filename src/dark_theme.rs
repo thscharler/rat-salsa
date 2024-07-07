@@ -1,10 +1,11 @@
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
+use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::input::TextInputStyle;
 use rat_widget::list::RListStyle;
 use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
-use rat_widget::scrolled::ScrolledStyle;
+use rat_widget::scrolled::ScrollStyle;
 use rat_widget::table::FTableStyle;
 use rat_widget::textarea::TextAreaStyle;
 use ratatui::prelude::Style;
@@ -255,10 +256,10 @@ impl DarkTheme {
     }
 
     /// Complete ScrolledStyle
-    pub fn scrolled_style(&self) -> ScrolledStyle {
+    pub fn scroll_style(&self) -> ScrollStyle {
         let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
         let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
-        ScrolledStyle {
+        ScrollStyle {
             thumb_style: Some(style),
             track_style: Some(style),
             no_style: Some(style),
@@ -287,6 +288,20 @@ impl DarkTheme {
         MsgDialogStyle {
             style: self.status_style(),
             button: self.button_style(),
+            ..Default::default()
+        }
+    }
+
+    pub fn file_dialog_style(&self) -> FileDialogStyle {
+        FileDialogStyle {
+            style: self.dialog_style(),
+            list: Some(self.data()),
+            path: Some(self.text_input()),
+            name: Some(self.text_input()),
+            invalid: Some(Style::new().fg(self.s.red[3]).bg(self.s.gray[2])),
+            select: Some(self.select()),
+            focus: Some(self.focus()),
+            button: Some(self.button_style()),
             ..Default::default()
         }
     }
