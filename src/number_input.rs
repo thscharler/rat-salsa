@@ -189,7 +189,7 @@ impl NumberInputState {
     /// This flag is not used for event-handling.
     #[inline]
     pub fn set_focused(&mut self, focus: bool) {
-        self.widget.focus.focus.set(focus);
+        self.widget.focus.set(focus);
     }
 
     /// Renders the widget in focused style.
@@ -197,7 +197,7 @@ impl NumberInputState {
     /// This flag is not used for event-handling.
     #[inline]
     pub fn is_focused(&mut self) -> bool {
-        self.widget.focus.focus.get()
+        self.widget.focus.get()
     }
 
     /// Renders the widget in invalid style.

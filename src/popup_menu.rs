@@ -323,7 +323,7 @@ impl PopupMenuState {
 
     /// Show the popup.
     pub fn flip_active(&mut self) {
-        self.focus.focus.set(!self.focus.get());
+        self.focus.set(!self.focus.get());
     }
 
     /// Show the popup.
@@ -333,7 +333,7 @@ impl PopupMenuState {
 
     /// Show the popup.
     pub fn set_active(&self, active: bool) {
-        self.focus.focus.set(active);
+        self.focus.set(active);
     }
 
     /// Number of items.

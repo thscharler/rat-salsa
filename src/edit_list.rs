@@ -1,6 +1,7 @@
 use crate::event::EditOutcome;
 use crate::list::selection::RowSelection;
 use crate::list::{RList, RListSelection, RListState};
+#[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};

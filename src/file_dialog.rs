@@ -38,7 +38,6 @@ pub struct FileDialog<'a> {
     select_style: Option<Style>,
     focus_style: Option<Style>,
     button_style: Option<ButtonStyle>,
-    armed_style: Option<Style>,
 
     ok_text: &'a str,
     cancel_text: &'a str,
@@ -168,7 +167,6 @@ impl<'a> FileDialog<'a> {
             select_style: None,
             focus_style: None,
             button_style: None,
-            armed_style: None,
             ok_text: "Ok",
             cancel_text: "Cancel",
         }

@@ -240,7 +240,7 @@ impl ButtonState {
     /// This flag is not used for event-handling.
     #[inline]
     pub fn set_focused(&mut self, focus: bool) {
-        self.focus.focus.set(focus);
+        self.focus.set(focus);
     }
 
     /// Renders the widget in focused style.
@@ -248,7 +248,7 @@ impl ButtonState {
     /// This flag is not used for event-handling.
     #[inline]
     pub fn is_focused(&mut self) -> bool {
-        self.focus.focus.get()
+        self.focus.get()
     }
 }
 
