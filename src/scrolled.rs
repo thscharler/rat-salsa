@@ -75,7 +75,7 @@ pub enum ScrollbarPolicy {
 }
 
 #[derive(Debug, Clone)]
-pub struct ScrolledStyle {
+pub struct ScrollStyle {
     pub thumb_style: Option<Style>,
     pub track_symbol: Option<&'static str>,
     pub track_style: Option<Style>,
@@ -158,7 +158,7 @@ impl<'a> Scroll<'a> {
         }
     }
 
-    pub fn styles(mut self, styles: ScrolledStyle) -> Self {
+    pub fn styles(mut self, styles: ScrollStyle) -> Self {
         self.thumb_style = styles.thumb_style;
         self.track_symbol = styles.track_symbol;
         self.track_style = styles.track_style;
@@ -859,7 +859,7 @@ impl ScrollbarPolicy {
     }
 }
 
-impl Default for ScrolledStyle {
+impl Default for ScrollStyle {
     fn default() -> Self {
         Self {
             thumb_style: None,
