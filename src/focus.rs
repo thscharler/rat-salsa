@@ -99,7 +99,7 @@ impl<'a> Focus<'a> {
     }
 
     /// Writes a log for each operation.
-    pub fn enable_log(mut self, log: bool) -> Self {
+    pub fn enable_log(self, log: bool) -> Self {
         self.core.log.set(log);
         self
     }
