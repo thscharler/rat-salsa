@@ -403,26 +403,26 @@ mod core {
         fn __start_change(&self, set_lost: bool) {
             for p in self.focus.iter() {
                 if set_lost {
-                    p.lost.set(p.focus.get());
+                    p.set_lost(p.get());
                 } else {
-                    p.lost.set(false);
+                    p.set_lost(false);
                 }
-                p.gained.set(false);
-                p.focus.set(false);
+                p.set_gained(false);
+                p.set(false);
             }
         }
 
         fn __focus(&self, n: usize, set_lost: bool) {
             if let Some(f) = self.focus.get(n) {
-                f.focus.set(true);
+                f.set(true);
                 if set_lost {
-                    if f.lost.get() {
+                    if f.lost() {
                         // new focus same as old.
                         // reset lost + gained
-                        f.lost.set(false);
-                        f.gained.set(false);
+                        f.set_lost(false);
+                        f.set_gained(false);
                     } else {
-                        f.gained.set(true);
+                        f.set_gained(true);
                     }
                 }
             }
@@ -431,10 +431,10 @@ mod core {
         // accumulate everything
         fn __accumulate(&self) {
             if let Some(container) = self.container {
-                container.focus.focus.set(false);
+                container.focus.set(false);
                 for p in self.focus.iter() {
-                    if p.focus.get() {
-                        container.focus.focus.set(true);
+                    if p.get() {
+                        container.focus.set(true);
                         break;
                     }
                 }
@@ -446,29 +446,29 @@ mod core {
                 let mut any_focused = false;
 
                 for f in list {
-                    any_gained |= f.gained.get();
-                    any_lost |= f.lost.get();
-                    any_focused |= f.focus.get();
+                    any_gained |= f.gained();
+                    any_lost |= f.lost();
+                    any_focused |= f.get();
                 }
 
-                f.focus.focus.set(any_focused);
-                f.focus.lost.set(any_lost && !any_gained);
-                f.focus.gained.set(any_gained && !any_lost);
+                f.focus.set(any_focused);
+                f.focus.set_lost(any_lost && !any_gained);
+                f.focus.set_gained(any_gained && !any_lost);
             }
         }
 
         pub(super) fn reset_lost_gained(&self) {
             if let Some(container) = &self.container {
-                container.focus.gained.set(false);
-                container.focus.lost.set(false);
+                container.focus.set_gained(false);
+                container.focus.set_lost(false);
             }
             for p in self.focus.iter() {
-                p.lost.set(false);
-                p.gained.set(false);
+                p.set_lost(false);
+                p.set_gained(false);
             }
             for (p, _) in self.sub_container.iter() {
-                p.focus.gained.set(false);
-                p.focus.lost.set(false);
+                p.focus.set_gained(false);
+                p.focus.set_lost(false);
             }
         }
 
@@ -647,7 +647,7 @@ mod core {
             }
             self.__start_change(true);
             for (n, p) in self.focus.iter().enumerate() {
-                if p.lost.get() {
+                if p.lost() {
                     if self.log.get() {
                         debug!("    current {:?}", p);
                     }
@@ -677,7 +677,7 @@ mod core {
             }
             self.__start_change(true);
             for (i, p) in self.focus.iter().enumerate() {
-                if p.lost.get() {
+                if p.lost() {
                     if self.log.get() {
                         debug!("    current {:?}", p);
                     }
@@ -720,12 +720,12 @@ mod core {
         // first navigable starting at n.
         fn first_navigable(&self, start: usize) -> Option<usize> {
             if self.log.get() {
-                debug!("first navigable {:?}", self.focus[start].name.get());
+                debug!("first navigable {:?}", self.focus[start].name());
             }
             for n in start..self.len() {
                 if self.navigable[n] {
                     if self.log.get() {
-                        debug!("first navigable -> {:?}", self.focus[n].name.get());
+                        debug!("first navigable -> {:?}", self.focus[n].name());
                     }
                     return Some(n);
                 }
@@ -738,7 +738,7 @@ mod core {
 
         fn next_navigable(&self, start: usize) -> usize {
             if self.log.get() {
-                debug!("next navigable {:?}", self.focus[start].name.get());
+                debug!("next navigable {:?}", self.focus[start].name());
             }
 
             let mut n = start;
@@ -746,7 +746,7 @@ mod core {
                 n = if n + 1 < self.len() { n + 1 } else { 0 };
                 if self.navigable[n] {
                     if self.log.get() {
-                        debug!("next navigable -> {:?}", self.focus[n].name.get());
+                        debug!("next navigable -> {:?}", self.focus[n].name());
                     }
                     return n;
                 }
@@ -761,7 +761,7 @@ mod core {
 
         fn prev_navigable(&self, start: usize) -> usize {
             if self.log.get() {
-                debug!("prev navigable {:?}", self.focus[start].name.get());
+                debug!("prev navigable {:?}", self.focus[start].name());
             }
 
             let mut n = start;
@@ -769,7 +769,7 @@ mod core {
                 n = if n > 0 { n - 1 } else { self.len() - 1 };
                 if self.navigable[n] {
                     if self.log.get() {
-                        debug!("prev navigable -> {:?}", self.focus[n].name.get());
+                        debug!("prev navigable -> {:?}", self.focus[n].name());
                     }
                     return n;
                 }

@@ -137,10 +137,20 @@ impl FocusFlag {
         self.lost.get()
     }
 
+    #[inline]
+    pub fn set_lost(&self, lost: bool) {
+        self.lost.set(lost);
+    }
+
     /// Just gained the focus.
     #[inline]
     pub fn gained(&self) -> bool {
         self.gained.get()
+    }
+
+    #[inline]
+    pub fn set_gained(&self, gained: bool) {
+        self.gained.set(gained);
     }
 
     /// Reset all flags to false.
