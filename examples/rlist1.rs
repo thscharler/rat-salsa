@@ -1,8 +1,9 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, MiniSalsaState};
 use anyhow::anyhow;
+#[allow(unused_imports)]
 use log::Log;
-use rat_event::{flow_ok, ConsumedEvent, FocusKeys, HandleEvent, Outcome, Popup};
+use rat_event::{flow_ok, FocusKeys, HandleEvent, Outcome, Popup};
 use rat_focus::{Focus, FocusFlag, HasFocus, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
@@ -14,11 +15,9 @@ use rat_widget::menuline::MenuOutcome;
 use rat_widget::popup_menu::Placement;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Stylize;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, ListItem, StatefulWidget, StatefulWidgetRef, Widget};
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
@@ -62,7 +61,7 @@ fn main() -> Result<(), anyhow::Error> {
 
 #[derive(Default)]
 struct Data {
-    pub data: Vec<String>,
+    pub(crate) data: Vec<String>,
 }
 
 struct State {
@@ -208,7 +207,7 @@ fn repaint_input(
 fn focus(state: &State) -> Focus<'_> {
     let mut f = Focus::default();
     f.add_container(&state.list1);
-    f.add_container(&state.menu);
+    f.add(&state.menu);
     f
 }
 
@@ -310,7 +309,7 @@ fn handle_input(
                 }
             }
             Outcome::Changed
-        };
+        }
 
         match state.list1.handle(event, FocusKeys) {
             EditOutcome::Cancel => cancel(data, state),
