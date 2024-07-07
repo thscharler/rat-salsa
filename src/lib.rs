@@ -8,6 +8,7 @@ use log::debug;
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Formatter};
+use std::rc::Rc;
 
 pub use crate::focus::{handle_focus, handle_mouse_focus, Focus};
 pub use crate::zrect::ZRect;
@@ -20,30 +21,36 @@ pub mod event {
     };
 }
 
-/// Contains flags for the focus.
+/// Holds the flags for the focus.
 /// This struct is embedded in the widget state.
+///
+/// Internally it has is a `Rc<Cell<>>`, so it can be freely cloned
+/// when needed, and doesn't interfere with borrow checking on the state.
 ///
 /// See [HasFocusFlag], [on_gained!](crate::on_gained!) and
 /// [on_lost!](crate::on_lost!).
 ///
 #[derive(Clone, Default, PartialEq, Eq)]
-pub struct FocusFlag {
+pub struct FocusFlag(Rc<FocusFlagCore>);
+
+#[derive(Clone, Default, PartialEq, Eq)]
+struct FocusFlagCore {
     /// Field name for debugging purposes.
-    pub name: Cell<&'static str>,
+    name: Cell<&'static str>,
     /// Focus.
-    pub focus: Cell<bool>,
+    focus: Cell<bool>,
     /// This widget just gained the focus. This flag is set by [Focus::handle]
     /// if there is a focus transfer, and will be reset by the next
     /// call to [Focus::handle].
     ///
     /// See [on_gained!](crate::on_gained!)
-    pub gained: Cell<bool>,
+    gained: Cell<bool>,
     /// This widget just lost the focus. This flag is set by [Focus::handle]
     /// if there is a focus transfer, and will be reset by the next
     /// call to [Focus::handle].
     ///
     /// See [on_lost!](crate::on_lost!)
-    pub lost: Cell<bool>,
+    lost: Cell<bool>,
 }
 
 /// Trait for a widget that has a focus flag.
@@ -92,16 +99,16 @@ pub trait HasFocusFlag {
 /// Is this a container widget of sorts.
 pub trait HasFocus {
     /// Returns a Focus struct.
-    fn focus(&self) -> Focus<'_>;
+    fn focus(&self) -> Focus;
 }
 
 impl Debug for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FocusFlag")
-            .field("name", &self.name.get())
-            .field("focus", &self.focus.get())
-            .field("gained", &self.gained.get())
-            .field("lost", &self.lost.get())
+            .field("name", &self.name())
+            .field("focus", &self.get())
+            .field("gained", &self.gained())
+            .field("lost", &self.lost())
             .finish()
     }
 }
@@ -110,55 +117,55 @@ impl FocusFlag {
     /// Has the focus.
     #[inline]
     pub fn get(&self) -> bool {
-        self.focus.get()
+        self.0.focus.get()
     }
 
     /// Set the focus.
     #[inline]
     pub fn set(&self, focus: bool) {
-        self.focus.set(focus);
+        self.0.focus.set(focus);
     }
 
     /// Set the field-name.
     #[inline]
     pub fn set_name(&self, name: &'static str) {
-        self.name.set(name);
+        self.0.name.set(name);
     }
 
     /// Get the field-name.
     #[inline]
     pub fn name(&self) -> &'static str {
-        self.name.get()
+        self.0.name.get()
     }
 
     /// Just lost the focus.
     #[inline]
     pub fn lost(&self) -> bool {
-        self.lost.get()
+        self.0.lost.get()
     }
 
     #[inline]
     pub fn set_lost(&self, lost: bool) {
-        self.lost.set(lost);
+        self.0.lost.set(lost);
     }
 
     /// Just gained the focus.
     #[inline]
     pub fn gained(&self) -> bool {
-        self.gained.get()
+        self.0.gained.get()
     }
 
     #[inline]
     pub fn set_gained(&self, gained: bool) {
-        self.gained.set(gained);
+        self.0.gained.set(gained);
     }
 
     /// Reset all flags to false.
     #[inline]
     pub fn clear(&self) {
-        self.focus.set(false);
-        self.lost.set(false);
-        self.gained.set(false);
+        self.0.focus.set(false);
+        self.0.lost.set(false);
+        self.0.gained.set(false);
     }
 }
 

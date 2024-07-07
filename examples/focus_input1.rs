@@ -98,7 +98,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn focus_input(state: &mut State) -> Focus<'_> {
+fn focus_input(state: &mut State) -> Focus {
     Focus::new(&[&state.input1, &state.input2, &state.input3, &state.input4])
 }
 

@@ -4,16 +4,22 @@ use log::debug;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use ratatui::layout::Rect;
 
+/// Focus solves all focus-related issues.
+///
+/// It must be constructed at least after each render(), as it holds
+/// copies of the widget-areas for mouse-handling. In practice, it will
+/// be freshly constructed for each run of an event-handler.
 #[derive(Debug, Default)]
-pub struct Focus<'a> {
+pub struct Focus {
     /// Name for the cycle.
     name: String,
-    pub core: FocusCore<'a>,
+    /// core impl
+    core: FocusCore,
 }
 
-impl<'a> Focus<'a> {
+impl Focus {
     /// Construct a new focus list.
-    pub fn new(list: &[&'a dyn HasFocusFlag]) -> Self {
+    pub fn new(list: &[&'_ dyn HasFocusFlag]) -> Self {
         let mut ff = Focus::default();
         for f in list {
             ff.core.add(f.focus(), f.area(), f.z_areas(), f.navigable());
@@ -33,7 +39,7 @@ impl<'a> Focus<'a> {
     /// the container is, the first widget gets the focus.
     ///
     /// See `examples/focus_recursive` and `examples/focus_recursive2`
-    pub fn new_container(c: &'a dyn HasFocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
+    pub fn new_container(c: &'_ dyn HasFocusFlag, list: &[&'_ dyn HasFocusFlag]) -> Self {
         let mut ff = Focus::default();
         ff.core.set_container(c.focus(), c.area(), c.z_areas());
         for f in list {
@@ -49,7 +55,7 @@ impl<'a> Focus<'a> {
     ///
     /// The same rules apply as for new_accu(), but with this one
     /// there is no overall area for mouse interaction.
-    pub fn new_grp(grp: &'a FocusFlag, list: &[&'a dyn HasFocusFlag]) -> Self {
+    pub fn new_grp(grp: &'_ FocusFlag, list: &[&'_ dyn HasFocusFlag]) -> Self {
         let mut ff = Focus::default();
         ff.core.set_container(grp, Rect::ZERO, &[]);
         for f in list {
@@ -60,7 +66,7 @@ impl<'a> Focus<'a> {
 
     /// Add a single widget.
     /// This doesn't add any z_areas and assumes navigable is true.
-    pub fn add_flag(&mut self, flag: &'a FocusFlag, area: Rect) -> &mut Self {
+    pub fn add_flag(&mut self, flag: &'_ FocusFlag, area: Rect) -> &mut Self {
         self.core.add(flag, area, &[], true);
         self
     }
@@ -70,27 +76,27 @@ impl<'a> Focus<'a> {
     /// All its widgets are appended to this list. If the sub-cycle
     /// has an accumulator it's added to the sub-accumulators. All
     /// sub-sub-accumulators are appended too.
-    pub fn add_focus(&mut self, focus: Focus<'a>) -> &mut Self {
+    pub fn add_focus(&mut self, focus: Focus) -> &mut Self {
         self.core.add_focus(focus.core);
         self
     }
 
     /// Add a container widget.
-    pub fn add_container(&mut self, c: &'a dyn HasFocus) -> &mut Self {
+    pub fn add_container(&mut self, c: &'_ dyn HasFocus) -> &mut Self {
         let ff = c.focus();
         self.core.add_focus(ff.core);
         self
     }
 
     /// Add a single widget.
-    pub fn add(&mut self, f: &'a dyn HasFocusFlag) -> &mut Self {
+    pub fn add(&mut self, f: &'_ dyn HasFocusFlag) -> &mut Self {
         self.core
             .add(f.focus(), f.area(), f.z_areas(), f.navigable());
         self
     }
 
     /// Add a list of widgets.
-    pub fn add_all(&mut self, list: &[&'a dyn HasFocusFlag]) -> &mut Self {
+    pub fn add_all(&mut self, list: &[&'_ dyn HasFocusFlag]) -> &mut Self {
         for f in list {
             self.core
                 .add(f.focus(), f.area(), f.z_areas(), f.navigable());
@@ -129,7 +135,7 @@ impl<'a> Focus<'a> {
     ///
     /// Sets the focus, but doesn't set lost or gained.
     /// This can be used to prevent validation of the field.
-    pub fn focus_widget_no_lost(&self, widget_state: &'a dyn HasFocusFlag) {
+    pub fn focus_widget_no_lost(&self, widget_state: &'_ dyn HasFocusFlag) {
         if self.core.log.get() {
             debug!("focus_no_lost {:?}", widget_state.focus());
         }
@@ -144,7 +150,7 @@ impl<'a> Focus<'a> {
     ///
     /// If this ends up with the same widget as
     /// before gained and lost flags are not set.
-    pub fn focus_widget(&self, widget_state: &'a dyn HasFocusFlag) {
+    pub fn focus_widget(&self, widget_state: &'_ dyn HasFocusFlag) {
         if self.core.log.get() {
             debug!("focus {:?}", widget_state.focus());
         }
@@ -186,7 +192,7 @@ impl<'a> Focus<'a> {
     /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
-    pub fn focused(&self) -> Option<&'a FocusFlag> {
+    pub fn focused(&self) -> Option<FocusFlag> {
         self.core.focused()
     }
 
@@ -195,7 +201,7 @@ impl<'a> Focus<'a> {
     /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
-    pub fn lost_focus(&self) -> Option<&'a FocusFlag> {
+    pub fn lost_focus(&self) -> Option<FocusFlag> {
         self.core.lost_focus()
     }
 
@@ -204,7 +210,7 @@ impl<'a> Focus<'a> {
     /// This is mainly for debugging purposes.
     /// For control-flow [crate::match_focus] or [crate::on_gained] or [crate::on_lost]
     /// will be nicer.
-    pub fn gained_focus(&self) -> Option<&'a FocusFlag> {
+    pub fn gained_focus(&self) -> Option<FocusFlag> {
         self.core.gained_focus()
     }
 
@@ -269,108 +275,73 @@ mod core {
     use log::debug;
     use ratatui::layout::Rect;
     use std::cell::Cell;
-    use std::ptr;
+    use std::rc::Rc;
 
-    #[derive(Debug, Clone, Copy)]
-    struct Container<'a> {
+    #[derive(Debug, Clone)]
+    struct Container {
         /// Area for the whole compound. Only valid if container_focus is Some().
         area: Rect,
         /// Area split in regions. Only valid if container_focus is Some().
-        z_area: &'a [ZRect],
+        z_area: Vec<ZRect>,
         /// Summarizes all the contained FocusFlags.
         /// If any of them has the focus set, this will be set too.
         /// This can help if you build compound widgets.
-        focus: &'a FocusFlag,
+        focus: FocusFlag,
     }
 
     #[derive(Debug, Default)]
-    pub struct FocusCore<'a> {
+    pub(super) struct FocusCore {
         /// Focus logging
-        pub log: Cell<bool>,
+        pub(super) log: Cell<bool>,
 
         /// Summary of all focus-flags in one container focus flag.
-        container: Option<Container<'a>>,
+        container: Option<Container>,
 
         /// Areas for each widget.
         areas: Vec<Rect>,
         /// Areas for each widget split in regions.
-        z_areas: Vec<&'a [ZRect]>,
+        z_areas: Vec<Vec<ZRect>>,
         /// Keyboard navigable
         navigable: Vec<bool>,
         /// List of flags.
-        focus: Vec<&'a FocusFlag>,
+        focus: Vec<FocusFlag>,
 
         /// List of sub-containers and their dependencies.
         ///
         /// This is filled if you call [crate::Focus::add_focus]. The
         /// container_focus of the appended Focus and all its focus-flags
         /// are added. And all the sub_container's of it are appended too.
-        sub_container: Vec<(Container<'a>, Vec<&'a FocusFlag>)>,
+        sub_container: Vec<(Container, Vec<FocusFlag>)>,
     }
 
-    impl<'a> FocusCore<'a> {
-        pub fn container_area(&self) -> Option<Rect> {
-            self.container.map(|v| v.area)
-        }
-
-        pub fn container_z_area(&self) -> Option<&[ZRect]> {
-            self.container.map(|v| v.z_area)
-        }
-
-        pub fn container_focus(&self) -> Option<&FocusFlag> {
-            self.container.map(|v| v.focus)
-        }
-
-        pub fn areas(&self) -> &[Rect] {
-            &self.areas
-        }
-
-        pub fn z_areas(&self) -> &[&[ZRect]] {
-            &self.z_areas
-        }
-
-        pub fn navigable(&self) -> &[bool] {
-            &self.navigable
-        }
-
-        pub fn focus(&self) -> &[&FocusFlag] {
-            &self.focus
-        }
-
-        pub fn sub_container(&self) -> Vec<(Rect, &'a [ZRect], &'a FocusFlag, Vec<&FocusFlag>)> {
-            self.sub_container
-                .iter()
-                .map(|(c, f)| (c.area, c.z_area, c.focus, f.clone()))
-                .collect()
-        }
-
+    impl FocusCore {
         pub(super) fn set_container(
             &mut self,
-            focus: &'a FocusFlag,
+            focus: &'_ FocusFlag,
             area: Rect,
-            z_area: &'a [ZRect],
+            z_area: &'_ [ZRect],
         ) {
             self.container = Some(Container {
                 area,
-                z_area,
-                focus,
+                z_area: Vec::from(z_area),
+                focus: focus.clone(),
             })
         }
 
         pub(super) fn add(
             &mut self,
-            focus: &'a FocusFlag,
+            focus: &'_ FocusFlag,
             area: Rect,
-            z_areas: &'a [ZRect],
+            z_areas: &'_ [ZRect],
             navigable: bool,
         ) {
-            self.focus.push(focus);
+            self.focus.push(focus.clone());
             self.areas.push(area);
-            self.z_areas.push(z_areas);
+            self.z_areas.push(Vec::from(z_areas));
             self.navigable.push(navigable)
         }
 
-        pub(super) fn add_focus(&mut self, focus: FocusCore<'a>) {
+        pub(super) fn add_focus(&mut self, focus: FocusCore) {
             // container area probably overlaps with the areas of sub-containers.
             // search those first.
             for v in focus.sub_container {
@@ -391,7 +362,8 @@ mod core {
                 .focus
                 .iter()
                 .enumerate() //
-                .find(|(_, f)| ptr::eq(**f, flag))
+                .find(|(_, f)| Rc::ptr_eq(&f.0, &flag.0))
+            // todo: will not hold
             {
                 Some(n)
             } else {
@@ -430,7 +402,7 @@ mod core {
 
         // accumulate everything
         fn __accumulate(&self) {
-            if let Some(container) = self.container {
+            if let Some(container) = &self.container {
                 container.focus.set(false);
                 for p in self.focus.iter() {
                     if p.get() {
@@ -526,7 +498,7 @@ mod core {
 
                     // check for split areas
                     if !self.z_areas[idx].is_empty() {
-                        for z_area in self.z_areas[idx] {
+                        for z_area in &self.z_areas[idx] {
                             // use all matching areas. might differ in z.
                             if z_area.contains(pos) {
                                 if self.log.get() {
@@ -567,7 +539,7 @@ mod core {
 
                     // check for split areas
                     if !sub.z_area.is_empty() {
-                        for z_area in sub.z_area {
+                        for z_area in &sub.z_area {
                             // use all matching areas. might differ in z.
                             if z_area.contains(pos) {
                                 if self.log.get() {
@@ -613,7 +585,7 @@ mod core {
 
                     // check for split areas
                     if !con.z_area.is_empty() {
-                        for z_area in con.z_area {
+                        for z_area in &con.z_area {
                             // use all matching areas. might differ in z.
                             if z_area.contains(pos) {
                                 if self.log.get() {
@@ -701,16 +673,16 @@ mod core {
             false
         }
 
-        pub(super) fn focused(&self) -> Option<&'a FocusFlag> {
-            self.focus.iter().find(|v| v.get()).copied()
+        pub(super) fn focused(&self) -> Option<FocusFlag> {
+            self.focus.iter().find(|v| v.get()).cloned()
         }
 
-        pub(super) fn lost_focus(&self) -> Option<&'a FocusFlag> {
-            self.focus.iter().find(|v| v.lost()).copied()
+        pub(super) fn lost_focus(&self) -> Option<FocusFlag> {
+            self.focus.iter().find(|v| v.lost()).cloned()
         }
 
-        pub(super) fn gained_focus(&self) -> Option<&'a FocusFlag> {
-            self.focus.iter().find(|v| v.gained()).copied()
+        pub(super) fn gained_focus(&self) -> Option<FocusFlag> {
+            self.focus.iter().find(|v| v.gained()).cloned()
         }
 
         fn len(&self) -> usize {
@@ -784,7 +756,7 @@ mod core {
     }
 }
 
-impl<'a> HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for Focus<'a> {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for Focus {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         match event {
             ct_event!(keycode press Tab) => {
@@ -812,7 +784,7 @@ impl<'a> HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for Focus<'a> 
     }
 }
 
-impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus<'a> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse down Left for column, row) => {
@@ -843,11 +815,11 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus<'a> 
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_focus(focus: &mut Focus<'_>, event: &crossterm::event::Event) -> Outcome {
+pub fn handle_focus(focus: &mut Focus, event: &crossterm::event::Event) -> Outcome {
     HandleEvent::handle(focus, event, FocusKeys)
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_focus(focus: &mut Focus<'_>, event: &crossterm::event::Event) -> Outcome {
+pub fn handle_mouse_focus(focus: &mut Focus, event: &crossterm::event::Event) -> Outcome {
     HandleEvent::handle(focus, event, MouseOnly)
 }

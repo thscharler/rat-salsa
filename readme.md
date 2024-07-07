@@ -4,8 +4,8 @@ This crate works by adding a [FocusFlag](crate::FocusFlag) to each widget's stat
 
 [Focus](crate::Focus) is used to collect the list of FocusFlags.
 It only holds references to the FocusFlags in the order the widgets
-are navigated. It is always constructed anew, this way any state dependent
-changes to the order/set of the widgets can be simply coded.
+are navigated. It must be constructed freshly after each render,
+as it holds copies of the areas of all the widgets.
 
 Focus::next()/Focus::prev() do the actual navigation. They change the
 active FocusFlag. Additionally, there are fields for focus-lost and
@@ -70,6 +70,15 @@ Focus has a method `add_container()` for this too.
         area.
 
 Focus can handle recursive containers too.
+
+## FocusFlag and Focus
+
+The FocusFlag is constructed as `Rc<Cell<>>` of its flags, so it can
+be cloned and held for some time without interfering with borrowing
+from the state-struct.
+
+With the use of Cell the Focus struct can work as a plain borrow after
+construction.
 
 ## HasFocusFlag
 

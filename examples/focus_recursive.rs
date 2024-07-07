@@ -78,7 +78,7 @@ fn repaint_input(
     Ok(())
 }
 
-fn focus_input(state: &mut State) -> Focus<'_> {
+fn focus_input(state: &mut State) -> Focus {
     let mut f = Focus::new(&[]);
     f.add_focus(state.sub1.focus())
         .add_focus(state.sub2.focus())
@@ -211,7 +211,7 @@ pub mod substratum1 {
     }
 
     impl SubstratumState {
-        pub fn focus(&self) -> Focus<'_> {
+        pub fn focus(&self) -> Focus {
             Focus::new_container(
                 self,
                 &[&self.input1, &self.input2, &self.input3, &self.input4],
