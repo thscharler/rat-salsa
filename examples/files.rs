@@ -328,7 +328,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .styles(ctx.g.theme.table_style())
             .vscroll(
                 Scroll::new()
-                    .styles(ctx.g.theme.scrolled_style())
+                    .styles(ctx.g.theme.scroll_style())
                     .scroll_by(1),
             )
             .render(c[0], buf, &mut state.w_dirs);
@@ -344,7 +344,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .styles(ctx.g.theme.table_style())
             .vscroll(
                 Scroll::new()
-                    .styles(ctx.g.theme.scrolled_style())
+                    .styles(ctx.g.theme.scroll_style())
                     .scroll_by(1),
             )
             .render(c[1], buf, &mut state.w_files);
@@ -369,7 +369,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
         content_style.style = ctx.g.theme.black(2);
         TextArea::new()
             .styles(content_style)
-            .scroll(Scroll::new().styles(ctx.g.theme.scrolled_style()))
+            .scroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
             .block(
                 Block::bordered()
                     .borders(Borders::TOP | Borders::BOTTOM | Borders::RIGHT)
