@@ -37,7 +37,7 @@ pub struct FileDialog<'a> {
     invalid_style: Option<Style>,
     select_style: Option<Style>,
     focus_style: Option<Style>,
-    button_style: Option<Style>,
+    button_style: Option<ButtonStyle>,
     armed_style: Option<Style>,
 
     ok_text: &'a str,
@@ -53,8 +53,7 @@ pub struct FileDialogStyle {
     pub invalid: Option<Style>,
     pub select: Option<Style>,
     pub focus: Option<Style>,
-    pub button: Option<Style>,
-    pub armed: Option<Style>,
+    pub button: Option<ButtonStyle>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -124,7 +123,6 @@ impl Default for FileDialogStyle {
             select: None,
             focus: None,
             button: None,
-            armed: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -226,13 +224,8 @@ impl<'a> FileDialog<'a> {
         self
     }
 
-    pub fn button_style(mut self, style: Style) -> Self {
+    pub fn button_style(mut self, style: ButtonStyle) -> Self {
         self.button_style = Some(style);
-        self
-    }
-
-    pub fn armed_style(mut self, style: Style) -> Self {
-        self.armed_style = Some(style);
         self
     }
 
@@ -245,7 +238,6 @@ impl<'a> FileDialog<'a> {
         self.select_style = styles.select;
         self.focus_style = styles.focus;
         self.button_style = styles.button;
-        self.armed_style = styles.armed;
         self
     }
 
@@ -316,15 +308,14 @@ impl<'a> FileDialog<'a> {
     }
 
     fn style_button(&self) -> ButtonStyle {
-        ButtonStyle {
-            style: if let Some(button) = self.button_style {
-                button
-            } else {
-                self.style
-            },
-            focus: self.defaulted_focus(),
-            armed: self.armed_style,
-            ..Default::default()
+        if let Some(button) = self.button_style {
+            button
+        } else {
+            ButtonStyle {
+                style: self.defaulted_select().expect("style"),
+                focus: self.defaulted_focus(),
+                ..Default::default()
+            }
         }
     }
 }
@@ -614,10 +605,10 @@ impl FileDialogState {
         self.root_state.select(Some(0));
     }
 
-    pub fn open_dialog(&mut self, path: &Path) -> Result<(), io::Error> {
+    pub fn open_dialog(&mut self, path: impl AsRef<Path>) -> Result<(), io::Error> {
         self.active = true;
         self.mode = Mode::Open;
-        self.set_path(path.into())?;
+        self.set_path(path.as_ref())?;
         if self.use_default_roots {
             self.default_roots(self.path.clone());
         }
@@ -627,17 +618,13 @@ impl FileDialogState {
 
     pub fn save_dialog(
         &mut self,
-        path: &Path,
-        name: Option<impl AsRef<str>>,
+        path: impl AsRef<Path>,
+        name: impl AsRef<str>,
     ) -> Result<(), io::Error> {
         self.active = true;
         self.mode = Mode::Save;
-        self.save_name = if let Some(name) = name {
-            Some(OsString::from(name.as_ref()))
-        } else {
-            None
-        };
-        self.set_path(path.into())?;
+        self.save_name = Some(OsString::from(name.as_ref()));
+        self.set_path(path.as_ref())?;
         if self.use_default_roots {
             self.default_roots(self.path.clone());
         }
