@@ -115,7 +115,11 @@ impl Timers {
             count: 0,
             repaint: t.repaint,
             repeat: t.repeat,
-            next: Instant::now() + t.timer,
+            next: if let Some(next) = t.next {
+                next
+            } else {
+                Instant::now() + t.timer
+            },
             timer: t.timer,
         };
         self.add_impl(t);
