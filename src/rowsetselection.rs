@@ -232,9 +232,9 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
 
                 ct_event!(keycode press Left) => self.scroll_left(1).into(),
                 ct_event!(keycode press Right) => self.scroll_right(1).into(),
-                ct_event!(keycode press CONTROL-Left) => self.scroll_to_col(0).into(),
+                ct_event!(keycode press CONTROL-Left) => self.scroll_to_x(0).into(),
                 ct_event!(keycode press CONTROL-Right) => {
-                    self.scroll_to_col(self.col_max_offset()).into()
+                    self.scroll_to_x(self.x_max_offset()).into()
                 }
                 _ => Outcome::NotUsed,
             }
@@ -310,10 +310,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
         {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),
-            ScrollOutcome::VPos(v) => self.scroll_to_row(v),
+            ScrollOutcome::VPos(v) => self.set_row_offset(v),
             ScrollOutcome::Left(v) => self.scroll_left(v),
             ScrollOutcome::Right(v) => self.scroll_right(v),
-            ScrollOutcome::HPos(v) => self.scroll_to_col(v),
+            ScrollOutcome::HPos(v) => self.set_x_offset(v),
 
             ScrollOutcome::NotUsed => false,
             ScrollOutcome::Unchanged => false,

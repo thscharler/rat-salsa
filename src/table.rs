@@ -270,12 +270,9 @@ pub struct FTableState<Selection> {
     pub table_area: Rect,
     /// Area per visible row. The first element is at row_offset.
     pub row_areas: Vec<Rect>,
-    /// Area per visible column, also contains the following spacer if any.
-    /// The first element is at col_offset. Height is the height of the table_area.
+    /// Area for each column, also contains the following spacer if any.
+    /// Invisible columns have width 0, height is the height of the table_area.
     pub column_areas: Vec<Rect>,
-    /// Area for each *defined* column without the spacer.
-    /// Invisible columns have width 0. Height is the height of the table_area.
-    pub base_column_areas: Vec<Rect>,
     /// Total footer area.
     pub footer_area: Rect,
 
@@ -867,15 +864,19 @@ where
         // render header & footer
         self.render_header(
             state.columns,
+            width,
             l_columns.as_ref(),
             l_spacers.as_ref(),
+            state.header_area,
             buf,
             state,
         );
         self.render_footer(
             state.columns,
+            width,
             l_columns.as_ref(),
             l_spacers.as_ref(),
+            state.footer_area,
             buf,
             state,
         );
@@ -885,6 +886,7 @@ where
 
         state.row_areas.clear();
         state.vscroll.set_page_len(0);
+        state.hscroll.set_page_len(area.width as usize);
 
         let mut row_buf = Buffer::empty(Rect::new(0, 0, width, 1));
         let mut row = None;
@@ -912,45 +914,41 @@ where
                 // We render each row to a temporary buffer.
                 // For ease of use we start each row at 0,0.
                 // We still only render at least partially visible cells.
-                let row_area = Rect::new(0, 0, width, max(data.row_height(), 1));
-                // resize should work fine unless the row-heights vary wildly.
-                row_buf.resize(row_area);
-
+                let render_row_area = Rect::new(0, 0, width, max(data.row_height(), 1)); //todo:why max
+                row_buf.resize(render_row_area);
                 if let Some(row_style) = ctx.row_style {
-                    row_buf.set_style(row_area, row_style);
-                } else {
-                    row_buf.set_style(row_area, self.style);
+                    row_buf.set_style(render_row_area, row_style);
                 }
-
-                row_heights.push(row_area.height);
+                row_heights.push(render_row_area.height);
 
                 // Target area for the finished row.
-                let visible_row = Rect::new(
+                let visible_row_area = Rect::new(
                     state.table_area.x,
                     row_y,
                     state.table_area.width,
                     max(data.row_height(), 1),
                 )
                 .intersection(state.table_area);
-
-                state.row_areas.push(visible_row);
+                state.row_areas.push(visible_row_area);
                 state.vscroll.set_page_len(state.vscroll.page_len() + 1);
 
-                // todo: render_row
-
-                let mut col = state.hscroll.offset();
+                let mut col = 0;
                 loop {
                     if col >= state.columns {
                         break;
                     }
 
-                    let cell_area =
-                        Rect::new(l_columns[col].x, 0, l_columns[col].width, row_area.height);
+                    let render_cell_area = Rect::new(
+                        l_columns[col].x,
+                        0,
+                        l_columns[col].width,
+                        render_row_area.height,
+                    );
                     ctx.space_area = Rect::new(
                         l_spacers[col + 1].x,
                         0,
                         l_spacers[col + 1].width,
-                        row_area.height,
+                        render_row_area.height,
                     );
 
                     ctx.select_style = if state.selection.is_selected_cell(col, row.expect("row")) {
@@ -995,35 +993,37 @@ where
                         ctx.selected_column = false;
                         None
                     };
-                    if let Some(select_style) = ctx.select_style {
-                        row_buf.set_style(cell_area, select_style);
-                        row_buf.set_style(ctx.space_area, select_style);
+
+                    // partially visible?
+                    if render_cell_area.right() > state.hscroll.offset as u16
+                        || render_cell_area.left() < state.hscroll.offset as u16 + area.width
+                    {
+                        if let Some(select_style) = ctx.select_style {
+                            row_buf.set_style(render_cell_area, select_style);
+                            row_buf.set_style(ctx.space_area, select_style);
+                        }
+                        data.render_cell(&ctx, col, render_cell_area, &mut row_buf);
                     }
 
-                    data.render_cell(&ctx, col, cell_area, &mut row_buf);
-
-                    if cell_area.right() >= state.table_area.right() {
-                        break;
-                    }
                     col += 1;
                 }
 
                 // render shifted and clipped row.
                 transfer_buffer(
                     &mut row_buf,
-                    l_columns[state.hscroll.offset()].x,
-                    visible_row,
+                    state.hscroll.offset() as u16,
+                    visible_row_area,
                     buf,
                 );
 
-                if visible_row.bottom() >= state.table_area.bottom() {
+                if visible_row_area.bottom() >= state.table_area.bottom() {
                     break;
                 }
                 if !data.nth(0) {
                     break;
                 }
                 row = Some(row.expect("row") + 1);
-                row_y += row_area.height;
+                row_y += render_row_area.height;
             }
         } else {
             // can only guess whether the skip failed completely or partially.
@@ -1149,14 +1149,9 @@ where
             }
         }
         {
-            state.hscroll.set_max_offset(0);
-            let max_right = l_columns.last().map(|v| v.right()).unwrap_or(0);
-            for c in (0..state.columns).rev() {
-                if max_right - l_columns[c].left() >= state.table_area.width {
-                    state.hscroll.set_max_offset(c);
-                    break;
-                }
-            }
+            state
+                .hscroll
+                .set_max_offset(width.saturating_sub(state.table_area.width) as usize);
         }
 
         // render block+scroll
@@ -1198,42 +1193,39 @@ where
     fn render_footer(
         &self,
         columns: usize,
+        width: u16,
         l_columns: &[Rect],
         l_spacers: &[Rect],
+        area: Rect,
         buf: &mut Buffer,
         state: &mut FTableState<Selection>,
     ) {
         if let Some(footer) = &self.footer {
+            let render_row_area = Rect::new(0, 0, width, 1);
+            let mut row_buf = Buffer::empty(render_row_area);
+
             if let Some(footer_style) = footer.style {
-                buf.set_style(state.footer_area, footer_style);
+                row_buf.set_style(render_row_area, footer_style);
             } else if let Some(footer_style) = self.footer_style {
-                buf.set_style(state.footer_area, footer_style);
+                row_buf.set_style(render_row_area, footer_style);
             } else {
-                buf.set_style(state.footer_area, self.style);
+                row_buf.set_style(render_row_area, self.style);
             }
 
-            let mut col = state.hscroll.offset();
+            let mut col = 0;
             loop {
                 if col >= columns {
                     break;
                 }
 
-                let cell_area = Rect::new(
-                    state.footer_area.x + l_columns[col].x - l_columns[state.hscroll.offset()].x,
-                    state.footer_area.y,
-                    l_columns[col].width,
-                    state.footer_area.height,
-                )
-                .intersection(state.footer_area);
-
-                let space_area = Rect::new(
-                    state.footer_area.x + l_spacers[col + 1].x
-                        - l_columns[state.hscroll.offset()].x,
-                    state.footer_area.y,
+                let render_cell_area =
+                    Rect::new(l_columns[col].x, 0, l_columns[col].width, area.height);
+                let render_space_area = Rect::new(
+                    l_spacers[col + 1].x,
+                    0,
                     l_spacers[col + 1].width,
-                    state.footer_area.height,
-                )
-                .intersection(state.footer_area);
+                    area.height,
+                );
 
                 if state.selection.is_selected_column(col) {
                     if let Some(selected_style) = self.patch_select(
@@ -1241,66 +1233,67 @@ where
                         state.focus.get(),
                         self.show_footer_focus,
                     ) {
-                        buf.set_style(cell_area, selected_style);
-                        buf.set_style(space_area, selected_style);
+                        row_buf.set_style(render_cell_area, selected_style);
+                        row_buf.set_style(render_space_area, selected_style);
                     }
                 };
 
-                if let Some(cell) = footer.cells.get(col) {
-                    if let Some(cell_style) = cell.style {
-                        buf.set_style(cell_area, cell_style);
+                // partially visible?
+                if render_cell_area.right() > state.hscroll.offset as u16
+                    || render_cell_area.left() < state.hscroll.offset as u16 + area.width
+                {
+                    if let Some(cell) = footer.cells.get(col) {
+                        if let Some(cell_style) = cell.style {
+                            row_buf.set_style(render_cell_area, cell_style);
+                        }
+                        cell.content.clone().render(render_cell_area, &mut row_buf);
                     }
-                    cell.content.clone().render(cell_area, buf);
-                }
-
-                if cell_area.right() >= state.footer_area.right() {
-                    break;
                 }
 
                 col += 1;
             }
+
+            // render shifted and clipped row.
+            transfer_buffer(&mut row_buf, state.hscroll.offset() as u16, area, buf);
         }
     }
 
     fn render_header(
         &self,
         columns: usize,
+        width: u16,
         l_columns: &[Rect],
         l_spacers: &[Rect],
+        area: Rect,
         buf: &mut Buffer,
         state: &mut FTableState<Selection>,
     ) {
         if let Some(header) = &self.header {
+            let render_row_area = Rect::new(0, 0, width, 1);
+            let mut row_buf = Buffer::empty(render_row_area);
+
             if let Some(header_style) = header.style {
-                buf.set_style(state.header_area, header_style);
+                row_buf.set_style(render_row_area, header_style);
             } else if let Some(header_style) = self.header_style {
-                buf.set_style(state.header_area, header_style);
+                row_buf.set_style(render_row_area, header_style);
             } else {
-                buf.set_style(state.header_area, self.style);
+                row_buf.set_style(render_row_area, self.style);
             }
 
-            let mut col = state.hscroll.offset();
+            let mut col = 0;
             loop {
                 if col >= columns {
                     break;
                 }
 
-                let cell_area = Rect::new(
-                    state.header_area.x + l_columns[col].x - l_columns[state.hscroll.offset()].x,
-                    state.header_area.y,
-                    l_columns[col].width,
-                    state.header_area.height,
-                )
-                .intersection(state.header_area);
-
-                let space_area = Rect::new(
-                    state.header_area.x + l_spacers[col + 1].x
-                        - l_columns[state.hscroll.offset()].x,
-                    state.header_area.y,
+                let render_cell_area =
+                    Rect::new(l_columns[col].x, 0, l_columns[col].width, area.height);
+                let render_space_area = Rect::new(
+                    l_spacers[col + 1].x,
+                    0,
                     l_spacers[col + 1].width,
-                    state.header_area.height,
-                )
-                .intersection(state.header_area);
+                    area.height,
+                );
 
                 if state.selection.is_selected_column(col) {
                     if let Some(selected_style) = self.patch_select(
@@ -1308,24 +1301,28 @@ where
                         state.focus.get(),
                         self.show_header_focus,
                     ) {
-                        buf.set_style(cell_area, selected_style);
-                        buf.set_style(space_area, selected_style);
+                        row_buf.set_style(render_cell_area, selected_style);
+                        row_buf.set_style(render_space_area, selected_style);
                     }
                 };
 
-                if let Some(cell) = header.cells.get(col) {
-                    if let Some(cell_style) = cell.style {
-                        buf.set_style(cell_area, cell_style);
+                // partially visible?
+                if render_cell_area.right() > state.hscroll.offset as u16
+                    || render_cell_area.left() < state.hscroll.offset as u16 + area.width
+                {
+                    if let Some(cell) = header.cells.get(col) {
+                        if let Some(cell_style) = cell.style {
+                            row_buf.set_style(render_cell_area, cell_style);
+                        }
+                        cell.content.clone().render(render_cell_area, &mut row_buf);
                     }
-                    cell.content.clone().render(cell_area, buf);
-                }
-
-                if cell_area.right() >= state.header_area.right() {
-                    break;
                 }
 
                 col += 1;
             }
+
+            // render shifted and clipped row.
+            transfer_buffer(&mut row_buf, state.hscroll.offset() as u16, area, buf);
         }
     }
 
@@ -1337,55 +1334,35 @@ where
         state: &mut FTableState<Selection>,
     ) {
         state.column_areas.clear();
-        state.hscroll.set_page_len(0);
 
-        let mut col = state.hscroll.offset();
+        let mut col = 0;
+        let shift = state.hscroll.offset() as isize;
         loop {
             if col >= columns {
                 break;
             }
 
-            // merge the column + the folling spacer as the
-            // column area.
-            let mut column_area = Rect::new(
-                state.table_area.x + l_columns[col].x - l_columns[state.hscroll.offset()].x,
+            let cell_x1 = l_columns[col].x as isize;
+            let cell_x2 =
+                (l_columns[col].x + l_columns[col].width + l_spacers[col + 1].width) as isize;
+
+            let squish_x1 = cell_x1.saturating_sub(shift);
+            let squish_x2 = cell_x2.saturating_sub(shift);
+
+            let abs_x1 = max(0, squish_x1) as u16;
+            let abs_x2 = max(0, squish_x2) as u16;
+
+            let v_area = Rect::new(
+                state.table_area.x + abs_x1,
                 state.table_area.y,
-                l_columns[col].width,
+                abs_x2 - abs_x1,
                 state.table_area.height,
             );
             state
-                .base_column_areas
-                .push(column_area.intersection(state.table_area));
-
-            column_area.width += l_spacers[col + 1].width;
-            state
                 .column_areas
-                .push(column_area.intersection(state.table_area));
-
-            state.hscroll.set_page_len(state.hscroll.page_len() + 1);
-
-            if column_area.right() >= state.table_area.right() {
-                break;
-            }
+                .push(v_area.intersection(state.table_area));
 
             col += 1;
-        }
-
-        // Base areas for every column.
-        state.base_column_areas.clear();
-        for col in 0..columns {
-            let column_area = if col < state.hscroll.offset() {
-                Rect::new(0, state.table_area.y, 0, state.table_area.height)
-            } else {
-                Rect::new(
-                    state.table_area.x + l_columns[col].x - l_columns[state.hscroll.offset()].x,
-                    state.table_area.y,
-                    l_columns[col].width,
-                    state.table_area.height,
-                )
-            };
-            let column_area = column_area.intersection(state.table_area);
-            state.base_column_areas.push(column_area);
         }
     }
 
@@ -1439,7 +1416,6 @@ impl<Selection: Default> Default for FTableState<Selection> {
             footer_area: Default::default(),
             row_areas: Default::default(),
             column_areas: Default::default(),
-            base_column_areas: Default::default(),
             rows: 0,
             _counted_rows: 0,
             columns: 0,
@@ -1516,7 +1492,7 @@ impl<Selection> FTableState<Selection> {
         let mut areas = Vec::new();
 
         let r = self.row_areas[row];
-        for c in &self.base_column_areas {
+        for c in &self.column_areas {
             areas.push(Rect::new(c.x, r.y, c.width, r.height));
         }
 
@@ -1537,7 +1513,6 @@ impl<Selection> FTableState<Selection> {
     /// Column at given position.
     pub fn column_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
         rat_event::util::column_at_clicked(&self.column_areas, pos.0)
-            .map(|v| self.hscroll.offset() + v)
     }
 
     /// Row at given position.
@@ -1573,9 +1548,8 @@ impl<Selection> FTableState<Selection> {
     /// If the position is right of the table area this returns offset + page_width + 1.
     pub fn column_at_drag(&self, pos: (u16, u16)) -> usize {
         match rat_event::util::column_at_drag(self.table_area, &self.column_areas, pos.0) {
-            Ok(v) => self.hscroll.offset() + v,
-            Err(v) if v <= 0 => self.hscroll.offset().saturating_sub(1),
-            Err(_v) => self.hscroll.offset() + self.column_areas.len() + 1,
+            Ok(v) => v,
+            Err(_) => todo!(),
         }
     }
 }
@@ -1625,12 +1599,12 @@ impl<Selection: TableSelection> FTableState<Selection> {
     ///
     /// This is shorter than the length of the content by whatever fills the last page.
     /// This is the base for the scrollbar content_length.
-    pub fn col_max_offset(&self) -> usize {
+    pub fn x_max_offset(&self) -> usize {
         self.hscroll.max_offset()
     }
 
     /// Current horizontal offset.
-    pub fn col_offset(&self) -> usize {
+    pub fn x_offset(&self) -> usize {
         self.hscroll.offset()
     }
 
@@ -1640,7 +1614,7 @@ impl<Selection: TableSelection> FTableState<Selection> {
     /// The widget must deal with this situation.
     ///
     /// The widget returns true if the offset changed at all.
-    pub fn set_col_offset(&mut self, offset: usize) -> bool {
+    pub fn set_x_offset(&mut self, offset: usize) -> bool {
         self.hscroll.set_offset(offset)
     }
 
@@ -1650,14 +1624,14 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 
     /// Suggested scroll per scroll-event.
-    pub fn col_scroll_by(&self) -> usize {
+    pub fn x_scroll_by(&self) -> usize {
         self.hscroll.scroll_by()
     }
 
     /// Ensures that the selected item is visible.
     pub fn scroll_to_selected(&mut self) -> bool {
         if let Some(selected) = self.selection.lead_selection() {
-            let c = self.scroll_to_col(selected.0);
+            let c = self.scroll_to_x(selected.0);
             let r = self.scroll_to_row(selected.1);
             r || c
         } else {
@@ -1677,11 +1651,11 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 
     /// Ensures that the given column is visible.
-    pub fn scroll_to_col(&mut self, pos: usize) -> bool {
-        if pos >= self.col_offset() + self.page_width() {
-            self.set_col_offset(pos - self.page_width() + 1)
-        } else if pos < self.col_offset() {
-            self.set_col_offset(pos)
+    pub fn scroll_to_x(&mut self, pos: usize) -> bool {
+        if pos >= self.x_offset() + self.page_width() {
+            self.set_x_offset(pos - self.page_width() + 1)
+        } else if pos < self.x_offset() {
+            self.set_x_offset(pos)
         } else {
             false
         }
@@ -1709,6 +1683,22 @@ impl<Selection: TableSelection> FTableState<Selection> {
 }
 
 impl FTableState<RowSelection> {
+    /// Update the state to match adding items.
+    /// This corrects the number of rows, offset and selection.
+    pub fn items_added(&mut self, pos: usize, n: usize) {
+        self.rows += n;
+        self.vscroll.items_added(pos, n);
+        self.selection.items_added(pos, n);
+    }
+
+    /// Update the state to match removing items.
+    /// This corrects the number of rows, offset and selection.
+    pub fn items_removed(&mut self, pos: usize, n: usize) {
+        self.rows -= n;
+        self.vscroll.items_removed(pos, n);
+        self.selection.items_removed(pos, n);
+    }
+
     /// When scrolling the table, change the selection instead of the offset.
     #[inline]
     pub fn set_scroll_selection(&mut self, scroll: bool) {

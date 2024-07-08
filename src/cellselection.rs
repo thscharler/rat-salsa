@@ -218,10 +218,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ce
         {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),
-            ScrollOutcome::VPos(v) => self.scroll_to_row(v),
+            ScrollOutcome::VPos(v) => self.set_row_offset(v),
             ScrollOutcome::Left(v) => self.scroll_left(v),
             ScrollOutcome::Right(v) => self.scroll_right(v),
-            ScrollOutcome::HPos(v) => self.scroll_to_col(v),
+            ScrollOutcome::HPos(v) => self.set_x_offset(v),
 
             ScrollOutcome::NotUsed => false,
             ScrollOutcome::Unchanged => false,

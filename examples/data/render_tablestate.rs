@@ -12,10 +12,12 @@ pub fn render_tablestate<Selection: Debug>(
     area: Rect,
     buf: &mut Buffer,
 ) {
-    let l_grid = layout_grid::<2, 10>(
+    let l_grid = layout_grid::<2, 12>(
         area,
         Layout::horizontal([Constraint::Length(15), Constraint::Length(20)]),
         Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Length(1),
             Constraint::Length(1),
@@ -54,28 +56,38 @@ pub fn render_tablestate<Selection: Debug>(
         .to_string()
         .render(l_grid[1][4], buf);
 
-    "columns".render(l_grid[0][5], buf);
-    format!("{}", state.columns)
+    "row_scroll".render(l_grid[0][5], buf);
+    format!("{}", state.vscroll.scroll_by())
         .to_string()
         .render(l_grid[1][5], buf);
 
-    "col_offset".render(l_grid[0][6], buf);
-    format!("{}", state.hscroll.offset())
+    "columns".render(l_grid[0][6], buf);
+    format!("{}", state.columns)
         .to_string()
         .render(l_grid[1][6], buf);
 
-    "max_col_offset".render(l_grid[0][7], buf);
-    format!("{}", state.hscroll.max_offset())
+    "col_offset".render(l_grid[0][7], buf);
+    format!("{}", state.hscroll.offset())
         .to_string()
         .render(l_grid[1][7], buf);
 
-    "col_page_len".render(l_grid[0][8], buf);
-    format!("{}", state.hscroll.page_len())
+    "max_col_offset".render(l_grid[0][8], buf);
+    format!("{}", state.hscroll.max_offset())
         .to_string()
         .render(l_grid[1][8], buf);
 
-    "selection".render(l_grid[0][9], buf);
-    format!("{:?}", state.selection)
+    "col_page_len".render(l_grid[0][9], buf);
+    format!("{}", state.hscroll.page_len())
         .to_string()
         .render(l_grid[1][9], buf);
+
+    "col_scrollby".render(l_grid[0][10], buf);
+    format!("{}", state.hscroll.scroll_by())
+        .to_string()
+        .render(l_grid[1][10], buf);
+
+    "selection".render(l_grid[0][11], buf);
+    format!("{:?}", state.selection)
+        .to_string()
+        .render(l_grid[1][11], buf);
 }

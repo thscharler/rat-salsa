@@ -1,6 +1,8 @@
+use crate::data::render_tablestate::render_tablestate;
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
+use log::debug;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
@@ -33,6 +35,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State {
         table: Default::default(),
     };
+    state.table.hscroll.set_scroll_by(Some(1));
 
     run_ui(handle_table, repaint_table, &mut data, &mut state)
 }
@@ -48,6 +51,7 @@ struct Data {
     pub(crate) table_data: Vec<Sample>,
 }
 
+#[derive(Debug)]
 struct State {
     pub(crate) table: FTableState<NoSelection>,
 }
@@ -59,7 +63,7 @@ fn repaint_table(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l0 = Layout::horizontal([Constraint::Percentage(61)])
+    let l0 = Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
         .flex(Flex::Center)
         .split(area);
 
@@ -137,11 +141,15 @@ fn repaint_table(
                 .border_type(block::BorderType::Rounded)
                 .border_style(THEME.block()),
         )
+        .hscroll(Scroll::new().style(THEME.block()))
         .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::SpaceBetween)
         .style(THEME.table())
         .select_row_style(Some(THEME.gray(3)))
         .render(l0[0], frame.buffer_mut(), &mut state.table);
+
+    render_tablestate(&state.table, l0[1], frame.buffer_mut());
+
     Ok(())
 }
 
