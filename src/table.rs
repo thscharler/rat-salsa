@@ -48,6 +48,7 @@ pub struct FTable<'a, Selection> {
     flex: Flex,
     column_spacing: u16,
     layout_width: Option<u16>,
+    auto_layout_width: bool,
 
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
@@ -270,9 +271,12 @@ pub struct FTableState<Selection> {
     pub table_area: Rect,
     /// Area per visible row. The first element is at row_offset.
     pub row_areas: Vec<Rect>,
-    /// Area for each column, also contains the following spacer if any.
+    /// Area for each column plus the following spacer if any.
     /// Invisible columns have width 0, height is the height of the table_area.
     pub column_areas: Vec<Rect>,
+    /// Layout areas for each column plus the following spacer if any.
+    /// Positions are 0-based, y and height are 0.
+    pub column_layout: Vec<Rect>,
     /// Total footer area.
     pub footer_area: Rect,
 
@@ -598,6 +602,18 @@ impl<'a, Selection> FTable<'a, Selection> {
         self
     }
 
+    /// Calculates the width from the given column-constraints.
+    /// If a fixed layout_width() is set too, that one will win.
+    ///
+    /// Panic:
+    /// Rendering will panic, if any constraint other than Constraint::Length(),
+    /// Constraint::Min() or Constraint::Max() is used.
+    #[inline]
+    pub fn auto_layout_width(mut self, auto: bool) -> Self {
+        self.auto_layout_width = auto;
+        self
+    }
+
     /// Draws a block around the table widget.
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
@@ -766,6 +782,17 @@ impl<'a, Selection> FTable<'a, Selection> {
     fn total_width(&self, area_width: u16) -> u16 {
         if let Some(layout_width) = self.layout_width {
             layout_width
+        } else if self.auto_layout_width {
+            let mut width = 0;
+            for w in &self.widths {
+                match w {
+                    Constraint::Min(v) => width += *v + self.column_spacing,
+                    Constraint::Max(v) => width += *v + self.column_spacing,
+                    Constraint::Length(v) => width += *v + self.column_spacing,
+                    _ => assert!(false, "Invalid layout constraint."),
+                }
+            }
+            width
         } else {
             area_width
         }
@@ -1334,6 +1361,7 @@ where
         state: &mut FTableState<Selection>,
     ) {
         state.column_areas.clear();
+        state.column_layout.clear();
 
         let mut col = 0;
         let shift = state.hscroll.offset() as isize;
@@ -1341,6 +1369,13 @@ where
             if col >= columns {
                 break;
             }
+
+            state.column_layout.push(Rect::new(
+                l_columns[col].x,
+                0,
+                l_columns[col].width + l_spacers[col + 1].width,
+                0,
+            ));
 
             let cell_x1 = l_columns[col].x as isize;
             let cell_x2 =
@@ -1413,12 +1448,13 @@ impl<Selection: Default> Default for FTableState<Selection> {
             inner: Default::default(),
             header_area: Default::default(),
             table_area: Default::default(),
-            footer_area: Default::default(),
             row_areas: Default::default(),
             column_areas: Default::default(),
-            rows: 0,
-            _counted_rows: 0,
-            columns: 0,
+            column_layout: Default::default(),
+            footer_area: Default::default(),
+            rows: Default::default(),
+            _counted_rows: Default::default(),
+            columns: Default::default(),
             vscroll: Default::default(),
             hscroll: Default::default(),
             selection: Default::default(),
@@ -1650,7 +1686,22 @@ impl<Selection: TableSelection> FTableState<Selection> {
         }
     }
 
-    /// Ensures that the given column is visible.
+    /// Ensures that the given column is completely visible.
+    pub fn scroll_to_col(&mut self, pos: usize) -> bool {
+        if let Some(col) = self.column_layout.get(pos) {
+            if (col.left() as usize) < self.x_offset() {
+                self.set_x_offset(col.x as usize)
+            } else if (col.right() as usize) >= self.x_offset() + self.page_width() {
+                self.set_x_offset(col.right() as usize - self.page_width())
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Ensures that the given cell is visible.
     pub fn scroll_to_x(&mut self, pos: usize) -> bool {
         if pos >= self.x_offset() + self.page_width() {
             self.set_x_offset(pos - self.page_width() + 1)
