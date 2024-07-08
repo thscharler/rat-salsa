@@ -1778,15 +1778,10 @@ impl FTableState<RowSelection> {
         self.selection.selected()
     }
 
-    /// Select the row. Limits the value to the number of rows.
+    /// Select the row.
     #[inline]
     pub fn select(&mut self, row: Option<usize>) -> bool {
-        if let Some(row) = row {
-            self.selection
-                .select(Some(min(row, self.rows.saturating_sub(1))))
-        } else {
-            self.selection.select(None)
-        }
+        self.selection.select(row)
     }
 
     /// Scroll delivers a value between 0 and max_offset as offset.
@@ -1855,12 +1850,7 @@ impl FTableState<RowSetSelection> {
     /// if anchor < lead.
     #[inline]
     pub fn set_lead(&mut self, row: Option<usize>, extend: bool) -> bool {
-        if let Some(row) = row {
-            self.selection
-                .set_lead(Some(min(row, self.rows.saturating_sub(1))), extend)
-        } else {
-            self.selection.set_lead(None, extend)
-        }
+        self.selection.set_lead(row, extend)
     }
 
     /// Current lead.
@@ -1950,14 +1940,7 @@ impl FTableState<CellSelection> {
     /// Select a cell.
     #[inline]
     pub fn select_cell(&mut self, select: Option<(usize, usize)>) -> bool {
-        if let Some((col, row)) = select {
-            self.selection.select_cell(Some((
-                min(col, self.columns.saturating_sub(1)),
-                min(row, self.rows.saturating_sub(1)),
-            )))
-        } else {
-            self.selection.select_cell(None)
-        }
+        self.selection.select_cell(select)
     }
 
     /// Select a row. Column stays the same.
