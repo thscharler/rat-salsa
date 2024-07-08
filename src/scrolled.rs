@@ -488,8 +488,12 @@ impl<'a> StatefulWidgetRef for Scroll<'a> {
 
 fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut ScrollState) {
     state.set_orientation(scroll.orientation.clone());
-    state.set_overscroll_by(scroll.overscroll_by);
-    state.set_scroll_by(scroll.scroll_by);
+    if scroll.overscroll_by.is_some() {
+        state.set_overscroll_by(scroll.overscroll_by);
+    }
+    if scroll.scroll_by.is_some() {
+        state.set_scroll_by(scroll.scroll_by);
+    }
 
     state.area = area;
 
