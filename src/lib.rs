@@ -7,10 +7,7 @@ mod util;
 pub mod view;
 pub mod viewport;
 
-pub use scrolled::{
-    layout_scroll, layout_scroll_inner, Scroll, ScrollArea, ScrollState, ScrollStyle,
-    ScrollbarPolicy,
-};
+pub use scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarPolicy};
 
 pub mod event {
     use rat_event::{ConsumedEvent, Outcome};

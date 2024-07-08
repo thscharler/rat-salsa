@@ -305,9 +305,29 @@ pub fn layout_scroll(
     h_scroll: Option<&Scroll<'_>>,
     v_scroll: Option<&Scroll<'_>>,
 ) -> (Rect, Rect, Rect) {
-    let h_do_scroll;
+    let mut cl = 0;
+    let mut cr = 0;
+    let mut ct = 0;
+    let mut cb = 0;
+
+    if block.is_some() {
+        cl = 1;
+        cr = 1;
+        ct = 1;
+        cb = 1;
+    }
+    match v_scroll.map(|v| &v.orientation) {
+        Some(ScrollbarOrientation::VerticalLeft) => cl = 1,
+        Some(ScrollbarOrientation::VerticalRight) => cr = 1,
+        _ => {}
+    }
+    match h_scroll.map(|v| &v.orientation) {
+        Some(ScrollbarOrientation::HorizontalTop) => ct = 1,
+        Some(ScrollbarOrientation::HorizontalBottom) => cb = 1,
+        _ => {}
+    }
+
     let mut h_area = if let Some(h_scroll) = h_scroll {
-        h_do_scroll = true;
         match h_scroll.orientation {
             ScrollbarOrientation::VerticalRight => {
                 unimplemented!(
@@ -321,39 +341,46 @@ pub fn layout_scroll(
             }
             ScrollbarOrientation::HorizontalBottom => {
                 if area.height > 0 {
-                    Rect::new(area.x, area.y + area.height - 1, area.width, 1)
+                    Rect::new(
+                        area.x + cl,
+                        area.y + area.height - 1,
+                        area.width.saturating_sub(cl + cr),
+                        1,
+                    )
                 } else {
-                    Rect::new(area.x, area.y, area.width, 0)
+                    Rect::new(area.x + cl, area.y, area.width.saturating_sub(cl + cr), 0)
                 }
             }
             ScrollbarOrientation::HorizontalTop => {
                 if area.height > 0 {
-                    Rect::new(area.x, area.y, area.width, 1)
+                    Rect::new(area.x + cl, area.y, area.width.saturating_sub(cl + cr), 1)
                 } else {
-                    Rect::new(area.x, area.y, area.width, 0)
+                    Rect::new(area.x + cl, area.y, area.width.saturating_sub(cl + cr), 0)
                 }
             }
         }
     } else {
-        h_do_scroll = false;
         Rect::new(area.x, area.y, 0, 0)
     };
-    let v_do_scroll;
     let mut v_area = if let Some(v_scroll) = v_scroll {
-        v_do_scroll = true;
         match v_scroll.orientation {
             ScrollbarOrientation::VerticalRight => {
                 if area.width > 0 {
-                    Rect::new(area.x + area.width - 1, area.y, 1, area.height)
+                    Rect::new(
+                        area.x + area.width - 1,
+                        area.y + ct,
+                        1,
+                        area.height.saturating_sub(ct + cb),
+                    )
                 } else {
-                    Rect::new(area.x, area.y, 0, area.height)
+                    Rect::new(area.x, area.y + ct, 0, area.height.saturating_sub(ct + cb))
                 }
             }
             ScrollbarOrientation::VerticalLeft => {
                 if area.width > 0 {
-                    Rect::new(area.x, area.y, 1, area.height)
+                    Rect::new(area.x, area.y + ct, 1, area.height.saturating_sub(ct + cb))
                 } else {
-                    Rect::new(area.x, area.y, 0, area.height)
+                    Rect::new(area.x, area.y + ct, 0, area.height.saturating_sub(ct + cb))
                 }
             }
             ScrollbarOrientation::HorizontalBottom => {
@@ -368,106 +395,17 @@ pub fn layout_scroll(
             }
         }
     } else {
-        v_do_scroll = false;
         Rect::new(area.x, area.y, 0, 0)
     };
 
-    if h_do_scroll && v_do_scroll {
-        match h_scroll.map(|v| v.orientation.clone()) {
-            Some(ScrollbarOrientation::HorizontalTop) => {
-                v_area.y += 1;
-                v_area.height = v_area.height.saturating_sub(1);
-            }
-            Some(ScrollbarOrientation::HorizontalBottom) => {
-                v_area.height = v_area.height.saturating_sub(1);
-            }
-            None
-            | Some(ScrollbarOrientation::VerticalRight)
-            | Some(ScrollbarOrientation::VerticalLeft) => {
-                unreachable!()
-            }
-        }
-        match v_scroll.map(|v| v.orientation.clone()) {
-            Some(ScrollbarOrientation::VerticalRight) => {
-                h_area.width = h_area.width.saturating_sub(1);
-            }
-            Some(ScrollbarOrientation::VerticalLeft) => {
-                h_area.x += 1;
-                h_area.width = h_area.width.saturating_sub(1);
-            }
-            None
-            | Some(ScrollbarOrientation::HorizontalTop)
-            | Some(ScrollbarOrientation::HorizontalBottom) => {
-                unreachable!()
-            }
-        }
-    }
-    if block.is_some() {
-        v_area.y += 1;
-        v_area.height = v_area.height.saturating_sub(2);
-        h_area.x += 1;
-        h_area.width = h_area.width.saturating_sub(2);
-    }
+    let inner = Rect::new(
+        area.x + cl,
+        area.y + ct,
+        area.width.saturating_sub(cl + cr),
+        area.height.saturating_sub(ct + cb),
+    );
 
-    (
-        h_area,
-        v_area,
-        layout_scroll_inner(area, block, h_scroll, v_scroll),
-    )
-}
-
-/// Calculate the inner area in the presence of a Block
-/// and maybe two Scroll instances.
-///
-/// max_offset > 0 indicates the wish to scroll by the widget.
-pub fn layout_scroll_inner(
-    area: Rect,
-    block: Option<&Block<'_>>,
-    h_scroll: Option<&Scroll<'_>>,
-    v_scroll: Option<&Scroll<'_>>,
-) -> Rect {
-    if let Some(block) = block {
-        block.inner(area)
-    } else {
-        let mut inner = area;
-        if let Some(h_scroll) = h_scroll {
-            match h_scroll.orientation {
-                ScrollbarOrientation::VerticalRight => {
-                    unimplemented!("ScrollbarOrientation::VerticalRight not supported for horizontal scrolling.");
-                }
-                ScrollbarOrientation::VerticalLeft => {
-                    unimplemented!("ScrollbarOrientation::VerticalLeft not supported for horizontal scrolling.");
-                }
-                ScrollbarOrientation::HorizontalBottom => {
-                    inner.height -= 1;
-                }
-                ScrollbarOrientation::HorizontalTop => {
-                    inner.y += 1;
-                    inner.height = inner.height.saturating_sub(1);
-                }
-            }
-        }
-        if let Some(v_scroll) = v_scroll {
-            match v_scroll.orientation {
-                ScrollbarOrientation::VerticalRight => {
-                    inner.width -= 1;
-                }
-                ScrollbarOrientation::VerticalLeft => {
-                    inner.x += 1;
-                    inner.width = inner.width.saturating_sub(1);
-                }
-                ScrollbarOrientation::HorizontalBottom => {
-                    unimplemented!("ScrollbarOrientation::HorizontalBottom not supported for vertical scrolling.");
-                }
-                ScrollbarOrientation::HorizontalTop => {
-                    unimplemented!(
-                        "ScrollbarOrientation::HorizontalTop not supported for vertical scrolling."
-                    );
-                }
-            }
-        }
-        inner
-    }
+    (h_area, v_area, inner)
 }
 
 impl<'a> StatefulWidget for Scroll<'a> {
