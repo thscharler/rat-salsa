@@ -909,7 +909,8 @@ where
         );
 
         // render table
-        buf.set_style(state.table_area, self.style);
+        // todo: is this slow?
+        buf.set_style(state.area, self.style);
 
         state.row_areas.clear();
         state.vscroll.set_page_len(0);
@@ -941,10 +942,13 @@ where
                 // We render each row to a temporary buffer.
                 // For ease of use we start each row at 0,0.
                 // We still only render at least partially visible cells.
-                let render_row_area = Rect::new(0, 0, width, max(data.row_height(), 1)); //todo:why max
+                //todo:why max
+                let render_row_area = Rect::new(0, 0, width, max(data.row_height(), 1));
                 row_buf.resize(render_row_area);
                 if let Some(row_style) = ctx.row_style {
                     row_buf.set_style(render_row_area, row_style);
+                } else {
+                    row_buf.set_style(render_row_area, self.style);
                 }
                 row_heights.push(render_row_area.height);
 
@@ -1228,7 +1232,7 @@ where
         state: &mut FTableState<Selection>,
     ) {
         if let Some(footer) = &self.footer {
-            let render_row_area = Rect::new(0, 0, width, 1);
+            let render_row_area = Rect::new(0, 0, width, footer.height);
             let mut row_buf = Buffer::empty(render_row_area);
 
             if let Some(footer_style) = footer.style {
@@ -1296,7 +1300,7 @@ where
         state: &mut FTableState<Selection>,
     ) {
         if let Some(header) = &self.header {
-            let render_row_area = Rect::new(0, 0, width, 1);
+            let render_row_area = Rect::new(0, 0, width, header.height);
             let mut row_buf = Buffer::empty(render_row_area);
 
             if let Some(header_style) = header.style {
