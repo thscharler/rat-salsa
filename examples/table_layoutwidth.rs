@@ -2,7 +2,6 @@ use crate::data::render_tablestate::render_tablestate;
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
-use log::debug;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
@@ -123,8 +122,9 @@ fn repaint_table(
             Constraint::Length(15),
             Constraint::Length(3),
         ])
+        .auto_layout_width(true)
+        // .layout_width(150)
         .column_spacing(1)
-        .layout_width(150)
         .header(
             Row::new([
                 Cell::from("Nr"),
