@@ -888,6 +888,9 @@ where
         let (width, l_columns, l_spacers) = self.layout_columns(state.table_area.width);
         self.calculate_column_areas(state.columns, l_columns.as_ref(), l_spacers.as_ref(), state);
 
+        // set everything, so I don't have to care about unpainted areas later.
+        buf.set_style(state.area, self.style);
+
         // render header & footer
         self.render_header(
             state.columns,
@@ -909,9 +912,6 @@ where
         );
 
         // render table
-        // todo: is this slow?
-        buf.set_style(state.area, self.style);
-
         state.row_areas.clear();
         state.vscroll.set_page_len(0);
         state.hscroll.set_page_len(area.width as usize);
@@ -1235,12 +1235,11 @@ where
             let render_row_area = Rect::new(0, 0, width, footer.height);
             let mut row_buf = Buffer::empty(render_row_area);
 
+            row_buf.set_style(render_row_area, self.style);
             if let Some(footer_style) = footer.style {
                 row_buf.set_style(render_row_area, footer_style);
             } else if let Some(footer_style) = self.footer_style {
                 row_buf.set_style(render_row_area, footer_style);
-            } else {
-                row_buf.set_style(render_row_area, self.style);
             }
 
             let mut col = 0;
@@ -1303,12 +1302,11 @@ where
             let render_row_area = Rect::new(0, 0, width, header.height);
             let mut row_buf = Buffer::empty(render_row_area);
 
+            row_buf.set_style(render_row_area, self.style);
             if let Some(header_style) = header.style {
                 row_buf.set_style(render_row_area, header_style);
             } else if let Some(header_style) = self.header_style {
                 row_buf.set_style(render_row_area, header_style);
-            } else {
-                row_buf.set_style(render_row_area, self.style);
             }
 
             let mut col = 0;
