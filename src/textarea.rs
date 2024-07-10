@@ -327,7 +327,7 @@ impl Default for TextAreaState {
             non_exhaustive: NonExhaustive,
             vscroll: Default::default(),
         };
-        s.hscroll.set_max_offset(usize::MAX);
+        s.hscroll.set_max_offset(255);
         s
     }
 }
