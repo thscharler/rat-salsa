@@ -18,6 +18,7 @@ use std::cmp::{max, min};
 pub struct Scroll<'a> {
     policy: ScrollbarPolicy,
     orientation: ScrollbarOrientation,
+    collab_split: bool,
     overscroll_by: Option<usize>,
     scroll_by: Option<usize>,
 
@@ -103,6 +104,12 @@ impl<'a> Scroll<'a> {
     /// Scrollbar orientation.
     pub fn orientation(mut self, pos: ScrollbarOrientation) -> Self {
         self.orientation = pos;
+        self
+    }
+
+    /// Leave space for a Split with SplitType::Scrollbar.
+    pub fn collab_split(mut self, collab: bool) -> Self {
+        self.collab_split = collab;
         self
     }
 
@@ -340,11 +347,12 @@ pub fn layout_scroll(
                 );
             }
             ScrollbarOrientation::HorizontalBottom => {
+                let split = if h_scroll.collab_split { 2 } else { 0 };
                 if area.height > 0 {
                     Rect::new(
-                        area.x + cl,
+                        area.x + cl + split,
                         area.y + area.height - 1,
-                        area.width.saturating_sub(cl + cr),
+                        area.width.saturating_sub(cl + cr + split),
                         1,
                     )
                 } else {
@@ -365,12 +373,13 @@ pub fn layout_scroll(
     let mut v_area = if let Some(v_scroll) = v_scroll {
         match v_scroll.orientation {
             ScrollbarOrientation::VerticalRight => {
+                let split = if v_scroll.collab_split { 2 } else { 0 };
                 if area.width > 0 {
                     Rect::new(
                         area.x + area.width - 1,
-                        area.y + ct,
+                        area.y + ct + split,
                         1,
-                        area.height.saturating_sub(ct + cb),
+                        area.height.saturating_sub(ct + cb + split),
                     )
                 } else {
                     Rect::new(area.x, area.y + ct, 0, area.height.saturating_sub(ct + cb))
@@ -653,6 +662,7 @@ impl ScrollState {
         let pos = pos.saturating_sub(base).saturating_sub(1) as usize;
         let span = length.saturating_sub(2) as usize;
 
+        // todo: overflows why, when?
         (self.max_offset * pos) / span
     }
 }
