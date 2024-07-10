@@ -1,15 +1,17 @@
+use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use anyhow::anyhow;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{ct_event, flow_ok, FocusKeys, HandleEvent, MouseOnly};
+use rat_focus::{Focus, HasFocusFlag};
 use rat_widget::event::Outcome;
-use rat_widget::menuline::{MenuLine, MenuLineState};
-use rat_widget::splitter::{Split, SplitState, SplitStyle, SplitWidget};
+use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
+use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::StatusLineState;
-use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span};
+use ratatui::text::Line;
 use ratatui::widgets::{StatefulWidget, Widget};
 use ratatui::Frame;
 
@@ -36,28 +38,10 @@ struct Data {}
 
 struct State {
     pub(crate) dir: Direction,
-    pub(crate) minimal: SplitStyle,
-    pub(crate) split: SplitState<()>,
+    pub(crate) minimal: SplitType,
+    pub(crate) split: SplitState,
     pub(crate) menu: MenuLineState,
     pub(crate) status: StatusLineState,
-}
-
-struct Split1;
-
-impl SplitWidget for Split1 {
-    type State = ();
-
-    fn render(&self, n: usize, area: Rect, buf: &mut Buffer, _state: &mut Self::State) {
-        match n {
-            0 => Line::from("LEFT")
-                .style(Style::default().on_dark_gray())
-                .render(area, buf),
-            1 => Line::from("RIGHT")
-                .style(Style::default().on_dark_gray())
-                .render(area, buf),
-            _ => {}
-        }
-    }
 }
 
 fn repaint_input(
@@ -81,13 +65,21 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
-    Split::new(Split1)
+    let split = Split::new()
         .direction(state.dir)
-        .render_split(state.minimal)
+        .split_type(state.minimal)
         .constraints([Constraint::Fill(1), Constraint::Fill(1)])
-        .style(Style::default().on_blue())
-        .drag_style(Style::default().on_light_blue())
-        .render(l2[1], frame.buffer_mut(), &mut state.split);
+        .styles(THEME.split_style());
+    split.layout(l2[1], &mut state.split);
+
+    Line::from("LEFT")
+        .style(Style::default().on_dark_gray())
+        .render(state.split.areas[0], frame.buffer_mut());
+    Line::from("RIGHT")
+        .style(Style::default().on_dark_gray())
+        .render(state.split.areas[1], frame.buffer_mut());
+
+    split.render(l2[1], frame.buffer_mut(), &mut state.split);
 
     let mut area = Rect::new(l2[0].x, l2[0].y, l2[0].width, 1);
 
@@ -147,10 +139,15 @@ fn repaint_input(
     Ok(())
 }
 
+fn focus(state: &State) -> Focus {
+    let mut f = Focus::new(&[&state.split, &state.menu]);
+    f
+}
+
 fn handle_input(
     event: &crossterm::event::Event,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     flow_ok!(match event {
@@ -174,27 +171,33 @@ fn handle_input(
         ct_event!(keycode press F(4)) => {
             state.split = Default::default();
             state.minimal = match state.minimal {
-                SplitStyle::Full => SplitStyle::Minimal,
-                SplitStyle::Minimal => SplitStyle::None,
-                SplitStyle::None => SplitStyle::Full,
+                SplitType::Full => SplitType::Scroll,
+                SplitType::Scroll => SplitType::ScrollbarBlock,
+                SplitType::ScrollbarBlock => SplitType::None,
+                SplitType::None => SplitType::Full,
             };
             Outcome::Changed
         }
 
         ct_event!(keycode press F(5)) => {
-            if state.split.key_nav.is_none() {
-                state.split.key_nav = Some(0);
+            if state.split.is_focused() {
+                state.split.focus.set(false);
             } else {
-                state.split.key_nav = None;
+                state.split.focus.set(true);
             }
             Outcome::Changed
         }
         _ => Outcome::NotUsed,
     });
 
-    flow_ok!(HandleEvent::handle(&mut state.split, event, MouseOnly));
+    flow_ok!(focus(state).handle(event, FocusKeys));
 
+    flow_ok!(HandleEvent::handle(&mut state.split, event, FocusKeys));
     flow_ok!(match state.menu.handle(event, FocusKeys) {
+        MenuOutcome::Activated(0) => {
+            istate.quit = true;
+            Outcome::Changed
+        }
         _ => {
             Outcome::NotUsed
         }
