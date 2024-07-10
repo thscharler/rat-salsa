@@ -14,8 +14,8 @@ use rat_theme::dark_theme::DarkTheme;
 use rat_theme::dark_themes;
 use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{
-    ct_event, flow_ok, Dialog, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome,
-    Popup, ReadOnly,
+    ct_event, flow_ok, Dialog, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, MouseOnly,
+    Outcome, Popup, ReadOnly,
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
@@ -24,6 +24,7 @@ use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
 use rat_widget::scrolled::Scroll;
+use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{FTable, FTableContext, FTableState, TableData};
@@ -129,6 +130,7 @@ pub struct FilesState {
 
     pub cancel_show: Option<Cancel>,
 
+    pub w_split: SplitState,
     pub w_dirs: FTableState<RowSelection>,
     pub w_files: FTableState<RowSelection>,
     pub w_data: TextAreaState,
@@ -320,6 +322,17 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .style(ctx.g.theme.bluegreen(0))
             .render(r[0], buf);
 
+        let split = Split::new()
+            .direction(Direction::Horizontal)
+            .constraints([
+                Constraint::Length(25),
+                Constraint::Length(25),
+                Constraint::Fill(1),
+            ])
+            .split_type(SplitType::Scroll)
+            .styles(ctx.g.theme.split_style());
+        split.layout(r[2], &mut state.w_split);
+
         FTable::new()
             .data(DirData {
                 dir: Some(state.main_dir.clone()),
@@ -329,9 +342,10 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .vscroll(
                 Scroll::new()
                     .styles(ctx.g.theme.scroll_style())
+                    .collab_split(true)
                     .scroll_by(1),
             )
-            .render(c[0], buf, &mut state.w_dirs);
+            .render(state.w_split.areas[0], buf, &mut state.w_dirs);
 
         FTable::new()
             .data(FileData {
@@ -345,9 +359,10 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .vscroll(
                 Scroll::new()
                     .styles(ctx.g.theme.scroll_style())
+                    .collab_split(true)
                     .scroll_by(1),
             )
-            .render(c[1], buf, &mut state.w_files);
+            .render(state.w_split.areas[1], buf, &mut state.w_files);
 
         let title = if state.w_data.is_focused() {
             Title::from(Line::from("Content").style(ctx.g.theme.focus()))
@@ -374,10 +389,13 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 Block::bordered()
                     .borders(Borders::TOP | Borders::BOTTOM | Borders::RIGHT)
                     .border_set(set)
+                    .style(ctx.g.theme.data())
                     .title(title),
             )
-            .render(c[2], buf, &mut state.w_data);
+            .render(state.w_split.areas[2], buf, &mut state.w_data);
         ctx.cursor = state.w_data.screen_cursor();
+
+        split.render(r[2], buf, &mut state.w_split);
 
         MenuBar::new()
             .styles(ctx.g.theme.menu_style())
@@ -466,17 +484,26 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
         });
 
-        ctx.queue(self.focus().enable_log(true).handle(event, FocusKeys));
+        ctx.queue(self.focus().handle(event, FocusKeys));
+
+        flow_ok!(match event {
+            ct_event!(keycode press F(5)) => {
+                if self.w_split.is_focused() {
+                    self.focus().next();
+                } else {
+                    self.focus().focus_widget(&self.w_split);
+                }
+                Control::Repaint
+            }
+            _ => Control::Continue,
+        });
 
         flow_ok!(match self.w_menu.handle(event, Popup) {
             MenuOutcome::MenuSelected(0, n) => {
-                debug!("select 0 {}", n);
                 Control::Repaint
             }
             MenuOutcome::MenuActivated(0, n) => {
-                debug!("activate 0 {}", n);
                 if let Some(root) = fs_roots().get(n) {
-                    debug!("set root {:?}", root);
                     self.main_dir = root.1.clone();
                     ctx.queue(Control::Action(ReadDir(Full, self.main_dir.clone(), None)));
                 }
@@ -492,6 +519,8 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
             r => r.into(),
         });
+
+        flow_ok!(self.w_split.handle(event, FocusKeys));
 
         flow_ok!(match self.w_menu.handle(event, FocusKeys) {
             MenuOutcome::Activated(2) => {
@@ -985,6 +1014,7 @@ impl FilesState {
 impl HasFocus for FilesState {
     fn focus(&self) -> Focus {
         let mut f = Focus::default();
+        f.add(&self.w_split);
         f.add(&self.w_dirs);
         f.add(&self.w_files);
         f.add(&self.w_data);
