@@ -237,3 +237,156 @@ impl MouseFlags {
         false
     }
 }
+
+/// Some state for mouse interactions with multiple areas.
+///
+/// This helps with double-click and mouse drag recognition.
+/// Add this to your widget state.
+#[derive(Debug, Default, Clone, PartialEq, Eq)]
+pub struct MouseFlagsN {
+    /// Flag for the first down.
+    pub click: Cell<Option<usize>>,
+    /// Flag for the first up.
+    pub clack: Cell<bool>,
+    /// Drag enabled.
+    pub drag: Cell<Option<usize>>,
+}
+
+impl MouseFlagsN {
+    /// Returns column/row extracted from the Mouse-Event.
+    pub fn pos_of(&self, event: &MouseEvent) -> (u16, u16) {
+        (event.column, event.row)
+    }
+
+    /// Checks if this is a drag event for the widget.
+    ///
+    /// It makes sense to allow drag events outside the given area, if the
+    /// drag has been started with a click to the given area.
+    ///
+    /// This function handles that case.
+    pub fn drag(&self, areas: &[Rect], event: &MouseEvent) -> bool {
+        self.drag2(areas, event, KeyModifiers::NONE)
+    }
+
+    /// Checks if this is a drag event for the widget.
+    ///
+    /// It makes sense to allow drag events outside the given area, if the
+    /// drag has been started with a click to the given area.
+    ///
+    /// This function handles that case.
+    pub fn drag2(&self, areas: &[Rect], event: &MouseEvent, filter: KeyModifiers) -> bool {
+        match event {
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers,
+            } if *modifiers == filter => {
+                self.drag.set(None);
+                for (n, area) in areas.iter().enumerate() {
+                    if area.contains((*column, *row).into()) {
+                        self.drag.set(Some(n));
+                    }
+                }
+            }
+            MouseEvent {
+                kind: MouseEventKind::Drag(MouseButton::Left),
+                modifiers,
+                ..
+            } if *modifiers == filter => {
+                if self.drag.get().is_some() {
+                    return true;
+                }
+            }
+            MouseEvent {
+                kind: MouseEventKind::Up(MouseButton::Left) | MouseEventKind::Moved,
+                ..
+            } => {
+                self.drag.set(None);
+            }
+
+            _ => {}
+        }
+
+        false
+    }
+
+    /// Checks for double-click events.
+    ///
+    /// This can be integrated in the event-match with a guard:
+    ///
+    /// ```rust ignore
+    /// match event {
+    ///         Event::Mouse(m) if state.mouse.doubleclick(state.area, m) => {
+    ///             state.flip = !state.flip;
+    ///             Outcome::Changed
+    ///         }
+    /// }
+    /// ```
+    ///
+    pub fn doubleclick(&self, areas: &[Rect], event: &MouseEvent) -> bool {
+        self.doubleclick2(areas, event, KeyModifiers::NONE)
+    }
+
+    /// Checks for double-click events.
+    /// This one can have an extra KeyModifiers.
+    ///
+    /// This can be integrated in the event-match with a guard:
+    ///
+    /// ```rust ignore
+    /// match event {
+    ///         Event::Mouse(m) if state.mouse.doubleclick(state.area, m) => {
+    ///             state.flip = !state.flip;
+    ///             Outcome::Changed
+    ///         }
+    /// }
+    /// ```
+    ///
+    pub fn doubleclick2(&self, areas: &[Rect], event: &MouseEvent, filter: KeyModifiers) -> bool {
+        match event {
+            MouseEvent {
+                kind: MouseEventKind::Down(MouseButton::Left),
+                column,
+                row,
+                modifiers,
+            } if *modifiers == filter => {
+                self.click.set(None);
+                self.clack.set(false);
+                for (n, area) in areas.iter().enumerate() {
+                    if area.contains((*column, *row).into()) {
+                        self.click.set(Some(n));
+                        self.clack.set(false);
+                    }
+                }
+            }
+            MouseEvent {
+                kind: MouseEventKind::Up(MouseButton::Left),
+                column,
+                row,
+                modifiers,
+            } if *modifiers == filter => {
+                for (n, area) in areas.iter().enumerate() {
+                    if area.contains((*column, *row).into()) {
+                        if self.click.get() == Some(n) {
+                            if !self.clack.get() {
+                                self.clack.set(true);
+                            } else {
+                                self.click.set(None);
+                                self.clack.set(false);
+                                return true;
+                            }
+                        } else {
+                            // Something else ...
+                        }
+                    } else {
+                        self.click.set(None);
+                        self.clack.set(false);
+                    }
+                }
+            }
+            _ => {}
+        }
+
+        false
+    }
+}

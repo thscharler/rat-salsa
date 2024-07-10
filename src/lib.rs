@@ -63,6 +63,12 @@ pub trait HandleEvent<Event, Qualifier, R: ConsumedEvent> {
     fn handle(&mut self, event: &Event, qualifier: Qualifier) -> R;
 }
 
+impl<E, Q> HandleEvent<E, Q, Outcome> for () {
+    fn handle(&mut self, _event: &E, _qualifier: Q) -> Outcome {
+        Outcome::NotUsed
+    }
+}
+
 /// When composing several widgets, the minimum information from the outcome
 /// of the inner widget is, whether it used & consumed the event.
 ///
@@ -258,7 +264,7 @@ macro_rules! flow_ok {
 /// If you don't want to return early with is_consumed(), you
 /// can define a variable, and or_else! the different options.
 ///
-/// ```rust
+/// ```not_rust
 /// let mut r;
 ///
 /// r = first_activity();
