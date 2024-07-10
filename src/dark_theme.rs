@@ -6,6 +6,7 @@ use rat_widget::list::RListStyle;
 use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::scrolled::ScrollStyle;
+use rat_widget::splitter::SplitStyle;
 use rat_widget::table::FTableStyle;
 use rat_widget::textarea::TextAreaStyle;
 use ratatui::prelude::Style;
@@ -265,6 +266,18 @@ impl DarkTheme {
             no_style: Some(style),
             begin_style: Some(arrow_style),
             end_style: Some(arrow_style),
+            ..Default::default()
+        }
+    }
+
+    /// Complete Split style
+    pub fn split_style(&self) -> SplitStyle {
+        let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
+        let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
+        SplitStyle {
+            style,
+            arrow_style: Some(arrow_style),
+            drag_style: Some(self.focus()),
             ..Default::default()
         }
     }
