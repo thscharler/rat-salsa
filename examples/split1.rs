@@ -1,9 +1,9 @@
+#![allow(dead_code)]
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use anyhow::anyhow;
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{ct_event, flow_ok, FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{ct_event, flow_ok, FocusKeys, HandleEvent};
 use rat_focus::{Focus, HasFocusFlag};
 use rat_widget::event::Outcome;
 use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
@@ -140,8 +140,7 @@ fn repaint_input(
 }
 
 fn focus(state: &State) -> Focus {
-    let mut f = Focus::new(&[&state.split, &state.menu]);
-    f
+    Focus::new(&[&state.split, &state.menu])
 }
 
 fn handle_input(

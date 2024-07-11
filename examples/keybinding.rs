@@ -1,16 +1,12 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use chrono::{Local, NaiveTime};
-use crossterm::event::{Event, KeyEvent, KeyModifiers, MouseEvent, MouseEventKind};
+use crossterm::event::{Event, KeyEvent};
 use format_num_pattern::NumberFormat;
-use rat_event::util::MouseFlags;
-use rat_event::{ct_event, Outcome};
-use rat_widget::layout::layout_grid;
-use ratatui::layout::{Constraint, Layout, Rect};
+use rat_event::Outcome;
+use ratatui::layout::Rect;
 use ratatui::prelude::Widget;
-use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::Frame;
-use std::cmp::max;
 
 mod mini_salsa;
 
