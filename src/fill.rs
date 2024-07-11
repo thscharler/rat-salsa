@@ -12,19 +12,10 @@ use ratatui::widgets::{Widget, WidgetRef};
 /// Fill the area with a grapheme and a style.
 /// Useful when overwriting an already rendered buffer
 /// for overlays or windows.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Fill<'a> {
     c: Option<&'a str>,
     style: Option<Style>,
-}
-
-impl<'a> Default for Fill<'a> {
-    fn default() -> Self {
-        Self {
-            c: None,
-            style: None,
-        }
-    }
 }
 
 impl<'a> Fill<'a> {
