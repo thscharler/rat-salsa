@@ -66,6 +66,7 @@ enum Mode {
     Dir,
 }
 
+#[allow(clippy::type_complexity)]
 pub struct FileDialogState {
     pub active: bool,
 
@@ -695,13 +696,13 @@ impl FileDialogState {
                 self.path_state.move_to_line_end(false);
             }
 
-            if self.dirs.len() > 0 {
+            if !self.dirs.is_empty() {
                 self.dir_state.list.select(Some(0));
             } else {
                 self.dir_state.list.select(None);
             }
             self.dir_state.list.set_offset(0);
-            if self.files.len() > 0 {
+            if !self.files.is_empty() {
                 self.file_state.select(Some(0));
                 if let Some(name) = &self.save_name {
                     self.save_name_state.set_value(name.to_string_lossy());
@@ -801,7 +802,7 @@ impl FileDialogState {
         if let Some(edit) = &mut self.dir_state.edit {
             let name = edit.edit_dir.value().trim();
             let path = self.path.join(name);
-            if let Err(_) = fs::create_dir(&path) {
+            if fs::create_dir(&path).is_err() {
                 edit.edit_dir.invalid = true;
                 Ok(FileOutcome::Changed)
             } else {
@@ -846,8 +847,7 @@ impl FileDialogState {
             },
             self.dir_state.list => {
                 if let Some(edit) = &self.dir_state.edit {
-                    let s = edit.screen_cursor();
-                    s
+                      edit.screen_cursor()
                 } else {
                     None
                 }
@@ -1042,8 +1042,7 @@ fn handle_dirs(
             state.commit_edit_dir()?
         }
         r => {
-            let rr = Outcome::from(r).into();
-            rr
+            Outcome::from(r).into()
         }
     });
     Ok(FileOutcome::NotUsed)
@@ -1069,7 +1068,7 @@ fn handle_files(
             _ => FileOutcome::NotUsed,
         });
         flow_ok!(
-            match handle_nav(&mut state.file_state, &mut state.files, event) {
+            match handle_nav(&mut state.file_state, &state.files, event) {
                 FileOutcome::Changed => {
                     if state.mode == Mode::Save {
                         state.name_selected()?
@@ -1131,8 +1130,7 @@ fn find_next_by_key(c: char, start: usize, names: &[OsString]) -> Option<usize> 
             .to_string_lossy()
             .chars()
             .next()
-            .map(|v| v.to_lowercase().next())
-            .flatten();
+            .and_then(|v| v.to_lowercase().next());
         if c == nav {
             selected = Some(idx);
             break;
