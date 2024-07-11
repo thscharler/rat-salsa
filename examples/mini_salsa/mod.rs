@@ -257,7 +257,7 @@ pub fn layout_grid<const X: usize, const Y: usize>(
 }
 
 pub mod theme {
-    use rat_ftable::FTableStyle;
+    use rat_ftable::TableStyle;
     use rat_scrolled::ScrollStyle;
     use rat_widget::button::ButtonStyle;
     use rat_widget::file_dialog::FileDialogStyle;
@@ -495,8 +495,8 @@ pub mod theme {
         }
 
         /// Complete FTableStyle
-        pub fn table_style(&self) -> FTableStyle {
-            FTableStyle {
+        pub fn table_style(&self) -> TableStyle {
+            TableStyle {
                 style: self.data(),
                 select_row_style: Some(self.select()),
                 show_row_focus: true,
