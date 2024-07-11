@@ -13,9 +13,7 @@ use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
-use rat_widget::event::{
-    ct_event, flow_ok, or_else, ConsumedEvent, Dialog, FocusKeys, HandleEvent, Popup,
-};
+use rat_widget::event::{ct_event, or_else, Dialog, FocusKeys, HandleEvent, Popup};
 use rat_widget::file_dialog::FileDialog;
 use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
@@ -121,7 +119,6 @@ pub mod facilities {
     use crate::{AppContext, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
-    use log::debug;
     use rat_salsa::event::flow_ok;
     use rat_salsa::Control;
     use rat_widget::event::{Dialog, FileOutcome, HandleEvent};
@@ -405,7 +402,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
     }
 }
 
-mod mdedit {
+pub mod mdedit {
     use crate::{collect_ast, AppContext, GlobalState, MDAction, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
@@ -422,8 +419,8 @@ mod mdedit {
     use ratatui::layout::Rect;
     use ratatui::style::{Style, Stylize};
     use ratatui::widgets::StatefulWidget;
+    use std::fs;
     use std::time::{Duration, Instant};
-    use std::{fs, mem};
 
     #[derive(Debug)]
     pub struct MDEdit;

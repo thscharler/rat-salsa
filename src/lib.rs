@@ -3,8 +3,8 @@
 use crossbeam::channel::{SendError, Sender};
 use rat_widget::button::ButtonOutcome;
 use rat_widget::event::{
-    ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, FocusKeys, HandleEvent, Outcome,
-    ScrollOutcome, TextOutcome,
+    ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, Outcome, ScrollOutcome,
+    TextOutcome,
 };
 use rat_widget::menuline::MenuOutcome;
 use ratatui::buffer::Buffer;

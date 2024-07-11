@@ -14,8 +14,8 @@ use rat_theme::dark_theme::DarkTheme;
 use rat_theme::dark_themes;
 use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{
-    ct_event, flow_ok, Dialog, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, MouseOnly,
-    Outcome, Popup, ReadOnly,
+    ct_event, flow_ok, Dialog, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome,
+    Popup, ReadOnly,
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;

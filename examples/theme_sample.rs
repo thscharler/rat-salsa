@@ -227,8 +227,8 @@ pub mod mask0 {
     use rat_theme::dark_themes;
     use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
     use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
-    use rat_widget::scrolled::viewport::{Viewport, ViewportState};
     use rat_widget::scrolled::Scroll;
+    use rat_widget::viewport::{Viewport, ViewportState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
     use ratatui::widgets::StatefulWidget;
