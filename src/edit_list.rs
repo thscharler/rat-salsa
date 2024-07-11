@@ -1,6 +1,6 @@
 use crate::event::EditOutcome;
 use crate::list::selection::RowSelection;
-use crate::list::{RList, RListSelection, RListState};
+use crate::list::{List, ListSelection, ListState};
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
@@ -12,13 +12,13 @@ use ratatui::widgets::{StatefulWidget, StatefulWidgetRef};
 
 #[derive(Debug, Default)]
 pub struct EditRList<'a, Editor: StatefulWidgetRef + 'a> {
-    list: RList<'a, RowSelection>,
+    list: List<'a, RowSelection>,
     edit: Editor,
 }
 
 #[derive(Debug, Default)]
 pub struct EditRListState<EditorState> {
-    pub list: RListState<RowSelection>,
+    pub list: ListState<RowSelection>,
     pub edit: Option<EditorState>,
 
     pub mouse: MouseFlags,
@@ -28,7 +28,7 @@ impl<'a, Editor> EditRList<'a, Editor>
 where
     Editor: StatefulWidgetRef + 'a,
 {
-    pub fn new(list: RList<'a, RowSelection>, edit: Editor) -> Self {
+    pub fn new(list: List<'a, RowSelection>, edit: Editor) -> Self {
         Self { list, edit }
     }
 }

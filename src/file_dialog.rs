@@ -6,7 +6,7 @@ use crate::fill::Fill;
 use crate::input::{TextInput, TextInputState, TextInputStyle};
 use crate::layout::{layout_dialog, layout_grid};
 use crate::list::selection::RowSelection;
-use crate::list::{RList, RListState, RListStyle};
+use crate::list::{List, ListState, ListStyle};
 use crate::util::revert_style;
 use directories_next::UserDirs;
 #[allow(unused_imports)]
@@ -81,9 +81,9 @@ pub struct FileDialogState {
     roots: Vec<(OsString, PathBuf)>,
 
     path_state: TextInputState,
-    root_state: RListState<RowSelection>,
+    root_state: ListState<RowSelection>,
     dir_state: EditRListState<EditDirNameState>,
-    file_state: RListState<RowSelection>,
+    file_state: ListState<RowSelection>,
     save_name_state: TextInputState,
     new_state: ButtonState,
     cancel_state: ButtonState,
@@ -256,8 +256,8 @@ impl<'a> FileDialog<'a> {
         }
     }
 
-    fn style_roots(&self) -> RListStyle {
-        RListStyle {
+    fn style_roots(&self) -> ListStyle {
+        ListStyle {
             style: self.style,
             select_style: self.defaulted_select(),
             focus_style: self.defaulted_focus(),
@@ -265,8 +265,8 @@ impl<'a> FileDialog<'a> {
         }
     }
 
-    fn style_lists(&self) -> RListStyle {
-        RListStyle {
+    fn style_lists(&self) -> ListStyle {
+        ListStyle {
             style: if let Some(list) = self.list_style {
                 list
             } else {
@@ -462,7 +462,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         .styles(widget.style_path())
         .render(l_path, buf, &mut state.path_state);
 
-    RList::default()
+    List::default()
         .items(state.roots.iter().map(|v| {
             let s = v.0.to_string_lossy();
             ListItem::from(format!("{}", s))
@@ -472,7 +472,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         .render(l_grid[0][2], buf, &mut state.root_state);
 
     EditRList::new(
-        RList::default()
+        List::default()
             .items(state.dirs.iter().map(|v| {
                 let s = v.to_string_lossy();
                 ListItem::from(s)
@@ -483,7 +483,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
     )
     .render(l_grid[1][2], buf, &mut state.dir_state);
 
-    RList::default()
+    List::default()
         .items(state.files.iter().map(|v| {
             let s = v.to_string_lossy();
             ListItem::from(s)
@@ -519,7 +519,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         .styles(widget.style_path())
         .render(l_path, buf, &mut state.path_state);
 
-    RList::default()
+    List::default()
         .items(state.roots.iter().map(|v| {
             let s = v.0.to_string_lossy();
             ListItem::from(format!("{}", s))
@@ -529,7 +529,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         .render(l_grid[0][2], buf, &mut state.root_state);
 
     EditRList::new(
-        RList::default()
+        List::default()
             .items(state.dirs.iter().map(|v| {
                 let s = v.to_string_lossy();
                 ListItem::from(s)
@@ -540,7 +540,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
     )
     .render(l_grid[1][2], buf, &mut state.dir_state);
 
-    RList::default()
+    List::default()
         .items(state.files.iter().map(|v| {
             let s = v.to_string_lossy();
             ListItem::from(s)
@@ -1094,7 +1094,7 @@ fn handle_files(
 }
 
 fn handle_nav(
-    list: &mut RListState<RowSelection>,
+    list: &mut ListState<RowSelection>,
     nav: &[OsString],
     event: &crossterm::event::Event,
 ) -> FileOutcome {

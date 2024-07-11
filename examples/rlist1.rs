@@ -9,7 +9,7 @@ use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_widget::edit_list::{EditRList, EditRListState};
 use rat_widget::input::{TextInput, TextInputState};
-use rat_widget::list::RList;
+use rat_widget::list::List;
 use rat_widget::menubar::{MenuBar, MenuBarState, MenuPopup, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::popup_menu::Placement;
@@ -180,7 +180,7 @@ fn repaint_input(
     .render(l_grid[0][0], frame.buffer_mut());
 
     EditRList::new(
-        RList::default()
+        List::default()
             .items(data.data.iter().map(|v| ListItem::from(v.as_str())))
             .styles(THEME.list_styles())
             .scroll(Scroll::new()),
