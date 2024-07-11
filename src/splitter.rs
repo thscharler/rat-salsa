@@ -1,15 +1,13 @@
 use crate::_private::NonExhaustive;
 use crate::util::revert_style;
-use crossterm::cursor::SetCursorStyle::DefaultUserShape;
-use log::debug;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
-use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
+use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::{Block, StatefulWidget, WidgetRef};
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Splits the area in multiple parts and allows changing the sizes.
@@ -23,7 +21,7 @@ use unicode_segmentation::UnicodeSegmentation;
 ///
 /// Only after the inner widgets have been rendered, you call `render()`
 /// for the Split widget itself.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Split<'a> {
     direction: Direction,
     constraints: Vec<Constraint>,
@@ -139,19 +137,10 @@ impl Default for SplitStyle {
 
 impl<'a> Split<'a> {
     pub fn new() -> Self {
-        let mut s = Self {
-            direction: Default::default(),
-            constraints: Default::default(),
-            split_style: Default::default(),
-            block: Default::default(),
-            style: Default::default(),
-            arrow_style: Default::default(),
-            drag_style: Default::default(),
-            horizontal_mark: Default::default(),
-            vertical_mark: Default::default(),
-        };
-        s.direction = Direction::Horizontal;
-        s
+        Self {
+            direction: Direction::Horizontal,
+            ..Default::default()
+        }
     }
 
     /// Constraints.
@@ -426,7 +415,7 @@ impl<'a> Split<'a> {
             }
         }
 
-        if let Some(test) = state.areas.get(0) {
+        if let Some(test) = state.areas.first() {
             if state.direction == Direction::Horizontal {
                 if test.height != area.height {
                     for r in &mut state.areas {
