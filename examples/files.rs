@@ -27,7 +27,7 @@ use rat_widget::scrolled::Scroll;
 use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
-use rat_widget::table::{FTable, FTableContext, FTableState, TableData};
+use rat_widget::table::{RTableContext, Table, TableData, TableState};
 use rat_widget::textarea::{TextArea, TextAreaState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -131,8 +131,8 @@ pub struct FilesState {
     pub cancel_show: Option<Cancel>,
 
     pub w_split: SplitState,
-    pub w_dirs: FTableState<RowSelection>,
-    pub w_files: FTableState<RowSelection>,
+    pub w_dirs: TableState<RowSelection>,
+    pub w_files: TableState<RowSelection>,
     pub w_data: TextAreaState,
 
     pub w_menu: MenuBarState,
@@ -166,7 +166,7 @@ impl<'a> TableData<'a> for FileData<'a> {
 
     fn render_cell(
         &self,
-        ctx: &FTableContext,
+        ctx: &RTableContext,
         column: usize,
         row: usize,
         area: Rect,
@@ -218,7 +218,7 @@ impl<'a> TableData<'a> for DirData<'a> {
 
     fn render_cell(
         &self,
-        ctx: &FTableContext,
+        ctx: &RTableContext,
         column: usize,
         row: usize,
         area: Rect,
@@ -333,7 +333,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .styles(ctx.g.theme.split_style());
         split.layout(r[2], &mut state.w_split);
 
-        FTable::new()
+        Table::new()
             .data(DirData {
                 dir: Some(state.main_dir.clone()),
                 dirs: &state.sub_dirs,
@@ -347,7 +347,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             )
             .render(state.w_split.areas[0], buf, &mut state.w_dirs);
 
-        FTable::new()
+        Table::new()
             .data(FileData {
                 dir: state.current_dir(),
                 files: &state.files,
