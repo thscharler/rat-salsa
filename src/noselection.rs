@@ -1,6 +1,5 @@
 use crate::event::Outcome;
 use crate::{FTableState, TableSelection};
-use log::debug;
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
 use rat_scrolled::event::ScrollOutcome;

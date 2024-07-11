@@ -789,7 +789,7 @@ impl<'a, Selection> FTable<'a, Selection> {
                     Constraint::Min(v) => width += *v + self.column_spacing,
                     Constraint::Max(v) => width += *v + self.column_spacing,
                     Constraint::Length(v) => width += *v + self.column_spacing,
-                    _ => assert!(false, "Invalid layout constraint."),
+                    _ => unimplemented!("Invalid layout constraint."),
                 }
             }
             width
@@ -1221,6 +1221,7 @@ where
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_footer(
         &self,
         columns: usize,
@@ -1288,6 +1289,7 @@ where
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn render_header(
         &self,
         columns: usize,
