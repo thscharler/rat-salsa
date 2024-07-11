@@ -81,13 +81,6 @@ impl ZRect {
         }
     }
 
-    /// The area of the `Rect`. If the area is larger than the maximum value of `u16`, it will be
-    /// clamped to `u16::MAX`.
-    #[inline]
-    pub const fn area(self) -> u16 {
-        self.as_rect().area()
-    }
-
     /// Returns true if the `Rect` has no area.
     pub const fn is_empty(self) -> bool {
         self.width == 0 || self.height == 0
