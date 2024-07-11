@@ -1,5 +1,5 @@
 use crate::event::Outcome;
-use crate::{FTableState, TableSelection};
+use crate::{TableSelection, TableState};
 use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
 use rat_scrolled::event::ScrollOutcome;
@@ -116,7 +116,7 @@ impl RowSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<RowSelection> {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TableState<RowSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = if self.is_focused() {
             match event {
@@ -156,7 +156,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<Ro
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<RowSelection> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<RowSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         flow!(match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.table_area, m) => {
@@ -221,7 +221,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<Ro
 /// Table events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
 pub fn handle_events(
-    state: &mut FTableState<RowSelection>,
+    state: &mut TableState<RowSelection>,
     focus: bool,
     event: &crossterm::event::Event,
 ) -> Outcome {
@@ -231,7 +231,7 @@ pub fn handle_events(
 
 /// Handle only mouse-events.
 pub fn handle_mouse_events(
-    state: &mut FTableState<RowSelection>,
+    state: &mut TableState<RowSelection>,
     event: &crossterm::event::Event,
 ) -> Outcome {
     state.handle(event, MouseOnly)

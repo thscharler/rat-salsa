@@ -4,7 +4,7 @@ use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableContext, FTableState, TableData};
+use rat_ftable::{RTableContext, Table, TableData, TableState};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -49,7 +49,7 @@ struct Data {
 }
 
 struct State {
-    pub(crate) table: FTableState<NoSelection>,
+    pub(crate) table: TableState<NoSelection>,
 }
 
 fn repaint_table(
@@ -72,7 +72,7 @@ fn repaint_table(
 
         fn render_cell(
             &self,
-            _ctx: &FTableContext,
+            _ctx: &RTableContext,
             column: usize,
             row: usize,
             area: Rect,
@@ -110,7 +110,7 @@ fn repaint_table(
         }
     }
 
-    FTable::default()
+    Table::default()
         .data(Data1(&data.table_data))
         .widths([
             Constraint::Length(6),

@@ -7,7 +7,7 @@ use rat_event::util::item_at_clicked;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
+use rat_ftable::{RTableContext, Table, TableDataIter, TableState};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -63,7 +63,7 @@ struct Data {
 }
 
 struct State {
-    pub(crate) table: FTableState<NoSelection>,
+    pub(crate) table: TableState<NoSelection>,
     pub(crate) report_rows: Option<usize>,
     pub(crate) no_row_count: bool,
     pub(crate) edit: [[Rect; 10]; 1],
@@ -160,7 +160,7 @@ fn repaint_table(
             self.item.is_some()
         }
 
-        fn render_cell(&self, _ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, _ctx: &RTableContext, column: usize, area: Rect, buf: &mut Buffer) {
             let row = self.item.expect("data");
             match column {
                 0 => {
@@ -192,7 +192,7 @@ fn repaint_table(
         }
     }
 
-    FTable::default()
+    Table::default()
         .iter(RowIter1 {
             report_rows: state.report_rows,
             iter: data.table_data.iter().enumerate(),

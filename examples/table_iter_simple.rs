@@ -4,7 +4,7 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
+use rat_ftable::{RTableContext, Table, TableDataIter, TableState};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -49,7 +49,7 @@ struct Data {
 }
 
 struct State {
-    pub(crate) table: FTableState<NoSelection>,
+    pub(crate) table: TableState<NoSelection>,
 }
 
 fn repaint_table(
@@ -96,12 +96,12 @@ fn repaint_table(
             }
         }
 
-        fn render_cell(&self, _ctx: &FTableContext, _column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, _ctx: &RTableContext, _column: usize, area: Rect, buf: &mut Buffer) {
             Span::from(self.item.to_string()).render(area, buf);
         }
     }
 
-    FTable::default()
+    Table::default()
         .iter(RowIter {
             iter: Count(0),
             item: 0,

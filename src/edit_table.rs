@@ -6,7 +6,7 @@
 
 use crate::event::EditOutcome;
 use crate::rowselection::RowSelection;
-use crate::{FTable, TableSelection};
+use crate::{Table, TableSelection};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
 use rat_focus::{Focus, HasFocus, HasFocusFlag};
@@ -20,8 +20,8 @@ use ratatui::widgets::StatefulWidgetRef;
 /// It's parameterized with a `Editor` widget, that renders
 /// the input line.
 #[derive(Debug)]
-pub struct EditFTable<'a, Editor: EditorWidget + 'a> {
-    table: FTable<'a, RowSelection>,
+pub struct EditTable<'a, Editor: EditorWidget + 'a> {
+    table: Table<'a, RowSelection>,
     edit: Editor,
 }
 
@@ -29,9 +29,9 @@ pub struct EditFTable<'a, Editor: EditorWidget + 'a> {
 ///
 /// If the edit-state is set, this widget switches to edit-mode.
 #[derive(Debug, Default)]
-pub struct EditFTableState<EditorState> {
+pub struct EditTableState<EditorState> {
     /// Backing table.
-    pub table: crate::FTableState<RowSelection>,
+    pub table: crate::TableState<RowSelection>,
     /// Editor state.
     pub edit: Option<EditorState>,
 
@@ -55,31 +55,31 @@ pub trait EditorWidget {
     );
 }
 
-impl<'a, Editor> EditFTable<'a, Editor>
+impl<'a, Editor> EditTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
 {
-    pub fn new(table: FTable<'a, RowSelection>, edit: Editor) -> Self {
+    pub fn new(table: Table<'a, RowSelection>, edit: Editor) -> Self {
         Self { table, edit }
     }
 }
 
-impl<'a, Editor> StatefulWidgetRef for EditFTable<'a, Editor>
+impl<'a, Editor> StatefulWidgetRef for EditTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
 {
-    type State = EditFTableState<Editor::State>;
+    type State = EditTableState<Editor::State>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }
 
-impl<'a, Editor> StatefulWidget for EditFTable<'a, Editor>
+impl<'a, Editor> StatefulWidget for EditTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
 {
-    type State = EditFTableState<Editor::State>;
+    type State = EditTableState<Editor::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(&self, area, buf, state);
@@ -87,10 +87,10 @@ where
 }
 
 fn render_ref<'a, Editor>(
-    widget: &EditFTable<'a, Editor>,
+    widget: &EditTable<'a, Editor>,
     area: Rect,
     buf: &mut Buffer,
-    state: &mut EditFTableState<Editor::State>,
+    state: &mut EditTableState<Editor::State>,
 ) where
     Editor: EditorWidget + 'a,
 {
@@ -109,7 +109,7 @@ fn render_ref<'a, Editor>(
     }
 }
 
-impl<EditorState> HasFocus for EditFTableState<EditorState>
+impl<EditorState> HasFocus for EditTableState<EditorState>
 where
     EditorState: HasFocus,
 {
@@ -125,7 +125,7 @@ where
 }
 
 impl<EState, EQualifier> HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>
-    for EditFTableState<EState>
+    for EditTableState<EState>
 where
     EState: HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>,
 {
@@ -207,7 +207,7 @@ where
 /// The qualifier indicates which event-handler for EState will
 /// be called. Or it can be used to pass in some context.
 pub fn handle_edit_events<EState, EQualifier>(
-    state: &mut EditFTableState<EState>,
+    state: &mut EditTableState<EState>,
     focus: bool,
     event: &crossterm::event::Event,
     qualifier: EQualifier,

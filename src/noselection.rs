@@ -1,5 +1,5 @@
 use crate::event::Outcome;
-use crate::{FTableState, TableSelection};
+use crate::{TableSelection, TableState};
 use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
 use rat_focus::HasFocusFlag;
 use rat_scrolled::event::ScrollOutcome;
@@ -30,7 +30,7 @@ impl TableSelection for NoSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<NoSelection> {
+impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TableState<NoSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
         let res = if self.is_focused() {
             match event {
@@ -72,7 +72,7 @@ impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for FTableState<No
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<NoSelection> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<NoSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
             .handle(event, MouseOnly)
@@ -100,7 +100,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for FTableState<No
 /// Table events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
 pub fn handle_events(
-    state: &mut FTableState<NoSelection>,
+    state: &mut TableState<NoSelection>,
     focus: bool,
     event: &crossterm::event::Event,
 ) -> Outcome {
@@ -110,7 +110,7 @@ pub fn handle_events(
 
 /// Handle only mouse-events.
 pub fn handle_mouse_events(
-    state: &mut FTableState<NoSelection>,
+    state: &mut TableState<NoSelection>,
     event: &crossterm::event::Event,
 ) -> Outcome {
     state.handle(event, MouseOnly)

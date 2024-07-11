@@ -16,7 +16,7 @@ use ratatui::style::Style;
 
 /// Render-context for rendering a table-cell.
 #[derive(Debug)]
-pub struct FTableContext {
+pub struct RTableContext {
     /// Focus flag is set.
     pub focus: bool,
 
@@ -43,7 +43,7 @@ pub struct FTableContext {
 }
 
 ///
-/// Trait for accessing the table-data by the FTable.
+/// Trait for accessing the table-data by the Table.
 ///
 /// This trait is suitable if the underlying data is random access.
 pub trait TableData<'a> {
@@ -51,13 +51,13 @@ pub trait TableData<'a> {
     fn rows(&self) -> usize;
 
     /// Header can be obtained from here.
-    /// Alternative to setting on FTable.
+    /// Alternative to setting on Table.
     fn header(&self) -> Option<Row<'a>> {
         None
     }
 
     /// Footer can be obtained from here.
-    /// Alternative to setting on FTable.
+    /// Alternative to setting on Table.
     fn footer(&self) -> Option<Row<'a>> {
         None
     }
@@ -83,7 +83,7 @@ pub trait TableData<'a> {
     /// * ctx - a lot of context data.
     fn render_cell(
         &self,
-        ctx: &FTableContext,
+        ctx: &RTableContext,
         column: usize,
         row: usize,
         area: Rect,
@@ -91,7 +91,7 @@ pub trait TableData<'a> {
     );
 }
 
-/// Trait for accessing the table-data by the FTable.
+/// Trait for accessing the table-data by the Table.
 ///
 /// This trait is suitable if the underlying data is an iterator.
 /// It uses internal iteration which allows much more leeway with
@@ -111,17 +111,17 @@ pub trait TableDataIter<'a> {
     /// calculate things as the length of the table. Which will
     /// be slower if you have many items.
     ///
-    /// See [FTable::no_row_count]
+    /// See [Table::no_row_count]
     fn rows(&self) -> Option<usize>;
 
     /// Header can be obtained from here.
-    /// Alternative to setting on FTable.
+    /// Alternative to setting on Table.
     fn header(&self) -> Option<Row<'a>> {
         None
     }
 
     /// Footer can be obtained from here.
-    /// Alternative to setting on FTable.
+    /// Alternative to setting on Table.
     fn footer(&self) -> Option<Row<'a>> {
         None
     }
@@ -147,10 +147,10 @@ pub trait TableDataIter<'a> {
 
     /// Render the cell for the current line.
     /// * ctx - a lot of context data.
-    fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer);
+    fn render_cell(&self, ctx: &RTableContext, column: usize, area: Rect, buf: &mut Buffer);
 }
 
-/// Trait for the different selection models used by FTable.
+/// Trait for the different selection models used by Table.
 pub trait TableSelection {
     /// Row is selected. This can be separate from `is_selected_cell`.
     fn is_selected_row(&self, row: usize) -> bool;
@@ -172,14 +172,14 @@ pub trait TableSelection {
 
 use crate::_private::NonExhaustive;
 
-pub use table::{handle_doubleclick_events, handle_edit_events, FTable, FTableState, FTableStyle};
+pub use table::{handle_doubleclick_events, handle_edit_events, Table, TableState, TableStyle};
 
-/// Editing support for FTable.
+/// Editing support for Table.
 pub mod edit {
-    pub use crate::edit_table::{handle_edit_events, EditFTable, EditFTableState, EditorWidget};
+    pub use crate::edit_table::{handle_edit_events, EditTable, EditTableState, EditorWidget};
 }
 
-/// Different selection models for FTable.
+/// Different selection models for Table.
 pub mod selection {
     pub use crate::cellselection::CellSelection;
     pub mod cellselection {
@@ -214,7 +214,7 @@ pub mod event {
     /// recognition of double-clicks by consuming the first click.
     ///
     /// See [handle_doubleclick_events](crate::handle_doubleclick_events),
-    ///     [FTableState as HandleEvent](../struct.FTableState.html#impl-HandleEvent<Event,+DoubleClick,+DoubleClickOutcome>-for-FTableState<Selection>)
+    ///     [TableState as HandleEvent](../struct.TableState.html#impl-HandleEvent<Event,+DoubleClick,+DoubleClickOutcome>-for-TableState<Selection>)
     #[derive(Debug, Default)]
     pub struct DoubleClick;
 
@@ -265,14 +265,14 @@ pub mod event {
     /// Activates editing behaviour in addition to the normal
     /// table event handling.
     ///
-    /// This is used in a bare-bones version directly for [FTableState](crate::FTableState),
-    /// or the fancy version using [EditFTableState](crate::edit::EditFTableState)
+    /// This is used in a bare-bones version directly for [TableState](crate::TableState),
+    /// or the fancy version using [EditTableState](crate::edit::EditTableState)
     #[derive(Debug, Default)]
     pub struct EditKeys;
 
     /// Result of handling EditKeys.
     ///
-    /// The [FTableState](crate::FTableState) and [EditFTableState](crate::edit::EditFTableState)
+    /// The [TableState](crate::TableState) and [EditTableState](crate::edit::EditTableState)
     /// don't actually change your data, but this indicates what action
     /// is requested.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]

@@ -3,7 +3,7 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{FTable, FTableState};
+use rat_ftable::{Table, TableState};
 use rat_scrolled::Scroll;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::StatefulWidget;
@@ -27,7 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    pub(crate) table: FTableState<NoSelection>,
+    pub(crate) table: TableState<NoSelection>,
 }
 
 fn repaint_table(
@@ -41,7 +41,7 @@ fn repaint_table(
         .flex(Flex::Center)
         .split(area);
 
-    FTable::default()
+    Table::default()
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),

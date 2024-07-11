@@ -1,14 +1,14 @@
 #![allow(unreachable_pub)]
 
 use crate::mini_salsa::layout_grid;
-use rat_ftable::FTableState;
+use rat_ftable::TableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Widget;
 use std::fmt::Debug;
 
 pub fn render_tablestate<Selection: Debug>(
-    state: &FTableState<Selection>,
+    state: &TableState<Selection>,
     area: Rect,
     buf: &mut Buffer,
 ) {

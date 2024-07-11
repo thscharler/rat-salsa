@@ -6,7 +6,7 @@ use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::util::{revert_style, transfer_buffer};
-use crate::{FTableContext, TableData, TableDataIter, TableSelection};
+use crate::{RTableContext, TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
 #[cfg(debug_assertions)]
@@ -30,14 +30,14 @@ use std::marker::PhantomData;
 use std::mem;
 use std::rc::Rc;
 
-/// FTable widget.
+/// Table widget.
 ///
 /// Can be used like a ratatui::Table, but the benefits only
-/// show if you use [FTable::data] or [FTable::iter] to set the table data.
+/// show if you use [Table::data] or [Table::iter] to set the table data.
 ///
-/// See [FTable::data] and [FTable::iter] for an example.
+/// See [Table::data] and [Table::iter] for an example.
 #[derive(Debug, Default)]
-pub struct FTable<'a, Selection> {
+pub struct Table<'a, Selection> {
     data: DataRepr<'a>,
     no_row_count: bool,
 
@@ -78,7 +78,7 @@ pub struct FTable<'a, Selection> {
 
 mod data {
     use crate::textdata::TextTableData;
-    use crate::{FTableContext, TableData, TableDataIter};
+    use crate::{RTableContext, TableData, TableDataIter};
     #[allow(unused_imports)]
     use log::debug;
     #[allow(unused_imports)]
@@ -199,13 +199,13 @@ mod data {
         }
 
         /// Render the cell given by column/row.
-        fn render_cell(&self, ctx: &FTableContext, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, ctx: &RTableContext, column: usize, area: Rect, buf: &mut Buffer) {
             match self {
                 DataReprIter::None => {}
                 DataReprIter::Invalid(_) => {
                     if column == 0 {
                         #[cfg(debug_assertions)]
-                        warn!("FTable::render_ref - TableDataIter must implement a valid cloned() for this to work.");
+                        warn!("Table::render_ref - TableDataIter must implement a valid cloned() for this to work.");
 
                         buf.set_string(
                             area.x,
@@ -232,7 +232,7 @@ mod data {
 
 /// Combined style.
 #[derive(Debug)]
-pub struct FTableStyle {
+pub struct TableStyle {
     pub style: Style,
     pub header_style: Option<Style>,
     pub footer_style: Option<Style>,
@@ -254,9 +254,9 @@ pub struct FTableStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-/// FTable state.
+/// Table state.
 #[derive(Debug, Clone)]
-pub struct FTableState<Selection> {
+pub struct TableState<Selection> {
     /// Current focus state.
     pub focus: FocusFlag,
 
@@ -301,7 +301,7 @@ pub struct FTableState<Selection> {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, Selection> FTable<'a, Selection> {
+impl<'a, Selection> Table<'a, Selection> {
     /// New, empty Table.
     pub fn new() -> Self
     where
@@ -310,10 +310,10 @@ impl<'a, Selection> FTable<'a, Selection> {
         Self::default()
     }
 
-    /// Create a new FTable with preformatted data. For compatibility
+    /// Create a new Table with preformatted data. For compatibility
     /// with ratatui.
     ///
-    /// Use of [FTable::data] is preferred.
+    /// Use of [Table::data] is preferred.
     pub fn new_ratatui<R, C>(rows: R, widths: C) -> Self
     where
         R: IntoIterator,
@@ -335,7 +335,7 @@ impl<'a, Selection> FTable<'a, Selection> {
 
     /// Set preformatted row-data. For compatibility with ratatui.
     ///
-    /// Use of [FTable::data] is preferred.
+    /// Use of [Table::data] is preferred.
     pub fn rows<T>(mut self, rows: T) -> Self
     where
         T: IntoIterator<Item = Row<'a>>,
@@ -356,7 +356,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// use ratatui::prelude::Style;
     /// use ratatui::text::Span;
     /// use ratatui::widgets::{StatefulWidget, Widget};
-    /// use rat_ftable::{FTable, FTableContext, FTableState, TableData};
+    /// use rat_ftable::{Table, RTableContext, TableState, TableData};
     ///
     /// # struct SampleRow;
     /// # let area = Rect::default();
@@ -380,7 +380,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///         Style::default()
     ///     }
     ///
-    ///     fn render_cell(&self, ctx: &FTableContext, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
+    ///     fn render_cell(&self, ctx: &RTableContext, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
     ///         if let Some(data) = self.0.get(row) {
     ///             let rend = match column {
     ///                 0 => Span::from("column1"),
@@ -397,11 +397,11 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// // to the facade struct.
     ///
     /// let my_data_somewhere_else = vec![SampleRow;999999];
-    /// let mut table_state_somewhere_else = FTableState::default();
+    /// let mut table_state_somewhere_else = TableState::default();
     ///
     /// // ...
     ///
-    /// let table1 = FTable::default().data(Data1(&my_data_somewhere_else));
+    /// let table1 = Table::default().data(Data1(&my_data_somewhere_else));
     /// table1.render(area, buf, &mut table_state_somewhere_else);
     /// ```
     #[inline]
@@ -421,7 +421,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///
     ///
     /// Caution: If you can't give the number of rows, the table will iterate over all
-    /// the data. See [FTable::no_row_count].
+    /// the data. See [Table::no_row_count].
     ///
     /// ```rust
     /// use std::iter::{Enumerate};
@@ -433,7 +433,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     /// use ratatui::style::{Style, Stylize};
     /// use ratatui::text::Span;
     /// use ratatui::widgets::{Widget, StatefulWidget};
-    /// use rat_ftable::{FTable, FTableContext, FTableState, TableDataIter};
+    /// use rat_ftable::{Table, RTableContext, TableState, TableDataIter};
     ///
     /// # struct Data {
     /// #     table_data: Vec<Sample>
@@ -481,7 +481,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///
     ///     /// Render one cell.
     ///     fn render_cell(&self,
-    ///                     ctx: &FTableContext,
+    ///                     ctx: &RTableContext,
     ///                     column: usize,
     ///                     area: Rect,
     ///                     buf: &mut Buffer)
@@ -508,14 +508,14 @@ impl<'a, Selection> FTable<'a, Selection> {
     ///     item: None,
     /// };
     ///
-    /// let table1 = FTable::default()
+    /// let table1 = Table::default()
     ///     .iter(&mut rit)
     ///     .widths([
     ///         Constraint::Length(6),
     ///         Constraint::Length(20)
     ///     ]);
     ///
-    /// let mut table_state_somewhere_else = FTableState::default();
+    /// let mut table_state_somewhere_else = TableState::default();
     ///
     /// table1.render(area, buf, &mut table_state_somewhere_else);
     /// ```
@@ -524,7 +524,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     pub fn iter(mut self, data: impl TableDataIter<'a> + 'a) -> Self {
         #[cfg(debug_assertions)]
         if data.rows().is_none() {
-            warn!("FTable::iter - rows is None, this will be slower");
+            warn!("Table::iter - rows is None, this will be slower");
         }
         self.header = data.header();
         self.footer = data.footer();
@@ -534,7 +534,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 
     /// If you work with an TableDataIter to fill the table, and
-    /// if you don't return a count with rows(), FTable will run
+    /// if you don't return a count with rows(), Table will run
     /// through all your iterator to find the actual number of rows.
     ///
     /// This may take its time.
@@ -642,7 +642,7 @@ impl<'a, Selection> FTable<'a, Selection> {
 
     /// Set all styles as a bundle.
     #[inline]
-    pub fn styles(mut self, styles: FTableStyle) -> Self {
+    pub fn styles(mut self, styles: TableStyle) -> Self {
         self.style = styles.style;
         self.header_style = styles.header_style;
         self.footer_style = styles.footer_style;
@@ -776,7 +776,7 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 }
 
-impl<'a, Selection> FTable<'a, Selection> {
+impl<'a, Selection> Table<'a, Selection> {
     // area_width or layout_width
     #[inline]
     fn total_width(&self, area_width: u16) -> u16 {
@@ -825,11 +825,11 @@ impl<'a, Selection> FTable<'a, Selection> {
     }
 }
 
-impl<'a, Selection> StatefulWidgetRef for FTable<'a, Selection>
+impl<'a, Selection> StatefulWidgetRef for Table<'a, Selection>
 where
     Selection: TableSelection,
 {
-    type State = FTableState<Selection>;
+    type State = TableState<Selection>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let iter = self.data.iter();
@@ -837,11 +837,11 @@ where
     }
 }
 
-impl<'a, Selection> StatefulWidget for FTable<'a, Selection>
+impl<'a, Selection> StatefulWidget for Table<'a, Selection>
 where
     Selection: TableSelection,
 {
-    type State = FTableState<Selection>;
+    type State = TableState<Selection>;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let iter = mem::take(&mut self.data).into_iter();
@@ -849,7 +849,7 @@ where
     }
 }
 
-impl<'a, Selection> FTable<'a, Selection>
+impl<'a, Selection> Table<'a, Selection>
 where
     Selection: TableSelection,
 {
@@ -862,7 +862,7 @@ where
         mut data: DataReprIter<'a, 'b>,
         area: Rect,
         buf: &mut Buffer,
-        state: &mut FTableState<Selection>,
+        state: &mut TableState<Selection>,
     ) {
         if let Some(rows) = data.rows() {
             state.rows = rows;
@@ -923,7 +923,7 @@ where
         #[cfg(debug_assertions)]
         let mut insane_offset = false;
 
-        let mut ctx = FTableContext {
+        let mut ctx = RTableContext {
             focus: state.focus.get(),
             selected_cell: false,
             selected_row: false,
@@ -1200,14 +1200,14 @@ where
             let mut msg = String::new();
             if insane_offset {
                 _= write!(msg,
-                          "FTable::render:\n        offset {}\n        rows {}\n        iter-rows {}max\n    don't match up\nCode X{}X\n",
+                          "Table::render:\n        offset {}\n        rows {}\n        iter-rows {}max\n    don't match up\nCode X{}X\n",
                           state.vscroll.offset(), state.rows, state._counted_rows, algorithm
                 );
             }
             if state.rows != state._counted_rows {
                 _ = write!(
                     msg,
-                    "FTable::render:\n    rows {} don't match\n    iterated rows {}\nCode X{}X\n",
+                    "Table::render:\n    rows {} don't match\n    iterated rows {}\nCode X{}X\n",
                     state.rows, state._counted_rows, algorithm
                 );
             }
@@ -1230,7 +1230,7 @@ where
         l_spacers: &[Rect],
         area: Rect,
         buf: &mut Buffer,
-        state: &mut FTableState<Selection>,
+        state: &mut TableState<Selection>,
     ) {
         if let Some(footer) = &self.footer {
             let render_row_area = Rect::new(0, 0, width, footer.height);
@@ -1298,7 +1298,7 @@ where
         l_spacers: &[Rect],
         area: Rect,
         buf: &mut Buffer,
-        state: &mut FTableState<Selection>,
+        state: &mut TableState<Selection>,
     ) {
         if let Some(header) = &self.header {
             let render_row_area = Rect::new(0, 0, width, header.height);
@@ -1362,7 +1362,7 @@ where
         columns: usize,
         l_columns: &[Rect],
         l_spacers: &[Rect],
-        state: &mut FTableState<Selection>,
+        state: &mut TableState<Selection>,
     ) {
         state.column_areas.clear();
         state.column_layout.clear();
@@ -1422,7 +1422,7 @@ where
     }
 }
 
-impl Default for FTableStyle {
+impl Default for TableStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -1444,7 +1444,7 @@ impl Default for FTableStyle {
     }
 }
 
-impl<Selection: Default> Default for FTableState<Selection> {
+impl<Selection: Default> Default for TableState<Selection> {
     fn default() -> Self {
         Self {
             focus: Default::default(),
@@ -1468,7 +1468,7 @@ impl<Selection: Default> Default for FTableState<Selection> {
     }
 }
 
-impl<Selection> HasFocusFlag for FTableState<Selection> {
+impl<Selection> HasFocusFlag for TableState<Selection> {
     #[inline]
     fn focus(&self) -> &FocusFlag {
         &self.focus
@@ -1480,7 +1480,7 @@ impl<Selection> HasFocusFlag for FTableState<Selection> {
     }
 }
 
-impl<Selection> FTableState<Selection> {
+impl<Selection> TableState<Selection> {
     fn calc_last_page(&self, mut row_heights: Vec<u16>) -> Option<usize> {
         let mut sum_heights = 0;
         let mut n_rows = 0;
@@ -1501,7 +1501,7 @@ impl<Selection> FTableState<Selection> {
 }
 
 // Baseline
-impl<Selection> FTableState<Selection> {
+impl<Selection> TableState<Selection> {
     /// Number of rows.
     #[inline]
     pub fn rows(&self) -> usize {
@@ -1516,14 +1516,14 @@ impl<Selection> FTableState<Selection> {
 }
 
 // Table areas
-impl<Selection> FTableState<Selection> {
+impl<Selection> TableState<Selection> {
     /// Returns the whole row-area and the cell-areas for the
     /// given row, if it is visible.
     ///
     /// Attention: These areas might be 0-length if the column is scrolled
     /// beyond the table-area.
     ///
-    /// See: [FTableState::scroll_to]
+    /// See: [TableState::scroll_to]
     pub fn row_cells(&self, row: usize) -> Option<(Rect, Vec<Rect>)> {
         if row < self.vscroll.offset() || row >= self.vscroll.offset() + self.vscroll.page_len() {
             return None;
@@ -1561,7 +1561,7 @@ impl<Selection> FTableState<Selection> {
     }
 
     /// Cell when dragging. Position can be outside the table area.
-    /// See [row_at_drag](FTableState::row_at_drag), [col_at_drag](FTableState::column_at_drag)
+    /// See [row_at_drag](TableState::row_at_drag), [col_at_drag](TableState::column_at_drag)
     pub fn cell_at_drag(&self, pos: (u16, u16)) -> (usize, usize) {
         let col = self.column_at_drag(pos);
         let row = self.row_at_drag(pos);
@@ -1595,7 +1595,7 @@ impl<Selection> FTableState<Selection> {
 }
 
 // Offset related.
-impl<Selection: TableSelection> FTableState<Selection> {
+impl<Selection: TableSelection> TableState<Selection> {
     /// Sets both offsets to 0.
     pub fn clear_offset(&mut self) {
         self.vscroll.set_offset(0);
@@ -1737,7 +1737,7 @@ impl<Selection: TableSelection> FTableState<Selection> {
     }
 }
 
-impl FTableState<RowSelection> {
+impl TableState<RowSelection> {
     /// Update the state to match adding items.
     /// This corrects the number of rows, offset and selection.
     pub fn items_added(&mut self, pos: usize, n: usize) {
@@ -1823,7 +1823,7 @@ impl FTableState<RowSelection> {
     }
 }
 
-impl FTableState<RowSetSelection> {
+impl TableState<RowSetSelection> {
     /// Clear the selection.
     #[inline]
     pub fn clear_selection(&mut self) {
@@ -1920,7 +1920,7 @@ impl FTableState<RowSetSelection> {
     }
 }
 
-impl FTableState<CellSelection> {
+impl TableState<CellSelection> {
     #[inline]
     pub fn clear_selection(&mut self) {
         self.selection.clear();
@@ -2032,7 +2032,7 @@ impl FTableState<CellSelection> {
 }
 
 impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOutcome>
-    for FTableState<Selection>
+    for TableState<Selection>
 {
     /// Handles double-click events on the table.
     fn handle(
@@ -2055,14 +2055,14 @@ impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOut
 
 /// Handle all events for recognizing double-clicks.
 pub fn handle_doubleclick_events<Selection: TableSelection>(
-    state: &mut FTableState<Selection>,
+    state: &mut TableState<Selection>,
     event: &crossterm::event::Event,
 ) -> DoubleClickOutcome {
     state.handle(event, DoubleClick)
 }
 
 impl<Selection: TableSelection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
-    for FTableState<Selection>
+    for TableState<Selection>
 where
     Self: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
 {
@@ -2096,13 +2096,13 @@ where
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
 pub fn handle_edit_events<Selection: TableSelection>(
-    state: &mut FTableState<Selection>,
+    state: &mut TableState<Selection>,
     focus: bool,
     event: &crossterm::event::Event,
 ) -> EditOutcome
 where
-    FTableState<Selection>: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
-    FTableState<Selection>: HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
+    TableState<Selection>: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
+    TableState<Selection>: HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
 {
     state.focus.set(focus);
     state.handle(event, EditKeys)
