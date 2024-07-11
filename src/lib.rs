@@ -165,6 +165,7 @@ pub mod date_input;
 pub mod edit_list;
 pub mod file_dialog;
 pub mod fill;
+pub(crate) mod inner;
 pub mod input;
 pub mod list;
 pub mod masked_input;
@@ -179,8 +180,7 @@ pub mod statusline;
 /// Scrolled widget and viewports.
 pub mod scrolled {
     pub use rat_scrolled::{
-        layout_scroll, view, viewport, Scroll, ScrollArea, ScrollState, ScrollStyle,
-        ScrollbarPolicy,
+        layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarPolicy,
     };
 }
 
@@ -192,8 +192,11 @@ pub mod table {
     };
 }
 
+pub mod paragraph;
 pub mod textarea;
-mod util;
+pub(crate) mod util;
+pub mod view;
+pub mod viewport;
 
 mod _private {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
