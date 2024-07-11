@@ -7,7 +7,7 @@ use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::scrolled::ScrollStyle;
 use rat_widget::splitter::SplitStyle;
-use rat_widget::table::FTableStyle;
+use rat_widget::table::TableStyle;
 use rat_widget::textarea::TextAreaStyle;
 use ratatui::prelude::Style;
 
@@ -226,8 +226,8 @@ impl DarkTheme {
     }
 
     /// Complete FTableStyle
-    pub fn table_style(&self) -> FTableStyle {
-        FTableStyle {
+    pub fn table_style(&self) -> TableStyle {
+        TableStyle {
             style: self.data(),
             select_row_style: Some(self.select()),
             show_row_focus: true,
