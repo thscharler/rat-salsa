@@ -137,7 +137,7 @@ fn render_para(widget: &ParagraphS<'_>, area: Rect, buf: &mut Buffer, state: &mu
     state
         .vscroll
         .set_max_offset(lines.saturating_sub(state.inner.height as usize));
-    state.vscroll.set_page_len(area.height as usize);
+    state.vscroll.set_page_len(state.inner.height as usize);
 
     widget.block.render_ref(area, buf);
     if let Some(vscroll) = &widget.vscroll {

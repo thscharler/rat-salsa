@@ -334,7 +334,7 @@ pub fn layout_scroll(
         _ => {}
     }
 
-    let mut h_area = if let Some(h_scroll) = h_scroll {
+    let h_area = if let Some(h_scroll) = h_scroll {
         match h_scroll.orientation {
             ScrollbarOrientation::VerticalRight => {
                 unimplemented!(
@@ -370,7 +370,7 @@ pub fn layout_scroll(
     } else {
         Rect::new(area.x, area.y, 0, 0)
     };
-    let mut v_area = if let Some(v_scroll) = v_scroll {
+    let v_area = if let Some(v_scroll) = v_scroll {
         match v_scroll.orientation {
             ScrollbarOrientation::VerticalRight => {
                 let split = if v_scroll.collab_split { 2 } else { 0 };
@@ -663,6 +663,8 @@ impl ScrollState {
         let span = length.saturating_sub(2) as usize;
 
         // todo: overflows why, when?
+        // -- using usize::MAX as a sensible value is not very sensible ...
+        // -- leave for now ...
         (self.max_offset * pos) / span
     }
 }

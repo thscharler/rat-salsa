@@ -1,11 +1,7 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
 
-mod inner;
 mod scrolled;
-mod util;
-pub mod view;
-pub mod viewport;
 
 pub use scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarPolicy};
 
