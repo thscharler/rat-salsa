@@ -180,7 +180,7 @@ pub mod statusline;
 /// Scrolled widget and viewports.
 pub mod scrolled {
     pub use rat_scrolled::{
-        layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarPolicy,
+        layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarType,
     };
 }
 
