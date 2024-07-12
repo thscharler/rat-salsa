@@ -1,3 +1,15 @@
+# 0.27.0
+
+** Start of BETA **
+
+* break: rename `FocusKeys` to the more fitting `Regular`.
+
+* feature: flow! and flow_ok! get one more variant: flow!(regular, consider extra)
+* feature: or_else! for another type of control-flow.
+* feature: add ConsumedEvent::then() for chaining.
+* feature: add catch all HandleEvent for the null state `()`.
+* refactor: remove all BitOr behaviour. It's not worth it.
+
 # 0.14.6
 
 * add Dialog qualifier
