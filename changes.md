@@ -1,3 +1,17 @@
+# 0.27.0
+
+** Start of BETA **
+
+* feature: add collaboration with Split
+* refactor: rename everything from Scrolled* to Scroll*
+* refactor: Remove scroll.core, too much.
+* refactor: Move View and Viewport to rat-widget. They have no
+  special casing anymore.
+* refactor: change ScrollbarPolicy to ScrollbarType and add/rename to Show/Minimal/NoRender
+* fix: underflow
+* fix: use overscroll_by, scroll_by set on the widget only if it was set.
+* fix: layout with scrollbars + block
+
 # 0.12.0
 
 Throw away the whole concept. Using Scrolled as a container widget is

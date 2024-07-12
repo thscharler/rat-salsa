@@ -1,12 +1,12 @@
-# Scrolled
+# Scroll
 
-Scrolled adds support for widgets that want to scroll their content.
+Scroll adds support for widgets that want to scroll their content.
 
-Scrolled works analogous to Block, as you set it on the widget struct.
+Scroll works analogous to Block, as you set it on the widget struct.
 The widget can decide wich scrolling it supports, horizontal, vertical
 or both.
 
-## ScrolledState
+## ScrollState
 
 This struct holds the information necessary for scrolling, and is
 embedded in the widgets state.
@@ -14,17 +14,14 @@ embedded in the widgets state.
 * *max_offset* - Maximum allowed offset for scrolling. This offset is
   calculated as `item_count - last_page_items`. Both are abstract
   values and can denote items or columns/rows as the widget sees fit.
-
   With the maximum calculated like this, Scrollbar renders nicely
   and the widget still has a full page on display.
-
 * *overscroll_by* - By how much can the max_offset be exceeded.
   This allows displaying some empty space at the end of the content,
   which can be more intuitiv for some widgets.
-
 * *page_len* - Length of the current displayed page. This value
-  can be used for page-up/page-down handling and for calculating
-  the value used with the scroll-wheel.
+  can be used for page-up/page-down handling. This value is used
+  for the scrollbar-thumb.
 * *scroll_by* - How many items are scrolled per scroll event.
   When not set it defaults to 1/10 of the page_len, which gives a
   decent median between scroll speed and disorientation.
@@ -38,7 +35,6 @@ embedded in the widgets state.
 * Scroll uses ScrollBarOrientation for the positioning of the scrollbars.
   With that there are the possible combinations VerticalLeft/VerticalRight
   set as horizontal Scroll and vice versa.
-
   Those are undesirable, and layout_scroll() panics when it gets one of
   these combinations. You should call `override_vertical()` or `override_horizontal`
   where you accept the Scroll to match the expectations.
@@ -59,23 +55,11 @@ embedded in the widgets state.
       It consists of the widget-area and one or two Scroll. It covers all
       the scrolling in the given area and the scrolling by the two ScrollBars.
 
-      This too just returns a ScrollOutcome and changes no values.
+    * This too just returns a ScrollOutcome and changes no values.
 
     * Scroll modes. There are widgets which support switching between
       'scroll-offset' and 'scroll-selection'. There is no direct support
-      for this in Scroll. But you can get a got result for the selection
+      for this in Scroll. But you can get a good result for the selection
       if you rescale the offset as `(item_len * offset) / max_offset`.
       This gives you a value in the range 0..item_len which can be used
       as selection value.
-
-# View and Viewport
-
-These two add scrolling support for Widgets/StatefulWidgets that have no
-builtin scrolling. They render the widgets to a temporary buffer and do the
-offsetting afterwards.
-
-Both are exactly the same, but the duplication is necessary because of clashing
-traits.  
-
-
-
