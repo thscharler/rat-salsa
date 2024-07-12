@@ -1,6 +1,6 @@
 use crate::event::Outcome;
 use crate::{TableSelection, TableState};
-use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocusFlag;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::ScrollArea;
@@ -116,8 +116,8 @@ impl RowSelection {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TableState<RowSelection> {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<RowSelection> {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         let res = if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => self.move_up(1).into(),
@@ -226,7 +226,7 @@ pub fn handle_events(
     event: &crossterm::event::Event,
 ) -> Outcome {
     state.focus.set(focus);
-    state.handle(event, FocusKeys)
+    state.handle(event, Regular)
 }
 
 /// Handle only mouse-events.

@@ -6,9 +6,9 @@
 
 use crate::event::EditOutcome;
 use crate::rowselection::RowSelection;
-use crate::{Table, TableSelection};
+use crate::{Table, TableSelection, TableState};
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{Focus, HasFocus, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -31,7 +31,7 @@ pub struct EditTable<'a, Editor: EditorWidget + 'a> {
 #[derive(Debug, Default)]
 pub struct EditTableState<EditorState> {
     /// Backing table.
-    pub table: crate::TableState<RowSelection>,
+    pub table: TableState<RowSelection>,
     /// Editor state.
     pub edit: Option<EditorState>,
 
@@ -187,7 +187,7 @@ where
                     }
                 });
 
-                match self.table.handle(event, FocusKeys) {
+                match self.table.handle(event, Regular) {
                     Outcome::NotUsed => EditOutcome::NotUsed,
                     Outcome::Unchanged => EditOutcome::Unchanged,
                     Outcome::Changed => EditOutcome::Changed,

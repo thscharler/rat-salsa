@@ -12,7 +12,7 @@ use log::debug;
 #[cfg(debug_assertions)]
 use log::warn;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::{layout_scroll, Scroll, ScrollState};
 use ratatui::buffer::Buffer;
@@ -2064,7 +2064,7 @@ pub fn handle_doubleclick_events<Selection: TableSelection>(
 impl<Selection: TableSelection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
     for TableState<Selection>
 where
-    Self: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
+    Self: HandleEvent<crossterm::event::Event, Regular, Outcome>,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: EditKeys) -> EditOutcome {
         match event {
@@ -2077,7 +2077,7 @@ where
                         return EditOutcome::Append;
                     }
                 }
-                <Self as HandleEvent<_, FocusKeys, Outcome>>::handle(self, event, FocusKeys).into()
+                <Self as HandleEvent<_, Regular, Outcome>>::handle(self, event, Regular).into()
             }
 
             ct_event!(keycode release  Insert)
@@ -2085,9 +2085,7 @@ where
             | ct_event!(keycode release Enter)
             | ct_event!(keycode release Down) => EditOutcome::Unchanged,
 
-            _ => {
-                <Self as HandleEvent<_, FocusKeys, Outcome>>::handle(self, event, FocusKeys).into()
-            }
+            _ => <Self as HandleEvent<_, Regular, Outcome>>::handle(self, event, Regular).into(),
         }
     }
 }
@@ -2101,7 +2099,7 @@ pub fn handle_edit_events<Selection: TableSelection>(
     event: &crossterm::event::Event,
 ) -> EditOutcome
 where
-    TableState<Selection>: HandleEvent<crossterm::event::Event, FocusKeys, Outcome>,
+    TableState<Selection>: HandleEvent<crossterm::event::Event, Regular, Outcome>,
     TableState<Selection>: HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
 {
     state.focus.set(focus);
