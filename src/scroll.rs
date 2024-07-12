@@ -16,7 +16,7 @@ use std::cmp::{max, min};
 /// Meant to be used like Block.
 #[derive(Debug, Default, Clone)]
 pub struct Scroll<'a> {
-    policy: ScrollbarPolicy,
+    policy: ScrollbarType,
     orientation: ScrollbarOrientation,
     collab_split: bool,
     overscroll_by: Option<usize>,
@@ -46,7 +46,7 @@ pub struct Scroll<'a> {
 pub struct ScrollState {
     /// Area of the Scrollbar.
     pub area: Rect,
-    /// Vertical scroll?
+    /// Vertical/Horizontal scroll?
     pub orientation: ScrollbarOrientation,
     /// Current offset.
     pub offset: usize,
@@ -63,18 +63,38 @@ pub struct ScrollState {
     /// Allow overscroll by n items.
     pub overscroll_by: Option<usize>,
 
+    /// Mouse support.
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
 }
 
+/// Scrollbar behaviour if no scrolling is needed.
+///
+/// If a widget has a scrollbar set, [layout_scroll] always reserves
+/// space for the scrollbar. This makes calculating any layout much
+/// easier. If the widget wants to allow switching of the scrollbar
+/// completely it should use an `Option<Scroll>`.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum ScrollbarPolicy {
-    Always,
+pub enum ScrollbarType {
+    /// Always renders the scrollbar recognizable as a scrollbar.
+    Show,
+    /// If the scrollbar is not needed, the area is filled with
+    /// the no_symbol, but the required space is still reserved
+    /// for the scrollbar.
     #[default]
-    AsNeeded,
+    Minimal,
+    /// If the scrollbar is not needed, the area is not rendered,
+    /// but the area is still reserved for the scrollbar.
+    /// The widget is responsible to render something in that
+    /// area.
+    /// This works fine if there is a regular border in place,
+    /// otherwise filling it with the default style should do
+    /// the trick as well.
+    NoRender,
 }
 
+/// Collected styles for the Scroll.
 #[derive(Debug, Clone)]
 pub struct ScrollStyle {
     pub thumb_style: Option<Style>,
@@ -84,7 +104,9 @@ pub struct ScrollStyle {
     pub begin_style: Option<Style>,
     pub end_symbol: Option<&'static str>,
     pub end_style: Option<Style>,
+    /// Symbol used when the scrollbar doesn't display.
     pub no_symbol: Option<&'static str>,
+    /// Style used when the scrollbar doesn't display.
     pub no_style: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
@@ -96,7 +118,7 @@ impl<'a> Scroll<'a> {
     }
 
     /// Scrollbar policy.
-    pub fn policy(mut self, policy: ScrollbarPolicy) -> Self {
+    pub fn scrollbar_type(mut self, policy: ScrollbarType) -> Self {
         self.policy = policy;
         self
     }
@@ -113,13 +135,13 @@ impl<'a> Scroll<'a> {
         self
     }
 
-    /// Set overscrolling.
+    /// Set overscrolling to this value.
     pub fn overscroll_by(mut self, overscroll: usize) -> Self {
         self.overscroll_by = Some(overscroll);
         self
     }
 
-    /// Override default scroll increment.
+    /// Set scroll increment.
     pub fn scroll_by(mut self, scroll: usize) -> Self {
         self.scroll_by = Some(scroll);
         self
@@ -136,7 +158,7 @@ impl<'a> Scroll<'a> {
         self
     }
 
-    /// Ensures a horizotal orientation.
+    /// Ensures a horizontal orientation.
     pub fn override_horizontal(mut self) -> Self {
         self.orientation = match self.orientation {
             ScrollbarOrientation::VerticalRight => ScrollbarOrientation::HorizontalBottom,
@@ -147,6 +169,7 @@ impl<'a> Scroll<'a> {
         self
     }
 
+    /// Is this a vertical scrollbar.
     pub fn is_vertical(&self) -> bool {
         match self.orientation {
             ScrollbarOrientation::VerticalRight => true,
@@ -156,6 +179,7 @@ impl<'a> Scroll<'a> {
         }
     }
 
+    /// Is this a horizontal scrollbar.
     pub fn is_horizontal(&self) -> bool {
         match self.orientation {
             ScrollbarOrientation::VerticalRight => false,
@@ -165,6 +189,7 @@ impl<'a> Scroll<'a> {
         }
     }
 
+    /// Set all styles.
     pub fn styles(mut self, styles: ScrollStyle) -> Self {
         self.thumb_style = styles.thumb_style;
         self.track_symbol = styles.track_symbol;
@@ -266,6 +291,7 @@ impl<'a> Scroll<'a> {
 }
 
 impl<'a> Scroll<'a> {
+    // create the widget.
     fn scrollbar(&self) -> Scrollbar<'a> {
         let mut scrollbar = Scrollbar::new(self.orientation.clone());
         if let Some(thumb_symbol) = self.thumb_symbol {
@@ -444,27 +470,47 @@ fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
     state.area = area;
 
-    if !scroll.policy.show_scrollbar(state) {
-        let sym = if let Some(no_symbol) = scroll.no_symbol {
-            no_symbol
-        } else if scroll.is_vertical() {
-            "\u{250A}"
-        } else {
-            "\u{2508}"
-        };
-        for row in area.y..area.y + area.height {
-            for col in area.x..area.x + area.width {
-                let cell = buf.get_mut(col, row);
-                if let Some(no_style) = scroll.no_style {
-                    cell.set_style(no_style);
+    if state.max_offset() == 0 {
+        match scroll.policy {
+            ScrollbarType::Show => {
+                scroll.scrollbar().render(
+                    area,
+                    buf,
+                    &mut ScrollbarState::new(state.max_offset())
+                        .position(state.offset())
+                        .viewport_content_length(state.page_len()),
+                );
+            }
+            ScrollbarType::Minimal => {
+                let sym = if let Some(no_symbol) = scroll.no_symbol {
+                    no_symbol
+                } else if scroll.is_vertical() {
+                    "\u{250A}"
+                } else {
+                    "\u{2508}"
+                };
+                for row in area.y..area.y + area.height {
+                    for col in area.x..area.x + area.width {
+                        let cell = buf.get_mut(col, row);
+                        if let Some(no_style) = scroll.no_style {
+                            cell.set_style(no_style);
+                        }
+                        cell.set_symbol(sym);
+                    }
                 }
-                cell.set_symbol(sym);
+            }
+            ScrollbarType::NoRender => {
+                // widget renders
             }
         }
     } else {
-        scroll
-            .scrollbar()
-            .render(area, buf, &mut scroll.policy.scrollbar(state));
+        scroll.scrollbar().render(
+            area,
+            buf,
+            &mut ScrollbarState::new(state.max_offset())
+                .position(state.offset())
+                .viewport_content_length(state.page_len()),
+        );
     }
 }
 
@@ -538,28 +584,32 @@ impl ScrollState {
         old != self.offset
     }
 
+    /// Scroll up by n.
     #[inline]
-    pub fn scroll_up(&mut self, delta: usize) -> bool {
+    pub fn scroll_up(&mut self, n: usize) -> bool {
         let old = self.offset;
-        self.offset = self.limit_offset(self.offset.saturating_sub(delta));
+        self.offset = self.limit_offset(self.offset.saturating_sub(n));
         old != self.offset
     }
 
+    /// Scroll down by n.
     #[inline]
-    pub fn scroll_down(&mut self, delta: usize) -> bool {
+    pub fn scroll_down(&mut self, n: usize) -> bool {
         let old = self.offset;
-        self.offset = self.limit_offset(self.offset.saturating_add(delta));
+        self.offset = self.limit_offset(self.offset.saturating_add(n));
         old != self.offset
     }
 
+    /// Scroll left by n.
     #[inline]
-    pub fn scroll_left(&mut self, delta: usize) -> bool {
-        self.scroll_up(delta)
+    pub fn scroll_left(&mut self, n: usize) -> bool {
+        self.scroll_up(n)
     }
 
+    /// Scroll right by n.
     #[inline]
-    pub fn scroll_right(&mut self, delta: usize) -> bool {
-        self.scroll_down(delta)
+    pub fn scroll_right(&mut self, n: usize) -> bool {
+        self.scroll_down(n)
     }
 
     /// Calculate the offset limited to max_offset+overscroll_by.
@@ -657,15 +707,16 @@ impl ScrollState {
 }
 
 impl ScrollState {
-    fn map_position_index(&self, pos: u16, base: u16, length: u16) -> usize {
+    /// Maps a screen-position to an offset.
+    /// pos - row/column clicked
+    /// base - x/y of the range
+    /// length - width/height of the range.
+    pub fn map_position_index(&self, pos: u16, base: u16, length: u16) -> usize {
         // correct for the arrows.
         let pos = pos.saturating_sub(base).saturating_sub(1) as usize;
         let span = length.saturating_sub(2) as usize;
 
-        // todo: overflows why, when?
-        // -- using usize::MAX as a sensible value is not very sensible ...
-        // -- leave for now ...
-        (self.max_offset * pos) / span
+        (self.max_offset.saturating_mul(pos)) / span
     }
 }
 
@@ -733,7 +784,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollSt
     }
 }
 
-/// Handle scroll events for the given area and the (possibly) two scrollbars.
+/// Handle all scroll events for the given area and the (possibly) two scrollbars.
 #[derive(Debug)]
 pub struct ScrollArea<'a>(
     pub Rect,
@@ -790,26 +841,6 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
         }
 
         ScrollOutcome::NotUsed
-    }
-}
-
-impl ScrollbarPolicy {
-    fn scrollbar(self, state: &ScrollState) -> ScrollbarState {
-        match self {
-            ScrollbarPolicy::Always => ScrollbarState::new(max(state.max_offset(), 1))
-                .position(state.offset())
-                .viewport_content_length(state.page_len()),
-            ScrollbarPolicy::AsNeeded => ScrollbarState::new(state.max_offset())
-                .position(state.offset())
-                .viewport_content_length(state.page_len()),
-        }
-    }
-
-    fn show_scrollbar(self, state: &ScrollState) -> bool {
-        match self {
-            ScrollbarPolicy::Always => true,
-            ScrollbarPolicy::AsNeeded => state.max_offset() > 0,
-        }
     }
 }
 

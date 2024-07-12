@@ -1,13 +1,14 @@
 #![doc = include_str!("../readme.md")]
 #![allow(clippy::collapsible_else_if)]
 
-mod scrolled;
+mod scroll;
 
-pub use scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarPolicy};
+pub use scroll::{layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarType};
 
 pub mod event {
     use rat_event::{ConsumedEvent, Outcome};
 
+    /// Result of event-handling for a scroll.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum ScrollOutcome {
         /// The given event has not been used at all.
