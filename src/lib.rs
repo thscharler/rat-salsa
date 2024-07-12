@@ -13,8 +13,8 @@ pub mod event {
     //!
 
     pub use rat_event::{
-        crossterm, ct_event, flow, flow_ok, or_else, util, ConsumedEvent, Dialog, FocusKeys,
-        HandleEvent, MouseOnly, Outcome, Popup,
+        crossterm, ct_event, flow, flow_ok, or_else, util, ConsumedEvent, Dialog, HandleEvent,
+        MouseOnly, Outcome, Popup, Regular,
     };
     use std::cmp::max;
     use std::ops::BitOr;

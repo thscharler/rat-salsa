@@ -15,7 +15,7 @@ use crate::event::Popup;
 use crate::menuline::{MenuLine, MenuLineState, MenuOutcome, MenuStyle};
 use crate::popup_menu::{Placement, PopupMenu, PopupMenuState};
 use crate::util::menu_str;
-use rat_event::{flow, FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -323,15 +323,15 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenuBarState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuBarState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: FocusKeys) -> MenuOutcome {
+impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuBarState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> MenuOutcome {
         if !self.is_focused() {
             self.set_popup_active(false);
         }
 
         if self.bar.is_focused() {
             let old_selected = self.bar.selected();
-            match self.bar.handle(event, FocusKeys) {
+            match self.bar.handle(event, Regular) {
                 r @ MenuOutcome::Selected(_) => {
                     if self.bar.selected == old_selected {
                         self.popup.flip_active();
@@ -396,7 +396,7 @@ pub fn handle_events(
     event: &crossterm::event::Event,
 ) -> MenuOutcome {
     state.bar.focus.set(focus);
-    state.handle(event, FocusKeys)
+    state.handle(event, Regular)
 }
 
 /// Handle menu events for the popup-menu.

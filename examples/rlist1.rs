@@ -3,7 +3,7 @@ use crate::mini_salsa::{layout_grid, MiniSalsaState};
 use anyhow::anyhow;
 #[allow(unused_imports)]
 use log::Log;
-use rat_event::{flow_ok, FocusKeys, HandleEvent, Outcome, Popup};
+use rat_event::{flow_ok, HandleEvent, Outcome, Popup, Regular};
 use rat_focus::{Focus, FocusFlag, HasFocus, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
@@ -140,9 +140,9 @@ impl HasFocusFlag for EditEntryState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, EditOutcome> for EditEntryState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: FocusKeys) -> EditOutcome {
-        Outcome::from(self.edit.handle(event, FocusKeys)).into()
+impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditEntryState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> EditOutcome {
+        Outcome::from(self.edit.handle(event, Regular)).into()
     }
 }
 
@@ -217,7 +217,7 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus(state).handle(event, FocusKeys);
+    let f = focus(state).handle(event, Regular);
 
     flow_ok!(
         match state.menu.handle(event, Popup) {
@@ -311,7 +311,7 @@ fn handle_input(
             Outcome::Changed
         }
 
-        match state.list1.handle(event, FocusKeys) {
+        match state.list1.handle(event, Regular) {
             EditOutcome::Cancel => cancel(data, state),
             EditOutcome::Commit => commit(data, state),
             EditOutcome::CommitAndAppend => commit(data, state).then(|| append(data, state)),
@@ -326,7 +326,7 @@ fn handle_input(
         }
     }, consider f);
 
-    flow_ok!(match state.menu.handle(event, FocusKeys) {
+    flow_ok!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             return Err(anyhow!("Quit"));
         }

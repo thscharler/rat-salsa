@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::layout::layout_dialog;
-use rat_event::{ct_event, ConsumedEvent, Dialog, FocusKeys, HandleEvent, Outcome};
+use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Margin, Rect};
 use ratatui::style::Style;
@@ -180,7 +180,7 @@ fn render_ref(widget: &MsgDialog, area: Rect, buf: &mut Buffer, state: &mut MsgD
 impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
     fn handle(&mut self, event: &crossterm::event::Event, _: Dialog) -> Outcome {
         if self.active {
-            match self.button.handle(event, FocusKeys) {
+            match self.button.handle(event, Regular) {
                 ButtonOutcome::Pressed => {
                     self.clear();
                     self.active = false;

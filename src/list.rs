@@ -605,7 +605,7 @@ impl ListState<RowSetSelection> {
 }
 
 pub mod selection {
-    use crate::event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+    use crate::event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
     use crate::list::{ListSelection, ListState};
     use crossterm::event::KeyModifiers;
     use rat_focus::HasFocusFlag;
@@ -629,8 +629,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListState<NoSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListState<NoSelection> {
+        fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
             let res = if self.is_focused() {
                 match event {
                     ct_event!(keycode press Down) => self.scroll_down(1).into(),
@@ -704,8 +704,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListState<RowSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListState<RowSelection> {
+        fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
             let res = if self.is_focused() {
                 match event {
                     ct_event!(keycode press Down) => self.move_down(1).into(),
@@ -827,8 +827,8 @@ pub mod selection {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListState<RowSetSelection> {
-        fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> Outcome {
+    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListState<RowSetSelection> {
+        fn handle(&mut self, event: &crossterm::event::Event, _: Regular) -> Outcome {
             let res = if self.is_focused() {
                 match event {
                     ct_event!(keycode press Down) => self.move_down(1, false).into(),

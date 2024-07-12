@@ -10,7 +10,7 @@ use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use chrono::{Datelike, Days, Local, Months, NaiveDate};
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -659,16 +659,16 @@ impl HandleEvent<crossterm::event::Event, ConvenientKeys, TextOutcome> for DateI
         };
 
         if r == TextOutcome::NotUsed {
-            self.handle(event, FocusKeys)
+            self.handle(event, Regular)
         } else {
             r
         }
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for DateInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
-        self.widget.handle(event, FocusKeys)
+impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for DateInputState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
+        self.widget.handle(event, Regular)
     }
 }
 
@@ -693,7 +693,7 @@ pub fn handle_events(
     event: &crossterm::event::Event,
 ) -> TextOutcome {
     state.widget.focus.set(focus);
-    HandleEvent::handle(state, event, FocusKeys)
+    HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only navigation events.

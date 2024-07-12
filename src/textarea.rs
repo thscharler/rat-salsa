@@ -8,7 +8,7 @@ use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
@@ -1091,8 +1091,8 @@ impl TextAreaState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for TextAreaState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
+impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(key press c)
@@ -1306,7 +1306,7 @@ pub fn handle_events(
     event: &crossterm::event::Event,
 ) -> TextOutcome {
     state.focus.set(focus);
-    state.handle(event, FocusKeys)
+    state.handle(event, Regular)
 }
 
 /// Handle only navigation events.

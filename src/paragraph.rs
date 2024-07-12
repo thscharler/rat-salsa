@@ -3,7 +3,7 @@
 //! Adds Scroll and Focus support.
 //!
 use crate::_private::NonExhaustive;
-use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
@@ -246,8 +246,8 @@ impl RParagraphState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for RParagraphState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: FocusKeys) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for RParagraphState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
         flow!(if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => self.scroll_up(1).into(),

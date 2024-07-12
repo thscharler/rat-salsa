@@ -1,7 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
-use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
@@ -744,8 +744,8 @@ impl SplitState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for SplitState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: FocusKeys) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SplitState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
         flow!(if self.is_focused() {
             if let Some(n) = self.focus_split {
                 match event {

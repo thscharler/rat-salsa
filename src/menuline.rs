@@ -15,7 +15,7 @@ use crate::util::{menu_str, next_opt, prev_opt, revert_style};
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::{item_at_clicked, MouseFlags};
-use rat_event::{ct_event, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -376,9 +376,9 @@ impl From<MenuOutcome> for Outcome {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, MenuOutcome> for MenuLineState {
+impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuLineState {
     #[allow(clippy::redundant_closure)]
-    fn handle(&mut self, event: &crossterm::event::Event, _: FocusKeys) -> MenuOutcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _: Regular) -> MenuOutcome {
         let res = if self.is_focused() {
             match event {
                 ct_event!(key press ' ') => self
@@ -489,7 +489,7 @@ pub fn handle_events(
     event: &crossterm::event::Event,
 ) -> MenuOutcome {
     state.focus.set(focus);
-    state.handle(event, FocusKeys)
+    state.handle(event, Regular)
 }
 
 /// Handle only mouse-events.

@@ -4,7 +4,7 @@ use crate::list::{List, ListSelection, ListState};
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{Focus, HasFocus, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -161,7 +161,7 @@ where
                     }
                 });
 
-                match self.list.handle(event, FocusKeys) {
+                match self.list.handle(event, Regular) {
                     Outcome::NotUsed => EditOutcome::NotUsed,
                     Outcome::Unchanged => EditOutcome::Unchanged,
                     Outcome::Changed => EditOutcome::Changed,

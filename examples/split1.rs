@@ -3,7 +3,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{ct_event, flow_ok, FocusKeys, HandleEvent};
+use rat_event::{ct_event, flow_ok, HandleEvent, Regular};
 use rat_focus::{Focus, HasFocusFlag};
 use rat_widget::event::Outcome;
 use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
@@ -189,10 +189,10 @@ fn handle_input(
         _ => Outcome::NotUsed,
     });
 
-    flow_ok!(focus(state).handle(event, FocusKeys));
+    flow_ok!(focus(state).handle(event, Regular));
 
-    flow_ok!(HandleEvent::handle(&mut state.split, event, FocusKeys));
-    flow_ok!(match state.menu.handle(event, FocusKeys) {
+    flow_ok!(HandleEvent::handle(&mut state.split, event, Regular));
+    flow_ok!(match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed

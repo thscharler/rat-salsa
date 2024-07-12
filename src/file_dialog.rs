@@ -11,7 +11,7 @@ use crate::util::revert_style;
 use directories_next::UserDirs;
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{ct_event, flow, flow_ok, Dialog, FocusKeys, HandleEvent, Outcome};
+use rat_event::{ct_event, flow, flow_ok, Dialog, HandleEvent, Outcome, Regular};
 use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
@@ -341,8 +341,8 @@ impl EditDirNameState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, EditOutcome> for EditDirNameState {
-    fn handle(&mut self, event: &crossterm::event::Event, qualifier: FocusKeys) -> EditOutcome {
+impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditDirNameState {
+    fn handle(&mut self, event: &crossterm::event::Event, qualifier: Regular) -> EditOutcome {
         match self.edit_dir.handle(event, qualifier) {
             TextOutcome::NotUsed => EditOutcome::NotUsed,
             TextOutcome::Unchanged => EditOutcome::Unchanged,
@@ -889,7 +889,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
             return Ok(FileOutcome::NotUsed);
         }
 
-        let focus_outcome = self.focus().handle(event, FocusKeys).into();
+        let focus_outcome = self.focus().handle(event, Regular).into();
 
         flow_ok!(handle_path(self, event)?, consider focus_outcome);
         if self.mode == Mode::Save {
@@ -911,7 +911,7 @@ fn handle_new(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    flow_ok!(match state.new_state.handle(event, FocusKeys) {
+    flow_ok!(match state.new_state.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.start_edit_dir()
         }
@@ -930,7 +930,7 @@ fn handle_ok(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    flow_ok!(match state.ok_state.handle(event, FocusKeys) {
+    flow_ok!(match state.ok_state.handle(event, Regular) {
         ButtonOutcome::Pressed => state.choose_selected(),
         r => Outcome::from(r).into(),
     });
@@ -941,7 +941,7 @@ fn handle_cancel(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    flow_ok!(match state.cancel_state.handle(event, FocusKeys) {
+    flow_ok!(match state.cancel_state.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             state.close_cancel()
         }
@@ -960,9 +960,7 @@ fn handle_name(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    flow_ok!(Outcome::from(
-        state.save_name_state.handle(event, FocusKeys)
-    ));
+    flow_ok!(Outcome::from(state.save_name_state.handle(event, Regular)));
     if state.save_name_state.is_focused() {
         flow_ok!(match event {
             ct_event!(keycode press Enter) => {
@@ -978,7 +976,7 @@ fn handle_path(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    flow_ok!(Outcome::from(state.path_state.handle(event, FocusKeys)));
+    flow_ok!(Outcome::from(state.path_state.handle(event, Regular)));
     if state.path_state.is_focused() {
         flow_ok!(match event {
             ct_event!(keycode press Enter) => {
@@ -1001,7 +999,7 @@ fn handle_roots(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    flow_ok!(log root_state: match state.root_state.handle(event, FocusKeys) {
+    flow_ok!(log root_state: match state.root_state.handle(event, Regular) {
         Outcome::Changed => {
             state.chroot_selected()?
         }
@@ -1034,7 +1032,7 @@ fn handle_dirs(
             flow_ok!(handle_nav(&mut state.dir_state.list, &state.dirs, event));
         }
     }
-    flow_ok!(match state.dir_state.handle(event, FocusKeys) {
+    flow_ok!(match state.dir_state.handle(event, Regular) {
         EditOutcome::Cancel => {
             state.cancel_edit_dir()
         }
@@ -1080,7 +1078,7 @@ fn handle_files(
             }
         );
     }
-    flow_ok!(match state.file_state.handle(event, FocusKeys).into() {
+    flow_ok!(match state.file_state.handle(event, Regular).into() {
         FileOutcome::Changed => {
             if state.mode == Mode::Save {
                 state.name_selected()?

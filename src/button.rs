@@ -4,7 +4,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::util::revert_style;
-use rat_event::{ct_event, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -308,8 +308,8 @@ impl From<ButtonOutcome> for Outcome {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, ButtonOutcome> for ButtonState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> ButtonOutcome {
+impl HandleEvent<crossterm::event::Event, Regular, ButtonOutcome> for ButtonState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> ButtonOutcome {
         let r = if self.is_focused() {
             match event {
                 ct_event!(keycode press Enter) => {
@@ -377,7 +377,7 @@ pub fn handle_events(
     event: &crossterm::event::Event,
 ) -> ButtonOutcome {
     state.focus.set(focus);
-    HandleEvent::handle(state, event, FocusKeys)
+    HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only mouse-events.

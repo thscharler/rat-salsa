@@ -7,7 +7,7 @@ use crate::event::{ReadOnly, TextOutcome};
 use crate::input::TextInputStyle;
 use crate::masked_input::{MaskedInput, MaskedInputState};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
-use rat_event::{FocusKeys, HandleEvent, MouseOnly};
+use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -414,9 +414,9 @@ impl NumberInputState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, TextOutcome> for NumberInputState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> TextOutcome {
-        self.widget.handle(event, FocusKeys)
+impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for NumberInputState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
+        self.widget.handle(event, Regular)
     }
 }
 
@@ -441,7 +441,7 @@ pub fn handle_events(
     event: &crossterm::event::Event,
 ) -> TextOutcome {
     state.widget.focus.set(focus);
-    HandleEvent::handle(state, event, FocusKeys)
+    HandleEvent::handle(state, event, Regular)
 }
 
 /// Handle only navigation events.
