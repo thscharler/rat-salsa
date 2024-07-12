@@ -13,7 +13,7 @@ use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
-use rat_widget::event::{ct_event, or_else, Dialog, FocusKeys, HandleEvent, Popup};
+use rat_widget::event::{ct_event, or_else, Dialog, HandleEvent, Popup, Regular};
 use rat_widget::file_dialog::FileDialog;
 use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
@@ -317,7 +317,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
 
         // focus
         let mut focus = self.focus();
-        let f = focus.handle(event, FocusKeys);
+        let f = focus.handle(event, Regular);
         ctx.focus = Some(focus);
         ctx.queue(f);
 
@@ -343,7 +343,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         );
         or_else!(
             r,
-            match self.menu.handle(event, FocusKeys) {
+            match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(1) => Control::Quit,
                 r => r.into(),
             }
@@ -411,7 +411,7 @@ pub mod mdedit {
     use rat_salsa::event::flow_ok;
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppEvents, AppWidget, Control};
-    use rat_widget::event::{FocusKeys, HandleEvent, TextOutcome};
+    use rat_widget::event::{HandleEvent, Regular, TextOutcome};
     use rat_widget::focus::{Focus, HasFocus};
     use rat_widget::scrolled::Scroll;
     use rat_widget::textarea::{TextArea, TextAreaState};
@@ -508,7 +508,7 @@ pub mod mdedit {
             event: &Event,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDAction>, Error> {
-            flow_ok!(match self.edit.handle(event, FocusKeys) {
+            flow_ok!(match self.edit.handle(event, Regular) {
                 TextOutcome::TextChanged => {
                     // restart timer
                     if let Some(h) = self.parse_timer.take() {

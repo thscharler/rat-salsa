@@ -14,8 +14,8 @@ use rat_theme::dark_theme::DarkTheme;
 use rat_theme::dark_themes;
 use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{
-    ct_event, flow_ok, Dialog, DoubleClick, DoubleClickOutcome, FocusKeys, HandleEvent, Outcome,
-    Popup, ReadOnly,
+    ct_event, flow_ok, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, Outcome, Popup,
+    ReadOnly, Regular,
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
@@ -484,7 +484,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
         });
 
-        ctx.queue(self.focus().handle(event, FocusKeys));
+        ctx.queue(self.focus().handle(event, Regular));
 
         flow_ok!(match event {
             ct_event!(keycode press F(5)) => {
@@ -520,9 +520,9 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             r => r.into(),
         });
 
-        flow_ok!(self.w_split.handle(event, FocusKeys));
+        flow_ok!(self.w_split.handle(event, Regular));
 
-        flow_ok!(match self.w_menu.handle(event, FocusKeys) {
+        flow_ok!(match self.w_menu.handle(event, Regular) {
             MenuOutcome::Activated(2) => {
                 Control::Quit
             }
@@ -562,13 +562,13 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
             }
             r => r.into(),
         });
-        flow_ok!(match self.w_files.handle(event, FocusKeys) {
+        flow_ok!(match self.w_files.handle(event, Regular) {
             Outcome::Changed => {
                 self.show_file(ctx)?
             }
             r => r.into(),
         });
-        flow_ok!(match self.w_dirs.handle(event, FocusKeys) {
+        flow_ok!(match self.w_dirs.handle(event, Regular) {
             Outcome::Changed => {
                 self.show_dir()?
             }

@@ -225,7 +225,7 @@ pub mod mask0 {
     use log::debug;
     use rat_salsa::{AppEvents, AppWidget, Control};
     use rat_theme::dark_themes;
-    use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
+    use rat_widget::event::{flow_ok, HandleEvent, Regular};
     use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
     use rat_widget::scrolled::Scroll;
     use rat_widget::viewport::{Viewport, ViewportState};
@@ -295,7 +295,7 @@ pub mod mask0 {
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MinimalAction>, Error> {
             // TODO: handle_mask
-            flow_ok!(match self.menu.handle(event, FocusKeys) {
+            flow_ok!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(0) => {
                     let themes = dark_themes();
                     self.theme = (self.theme + 1) % themes.len();
@@ -311,7 +311,7 @@ pub mod mask0 {
                 }
             });
 
-            flow_ok!(self.scroll.handle(event, FocusKeys));
+            flow_ok!(self.scroll.handle(event, Regular));
 
             Ok(Control::Continue)
         }
@@ -322,7 +322,7 @@ pub mod mask0 {
 
 pub mod show_scheme {
     use rat_theme::Scheme;
-    use rat_widget::event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
+    use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
     use rat_widget::focus::{FocusFlag, HasFocusFlag};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -445,8 +445,8 @@ pub mod show_scheme {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ShowSchemeState {
-        fn handle(&mut self, event: &crossterm::event::Event, qualifier: FocusKeys) -> Outcome {
+    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ShowSchemeState {
+        fn handle(&mut self, event: &crossterm::event::Event, qualifier: Regular) -> Outcome {
             Outcome::NotUsed
         }
     }

@@ -219,7 +219,7 @@ mod mask0 {
     #[allow(unused_imports)]
     use log::debug;
     use rat_salsa::{AppEvents, AppWidget, Control};
-    use rat_widget::event::{flow_ok, FocusKeys, HandleEvent};
+    use rat_widget::event::{flow_ok, HandleEvent, Regular};
     use rat_widget::focus::HasFocusFlag;
     use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
     use ratatui::buffer::Buffer;
@@ -281,7 +281,7 @@ mod mask0 {
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MinimalAction>, Error> {
             // TODO: handle_mask
-            flow_ok!(match self.menu.handle(event, FocusKeys) {
+            flow_ok!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(0) => {
                     _ = ctx.spawn(|cancel, send| {
                         Ok(Control::Action(MinimalAction::Message(
