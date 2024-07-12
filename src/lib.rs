@@ -5,77 +5,99 @@ use std::cmp::max;
 pub mod crossterm;
 pub mod util;
 
-/// Default key bindings when focused.
-/// Also handles all events that are MouseOnly.
+/// All the regular and expected event-handling a widget can do.
+///
+/// All the normal key-handling, maybe dependent on an internal
+/// focus-state, all the mouse-handling.
 #[derive(Debug, Default)]
-pub struct FocusKeys;
+pub struct Regular;
 
-/// Handler for mouse events only.
-/// * Useful when writing a new key binding.
-/// * FocusKeys should only be handled by the focused widget,
-///   while mouse events are not bound by the focus.
+/// Handle mouse-events only. Useful whenever you want to write new key-bindings,
+/// but keep the mouse-events.
 #[derive(Debug, Default)]
 pub struct MouseOnly;
 
-/// Runs only the event-handling for the popup-parts of a widget.
-/// These should be run before the standard `FocusKey` or `MouseOnly` event-handlers,
-/// to mitigate the front/back problem of overlaying widgets.
+/// Popup/Overlays are a bit difficult to handle, as there is no z-order/area tree,
+/// which would direct mouse interactions. We can simulate a z-order in the
+/// event-handler by trying the things with a higher z-order first.
 ///
-/// There is no separate `MouseOnlyPopup`, as popups should always have the
-/// input focus.
+/// If a widget should be seen as pure overlay, it would define only a Popup
+/// event-handler. In the event-handling functions you would call all Popup
+/// event-handlers before the regular ones.
+///
+/// Example:
+/// * Context menu. If the context-menu is active, it can consume all mouse-events
+///   that fall into its range, and the widgets behind it only get the rest.
+/// * Menubar. Would define _two_ event-handlers, a regular one for all events
+///   on the main menu bar, and a popup event-handler for the menus. The event-handling
+///   function calls the popup handler first and the regular one at some time later.
 #[derive(Debug)]
 pub struct Popup;
 
-/// Runs the event-handling for a dialog like widget.
-/// Such widgets consume all incoming events. This blocks every widget in
-/// the 'background'.
+/// Event-handling for a dialog like widget.
+///
+/// Similar to [Popup] but with the extra that it consumes _all_ events when active.
+/// No regular widget gets any event, and we have modal behaviour.
 #[derive(Debug)]
 pub struct Dialog;
 
 ///
-/// A very broad trait for an event handler for widgets.
+/// A very broad trait for an event handler.
 ///
-/// As widget types are only short-lived, this trait should be implemented
-/// for the state type. Thereby it can modify any state, and it can
-/// return an arbitrary result, that fits the widget.
+/// Ratatui widgets have two separate structs, one that implements
+/// Widget/StatefulWidget and the associated State. As the StatefulWidget
+/// has a lifetime and is not meant to be kept, HandleEvent should be
+/// implemented for the state struct. It can then modify some state and
+/// the tui can be rendered anew with that changed state.
+///
+/// HandleEvent is not limited to State structs of course, any Type
+/// that wants to interact with events can implement it.
+///
+/// * Event - The actual event type.
+/// * Qualifier - The qualifier allows creating more than one event-handler
+///         for a widget.
+///
+///   This can be used as a variant of type-state, where the type given
+///   selects the widget's behaviour, or to give some external context
+///   to the widget, or to write your own key-bindings for a widget.
+///
+/// * R - Result of event-handling. This can give information to the
+///   application what changed due to handling the event. This can
+///   be very specific for each widget, but there is one general [Outcome]
+///   that describes a minimal set of results.
+///
+///   There should be one value that indicates 'I don't know this event'.
+///   This is expressed with the ConsumedEvent trait.
 ///
 pub trait HandleEvent<Event, Qualifier, R: ConsumedEvent> {
     /// Handle an event.
     ///
-    /// * self - Should be the widget state.
-    /// * event - Event
-    /// * qualifier - Allows specifying/restricting the behaviour of the
-    ///   event-handler.
+    /// * self - The widget state.
+    /// * event - Event struct.
+    /// * qualifier - Event handling qualifier.
+    ///   This library defines some standard values [Regular], [MouseOnly],
+    ///   [Popup] and [Dialog].
     ///
-    ///   This library defines two possible types:
-    ///   * FocusKeys - The event-handler does all the interactions for
-    ///     a focused widget. This calls the event-handler for MouseOnly too.
-    ///   * MouseOnly - Interactions for a non-focused widget. Mostly only
-    ///     reacting to mouse-events. But might check for hotkeys or the like.
-    ///
-    /// Further ideas:
-    /// * ReadOnly
-    /// * Additional special behaviour like DoubleClick, HotKeyAlt, HotKeyCtrl.
-    /// * Opt-in behaviour like different key-bindings.
-    /// * Configurable key-map.
-    /// * Other context or configuration parameters.
-    ///
+    ///     Further ideas:
+    ///     * ReadOnly
+    ///     * Special behaviour like DoubleClick, HotKey.
+    /// * Returns some result, see [Outcome]
     fn handle(&mut self, event: &Event, qualifier: Qualifier) -> R;
 }
 
+/// Catch all event-handler for the null state `()`.
 impl<E, Q> HandleEvent<E, Q, Outcome> for () {
     fn handle(&mut self, _event: &E, _qualifier: Q) -> Outcome {
         Outcome::NotUsed
     }
 }
 
-/// When composing several widgets, the minimum information from the outcome
-/// of the inner widget is, whether it used & consumed the event.
+/// When calling multiple event-handlers, the minimum information required
+/// from the result is consumed the event/didn't consume the event.
 ///
-/// This allows shortcutting the event-handling and prevents double
-/// interactions with the event. The inner widget can special case an event,
-/// and the fallback behaviour on the outer layer should not run too.
+/// See also [flow], [flow_ok] and [or_else] macros.
 pub trait ConsumedEvent {
+    /// Is this the 'consumed' result.
     fn is_consumed(&self) -> bool;
 
     /// Or-Else chaining with `is_consumed()` as the split.
@@ -91,7 +113,7 @@ pub trait ConsumedEvent {
         }
     }
 
-    /// Chaining. Returns max(self, f()).
+    /// Then-chaining. Returns max(self, f()).
     fn then<F>(self, f: F) -> Self
     where
         Self: Sized + Ord,
@@ -113,20 +135,19 @@ where
     }
 }
 
-/// A baseline Outcome for event-handling.
+/// The baseline outcome for an event-handler.
 ///
-/// A widget can define its own, if it has more things to report.
-/// It would be nice of the widget though, if its outcome would be
-/// convertible to this baseline.
+/// A widget can define its own type, if it has more things to report.
+/// It would be nice if those types are convertible to/from Outcome.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Outcome {
     /// The given event has not been used at all.
     NotUsed,
-    /// The event has been recognized, but the result was nil.
+    /// The event has been recognized, but nothing noticeable has changed.
     /// Further processing for this event may stop.
+    /// Rendering the ui is not necessary.
     Unchanged,
-    /// The event has been recognized and there is some change
-    /// due to it.
+    /// The event has been recognized and there is some change due to it.
     /// Further processing for this event may stop.
     /// Rendering the ui is advised.
     Changed,
@@ -138,9 +159,8 @@ impl ConsumedEvent for Outcome {
     }
 }
 
-/// Event functions in widgets often return bool to indicate
-/// a meaningful change occured. This converts `true / false` to
-///` Outcome::Changed / Outcome::Unchanged`.
+/// Widgets often define functions that return bool to indicate a changed state.
+/// This converts `true` / `false` to `Outcome::Changed` / `Outcome::Unchanged`.
 impl From<bool> for Outcome {
     fn from(value: bool) -> Self {
         if value {
@@ -152,25 +172,22 @@ impl From<bool> for Outcome {
 }
 
 /// Breaks the control-flow if the block returns a value
-/// for with [ConsumedEvent::is_consumed] is true.
+/// for which [ConsumedEvent::is_consumed] is true.
 ///
-/// It then does the classic `into()`-conversion and returns.
+/// It does the classic `into()`-conversion and returns the result.
 ///
-/// Special widget result-types are encourage to map down to Outcome
-/// as a baseline.
-///
-/// *The difference to [flow] is that this one Ok-wraps the result.*
+/// *The difference to [flow_ok] is that this on doesn't Ok-wrap the result.*
 ///
 /// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
 /// the result of the operation is written to the log.
 ///
-/// Extras: Combining this with the result of focus-handling is tricky.
-/// The result of processing events for focus should not break early,
-/// as widgets probably want to act on the same event. That leads
-/// to two result-values to be considered.
+/// Extras: Focus handling is tricky, see [rat-focus](https://docs.rs/rat-focus/).
+/// The result of focus handling is a second result of an event-handler,
+/// that must be combined to form the single return value that a function
+/// can have.
 /// Therefore, one more extension for this macro:
-/// `flow_ok!(_do_something_with_an_outcome(), consider focus_outcome)`
-/// Where `focus_outcome` is the variable that holds the result.
+/// `flow_ok!(_do_something_with_an_outcome(), consider focus_outcome)`.
+/// This returns max(outcome, focus_outcome).
 #[macro_export]
 macro_rules! flow {
     (log $n:ident: $x:expr) => {{
@@ -206,24 +223,23 @@ macro_rules! flow {
     }};
 }
 
-/// Breaks and Ok-wraps the control-flow if the block
-/// returns a value for with [ConsumedEvent::is_consumed] is true.
+/// Breaks the control-flow if the block returns a value
+/// for which [ConsumedEvent::is_consumed] is true.
 ///
-/// It then does the classic `into()`-conversion and wraps the
-/// result in `Ok()`.
+/// It does the classic `into()`-conversion and returns the result.
 ///
 /// *The difference to [flow] is that this one Ok-wraps the result.*
 ///
 /// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
 /// the result of the operation is written to the log.
 ///
-/// Extras: Combining this with the result of focus-handling is tricky.
-/// The result of processing events for focus should not break early,
-/// as widgets probably want to act on the same event. That leads
-/// to two result-values to be considered.
+/// Extras: Focus handling is tricky, see [rat-focus](https://docs.rs/rat-focus/).
+/// The result of focus handling is a second result of an event-handler,
+/// that must be combined to form the single return value that a function
+/// can have.
 /// Therefore, one more extension for this macro:
-/// `flow_ok!(_do_something_with_an_outcome(), consider focus_outcome)`
-/// Where `focus_outcome` is the variable that holds the result.
+/// `flow_ok!(_do_something_with_an_outcome(), consider focus_outcome)`.
+/// This returns max(outcome, focus_outcome).
 #[macro_export]
 macro_rules! flow_ok {
     (log $n:ident: $x:expr) => {{
@@ -259,10 +275,12 @@ macro_rules! flow_ok {
     }};
 }
 
-/// One more control-flow macro with ConsumedEvent.
+/// Another control-flow macro based on [ConsumedEvent].
 ///
-/// If you don't want to return early with is_consumed(), you
-/// can define a variable, and or_else! the different options.
+/// If you don't want to return early from event-handling, you can use this.
+///
+/// Define a mut that holds the result, and `or_else!` through all
+/// event-handlers.
 ///
 /// ```not_rust
 /// let mut r;
@@ -272,7 +290,7 @@ macro_rules! flow_ok {
 /// or_else!(r, third_activity());
 /// ```
 ///
-/// This executes `second_activity` if !r.is_consumed() and stores the
+/// This executes `second_activity()` if `!r.is_consumed()` and stores the
 /// result in r. The same with `third_activity` ...
 ///
 #[macro_export]

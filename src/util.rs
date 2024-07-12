@@ -9,7 +9,6 @@ use ratatui::layout::Rect;
 use std::cell::Cell;
 
 /// Which of the given rects is at the position.
-///
 pub fn item_at_clicked(areas: &[Rect], x_pos: u16, y_pos: u16) -> Option<usize> {
     for (i, r) in areas.iter().enumerate() {
         if y_pos >= r.top() && y_pos < r.bottom() && x_pos >= r.left() && x_pos < r.right() {
@@ -71,7 +70,12 @@ pub fn row_at_drag(encompassing: Rect, areas: &[Rect], y_pos: u16) -> Result<usi
     }
 }
 
-/// Column when dragging. Can go outside the area.
+/// Find a column position when dragging with the mouse. This uses positions
+/// outside the given areas to estimate an invisible column that could be meant
+/// by the mouse position. It uses the heuristic `1 column == 1 item` for simplicity’s
+/// sake.
+///
+/// Columns outside the bounds are returned as Err(isize), rows inside as Ok(usize).
 pub fn column_at_drag(encompassing: Rect, areas: &[Rect], x_pos: u16) -> Result<usize, isize> {
     if let Some(column) = column_at_clicked(areas, x_pos) {
         return Ok(column);
@@ -115,7 +119,16 @@ impl MouseFlags {
     /// It makes sense to allow drag events outside the given area, if the
     /// drag has been started with a click to the given area.
     ///
-    /// This function handles that case.
+    /// This can be integrated in the event-match with a guard:
+    ///
+    /// ```rust ignore
+    /// match event {
+    ///         Event::Mouse(m) if state.mouse.drag(state.area, m) => {
+    ///             // ...
+    ///             Outcome::Changed
+    ///         }
+    /// }
+    /// ```
     pub fn drag(&self, area: Rect, event: &MouseEvent) -> bool {
         self.drag2(area, event, KeyModifiers::NONE)
     }
