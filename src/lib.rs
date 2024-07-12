@@ -16,8 +16,8 @@ pub use crate::zrect::ZRect;
 pub mod event {
     //! Rexported eventhandling traits.
     pub use rat_event::{
-        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, FocusKeys, HandleEvent, MouseOnly,
-        Outcome,
+        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, HandleEvent, MouseOnly, Outcome,
+        Regular,
     };
 }
 

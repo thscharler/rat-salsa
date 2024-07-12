@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use crate::adapter::_private::NonExhaustive;
-use rat_event::{FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -81,8 +81,8 @@ impl HasFocusFlag for TextInputFState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for TextInputFState {
-    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TextInputFState {
+    fn handle(&mut self, _event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         Outcome::NotUsed
     }
 }

@@ -1,6 +1,6 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::substratum1::{Substratum, SubstratumState};
-use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
+use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
@@ -93,21 +93,21 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let f = focus_input(state).handle(event, FocusKeys);
+    let f = focus_input(state).handle(event, Regular);
 
-    let r = state.sub1.handle(event, FocusKeys);
+    let r = state.sub1.handle(event, Regular);
     if r.is_consumed() {
         return Ok(max(r, f));
     }
-    let r = state.sub2.handle(event, FocusKeys);
+    let r = state.sub2.handle(event, Regular);
     if r.is_consumed() {
         return Ok(max(r, f));
     }
-    let r = state.sub3.handle(event, FocusKeys);
+    let r = state.sub3.handle(event, Regular);
     if r.is_consumed() {
         return Ok(max(r, f));
     }
-    let r = state.sub4.handle(event, FocusKeys);
+    let r = state.sub4.handle(event, Regular);
     if r.is_consumed() {
         return Ok(max(r, f));
     }
@@ -119,7 +119,7 @@ pub mod substratum1 {
     use crate::adapter::textinputf::{TextInputF, TextInputFState};
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
-    use rat_event::{ConsumedEvent, FocusKeys, HandleEvent, Outcome};
+    use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -243,21 +243,21 @@ pub mod substratum1 {
         }
     }
 
-    impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for SubstratumState {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
-            let mut r: Outcome = self.input1.handle(event, FocusKeys).into();
+    impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SubstratumState {
+        fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
+            let mut r: Outcome = self.input1.handle(event, Regular).into();
             if r.is_consumed() {
                 return r;
             }
-            r = self.input2.handle(event, FocusKeys).into();
+            r = self.input2.handle(event, Regular).into();
             if r.is_consumed() {
                 return r;
             }
-            r = self.input3.handle(event, FocusKeys).into();
+            r = self.input3.handle(event, Regular).into();
             if r.is_consumed() {
                 return r;
             }
-            r = self.input4.handle(event, FocusKeys).into();
+            r = self.input4.handle(event, Regular).into();
             if r.is_consumed() {
                 return r;
             }

@@ -1,7 +1,7 @@
 use crate::focus::core::FocusCore;
 use crate::{FocusFlag, HasFocus, HasFocusFlag};
 use log::debug;
-use rat_event::{ct_event, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use ratatui::layout::Rect;
 
 /// Focus solves all focus-related issues.
@@ -756,8 +756,8 @@ mod core {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for Focus {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         match event {
             ct_event!(keycode press Tab) => {
                 if self.core.log.get() {
@@ -816,7 +816,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus {
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
 pub fn handle_focus(focus: &mut Focus, event: &crossterm::event::Event) -> Outcome {
-    HandleEvent::handle(focus, event, FocusKeys)
+    HandleEvent::handle(focus, event, Regular)
 }
 
 /// Handle only mouse-events.
