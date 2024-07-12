@@ -1,6 +1,6 @@
 use crate::adapter::_private::NonExhaustive;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, FocusKeys, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use ratatui::buffer::Buffer;
@@ -365,8 +365,8 @@ impl ListSState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, FocusKeys, Outcome> for ListSState {
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: FocusKeys) -> Outcome {
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListSState {
+    fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         let r = match event {
             ct_event!(keycode press Down) => {
                 self.select_next(1);
