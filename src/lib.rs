@@ -187,7 +187,7 @@ pub mod scrolled {
 /// F-Table
 pub mod table {
     pub use rat_ftable::{
-        edit, selection, textdata, RTableContext, Table, TableData, TableDataIter, TableSelection,
+        edit, selection, textdata, Table, TableContext, TableData, TableDataIter, TableSelection,
         TableState, TableStyle,
     };
 }
