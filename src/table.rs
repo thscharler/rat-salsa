@@ -6,7 +6,7 @@ use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::util::{revert_style, transfer_buffer};
-use crate::{RTableContext, TableData, TableDataIter, TableSelection};
+use crate::{TableContext, TableData, TableDataIter, TableSelection};
 #[allow(unused_imports)]
 use log::debug;
 #[cfg(debug_assertions)]
@@ -78,7 +78,7 @@ pub struct Table<'a, Selection> {
 
 mod data {
     use crate::textdata::TextTableData;
-    use crate::{RTableContext, TableData, TableDataIter};
+    use crate::{TableContext, TableData, TableDataIter};
     #[allow(unused_imports)]
     use log::debug;
     #[allow(unused_imports)]
@@ -199,7 +199,7 @@ mod data {
         }
 
         /// Render the cell given by column/row.
-        fn render_cell(&self, ctx: &RTableContext, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, ctx: &TableContext, column: usize, area: Rect, buf: &mut Buffer) {
             match self {
                 DataReprIter::None => {}
                 DataReprIter::Invalid(_) => {
@@ -356,7 +356,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// use ratatui::prelude::Style;
     /// use ratatui::text::Span;
     /// use ratatui::widgets::{StatefulWidget, Widget};
-    /// use rat_ftable::{Table, RTableContext, TableState, TableData};
+    /// use rat_ftable::{Table, TableContext, TableState, TableData};
     ///
     /// # struct SampleRow;
     /// # let area = Rect::default();
@@ -380,7 +380,7 @@ impl<'a, Selection> Table<'a, Selection> {
     ///         Style::default()
     ///     }
     ///
-    ///     fn render_cell(&self, ctx: &RTableContext, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
+    ///     fn render_cell(&self, ctx: &TableContext, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
     ///         if let Some(data) = self.0.get(row) {
     ///             let rend = match column {
     ///                 0 => Span::from("column1"),
@@ -433,7 +433,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// use ratatui::style::{Style, Stylize};
     /// use ratatui::text::Span;
     /// use ratatui::widgets::{Widget, StatefulWidget};
-    /// use rat_ftable::{Table, RTableContext, TableState, TableDataIter};
+    /// use rat_ftable::{Table, TableContext, TableState, TableDataIter};
     ///
     /// # struct Data {
     /// #     table_data: Vec<Sample>
@@ -481,7 +481,7 @@ impl<'a, Selection> Table<'a, Selection> {
     ///
     ///     /// Render one cell.
     ///     fn render_cell(&self,
-    ///                     ctx: &RTableContext,
+    ///                     ctx: &TableContext,
     ///                     column: usize,
     ///                     area: Rect,
     ///                     buf: &mut Buffer)
@@ -923,7 +923,7 @@ where
         #[cfg(debug_assertions)]
         let mut insane_offset = false;
 
-        let mut ctx = RTableContext {
+        let mut ctx = TableContext {
             focus: state.focus.get(),
             selected_cell: false,
             selected_row: false,

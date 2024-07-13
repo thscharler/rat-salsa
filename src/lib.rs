@@ -16,7 +16,7 @@ use ratatui::style::Style;
 
 /// Render-context for rendering a table-cell.
 #[derive(Debug)]
-pub struct RTableContext {
+pub struct TableContext {
     /// Focus flag is set.
     pub focus: bool,
 
@@ -85,7 +85,7 @@ pub trait TableData<'a> {
     /// * ctx - a lot of context data.
     fn render_cell(
         &self,
-        ctx: &RTableContext,
+        ctx: &TableContext,
         column: usize,
         row: usize,
         area: Rect,
@@ -149,7 +149,7 @@ pub trait TableDataIter<'a> {
 
     /// Render the cell for the current line.
     /// * ctx - a lot of context data.
-    fn render_cell(&self, ctx: &RTableContext, column: usize, area: Rect, buf: &mut Buffer);
+    fn render_cell(&self, ctx: &TableContext, column: usize, area: Rect, buf: &mut Buffer);
 }
 
 /// Trait for the different selection models used by Table.

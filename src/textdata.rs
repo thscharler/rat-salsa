@@ -4,7 +4,7 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::{RTableContext, TableData};
+use crate::{TableContext, TableData};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{Style, Text};
@@ -59,7 +59,7 @@ impl<'a> TableData<'a> for TextTableData<'a> {
         }
     }
 
-    fn render_cell(&self, _ctx: &RTableContext, c: usize, r: usize, area: Rect, buf: &mut Buffer) {
+    fn render_cell(&self, _ctx: &TableContext, c: usize, r: usize, area: Rect, buf: &mut Buffer) {
         if let Some(row) = self.rows.get(r) {
             if let Some(cell) = row.cell(c) {
                 if let Some(style) = cell.style {
