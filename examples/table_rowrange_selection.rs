@@ -1,10 +1,14 @@
+//!
+//! Row range selection.
+//!
+
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{rowsetselection, RowSetSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{RTableContext, Table, TableData, TableState};
+use rat_ftable::{Table, TableContext, TableData, TableState};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -72,7 +76,7 @@ fn repaint_table(
 
         fn render_cell(
             &self,
-            _ctx: &RTableContext,
+            _ctx: &TableContext,
             column: usize,
             row: usize,
             area: Rect,

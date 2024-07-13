@@ -67,7 +67,7 @@ fn repaint_table(
     let num2_fmt = NumberFormat::new("####0.00").expect("fmt");
 
     Table::default()
-        .rows(data.table_data.iter().take(500).enumerate().map(|(i, v)| {
+        .rows(data.table_data.iter().take(3000).enumerate().map(|(i, v)| {
             Row::new([
                 Text::from(row_fmt.fmt_u(i)),
                 v.text.into(),

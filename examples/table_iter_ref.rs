@@ -1,15 +1,19 @@
+//!
+//! Example for [TableDataIter] used with [StatefulWidgetRef]
+//!
+
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{RTableContext, Table, TableDataIter, TableState};
+use rat_ftable::{Table, TableContext, TableDataIter, TableState};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{block, Block, StatefulWidget, Widget};
+use ratatui::widgets::{block, Block, StatefulWidget, StatefulWidgetRef, Widget};
 use ratatui::Frame;
 use std::iter::Enumerate;
 use std::slice::Iter;
@@ -73,6 +77,9 @@ fn repaint_table(
     }
 
     impl<'a> TableDataIter<'a> for RowIter1<'a> {
+        /// StatefulWidgetRef needs a clone of the iterator for every render.
+        /// For StatefulWidget this is not needed at all. So this defaults to
+        /// None and warns at runtime.
         fn cloned(&self) -> Option<Box<dyn TableDataIter<'a> + 'a>> {
             let a = self.clone();
             let c: Box<dyn TableDataIter<'a>> = Box::new(a);
@@ -88,7 +95,7 @@ fn repaint_table(
             self.item.is_some()
         }
 
-        fn render_cell(&self, _ctx: &RTableContext, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, _ctx: &TableContext, column: usize, area: Rect, buf: &mut Buffer) {
             let row = self.item.expect("data");
             match column {
                 0 => {
@@ -153,7 +160,7 @@ fn repaint_table(
         .flex(Flex::End)
         .style(THEME.table())
         .select_row_style(Some(THEME.gray(3)))
-        .render(l0[0], frame.buffer_mut(), &mut state.table);
+        .render_ref(l0[0], frame.buffer_mut(), &mut state.table);
     Ok(())
 }
 

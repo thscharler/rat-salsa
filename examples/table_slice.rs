@@ -1,10 +1,14 @@
-#![allow(dead_code)]
+//!
+//! Example for [TableData]
+//!
+
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{RTableContext, Table, TableDataIter, TableState};
+use rat_ftable::{Table, TableContext, TableData, TableState};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -55,7 +59,7 @@ struct State {
 fn repaint_table(
     frame: &mut Frame<'_>,
     area: Rect,
-    _data: &mut Data,
+    data: &mut Data,
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
@@ -63,49 +67,55 @@ fn repaint_table(
         .flex(Flex::Center)
         .split(area);
 
-    struct Count(u32);
-    impl Iterator for Count {
-        type Item = u32;
+    struct Data1<'a>(&'a [Sample]);
 
-        fn next(&mut self) -> Option<Self::Item> {
-            if self.0 > 200_000 {
-                None
-            } else {
-                self.0 += 1;
-                Some(self.0)
+    impl<'a> TableData<'a> for Data1<'a> {
+        fn rows(&self) -> usize {
+            self.0.len()
+        }
+
+        fn render_cell(
+            &self,
+            _ctx: &TableContext,
+            column: usize,
+            row: usize,
+            area: Rect,
+            buf: &mut Buffer,
+        ) {
+            if let Some(d) = self.0.get(row) {
+                match column {
+                    0 => {
+                        let row_fmt = NumberFormat::new("000000").expect("fmt");
+                        let span = Span::from(row_fmt.fmt_u(row));
+                        span.render(area, buf);
+                    }
+                    1 => {
+                        let span = Span::from(d.text);
+                        span.render(area, buf);
+                    }
+                    2 => {
+                        let num1_fmt = NumberFormat::new("####0.00").expect("fmt");
+                        let span = Span::from(num1_fmt.fmt_u(d.num1));
+                        span.render(area, buf);
+                    }
+                    3 => {
+                        let num2_fmt = NumberFormat::new("####0.00").expect("fmt");
+                        let span = Span::from(num2_fmt.fmt_u(d.num2));
+                        span.render(area, buf);
+                    }
+                    4 => {
+                        let cc = if d.check { "\u{2622}" } else { "\u{2623}" };
+                        let span = Span::from(cc);
+                        span.render(area, buf);
+                    }
+                    _ => {}
+                }
             }
-        }
-    }
-
-    struct RowIter {
-        iter: Count,
-        item: u32,
-    }
-
-    impl<'a> TableDataIter<'a> for RowIter {
-        fn rows(&self) -> Option<usize> {
-            None
-        }
-
-        fn nth(&mut self, n: usize) -> bool {
-            if let Some(v) = self.iter.nth(n) {
-                self.item = v;
-                true
-            } else {
-                false
-            }
-        }
-
-        fn render_cell(&self, _ctx: &RTableContext, _column: usize, area: Rect, buf: &mut Buffer) {
-            Span::from(self.item.to_string()).render(area, buf);
         }
     }
 
     Table::default()
-        .iter(RowIter {
-            iter: Count(0),
-            item: 0,
-        })
+        .data(Data1(&data.table_data))
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),

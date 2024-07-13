@@ -1,3 +1,8 @@
+//!
+//! Render a table with neither iter() nor data() being called.
+//! More a test than an actual example.
+//!
+
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_ftable::event::Outcome;

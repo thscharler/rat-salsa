@@ -1,10 +1,14 @@
+//!
+//! Example for [TableDataIter] used with [StatefulWidget]
+//!
+
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{noselection, NoSelection};
 use rat_ftable::textdata::{Cell, Row};
-use rat_ftable::{RTableContext, Table, TableDataIter, TableState};
+use rat_ftable::{Table, TableContext, TableDataIter, TableState};
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -81,7 +85,7 @@ fn repaint_table(
             self.item.is_some()
         }
 
-        fn render_cell(&self, _ctx: &RTableContext, column: usize, area: Rect, buf: &mut Buffer) {
+        fn render_cell(&self, _ctx: &TableContext, column: usize, area: Rect, buf: &mut Buffer) {
             let row = self.item.expect("data");
             match column {
                 0 => {
