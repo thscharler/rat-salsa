@@ -1696,6 +1696,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     }
 
     /// Ensures that the selected item is visible.
+    /// Caveat: This doesn't work nicely if you have varying row-heights.
     pub fn scroll_to_selected(&mut self) -> bool {
         if let Some(selected) = self.selection.lead_selection() {
             let c = self.scroll_to_x(selected.0);
@@ -1707,6 +1708,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     }
 
     /// Ensures that the given row is visible.
+    /// Caveat: This doesn't work nicely if you have varying row-heights.
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
         if pos >= self.row_offset().saturating_add(self.page_len()) {
             self.set_row_offset(pos.saturating_sub(self.page_len()).saturating_add(1))
