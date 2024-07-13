@@ -27,7 +27,7 @@ use rat_widget::scrolled::Scroll;
 use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::table::textdata::{Cell, Row};
-use rat_widget::table::{RTableContext, Table, TableData, TableState};
+use rat_widget::table::{Table, TableContext, TableData, TableState};
 use rat_widget::textarea::{TextArea, TextAreaState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -166,7 +166,7 @@ impl<'a> TableData<'a> for FileData<'a> {
 
     fn render_cell(
         &self,
-        ctx: &RTableContext,
+        ctx: &TableContext,
         column: usize,
         row: usize,
         area: Rect,
@@ -218,7 +218,7 @@ impl<'a> TableData<'a> for DirData<'a> {
 
     fn render_cell(
         &self,
-        ctx: &RTableContext,
+        ctx: &TableContext,
         column: usize,
         row: usize,
         area: Rect,
