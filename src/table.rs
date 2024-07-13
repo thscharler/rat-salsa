@@ -956,95 +956,102 @@ where
                     state.table_area.x,
                     row_y,
                     state.table_area.width,
-                    max(data.row_height(), 1),
+                    render_row_area.height,
                 )
                 .intersection(state.table_area);
                 state.row_areas.push(visible_row_area);
-                state.vscroll.set_page_len(state.vscroll.page_len() + 1);
-
-                let mut col = 0;
-                loop {
-                    if col >= state.columns {
-                        break;
-                    }
-
-                    let render_cell_area = Rect::new(
-                        l_columns[col].x,
-                        0,
-                        l_columns[col].width,
-                        render_row_area.height,
-                    );
-                    ctx.space_area = Rect::new(
-                        l_spacers[col + 1].x,
-                        0,
-                        l_spacers[col + 1].width,
-                        render_row_area.height,
-                    );
-
-                    ctx.select_style = if state.selection.is_selected_cell(col, row.expect("row")) {
-                        ctx.selected_cell = true;
-                        ctx.selected_row = false;
-                        ctx.selected_column = false;
-                        self.patch_select(
-                            self.select_cell_style,
-                            state.focus.get(),
-                            self.show_cell_focus,
-                        )
-                    } else if state.selection.is_selected_row(row.expect("row")) {
-                        ctx.selected_cell = false;
-                        ctx.selected_row = true;
-                        ctx.selected_column = false;
-                        // use a fallback if no row-selected style is set.
-                        if self.select_row_style.is_some() {
-                            self.patch_select(
-                                self.select_row_style,
-                                state.focus.get(),
-                                self.show_row_focus,
-                            )
-                        } else {
-                            self.patch_select(
-                                Some(revert_style(self.style)),
-                                state.focus.get(),
-                                self.show_row_focus,
-                            )
-                        }
-                    } else if state.selection.is_selected_column(col) {
-                        ctx.selected_cell = false;
-                        ctx.selected_row = false;
-                        ctx.selected_column = true;
-                        self.patch_select(
-                            self.select_column_style,
-                            state.focus.get(),
-                            self.show_column_focus,
-                        )
-                    } else {
-                        ctx.selected_cell = false;
-                        ctx.selected_row = false;
-                        ctx.selected_column = false;
-                        None
-                    };
-
-                    // partially visible?
-                    if render_cell_area.right() > state.hscroll.offset as u16
-                        || render_cell_area.left() < state.hscroll.offset as u16 + area.width
-                    {
-                        if let Some(select_style) = ctx.select_style {
-                            row_buf.set_style(render_cell_area, select_style);
-                            row_buf.set_style(ctx.space_area, select_style);
-                        }
-                        data.render_cell(&ctx, col, render_cell_area, &mut row_buf);
-                    }
-
-                    col += 1;
+                // only count fully visible rows.
+                if render_row_area.height == visible_row_area.height {
+                    state.vscroll.set_page_len(state.vscroll.page_len() + 1);
                 }
 
-                // render shifted and clipped row.
-                transfer_buffer(
-                    &mut row_buf,
-                    state.hscroll.offset() as u16,
-                    visible_row_area,
-                    buf,
-                );
+                // can skip this entirely
+                if render_row_area.height > 0 {
+                    let mut col = 0;
+                    loop {
+                        if col >= state.columns {
+                            break;
+                        }
+
+                        let render_cell_area = Rect::new(
+                            l_columns[col].x,
+                            0,
+                            l_columns[col].width,
+                            render_row_area.height,
+                        );
+                        ctx.space_area = Rect::new(
+                            l_spacers[col + 1].x,
+                            0,
+                            l_spacers[col + 1].width,
+                            render_row_area.height,
+                        );
+
+                        ctx.select_style =
+                            if state.selection.is_selected_cell(col, row.expect("row")) {
+                                ctx.selected_cell = true;
+                                ctx.selected_row = false;
+                                ctx.selected_column = false;
+                                self.patch_select(
+                                    self.select_cell_style,
+                                    state.focus.get(),
+                                    self.show_cell_focus,
+                                )
+                            } else if state.selection.is_selected_row(row.expect("row")) {
+                                ctx.selected_cell = false;
+                                ctx.selected_row = true;
+                                ctx.selected_column = false;
+                                // use a fallback if no row-selected style is set.
+                                if self.select_row_style.is_some() {
+                                    self.patch_select(
+                                        self.select_row_style,
+                                        state.focus.get(),
+                                        self.show_row_focus,
+                                    )
+                                } else {
+                                    self.patch_select(
+                                        Some(revert_style(self.style)),
+                                        state.focus.get(),
+                                        self.show_row_focus,
+                                    )
+                                }
+                            } else if state.selection.is_selected_column(col) {
+                                ctx.selected_cell = false;
+                                ctx.selected_row = false;
+                                ctx.selected_column = true;
+                                self.patch_select(
+                                    self.select_column_style,
+                                    state.focus.get(),
+                                    self.show_column_focus,
+                                )
+                            } else {
+                                ctx.selected_cell = false;
+                                ctx.selected_row = false;
+                                ctx.selected_column = false;
+                                None
+                            };
+
+                        // partially visible?
+                        if render_cell_area.right() > state.hscroll.offset as u16
+                            || render_cell_area.left() < state.hscroll.offset as u16 + area.width
+                        {
+                            if let Some(select_style) = ctx.select_style {
+                                row_buf.set_style(render_cell_area, select_style);
+                                row_buf.set_style(ctx.space_area, select_style);
+                            }
+                            data.render_cell(&ctx, col, render_cell_area, &mut row_buf);
+                        }
+
+                        col += 1;
+                    }
+
+                    // render shifted and clipped row.
+                    transfer_buffer(
+                        &mut row_buf,
+                        state.hscroll.offset() as u16,
+                        visible_row_area,
+                        buf,
+                    );
+                }
 
                 if visible_row_area.bottom() >= state.table_area.bottom() {
                     break;
@@ -1090,16 +1097,27 @@ where
                 let nth_row = skip_rows;
                 // collect the remaining row-heights.
                 if data.nth(nth_row) {
+                    let mut sum_height = row_heights.iter().sum::<u16>();
                     row = Some(row.map_or(nth_row, |row| row + nth_row + 1));
                     loop {
-                        row_heights.push(data.row_height());
-                        // don't need more.
-                        if row_heights.len() > state.table_area.height as usize {
-                            row_heights.remove(0);
+                        let row_height = data.row_height();
+                        row_heights.push(row_height);
+
+                        // Keep a rolling sum of the heights and drop unnecessary info.
+                        // We don't need more info, and there will be a lot more otherwise.
+                        sum_height += row_height;
+                        if sum_height
+                            .saturating_sub(row_heights.first().copied().unwrap_or_default())
+                            > state.table_area.height
+                        {
+                            let lost_height = row_heights.remove(0);
+                            sum_height -= lost_height;
                         }
+
                         if !data.nth(0) {
                             break;
                         }
+
                         row = Some(row.expect("row") + 1);
                         // if the given number of rows is too small, we would overshoot here.
                         if row.expect("row") > rows {
@@ -1158,11 +1176,19 @@ where
                 algorithm = 2;
 
                 // Read all the rest to establish the exact row-count.
+                let mut sum_height = row_heights.iter().sum::<u16>();
                 while data.nth(0) {
-                    row_heights.push(data.row_height());
-                    // don't need more info. drop the oldest.
-                    if row_heights.len() > state.table_area.height as usize {
-                        row_heights.remove(0);
+                    let row_height = data.row_height();
+                    row_heights.push(row_height);
+
+                    // Keep a rolling sum of the heights and drop unnecessary info.
+                    // We don't need more info, and there will be a lot more otherwise.
+                    sum_height += row_height;
+                    if sum_height.saturating_sub(row_heights.first().copied().unwrap_or_default())
+                        > state.table_area.height
+                    {
+                        let lost_height = row_heights.remove(0);
+                        sum_height -= lost_height;
                     }
                     row = Some(row.map_or(0, |v| v + 1));
                 }
@@ -1681,7 +1707,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     /// Ensures that the given row is visible.
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
         if pos >= self.row_offset().saturating_add(self.page_len()) {
-            self.set_row_offset(pos.saturating_sub(self.page_len().saturating_add(1)))
+            self.set_row_offset(pos.saturating_sub(self.page_len()).saturating_add(1))
         } else if pos < self.row_offset() {
             self.set_row_offset(pos)
         } else {
@@ -1707,7 +1733,7 @@ impl<Selection: TableSelection> TableState<Selection> {
     /// Ensures that the given cell is visible.
     pub fn scroll_to_x(&mut self, pos: usize) -> bool {
         if pos >= self.x_offset().saturating_add(self.page_width()) {
-            self.set_x_offset(pos.saturating_sub(self.page_width().saturating_add(1)))
+            self.set_x_offset(pos.saturating_sub(self.page_width()).saturating_add(1))
         } else if pos < self.x_offset() {
             self.set_x_offset(pos)
         } else {
