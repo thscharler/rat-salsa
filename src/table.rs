@@ -932,6 +932,7 @@ where
             row_style: None,
             select_style: None,
             space_area: Default::default(),
+            row_area: Default::default(),
             non_exhaustive: NonExhaustive,
         };
 
@@ -943,6 +944,7 @@ where
                 // For ease of use we start each row at 0,0.
                 // We still only render at least partially visible cells.
                 let render_row_area = Rect::new(0, 0, width, data.row_height());
+                ctx.row_area = render_row_area;
                 row_buf.resize(render_row_area);
                 if let Some(row_style) = ctx.row_style {
                     row_buf.set_style(render_row_area, row_style);

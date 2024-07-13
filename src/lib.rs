@@ -37,6 +37,8 @@ pub struct RTableContext {
     /// Spacing after the cell. It's guaranteed that this
     /// is writeable in the buffer given to render_cell.
     pub space_area: Rect,
+    /// Total area for the current row.
+    pub row_area: Rect,
 
     /// Construct with `..Default::default()`
     pub non_exhaustive: NonExhaustive,
