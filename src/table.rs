@@ -942,8 +942,7 @@ where
                 // We render each row to a temporary buffer.
                 // For ease of use we start each row at 0,0.
                 // We still only render at least partially visible cells.
-                //todo:why max
-                let render_row_area = Rect::new(0, 0, width, max(data.row_height(), 1));
+                let render_row_area = Rect::new(0, 0, width, data.row_height());
                 row_buf.resize(render_row_area);
                 if let Some(row_style) = ctx.row_style {
                     row_buf.set_style(render_row_area, row_style);
