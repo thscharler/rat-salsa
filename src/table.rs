@@ -157,11 +157,11 @@ mod data {
             let incr = |row: &mut Option<usize>, rows: usize| match *row {
                 None => {
                     *row = Some(n);
-                    n < rows
+                    *row < Some(rows)
                 }
                 Some(w) => {
-                    *row = Some(w + n + 1);
-                    w + n + 1 < rows
+                    *row = Some(w.saturating_add(n).saturating_add(1));
+                    *row < Some(rows)
                 }
             };
 
@@ -1052,7 +1052,7 @@ where
                 if !data.nth(0) {
                     break;
                 }
-                row = Some(row.expect("row") + 1);
+                row = Some(row.expect("row").saturating_add(1));
                 row_y += render_row_area.height;
             }
         } else {
@@ -1139,7 +1139,7 @@ where
                 if row.is_some() {
                     if data.nth(0) {
                         // try one past page
-                        row = Some(row.expect("row") + 1);
+                        row = Some(row.expect("row").saturating_add(1));
                         if data.nth(0) {
                             // have an unknown number of rows left.
                             row = Some(usize::MAX - 1);
@@ -1680,8 +1680,8 @@ impl<Selection: TableSelection> TableState<Selection> {
 
     /// Ensures that the given row is visible.
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
-        if pos >= self.row_offset() + self.page_len() {
-            self.set_row_offset(pos - self.page_len() + 1)
+        if pos >= self.row_offset().saturating_add(self.page_len()) {
+            self.set_row_offset(pos.saturating_sub(self.page_len().saturating_add(1)))
         } else if pos < self.row_offset() {
             self.set_row_offset(pos)
         } else {
@@ -1694,8 +1694,8 @@ impl<Selection: TableSelection> TableState<Selection> {
         if let Some(col) = self.column_layout.get(pos) {
             if (col.left() as usize) < self.x_offset() {
                 self.set_x_offset(col.x as usize)
-            } else if (col.right() as usize) >= self.x_offset() + self.page_width() {
-                self.set_x_offset(col.right() as usize - self.page_width())
+            } else if (col.right() as usize) >= self.x_offset().saturating_add(self.page_width()) {
+                self.set_x_offset((col.right() as usize).saturating_sub(self.page_width()))
             } else {
                 false
             }
@@ -1706,8 +1706,8 @@ impl<Selection: TableSelection> TableState<Selection> {
 
     /// Ensures that the given cell is visible.
     pub fn scroll_to_x(&mut self, pos: usize) -> bool {
-        if pos >= self.x_offset() + self.page_width() {
-            self.set_x_offset(pos - self.page_width() + 1)
+        if pos >= self.x_offset().saturating_add(self.page_width()) {
+            self.set_x_offset(pos.saturating_sub(self.page_width().saturating_add(1)))
         } else if pos < self.x_offset() {
             self.set_x_offset(pos)
         } else {
