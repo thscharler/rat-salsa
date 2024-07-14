@@ -541,7 +541,7 @@ pub mod mdedit {
                     self.parse_timer = Some(ctx.add_timer(
                         TimerDef::new().next(Instant::now() + Duration::from_millis(100)),
                     ));
-                    ctx.focus.as_ref().expect("focus").focus_widget(&self.edit);
+                    ctx.focus.as_ref().expect("focus").focus(&self.edit);
                     Control::Repaint
                 }
                 MDAction::Save(_) => {

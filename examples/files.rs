@@ -491,7 +491,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
                 if self.w_split.is_focused() {
                     self.focus().next();
                 } else {
-                    self.focus().focus_widget(&self.w_split);
+                    self.focus().focus(&self.w_split);
                 }
                 Control::Repaint
             }
