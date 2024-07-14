@@ -668,7 +668,7 @@ pub mod selection {
             {
                 ScrollOutcome::Up(v) => self.scroll_up(v),
                 ScrollOutcome::Down(v) => self.scroll_down(v),
-                ScrollOutcome::VPos(v) => self.scroll_to(v),
+                ScrollOutcome::VPos(v) => self.set_offset(v),
                 ScrollOutcome::Left(_) => false,
                 ScrollOutcome::Right(_) => false,
                 ScrollOutcome::HPos(_) => false,
@@ -778,7 +778,7 @@ pub mod selection {
                     if ListSelection::scroll_selected(&self.selection) {
                         self.move_to(self.remap_offset_selection(v))
                     } else {
-                        self.scroll_to(v)
+                        self.set_offset(v)
                     }
                 }
                 ScrollOutcome::Left(_) => false,
@@ -932,7 +932,7 @@ pub mod selection {
             {
                 ScrollOutcome::Up(v) => self.scroll_up(v),
                 ScrollOutcome::Down(v) => self.scroll_down(v),
-                ScrollOutcome::VPos(v) => self.scroll_to(v),
+                ScrollOutcome::VPos(v) => self.set_offset(v),
                 ScrollOutcome::Left(_) => false,
                 ScrollOutcome::Right(_) => false,
                 ScrollOutcome::HPos(_) => false,
