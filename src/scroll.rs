@@ -18,7 +18,7 @@ use std::cmp::{max, min};
 pub struct Scroll<'a> {
     policy: ScrollbarType,
     orientation: ScrollbarOrientation,
-    collab_split: bool,
+    split_offset: Option<u16>,
     overscroll_by: Option<usize>,
     scroll_by: Option<usize>,
 
@@ -130,8 +130,10 @@ impl<'a> Scroll<'a> {
     }
 
     /// Leave space for a Split with SplitType::Scrollbar.
-    pub fn collab_split(mut self, collab: bool) -> Self {
-        self.collab_split = collab;
+    /// Use the same value here, that got used for Split::mark_offset,
+    /// or 0 as default.
+    pub fn split_mark_offset(mut self, offset: u16) -> Self {
+        self.split_offset = Some(offset);
         self
     }
 
@@ -373,7 +375,11 @@ pub fn layout_scroll(
                 );
             }
             ScrollbarOrientation::HorizontalBottom => {
-                let split = if h_scroll.collab_split { 2 } else { 0 };
+                let split = if let Some(split) = h_scroll.split_offset {
+                    split + 2 - cl
+                } else {
+                    0
+                };
                 if area.height > 0 {
                     Rect::new(
                         area.x + cl + split,
@@ -399,7 +405,11 @@ pub fn layout_scroll(
     let v_area = if let Some(v_scroll) = v_scroll {
         match v_scroll.orientation {
             ScrollbarOrientation::VerticalRight => {
-                let split = if v_scroll.collab_split { 2 } else { 0 };
+                let split = if let Some(split) = v_scroll.split_offset {
+                    split + 2 - ct
+                } else {
+                    0
+                };
                 if area.width > 0 {
                     Rect::new(
                         area.x + area.width - 1,
