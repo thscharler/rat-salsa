@@ -340,6 +340,10 @@ impl HasFocusFlag for TextAreaState {
     fn area(&self) -> Rect {
         self.area
     }
+
+    fn primary_keys(&self) -> bool {
+        false
+    }
 }
 
 impl TextAreaState {

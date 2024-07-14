@@ -807,7 +807,7 @@ impl FileDialogState {
                 Ok(FileOutcome::Changed)
             } else {
                 self.dir_state.edit = None;
-                self.focus().focus_widget_no_lost(&self.save_name_state);
+                self.focus().focus_no_lost(&self.save_name_state);
                 self.set_path(&path)
             }
         } else {
@@ -981,7 +981,7 @@ fn handle_path(
         flow_ok!(match event {
             ct_event!(keycode press Enter) => {
                 state.use_path_input()?;
-                state.focus().focus_widget_no_lost(&state.dir_state.list);
+                state.focus().focus_no_lost(&state.dir_state.list);
                 FileOutcome::Changed
             }
             _ => FileOutcome::NotUsed,
