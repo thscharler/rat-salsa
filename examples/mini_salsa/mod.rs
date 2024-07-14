@@ -265,7 +265,7 @@ pub mod theme {
     use rat_widget::list::ListStyle;
     use rat_widget::menuline::MenuStyle;
     use rat_widget::msgdialog::MsgDialogStyle;
-    use rat_widget::splitter::SplitStyle;
+    use rat_widget::splitter::{SplitStyle, SplitType};
     use rat_widget::textarea::TextAreaStyle;
     use ratatui::style::{Color, Style, Stylize};
 
@@ -543,14 +543,29 @@ pub mod theme {
         }
 
         /// Complete Split style
-        pub fn split_style(&self) -> SplitStyle {
-            let style = Style::default().fg(self.gray[0]).bg(self.black[1]);
-            let arrow_style = Style::default().fg(self.secondary[0]).bg(self.black[1]);
-            SplitStyle {
-                style,
-                arrow_style: Some(arrow_style),
-                drag_style: Some(self.focus()),
-                ..Default::default()
+        pub fn split_style(&self, t: SplitType) -> SplitStyle {
+            if t == SplitType::FullEmpty {
+                let style = Style::default().bg(self.gray[0]).fg(self.gray[3]);
+                let arrow_style = Style::default().fg(self.secondary[3]).bg(self.gray[0]);
+                SplitStyle {
+                    style,
+                    arrow_style: Some(arrow_style),
+                    drag_style: Some(self.focus()),
+                    // mark_0: Some("\u{259A}"),
+                    // mark_1: Some("\u{259A}"),
+                    ..Default::default()
+                }
+            } else {
+                let style = Style::default().fg(self.gray[0]).bg(self.gray[3]);
+                let arrow_style = Style::default().fg(self.secondary[3]).bg(self.gray[0]);
+                SplitStyle {
+                    style,
+                    arrow_style: Some(arrow_style),
+                    drag_style: Some(self.focus()),
+                    // mark_0: Some("\u{259A}"),
+                    // mark_1: Some("\u{259A}"),
+                    ..Default::default()
+                }
             }
         }
 
