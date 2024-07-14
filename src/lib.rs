@@ -80,6 +80,14 @@ pub trait HasFocusFlag {
         true
     }
 
+    /// If the widget has the focus, it might want to use
+    /// tab/shift-tab itself. The widget can signal this by returning
+    /// false here. Then the secondary focus key `Esc` will be used
+    /// to focus the next widget.
+    fn primary_keys(&self) -> bool {
+        true
+    }
+
     /// Focused?
     fn is_focused(&self) -> bool {
         self.focus().get()

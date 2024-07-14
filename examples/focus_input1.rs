@@ -1,7 +1,7 @@
 use crate::adapter::textinputf::{TextInputF, TextInputFState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{flow_ok, ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, HasFocusFlag};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
@@ -108,24 +108,36 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
+    // Handle events for focus.
     let f = focus_input(state).handle(event, Regular);
 
-    let mut r: Outcome = state.input1.handle(event, Regular).into();
-    if r.is_consumed() {
-        return Ok(max(r, f));
-    }
-    r = state.input2.handle(event, Regular).into();
-    if r.is_consumed() {
-        return Ok(max(r, f));
-    }
-    r = state.input3.handle(event, Regular).into();
-    if r.is_consumed() {
-        return Ok(max(r, f));
-    }
-    r = state.input4.handle(event, Regular).into();
-    if r.is_consumed() {
-        return Ok(max(r, f));
-    }
+    // -- old style --
+    // let mut r: Outcome = state.input1.handle(event, Regular).into();
+    // if r.is_consumed() {
+    //     return Ok(max(r, f));
+    // }
+    // r = state.input2.handle(event, Regular).into();
+    // if r.is_consumed() {
+    //     return Ok(max(r, f));
+    // }
+    // r = state.input3.handle(event, Regular).into();
+    // if r.is_consumed() {
+    //     return Ok(max(r, f));
+    // }
+    // r = state.input4.handle(event, Regular).into();
+    // if r.is_consumed() {
+    //     return Ok(max(r, f));
+    // }
 
-    Ok(max(r, f))
+    // Return early if the outcome is anything but Outcome::NotUsed.
+    // But when returning early take the result of focus into
+    // consideration and return max(r, f).
+    //
+    // This way a Outcome::Changed from focus doesn't get lost.
+    flow_ok!(state.input1.handle(event, Regular), consider f);
+    flow_ok!(state.input2.handle(event, Regular), consider f);
+    flow_ok!(state.input3.handle(event, Regular), consider f);
+    flow_ok!(state.input4.handle(event, Regular), consider f);
+
+    Ok(f)
 }

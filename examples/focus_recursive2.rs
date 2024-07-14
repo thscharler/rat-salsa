@@ -1,7 +1,7 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::substratum1::{Substratum, SubstratumState};
 use crate::substratum2::{Substratum2, Substratum2State};
-use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_event::{flow_ok, ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::Focus;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
@@ -71,10 +71,10 @@ fn repaint_input(
 }
 
 fn focus_input(state: &mut State) -> Focus {
-    let mut f = Focus::new(&[]);
-    f.add_focus(state.sub1.focus())
-        .add_focus(state.sub3.focus())
-        .add_focus(state.sub4.focus());
+    let mut f = Focus::default();
+    f.add_focus(state.sub1.focus());
+    f.add_focus(state.sub3.focus());
+    f.add_focus(state.sub4.focus());
     f
 }
 
@@ -85,26 +85,32 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus_input(state).handle(event, Regular);
-    let r = state.sub1.handle(event, Regular);
-    if r.is_consumed() {
-        return Ok(max(r, f));
-    }
-    let r = state.sub3.handle(event, Regular);
-    if r.is_consumed() {
-        return Ok(max(r, f));
-    }
-    let r = state.sub4.handle(event, Regular);
-    if r.is_consumed() {
-        return Ok(max(r, f));
-    }
 
-    Ok(max(r, f))
+    flow_ok!(state.sub1.handle(event, Regular), consider f);
+    flow_ok!(state.sub3.handle(event, Regular), consider f);
+    flow_ok!(state.sub4.handle(event, Regular), consider f);
+
+    // -- old style
+    // let r = state.sub1.handle(event, Regular);
+    // if r.is_consumed() {
+    //     return Ok(max(r, f));
+    // }
+    // let r = state.sub3.handle(event, Regular);
+    // if r.is_consumed() {
+    //     return Ok(max(r, f));
+    // }
+    // let r = state.sub4.handle(event, Regular);
+    // if r.is_consumed() {
+    //     return Ok(max(r, f));
+    // }
+    //
+    // Ok(max(r, f))
 }
 
 pub mod substratum2 {
     use crate::mini_salsa::theme::THEME;
     use crate::substratum1::{Substratum, SubstratumState};
-    use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+    use rat_event::{flow, ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -168,8 +174,8 @@ pub mod substratum2 {
     impl Substratum2State {
         pub fn focus(&self) -> Focus {
             let mut f = Focus::new_container(self, &[]);
-            f.add_focus(self.stratum1.focus())
-                .add_focus(self.stratum2.focus());
+            f.add_focus(self.stratum1.focus());
+            f.add_focus(self.stratum2.focus());
             f
         }
 
@@ -196,14 +202,17 @@ pub mod substratum2 {
 
     impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Substratum2State {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
-            let r = self.stratum1.handle(event, Regular);
-            if r.is_consumed() {
-                return r;
-            }
-            let r = self.stratum2.handle(event, Regular);
-            if r.is_consumed() {
-                return r;
-            }
+            flow!(self.stratum1.handle(event, Regular));
+            flow!(self.stratum2.handle(event, Regular));
+            // -- old style
+            // let r = self.stratum1.handle(event, Regular);
+            // if r.is_consumed() {
+            //     return r;
+            // }
+            // let r = self.stratum2.handle(event, Regular);
+            // if r.is_consumed() {
+            //     return r;
+            // }
             Outcome::NotUsed
         }
     }
@@ -213,7 +222,7 @@ pub mod substratum1 {
     use crate::adapter::textinputf::{TextInputF, TextInputFState};
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
-    use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+    use rat_event::{flow, ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{Focus, FocusFlag, HasFocusFlag};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -340,22 +349,27 @@ pub mod substratum1 {
 
     impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SubstratumState {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
-            let mut r: Outcome = self.input1.handle(event, Regular).into();
-            if r.is_consumed() {
-                return r;
-            }
-            r = self.input2.handle(event, Regular).into();
-            if r.is_consumed() {
-                return r;
-            }
-            r = self.input3.handle(event, Regular).into();
-            if r.is_consumed() {
-                return r;
-            }
-            r = self.input4.handle(event, Regular).into();
-            if r.is_consumed() {
-                return r;
-            }
+            flow!(self.input1.handle(event, Regular));
+            flow!(self.input2.handle(event, Regular));
+            flow!(self.input3.handle(event, Regular));
+            flow!(self.input4.handle(event, Regular));
+
+            // let mut r: Outcome = self.input1.handle(event, Regular).into();
+            // if r.is_consumed() {
+            //     return r;
+            // }
+            // r = self.input2.handle(event, Regular).into();
+            // if r.is_consumed() {
+            //     return r;
+            // }
+            // r = self.input3.handle(event, Regular).into();
+            // if r.is_consumed() {
+            //     return r;
+            // }
+            // r = self.input4.handle(event, Regular).into();
+            // if r.is_consumed() {
+            //     return r;
+            // }
             Outcome::NotUsed
         }
     }

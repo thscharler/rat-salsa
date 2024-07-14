@@ -4,11 +4,11 @@ use log::debug;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use ratatui::layout::Rect;
 
-/// Focus solves all focus-related issues.
+/// Focus deals with all focus-related issues.
 ///
 /// It must be constructed at least after each render(), as it holds
-/// copies of the widget-areas for mouse-handling. In practice, it will
-/// be freshly constructed for each run of an event-handler.
+/// copies of the widget-areas for mouse-handling.
+/// In practice, construct it, when you first need it.
 #[derive(Debug, Default)]
 pub struct Focus {
     /// Name for the cycle.
@@ -22,7 +22,13 @@ impl Focus {
     pub fn new(list: &[&'_ dyn HasFocusFlag]) -> Self {
         let mut ff = Focus::default();
         for f in list {
-            ff.core.add(f.focus(), f.area(), f.z_areas(), f.navigable());
+            ff.core.add(
+                f.focus(),
+                f.area(),
+                f.z_areas(),
+                f.navigable(),
+                f.primary_keys(),
+            );
         }
         ff
     }
@@ -30,7 +36,7 @@ impl Focus {
     /// Construct a new focus list for a container widget.
     ///
     /// The focus-flag for the container accumulates all the flags.
-    /// If any has focus, the container has the focus too.
+    /// If any widget has focus, the container has the focus too.
     /// Focus-gained and focus-lost are only set if the focus
     /// leaves the container.
     ///
@@ -43,7 +49,13 @@ impl Focus {
         let mut ff = Focus::default();
         ff.core.set_container(c.focus(), c.area(), c.z_areas());
         for f in list {
-            ff.core.add(f.focus(), f.area(), f.z_areas(), f.navigable());
+            ff.core.add(
+                f.focus(),
+                f.area(),
+                f.z_areas(),
+                f.navigable(),
+                f.primary_keys(),
+            );
         }
         ff
     }
@@ -59,7 +71,13 @@ impl Focus {
         let mut ff = Focus::default();
         ff.core.set_container(grp, Rect::ZERO, &[]);
         for f in list {
-            ff.core.add(f.focus(), f.area(), f.z_areas(), f.navigable());
+            ff.core.add(
+                f.focus(),
+                f.area(),
+                f.z_areas(),
+                f.navigable(),
+                f.primary_keys(),
+            );
         }
         ff
     }
@@ -67,7 +85,7 @@ impl Focus {
     /// Add a single widget.
     /// This doesn't add any z_areas and assumes navigable is true.
     pub fn add_flag(&mut self, flag: &'_ FocusFlag, area: Rect) -> &mut Self {
-        self.core.add(flag, area, &[], true);
+        self.core.add(flag, area, &[], true, true);
         self
     }
 
@@ -90,16 +108,26 @@ impl Focus {
 
     /// Add a single widget.
     pub fn add(&mut self, f: &'_ dyn HasFocusFlag) -> &mut Self {
-        self.core
-            .add(f.focus(), f.area(), f.z_areas(), f.navigable());
+        self.core.add(
+            f.focus(),
+            f.area(),
+            f.z_areas(),
+            f.navigable(),
+            f.primary_keys(),
+        );
         self
     }
 
     /// Add a list of widgets.
     pub fn add_all(&mut self, list: &[&'_ dyn HasFocusFlag]) -> &mut Self {
         for f in list {
-            self.core
-                .add(f.focus(), f.area(), f.z_areas(), f.navigable());
+            self.core.add(
+                f.focus(),
+                f.area(),
+                f.z_areas(),
+                f.navigable(),
+                f.primary_keys(),
+            );
         }
         self
     }
@@ -135,7 +163,7 @@ impl Focus {
     ///
     /// Sets the focus, but doesn't set lost or gained.
     /// This can be used to prevent validation of the field.
-    pub fn focus_widget_no_lost(&self, widget_state: &'_ dyn HasFocusFlag) {
+    pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocusFlag) {
         if self.core.log.get() {
             debug!("focus_no_lost {:?}", widget_state.focus());
         }
@@ -150,7 +178,7 @@ impl Focus {
     ///
     /// If this ends up with the same widget as
     /// before gained and lost flags are not set.
-    pub fn focus_widget(&self, widget_state: &'_ dyn HasFocusFlag) {
+    pub fn focus(&self, widget_state: &'_ dyn HasFocusFlag) {
         if self.core.log.get() {
             debug!("focus {:?}", widget_state.focus());
         }
@@ -159,11 +187,11 @@ impl Focus {
         }
     }
 
-    /// Sets the focus to the widget.
+    /// Sets the focus to the widget with the given flag.
     ///
     /// Sets focus and gained but not lost.
     /// This can be used to prevent validation of the field.
-    pub fn focus_no_lost(&self, flag: &FocusFlag) {
+    pub fn focus_flag_no_lost(&self, flag: &FocusFlag) {
         if self.core.log.get() {
             debug!("focus_no_lost {:?}", flag);
         }
@@ -172,13 +200,13 @@ impl Focus {
         }
     }
 
-    /// Sets the focus to the widget with `tag`.
+    /// Sets the focus to the widget with the given flag.
     ///
     /// Sets the focus, gained and lost flags.
     ///
     /// If this ends up with the same widget as
     /// before gained and lost flags are not set.
-    pub fn focus(&self, flag: &FocusFlag) {
+    pub fn focus_flag(&self, flag: &FocusFlag) {
         if self.core.log.get() {
             debug!("focus {:?}", flag);
         }
@@ -243,6 +271,14 @@ impl Focus {
         self.core.focus_at(col, row)
     }
 
+    /// Does the current focus use the primary focus keys or
+    /// the secondary focus keys to leave the widget.
+    /// Some widgets (textarea) might want to use the primary keys
+    /// tab/shift tab themselves.
+    pub fn use_primary_keys(&self) -> bool {
+        self.core.use_primary_keys()
+    }
+
     /// Focus the next widget in the cycle.
     ///
     /// Sets the focus, gained and lost flags. If this ends up with the same widget as
@@ -277,6 +313,7 @@ mod core {
     use std::cell::Cell;
     use std::rc::Rc;
 
+    /// Struct for the data of the focus-container itself.
     #[derive(Debug, Clone)]
     struct Container {
         /// Area for the whole compound. Only valid if container_focus is Some().
@@ -289,6 +326,7 @@ mod core {
         focus: FocusFlag,
     }
 
+    /// Focus core.
     #[derive(Debug, Default)]
     pub(super) struct FocusCore {
         /// Focus logging
@@ -303,6 +341,8 @@ mod core {
         z_areas: Vec<Vec<ZRect>>,
         /// Keyboard navigable
         navigable: Vec<bool>,
+        /// Primary or secondary focus keys to leave the widget.
+        primary_keys: Vec<bool>,
         /// List of flags.
         focus: Vec<FocusFlag>,
 
@@ -315,6 +355,7 @@ mod core {
     }
 
     impl FocusCore {
+        /// Set the container itself.
         pub(super) fn set_container(
             &mut self,
             focus: &'_ FocusFlag,
@@ -328,19 +369,23 @@ mod core {
             })
         }
 
+        /// Add focus data.
         pub(super) fn add(
             &mut self,
             focus: &'_ FocusFlag,
             area: Rect,
             z_areas: &'_ [ZRect],
             navigable: bool,
+            primary_keys: bool,
         ) {
             self.focus.push(focus.clone());
             self.areas.push(area);
             self.z_areas.push(Vec::from(z_areas));
-            self.navigable.push(navigable)
+            self.navigable.push(navigable);
+            self.primary_keys.push(primary_keys);
         }
 
+        /// Append another focus to this one.
         pub(super) fn add_focus(&mut self, focus: FocusCore) {
             // container area probably overlaps with the areas of sub-containers.
             // search those first.
@@ -355,8 +400,10 @@ mod core {
             self.areas.extend(focus.areas);
             self.z_areas.extend(focus.z_areas);
             self.navigable.extend(focus.navigable);
+            self.primary_keys.extend(focus.primary_keys);
         }
 
+        /// Find the given focus-flag.
         pub(super) fn index_of(&self, flag: &FocusFlag) -> Option<usize> {
             if let Some((n, _)) = self
                 .focus
@@ -371,7 +418,8 @@ mod core {
             }
         }
 
-        // reset flags for a new round.
+        /// Reset the flags for a new round.
+        /// set_lost - copy the current focus to the lost flag.
         fn __start_change(&self, set_lost: bool) {
             for p in self.focus.iter() {
                 if set_lost {
@@ -384,6 +432,8 @@ mod core {
             }
         }
 
+        /// Set the focus to this index. Doesn't touch
+        /// other flags.
         fn __focus(&self, n: usize, set_lost: bool) {
             if let Some(f) = self.focus.get(n) {
                 f.set(true);
@@ -400,7 +450,7 @@ mod core {
             }
         }
 
-        // accumulate everything
+        /// Accumulate all container flags.
         fn __accumulate(&self) {
             if let Some(container) = &self.container {
                 container.focus.set(false);
@@ -429,6 +479,7 @@ mod core {
             }
         }
 
+        /// Reset all lost+gained flags.
         pub(super) fn reset_lost_gained(&self) {
             if let Some(container) = &self.container {
                 container.focus.set_gained(false);
@@ -444,6 +495,7 @@ mod core {
             }
         }
 
+        /// Set the initial focus.
         pub(super) fn focus_init(&self) {
             if self.log.get() {
                 debug!("first init");
@@ -458,6 +510,7 @@ mod core {
             self.__accumulate();
         }
 
+        /// Set the focus but not the lost flag.
         pub(super) fn focus_no_lost(&self, n: usize) {
             if self.log.get() {
                 debug!("focus_no_lost {}", n);
@@ -470,6 +523,7 @@ mod core {
             self.__accumulate();
         }
 
+        /// Set the focus at the given index.
         pub(super) fn focus_idx(&self, n: usize) {
             if self.log.get() {
                 debug!("focus_idx {}", n);
@@ -482,6 +536,9 @@ mod core {
             self.__accumulate();
         }
 
+        /// Set the focus at the given screen position.
+        /// Traverses the list to find the matching widget.
+        /// Checks the area and the z-areas.
         pub(super) fn focus_at(&self, col: u16, row: u16) -> bool {
             if self.log.get() {
                 debug!("focus_at {}:{}", col, row);
@@ -613,6 +670,16 @@ mod core {
             false
         }
 
+        /// Use primary focus keys.
+        pub(super) fn use_primary_keys(&self) -> bool {
+            if let Some((idx, _)) = self.focus.iter().enumerate().find(|v| v.1.get()) {
+                self.primary_keys[idx]
+            } else {
+                true
+            }
+        }
+
+        /// Focus next.
         pub(super) fn next(&self) -> bool {
             if self.log.get() {
                 debug!("next");
@@ -643,6 +710,7 @@ mod core {
             false
         }
 
+        /// Focus prev.
         pub(super) fn prev(&self) -> bool {
             if self.log.get() {
                 debug!("prev");
@@ -673,23 +741,27 @@ mod core {
             false
         }
 
+        /// Currently focused.
         pub(super) fn focused(&self) -> Option<FocusFlag> {
             self.focus.iter().find(|v| v.get()).cloned()
         }
 
+        /// Last lost focus.
         pub(super) fn lost_focus(&self) -> Option<FocusFlag> {
             self.focus.iter().find(|v| v.lost()).cloned()
         }
 
+        /// Current gained focus.
         pub(super) fn gained_focus(&self) -> Option<FocusFlag> {
             self.focus.iter().find(|v| v.gained()).cloned()
         }
 
+        /// Count.
         fn len(&self) -> usize {
             self.focus.len()
         }
 
-        // first navigable starting at n.
+        /// First navigable flag starting at n.
         fn first_navigable(&self, start: usize) -> Option<usize> {
             if self.log.get() {
                 debug!("first navigable {:?}", self.focus[start].name());
@@ -708,6 +780,7 @@ mod core {
             None
         }
 
+        /// Next navigable flag, starting at start.
         fn next_navigable(&self, start: usize) -> usize {
             if self.log.get() {
                 debug!("next navigable {:?}", self.focus[start].name());
@@ -731,6 +804,7 @@ mod core {
             }
         }
 
+        /// Previous navigable flag, starting at start.
         fn prev_navigable(&self, start: usize) -> usize {
             if self.log.get() {
                 debug!("prev navigable {:?}", self.focus[start].name());
@@ -759,25 +833,47 @@ mod core {
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         match event {
+            ct_event!(keycode press Esc) => {
+                if !self.use_primary_keys() {
+                    if self.core.log.get() {
+                        debug!("Esc {:?}", self.focused());
+                    }
+                    let r = self.next().into();
+                    if self.core.log.get() {
+                        debug!("=> {:?}", self.focused());
+                    }
+                    r
+                } else {
+                    Outcome::NotUsed
+                }
+            }
             ct_event!(keycode press Tab) => {
-                if self.core.log.get() {
-                    debug!("Tab {:?}", self.focused());
+                if self.use_primary_keys() {
+                    if self.core.log.get() {
+                        debug!("Tab {:?}", self.focused());
+                    }
+                    let r = self.next().into();
+                    if self.core.log.get() {
+                        debug!("=> {:?}", self.focused());
+                    }
+                    r
+                } else {
+                    Outcome::NotUsed
                 }
-                self.next();
-                if self.core.log.get() {
-                    debug!("=> {:?}", self.focused());
-                }
-                Outcome::Changed
             }
             ct_event!(keycode press SHIFT-Tab) | ct_event!(keycode press SHIFT-BackTab) => {
-                if self.core.log.get() {
-                    debug!("BackTab {:?}", self.focused());
+                if self.use_primary_keys() {
+                    if self.core.log.get() {
+                        debug!("BackTab {:?}", self.focused());
+                    }
+                    let r = self.prev().into();
+                    if self.core.log.get() {
+                        debug!("=> {:?}", self.focused());
+                    }
+                    r
+                } else {
+                    Outcome::NotUsed
                 }
-                self.prev();
-                if self.core.log.get() {
-                    debug!("=> {:?}", self.focused());
-                }
-                Outcome::Changed
             }
             _ => self.handle(event, MouseOnly),
         }
@@ -813,8 +909,6 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus {
 }
 
 /// Handle all events.
-/// Text events are only processed if focus is true.
-/// Mouse events are processed if they are in range.
 pub fn handle_focus(focus: &mut Focus, event: &crossterm::event::Event) -> Outcome {
     HandleEvent::handle(focus, event, Regular)
 }
