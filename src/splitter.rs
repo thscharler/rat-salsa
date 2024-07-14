@@ -1,14 +1,20 @@
 use crate::_private::NonExhaustive;
+use crate::fill::Fill;
+use crate::splitter::SplitType::{
+    FullDouble, FullEmpty, FullPlain, FullQuadrantInside, FullQuadrantOutside, FullThick, Scroll,
+    ScrollBlock,
+};
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
+use ratatui::layout::Direction::{Horizontal, Vertical};
+use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget, WidgetRef};
-use unicode_segmentation::UnicodeSegmentation;
+use ratatui::widgets::BorderType::QuadrantOutside;
+use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget, WidgetRef};
 
 /// Splits the area in multiple parts and allows changing the sizes.
 ///
@@ -26,14 +32,16 @@ pub struct Split<'a> {
     direction: Direction,
     constraints: Vec<Constraint>,
 
-    split_style: SplitType,
+    split_type: SplitType,
+    join_0: Option<BorderType>,
+    join_1: Option<BorderType>,
     block: Option<Block<'a>>,
 
     style: Style,
     arrow_style: Option<Style>,
     drag_style: Option<Style>,
-    horizontal_mark: Option<&'a str>,
-    vertical_mark: Option<&'a str>,
+    mark_0: Option<&'a str>,
+    mark_1: Option<&'a str>,
 }
 
 /// Combined style for the splitter.
@@ -47,10 +55,10 @@ pub struct SplitStyle {
     pub drag_style: Option<Style>,
     /// Marker for a horizontal split.
     /// Only the first 2 chars are used.
-    pub horizontal_mark: Option<&'static str>,
+    pub mark_0: Option<&'static str>,
     /// Marker for a vertical split.
     /// Only the first 2 chars are used.
-    pub vertical_mark: Option<&'static str>,
+    pub mark_1: Option<&'static str>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -59,34 +67,45 @@ pub struct SplitStyle {
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq)]
 pub enum SplitType {
     /// Render a full splitter between the widgets. Reduces the area for
-    /// each widget.
+    /// each widget. Renders a blank border.
     #[default]
-    Full,
-    /// Render a minimal splitter that will be rendered over the widget.
-    /// If the widget has a Scroll, this will integrate nicely. The widget
-    /// will get the full area.
+    FullEmpty,
+    /// Render a full splitter between the widgets. Reduces the area for
+    /// each widget. Renders a plain line border.
+    FullPlain,
+    /// Render a full splitter between the widgets. Reduces the area for
+    /// each widget. Renders a double line border.
+    FullDouble,
+    /// Render a full splitter between the widgets. Reduces the area for
+    /// each widget. Renders a thick line border.
+    FullThick,
+    /// Render a full splitter between the widgets. Reduces the area for
+    /// each widget. Renders a border with a single line on the inside
+    /// of a half block.
+    FullQuadrantInside,
+    /// Render a full splitter between the widgets. Reduces the area for
+    /// each widget. Renders a border with a single line on the outside
+    /// of a half block.
+    FullQuadrantOutside,
+    /// Render a minimal splitter, consisting just the two marker chars
+    /// over the left/top widget.
     ///
-    /// You will have to set `collab_split` with Scroll, then Scroll can
-    /// adjust its rendering.
+    /// If the left widget has a Scroll in that area this will integrate
+    /// nicely. You will have to set `collab_split` with Scroll, then Scroll can
+    /// adjust its rendering to leave space for the markers.
+    ///
+    /// The widget will get the full area.
     Scroll,
-    /// Render a minimal splitter that will be rendered over the widget.
-    /// If the widget has a Scroll, this will integrate nicely. The widget
-    /// will get the full area.
-    ///
-    /// This is what you choose if you have a right/bottom border for
-    /// the widget. The marker will not be drawn over the corner, but
-    /// a bit inset instead.
-    ///
-    /// You will have to set `collab_split` with Scroll, then Scroll can
-    /// adjust its rendering.
-    ScrollbarBlock,
-    /// Don't render a splitter, but do full manual mode.
+    /// Same as Scroll, but it insets the Markers by one to avoid drawing
+    /// over the corners of a block.
+    ScrollBlock,
+    /// Don't render a splitter, fully manual mode.
     ///
     /// The widget will have the full area, but the event-handling will
     /// use the last column/row of the widget for moving the split.
     /// This can be adjusted if you change `state.split[n]` which provides
     /// the active area.
-    None,
+    Widget,
 }
 
 const SPLIT_WIDTH: u16 = 1;
@@ -114,12 +133,29 @@ pub struct SplitState {
     /// Direction of the split.
     pub direction: Direction,
     /// Split type.
-    pub split_style: SplitType,
+    pub split_type: SplitType,
 
     /// Mouseflags.
     pub mouse: MouseFlagsN,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+impl SplitType {
+    pub fn is_full(&self) -> bool {
+        use SplitType::*;
+        match self {
+            FullEmpty => true,
+            FullPlain => true,
+            FullDouble => true,
+            FullThick => true,
+            FullQuadrantInside => true,
+            FullQuadrantOutside => true,
+            Scroll => false,
+            ScrollBlock => false,
+            Widget => false,
+        }
+    }
 }
 
 impl Default for SplitStyle {
@@ -128,8 +164,8 @@ impl Default for SplitStyle {
             style: Default::default(),
             arrow_style: None,
             drag_style: None,
-            horizontal_mark: None,
-            vertical_mark: None,
+            mark_0: None,
+            mark_1: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -158,12 +194,26 @@ impl<'a> Split<'a> {
     }
 
     /// Controls rendering of the splitter.
-    pub fn split_type(mut self, split_style: SplitType) -> Self {
-        self.split_style = split_style;
+    pub fn split_type(mut self, split_type: SplitType) -> Self {
+        self.split_type = split_type;
         self
     }
 
-    /// Border block.
+    /// Draw a join character between a Fullxxx split-type and the
+    /// given border on the left/top side.
+    pub fn join_0(mut self, border: BorderType) -> Self {
+        self.join_0 = Some(border);
+        self
+    }
+
+    /// Draw a join character between a Fullxxx split-type and the
+    /// given border on the right/bottom side.
+    pub fn join_1(mut self, border: BorderType) -> Self {
+        self.join_1 = Some(border);
+        self
+    }
+
+    /// Outer block.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
@@ -174,8 +224,9 @@ impl<'a> Split<'a> {
         self.style = styles.style;
         self.drag_style = styles.drag_style;
         self.arrow_style = styles.arrow_style;
-        self.horizontal_mark = styles.horizontal_mark;
-        self.vertical_mark = styles.vertical_mark;
+        self.mark_0 = styles.mark_0;
+        self.mark_1 = styles.mark_1;
+        // todo:!
         self
     }
 
@@ -197,17 +248,15 @@ impl<'a> Split<'a> {
         self
     }
 
-    /// Marker for a horizontal splitter.
-    /// Only the first two characters are used.
-    pub fn horizontal_mark(mut self, mark: &'a str) -> Self {
-        self.horizontal_mark = Some(mark);
+    /// First marker char for the splitter.
+    pub fn mark_0(mut self, mark: &'a str) -> Self {
+        self.mark_0 = Some(mark);
         self
     }
 
-    /// Marker for a vertical splitter.
-    /// Only the first two characters are used.
-    pub fn vertical_mark(mut self, mark: &'a str) -> Self {
-        self.vertical_mark = Some(mark);
+    /// Second marker char for the splitter.
+    pub fn mark_1(mut self, mark: &'a str) -> Self {
+        self.mark_1 = Some(mark);
         self
     }
 }
@@ -216,10 +265,8 @@ impl<'a> Split<'a> {
     /// Just run all the layout for the widget.
     /// After this state.area has sensible data.
     pub fn layout(&self, area: Rect, state: &mut SplitState) {
-        state.direction = self.direction;
         state.area = area;
         state.inner = self.block.inner_if_some(area);
-        state.split_style = self.split_style;
 
         self.layout_split(state.inner, state);
     }
@@ -228,195 +275,87 @@ impl<'a> Split<'a> {
     /// When a resize is detected, the current area-width/height is used as
     /// Fill() constraint for the new layout.
     fn layout_split(&self, area: Rect, state: &mut SplitState) {
-        let rects = if state.areas.is_empty() {
+        let meta_change = state.direction != self.direction || state.split_type != self.split_type;
+
+        let new_split_areas = if state.areas.is_empty() {
             // initial
-            Some(
-                Layout::new(self.direction, self.constraints.clone())
-                    .flex(Flex::Legacy)
-                    .split(area),
-            )
+            let new_areas = Layout::new(self.direction, self.constraints.clone())
+                .flex(Flex::Legacy)
+                .split(area);
+            Some(new_areas)
         } else {
-            if self.direction == Direction::Horizontal {
-                // size changed
-                let mut width = state.areas.iter().map(|v| v.width).sum::<u16>();
-                match self.split_style {
-                    SplitType::Full => {
-                        width += state.split.iter().map(|v| v.width).sum::<u16>();
-                    }
-                    SplitType::Scroll | SplitType::ScrollbarBlock => {}
-                    SplitType::None => {}
-                }
-                if area.width != width {
-                    let mut c = Vec::new();
-                    for i in 0..state.areas.len() {
-                        match self.split_style {
-                            SplitType::Full => {
-                                if i < state.split.len() {
-                                    c.push(Constraint::Fill(
-                                        state.areas[i].width + state.split[i].width,
-                                    ));
-                                } else {
-                                    c.push(Constraint::Fill(state.areas[i].width));
-                                }
-                            }
-                            SplitType::Scroll | SplitType::ScrollbarBlock => {
-                                c.push(Constraint::Fill(state.areas[i].width));
-                            }
-                            SplitType::None => {
-                                c.push(Constraint::Fill(state.areas[i].width));
-                            }
-                        }
-                    }
-                    Some(Layout::horizontal(c).split(area))
+            let length = |v: &Rect| {
+                // must use the old direction to get a correct value.
+                if state.direction == Direction::Horizontal {
+                    v.width
                 } else {
-                    None
+                    v.height
                 }
+            };
+
+            let mut old_length: u16 = state.areas.iter().map(length).sum();
+            if self.split_type.is_full() {
+                old_length += state.split.iter().map(length).sum::<u16>();
+            }
+
+            if meta_change || length(&area) != old_length {
+                let mut constraints = Vec::new();
+                for i in 0..state.areas.len() {
+                    if self.split_type.is_full() {
+                        if i < state.split.len() {
+                            constraints.push(Constraint::Fill(
+                                length(&state.areas[i]) + length(&state.split[i]),
+                            ));
+                        } else {
+                            constraints.push(Constraint::Fill(length(&state.areas[i])));
+                        }
+                    } else {
+                        constraints.push(Constraint::Fill(length(&state.areas[i])));
+                    }
+                }
+
+                let new_areas = Layout::new(self.direction, constraints).split(area);
+                Some(new_areas)
             } else {
-                // size changed
-                let mut height = state.areas.iter().map(|v| v.height).sum::<u16>();
-                match self.split_style {
-                    SplitType::Full => {
-                        height += state.split.iter().map(|v| v.height).sum::<u16>();
-                    }
-                    SplitType::Scroll | SplitType::ScrollbarBlock => {}
-                    SplitType::None => {}
-                }
-                if area.height != height {
-                    let mut c = Vec::new();
-                    for i in 0..state.areas.len() {
-                        match self.split_style {
-                            SplitType::Full => {
-                                if i < state.split.len() {
-                                    c.push(Constraint::Fill(
-                                        state.areas[i].height + state.split[i].height,
-                                    ));
-                                } else {
-                                    c.push(Constraint::Fill(state.areas[i].height));
-                                }
-                            }
-                            SplitType::Scroll | SplitType::ScrollbarBlock => {
-                                c.push(Constraint::Fill(state.areas[i].height));
-                            }
-                            SplitType::None => {
-                                c.push(Constraint::Fill(state.areas[i].height));
-                            }
-                        }
-                    }
-                    Some(Layout::vertical(c).split(area))
-                } else {
-                    None
-                }
+                None
             }
         };
 
-        if let Some(rects) = rects {
+        // Areas changed, create areas and splits.
+        if let Some(rects) = new_split_areas {
             state.areas.clear();
             state.split.clear();
 
-            for area in rects.iter().take(rects.len().saturating_sub(1)) {
-                if state.direction == Direction::Horizontal {
-                    let (area, split) = match self.split_style {
-                        SplitType::Full => (
-                            Rect::new(
-                                area.x,
-                                area.y,
-                                area.width.saturating_sub(SPLIT_WIDTH),
-                                area.height,
-                            ),
-                            Rect::new(
-                                area.x + area.width.saturating_sub(SPLIT_WIDTH),
-                                area.y,
-                                1,
-                                area.height,
-                            ),
-                        ),
-                        SplitType::Scroll => (
-                            Rect::new(area.x, area.y, area.width, area.height),
-                            Rect::new(
-                                area.x + area.width.saturating_sub(SPLIT_WIDTH),
-                                area.y,
-                                1,
-                                2,
-                            ),
-                        ),
-                        SplitType::ScrollbarBlock => (
-                            Rect::new(area.x, area.y, area.width, area.height),
-                            Rect::new(
-                                area.x + area.width.saturating_sub(SPLIT_WIDTH),
-                                area.y + 1,
-                                1,
-                                2,
-                            ),
-                        ),
-                        SplitType::None => (
-                            Rect::new(area.x, area.y, area.width, area.height),
-                            Rect::new(
-                                area.x + area.width.saturating_sub(SPLIT_WIDTH),
-                                area.y,
-                                1,
-                                area.height,
-                            ),
-                        ),
-                    };
-
-                    state.areas.push(area);
-                    state.split.push(split);
+            for mut area in rects.iter().take(rects.len().saturating_sub(1)).copied() {
+                let mut split = if self.direction == Direction::Horizontal {
+                    Rect::new(
+                        area.x + area.width.saturating_sub(SPLIT_WIDTH),
+                        area.y,
+                        1,
+                        area.height,
+                    )
                 } else {
-                    let (area, split) = match self.split_style {
-                        SplitType::Full => (
-                            Rect::new(
-                                area.x,
-                                area.y,
-                                area.width,
-                                area.height.saturating_sub(SPLIT_WIDTH),
-                            ),
-                            Rect::new(
-                                area.x,
-                                area.y + area.height.saturating_sub(SPLIT_WIDTH),
-                                area.width,
-                                1,
-                            ),
-                        ),
-                        SplitType::Scroll => (
-                            Rect::new(area.x, area.y, area.width, area.height),
-                            Rect::new(
-                                area.x,
-                                area.y + area.height.saturating_sub(SPLIT_WIDTH),
-                                2,
-                                1,
-                            ),
-                        ),
-                        SplitType::ScrollbarBlock => (
-                            Rect::new(area.x, area.y, area.width, area.height),
-                            Rect::new(
-                                area.x + 1,
-                                area.y + area.height.saturating_sub(SPLIT_WIDTH),
-                                2,
-                                1,
-                            ),
-                        ),
-                        SplitType::None => (
-                            Rect::new(area.x, area.y, area.width, area.height),
-                            Rect::new(
-                                area.x,
-                                area.y + area.height.saturating_sub(SPLIT_WIDTH),
-                                area.width,
-                                1,
-                            ),
-                        ),
-                    };
+                    Rect::new(
+                        area.x,
+                        area.y + area.height.saturating_sub(SPLIT_WIDTH),
+                        area.width,
+                        1,
+                    )
+                };
 
-                    state.areas.push(area);
-                    state.split.push(split);
-                }
+                self.adjust_for_split_type(&mut area, &mut split);
+
+                state.areas.push(area);
+                state.split.push(split);
             }
             if let Some(area) = rects.last() {
                 state.areas.push(*area);
             }
         }
 
+        // Set 2nd dimension too, if necessary.
         if let Some(test) = state.areas.first() {
-            if state.direction == Direction::Horizontal {
+            if self.direction == Direction::Horizontal {
                 if test.height != area.height {
                     for r in &mut state.areas {
                         r.height = area.height;
@@ -436,6 +375,259 @@ impl<'a> Split<'a> {
                 }
             }
         }
+
+        //
+        state.direction = self.direction;
+        state.split_type = self.split_type;
+    }
+
+    /// Adjust area and split according to the split_type.
+    fn adjust_for_split_type(&self, area: &mut Rect, split: &mut Rect) {
+        use Direction::*;
+        use SplitType::*;
+
+        match (self.direction, self.split_type) {
+            (
+                Horizontal,
+                FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
+                | FullQuadrantOutside,
+            ) => {
+                area.width = area.width.saturating_sub(1);
+            }
+            (
+                Vertical,
+                FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
+                | FullQuadrantOutside,
+            ) => {
+                area.height = area.height.saturating_sub(1);
+            }
+
+            (Horizontal, Scroll) => {
+                split.height = 2;
+            }
+            (Vertical, Scroll) => {
+                split.width = 2;
+            }
+
+            (Horizontal, ScrollBlock) => {
+                split.y += 1;
+                split.height = 2;
+            }
+            (Vertical, ScrollBlock) => {
+                split.x += 1;
+                split.width = 2;
+            }
+
+            (Horizontal, Widget) => {}
+            (Vertical, Widget) => {}
+        }
+    }
+}
+
+impl<'a> Split<'a> {
+    fn get_mark_0(&self) -> &str {
+        if let Some(mark) = self.mark_0 {
+            mark
+        } else if self.direction == Direction::Horizontal {
+            "<"
+        } else {
+            "^"
+        }
+    }
+
+    fn get_mark_1(&self) -> &str {
+        if let Some(mark) = self.mark_1 {
+            mark
+        } else if self.direction == Direction::Horizontal {
+            ">"
+        } else {
+            "v"
+        }
+    }
+
+    fn get_fill(&self) -> Option<&str> {
+        use Direction::*;
+        use SplitType::*;
+
+        match (self.direction, self.split_type) {
+            (Horizontal, FullEmpty) => Some(" "),
+            (Vertical, FullEmpty) => Some(" "),
+            (Horizontal, FullPlain) => Some("\u{2502}"),
+            (Vertical, FullPlain) => Some("\u{2500}"),
+            (Horizontal, FullDouble) => Some("\u{2551}"),
+            (Vertical, FullDouble) => Some("\u{2550}"),
+            (Horizontal, FullThick) => Some("\u{2503}"),
+            (Vertical, FullThick) => Some("\u{2501}"),
+            (Horizontal, FullQuadrantInside) => Some("\u{258C}"),
+            (Vertical, FullQuadrantInside) => Some("\u{2580}"),
+            (Horizontal, FullQuadrantOutside) => Some("\u{2590}"),
+            (Vertical, FullQuadrantOutside) => Some("\u{2584}"),
+            (_, Scroll) => None,
+            (_, ScrollBlock) => None,
+            (_, Widget) => None,
+        }
+    }
+
+    fn get_join_0(&self, split_area: Rect, state: &SplitState) -> Option<(Position, &str)> {
+        use BorderType::*;
+        use Direction::*;
+        use SplitType::*;
+
+        let s: Option<&str> = if let Some(join_0) = self.join_0 {
+            match (self.direction, join_0, self.split_type) {
+                (
+                    Horizontal,
+                    Plain | Rounded,
+                    FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll
+                    | ScrollBlock,
+                ) => Some("\u{252C}"),
+                (
+                    Vertical,
+                    Plain | Rounded,
+                    FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll
+                    | ScrollBlock,
+                ) => Some("\u{251C}"),
+                (Horizontal, Plain | Rounded | Thick, FullDouble) => Some("\u{2565}"),
+                (Vertical, Plain | Rounded | Thick, FullDouble) => Some("\u{255E}"),
+                (Horizontal, Plain | Rounded, FullThick) => Some("\u{2530}"),
+                (Vertical, Plain | Rounded, FullThick) => Some("\u{251D}"),
+
+                (
+                    Horizontal,
+                    Double,
+                    FullPlain | FullThick | FullQuadrantInside | FullQuadrantOutside | FullEmpty
+                    | Scroll | ScrollBlock,
+                ) => Some("\u{2564}"),
+                (
+                    Vertical,
+                    Double,
+                    FullPlain | FullThick | FullQuadrantInside | FullQuadrantOutside | FullEmpty
+                    | Scroll | ScrollBlock,
+                ) => Some("\u{255F}"),
+                (Horizontal, Double, FullDouble) => Some("\u{2566}"),
+                (Vertical, Double, FullDouble) => Some("\u{2560}"),
+
+                (
+                    Horizontal,
+                    Thick,
+                    FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll
+                    | ScrollBlock,
+                ) => Some("\u{252F}"),
+                (
+                    Vertical,
+                    Thick,
+                    FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll
+                    | ScrollBlock,
+                ) => Some("\u{2520}"),
+                (Horizontal, Thick, FullThick) => Some("\u{2533}"),
+                (Vertical, Thick, FullThick) => Some("\u{2523}"),
+
+                (Horizontal, QuadrantOutside, FullEmpty) => Some("\u{2588}"),
+                (Vertical, QuadrantOutside, FullEmpty) => Some("\u{2588}"),
+
+                (_, QuadrantInside, _) => None,
+                (_, QuadrantOutside, _) => None,
+
+                (_, _, Scroll) => None,
+                (_, _, ScrollBlock) => None,
+                (_, _, Widget) => None,
+            }
+        } else {
+            None
+        };
+
+        if let Some(s) = s {
+            Some((
+                match self.direction {
+                    Horizontal => Position::new(split_area.x, state.area.y),
+                    Vertical => Position::new(state.area.x, split_area.y),
+                },
+                s,
+            ))
+        } else {
+            None
+        }
+    }
+
+    fn get_join_1(&self, split_area: Rect, state: &SplitState) -> Option<(Position, &str)> {
+        use BorderType::*;
+        use Direction::*;
+        use SplitType::*;
+
+        let s: Option<&str> = if let Some(join_1) = self.join_1 {
+            match (self.direction, join_1, self.split_type) {
+                (
+                    Horizontal,
+                    Plain | Rounded,
+                    FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll
+                    | ScrollBlock,
+                ) => Some("\u{2534}"),
+                (
+                    Vertical,
+                    Plain | Rounded,
+                    FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll
+                    | ScrollBlock,
+                ) => Some("\u{2524}"),
+                (Horizontal, Plain | Rounded | Thick, FullDouble) => Some("\u{2568}"),
+                (Vertical, Plain | Rounded | Thick, FullDouble) => Some("\u{2561}"),
+                (Horizontal, Plain | Rounded, FullThick) => Some("\u{2538}"),
+                (Vertical, Plain | Rounded, FullThick) => Some("\u{2525}"),
+
+                (
+                    Horizontal,
+                    Double,
+                    FullPlain | FullThick | FullQuadrantInside | FullQuadrantOutside | FullEmpty
+                    | Scroll | ScrollBlock,
+                ) => Some("\u{2567}"),
+                (
+                    Vertical,
+                    Double,
+                    FullPlain | FullThick | FullQuadrantInside | FullQuadrantOutside | FullEmpty
+                    | Scroll | ScrollBlock,
+                ) => Some("\u{2562}"),
+                (Horizontal, Double, FullDouble) => Some("\u{2569}"),
+                (Vertical, Double, FullDouble) => Some("\u{2563}"),
+
+                (
+                    Horizontal,
+                    Thick,
+                    FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll
+                    | ScrollBlock,
+                ) => Some("\u{2537}"),
+                (
+                    Vertical,
+                    Thick,
+                    FullPlain | FullQuadrantInside | FullQuadrantOutside | FullEmpty | Scroll
+                    | ScrollBlock,
+                ) => Some("\u{2528}"),
+                (Horizontal, Thick, FullThick) => Some("\u{253B}"),
+                (Vertical, Thick, FullThick) => Some("\u{252B}"),
+
+                (Horizontal, QuadrantOutside, FullEmpty) => Some("\u{2588}"),
+                (Vertical, QuadrantOutside, FullEmpty) => Some("\u{2588}"),
+
+                (_, QuadrantInside, _) => None,
+                (_, QuadrantOutside, _) => None,
+
+                (_, _, Scroll) => None,
+                (_, _, ScrollBlock) => None,
+                (_, _, Widget) => None,
+            }
+        } else {
+            None
+        };
+
+        if let Some(s) = s {
+            Some((
+                match self.direction {
+                    Horizontal => Position::new(split_area.x, state.area.y + state.area.height - 1),
+                    Vertical => Position::new(state.area.x + state.area.width - 1, split_area.y),
+                },
+                s,
+            ))
+        } else {
+            None
+        }
     }
 }
 
@@ -443,7 +635,7 @@ impl<'a> StatefulWidget for Split<'a> {
     type State = SplitState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.layout(state.inner, state);
+        self.layout(area, state);
 
         if state.is_focused() {
             if state.focus_split.is_none() {
@@ -455,7 +647,7 @@ impl<'a> StatefulWidget for Split<'a> {
 
         self.block.render_ref(area, buf);
 
-        if !matches!(self.split_style, SplitType::None) {
+        if !matches!(self.split_type, SplitType::Widget) {
             for (n, split_area) in state.split.iter().enumerate() {
                 let arrow_style = if let Some(arrow) = self.arrow_style {
                     arrow
@@ -473,39 +665,39 @@ impl<'a> StatefulWidget for Split<'a> {
                         (self.style, arrow_style)
                     };
 
-                buf.set_style(*split_area, style);
+                if let Some(fill) = self.get_fill() {
+                    Fill::new()
+                        .style(style)
+                        .fill_char(fill)
+                        .render(*split_area, buf);
+                }
 
                 let (x, y) = (split_area.x, split_area.y);
                 if self.direction == Direction::Horizontal {
-                    let mark = if let Some(mark) = self.horizontal_mark {
-                        mark
-                    } else {
-                        "<>"
-                    };
-                    let mut mark = mark.graphemes(true);
                     if buf.area.contains((x, y).into()) {
                         buf.get_mut(x, y).set_style(arrow_style);
-                        buf.get_mut(x, y).set_symbol(mark.next().unwrap_or(" "));
+                        buf.get_mut(x, y).set_symbol(self.get_mark_0());
                     }
                     if buf.area.contains((x, y + 1).into()) {
                         buf.get_mut(x, y + 1).set_style(arrow_style);
-                        buf.get_mut(x, y + 1).set_symbol(mark.next().unwrap_or(" "));
+                        buf.get_mut(x, y + 1).set_symbol(self.get_mark_1());
                     }
                 } else {
-                    let mark = if let Some(mark) = self.horizontal_mark {
-                        mark
-                    } else {
-                        "^v"
-                    };
-                    let mut mark = mark.graphemes(true);
                     if buf.area.contains((x, y).into()) {
                         buf.get_mut(x, y).set_style(arrow_style);
-                        buf.get_mut(x, y).set_symbol(mark.next().unwrap_or(" "));
+                        buf.get_mut(x, y).set_symbol(self.get_mark_0());
                     }
                     if buf.area.contains((x + 1, y).into()) {
                         buf.get_mut(x + 1, y).set_style(arrow_style);
-                        buf.get_mut(x + 1, y).set_symbol(mark.next().unwrap_or(" "));
+                        buf.get_mut(x + 1, y).set_symbol(self.get_mark_1());
                     }
+                }
+
+                if let Some((pos_0, c_0)) = self.get_join_0(*split_area, state) {
+                    buf.get_mut(pos_0.x, pos_0.y).set_symbol(c_0);
+                }
+                if let Some((pos_1, c_1)) = self.get_join_1(*split_area, state) {
+                    buf.get_mut(pos_1.x, pos_1.y).set_symbol(c_1);
                 }
             }
         }
@@ -522,7 +714,7 @@ impl Default for SplitState {
             areas: Default::default(),
             split: Default::default(),
             direction: Default::default(),
-            split_style: Default::default(),
+            split_type: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -549,13 +741,16 @@ impl SplitState {
     ///
     /// The position is limited the combined area of the two adjacent areas.
     pub fn set_screen_split_pos(&mut self, n: usize, pos: (u16, u16)) -> bool {
+        use SplitType::*;
+
         let area1 = self.areas[n];
         let area2 = self.areas[n + 1];
         let area = area1.union(area2);
 
         if self.direction == Direction::Horizontal {
-            match self.split_style {
-                SplitType::Full => {
+            match self.split_type {
+                FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
+                | FullQuadrantOutside => {
                     let p = if pos.0 < area.left() {
                         area.left()
                     } else if pos.0 >= area.right() {
@@ -568,11 +763,11 @@ impl SplitState {
                     self.split[n] = Rect::new(p, area1.y, 1, area1.height);
                     self.areas[n + 1] = Rect::new(p + 1, area2.y, area2.right() - p, area2.height);
                 }
-                SplitType::Scroll => {
+                Scroll => {
                     let p = if pos.0 < area.left() {
                         area.left()
-                    } else if pos.0 >= area.right().saturating_sub(1) {
-                        area.right().saturating_sub(2)
+                    } else if pos.0 >= area.right() {
+                        area.right().saturating_sub(1)
                     } else {
                         pos.0
                     };
@@ -582,11 +777,11 @@ impl SplitState {
                     self.areas[n + 1] =
                         Rect::new(p + 1, area2.y, area2.right() - 1 - p, area2.height);
                 }
-                SplitType::ScrollbarBlock => {
+                ScrollBlock => {
                     let p = if pos.0 < area.left() {
                         area.left()
-                    } else if pos.0 >= area.right().saturating_sub(1) {
-                        area.right().saturating_sub(2)
+                    } else if pos.0 >= area.right() {
+                        area.right().saturating_sub(1)
                     } else {
                         pos.0
                     };
@@ -596,11 +791,11 @@ impl SplitState {
                     self.areas[n + 1] =
                         Rect::new(p + 1, area2.y, area2.right() - 1 - p, area2.height);
                 }
-                SplitType::None => {
+                Widget => {
                     let p = if pos.0 < area.left() {
                         area.left()
-                    } else if pos.0 >= area.right().saturating_sub(1) {
-                        area.right().saturating_sub(2)
+                    } else if pos.0 >= area.right() {
+                        area.right().saturating_sub(1)
                     } else {
                         pos.0
                     };
@@ -611,8 +806,9 @@ impl SplitState {
                 }
             }
         } else {
-            match self.split_style {
-                SplitType::Full => {
+            match self.split_type {
+                FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
+                | FullQuadrantOutside => {
                     let p = if pos.1 < area.top() {
                         area.top()
                     } else if pos.1 >= area.bottom() {
@@ -624,7 +820,7 @@ impl SplitState {
                     self.split[n] = Rect::new(area1.x, p, area1.width, 1);
                     self.areas[n + 1] = Rect::new(area2.x, p + 1, area2.width, area2.bottom() - p);
                 }
-                SplitType::Scroll => {
+                Scroll => {
                     let p = if pos.1 < area.top() {
                         area.top()
                     } else if pos.1 >= area.bottom().saturating_sub(1) {
@@ -637,7 +833,7 @@ impl SplitState {
                     self.areas[n + 1] =
                         Rect::new(area2.x, p + 1, area2.width, area2.bottom() - 1 - p);
                 }
-                SplitType::ScrollbarBlock => {
+                ScrollBlock => {
                     let p = if pos.1 < area.top() {
                         area.top()
                     } else if pos.1 >= area.bottom().saturating_sub(1) {
@@ -650,7 +846,7 @@ impl SplitState {
                     self.areas[n + 1] =
                         Rect::new(area2.x, p + 1, area2.width, area2.bottom() - 1 - p);
                 }
-                SplitType::None => {
+                Widget => {
                     let p = if pos.1 < area.top() {
                         area.top()
                     } else if pos.1 >= area.bottom().saturating_sub(1) {
