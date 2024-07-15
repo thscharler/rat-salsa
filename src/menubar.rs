@@ -4,7 +4,7 @@
 //! Combines [MenuLine] and [PopupMenu] and adds a [MenuStructure] trait
 //! to bind all together.
 //!
-//! Rendering is split in two widgets [MenuBar] and [MenuPopup].
+//! Rendering is split in two widgets [Menubar] and [MenubarPopup].
 //! This should help with front/back rendering.
 //!
 //! Event-handling for the popup menu is split via the [Popup] qualifier.
@@ -50,19 +50,34 @@ impl MenuStructure<'static> for StaticMenu {
 /// MenuBar widget.
 ///
 /// This is only half of the widget. For popup rendering there is the separate
-/// [MenuPopup].
+/// [MenubarPopup].
+#[derive(Default, Clone)]
+pub struct Menubar<'a> {
+    structure: Option<&'a dyn MenuStructure<'a>>,
+
+    title: Line<'a>,
+    style: Style,
+    title_style: Option<Style>,
+    select_style: Option<Style>,
+    focus_style: Option<Style>,
+
+    popup_width: Option<u16>,
+    popup_placement: Placement,
+    popup_block: Option<Block<'a>>,
+}
+
+/// Menubar widget. This implements the actual render function.
 #[derive(Debug, Default, Clone)]
-pub struct MenuBar<'a> {
-    menu: MenuLine<'a>,
+pub struct MenubarLine<'a> {
+    menubar: Menubar<'a>,
 }
 
 /// Menubar widget.
 ///
 /// Separate renderer for the popup part of the menubar.
-#[derive(Default, Clone)]
-pub struct MenuPopup<'a> {
-    structure: Option<&'a dyn MenuStructure<'a>>,
-    popup: PopupMenu<'a>,
+#[derive(Debug, Default, Clone)]
+pub struct MenubarPopup<'a> {
+    menubar: Menubar<'a>,
 }
 
 /// State for the menubar.
@@ -77,7 +92,22 @@ pub struct MenuBarState {
     pub z_areas: [ZRect; 2],
 }
 
-impl<'a> MenuBar<'a> {
+impl<'a> Debug for Menubar<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Menubar")
+            .field("title", &self.title)
+            .field("style", &self.style)
+            .field("title_style", &self.title_style)
+            .field("select_style", &self.select_style)
+            .field("focus_style", &self.focus_style)
+            .field("popup_width", &self.popup_width)
+            .field("popup_placement", &self.popup_placement)
+            .field("popup_block", &self.popup_block)
+            .finish()
+    }
+}
+
+impl<'a> Menubar<'a> {
     pub fn new() -> Self {
         Self::default()
     }
@@ -85,154 +115,142 @@ impl<'a> MenuBar<'a> {
     /// Title text.
     #[inline]
     pub fn title(mut self, title: impl Into<Line<'a>>) -> Self {
-        self.menu = self.menu.title(title);
+        self.title = title.into();
         self
     }
 
     /// Menu-Structure
     pub fn menu(mut self, structure: &'a dyn MenuStructure<'a>) -> Self {
-        for (m, n) in structure.menus() {
-            self.menu = self.menu.add(m, n);
-        }
+        self.structure = Some(structure);
         self
     }
 
     /// Combined style.
     #[inline]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
-        self.menu = self.menu.styles(styles.clone());
+        self.style = styles.style;
+        self.title_style = styles.title;
+        self.select_style = styles.select;
+        self.focus_style = styles.focus;
         self
     }
 
     /// Base style.
     #[inline]
     pub fn style(mut self, style: Style) -> Self {
-        self.menu = self.menu.style(style);
+        self.style = style;
         self
     }
 
     /// Menu-title style.
     #[inline]
     pub fn title_style(mut self, style: Style) -> Self {
-        self.menu = self.menu.title_style(style);
+        self.title_style = Some(style);
         self
     }
 
     /// Selection
     #[inline]
     pub fn select_style(mut self, style: Style) -> Self {
-        self.menu = self.menu.select_style(style);
+        self.select_style = Some(style);
         self
     }
 
     /// Selection + Focus
     #[inline]
     pub fn focus_style(mut self, style: Style) -> Self {
-        self.menu = self.menu.focus_style(style);
-        self
-    }
-}
-
-impl<'a> Debug for MenuPopup<'a> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MenuPopup")
-            .field("popup", &self.popup)
-            .finish()
-    }
-}
-
-impl<'a> MenuPopup<'a> {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Menu.
-    pub fn menu(mut self, structure: &'a dyn MenuStructure<'a>) -> Self {
-        self.structure = Some(structure);
+        self.focus_style = Some(style);
         self
     }
 
     /// Fixed width for the menu.
     /// If not set it uses 1.5 times the length of the longest item.
-    pub fn width(mut self, width: u16) -> Self {
-        self.popup = self.popup.width(width);
+    pub fn popup_width(mut self, width: u16) -> Self {
+        self.popup_width = Some(width);
         self
     }
 
     /// Placement relative to the render-area.
-    pub fn placement(mut self, placement: Placement) -> Self {
-        self.popup = self.popup.placement(placement);
-        self
-    }
-
-    /// Combined style.
-    #[inline]
-    pub fn styles(mut self, styles: MenuStyle) -> Self {
-        self.popup = self.popup.styles(styles.clone());
-        self
-    }
-
-    /// Base style.
-    pub fn style(mut self, style: Style) -> Self {
-        self.popup = self.popup.style(style);
-        self
-    }
-
-    /// Focus/Selection style.
-    pub fn focus_style(mut self, style: Style) -> Self {
-        self.popup = self.popup.focus_style(style);
+    pub fn popup_placement(mut self, placement: Placement) -> Self {
+        self.popup_placement = placement;
         self
     }
 
     /// Block for borders.
-    pub fn block(mut self, block: Block<'a>) -> Self {
-        self.popup = self.popup.block(block);
+    pub fn popup_block(mut self, block: Block<'a>) -> Self {
+        self.popup_block = Some(block);
         self
+    }
+
+    /// Create the widgets for the Menubar. This returns a widget
+    /// for the menu-line and for the menu-popup.
+    ///
+    /// The menu-popup should be rendered, after all widgets
+    /// that might be below the popup have been rendered.
+    pub fn into_widgets(self) -> (MenubarLine<'a>, MenubarPopup<'a>) {
+        (
+            MenubarLine {
+                menubar: self.clone(),
+            },
+            MenubarPopup { menubar: self },
+        )
     }
 }
 
-impl<'a> StatefulWidgetRef for MenuBar<'a> {
+impl<'a> StatefulWidgetRef for MenubarLine<'a> {
     type State = MenuBarState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_menubar(self, area, buf, state);
+        render_menubar(&self.menubar, area, buf, state);
     }
 }
 
-impl<'a> StatefulWidget for MenuBar<'a> {
+impl<'a> StatefulWidget for MenubarLine<'a> {
     type State = MenuBarState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_menubar(&self, area, buf, state);
+        render_menubar(&self.menubar, area, buf, state);
     }
 }
 
-fn render_menubar(widget: &MenuBar<'_>, area: Rect, buf: &mut Buffer, state: &mut MenuBarState) {
-    widget.menu.render_ref(area, buf, &mut state.bar);
+fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mut MenuBarState) {
+    let mut menu = MenuLine::new()
+        .title(widget.title.clone())
+        .style(widget.style);
+    if let Some(title_style) = widget.title_style {
+        menu = menu.title_style(title_style);
+    }
+    if let Some(select_style) = widget.select_style {
+        menu = menu.select_style(select_style);
+    }
+    if let Some(focus_style) = widget.focus_style {
+        menu = menu.focus_style(focus_style);
+    }
+    menu.render_ref(area, buf, &mut state.bar);
 
     // Combined area + each part with a z-index.
     state.area = state.bar.area;
     state.z_areas = [ZRect::from((0, state.bar.area)), ZRect::default()];
 }
 
-impl<'a> StatefulWidgetRef for MenuPopup<'a> {
+impl<'a> StatefulWidgetRef for MenubarPopup<'a> {
     type State = MenuBarState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_menu_popup(self, area, buf, state);
+        render_menu_popup(&self.menubar, area, buf, state);
     }
 }
 
-impl<'a> StatefulWidget for MenuPopup<'a> {
+impl<'a> StatefulWidget for MenubarPopup<'a> {
     type State = MenuBarState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_menu_popup(&self, area, buf, state);
+        render_menu_popup(&self.menubar, area, buf, state);
     }
 }
 
 fn render_menu_popup(
-    widget: &MenuPopup<'_>,
+    widget: &Menubar<'_>,
     _area: Rect,
     buf: &mut Buffer,
     state: &mut MenuBarState,
@@ -250,7 +268,18 @@ fn render_menu_popup(
 
     if state.popup.is_focused() {
         let mut len = 0;
-        let mut popup = widget.popup.clone(); // TODO: ???
+        let mut popup = PopupMenu::new()
+            .placement(widget.popup_placement)
+            .style(widget.style);
+        if let Some(width) = widget.popup_width {
+            popup = popup.width(width);
+        }
+        if let Some(block) = widget.popup_block.clone() {
+            popup = popup.block(block);
+        }
+        if let Some(focus_style) = widget.focus_style {
+            popup = popup.focus_style(focus_style);
+        }
         for (item, navchar) in structure.submenu(selected) {
             popup = popup.add(item, navchar);
             len += 1;
