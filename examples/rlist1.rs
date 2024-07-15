@@ -155,9 +155,8 @@ fn repaint_input(
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
-    let (menu, menu_popup) = Menubar::new()
+    let (menu, menu_popup) = Menubar::new(&MENU)
         .title("Sample")
-        .menu(&MENU)
         .popup_block(Block::bordered())
         .popup_width(15)
         .popup_placement(Placement::Top)

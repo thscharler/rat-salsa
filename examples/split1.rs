@@ -148,9 +148,7 @@ fn repaint_input(
     w_right.render(state.split.areas[1], frame.buffer_mut(), &mut state.right);
 
     // There might be an overlay, if the stars are right.
-    if let Some(split_overlay) = split_overlay {
-        split_overlay.render(l2[1], frame.buffer_mut(), &mut state.split);
-    }
+    split_overlay.render(l2[1], frame.buffer_mut(), &mut state.split);
 
     let mut area = Rect::new(l2[0].x, l2[0].y, l2[0].width, 1);
 

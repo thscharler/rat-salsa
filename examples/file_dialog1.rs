@@ -49,9 +49,8 @@ fn repaint_input(
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
-    let (menu, menu_popup) = Menubar::new()
+    let (menu, menu_popup) = Menubar::new(&MENU)
         .title("Wha!")
-        .menu(&MENU)
         .popup_block(Block::bordered())
         .popup_placement(Placement::Top)
         .styles(THEME.menu_style())
