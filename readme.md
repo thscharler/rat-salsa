@@ -41,12 +41,15 @@ fn handle_input(event: &Event, state: &mut State) -> Result<Outcome, anyhow::Err
     let f = focus(state).handle(event, Regular);
 
     // flow_ok! is a macro from rat-event. It returns early if 
-    // the result is not Outcome::NotUsed. 
-    // But: Outcome::NotUsed returned here would prevent a repaint,
-    //      while at the same time focus returned a Outcome::Changed
-    //      and requires a repaint. 
+    // the result is *not* Outcome::NotUsed. 
+    //
+    // But: If the result here is the third variant Outcome::Unchanged,
+    //      this would return early with Outcome::Unchanged and 
+    //      would not know that there was something else too. 
+    //      If you trigger the repaint with Outcome::Changed you 
+    //      would never see the focus-change.
     //      
-    //      The current solution is to give `f` to the macro too, 
+    //      One solution is to give `f` to the macro too, 
     //      using the `consider f` syntax. 
     flow_ok!(state.widget1.handle(event, Regular), consider f);
     flow_ok!(state.widget2.handle(event, Regular), consider f);
@@ -74,10 +77,11 @@ Mouse support exists of course.
 The trait HasFocusFlag has two methods to support this:
 
 * area() - Returns the area of the widget that should react to mouse-clicks.
+  If you want to prevent mouse-focus for your widget, just return Rect::default().
 * z_areas() - Extends area(). Widgets can return a list of ZRect
   for mouse interaction. A ZRect is a Rect with an added z-index
-  to handle overlapping areas. Those can occur whenever the widget wants
-  to render a popup/overlay on top of other widgets.
+  to handle overlapping areas. Those can occur whenever the widget
+  renders a popup/overlay on top of other widgets.
 
   If z_areas is used, area must return the union of all Rects.
   Area is used as fast filter, z_areas are used for the details.
@@ -133,13 +137,13 @@ Focus at the end of event-handling and rebuild it anew next time.
 
 In addition to the before-mentioned methods there are
 
-* navigable() - The widget can indicate that it is not reachable with
+* `navigable()` - The widget can indicate that it is not reachable with
   key navigation.
-* primary_keys() - Focus has a secret second key to leave a widget
+* `primary_keys()` - Focus has a secret second key to leave a widget
   via keyboard: `<Esc>`. There area a few widgets (textarea) that want
   to use the normal Tab/Shift-Tab themselves. Such a widget can signal this
   divergent behaviour with this function.
-* is_focused(), lost_focus(), gained_focus() - These are useful when
+* `is_focused()`, `lost_focus()`, `gained_focus()` - These are useful when
   writing the application. 
 
   
