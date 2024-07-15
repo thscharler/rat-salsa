@@ -108,20 +108,17 @@ impl<'a> Debug for Menubar<'a> {
 }
 
 impl<'a> Menubar<'a> {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(structure: &'a dyn MenuStructure<'a>) -> Self {
+        Self {
+            structure: Some(structure),
+            ..Default::default()
+        }
     }
 
     /// Title text.
     #[inline]
     pub fn title(mut self, title: impl Into<Line<'a>>) -> Self {
         self.title = title.into();
-        self
-    }
-
-    /// Menu-Structure
-    pub fn menu(mut self, structure: &'a dyn MenuStructure<'a>) -> Self {
-        self.structure = Some(structure);
         self
     }
 
@@ -225,6 +222,11 @@ fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mu
     }
     if let Some(focus_style) = widget.focus_style {
         menu = menu.focus_style(focus_style);
+    }
+    if let Some(structure) = &widget.structure {
+        for (m, n) in structure.menus() {
+            menu = menu.add(m, n);
+        }
     }
     menu.render_ref(area, buf, &mut state.bar);
 

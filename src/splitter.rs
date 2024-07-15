@@ -53,7 +53,7 @@ pub struct SplitWidget<'a> {
 /// Secondary struct for rendering the overlay parts of the Split.
 #[derive(Debug, Default, Clone)]
 pub struct SplitOverlay<'a> {
-    split: Split<'a>,
+    split: Option<Split<'a>>,
 }
 
 /// Combined style for the splitter.
@@ -315,16 +315,16 @@ impl<'a> Split<'a> {
     }
 
     /// Constructs the widgets for rendering.
-    pub fn into_widgets(self) -> (SplitWidget<'a>, Option<SplitOverlay<'a>>) {
+    pub fn into_widgets(self) -> (SplitWidget<'a>, SplitOverlay<'a>) {
         if self.split_type == SplitType::Scroll {
             (
                 SplitWidget {
                     split: self.clone(),
                 },
-                Some(SplitOverlay { split: self }),
+                SplitOverlay { split: Some(self) },
             )
         } else {
-            (SplitWidget { split: self }, None)
+            (SplitWidget { split: self }, SplitOverlay { split: None })
         }
     }
 }
@@ -727,9 +727,10 @@ impl<'a> StatefulWidgetRef for SplitOverlay<'a> {
 
     fn render_ref(&self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         // rely on layout already happened.
-
-        if matches!(self.split.split_type, SplitType::Scroll) {
-            render_split(&self.split, buf, state);
+        if let Some(split) = &self.split {
+            if matches!(split.split_type, SplitType::Scroll) {
+                render_split(split, buf, state);
+            }
         }
     }
 }
@@ -739,9 +740,10 @@ impl<'a> StatefulWidget for SplitOverlay<'a> {
 
     fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         // rely on layout already happened.
-
-        if matches!(self.split.split_type, SplitType::Scroll) {
-            render_split(&self.split, buf, state);
+        if let Some(split) = &self.split {
+            if matches!(split.split_type, SplitType::Scroll) {
+                render_split(split, buf, state);
+            }
         }
     }
 }
