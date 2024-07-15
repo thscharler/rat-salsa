@@ -10,7 +10,7 @@ use rat_scrolled::Scroll;
 use rat_widget::edit_list::{EditRList, EditRListState};
 use rat_widget::input::{TextInput, TextInputState};
 use rat_widget::list::List;
-use rat_widget::menubar::{MenuBar, MenuBarState, MenuPopup, StaticMenu};
+use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::popup_menu::Placement;
 use ratatui::buffer::Buffer;
@@ -155,11 +155,15 @@ fn repaint_input(
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
-    MenuBar::new()
+    let (menu, menu_popup) = Menubar::new()
         .title("Sample")
         .menu(&MENU)
+        .popup_block(Block::bordered())
+        .popup_width(15)
+        .popup_placement(Placement::Top)
         .styles(THEME.menu_style())
-        .render(l1[1], frame.buffer_mut(), &mut state.menu);
+        .into_widgets();
+    menu.render(l1[1], frame.buffer_mut(), &mut state.menu);
 
     let l_grid = layout_grid::<3, 1>(
         l1[0],
@@ -193,13 +197,7 @@ fn repaint_input(
         }
     }
 
-    MenuPopup::new()
-        .menu(&MENU)
-        .block(Block::bordered())
-        .width(15)
-        .styles(THEME.menu_style())
-        .placement(Placement::Top)
-        .render(l1[1], frame.buffer_mut(), &mut state.menu);
+    menu_popup.render(l1[1], frame.buffer_mut(), &mut state.menu);
 
     Ok(())
 }

@@ -8,7 +8,7 @@ use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState};
 use rat_widget::layout::layout_middle;
 use rat_widget::menubar;
-use rat_widget::menubar::{MenuBar, MenuBarState, MenuPopup, StaticMenu};
+use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::popup_menu::Placement;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -49,11 +49,14 @@ fn repaint_input(
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
-    MenuBar::new()
+    let (menu, menu_popup) = Menubar::new()
         .title("Wha!")
         .menu(&MENU)
+        .popup_block(Block::bordered())
+        .popup_placement(Placement::Top)
         .styles(THEME.menu_style())
-        .render(l1[1], frame.buffer_mut(), &mut state.menu);
+        .into_widgets();
+    menu.render(l1[1], frame.buffer_mut(), &mut state.menu);
 
     if state.file_open.active {
         let l = layout_middle(
@@ -73,12 +76,7 @@ fn repaint_input(
         }
     }
 
-    MenuPopup::new()
-        .menu(&MENU)
-        .block(Block::bordered())
-        .styles(THEME.menu_style())
-        .placement(Placement::Top)
-        .render(l1[1], frame.buffer_mut(), &mut state.menu);
+    menu_popup.render(l1[1], frame.buffer_mut(), &mut state.menu);
 
     Ok(())
 }

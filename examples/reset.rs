@@ -4,7 +4,7 @@
 //!
 
 use crossterm::cursor::{DisableBlinking, SetCursorStyle};
-use crossterm::event::{DisableBracketedPaste, DisableMouseCapture};
+use crossterm::event::DisableBracketedPaste;
 use crossterm::terminal::{disable_raw_mode, enable_raw_mode, LeaveAlternateScreen};
 use crossterm::ExecutableCommand;
 use ratatui::backend::CrosstermBackend;

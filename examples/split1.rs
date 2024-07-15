@@ -7,8 +7,7 @@ use rat_event::{ct_event, flow_ok, HandleEvent, Regular};
 use rat_focus::{Focus, HasFocusFlag};
 use rat_scrolled::Scroll;
 use rat_widget::event::Outcome;
-use rat_widget::fill::Fill;
-use rat_widget::list::selection::{NoSelection, RowSelection};
+use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
 use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
 use rat_widget::splitter::{Split, SplitState, SplitType};
@@ -96,7 +95,8 @@ fn repaint_input(
         split = split.join_1(blk);
         split = split.join_0(blk);
     }
-    split.layout(l2[1], &mut state.split);
+    let (split, split_overlay) = split.into_widgets();
+    split.render(l2[1], frame.buffer_mut(), &mut state.split);
 
     let mut w_left = List::<RowSelection>::new([
         "L-0", "L-1", "L-2", "L-3", "L-4", "L-5", "L-6", "L-7", "L-8", "L-9", //
@@ -139,7 +139,7 @@ fn repaint_input(
     }
     w_left.render(state.split.areas[0], frame.buffer_mut(), &mut state.left);
 
-    let mut w_right = List::<RowSelection>::new([
+    let w_right = List::<RowSelection>::new([
         "R-0", "R-1", "R-2", "R-3", "R-4", "R-5", "R-6", "R-7", "R-8", "R-9", //
         "R-10", "R-11", "R-12", "R-13", "R-14", "R-15", "R-16", "R-17", "R-18", "R-19", //
         "R-20", "R-21", "R-22", "R-23", "R-24", "R-25", "R-26", "R-27", "R-28", "R-29", //
@@ -147,7 +147,10 @@ fn repaint_input(
     .style(THEME.gray(3));
     w_right.render(state.split.areas[1], frame.buffer_mut(), &mut state.right);
 
-    split.render(l2[1], frame.buffer_mut(), &mut state.split);
+    // There might be an overlay, if the stars are right.
+    if let Some(split_overlay) = split_overlay {
+        split_overlay.render(l2[1], frame.buffer_mut(), &mut state.split);
+    }
 
     let mut area = Rect::new(l2[0].x, l2[0].y, l2[0].width, 1);
 
