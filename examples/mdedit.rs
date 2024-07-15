@@ -17,7 +17,7 @@ use rat_widget::event::{ct_event, or_else, Dialog, HandleEvent, Popup, Regular};
 use rat_widget::file_dialog::FileDialog;
 use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
-use rat_widget::menubar::{MenuBar, MenuBarState, MenuPopup, StaticMenu};
+use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
@@ -209,10 +209,13 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
 
         MDEdit.render(r[0], buf, &mut state.editor, ctx)?;
 
-        MenuBar::new()
+        let (menu, menu_popup) = Menubar::new(&MENU)
+            .popup_width(20)
+            .popup_block(Block::bordered())
+            .popup_placement(Placement::Top)
             .styles(ctx.g.theme.menu_style())
-            .menu(&MENU)
-            .render(s[0], buf, &mut state.menu);
+            .into_widgets();
+        menu.render(s[0], buf, &mut state.menu);
 
         let l_fd = layout_middle(
             r[0],
@@ -225,13 +228,7 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
             .styles(ctx.g.theme.file_dialog_style())
             .render(l_fd, buf, &mut state.filedlg.filedlg);
 
-        MenuPopup::new()
-            .styles(ctx.g.theme.menu_style())
-            .menu(&MENU)
-            .width(20)
-            .block(Block::bordered())
-            .placement(Placement::Top)
-            .render(s[0], buf, &mut state.menu);
+        menu_popup.render(s[0], buf, &mut state.menu);
 
         if ctx.g.error_dlg.borrow().active {
             let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());

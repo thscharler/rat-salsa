@@ -19,7 +19,7 @@ use rat_widget::event::{
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menubar::{MenuBar, MenuBarState, MenuPopup, MenuStructure};
+use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar, MenubarPopup};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
@@ -322,7 +322,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .style(ctx.g.theme.bluegreen(0))
             .render(r[0], buf);
 
-        let split = Split::new()
+        let (split, split_overlay) = Split::new()
             .direction(Direction::Horizontal)
             .constraints([
                 Constraint::Length(25),
@@ -330,8 +330,9 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 Constraint::Fill(1),
             ])
             .split_type(SplitType::Scroll)
-            .styles(ctx.g.theme.split_style());
-        split.layout(r[2], &mut state.w_split);
+            .styles(ctx.g.theme.split_style())
+            .into_widgets();
+        split.render(r[2], buf, &mut state.w_split);
 
         Table::new()
             .data(DirData {
@@ -342,7 +343,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .vscroll(
                 Scroll::new()
                     .styles(ctx.g.theme.scroll_style())
-                    .split_mark_offset(true)
+                    .split_mark_offset(0)
                     .scroll_by(1),
             )
             .render(state.w_split.areas[0], buf, &mut state.w_dirs);
@@ -359,7 +360,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .vscroll(
                 Scroll::new()
                     .styles(ctx.g.theme.scroll_style())
-                    .split_mark_offset(true)
+                    .split_mark_offset(0)
                     .scroll_by(1),
             )
             .render(state.w_split.areas[1], buf, &mut state.w_files);
@@ -395,20 +396,16 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .render(state.w_split.areas[2], buf, &mut state.w_data);
         ctx.cursor = state.w_data.screen_cursor();
 
-        split.render(r[2], buf, &mut state.w_split);
+        split_overlay.render(r[2], buf, &mut state.w_split);
 
-        MenuBar::new()
-            .styles(ctx.g.theme.menu_style())
+        let (menu, menu_popup) = Menubar::new(&Menu)
             .title("[-.-]")
-            .menu(&Menu)
-            .render(r[3], buf, &mut state.w_menu);
-
-        MenuPopup::new()
+            .popup_block(Block::bordered())
+            .popup_placement(Placement::Top)
             .styles(ctx.g.theme.menu_style())
-            .block(Block::bordered())
-            .placement(Placement::Top)
-            .menu(&Menu)
-            .render(r[3], buf, &mut state.w_menu);
+            .into_widgets();
+        menu.render(r[3], buf, &mut state.w_menu);
+        menu_popup.render(r[3], buf, &mut state.w_menu);
 
         // -----------------------------------------------------
 
