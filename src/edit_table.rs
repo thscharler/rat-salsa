@@ -1,8 +1,4 @@
-//!
-//! This widget helps with row-wise editing of table-data.
-//!
 //! todo: example is missing. this is hard to grasp.
-//!
 
 use crate::event::EditOutcome;
 use crate::rowselection::RowSelection;
@@ -18,16 +14,17 @@ use ratatui::widgets::StatefulWidgetRef;
 /// Widget that supports row-wise editing of a table.
 ///
 /// It's parameterized with a `Editor` widget, that renders
-/// the input line.
+/// the input line and handles events.
 #[derive(Debug)]
 pub struct EditTable<'a, Editor: EditorWidget + 'a> {
     table: Table<'a, RowSelection>,
     edit: Editor,
 }
 
-/// Edit state for the table.
+/// State for EditTable.
 ///
-/// If the edit-state is set, this widget switches to edit-mode.
+/// If `edit` is set to Some, this widget switches to editing-mode.
+/// Otherwise, it behaves like a normal table.
 #[derive(Debug, Default)]
 pub struct EditTableState<EditorState> {
     /// Backing table.
@@ -40,7 +37,8 @@ pub struct EditTableState<EditorState> {
 
 /// StatefulWidget alike trait.
 ///
-/// This one takes a slice of areas for all the cells in the table.
+/// This one takes a slice of areas for all the cells in the table,
+/// and renders all input widgets as it needs.
 pub trait EditorWidget {
     /// State associated with the stateful widget.
     type State;

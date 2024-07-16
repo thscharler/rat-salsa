@@ -36,10 +36,6 @@ impl TableSelection for RowSelection {
     fn lead_selection(&self) -> Option<(usize, usize)> {
         self.lead_row.map(|v| (0, v))
     }
-
-    fn scroll_selected(&self) -> bool {
-        self.scroll_selected
-    }
 }
 
 impl RowSelection {
@@ -51,6 +47,11 @@ impl RowSelection {
     /// Clear the selection.
     pub fn clear(&mut self) {
         self.lead_row = None;
+    }
+
+    /// Scroll selection instead of offset.
+    pub fn scroll_selected(&self) -> bool {
+        self.scroll_selected
     }
 
     /// Scroll selection instead of offset.

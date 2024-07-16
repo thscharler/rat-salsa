@@ -1,6 +1,6 @@
 # 0.16.0
 
-* refactor: replace Scrolled widget with internal handling via Scrolled<'a>.
+* refactor: replace Scrolled widget with internal handling via Scroll<'a>.
 * sync naming methods
 * sync key-handling for the different selection-models
 

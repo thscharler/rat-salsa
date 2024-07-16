@@ -47,7 +47,8 @@ pub struct TableContext {
 ///
 /// Trait for accessing the table-data by the Table.
 ///
-/// This trait is suitable if the underlying data is random access.
+/// This trait is suitable if the underlying data is some sort
+/// of vec/slice.
 pub trait TableData<'a> {
     /// Size of the data.
     fn rows(&self) -> usize;
@@ -96,9 +97,6 @@ pub trait TableData<'a> {
 /// Trait for accessing the table-data by the Table.
 ///
 /// This trait is suitable if the underlying data is an iterator.
-/// It uses internal iteration which allows much more leeway with
-/// borrowing & lifetimes.
-///
 pub trait TableDataIter<'a> {
     /// StatefulWidgetRef needs a clone of the iterator for every render.
     /// For StatefulWidget this is not needed at all. So this defaults to
@@ -163,13 +161,8 @@ pub trait TableSelection {
     /// Specific cell is selected.
     fn is_selected_cell(&self, column: usize, row: usize) -> bool;
 
-    /// Selection lead.
+    /// Selection lead, or the sole selected index.
     fn lead_selection(&self) -> Option<(usize, usize)>;
-
-    /// Should scroll be in terms of the selection or in terms of the offset.
-    fn scroll_selected(&self) -> bool {
-        false
-    }
 }
 
 use crate::_private::NonExhaustive;
@@ -210,10 +203,13 @@ pub mod event {
 
     /// Event-handler for double-click on the table.
     ///
-    /// Events for this event-map must be processed *before* calling
+    /// Events for this handler must be processed *before* calling
     /// any other event-handling routines for the same table.
     /// Otherwise, the regular event-handling might interfere with
     /// recognition of double-clicks by consuming the first click.
+    ///
+    /// This event-handler doesn't consume the first click, just
+    /// the second one.
     ///
     /// See [handle_doubleclick_events](crate::handle_doubleclick_events),
     ///     [TableState as HandleEvent](../struct.TableState.html#impl-HandleEvent<Event,+DoubleClick,+DoubleClickOutcome>-for-TableState<Selection>)
@@ -233,7 +229,7 @@ pub mod event {
         /// Further processing for this event may stop.
         /// Rendering the ui is advised.
         Changed,
-        /// Double click found. Contains (column, row)
+        /// Double click occurred. Contains (column, row)
         ClickClick(usize, usize),
     }
 
@@ -267,8 +263,12 @@ pub mod event {
     /// Activates editing behaviour in addition to the normal
     /// table event handling.
     ///
-    /// This is used in a bare-bones version directly for [TableState](crate::TableState),
-    /// or the fancy version using [EditTableState](crate::edit::EditTableState)
+    /// There is an event-handler for this implemented
+    /// for [TableState](crate::TableState), that does nothing but
+    /// recognizing the relevant keys and translating them to an EditOutcome.
+    ///
+    /// Or you can use [EditTableState](crate::edit::EditTableState), which
+    /// manages and editing-widget in addition to the base table.
     #[derive(Debug, Default)]
     pub struct EditKeys;
 
