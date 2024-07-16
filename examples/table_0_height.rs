@@ -177,7 +177,8 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block()),
+                .border_style(THEME.block())
+                .title("0-height rows"),
         )
         .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)

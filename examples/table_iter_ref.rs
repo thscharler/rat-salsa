@@ -6,7 +6,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::{noselection, NoSelection};
+use rat_ftable::selection::{rowselection, RowSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableDataIter, TableState};
 use rat_scrolled::Scroll;
@@ -56,7 +56,7 @@ struct Data {
 }
 
 struct State {
-    pub(crate) table: TableState<NoSelection>,
+    pub(crate) table: TableState<RowSelection>,
 }
 
 fn repaint_table(
@@ -154,7 +154,8 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block()),
+                .border_style(THEME.block())
+                .title("tabledata-iter + render_ref"),
         )
         .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)
@@ -170,6 +171,6 @@ fn handle_table(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r = noselection::handle_events(&mut state.table, true, event);
+    let r = rowselection::handle_events(&mut state.table, true, event);
     Ok(r)
 }

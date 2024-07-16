@@ -138,7 +138,8 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block()),
+                .border_style(THEME.block())
+                .title("cell-selection"),
         )
         .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)

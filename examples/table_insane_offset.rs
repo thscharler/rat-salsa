@@ -10,7 +10,7 @@ use format_num_pattern::NumberFormat;
 use rat_event::ct_event;
 use rat_event::util::item_at_clicked;
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::{noselection, NoSelection};
+use rat_ftable::selection::{rowselection, RowSelection};
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableDataIter, TableState};
 use rat_scrolled::Scroll;
@@ -68,7 +68,7 @@ struct Data {
 }
 
 struct State {
-    pub(crate) table: TableState<NoSelection>,
+    pub(crate) table: TableState<RowSelection>,
     pub(crate) report_rows: Option<usize>,
     pub(crate) no_row_count: bool,
     pub(crate) edit: [[Rect; 10]; 1],
@@ -226,7 +226,8 @@ fn repaint_table(
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
-                .border_style(THEME.block()),
+                .border_style(THEME.block())
+                .title("offsets"),
         )
         .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)
@@ -284,6 +285,6 @@ fn handle_table(
         }
     };
 
-    let r1 = noselection::handle_events(&mut state.table, true, event);
+    let r1 = rowselection::handle_events(&mut state.table, true, event);
     Ok(max(r0, r1))
 }
