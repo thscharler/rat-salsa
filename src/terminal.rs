@@ -119,6 +119,7 @@ where
             let mut ctx = RenderContext {
                 g: ctx.g,
                 timeout: ctx.timeout,
+                timers: ctx.timers,
                 counter: frame.count(),
                 cursor: None,
             };

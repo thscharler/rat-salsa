@@ -66,94 +66,43 @@ impl<Action> From<Outcome> for Control<Action> {
 
 impl<Action> From<MenuOutcome> for Control<Action> {
     fn from(value: MenuOutcome) -> Self {
-        match value {
-            MenuOutcome::NotUsed => Control::Continue,
-            MenuOutcome::Unchanged => Control::Break,
-            MenuOutcome::Changed => Control::Repaint,
-            MenuOutcome::Selected(_) => Control::Repaint,
-            MenuOutcome::Activated(_) => Control::Repaint,
-            MenuOutcome::MenuSelected(_, _) => Control::Repaint,
-            MenuOutcome::MenuActivated(_, _) => Control::Repaint,
-        }
+        Outcome::from(value).into()
     }
 }
 
 impl<Action> From<ButtonOutcome> for Control<Action> {
     fn from(value: ButtonOutcome) -> Self {
-        match value {
-            ButtonOutcome::NotUsed => Control::Continue,
-            ButtonOutcome::Unchanged => Control::Break,
-            ButtonOutcome::Changed => Control::Repaint,
-            ButtonOutcome::Pressed => Control::Repaint,
-        }
+        Outcome::from(value).into()
     }
 }
 
 impl<Action> From<TextOutcome> for Control<Action> {
     fn from(value: TextOutcome) -> Self {
-        match value {
-            TextOutcome::NotUsed => Control::Continue,
-            TextOutcome::Unchanged => Control::Break,
-            TextOutcome::Changed => Control::Repaint,
-            TextOutcome::TextChanged => Control::Repaint,
-        }
+        Outcome::from(value).into()
     }
 }
 
 impl<Action> From<ScrollOutcome> for Control<Action> {
     fn from(value: ScrollOutcome) -> Self {
-        match value {
-            ScrollOutcome::NotUsed => Control::Continue,
-            ScrollOutcome::Unchanged => Control::Break,
-            ScrollOutcome::Changed => Control::Repaint,
-            ScrollOutcome::Up(_) => Control::Repaint,
-            ScrollOutcome::Down(_) => Control::Repaint,
-            ScrollOutcome::Left(_) => Control::Repaint,
-            ScrollOutcome::Right(_) => Control::Repaint,
-            ScrollOutcome::VPos(_) => Control::Repaint,
-            ScrollOutcome::HPos(_) => Control::Repaint,
-        }
+        Outcome::from(value).into()
     }
 }
 
 impl<Action> From<DoubleClickOutcome> for Control<Action> {
     fn from(value: DoubleClickOutcome) -> Self {
-        match value {
-            DoubleClickOutcome::NotUsed => Control::Continue,
-            DoubleClickOutcome::Unchanged => Control::Break,
-            DoubleClickOutcome::Changed => Control::Repaint,
-            DoubleClickOutcome::ClickClick(_, _) => Control::Break,
-        }
+        Outcome::from(value).into()
     }
 }
 
 impl<Action> From<EditOutcome> for Control<Action> {
     fn from(value: EditOutcome) -> Self {
-        match value {
-            EditOutcome::NotUsed => Control::Continue,
-            EditOutcome::Unchanged => Control::Break,
-            EditOutcome::Changed => Control::Repaint,
-            EditOutcome::Insert => Control::Break,
-            EditOutcome::Remove => Control::Break,
-            EditOutcome::Edit => Control::Break,
-            EditOutcome::Append => Control::Break,
-            EditOutcome::Cancel => Control::Break,
-            EditOutcome::Commit => Control::Break,
-            EditOutcome::CommitAndAppend => Control::Break,
-            EditOutcome::CommitAndEdit => Control::Break,
-        }
+        Outcome::from(value).into()
     }
 }
 
 impl<Action> From<FileOutcome> for Control<Action> {
     fn from(value: FileOutcome) -> Self {
-        match value {
-            FileOutcome::NotUsed => Control::Continue,
-            FileOutcome::Unchanged => Control::Break,
-            FileOutcome::Changed => Control::Repaint,
-            FileOutcome::Cancel => Control::Repaint,
-            FileOutcome::Ok(_) => Control::Repaint,
-        }
+        Outcome::from(value).into()
     }
 }
 
@@ -268,6 +217,8 @@ pub struct RenderContext<'a, Global> {
     /// Current timeout that triggered the repaint.
     pub timeout: Option<TimeOut>,
 
+    /// Application timers.
+    pub(crate) timers: &'a Timers,
     /// Frame counter.
     pub counter: usize,
     /// Output cursor position. Set after rendering is complete.
@@ -334,6 +285,20 @@ where
             Ok(v) => self.queue.push(Ok(v.into())),
             Err(e) => self.queue.push(Err(e)),
         }
+    }
+}
+
+impl<'a, Global> RenderContext<'a, Global> {
+    /// Add a timer.
+    #[inline]
+    pub fn add_timer(&self, t: TimerDef) -> TimerHandle {
+        self.timers.add(t)
+    }
+
+    /// Remove a timer.
+    #[inline]
+    pub fn remove_timer(&self, tag: TimerHandle) {
+        self.timers.remove(tag)
     }
 }
 
