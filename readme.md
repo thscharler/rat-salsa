@@ -1,8 +1,8 @@
 # Focus handling for ratatui
 
-This crate works by adding a [FocusFlag](crate::FocusFlag) to each widget's state.
+This crate works by adding a [FocusFlag] to each widget's state.
 
-[Focus](crate::Focus) is used to build a list of all relevant FocusFlags.
+[Focus] is used to build a list of all relevant FocusFlags.
 Focus holds references to all FocusFlags, in the order the widgets should
 be navigated. Additionally, it has the area of the widget for mouse interaction.
 
@@ -13,7 +13,7 @@ The functions `Focus::next()`/`Focus::prev()` do the actual navigation.
 They change the active FocusFlag and set flags for focus-lost and
 focus-gained too.
 
-A widget should implement [HasFocusFlag](crate::HasFocusFlag) for it's
+A widget should implement [HasFocusFlag] for it's
 state, but this is not strictly necessary.
 
 ## Event-Handling
@@ -108,12 +108,12 @@ the first widget in the container gets the focus.
 
 Lost/Gained also work for the whole container.
 
-The trait [HasFocus](crate::HasFocus) indicates the existence of this behaviour.
+The trait [HasFocus] indicates the existence of this behaviour.
 Focus has a method `add_container()` for this too.
 
-        There is a lighter version of a container too. 
-        `Focus::new_grp()` creates a list of widgets, but without a container
-        area.
+> There is a lighter version of a container too.
+> [Focus::new_grp()] creates a list of widgets, but without a
+> container area.
 
 Focus can handle recursive containers too.
 
