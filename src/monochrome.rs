@@ -2,7 +2,7 @@ use crate::Scheme;
 
 /// An adaption of nvchad's monochrome theme.
 ///
-/// -- credit to original theme for existing : https://github.com/kdheepak/monochrome.nvim
+/// -- credit to original theme for existing : <https://github.com/kdheepak/monochrome.nvim>
 /// -- NOTE: This is a modified version of it
 pub const MONOCHROME: Scheme = Scheme {
     primary: Scheme::linear4(0xe6eaf2, 0xffffff),

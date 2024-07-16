@@ -2,7 +2,7 @@ use crate::Scheme;
 
 /// An adaption of nvchad's monochrome theme.
 ///
-/// -- Credits to original theme https://monokai.pro/
+/// -- Credits to original theme <https://monokai.pro/>
 /// -- This is modified version of it
 pub const MONEKAI: Scheme = Scheme {
     primary: Scheme::linear4(0x80133a, 0xd12060),

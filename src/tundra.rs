@@ -2,7 +2,7 @@ use crate::Scheme;
 
 /// An adaption of nvchad's tundra theme.
 ///
-/// -- Thanks to original theme for existing https://github.com/sam4llis/nvim-tundra
+/// -- Thanks to original theme for existing <https://github.com/sam4llis/nvim-tundra>
 /// -- this is a modified version of it
 pub const TUNDRA: Scheme = Scheme {
     primary: Scheme::linear4(0xe6eaf2, 0xffffff),
