@@ -262,7 +262,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                         if c0 >= Some('\x20') {
                             ch
                         } else {
-                            " "
+                            "\u{FFFD}"
                         }
                     } else {
                         tmp_str = ch.to_string();
@@ -1507,11 +1507,7 @@ pub mod core {
     #[derive(Debug, Default, Clone)]
     pub struct InputCore {
         value: Rope,
-
         styles: StyleMap,
-
-        /// Scroll offset
-        // offset: (usize, usize),
 
         /// Secondary column, remembered for moving up/down.
         move_col: Option<usize>,
