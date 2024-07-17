@@ -399,6 +399,12 @@ impl TextAreaState {
         self.value.value()
     }
 
+    /// Borrow the rope
+    #[inline]
+    pub fn value_rope(&self) -> &Rope {
+        self.value.value_rope()
+    }
+
     /// Text value
     #[inline]
     pub fn value_range(&self, range: TextRange) -> Option<RopeSlice<'_>> {
@@ -1971,6 +1977,12 @@ pub mod core {
         #[inline]
         pub fn value(&self) -> String {
             String::from(&self.value)
+        }
+
+        /// Borrow the rope
+        #[inline]
+        pub fn value_rope(&self) -> &Rope {
+            &self.value
         }
 
         /// A range of the text as RopeSlice.
