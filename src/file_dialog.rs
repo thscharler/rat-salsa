@@ -579,11 +579,17 @@ impl FileDialogState {
     }
 
     /// Append the default roots.
-    pub fn default_roots(&mut self, start: PathBuf) {
+    pub fn default_roots(&mut self, start: &Path, last: &Path) {
         if let Some(user) = UserDirs::new() {
+            if last.exists() {
+                self.roots.push((
+                    OsString::from("Last"), //
+                    last.into(),
+                ));
+            }
             self.roots.push((
                 OsString::from("Start"), //
-                start,
+                start.into(),
             ));
             self.roots.push((
                 OsString::from("Home"), //
@@ -605,11 +611,25 @@ impl FileDialogState {
     }
 
     pub fn open_dialog(&mut self, path: impl AsRef<Path>) -> Result<(), io::Error> {
+        let path = path.as_ref();
+        let old_path = self.path.clone();
+
         self.active = true;
         self.mode = Mode::Open;
-        self.set_path(path.as_ref())?;
+        self.save_name = None;
+        self.dirs.clear();
+        self.files.clear();
+        self.path = Default::default();
         if self.use_default_roots {
-            self.default_roots(self.path.clone());
+            self.clear_roots();
+            self.default_roots(path, &old_path);
+            if old_path.exists() {
+                self.set_path(&old_path)?;
+            } else {
+                self.set_path(path)?;
+            }
+        } else {
+            self.set_path(path)?;
         }
         self.focus().initial();
         Ok(())
@@ -620,12 +640,25 @@ impl FileDialogState {
         path: impl AsRef<Path>,
         name: impl AsRef<str>,
     ) -> Result<(), io::Error> {
+        let path = path.as_ref();
+        let old_path = self.path.clone();
+
         self.active = true;
         self.mode = Mode::Save;
         self.save_name = Some(OsString::from(name.as_ref()));
-        self.set_path(path.as_ref())?;
+        self.dirs.clear();
+        self.files.clear();
+        self.path = Default::default();
         if self.use_default_roots {
-            self.default_roots(self.path.clone());
+            self.clear_roots();
+            self.default_roots(path, &old_path);
+            if old_path.exists() {
+                self.set_path(&old_path)?;
+            } else {
+                self.set_path(path)?;
+            }
+        } else {
+            self.set_path(path)?;
         }
         self.focus().initial();
         Ok(())
@@ -838,22 +871,26 @@ impl FileDialogState {
     }
 
     pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        match_focus!(
-            self.path_state => {
-                self.path_state.screen_cursor()
-            },
-            self.save_name_state => {
-                self.save_name_state.screen_cursor()
-            },
-            self.dir_state.list => {
-                if let Some(edit) = &self.dir_state.edit {
-                      edit.screen_cursor()
-                } else {
-                    None
-                }
-            },
-            _ => None
-        )
+        if self.active {
+            match_focus!(
+                self.path_state => {
+                    self.path_state.screen_cursor()
+                },
+                self.save_name_state => {
+                    self.save_name_state.screen_cursor()
+                },
+                self.dir_state.list => {
+                    if let Some(edit) = &self.dir_state.edit {
+                          edit.screen_cursor()
+                    } else {
+                        None
+                    }
+                },
+                _ => None
+            )
+        } else {
+            None
+        }
     }
 }
 
