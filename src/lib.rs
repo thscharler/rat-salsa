@@ -195,8 +195,8 @@ where
 {
     /// Some global state for the application.
     pub g: &'a mut Global,
-    /// Can be set to hold a Focus, if necessary.
-    /// Will be reset after each event-handler.
+    /// Can be set to hold a Focus, if needed.
+    /// Will be reset after each run of an event-handler.
     pub focus: Option<Focus>,
     /// Current timeout, if any.
     pub timeout: Option<TimeOut>,
@@ -239,7 +239,16 @@ where
     /// Remove a timer.
     #[inline]
     pub fn remove_timer(&self, tag: TimerHandle) {
-        self.timers.remove(tag)
+        self.timers.remove(tag);
+    }
+
+    /// Replace a timer.
+    #[inline]
+    pub fn replace_timer(&self, h: Option<TimerHandle>, t: TimerDef) -> TimerHandle {
+        if let Some(h) = h {
+            self.remove_timer(h);
+        }
+        self.add_timer(t)
     }
 
     /// Add a background worker task.
@@ -299,6 +308,22 @@ impl<'a, Global> RenderContext<'a, Global> {
     #[inline]
     pub fn remove_timer(&self, tag: TimerHandle) {
         self.timers.remove(tag)
+    }
+
+    /// Replace a timer.
+    #[inline]
+    pub fn replace_timer(&self, h: Option<TimerHandle>, t: TimerDef) -> TimerHandle {
+        if let Some(h) = h {
+            self.remove_timer(h);
+        }
+        self.add_timer(t)
+    }
+
+    /// Set the cursor, if the given value is Some.
+    pub fn set_screen_cursor(&mut self, cursor: Option<(u16, u16)>) {
+        if let Some(c) = cursor {
+            self.cursor = Some(c);
+        }
     }
 }
 
