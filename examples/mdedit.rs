@@ -1,18 +1,16 @@
 #![allow(unused_variables)]
 #![allow(unreachable_pub)]
 
-use crate::facilities::{Facility, FileDlg};
+use crate::facilities::{Facility, MDFileDialog, MDFileDialogState};
 use crate::mdedit::{MDEdit, MDEditState};
 use anyhow::Error;
-use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
-use markdown::mdast::Node;
-use markdown::{to_mdast, unist, ParseOptions};
+use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
-use rat_theme::scheme::IMPERIAL;
+use rat_theme::scheme::{IMPERIAL, MONEKAI, MONOCHROME, OXOCARBON, RADIUM, TUNDRA};
 use rat_widget::event::{ct_event, or_else, Dialog, HandleEvent, Popup, Regular};
 use rat_widget::file_dialog::FileDialog;
 use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
@@ -23,11 +21,14 @@ use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::textarea::core::TextRange;
+use rat_widget::textarea::TextAreaState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget};
-use std::cell::RefCell;
+use ropey::Rope;
 use std::fs;
+use std::hash::Hash;
+use std::ops::Range;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
@@ -60,8 +61,10 @@ fn main() -> Result<(), Error> {
 pub struct GlobalState {
     pub cfg: MDConfig,
     pub theme: DarkTheme,
-    pub status: RefCell<StatusLineState>,
-    pub error_dlg: RefCell<MsgDialogState>,
+
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
+    pub file_dlg: MDFileDialogState,
 }
 
 impl GlobalState {
@@ -71,6 +74,7 @@ impl GlobalState {
             theme,
             status: Default::default(),
             error_dlg: Default::default(),
+            file_dlg: Default::default(),
         }
     }
 }
@@ -78,11 +82,15 @@ impl GlobalState {
 // -----------------------------------------------------------------------
 
 #[derive(Debug, Default)]
-pub struct MDConfig {}
+pub struct MDConfig {
+    // ...
+}
 
 #[derive(Debug)]
 pub enum MDAction {
     Message(String),
+    MenuOpen,
+    MenuSave,
     Open(PathBuf),
     Show(String, Vec<(TextRange, usize)>),
     Save(PathBuf),
@@ -97,8 +105,6 @@ pub struct MDApp;
 pub struct MDAppState {
     pub editor: MDEditState,
     pub menu: MenuBarState,
-
-    pub filedlg: FileDlg,
 }
 
 impl Default for MDAppState {
@@ -106,7 +112,6 @@ impl Default for MDAppState {
         let s = Self {
             editor: Default::default(),
             menu: Default::default(),
-            filedlg: Default::default(),
         };
         s.menu.focus().set_name("menu");
         s.menu.bar.focus().set_name("menu_bar");
@@ -116,13 +121,16 @@ impl Default for MDAppState {
 }
 
 pub mod facilities {
-    use crate::{AppContext, MDAction};
+    use crate::MDAction;
     use anyhow::Error;
     use crossterm::event::Event;
     use rat_salsa::event::flow_ok;
     use rat_salsa::Control;
     use rat_widget::event::{Dialog, FileOutcome, HandleEvent};
-    use rat_widget::file_dialog::FileDialogState;
+    use rat_widget::file_dialog::{FileDialog, FileDialogState, FileDialogStyle};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::prelude::StatefulWidget;
     use std::path::PathBuf;
 
     /// Multi purpose facility.
@@ -136,45 +144,64 @@ pub mod facilities {
         ) -> Result<Control<A>, E>;
 
         /// Handle crossterm events for the facility.
-        fn crossterm(&mut self, event: &Event, ctx: &mut AppContext<'_>) -> Result<Control<A>, E>;
+        fn handle(&mut self, event: &Event) -> Result<Control<A>, E>;
     }
 
     #[derive(Debug, Default)]
-    pub struct FileDlg {
-        pub filedlg: FileDialogState,
-        pub out: Option<fn(PathBuf) -> Result<Control<MDAction>, Error>>,
+    pub struct MDFileDialog {
+        style: FileDialogStyle,
     }
 
-    impl Facility<FileDialogState, PathBuf, MDAction, Error> for FileDlg {
+    impl MDFileDialog {
+        pub fn new() -> Self {
+            Self::default()
+        }
+
+        pub fn style(mut self, style: FileDialogStyle) -> Self {
+            self.style = style;
+            self
+        }
+    }
+
+    impl StatefulWidget for MDFileDialog {
+        type State = MDFileDialogState;
+
+        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+            FileDialog::new()
+                .styles(self.style)
+                .render(area, buf, &mut state.file_dlg);
+        }
+    }
+
+    #[derive(Debug, Default)]
+    pub struct MDFileDialogState {
+        pub file_dlg: FileDialogState,
+        pub handle: Option<fn(PathBuf) -> Result<Control<MDAction>, Error>>,
+    }
+
+    impl Facility<FileDialogState, PathBuf, MDAction, Error> for MDFileDialogState {
         fn engage(
             &mut self,
-            init: impl FnOnce(&mut FileDialogState) -> Result<Control<MDAction>, Error>,
-            out: fn(PathBuf) -> Result<Control<MDAction>, Error>,
+            prepare: impl FnOnce(&mut FileDialogState) -> Result<Control<MDAction>, Error>,
+            handle: fn(PathBuf) -> Result<Control<MDAction>, Error>,
         ) -> Result<Control<MDAction>, Error> {
-            let r = init(&mut self.filedlg);
+            let r = prepare(&mut self.file_dlg);
             if r.is_ok() {
-                self.out = Some(out);
+                self.handle = Some(handle);
             }
             r
         }
 
-        fn crossterm(
-            &mut self,
-            event: &Event,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            flow_ok!(match self.filedlg.handle(event, Dialog)? {
+        fn handle(&mut self, event: &Event) -> Result<Control<MDAction>, Error> {
+            flow_ok!(match self.file_dlg.handle(event, Dialog)? {
                 FileOutcome::Ok(path) => {
-                    self.filedlg = Default::default();
-                    if let Some(out) = self.out.take() {
-                        ctx.queue(Control::Repaint);
-                        out(path)?
+                    if let Some(handle) = self.handle.take() {
+                        handle(path)?
                     } else {
                         Control::Repaint
                     }
                 }
                 FileOutcome::Cancel => {
-                    self.filedlg = Default::default();
                     Control::Repaint
                 }
                 r => r.into(),
@@ -182,11 +209,28 @@ pub mod facilities {
             Ok(Control::Continue)
         }
     }
+
+    impl MDFileDialogState {
+        pub fn screen_cursor(&self) -> Option<(u16, u16)> {
+            self.file_dlg.screen_cursor()
+        }
+    }
 }
 
 static MENU: StaticMenu = StaticMenu {
     menu: &[
         ("_File", &["_Open", "_Save"]), //
+        (
+            "_Theme",
+            &[
+                "Imperial",
+                "Radium",
+                "Tundra",
+                "Monochrome",
+                "Monekai",
+                "Oxocarbon",
+            ],
+        ),
         ("_Quit", &[]),
     ],
 };
@@ -224,23 +268,21 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
             Constraint::Percentage(39),
             Constraint::Length(0),
         );
-        FileDialog::new()
-            .styles(ctx.g.theme.file_dialog_style())
-            .render(l_fd, buf, &mut state.filedlg.filedlg);
+        MDFileDialog::new()
+            .style(ctx.g.theme.file_dialog_style())
+            .render(l_fd, buf, &mut ctx.g.file_dlg);
+        ctx.set_screen_cursor(ctx.g.file_dlg.screen_cursor());
 
         menu_popup.render(s[0], buf, &mut state.menu);
 
-        if ctx.g.error_dlg.borrow().active {
+        if ctx.g.error_dlg.active() {
             let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(r[0], buf, &mut ctx.g.error_dlg.borrow_mut());
+            err.render(r[0], buf, &mut ctx.g.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         debug!("render {:?} {:?}", (), el);
-        ctx.g
-            .status
-            .borrow_mut()
-            .status(1, format!("R {:.3?}", el).to_string());
+        ctx.g.status.status(1, format!("R {:.3?}", el).to_string());
 
         let status = StatusLine::new()
             .layout([
@@ -250,7 +292,7 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
                 Constraint::Length(12),
             ])
             .styles(ctx.g.theme.statusline_style());
-        status.render(s[1], buf, &mut ctx.g.status.borrow_mut());
+        status.render(s[1], buf, &mut ctx.g.status);
 
         Ok(())
     }
@@ -282,35 +324,26 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         debug!("timer {:?} {:?}", r, el);
-        ctx.g
-            .status
-            .borrow_mut()
-            .status(3, format!("T {:.3?}", el).to_string());
+        ctx.g.status.status(3, format!("T {:.3?}", el).to_string());
 
         Ok(r)
     }
 
     fn crossterm(
         &mut self,
-        event: &Event,
+        event: &crossterm::event::Event,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<MDAction>, Error> {
         let t0 = SystemTime::now();
 
         let mut r;
         r = match &event {
-            Event::Resize(_, _) => Control::Repaint,
+            ct_event!(resized) => Control::Repaint,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             _ => Control::Continue,
         };
-        or_else!(r, {
-            if ctx.g.error_dlg.borrow().active {
-                ctx.g.error_dlg.borrow_mut().handle(event, Dialog).into()
-            } else {
-                Control::Continue
-            }
-        });
-        or_else!(r, self.filedlg.crossterm(event, ctx)?);
+        or_else!(r, ctx.g.error_dlg.handle(event, Dialog).into());
+        or_else!(r, ctx.g.file_dlg.handle(event)?);
 
         // focus
         let mut focus = self.focus();
@@ -321,23 +354,16 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         or_else!(
             r,
             match self.menu.handle(event, Popup) {
-                MenuOutcome::MenuActivated(0, 0) => self.filedlg.engage(
-                    |w| {
-                        w.open_dialog(".")?;
-                        Ok(Control::Repaint)
-                    },
-                    |p| Ok(Control::Action(MDAction::Open(p))),
-                )?,
-                MenuOutcome::MenuActivated(0, 1) => self.filedlg.engage(
-                    |w| {
-                        w.save_dialog(".", "")?;
-                        Ok(Control::Repaint)
-                    },
-                    |p| Ok(Control::Action(MDAction::Save(p))),
-                )?,
+                MenuOutcome::MenuActivated(0, 0) => Control::Action(MDAction::MenuOpen),
+                MenuOutcome::MenuActivated(0, 1) => Control::Action(MDAction::MenuSave),
+                MenuOutcome::MenuSelected(1, n) => {
+                    ctx.g.theme = dark_themes()[n].clone();
+                    Control::Repaint
+                }
                 r => r.into(),
             }
         );
+
         or_else!(
             r,
             match self.menu.handle(event, Regular) {
@@ -345,15 +371,11 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
                 r => r.into(),
             }
         );
-
         or_else!(r, self.editor.crossterm(event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         debug!("crossterm {:?} {:?}", r, el);
-        ctx.g
-            .status
-            .borrow_mut()
-            .status(2, format!("H {:.3?}", el).to_string());
+        ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
 
         Ok(r)
     }
@@ -368,7 +390,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         let mut r;
         r = match event {
             MDAction::Message(s) => {
-                ctx.g.status.borrow_mut().status(0, &*s);
+                ctx.g.status.status(0, &*s);
                 Control::Repaint
             }
             _ => Control::Continue,
@@ -377,29 +399,23 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         ctx.focus = Some(self.focus());
 
         // TODO: actions
-
         or_else!(r, self.editor.action(event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         debug!("action {:?} {:?}", r, el);
-        ctx.g
-            .status
-            .borrow_mut()
-            .status(3, format!("A {:.3?}", el).to_string());
+        ctx.g.status.status(3, format!("A {:.3?}", el).to_string());
 
         Ok(r)
     }
 
     fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<MDAction>, Error> {
-        ctx.g
-            .error_dlg
-            .borrow_mut()
-            .append(format!("{:?}", &*event).as_str());
+        ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Repaint)
     }
 }
 
 pub mod mdedit {
+    use crate::facilities::Facility;
     use crate::{collect_ast, AppContext, GlobalState, MDAction, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
@@ -414,7 +430,7 @@ pub mod mdedit {
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
+    use ratatui::style::{Modifier, Style, Stylize};
     use ratatui::widgets::StatefulWidget;
     use std::fs;
     use std::time::{Duration, Instant};
@@ -444,6 +460,34 @@ pub mod mdedit {
         }
     }
 
+    impl MDEdit {
+        fn text_style(&self, ctx: &mut RenderContext<'_>) -> [Style; 17] {
+            [
+                Style::default()
+                    .fg(ctx.g.theme.scheme().yellow[2])
+                    .underlined(), // Heading,
+                Style::default().fg(ctx.g.theme.scheme().yellow[1]), // BlockQuote,
+                Style::default().fg(ctx.g.theme.scheme().redpink[2]), // CodeBlock,
+                Style::default().fg(ctx.g.theme.scheme().bluegreen[3]), // FootnodeDefinition
+                Style::default().fg(ctx.g.theme.scheme().bluegreen[2]), // FootnodeReference
+                Style::default().fg(ctx.g.theme.scheme().orange[2]), // Item
+                Style::default()
+                    .fg(ctx.g.theme.scheme().white[3])
+                    .add_modifier(Modifier::ITALIC), // Emphasis
+                Style::default().fg(ctx.g.theme.scheme().white[3]),  // Strong
+                Style::default().fg(ctx.g.theme.scheme().gray[2]),   // Strikethrough
+                Style::default().fg(ctx.g.theme.scheme().bluegreen[2]), // Link
+                Style::default().fg(ctx.g.theme.scheme().bluegreen[2]), // Image
+                Style::default().fg(ctx.g.theme.scheme().orange[1]), // MetadataBlock
+                Style::default().fg(ctx.g.theme.scheme().redpink[2]), // CodeInline
+                Style::default().fg(ctx.g.theme.scheme().redpink[2]), // MathInline
+                Style::default().fg(ctx.g.theme.scheme().redpink[2]), // MathDisplay
+                Style::default().fg(ctx.g.theme.scheme().white[3]),  // Rule
+                Style::default().fg(ctx.g.theme.scheme().orange[2]), // TaskListMarker
+            ]
+        }
+    }
+
     impl AppWidget<GlobalState, MDAction, Error> for MDEdit {
         type State = MDEditState;
 
@@ -458,16 +502,9 @@ pub mod mdedit {
                 .styles(ctx.g.theme.textarea_style())
                 .set_horizontal_max_offset(255)
                 .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
-                .text_style([
-                    Style::default().fg(ctx.g.theme.scheme().green[2]), // EMPHASIS
-                    Style::default()
-                        .fg(ctx.g.theme.scheme().yellow[2])
-                        .underlined(), // HEADER
-                    Style::default().fg(ctx.g.theme.scheme().bluegreen[2]), // LINK
-                    Style::default().fg(ctx.g.theme.scheme().gray[2]),  // CODE
-                ])
+                .text_style(self.text_style(ctx))
                 .render(area, buf, &mut state.edit);
-            ctx.cursor = state.edit.screen_cursor();
+            ctx.set_screen_cursor(state.edit.screen_cursor());
             Ok(())
         }
     }
@@ -475,7 +512,7 @@ pub mod mdedit {
     impl MDEditState {
         pub fn parse_markdown(&mut self) {
             self.edit.clear_styles();
-            let styles = collect_ast(self.edit.value().as_str());
+            let styles = collect_ast(&self.edit);
             for (r, s) in styles {
                 self.edit.add_style(r, s);
             }
@@ -508,15 +545,10 @@ pub mod mdedit {
             flow_ok!(match self.edit.handle(event, Regular) {
                 TextOutcome::TextChanged => {
                     // restart timer
-                    if let Some(h) = self.parse_timer.take() {
-                        ctx.remove_timer(h);
-                    }
-                    // one-shot timer
-                    let h = ctx.add_timer(
+                    self.parse_timer = Some(ctx.replace_timer(
+                        self.parse_timer,
                         TimerDef::new().next(Instant::now() + Duration::from_millis(500)),
-                    );
-                    self.parse_timer = Some(h);
-
+                    ));
                     Control::Repaint
                 }
                 r => r.into(),
@@ -530,8 +562,22 @@ pub mod mdedit {
             ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
         ) -> Result<Control<MDAction>, Error> {
             flow_ok!(match event {
+                MDAction::MenuOpen => ctx.g.file_dlg.engage(
+                    |w| {
+                        w.open_dialog(".")?;
+                        Ok(Control::Repaint)
+                    },
+                    |p| Ok(Control::Action(MDAction::Open(p))),
+                )?,
+                MDAction::MenuSave => ctx.g.file_dlg.engage(
+                    |w| {
+                        w.save_dialog(".", "")?;
+                        Ok(Control::Repaint)
+                    },
+                    |p| Ok(Control::Action(MDAction::Save(p))),
+                )?,
+
                 MDAction::Open(p) => {
-                    debug!("load");
                     let t = fs::read_to_string(p)?;
                     let t = t.replace("\r\n", "\n"); // todo: better?!
                     self.edit.set_value(t.as_str());
@@ -541,9 +587,12 @@ pub mod mdedit {
                     ctx.focus.as_ref().expect("focus").focus(&self.edit);
                     Control::Repaint
                 }
+
                 MDAction::Save(_) => {
+                    // todo:
                     Control::Repaint
                 }
+
                 _ => Control::Continue,
             });
             Ok(Control::Continue)
@@ -551,90 +600,123 @@ pub mod mdedit {
     }
 }
 
-fn tr(pos: &unist::Position) -> TextRange {
-    TextRange::new(
-        (pos.start.column - 1, pos.start.line - 1),
-        (pos.end.column - 1, pos.end.line - 1),
-    )
+enum MDStyle {
+    Heading = 0,
+    BlockQuote,
+    CodeBlock,
+    FootnoteDefinition,
+    FootnoteReference,
+    Item,
+    Emphasis,
+    Strong,
+    Strikethrough,
+    Link,
+    Image,
+    MetadataBlock,
+    CodeInline,
+    MathInline,
+    MathDisplay,
+    Rule,
+    TaskListMarker,
 }
 
-const EMPHASIS: usize = 0;
-const HEADER: usize = 1;
-const LINK: usize = 2;
-const CODE: usize = 3;
-
-fn collect_ast(t: &str) -> Vec<(TextRange, usize)> {
+fn collect_ast(state: &TextAreaState) -> Vec<(TextRange, usize)> {
     let mut styles = Vec::new();
 
-    let ast = to_mdast(t, &ParseOptions::default()).expect("ast");
-    collect_ast_rec(&ast, &mut styles);
+    let txt = state.value();
+
+    let range = |r: Range<usize>| {
+        TextRange::new(
+            state.byte_pos(r.start).expect("pos"),
+            state.byte_pos(r.end).expect("pos"),
+        )
+    };
+
+    let p = Parser::new_ext(
+        txt.as_str(),
+        Options::ENABLE_MATH
+            | Options::ENABLE_TASKLISTS
+            | Options::ENABLE_TABLES
+            | Options::ENABLE_STRIKETHROUGH
+            | Options::ENABLE_SMART_PUNCTUATION
+            | Options::ENABLE_FOOTNOTES
+            | Options::ENABLE_GFM,
+    )
+    .into_offset_iter();
+
+    for (e, r) in p {
+        match e {
+            Event::Start(Tag::Heading { .. }) => {
+                styles.push((range(r), MDStyle::Heading as usize));
+            }
+            Event::Start(Tag::BlockQuote(v)) => {
+                styles.push((range(r), MDStyle::BlockQuote as usize));
+            }
+            Event::Start(Tag::CodeBlock(v)) => {
+                styles.push((range(r), MDStyle::CodeBlock as usize));
+            }
+            Event::Start(Tag::FootnoteDefinition(v)) => {
+                styles.push((range(r), MDStyle::FootnoteDefinition as usize));
+            }
+            Event::Start(Tag::Item) => {
+                // only color the marker
+                let r = if let Some(s) = state.value_range(range(r.clone())) {
+                    let mut n = 0;
+                    for c in s.bytes() {
+                        if c == b' ' {
+                            break;
+                        }
+                        n += 1;
+                    }
+                    range(r.start..r.start + n)
+                } else {
+                    range(r)
+                };
+                styles.push((r, MDStyle::Item as usize));
+            }
+            Event::Start(Tag::Emphasis) => {
+                styles.push((range(r), MDStyle::Emphasis as usize));
+            }
+            Event::Start(Tag::Strong) => {
+                styles.push((range(r), MDStyle::Strong as usize));
+            }
+            Event::Start(Tag::Strikethrough) => {
+                styles.push((range(r), MDStyle::Strikethrough as usize));
+            }
+            Event::Start(Tag::Link { .. }) => {
+                styles.push((range(r), MDStyle::Link as usize));
+            }
+            Event::Start(Tag::Image { .. }) => {
+                styles.push((range(r), MDStyle::Image as usize));
+            }
+            Event::Start(Tag::MetadataBlock { .. }) => {
+                styles.push((range(r), MDStyle::MetadataBlock as usize));
+            }
+
+            Event::Code(v) => {
+                styles.push((range(r), MDStyle::CodeInline as usize));
+            }
+            Event::InlineMath(v) => {
+                styles.push((range(r), MDStyle::MathInline as usize));
+            }
+            Event::DisplayMath(v) => {
+                styles.push((range(r), MDStyle::MathDisplay as usize));
+            }
+            Event::FootnoteReference(v) => {
+                styles.push((range(r), MDStyle::FootnoteReference as usize));
+            }
+            Event::Rule => {
+                styles.push((range(r), MDStyle::Rule as usize));
+            }
+            Event::TaskListMarker(v) => {
+                styles.push((range(r), MDStyle::TaskListMarker as usize));
+            }
+
+            _ => {}
+        }
+    }
 
     styles
-}
-
-fn collect_ast_rec(node: &Node, styles: &mut Vec<(TextRange, usize)>) {
-    match node {
-        Node::Root(_) => {}
-        Node::BlockQuote(_) => {}
-        Node::FootnoteDefinition(_) => {}
-        Node::MdxJsxFlowElement(_) => {}
-        Node::List(_) => {}
-        Node::MdxjsEsm(_) => {}
-        Node::Toml(_) => {}
-        Node::Yaml(_) => {}
-        Node::Break(_) => {}
-        Node::InlineCode(v) => {}
-        Node::InlineMath(v) => {}
-        Node::Delete(v) => {}
-        Node::Emphasis(v) => {
-            if let Some(pos) = &v.position {
-                styles.push((tr(pos), EMPHASIS));
-            }
-        }
-        Node::MdxTextExpression(_) => {}
-        Node::FootnoteReference(_) => {}
-        Node::Html(_) => {}
-        Node::Image(_) => {}
-        Node::ImageReference(_) => {}
-        Node::MdxJsxTextElement(_) => {}
-        Node::Link(v) => {
-            if let Some(pos) = &v.position {
-                styles.push((tr(pos), LINK));
-            }
-        }
-        Node::LinkReference(v) => {
-            if let Some(pos) = &v.position {
-                styles.push((tr(pos), LINK));
-            }
-        }
-        Node::Strong(_) => {}
-        Node::Text(_) => {}
-        Node::Code(v) => {
-            if let Some(pos) = &v.position {
-                styles.push((tr(pos), CODE));
-            }
-        }
-        Node::Math(_) => {}
-        Node::MdxFlowExpression(_) => {}
-        Node::Heading(v) => {
-            if let Some(pos) = &v.position {
-                styles.push((tr(pos), HEADER));
-            }
-        }
-        Node::Table(_) => {}
-        Node::ThematicBreak(_) => {}
-        Node::TableRow(_) => {}
-        Node::TableCell(_) => {}
-        Node::ListItem(_) => {}
-        Node::Definition(_) => {}
-        Node::Paragraph(_) => {}
-    }
-
-    if let Some(children) = node.children() {
-        for c in children {
-            collect_ast_rec(c, styles);
-        }
-    }
 }
 
 fn setup_logging() -> Result<(), Error> {
@@ -645,4 +727,15 @@ fn setup_logging() -> Result<(), Error> {
         .chain(fern::log_file("log.log")?)
         .apply()?;
     Ok(())
+}
+
+fn dark_themes() -> Vec<DarkTheme> {
+    vec![
+        DarkTheme::new("Imperial".to_string(), IMPERIAL),
+        DarkTheme::new("Radium".to_string(), RADIUM),
+        DarkTheme::new("Tundra".to_string(), TUNDRA),
+        DarkTheme::new("Monochrome".to_string(), MONOCHROME),
+        DarkTheme::new("Monekai".to_string(), MONEKAI),
+        DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
+    ]
 }
