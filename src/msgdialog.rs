@@ -4,6 +4,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
+use crate::fill::Fill;
 use crate::layout::layout_dialog;
 use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
 use ratatui::buffer::Buffer;
@@ -11,11 +12,13 @@ use ratatui::layout::{Alignment, Constraint, Flex, Margin, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, StatefulWidgetRef, Widget};
+use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 
 /// Basic status dialog for longer messages.
 #[derive(Debug, Default, Clone)]
-pub struct MsgDialog {
+pub struct MsgDialog<'a> {
+    block: Option<Block<'a>>,
     style: Style,
     button_style: ButtonStyle,
 }
@@ -31,25 +34,34 @@ pub struct MsgDialogStyle {
 /// State for the status dialog.
 #[derive(Debug, Clone)]
 pub struct MsgDialogState {
-    /// Dialog is active.
-    pub active: bool,
     /// Area
     pub area: Rect,
+
+    /// Dialog is active.
+    pub active: Cell<bool>,
     /// Dialog text.
-    pub message: String,
+    pub message: RefCell<String>,
+
     /// Ok button
     pub button: ButtonState,
 
     pub non_exhaustive: NonExhaustive,
 }
 
-impl MsgDialog {
+impl<'a> MsgDialog<'a> {
     /// New widget
     pub fn new() -> Self {
         Self {
+            block: None,
             style: Default::default(),
             button_style: Default::default(),
         }
+    }
+
+    /// Block
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block);
+        self
     }
 
     /// Combined style
@@ -83,34 +95,35 @@ impl Default for MsgDialogStyle {
 }
 
 impl MsgDialogState {
-    pub fn set_active(&mut self, active: bool) {
-        self.active = active;
+    pub fn set_active(&self, active: bool) {
+        self.active.set(active);
     }
 
     pub fn active(&self) -> bool {
-        self.active
+        self.active.get()
     }
 
     /// Clear message text, set active to false.
-    pub fn clear(&mut self) {
-        self.active = false;
-        self.message = Default::default();
+    pub fn clear(&self) {
+        self.active.set(false);
+        *self.message.borrow_mut() = Default::default();
     }
 
     /// *Append* to the message.
-    pub fn append(&mut self, msg: &str) {
-        self.active = true;
-        if !self.message.is_empty() {
-            self.message.push('\n');
+    pub fn append(&self, msg: &str) {
+        self.active.set(true);
+        let mut message = self.message.borrow_mut();
+        if !message.is_empty() {
+            message.push('\n');
         }
-        self.message.push_str(msg);
+        message.push_str(msg);
     }
 }
 
 impl Default for MsgDialogState {
     fn default() -> Self {
         let s = Self {
-            active: false,
+            active: Default::default(),
             area: Default::default(),
             message: Default::default(),
             button: Default::default(),
@@ -121,7 +134,7 @@ impl Default for MsgDialogState {
     }
 }
 
-impl StatefulWidgetRef for MsgDialog {
+impl<'a> StatefulWidgetRef for MsgDialog<'a> {
     type State = MsgDialogState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -129,7 +142,7 @@ impl StatefulWidgetRef for MsgDialog {
     }
 }
 
-impl StatefulWidget for MsgDialog {
+impl<'a> StatefulWidget for MsgDialog<'a> {
     type State = MsgDialogState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -137,8 +150,8 @@ impl StatefulWidget for MsgDialog {
     }
 }
 
-fn render_ref(widget: &MsgDialog, area: Rect, buf: &mut Buffer, state: &mut MsgDialogState) {
-    if state.active {
+fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut MsgDialogState) {
+    if state.active.get() {
         let l_dlg = layout_dialog(
             area,
             Constraint::Percentage(61),
@@ -151,39 +164,33 @@ fn render_ref(widget: &MsgDialog, area: Rect, buf: &mut Buffer, state: &mut MsgD
 
         state.area = l_dlg.area;
 
-        //
-        let block = Block::default().style(widget.style);
+        Fill::default().style(widget.style).render(state.area, buf);
 
-        let mut lines = Vec::new();
-        for t in state.message.split('\n') {
-            lines.push(Line::from(t));
-        }
-        let text = Text::from(lines).alignment(Alignment::Center);
-        let para = Paragraph::new(text);
+        widget.block.render(l_dlg.dialog, buf);
 
-        let ok = Button::from("Ok").styles(widget.button_style.clone());
-
-        for y in l_dlg.dialog.y..l_dlg.dialog.bottom() {
-            let idx = buf.index_of(l_dlg.dialog.x, y);
-            for x in 0..l_dlg.dialog.width as usize {
-                buf.content[idx + x].reset();
-                buf.content[idx + x].set_style(widget.style);
+        {
+            let message = state.message.borrow();
+            let mut lines = Vec::new();
+            for t in message.split('\n') {
+                lines.push(Line::from(t));
             }
+            let text = Text::from(lines).alignment(Alignment::Center);
+            Paragraph::new(text).render(l_dlg.area, buf);
         }
 
-        block.render(l_dlg.dialog, buf);
-        para.render(l_dlg.area, buf);
-        ok.render(l_dlg.buttons[0], buf, &mut state.button);
+        Button::from("Ok")
+            .styles(widget.button_style.clone())
+            .render(l_dlg.buttons[0], buf, &mut state.button);
     }
 }
 
 impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
     fn handle(&mut self, event: &crossterm::event::Event, _: Dialog) -> Outcome {
-        if self.active {
+        if self.active.get() {
             match self.button.handle(event, Regular) {
                 ButtonOutcome::Pressed => {
                     self.clear();
-                    self.active = false;
+                    self.active.set(false);
                     Outcome::Changed
                 }
                 v => v.into(),
@@ -191,7 +198,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
             .or_else(|| match event {
                 ct_event!(keycode press Esc) => {
                     self.clear();
-                    self.active = false;
+                    self.active.set(false);
                     Outcome::Changed
                 }
                 _ => Outcome::NotUsed,
