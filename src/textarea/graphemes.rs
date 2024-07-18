@@ -25,31 +25,41 @@ impl<'a> Debug for GDisplay<'a> {
     }
 }
 
+#[derive(Debug)]
 pub struct GlyphIter<'a> {
     iter: RopeGraphemes<'a>,
     offset: usize,
-    width: usize,
-    tabs: usize,
+    tabs: u16,
     show_ctrl: bool,
     col: usize,
 }
 
 impl<'a> GlyphIter<'a> {
-    pub fn new(
-        slice: RopeSlice<'a>,
-        offset: usize,
-        width: usize,
-        tabs: usize,
-        show_ctrl: bool,
-    ) -> Self {
+    pub fn new(slice: RopeSlice<'a>) -> Self {
         Self {
             iter: RopeGraphemes::new(slice),
-            offset,
-            width,
-            tabs,
-            show_ctrl,
+            offset: 0,
+            tabs: 8,
+            show_ctrl: false,
             col: 0,
         }
+    }
+
+    /// Text offset.
+    /// Iterates only graphemes beyond this offset.
+    /// Might return partial glyphs.
+    pub fn set_offset(&mut self, offset: usize) {
+        self.offset = offset;
+    }
+
+    /// Tab width
+    pub fn set_tabs(&mut self, tabs: u16) {
+        self.tabs = tabs;
+    }
+
+    /// Show ASCII control codes.
+    pub fn set_show_ctrl(&mut self, show_ctrl: bool) {
+        self.show_ctrl = show_ctrl;
     }
 }
 
@@ -73,7 +83,7 @@ impl<'a> Iterator for GlyphIter<'a> {
                     glyph = Cow::Borrowed(if self.show_ctrl { "\u{2424}" } else { "" });
                 }
                 "\t" => {
-                    len = self.tabs - self.col % self.tabs;
+                    len = self.tabs as usize - self.col % self.tabs as usize;
                     glyph = Cow::Borrowed("\u{2409}");
                 }
                 c if ("\x00".."\x20").contains(&c) => {
@@ -101,6 +111,7 @@ impl<'a> Iterator for GlyphIter<'a> {
 
             let next_col = self.col + len;
 
+            // clip left
             if self.col < self.offset {
                 if self.col + len > self.offset {
                     glyph = Cow::Borrowed(" ");
@@ -111,21 +122,12 @@ impl<'a> Iterator for GlyphIter<'a> {
                     // out left
                     self.col = next_col;
                 }
-            } else if self.col < self.offset + self.width {
-                if self.col + len > self.offset + self.width {
-                    len = self.offset + self.width - self.col;
-                    self.col = next_col;
-                    return Some(GDisplay { glyph, len });
-                } else {
-                    self.col = next_col;
-                    return Some(GDisplay { glyph, len });
-                }
             } else {
-                // out right, stop iter
                 self.col = next_col;
-                return None;
+                return Some(GDisplay { glyph, len });
             }
         }
+
         None
     }
 }

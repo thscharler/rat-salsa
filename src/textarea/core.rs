@@ -1,4 +1,4 @@
-use crate::textarea::graphemes::{rope_len, RopeGraphemesIdx};
+use crate::textarea::graphemes::{rope_len, GlyphIter, RopeGraphemesIdx};
 #[allow(unused_imports)]
 use log::debug;
 use ropey::iter::Lines;
@@ -538,12 +538,21 @@ impl InputCore {
         self.styles.styles_at(pos, result)
     }
 
+    /// Iterator for the glyphs of a given line.
+    pub fn glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
+        let mut lines = self.value.get_lines_at(n)?;
+        if let Some(line) = lines.next() {
+            Some(GlyphIter::new(line))
+        } else {
+            Some(GlyphIter::new(RopeSlice::from("")))
+        }
+    }
+
     /// Returns a line as an iterator over the graphemes for the line.
     /// This contains the \n at the end.
     pub fn line(&self, n: usize) -> Option<RopeGraphemes<'_>> {
         let mut lines = self.value.get_lines_at(n)?;
-        let line = lines.next();
-        if let Some(line) = line {
+        if let Some(line) = lines.next() {
             Some(RopeGraphemes::new(line))
         } else {
             Some(RopeGraphemes::new(RopeSlice::from("")))

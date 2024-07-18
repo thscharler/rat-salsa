@@ -5,7 +5,7 @@ use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::fill::Fill;
 use crate::textarea::core::{RopeGraphemes, TextRange};
-use crate::textarea::graphemes::{GDisplay, GlyphIter};
+use crate::textarea::graphemes::GlyphIter;
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
@@ -20,11 +20,8 @@ use ratatui::prelude::Stylize;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
 use ropey::{Rope, RopeSlice};
-use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::fmt::{Debug, Formatter};
-use std::mem::size_of;
-use std::time::{Duration, SystemTime};
+use std::fmt::Debug;
 
 /// Core functions for text-editing.
 pub mod core;
@@ -270,14 +267,12 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
         if let Some(line) = line_iter.next() {
             let mut col = 0u16;
 
-            let mut glyph_iter = GlyphIter::new(
-                line,
-                state.hscroll.offset,
-                area.width as usize,
-                8,
-                widget.show_ctrl,
-            );
-            for d in glyph_iter {
+            let mut glyph_iter = GlyphIter::new(line);
+            glyph_iter.set_offset(state.hscroll.offset);
+            glyph_iter.set_tabs(8);
+            glyph_iter.set_show_ctrl(widget.show_ctrl);
+
+            'line: for d in glyph_iter {
                 // text-index
                 let tx = ox + col as usize;
 
@@ -300,13 +295,17 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                     cell.set_symbol(d.glyph.as_ref());
                     cell.set_style(style);
                     col += 1;
+                    if col >= area.width {
+                        break 'line;
+                    }
 
                     for _ in 1..d.len {
                         let cell = buf.get_mut(area.x + col, area.y + row);
-                        cell.reset();
-                        // cell.set_symbol(d.fill.as_ref());
-                        // cell.set_style(style);
+                        cell.set_symbol(" ");
                         col += 1;
+                        if col >= area.width {
+                            break 'line;
+                        }
                     }
                 }
             }
@@ -476,6 +475,13 @@ impl TextAreaState {
     #[inline]
     pub fn line(&self, n: usize) -> Option<RopeGraphemes<'_>> {
         self.value.line(n)
+    }
+
+    /// Iterator for the glyphs of a given line.
+    /// A glyph here is a grapheme + a display width.
+    /// This covers multi-column graphemes as well as tabs (with varying width).
+    pub fn glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
+        self.value.glyphs(n)
     }
 
     /// Has a selection?
@@ -892,19 +898,16 @@ impl TextAreaState {
         let (mut cx, cy) = (0usize, row);
         let (ox, _oy) = self.offset();
 
-        let line = self.line(cy)?;
-        let mut test = 0;
-        for c in line.skip(ox).filter(|v| v != "\n" && v != "\r\n") {
-            if test >= x {
+        let mut line = self.glyphs(cy)?;
+        line.set_offset(ox);
+        line.set_tabs(8);
+
+        let mut sx = 0;
+        for g in line {
+            if x >= sx && x < sx + g.len {
                 break;
             }
-
-            test += if let Some(c) = c.as_str() {
-                unicode_display_width::width(c) as usize
-            } else {
-                unicode_display_width::width(c.to_string().as_str()) as usize
-            };
-
+            sx += g.len;
             cx += 1;
         }
 
@@ -917,19 +920,11 @@ impl TextAreaState {
         let (px, py) = pos;
         let (ox, _oy) = self.offset();
 
-        let mut sx = 0;
-        let line = self.line(py)?;
-        for c in line
-            .skip(ox)
-            .filter(|v| v != "\n" && v != "\r\n")
-            .take(px - ox)
-        {
-            sx += if let Some(c) = c.as_str() {
-                unicode_display_width::width(c) as usize
-            } else {
-                unicode_display_width::width(c.to_string().as_str()) as usize
-            };
-        }
+        let mut line = self.glyphs(py)?;
+        line.set_offset(ox);
+        line.set_tabs(8);
+
+        let sx = line.take(px - ox).map(|v| v.len).sum::<usize>();
 
         Some(sx as u16)
     }
