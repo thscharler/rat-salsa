@@ -12,10 +12,15 @@ use std::slice::IterMut;
 pub use crate::textarea::graphemes::RopeGraphemes;
 
 /// Core for text editing.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct InputCore {
+    /// Rope for text storage.
     value: Rope,
+    /// Styles.
     styles: StyleMap,
+
+    /// Line-break chars.
+    line_break: String,
 
     /// Secondary column, remembered for moving up/down.
     move_col: Option<usize>,
@@ -120,7 +125,7 @@ impl TextRange {
 
         Ordering::Less
 
-        // SURPRISE: contrary to ordering_inclusive the below
+        // SURPRISE: contrary to ordering_inclusive the code below
         //           takes the same time as the above in debug mode.
 
         // // reverse the args, then tuple cmp it works.
@@ -382,29 +387,23 @@ impl<'a> Iterator for ScrolledIter<'a> {
     }
 }
 
+impl Default for InputCore {
+    fn default() -> Self {
+        Self {
+            value: Default::default(),
+            styles: Default::default(),
+            line_break: "\n".to_string(),
+            move_col: None,
+            cursor: (0, 0),
+            anchor: (0, 0),
+        }
+    }
+}
+
 impl InputCore {
     pub fn new() -> Self {
         Self::default()
     }
-
-    // /// Set the text offset as (col,row).
-    // pub fn set_offset(&mut self, mut offset: (usize, usize)) -> bool {
-    //     let old_offset = self.offset;
-    //
-    //     let (ox, oy) = offset;
-    //     let oy = min(oy, self.len_lines() - 1);
-    //     offset = (ox, oy);
-    //
-    //     self.offset = offset;
-    //
-    //     self.offset != old_offset
-    // }
-    //
-    // /// Text offset as (col,row)
-    // #[inline]
-    // pub fn offset(&self) -> (usize, usize) {
-    //     self.offset
-    // }
 
     /// Extra column information for cursor movement.
     /// The cursor position is capped to the current line length, so if you
@@ -456,14 +455,18 @@ impl InputCore {
         self.anchor
     }
 
+    /// Sets the line-break to be used for insert.
+    /// There is no auto-detection or conversion when setting
+    /// the value.
+    #[inline]
+    pub fn set_line_break(&mut self, br: String) {
+        self.line_break = br;
+    }
+
     /// Set the text.
     /// Resets the selection and any styles.
     pub fn set_value<S: AsRef<str>>(&mut self, s: S) {
-        self.value = Rope::from_str(s.as_ref());
-        self.cursor = (0, 0);
-        self.anchor = (0, 0);
-        self.move_col = None;
-        self.styles.clear_styles();
+        self.set_value_rope(Rope::from_str(s.as_ref()));
     }
 
     /// Set the text value as a Rope.
@@ -649,6 +652,12 @@ impl InputCore {
         }
     }
 
+    /// Iterate over text-lines, starting at offset.
+    #[inline]
+    pub fn iter_lines(&self, line_offset: usize) -> Lines<'_> {
+        self.value.lines_at(line_offset)
+    }
+
     /// Iterate over the text, shifted by the offset.
     #[inline]
     pub fn iter_scrolled(&self, offset: (usize, usize)) -> ScrolledIter<'_> {
@@ -823,13 +832,15 @@ impl InputCore {
         self.cursor = insert.expand(self.cursor);
     }
 
+    // todo: insert_str
+
     /// Insert a line break.
     pub fn insert_newline(&mut self, pos: (usize, usize)) {
         let Some(char_pos) = self.char_at(pos) else {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
         };
 
-        self.value.insert_char(char_pos, '\n');
+        self.value.insert(char_pos, &self.line_break);
 
         let insert = TextRange::new((pos.0, pos.1), (0, pos.1 + 1));
 

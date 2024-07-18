@@ -4,6 +4,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::textarea::core::{RopeGraphemes, TextRange};
+use crate::textarea::graphemes::{rope_display, GDisplay};
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
@@ -18,7 +19,11 @@ use ratatui::prelude::Stylize;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, WidgetRef};
 use ropey::{Rope, RopeSlice};
+use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::fmt::{Debug, Formatter};
+use std::mem::size_of;
+use std::time::{Duration, SystemTime};
 
 /// Core functions for text-editing.
 pub mod core;
@@ -66,6 +71,8 @@ pub struct TextArea<'a> {
     hscroll: Option<Scroll<'a>>,
     h_max_offset: Option<usize>,
     vscroll: Option<Scroll<'a>>,
+
+    show_ctrl: bool,
 
     style: Style,
     focus_style: Option<Style>,
@@ -188,6 +195,12 @@ impl<'a> TextArea<'a> {
         self.vscroll = Some(scroll.override_vertical());
         self
     }
+
+    /// Show control characters
+    pub fn show_ctrl(mut self, show: bool) -> Self {
+        self.show_ctrl = show;
+        self
+    }
 }
 
 impl<'a> StatefulWidgetRef for TextArea<'a> {
@@ -247,69 +260,74 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     let selection = state.selection();
     let mut styles = Vec::new();
 
-    let mut line_iter = state
-        .value
-        .iter_scrolled((state.hscroll.offset(), state.vscroll.offset()));
+    let mut line_iter = state.value.iter_lines(state.vscroll.offset());
+    let mut line_buf = Vec::new();
+    let (ox, oy) = state.offset();
     for row in 0..area.height {
-        if let Some(mut line) = line_iter.next() {
-            let mut col = 0;
-            let mut cx = 0;
-            loop {
-                if col >= area.width {
-                    break;
-                }
+        // text-index
+        let ty = oy + row as usize;
 
-                let tmp_str;
-                let ch = if let Some(ch) = line.next() {
-                    if let Some(ch) = ch.as_str() {
-                        // filter control characters
-                        let c0 = ch.chars().next();
-                        if c0 >= Some('\x20') {
-                            ch
-                        } else {
-                            "\u{FFFD}"
-                        }
-                    } else {
-                        tmp_str = ch.to_string();
-                        tmp_str.as_str()
+        if let Some(line) = line_iter.next() {
+            let t0 = SystemTime::now();
+            rope_display(
+                line,
+                state.hscroll.offset,
+                area.width,
+                8,
+                widget.show_ctrl,
+                &mut line_buf,
+            );
+            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            debug!("rope_display {:?}", el);
+
+            let mut col = 0u16;
+            for d in line_buf.drain(..) {
+                // text-index
+                let tx = ox + col as usize;
+
+                if d.len > 0 {
+                    let mut style = style;
+                    // text-styles
+                    state.styles_at((tx, ty), &mut styles);
+                    for idx in styles.iter().copied() {
+                        let Some(s) = widget.text_style.get(idx) else {
+                            panic!("invalid style nr: {}", idx);
+                        };
+                        style = style.patch(*s);
                     }
-                } else {
-                    " "
-                };
+                    // selection
+                    if selection.contains((tx, ty)) {
+                        style = style.patch(select_style);
+                    };
 
-                // text based
-                let (ox, oy) = state.offset();
-                let tx = cx as usize + ox;
-                let ty = row as usize + oy;
+                    let cell = buf.get_mut(area.x + col, area.y + row);
+                    cell.set_symbol(d.glyph.as_ref());
+                    cell.set_style(style);
+                    col += 1;
+
+                    for _ in 1..d.len {
+                        let cell = buf.get_mut(area.x + col, area.y + row);
+                        cell.reset();
+                        // cell.set_symbol(d.fill.as_ref());
+                        // cell.set_style(style);
+                        col += 1;
+                    }
+                }
+            }
+
+            for col in col..area.width {
+                // text-index
+                let tx = ox + col as usize;
 
                 let mut style = style;
-                // text-styles
-                state.styles_at((tx, ty), &mut styles);
-                for idx in styles.iter().copied() {
-                    let Some(s) = widget.text_style.get(idx) else {
-                        panic!("invalid style nr: {}", idx);
-                    };
-                    style = style.patch(*s);
-                }
                 // selection
                 if selection.contains((tx, ty)) {
                     style = style.patch(select_style);
                 };
 
                 let cell = buf.get_mut(area.x + col, area.y + row);
-                cell.set_symbol(ch);
+                cell.set_symbol(" ");
                 cell.set_style(style);
-
-                // extra cells for wide chars.
-                let ww = unicode_display_width::width(ch) as u16;
-                for x in 1..ww {
-                    let cell = buf.get_mut(area.x + col + x, area.y + row);
-                    cell.set_symbol(" ");
-                    cell.set_style(style);
-                }
-
-                col += max(ww, 1);
-                cx += 1;
             }
         } else {
             for col in 0..area.width {
@@ -427,6 +445,17 @@ impl TextAreaState {
     pub fn value_as_chars(&self) -> ropey::iter::Chars<'_> {
         self.value.value_as_chars()
     }
+
+    /// Sets the line-break to be used for insert.
+    /// There is no auto-detection or conversion when setting
+    /// the value.
+    #[inline]
+    pub fn set_line_break(&mut self, br: String) {
+        self.value.set_line_break(br);
+    }
+
+    /// Set tab-width.
+    // TODO
 
     /// Set the text value.
     /// Resets all internal state.
@@ -561,6 +590,8 @@ impl TextAreaState {
         self.scroll_cursor_to_visible();
         true
     }
+
+    // todo: insert_str
 
     /// Insert a line break at the cursor position.
     pub fn insert_newline(&mut self) -> bool {
@@ -887,7 +918,7 @@ impl TextAreaState {
 
         let line = self.line(cy)?;
         let mut test = 0;
-        for c in line.skip(ox).filter(|v| v != "\n") {
+        for c in line.skip(ox).filter(|v| v != "\n" && v != "\r\n") {
             if test >= x {
                 break;
             }
@@ -912,7 +943,11 @@ impl TextAreaState {
 
         let mut sx = 0;
         let line = self.line(py)?;
-        for c in line.skip(ox).filter(|v| v != "\n").take(px - ox) {
+        for c in line
+            .skip(ox)
+            .filter(|v| v != "\n" && v != "\r\n")
+            .take(px - ox)
+        {
             sx += if let Some(c) = c.as_str() {
                 unicode_display_width::width(c) as usize
             } else {
