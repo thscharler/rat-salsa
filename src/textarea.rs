@@ -3,8 +3,9 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
+use crate::fill::Fill;
 use crate::textarea::core::{RopeGraphemes, TextRange};
-use crate::textarea::graphemes::{rope_display, GDisplay};
+use crate::textarea::graphemes::{GDisplay, GlyphIter};
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
@@ -17,7 +18,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Stylize;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cmp::{max, min};
@@ -255,33 +256,28 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     };
     let style = widget.style;
 
-    buf.set_style(area, style);
+    Fill::new().style(style).render(area, buf);
 
     let selection = state.selection();
     let mut styles = Vec::new();
 
     let mut line_iter = state.value.iter_lines(state.vscroll.offset());
-    let mut line_buf = Vec::new();
     let (ox, oy) = state.offset();
     for row in 0..area.height {
         // text-index
         let ty = oy + row as usize;
 
         if let Some(line) = line_iter.next() {
-            let t0 = SystemTime::now();
-            rope_display(
+            let mut col = 0u16;
+
+            let mut glyph_iter = GlyphIter::new(
                 line,
                 state.hscroll.offset,
-                area.width,
+                area.width as usize,
                 8,
                 widget.show_ctrl,
-                &mut line_buf,
             );
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            debug!("rope_display {:?}", el);
-
-            let mut col = 0u16;
-            for d in line_buf.drain(..) {
+            for d in glyph_iter {
                 // text-index
                 let tx = ox + col as usize;
 
@@ -313,26 +309,6 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                         col += 1;
                     }
                 }
-            }
-
-            for col in col..area.width {
-                // text-index
-                let tx = ox + col as usize;
-
-                let mut style = style;
-                // selection
-                if selection.contains((tx, ty)) {
-                    style = style.patch(select_style);
-                };
-
-                let cell = buf.get_mut(area.x + col, area.y + row);
-                cell.set_symbol(" ");
-                cell.set_style(style);
-            }
-        } else {
-            for col in 0..area.width {
-                let cell = buf.get_mut(area.x + col, area.y + row);
-                cell.set_symbol(" ");
             }
         }
     }

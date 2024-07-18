@@ -25,84 +25,108 @@ impl<'a> Debug for GDisplay<'a> {
     }
 }
 
-/// Create the display line.
-pub fn rope_display<'a>(
-    slice: RopeSlice<'a>,
+pub struct GlyphIter<'a> {
+    iter: RopeGraphemes<'a>,
     offset: usize,
-    width: u16,
-    tabs: u16,
+    width: usize,
+    tabs: usize,
     show_ctrl: bool,
-    line: &mut Vec<GDisplay<'a>>,
-) {
-    let width = width as usize;
-    line.clear();
+    col: usize,
+}
 
-    let iter = RopeGraphemes::new(slice);
+impl<'a> GlyphIter<'a> {
+    pub fn new(
+        slice: RopeSlice<'a>,
+        offset: usize,
+        width: usize,
+        tabs: usize,
+        show_ctrl: bool,
+    ) -> Self {
+        Self {
+            iter: RopeGraphemes::new(slice),
+            offset,
+            width,
+            tabs,
+            show_ctrl,
+            col: 0,
+        }
+    }
+}
 
-    let mut col: usize = 0;
-    for g in iter {
-        let g = if let Some(g) = g.as_str() {
-            Cow::Borrowed(g)
-        } else {
-            Cow::Owned(g.chars().collect::<String>())
-        };
+impl<'a> Iterator for GlyphIter<'a> {
+    type Item = GDisplay<'a>;
 
-        let mut glyph;
-        let mut len: usize;
+    fn next(&mut self) -> Option<Self::Item> {
+        while let Some(g) = self.iter.next() {
+            let g = if let Some(g) = g.as_str() {
+                Cow::Borrowed(g)
+            } else {
+                Cow::Owned(g.chars().collect::<String>())
+            };
 
-        match g.as_ref() {
-            "\n" | "\r\n" => {
-                len = if show_ctrl { 1 } else { 0 };
-                glyph = Cow::Borrowed(if show_ctrl { "\u{2424}" } else { "" });
+            let mut glyph;
+            let mut len: usize;
+
+            match g.as_ref() {
+                "\n" | "\r\n" => {
+                    len = if self.show_ctrl { 1 } else { 0 };
+                    glyph = Cow::Borrowed(if self.show_ctrl { "\u{2424}" } else { "" });
+                }
+                "\t" => {
+                    len = self.tabs - self.col % self.tabs;
+                    glyph = Cow::Borrowed("\u{2409}");
+                }
+                c if ("\x00".."\x20").contains(&c) => {
+                    static CCHAR: [&str; 32] = [
+                        "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}",
+                        "\u{2406}", "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}",
+                        "\u{240C}", "\u{240D}", "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}",
+                        "\u{2412}", "\u{2413}", "\u{2414}", "\u{2415}", "\u{2416}", "\u{2417}",
+                        "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}", "\u{241C}", "\u{241D}",
+                        "\u{241E}", "\u{241F}",
+                    ];
+                    let c0 = c.bytes().next().expect("byte");
+                    len = 1;
+                    glyph = Cow::Borrowed(if self.show_ctrl {
+                        &CCHAR[c0 as usize]
+                    } else {
+                        "\u{FFFD}"
+                    });
+                }
+                c => {
+                    len = unicode_display_width::width(c) as usize;
+                    glyph = g;
+                }
             }
-            "\t" => {
-                len = tabs as usize - col % tabs as usize;
-                glyph = Cow::Borrowed("\u{2409}");
-            }
-            c if ("\x00".."\x20").contains(&c) => {
-                static CCHAR: [&str; 32] = [
-                    "\u{2400}", "\u{2401}", "\u{2402}", "\u{2403}", "\u{2404}", "\u{2405}",
-                    "\u{2406}", "\u{2407}", "\u{2408}", "\u{2409}", "\u{240A}", "\u{240B}",
-                    "\u{240C}", "\u{240D}", "\u{240E}", "\u{240F}", "\u{2410}", "\u{2411}",
-                    "\u{2412}", "\u{2413}", "\u{2414}", "\u{2415}", "\u{2416}", "\u{2417}",
-                    "\u{2418}", "\u{2419}", "\u{241A}", "\u{241B}", "\u{241C}", "\u{241D}",
-                    "\u{241E}", "\u{241F}",
-                ];
-                let c0 = c.bytes().next().expect("byte");
-                len = 1;
-                glyph = Cow::Borrowed(if show_ctrl {
-                    &CCHAR[c0 as usize]
+
+            let next_col = self.col + len;
+
+            if self.col < self.offset {
+                if self.col + len > self.offset {
+                    glyph = Cow::Borrowed(" ");
+                    len = self.offset - self.col;
+                    self.col = next_col;
+                    return Some(GDisplay { glyph, len });
                 } else {
-                    "\u{FFFD}"
-                });
-            }
-            c => {
-                len = unicode_display_width::width(c) as usize;
-                glyph = g;
+                    // out left
+                    self.col = next_col;
+                }
+            } else if self.col < self.offset + self.width {
+                if self.col + len > self.offset + self.width {
+                    len = self.offset + self.width - self.col;
+                    self.col = next_col;
+                    return Some(GDisplay { glyph, len });
+                } else {
+                    self.col = next_col;
+                    return Some(GDisplay { glyph, len });
+                }
+            } else {
+                // out right, stop iter
+                self.col = next_col;
+                return None;
             }
         }
-
-        if col < offset {
-            if col + len > offset {
-                glyph = Cow::Borrowed(" ");
-                len = offset - col;
-            } else {
-                // noop
-            }
-        } else if col < offset + width {
-            if col + len > offset + width {
-                len = offset + width - col;
-            } else {
-                // fine
-            }
-        } else {
-            // can stop
-            break;
-        }
-
-        line.push(GDisplay { glyph, len });
-
-        col += len;
+        None
     }
 }
 
