@@ -281,8 +281,8 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        debug!("render {:?} {:?}", (), el);
-        ctx.g.status.status(1, format!("R {:.3?}", el).to_string());
+        // debug!("render {:?} {:?}", (), el);
+        ctx.g.status.status(2, format!("R {:.3?}", el).to_string());
 
         let status = StatusLine::new()
             .layout([
@@ -323,7 +323,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         let r = self.editor.timer(event, ctx)?;
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        debug!("timer {:?} {:?}", r, el);
+        // debug!("timer {:?} {:?}", r, el);
         ctx.g.status.status(3, format!("T {:.3?}", el).to_string());
 
         Ok(r)
@@ -374,8 +374,8 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         or_else!(r, self.editor.crossterm(event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        debug!("crossterm {:?} {:?}", r, el);
-        ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
+        // debug!("crossterm {:?} {:?}", r, el);
+        ctx.g.status.status(3, format!("H {:.3?}", el).to_string());
 
         Ok(r)
     }
@@ -402,7 +402,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         or_else!(r, self.editor.action(event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        debug!("action {:?} {:?}", r, el);
+        // debug!("action {:?} {:?}", r, el);
         ctx.g.status.status(3, format!("A {:.3?}", el).to_string());
 
         Ok(r)
@@ -502,17 +502,30 @@ pub mod mdedit {
                 .styles(ctx.g.theme.textarea_style())
                 .set_horizontal_max_offset(255)
                 .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
+                // .show_ctrl(true)
                 .text_style(self.text_style(ctx))
                 .render(area, buf, &mut state.edit);
             ctx.set_screen_cursor(state.edit.screen_cursor());
+
+            let cursor = state.edit.cursor();
+            ctx.g.status.status(
+                1,
+                format!(
+                    "{}|{}+{}",
+                    cursor.0,
+                    cursor.1,
+                    state.edit.line_width(cursor.1).unwrap_or_default()
+                ),
+            );
+
             Ok(())
         }
     }
 
     impl MDEditState {
         pub fn parse_markdown(&mut self) {
-            self.edit.clear_styles();
             let styles = collect_ast(&self.edit);
+            self.edit.clear_styles();
             for (r, s) in styles {
                 self.edit.add_style(r, s);
             }
@@ -579,7 +592,6 @@ pub mod mdedit {
 
                 MDAction::Open(p) => {
                     let t = fs::read_to_string(p)?;
-                    let t = t.replace("\r\n", "\n"); // todo: better?!
                     self.edit.set_value(t.as_str());
                     self.parse_timer = Some(ctx.add_timer(
                         TimerDef::new().next(Instant::now() + Duration::from_millis(100)),
