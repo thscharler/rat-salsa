@@ -68,7 +68,7 @@ fn repaint_input(
         .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
         .scroll(Scroll::new().style(Style::default().gray().on_dark_gray()))
         .set_horizontal_max_offset(256)
-        .style(Style::default().black().on_dark_gray())
+        .style(Style::default().white().on_dark_gray())
         .select_style(Style::default().black().on_yellow())
         .text_style([
             Style::new().red(),
