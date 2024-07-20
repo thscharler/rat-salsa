@@ -3,11 +3,11 @@ use crate::text::graphemes::{
 };
 #[allow(unused_imports)]
 use log::debug;
-use ropey::iter::{Bytes, Lines};
 use ropey::{Rope, RopeSlice};
 use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Formatter};
 use std::mem;
+use std::ops::RangeBounds;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Core for text editing.
@@ -19,7 +19,9 @@ pub struct TextAreaCore {
     styles: StyleMap,
 
     /// Line-break chars.
-    line_break: String,
+    newline: String,
+    /// Tab width.
+    tabs: u16,
 
     /// Secondary column, remembered for moving up/down.
     move_col: Option<usize>,
@@ -32,7 +34,9 @@ pub struct TextAreaCore {
 /// Range for text ranges.
 #[derive(Default, PartialEq, Eq, Clone, Copy)]
 pub struct TextRange {
+    /// column, row
     pub start: (usize, usize),
+    /// column, row
     pub end: (usize, usize),
 }
 
@@ -40,6 +44,13 @@ pub struct TextRange {
 struct StyleMap {
     /// Vec of (range, style-idx)
     styles: Vec<(TextRange, usize)>,
+}
+
+#[derive(Debug, Clone)]
+struct StyleMapIter<'a> {
+    styles: &'a [(TextRange, usize)],
+    filter_pos: (usize, usize),
+    idx: usize,
 }
 
 impl Debug for TextRange {
@@ -291,6 +302,55 @@ impl Ord for TextRange {
     }
 }
 
+impl<'a> StyleMapIter<'a> {
+    fn new(styles: &'a [(TextRange, usize)], pos: (usize, usize)) -> Self {
+        match styles.binary_search_by(|v| v.0.ordering(pos)) {
+            Ok(mut i) => {
+                // binary-search found *some* matching style, we need all of them.
+                // this finds the first one.
+                loop {
+                    if i == 0 {
+                        break;
+                    }
+                    if !styles[i - 1].0.contains(pos) {
+                        break;
+                    }
+                    i -= 1;
+                }
+
+                Self {
+                    styles,
+                    filter_pos: pos,
+                    idx: i,
+                }
+            }
+            Err(_) => Self {
+                styles,
+                filter_pos: pos,
+                idx: styles.len(),
+            },
+        }
+    }
+}
+
+impl<'a> Iterator for StyleMapIter<'a> {
+    type Item = usize;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let idx = self.idx;
+        if idx < self.styles.len() {
+            if self.styles[idx].0.contains(self.filter_pos) {
+                self.idx += 1;
+                Some(self.styles[idx].1)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+}
+
 impl StyleMap {
     /// Remove all styles.
     pub(crate) fn clear_styles(&mut self) {
@@ -309,6 +369,21 @@ impl StyleMap {
             }
             Err(idx) => {
                 self.styles.insert(idx, stylemap);
+            }
+        }
+    }
+
+    /// Remove a text-style for a range.
+    ///
+    /// This must match exactly in range and style to be removed.
+    pub(crate) fn remove_style(&mut self, range: TextRange, style: usize) {
+        let stylemap = (range, style);
+        match self.styles.binary_search(&stylemap) {
+            Ok(idx) => {
+                self.styles.remove(idx);
+            }
+            Err(_) => {
+                // noop
             }
         }
     }
@@ -340,33 +415,8 @@ impl StyleMap {
     }
 
     /// Find all styles that touch the given position.
-    pub(crate) fn styles_at(&self, pos: (usize, usize), result: &mut Vec<usize>) {
-        match self.styles.binary_search_by(|v| v.0.ordering(pos)) {
-            Ok(mut i) => {
-                // binary-search found *some* matching style, we need all of them.
-                // this finds the first one.
-                loop {
-                    if i == 0 {
-                        break;
-                    }
-                    if !self.styles[i - 1].0.contains(pos) {
-                        break;
-                    }
-                    i -= 1;
-                }
-
-                // collect all matching styles.
-                result.clear();
-                for i in i..self.styles.len() {
-                    if self.styles[i].0.contains(pos) {
-                        result.push(self.styles[i].1);
-                    } else {
-                        break;
-                    }
-                }
-            }
-            Err(_) => result.clear(),
-        }
+    pub(crate) fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
+        StyleMapIter::new(&self.styles, pos)
     }
 }
 
@@ -375,7 +425,8 @@ impl Default for TextAreaCore {
         Self {
             value: Default::default(),
             styles: Default::default(),
-            line_break: "\n".to_string(),
+            newline: "\n".to_string(),
+            tabs: 8,
             move_col: None,
             cursor: (0, 0),
             anchor: (0, 0),
@@ -445,25 +496,33 @@ impl TextAreaCore {
     /// Caution: If this doesn't match the line ending used in the value, you
     /// will get a value with mixed line endings.
     #[inline]
-    pub fn set_line_break(&mut self, br: String) {
-        self.line_break = br;
+    pub fn set_newline(&mut self, br: String) {
+        self.newline = br;
+    }
+
+    /// Line ending used for insert.
+    #[inline]
+    pub fn newline(&self) -> &str {
+        &self.newline
+    }
+
+    /// Set the tab-width.
+    /// Default is 8.
+    #[inline]
+    pub fn set_tab_width(&mut self, tabs: u16) {
+        self.tabs = tabs;
+    }
+
+    /// Tab-width
+    #[inline]
+    pub fn tab_width(&self) -> u16 {
+        self.tabs
     }
 
     /// Set the text.
     /// Resets the selection and any styles.
     pub fn set_value<S: AsRef<str>>(&mut self, s: S) {
-        self.set_value_rope(Rope::from_str(s.as_ref()));
-    }
-
-    /// Set the text value as a Rope.
-    /// Resets the selection and any styles.
-    #[inline]
-    pub fn set_value_rope(&mut self, s: Rope) {
-        self.value = s;
-        self.cursor = (0, 0);
-        self.anchor = (0, 0);
-        self.move_col = None;
-        self.styles.clear_styles();
+        self.set_rope(Rope::from_str(s.as_ref()));
     }
 
     /// Copy of the text value.
@@ -472,28 +531,53 @@ impl TextAreaCore {
         String::from(&self.value)
     }
 
+    /// Set the text value as a Rope.
+    /// Resets the selection and any styles.
+    #[inline]
+    pub fn set_rope(&mut self, s: Rope) {
+        self.value = s;
+        self.cursor = (0, 0);
+        self.anchor = (0, 0);
+        self.move_col = None;
+        self.styles.clear_styles();
+    }
+
     /// Access the underlying Rope with the text value.
     #[inline]
-    pub fn value_rope(&self) -> &Rope {
+    pub fn rope(&self) -> &Rope {
         &self.value
     }
 
     /// A range of the text as RopeSlice.
-    pub fn value_range(&self, range: TextRange) -> Option<RopeSlice<'_>> {
+    pub fn text_slice(&self, range: TextRange) -> Option<RopeSlice<'_>> {
         let s = self.char_at(range.start)?;
         let e = self.char_at(range.end)?;
         Some(self.value.slice(s..e))
     }
 
     /// Value as Bytes iterator.
-    pub fn value_as_bytes(&self) -> ropey::iter::Bytes<'_> {
-        // todo
+    pub fn byte_slice<R>(&self, byte_range: R) -> RopeSlice<'_>
+    where
+        R: RangeBounds<usize>,
+    {
+        self.value.byte_slice(byte_range)
+    }
+
+    /// Value as Bytes iterator.
+    pub fn bytes(&self) -> impl Iterator<Item = u8> + '_ {
         self.value.bytes()
     }
 
     /// Value as Chars iterator.
-    pub fn value_as_chars(&self) -> ropey::iter::Chars<'_> {
-        // todo
+    pub fn char_slice<R>(&self, char_range: R) -> RopeSlice<'_>
+    where
+        R: RangeBounds<usize>,
+    {
+        self.value.slice(char_range)
+    }
+
+    /// Value as Chars iterator.
+    pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
         self.value.chars()
     }
 
@@ -512,6 +596,14 @@ impl TextAreaCore {
         self.styles.add_style(range, style);
     }
 
+    /// Remove a style for the given range.
+    ///
+    /// Range and style must match to be removed.
+    #[inline]
+    pub fn remove_style(&mut self, range: TextRange, style: usize) {
+        self.styles.remove_style(range, style);
+    }
+
     /// Style map.
     #[inline]
     pub fn styles(&self) -> &[(TextRange, usize)] {
@@ -519,29 +611,32 @@ impl TextAreaCore {
     }
 
     /// Finds all styles for the given position.
-    ///
-    /// Returns the indexes into the style vec.
     #[inline]
-    pub fn styles_at(&self, pos: (usize, usize), result: &mut Vec<usize>) {
-        self.styles.styles_at(pos, result)
+    pub fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
+        self.styles.styles_at(pos)
+    }
+
+    /// Line as RopeSlice
+    #[inline]
+    pub fn line_at(&self, n: usize) -> Option<RopeSlice<'_>> {
+        self.value.get_line(n)
+    }
+
+    /// Iterate over text-lines, starting at offset.
+    #[inline]
+    pub fn lines_at(&self, line_offset: usize) -> impl Iterator<Item = RopeSlice<'_>> {
+        self.value.lines_at(line_offset)
     }
 
     /// Iterator for the glyphs of a given line.
-    /// Glyphs here a graphem + display length.
+    /// Glyphs here a grapheme + display length.
+    #[inline]
     pub fn line_glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
         let mut lines = self.value.get_lines_at(n)?;
         if let Some(line) = lines.next() {
-            Some(GlyphIter::new(line))
-        } else {
-            None
-        }
-    }
-
-    /// Iterator for the bytes of a given line.
-    pub fn line_bytes(&self, n: usize) -> Option<Bytes> {
-        let mut lines = self.value.get_lines_at(n)?;
-        if let Some(line) = lines.next() {
-            Some(line.bytes())
+            let mut it = GlyphIter::new(line);
+            it.set_tabs(self.tabs);
+            Some(it)
         } else {
             None
         }
@@ -549,7 +644,8 @@ impl TextAreaCore {
 
     /// Returns a line as an iterator over the graphemes for the line.
     /// This contains the \n at the end.
-    pub fn line(&self, n: usize) -> Option<RopeGraphemes<'_>> {
+    #[inline]
+    pub fn line_graphemes(&self, n: usize) -> Option<impl Iterator<Item = RopeSlice<'_>>> {
         let mut lines = self.value.get_lines_at(n)?;
         if let Some(line) = lines.next() {
             Some(RopeGraphemes::new(line))
@@ -560,7 +656,12 @@ impl TextAreaCore {
 
     /// Returns a line as an iterator over the graphemes for the line.
     /// This contains the \n at the end.
-    pub fn line_idx(&self, n: usize) -> Option<RopeGraphemesIdx<'_>> {
+    /// Returns byte-start and byte-end position and the grapheme.
+    #[inline]
+    pub fn line_grapheme_idx(
+        &self,
+        n: usize,
+    ) -> Option<impl Iterator<Item = ((usize, usize), RopeSlice<'_>)>> {
         let mut lines = self.value.get_lines_at(n)?;
         let line = lines.next();
         if let Some(line) = line {
@@ -570,7 +671,30 @@ impl TextAreaCore {
         }
     }
 
+    /// Iterator for the chars of a given line.
+    #[inline]
+    pub fn line_chars(&self, n: usize) -> Option<impl Iterator<Item = char> + '_> {
+        let mut lines = self.value.get_lines_at(n)?;
+        if let Some(line) = lines.next() {
+            Some(line.chars())
+        } else {
+            None
+        }
+    }
+
+    /// Iterator for the bytes of a given line.
+    #[inline]
+    pub fn line_bytes(&self, n: usize) -> Option<impl Iterator<Item = u8> + '_> {
+        let mut lines = self.value.get_lines_at(n)?;
+        if let Some(line) = lines.next() {
+            Some(line.bytes())
+        } else {
+            None
+        }
+    }
+
     /// Line width as grapheme count. Excludes the terminating '\n'.
+    #[inline]
     pub fn line_width(&self, n: usize) -> Option<usize> {
         let mut lines = self.value.get_lines_at(n)?;
         let line = lines.next();
@@ -660,68 +784,6 @@ impl TextAreaCore {
         }
     }
 
-    /// Iterate over text-lines, starting at offset.
-    #[inline]
-    pub fn iter_lines(&self, line_offset: usize) -> Lines<'_> {
-        self.value.lines_at(line_offset)
-    }
-
-    /// Find next word.
-    pub fn next_word_boundary(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
-        let mut char_pos = self.char_at(pos)?;
-
-        let chars_after = self.value.slice(char_pos..);
-        let mut it = chars_after.chars_at(0);
-        let mut init = true;
-        loop {
-            let Some(c) = it.next() else {
-                break;
-            };
-
-            if init {
-                if !c.is_whitespace() {
-                    init = false;
-                }
-            } else {
-                if c.is_whitespace() {
-                    break;
-                }
-            }
-
-            char_pos += 1;
-        }
-
-        self.char_pos(char_pos)
-    }
-
-    /// Find prev word.
-    pub fn prev_word_boundary(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
-        let mut char_pos = self.char_at(pos)?;
-
-        let chars_before = self.value.slice(..char_pos);
-        let mut it = chars_before.chars_at(chars_before.len_chars());
-        let mut init = true;
-        loop {
-            let Some(c) = it.prev() else {
-                break;
-            };
-
-            if init {
-                if !c.is_whitespace() {
-                    init = false;
-                }
-            } else {
-                if c.is_whitespace() {
-                    break;
-                }
-            }
-
-            char_pos -= 1;
-        }
-
-        self.char_pos(char_pos)
-    }
-
     /// Len in chars
     pub fn len_chars(&self) -> usize {
         self.value.len_chars()
@@ -741,6 +803,7 @@ impl TextAreaCore {
     }
 
     /// Byte position to grapheme position.
+    /// Returns the position that contains the given byte index.
     pub fn byte_pos(&self, byte: usize) -> Option<(usize, usize)> {
         let Ok(y) = self.value.try_byte_to_line(byte) else {
             return None;
@@ -748,7 +811,7 @@ impl TextAreaCore {
         let mut x = 0;
         let byte_y = self.value.try_line_to_byte(y).expect("valid_y");
 
-        let mut it_line = self.line_idx(y).expect("valid_y");
+        let mut it_line = self.line_grapheme_idx(y).expect("valid_y");
         loop {
             let Some(((sb, _eb), _cc)) = it_line.next() else {
                 break;
@@ -770,7 +833,7 @@ impl TextAreaCore {
         };
 
         let len_bytes = self.value.len_bytes();
-        let mut it_line = self.line_idx(pos.1).expect("valid_line");
+        let mut it_line = self.line_grapheme_idx(pos.1).expect("valid_line");
         let mut x = -1isize;
         let mut last_eb = 0;
         loop {
@@ -806,18 +869,14 @@ impl TextAreaCore {
     }
 
     /// Insert some text.
-    pub fn insert_text(&mut self, pos: (usize, usize), t: &str) {
+    pub fn insert_str(&mut self, pos: (usize, usize), t: &str) {
         let Some(char_pos) = self.char_at(pos) else {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
         };
 
         // dissect t
-        let mut first = String::new();
-        let mut middle = String::new();
-        let mut last = String::new();
         let mut line_breaks = 0;
         let mut current = String::new();
-
         let mut state = 0;
         for g in t.graphemes(true) {
             current.push_str(g);
@@ -825,30 +884,28 @@ impl TextAreaCore {
             if g == "\n" || g == "\r\n" {
                 line_breaks += 1;
                 if state == 0 {
-                    first = current;
                     current = String::new();
                     state = 1;
                 } else {
-                    middle.push_str(&current);
                     current.clear();
                 }
             }
         }
-        last = current;
+        let last = current;
 
         let insert = if line_breaks > 0 {
             // split insert line
             let (split_byte, _) = self.byte_at(pos).expect("valid_pos");
             let line = self.line_bytes(pos.1).expect("valid_pos");
             let mut line_second = Vec::new();
-            for b in line.clone().skip(split_byte) {
+            for b in line.skip(split_byte) {
                 line_second.push(b);
             }
             let line_second = String::from_utf8(line_second).expect("valid_str");
 
             // this should cope with all unicode joins.
             let old_len = str_line_len(&line_second);
-            let mut new_second = last.clone();
+            let mut new_second = last;
             new_second.push_str(&line_second);
             let new_len = str_line_len(&new_second);
 
@@ -899,7 +956,7 @@ impl TextAreaCore {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
         };
 
-        self.value.insert(char_pos, &self.line_break);
+        self.value.insert(char_pos, &self.newline);
 
         let insert = TextRange::new((pos.0, pos.1), (0, pos.1 + 1));
 
@@ -909,7 +966,7 @@ impl TextAreaCore {
     }
 
     /// Remove the given range.
-    pub fn remove(&mut self, range: TextRange) {
+    pub fn delete_range(&mut self, range: TextRange) {
         let Some(start_pos) = self.char_at(range.start) else {
             panic!("invalid range {:?} value {:?}", range, self.value);
         };
