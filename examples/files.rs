@@ -19,7 +19,7 @@ use rat_widget::event::{
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar, MenubarPopup};
+use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
@@ -36,7 +36,6 @@ use ratatui::symbols::border;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::block::Title;
 use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
-use std::cell::RefCell;
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
@@ -73,8 +72,8 @@ fn main() -> Result<(), Error> {
 pub struct GlobalState {
     pub cfg: FilesConfig,
     pub theme: DarkTheme,
-    pub status: RefCell<StatusLineState>,
-    pub error_dlg: RefCell<MsgDialogState>,
+    pub status: StatusLineState,
+    pub error_dlg: MsgDialogState,
 }
 
 impl GlobalState {
@@ -409,16 +408,13 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
 
         // -----------------------------------------------------
 
-        if ctx.g.error_dlg.borrow().active {
+        if ctx.g.error_dlg.active() {
             let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(r[2], buf, &mut ctx.g.error_dlg.borrow_mut());
+            err.render(r[2], buf, &mut ctx.g.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g
-            .status
-            .borrow_mut()
-            .status(1, format!("R {:.3?}", el).to_string());
+        ctx.g.status.status(1, format!("R {:.3?}", el).to_string());
 
         let status = StatusLine::new()
             .layout([
@@ -428,7 +424,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 Constraint::Length(12),
             ])
             .styles(ctx.g.theme.statusline_style());
-        status.render(r[4], buf, &mut ctx.g.status.borrow_mut());
+        status.render(r[4], buf, &mut ctx.g.status);
 
         Ok(())
     }
@@ -474,8 +470,8 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         });
 
         flow_ok!({
-            if ctx.g.error_dlg.borrow().active {
-                ctx.g.error_dlg.borrow_mut().handle(&event, Dialog).into()
+            if ctx.g.error_dlg.active() {
+                ctx.g.error_dlg.handle(&event, Dialog).into()
             } else {
                 Control::Continue
             }
@@ -574,10 +570,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         flow_ok!(self.w_data.handle(event, ReadOnly));
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g
-            .status
-            .borrow_mut()
-            .status(2, format!("H {:.3?}", el).to_string());
+        ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
 
         Ok(Control::Continue)
     }
@@ -592,7 +585,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         // TODO: actions
         flow_ok!(match event {
             Message(s) => {
-                ctx.g.status.borrow_mut().status(0, &*s);
+                ctx.g.status.status(0, &*s);
                 Control::Repaint
             }
             ReadDir(rel, path, sub) => {
@@ -606,19 +599,13 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         });
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g
-            .status
-            .borrow_mut()
-            .status(3, format!("A {:.3?}", el).to_string());
+        ctx.g.status.status(3, format!("A {:.3?}", el).to_string());
 
         Ok(Control::Continue)
     }
 
     fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
-        ctx.g
-            .error_dlg
-            .borrow_mut()
-            .append(format!("{:?}", &*event).as_str());
+        ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Repaint)
     }
 }

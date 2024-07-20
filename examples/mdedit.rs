@@ -25,7 +25,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fs;
-use std::hash::Hash;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
@@ -670,7 +669,7 @@ fn collect_ast(state: &TextAreaState) -> Vec<(TextRange, usize)> {
             }
             Event::Start(Tag::Item) => {
                 // only color the marker
-                let r = if let Some(s) = state.value_range(range(r.clone())) {
+                let r = if let Some(s) = state.text_slice(range(r.clone())) {
                     let mut n = 0;
                     for c in s.bytes() {
                         if c == b' ' {
