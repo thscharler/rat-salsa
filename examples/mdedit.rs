@@ -217,6 +217,7 @@ pub mod facilities {
 static MENU: StaticMenu = StaticMenu {
     menu: &[
         ("_File", &["_Open", "_Save"]), //
+        ("_View", &["Control chars"]),
         (
             "_Theme",
             &[
@@ -353,7 +354,11 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
             match self.menu.handle(event, Popup) {
                 MenuOutcome::MenuActivated(0, 0) => Control::Action(MDAction::MenuOpen),
                 MenuOutcome::MenuActivated(0, 1) => Control::Action(MDAction::MenuSave),
-                MenuOutcome::MenuSelected(1, n) => {
+                MenuOutcome::MenuActivated(1, 0) => {
+                    self.editor.show_ctrl = !self.editor.show_ctrl;
+                    Control::Repaint
+                }
+                MenuOutcome::MenuSelected(2, n) => {
                     ctx.g.theme = dark_themes()[n].clone();
                     Control::Repaint
                 }
@@ -437,6 +442,7 @@ pub mod mdedit {
 
     #[derive(Debug)]
     pub struct MDEditState {
+        pub show_ctrl: bool,
         pub edit: TextAreaState,
         pub parse_timer: Option<TimerHandle>,
     }
@@ -444,6 +450,7 @@ pub mod mdedit {
     impl Default for MDEditState {
         fn default() -> Self {
             let s = Self {
+                show_ctrl: false,
                 edit: Default::default(),
                 parse_timer: None,
             };
@@ -499,7 +506,7 @@ pub mod mdedit {
                 .styles(ctx.g.theme.textarea_style())
                 .set_horizontal_max_offset(255)
                 .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
-                .show_ctrl(true)
+                .show_ctrl(state.show_ctrl)
                 .text_style(self.text_style(ctx))
                 .render(area, buf, &mut state.edit);
             ctx.set_screen_cursor(state.edit.screen_cursor());
