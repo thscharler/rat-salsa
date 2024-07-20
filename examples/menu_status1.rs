@@ -88,7 +88,7 @@ fn handle_input(
                 match v {
                     3 => {
                         state.msg.append("Hello world!");
-                        state.msg.active = true;
+                        state.msg.set_active(true);
                         return Ok(Outcome::Changed);
                     }
                     4 => return Err(anyhow!("Quit")),

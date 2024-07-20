@@ -4,7 +4,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::fill::Fill;
-use crate::text::graphemes::{GlyphIter, RopeGraphemes};
+use crate::text::graphemes::GlyphIter;
 use crate::text::textarea_core::{TextAreaCore, TextRange};
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
@@ -22,6 +22,7 @@ use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetR
 use ropey::{Rope, RopeSlice};
 use std::cmp::{max, min};
 use std::fmt::Debug;
+use std::ops::RangeBounds;
 
 /// Text area widget.
 ///
@@ -251,9 +252,8 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     Fill::new().style(style).render(area, buf);
 
     let selection = state.selection();
-    let mut styles = Vec::new();
 
-    let mut line_iter = state.value.iter_lines(state.vscroll.offset());
+    let mut line_iter = state.value.lines_at(state.vscroll.offset());
     let (ox, oy) = state.offset();
     for row in 0..area.height {
         // text-index
@@ -264,7 +264,6 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
 
             let mut glyph_iter = GlyphIter::new(line);
             glyph_iter.set_offset(state.hscroll.offset);
-            glyph_iter.set_tabs(8);
             glyph_iter.set_show_ctrl(widget.show_ctrl);
 
             'line: for d in glyph_iter {
@@ -274,8 +273,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                 if d.len > 0 {
                     let mut style = style;
                     // text-styles
-                    state.styles_at((tx, ty), &mut styles);
-                    for idx in styles.iter().copied() {
+                    for idx in state.styles_at((tx, ty)) {
                         let Some(s) = widget.text_style.get(idx) else {
                             panic!("invalid style nr: {}", idx);
                         };
@@ -305,6 +303,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                 }
             }
         }
+        // todo:timing
     }
 }
 
@@ -334,6 +333,7 @@ impl HasFocusFlag for TextAreaState {
         self.area
     }
 
+    // use secondary focus keys.
     fn primary_keys(&self) -> bool {
         false
     }
@@ -392,41 +392,6 @@ impl TextAreaState {
         self.value.value()
     }
 
-    /// Borrow the rope
-    #[inline]
-    pub fn value_rope(&self) -> &Rope {
-        self.value.value_rope()
-    }
-
-    /// Text value
-    #[inline]
-    pub fn value_range(&self, range: TextRange) -> Option<RopeSlice<'_>> {
-        self.value.value_range(range)
-    }
-
-    /// Text as Bytes iterator.
-    #[inline]
-    pub fn value_as_bytes(&self) -> ropey::iter::Bytes<'_> {
-        self.value.value_as_bytes()
-    }
-
-    /// Text as Bytes iterator.
-    #[inline]
-    pub fn value_as_chars(&self) -> ropey::iter::Chars<'_> {
-        self.value.value_as_chars()
-    }
-
-    /// Sets the line-break to be used for insert.
-    /// There is no auto-detection or conversion when setting
-    /// the value.
-    #[inline]
-    pub fn set_line_break(&mut self, br: String) {
-        self.value.set_line_break(br);
-    }
-
-    /// Set tab-width.
-    // TODO
-
     /// Set the text value.
     /// Resets all internal state.
     #[inline]
@@ -440,11 +405,79 @@ impl TextAreaState {
     /// Set the text value as a Rope.
     /// Resets all internal state.
     #[inline]
-    pub fn set_value_rope(&mut self, s: Rope) {
+    pub fn set_rope(&mut self, s: Rope) {
         self.vscroll.set_offset(0);
         self.hscroll.set_offset(0);
 
-        self.value.set_value_rope(s);
+        self.value.set_rope(s);
+    }
+
+    /// Borrow the rope
+    #[inline]
+    pub fn rope(&self) -> &Rope {
+        self.value.rope()
+    }
+
+    /// Text value
+    #[inline]
+    pub fn text_slice(&self, range: TextRange) -> Option<RopeSlice<'_>> {
+        self.value.text_slice(range)
+    }
+
+    /// Text as Bytes iterator.
+    #[inline]
+    pub fn bytes(&self) -> impl Iterator<Item = u8> + '_ {
+        self.value.bytes()
+    }
+
+    /// Value as Bytes iterator.
+    pub fn byte_slice<R>(&self, byte_range: R) -> RopeSlice<'_>
+    where
+        R: RangeBounds<usize>,
+    {
+        self.value.byte_slice(byte_range)
+    }
+
+    /// Text as Bytes iterator.
+    #[inline]
+    pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
+        self.value.chars()
+    }
+
+    /// Value as Chars iterator.
+    pub fn char_slice<R>(&self, char_range: R) -> RopeSlice<'_>
+    where
+        R: RangeBounds<usize>,
+    {
+        self.value.char_slice(char_range)
+    }
+
+    /// Sets the line ending used for insert.
+    /// There is no auto-detection or conversion done for set_value().
+    ///
+    /// Caution: If this doesn't match the line ending used in the value, you
+    /// will get a value with mixed line endings.
+    #[inline]
+    pub fn set_newline(&mut self, br: String) {
+        self.value.set_newline(br);
+    }
+
+    /// Line ending used for insert.
+    #[inline]
+    pub fn newline(&self) -> &str {
+        self.value.newline()
+    }
+
+    /// Set tab-width.
+    #[inline]
+    pub fn set_tab_width(&mut self, tabs: u16) {
+        self.value.set_tab_width(tabs);
+    }
+
+    /// Tab-width
+    #[inline]
+    pub fn tab_width(&self) -> u16 {
+        self.value.tab_width()
     }
 
     /// Empty.
@@ -465,18 +498,45 @@ impl TextAreaState {
         self.value.line_width(n)
     }
 
-    /// Grapheme iterator for a given line.
+    /// Line as RopeSlice.
     /// This contains the \n at the end.
+    pub fn line_at(&self, n: usize) -> Option<RopeSlice<'_>> {
+        self.value.line_at(n)
+    }
+
+    /// Iterate over text-lines, starting at offset.
     #[inline]
-    pub fn line(&self, n: usize) -> Option<RopeGraphemes<'_>> {
-        self.value.line(n)
+    pub fn lines_at(&self, n: usize) -> impl Iterator<Item = RopeSlice<'_>> {
+        self.value.lines_at(n)
     }
 
     /// Iterator for the glyphs of a given line.
-    /// A glyph here is a grapheme + a display width.
+    /// Glyphs here a grapheme + display length.
     /// This covers multi-column graphemes as well as tabs (with varying width).
+    /// This contains the \n at the end.
     pub fn line_glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
         self.value.line_glyphs(n)
+    }
+
+    /// Grapheme iterator for a given line.
+    /// This contains the \n at the end.
+    #[inline]
+    pub fn line_graphemes(&self, n: usize) -> Option<impl Iterator<Item = RopeSlice<'_>>> {
+        self.value.line_graphemes(n)
+    }
+
+    /// Char iterator for a given line.
+    /// This contains the \n at the end.
+    #[inline]
+    pub fn line_chars(&self, n: usize) -> Option<impl Iterator<Item = char> + '_> {
+        self.value.line_chars(n)
+    }
+
+    /// Byte iterator for a given line.
+    /// This contains the \n at the end.
+    #[inline]
+    pub fn line_bytes(&self, n: usize) -> Option<impl Iterator<Item = u8> + '_> {
+        self.value.line_bytes(n)
     }
 
     /// Has a selection?
@@ -506,7 +566,7 @@ impl TextAreaState {
     /// Selection.
     #[inline]
     pub fn selected_value(&self) -> Option<RopeSlice<'_>> {
-        self.value.value_range(self.value.selection())
+        self.value.text_slice(self.value.selection())
     }
 
     /// Clear all set styles.
@@ -522,10 +582,16 @@ impl TextAreaState {
         self.value.add_style(range, style);
     }
 
+    /// Remove the exact TextRange and style.
+    #[inline]
+    pub fn remove_style(&mut self, range: TextRange, style: usize) {
+        self.value.remove_style(range, style);
+    }
+
     /// All styles active at the given position.
     #[inline]
-    pub fn styles_at(&self, pos: (usize, usize), result: &mut Vec<usize>) {
-        self.value.styles_at(pos, result)
+    pub fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
+        self.value.styles_at(pos)
     }
 
     /// Convert a byte position to a text area position.
@@ -561,19 +627,28 @@ impl TextAreaState {
     /// Removes the selection and inserts the char.
     pub fn insert_char(&mut self, c: char) -> bool {
         if self.value.has_selection() {
-            self.value.remove(self.value.selection());
+            self.value.delete_range(self.value.selection());
         }
         self.value.insert_char(self.value.cursor(), c);
         self.scroll_cursor_to_visible();
         true
     }
 
-    // todo: insert_str
+    /// Insert text at the cursor position.
+    /// Removes the selection and inserts the text.
+    pub fn insert_str(&mut self, t: &str) -> bool {
+        if self.value.has_selection() {
+            self.value.delete_range(self.value.selection());
+        }
+        self.value.insert_str(self.value.cursor(), t);
+        self.scroll_cursor_to_visible();
+        true
+    }
 
     /// Insert a line break at the cursor position.
     pub fn insert_newline(&mut self) -> bool {
         if self.value.has_selection() {
-            self.value.remove(self.value.selection());
+            self.value.delete_range(self.value.selection());
         }
         self.value.insert_newline(self.value.cursor());
         self.scroll_cursor_to_visible();
@@ -583,7 +658,7 @@ impl TextAreaState {
     /// Deletes the given range.
     pub fn delete_range(&mut self, range: TextRange) -> bool {
         if !range.is_empty() {
-            self.value.remove(range);
+            self.value.delete_range(range);
             self.scroll_cursor_to_visible();
             true
         } else {
@@ -636,6 +711,105 @@ impl TextAreaState {
         self.delete_range(range)
     }
 
+    /// Find the start of the next word. Word is everything that is not whitespace.
+    pub fn next_word_start(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+        let mut char_pos = self.char_at(pos)?;
+
+        let chars_after = self.value.char_slice(char_pos..);
+        let mut it = chars_after.chars_at(0);
+        loop {
+            let Some(c) = it.next() else {
+                break;
+            };
+            if !c.is_whitespace() {
+                break;
+            }
+            char_pos += 1;
+        }
+
+        self.char_pos(char_pos)
+    }
+
+    /// Find the end of the next word. Skips whitespace first, then goes on
+    /// until it finds the next whitespace.
+    pub fn next_word_end(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+        let mut char_pos = self.char_at(pos)?;
+
+        let chars_after = self.value.char_slice(char_pos..);
+        let mut it = chars_after.chars_at(0);
+        let mut init = true;
+        loop {
+            let Some(c) = it.next() else {
+                break;
+            };
+
+            if init {
+                if !c.is_whitespace() {
+                    init = false;
+                }
+            } else {
+                if c.is_whitespace() {
+                    break;
+                }
+            }
+
+            char_pos += 1;
+        }
+
+        self.char_pos(char_pos)
+    }
+
+    /// Find prev word. Skips whitespace first.
+    pub fn prev_word_start(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+        let mut char_pos = self.char_at(pos)?;
+
+        let chars_before = self.value.char_slice(..char_pos);
+        let mut it = chars_before.chars_at(chars_before.len_chars());
+        let mut init = true;
+        loop {
+            let Some(c) = it.prev() else {
+                break;
+            };
+
+            if init {
+                if !c.is_whitespace() {
+                    init = false;
+                }
+            } else {
+                if c.is_whitespace() {
+                    break;
+                }
+            }
+
+            char_pos -= 1;
+        }
+
+        self.char_pos(char_pos)
+    }
+
+    /// Find the end of the previous word. Word is everything that is not whitespace.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn prev_word_end(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+        let mut char_pos = self.char_at(pos)?;
+
+        let chars_before = self.value.char_slice(..char_pos);
+        let mut it = chars_before.chars_at(chars_before.len_chars());
+        loop {
+            let Some(c) = it.prev() else {
+                break;
+            };
+            if !c.is_whitespace() {
+                break;
+            }
+            char_pos -= 1;
+        }
+
+        self.char_pos(char_pos)
+    }
+
+    /// Delete the next word. This alternates deleting the whitespace between words and
+    /// the words themselves.
     pub fn delete_next_word(&mut self) -> bool {
         if self.value.has_selection() {
             self.value
@@ -643,14 +817,17 @@ impl TextAreaState {
         }
 
         let (cx, cy) = self.value.cursor();
-        let (ex, ey) = self
-            .value
-            .next_word_boundary((cx, cy))
-            .expect("valid_cursor");
+        let (sx, sy) = self.next_word_start((cx, cy)).expect("valid_cursor");
 
-        let range = TextRange::new((cx, cy), (ex, ey));
+        let range = if (cx, cy) == (sx, sy) {
+            let (ex, ey) = self.next_word_end((cx, cy)).expect("valid_cursor");
+            TextRange::new((cx, cy), (ex, ey))
+        } else {
+            TextRange::new((cx, cy), (sx, sy))
+        };
+
         if !range.is_empty() {
-            self.value.remove(range);
+            self.value.delete_range(range);
             self.scroll_cursor_to_visible();
             true
         } else {
@@ -658,6 +835,8 @@ impl TextAreaState {
         }
     }
 
+    /// Deletes the previous word. This alternates deleting the whitespace between words and
+    /// the words themselves.
     pub fn delete_prev_word(&mut self) -> bool {
         if self.value.has_selection() {
             self.value
@@ -665,14 +844,17 @@ impl TextAreaState {
         }
 
         let (cx, cy) = self.value.cursor();
-        let (sx, sy) = self
-            .value
-            .prev_word_boundary((cx, cy))
-            .expect("valid_cursor");
+        let (ex, ey) = self.prev_word_end((cx, cy)).expect("valid_cursor");
 
-        let range = TextRange::new((sx, sy), (cx, cy));
+        let range = if (cx, cy) == (ex, ey) {
+            let (sx, sy) = self.prev_word_start((cx, cy)).expect("valid_cursor");
+            TextRange::new((sx, sy), (cx, cy))
+        } else {
+            TextRange::new((ex, ey), (cx, cy))
+        };
+
         if !range.is_empty() {
-            self.value.remove(range);
+            self.value.delete_range(range);
             self.scroll_cursor_to_visible();
             true
         } else {
@@ -774,7 +956,7 @@ impl TextAreaState {
 
         cx = 'f: {
             if cx > 0 {
-                let Some(line) = self.value.line(cy) else {
+                let Some(line) = self.value.line_graphemes(cy) else {
                     panic!("invalid_cursor: {:?} value {:?}", (cx, cy), self.value);
                 };
                 for (c, ch) in line.enumerate() {
@@ -860,26 +1042,22 @@ impl TextAreaState {
         c || s
     }
 
+    /// Move the cursor to the next word.
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
         let (cx, cy) = self.value.cursor();
 
-        let (px, py) = self
-            .value
-            .next_word_boundary((cx, cy))
-            .expect("valid_cursor");
+        let (px, py) = self.next_word_end((cx, cy)).expect("valid_cursor");
 
         let c = self.value.set_cursor((px, py), extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
 
+    /// Move the cursor to the previous word.
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
         let (cx, cy) = self.value.cursor();
 
-        let (px, py) = self
-            .value
-            .prev_word_boundary((cx, cy))
-            .expect("valid_cursor");
+        let (px, py) = self.prev_word_start((cx, cy)).expect("valid_cursor");
 
         let c = self.value.set_cursor((px, py), extend_selection);
         let s = self.scroll_cursor_to_visible();
@@ -895,7 +1073,6 @@ impl TextAreaState {
 
         let mut line = self.line_glyphs(cy)?;
         line.set_offset(ox);
-        line.set_tabs(8);
 
         let mut sx = 0;
         for g in line {
@@ -917,7 +1094,6 @@ impl TextAreaState {
 
         let mut line = self.line_glyphs(py)?;
         line.set_offset(ox);
-        line.set_tabs(8);
 
         let sx = line.take(px - ox).map(|v| v.len).sum::<usize>();
 

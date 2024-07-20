@@ -6,7 +6,7 @@ use rat_scrolled::Scroll;
 use rat_widget::event::{Outcome, TextOutcome};
 use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
 use rat_widget::statusline::StatusLineState;
-use rat_widget::textarea::textarea_core::TextRange;
+use rat_widget::text::textarea_core::TextRange;
 use rat_widget::textarea::{TextArea, TextAreaState};
 use rat_widget::{menuline, textarea};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -115,28 +115,19 @@ fn repaint_input(
     );
     _ = writeln!(
         &mut stats,
-        "next word: {:?}",
-        state
-            .textarea
-            .value
-            .next_word_boundary(state.textarea.cursor())
+        "next word: {:?} {:?}",
+        state.textarea.next_word_start(state.textarea.cursor()),
+        state.textarea.next_word_end(state.textarea.cursor())
     );
     _ = writeln!(
         &mut stats,
-        "prev word: {:?}",
-        state
-            .textarea
-            .value
-            .prev_word_boundary(state.textarea.cursor())
+        "prev word: {:?} {:?}",
+        state.textarea.prev_word_start(state.textarea.cursor()),
+        state.textarea.prev_word_end(state.textarea.cursor())
     );
 
-    let mut styles = Vec::new();
-    state
-        .textarea
-        .value
-        .styles_at(state.textarea.cursor(), &mut styles);
     _ = write!(&mut stats, "cursor-styles: ",);
-    for s in styles.iter().take(20) {
+    for s in state.textarea.styles_at(state.textarea.cursor()) {
         _ = write!(&mut stats, "{}, ", s);
     }
     _ = writeln!(&mut stats);
@@ -247,7 +238,7 @@ pub(crate) fn insert_text_3(state: &mut State) {
     }
     let buf = buf.finish();
 
-    state.textarea.set_value_rope(buf);
+    state.textarea.set_rope(buf);
 
     for (b, e, s) in style {
         let bb = state.textarea.byte_pos(b).expect("pos");
