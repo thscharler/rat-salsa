@@ -23,6 +23,7 @@ use ropey::{Rope, RopeSlice};
 use std::cmp::{max, min};
 use std::fmt::Debug;
 use std::ops::RangeBounds;
+use std::time::{Duration, SystemTime};
 
 /// Text area widget.
 ///
@@ -303,7 +304,6 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                 }
             }
         }
-        // todo:timing
     }
 }
 
