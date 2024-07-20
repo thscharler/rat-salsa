@@ -10,7 +10,7 @@ use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
@@ -808,6 +808,61 @@ impl TextAreaState {
         self.char_pos(char_pos)
     }
 
+    /// Is the position at a word boundary?
+    pub fn is_word_boundary(&self, pos: (usize, usize)) -> bool {
+        let char_pos = self.char_at(pos).expect("valid_selection");
+        let mut it = self.char_slice(..).chars_at(char_pos);
+        if let Some(c0) = it.prev() {
+            it.next();
+            if let Some(c1) = it.next() {
+                c0.is_whitespace() && !c1.is_whitespace()
+                    || !c0.is_whitespace() && c1.is_whitespace()
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Find the start of the word at pos.
+    pub fn word_start(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+        let mut char_pos = self.char_at(pos)?;
+
+        let chars_before = self.value.char_slice(..char_pos);
+        let mut it = chars_before.chars_at(chars_before.len_chars());
+        loop {
+            let Some(c) = it.prev() else {
+                break;
+            };
+            if c.is_whitespace() {
+                break;
+            }
+            char_pos -= 1;
+        }
+
+        self.char_pos(char_pos)
+    }
+
+    /// Find the end of the word at pos.
+    pub fn word_end(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+        let mut char_pos = self.char_at(pos)?;
+
+        let chars_after = self.value.char_slice(char_pos..);
+        let mut it = chars_after.chars_at(0);
+        loop {
+            let Some(c) = it.next() else {
+                break;
+            };
+            if c.is_whitespace() {
+                break;
+            }
+            char_pos += 1;
+        }
+
+        self.char_pos(char_pos)
+    }
+
     /// Delete the next word. This alternates deleting the whitespace between words and
     /// the words themselves.
     pub fn delete_next_word(&mut self) -> bool {
@@ -1064,26 +1119,56 @@ impl TextAreaState {
         c || s
     }
 
-    /// Converts from a widget relative screen coordinate to a grapheme index.
-    /// Row is a row-index into the value, not a screen-row.
-    /// x is the relative screen position.
-    pub fn from_screen_col(&self, row: usize, x: usize) -> Option<usize> {
-        let (mut cx, cy) = (0usize, row);
-        let (ox, _oy) = self.offset();
+    /// Converts from a widget relative screen coordinate to a line.
+    /// It limits its result to a valid row.
+    pub fn from_screen_row(&self, scy: i16) -> usize {
+        let (_, oy) = self.offset();
 
-        let mut line = self.line_glyphs(cy)?;
-        line.set_offset(ox);
-
-        let mut sx = 0;
-        for g in line {
-            if x >= sx && x < sx + g.len {
-                break;
+        if scy < 0 {
+            oy.saturating_sub((scy as isize).abs() as usize)
+        } else if scy as u16 >= self.area.height {
+            min(oy + scy as usize, self.line_len().saturating_sub(1))
+        } else {
+            let cy = oy + scy as usize;
+            if cy < self.line_len() {
+                cy
+            } else {
+                self.line_len().saturating_sub(1)
             }
-            sx += g.len;
-            cx += 1;
         }
+    }
 
-        Some(cx + ox)
+    /// Converts from a widget relative screen coordinate to a grapheme index.
+    /// It limits its result to a valid column.
+    ///
+    /// * row is a row-index into the value, not a screen-row. It can be calculated
+    ///   with from_screen_row().
+    /// * x is the relative screen position.
+    pub fn from_screen_col(&self, row: usize, scx: i16) -> usize {
+        let (ox, _) = self.offset();
+
+        if scx < 0 {
+            ox.saturating_sub((scx as isize).abs() as usize)
+        } else if scx as u16 >= self.area.width {
+            min(ox + scx as usize, self.line_width(row).expect("valid_row"))
+        } else {
+            let scx = scx as u16;
+
+            let mut line = self.line_glyphs(row).expect("valid_row");
+            line.set_offset(ox);
+
+            let mut cx = 0;
+            let mut testx = 0;
+            for g in line {
+                if scx >= testx && scx < testx + g.len as u16 {
+                    break;
+                }
+                testx += g.len as u16;
+                cx += 1;
+            }
+
+            min(ox + cx, self.line_width(row).expect("valid_row"))
+        }
     }
 
     /// Converts a grapheme based position to a screen position
@@ -1133,19 +1218,57 @@ impl TextAreaState {
     /// They may be negative too, this allows setting the cursor
     /// to a position that is currently scrolled away.
     pub fn set_screen_cursor(&mut self, cursor: (i16, i16), extend_selection: bool) -> bool {
-        let (scx, scy) = (cursor.0 as isize, cursor.1 as isize);
-        let (ox, oy) = self.offset();
+        let (scx, scy) = (cursor.0, cursor.1);
 
-        let cy = min(max(oy as isize + scy, 0) as usize, self.line_len() - 1);
-        let cx = if scx < 0 {
-            max(ox as isize + scx, 0) as usize
-        } else {
-            if let Some(c) = self.from_screen_col(cy, scx as usize) {
-                c
+        let cy = self.from_screen_row(scy);
+        let cx = self.from_screen_col(cy, scx);
+
+        let c = self.set_cursor((cx, cy), extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
+    /// Set the cursor position from screen coordinates,
+    /// rounds the position to the next word start/end.
+    ///
+    /// The cursor positions are relative to the inner rect.
+    /// They may be negative too, this allows setting the cursor
+    /// to a position that is currently scrolled away.
+    pub fn set_screen_cursor_words(&mut self, cursor: (i16, i16), extend_selection: bool) -> bool {
+        let (scx, scy) = (cursor.0, cursor.1);
+        let (ax, ay) = self.anchor();
+
+        let cy = self.from_screen_row(scy);
+        let cx = self.from_screen_col(cy, scx);
+
+        debug!("  word {} {}", cx, cy);
+
+        let (cx, cy) = if (cy, cx) < (ay, ax) {
+            if let Some((wx, wy)) = self.word_start((cx, cy)) {
+                (wx, wy)
             } else {
-                self.line_width(cy).expect("valid_line")
+                (cx, cy)
+            }
+        } else {
+            if let Some((wx, wy)) = self.word_end((cx, cy)) {
+                (wx, wy)
+            } else {
+                (cy, cy)
             }
         };
+
+        // extend anchor
+        if !self.is_word_boundary((ax, ay)) {
+            if (cy, cx) < (ay, ax) {
+                if let Some((ax, ay)) = self.word_end((ax, ay)) {
+                    self.set_cursor((ax, ay), false);
+                }
+            } else {
+                if let Some((ax, ay)) = self.word_start((ax, ay)) {
+                    self.set_cursor((ax, ay), false);
+                }
+            }
+        }
 
         let c = self.set_cursor((cx, cy), extend_selection);
         let s = self.scroll_cursor_to_visible();
@@ -1428,27 +1551,29 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         flow!(match event {
-            ct_event!(mouse any for m)
-                if self.mouse.drag(self.inner, m)
-                    || self.mouse.drag2(self.inner, m, KeyModifiers::ALT) =>
-            {
+            ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 let cx = m.column as i16 - self.inner.x as i16;
                 let cy = m.row as i16 - self.inner.y as i16;
                 self.set_screen_cursor((cx, cy), true).into()
             }
-            // TODO: not happy with this one. Think again.
-            // ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
-            //     let ty = self.offset().1 + m.row as usize - self.inner.y as usize;
-            //     if let Some(tx) =
-            //         self.from_screen_col(ty, m.column as usize - self.inner.x as usize)
-            //     {
-            //         let b0 = self.value.prev_word_boundary((tx, ty)).expect("position");
-            //         let b1 = self.value.next_word_boundary((tx, ty)).expect("position");
-            //         self.set_selection(TextRange::new(b0, b1)).into()
-            //     } else {
-            //         TextOutcome::Unchanged
-            //     }
-            // }
+            ct_event!(mouse any for m) if self.mouse.drag2(self.inner, m, KeyModifiers::ALT) => {
+                let cx = m.column as i16 - self.inner.x as i16;
+                let cy = m.row as i16 - self.inner.y as i16;
+                self.set_screen_cursor_words((cx, cy), true).into()
+            }
+            ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
+                let ty = self.from_screen_row(m.row as i16 - self.inner.y as i16);
+                let tx = self.from_screen_col(ty, m.column as i16 - self.inner.x as i16);
+                if let Some(b0) = self.word_start((tx, ty)) {
+                    if let Some(b1) = self.word_end((tx, ty)) {
+                        self.set_selection(TextRange::new(b0, b1)).into()
+                    } else {
+                        TextOutcome::Unchanged
+                    }
+                } else {
+                    TextOutcome::Unchanged
+                }
+            }
             ct_event!(mouse down Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
@@ -1458,11 +1583,20 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
                     TextOutcome::NotUsed
                 }
             }
-            ct_event!(mouse down ALT-Left for column,row) => {
+            ct_event!(mouse down CONTROL-Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
                     let cy = (row - self.inner.y) as i16;
                     self.set_screen_cursor((cx, cy), true).into()
+                } else {
+                    TextOutcome::NotUsed
+                }
+            }
+            ct_event!(mouse down ALT-Left for column,row) => {
+                if self.inner.contains((*column, *row).into()) {
+                    let cx = (column - self.inner.x) as i16;
+                    let cy = (row - self.inner.y) as i16;
+                    self.set_screen_cursor_words((cx, cy), true).into()
                 } else {
                     TextOutcome::NotUsed
                 }

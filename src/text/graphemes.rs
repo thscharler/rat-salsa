@@ -20,7 +20,7 @@ pub fn str_line_len(s: &str) -> usize {
 pub struct Glyph<'a> {
     /// First char.
     pub glyph: Cow<'a, str>,
-    /// Length for the glyph. Cells after the first are reset.
+    /// Length for the glyph.
     pub len: usize,
 }
 
