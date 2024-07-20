@@ -1,4 +1,3 @@
-use log::debug;
 use ropey::iter::Chunks;
 use ropey::RopeSlice;
 use std::borrow::Cow;

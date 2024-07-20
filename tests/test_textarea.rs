@@ -1,8 +1,8 @@
-use rat_widget::textarea::core::InputCore;
+use rat_widget::textarea::textarea_core::{TextAreaCore, TextRange};
 
 #[test]
 fn test_byte_at() {
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf\njklö\nqwert");
 
     assert_eq!(core.byte_at((0, 0)), Some((0, 1)));
@@ -28,7 +28,7 @@ fn test_byte_at() {
     assert_eq!(core.byte_at((0, 3)), Some((16, 16)));
     assert_eq!(core.byte_at((1, 3)), None);
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf");
 
     assert_eq!(core.byte_at((0, 0)), Some((0, 1)));
@@ -37,7 +37,7 @@ fn test_byte_at() {
     assert_eq!(core.byte_at((3, 0)), Some((3, 4)));
     assert_eq!(core.byte_at((4, 0)), Some((4, 4)));
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf\n");
 
     assert_eq!(core.byte_at((0, 0)), Some((0, 1)));
@@ -49,7 +49,7 @@ fn test_byte_at() {
     assert_eq!(core.byte_at((5, 0)), Some((5, 5)));
     assert_eq!(core.byte_at((0, 1)), Some((5, 5)));
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("");
 
     assert_eq!(core.byte_at((0, 0)), Some((0, 0)));
@@ -57,7 +57,7 @@ fn test_byte_at() {
 
 #[test]
 fn test_char_at() {
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf\njklö\nqwert");
 
     assert_eq!(core.char_at((0, 0)), Some(0));
@@ -81,7 +81,7 @@ fn test_char_at() {
     assert_eq!(core.char_at((6, 2)), None);
     assert_eq!(core.char_at((0, 3)), Some(15));
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf");
 
     assert_eq!(core.char_at((0, 0)), Some(0));
@@ -90,7 +90,7 @@ fn test_char_at() {
     assert_eq!(core.char_at((3, 0)), Some(3));
     assert_eq!(core.char_at((4, 0)), Some(4));
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf\n");
 
     assert_eq!(core.char_at((0, 0)), Some(0));
@@ -102,7 +102,7 @@ fn test_char_at() {
     assert_eq!(core.char_at((5, 0)), Some(5));
     assert_eq!(core.char_at((0, 1)), Some(5));
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("");
 
     assert_eq!(core.char_at((0, 0)), Some(0));
@@ -110,7 +110,7 @@ fn test_char_at() {
 
 #[test]
 fn test_byte_pos() {
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf\njklö\nqwert");
 
     assert_eq!(core.byte_pos(0), Some((0, 0)));
@@ -131,7 +131,7 @@ fn test_byte_pos() {
     assert_eq!(core.byte_pos(15), Some((4, 2)));
     assert_eq!(core.byte_pos(16), Some((5, 2)));
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf");
 
     assert_eq!(core.byte_pos(0), Some((0, 0)));
@@ -140,7 +140,7 @@ fn test_byte_pos() {
     assert_eq!(core.byte_pos(3), Some((3, 0)));
     assert_eq!(core.byte_pos(4), Some((4, 0)));
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("asdf\n");
 
     assert_eq!(core.byte_pos(0), Some((0, 0)));
@@ -150,8 +150,68 @@ fn test_byte_pos() {
     assert_eq!(core.byte_pos(4), Some((4, 0)));
     assert_eq!(core.byte_pos(5), Some((0, 1)));
 
-    let mut core = InputCore::new();
+    let mut core = TextAreaCore::new();
     core.set_value("");
 
     assert_eq!(core.byte_pos(0), Some((0, 0)));
+}
+
+#[test]
+fn test_insert_text() {
+    let mut v = TextAreaCore::new();
+    v.set_value("abcd");
+    v.add_style(TextRange::new((2, 0), (3, 0)), 1);
+    v.add_style(TextRange::new((1, 0), (3, 0)), 2);
+    v.add_style(TextRange::new((1, 0), (2, 0)), 3);
+    v.insert_text((2, 0), "x");
+    assert_eq!(v.value(), "abxcd");
+    assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
+    assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (4, 0)));
+    assert_eq!(v.styles()[2].0, TextRange::new((3, 0), (4, 0)));
+
+    let mut v = TextAreaCore::new();
+    v.set_value("abcd");
+    v.add_style(TextRange::new((2, 0), (3, 0)), 1);
+    v.add_style(TextRange::new((1, 0), (3, 0)), 2);
+    v.add_style(TextRange::new((1, 0), (2, 0)), 3);
+    v.insert_text((2, 0), "\n");
+    assert_eq!(v.value(), "ab\ncd");
+    assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
+    assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (1, 1)));
+    assert_eq!(v.styles()[2].0, TextRange::new((0, 1), (1, 1)));
+
+    let mut v = TextAreaCore::new();
+    v.set_value("abcd");
+    v.add_style(TextRange::new((2, 0), (3, 0)), 1);
+    v.add_style(TextRange::new((1, 0), (3, 0)), 2);
+    v.add_style(TextRange::new((1, 0), (2, 0)), 3);
+    v.insert_text((2, 0), "\n\n");
+    assert_eq!(v.value(), "ab\n\ncd");
+    assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
+    assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (1, 2)));
+    assert_eq!(v.styles()[2].0, TextRange::new((0, 2), (1, 2)));
+
+    let mut v = TextAreaCore::new();
+    v.set_value("abcd");
+    v.add_style(TextRange::new((2, 0), (3, 0)), 1);
+    v.add_style(TextRange::new((1, 0), (3, 0)), 2);
+    v.add_style(TextRange::new((1, 0), (2, 0)), 3);
+    v.insert_text((2, 0), "x\ny");
+    assert_eq!(v.value(), "abx\nycd");
+    assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
+    assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (2, 1)));
+    assert_eq!(v.styles()[2].0, TextRange::new((1, 1), (2, 1)));
+
+    let mut v = TextAreaCore::new();
+    v.set_value("abcd");
+    v.add_style(TextRange::new((2, 0), (3, 0)), 1);
+    v.add_style(TextRange::new((1, 0), (3, 0)), 2);
+    v.add_style(TextRange::new((1, 0), (2, 0)), 3);
+    v.insert_text((2, 0), "xx\nyy\nzz");
+    assert_eq!(v.value(), "abxx\nyy\nzzcd");
+    assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
+    assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (3, 2)));
+    assert_eq!(v.styles()[2].0, TextRange::new((2, 2), (3, 2)));
+
+    dbg!(v);
 }

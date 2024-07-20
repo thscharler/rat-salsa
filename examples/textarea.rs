@@ -6,7 +6,7 @@ use rat_scrolled::Scroll;
 use rat_widget::event::{Outcome, TextOutcome};
 use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
 use rat_widget::statusline::StatusLineState;
-use rat_widget::textarea::core::TextRange;
+use rat_widget::textarea::textarea_core::TextRange;
 use rat_widget::textarea::{TextArea, TextAreaState};
 use rat_widget::{menuline, textarea};
 use ratatui::layout::{Constraint, Layout, Rect};

@@ -4,8 +4,8 @@
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::fill::Fill;
-use crate::textarea::core::{RopeGraphemes, TextRange};
-use crate::textarea::graphemes::GlyphIter;
+use crate::text::graphemes::{GlyphIter, RopeGraphemes};
+use crate::text::textarea_core::{TextAreaCore, TextRange};
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
@@ -22,11 +22,6 @@ use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetR
 use ropey::{Rope, RopeSlice};
 use std::cmp::{max, min};
 use std::fmt::Debug;
-
-/// Core functions for text-editing.
-pub mod core;
-/// Grapheme based string functions.
-pub mod graphemes;
 
 /// Text area widget.
 ///
@@ -98,7 +93,7 @@ pub struct TextAreaState {
     /// Area inside the borders.
     pub inner: Rect,
     /// Text edit core
-    pub value: core::TextAreaCore,
+    pub value: TextAreaCore,
 
     /// Horizontal scroll
     pub hscroll: ScrollState,
@@ -320,7 +315,7 @@ impl Default for TextAreaState {
             area: Default::default(),
             inner: Default::default(),
             mouse: Default::default(),
-            value: core::TextAreaCore::default(),
+            value: TextAreaCore::default(),
             hscroll: Default::default(),
             non_exhaustive: NonExhaustive,
             vscroll: Default::default(),

@@ -157,6 +157,9 @@ pub mod layout {
     pub use layout_grid::{layout_grid, layout_middle};
 }
 
+/// Text editing core functionality and utilities.
+pub mod text;
+
 // --- widget modules here --- (alphabetical)
 
 pub mod button;

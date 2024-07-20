@@ -1,4 +1,4 @@
-use rat_widget::textarea::core::{InputCore, TextRange};
+use rat_widget::textarea::textarea_core::{TextAreaCore, TextRange};
 use std::cmp::Ordering;
 #[allow(unused_imports)]
 use std::hint::black_box;
@@ -174,7 +174,7 @@ fn test_stylemap() {
     assert_eq!(r0.cmp(&r2), Ordering::Less);
     assert_eq!(r1.cmp(&r2), Ordering::Less);
 
-    let mut txt = InputCore::default();
+    let mut txt = TextAreaCore::default();
     txt.add_style(TextRange::new((0, 0), (13, 0)), 0);
     txt.add_style(TextRange::new((0, 1), (13, 1)), 0);
     txt.add_style(TextRange::new((4, 3), (17, 3)), 0);

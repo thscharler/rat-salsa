@@ -1,16 +1,14 @@
-use crate::textarea::graphemes::{rope_line_len, str_line_len, GlyphIter, RopeGraphemesIdx};
+use crate::text::graphemes::{
+    rope_line_len, str_line_len, GlyphIter, RopeGraphemes, RopeGraphemesIdx,
+};
 #[allow(unused_imports)]
 use log::debug;
 use ropey::iter::{Bytes, Lines};
 use ropey::{Rope, RopeSlice};
 use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Formatter};
-use std::iter::Skip;
 use std::mem;
-use std::slice::IterMut;
 use unicode_segmentation::UnicodeSegmentation;
-
-pub use crate::textarea::graphemes::RopeGraphemes;
 
 /// Core for text editing.
 #[derive(Debug, Clone)]
