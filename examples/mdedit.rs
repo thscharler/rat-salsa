@@ -499,7 +499,7 @@ pub mod mdedit {
                 .styles(ctx.g.theme.textarea_style())
                 .set_horizontal_max_offset(255)
                 .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
-                // .show_ctrl(true)
+                .show_ctrl(true)
                 .text_style(self.text_style(ctx))
                 .render(area, buf, &mut state.edit);
             ctx.set_screen_cursor(state.edit.screen_cursor());
