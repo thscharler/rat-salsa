@@ -98,7 +98,7 @@ pub struct TextAreaState {
     /// Area inside the borders.
     pub inner: Rect,
     /// Text edit core
-    pub value: core::InputCore,
+    pub value: core::TextAreaCore,
 
     /// Horizontal scroll
     pub hscroll: ScrollState,
@@ -320,7 +320,7 @@ impl Default for TextAreaState {
             area: Default::default(),
             inner: Default::default(),
             mouse: Default::default(),
-            value: core::InputCore::default(),
+            value: core::TextAreaCore::default(),
             hscroll: Default::default(),
             non_exhaustive: NonExhaustive,
             vscroll: Default::default(),
@@ -480,8 +480,8 @@ impl TextAreaState {
     /// Iterator for the glyphs of a given line.
     /// A glyph here is a grapheme + a display width.
     /// This covers multi-column graphemes as well as tabs (with varying width).
-    pub fn glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
-        self.value.glyphs(n)
+    pub fn line_glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
+        self.value.line_glyphs(n)
     }
 
     /// Has a selection?
@@ -898,7 +898,7 @@ impl TextAreaState {
         let (mut cx, cy) = (0usize, row);
         let (ox, _oy) = self.offset();
 
-        let mut line = self.glyphs(cy)?;
+        let mut line = self.line_glyphs(cy)?;
         line.set_offset(ox);
         line.set_tabs(8);
 
@@ -920,7 +920,7 @@ impl TextAreaState {
         let (px, py) = pos;
         let (ox, _oy) = self.offset();
 
-        let mut line = self.glyphs(py)?;
+        let mut line = self.line_glyphs(py)?;
         line.set_offset(ox);
         line.set_tabs(8);
 

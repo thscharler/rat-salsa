@@ -3,28 +3,45 @@ use ropey::iter::Chunks;
 use ropey::RopeSlice;
 use std::borrow::Cow;
 use std::fmt::{Debug, Formatter};
-use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
+use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete, UnicodeSegmentation};
 
-/// Length as grapheme count.
-pub fn rope_len(r: RopeSlice<'_>) -> usize {
+/// Length as grapheme count, excluding line breaks.
+pub fn rope_line_len(r: RopeSlice<'_>) -> usize {
     let it = RopeGraphemes::new(r);
     it.filter(|c| c != "\n" && c != "\r\n").count()
 }
 
+/// Length as grapheme count, excluding line breaks.
+pub fn str_line_len(s: &str) -> usize {
+    let it = s.graphemes(true);
+    it.filter(|c| *c != "\n" && *c != "\r\n").count()
+}
+
 /// Data for rendering/mapping graphemes to screen coordinates.
-pub struct GDisplay<'a> {
+pub struct Glyph<'a> {
     /// First char.
     pub glyph: Cow<'a, str>,
     /// Length for the glyph. Cells after the first are reset.
     pub len: usize,
 }
 
-impl<'a> Debug for GDisplay<'a> {
+impl<'a> Debug for Glyph<'a> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "'{}' len={}", self.glyph, self.len)
     }
 }
 
+/// Iterates a RopeSlice and returns graphemes + length as
+/// [Glyph].
+///
+/// This is used for rendering text, and for mapping text-positions
+/// to screen-positions and vice versa.
+///
+/// It
+/// * has a length for the glyph. This is used for wide characters
+///   and tab support.
+/// * has a column-offset.
+/// * can translate control-codes to visible graphemes.
 #[derive(Debug)]
 pub struct GlyphIter<'a> {
     iter: RopeGraphemes<'a>,
@@ -35,6 +52,7 @@ pub struct GlyphIter<'a> {
 }
 
 impl<'a> GlyphIter<'a> {
+    /// New iterator.
     pub fn new(slice: RopeSlice<'a>) -> Self {
         Self {
             iter: RopeGraphemes::new(slice),
@@ -64,7 +82,7 @@ impl<'a> GlyphIter<'a> {
 }
 
 impl<'a> Iterator for GlyphIter<'a> {
-    type Item = GDisplay<'a>;
+    type Item = Glyph<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(g) = self.iter.next() {
@@ -117,14 +135,14 @@ impl<'a> Iterator for GlyphIter<'a> {
                     glyph = Cow::Borrowed(" ");
                     len = self.offset - self.col;
                     self.col = next_col;
-                    return Some(GDisplay { glyph, len });
+                    return Some(Glyph { glyph, len });
                 } else {
                     // out left
                     self.col = next_col;
                 }
             } else {
                 self.col = next_col;
-                return Some(GDisplay { glyph, len });
+                return Some(Glyph { glyph, len });
             }
         }
 

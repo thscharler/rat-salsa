@@ -1,19 +1,20 @@
-use crate::textarea::graphemes::{rope_len, GlyphIter, RopeGraphemesIdx};
+use crate::textarea::graphemes::{rope_line_len, str_line_len, GlyphIter, RopeGraphemesIdx};
 #[allow(unused_imports)]
 use log::debug;
-use ropey::iter::Lines;
+use ropey::iter::{Bytes, Lines};
 use ropey::{Rope, RopeSlice};
 use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Formatter};
 use std::iter::Skip;
 use std::mem;
 use std::slice::IterMut;
+use unicode_segmentation::UnicodeSegmentation;
 
 pub use crate::textarea::graphemes::RopeGraphemes;
 
 /// Core for text editing.
 #[derive(Debug, Clone)]
-pub struct InputCore {
+pub struct TextAreaCore {
     /// Rope for text storage.
     value: Rope,
     /// Styles.
@@ -41,12 +42,6 @@ pub struct TextRange {
 struct StyleMap {
     /// Vec of (range, style-idx)
     styles: Vec<(TextRange, usize)>,
-}
-
-#[derive(Debug)]
-pub struct ScrolledIter<'a> {
-    lines: Lines<'a>,
-    offset: usize,
 }
 
 impl Debug for TextRange {
@@ -176,7 +171,7 @@ impl TextRange {
 
     /// Modify all positions in place.
     #[inline]
-    pub fn expand_all(&self, it: Skip<IterMut<'_, (TextRange, usize)>>) {
+    pub fn expand_all<'a>(&self, it: impl Iterator<Item = &'a mut (TextRange, usize)>) {
         for (r, _s) in it {
             self._expand(&mut r.start);
             self._expand(&mut r.end);
@@ -185,7 +180,7 @@ impl TextRange {
 
     /// Modify all positions in place.
     #[inline]
-    pub fn shrink_all(&self, it: Skip<IterMut<'_, (TextRange, usize)>>) {
+    pub fn shrink_all<'a>(&self, it: impl Iterator<Item = &'a mut (TextRange, usize)>) {
         for (r, _s) in it {
             self._shrink(&mut r.start);
             self._shrink(&mut r.end);
@@ -201,7 +196,7 @@ impl TextRange {
         tmp
     }
 
-    /// Return the modified position, if this range would shrink to nothing.
+    /// Return the modified position, as if this range would shrink to nothing.
     #[inline]
     pub fn shrink(&self, pos: (usize, usize)) -> (usize, usize) {
         let mut tmp = pos;
@@ -320,11 +315,11 @@ impl StyleMap {
         }
     }
 
-    /// Find all styles
+    /// Find styles that touch the given pos and all styles after that point.
     pub(crate) fn styles_after_mut(
         &mut self,
         pos: (usize, usize),
-    ) -> Skip<IterMut<'_, (TextRange, usize)>> {
+    ) -> impl Iterator<Item = &mut (TextRange, usize)> {
         let first = match self.styles.binary_search_by(|v| v.0.ordering(pos)) {
             Ok(mut i) => {
                 // binary-search found *some* matching style, we need all of them.
@@ -346,8 +341,7 @@ impl StyleMap {
         self.styles.iter_mut().skip(first)
     }
 
-    /// Find all styles for the given position.
-    ///
+    /// Find all styles that touch the given position.
     pub(crate) fn styles_at(&self, pos: (usize, usize), result: &mut Vec<usize>) {
         match self.styles.binary_search_by(|v| v.0.ordering(pos)) {
             Ok(mut i) => {
@@ -378,16 +372,7 @@ impl StyleMap {
     }
 }
 
-impl<'a> Iterator for ScrolledIter<'a> {
-    type Item = Skip<RopeGraphemes<'a>>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let s = self.lines.next()?;
-        Some(RopeGraphemes::new(s).skip(self.offset))
-    }
-}
-
-impl Default for InputCore {
+impl Default for TextAreaCore {
     fn default() -> Self {
         Self {
             value: Default::default(),
@@ -400,12 +385,13 @@ impl Default for InputCore {
     }
 }
 
-impl InputCore {
+impl TextAreaCore {
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Extra column information for cursor movement.
+    ///
     /// The cursor position is capped to the current line length, so if you
     /// move up one row, you might end at a position left of the current column.
     /// If you move up once more you want to return to the original position.
@@ -422,7 +408,7 @@ impl InputCore {
     }
 
     /// Set the cursor position.
-    /// The value is capped to the number of text lines and the line-width.
+    /// The value is capped to the number of text lines and the line-width for the given line.
     /// Returns true, if the cursor actually changed.
     pub fn set_cursor(&mut self, mut cursor: (usize, usize), extend_selection: bool) -> bool {
         let old_cursor = self.cursor;
@@ -455,9 +441,11 @@ impl InputCore {
         self.anchor
     }
 
-    /// Sets the line-break to be used for insert.
-    /// There is no auto-detection or conversion when setting
-    /// the value.
+    /// Sets the line ending to be used for insert.
+    /// There is no auto-detection or conversion done for set_value().
+    ///
+    /// Caution: If this doesn't match the line ending used in the value, you
+    /// will get a value with mixed line endings.
     #[inline]
     pub fn set_line_break(&mut self, br: String) {
         self.line_break = br;
@@ -470,7 +458,7 @@ impl InputCore {
     }
 
     /// Set the text value as a Rope.
-    /// Resets all internal state.
+    /// Resets the selection and any styles.
     #[inline]
     pub fn set_value_rope(&mut self, s: Rope) {
         self.value = s;
@@ -480,13 +468,13 @@ impl InputCore {
         self.styles.clear_styles();
     }
 
-    /// Text value.
+    /// Copy of the text value.
     #[inline]
     pub fn value(&self) -> String {
         String::from(&self.value)
     }
 
-    /// Borrow the rope
+    /// Access the underlying Rope with the text value.
     #[inline]
     pub fn value_rope(&self) -> &Rope {
         &self.value
@@ -501,11 +489,13 @@ impl InputCore {
 
     /// Value as Bytes iterator.
     pub fn value_as_bytes(&self) -> ropey::iter::Bytes<'_> {
+        // todo
         self.value.bytes()
     }
 
     /// Value as Chars iterator.
     pub fn value_as_chars(&self) -> ropey::iter::Chars<'_> {
+        // todo
         self.value.chars()
     }
 
@@ -539,12 +529,23 @@ impl InputCore {
     }
 
     /// Iterator for the glyphs of a given line.
-    pub fn glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
+    /// Glyphs here a graphem + display length.
+    pub fn line_glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
         let mut lines = self.value.get_lines_at(n)?;
         if let Some(line) = lines.next() {
             Some(GlyphIter::new(line))
         } else {
-            Some(GlyphIter::new(RopeSlice::from("")))
+            None
+        }
+    }
+
+    /// Iterator for the bytes of a given line.
+    pub fn line_bytes(&self, n: usize) -> Option<Bytes> {
+        let mut lines = self.value.get_lines_at(n)?;
+        if let Some(line) = lines.next() {
+            Some(line.bytes())
+        } else {
+            None
         }
     }
 
@@ -555,7 +556,7 @@ impl InputCore {
         if let Some(line) = lines.next() {
             Some(RopeGraphemes::new(line))
         } else {
-            Some(RopeGraphemes::new(RopeSlice::from("")))
+            None
         }
     }
 
@@ -567,16 +568,16 @@ impl InputCore {
         if let Some(line) = line {
             Some(RopeGraphemesIdx::new(line))
         } else {
-            Some(RopeGraphemesIdx::new(RopeSlice::from("")))
+            None
         }
     }
 
-    /// Line width as grapheme count.
+    /// Line width as grapheme count. Excludes the terminating '\n'.
     pub fn line_width(&self, n: usize) -> Option<usize> {
         let mut lines = self.value.get_lines_at(n)?;
         let line = lines.next();
         if let Some(line) = line {
-            Some(rope_len(line))
+            Some(rope_line_len(line))
         } else {
             Some(0)
         }
@@ -665,18 +666,6 @@ impl InputCore {
     #[inline]
     pub fn iter_lines(&self, line_offset: usize) -> Lines<'_> {
         self.value.lines_at(line_offset)
-    }
-
-    /// Iterate over the text, shifted by the offset.
-    #[inline]
-    pub fn iter_scrolled(&self, offset: (usize, usize)) -> ScrolledIter<'_> {
-        let Some(l) = self.value.get_lines_at(offset.1) else {
-            panic!("invalid offset {:?} value {:?}", offset, self.value);
-        };
-        ScrolledIter {
-            lines: l,
-            offset: offset.0,
-        }
     }
 
     /// Find next word.
@@ -818,6 +807,71 @@ impl InputCore {
         )
     }
 
+    /// Insert some text.
+    pub fn insert_text(&mut self, pos: (usize, usize), t: &str) {
+        let Some(char_pos) = self.char_at(pos) else {
+            panic!("invalid pos {:?} value {:?}", pos, self.value);
+        };
+
+        // dissect t
+        let mut first = String::new();
+        let mut middle = String::new();
+        let mut last = String::new();
+        let mut line_breaks = 0;
+        let mut current = String::new();
+
+        let mut state = 0;
+        for g in t.graphemes(true) {
+            current.push_str(g);
+
+            if g == "\n" || g == "\r\n" {
+                line_breaks += 1;
+                if state == 0 {
+                    first = current;
+                    current = String::new();
+                    state = 1;
+                } else {
+                    middle.push_str(&current);
+                    current.clear();
+                }
+            }
+        }
+        last = current;
+
+        let insert = if line_breaks > 0 {
+            // split insert line
+            let (split_byte, _) = self.byte_at(pos).expect("valid_pos");
+            let line = self.line_bytes(pos.1).expect("valid_pos");
+            let mut line_second = Vec::new();
+            for b in line.clone().skip(split_byte) {
+                line_second.push(b);
+            }
+            let line_second = String::from_utf8(line_second).expect("valid_str");
+
+            // this should cope with all unicode joins.
+            let old_len = str_line_len(&line_second);
+            let mut new_second = last.clone();
+            new_second.push_str(&line_second);
+            let new_len = str_line_len(&new_second);
+
+            self.value.insert(char_pos, t);
+
+            TextRange::new(pos, (new_len - old_len, pos.1 + line_breaks))
+        } else {
+            // no way to know if the insert text combines with a surrounding char.
+            // the difference of the graphem len seems safe though.
+            let old_len = self.line_width(pos.1).expect("valid_pos");
+            self.value.insert(char_pos, t);
+            let new_len = self.line_width(pos.1).expect("valid_pos");
+
+            TextRange::new(pos, (pos.0 + new_len - old_len, pos.1))
+        };
+
+        insert.expand_all(self.styles.styles_after_mut(pos));
+        self.anchor = insert.expand(self.anchor);
+        self.cursor = insert.expand(self.cursor);
+    }
+
     /// Insert a character.
     pub fn insert_char(&mut self, pos: (usize, usize), c: char) {
         if c == '\n' {
@@ -835,13 +889,11 @@ impl InputCore {
         self.value.insert_char(char_pos, c);
         let new_len = self.line_width(pos.1).expect("valid_pos");
 
-        let insert = TextRange::new((pos.0, pos.1), (pos.0 + new_len - old_len, pos.1));
+        let insert = TextRange::new(pos, (pos.0 + new_len - old_len, pos.1));
         insert.expand_all(self.styles.styles_after_mut(pos));
         self.anchor = insert.expand(self.anchor);
         self.cursor = insert.expand(self.cursor);
     }
-
-    // todo: insert_str
 
     /// Insert a line break.
     pub fn insert_newline(&mut self, pos: (usize, usize)) {
@@ -858,6 +910,7 @@ impl InputCore {
         self.cursor = insert.expand(self.cursor);
     }
 
+    /// Remove the given range.
     pub fn remove(&mut self, range: TextRange) {
         let Some(start_pos) = self.char_at(range.start) else {
             panic!("invalid range {:?} value {:?}", range, self.value);
