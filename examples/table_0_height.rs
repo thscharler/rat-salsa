@@ -2,7 +2,7 @@
 //! Render rows with row-height 0.
 //!
 
-use crate::data::render_tablestate::{render_tablestate, render_tablestate_row};
+use crate::data::render_tablestate::render_tablestate_row;
 use crate::data::SMALL_DATA;
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};

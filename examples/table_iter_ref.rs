@@ -13,7 +13,7 @@ use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{block, Block, StatefulWidget, StatefulWidgetRef, Widget};
+use ratatui::widgets::{block, Block, StatefulWidgetRef, Widget};
 use ratatui::Frame;
 use std::iter::Enumerate;
 use std::slice::Iter;
