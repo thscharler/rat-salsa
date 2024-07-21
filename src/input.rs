@@ -35,7 +35,6 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget};
 use std::cmp::min;
 use std::ops::Range;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Text input widget.
 #[derive(Debug, Default, Clone)]
@@ -47,17 +46,7 @@ pub struct TextInput<'a> {
     invalid_style: Option<Style>,
 }
 
-/// Combined style for the widget.
-#[derive(Debug, Clone)]
-pub struct TextInputStyle {
-    pub style: Style,
-    pub focus: Option<Style>,
-    pub select: Option<Style>,
-    pub invalid: Option<Style>,
-    pub non_exhaustive: NonExhaustive,
-}
-
-/// Textinput data & event-handling.
+/// State for TextInput.
 #[derive(Debug, Clone)]
 pub struct TextInputState {
     /// Current focus state.
@@ -78,6 +67,16 @@ pub struct TextInputState {
     /// Mouse selection in progress.
     pub mouse: MouseFlags,
     /// Construct with `..Default::default()`
+    pub non_exhaustive: NonExhaustive,
+}
+
+/// Combined style for the widget.
+#[derive(Debug, Clone)]
+pub struct TextInputStyle {
+    pub style: Style,
+    pub focus: Option<Style>,
+    pub select: Option<Style>,
+    pub invalid: Option<Style>,
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -138,6 +137,7 @@ impl<'a> TextInput<'a> {
         self
     }
 
+    /// Block.
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
@@ -285,6 +285,7 @@ impl TextInputState {
         if self.is_empty() {
             false
         } else {
+            self.offset = 0;
             self.value.clear();
             true
         }
@@ -314,21 +315,36 @@ impl TextInputState {
         self.value.set_cursor(cursor, extend_selection)
     }
 
+    /// Set the cursor and anchor to the defaults.
+    /// Exists just to mirror MaskedInput.
+    #[inline]
+    pub fn set_default_cursor(&mut self) {
+        self.value.set_default_cursor();
+    }
+
     /// Selection anchor.
     #[inline]
     pub fn anchor(&self) -> usize {
         self.value.anchor()
     }
 
-    /// Text.
+    /// Text value.
     #[inline]
     pub fn value(&self) -> &str {
         self.value.value()
     }
 
+    /// Create a default value according to the mask.
+    /// Exists just to mirror MaskedInput.
+    #[inline]
+    pub fn default_value(&self) -> String {
+        self.value.default_value()
+    }
+
     /// Set text.
     #[inline]
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
+        self.offset = 0;
         self.value.set_value(s);
     }
 
@@ -338,7 +354,7 @@ impl TextInputState {
         self.value.is_empty()
     }
 
-    /// Text length as grapheme count.
+    /// Length as grapheme count.
     #[inline]
     pub fn len(&self) -> usize {
         self.value.len()
@@ -475,7 +491,7 @@ impl TextInputState {
             self.delete_range(self.selection())
         } else {
             let cp = self.cursor();
-            let sp = next_word_start(self.value(), cp);
+            let sp = self.next_word_start(cp);
 
             let ep = if cp == sp {
                 next_word_end(self.value(), cp)
@@ -574,7 +590,7 @@ impl TextInputState {
         c || s
     }
 
-    // End of line
+    /// End of line
     #[inline]
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
         let c = self.len();
@@ -644,7 +660,7 @@ impl TextInputState {
     #[inline]
     pub fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
-            let cx = self.value.cursor();
+            let cx = self.cursor();
             let ox = self.offset();
 
             if cx < ox {

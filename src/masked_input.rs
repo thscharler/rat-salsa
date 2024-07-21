@@ -64,6 +64,9 @@
 //!
 //! ```
 //!
+//! The visual cursor must be set separately after rendering.
+//! It is accessible as [TextInputState::screen_cursor()] after rendering.
+//!
 //! Event handling by calling the freestanding fn [handle_events].
 //! There's [handle_mouse_events] if you want to override the default key bindings but keep
 //! the mouse behaviour.
@@ -71,8 +74,12 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
+use crate::fill::Fill;
 use crate::input::{TextInputState, TextInputStyle};
-use crate::text::graphemes::split3;
+use crate::text::graphemes::{
+    is_word_boundary, next_word_end, next_word_start, prev_word_end, prev_word_start, split3,
+    word_end, word_start,
+};
 use crate::text::maskedinput_core::MaskedInputCore;
 use format_num_pattern::NumberSymbols;
 #[allow(unused_imports)]
@@ -85,15 +92,14 @@ use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget};
-use std::cmp::{max, min};
+use std::cmp::min;
 use std::fmt;
 use std::ops::Range;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Text input widget with input mask.
 #[derive(Debug, Default, Clone)]
 pub struct MaskedInput<'a> {
-    show_compact: bool,
+    compact: bool,
     block: Option<Block<'a>>,
     style: Style,
     focus_style: Option<Style>,
@@ -101,7 +107,7 @@ pub struct MaskedInput<'a> {
     invalid_style: Option<Style>,
 }
 
-/// State of the input-mask.
+/// State for MaskedInput.
 #[derive(Debug, Clone)]
 pub struct MaskedInputState {
     /// Current focus state.
@@ -109,26 +115,20 @@ pub struct MaskedInputState {
     /// Display as invalid.
     pub invalid: bool,
 
-    /// Area with block
+    /// The whole area with block.
     pub area: Rect,
-    /// Area
+    /// Area inside a possible block.
     pub inner: Rect,
+
+    /// Display offset
+    pub offset: usize,
+    /// Editing core
+    pub value: MaskedInputCore,
+
     /// Mouse selection in progress.
     pub mouse: MouseFlags,
-    /// Editing core.
-    pub value: MaskedInputCore,
     /// Construct with `..Default::default()`
     pub non_exhaustive: NonExhaustive,
-}
-
-impl HasFocusFlag for MaskedInputState {
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
-    }
-
-    fn area(&self) -> Rect {
-        self.area
-    }
 }
 
 impl<'a> MaskedInput<'a> {
@@ -140,8 +140,8 @@ impl<'a> MaskedInput<'a> {
     /// Show a compact form of the content without unnecessary spaces,
     /// if this widget is not focused.
     #[inline]
-    pub fn show_compact(mut self, show_compact: bool) -> Self {
-        self.show_compact = show_compact;
+    pub fn compact(mut self, show_compact: bool) -> Self {
+        self.compact = show_compact;
         self
     }
 
@@ -176,7 +176,8 @@ impl<'a> MaskedInput<'a> {
         self
     }
 
-    /// Style for invalid.
+    /// Style for the invalid indicator.
+    /// This is patched onto either base_style or focus_style
     #[inline]
     pub fn invalid_style(mut self, style: impl Into<Style>) -> Self {
         self.invalid_style = Some(style.into());
@@ -215,16 +216,15 @@ fn render_ref(
 ) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
-    state.value.set_width(state.inner.width as usize);
 
     widget.block.render(area, buf);
 
-    let area = state.inner.intersection(buf.area);
+    let area = state.inner;
 
     if state.focus.get() {
         state.value.render_value();
     } else {
-        if widget.show_compact {
+        if widget.compact {
             state.value.render_condensed_value();
         } else {
             state.value.render_value();
@@ -267,39 +267,45 @@ fn render_ref(
         }
     };
 
-    let selection = state.value.selection();
+    Fill::new().style(style).render(area, buf);
+
+    let selection = state.selection();
+
     let ox = state.offset();
-    let mut cit = state.value.rendered().graphemes(true).skip(state.offset());
-    let mut col = 0;
-    let mut cx = 0;
-    loop {
-        if col >= area.width {
-            break;
-        }
+    let mut col = 0u16;
+    let mut tx = ox;
 
-        let ch = if let Some(c) = cit.next() { c } else { " " };
+    let mut glyph_iter = state.value.value_glyphs();
+    glyph_iter.set_offset(ox);
 
-        let tx = cx + ox;
-        let style = if selection.contains(&tx) {
-            select_style
-        } else {
-            style
-        };
+    'line: for d in glyph_iter {
+        if d.len > 0 {
+            let style = if selection.contains(&tx) {
+                select_style
+            } else {
+                style
+            };
 
-        let cell = buf.get_mut(area.x + col, area.y);
-        cell.set_symbol(ch);
-        cell.set_style(style);
-
-        // extra cells for wide chars.
-        let ww = unicode_display_width::width(ch) as u16;
-        for x in 1..ww {
-            let cell = buf.get_mut(area.x + col + x, area.y);
-            cell.set_symbol("");
+            let cell = buf.get_mut(area.x + col, area.y);
+            cell.set_symbol(d.glyph.as_ref());
             cell.set_style(style);
-        }
+            col += 1;
+            if col >= area.width {
+                break 'line;
+            }
 
-        col += max(ww, 1);
-        cx += 1;
+            for _ in 1..d.len {
+                let cell = buf.get_mut(area.x + col, area.y);
+                cell.reset();
+                cell.set_style(style);
+                col += 1;
+                if col >= area.width {
+                    break 'line;
+                }
+            }
+
+            tx += 1;
+        }
     }
 }
 
@@ -313,6 +319,7 @@ impl Default for MaskedInputState {
             mouse: Default::default(),
             value: Default::default(),
             non_exhaustive: NonExhaustive,
+            offset: 0,
         }
     }
 }
@@ -325,10 +332,9 @@ impl MaskedInputState {
     /// Uses localized symbols for number formatting.
     #[inline]
     pub fn new_with_symbols(sym: NumberSymbols) -> Self {
-        Self {
-            value: MaskedInputCore::new_with_symbols(sym),
-            ..Self::default()
-        }
+        let mut s = Self::default();
+        s.set_num_symbols(sym);
+        s
     }
 
     /// Renders the widget in invalid style.
@@ -349,6 +355,7 @@ impl MaskedInputState {
         if self.is_empty() {
             false
         } else {
+            self.offset = 0;
             self.value.clear();
             true
         }
@@ -357,16 +364,16 @@ impl MaskedInputState {
     /// Offset shown.
     #[inline]
     pub fn offset(&self) -> usize {
-        self.value.offset()
+        self.offset
     }
 
     /// Offset shown. This is corrected if the cursor wouldn't be visible.
     #[inline]
     pub fn set_offset(&mut self, offset: usize) {
-        self.value.set_offset(offset);
+        self.offset = offset;
     }
 
-    /// Cursor position
+    /// Cursor position.
     #[inline]
     pub fn cursor(&self) -> usize {
         self.value.cursor()
@@ -378,7 +385,8 @@ impl MaskedInputState {
         self.value.set_cursor(cursor, extend_selection)
     }
 
-    /// Place cursor at decimal separator, if any. 0 otherwise.
+    /// Place cursor at the decimal separator, if any.
+    /// 0 otherwise.
     #[inline]
     pub fn set_default_cursor(&mut self) {
         self.value.set_default_cursor();
@@ -388,6 +396,375 @@ impl MaskedInputState {
     #[inline]
     pub fn anchor(&self) -> usize {
         self.value.anchor()
+    }
+
+    /// Value with all punctuation and default values according to the mask type.
+    #[inline]
+    pub fn value(&self) -> &str {
+        self.value.value()
+    }
+
+    /// Create a default value according to the mask.
+    #[inline]
+    pub fn default_value(&self) -> String {
+        self.value.default_value()
+    }
+
+    /// Set the value.
+    ///
+    /// No checks if the value conforms to the mask.
+    /// If the value is too short it will be filled with space.
+    /// if the value is too long it will be truncated.
+    #[inline]
+    pub fn set_value<S: Into<String>>(&mut self, s: S) {
+        self.offset = 0;
+        self.value.set_value(s);
+    }
+
+    /// Empty
+    #[inline]
+    pub fn is_empty(&self) -> bool {
+        self.value.is_empty()
+    }
+
+    /// Length as grapheme count.
+    #[inline]
+    pub fn len(&self) -> usize {
+        self.value.len()
+    }
+
+    /// Selection.
+    #[inline]
+    pub fn has_selection(&self) -> bool {
+        self.value.has_selection()
+    }
+
+    /// Selection.
+    #[inline]
+    pub fn selection(&self) -> Range<usize> {
+        self.value.selection()
+    }
+
+    /// Selection.
+    #[inline]
+    pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
+        self.value.set_selection(anchor, cursor)
+    }
+
+    /// Selection.
+    #[inline]
+    pub fn select_all(&mut self) -> bool {
+        self.value.select_all()
+    }
+
+    /// Selection.
+    #[inline]
+    pub fn selected_value(&self) -> &str {
+        split3(self.value.value(), self.value.selection()).1
+    }
+
+    /// Change the offset in a way that the cursor is visible.
+    pub fn scroll_cursor_to_visible(&mut self) -> bool {
+        let old_offset = self.offset();
+
+        let c = self.cursor();
+        let o = self.offset();
+
+        let no = if c < o {
+            c
+        } else if c >= o + self.inner.width as usize {
+            c.saturating_sub(self.inner.width as usize)
+        } else {
+            o
+        };
+
+        self.set_offset(no);
+
+        self.offset() != old_offset
+    }
+
+    /// Insert a char at the current position.
+    #[inline]
+    pub fn insert_char(&mut self, c: char) -> bool {
+        if self.value.has_selection() {
+            self.value.remove_range(self.value.selection());
+        }
+        self.value.advance_cursor(c);
+        self.value.insert_char(c);
+        self.scroll_cursor_to_visible();
+        true
+    }
+
+    // TODO: maybe ...
+    // /// Insert a str at the current position.
+    // #[inline]
+    // pub fn insert_str(&mut self, t: &str) -> bool {
+    //     if self.value.has_selection() {
+    //         self.value.remove_range(self.value.selection());
+    //     }
+    //     self.value.insert_str(self.value.cursor(), t);
+    //     self.scroll_cursor_to_visible();
+    //     true
+    // }
+
+    /// Remove the selected range. The text will be replaced with the default value
+    /// as defined by the mask.
+    #[inline]
+    pub fn delete_range(&mut self, range: Range<usize>) -> bool {
+        if !range.is_empty() {
+            self.value.remove_range(range);
+            self.scroll_cursor_to_visible();
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Find the start of the next word. Word is everything that is not whitespace.
+    pub fn next_word_start(&self, pos: usize) -> usize {
+        next_word_start(self.value(), pos)
+    }
+
+    /// Find the end of the next word.  Skips whitespace first, then goes on
+    /// until it finds the next whitespace.
+    pub fn next_word_end(&self, pos: usize) -> usize {
+        next_word_end(self.value(), pos)
+    }
+
+    /// Find prev word. Skips whitespace first.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn prev_word_start(&self, pos: usize) -> usize {
+        prev_word_start(self.value(), pos)
+    }
+
+    /// Find the end of the previous word. Word is everything that is not whitespace.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn prev_word_end(&self, pos: usize) -> usize {
+        prev_word_end(self.value(), pos)
+    }
+
+    /// Is the position at a word boundary?
+    pub fn is_word_boundary(&self, pos: usize) -> bool {
+        is_word_boundary(self.value(), pos)
+    }
+
+    /// Find the start of the word at pos.
+    pub fn word_start(&self, pos: usize) -> usize {
+        word_start(self.value(), pos)
+    }
+
+    /// Find the end of the word at pos.
+    pub fn word_end(&self, pos: usize) -> usize {
+        word_end(self.value(), pos)
+    }
+
+    /// Deletes the next word.
+    #[inline]
+    pub fn delete_next_word(&mut self) -> bool {
+        if self.has_selection() {
+            self.delete_range(self.selection())
+        } else {
+            let cp = self.cursor();
+            let sp = self.next_word_start(cp);
+
+            let ep = if cp == sp {
+                next_word_end(self.value(), cp)
+            } else {
+                sp
+            };
+
+            self.delete_range(cp..ep)
+        }
+    }
+
+    /// Deletes the given range.
+    #[inline]
+    pub fn delete_prev_word(&mut self) -> bool {
+        if self.has_selection() {
+            self.delete_range(self.selection())
+        } else {
+            let cp = self.cursor();
+            let ep = prev_word_end(self.value(), cp);
+
+            let sp = if cp == ep {
+                prev_word_start(self.value(), cp)
+            } else {
+                ep
+            };
+
+            self.delete_range(sp..cp)
+        }
+    }
+
+    /// Delete the char before the cursor.
+    #[inline]
+    pub fn delete_prev_char(&mut self) -> bool {
+        if self.has_selection() {
+            self.delete_range(self.selection())
+        } else if self.cursor() == 0 {
+            false
+        } else {
+            self.value.remove_prev();
+            self.scroll_cursor_to_visible();
+            true
+        }
+    }
+
+    /// Delete the char after the cursor.
+    #[inline]
+    pub fn delete_next_char(&mut self) -> bool {
+        if self.has_selection() {
+            self.delete_range(self.selection())
+        } else if self.cursor() == self.len() {
+            false
+        } else {
+            self.value.remove_next();
+            self.scroll_cursor_to_visible();
+            true
+        }
+    }
+
+    #[inline]
+    pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
+        let cp = self.cursor();
+        let ep = next_word_end(self.value(), cp);
+        let c = self.set_cursor(ep, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
+    #[inline]
+    pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
+        let cp = self.cursor();
+        let sp = prev_word_start(self.value(), cp);
+        let c = self.set_cursor(sp, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
+    /// Move to the next char.
+    #[inline]
+    pub fn move_to_next(&mut self, extend_selection: bool) -> bool {
+        let c = min(self.cursor() + 1, self.len());
+        let c = self.set_cursor(c, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
+    /// Move to the previous char.
+    #[inline]
+    pub fn move_to_prev(&mut self, extend_selection: bool) -> bool {
+        let c = self.cursor().saturating_sub(1);
+        let c = self.set_cursor(c, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
+    /// Start of line
+    #[inline]
+    pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
+        let c = self.set_cursor(0, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
+    /// End of line
+    #[inline]
+    pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
+        let c = self.len();
+        let c = self.set_cursor(c, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
+    /// Converts a grapheme based position to a screen position
+    /// relative to the widget area.
+    pub fn to_screen_col(&self, pos: usize) -> Option<u16> {
+        let px = pos;
+        let ox = self.offset();
+
+        let mut line = self.value.value_glyphs();
+        line.set_offset(ox);
+
+        let sx = line.take(px - ox).map(|v| v.len).sum::<usize>();
+
+        Some(sx as u16)
+    }
+
+    /// Converts from a widget relative screen coordinate to a grapheme index.
+    /// x is the relative screen position.
+    pub fn from_screen_col(&self, scx: i16) -> usize {
+        let ox = self.offset();
+
+        if scx < 0 {
+            ox.saturating_sub((scx as isize).abs() as usize)
+        } else if scx as u16 >= self.area.width {
+            min(ox + scx as usize, self.len())
+        } else {
+            let scx = scx as u16;
+
+            let mut line = self.value.value_glyphs();
+            line.set_offset(ox);
+
+            let mut cx = 0;
+            let mut testx = 0;
+            for g in line {
+                if scx >= testx && scx < testx + g.len as u16 {
+                    break;
+                }
+                testx += g.len as u16;
+                cx += 1;
+            }
+
+            min(ox + cx, self.len())
+        }
+    }
+
+    /// Set the cursor position from a screen position relative to the origin
+    /// of the widget. This value can be negative, which selects a currently
+    /// not visible position and scrolls to it.
+    #[inline]
+    pub fn set_screen_cursor(&mut self, cursor: i16, extend_selection: bool) -> bool {
+        let scx = cursor;
+
+        let cx = self.from_screen_col(scx);
+
+        let c = self.set_cursor(cx, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
+    /// The current text cursor as an absolute screen position.
+    #[inline]
+    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
+        if self.is_focused() {
+            let cx = self.cursor();
+            let ox = self.offset();
+
+            if cx < ox {
+                None
+            } else if cx > ox + self.inner.width as usize {
+                None
+            } else {
+                let sc = self.to_screen_col(cx).expect("valid_cursor");
+                Some((self.inner.x + sc, self.inner.y))
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl MaskedInputState {
+    /// Set symbols for number display.
+    ///
+    /// These are only used for rendering and to map user input.
+    /// The value itself uses ".", "," and "-".
+    #[inline]
+    pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
+        self.value.set_num_symbols(sym);
     }
 
     /// Set the display mask. This text is used for parts that have
@@ -451,322 +828,20 @@ impl MaskedInputState {
         self.value.mask()
     }
 
-    /// Mask with some debug information.
-    #[inline]
-    pub fn debug_mask(&self) -> String {
-        self.value.debug_mask()
-    }
-
-    /// Set symbols for number display.
-    ///
-    /// These are only used for rendering and to map user input.
-    /// The value itself uses ".", "," and "-".
-    #[inline]
-    pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
-        self.value.set_num_symbols(sym);
-    }
-
-    /// Create a default value according to the mask.
-    #[inline]
-    pub fn default_value(&self) -> String {
-        self.value.default_value()
-    }
-
-    /// Set the value.
-    ///
-    /// No checks if the value conforms to the mask.
-    /// If the value is too short it will be filled with space.
-    /// if the value is too long it will be truncated.
-    #[inline]
-    pub fn set_value<S: Into<String>>(&mut self, s: S) {
-        self.value.set_value(s);
-    }
-
-    /// Value with all punctuation and default values according to the mask type.
-    #[inline]
-    pub fn value(&self) -> &str {
-        self.value.value()
-    }
-
-    /// Value split along any separators
-    #[inline]
-    pub fn value_parts(&self) -> Vec<String> {
-        self.value.value_parts()
-    }
-
     /// Value without optional whitespace and grouping separators. Might be easier to parse.
     #[inline]
     pub fn compact_value(&self) -> String {
         self.value.compact_value()
     }
+}
 
-    /// Empty
-    #[inline]
-    pub fn is_empty(&self) -> bool {
-        self.value.is_empty()
+impl HasFocusFlag for MaskedInputState {
+    fn focus(&self) -> &FocusFlag {
+        &self.focus
     }
 
-    /// Length in grapheme count.
-    #[inline]
-    pub fn len(&self) -> usize {
-        self.value.len()
-    }
-
-    /// Selection
-    #[inline]
-    pub fn has_selection(&self) -> bool {
-        self.value.has_selection()
-    }
-
-    /// Selection
-    #[inline]
-    pub fn selection(&self) -> Range<usize> {
-        self.value.selection()
-    }
-
-    /// Selection
-    #[inline]
-    pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
-        let old_selection = self.value.selection();
-
-        self.value.set_cursor(anchor, false);
-        self.value.set_cursor(cursor, true);
-
-        old_selection != self.value.selection()
-    }
-
-    /// Selection
-    #[inline]
-    pub fn select_all(&mut self) -> bool {
-        let old_selection = self.value.selection();
-
-        // the other way round it fails if width is 0.
-        self.value.set_cursor(self.value.len(), false);
-        self.value.set_cursor(0, true);
-
-        old_selection != self.value.selection()
-    }
-
-    /// Selection
-    #[inline]
-    pub fn selected_value(&self) -> &str {
-        split3(self.value.value(), self.value.selection()).1
-    }
-
-    /// Insert a char at the current position.
-    #[inline]
-    pub fn insert_char(&mut self, c: char) -> bool {
-        if self.value.has_selection() {
-            self.value.remove_range(self.value.selection());
-        }
-        self.value.advance_cursor(c);
-        self.value.insert_char(c);
-        true
-    }
-
-    /// Remove the selected range. The text will be replaced with the default value
-    /// as defined by the mask.
-    #[inline]
-    pub fn delete_range(&mut self, range: Range<usize>) -> bool {
-        if range.is_empty() {
-            false
-        } else {
-            self.value.remove_range(range);
-            true
-        }
-    }
-
-    /// Deletes the next word.
-    #[inline]
-    pub fn delete_next_word(&mut self) -> bool {
-        if self.value.has_selection() {
-            self.delete_range(self.value.selection())
-        } else {
-            let cp = self.value.cursor();
-            if let Some(ep) = self.value.next_word_boundary(cp) {
-                self.delete_range(cp..ep)
-            } else {
-                false
-            }
-        }
-    }
-
-    /// Deletes the given range.
-    #[inline]
-    pub fn delete_prev_word(&mut self) -> bool {
-        if self.value.has_selection() {
-            self.delete_range(self.value.selection())
-        } else {
-            let cp = self.value.cursor();
-            if let Some(sp) = self.value.prev_word_boundary(cp) {
-                self.delete_range(sp..cp)
-            } else {
-                false
-            }
-        }
-    }
-
-    /// Delete the char before the cursor.
-    #[inline]
-    pub fn delete_prev_char(&mut self) -> bool {
-        if self.value.is_select_all() {
-            self.value.clear();
-            true
-        } else if self.value.has_selection() {
-            self.value.remove_range(self.value.selection());
-            true
-        } else if self.value.cursor() > 0 {
-            self.value.remove_prev();
-            true
-        } else {
-            false
-        }
-    }
-
-    /// Delete the char after the cursor.
-    #[inline]
-    pub fn delete_next_char(&mut self) -> bool {
-        if self.value.is_select_all() {
-            self.value.clear();
-            true
-        } else if self.value.has_selection() {
-            self.value.remove_range(self.value.selection());
-            true
-        } else if self.value.cursor() < self.value.len() {
-            self.value.remove_next();
-            true
-        } else {
-            false
-        }
-    }
-
-    #[inline]
-    pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
-        let cp = self.value.cursor();
-        if let Some(cp) = self.value.next_word_boundary(cp) {
-            self.value.set_cursor(cp, extend_selection)
-        } else {
-            false
-        }
-    }
-
-    #[inline]
-    pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
-        let cp = self.value.cursor();
-        if let Some(cp) = self.value.prev_word_boundary(cp) {
-            self.value.set_cursor(cp, extend_selection)
-        } else {
-            false
-        }
-    }
-
-    /// Move to the next char.
-    #[inline]
-    pub fn move_to_next(&mut self, extend_selection: bool) -> bool {
-        let c = min(self.value.cursor() + 1, self.value.len());
-        self.value.set_cursor(c, extend_selection)
-    }
-
-    /// Move to the previous char.
-    #[inline]
-    pub fn move_to_prev(&mut self, extend_selection: bool) -> bool {
-        let c = self.value.cursor().saturating_sub(1);
-        self.value.set_cursor(c, extend_selection)
-    }
-
-    /// Start of line
-    #[inline]
-    pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let c = 0;
-        self.value.set_cursor(c, extend_selection)
-    }
-
-    /// End of line
-    #[inline]
-    pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
-        let c = self.value.len();
-        self.value.set_cursor(c, extend_selection)
-    }
-
-    /// Converts a grapheme based position to a screen position
-    /// relative to the widget area.
-    pub fn to_screen_col(&self, pos: usize) -> Option<u16> {
-        let px = pos;
-        let ox = self.value.offset();
-
-        let mut sx = 0;
-        let line = self.value.value_graphemes();
-        for c in line.skip(ox).take(px - ox) {
-            sx += unicode_display_width::width(c) as usize;
-        }
-
-        Some(sx as u16)
-    }
-
-    /// Converts from a widget relative screen coordinate to a grapheme index.
-    /// x is the relative screen position.
-    pub fn from_screen_col(&self, x: usize) -> Option<usize> {
-        let mut cx = 0;
-        let ox = self.value.offset();
-
-        let line = self.value.value_graphemes();
-        let mut test = 0;
-        for c in line.skip(ox) {
-            if test >= x {
-                break;
-            }
-
-            test += unicode_display_width::width(c) as usize;
-
-            cx += 1;
-        }
-
-        Some(cx + ox)
-    }
-
-    /// Set the cursor position from a screen position relative to the origin
-    /// of the widget. This value can be negative, which selects a currently
-    /// not visible position and scrolls to it.
-    #[inline]
-    pub fn set_screen_cursor(&mut self, cursor: isize, extend_selection: bool) -> bool {
-        let sc = cursor;
-
-        let c = if sc < 0 {
-            self.value.offset().saturating_sub(-sc as usize)
-        } else {
-            if let Some(c) = self.from_screen_col(sc as usize) {
-                c
-            } else {
-                self.value.len()
-            }
-        };
-
-        let old_cursor = self.value.cursor();
-        let old_anchor = self.value.anchor();
-
-        self.value.set_cursor(c, extend_selection);
-
-        old_cursor != self.value.cursor() || old_anchor != self.value.anchor()
-    }
-
-    /// The current text cursor as an absolute screen position.
-    #[inline]
-    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        if self.is_focused() {
-            let cx = self.value.cursor();
-            let ox = self.value.offset();
-
-            if cx < ox {
-                None
-            } else if cx > ox + self.inner.width as usize {
-                None
-            } else {
-                let sc = self.to_screen_col(cx).expect("valid_cursor");
-                Some((self.inner.x + sc, self.inner.y))
-            }
-        } else {
-            None
-        }
+    fn area(&self) -> Rect {
+        self.area
     }
 }
 
@@ -781,10 +856,7 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
                 ct_event!(keycode press Delete) => self.delete_next_char().into(),
                 ct_event!(keycode press CONTROL-Backspace) => self.delete_prev_word().into(),
                 ct_event!(keycode press CONTROL-Delete) => self.delete_next_word().into(),
-                ct_event!(key press CONTROL-'d') => {
-                    self.set_value(self.default_value());
-                    true.into()
-                }
+                ct_event!(key press CONTROL-'d') => self.clear().into(),
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
@@ -828,7 +900,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
                 ct_event!(keycode press CONTROL_SHIFT-Right) => self.move_to_next_word(true).into(),
                 ct_event!(keycode press SHIFT-Home) => self.move_to_line_start(true).into(),
                 ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
-                ct_event!(key press CONTROL-'a') => self.set_selection(0, self.len()).into(),
+                ct_event!(key press CONTROL-'a') => self.select_all().into(),
 
                 ct_event!(keycode release Left)
                 | ct_event!(keycode release Right)
@@ -861,7 +933,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
-                let c = (m.column as isize) - (self.inner.x as isize);
+                let c = (m.column as i16) - (self.inner.x as i16);
                 self.set_screen_cursor(c, true).into()
             }
             ct_event!(mouse down Left for column,row) => {
@@ -870,8 +942,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
                     // focus. this one shouldn't demolish the selection.
                     TextOutcome::Unchanged
                 } else if self.inner.contains((*column, *row).into()) {
-                    let c = column - self.inner.x;
-                    self.set_screen_cursor(c as isize, false).into()
+                    let c = (column - self.inner.x) as i16;
+                    self.set_screen_cursor(c, false).into()
                 } else {
                     TextOutcome::NotUsed
                 }

@@ -1,17 +1,17 @@
 use crate::text::graphemes::{
     drop_first, drop_last, split3, split_at, split_mask, split_mask_match, split_remove_mask,
-    str_line_len,
+    str_line_len, GlyphIter,
 };
 use format_num_pattern as number;
 use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};
 #[allow(unused_imports)]
 use log::debug;
 use std::cmp::min;
+use std::fmt;
 use std::fmt::{Debug, Display, Formatter};
 use std::iter::{once, repeat_with};
 use std::ops::Range;
-use std::{fmt, mem};
-use unicode_segmentation::{Graphemes, UnicodeSegmentation};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Edit direction for part of a mask.
 /// Numeric values can switch between right-to-left (integer part) and left-to-right (fraction).
@@ -617,18 +617,19 @@ impl MaskToken {
 /// Text editing core.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct MaskedInputCore {
-    mask: Vec<MaskToken>,
+    // Text
     value: String,
-    rendered: String,
+    // Len in grapheme count.
     len: usize,
 
-    offset: usize,
-    width: usize,
-
+    // cursor and selection
     cursor: usize,
     anchor: usize,
 
+    // Temporary space for the rendered value.
+    rendered: String,
     sym: Option<NumberSymbols>,
+    mask: Vec<MaskToken>,
 }
 
 impl MaskedInputCore {
@@ -636,77 +637,24 @@ impl MaskedInputCore {
         Self::default()
     }
 
-    pub fn new_with_symbols(sym: NumberSymbols) -> Self {
-        Self {
-            mask: Default::default(),
-            value: Default::default(),
-            rendered: Default::default(),
-            len: 0,
-            offset: 0,
-            width: 0,
-            cursor: 0,
-            anchor: 0,
-            sym: Some(sym),
-        }
-    }
-
-    /// Tokens used for the mask.
-    pub fn tokens(&self) -> &[MaskToken] {
-        &self.mask
-    }
-
-    /// Offset
-    pub fn offset(&self) -> usize {
-        self.offset
-    }
-
-    /// Change the offset.
-    ///
-    /// Ensures the cursor is visible and modifies any given offset.
-    /// Ensures the offset is not beyond the length.
-    pub fn set_offset(&mut self, offset: usize) {
-        if offset > self.len {
-            self.offset = self.len;
-        } else if offset > self.cursor {
-            self.offset = self.cursor;
-        } else if offset + self.width < self.cursor {
-            self.offset = self.cursor - self.width;
-        } else {
-            self.offset = offset;
-        }
-    }
-
-    /// Display width
-    pub fn width(&self) -> usize {
-        self.width
-    }
-
-    /// Display width
-    pub fn set_width(&mut self, width: usize) {
-        self.width = width;
-
-        if self.offset + width < self.cursor {
-            self.offset = self.cursor - self.width;
-        }
-    }
-
+    /// Cursor position as grapheme-idx. Moves the cursor to the new position,
+    /// but can leave the current cursor position as anchor of the selection.
+    #[inline]
     pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) -> bool {
-        let old_cursor = self.cursor;
+        let old_selection = (self.cursor, self.anchor);
 
         let c = min(self.len, cursor);
-
         self.cursor = c;
-
         if !extend_selection {
             self.anchor = c;
         }
 
-        self.fix_offset();
-
-        c != old_cursor
+        (self.cursor, self.anchor) != old_selection
     }
 
-    /// Place cursor at decimal separator, if any. 0 otherwise.
+    /// Place cursor at decimal separator, if any.
+    /// 0 otherwise.
+    #[inline]
     pub fn set_default_cursor(&mut self) {
         'f: {
             for (i, t) in self.mask.iter().enumerate() {
@@ -718,132 +666,19 @@ impl MaskedInputCore {
             }
             self.cursor = 0;
             self.anchor = 0;
-            self.fix_offset();
-        }
-    }
-
-    fn fix_offset(&mut self) {
-        if self.offset > self.cursor {
-            self.offset = self.cursor;
-        } else if self.offset + self.width < self.cursor {
-            self.offset = self.cursor - self.width;
         }
     }
 
     /// Cursor position as grapheme-idx.
+    #[inline]
     pub fn cursor(&self) -> usize {
         self.cursor
     }
 
+    /// Selection anchor
+    #[inline]
     pub fn anchor(&self) -> usize {
         self.anchor
-    }
-
-    /// Set the decimal separator and other symbols.
-    /// Only used for rendering and to map user input.
-    /// The value itself uses "."
-    pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
-        self.sym = Some(sym);
-    }
-
-    fn dec_sep(&self) -> char {
-        if let Some(sym) = &self.sym {
-            sym.decimal_sep
-        } else {
-            '.'
-        }
-    }
-
-    fn grp_sep(&self) -> char {
-        if let Some(sym) = &self.sym {
-            if let Some(grp) = sym.decimal_grp {
-                grp
-            } else {
-                // fallback for empty grp-char.
-                // it would be really ugly, if we couldn't keep
-                //   mask-idx == grapheme-idx
-                ' '
-            }
-        } else {
-            ','
-        }
-    }
-
-    fn neg_sym(&self) -> char {
-        if let Some(sym) = &self.sym {
-            sym.negative_sym
-        } else {
-            '-'
-        }
-    }
-
-    fn pos_sym(&self) -> char {
-        if let Some(sym) = &self.sym {
-            sym.positive_sym
-        } else {
-            ' '
-        }
-    }
-
-    /// Changes the mask.
-    /// Resets the value to a default.
-    pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
-        self.mask = parse_mask(s.as_ref())?;
-        self.set_value(MaskToken::empty_section(&self.mask));
-        Ok(())
-    }
-
-    /// Return the mask.
-    pub fn mask(&self) -> String {
-        use std::fmt::Write;
-
-        let mut buf = String::new();
-        for t in self.mask.iter() {
-            _ = write!(buf, "{}", t.right);
-        }
-        buf
-    }
-
-    /// Return the mask.
-    pub fn debug_mask(&self) -> String {
-        use std::fmt::Write;
-
-        let mut buf = String::new();
-        for t in self.mask.iter() {
-            _ = write!(buf, "{:?}", t.right);
-        }
-        buf
-    }
-
-    /// Set the mask that is shown.
-    pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
-        let display_mask = s.into();
-
-        for (t, m) in self
-            .mask
-            .iter_mut()
-            .zip(display_mask.graphemes(true).chain(repeat_with(|| "")))
-        {
-            if m.is_empty() {
-                t.display = t.right.disp_value().into();
-            } else {
-                t.display = m.into();
-            }
-        }
-    }
-
-    /// Display mask
-    pub fn display_mask(&self) -> String {
-        let mut buf = String::new();
-        for t in &self.mask {
-            buf.push_str(&t.display);
-        }
-        buf
-    }
-
-    /// Create a default value according to the mask.
-    pub fn default_value(&self) -> String {
-        MaskToken::empty_section(&self.mask)
     }
 
     /// Sets the value.
@@ -870,72 +705,41 @@ impl MaskedInputCore {
 
         self.value = value;
         self.len = len;
-
-        if self.offset > self.len {
-            self.offset = self.len;
-        }
         if self.cursor > self.len {
             self.cursor = self.len;
         }
     }
 
+    /// Create a default value according to the mask.
+    #[inline]
+    pub fn default_value(&self) -> String {
+        MaskToken::empty_section(&self.mask)
+    }
+
     /// Value
+    #[inline]
     pub fn value(&self) -> &str {
         self.value.as_str()
     }
 
-    /// Value as grapheme iterator.
+    /// Rendered value as a glyph iterator.
+    /// You must call render_value() or render_condensed_value()
+    /// before, to get the correct result.
     #[inline]
-    pub fn value_graphemes(&self) -> Graphemes<'_> {
-        self.value.graphemes(true)
-    }
-
-    /// Value split along any separators
-    pub fn value_parts(&self) -> Vec<String> {
-        let mut res = Vec::new();
-
-        let mut buf = String::new();
-        for (t, c) in self
-            .mask
-            .iter()
-            .zip(self.value.graphemes(true).chain(repeat_with(|| "")))
-        {
-            match t.right {
-                Mask::Separator(_) => {
-                    if !buf.is_empty() {
-                        res.push(buf);
-                        buf = String::new();
-                    }
-                }
-                _ => {
-                    buf.push_str(c);
-                }
-            }
-        }
-
-        res
-    }
-
-    /// Value without whitespace and grouping separators. Might be easier to parse.
-    pub fn compact_value(&self) -> String {
-        let mut buf = String::new();
-        for (c, m) in self.value.graphemes(true).zip(self.mask.iter()) {
-            if !m.right.can_skip(c) {
-                buf.push_str(c);
-            }
-        }
-        buf
+    pub fn value_glyphs(&self) -> GlyphIter<'_> {
+        GlyphIter::new(&self.rendered)
     }
 
     /// Reset value but not the mask and width.
     /// Resets offset and cursor position too.
+    #[inline]
     pub fn clear(&mut self) {
-        self.offset = 0;
-        self.set_value(MaskToken::empty_section(&self.mask));
+        self.set_value(self.default_value());
         self.set_default_cursor();
     }
 
-    /// No value different from the default.
+    /// Is equal to the default value.
+    #[inline]
     pub fn is_empty(&self) -> bool {
         for (m, c) in self.mask.iter().zip(self.value.graphemes(true)) {
             if c != m.edit.as_ref() {
@@ -945,20 +749,42 @@ impl MaskedInputCore {
         true
     }
 
-    /// Length
+    /// Value length as grapheme-count
+    #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
+    /// Is there a selection.
+    #[inline]
     pub fn has_selection(&self) -> bool {
-        self.cursor != self.anchor
+        self.anchor != self.cursor
     }
 
-    pub fn is_select_all(&self) -> bool {
-        let selection = self.selection();
-        selection.start == 0 && selection.end == self.mask.len() - 1
+    /// Selection.
+    #[inline]
+    pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
+        let old_selection = self.selection();
+
+        self.set_cursor(anchor, false);
+        self.set_cursor(cursor, true);
+
+        old_selection != self.selection()
     }
 
+    /// Selection.
+    #[inline]
+    pub fn select_all(&mut self) -> bool {
+        let old_selection = self.selection();
+
+        self.set_cursor(0, false);
+        self.set_cursor(self.len(), true);
+
+        old_selection != self.selection()
+    }
+
+    /// Selection.
+    #[inline]
     pub fn selection(&self) -> Range<usize> {
         if self.cursor < self.anchor {
             self.cursor..self.anchor
@@ -967,259 +793,22 @@ impl MaskedInputCore {
         }
     }
 
-    /// Rendered string for display.
-    pub fn rendered(&self) -> &str {
-        self.rendered.as_str()
-    }
-
-    /// Create the rendered value.
-    #[allow(unused_variables)]
-    pub fn render_value(&mut self) {
-        let mut rendered = mem::take(&mut self.rendered);
-        rendered.clear();
-
-        let mut idx = 0;
-        loop {
-            let mask = &self.mask[idx];
-
-            if mask.right == Mask::None {
-                break;
+    /// Char position to grapheme position.
+    pub fn char_pos(&self, char_pos: usize) -> Option<usize> {
+        let mut cp = 0;
+        for (gp, (_bp, cc)) in self
+            .value
+            .grapheme_indices(true)
+            .chain(once((self.len(), "")))
+            .enumerate()
+        {
+            if cp >= char_pos {
+                return Some(gp);
             }
-
-            let (b, sec, a) = split3(&self.value, mask.sec_start..mask.sec_end);
-            let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
-            let empty = MaskToken::empty_section(sec_mask);
-
-            if sec == empty {
-                for t in sec_mask {
-                    match t.right {
-                        Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::DecimalSep => {
-                            rendered.push(self.dec_sep());
-                        }
-                        Mask::GroupingSep => {
-                            rendered.push(' ');
-                        }
-                        Mask::Sign => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::Plus => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::Hex0
-                        | Mask::Hex
-                        | Mask::Oct0
-                        | Mask::Oct
-                        | Mask::Dec0
-                        | Mask::Dec => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::Letter
-                        | Mask::LetterOrDigit
-                        | Mask::LetterDigitSpace
-                        | Mask::AnyChar => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::Separator(_) => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::None => {}
-                    }
-                }
-            } else {
-                for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
-                    match t.right {
-                        Mask::Digit0(_) | Mask::Digit(_) => {
-                            rendered.push_str(s);
-                        }
-                        Mask::Numeric(_) => {
-                            if s == "." {
-                                rendered.push(self.neg_sym());
-                            } else {
-                                rendered.push_str(s);
-                            }
-                        }
-                        Mask::DecimalSep => {
-                            if s == "." {
-                                rendered.push(self.dec_sep());
-                            } else {
-                                rendered.push(' ');
-                            }
-                        }
-                        Mask::GroupingSep => {
-                            if s == "," {
-                                rendered.push(self.grp_sep());
-                            } else if s == "-" {
-                                rendered.push(self.neg_sym());
-                            } else {
-                                rendered.push(' ');
-                            }
-                        }
-                        Mask::Sign => {
-                            if s == "-" {
-                                rendered.push(self.neg_sym());
-                            } else {
-                                rendered.push(self.pos_sym());
-                            }
-                        }
-                        Mask::Plus => {
-                            if s == "-" {
-                                rendered.push('-');
-                            } else {
-                                rendered.push('+');
-                            }
-                        }
-                        Mask::Hex0
-                        | Mask::Hex
-                        | Mask::Oct0
-                        | Mask::Oct
-                        | Mask::Dec0
-                        | Mask::Dec => {
-                            rendered.push_str(s);
-                        }
-                        Mask::Letter
-                        | Mask::LetterOrDigit
-                        | Mask::LetterDigitSpace
-                        | Mask::AnyChar => {
-                            rendered.push_str(s);
-                        }
-                        Mask::Separator(_) => {
-                            rendered.push_str(s);
-                        }
-                        Mask::None => {}
-                    }
-                }
-            }
-
-            idx = mask.sec_end;
+            cp += cc.chars().count();
         }
 
-        self.rendered = rendered;
-    }
-
-    /// Create the rendered value.
-    #[allow(unused_variables)]
-    pub fn render_condensed_value(&mut self) {
-        let mut rendered = mem::take(&mut self.rendered);
-        rendered.clear();
-
-        let mut idx = 0;
-        loop {
-            let mask = &self.mask[idx];
-
-            if mask.right == Mask::None {
-                break;
-            }
-
-            let (b, sec, a) = split3(&self.value, mask.sec_start..mask.sec_end);
-            let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
-            let empty = MaskToken::empty_section(sec_mask);
-
-            if sec == empty {
-                for t in sec_mask {
-                    match t.right {
-                        Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => {
-                            if t.display.as_ref() != " " {
-                                rendered.push_str(t.display.as_ref());
-                            }
-                        }
-                        Mask::DecimalSep => {
-                            rendered.push(self.dec_sep());
-                        }
-                        Mask::GroupingSep => {}
-                        Mask::Sign => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::Plus => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::Hex0
-                        | Mask::Hex
-                        | Mask::Oct0
-                        | Mask::Oct
-                        | Mask::Dec0
-                        | Mask::Dec => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::Letter
-                        | Mask::LetterOrDigit
-                        | Mask::LetterDigitSpace
-                        | Mask::AnyChar => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::Separator(_) => {
-                            rendered.push_str(t.display.as_ref());
-                        }
-                        Mask::None => {}
-                    }
-                }
-            } else {
-                for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
-                    match t.right {
-                        Mask::Digit0(_) | Mask::Digit(_) => {
-                            if s != " " {
-                                rendered.push_str(s);
-                            }
-                        }
-                        Mask::Numeric(_) => {
-                            if s == "-" {
-                                rendered.push(self.neg_sym());
-                            } else if s != " " {
-                                rendered.push_str(s);
-                            }
-                        }
-                        Mask::DecimalSep => {
-                            if s == "." {
-                                rendered.push(self.dec_sep());
-                            }
-                        }
-                        Mask::GroupingSep => {
-                            if s == "," {
-                                rendered.push(self.grp_sep());
-                            } else if s == "-" {
-                                rendered.push(self.neg_sym());
-                            }
-                        }
-                        Mask::Sign => {
-                            if s == "-" {
-                                rendered.push(self.neg_sym());
-                            }
-                        }
-                        Mask::Plus => {
-                            if s == "-" {
-                                rendered.push('-');
-                            } else {
-                                rendered.push('+');
-                            }
-                        }
-                        Mask::Hex0
-                        | Mask::Hex
-                        | Mask::Oct0
-                        | Mask::Oct
-                        | Mask::Dec0
-                        | Mask::Dec => {
-                            rendered.push_str(s);
-                        }
-                        Mask::Letter
-                        | Mask::LetterOrDigit
-                        | Mask::LetterDigitSpace
-                        | Mask::AnyChar => {
-                            rendered.push_str(s);
-                        }
-                        Mask::Separator(_) => {
-                            rendered.push_str(s);
-                        }
-                        Mask::None => {}
-                    }
-                }
-            }
-
-            idx = mask.sec_end;
-        }
-
-        self.rendered = rendered;
+        None
     }
 
     /// Convert the byte-position to a grapheme position.
@@ -1279,25 +868,319 @@ impl MaskedInputCore {
 
         None
     }
+}
 
-    /// Char position to grapheme position.
-    pub fn char_pos(&self, char_pos: usize) -> Option<usize> {
-        let mut cp = 0;
-        for (gp, (_bp, cc)) in self
-            .value
-            .grapheme_indices(true)
-            .chain(once((self.len(), "")))
-            .enumerate()
-        {
-            if cp >= char_pos {
-                return Some(gp);
-            }
-            cp += cc.chars().count();
-        }
-
-        None
+impl MaskedInputCore {
+    /// Set the decimal separator and other symbols.
+    /// Only used for rendering and to map user input.
+    /// The value itself uses "."
+    pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
+        self.sym = Some(sym);
     }
 
+    /// Changes the mask.
+    /// Resets the value to a default.
+    pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
+        self.mask = parse_mask(s.as_ref())?;
+        self.set_value(MaskToken::empty_section(&self.mask));
+        Ok(())
+    }
+
+    /// Return the mask.
+    pub fn mask(&self) -> String {
+        use std::fmt::Write;
+
+        let mut buf = String::new();
+        for t in self.mask.iter() {
+            _ = write!(buf, "{}", t.right);
+        }
+        buf
+    }
+
+    /// Set the mask that is shown.
+    pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
+        let display_mask = s.into();
+
+        for (t, m) in self
+            .mask
+            .iter_mut()
+            .zip(display_mask.graphemes(true).chain(repeat_with(|| "")))
+        {
+            if m.is_empty() {
+                t.display = t.right.disp_value().into();
+            } else {
+                t.display = m.into();
+            }
+        }
+    }
+
+    /// Display mask
+    pub fn display_mask(&self) -> String {
+        let mut buf = String::new();
+        for t in &self.mask {
+            buf.push_str(&t.display);
+        }
+        buf
+    }
+
+    /// Value without whitespace and grouping separators. Might be easier to parse.
+    pub fn compact_value(&self) -> String {
+        let mut buf = String::new();
+        for (c, m) in self.value.graphemes(true).zip(self.mask.iter()) {
+            if !m.right.can_skip(c) {
+                buf.push_str(c);
+            }
+        }
+        buf
+    }
+
+    /// Create the rendered value.
+    #[allow(unused_variables)]
+    pub fn render_value(&mut self) {
+        self.rendered.clear();
+
+        let mut idx = 0;
+        loop {
+            let mask = &self.mask[idx];
+
+            if mask.right == Mask::None {
+                break;
+            }
+
+            let (b, sec, a) = split3(&self.value, mask.sec_start..mask.sec_end);
+            let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
+            let empty = MaskToken::empty_section(sec_mask);
+
+            if sec == empty {
+                for t in sec_mask {
+                    match t.right {
+                        Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::DecimalSep => {
+                            self.rendered.push(self.dec_sep());
+                        }
+                        Mask::GroupingSep => {
+                            self.rendered.push(' ');
+                        }
+                        Mask::Sign => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::Plus => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::Hex0
+                        | Mask::Hex
+                        | Mask::Oct0
+                        | Mask::Oct
+                        | Mask::Dec0
+                        | Mask::Dec => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::Letter
+                        | Mask::LetterOrDigit
+                        | Mask::LetterDigitSpace
+                        | Mask::AnyChar => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::Separator(_) => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::None => {}
+                    }
+                }
+            } else {
+                for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
+                    match t.right {
+                        Mask::Digit0(_) | Mask::Digit(_) => {
+                            self.rendered.push_str(s);
+                        }
+                        Mask::Numeric(_) => {
+                            if s == "." {
+                                self.rendered.push(self.neg_sym());
+                            } else {
+                                self.rendered.push_str(s);
+                            }
+                        }
+                        Mask::DecimalSep => {
+                            if s == "." {
+                                self.rendered.push(self.dec_sep());
+                            } else {
+                                self.rendered.push(' ');
+                            }
+                        }
+                        Mask::GroupingSep => {
+                            if s == "," {
+                                self.rendered.push(self.grp_sep());
+                            } else if s == "-" {
+                                self.rendered.push(self.neg_sym());
+                            } else {
+                                self.rendered.push(' ');
+                            }
+                        }
+                        Mask::Sign => {
+                            if s == "-" {
+                                self.rendered.push(self.neg_sym());
+                            } else {
+                                self.rendered.push(self.pos_sym());
+                            }
+                        }
+                        Mask::Plus => {
+                            if s == "-" {
+                                self.rendered.push('-');
+                            } else {
+                                self.rendered.push('+');
+                            }
+                        }
+                        Mask::Hex0
+                        | Mask::Hex
+                        | Mask::Oct0
+                        | Mask::Oct
+                        | Mask::Dec0
+                        | Mask::Dec => {
+                            self.rendered.push_str(s);
+                        }
+                        Mask::Letter
+                        | Mask::LetterOrDigit
+                        | Mask::LetterDigitSpace
+                        | Mask::AnyChar => {
+                            self.rendered.push_str(s);
+                        }
+                        Mask::Separator(_) => {
+                            self.rendered.push_str(s);
+                        }
+                        Mask::None => {}
+                    }
+                }
+            }
+
+            idx = mask.sec_end;
+        }
+    }
+
+    /// Create the rendered value.
+    #[allow(unused_variables)]
+    pub fn render_condensed_value(&mut self) {
+        self.rendered.clear();
+
+        let mut idx = 0;
+        loop {
+            let mask = &self.mask[idx];
+
+            if mask.right == Mask::None {
+                break;
+            }
+
+            let (b, sec, a) = split3(&self.value, mask.sec_start..mask.sec_end);
+            let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
+            let empty = MaskToken::empty_section(sec_mask);
+
+            if sec == empty {
+                for t in sec_mask {
+                    match t.right {
+                        Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => {
+                            if t.display.as_ref() != " " {
+                                self.rendered.push_str(t.display.as_ref());
+                            }
+                        }
+                        Mask::DecimalSep => {
+                            self.rendered.push(self.dec_sep());
+                        }
+                        Mask::GroupingSep => {}
+                        Mask::Sign => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::Plus => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::Hex0
+                        | Mask::Hex
+                        | Mask::Oct0
+                        | Mask::Oct
+                        | Mask::Dec0
+                        | Mask::Dec => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::Letter
+                        | Mask::LetterOrDigit
+                        | Mask::LetterDigitSpace
+                        | Mask::AnyChar => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::Separator(_) => {
+                            self.rendered.push_str(t.display.as_ref());
+                        }
+                        Mask::None => {}
+                    }
+                }
+            } else {
+                for (t, s) in sec_mask.iter().zip(sec.graphemes(true)) {
+                    match t.right {
+                        Mask::Digit0(_) | Mask::Digit(_) => {
+                            if s != " " {
+                                self.rendered.push_str(s);
+                            }
+                        }
+                        Mask::Numeric(_) => {
+                            if s == "-" {
+                                self.rendered.push(self.neg_sym());
+                            } else if s != " " {
+                                self.rendered.push_str(s);
+                            }
+                        }
+                        Mask::DecimalSep => {
+                            if s == "." {
+                                self.rendered.push(self.dec_sep());
+                            }
+                        }
+                        Mask::GroupingSep => {
+                            if s == "," {
+                                self.rendered.push(self.grp_sep());
+                            } else if s == "-" {
+                                self.rendered.push(self.neg_sym());
+                            }
+                        }
+                        Mask::Sign => {
+                            if s == "-" {
+                                self.rendered.push(self.neg_sym());
+                            }
+                        }
+                        Mask::Plus => {
+                            if s == "-" {
+                                self.rendered.push('-');
+                            } else {
+                                self.rendered.push('+');
+                            }
+                        }
+                        Mask::Hex0
+                        | Mask::Hex
+                        | Mask::Oct0
+                        | Mask::Oct
+                        | Mask::Dec0
+                        | Mask::Dec => {
+                            self.rendered.push_str(s);
+                        }
+                        Mask::Letter
+                        | Mask::LetterOrDigit
+                        | Mask::LetterDigitSpace
+                        | Mask::AnyChar => {
+                            self.rendered.push_str(s);
+                        }
+                        Mask::Separator(_) => {
+                            self.rendered.push_str(s);
+                        }
+                        Mask::None => {}
+                    }
+                }
+            }
+
+            idx = mask.sec_end;
+        }
+    }
+}
+
+impl MaskedInputCore {
+    // todo: words
     /// Find next word.
     pub fn next_word_boundary(&self, pos: usize) -> Option<usize> {
         let byte_pos = self.byte_at(pos)?;
@@ -1331,6 +1214,7 @@ impl MaskedInputCore {
         Some(pos + gp)
     }
 
+    // todo: words
     /// Find previous word.
     pub fn prev_word_boundary(&self, pos: usize) -> Option<usize> {
         let byte_pos = self.byte_at(pos)?;
@@ -1363,7 +1247,50 @@ impl MaskedInputCore {
 
         Some(gp)
     }
+}
 
+impl MaskedInputCore {
+    fn dec_sep(&self) -> char {
+        if let Some(sym) = &self.sym {
+            sym.decimal_sep
+        } else {
+            '.'
+        }
+    }
+
+    fn grp_sep(&self) -> char {
+        if let Some(sym) = &self.sym {
+            if let Some(grp) = sym.decimal_grp {
+                grp
+            } else {
+                // fallback for empty grp-char.
+                // it would be really ugly, if we couldn't keep
+                //   mask-idx == grapheme-idx
+                ' '
+            }
+        } else {
+            ','
+        }
+    }
+
+    fn neg_sym(&self) -> char {
+        if let Some(sym) = &self.sym {
+            sym.negative_sym
+        } else {
+            '-'
+        }
+    }
+
+    fn pos_sym(&self) -> char {
+        if let Some(sym) = &self.sym {
+            sym.positive_sym
+        } else {
+            ' '
+        }
+    }
+}
+
+impl MaskedInputCore {
     /// Start at the cursor position and find a valid insert position for the input c.
     /// Put the cursor at that position.
     #[allow(clippy::if_same_then_else)]
@@ -1431,9 +1358,8 @@ impl MaskedInputCore {
         // debug!("CURSOR {} => {}", self.cursor, new_cursor);
         self.cursor = new_cursor;
         self.anchor = self.cursor;
-        self.fix_offset();
 
-        // debug!("#[rustfmt::skip]");
+        // debug!("#[runtime::skip]");
         // debug!("let a = {};", test_state(self));
         // debug!("assert_eq_core(&b,&a);");
     }
@@ -1881,7 +1807,6 @@ impl MaskedInputCore {
 
         self.cursor = range.start;
         self.anchor = self.cursor;
-        self.fix_offset();
 
         // debug!("#[rustfmt::skip]");
         // debug!("let a = {};", test_state(self));
@@ -1955,7 +1880,6 @@ impl MaskedInputCore {
             self.cursor -= 1;
             self.anchor = self.cursor;
         }
-        self.fix_offset();
 
         // debug!("#[rustfmt::skip]");
         // debug!("let a = {};", test_state(self));
@@ -2029,7 +1953,6 @@ impl MaskedInputCore {
                 // cursor stays
             }
         }
-        self.fix_offset();
 
         // debug!("#[rustfmt::skip]");
         // debug!("let a = {};", test_state(self));
@@ -2038,7 +1961,7 @@ impl MaskedInputCore {
 }
 
 #[allow(clippy::needless_range_loop)]
-pub fn parse_mask(mask_str: &str) -> Result<Vec<MaskToken>, fmt::Error> {
+fn parse_mask(mask_str: &str) -> Result<Vec<MaskToken>, fmt::Error> {
     let mut out = Vec::<MaskToken>::new();
 
     let mut start_id = 0;
@@ -2162,89 +2085,4 @@ pub fn parse_mask(mask_str: &str) -> Result<Vec<MaskToken>, fmt::Error> {
     }
 
     Ok(out)
-}
-
-/// dump the current state as code.
-pub fn test_state(m: &MaskedInputCore) -> String {
-    use std::fmt::Write;
-
-    let mut buf = String::new();
-    _ = write!(buf, "test_input_mask_core(");
-    _ = write!(buf, "{:?}, ", m.mask());
-    _ = write!(buf, "{:?}, ", m.value);
-    _ = write!(buf, "{:?}, ", m.rendered);
-    _ = write!(buf, "{:?}, ", m.len);
-    _ = write!(buf, "{:?}, ", m.offset);
-    _ = write!(buf, "{:?}, ", m.width);
-    _ = write!(buf, "{:?}, ", m.cursor);
-    _ = write!(buf, "{:?},", m.anchor);
-    if let Some(sym) = &m.sym {
-        _ = write!(
-            buf,
-            "Some(\"{}{}{}{}{}{}\")",
-            sym.decimal_sep,
-            if let Some(decimal_grp) = sym.decimal_grp {
-                decimal_grp
-            } else {
-                ' '
-            },
-            sym.negative_sym,
-            sym.positive_sym,
-            sym.exponent_upper_sym,
-            sym.exponent_lower_sym
-        );
-    } else {
-        _ = write!(buf, "sym: None, ");
-    }
-    _ = write!(buf, ")");
-    buf
-}
-
-#[track_caller]
-pub fn assert_eq_core(a: &MaskedInputCore, b: &MaskedInputCore) {
-    assert_eq!(b.value, a.value);
-    assert_eq!(b.rendered, a.rendered);
-    assert_eq!(b.len, a.len);
-    assert_eq!(b.offset, a.offset);
-    assert_eq!(b.width, a.width);
-    assert_eq!(b.cursor, a.cursor);
-    assert_eq!(b.anchor, a.anchor);
-}
-
-#[allow(clippy::too_many_arguments)]
-pub fn test_input_mask_core(
-    mask: &str,
-    value: &str,
-    rendered: &str,
-    len: usize,
-    offset: usize,
-    width: usize,
-    cursor: usize,
-    anchor: usize,
-    sym: Option<&str>,
-) -> Result<MaskedInputCore, fmt::Error> {
-    Ok(MaskedInputCore {
-        mask: parse_mask(mask)?,
-        value: value.to_string(),
-        rendered: rendered.to_string(),
-        len,
-        offset,
-        width,
-        cursor,
-        anchor,
-        sym: sym.map(parse_number_symbols),
-    })
-}
-
-pub fn parse_number_symbols(s: &str) -> NumberSymbols {
-    let mut s = s.chars();
-    NumberSymbols {
-        decimal_sep: s.next().expect("decimal_sep"),
-        decimal_grp: Some(s.next().expect("decimal_grp")),
-        negative_sym: s.next().expect("negative_sym"),
-        positive_sym: s.next().expect("positive_sym"),
-        exponent_upper_sym: s.next().expect("exponent_upper_sym"),
-        exponent_lower_sym: s.next().expect("exponent_lower_sym"),
-        currency_sym: s.collect::<String>().as_str().into(),
-    }
 }

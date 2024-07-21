@@ -50,7 +50,7 @@ impl<'a> NumberInput<'a> {
     /// Show the compact form, if the focus is not with this widget.
     #[inline]
     pub fn show_compact(mut self, show_compact: bool) -> Self {
-        self.widget = self.widget.show_compact(show_compact);
+        self.widget = self.widget.compact(show_compact);
         self
     }
 
@@ -196,7 +196,7 @@ impl NumberInputState {
     ///
     /// This flag is not used for event-handling.
     #[inline]
-    pub fn is_focused(&mut self) -> bool {
+    pub fn is_focused(&self) -> bool {
         self.widget.focus.get()
     }
 
@@ -395,7 +395,7 @@ impl NumberInputState {
 
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
-    pub fn from_screen_col(&self, x: usize) -> Option<usize> {
+    pub fn from_screen_col(&self, x: i16) -> usize {
         self.widget.from_screen_col(x)
     }
 
@@ -403,7 +403,7 @@ impl NumberInputState {
     /// of the widget. This value can be negative, which selects a currently
     /// not visible position and scrolls to it.
     #[inline]
-    pub fn set_screen_cursor(&mut self, cursor: isize, extend_selection: bool) -> bool {
+    pub fn set_screen_cursor(&mut self, cursor: i16, extend_selection: bool) -> bool {
         self.widget.set_screen_cursor(cursor, extend_selection)
     }
 

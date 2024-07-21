@@ -5,7 +5,7 @@ use std::cmp::min;
 use std::iter::once;
 use std::mem;
 use std::ops::Range;
-use unicode_segmentation::{Graphemes, UnicodeSegmentation};
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Text editing core.
 #[derive(Debug, Default, Clone)]
@@ -19,7 +19,7 @@ pub struct TextInputCore {
     cursor: usize,
     anchor: usize,
 
-    // tmp string for editing.
+    // Temporary space for editing.
     buf: String,
 }
 
@@ -30,18 +30,25 @@ impl TextInputCore {
 
     /// Cursor position as grapheme-idx. Moves the cursor to the new position,
     /// but can leave the current cursor position as anchor of the selection.
+    #[inline]
     pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) -> bool {
         let old_selection = (self.cursor, self.anchor);
 
         let c = min(self.len, cursor);
-
         self.cursor = c;
-
         if !extend_selection {
             self.anchor = c;
         }
 
         (self.cursor, self.anchor) != old_selection
+    }
+
+    /// Set the cursor and anchor to the defaults.
+    /// Exists just to mirror MaskedInput.
+    #[inline]
+    pub fn set_default_cursor(&mut self) {
+        self.cursor = 0;
+        self.anchor = 0;
     }
 
     /// Cursor position as grapheme-idx.
@@ -65,6 +72,13 @@ impl TextInputCore {
         self.anchor = 0;
     }
 
+    /// Create a default value according to the mask.
+    /// Exists just to mirror MaskedInput.
+    #[inline]
+    pub fn default_value(&self) -> String {
+        String::new()
+    }
+
     /// Value
     #[inline]
     pub fn value(&self) -> &str {
@@ -77,31 +91,27 @@ impl TextInputCore {
         GlyphIter::new(self.value())
     }
 
-    /// Value as grapheme iterator.
-    #[inline]
-    pub fn value_graphemes(&self) -> Graphemes<'_> {
-        self.value.graphemes(true)
-    }
-
-    /// Clear
+    /// Reset value to an empty default.
+    /// Resets offset and cursor position too.
     #[inline]
     pub fn clear(&mut self) {
-        self.set_value("");
+        self.set_value(self.default_value());
+        self.set_default_cursor();
     }
 
-    /// Empty
+    /// Is equal to the default value.
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
 
-    /// Value lenght as grapheme-count
+    /// Value length as grapheme-count
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
-    /// Anchor is active
+    /// Is there a selection.
     #[inline]
     pub fn has_selection(&self) -> bool {
         self.anchor != self.cursor
@@ -124,7 +134,7 @@ impl TextInputCore {
         let old_selection = self.selection();
 
         self.set_cursor(0, false);
-        self.set_cursor(self.value.len(), true);
+        self.set_cursor(self.len(), true);
 
         old_selection != self.selection()
     }
@@ -214,7 +224,9 @@ impl TextInputCore {
 
         None
     }
+}
 
+impl TextInputCore {
     /// Insert a char at the position.
     pub fn insert_char(&mut self, pos: usize, new: char) -> bool {
         let old_len = self.len;
