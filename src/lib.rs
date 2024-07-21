@@ -158,6 +158,13 @@ pub mod layout {
     pub use layout_grid::{layout_grid, layout_middle};
 }
 
+/// Scroll attribute and event-handling.
+pub mod scrolled {
+    pub use rat_scrolled::{
+        layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarType,
+    };
+}
+
 /// Text editing core functionality and utilities.
 pub mod text;
 
@@ -179,13 +186,6 @@ pub mod number_input;
 pub mod popup_menu;
 pub mod splitter;
 pub mod statusline;
-
-/// Scrolled widget and viewports.
-pub mod scrolled {
-    pub use rat_scrolled::{
-        layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarType,
-    };
-}
 
 /// F-Table
 pub mod table {

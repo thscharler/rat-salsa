@@ -1,5 +1,5 @@
 //!
-//! This widget draws a popup-menu.
+//! A popup-menu.
 //!
 //! It diverges from other widgets as this widget doesn't draw
 //! *inside* the given area but aims to stay *outside* of it.
@@ -70,7 +70,7 @@ pub struct PopupMenu<'a> {
     block: Option<Block<'a>>,
 }
 
-/// State of the popup-menu.
+/// State & event handling.
 #[derive(Debug, Clone)]
 pub struct PopupMenuState {
     /// Focusflag is used to decide the visible/not-visible state.

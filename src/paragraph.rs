@@ -24,6 +24,7 @@ pub struct Paragraph<'a> {
     hscroll: Option<Scroll<'a>>,
 }
 
+/// State & event handling.
 #[derive(Debug, Clone)]
 pub struct ParagraphState {
     /// Full area of the widget.

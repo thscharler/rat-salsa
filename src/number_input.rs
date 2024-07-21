@@ -27,6 +27,7 @@ pub struct NumberInput<'a> {
     widget: MaskedInput<'a>,
 }
 
+/// State & event handling.
 #[derive(Debug, Clone)]
 pub struct NumberInputState {
     pub widget: MaskedInputState,

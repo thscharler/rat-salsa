@@ -38,7 +38,7 @@ use std::ops::RangeBounds;
 /// that I haven't found yet.
 ///
 /// Keyboard and mouse are implemented for crossterm, but it should be
-/// trivial to extend to other event-types. Every interaction is available
+/// easy to extend to other event-types. Every interaction is available
 /// as function on the state.
 ///
 /// Scrolling doesn't depend on the cursor, but the editing and move
@@ -83,8 +83,7 @@ pub struct TextAreaStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-/// State for the text-area.
-///
+/// State & event handling.
 #[derive(Debug, Clone)]
 pub struct TextAreaState {
     /// Current focus state.
@@ -159,38 +158,41 @@ impl<'a> TextArea<'a> {
         self
     }
 
+    /// Block.
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
 
-    /// Scrollbars
+    /// Set both scrollbars.
     pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
         self.hscroll = Some(scroll.clone().override_horizontal());
         self.vscroll = Some(scroll.override_vertical());
         self
     }
 
-    /// Scrollbars
+    /// Set the horizontal scrollbar.
     pub fn hscroll(mut self, scroll: Scroll<'a>) -> Self {
         self.hscroll = Some(scroll.override_horizontal());
         self
     }
 
-    /// Set a maximum horizontal offset. There is no default offset.
+    /// Set a maximum horizontal offset used for the scrollbar.
+    /// This widget doesn't try to find a maximum text-length for
+    /// all lines. Defaults to 255, but there is an overscroll of 16384.
     pub fn set_horizontal_max_offset(mut self, offset: usize) -> Self {
         self.h_max_offset = Some(offset);
         self
     }
 
-    /// Scrollbars
+    /// Set the vertical scrollbar.
     pub fn vscroll(mut self, scroll: Scroll<'a>) -> Self {
         self.vscroll = Some(scroll.override_vertical());
         self
     }
 
-    /// Show control characters
+    /// Show the control characters 0x00-0x1F.
     pub fn show_ctrl(mut self, show: bool) -> Self {
         self.show_ctrl = show;
         self
@@ -322,6 +324,7 @@ impl Default for TextAreaState {
             vscroll: Default::default(),
         };
         s.hscroll.set_max_offset(255);
+        s.hscroll.set_overscroll_by(Some(16384));
         s
     }
 }

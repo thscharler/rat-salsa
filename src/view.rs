@@ -1,11 +1,11 @@
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
+use crate::inner::InnerOwn;
 use crate::util::copy_buffer;
 use rat_event::{HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use std::cell::Cell;
 
-use crate::inner::InnerOwn;
 /// A view allows scrolling of a `Widget` without builtin
 /// support for scrolling.
 ///

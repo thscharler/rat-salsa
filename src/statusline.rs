@@ -1,5 +1,5 @@
 //!
-//! Basic status line with multiple sections.
+//! Statusbar with multiple sections.
 //!
 
 use crate::_private::NonExhaustive;
@@ -10,14 +10,14 @@ use ratatui::text::Span;
 use ratatui::widgets::{StatefulWidget, StatefulWidgetRef, Widget};
 use std::fmt::Debug;
 
-/// Basic status line with multiple sections.
+/// Statusbar with multiple sections.
 #[derive(Debug, Default, Clone)]
 pub struct StatusLine {
     style: Vec<Style>,
     widths: Vec<Constraint>,
 }
 
-/// State for the status line.
+/// State & event handling.
 #[derive(Debug, Clone)]
 pub struct StatusLineState {
     /// Total area
@@ -42,7 +42,7 @@ impl StatusLine {
     /// Layout for the sections.
     ///
     /// This layout determines the number of sections.
-    /// If the styles or the statustext vec differ defaults are used.
+    /// If the styles or the status text vec differ, defaults are used.
     pub fn layout<It, Item>(mut self, widths: It) -> Self
     where
         It: IntoIterator<Item = Item>,

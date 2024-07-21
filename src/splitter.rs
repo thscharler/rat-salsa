@@ -26,7 +26,7 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget, StatefulWidgetRef, Wid
 /// [SplitWidget] and the [SplitOverlay]. SplitWidget must be rendered
 /// first, after that you can access the SplitState::areas to render the
 /// parts, and last render SplitOverlay to render the markers that will
-/// appear overlayed on the widgets.
+/// appear overlaid on the widgets.
 #[derive(Debug, Default, Clone)]
 pub struct Split<'a> {
     direction: Direction,
@@ -48,8 +48,7 @@ pub struct Split<'a> {
     drag_style: Option<Style>,
 }
 
-/// This struct implements the Widget traits and can be rendered.
-/// It can be obtained by calling into_widgets() on Split.
+/// Primary widget for rendering the Split.
 #[derive(Debug, Default, Clone)]
 pub struct SplitWidget<'a> {
     split: Split<'a>,
@@ -121,7 +120,8 @@ pub enum SplitType {
     /// Scroll can adjust its rendering to leave space for the markers.
     /// And you want to set a `mark_offset` here.
     ///
-    /// The widget will get the full area.
+    /// The widget will get the full area, only the marker is used
+    /// for mouse interactions.
     Scroll,
     /// Don't render a splitter, fully manual mode.
     ///
@@ -134,7 +134,7 @@ pub enum SplitType {
 
 const SPLIT_WIDTH: u16 = 1;
 
-/// State of the Split.
+/// State & event handling.
 #[derive(Debug)]
 pub struct SplitState {
     /// Total area.
