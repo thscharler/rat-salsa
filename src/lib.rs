@@ -41,6 +41,18 @@ pub struct Popup;
 #[derive(Debug)]
 pub struct Dialog;
 
+/// Event-handler for double-click on a widget.
+///
+/// Events for this handler must be processed *before* calling
+/// any other event-handling routines for the same table.
+/// Otherwise, the regular event-handling might interfere with
+/// recognition of double-clicks by consuming the first click.
+///
+/// This event-handler doesn't consume the first click, just
+/// the second one.
+#[derive(Debug, Default)]
+pub struct DoubleClick;
+
 ///
 /// A very broad trait for an event handler.
 ///

@@ -1,3 +1,5 @@
+//! Support for the [ct_event!](macro.ct_event.html) macro.
+
 #![allow(dead_code)]
 
 /// A copy of the crossterm-KeyModifiers. Plus a few combinations of modifiers.
@@ -54,6 +56,10 @@ pub mod modifiers {
 /// "mouse" "any" (modifier)? ("for" mouseevt)?
 /// "mouse" "moved" ("for" col_id "," row_id)?
 /// "scroll" ("up"|"down") "for" col_id "," row_id
+/// "resized" "for" cols_id "," rows_id
+/// "focus_gained"
+/// "focus_lost"
+/// "paste" identifier
 /// ```
 ///
 /// where
