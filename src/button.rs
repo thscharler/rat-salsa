@@ -1,5 +1,5 @@
 //!
-//! A button widget.
+//! A nice Button widget.
 //!
 
 use crate::_private::NonExhaustive;
@@ -7,7 +7,7 @@ use crate::util::revert_style;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
@@ -32,14 +32,14 @@ pub struct ButtonStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-/// State data & event-handling.
+/// State & event-handling.
 #[derive(Debug, Clone)]
 pub struct ButtonState {
     /// Current focus state.
     pub focus: FocusFlag,
     /// Complete area
     pub area: Rect,
-    /// Inner area.
+    /// Area inside the block.
     pub inner_area: Rect,
 
     /// Button has been clicked but not released yet.
@@ -214,12 +214,9 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
         }
     }
 
-    let layout = Layout::vertical([
-        Constraint::Fill(1),
-        Constraint::Length(widget.text.height() as u16),
-        Constraint::Fill(1),
-    ])
-    .split(state.inner_area);
+    let layout = Layout::vertical([Constraint::Length(widget.text.height() as u16)])
+        .flex(Flex::Center)
+        .split(state.inner_area);
 
     widget.text.render_ref(layout[1], buf);
 }
@@ -233,22 +230,6 @@ impl ButtonState {
             armed: false,
             non_exhaustive: NonExhaustive,
         }
-    }
-
-    /// Renders the widget in focused style.
-    ///
-    /// This flag is not used for event-handling.
-    #[inline]
-    pub fn set_focused(&mut self, focus: bool) {
-        self.focus.set(focus);
-    }
-
-    /// Renders the widget in focused style.
-    ///
-    /// This flag is not used for event-handling.
-    #[inline]
-    pub fn is_focused(&mut self) -> bool {
-        self.focus.get()
     }
 }
 

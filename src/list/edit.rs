@@ -1,3 +1,7 @@
+//!
+//! Adds inline editing support for List.
+//!
+
 use crate::event::EditOutcome;
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListSelection, ListState};
@@ -10,21 +14,27 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{StatefulWidget, StatefulWidgetRef};
 
+/// Edit-List widget.
+///
+/// Contains the base list and the edit-widget.
 #[derive(Debug, Default)]
-pub struct EditRList<'a, Editor: StatefulWidgetRef + 'a> {
+pub struct EditList<'a, Editor: StatefulWidgetRef + 'a> {
     list: List<'a, RowSelection>,
     edit: Editor,
 }
 
+/// State & even-handling.
 #[derive(Debug, Default)]
-pub struct EditRListState<EditorState> {
+pub struct EditListState<EditorState> {
+    /// List state
     pub list: ListState<RowSelection>,
+    /// EditorState. Some indicates editing is active.
     pub edit: Option<EditorState>,
 
     pub mouse: MouseFlags,
 }
 
-impl<'a, Editor> EditRList<'a, Editor>
+impl<'a, Editor> EditList<'a, Editor>
 where
     Editor: StatefulWidgetRef + 'a,
 {
@@ -33,22 +43,22 @@ where
     }
 }
 
-impl<'a, Editor> StatefulWidgetRef for EditRList<'a, Editor>
+impl<'a, Editor> StatefulWidgetRef for EditList<'a, Editor>
 where
     Editor: StatefulWidgetRef + 'a,
 {
-    type State = EditRListState<Editor::State>;
+    type State = EditListState<Editor::State>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(self, area, buf, state);
     }
 }
 
-impl<'a, Editor> StatefulWidget for EditRList<'a, Editor>
+impl<'a, Editor> StatefulWidget for EditList<'a, Editor>
 where
     Editor: StatefulWidgetRef + 'a,
 {
-    type State = EditRListState<Editor::State>;
+    type State = EditListState<Editor::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_ref(&self, area, buf, state);
@@ -56,10 +66,10 @@ where
 }
 
 fn render_ref<'a, Editor>(
-    widget: &EditRList<'a, Editor>,
+    widget: &EditList<'a, Editor>,
     area: Rect,
     buf: &mut Buffer,
-    state: &mut EditRListState<Editor::State>,
+    state: &mut EditListState<Editor::State>,
 ) where
     Editor: StatefulWidgetRef + 'a,
 {
@@ -76,7 +86,7 @@ fn render_ref<'a, Editor>(
     }
 }
 
-impl<EditorState> HasFocus for EditRListState<EditorState>
+impl<EditorState> HasFocus for EditListState<EditorState>
 where
     EditorState: HasFocusFlag,
 {
@@ -92,7 +102,7 @@ where
 }
 
 impl<EditorState, EQualifier> HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>
-    for EditRListState<EditorState>
+    for EditListState<EditorState>
 where
     EditorState: HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>,
 {
@@ -181,7 +191,7 @@ where
 /// The qualifier indicates which event-handler for EState will
 /// be called. Or it can be used to pass in some context.
 pub fn handle_edit_events<EState, EQualifier>(
-    state: &mut EditRListState<EState>,
+    state: &mut EditListState<EState>,
     focus: bool,
     event: &crossterm::event::Event,
     qualifier: EQualifier,

@@ -1,11 +1,10 @@
 //!
-//! Text input widget.
+//! Text input.
 //!
 //! * Can do the usual insert/delete/movement operations.
 //! * Text selection via keyboard and mouse.
 //! * Scrolls with the cursor.
-//! * Modes for focused and valid.
-//!
+//! * Invalid flag.
 //!
 //! The visual cursor must be set separately after rendering.
 //! It is accessible as [TextInputState::screen_cursor()] after rendering.

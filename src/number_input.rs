@@ -1,5 +1,5 @@
 //!
-//! Widget for number input
+//! Number input
 //!
 
 use crate::_private::NonExhaustive;
@@ -17,7 +17,7 @@ use std::fmt::{Debug, Display, LowerExp};
 use std::ops::Range;
 use std::str::FromStr;
 
-/// Numeric input.
+/// Number input.
 ///
 /// Uses [format_num_pattern](https://docs.rs/format_num_pattern/latest/format_num_pattern/index.html)
 /// for the actual formatting/parsing and [MaskedInput] for the rendering.
@@ -49,8 +49,8 @@ impl<'a> NumberInput<'a> {
 
     /// Show the compact form, if the focus is not with this widget.
     #[inline]
-    pub fn show_compact(mut self, show_compact: bool) -> Self {
-        self.widget = self.widget.compact(show_compact);
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.widget = self.widget.compact(compact);
         self
     }
 

@@ -1,5 +1,5 @@
 //!
-//! A widget for date-input using [chrono](https://docs.rs/chrono/latest/chrono/)
+//! Date-input using [chrono](https://docs.rs/chrono/latest/chrono/)
 //!
 
 use crate::_private::NonExhaustive;
@@ -27,13 +27,11 @@ pub struct DateInput<'a> {
     widget: MaskedInput<'a>,
 }
 
-/// State.
-///
+/// State & event-handling.
 /// Use `DateInputState::new(_pattern_)` to set the date pattern.
-///
 #[derive(Debug, Clone)]
 pub struct DateInputState {
-    /// uses MaskedInputState for the actual functionality.
+    /// Uses MaskedInputState for the actual functionality.
     pub widget: MaskedInputState,
     /// The chrono format pattern.
     pattern: String,
@@ -50,8 +48,8 @@ impl<'a> DateInput<'a> {
 
     /// Show the compact form, if the focus is not with this widget.
     #[inline]
-    pub fn show_compact(mut self, show_compact: bool) -> Self {
-        self.widget = self.widget.compact(show_compact);
+    pub fn compact(mut self, compact: bool) -> Self {
+        self.widget = self.widget.compact(compact);
         self
     }
 
@@ -90,6 +88,7 @@ impl<'a> DateInput<'a> {
         self
     }
 
+    /// Block
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.widget = self.widget.block(block);
@@ -125,12 +124,14 @@ impl Default for DateInputState {
 }
 
 impl DateInputState {
+    /// New state with a chrono date pattern.
     pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, fmt::Error> {
         let mut s = Self::default();
         s.set_format(pattern)?;
         Ok(s)
     }
 
+    /// New state with a localized chrono date pattern.
     #[inline]
     pub fn new_loc<S: AsRef<str>>(pattern: S, locale: chrono::Locale) -> Result<Self, fmt::Error> {
         let mut s = Self::default();
@@ -273,22 +274,6 @@ impl DateInputState {
         self.pattern = pattern.as_ref().to_string();
         self.widget.set_mask(mask)?;
         Ok(())
-    }
-
-    /// Renders the widget in focused style.
-    ///
-    /// This flag is not used for event-handling.
-    #[inline]
-    pub fn set_focused(&mut self, focus: bool) {
-        self.widget.focus.set(focus);
-    }
-
-    /// Renders the widget in focused style.
-    ///
-    /// This flag is not used for event-handling.
-    #[inline]
-    pub fn is_focused(&self) -> bool {
-        self.widget.focus.get()
     }
 
     /// Renders the widget in invalid style.
@@ -515,7 +500,7 @@ impl HasFocusFlag for DateInputState {
     }
 }
 
-/// Add convenience keys:
+/// Add convenience keys.
 /// * `h` - today
 /// * `a` - January, 1st
 /// * `e` - December, 31st

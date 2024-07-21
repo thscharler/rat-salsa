@@ -1,8 +1,8 @@
 //!
-//! Draws a simple line menu.
+//! A simple line menu.
 //!
 //! If the render area has more than one line, this will
-//! linebreak if necessary.
+//! linebreak if needed.
 //!
 //! ## Navigation keys
 //! If you give plain-text strings as items, the underscore
@@ -47,9 +47,7 @@ pub struct MenuStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-///
-/// State for the menu widget
-///
+/// State & event handling.
 #[derive(Debug, Clone)]
 pub struct MenuLineState {
     /// Current focus state.

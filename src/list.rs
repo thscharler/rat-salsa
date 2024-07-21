@@ -1,5 +1,5 @@
 //!
-//! Extension for [ratatui::List](https://docs.rs/ratatui/latest/ratatui/widgets/struct.List.html)
+//! Extensions for ratatui List.
 //!
 
 use crate::_private::NonExhaustive;
@@ -19,6 +19,8 @@ use std::collections::HashSet;
 use std::marker::PhantomData;
 use std::mem;
 
+pub mod edit;
+
 /// Trait for list-selection.
 pub trait ListSelection {
     /// Is selected.
@@ -33,6 +35,10 @@ pub trait ListSelection {
     }
 }
 
+/// List widget.
+///
+/// Fully compatible with ratatui List.
+/// Add Scroll, selection models, and event-handling.
 #[derive(Debug, Default, Clone)]
 pub struct List<'a, Selection> {
     block: Option<Block<'a>>,
@@ -48,6 +54,7 @@ pub struct List<'a, Selection> {
     _phantom: PhantomData<Selection>,
 }
 
+/// Collected styles.
 #[derive(Debug, Clone)]
 pub struct ListStyle {
     /// Style
@@ -60,6 +67,7 @@ pub struct ListStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
+/// State & event handling.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ListState<Selection> {
     /// Length in items.
@@ -95,6 +103,7 @@ impl Default for ListStyle {
 }
 
 impl<'a, Selection> List<'a, Selection> {
+    /// New list.
     pub fn new<T>(items: T) -> Self
     where
         T: IntoIterator,
@@ -114,6 +123,7 @@ impl<'a, Selection> List<'a, Selection> {
         }
     }
 
+    /// Set items.
     pub fn items<T>(mut self, items: T) -> Self
     where
         T: IntoIterator,
@@ -124,18 +134,21 @@ impl<'a, Selection> List<'a, Selection> {
         self
     }
 
+    /// Border support.
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
 
+    /// Scroll support.
     #[inline]
     pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
         self.scroll = Some(scroll);
         self
     }
 
+    /// Set all styles.
     #[inline]
     pub fn styles(mut self, styles: ListStyle) -> Self {
         self.style = styles.style;
@@ -144,35 +157,41 @@ impl<'a, Selection> List<'a, Selection> {
         self
     }
 
+    /// Base style
     #[inline]
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         self.style = style.into();
         self
     }
 
+    /// Select style.
     #[inline]
     pub fn select_style<S: Into<Style>>(mut self, select_style: S) -> Self {
         self.select_style = Some(select_style.into());
         self
     }
 
+    /// Focused style.
     #[inline]
     pub fn focus_style<S: Into<Style>>(mut self, focus_style: S) -> Self {
         self.focus_style = Some(focus_style.into());
         self
     }
 
+    /// List direction.
     #[inline]
     pub fn direction(mut self, direction: ListDirection) -> Self {
         self.direction = direction;
         self
     }
 
+    /// Number of items.
     #[inline]
     pub fn len(&self) -> usize {
         self.items.len()
     }
 
+    /// Empty?
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
@@ -415,6 +434,7 @@ impl<Selection: ListSelection> ListState<Selection> {
 
 impl ListState<RowSelection> {
     /// Update the state to match adding items.
+    ///
     /// This corrects the number of rows, offset and selection.
     pub fn items_added(&mut self, pos: usize, n: usize) {
         self.rows += n;
@@ -423,6 +443,7 @@ impl ListState<RowSelection> {
     }
 
     /// Update the state to match removing items.
+    ///
     /// This corrects the number of rows, offset and selection.
     pub fn items_removed(&mut self, pos: usize, n: usize) {
         self.rows -= n;

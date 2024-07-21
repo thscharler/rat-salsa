@@ -78,14 +78,14 @@ fn repaint_input(
     .split(l1[1]);
 
     let mut split = Split::new()
+        .styles(THEME.split_style(state.split_type))
         .direction(state.dir)
         .split_type(state.split_type)
-        .join_0_char("x")
-        .join_1_char("y")
-        .split_char(".")
+        // .join_0_char("p")
+        // .join_1_char("b")
+        // .split_char("$")
         .mark_offset(1)
-        .constraints([Constraint::Fill(1), Constraint::Fill(1)])
-        .styles(THEME.split_style(state.split_type));
+        .constraints([Constraint::Fill(1), Constraint::Fill(1)]);
     if let Some(blk) = state.border_type {
         split = split.block(
             Block::bordered()

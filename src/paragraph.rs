@@ -1,6 +1,5 @@
-//! Adapter for Paragraph.
 //!
-//! Adds Scroll and Focus support.
+//! Extensions for ratatui Paragraph.
 //!
 use crate::_private::NonExhaustive;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
@@ -12,7 +11,10 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
 use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef, Wrap};
 
-/// Paragraph widget.
+/// List widget.
+///
+/// Fully compatible with ratatui Paragraph.
+/// Add Scroll and event-handling.
 #[derive(Debug, Default)]
 pub struct Paragraph<'a> {
     w: ratatui::widgets::Paragraph<'a>,

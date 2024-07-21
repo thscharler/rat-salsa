@@ -13,8 +13,8 @@ pub mod event {
     //!
 
     pub use rat_event::{
-        crossterm, ct_event, flow, flow_ok, or_else, util, ConsumedEvent, Dialog, HandleEvent,
-        MouseOnly, Outcome, Popup, Regular,
+        crossterm, ct_event, flow, flow_ok, or_else, util, ConsumedEvent, Dialog, DoubleClick,
+        HandleEvent, MouseOnly, Outcome, Popup, Regular,
     };
     use std::cmp::max;
     use std::ops::BitOr;
@@ -77,6 +77,7 @@ pub mod event {
         }
     }
 
+    /// Result for the FileDialog.
     #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
     pub enum FileOutcome {
         /// The given event has not been used at all.
@@ -134,7 +135,7 @@ pub mod event {
         }
     }
 
-    pub use rat_ftable::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
+    pub use rat_ftable::event::{DoubleClickOutcome, EditKeys, EditOutcome};
     pub use rat_scrolled::event::ScrollOutcome;
 }
 
@@ -165,7 +166,6 @@ pub mod text;
 pub mod button;
 pub mod calendar;
 pub mod date_input;
-pub mod edit_list;
 pub mod file_dialog;
 pub mod fill;
 pub(crate) mod inner;

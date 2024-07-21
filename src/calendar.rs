@@ -35,7 +35,7 @@ pub struct MonthStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-/// Month state.
+/// State & event-handling.
 #[derive(Debug, Clone)]
 pub struct MonthState {
     /// Current focus state.
@@ -73,22 +73,6 @@ impl MonthState {
             weeks: [Rect::default(); 6],
             non_exhaustive: NonExhaustive,
         }
-    }
-
-    /// Renders the widget in focused style.
-    ///
-    /// This flag is not used for event-handling.
-    #[inline]
-    pub fn set_focused(&mut self, focus: bool) {
-        self.focus.set(focus);
-    }
-
-    /// Renders the widget in focused style.
-    ///
-    /// This flag is not used for event-handling.
-    #[inline]
-    pub fn is_focused(&mut self) -> bool {
-        self.focus.get()
     }
 }
 
@@ -150,6 +134,7 @@ impl Month {
         self
     }
 
+    /// Locale for month-names, day-names.
     #[inline]
     pub fn locale(mut self, loc: chrono::Locale) -> Self {
         self.loc = loc;

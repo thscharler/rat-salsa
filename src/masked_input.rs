@@ -107,7 +107,7 @@ pub struct MaskedInput<'a> {
     invalid_style: Option<Style>,
 }
 
-/// State for MaskedInput.
+/// State & event-handling.
 #[derive(Debug, Clone)]
 pub struct MaskedInputState {
     /// Current focus state.

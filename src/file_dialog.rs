@@ -1,10 +1,14 @@
+//!
+//! File dialog
+//!
+
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
-use crate::edit_list::{EditRList, EditRListState};
 use crate::event::{FileOutcome, TextOutcome};
 use crate::fill::Fill;
 use crate::input::{TextInput, TextInputState, TextInputStyle};
 use crate::layout::{layout_dialog, layout_grid};
+use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
 use crate::util::revert_style;
@@ -26,6 +30,10 @@ use std::path::{Path, PathBuf};
 use std::{fs, io};
 use sysinfo::Disks;
 
+/// Shows a file dialog.
+///
+/// It can work in Open/Save mode or a separate Directory mode.
+///
 #[derive(Debug, Default, Clone)]
 pub struct FileDialog<'a> {
     block: Option<Block<'a>>,
@@ -43,6 +51,7 @@ pub struct FileDialog<'a> {
     cancel_text: &'a str,
 }
 
+/// Combined styles for the FileDialog.
 #[derive(Debug)]
 pub struct FileDialogStyle {
     pub style: Style,
@@ -57,7 +66,7 @@ pub struct FileDialogStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-/// Dialog mode
+/// Open/Save or Directory dialog.
 #[derive(Debug, PartialEq, Eq)]
 #[allow(dead_code)]
 enum Mode {
@@ -66,8 +75,10 @@ enum Mode {
     Dir,
 }
 
+/// State & event-handling.
 #[allow(clippy::type_complexity)]
 pub struct FileDialogState {
+    /// Dialog is active.
     pub active: bool,
 
     mode: Mode,
@@ -82,7 +93,7 @@ pub struct FileDialogState {
 
     path_state: TextInputState,
     root_state: ListState<RowSelection>,
-    dir_state: EditRListState<EditDirNameState>,
+    dir_state: EditListState<EditDirNameState>,
     file_state: ListState<RowSelection>,
     save_name_state: TextInputState,
     new_state: ButtonState,
@@ -157,6 +168,7 @@ impl Default for FileDialogState {
 }
 
 impl<'a> FileDialog<'a> {
+    /// New dialog
     pub fn new() -> Self {
         Self {
             block: None,
@@ -173,61 +185,73 @@ impl<'a> FileDialog<'a> {
         }
     }
 
+    /// Text for the ok button.
     pub fn ok_text(mut self, txt: &'a str) -> Self {
         self.ok_text = txt;
         self
     }
 
+    /// Text for the cancel button.
     pub fn cancel_text(mut self, txt: &'a str) -> Self {
         self.cancel_text = txt;
         self
     }
 
+    /// Block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
 
+    /// Base style
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
+    /// Style for the lists.
     pub fn list_style(mut self, style: Style) -> Self {
         self.list_style = Some(style);
         self
     }
 
+    /// Style for path input.
     pub fn path_style(mut self, style: Style) -> Self {
         self.path_style = Some(style);
         self
     }
 
+    /// Style for the save name.
     pub fn name_style(mut self, style: Style) -> Self {
         self.name_style = Some(style);
         self
     }
 
+    /// Invalid indicator.
     pub fn invalid_style(mut self, style: Style) -> Self {
         self.invalid_style = Some(style);
         self
     }
 
+    /// Text selection.
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
         self
     }
 
+    /// Focused widget.
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
         self
     }
 
+    /// Button style.
     pub fn button_style(mut self, style: ButtonStyle) -> Self {
         self.button_style = Some(style);
         self
     }
 
+    /// All styles.
     pub fn styles(mut self, styles: FileDialogStyle) -> Self {
         self.style = styles.style;
         self.list_style = styles.list;
@@ -468,7 +492,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         .styles(widget.style_roots())
         .render(l_grid[0][1], buf, &mut state.root_state);
 
-    EditRList::new(
+    EditList::new(
         List::default()
             .items(state.dirs.iter().map(|v| {
                 let s = v.to_string_lossy();
@@ -524,7 +548,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         .styles(widget.style_roots())
         .render(l_grid[0][1], buf, &mut state.root_state);
 
-    EditRList::new(
+    EditList::new(
         List::default()
             .items(state.dirs.iter().map(|v| {
                 let s = v.to_string_lossy();
@@ -557,19 +581,23 @@ impl FileDialogState {
         Self::default()
     }
 
+    /// Set a filter.
     pub fn set_filter(&mut self, filter: impl Fn(&Path) -> bool + 'static) {
         self.filter = Some(Box::new(filter));
     }
 
+    /// Use the default set of roots.
     pub fn use_default_roots(&mut self, roots: bool) {
         self.use_default_roots = roots;
     }
 
+    /// Add a root path.
     pub fn add_root(&mut self, name: impl AsRef<str>, path: impl Into<PathBuf>) {
         self.roots
             .push((OsString::from(name.as_ref()), path.into()))
     }
 
+    /// Clear all roots.
     pub fn clear_roots(&mut self) {
         self.roots.clear();
     }
@@ -606,6 +634,7 @@ impl FileDialogState {
         self.root_state.select(Some(0));
     }
 
+    /// Show as open-dialog.
     pub fn open_dialog(&mut self, path: impl AsRef<Path>) -> Result<(), io::Error> {
         let path = path.as_ref();
         let old_path = self.path.clone();
@@ -631,6 +660,7 @@ impl FileDialogState {
         Ok(())
     }
 
+    /// Show as save-dialog.
     pub fn save_dialog(
         &mut self,
         path: impl AsRef<Path>,
@@ -683,7 +713,8 @@ impl FileDialogState {
         }
     }
 
-    pub fn set_path(&mut self, path: &Path) -> Result<FileOutcome, io::Error> {
+    // change the path
+    fn set_path(&mut self, path: &Path) -> Result<FileOutcome, io::Error> {
         let old = self.path.clone();
         let path = path.to_path_buf();
 

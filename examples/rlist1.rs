@@ -7,7 +7,7 @@ use rat_event::{flow_ok, HandleEvent, Outcome, Popup, Regular};
 use rat_focus::{Focus, FocusFlag, HasFocus, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
-use rat_widget::edit_list::{EditRList, EditRListState};
+use rat_widget::edit_list::{EditList, EditListState};
 use rat_widget::input::{TextInput, TextInputState};
 use rat_widget::list::List;
 use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
@@ -65,7 +65,7 @@ struct Data {
 }
 
 struct State {
-    pub(crate) list1: EditRListState<EditEntryState>,
+    pub(crate) list1: EditListState<EditEntryState>,
     pub(crate) menu: MenuBarState,
 }
 
@@ -182,7 +182,7 @@ fn repaint_input(
     ])
     .render(l_grid[0][0], frame.buffer_mut());
 
-    EditRList::new(
+    EditList::new(
         List::default()
             .items(data.data.iter().map(|v| ListItem::from(v.as_str())))
             .styles(THEME.list_styles())

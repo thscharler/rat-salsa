@@ -1,15 +1,18 @@
 //!
-//! A menubar widget with sub-menus.
+//! A menubar with sub-menus.
 //!
 //! Combines [MenuLine] and [PopupMenu] and adds a [MenuStructure] trait
 //! to bind all together.
 //!
-//! Rendering is split in two widgets [Menubar] and [MenubarPopup].
-//! This should help with front/back rendering.
+//! Rendering and events are split in base-widget and popup.
+//! Use [Menubar] to set all configurations and then call [Menubar::into_widgets].
+//! This creates a [MenubarLine] and a [MenubarPopup] which implement
+//! the rendering traits. MenubarPopup must render *after* all regular
+//! widgets, MenubarLine can render whenever.
 //!
-//! Event-handling for the popup menu is split via the [Popup] qualifier.
-//! All `Popup` event-handling should be called before the regular
-//! `FocusKeys` handling.
+//! Event-handling for the popup menu works with the [Popup] qualifier,
+//! and must be called before the [Regular] event-handlers to work correctly.
+//! Event-handling for the menu line is via the [Regular] event-handler.
 //!
 use crate::event::Popup;
 use crate::menuline::{MenuLine, MenuLineState, MenuOutcome, MenuStyle};
@@ -47,10 +50,9 @@ impl MenuStructure<'static> for StaticMenu {
     }
 }
 
-/// MenuBar widget.
-///
-/// This is only half of the widget. For popup rendering there is the separate
-/// [MenubarPopup].
+/// Menubar widget.
+/// This handles the configuration only, to get the widgets for rendering
+/// call [Menubar::into_widgets] and use both results for rendering.
 #[derive(Default, Clone)]
 pub struct Menubar<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
@@ -66,21 +68,21 @@ pub struct Menubar<'a> {
     popup_block: Option<Block<'a>>,
 }
 
-/// Menubar widget. This implements the actual render function.
+/// Menubar line widget.
+/// This implements the actual render function.
 #[derive(Debug, Default, Clone)]
 pub struct MenubarLine<'a> {
     menubar: Menubar<'a>,
 }
 
-/// Menubar widget.
-///
+/// Menubar popup widget.
 /// Separate renderer for the popup part of the menubar.
 #[derive(Debug, Default, Clone)]
 pub struct MenubarPopup<'a> {
     menubar: Menubar<'a>,
 }
 
-/// State for the menubar.
+/// State & event-handling.
 #[derive(Debug, Default, Clone)]
 pub struct MenuBarState {
     /// State for the menu.
@@ -88,7 +90,9 @@ pub struct MenuBarState {
     /// State for the last rendered popup menu.
     pub popup: PopupMenuState,
 
+    /// Total area for the menubar and any visible popup.
     pub area: Rect,
+    /// Areas for the menubar.
     pub z_areas: [ZRect; 2],
 }
 

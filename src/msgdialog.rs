@@ -7,7 +7,7 @@ use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::fill::Fill;
 use crate::layout::layout_dialog;
 use crate::paragraph::{Paragraph, ParagraphState};
-use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
+use rat_event::{ct_event, flow, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
@@ -35,7 +35,7 @@ pub struct MsgDialogStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-/// State for the status dialog.
+/// State & event handling.
 #[derive(Debug, Clone)]
 pub struct MsgDialogState {
     /// Full area.
@@ -112,10 +112,12 @@ impl Default for MsgDialogStyle {
 }
 
 impl MsgDialogState {
+    /// Show the dialog.
     pub fn set_active(&self, active: bool) {
         self.active.set(active);
     }
 
+    /// Dialog is active.
     pub fn active(&self) -> bool {
         self.active.get()
     }
@@ -214,27 +216,25 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
     fn handle(&mut self, event: &crossterm::event::Event, _: Dialog) -> Outcome {
         if self.active.get() {
-            match self.button.handle(event, Regular) {
+            flow!(match self.button.handle(event, Regular) {
                 ButtonOutcome::Pressed => {
                     self.clear();
                     self.active.set(false);
                     Outcome::Changed
                 }
                 v => v.into(),
-            }
-            .or_else(|| self.paragraph.handle(event, Regular))
-            .or_else(|| match event {
+            });
+            flow!(self.paragraph.handle(event, Regular));
+            flow!(match event {
                 ct_event!(keycode press Esc) => {
                     self.clear();
                     self.active.set(false);
                     Outcome::Changed
                 }
                 _ => Outcome::NotUsed,
-            })
-            .or_else(|| {
-                // mandatory consume everything else.
-                Outcome::Unchanged
-            })
+            });
+            // mandatory consume everything else.
+            Outcome::Unchanged
         } else {
             Outcome::NotUsed
         }
