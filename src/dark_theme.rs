@@ -299,7 +299,7 @@ impl DarkTheme {
     /// Complete MsgDialogStyle.
     pub fn msg_dialog_style(&self) -> MsgDialogStyle {
         MsgDialogStyle {
-            style: self.status_style(),
+            style: self.dialog_style(),
             button: self.button_style(),
             ..Default::default()
         }
