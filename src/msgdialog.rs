@@ -164,7 +164,10 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
         state.area = l_dlg.area;
 
-        Fill::default().style(widget.style).render(state.area, buf);
+        Fill::new()
+            .fill_char(" ")
+            .style(widget.style)
+            .render(state.area, buf);
 
         widget.block.render(l_dlg.dialog, buf);
 
