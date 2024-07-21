@@ -4,7 +4,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::fill::Fill;
-use crate::text::graphemes::GlyphIter;
+use crate::text::graphemes::RopeGlyphIter;
 use crate::text::textarea_core::{TextAreaCore, TextRange};
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
@@ -265,7 +265,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
             // text col
             let mut tx = ox;
 
-            let mut glyph_iter = GlyphIter::new(line);
+            let mut glyph_iter = RopeGlyphIter::new(line);
             glyph_iter.set_offset(ox);
             glyph_iter.set_show_ctrl(widget.show_ctrl);
 
@@ -516,7 +516,7 @@ impl TextAreaState {
     /// Glyphs here a grapheme + display length.
     /// This covers multi-column graphemes as well as tabs (with varying width).
     /// This contains the \n at the end.
-    pub fn line_glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
+    pub fn line_glyphs(&self, n: usize) -> Option<RopeGlyphIter<'_>> {
         self.value.line_glyphs(n)
     }
 
@@ -1391,7 +1391,7 @@ impl TextAreaState {
 impl TextAreaState {
     /// Scroll that the cursor is visible.
     /// All move-fn do this automatically.
-    fn scroll_cursor_to_visible(&mut self) -> bool {
+    pub fn scroll_cursor_to_visible(&mut self) -> bool {
         let old_offset = self.offset();
 
         let (cx, cy) = self.value.cursor();

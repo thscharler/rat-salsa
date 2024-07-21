@@ -17,9 +17,11 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
-use crate::text::graphemes::{next_word_end, next_word_start, prev_word_end, prev_word_start};
+use crate::text::graphemes::{
+    is_word_boundary, next_word_end, next_word_start, prev_word_end, prev_word_start, split3,
+    word_end, word_start,
+};
 use crate::text::textinput_core::TextInputCore;
-use crate::util;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
@@ -360,7 +362,7 @@ impl TextInputState {
     /// Selection.
     #[inline]
     pub fn selected_value(&self) -> &str {
-        util::split3(self.value.value(), self.value.selection()).1
+        split3(self.value.value(), self.value.selection()).1
     }
 
     /// Insert a char at the current position.
@@ -390,6 +392,46 @@ impl TextInputState {
             self.value.remove_range(range);
             true
         }
+    }
+
+    /// Find the start of the next word. Word is everything that is not whitespace.
+    pub fn next_word_start(&self, pos: usize) -> usize {
+        next_word_start(self.value(), pos)
+    }
+
+    /// Find the end of the next word.  Skips whitespace first, then goes on
+    /// until it finds the next whitespace.
+    pub fn next_word_end(&self, pos: usize) -> usize {
+        next_word_end(self.value(), pos)
+    }
+
+    /// Find prev word. Skips whitespace first.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn prev_word_start(&self, pos: usize) -> usize {
+        prev_word_start(self.value(), pos)
+    }
+
+    /// Find the end of the previous word. Word is everything that is not whitespace.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn prev_word_end(&self, pos: usize) -> usize {
+        prev_word_end(self.value(), pos)
+    }
+
+    /// Is the position at a word boundary?
+    pub fn is_word_boundary(&self, pos: usize) -> bool {
+        is_word_boundary(self.value(), pos)
+    }
+
+    /// Find the start of the word at pos.
+    pub fn word_start(&self, pos: usize) -> usize {
+        word_start(self.value(), pos)
+    }
+
+    /// Find the end of the word at pos.
+    pub fn word_end(&self, pos: usize) -> usize {
+        word_end(self.value(), pos)
     }
 
     /// Deletes the next word.

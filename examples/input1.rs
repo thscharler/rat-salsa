@@ -2,7 +2,6 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{flow_ok, Outcome};
 use rat_widget::input;
 use rat_widget::input::{TextInput, TextInputState};
-use rat_widget::text::graphemes::{word_end, word_start};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Text};
@@ -70,8 +69,8 @@ fn repaint_input(
     )));
     txt.push(Line::from(format!(
         "word {}-{}",
-        word_start(state.input.value(), state.input.cursor()),
-        word_end(state.input.value(), state.input.cursor())
+        state.input.word_start(state.input.cursor()),
+        state.input.word_end(state.input.cursor())
     )));
     Text::from(txt).render(l0[2], frame.buffer_mut());
 

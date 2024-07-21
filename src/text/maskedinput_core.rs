@@ -1,5 +1,7 @@
-use crate::util;
-use crate::util::gr_len;
+use crate::text::graphemes::{
+    drop_first, drop_last, split3, split_at, split_mask, split_mask_match, split_remove_mask,
+    str_line_len,
+};
 use format_num_pattern as number;
 use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};
 #[allow(unused_imports)]
@@ -496,7 +498,7 @@ impl Mask {
         if s.is_empty() {
             ""
         } else {
-            util::split_at(s, 1).0
+            split_at(s, 1).0
         }
     }
 
@@ -504,7 +506,7 @@ impl Mask {
         if s.is_empty() {
             false
         } else {
-            let (c, _a) = util::split_at(s, 1);
+            let (c, _a) = split_at(s, 1);
             self.can_drop(c)
         }
     }
@@ -514,7 +516,7 @@ impl Mask {
             false
         } else {
             let end = s.graphemes(true).count();
-            let (_, c) = util::split_at(s, end - 1);
+            let (_, c) = split_at(s, end - 1);
             self.can_drop(c)
         }
     }
@@ -523,7 +525,7 @@ impl Mask {
         if s.is_empty() {
             false
         } else {
-            let (c, _) = util::split_at(s, 1);
+            let (c, _) = split_at(s, 1);
             self.can_overwrite(c)
         }
     }
@@ -984,7 +986,7 @@ impl MaskedInputCore {
                 break;
             }
 
-            let (b, sec, a) = util::split3(&self.value, mask.sec_start..mask.sec_end);
+            let (b, sec, a) = split3(&self.value, mask.sec_start..mask.sec_end);
             let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
             let empty = MaskToken::empty_section(sec_mask);
 
@@ -1111,7 +1113,7 @@ impl MaskedInputCore {
                 break;
             }
 
-            let (b, sec, a) = util::split3(&self.value, mask.sec_start..mask.sec_end);
+            let (b, sec, a) = split3(&self.value, mask.sec_start..mask.sec_end);
             let sec_mask = &self.mask[mask.sec_start..mask.sec_end];
             let empty = MaskToken::empty_section(sec_mask);
 
@@ -1336,7 +1338,7 @@ impl MaskedInputCore {
         let (str_before, _) = self.value.split_at(byte_pos.0);
         let mut it = str_before.graphemes(true).rev();
         let mut init = true;
-        let mut gp = gr_len(str_before);
+        let mut gp = str_line_len(str_before);
         loop {
             let Some(c) = it.next() else {
                 break;
@@ -1512,7 +1514,7 @@ impl MaskedInputCore {
     // Can insert one more digit into the field to the left.
     #[inline]
     fn can_skip_left_in_fraction(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
-        let (_b, a) = util::split_at(&self.value, new_cursor - 1);
+        let (_b, a) = split_at(&self.value, new_cursor - 1);
         // is there space to the left?
         mask.peek_left.can_drop_first(a) && self.is_valid_c(&mask.peek_left, c)
     }
@@ -1532,7 +1534,7 @@ impl MaskedInputCore {
                 Mask::Numeric(EditDirection::Rtol) => {
                     // Numeric fields can hold a sign.
                     // If they are not otherwise occupied.
-                    let (_b, a) = util::split_at(&self.value, i);
+                    let (_b, a) = split_at(&self.value, i);
                     return t.right.can_drop_first(a) || t.right.first(a) == "-";
                 }
                 _ => {}
@@ -1545,7 +1547,7 @@ impl MaskedInputCore {
     // Is this the correct input position for a rtol field
     #[inline]
     fn is_integer_insert_pos(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
-        let (_b, a) = util::split_at(&self.value, new_cursor);
+        let (_b, a) = split_at(&self.value, new_cursor);
         // stop at real digit, that is the first non-droppable grapheme. except '-'
         !mask.right.can_drop_first(a)
             && mask.right.first(a) != "-"
@@ -1557,7 +1559,7 @@ impl MaskedInputCore {
     fn can_edit_left_integer(&self, new_cursor: usize, c: char) -> bool {
         let left = &self.mask[new_cursor - 1];
         let mask0 = &self.mask[left.sec_start];
-        let (_b, c0, _c1, _a) = util::split_mask(&self.value, new_cursor, left.range());
+        let (_b, c0, _c1, _a) = split_mask(&self.value, new_cursor, left.range());
         // can insert at mask gap?
         mask0.right.can_drop_first(c0) && self.is_valid_c(&left.right, c)
     }
@@ -1631,16 +1633,16 @@ impl MaskedInputCore {
     fn insert_ltor(&mut self, c: char) -> bool {
         let mask = &self.mask[self.cursor];
         let mask9 = &self.mask[mask.sec_end - 1];
-        let (b, c0, c1, a) = util::split_mask(&self.value, self.cursor, mask.range());
+        let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask.range());
 
         if mask.right.can_overwrite_first(c1) && self.is_valid_c(&mask.right, c) {
             let mut buf = String::new();
             buf.push_str(b);
             buf.push_str(c0);
             buf.push(self.map_input_c(&mask.right, c));
-            buf.push_str(util::drop_first(c1));
+            buf.push_str(drop_first(c1));
             buf.push_str(a);
-            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+            debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
             self.value = buf;
 
             self.cursor += 1;
@@ -1653,9 +1655,9 @@ impl MaskedInputCore {
             buf.push_str(b);
             buf.push_str(c0);
             buf.push(self.map_input_c(&mask.right, c));
-            buf.push_str(util::drop_last(c1));
+            buf.push_str(drop_last(c1));
             buf.push_str(a);
-            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+            debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
             self.value = buf;
 
             self.cursor += 1;
@@ -1675,11 +1677,11 @@ impl MaskedInputCore {
             mask = &self.mask[self.cursor - 1];
         }
         let mask0 = &self.mask[mask.sec_start];
-        let (b, c0, c1, a) = util::split_mask(&self.value, self.cursor, mask.range());
+        let (b, c0, c1, a) = split_mask(&self.value, self.cursor, mask.range());
 
         if mask0.right.can_drop_first(c0) && self.is_valid_c(&mask.right, c) {
             let mut mstr = String::new();
-            mstr.push_str(util::drop_first(c0));
+            mstr.push_str(drop_first(c0));
             mstr.push(self.map_input_c(&mask.right, c));
             mstr.push_str(c1);
 
@@ -1690,7 +1692,7 @@ impl MaskedInputCore {
             buf.push_str(b);
             buf.push_str(mmstr.as_str());
             buf.push_str(a);
-            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+            debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
             self.value = buf;
             // cursor stays
 
@@ -1717,7 +1719,7 @@ impl MaskedInputCore {
                 }
             ) {
                 let cc = self.map_input_c(&Mask::Sign, c);
-                let (b, c0, a) = util::split3(self.value(), i..i + 1);
+                let (b, c0, a) = split3(self.value(), i..i + 1);
                 let repl = if cc == ' ' {
                     " "
                 } else if cc == '-' {
@@ -1734,7 +1736,7 @@ impl MaskedInputCore {
                 buf.push_str(b);
                 buf.push_str(repl);
                 buf.push_str(a);
-                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+                debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
                 self.value = buf;
                 // note: probably no remap necessary?
                 return true;
@@ -1746,7 +1748,7 @@ impl MaskedInputCore {
                 }
             ) {
                 let cc = self.map_input_c(&Mask::Plus, c);
-                let (b, c0, a) = util::split3(self.value(), i..i + 1);
+                let (b, c0, a) = split3(self.value(), i..i + 1);
                 let repl = if cc == '+' {
                     "+"
                 } else if cc == '-' {
@@ -1763,14 +1765,14 @@ impl MaskedInputCore {
                 buf.push_str(b);
                 buf.push_str(repl);
                 buf.push_str(a);
-                debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+                debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
                 self.value = buf;
                 // note: probably no remap necessary?
                 return true;
             }
         } // else
           // find "-" sign at a moving position.
-        let (b, c0, p, c1, a) = util::split_mask_match(&self.value, "-", mask.nr_range());
+        let (b, c0, p, c1, a) = split_mask_match(&self.value, "-", mask.nr_range());
         if p == "-" {
             let mut buf = String::new();
             buf.push_str(b);
@@ -1778,7 +1780,7 @@ impl MaskedInputCore {
             buf.push(' ');
             buf.push_str(c1);
             buf.push_str(a);
-            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+            debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
             self.value = buf;
             // note: probably no remap necessary?
             return true;
@@ -1796,20 +1798,20 @@ impl MaskedInputCore {
                     }
                 ) {
                     let submask = &self.mask[mask.nr_range()];
-                    let (b, c0, c1, a) = util::split_mask(self.value(), i, mask.nr_range());
+                    let (b, c0, c1, a) = split_mask(self.value(), i, mask.nr_range());
 
                     if self.mask[i].right.can_drop_first(c1) {
                         let mut mstr = String::new();
                         mstr.push_str(c0);
                         mstr.push('-');
-                        mstr.push_str(util::drop_first(c1));
+                        mstr.push_str(drop_first(c1));
                         let mmstr = MaskToken::remap_number(submask, &mstr);
 
                         let mut buf = String::new();
                         buf.push_str(b);
                         buf.push_str(mmstr.as_str());
                         buf.push_str(a);
-                        debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+                        debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
                         self.value = buf;
                     };
 
@@ -1831,14 +1833,13 @@ impl MaskedInputCore {
         // debug!("let mut b = {};", test_state(self));
         // debug!("b.remove_selection({:?});", selection);
 
-        let (a, _, _, _, _) =
-            util::split_remove_mask(self.value.as_str(), range.clone(), mask.range());
+        let (a, _, _, _, _) = split_remove_mask(self.value.as_str(), range.clone(), mask.range());
         buf.push_str(a); // stuff before any part of the selection
 
         loop {
             // remove section by section.
             let (_, c0, s, c1, _) =
-                util::split_remove_mask(self.value.as_str(), range.clone(), mask.range());
+                split_remove_mask(self.value.as_str(), range.clone(), mask.range());
 
             if mask.right.is_rtol() {
                 let remove_count = s.graphemes(true).count();
@@ -1868,14 +1869,14 @@ impl MaskedInputCore {
 
             if mask.sec_end >= range.end {
                 // todo: should this be selection.end..mask.sec_end instead?
-                let (_, _, a) = util::split3(&self.value, mask.sec_end..mask.sec_end);
+                let (_, _, a) = split3(&self.value, mask.sec_end..mask.sec_end);
                 buf.push_str(a);
                 break;
             }
 
             mask = &self.mask[mask.sec_end];
         }
-        debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+        debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
         self.value = buf;
 
         self.cursor = range.start;
@@ -1900,7 +1901,7 @@ impl MaskedInputCore {
         // debug!("let mut b = {};", test_state(self));
         // debug!("b.remove_prev();");
 
-        let (b, c0, _s, c1, a) = util::split_remove_mask(
+        let (b, c0, _s, c1, a) = split_remove_mask(
             self.value.as_str(),
             self.cursor - 1..self.cursor,
             left.range(),
@@ -1919,7 +1920,7 @@ impl MaskedInputCore {
             buf.push_str(b);
             buf.push_str(&mmstr);
             buf.push_str(a);
-            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+            debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
             self.value = buf;
         } else if left.right.is_ltor() {
             let mut buf = String::new();
@@ -1933,7 +1934,7 @@ impl MaskedInputCore {
             buf.push_str(MaskToken::empty_section(fill_mask).as_str());
 
             buf.push_str(a);
-            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+            debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
             self.value = buf;
         }
 
@@ -1942,7 +1943,7 @@ impl MaskedInputCore {
             // in a rtol field keep the cursor at the same position until the
             // whole section is empty. Only then put it at the beginning of the section
             // to continue left of the section.
-            let (_b, s, _a) = util::split3(self.value(), left.sec_start..left.sec_end);
+            let (_b, s, _a) = split3(self.value(), left.sec_start..left.sec_end);
             let sec_mask = &self.mask[left.sec_start..left.sec_end];
             if s == MaskToken::empty_section(sec_mask) {
                 self.cursor = left.sec_start;
@@ -1974,7 +1975,7 @@ impl MaskedInputCore {
         // debug!("let mut b = {};", test_state(self));
         // debug!("b.remove_next();");
 
-        let (b, c0, _, c1, a) = util::split_remove_mask(
+        let (b, c0, _, c1, a) = split_remove_mask(
             self.value.as_str(),
             self.cursor..self.cursor + 1,
             right.range(),
@@ -1993,7 +1994,7 @@ impl MaskedInputCore {
             buf.push_str(b);
             buf.push_str(&mmstr);
             buf.push_str(a);
-            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+            debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
             self.value = buf;
         } else if right.right.is_ltor() {
             let mut buf = String::new();
@@ -2007,7 +2008,7 @@ impl MaskedInputCore {
             buf.push_str(MaskToken::empty_section(fill_mask).as_str());
 
             buf.push_str(a);
-            debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
+            debug_assert_eq!(str_line_len(&buf), str_line_len(&self.value));
             self.value = buf;
         }
 
@@ -2019,7 +2020,7 @@ impl MaskedInputCore {
             // in a ltor field keep the cursor at the same position until the
             // whole section is empty. Only then put it at the end of the section
             // to continue right of the section.
-            let (_b, s, _a) = util::split3(self.value(), right.sec_start..right.sec_end);
+            let (_b, s, _a) = split3(self.value(), right.sec_start..right.sec_end);
             let sec_mask = &self.mask[right.sec_start..right.sec_end];
             if s == MaskToken::empty_section(sec_mask) {
                 self.cursor = right.sec_end;

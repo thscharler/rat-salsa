@@ -1,6 +1,4 @@
-use crate::text::graphemes::str_line_len;
-use crate::util;
-use crate::util::split_at;
+use crate::text::graphemes::{split3, split_at, str_line_len};
 #[allow(unused_imports)]
 use log::debug;
 use std::cmp::min;
@@ -25,8 +23,6 @@ pub struct TextInputCore {
     cursor: usize,
     anchor: usize,
 
-    // tmp string for inserting a char.
-    char_buf: String,
     // tmp string for editing.
     buf: String,
 }
@@ -327,7 +323,7 @@ impl TextInputCore {
 
     /// Remove the range.
     pub fn remove_range(&mut self, range: Range<usize>) -> bool {
-        let (before_str, _remove_str, after_str) = util::split3(self.value.as_str(), range.clone());
+        let (before_str, _remove_str, after_str) = split3(self.value.as_str(), range.clone());
 
         let old_len = self.len;
         self.buf.clear();

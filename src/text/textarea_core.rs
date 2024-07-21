@@ -1,5 +1,5 @@
 use crate::text::graphemes::{
-    rope_line_len, str_line_len, GlyphIter, RopeGraphemes, RopeGraphemesIdx,
+    rope_line_len, str_line_len, RopeGlyphIter, RopeGraphemes, RopeGraphemesIdx,
 };
 #[allow(unused_imports)]
 use log::debug;
@@ -632,10 +632,10 @@ impl TextAreaCore {
     /// Iterator for the glyphs of a given line.
     /// Glyphs here a grapheme + display length.
     #[inline]
-    pub fn line_glyphs(&self, n: usize) -> Option<GlyphIter<'_>> {
+    pub fn line_glyphs(&self, n: usize) -> Option<RopeGlyphIter<'_>> {
         let mut lines = self.value.get_lines_at(n)?;
         if let Some(line) = lines.next() {
-            let mut it = GlyphIter::new(line);
+            let mut it = RopeGlyphIter::new(line);
             it.set_tabs(self.tabs);
             Some(it)
         } else {

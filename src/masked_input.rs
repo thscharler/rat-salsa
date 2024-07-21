@@ -72,8 +72,8 @@
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::input::{TextInputState, TextInputStyle};
+use crate::text::graphemes::split3;
 use crate::text::maskedinput_core::MaskedInputCore;
-use crate::util;
 use format_num_pattern::NumberSymbols;
 #[allow(unused_imports)]
 use log::debug;
@@ -550,7 +550,7 @@ impl MaskedInputState {
     /// Selection
     #[inline]
     pub fn selected_value(&self) -> &str {
-        util::split3(self.value.value(), self.value.selection()).1
+        split3(self.value.value(), self.value.selection()).1
     }
 
     /// Insert a char at the current position.
