@@ -1,5 +1,6 @@
+use crate::text::graphemes::str_line_len;
 use crate::util;
-use crate::util::gr_len;
+use crate::util::split_at;
 #[allow(unused_imports)]
 use log::debug;
 use std::cmp::min;
@@ -54,6 +55,7 @@ impl TextInputCore {
         }
     }
 
+    // todo: need this
     /// Display width
     #[inline]
     pub fn width(&self) -> usize {
@@ -120,6 +122,8 @@ impl TextInputCore {
         self.value.as_str()
     }
 
+    // todo: glyphs
+
     /// Value as grapheme iterator.
     #[inline]
     pub fn value_graphemes(&self) -> Graphemes<'_> {
@@ -152,12 +156,52 @@ impl TextInputCore {
 
     /// Selection.
     #[inline]
+    pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
+        let old_selection = self.selection();
+
+        self.set_cursor(anchor, false);
+        self.set_cursor(cursor, true);
+
+        old_selection != self.selection()
+    }
+
+    /// Selection.
+    #[inline]
+    pub fn select_all(&mut self) -> bool {
+        let old_selection = self.selection();
+
+        self.set_cursor(0, false);
+        self.set_cursor(self.value.len(), true);
+
+        old_selection != self.selection()
+    }
+
+    /// Selection.
+    #[inline]
     pub fn selection(&self) -> Range<usize> {
         if self.cursor < self.anchor {
             self.cursor..self.anchor
         } else {
             self.anchor..self.cursor
         }
+    }
+
+    /// Char position to grapheme position.
+    pub fn char_pos(&self, char_pos: usize) -> Option<usize> {
+        let mut cp = 0;
+        for (gp, (_bp, cc)) in self
+            .value
+            .grapheme_indices(true)
+            .chain(once((self.len(), "")))
+            .enumerate()
+        {
+            if cp >= char_pos {
+                return Some(gp);
+            }
+            cp += cc.chars().count();
+        }
+
+        None
     }
 
     /// Convert the byte-position to a grapheme position.
@@ -218,143 +262,97 @@ impl TextInputCore {
         None
     }
 
-    /// Char position to grapheme position.
-    pub fn char_pos(&self, char_pos: usize) -> Option<usize> {
-        let mut cp = 0;
-        for (gp, (_bp, cc)) in self
-            .value
-            .grapheme_indices(true)
-            .chain(once((self.len(), "")))
-            .enumerate()
-        {
-            if cp >= char_pos {
-                return Some(gp);
-            }
-            cp += cc.chars().count();
-        }
-
-        None
-    }
-
-    /// Find next word.
-    pub fn next_word_boundary(&self, pos: usize) -> Option<usize> {
-        let byte_pos = self.byte_at(pos)?;
-
-        let (_, str_after) = self.value.split_at(byte_pos.0);
-        let mut it = str_after.graphemes(true);
-        let mut init = true;
-        let mut gp = 0;
-        loop {
-            let Some(c) = it.next() else {
-                break;
-            };
-
-            if init {
-                if let Some(c) = c.chars().next() {
-                    if !c.is_whitespace() {
-                        init = false;
-                    }
-                }
-            } else {
-                if let Some(c) = c.chars().next() {
-                    if c.is_whitespace() {
-                        break;
-                    }
-                }
-            }
-
-            gp += 1;
-        }
-
-        Some(pos + gp)
-    }
-
-    /// Find previous word.
-    pub fn prev_word_boundary(&self, pos: usize) -> Option<usize> {
-        let byte_pos = self.byte_at(pos)?;
-
-        let (str_before, _) = self.value.split_at(byte_pos.0);
-        let mut it = str_before.graphemes(true).rev();
-        let mut init = true;
-        let mut gp = gr_len(str_before);
-        loop {
-            let Some(c) = it.next() else {
-                break;
-            };
-
-            if init {
-                if let Some(c) = c.chars().next() {
-                    if !c.is_whitespace() {
-                        init = false;
-                    }
-                }
-            } else {
-                if let Some(c) = c.chars().next() {
-                    if c.is_whitespace() {
-                        break;
-                    }
-                }
-            }
-
-            gp -= 1;
-        }
-
-        Some(gp)
-    }
-
-    /// Insert a char, replacing the selection.
-    pub fn insert_char(&mut self, new: char) -> bool {
-        let selection = self.selection();
-
-        let mut char_buf = mem::take(&mut self.char_buf);
-        char_buf.clear();
-        char_buf.push(new);
-
-        let r = self.replace(selection, char_buf.as_str());
-
-        self.char_buf = char_buf;
-
-        r
-    }
-
-    /// Remove the selection.
-    #[inline]
-    pub fn remove(&mut self, range: Range<usize>) -> bool {
-        self.replace(range, "")
-    }
-
-    /// Insert a string, replacing the selection.
-    pub fn replace(&mut self, range: Range<usize>, new: &str) -> bool {
-        let (before_str, remove_str, after_str) = util::split3(self.value.as_str(), range.clone());
-
+    /// Insert a char at the position.
+    pub fn insert_char(&mut self, pos: usize, new: char) -> bool {
+        let old_len = self.len;
+        let (before, after) = split_at(&self.value, pos);
         self.buf.clear();
-        self.buf.push_str(before_str);
-        self.buf.push_str(remove_str);
-        let old_end = self.buf.graphemes(true).count();
-        self.buf.clear();
-        self.buf.push_str(before_str);
-        self.buf.push_str(new);
-        let new_end = self.buf.graphemes(true).count();
-        self.buf.push_str(after_str);
+        self.buf.push_str(before);
+        self.buf.push(new);
+        self.buf.push_str(after);
+        let new_len = str_line_len(&self.buf);
+
         mem::swap(&mut self.value, &mut self.buf);
 
-        let change_len = new_end as isize - old_end as isize;
-        self.len = (self.len as isize + change_len) as usize;
+        self.len = new_len;
+
+        if self.cursor >= pos {
+            self.cursor += new_len - old_len;
+        }
+        if self.anchor >= pos {
+            self.anchor += new_len - old_len;
+        }
+
+        // fix offset
+        if self.offset > self.cursor {
+            self.offset = self.cursor;
+        } else if self.offset + self.width < self.cursor {
+            self.offset = self.cursor - self.width;
+        }
+
+        true
+    }
+
+    /// Insert a char at the position.
+    pub fn insert_str(&mut self, pos: usize, new: &str) -> bool {
+        let (before, after) = split_at(&self.value, pos);
+
+        let old_len = self.len;
+        self.buf.clear();
+        self.buf.push_str(before);
+        self.buf.push_str(new);
+        self.buf.push_str(after);
+        let new_len = str_line_len(&self.buf);
+
+        mem::swap(&mut self.value, &mut self.buf);
+
+        self.len = new_len;
+
+        if self.cursor >= pos {
+            self.cursor += new_len - old_len;
+        }
+        if self.anchor >= pos {
+            self.anchor += new_len - old_len;
+        }
+
+        // fix offset
+        if self.offset > self.cursor {
+            self.offset = self.cursor;
+        } else if self.offset + self.width < self.cursor {
+            self.offset = self.cursor - self.width;
+        }
+
+        true
+    }
+
+    /// Remove the range.
+    pub fn remove_range(&mut self, range: Range<usize>) -> bool {
+        let (before_str, _remove_str, after_str) = util::split3(self.value.as_str(), range.clone());
+
+        let old_len = self.len;
+        self.buf.clear();
+        self.buf.push_str(before_str);
+        self.buf.push_str(after_str);
+        let new_len = str_line_len(&self.buf);
+
+        mem::swap(&mut self.value, &mut self.buf);
+
+        self.len = new_len;
 
         if self.cursor < range.start {
             // noop
         } else if self.cursor <= range.end {
-            self.cursor = new_end;
+            self.cursor = range.start;
         } else {
-            self.cursor = (self.cursor as isize + change_len) as usize;
+            self.cursor = self.cursor.saturating_sub(old_len - new_len);
         }
 
         if self.anchor < range.start {
             // noop
         } else if self.anchor <= range.end {
-            self.anchor = new_end;
+            self.anchor = range.start;
         } else {
-            self.anchor = (self.anchor as isize + change_len) as usize;
+            self.anchor = self.anchor.saturating_sub(old_len - new_len);
         }
 
         // fix offset

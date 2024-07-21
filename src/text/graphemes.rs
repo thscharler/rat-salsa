@@ -1,3 +1,4 @@
+use log::debug;
 use ropey::iter::Chunks;
 use ropey::RopeSlice;
 use std::borrow::Cow;
@@ -14,6 +15,175 @@ pub fn rope_line_len(r: RopeSlice<'_>) -> usize {
 pub fn str_line_len(s: &str) -> usize {
     let it = s.graphemes(true);
     it.filter(|c| *c != "\n" && *c != "\r\n").count()
+}
+
+/// Is the first char a whitespace
+fn is_whitespace(s: &str) -> bool {
+    s.chars()
+        .next()
+        .map(|v| v.is_whitespace())
+        .unwrap_or_default()
+}
+
+/// Find the start of the next word. Word is everything that is not whitespace.
+pub fn next_word_start(s: &str, mut pos: usize) -> usize {
+    let mut it = s.graphemes(true);
+    if pos > 0 {
+        it.nth(pos - 1);
+    }
+    loop {
+        let Some(c) = it.next() else {
+            break;
+        };
+        if !is_whitespace(c) {
+            break;
+        }
+        pos += 1;
+    }
+
+    pos
+}
+
+/// Find the end of the next word.  Skips whitespace first, then goes on
+/// until it finds the next whitespace.
+pub fn next_word_end(s: &str, mut pos: usize) -> usize {
+    let mut it = s.graphemes(true);
+    if pos > 0 {
+        it.nth(pos - 1);
+    }
+    let mut init = true;
+    loop {
+        let Some(c) = it.next() else {
+            break;
+        };
+
+        if init {
+            if !is_whitespace(c) {
+                init = false;
+            }
+        } else {
+            if is_whitespace(c) {
+                break;
+            }
+        }
+
+        pos += 1;
+    }
+
+    pos
+}
+
+/// Find prev word. Skips whitespace first.
+/// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+/// both return start<=end!
+pub fn prev_word_start(s: &str, mut pos: usize) -> usize {
+    let mut it = s.graphemes(true);
+    let len = str_line_len(s);
+    let mut rpos = len - pos;
+    if rpos > 0 {
+        it.nth_back(rpos - 1);
+    }
+    let mut init = true;
+    loop {
+        let Some(c) = it.next_back() else {
+            break;
+        };
+
+        if init {
+            if !is_whitespace(c) {
+                init = false;
+            }
+        } else {
+            if is_whitespace(c) {
+                break;
+            }
+        }
+
+        rpos += 1;
+    }
+
+    len - rpos
+}
+
+/// Find the end of the previous word. Word is everything that is not whitespace.
+/// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+/// both return start<=end!
+pub fn prev_word_end(s: &str, mut pos: usize) -> usize {
+    let mut it = s.graphemes(true);
+    let len = str_line_len(s);
+    let mut rpos = len - pos;
+    if rpos > 0 {
+        it.nth_back(rpos - 1);
+    }
+    loop {
+        let Some(c) = it.next_back() else {
+            break;
+        };
+        if !is_whitespace(c) {
+            break;
+        }
+        rpos += 1;
+    }
+
+    len - rpos
+}
+
+/// Is the position at a word boundary?
+pub fn is_word_boundary(s: &str, pos: usize) -> bool {
+    if pos == 0 {
+        true
+    } else {
+        let mut it = s.graphemes(true);
+        if let Some(c0) = it.nth(pos - 1) {
+            if let Some(c1) = it.next() {
+                is_whitespace(c0) && !is_whitespace(c1) || !is_whitespace(c0) && is_whitespace(c1)
+            } else {
+                true
+            }
+        } else {
+            false
+        }
+    }
+}
+
+/// Find the start of the word at pos.
+pub fn word_start(s: &str, pos: usize) -> usize {
+    let mut it = s.graphemes(true);
+    let len = str_line_len(s);
+    let mut rpos = len - pos;
+    if rpos > 0 {
+        it.nth_back(rpos - 1);
+    }
+    loop {
+        let Some(c) = it.next_back() else {
+            break;
+        };
+        if is_whitespace(c) {
+            break;
+        }
+        rpos += 1;
+    }
+
+    len - rpos
+}
+
+/// Find the end of the word at pos.
+pub fn word_end(s: &str, mut pos: usize) -> usize {
+    let mut it = s.graphemes(true);
+    if pos > 0 {
+        it.nth(pos - 1);
+    }
+    loop {
+        let Some(c) = it.next() else {
+            break;
+        };
+        if is_whitespace(c) {
+            break;
+        }
+        pos += 1;
+    }
+
+    pos
 }
 
 /// Data for rendering/mapping graphemes to screen coordinates.

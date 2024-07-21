@@ -1821,10 +1821,10 @@ impl MaskedInputCore {
     }
 
     /// Remove the selection.
-    pub fn remove_selection(&mut self, selection: Range<usize>) {
+    pub fn remove_range(&mut self, range: Range<usize>) {
         let mut buf = String::new();
 
-        let mut mask = &self.mask[selection.start];
+        let mut mask = &self.mask[range.start];
 
         // debug!("// REMOVE SELECTION {:?} {:?}", mask, selection);
         // debug!("#[rustfmt::skip]");
@@ -1832,13 +1832,13 @@ impl MaskedInputCore {
         // debug!("b.remove_selection({:?});", selection);
 
         let (a, _, _, _, _) =
-            util::split_remove_mask(self.value.as_str(), selection.clone(), mask.range());
+            util::split_remove_mask(self.value.as_str(), range.clone(), mask.range());
         buf.push_str(a); // stuff before any part of the selection
 
         loop {
             // remove section by section.
             let (_, c0, s, c1, _) =
-                util::split_remove_mask(self.value.as_str(), selection.clone(), mask.range());
+                util::split_remove_mask(self.value.as_str(), range.clone(), mask.range());
 
             if mask.right.is_rtol() {
                 let remove_count = s.graphemes(true).count();
@@ -1866,7 +1866,7 @@ impl MaskedInputCore {
                 buf.push_str(&mstr);
             }
 
-            if mask.sec_end >= selection.end {
+            if mask.sec_end >= range.end {
                 // todo: should this be selection.end..mask.sec_end instead?
                 let (_, _, a) = util::split3(&self.value, mask.sec_end..mask.sec_end);
                 buf.push_str(a);
@@ -1878,7 +1878,7 @@ impl MaskedInputCore {
         debug_assert_eq!(gr_len(&buf), gr_len(&self.value));
         self.value = buf;
 
-        self.cursor = selection.start;
+        self.cursor = range.start;
         self.anchor = self.cursor;
         self.fix_offset();
 

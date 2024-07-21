@@ -17,6 +17,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
+use crate::text::graphemes::{next_word_end, next_word_start, prev_word_end, prev_word_start};
 use crate::text::textinput_core::TextInputCore;
 use crate::util;
 #[allow(unused_imports)]
@@ -347,23 +348,13 @@ impl TextInputState {
     /// Selection.
     #[inline]
     pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
-        let old_selection = self.value.selection();
-
-        self.value.set_cursor(anchor, false);
-        self.value.set_cursor(cursor, true);
-
-        old_selection != self.value.selection()
+        self.value.set_selection(anchor, cursor)
     }
 
     /// Selection.
     #[inline]
     pub fn select_all(&mut self) -> bool {
-        let old_selection = self.value.selection();
-
-        self.value.set_cursor(0, false);
-        self.value.set_cursor(self.value.len(), true);
-
-        old_selection != self.value.selection()
+        self.value.select_all()
     }
 
     /// Selection.
@@ -375,7 +366,19 @@ impl TextInputState {
     /// Insert a char at the current position.
     #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
-        self.value.insert_char(c)
+        if self.value.has_selection() {
+            self.value.remove_range(self.value.selection());
+        }
+        self.value.insert_char(self.value.cursor(), c)
+    }
+
+    /// Insert a str at the current position.
+    #[inline]
+    pub fn insert_str(&mut self, t: &str) -> bool {
+        if self.value.has_selection() {
+            self.value.remove_range(self.value.selection());
+        }
+        self.value.insert_str(self.value.cursor(), t)
     }
 
     /// Deletes the given range.
@@ -384,7 +387,7 @@ impl TextInputState {
         if range.is_empty() {
             false
         } else {
-            self.value.remove(range);
+            self.value.remove_range(range);
             true
         }
     }
@@ -396,11 +399,15 @@ impl TextInputState {
             self.delete_range(self.value.selection())
         } else {
             let cp = self.value.cursor();
-            if let Some(ep) = self.value.next_word_boundary(cp) {
-                self.delete_range(cp..ep)
+            let sp = next_word_start(self.value.value(), cp);
+
+            let ep = if cp == sp {
+                next_word_end(self.value.value(), cp)
             } else {
-                false
-            }
+                sp
+            };
+
+            self.delete_range(cp..ep)
         }
     }
 
@@ -411,11 +418,15 @@ impl TextInputState {
             self.delete_range(self.value.selection())
         } else {
             let cp = self.value.cursor();
-            if let Some(sp) = self.value.prev_word_boundary(cp) {
-                self.delete_range(sp..cp)
+            let ep = prev_word_end(self.value.value(), cp);
+
+            let sp = if cp == ep {
+                prev_word_start(self.value.value(), cp)
             } else {
-                false
-            }
+                ep
+            };
+
+            self.delete_range(sp..cp)
         }
     }
 
@@ -423,12 +434,12 @@ impl TextInputState {
     #[inline]
     pub fn delete_prev_char(&mut self) -> bool {
         if self.value.has_selection() {
-            self.value.remove(self.value.selection())
+            self.value.remove_range(self.value.selection())
         } else if self.value.cursor() == 0 {
             false
         } else {
             self.value
-                .remove(self.value.cursor() - 1..self.value.cursor());
+                .remove_range(self.value.cursor() - 1..self.value.cursor());
             true
         }
     }
@@ -437,12 +448,12 @@ impl TextInputState {
     #[inline]
     pub fn delete_next_char(&mut self) -> bool {
         if self.value.has_selection() {
-            self.value.remove(self.value.selection())
+            self.value.remove_range(self.value.selection())
         } else if self.value.cursor() == self.value.len() {
             false
         } else {
             self.value
-                .remove(self.value.cursor()..self.value.cursor() + 1);
+                .remove_range(self.value.cursor()..self.value.cursor() + 1);
             true
         }
     }
@@ -450,21 +461,15 @@ impl TextInputState {
     #[inline]
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
         let cp = self.value.cursor();
-        if let Some(cp) = self.value.next_word_boundary(cp) {
-            self.value.set_cursor(cp, extend_selection)
-        } else {
-            false
-        }
+        let ep = next_word_end(self.value.value(), cp);
+        self.value.set_cursor(ep, extend_selection)
     }
 
     #[inline]
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
         let cp = self.value.cursor();
-        if let Some(cp) = self.value.prev_word_boundary(cp) {
-            self.value.set_cursor(cp, extend_selection)
-        } else {
-            false
-        }
+        let sp = prev_word_start(self.value.value(), cp);
+        self.value.set_cursor(sp, extend_selection)
     }
 
     /// Move to the next char.
@@ -495,6 +500,7 @@ impl TextInputState {
         self.value.set_cursor(c, extend_selection)
     }
 
+    // todo glyph
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
     pub fn to_screen_col(&self, pos: usize) -> Option<u16> {
@@ -510,6 +516,7 @@ impl TextInputState {
         Some(sx as u16)
     }
 
+    // todo glyph
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
     pub fn from_screen_col(&self, x: usize) -> Option<usize> {

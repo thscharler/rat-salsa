@@ -557,7 +557,7 @@ impl MaskedInputState {
     #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
         if self.value.has_selection() {
-            self.value.remove_selection(self.value.selection());
+            self.value.remove_range(self.value.selection());
         }
         self.value.advance_cursor(c);
         self.value.insert_char(c);
@@ -571,7 +571,7 @@ impl MaskedInputState {
         if range.is_empty() {
             false
         } else {
-            self.value.remove_selection(range);
+            self.value.remove_range(range);
             true
         }
     }
@@ -613,7 +613,7 @@ impl MaskedInputState {
             self.value.clear();
             true
         } else if self.value.has_selection() {
-            self.value.remove_selection(self.value.selection());
+            self.value.remove_range(self.value.selection());
             true
         } else if self.value.cursor() > 0 {
             self.value.remove_prev();
@@ -630,7 +630,7 @@ impl MaskedInputState {
             self.value.clear();
             true
         } else if self.value.has_selection() {
-            self.value.remove_selection(self.value.selection());
+            self.value.remove_range(self.value.selection());
             true
         } else if self.value.cursor() < self.value.len() {
             self.value.remove_next();
