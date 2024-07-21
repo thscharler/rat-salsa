@@ -15,10 +15,6 @@ pub struct TextInputCore {
     // Len in grapheme count.
     len: usize,
 
-    // display information
-    offset: usize,
-    width: usize,
-
     // cursor and selection
     cursor: usize,
     anchor: usize,
@@ -32,42 +28,6 @@ impl TextInputCore {
         Self::default()
     }
 
-    /// Offset
-    #[inline]
-    pub fn offset(&self) -> usize {
-        self.offset
-    }
-
-    /// Change the offset
-    pub fn set_offset(&mut self, offset: usize) {
-        if offset > self.len {
-            self.offset = self.len;
-        } else if offset > self.cursor {
-            self.offset = self.cursor;
-        } else if offset + self.width < self.cursor {
-            self.offset = self.cursor - self.width;
-        } else {
-            self.offset = offset;
-        }
-    }
-
-    // todo: need this
-    /// Display width
-    #[inline]
-    pub fn width(&self) -> usize {
-        self.width
-    }
-
-    /// Display width
-    #[inline]
-    pub fn set_width(&mut self, width: usize) {
-        self.width = width;
-
-        if self.offset + width < self.cursor {
-            self.offset = self.cursor - self.width;
-        }
-    }
-
     /// Cursor position as grapheme-idx. Moves the cursor to the new position,
     /// but can leave the current cursor position as anchor of the selection.
     pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) -> bool {
@@ -79,12 +39,6 @@ impl TextInputCore {
 
         if !extend_selection {
             self.anchor = c;
-        }
-
-        if self.offset > c {
-            self.offset = c;
-        } else if self.offset + self.width < c {
-            self.offset = c - self.width;
         }
 
         (self.cursor, self.anchor) != old_selection
@@ -108,7 +62,6 @@ impl TextInputCore {
         self.value = s.into();
         self.len = self.value.graphemes(true).count();
         self.cursor = 0;
-        self.offset = 0;
         self.anchor = 0;
     }
 
@@ -279,13 +232,6 @@ impl TextInputCore {
             self.anchor += new_len - old_len;
         }
 
-        // fix offset
-        if self.offset > self.cursor {
-            self.offset = self.cursor;
-        } else if self.offset + self.width < self.cursor {
-            self.offset = self.cursor - self.width;
-        }
-
         true
     }
 
@@ -309,13 +255,6 @@ impl TextInputCore {
         }
         if self.anchor >= pos {
             self.anchor += new_len - old_len;
-        }
-
-        // fix offset
-        if self.offset > self.cursor {
-            self.offset = self.cursor;
-        } else if self.offset + self.width < self.cursor {
-            self.offset = self.cursor - self.width;
         }
 
         true
@@ -349,13 +288,6 @@ impl TextInputCore {
             self.anchor = range.start;
         } else {
             self.anchor = self.anchor.saturating_sub(old_len - new_len);
-        }
-
-        // fix offset
-        if self.offset > self.cursor {
-            self.offset = self.cursor;
-        } else if self.offset + self.width < self.cursor {
-            self.offset = self.cursor - self.width;
         }
 
         true

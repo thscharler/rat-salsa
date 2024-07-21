@@ -894,13 +894,7 @@ impl TextAreaState {
                 TextRange::new((cx, cy), (sx, sy))
             };
 
-            if !range.is_empty() {
-                self.value.remove_range(range);
-                self.scroll_cursor_to_visible();
-                true
-            } else {
-                false
-            }
+            self.delete_range(range)
         }
     }
 
@@ -920,13 +914,7 @@ impl TextAreaState {
                 TextRange::new((ex, ey), (cx, cy))
             };
 
-            if !range.is_empty() {
-                self.value.remove_range(range);
-                self.scroll_cursor_to_visible();
-                true
-            } else {
-                false
-            }
+            self.delete_range(range)
         }
     }
 
