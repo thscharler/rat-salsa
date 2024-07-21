@@ -10,7 +10,7 @@ use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
@@ -23,7 +23,6 @@ use ropey::{Rope, RopeSlice};
 use std::cmp::{max, min};
 use std::fmt::Debug;
 use std::ops::RangeBounds;
-use std::time::{Duration, SystemTime};
 
 /// Text area widget.
 ///
@@ -264,10 +263,10 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
             // screen col
             let mut col = 0u16;
             // text col
-            let mut tx = 0usize;
+            let mut tx = ox;
 
             let mut glyph_iter = GlyphIter::new(line);
-            glyph_iter.set_offset(state.hscroll.offset);
+            glyph_iter.set_offset(ox);
             glyph_iter.set_show_ctrl(widget.show_ctrl);
 
             'line: for d in glyph_iter {
