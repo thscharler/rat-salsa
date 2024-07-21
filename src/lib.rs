@@ -197,24 +197,9 @@ pub mod selection {
 /// Eventhandling.
 pub mod event {
     pub use rat_event::{
-        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, HandleEvent, MouseOnly, Outcome,
-        Regular,
+        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, DoubleClick, HandleEvent,
+        MouseOnly, Outcome, Regular,
     };
-
-    /// Event-handler for double-click on the table.
-    ///
-    /// Events for this handler must be processed *before* calling
-    /// any other event-handling routines for the same table.
-    /// Otherwise, the regular event-handling might interfere with
-    /// recognition of double-clicks by consuming the first click.
-    ///
-    /// This event-handler doesn't consume the first click, just
-    /// the second one.
-    ///
-    /// See [handle_doubleclick_events](crate::handle_doubleclick_events),
-    ///     [TableState as HandleEvent](../struct.TableState.html#impl-HandleEvent<Event,+DoubleClick,+DoubleClickOutcome>-for-TableState<Selection>)
-    #[derive(Debug, Default)]
-    pub struct DoubleClick;
 
     /// Result type for double-click event-handling.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
