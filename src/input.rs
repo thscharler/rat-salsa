@@ -33,7 +33,7 @@ use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget};
-use std::cmp::{max, min};
+use std::cmp::min;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
@@ -762,7 +762,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 let c = (m.column as i16) - (self.inner.x as i16);
-                self.set_screen_cursor(c as i16, true).into()
+                self.set_screen_cursor(c, true).into()
             }
             ct_event!(mouse down Left for column,row) => {
                 if self.gained_focus() {

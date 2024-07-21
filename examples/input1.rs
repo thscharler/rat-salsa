@@ -18,9 +18,9 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State {
         input: Default::default(),
     };
-    // state
-    //     .input
-    //     .set_value("asdf jklö 1234 (()) // öö 👩🏾‍🏫 👮🏾‍♀️ 💂🏾‍♀️ 👷🏾 🧔🏾‍♀️ 👩🏾‍");
+    state
+        .input
+        .set_value("asdf jklö 1234 (()) // öö 👩🏾‍🏫 👮🏾‍♀️ 💂🏾‍♀️ 👷🏾 🧔🏾‍♀️ 👩🏾‍");
 
     run_ui(handle_input, repaint_input, &mut data, &mut state)
 }
@@ -58,14 +58,13 @@ fn repaint_input(
     }
 
     let mut txt = Vec::new();
-    txt.push(Line::from(format!("cursor {}", state.input.value.cursor())));
-    txt.push(Line::from(format!("anchor {}", state.input.value.anchor())));
-    txt.push(Line::from(format!("len {}", state.input.value.len())));
-    txt.push(Line::from(format!("offset {}", state.input.value.offset())));
-    txt.push(Line::from(format!("width {}", state.input.value.width())));
+    txt.push(Line::from(format!("cursor {}", state.input.cursor())));
+    txt.push(Line::from(format!("anchor {}", state.input.anchor())));
+    txt.push(Line::from(format!("len {}", state.input.len())));
+    txt.push(Line::from(format!("offset {}", state.input.offset())));
     txt.push(Line::from(format!(
         "seletion {:?}",
-        state.input.value.selection()
+        state.input.selection()
     )));
     txt.push(Line::from(format!(
         "word {}-{}",
