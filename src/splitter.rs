@@ -1,6 +1,11 @@
+//!
+//! Vertical and horizontal multiple split.
+//!
+
 use crate::_private::NonExhaustive;
 use crate::fill::Fill;
 use crate::util::revert_style;
+use log::debug;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -21,7 +26,7 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget, StatefulWidgetRef, Wid
 /// [SplitWidget] and the [SplitOverlay]. SplitWidget must be rendered
 /// first, after that you can access the SplitState::areas to render the
 /// parts, and last render SplitOverlay to render the markers that will
-/// appear overlayed on the part-widgets.
+/// appear overlayed on the widgets.
 #[derive(Debug, Default, Clone)]
 pub struct Split<'a> {
     direction: Direction,
@@ -109,12 +114,12 @@ pub enum SplitType {
     /// of a half block.
     FullQuadrantOutside,
     /// Render a minimal splitter, consisting just the two marker chars
-    /// over the left/top widget.
+    /// rendered over the left/top widget.
     ///
     /// If the left widget has a Scroll in that area this will integrate
-    /// nicely. You will have to set `collab_split` with Scroll, then Scroll can
-    /// adjust its rendering to leave space for the markers. And you might
-    /// want to set a `mark_offset` here.
+    /// nicely. You will have to set `split_mark_offset` with Scroll, then
+    /// Scroll can adjust its rendering to leave space for the markers.
+    /// And you want to set a `mark_offset` here.
     ///
     /// The widget will get the full area.
     Scroll,
@@ -148,6 +153,9 @@ pub struct SplitState {
     /// Area used by the splitter. This is area is used for moving the splitter.
     /// It might overlap with the widget area.
     pub split: Vec<Rect>,
+    /// If there is a mark_offset, that leaves a blind spot above. This is
+    /// noticeable, when the split_type is Scroll.
+    pub blind: Vec<Rect>,
     /// Start position for drawing the mark.
     pub mark: Vec<Position>,
 
@@ -205,15 +213,19 @@ impl<'a> Split<'a> {
         }
     }
 
-    /// Constraints.
+    /// Set constraints for the initial area sizes.
+    /// If the window is resized the current widths are used as
+    /// constraints for recalculating.
+    ///
+    /// The number of constraints determines the number of areas.
     pub fn constraints(mut self, constraints: impl IntoIterator<Item = Constraint>) -> Self {
         self.constraints = constraints.into_iter().collect();
         self
     }
 
     /// Layout direction of the widgets.
-    /// Direction::Horizontal means the widgets are layed out on
-    /// beside the other, with a vertical split area in between.
+    /// Direction::Horizontal means the widgets are laid out left to right,
+    /// with a vertical split area in between.
     pub fn direction(mut self, direction: Direction) -> Self {
         self.direction = direction;
         self
@@ -231,29 +243,50 @@ impl<'a> Split<'a> {
         self
     }
 
-    /// Draw a join character between a Fullxxx split-type and the
-    /// given border on the left/top side.
-    pub fn join_0_char(mut self, str: &'a str) -> Self {
+    /// Draw as join character between the split and the
+    /// border on the left/top side.
+    pub fn join_char(mut self, str: &'a str) -> Self {
         self.join_0_char = Some(str);
-        self
-    }
-
-    /// Draw a join character between a Fullxxx split-type and the
-    /// given border on the right/bottom side.
-    pub fn join_1_char(mut self, str: &'a str) -> Self {
         self.join_1_char = Some(str);
         self
     }
 
-    /// Draw a join character between a Fullxxx split-type and the
-    /// given border on the left/top side.
+    /// Draw as join character between the split and the
+    /// border on the left/top side.
+    pub fn join_0_char(mut self, str: &'a str) -> Self {
+        self.join_0_char = Some(str);
+        debug!("join_0 {:?}", self.join_0_char);
+        self
+    }
+
+    /// Draw as join character between the split and the
+    /// border on the right/bottom side.
+    pub fn join_1_char(mut self, str: &'a str) -> Self {
+        self.join_1_char = Some(str);
+        debug!("join_1 {:?}", self.join_1_char);
+        self
+    }
+
+    /// Draw a join character between the split and the
+    /// border on the left/top side. This sets the border type
+    /// used for the left/top border.
+    pub fn join(mut self, border: BorderType) -> Self {
+        self.join_0 = Some(border);
+        self.join_1 = Some(border);
+        self
+    }
+
+    /// Draw a join character between the split and the
+    /// border on the left/top side. This sets the border type
+    /// used for the left/top border.
     pub fn join_0(mut self, border: BorderType) -> Self {
         self.join_0 = Some(border);
         self
     }
 
-    /// Draw a join character between a Fullxxx split-type and the
-    /// given border on the right/bottom side.
+    /// Draw a join character between the split and the
+    /// border on the right/bottom side. This sets the border type
+    /// used for the right/bottom border.
     pub fn join_1(mut self, border: BorderType) -> Self {
         self.join_1 = Some(border);
         self
@@ -392,6 +425,7 @@ impl<'a> Split<'a> {
         if let Some(rects) = new_split_areas {
             state.areas.clear();
             state.split.clear();
+            state.blind.clear();
             state.mark.clear();
 
             for mut area in rects.iter().take(rects.len().saturating_sub(1)).copied() {
@@ -421,11 +455,27 @@ impl<'a> Split<'a> {
                         area.y + area.height.saturating_sub(SPLIT_WIDTH),
                     )
                 };
+                let mut blind = if self.direction == Direction::Horizontal {
+                    Rect::new(
+                        area.x + area.width.saturating_sub(SPLIT_WIDTH),
+                        area.y,
+                        1,
+                        self.mark_offset,
+                    )
+                } else {
+                    Rect::new(
+                        area.x,
+                        area.y + area.height.saturating_sub(SPLIT_WIDTH),
+                        self.mark_offset,
+                        1,
+                    )
+                };
 
-                self.adjust_for_split_type(&mut area, &mut split, &mut mark);
+                self.adjust_for_split_type(&mut area, &mut split, &mut blind, &mut mark);
 
                 state.areas.push(area);
                 state.split.push(split);
+                state.blind.push(blind);
                 state.mark.push(mark);
             }
             if let Some(area) = rects.last() {
@@ -463,7 +513,13 @@ impl<'a> Split<'a> {
     }
 
     /// Adjust area and split according to the split_type.
-    fn adjust_for_split_type(&self, area: &mut Rect, split: &mut Rect, mark: &mut Position) {
+    fn adjust_for_split_type(
+        &self,
+        area: &mut Rect,
+        split: &mut Rect,
+        blind: &mut Rect,
+        mark: &mut Position,
+    ) {
         use Direction::*;
         use SplitType::*;
 
@@ -541,6 +597,27 @@ impl<'a> Split<'a> {
             (Horizontal, FullQuadrantOutside) => Some("\u{2590}"),
             (Vertical, FullQuadrantOutside) => Some("\u{2584}"),
             (_, Scroll) => None,
+            (_, Widget) => None,
+        }
+    }
+
+    fn get_blind_char(&self) -> Option<&str> {
+        if self.split_char.is_some() {
+            return self.split_char;
+        };
+
+        use Direction::*;
+        use SplitType::*;
+
+        match (self.direction, self.split_type) {
+            (_, FullEmpty) => None,
+            (Horizontal, Scroll) => Some("\u{2502}"),
+            (Vertical, Scroll) => Some("\u{2500}"),
+            (_, FullPlain) => None,
+            (_, FullDouble) => None,
+            (_, FullThick) => None,
+            (_, FullQuadrantInside) => None,
+            (_, FullQuadrantOutside) => None,
             (_, Widget) => None,
         }
     }
@@ -787,6 +864,17 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
                 .render(*split_area, buf);
         }
 
+        // mark_offset leaves some parts unrendered.
+        if split.split_type == SplitType::Scroll {
+            if split.mark_offset > 0 {
+                let mut f = Fill::new().style(split.style);
+                if let Some(blind) = split.get_blind_char() {
+                    f = f.fill_char(blind);
+                }
+                f.render(state.blind[n], buf);
+            }
+        }
+
         let mark = state.mark[n];
         if split.direction == Direction::Horizontal {
             if buf.area.contains((mark.x, mark.y).into()) {
@@ -828,6 +916,7 @@ impl Default for SplitState {
             focus_split: Default::default(),
             areas: Default::default(),
             split: Default::default(),
+            blind: Default::default(),
             mark: Default::default(),
             direction: Default::default(),
             split_type: Default::default(),
@@ -878,6 +967,7 @@ impl SplitState {
 
                     self.areas[n] = Rect::new(area1.x, area1.y, p - area1.x, area1.height);
                     self.split[n] = Rect::new(p, area1.y, 1, area1.height);
+                    self.blind[n] = Rect::new(p, area1.y, 1, self.mark_offset);
                     self.mark[n] = Position::new(p, area1.y + self.mark_offset);
                     self.areas[n + 1] = Rect::new(p + 1, area2.y, area2.right() - p, area2.height);
                 }
@@ -892,6 +982,7 @@ impl SplitState {
 
                     self.areas[n] = Rect::new(area1.x, area1.y, (p + 1) - area1.x, area1.height);
                     self.split[n] = Rect::new(p, area1.y + self.mark_offset, 1, 2);
+                    self.blind[n] = Rect::new(p, area1.y, 1, self.mark_offset);
                     self.mark[n] = Position::new(p, area1.y + self.mark_offset);
                     self.areas[n + 1] =
                         Rect::new(p + 1, area2.y, area2.right() - 1 - p, area2.height);
@@ -906,6 +997,7 @@ impl SplitState {
                     };
                     self.areas[n] = Rect::new(area1.x, area1.y, (p + 1) - area1.x, area1.height);
                     self.split[n] = Rect::new(p, area1.y, 1, area1.height);
+                    self.blind[n] = Rect::new(p, area1.y, 1, self.mark_offset);
                     self.mark[n] = Position::default();
                     self.areas[n + 1] =
                         Rect::new(p + 1, area2.y, area2.right() - 1 - p, area2.height);
@@ -924,6 +1016,7 @@ impl SplitState {
                     };
                     self.areas[n] = Rect::new(area1.x, area1.y, area1.width, p - area1.y);
                     self.split[n] = Rect::new(area1.x, p, area1.width, 1);
+                    self.blind[n] = Rect::new(area1.x, p, self.mark_offset, 1);
                     self.mark[n] = Position::new(area1.x + self.mark_offset, p);
                     self.areas[n + 1] = Rect::new(area2.x, p + 1, area2.width, area2.bottom() - p);
                 }
@@ -937,6 +1030,7 @@ impl SplitState {
                     };
                     self.areas[n] = Rect::new(area1.x, area1.y, area1.width, (p + 1) - area1.y);
                     self.split[n] = Rect::new(area1.x + self.mark_offset, p, 2, 1);
+                    self.blind[n] = Rect::new(area1.x, p, self.mark_offset, 1);
                     self.mark[n] = Position::new(area1.x + self.mark_offset, p);
                     self.areas[n + 1] =
                         Rect::new(area2.x, p + 1, area2.width, area2.bottom() - 1 - p);
@@ -951,6 +1045,7 @@ impl SplitState {
                     };
                     self.areas[n] = Rect::new(area1.x, area1.y, area1.width, (p + 1) - area1.y);
                     self.split[n] = Rect::new(area1.x, p, area1.width, 1);
+                    self.blind[n] = Rect::new(area1.x, p, self.mark_offset, 1);
                     self.mark[n] = Position::default();
                     self.areas[n + 1] =
                         Rect::new(area2.x, p + 1, area2.width, area2.bottom() - 1 - p);
