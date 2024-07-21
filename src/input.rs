@@ -17,6 +17,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
+use crate::fill::Fill;
 use crate::text::graphemes::{
     is_word_boundary, next_word_end, next_word_start, prev_word_end, prev_word_start, split3,
     word_end, word_start,
@@ -166,7 +167,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
     widget.block.render(area, buf);
 
-    let area = state.inner.intersection(buf.area);
+    let area = state.inner;
 
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -204,41 +205,45 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         }
     };
 
-    buf.set_style(area, style);
+    Fill::new().style(style).render(area, buf);
 
     let selection = state.selection();
+
     let ox = state.offset();
-    let mut cit = state.value().graphemes(true).skip(state.offset());
-    let mut col = 0;
-    let mut cx = 0;
-    loop {
-        if col >= area.width {
-            break;
-        }
+    let mut col = 0u16;
+    let mut tx = ox;
 
-        let ch = if let Some(c) = cit.next() { c } else { " " };
+    let mut glyph_iter = state.value.value_glyphs();
+    glyph_iter.set_offset(ox);
 
-        let tx = cx + ox;
-        let style = if selection.contains(&tx) {
-            select_style
-        } else {
-            style
-        };
+    'line: for d in glyph_iter {
+        if d.len > 0 {
+            let style = if selection.contains(&tx) {
+                select_style
+            } else {
+                style
+            };
 
-        let cell = buf.get_mut(area.x + col, area.y);
-        cell.set_symbol(ch);
-        cell.set_style(style);
-
-        // extra cells for wide chars.
-        let ww = unicode_display_width::width(ch) as u16;
-        for x in 1..ww {
-            let cell = buf.get_mut(area.x + col + x, area.y);
-            cell.set_symbol("");
+            let cell = buf.get_mut(area.x + col, area.y);
+            cell.set_symbol(d.glyph.as_ref());
             cell.set_style(style);
-        }
+            col += 1;
+            if col >= area.width {
+                break 'line;
+            }
 
-        col += max(ww, 1);
-        cx += 1;
+            for _ in 1..d.len {
+                let cell = buf.get_mut(area.x + col, area.y);
+                cell.reset();
+                cell.set_style(style);
+                col += 1;
+                if col >= area.width {
+                    break 'line;
+                }
+            }
+
+            tx += 1;
+        }
     }
 }
 
@@ -578,67 +583,61 @@ impl TextInputState {
         c || s
     }
 
-    // todo glyph
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
     pub fn to_screen_col(&self, pos: usize) -> Option<u16> {
         let px = pos;
         let ox = self.offset();
 
-        let mut sx = 0;
-        let line = self.value.value_graphemes();
-        for c in line.skip(ox).take(px - ox) {
-            sx += unicode_display_width::width(c) as usize;
-        }
+        let mut line = self.value.value_glyphs();
+        line.set_offset(ox);
+
+        let sx = line.take(px - ox).map(|v| v.len).sum::<usize>();
 
         Some(sx as u16)
     }
 
-    // todo glyph
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
-    pub fn from_screen_col(&self, x: usize) -> Option<usize> {
-        let mut cx = 0;
+    pub fn from_screen_col(&self, scx: i16) -> usize {
         let ox = self.offset();
 
-        let line = self.value.value_graphemes();
-        let mut test = 0;
-        for c in line.skip(ox) {
-            if test >= x {
-                break;
+        if scx < 0 {
+            ox.saturating_sub((scx as isize).abs() as usize)
+        } else if scx as u16 >= self.area.width {
+            min(ox + scx as usize, self.len())
+        } else {
+            let scx = scx as u16;
+
+            let mut line = self.value.value_glyphs();
+            line.set_offset(ox);
+
+            let mut cx = 0;
+            let mut testx = 0;
+            for g in line {
+                if scx >= testx && scx < testx + g.len as u16 {
+                    break;
+                }
+                testx += g.len as u16;
+                cx += 1;
             }
 
-            test += unicode_display_width::width(c) as usize;
-
-            cx += 1;
+            min(ox + cx, self.len())
         }
-
-        Some(cx + ox)
     }
 
     /// Set the cursor position from a screen position relative to the origin
     /// of the widget. This value can be negative, which selects a currently
     /// not visible position and scrolls to it.
     #[inline]
-    pub fn set_screen_cursor(&mut self, cursor: isize, extend_selection: bool) -> bool {
-        let sc = cursor;
+    pub fn set_screen_cursor(&mut self, cursor: i16, extend_selection: bool) -> bool {
+        let scx = cursor;
 
-        let c = if sc < 0 {
-            self.offset().saturating_sub(-sc as usize)
-        } else {
-            if let Some(c) = self.from_screen_col(sc as usize) {
-                c
-            } else {
-                self.value.len()
-            }
-        };
+        let cx = self.from_screen_col(scx);
 
-        let old_cursor = self.value.cursor();
-        let old_anchor = self.value.anchor();
-
-        self.value.set_cursor(c, extend_selection);
-
-        old_cursor != self.value.cursor() || old_anchor != self.value.anchor()
+        let c = self.set_cursor(cx, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
     }
 
     /// The current text cursor as an absolute screen position.
@@ -762,8 +761,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
-                let c = (m.column as isize) - (self.inner.x as isize);
-                self.set_screen_cursor(c, true).into()
+                let c = (m.column as i16) - (self.inner.x as i16);
+                self.set_screen_cursor(c as i16, true).into()
             }
             ct_event!(mouse down Left for column,row) => {
                 if self.gained_focus() {
@@ -771,8 +770,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
                     // focus. this one shouldn't demolish the selection.
                     TextOutcome::Unchanged
                 } else if self.inner.contains((*column, *row).into()) {
-                    let c = column - self.inner.x;
-                    self.set_screen_cursor(c as isize, false).into()
+                    let c = (column - self.inner.x) as i16;
+                    self.set_screen_cursor(c, false).into()
                 } else {
                     TextOutcome::NotUsed
                 }

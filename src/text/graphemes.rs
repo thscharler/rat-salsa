@@ -551,14 +551,14 @@ impl<'a> Iterator for RopeGlyphIter<'a> {
 /// * has a column-offset.
 /// * can translate control-codes to visible graphemes.
 #[derive(Debug)]
-pub struct StrGlyphIter<'a> {
+pub struct GlyphIter<'a> {
     iter: Graphemes<'a>,
     offset: usize,
     show_ctrl: bool,
     col: usize,
 }
 
-impl<'a> StrGlyphIter<'a> {
+impl<'a> GlyphIter<'a> {
     /// New iterator.
     pub fn new(slice: &'a str) -> Self {
         Self {
@@ -582,7 +582,7 @@ impl<'a> StrGlyphIter<'a> {
     }
 }
 
-impl<'a> Iterator for StrGlyphIter<'a> {
+impl<'a> Iterator for GlyphIter<'a> {
     type Item = Glyph<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {

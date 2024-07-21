@@ -1,4 +1,4 @@
-use crate::text::graphemes::{split3, split_at, str_line_len};
+use crate::text::graphemes::{split3, split_at, str_line_len, GlyphIter};
 #[allow(unused_imports)]
 use log::debug;
 use std::cmp::min;
@@ -71,7 +71,11 @@ impl TextInputCore {
         self.value.as_str()
     }
 
-    // todo: glyphs
+    /// Value as glyph iterator.
+    #[inline]
+    pub fn value_glyphs(&self) -> GlyphIter<'_> {
+        GlyphIter::new(self.value())
+    }
 
     /// Value as grapheme iterator.
     #[inline]
