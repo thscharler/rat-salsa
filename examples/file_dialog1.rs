@@ -1,6 +1,5 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::MiniSalsaState;
-use anyhow::anyhow;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{flow_ok, Dialog, HandleEvent, Outcome};
@@ -115,10 +114,8 @@ fn handle_input(
     );
 
     flow_ok!(match menubar::handle_events(&mut state.menu, true, event) {
-        MenuOutcome::Activated(v) => {
-            if v == 1 {
-                return Err(anyhow!("Quit"));
-            }
+        MenuOutcome::Activated(1) => {
+            istate.quit = true;
             Outcome::Changed
         }
         r => r.into(),

@@ -5,7 +5,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{flow_ok, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::Scroll;
-use rat_widget::paragraph::RParagraph;
+use rat_widget::paragraph::Paragraph;
 use rat_widget::viewport::{Viewport, ViewportState};
 use ratatui::layout::{Constraint, Layout, Rect, Size};
 use ratatui::widgets::{Block, StatefulWidget, Wrap};
@@ -127,12 +127,12 @@ fn repaint_text(
     let l = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).split(area);
 
     Viewport::new(DoubleView::new(
-        RParagraph::new(data.sample1.clone())
+        Paragraph::new(data.sample1.clone())
             .wrap(Wrap::default())
             .style(THEME.limegreen(0))
             .block(Block::bordered().style(THEME.block()))
             .scroll(Scroll::new().style(THEME.block())),
-        RParagraph::new(data.sample2.clone())
+        Paragraph::new(data.sample2.clone())
             .wrap(Wrap::default())
             .style(THEME.bluegreen(0))
             .block(Block::bordered().style(THEME.block()))
@@ -157,25 +157,25 @@ fn handle_text(
 
 mod double_widget {
     use rat_event::{flow, HandleEvent, MouseOnly, Outcome};
-    use rat_widget::paragraph::{RParagraph, RParagraphState};
+    use rat_widget::paragraph::{Paragraph, ParagraphState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::prelude::StatefulWidget;
 
     #[derive(Debug, Default)]
     pub(crate) struct DoubleView<'a> {
-        pub(crate) first: RParagraph<'a>,
-        pub(crate) second: RParagraph<'a>,
+        pub(crate) first: Paragraph<'a>,
+        pub(crate) second: Paragraph<'a>,
     }
 
     #[derive(Debug, Default)]
     pub(crate) struct DoubleViewState {
-        pub(crate) first: RParagraphState,
-        pub(crate) second: RParagraphState,
+        pub(crate) first: ParagraphState,
+        pub(crate) second: ParagraphState,
     }
 
     impl<'a> DoubleView<'a> {
-        pub(crate) fn new(first: RParagraph<'a>, second: RParagraph<'a>) -> Self {
+        pub(crate) fn new(first: Paragraph<'a>, second: Paragraph<'a>) -> Self {
             Self { first, second }
         }
     }

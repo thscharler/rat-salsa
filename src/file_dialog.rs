@@ -16,8 +16,8 @@ use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Margin, Rect};
-use ratatui::prelude::{BlockExt, StatefulWidget, Style, Text, Widget};
+use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
+use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
 use ratatui::widgets::{Block, ListItem, StatefulWidgetRef, WidgetRef};
 use std::cmp::max;
 use std::ffi::OsString;
@@ -370,11 +370,23 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             return;
         }
 
+        let block;
+        let block = if let Some(block) = self.block.as_ref() {
+            block
+        } else {
+            block = Block::bordered()
+                .title(match state.mode {
+                    Mode::Open => " Open ",
+                    Mode::Save => " Save ",
+                    Mode::Dir => " Directory ",
+                })
+                .style(self.style);
+            &block
+        };
+
         let layout = layout_dialog(
             area,
-            Constraint::Fill(1),
-            Constraint::Fill(1),
-            Margin::new(1, 1),
+            Some(&block),
             [
                 Constraint::Percentage(20),
                 Constraint::Percentage(30),
@@ -384,33 +396,22 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             Flex::Center,
         );
 
-        let inner = if self.block.is_some() {
-            let inner = self.block.inner_if_some(area);
-            self.block.render_ref(area, buf);
-            inner
-        } else {
-            let block = Block::bordered()
-                .title(match state.mode {
-                    Mode::Open => " Open ",
-                    Mode::Save => " Save ",
-                    Mode::Dir => " Directory ",
-                })
-                .style(self.style);
-            let inner = block.inner(area);
-            block.render_ref(area, buf);
-            inner
-        };
-
-        Fill::new().style(self.style).render(inner, buf);
+        block.render_ref(area, buf);
+        Fill::new()
+            .fill_char(" ")
+            .style(self.style)
+            .render(layout.inner, buf);
 
         match state.mode {
             Mode::Open => {
-                render_open(&self, layout.area, buf, state);
+                render_open(&self, layout.content, buf, state);
             }
             Mode::Save => {
-                render_save(&self, layout.area, buf, state);
+                render_save(&self, layout.content, buf, state);
             }
-            Mode::Dir => {}
+            Mode::Dir => {
+                todo!()
+            }
         }
 
         let mut l_n = layout.buttons[1];
@@ -438,6 +439,58 @@ impl<'a> StatefulWidget for FileDialog<'a> {
 }
 
 fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
+    let l_grid = layout_grid::<3, 2>(
+        area,
+        Layout::horizontal([
+            Constraint::Percentage(20),
+            Constraint::Percentage(30),
+            Constraint::Percentage(50),
+        ]),
+        Layout::new(
+            Direction::Vertical,
+            [Constraint::Length(1), Constraint::Fill(1)],
+        ),
+    );
+
+    //
+    let mut l_path = l_grid[1][0].union(l_grid[2][0]);
+    l_path.width = l_path.width.saturating_sub(1);
+    TextInput::new()
+        .styles(widget.style_path())
+        .render(l_path, buf, &mut state.path_state);
+
+    List::default()
+        .items(state.roots.iter().map(|v| {
+            let s = v.0.to_string_lossy();
+            ListItem::from(format!("{}", s))
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_roots())
+        .render(l_grid[0][1], buf, &mut state.root_state);
+
+    EditRList::new(
+        List::default()
+            .items(state.dirs.iter().map(|v| {
+                let s = v.to_string_lossy();
+                ListItem::from(s)
+            }))
+            .scroll(Scroll::new())
+            .styles(widget.style_lists()),
+        EditDirName,
+    )
+    .render(l_grid[1][1], buf, &mut state.dir_state);
+
+    List::default()
+        .items(state.files.iter().map(|v| {
+            let s = v.to_string_lossy();
+            ListItem::from(s)
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_lists())
+        .render(l_grid[2][1], buf, &mut state.file_state);
+}
+
+fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
     let l_grid = layout_grid::<3, 3>(
         area,
         Layout::horizontal([
@@ -449,14 +502,14 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             Direction::Vertical,
             [
                 Constraint::Length(1),
-                Constraint::Length(1),
                 Constraint::Fill(1),
+                Constraint::Length(1),
             ],
         ),
     );
 
     //
-    let mut l_path = l_grid[1][1].union(l_grid[2][1]);
+    let mut l_path = l_grid[1][0].union(l_grid[2][0]);
     l_path.width = l_path.width.saturating_sub(1);
     TextInput::new()
         .styles(widget.style_path())
@@ -469,7 +522,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         }))
         .scroll(Scroll::new())
         .styles(widget.style_roots())
-        .render(l_grid[0][2], buf, &mut state.root_state);
+        .render(l_grid[0][1], buf, &mut state.root_state);
 
     EditRList::new(
         List::default()
@@ -481,7 +534,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             .styles(widget.style_lists()),
         EditDirName,
     )
-    .render(l_grid[1][2], buf, &mut state.dir_state);
+    .render(l_grid[1][1], buf, &mut state.dir_state);
 
     List::default()
         .items(state.files.iter().map(|v| {
@@ -490,67 +543,10 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         }))
         .scroll(Scroll::new())
         .styles(widget.style_lists())
-        .render(l_grid[2][2], buf, &mut state.file_state);
-}
-
-fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
-    let l_grid = layout_grid::<3, 4>(
-        area,
-        Layout::horizontal([
-            Constraint::Percentage(20),
-            Constraint::Percentage(30),
-            Constraint::Percentage(50),
-        ]),
-        Layout::new(
-            Direction::Vertical,
-            [
-                Constraint::Length(1),
-                Constraint::Length(1),
-                Constraint::Fill(1),
-                Constraint::Length(1),
-            ],
-        ),
-    );
-
-    //
-    let mut l_path = l_grid[1][1].union(l_grid[2][1]);
-    l_path.width = l_path.width.saturating_sub(1);
-    TextInput::new()
-        .styles(widget.style_path())
-        .render(l_path, buf, &mut state.path_state);
-
-    List::default()
-        .items(state.roots.iter().map(|v| {
-            let s = v.0.to_string_lossy();
-            ListItem::from(format!("{}", s))
-        }))
-        .scroll(Scroll::new())
-        .styles(widget.style_roots())
-        .render(l_grid[0][2], buf, &mut state.root_state);
-
-    EditRList::new(
-        List::default()
-            .items(state.dirs.iter().map(|v| {
-                let s = v.to_string_lossy();
-                ListItem::from(s)
-            }))
-            .scroll(Scroll::new())
-            .styles(widget.style_lists()),
-        EditDirName,
-    )
-    .render(l_grid[1][2], buf, &mut state.dir_state);
-
-    List::default()
-        .items(state.files.iter().map(|v| {
-            let s = v.to_string_lossy();
-            ListItem::from(s)
-        }))
-        .scroll(Scroll::new())
-        .styles(widget.style_lists())
-        .render(l_grid[2][2], buf, &mut state.file_state);
+        .render(l_grid[2][1], buf, &mut state.file_state);
 
     TextInput::new().styles(widget.style_name()).render(
-        l_grid[2][3],
+        l_grid[2][2],
         buf,
         &mut state.save_name_state,
     );

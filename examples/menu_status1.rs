@@ -4,13 +4,15 @@ use anyhow::anyhow;
 use rat_event::flow_ok;
 use rat_widget::button::ButtonStyle;
 use rat_widget::event::Outcome;
+use rat_widget::layout::layout_middle;
 use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::{menuline, msgdialog};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::StatefulWidget;
+use ratatui::widgets::{Block, Padding, StatefulWidget};
 use ratatui::Frame;
+use std::iter::repeat_with;
 
 mod mini_salsa;
 
@@ -55,15 +57,23 @@ fn repaint_input(
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
 
     if state.msg.active() {
+        let l_msg = layout_middle(
+            l1[0],
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+            Constraint::Percentage(19),
+        );
         MsgDialog::new()
-            .style(THEME.black(3))
+            .block(Block::bordered().style(THEME.gray(3)))
+            .style(THEME.gray(3))
             .button_style(ButtonStyle {
                 style: THEME.secondary(2),
                 focus: Some(THEME.primary(3)),
                 armed: Some(THEME.primary(1)),
                 ..Default::default()
             })
-            .render(l1[0], frame.buffer_mut(), &mut state.msg);
+            .render(l_msg, frame.buffer_mut(), &mut state.msg);
     }
 
     Ok(())
@@ -87,11 +97,18 @@ fn handle_input(
                 istate.status[0] = format!("Activated {}", v);
                 match v {
                     3 => {
-                        state.msg.append("Hello world!");
+                        state.msg.append(
+                            &repeat_with(|| "Hello world!\n------------\n")
+                                .take(20)
+                                .collect::<String>(),
+                        );
                         state.msg.set_active(true);
                         return Ok(Outcome::Changed);
                     }
-                    4 => return Err(anyhow!("Quit")),
+                    4 => {
+                        istate.quit = true;
+                        return Ok(Outcome::Changed);
+                    }
                     _ => {}
                 }
                 Outcome::Changed
