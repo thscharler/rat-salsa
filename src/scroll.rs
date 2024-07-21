@@ -13,7 +13,10 @@ use std::cmp::{max, min};
 
 /// Scrolling indicator.
 ///
-/// Meant to be used like Block.
+/// This is not a widget by itself, rather it is meant to be used
+/// analogous to Block. A widget that supports scrolling accepts
+/// one or two of these Scroll indicators. The widget then uses this
+/// struct to organize and render the scrollbars.
 #[derive(Debug, Default, Clone)]
 pub struct Scroll<'a> {
     policy: ScrollbarType,
