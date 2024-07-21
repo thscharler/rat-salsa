@@ -11,7 +11,7 @@ There is more:
 * [rat-widget](https://docs.rs/rat-widget)
   widget library
 * [rat-scrolled](https://docs.rs/rat-scrolled)
-  traits and standard widgets for scrolling. Included in rat-widget.
+  utilities for scrolling. Included in rat-widget.
 * [rat-ftable](https://docs.rs/rat-ftable)
   table. uses traits to render your data, and renders only the visible cells.
   this makes rendering effectively O(1) in regard to the number of rows.
