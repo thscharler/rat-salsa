@@ -10,20 +10,20 @@ use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
-use ratatui::widgets::{Block, Paragraph, StatefulWidgetRef, WidgetRef, Wrap};
+use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef, Wrap};
 
 /// Paragraph widget.
 #[derive(Debug, Default)]
-pub struct RParagraph<'a> {
-    w: Paragraph<'a>,
+pub struct Paragraph<'a> {
+    w: ratatui::widgets::Paragraph<'a>,
     is_wrap: bool,
     block: Option<Block<'a>>,
     vscroll: Option<Scroll<'a>>,
     hscroll: Option<Scroll<'a>>,
 }
 
-#[derive(Debug)]
-pub struct RParagraphState {
+#[derive(Debug, Clone)]
+pub struct ParagraphState {
     /// Full area of the widget.
     pub area: Rect,
     /// Inner area of the widget.
@@ -40,14 +40,14 @@ pub struct RParagraphState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> RParagraph<'a> {
+impl<'a> Paragraph<'a> {
     pub fn new<T>(text: T) -> Self
     where
         T: Into<Text<'a>>,
     {
         let t = text.into();
         Self {
-            w: Paragraph::new(t),
+            w: ratatui::widgets::Paragraph::new(t),
             ..Self::default()
         }
     }
@@ -115,8 +115,8 @@ impl<'a> RParagraph<'a> {
     }
 }
 
-impl<'a> RParagraph<'a> {
-    fn layout(&self, area: Rect, state: &mut RParagraphState) {
+impl<'a> Paragraph<'a> {
+    fn layout(&self, area: Rect, state: &mut ParagraphState) {
         state.area = area;
 
         (state.hscroll.area, state.vscroll.area, state.inner) = layout_scroll(
@@ -144,8 +144,8 @@ impl<'a> RParagraph<'a> {
     }
 }
 
-impl<'a> StatefulWidget for RParagraph<'a> {
-    type State = RParagraphState;
+impl<'a> StatefulWidget for Paragraph<'a> {
+    type State = ParagraphState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.layout(area, state);
@@ -157,8 +157,8 @@ impl<'a> StatefulWidget for RParagraph<'a> {
     }
 }
 
-impl<'a> StatefulWidgetRef for RParagraph<'a> {
-    type State = RParagraphState;
+impl<'a> StatefulWidgetRef for Paragraph<'a> {
+    type State = ParagraphState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.layout(area, state);
@@ -171,7 +171,7 @@ impl<'a> StatefulWidgetRef for RParagraph<'a> {
     }
 }
 
-fn render_para(widget: &RParagraph<'_>, area: Rect, buf: &mut Buffer, state: &mut RParagraphState) {
+fn render_para(widget: &Paragraph<'_>, area: Rect, buf: &mut Buffer, state: &mut ParagraphState) {
     widget.block.render_ref(area, buf);
     if let Some(vscroll) = &widget.vscroll {
         vscroll.render_ref(state.vscroll.area, buf, &mut state.vscroll);
@@ -181,7 +181,7 @@ fn render_para(widget: &RParagraph<'_>, area: Rect, buf: &mut Buffer, state: &mu
     }
 }
 
-impl Default for RParagraphState {
+impl Default for ParagraphState {
     fn default() -> Self {
         Self {
             area: Default::default(),
@@ -194,7 +194,7 @@ impl Default for RParagraphState {
     }
 }
 
-impl HasFocusFlag for RParagraphState {
+impl HasFocusFlag for ParagraphState {
     fn focus(&self) -> &FocusFlag {
         &self.focus
     }
@@ -204,7 +204,7 @@ impl HasFocusFlag for RParagraphState {
     }
 }
 
-impl RParagraphState {
+impl ParagraphState {
     /// Current offset.
     pub fn line_offset(&self) -> usize {
         self.vscroll.offset()
@@ -246,7 +246,7 @@ impl RParagraphState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for RParagraphState {
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
         flow!(if self.is_focused() {
             match event {
@@ -268,7 +268,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for RParagraphState 
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RParagraphState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
             .handle(event, MouseOnly)
