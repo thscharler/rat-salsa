@@ -252,7 +252,8 @@ pub(crate) fn insert_text_2(state: &mut State) {
 }
 
 pub(crate) fn insert_text_1(state: &mut State) {
-    let str = "short text\n🤷‍♂️\n🤷‍♀️\n🤦‍♂️\n❤️\n🤦‍♀️\n💕\n🙍🏿‍♀️\n";
+    let str = "short text\nw🤷‍♂️x\nw🤷‍♀️x\nw🤦‍♂️x\nw❤️x\nw🤦‍♀️x\nw💕x\nw🙍🏿‍♀️x\n";
+    // let str = "\t\ttabs\n\t\t\t\ttabs\n\tt\tt\tt\n";
     state.textarea.set_value(str);
 }
 

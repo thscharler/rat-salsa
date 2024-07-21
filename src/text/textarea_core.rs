@@ -6,6 +6,7 @@ use log::debug;
 use ropey::{Rope, RopeSlice};
 use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Formatter};
+use std::iter::repeat_with;
 use std::mem;
 use std::ops::RangeBounds;
 use unicode_segmentation::UnicodeSegmentation;
@@ -928,9 +929,19 @@ impl TextAreaCore {
     }
 
     /// Insert a character.
+    pub fn insert_tab(&mut self, pos: (usize, usize)) {
+        let n = self.tabs as usize - pos.0 % self.tabs as usize;
+        let tabs = repeat_with(|| ' ').take(n).collect::<String>();
+        self.insert_str(pos, &tabs);
+    }
+
+    /// Insert a character.
     pub fn insert_char(&mut self, pos: (usize, usize), c: char) {
         if c == '\n' {
             self.insert_newline(pos);
+            return;
+        } else if c == '\t' {
+            self.insert_tab(pos);
             return;
         }
 

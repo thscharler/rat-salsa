@@ -88,6 +88,7 @@ impl<'a> Iterator for GlyphIter<'a> {
             let g = if let Some(g) = g.as_str() {
                 Cow::Borrowed(g)
             } else {
+                // crossing chunk boundaries must collect.
                 Cow::Owned(g.chars().collect::<String>())
             };
 
@@ -101,7 +102,7 @@ impl<'a> Iterator for GlyphIter<'a> {
                 }
                 "\t" => {
                     len = self.tabs as usize - self.col % self.tabs as usize;
-                    glyph = Cow::Borrowed("\u{2409}");
+                    glyph = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
                 }
                 c if ("\x00".."\x20").contains(&c) => {
                     static CCHAR: [&str; 32] = [

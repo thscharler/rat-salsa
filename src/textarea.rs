@@ -261,16 +261,16 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
         let ty = oy + row as usize;
 
         if let Some(line) = line_iter.next() {
+            // screen col
             let mut col = 0u16;
+            // text col
+            let mut tx = 0usize;
 
             let mut glyph_iter = GlyphIter::new(line);
             glyph_iter.set_offset(state.hscroll.offset);
             glyph_iter.set_show_ctrl(widget.show_ctrl);
 
             'line: for d in glyph_iter {
-                // text-index
-                let tx = ox + col as usize;
-
                 if d.len > 0 {
                     let mut style = style;
                     // text-styles
@@ -295,12 +295,15 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
 
                     for _ in 1..d.len {
                         let cell = buf.get_mut(area.x + col, area.y + row);
-                        cell.set_symbol(" ");
+                        cell.reset();
+                        cell.set_style(style);
                         col += 1;
                         if col >= area.width {
                             break 'line;
                         }
                     }
+
+                    tx += 1;
                 }
             }
         }
@@ -630,6 +633,17 @@ impl TextAreaState {
             self.value.delete_range(self.value.selection());
         }
         self.value.insert_char(self.value.cursor(), c);
+        self.scroll_cursor_to_visible();
+        true
+    }
+
+    /// Insert a character at the cursor position.
+    /// Removes the selection and inserts the char.
+    pub fn insert_tab(&mut self) -> bool {
+        if self.value.has_selection() {
+            self.value.delete_range(self.value.selection());
+        }
+        self.value.insert_tab(self.value.cursor());
         self.scroll_cursor_to_visible();
         true
     }
@@ -1413,6 +1427,7 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => self.insert_char(*c).into(),
+                ct_event!(keycode press Tab) => self.insert_tab().into(),
                 ct_event!(keycode press Enter) => self.insert_newline().into(),
                 ct_event!(keycode press Backspace) => self.delete_prev_char().into(),
                 ct_event!(keycode press Delete) => self.delete_next_char().into(),
@@ -1422,6 +1437,7 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
                 | ct_event!(key release CONTROL_ALT-_)
+                | ct_event!(keycode release Tab)
                 | ct_event!(keycode release Enter)
                 | ct_event!(keycode release Backspace)
                 | ct_event!(keycode release Delete)
