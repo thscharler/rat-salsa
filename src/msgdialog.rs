@@ -6,12 +6,14 @@ use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::fill::Fill;
 use crate::layout::layout_dialog;
+use crate::paragraph::{Paragraph, ParagraphState};
 use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
+use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Constraint, Flex, Margin, Rect};
+use ratatui::layout::{Alignment, Constraint, Flex, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget, StatefulWidgetRef, Widget};
+use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget};
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 
@@ -20,6 +22,7 @@ use std::fmt::Debug;
 pub struct MsgDialog<'a> {
     block: Option<Block<'a>>,
     style: Style,
+    scroll_style: Option<ScrollStyle>,
     button_style: ButtonStyle,
 }
 
@@ -27,6 +30,7 @@ pub struct MsgDialog<'a> {
 #[derive(Debug, Clone)]
 pub struct MsgDialogStyle {
     pub style: Style,
+    pub scroll: Option<ScrollStyle>,
     pub button: ButtonStyle,
     pub non_exhaustive: NonExhaustive,
 }
@@ -34,8 +38,10 @@ pub struct MsgDialogStyle {
 /// State for the status dialog.
 #[derive(Debug, Clone)]
 pub struct MsgDialogState {
-    /// Area
+    /// Full area.
     pub area: Rect,
+    /// Area inside the borders.
+    pub inner: Rect,
 
     /// Dialog is active.
     pub active: Cell<bool>,
@@ -44,6 +50,8 @@ pub struct MsgDialogState {
 
     /// Ok button
     pub button: ButtonState,
+    /// message-text
+    pub paragraph: ParagraphState,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -54,6 +62,7 @@ impl<'a> MsgDialog<'a> {
         Self {
             block: None,
             style: Default::default(),
+            scroll_style: Default::default(),
             button_style: Default::default(),
         }
     }
@@ -67,6 +76,7 @@ impl<'a> MsgDialog<'a> {
     /// Combined style
     pub fn styles(mut self, styles: MsgDialogStyle) -> Self {
         self.style = styles.style;
+        self.scroll_style = styles.scroll;
         self.button_style = styles.button;
         self
     }
@@ -74,6 +84,12 @@ impl<'a> MsgDialog<'a> {
     /// Base style
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
+        self
+    }
+
+    /// Scroll style.
+    pub fn scroll_style(mut self, style: ScrollStyle) -> Self {
+        self.scroll_style = Some(style);
         self
     }
 
@@ -88,6 +104,7 @@ impl Default for MsgDialogStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
+            scroll: Default::default(),
             button: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -125,8 +142,10 @@ impl Default for MsgDialogState {
         let s = Self {
             active: Default::default(),
             area: Default::default(),
+            inner: Default::default(),
             message: Default::default(),
             button: Default::default(),
+            paragraph: Default::default(),
             non_exhaustive: NonExhaustive,
         };
         s.button.focus.set(true);
@@ -153,32 +172,37 @@ impl<'a> StatefulWidget for MsgDialog<'a> {
 fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut MsgDialogState) {
     if state.active.get() {
         let l_dlg = layout_dialog(
-            area,
-            Constraint::Percentage(61),
-            Constraint::Percentage(61),
-            Margin::new(1, 1),
+            area, //
+            widget.block.as_ref(),
             [Constraint::Length(10)],
             0,
             Flex::End,
         );
-
         state.area = l_dlg.area;
+        state.inner = l_dlg.inner;
 
+        widget.block.render(state.area, buf);
         Fill::new()
             .fill_char(" ")
             .style(widget.style)
-            .render(state.area, buf);
-
-        widget.block.render(l_dlg.dialog, buf);
+            .render(state.inner, buf);
 
         {
+            let scroll = if let Some(style) = &widget.scroll_style {
+                Scroll::new().styles(style.clone())
+            } else {
+                Scroll::new().style(widget.style)
+            };
+
             let message = state.message.borrow();
             let mut lines = Vec::new();
             for t in message.split('\n') {
                 lines.push(Line::from(t));
             }
             let text = Text::from(lines).alignment(Alignment::Center);
-            Paragraph::new(text).render(l_dlg.area, buf);
+            Paragraph::new(text)
+                .vscroll(scroll)
+                .render(l_dlg.content, buf, &mut state.paragraph);
         }
 
         Button::from("Ok")
@@ -198,6 +222,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
                 }
                 v => v.into(),
             }
+            .or_else(|| self.paragraph.handle(event, Regular))
             .or_else(|| match event {
                 ct_event!(keycode press Esc) => {
                     self.clear();
