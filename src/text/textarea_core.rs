@@ -457,6 +457,70 @@ impl TextAreaCore {
         self.move_col
     }
 
+    /// Sets the line ending to be used for insert.
+    /// There is no auto-detection or conversion done for set_value().
+    ///
+    /// Caution: If this doesn't match the line ending used in the value, you
+    /// will get a value with mixed line endings.
+    #[inline]
+    pub fn set_newline(&mut self, br: String) {
+        self.newline = br;
+    }
+
+    /// Line ending used for insert.
+    #[inline]
+    pub fn newline(&self) -> &str {
+        &self.newline
+    }
+
+    /// Set the tab-width.
+    /// Default is 8.
+    #[inline]
+    pub fn set_tab_width(&mut self, tabs: u16) {
+        self.tabs = tabs;
+    }
+
+    /// Tab-width
+    #[inline]
+    pub fn tab_width(&self) -> u16 {
+        self.tabs
+    }
+
+    /// Clear styles.
+    #[inline]
+    pub fn clear_styles(&mut self) {
+        self.styles.clear_styles();
+    }
+
+    /// Add a style for the given range.
+    ///
+    /// What is given here is the index into the Vec with the actual Styles.
+    /// Those are set at the widget.
+    #[inline]
+    pub fn add_style(&mut self, range: TextRange, style: usize) {
+        self.styles.add_style(range, style);
+    }
+
+    /// Remove a style for the given range.
+    ///
+    /// Range and style must match to be removed.
+    #[inline]
+    pub fn remove_style(&mut self, range: TextRange, style: usize) {
+        self.styles.remove_style(range, style);
+    }
+
+    /// Style map.
+    #[inline]
+    pub fn styles(&self) -> &[(TextRange, usize)] {
+        &self.styles.styles
+    }
+
+    /// Finds all styles for the given position.
+    #[inline]
+    pub fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
+        self.styles.styles_at(pos)
+    }
+
     /// Set the cursor position.
     /// The value is capped to the number of text lines and the line-width for the given line.
     /// Returns true, if the cursor actually changed.
@@ -489,35 +553,6 @@ impl TextAreaCore {
     #[inline]
     pub fn anchor(&self) -> (usize, usize) {
         self.anchor
-    }
-
-    /// Sets the line ending to be used for insert.
-    /// There is no auto-detection or conversion done for set_value().
-    ///
-    /// Caution: If this doesn't match the line ending used in the value, you
-    /// will get a value with mixed line endings.
-    #[inline]
-    pub fn set_newline(&mut self, br: String) {
-        self.newline = br;
-    }
-
-    /// Line ending used for insert.
-    #[inline]
-    pub fn newline(&self) -> &str {
-        &self.newline
-    }
-
-    /// Set the tab-width.
-    /// Default is 8.
-    #[inline]
-    pub fn set_tab_width(&mut self, tabs: u16) {
-        self.tabs = tabs;
-    }
-
-    /// Tab-width
-    #[inline]
-    pub fn tab_width(&self) -> u16 {
-        self.tabs
     }
 
     /// Set the text.
@@ -582,41 +617,6 @@ impl TextAreaCore {
         self.value.chars()
     }
 
-    /// Clear styles.
-    #[inline]
-    pub fn clear_styles(&mut self) {
-        self.styles.clear_styles();
-    }
-
-    /// Add a style for the given range.
-    ///
-    /// What is given here is the index into the Vec with the actual Styles.
-    /// Those are set at the widget.
-    #[inline]
-    pub fn add_style(&mut self, range: TextRange, style: usize) {
-        self.styles.add_style(range, style);
-    }
-
-    /// Remove a style for the given range.
-    ///
-    /// Range and style must match to be removed.
-    #[inline]
-    pub fn remove_style(&mut self, range: TextRange, style: usize) {
-        self.styles.remove_style(range, style);
-    }
-
-    /// Style map.
-    #[inline]
-    pub fn styles(&self) -> &[(TextRange, usize)] {
-        &self.styles.styles
-    }
-
-    /// Finds all styles for the given position.
-    #[inline]
-    pub fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
-        self.styles.styles_at(pos)
-    }
-
     /// Line as RopeSlice
     #[inline]
     pub fn line_at(&self, n: usize) -> Option<RopeSlice<'_>> {
@@ -650,23 +650,6 @@ impl TextAreaCore {
         let mut lines = self.value.get_lines_at(n)?;
         if let Some(line) = lines.next() {
             Some(RopeGraphemes::new(line))
-        } else {
-            None
-        }
-    }
-
-    /// Returns a line as an iterator over the graphemes for the line.
-    /// This contains the \n at the end.
-    /// Returns byte-start and byte-end position and the grapheme.
-    #[inline]
-    pub fn line_grapheme_idx(
-        &self,
-        n: usize,
-    ) -> Option<impl Iterator<Item = ((usize, usize), RopeSlice<'_>)>> {
-        let mut lines = self.value.get_lines_at(n)?;
-        let line = lines.next();
-        if let Some(line) = line {
-            Some(RopeGraphemesIdx::new(line))
         } else {
             None
         }
@@ -706,12 +689,6 @@ impl TextAreaCore {
         }
     }
 
-    /// Number of lines.
-    #[inline]
-    pub fn len_lines(&self) -> usize {
-        self.value.len_lines()
-    }
-
     /// Reset.
     #[inline]
     pub fn clear(&mut self) -> bool {
@@ -727,6 +704,12 @@ impl TextAreaCore {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.len_bytes() == 0
+    }
+
+    /// Number of lines.
+    #[inline]
+    pub fn len_lines(&self) -> usize {
+        self.value.len_lines()
     }
 
     /// Any text selection.
@@ -801,6 +784,23 @@ impl TextAreaCore {
             return None;
         };
         self.byte_pos(byte_pos)
+    }
+
+    /// Returns a line as an iterator over the graphemes for the line.
+    /// This contains the \n at the end.
+    /// Returns byte-start and byte-end position and the grapheme.
+    #[inline]
+    fn line_grapheme_idx(
+        &self,
+        n: usize,
+    ) -> Option<impl Iterator<Item = ((usize, usize), RopeSlice<'_>)>> {
+        let mut lines = self.value.get_lines_at(n)?;
+        let line = lines.next();
+        if let Some(line) = line {
+            Some(RopeGraphemesIdx::new(line))
+        } else {
+            None
+        }
     }
 
     /// Byte position to grapheme position.
@@ -977,7 +977,7 @@ impl TextAreaCore {
     }
 
     /// Remove the given range.
-    pub fn delete_range(&mut self, range: TextRange) {
+    pub fn remove_range(&mut self, range: TextRange) {
         let Some(start_pos) = self.char_at(range.start) else {
             panic!("invalid range {:?} value {:?}", range, self.value);
         };

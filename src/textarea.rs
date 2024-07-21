@@ -629,7 +629,7 @@ impl TextAreaState {
     /// Removes the selection and inserts the char.
     pub fn insert_char(&mut self, c: char) -> bool {
         if self.value.has_selection() {
-            self.value.delete_range(self.value.selection());
+            self.value.remove_range(self.value.selection());
         }
         self.value.insert_char(self.value.cursor(), c);
         self.scroll_cursor_to_visible();
@@ -640,7 +640,7 @@ impl TextAreaState {
     /// Removes the selection and inserts the char.
     pub fn insert_tab(&mut self) -> bool {
         if self.value.has_selection() {
-            self.value.delete_range(self.value.selection());
+            self.value.remove_range(self.value.selection());
         }
         self.value.insert_tab(self.value.cursor());
         self.scroll_cursor_to_visible();
@@ -651,7 +651,7 @@ impl TextAreaState {
     /// Removes the selection and inserts the text.
     pub fn insert_str(&mut self, t: &str) -> bool {
         if self.value.has_selection() {
-            self.value.delete_range(self.value.selection());
+            self.value.remove_range(self.value.selection());
         }
         self.value.insert_str(self.value.cursor(), t);
         self.scroll_cursor_to_visible();
@@ -661,7 +661,7 @@ impl TextAreaState {
     /// Insert a line break at the cursor position.
     pub fn insert_newline(&mut self) -> bool {
         if self.value.has_selection() {
-            self.value.delete_range(self.value.selection());
+            self.value.remove_range(self.value.selection());
         }
         self.value.insert_newline(self.value.cursor());
         self.scroll_cursor_to_visible();
@@ -671,7 +671,7 @@ impl TextAreaState {
     /// Deletes the given range.
     pub fn delete_range(&mut self, range: TextRange) -> bool {
         if !range.is_empty() {
-            self.value.delete_range(range);
+            self.value.remove_range(range);
             self.scroll_cursor_to_visible();
             true
         } else {
@@ -773,6 +773,8 @@ impl TextAreaState {
     }
 
     /// Find prev word. Skips whitespace first.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
     pub fn prev_word_start(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
         let mut char_pos = self.char_at(pos)?;
 
@@ -880,26 +882,25 @@ impl TextAreaState {
     /// the words themselves.
     pub fn delete_next_word(&mut self) -> bool {
         if self.value.has_selection() {
-            self.value
-                .set_selection(TextRange::new(self.cursor(), self.cursor()));
-        }
-
-        let (cx, cy) = self.value.cursor();
-        let (sx, sy) = self.next_word_start((cx, cy)).expect("valid_cursor");
-
-        let range = if (cx, cy) == (sx, sy) {
-            let (ex, ey) = self.next_word_end((cx, cy)).expect("valid_cursor");
-            TextRange::new((cx, cy), (ex, ey))
+            self.delete_range(self.value.selection())
         } else {
-            TextRange::new((cx, cy), (sx, sy))
-        };
+            let (cx, cy) = self.value.cursor();
+            let (sx, sy) = self.next_word_start((cx, cy)).expect("valid_cursor");
 
-        if !range.is_empty() {
-            self.value.delete_range(range);
-            self.scroll_cursor_to_visible();
-            true
-        } else {
-            false
+            let range = if (cx, cy) == (sx, sy) {
+                let (ex, ey) = self.next_word_end((cx, cy)).expect("valid_cursor");
+                TextRange::new((cx, cy), (ex, ey))
+            } else {
+                TextRange::new((cx, cy), (sx, sy))
+            };
+
+            if !range.is_empty() {
+                self.value.remove_range(range);
+                self.scroll_cursor_to_visible();
+                true
+            } else {
+                false
+            }
         }
     }
 
@@ -907,26 +908,25 @@ impl TextAreaState {
     /// the words themselves.
     pub fn delete_prev_word(&mut self) -> bool {
         if self.value.has_selection() {
-            self.value
-                .set_selection(TextRange::new(self.cursor(), self.cursor()));
-        }
-
-        let (cx, cy) = self.value.cursor();
-        let (ex, ey) = self.prev_word_end((cx, cy)).expect("valid_cursor");
-
-        let range = if (cx, cy) == (ex, ey) {
-            let (sx, sy) = self.prev_word_start((cx, cy)).expect("valid_cursor");
-            TextRange::new((sx, sy), (cx, cy))
+            self.delete_range(self.value.selection())
         } else {
-            TextRange::new((ex, ey), (cx, cy))
-        };
+            let (cx, cy) = self.value.cursor();
+            let (ex, ey) = self.prev_word_end((cx, cy)).expect("valid_cursor");
 
-        if !range.is_empty() {
-            self.value.delete_range(range);
-            self.scroll_cursor_to_visible();
-            true
-        } else {
-            false
+            let range = if (cx, cy) == (ex, ey) {
+                let (sx, sy) = self.prev_word_start((cx, cy)).expect("valid_cursor");
+                TextRange::new((sx, sy), (cx, cy))
+            } else {
+                TextRange::new((ex, ey), (cx, cy))
+            };
+
+            if !range.is_empty() {
+                self.value.remove_range(range);
+                self.scroll_cursor_to_visible();
+                true
+            } else {
+                false
+            }
         }
     }
 
