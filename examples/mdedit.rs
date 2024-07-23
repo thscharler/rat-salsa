@@ -10,8 +10,8 @@ use pulldown_cmark::{Event, Options, Parser, Tag};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
-use rat_theme::dark_themes;
 use rat_theme::scheme::IMPERIAL;
+use rat_theme::{dark_themes, Scheme};
 use rat_widget::event::{ct_event, or_else, Dialog, HandleEvent, Popup, Regular};
 use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
@@ -76,6 +76,14 @@ impl GlobalState {
             file_dlg: Default::default(),
         }
     }
+
+    fn theme(&self) -> &DarkTheme {
+        &self.theme
+    }
+
+    fn scheme(&self) -> &Scheme {
+        self.theme.scheme()
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -92,7 +100,8 @@ pub enum MDAction {
     MenuSave,
     Open(PathBuf),
     Show(String, Vec<(TextRange, usize)>),
-    Save(PathBuf),
+    SaveAs(PathBuf),
+    Save(),
 }
 
 // -----------------------------------------------------------------------
@@ -218,7 +227,7 @@ pub mod facilities {
 
 static MENU: StaticMenu = StaticMenu {
     menu: &[
-        ("_File", &["_Open", "_Save"]), //
+        ("_File", &["_Open", "Save _as", "_Save"]), //
         ("_View", &[/*dynamic*/]),
         ("_Theme", &[/*dynamic*/]),
         ("_Quit", &[]),
@@ -228,6 +237,7 @@ static MENU: StaticMenu = StaticMenu {
 #[derive(Debug)]
 struct Menu {
     show_ctrl: bool,
+    use_crlf: bool,
 }
 
 impl<'a> MenuStructure<'a> for Menu {
@@ -238,11 +248,18 @@ impl<'a> MenuStructure<'a> for Menu {
     fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)> {
         match n {
             1 => {
-                if self.show_ctrl {
-                    vec![("\u{2611} Control chars".into(), None)]
-                } else {
-                    vec![("\u{2610} Control chars".into(), None)]
-                }
+                vec![
+                    if self.show_ctrl {
+                        ("\u{2611} Control chars".into(), None)
+                    } else {
+                        ("\u{2610} Control chars".into(), None)
+                    },
+                    if self.use_crlf {
+                        ("\u{2611} Use CR+LF".into(), None)
+                    } else {
+                        ("\u{2611} Use CR+LF".into(), None)
+                    },
+                ]
             }
             2 => rat_theme::dark_themes()
                 .iter()
@@ -273,6 +290,7 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
 
         let menu_struct = Menu {
             show_ctrl: state.editor.show_ctrl,
+            use_crlf: state.editor.edit.newline() == "\r\n",
         };
         let (menu, menu_popup) = Menubar::new(&menu_struct)
             .title("^^°n°^^")
@@ -382,6 +400,14 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
                     self.editor.show_ctrl = !self.editor.show_ctrl;
                     Control::Repaint
                 }
+                MenuOutcome::MenuActivated(1, 1) => {
+                    if self.editor.edit.newline() == "\r\n" {
+                        self.editor.edit.set_newline("\n");
+                    } else {
+                        self.editor.edit.set_newline("\r\n");
+                    }
+                    Control::Repaint
+                }
                 MenuOutcome::MenuSelected(2, n) => {
                     ctx.g.theme = dark_themes()[n].clone();
                     Control::Repaint
@@ -443,11 +469,11 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
 pub mod mdedit {
     use crate::facilities::Facility;
     use crate::{collect_ast, AppContext, GlobalState, MDAction, RenderContext};
-    use anyhow::Error;
+    use anyhow::{anyhow, Error};
     use crossterm::event::Event;
     #[allow(unused_imports)]
     use log::debug;
-    use rat_salsa::event::flow_ok;
+    use rat_salsa::event::{ct_event, flow_ok};
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppEvents, AppWidget, Control};
     use rat_widget::event::{HandleEvent, Regular, TextOutcome};
@@ -459,6 +485,9 @@ pub mod mdedit {
     use ratatui::style::{Modifier, Style, Stylize};
     use ratatui::widgets::StatefulWidget;
     use std::fs;
+    use std::fs::File;
+    use std::io::{BufWriter, Write};
+    use std::path::PathBuf;
     use std::time::{Duration, Instant};
 
     #[derive(Debug)]
@@ -467,17 +496,20 @@ pub mod mdedit {
     #[derive(Debug)]
     pub struct MDEditState {
         pub show_ctrl: bool,
+        pub path: Option<PathBuf>,
         pub edit: TextAreaState,
         pub parse_timer: Option<TimerHandle>,
     }
 
     impl Default for MDEditState {
         fn default() -> Self {
-            let s = Self {
+            let mut s = Self {
                 show_ctrl: false,
+                path: None,
                 edit: Default::default(),
                 parse_timer: None,
             };
+            // s.edit.set_expand_tabs(false);
             s
         }
     }
@@ -491,27 +523,25 @@ pub mod mdedit {
     impl MDEdit {
         fn text_style(&self, ctx: &mut RenderContext<'_>) -> [Style; 17] {
             [
+                Style::default().fg(ctx.g.scheme().yellow[2]).underlined(), // Heading,
+                Style::default().fg(ctx.g.scheme().yellow[1]),              // BlockQuote,
+                Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeBlock,
+                Style::default().fg(ctx.g.scheme().bluegreen[3]),           // FootnodeDefinition
+                Style::default().fg(ctx.g.scheme().bluegreen[2]),           // FootnodeReference
+                Style::default().fg(ctx.g.scheme().orange[2]),              // Item
                 Style::default()
-                    .fg(ctx.g.theme.scheme().yellow[2])
-                    .underlined(), // Heading,
-                Style::default().fg(ctx.g.theme.scheme().yellow[1]), // BlockQuote,
-                Style::default().fg(ctx.g.theme.scheme().redpink[2]), // CodeBlock,
-                Style::default().fg(ctx.g.theme.scheme().bluegreen[3]), // FootnodeDefinition
-                Style::default().fg(ctx.g.theme.scheme().bluegreen[2]), // FootnodeReference
-                Style::default().fg(ctx.g.theme.scheme().orange[2]), // Item
-                Style::default()
-                    .fg(ctx.g.theme.scheme().white[3])
+                    .fg(ctx.g.scheme().white[3])
                     .add_modifier(Modifier::ITALIC), // Emphasis
-                Style::default().fg(ctx.g.theme.scheme().white[3]),  // Strong
-                Style::default().fg(ctx.g.theme.scheme().gray[2]),   // Strikethrough
-                Style::default().fg(ctx.g.theme.scheme().bluegreen[2]), // Link
-                Style::default().fg(ctx.g.theme.scheme().bluegreen[2]), // Image
-                Style::default().fg(ctx.g.theme.scheme().orange[1]), // MetadataBlock
-                Style::default().fg(ctx.g.theme.scheme().redpink[2]), // CodeInline
-                Style::default().fg(ctx.g.theme.scheme().redpink[2]), // MathInline
-                Style::default().fg(ctx.g.theme.scheme().redpink[2]), // MathDisplay
-                Style::default().fg(ctx.g.theme.scheme().white[3]),  // Rule
-                Style::default().fg(ctx.g.theme.scheme().orange[2]), // TaskListMarker
+                Style::default().fg(ctx.g.scheme().white[3]),               // Strong
+                Style::default().fg(ctx.g.scheme().gray[2]),                // Strikethrough
+                Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Link
+                Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Image
+                Style::default().fg(ctx.g.scheme().orange[1]),              // MetadataBlock
+                Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeInline
+                Style::default().fg(ctx.g.scheme().redpink[2]),             // MathInline
+                Style::default().fg(ctx.g.scheme().redpink[2]),             // MathDisplay
+                Style::default().fg(ctx.g.scheme().white[3]),               // Rule
+                Style::default().fg(ctx.g.scheme().orange[2]),              // TaskListMarker
             ]
         }
     }
@@ -528,7 +558,8 @@ pub mod mdedit {
         ) -> Result<(), Error> {
             TextArea::new()
                 .styles(ctx.g.theme.textarea_style())
-                .set_horizontal_max_offset(255)
+                // .set_horizontal_max_offset(255)
+                // .set_horizontal_overscroll(16384)
                 .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
                 .show_ctrl(state.show_ctrl)
                 .text_style(self.text_style(ctx))
@@ -558,6 +589,33 @@ pub mod mdedit {
                 self.edit.add_style(r, s);
             }
         }
+
+        pub fn load(&mut self) -> Result<(), Error> {
+            let Some(path) = &self.path else {
+                return Err(anyhow!("No file."));
+            };
+
+            let t = fs::read_to_string(path)?;
+            self.edit.set_value(t.as_str());
+
+            Ok(())
+        }
+
+        pub fn save(&mut self) -> Result<(), Error> {
+            let Some(path) = &self.path else {
+                return Err(anyhow!("No file."));
+            };
+
+            let mut f = BufWriter::new(File::create(path)?);
+            let mut buf = Vec::new();
+            for line in self.edit.lines_at(0) {
+                buf.clear();
+                buf.extend(line.bytes().filter(|v| *v != b'\n' && *v != b'\r'));
+                buf.extend_from_slice(self.edit.newline().as_bytes());
+                f.write_all(&buf)?;
+            }
+            Ok(())
+        }
     }
 
     impl AppEvents<GlobalState, MDAction, Error> for MDEditState {
@@ -583,6 +641,38 @@ pub mod mdedit {
             event: &Event,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDAction>, Error> {
+            flow_ok!(match event {
+                ct_event!(key press CONTROL-'s') => {
+                    self.save()?;
+                    Control::Repaint
+                }
+                ct_event!(key press CONTROL-'c') => {
+                    use cli_clipboard;
+                    if let Some(v) = self.edit.selected_value() {
+                        let r = cli_clipboard::set_contents(v.to_string());
+                        debug!("{:?}", r);
+                    }
+                    Control::Repaint
+                }
+                ct_event!(key press CONTROL-'x') => {
+                    use cli_clipboard;
+                    if let Some(v) = self.edit.selected_value() {
+                        _ = cli_clipboard::set_contents(v.to_string());
+                    }
+                    self.edit.delete_range(self.edit.selection());
+                    Control::Repaint
+                }
+                ct_event!(key press CONTROL-'v') => {
+                    // todo: might do the insert two times depending on the terminal.
+                    use cli_clipboard;
+                    if let Ok(v) = cli_clipboard::get_contents() {
+                        self.edit.insert_str(&v);
+                    }
+                    Control::Repaint
+                }
+                _ => Control::Continue,
+            });
+
             flow_ok!(match self.edit.handle(event, Regular) {
                 TextOutcome::TextChanged => {
                     // restart timer
@@ -615,12 +705,12 @@ pub mod mdedit {
                         w.save_dialog(".", "")?;
                         Ok(Control::Repaint)
                     },
-                    |p| Ok(Control::Action(MDAction::Save(p))),
+                    |p| Ok(Control::Action(MDAction::SaveAs(p))),
                 )?,
 
                 MDAction::Open(p) => {
-                    let t = fs::read_to_string(p)?;
-                    self.edit.set_value(t.as_str());
+                    self.path = Some(p.clone());
+                    self.load()?;
                     self.parse_timer = Some(ctx.add_timer(
                         TimerDef::new().next(Instant::now() + Duration::from_millis(100)),
                     ));
@@ -628,8 +718,14 @@ pub mod mdedit {
                     Control::Repaint
                 }
 
-                MDAction::Save(_) => {
-                    // todo:
+                MDAction::Save() => {
+                    self.save()?;
+                    Control::Repaint
+                }
+
+                MDAction::SaveAs(p) => {
+                    self.path = Some(p.clone());
+                    self.save()?;
                     Control::Repaint
                 }
 
