@@ -64,6 +64,7 @@ pub struct TextArea<'a> {
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     h_max_offset: Option<usize>,
+    h_overscroll: Option<usize>,
     vscroll: Option<Scroll<'a>>,
 
     show_ctrl: bool,
@@ -178,11 +179,24 @@ impl<'a> TextArea<'a> {
         self
     }
 
-    /// Set a maximum horizontal offset used for the scrollbar.
+    /// Set a maximum horizontal offset that will be used even
+    /// if there is no horizontal scrollbar set.
+    ///
     /// This widget doesn't try to find a maximum text-length for
-    /// all lines. Defaults to 255, but there is an overscroll of 16384.
+    /// all lines.
+    ///
+    /// Default is 255
     pub fn set_horizontal_max_offset(mut self, offset: usize) -> Self {
         self.h_max_offset = Some(offset);
+        self
+    }
+
+    /// Set a horizontal overscroll that will be used even if
+    /// there is no horizontal scrollbar set.
+    ///
+    /// Default is 16384
+    pub fn set_horizontal_overscroll(mut self, overscroll: usize) -> Self {
+        self.h_overscroll = Some(overscroll);
         self
     }
 
@@ -227,6 +241,9 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     state.inner = inner_area;
     if let Some(h_max_offset) = widget.h_max_offset {
         state.hscroll.set_max_offset(h_max_offset);
+    }
+    if let Some(h_overscroll) = widget.h_overscroll {
+        state.hscroll.set_overscroll_by(Some(h_overscroll));
     }
     state.hscroll.set_page_len(state.inner.width as usize);
     state
@@ -463,8 +480,8 @@ impl TextAreaState {
     /// Caution: If this doesn't match the line ending used in the value, you
     /// will get a value with mixed line endings.
     #[inline]
-    pub fn set_newline(&mut self, br: String) {
-        self.value.set_newline(br);
+    pub fn set_newline(&mut self, br: impl Into<String>) {
+        self.value.set_newline(br.into());
     }
 
     /// Line ending used for insert.
@@ -483,6 +500,18 @@ impl TextAreaState {
     #[inline]
     pub fn tab_width(&self) -> u16 {
         self.value.tab_width()
+    }
+
+    /// Expand tabs to spaces. Only for new inputs.
+    #[inline]
+    pub fn set_expand_tabs(&mut self, expand: bool) {
+        self.value.set_expand_tabs(expand);
+    }
+
+    /// Expand tabs to spaces. Only for new inputs.
+    #[inline]
+    pub fn expand_tabs(&self) -> bool {
+        self.value.expand_tabs()
     }
 
     /// Empty.
@@ -634,7 +663,13 @@ impl TextAreaState {
         if self.value.has_selection() {
             self.value.remove_range(self.value.selection());
         }
-        self.value.insert_char(self.value.cursor(), c);
+        if c == '\n' {
+            self.value.insert_newline(self.value.cursor());
+        } else if c == '\t' {
+            self.value.insert_tab(self.value.cursor());
+        } else {
+            self.value.insert_char(self.value.cursor(), c);
+        }
         self.scroll_cursor_to_visible();
         true
     }

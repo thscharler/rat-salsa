@@ -23,6 +23,8 @@ pub struct TextAreaCore {
     newline: String,
     /// Tab width.
     tabs: u16,
+    /// Expand tabs
+    expand_tabs: bool,
 
     /// Secondary column, remembered for moving up/down.
     move_col: Option<usize>,
@@ -428,6 +430,7 @@ impl Default for TextAreaCore {
             styles: Default::default(),
             newline: "\n".to_string(),
             tabs: 8,
+            expand_tabs: true,
             move_col: None,
             cursor: (0, 0),
             anchor: (0, 0),
@@ -484,6 +487,18 @@ impl TextAreaCore {
     #[inline]
     pub fn tab_width(&self) -> u16 {
         self.tabs
+    }
+
+    /// Expand tabs to spaces. Only for new inputs.
+    #[inline]
+    pub fn set_expand_tabs(&mut self, expand: bool) {
+        self.expand_tabs = expand;
+    }
+
+    /// Expand tabs to spaces. Only for new inputs.
+    #[inline]
+    pub fn expand_tabs(&self) -> bool {
+        self.expand_tabs
     }
 
     /// Clear styles.
@@ -869,6 +884,51 @@ impl TextAreaCore {
         )
     }
 
+    /// Insert a character.
+    pub fn insert_tab(&mut self, pos: (usize, usize)) {
+        if self.expand_tabs {
+            let n = self.tabs as usize - pos.0 % self.tabs as usize;
+            let tabs = repeat_with(|| ' ').take(n).collect::<String>();
+            self.insert_str(pos, &tabs);
+        } else {
+            self.insert_char(pos, '\t');
+        }
+    }
+
+    /// Insert a line break.
+    pub fn insert_newline(&mut self, pos: (usize, usize)) {
+        let Some(char_pos) = self.char_at(pos) else {
+            panic!("invalid pos {:?} value {:?}", pos, self.value);
+        };
+
+        self.value.insert(char_pos, &self.newline);
+
+        let insert = TextRange::new((pos.0, pos.1), (0, pos.1 + 1));
+
+        insert.expand_all(self.styles.styles_after_mut(pos));
+        self.anchor = insert.expand(self.anchor);
+        self.cursor = insert.expand(self.cursor);
+    }
+
+    /// Insert a character.
+    pub fn insert_char(&mut self, pos: (usize, usize), c: char) {
+        assert_ne!(c, '\n'); // can't handle this, here.
+        let Some(char_pos) = self.char_at(pos) else {
+            panic!("invalid pos {:?} value {:?}", pos, self.value);
+        };
+
+        // no way to know if the new char combines with a surrounding char.
+        // the difference of the graphem len seems safe though.
+        let old_len = self.line_width(pos.1).expect("valid_pos");
+        self.value.insert_char(char_pos, c);
+        let new_len = self.line_width(pos.1).expect("valid_pos");
+
+        let insert = TextRange::new(pos, (pos.0 + new_len - old_len, pos.1));
+        insert.expand_all(self.styles.styles_after_mut(pos));
+        self.anchor = insert.expand(self.anchor);
+        self.cursor = insert.expand(self.cursor);
+    }
+
     /// Insert some text.
     pub fn insert_str(&mut self, pos: (usize, usize), t: &str) {
         let Some(char_pos) = self.char_at(pos) else {
@@ -922,54 +982,6 @@ impl TextAreaCore {
 
             TextRange::new(pos, (pos.0 + new_len - old_len, pos.1))
         };
-
-        insert.expand_all(self.styles.styles_after_mut(pos));
-        self.anchor = insert.expand(self.anchor);
-        self.cursor = insert.expand(self.cursor);
-    }
-
-    /// Insert a character.
-    pub fn insert_tab(&mut self, pos: (usize, usize)) {
-        let n = self.tabs as usize - pos.0 % self.tabs as usize;
-        let tabs = repeat_with(|| ' ').take(n).collect::<String>();
-        self.insert_str(pos, &tabs);
-    }
-
-    /// Insert a character.
-    pub fn insert_char(&mut self, pos: (usize, usize), c: char) {
-        if c == '\n' {
-            self.insert_newline(pos);
-            return;
-        } else if c == '\t' {
-            self.insert_tab(pos);
-            return;
-        }
-
-        let Some(char_pos) = self.char_at(pos) else {
-            panic!("invalid pos {:?} value {:?}", pos, self.value);
-        };
-
-        // no way to know if the new char combines with a surrounding char.
-        // the difference of the graphem len seems safe though.
-        let old_len = self.line_width(pos.1).expect("valid_pos");
-        self.value.insert_char(char_pos, c);
-        let new_len = self.line_width(pos.1).expect("valid_pos");
-
-        let insert = TextRange::new(pos, (pos.0 + new_len - old_len, pos.1));
-        insert.expand_all(self.styles.styles_after_mut(pos));
-        self.anchor = insert.expand(self.anchor);
-        self.cursor = insert.expand(self.cursor);
-    }
-
-    /// Insert a line break.
-    pub fn insert_newline(&mut self, pos: (usize, usize)) {
-        let Some(char_pos) = self.char_at(pos) else {
-            panic!("invalid pos {:?} value {:?}", pos, self.value);
-        };
-
-        self.value.insert(char_pos, &self.newline);
-
-        let insert = TextRange::new((pos.0, pos.1), (0, pos.1 + 1));
 
         insert.expand_all(self.styles.styles_after_mut(pos));
         self.anchor = insert.expand(self.anchor);
