@@ -218,7 +218,7 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
         .flex(Flex::Center)
         .split(state.inner_area);
 
-    widget.text.render_ref(layout[1], buf);
+    widget.text.render_ref(layout[0], buf);
 }
 
 impl ButtonState {
