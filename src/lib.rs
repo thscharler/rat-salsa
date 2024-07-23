@@ -1,12 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
 use crate::dark_theme::DarkTheme;
-use crate::imperial::IMPERIAL;
-use crate::monekai::MONEKAI;
-use crate::monochrome::MONOCHROME;
-use crate::oxocarbon::OXOCARBON;
-use crate::radium::RADIUM;
-use crate::tundra::TUNDRA;
+use crate::scheme::*;
 use ratatui::prelude::Color;
 use ratatui::style::Style;
 
@@ -14,18 +9,22 @@ pub mod dark_theme;
 mod imperial;
 mod monekai;
 mod monochrome;
+mod ocean;
 mod oxocarbon;
 mod radium;
 mod tundra;
+mod vscode_dark;
 
 /// Color schemes
 pub mod scheme {
     pub use crate::imperial::IMPERIAL;
     pub use crate::monekai::MONEKAI;
     pub use crate::monochrome::MONOCHROME;
+    pub use crate::ocean::OCEAN;
     pub use crate::oxocarbon::OXOCARBON;
     pub use crate::radium::RADIUM;
     pub use crate::tundra::TUNDRA;
+    pub use crate::vscode_dark::VSCODE_DARK;
 }
 
 /// Color scheme.
@@ -64,6 +63,8 @@ pub struct Scheme {
 }
 
 impl Scheme {
+    /// Create a style with the given background color.
+    /// Foreground is calculated with `text_color`.
     pub fn style(&self, color: Color) -> Style {
         Style::new().bg(color).fg(self.text_color(color))
     }
@@ -176,6 +177,7 @@ impl Scheme {
     }
 }
 
+/// All currently existing color schemes.
 pub fn color_schemes() -> Vec<(String, Scheme)> {
     vec![
         ("Imperial".to_string(), IMPERIAL),
@@ -184,9 +186,12 @@ pub fn color_schemes() -> Vec<(String, Scheme)> {
         ("Monochrome".to_string(), MONOCHROME),
         ("Monekai".to_string(), MONEKAI),
         ("OxoCarbon".to_string(), OXOCARBON),
+        ("VSCodeDark".to_string(), VSCODE_DARK),
+        ("Ocean".to_string(), OCEAN),
     ]
 }
 
+/// A list of DarkTheme for all color schemes.
 pub fn dark_themes() -> Vec<DarkTheme> {
     vec![
         DarkTheme::new("Imperial".to_string(), IMPERIAL),
@@ -195,5 +200,7 @@ pub fn dark_themes() -> Vec<DarkTheme> {
         DarkTheme::new("Monochrome".to_string(), MONOCHROME),
         DarkTheme::new("Monekai".to_string(), MONEKAI),
         DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
+        DarkTheme::new("VSCodeDark".to_string(), VSCODE_DARK),
+        DarkTheme::new("Ocean".to_string(), OCEAN),
     ]
 }

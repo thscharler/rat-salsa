@@ -23,5 +23,5 @@ pub const TUNDRA: Scheme = Scheme {
     deepblue: Scheme::linear4(0xbfcaf2, 0x9baaf2),
     purple: Scheme::linear4(0xb7abd9, 0xb3a6da),
     magenta: Scheme::linear4(0xffc9c9, 0xff8e8e),
-    redpink: Scheme::linear4(0xfffcad0, 0xfecdd3),
+    redpink: Scheme::linear4(0xfffcad, 0xfecdd3),
 };
