@@ -10,11 +10,12 @@ use pulldown_cmark::{Event, Options, Parser, Tag};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
-use rat_theme::scheme::{IMPERIAL, MONEKAI, MONOCHROME, OXOCARBON, RADIUM, TUNDRA};
+use rat_theme::dark_themes;
+use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{ct_event, or_else, Dialog, HandleEvent, Popup, Regular};
 use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
-use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
+use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::Placement;
@@ -23,6 +24,7 @@ use rat_widget::text::textarea_core::TextRange;
 use rat_widget::textarea::TextAreaState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::prelude::Line;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fs;
 use std::ops::Range;
@@ -217,21 +219,39 @@ pub mod facilities {
 static MENU: StaticMenu = StaticMenu {
     menu: &[
         ("_File", &["_Open", "_Save"]), //
-        ("_View", &["Control chars"]),
-        (
-            "_Theme",
-            &[
-                "Imperial",
-                "Radium",
-                "Tundra",
-                "Monochrome",
-                "Monekai",
-                "Oxocarbon",
-            ],
-        ),
+        ("_View", &[/*dynamic*/]),
+        ("_Theme", &[/*dynamic*/]),
         ("_Quit", &[]),
     ],
 };
+
+#[derive(Debug)]
+struct Menu {
+    show_ctrl: bool,
+}
+
+impl<'a> MenuStructure<'a> for Menu {
+    fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)> {
+        MENU.menus()
+    }
+
+    fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)> {
+        match n {
+            1 => {
+                if self.show_ctrl {
+                    vec![("\u{2611} Control chars".into(), None)]
+                } else {
+                    vec![("\u{2610} Control chars".into(), None)]
+                }
+            }
+            2 => rat_theme::dark_themes()
+                .iter()
+                .map(|v| (v.name().to_string().into(), None))
+                .collect(),
+            _ => MENU.submenu(n),
+        }
+    }
+}
 
 impl AppWidget<GlobalState, MDAction, Error> for MDApp {
     type State = MDAppState;
@@ -251,7 +271,11 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
 
         MDEdit.render(r[0], buf, &mut state.editor, ctx)?;
 
-        let (menu, menu_popup) = Menubar::new(&MENU)
+        let menu_struct = Menu {
+            show_ctrl: state.editor.show_ctrl,
+        };
+        let (menu, menu_popup) = Menubar::new(&menu_struct)
+            .title("^^°n°^^")
             .popup_width(20)
             .popup_block(Block::bordered())
             .popup_placement(Placement::Top)
@@ -369,7 +393,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         or_else!(
             r,
             match self.menu.handle(event, Regular) {
-                MenuOutcome::Activated(1) => Control::Quit,
+                MenuOutcome::Activated(3) => Control::Quit,
                 r => r.into(),
             }
         );
@@ -743,15 +767,4 @@ fn setup_logging() -> Result<(), Error> {
         .chain(fern::log_file("log.log")?)
         .apply()?;
     Ok(())
-}
-
-fn dark_themes() -> Vec<DarkTheme> {
-    vec![
-        DarkTheme::new("Imperial".to_string(), IMPERIAL),
-        DarkTheme::new("Radium".to_string(), RADIUM),
-        DarkTheme::new("Tundra".to_string(), TUNDRA),
-        DarkTheme::new("Monochrome".to_string(), MONOCHROME),
-        DarkTheme::new("Monekai".to_string(), MONEKAI),
-        DarkTheme::new("Oxocarbon".to_string(), OXOCARBON),
-    ]
 }

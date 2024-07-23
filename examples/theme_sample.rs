@@ -212,12 +212,15 @@ pub mod mask0 {
     use log::debug;
     use rat_salsa::{AppEvents, AppWidget, Control};
     use rat_theme::dark_themes;
-    use rat_widget::event::{flow_ok, HandleEvent, Regular};
-    use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
+    use rat_widget::event::{flow_ok, HandleEvent, Popup, Regular};
+    use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
+    use rat_widget::menuline::MenuOutcome;
+    use rat_widget::popup_menu::Placement;
     use rat_widget::scrolled::Scroll;
     use rat_widget::viewport::{Viewport, ViewportState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
+    use ratatui::prelude::Line;
     use ratatui::widgets::StatefulWidget;
 
     #[derive(Debug)]
@@ -225,7 +228,7 @@ pub mod mask0 {
 
     #[derive(Debug)]
     pub struct Mask0State {
-        pub menu: MenuLineState,
+        pub menu: MenuBarState,
         pub scroll: ViewportState<ShowSchemeState>,
         pub theme: usize,
     }
@@ -237,8 +240,29 @@ pub mod mask0 {
                 scroll: Default::default(),
                 theme: 0,
             };
-            s.menu.focus.set(true);
+            s.menu.bar.focus.set(true);
             s
+        }
+    }
+
+    struct Menu;
+
+    impl<'a> MenuStructure<'a> for Menu {
+        fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)> {
+            vec![
+                (Line::from("Theme"), None), //
+                (Line::from("Quit"), None),
+            ]
+        }
+
+        fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)> {
+            match n {
+                0 => dark_themes()
+                    .iter()
+                    .map(|v| (v.name().to_string().into(), None))
+                    .collect(),
+                _ => vec![],
+            }
         }
     }
 
@@ -265,11 +289,12 @@ pub mod mask0 {
                 .view_size(Size::new(area.width - 4, 40))
                 .render(r[0], buf, &mut state.scroll);
 
-            let menu = MenuLine::new()
+            let menu = Menubar::new(&Menu)
                 .styles(ctx.g.theme.menu_style())
-                .add_str("Switch Theme")
-                .add_str("_Quit");
-            menu.render(r[1], buf, &mut state.menu);
+                .popup_placement(Placement::Top)
+                .into_widgets();
+            menu.0.render(r[1], buf, &mut state.menu);
+            menu.1.render(r[1], buf, &mut state.menu);
 
             Ok(())
         }
@@ -281,21 +306,25 @@ pub mod mask0 {
             event: &Event,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MinimalAction>, Error> {
-            // TODO: handle_mask
-            flow_ok!(match self.menu.handle(event, Regular) {
-                MenuOutcome::Activated(0) => {
-                    let themes = dark_themes();
-                    self.theme = (self.theme + 1) % themes.len();
-                    ctx.g.theme = themes[self.theme].clone();
+            flow_ok!(match self.menu.handle(event, Popup) {
+                MenuOutcome::MenuSelected(0, n) => {
+                    ctx.g.theme = dark_themes()[n].clone();
                     Control::Repaint
                 }
+                MenuOutcome::MenuActivated(0, n) => {
+                    ctx.g.theme = dark_themes()[n].clone();
+                    Control::Repaint
+                }
+                r => r.into(),
+            });
+
+            // TODO: handle_mask
+
+            flow_ok!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(1) => {
                     Control::Quit
                 }
-                v => {
-                    let w = v.into();
-                    w
-                }
+                r => r.into(),
             });
 
             flow_ok!(self.scroll.handle(event, Regular));
