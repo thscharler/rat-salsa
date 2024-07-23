@@ -100,6 +100,9 @@ pub struct TextAreaState {
     pub hscroll: ScrollState,
     pub vscroll: ScrollState,
 
+    /// internal clipboard
+    pub clip: String,
+
     /// Helper for mouse.
     pub mouse: MouseFlags,
 
@@ -339,6 +342,7 @@ impl Default for TextAreaState {
             hscroll: Default::default(),
             non_exhaustive: NonExhaustive,
             vscroll: Default::default(),
+            clip: Default::default(),
         };
         s.hscroll.set_max_offset(255);
         s.hscroll.set_overscroll_by(Some(16384));
@@ -1458,7 +1462,18 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(keycode press Delete) => self.delete_next_char().into(),
                 ct_event!(keycode press CONTROL-Backspace) => self.delete_prev_word().into(),
                 ct_event!(keycode press CONTROL-Delete) => self.delete_next_word().into(),
-
+                ct_event!(key press CONTROL-'y') => {
+                    self.clip = self
+                        .selected_value()
+                        .map(|v| v.to_string())
+                        .unwrap_or_default();
+                    TextOutcome::Unchanged
+                }
+                ct_event!(key press CONTROL-'p') => {
+                    self.insert_str(&self.clip.clone());
+                    TextOutcome::Changed
+                }
+                // todo: undo/redo
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
                 | ct_event!(key release CONTROL_ALT-_)
@@ -1467,7 +1482,9 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 | ct_event!(keycode release Backspace)
                 | ct_event!(keycode release Delete)
                 | ct_event!(keycode release CONTROL-Backspace)
-                | ct_event!(keycode release CONTROL-Delete) => TextOutcome::Unchanged,
+                | ct_event!(keycode release CONTROL-Delete)
+                | ct_event!(key release  CONTROL-'y')
+                | ct_event!(key release  CONTROL-'p') => TextOutcome::Unchanged,
                 _ => TextOutcome::NotUsed,
             }
         } else {
