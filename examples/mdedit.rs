@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+#![allow(dead_code)]
 #![allow(unreachable_pub)]
 
 use crate::facilities::{Facility, MDFileDialog, MDFileDialogState};
@@ -25,7 +26,8 @@ use rat_widget::textarea::TextAreaState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::Line;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::style::{Style, Stylize};
+use ratatui::widgets::{Block, BorderType, Padding, StatefulWidget};
 use std::fs;
 use std::ops::Range;
 use std::path::PathBuf;
@@ -261,7 +263,7 @@ impl<'a> MenuStructure<'a> for Menu {
                     },
                 ]
             }
-            2 => rat_theme::dark_themes()
+            2 => dark_themes()
                 .iter()
                 .map(|v| (v.name().to_string().into(), None))
                 .collect(),
@@ -316,8 +318,23 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
         menu_popup.render(s[0], buf, &mut state.menu);
 
         if ctx.g.error_dlg.active() {
-            let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(r[0], buf, &mut ctx.g.error_dlg);
+            let l_msg = layout_middle(
+                r[0],
+                Constraint::Percentage(19),
+                Constraint::Percentage(19),
+                Constraint::Percentage(19),
+                Constraint::Percentage(19),
+            );
+            let err = MsgDialog::new()
+                .block(
+                    Block::bordered()
+                        .style(ctx.g.theme.dialog_style())
+                        .border_type(BorderType::Rounded)
+                        .title_style(Style::new().fg(ctx.g.scheme().red[0]))
+                        .padding(Padding::new(1, 1, 1, 1)),
+                )
+                .styles(ctx.g.theme.msg_dialog_style());
+            err.render(l_msg, buf, &mut ctx.g.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -461,6 +478,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
     }
 
     fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<MDAction>, Error> {
+        ctx.g.error_dlg.title("Error occured");
         ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Repaint)
     }
@@ -503,7 +521,7 @@ pub mod mdedit {
 
     impl Default for MDEditState {
         fn default() -> Self {
-            let mut s = Self {
+            let s = Self {
                 show_ctrl: false,
                 path: None,
                 edit: Default::default(),
