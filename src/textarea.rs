@@ -85,7 +85,7 @@ pub struct TextAreaStyle {
 }
 
 /// State & event handling.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TextAreaState {
     /// Current focus state.
     pub focus: FocusFlag,
@@ -724,46 +724,25 @@ impl TextAreaState {
     /// Deletes the next char or the current selection.
     /// Returns true if there was any real change.
     pub fn delete_next_char(&mut self) -> bool {
-        let range = if self.value.has_selection() {
-            self.selection()
+        if self.value.has_selection() {
+            self.delete_range(self.selection())
         } else {
-            let (cx, cy) = self.value.cursor();
-            let c_line_width = self.value.line_width(cy).expect("width");
-            let c_last_line = self.value.len_lines() - 1;
-
-            let (ex, ey) = if cy == c_last_line && cx == c_line_width {
-                (c_line_width, c_last_line)
-            } else if cy != c_last_line && cx == c_line_width {
-                (0, cy + 1)
-            } else {
-                (cx + 1, cy)
-            };
-            TextRange::new((cx, cy), (ex, ey))
-        };
-
-        self.delete_range(range)
+            let r = self.value.remove_next_char(self.value.cursor());
+            let s = self.scroll_cursor_to_visible();
+            r || s
+        }
     }
 
     /// Deletes the previous char or the selection.
     /// Returns true if there was any real change.
     pub fn delete_prev_char(&mut self) -> bool {
-        let range = if self.value.has_selection() {
-            self.selection()
+        if self.value.has_selection() {
+            self.delete_range(self.selection())
         } else {
-            let (cx, cy) = self.value.cursor();
-            let (sx, sy) = if cy == 0 && cx == 0 {
-                (0, 0)
-            } else if cy != 0 && cx == 0 {
-                let prev_line_width = self.value.line_width(cy - 1).expect("line_width");
-                (prev_line_width, cy - 1)
-            } else {
-                (cx - 1, cy)
-            };
-
-            TextRange::new((sx, sy), (cx, cy))
-        };
-
-        self.delete_range(range)
+            let r = self.value.remove_prev_char(self.value.cursor());
+            let s = self.scroll_cursor_to_visible();
+            r || s
+        }
     }
 
     /// Find the start of the next word. Word is everything that is not whitespace.
@@ -1456,7 +1435,13 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
                 | ct_event!(key press CONTROL_ALT-c) => self.insert_char(*c).into(),
-                ct_event!(keycode press Tab) => self.insert_tab().into(),
+                ct_event!(keycode press Tab) => {
+                    if !self.focus.gained() {
+                        self.insert_tab().into()
+                    } else {
+                        TextOutcome::Unchanged
+                    }
+                }
                 ct_event!(keycode press Enter) => self.insert_newline().into(),
                 ct_event!(keycode press Backspace) => self.delete_prev_char().into(),
                 ct_event!(keycode press Delete) => self.delete_next_char().into(),
@@ -1473,7 +1458,9 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                     self.insert_str(&self.clip.clone());
                     TextOutcome::Changed
                 }
-                // todo: undo/redo
+                ct_event!(key press CONTROL-'z') => self.value.undo().into(),
+                ct_event!(key press CONTROL_SHIFT-'Z') => self.value.redo().into(),
+
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
                 | ct_event!(key release CONTROL_ALT-_)

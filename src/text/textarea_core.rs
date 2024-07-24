@@ -1,6 +1,7 @@
 use crate::text::graphemes::{
     rope_line_len, str_line_len, RopeGlyphIter, RopeGraphemes, RopeGraphemesIdx,
 };
+use crate::text::undo::{UndoBuffer, UndoEntry, UndoVec};
 #[allow(unused_imports)]
 use log::debug;
 use ropey::{Rope, RopeSlice};
@@ -9,15 +10,17 @@ use std::fmt::{Debug, Formatter};
 use std::iter::repeat_with;
 use std::mem;
 use std::ops::RangeBounds;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Core for text editing.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TextAreaCore {
     /// Rope for text storage.
     value: Rope,
     /// Styles.
     styles: StyleMap,
+
+    /// Undo-Buffer.
+    undo: Option<Box<dyn UndoBuffer>>,
 
     /// Line-break chars.
     newline: String,
@@ -32,6 +35,9 @@ pub struct TextAreaCore {
     cursor: (usize, usize),
     /// Anchor for the selection.
     anchor: (usize, usize),
+
+    /// temp string
+    buf: String,
 }
 
 /// Range for text ranges.
@@ -108,6 +114,14 @@ impl TextRange {
     pub fn contains_range(&self, range: TextRange) -> bool {
         self.ordering(range.start) == Ordering::Equal
             && self.ordering_inclusive(range.end) == Ordering::Equal
+    }
+
+    #[inline(always)]
+    pub fn intersects(&self, range: TextRange) -> bool {
+        self.ordering(range.start) == Ordering::Equal
+            || self.ordering(range.end) == Ordering::Equal
+            || self.ordering(range.start) == Ordering::Greater
+                && self.ordering(range.end) == Ordering::Less
     }
 
     /// What place is the range respective to the given position.
@@ -428,12 +442,14 @@ impl Default for TextAreaCore {
         Self {
             value: Default::default(),
             styles: Default::default(),
+            undo: Some(Box::new(UndoVec::new(40))),
             newline: "\n".to_string(),
             tabs: 8,
             expand_tabs: true,
             move_col: None,
             cursor: (0, 0),
             anchor: (0, 0),
+            buf: Default::default(),
         }
     }
 }
@@ -499,6 +515,150 @@ impl TextAreaCore {
     #[inline]
     pub fn expand_tabs(&self) -> bool {
         self.expand_tabs
+    }
+
+    /// Undo
+    #[inline]
+    pub fn set_undo_buffer(&mut self, undo: Box<dyn UndoBuffer>) {
+        self.undo = Some(undo);
+    }
+
+    /// Undo
+    #[inline]
+    pub fn undo_buffer(&self) -> Option<&dyn UndoBuffer> {
+        match &self.undo {
+            None => None,
+            Some(v) => Some(v.as_ref()),
+        }
+    }
+
+    /// Undo last.
+    pub fn undo(&mut self) -> bool {
+        let Some(undo) = self.undo.as_mut() else {
+            return false;
+        };
+        let op = undo.undo();
+        debug!("undo call {:?}", op);
+        match op {
+            Some(UndoEntry::InsertChar {
+                chars,
+                cursor,
+                anchor,
+                redo_cursor: _,
+                redo_anchor: _,
+                range: _,
+                txt: _,
+            })
+            | Some(UndoEntry::InsertStr {
+                chars,
+                cursor,
+                anchor,
+                redo_cursor: _,
+                redo_anchor: _,
+                range: _,
+                txt: _,
+            }) => {
+                self.value.remove(chars.0..chars.1);
+
+                // todo: ranges
+                self.anchor = anchor;
+                self.cursor = cursor;
+
+                true
+            }
+            Some(UndoEntry::RemoveStr {
+                chars,
+                cursor,
+                anchor,
+                redo_cursor: _,
+                redo_anchor: _,
+                range: _,
+                txt,
+            })
+            | Some(UndoEntry::RemoveChar {
+                chars,
+                cursor,
+                anchor,
+                redo_cursor: _,
+                redo_anchor: _,
+                range: _,
+                txt,
+            }) => {
+                self.value.insert(chars.0, &txt);
+
+                // todo: ranges
+                self.anchor = anchor;
+                self.cursor = cursor;
+
+                true
+            }
+            None => false,
+        }
+    }
+
+    /// Redo last.
+    pub fn redo(&mut self) -> bool {
+        let Some(undo) = self.undo.as_mut() else {
+            return false;
+        };
+        let op = undo.redo();
+        debug!("redo call {:?}", op);
+        match op {
+            Some(UndoEntry::InsertChar {
+                chars,
+                cursor: _,
+                anchor: _,
+                redo_cursor,
+                redo_anchor,
+                range: _,
+                txt,
+            })
+            | Some(UndoEntry::InsertStr {
+                chars,
+                cursor: _,
+                anchor: _,
+                redo_cursor,
+                redo_anchor,
+                range: _,
+                txt,
+            }) => {
+                self.value.insert(chars.0, &txt);
+
+                // todo: ranges
+                self.anchor = redo_anchor;
+                self.cursor = redo_cursor;
+
+                true
+            }
+
+            Some(UndoEntry::RemoveChar {
+                chars,
+                cursor: _,
+                anchor: _,
+                redo_cursor,
+                redo_anchor,
+                range: _,
+                txt: _,
+            })
+            | Some(UndoEntry::RemoveStr {
+                chars,
+                cursor: _,
+                anchor: _,
+                redo_cursor,
+                redo_anchor,
+                range: _,
+                txt: _,
+            }) => {
+                self.value.remove(chars.0..chars.1);
+
+                // todo: ranges
+                self.anchor = redo_anchor;
+                self.cursor = redo_cursor;
+
+                true
+            }
+            None => false,
+        }
     }
 
     /// Clear styles.
@@ -885,48 +1045,69 @@ impl TextAreaCore {
     }
 
     /// Insert a character.
-    pub fn insert_tab(&mut self, pos: (usize, usize)) {
+    pub fn insert_tab(&mut self, mut pos: (usize, usize)) {
         if self.expand_tabs {
             let n = self.tabs as usize - pos.0 % self.tabs as usize;
-            let tabs = repeat_with(|| ' ').take(n).collect::<String>();
-            self.insert_str(pos, &tabs);
+            for _ in 0..n {
+                self.insert_char(pos, ' ');
+                pos.0 += 1;
+            }
         } else {
             self.insert_char(pos, '\t');
         }
     }
 
     /// Insert a line break.
-    pub fn insert_newline(&mut self, pos: (usize, usize)) {
-        let Some(char_pos) = self.char_at(pos) else {
-            panic!("invalid pos {:?} value {:?}", pos, self.value);
-        };
-
-        self.value.insert(char_pos, &self.newline);
-
-        let insert = TextRange::new((pos.0, pos.1), (0, pos.1 + 1));
-
-        insert.expand_all(self.styles.styles_after_mut(pos));
-        self.anchor = insert.expand(self.anchor);
-        self.cursor = insert.expand(self.cursor);
+    pub fn insert_newline(&mut self, mut pos: (usize, usize)) {
+        for c in self.newline.clone().chars() {
+            self.insert_char(pos, c);
+            pos.0 += 1;
+        }
     }
 
     /// Insert a character.
     pub fn insert_char(&mut self, pos: (usize, usize), c: char) {
-        assert_ne!(c, '\n'); // can't handle this, here.
         let Some(char_pos) = self.char_at(pos) else {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
         };
 
-        // no way to know if the new char combines with a surrounding char.
-        // the difference of the graphem len seems safe though.
-        let old_len = self.line_width(pos.1).expect("valid_pos");
-        self.value.insert_char(char_pos, c);
-        let new_len = self.line_width(pos.1).expect("valid_pos");
+        let old_cursor = self.cursor;
+        let old_anchor = self.anchor;
 
-        let insert = TextRange::new(pos, (pos.0 + new_len - old_len, pos.1));
+        let mut line_count = 0;
+        if c == '\n' {
+            line_count = 1;
+        }
+
+        let insert = if line_count > 0 {
+            self.value.insert_char(char_pos, c);
+
+            TextRange::new(pos, (0, pos.1 + line_count))
+        } else {
+            // no way to know if the new char combines with a surrounding char.
+            // the difference of the graphem len seems safe though.
+            let old_len = self.line_width(pos.1).expect("valid_pos");
+            self.value.insert_char(char_pos, c);
+            let new_len = self.line_width(pos.1).expect("valid_pos");
+
+            TextRange::new(pos, (pos.0 + new_len - old_len, pos.1))
+        };
+
         insert.expand_all(self.styles.styles_after_mut(pos));
         self.anchor = insert.expand(self.anchor);
         self.cursor = insert.expand(self.cursor);
+
+        if let Some(undo) = self.undo.as_mut() {
+            undo.insert_char(
+                char_pos,
+                old_cursor,
+                old_anchor,
+                self.cursor,
+                self.anchor,
+                insert,
+                c,
+            );
+        }
     }
 
     /// Insert some text.
@@ -935,44 +1116,47 @@ impl TextAreaCore {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
         };
 
-        // dissect t
-        let mut line_breaks = 0;
-        let mut current = String::new();
-        let mut state = 0;
-        for g in t.graphemes(true) {
-            current.push_str(g);
+        let old_cursor = self.cursor;
+        let old_anchor = self.anchor;
 
-            if g == "\n" || g == "\r\n" {
-                line_breaks += 1;
-                if state == 0 {
-                    current = String::new();
-                    state = 1;
-                } else {
-                    current.clear();
-                }
+        let mut char_count = 0;
+        let mut line_count = 0;
+        let mut linebreak_idx = 0;
+        for (p, c) in t.char_indices() {
+            if c == '\n' {
+                line_count += 1;
+                linebreak_idx = p + 1;
             }
+            char_count += 1;
         }
-        let last = current;
 
-        let insert = if line_breaks > 0 {
-            // split insert line
-            let (split_byte, _) = self.byte_at(pos).expect("valid_pos");
-            let line = self.line_bytes(pos.1).expect("valid_pos");
-            let mut line_second = Vec::new();
-            for b in line.skip(split_byte) {
-                line_second.push(b);
+        let insert = if line_count > 0 {
+            let mut buf = mem::take(&mut self.buf);
+
+            // Find the length of line after the insert position.
+            let split = self.char_at(pos).expect("valid_pos");
+            let line = self.line_chars(pos.1).expect("valid_pos");
+            buf.clear();
+            for c in line.skip(split) {
+                buf.push(c);
             }
-            let line_second = String::from_utf8(line_second).expect("valid_str");
+            let old_len = str_line_len(&buf);
 
-            // this should cope with all unicode joins.
-            let old_len = str_line_len(&line_second);
-            let mut new_second = last;
-            new_second.push_str(&line_second);
-            let new_len = str_line_len(&new_second);
+            // compose the new line and find its length.
+            buf.clear();
+            buf.push_str(&t[linebreak_idx..]);
+            let line = self.line_chars(pos.1).expect("valid_pos");
+            for c in line.skip(split) {
+                buf.push(c);
+            }
+            let new_len = str_line_len(&buf);
+
+            buf.clear();
+            self.buf = buf;
 
             self.value.insert(char_pos, t);
 
-            TextRange::new(pos, (new_len - old_len, pos.1 + line_breaks))
+            TextRange::new(pos, (new_len - old_len, pos.1 + line_count))
         } else {
             // no way to know if the insert text combines with a surrounding char.
             // the difference of the graphem len seems safe though.
@@ -986,16 +1170,74 @@ impl TextAreaCore {
         insert.expand_all(self.styles.styles_after_mut(pos));
         self.anchor = insert.expand(self.anchor);
         self.cursor = insert.expand(self.cursor);
+
+        if let Some(undo) = self.undo.as_mut() {
+            undo.insert_str(
+                (char_pos, char_pos + char_count),
+                old_cursor,
+                old_anchor,
+                self.cursor,
+                self.anchor,
+                insert,
+                t.to_string(),
+            );
+        }
+    }
+
+    /// Remove the previous character
+    pub fn remove_prev_char(&mut self, pos: (usize, usize)) -> bool {
+        let (sx, sy) = if pos.1 == 0 && pos.0 == 0 {
+            (0, 0)
+        } else if pos.1 != 0 && pos.0 == 0 {
+            let prev_line_width = self.line_width(pos.1 - 1).expect("line_width");
+            (prev_line_width, pos.1 - 1)
+        } else {
+            (pos.0 - 1, pos.1)
+        };
+
+        let range = TextRange::new((sx, sy), (pos.0, pos.1));
+
+        self._remove_range(range, true)
+    }
+
+    /// Remove the next character
+    pub fn remove_next_char(&mut self, pos: (usize, usize)) -> bool {
+        let c_line_width = self.line_width(pos.1).expect("width");
+        let c_last_line = self.len_lines() - 1;
+
+        let (ex, ey) = if pos.1 == c_last_line && pos.0 == c_line_width {
+            (pos.0, pos.1)
+        } else if pos.1 != c_last_line && pos.0 == c_line_width {
+            (0, pos.1 + 1)
+        } else {
+            (pos.0 + 1, pos.1)
+        };
+        let range = TextRange::new((pos.0, pos.1), (ex, ey));
+
+        self._remove_range(range, true)
     }
 
     /// Remove the given range.
-    pub fn remove_range(&mut self, range: TextRange) {
+    pub fn remove_range(&mut self, range: TextRange) -> bool {
+        self._remove_range(range, false)
+    }
+
+    /// Remove the given range.
+    fn _remove_range(&mut self, range: TextRange, char_range: bool) -> bool {
         let Some(start_pos) = self.char_at(range.start) else {
             panic!("invalid range {:?} value {:?}", range, self.value);
         };
         let Some(end_pos) = self.char_at(range.end) else {
             panic!("invalid range {:?} value {:?}", range, self.value);
         };
+
+        if range.is_empty() {
+            return false;
+        }
+
+        let old_cursor = self.cursor;
+        let old_anchor = self.anchor;
+        let old_text = self.text_slice(range).expect("some text").to_string();
 
         self.value.remove(start_pos..end_pos);
 
@@ -1010,5 +1252,31 @@ impl TextAreaCore {
         range.shrink_all(self.styles.styles_after_mut(range.start));
         self.anchor = range.shrink(self.anchor);
         self.cursor = range.shrink(self.anchor);
+
+        if let Some(undo) = &mut self.undo {
+            if char_range {
+                undo.remove_char(
+                    (start_pos, end_pos),
+                    old_cursor,
+                    old_anchor,
+                    self.cursor,
+                    self.anchor,
+                    range,
+                    old_text,
+                );
+            } else {
+                undo.remove_str(
+                    (start_pos, end_pos),
+                    old_cursor,
+                    old_anchor,
+                    self.cursor,
+                    self.anchor,
+                    range,
+                    old_text,
+                );
+            }
+        }
+
+        true
     }
 }

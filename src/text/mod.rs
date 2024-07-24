@@ -5,3 +5,4 @@ pub mod maskedinput_core;
 /// Core functionality for the textarea.
 pub mod textarea_core;
 pub mod textinput_core;
+pub mod undo;
