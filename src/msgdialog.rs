@@ -7,13 +7,13 @@ use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::fill::Fill;
 use crate::layout::layout_dialog;
 use crate::paragraph::{Paragraph, ParagraphState};
-use rat_event::{ct_event, flow, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
+use rat_event::{ct_event, flow, Dialog, HandleEvent, Outcome, Regular};
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget};
+use ratatui::widgets::{Block, Padding, StatefulWidget, StatefulWidgetRef, Widget};
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 
@@ -45,6 +45,8 @@ pub struct MsgDialogState {
 
     /// Dialog is active.
     pub active: Cell<bool>,
+    /// Dialog title
+    pub message_title: RefCell<String>,
     /// Dialog text.
     pub message: RefCell<String>,
 
@@ -128,6 +130,11 @@ impl MsgDialogState {
         *self.message.borrow_mut() = Default::default();
     }
 
+    /// Set the title for the message.
+    pub fn title(&self, title: impl Into<String>) {
+        *self.message_title.borrow_mut() = title.into();
+    }
+
     /// *Append* to the message.
     pub fn append(&self, msg: &str) {
         self.active.set(true);
@@ -149,6 +156,7 @@ impl Default for MsgDialogState {
             button: Default::default(),
             paragraph: Default::default(),
             non_exhaustive: NonExhaustive,
+            message_title: Default::default(),
         };
         s.button.focus.set(true);
         s
@@ -173,9 +181,28 @@ impl<'a> StatefulWidget for MsgDialog<'a> {
 
 fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut MsgDialogState) {
     if state.active.get() {
+        let mut block;
+        let title = state.message_title.borrow();
+        let block = if let Some(b) = &widget.block {
+            if !title.is_empty() {
+                block = b.clone().title(title.as_str());
+                &block
+            } else {
+                b
+            }
+        } else {
+            block = Block::bordered()
+                .style(widget.style)
+                .padding(Padding::new(1, 1, 1, 1));
+            if !title.is_empty() {
+                block = block.title(title.as_str());
+            }
+            &block
+        };
+
         let l_dlg = layout_dialog(
             area, //
-            widget.block.as_ref(),
+            Some(&block),
             [Constraint::Length(10)],
             0,
             Flex::End,
@@ -183,7 +210,8 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         state.area = l_dlg.area;
         state.inner = l_dlg.inner;
 
-        widget.block.render(state.area, buf);
+        block.render(state.area, buf);
+
         Fill::new()
             .fill_char(" ")
             .style(widget.style)
