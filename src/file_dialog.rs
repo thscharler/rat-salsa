@@ -892,6 +892,7 @@ impl FileDialogState {
             }
         } else if self.mode == Mode::Save {
             let path = self.path.join(self.save_name_state.value().trim());
+            self.active = false;
             return FileOutcome::Ok(path);
         }
         FileOutcome::Unchanged
