@@ -167,6 +167,7 @@ pub mod scrolled {
 
 /// Text editing core functionality and utilities.
 pub mod text;
+pub mod util;
 
 // --- widget modules here --- (alphabetical)
 
@@ -197,7 +198,6 @@ pub mod table {
 
 pub mod paragraph;
 pub mod textarea;
-pub(crate) mod util;
 pub mod view;
 pub mod viewport;
 
