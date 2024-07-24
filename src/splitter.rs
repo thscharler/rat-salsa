@@ -517,7 +517,7 @@ impl<'a> Split<'a> {
         &self,
         area: &mut Rect,
         split: &mut Rect,
-        blind: &mut Rect,
+        _blind: &mut Rect,
         mark: &mut Position,
     ) {
         use Direction::*;
