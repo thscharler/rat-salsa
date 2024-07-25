@@ -7,7 +7,6 @@ use log::debug;
 use ropey::{Rope, RopeSlice};
 use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Formatter};
-use std::iter::repeat_with;
 use std::mem;
 use std::ops::RangeBounds;
 

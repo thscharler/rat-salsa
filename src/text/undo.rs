@@ -1,3 +1,4 @@
+use crate::text::graphemes::{char_len, str_line_len};
 use crate::text::textarea_core::TextRange;
 use log::debug;
 use std::fmt::Debug;
@@ -122,7 +123,7 @@ impl UndoVec {
     fn merge(
         &mut self,
         mut last: UndoEntry,
-        mut undo: UndoEntry,
+        mut curr: UndoEntry,
     ) -> (Option<UndoEntry>, Option<UndoEntry>) {
         match &mut last {
             UndoEntry::InsertChar {
@@ -133,7 +134,7 @@ impl UndoVec {
                 redo_anchor: _last_redo_anchor,
                 range: last_range,
                 txt: last_txt,
-            } => match &mut undo {
+            } => match &mut curr {
                 UndoEntry::InsertChar {
                     chars: curr_chars,
                     cursor: _curr_cursor,
@@ -159,24 +160,24 @@ impl UndoVec {
                             None,
                         )
                     } else {
-                        (Some(last), Some(undo))
+                        (Some(last), Some(curr))
                     }
                 }
-                _ => (Some(last), Some(undo)),
+                _ => (Some(last), Some(curr)),
             },
             UndoEntry::RemoveChar {
                 chars: last_chars,
                 cursor: last_cursor,
                 anchor: last_anchor,
-                redo_cursor: last_redo_cursor,
-                redo_anchor: last_redo_anchor,
+                redo_cursor: _last_redo_cursor,
+                redo_anchor: _last_redo_anchor,
                 range: last_range,
                 txt: last_txt,
-            } => match &mut undo {
+            } => match &mut curr {
                 UndoEntry::RemoveChar {
                     chars: curr_chars,
-                    cursor: curr_cursor,
-                    anchor: curr_anchor,
+                    cursor: _curr_cursor,
+                    anchor: _curr_anchor,
                     redo_cursor: curr_redo_cursor,
                     redo_anchor: curr_redo_anchor,
                     range: curr_range,
@@ -198,36 +199,36 @@ impl UndoVec {
                             }),
                             None,
                         )
-
-                    // else if curr_chars.0 == last_chars.0 {
-                    //     // delete
-                    //     // let mut last_txt = mem::take(last_txt);
-                    //     // last_txt.push_str(curr_txt);
-                    //     // (
-                    //     //     Some(currEntry::RemoveStr {
-                    //     //         chars: (curr_chars.0, last_chars.1),
-                    //     //         cursor: *last_cursor,
-                    //     //         anchor: *last_anchor,
-                    //     //         range: TextRange::new(curr_range.start, last_range.end),
-                    //     //         txt: last_txt,
-                    //     //     }),
-                    //     //     None,
-                    //     // )
-                    //     (Some(last), Some(undo))
+                    } else if curr_chars.0 == last_chars.0 {
+                        // delete
+                        let mut last_txt = mem::take(last_txt);
+                        last_txt.push_str(curr_txt);
+                        (
+                            Some(UndoEntry::RemoveChar {
+                                chars: (last_chars.0, last_chars.1 + char_len(curr_txt)),
+                                cursor: *last_cursor,
+                                anchor: *last_anchor,
+                                redo_cursor: *curr_redo_cursor,
+                                redo_anchor: *curr_redo_anchor,
+                                range: TextRange::new(curr_range.start, last_range.end),
+                                txt: last_txt,
+                            }),
+                            None,
+                        )
                     } else {
-                        (Some(last), Some(undo))
+                        (Some(last), Some(curr))
                     }
                 }
-                _ => (Some(last), Some(undo)),
+                _ => (Some(last), Some(curr)),
             },
 
-            UndoEntry::InsertStr { .. } => (Some(last), Some(undo)),
-            UndoEntry::RemoveStr { .. } => (Some(last), Some(undo)),
+            UndoEntry::InsertStr { .. } => (Some(last), Some(curr)),
+            UndoEntry::RemoveStr { .. } => (Some(last), Some(curr)),
         }
     }
 
     fn append(&mut self, undo: UndoEntry) {
-        debug!("{:?}", undo);
+        // debug!("{:?}", undo);
 
         // remove redo
         while self.idx < self.buf.len() {

@@ -18,6 +18,11 @@ pub(crate) fn str_line_len(s: &str) -> usize {
     it.filter(|c| *c != "\n" && *c != "\r\n").count()
 }
 
+/// Length as char count, *including* line breaks.
+pub(crate) fn char_len(s: &str) -> usize {
+    s.chars().count()
+}
+
 /// Is the first char a whitespace
 fn is_whitespace(s: &str) -> bool {
     s.chars()
