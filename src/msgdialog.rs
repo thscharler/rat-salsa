@@ -210,12 +210,12 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         state.area = l_dlg.area;
         state.inner = l_dlg.inner;
 
-        block.render(state.area, buf);
-
         Fill::new()
             .fill_char(" ")
             .style(widget.style)
-            .render(state.inner, buf);
+            .render(state.area, buf);
+
+        block.render(state.area, buf);
 
         {
             let scroll = if let Some(style) = &widget.scroll_style {
@@ -231,7 +231,7 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             }
             let text = Text::from(lines).alignment(Alignment::Center);
             Paragraph::new(text)
-                .vscroll(scroll)
+                .scroll(scroll)
                 .render(l_dlg.content, buf, &mut state.paragraph);
         }
 
