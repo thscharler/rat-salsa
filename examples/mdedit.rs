@@ -26,7 +26,7 @@ use rat_widget::textarea::TextAreaState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::Line;
-use ratatui::style::{Style, Stylize};
+use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, Padding, StatefulWidget};
 use std::fs;
 use std::ops::Range;
@@ -588,10 +588,9 @@ pub mod mdedit {
             ctx.g.status.status(
                 1,
                 format!(
-                    "{}|{}+{}",
-                    cursor.0,
-                    cursor.1,
-                    state.edit.line_width(cursor.1).unwrap_or_default()
+                    "{:?}+{}",
+                    cursor,
+                    state.edit.line_width(cursor.y).unwrap_or_default()
                 ),
             );
 
@@ -730,7 +729,7 @@ pub mod mdedit {
                     self.path = Some(p.clone());
                     self.load()?;
                     self.parse_timer = Some(ctx.add_timer(
-                        TimerDef::new().next(Instant::now() + Duration::from_millis(100)),
+                        TimerDef::new().next(Instant::now() + Duration::from_millis(0)),
                     ));
                     ctx.focus.as_ref().expect("focus").focus(&self.edit);
                     Control::Repaint
