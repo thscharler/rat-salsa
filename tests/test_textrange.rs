@@ -1,4 +1,4 @@
-use rat_widget::textarea::textarea_core::{TextAreaCore, TextRange};
+use rat_widget::text::textarea_core::{TextAreaCore, TextRange};
 use std::cmp::Ordering;
 #[allow(unused_imports)]
 use std::hint::black_box;
@@ -31,7 +31,7 @@ fn find(v: &Vec<TextRange>, p: (usize, usize)) -> Option<usize> {
                 return Some(i);
             }
             // eprintln!("order {:?}", v[i - 1].ordering(p));
-            if !v[i - 1].contains(p) {
+            if !v[i - 1].contains_pos(p) {
                 // eprintln!("break !{:?}.contains({:?})", v[i - 1], p);
                 return Some(i);
             }
@@ -183,8 +183,7 @@ fn test_stylemap() {
     txt.add_style(TextRange::new((30, 7), (42, 7)), 0);
     txt.add_style(TextRange::new((37, 7), (41, 7)), 1);
 
-    let mut r = Vec::new();
-    txt.styles_at((37, 7), &mut r);
+    let mut r = txt.styles_at((37, 7)).collect::<Vec<_>>();
     assert_eq!(r.len(), 2);
 }
 
@@ -245,24 +244,54 @@ fn test_shrinking() {
 
 #[test]
 fn test_ordering() {
-    // let r = TextRange::new((5, 0), (0, 1));
+    let r0 = TextRange::new((10, 5), (20, 5));
+    let r1 = TextRange::new((10, 6), (20, 6));
+    assert!(r0.before(r1));
+    assert!(r1.after(r0));
+
+    let r0 = TextRange::new((10, 4), (20, 5));
+    let r1 = TextRange::new((30, 5), (20, 6));
+    assert!(r0.before(r1));
+    assert!(r1.after(r0));
+
+    let r0 = TextRange::new((10, 4), (19, 5));
+    let r1 = TextRange::new((20, 5), (20, 6));
+    assert!(r0.before(r1));
+    assert!(r1.after(r0));
+
+    let r0 = TextRange::new((10, 4), (20, 5));
+    let r1 = TextRange::new((20, 5), (20, 6));
+    assert!(!r0.before(r1));
+    assert!(!r1.after(r0));
+
+    let r0 = TextRange::new((10, 4), (21, 5));
+    let r1 = TextRange::new((20, 5), (20, 6));
+    assert!(!r0.before(r1));
+    assert!(!r1.after(r0));
+
     //
-    // let t = Instant::now();
-    // for _ in 0..1000000 {
-    //     black_box(r.ordering_inclusive((6, 8)));
-    // }
-    // eprintln!("ordering_inclusive {:?}", t.elapsed());
-    //
-    // let t = Instant::now();
-    // for _ in 0..1000000 {
-    //     black_box(r.ordering((6, 8)));
-    // }
-    // eprintln!("ordering {:?}", t.elapsed());
-    //
-    // let r = TextRange::new((5, 0), (0, 1));
-    // let t = Instant::now();
-    // for _ in 0..1000000 {
-    //     black_box((r.start.1, r.start.0).cmp(&(8, 6)));
-    // }
-    // eprintln!("tuple cmp {:?}", t.elapsed());
+    let r0 = TextRange::new((10, 5), (20, 5));
+    let r1 = TextRange::new((10, 6), (20, 6));
+    assert!(!r0.intersects(r1));
+    assert!(!r1.intersects(r0));
+
+    let r0 = TextRange::new((10, 4), (20, 5));
+    let r1 = TextRange::new((30, 5), (20, 6));
+    assert!(!r0.intersects(r1));
+    assert!(!r1.intersects(r0));
+
+    let r0 = TextRange::new((10, 4), (19, 5));
+    let r1 = TextRange::new((20, 5), (20, 6));
+    assert!(!r0.intersects(r1));
+    assert!(!r1.intersects(r0));
+
+    let r0 = TextRange::new((10, 4), (20, 5));
+    let r1 = TextRange::new((20, 5), (20, 6));
+    assert!(r0.intersects(r1));
+    assert!(r1.intersects(r0));
+
+    let r0 = TextRange::new((10, 4), (21, 5));
+    let r1 = TextRange::new((20, 5), (20, 6));
+    assert!(r0.intersects(r1));
+    assert!(r1.intersects(r0));
 }

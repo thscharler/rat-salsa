@@ -302,7 +302,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                         style = style.patch(*s);
                     }
                     // selection
-                    if selection.contains((tx, ty)) {
+                    if selection.contains_pos((tx, ty)) {
                         style = style.patch(select_style);
                     };
 
@@ -378,6 +378,7 @@ impl TextAreaState {
         self.value.clear()
     }
 
+    // todo: create a TextPosition{x, y} for this.
     /// Current offset for scrolling.
     #[inline]
     pub fn offset(&self) -> (usize, usize) {

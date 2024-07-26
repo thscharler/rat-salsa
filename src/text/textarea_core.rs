@@ -4,7 +4,9 @@ use crate::text::graphemes::{
 use crate::text::undo::{UndoBuffer, UndoEntry, UndoVec};
 #[allow(unused_imports)]
 use log::debug;
+use ratatui::layout::Position;
 use ropey::{Rope, RopeSlice};
+use std::any::Any;
 use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Formatter};
 use std::mem;
@@ -46,6 +48,23 @@ pub struct TextRange {
     pub start: (usize, usize),
     /// column, row
     pub end: (usize, usize),
+}
+
+// Helper for lexical comparison of positions.
+// Switches x and y compared to regular ratatui positions.
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+struct LexicalPosition {
+    y: usize,
+    x: usize,
+}
+
+impl From<(usize, usize)> for LexicalPosition {
+    fn from(value: (usize, usize)) -> Self {
+        Self {
+            y: value.1,
+            x: value.0,
+        }
+    }
 }
 
 #[derive(Debug, Default, Clone)]
@@ -104,23 +123,72 @@ impl TextRange {
 
     /// Range contains the given position.
     #[inline]
-    pub fn contains(&self, pos: (usize, usize)) -> bool {
-        self.ordering(pos) == Ordering::Equal
+    pub fn contains_pos(&self, pos: (usize, usize)) -> bool {
+        let lex_start = LexicalPosition::from(self.start);
+        let lex_end = LexicalPosition::from(self.end);
+        let lex_pos = LexicalPosition::from(pos);
+
+        lex_pos >= lex_start && lex_pos < lex_end
+    }
+
+    /// Range fully before the given position.
+    #[inline]
+    pub fn before_pos(&self, pos: (usize, usize)) -> bool {
+        let lex_end = LexicalPosition::from(self.end);
+        let lex_pos = LexicalPosition::from(pos);
+
+        lex_end <= lex_pos
+    }
+
+    /// Range fully after the given position.
+    #[inline]
+    pub fn after_pos(&self, pos: (usize, usize)) -> bool {
+        let lex_start = LexicalPosition::from(self.start);
+        let lex_pos = LexicalPosition::from(pos);
+
+        lex_start > lex_pos
     }
 
     /// Range contains the other range.
     #[inline(always)]
-    pub fn contains_range(&self, range: TextRange) -> bool {
-        self.ordering(range.start) == Ordering::Equal
-            && self.ordering_inclusive(range.end) == Ordering::Equal
+    pub fn contains(&self, range: TextRange) -> bool {
+        let lex_start = LexicalPosition::from(self.start);
+        let lex_end = LexicalPosition::from(self.end);
+
+        let o_lex_start = LexicalPosition::from(range.start);
+        let o_lex_end = LexicalPosition::from(range.end);
+
+        o_lex_start >= lex_start && o_lex_end <= lex_end
     }
 
+    /// Range before the other range.
+    #[inline(always)]
+    pub fn before(&self, range: TextRange) -> bool {
+        let lex_end = LexicalPosition::from(self.end);
+        let o_lex_start = LexicalPosition::from(range.start);
+
+        o_lex_start > lex_end
+    }
+
+    /// Range after the other range.
+    #[inline(always)]
+    pub fn after(&self, range: TextRange) -> bool {
+        let lex_start = LexicalPosition::from(self.start);
+        let o_lex_end = LexicalPosition::from(range.end);
+
+        o_lex_end < lex_start
+    }
+
+    /// Range overlaps with other range.
     #[inline(always)]
     pub fn intersects(&self, range: TextRange) -> bool {
-        self.ordering(range.start) == Ordering::Equal
-            || self.ordering(range.end) == Ordering::Equal
-            || self.ordering(range.start) == Ordering::Greater
-                && self.ordering(range.end) == Ordering::Less
+        let lex_start = LexicalPosition::from(self.start);
+        let lex_end = LexicalPosition::from(self.end);
+
+        let o_lex_start = LexicalPosition::from(range.start);
+        let o_lex_end = LexicalPosition::from(range.end);
+
+        o_lex_start <= lex_end && o_lex_end >= lex_start
     }
 
     /// What place is the range respective to the given position.
@@ -198,8 +266,8 @@ impl TextRange {
     #[inline]
     pub fn expand_all<'a>(&self, it: impl Iterator<Item = &'a mut (TextRange, usize)>) {
         for (r, _s) in it {
-            self._expand(&mut r.start);
-            self._expand(&mut r.end);
+            r.start = self.expand(r.start);
+            r.end = self.expand(r.end);
         }
     }
 
@@ -207,77 +275,66 @@ impl TextRange {
     #[inline]
     pub fn shrink_all<'a>(&self, it: impl Iterator<Item = &'a mut (TextRange, usize)>) {
         for (r, _s) in it {
-            self._shrink(&mut r.start);
-            self._shrink(&mut r.end);
+            r.start = self.shrink(r.start);
+            r.end = self.shrink(r.end);
         }
     }
 
     /// Return the modified position, as if this range expanded from its
     /// start to its full expansion.
     #[inline]
-    pub fn expand(&self, pos: (usize, usize)) -> (usize, usize) {
-        let mut tmp = pos;
-        self._expand(&mut tmp);
-        tmp
-    }
-
-    /// Return the modified position, as if this range would shrink to nothing.
-    #[inline]
-    pub fn shrink(&self, pos: (usize, usize)) -> (usize, usize) {
-        let mut tmp = pos;
-        self._shrink(&mut tmp);
-        tmp
-    }
-
-    #[inline(always)]
-    #[allow(clippy::comparison_chain)]
-    fn _expand(&self, pos: &mut (usize, usize)) {
+    pub fn expand(&self, mut pos: (usize, usize)) -> (usize, usize) {
         let delta_lines = self.end.1 - self.start.1;
 
-        // comparing only the starting position.
-        // the range doesn't exist yet.
-        // have to flip the positions for tuple comparison
-        match (self.start.1, self.start.0).cmp(&(pos.1, pos.0)) {
-            Ordering::Greater => {
-                // noop
-            }
-            Ordering::Equal => {
-                *pos = self.end;
-            }
-            Ordering::Less => {
-                if pos.1 > self.start.1 {
-                    pos.1 += delta_lines;
-                } else if pos.1 == self.start.1 {
-                    if pos.0 >= self.start.0 {
-                        pos.0 = pos.0 - self.start.0 + self.end.0;
-                        pos.1 += delta_lines;
-                    }
+        // swap x and y to enable tuple comparison
+        let lex_start = LexicalPosition::from(self.start);
+        let lex_pos = LexicalPosition::from(pos);
+
+        if lex_pos < lex_start {
+            pos
+        } else if lex_pos == lex_start {
+            self.end
+        } else {
+            if lex_pos.y > lex_start.y {
+                (pos.0, pos.1 + delta_lines)
+            } else if lex_pos.y == lex_start.y {
+                if lex_pos.x >= lex_start.x {
+                    (pos.0 - self.start.0 + self.end.0, pos.1 + delta_lines)
+                } else {
+                    pos
                 }
+            } else {
+                pos
             }
         }
     }
 
-    /// Return the modified position, if this range would shrink to nothing.
-    #[inline(always)]
-    #[allow(clippy::comparison_chain)]
-    fn _shrink(&self, pos: &mut (usize, usize)) {
+    /// Return the modified position, as if this range would shrink to nothing.
+    #[inline]
+    pub fn shrink(&self, mut pos: (usize, usize)) -> (usize, usize) {
         let delta_lines = self.end.1 - self.start.1;
-        match self.ordering_inclusive(*pos) {
-            Ordering::Greater => {
-                // noop
-            }
-            Ordering::Equal => {
-                *pos = self.start;
-            }
-            Ordering::Less => {
-                if pos.1 > self.end.1 {
-                    pos.1 -= delta_lines;
-                } else if pos.1 == self.end.1 {
-                    if pos.0 >= self.end.0 {
-                        pos.0 = pos.0 - self.end.0 + self.start.0;
-                        pos.1 -= delta_lines;
-                    }
+
+        // swap x and y to enable tuple comparison
+        let lex_start = LexicalPosition::from(self.start);
+        let lex_end = LexicalPosition::from(self.end);
+        let lex_pos = LexicalPosition::from(pos);
+
+        if lex_pos < lex_start {
+            pos
+        } else if lex_pos >= lex_start && lex_pos <= lex_end {
+            self.start
+        } else {
+            // after row
+            if lex_pos.y > lex_end.y {
+                (pos.0, pos.1 - delta_lines)
+            } else if lex_pos.y == lex_end.y {
+                if lex_pos.x >= lex_end.x {
+                    (pos.0 - self.end.0 + self.start.0, pos.1 - delta_lines)
+                } else {
+                    pos
                 }
+            } else {
+                pos
             }
         }
     }
@@ -328,7 +385,7 @@ impl<'a> StyleMapIter<'a> {
                     if i == 0 {
                         break;
                     }
-                    if !styles[i - 1].0.contains(pos) {
+                    if !styles[i - 1].0.contains_pos(pos) {
                         break;
                     }
                     i -= 1;
@@ -355,7 +412,7 @@ impl<'a> Iterator for StyleMapIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let idx = self.idx;
         if idx < self.styles.len() {
-            if self.styles[idx].0.contains(self.filter_pos) {
+            if self.styles[idx].0.contains_pos(self.filter_pos) {
                 self.idx += 1;
                 Some(self.styles[idx].1)
             } else {
@@ -417,7 +474,7 @@ impl StyleMap {
                     if i == 0 {
                         break;
                     }
-                    if !self.styles[i - 1].0.contains(pos) {
+                    if !self.styles[i - 1].0.contains_pos(pos) {
                         break;
                     }
                     i -= 1;
@@ -1245,7 +1302,7 @@ impl TextAreaCore {
         let styles = mem::take(&mut self.styles.styles);
         self.styles.styles = styles
             .into_iter()
-            .filter(|(r, _)| !range.contains_range(*r))
+            .filter(|(r, _)| !range.contains(*r))
             .collect();
 
         range.shrink_all(self.styles.styles_after_mut(range.start));
