@@ -228,8 +228,6 @@ impl UndoVec {
     }
 
     fn append(&mut self, undo: UndoEntry) {
-        // debug!("{:?}", undo);
-
         // remove redo
         while self.idx < self.buf.len() {
             self.buf.pop();

@@ -283,6 +283,7 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             widget.style
         };
 
+        // todo: separator
         buf.set_style(state.item_areas[n], style);
         txt.render(state.item_areas[n], buf);
     }
