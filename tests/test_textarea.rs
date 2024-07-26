@@ -1,4 +1,5 @@
-use rat_widget::textarea::textarea_core::{TextAreaCore, TextRange};
+use memchr::{memchr_iter, Memchr};
+use rat_widget::text::textarea_core::{TextAreaCore, TextRange};
 
 #[test]
 fn test_byte_at() {
@@ -163,7 +164,7 @@ fn test_insert_text() {
     v.add_style(TextRange::new((2, 0), (3, 0)), 1);
     v.add_style(TextRange::new((1, 0), (3, 0)), 2);
     v.add_style(TextRange::new((1, 0), (2, 0)), 3);
-    v.insert_text((2, 0), "x");
+    v.insert_str((2, 0), "x");
     assert_eq!(v.value(), "abxcd");
     assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
     assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (4, 0)));
@@ -174,7 +175,7 @@ fn test_insert_text() {
     v.add_style(TextRange::new((2, 0), (3, 0)), 1);
     v.add_style(TextRange::new((1, 0), (3, 0)), 2);
     v.add_style(TextRange::new((1, 0), (2, 0)), 3);
-    v.insert_text((2, 0), "\n");
+    v.insert_str((2, 0), "\n");
     assert_eq!(v.value(), "ab\ncd");
     assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
     assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (1, 1)));
@@ -185,7 +186,7 @@ fn test_insert_text() {
     v.add_style(TextRange::new((2, 0), (3, 0)), 1);
     v.add_style(TextRange::new((1, 0), (3, 0)), 2);
     v.add_style(TextRange::new((1, 0), (2, 0)), 3);
-    v.insert_text((2, 0), "\n\n");
+    v.insert_str((2, 0), "\n\n");
     assert_eq!(v.value(), "ab\n\ncd");
     assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
     assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (1, 2)));
@@ -196,7 +197,7 @@ fn test_insert_text() {
     v.add_style(TextRange::new((2, 0), (3, 0)), 1);
     v.add_style(TextRange::new((1, 0), (3, 0)), 2);
     v.add_style(TextRange::new((1, 0), (2, 0)), 3);
-    v.insert_text((2, 0), "x\ny");
+    v.insert_str((2, 0), "x\ny");
     assert_eq!(v.value(), "abx\nycd");
     assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
     assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (2, 1)));
@@ -207,7 +208,7 @@ fn test_insert_text() {
     v.add_style(TextRange::new((2, 0), (3, 0)), 1);
     v.add_style(TextRange::new((1, 0), (3, 0)), 2);
     v.add_style(TextRange::new((1, 0), (2, 0)), 3);
-    v.insert_text((2, 0), "xx\nyy\nzz");
+    v.insert_str((2, 0), "xx\nyy\nzz");
     assert_eq!(v.value(), "abxx\nyy\nzzcd");
     assert_eq!(v.styles()[0].0, TextRange::new((1, 0), (2, 0)));
     assert_eq!(v.styles()[1].0, TextRange::new((1, 0), (3, 2)));
