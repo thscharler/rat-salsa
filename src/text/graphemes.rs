@@ -746,9 +746,9 @@ impl<'a> RopeGraphemesIdx<'a> {
 }
 
 impl<'a> Iterator for RopeGraphemesIdx<'a> {
-    type Item = ((usize, usize), RopeSlice<'a>);
+    type Item = (Range<usize>, RopeSlice<'a>);
 
-    fn next(&mut self) -> Option<((usize, usize), RopeSlice<'a>)> {
+    fn next(&mut self) -> Option<(Range<usize>, RopeSlice<'a>)> {
         let a = self.cursor.cur_cursor();
         let b;
         loop {
@@ -779,11 +779,11 @@ impl<'a> Iterator for RopeGraphemesIdx<'a> {
             let a_char = self.text.byte_to_char(a);
             let b_char = self.text.byte_to_char(b);
 
-            Some(((a, b), self.text.slice(a_char..b_char)))
+            Some((a..b, self.text.slice(a_char..b_char)))
         } else {
             let a2 = a - self.cur_chunk_start;
             let b2 = b - self.cur_chunk_start;
-            Some(((a, b), (&self.cur_chunk[a2..b2]).into()))
+            Some((a..b, (&self.cur_chunk[a2..b2]).into()))
         }
     }
 }

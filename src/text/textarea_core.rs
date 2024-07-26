@@ -4,13 +4,12 @@ use crate::text::graphemes::{
 use crate::text::undo::{UndoBuffer, UndoEntry, UndoVec};
 #[allow(unused_imports)]
 use log::debug;
-use ratatui::layout::Position;
 use ropey::{Rope, RopeSlice};
 use std::any::Any;
 use std::cmp::{min, Ordering};
 use std::fmt::{Debug, Formatter};
 use std::mem;
-use std::ops::RangeBounds;
+use std::ops::{Range, RangeBounds};
 
 /// Core for text editing.
 #[derive(Debug)]
@@ -33,40 +32,31 @@ pub struct TextAreaCore {
     /// Secondary column, remembered for moving up/down.
     move_col: Option<usize>,
     /// Cursor
-    cursor: (usize, usize),
+    cursor: TextPosition,
     /// Anchor for the selection.
-    anchor: (usize, usize),
+    anchor: TextPosition,
 
     /// temp string
     buf: String,
 }
 
 /// Range for text ranges.
-#[derive(Default, PartialEq, Eq, Clone, Copy)]
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct TextRange {
     /// column, row
-    pub start: (usize, usize),
+    pub start: TextPosition,
     /// column, row
-    pub end: (usize, usize),
+    pub end: TextPosition,
 }
 
-// Helper for lexical comparison of positions.
-// Switches x and y compared to regular ratatui positions.
+/// Position for text.
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-struct LexicalPosition {
-    y: usize,
-    x: usize,
+pub struct TextPosition {
+    pub y: usize,
+    pub x: usize,
 }
 
-impl From<(usize, usize)> for LexicalPosition {
-    fn from(value: (usize, usize)) -> Self {
-        Self {
-            y: value.1,
-            x: value.0,
-        }
-    }
-}
-
+/// Combined Range + Style.
 #[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct StyledRange {
     pub range: TextRange,
@@ -82,8 +72,30 @@ struct StyleMap {
 #[derive(Debug, Clone)]
 struct StyleMapIter<'a> {
     styles: &'a [StyledRange],
-    filter_pos: (usize, usize),
+    filter_pos: TextPosition,
     idx: usize,
+}
+
+impl TextPosition {
+    /// New position.
+    pub fn new(x: usize, y: usize) -> TextPosition {
+        Self::from((x, y))
+    }
+}
+
+impl Debug for TextPosition {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}|{}", self.x, self.y)
+    }
+}
+
+impl From<(usize, usize)> for TextPosition {
+    fn from(value: (usize, usize)) -> Self {
+        Self {
+            y: value.1,
+            x: value.0,
+        }
+    }
 }
 
 impl Debug for TextRange {
@@ -92,13 +104,13 @@ impl Debug for TextRange {
             write!(
                 f,
                 "{}|{}-{}|{}",
-                self.start.0, self.start.1, self.end.0, self.end.1
+                self.start.x, self.start.y, self.end.x, self.end.y
             )
         } else {
             write!(
                 f,
                 "TextRange  {}|{}-{}|{}",
-                self.start.0, self.start.1, self.end.0, self.end.1
+                self.start.x, self.start.y, self.end.x, self.end.y
             )
         }
     }
@@ -109,24 +121,15 @@ impl TextRange {
     ///
     /// Panic
     /// Panics if start > end.
-    pub fn new(start: (usize, usize), end: (usize, usize)) -> Self {
+    pub fn new(start: impl Into<TextPosition>, end: impl Into<TextPosition>) -> Self {
+        let start = start.into();
+        let end = end.into();
+
         // reverse the args, then it works.
-        if (start.1, start.0) > (end.1, end.0) {
+        if start > end {
             panic!("start {:?} > end {:?}", start, end);
         }
         TextRange { start, end }
-    }
-
-    /// Start position
-    #[inline]
-    pub fn start(&self) -> (usize, usize) {
-        self.start
-    }
-
-    /// End position
-    #[inline]
-    pub fn end(&self) -> (usize, usize) {
-        self.end
     }
 
     /// Empty range
@@ -137,133 +140,44 @@ impl TextRange {
 
     /// Range contains the given position.
     #[inline]
-    pub fn contains_pos(&self, pos: (usize, usize)) -> bool {
-        *self == pos
+    pub fn contains_pos(&self, pos: impl Into<TextPosition>) -> bool {
+        *self == pos.into()
     }
 
     /// Range fully before the given position.
     #[inline]
-    pub fn before_pos(&self, pos: (usize, usize)) -> bool {
-        *self < pos
+    pub fn before_pos(&self, pos: impl Into<TextPosition>) -> bool {
+        *self < pos.into()
     }
 
     /// Range fully after the given position.
     #[inline]
-    pub fn after_pos(&self, pos: (usize, usize)) -> bool {
-        *self > pos
+    pub fn after_pos(&self, pos: impl Into<TextPosition>) -> bool {
+        *self > pos.into()
     }
 
     /// Range contains the other range.
     #[inline(always)]
-    pub fn contains(&self, range: TextRange) -> bool {
-        let lex_start = LexicalPosition::from(self.start);
-        let lex_end = LexicalPosition::from(self.end);
-
-        let o_lex_start = LexicalPosition::from(range.start);
-        let o_lex_end = LexicalPosition::from(range.end);
-
-        o_lex_start >= lex_start && o_lex_end <= lex_end
+    pub fn contains(&self, other: TextRange) -> bool {
+        other.start >= self.start && other.end <= self.end
     }
 
     /// Range before the other range.
     #[inline(always)]
-    pub fn before(&self, range: TextRange) -> bool {
-        let lex_end = LexicalPosition::from(self.end);
-        let o_lex_start = LexicalPosition::from(range.start);
-
-        o_lex_start > lex_end
+    pub fn before(&self, other: TextRange) -> bool {
+        other.start > self.end
     }
 
     /// Range after the other range.
     #[inline(always)]
-    pub fn after(&self, range: TextRange) -> bool {
-        let lex_start = LexicalPosition::from(self.start);
-        let o_lex_end = LexicalPosition::from(range.end);
-
-        o_lex_end < lex_start
+    pub fn after(&self, other: TextRange) -> bool {
+        other.end < self.start
     }
 
     /// Range overlaps with other range.
     #[inline(always)]
-    pub fn intersects(&self, range: TextRange) -> bool {
-        let lex_start = LexicalPosition::from(self.start);
-        let lex_end = LexicalPosition::from(self.end);
-
-        let o_lex_start = LexicalPosition::from(range.start);
-        let o_lex_end = LexicalPosition::from(range.end);
-
-        o_lex_start <= lex_end && o_lex_end >= lex_start
-    }
-
-    /// What place is the range respective to the given position.
-    #[inline(always)]
-    #[allow(clippy::comparison_chain)]
-    pub fn ordering(&self, pos: (usize, usize)) -> Ordering {
-        if pos.1 < self.start.1 {
-            return Ordering::Greater;
-        } else if pos.1 == self.start.1 {
-            if pos.0 < self.start.0 {
-                return Ordering::Greater;
-            }
-        }
-
-        if pos.1 < self.end.1 {
-            return Ordering::Equal;
-        } else if pos.1 == self.end.1 {
-            if pos.0 < self.end.0 {
-                return Ordering::Equal;
-            }
-        }
-
-        Ordering::Less
-
-        // SURPRISE: contrary to ordering_inclusive the code below
-        //           takes the same time as the above in debug mode.
-
-        // // reverse the args, then tuple cmp it works.
-        // if (pos.1, pos.0) < (self.start.1, self.start.0) {
-        //     Ordering::Greater
-        // } else if (pos.1, pos.0) < (self.end.1, self.end.0) {
-        //     Ordering::Equal
-        // } else {
-        //     Ordering::Less
-        // }
-    }
-
-    /// What place is the range respective to the given position.
-    /// This one includes the `range.end`.
-    #[inline(always)]
-    #[allow(clippy::comparison_chain)]
-    pub fn ordering_inclusive(&self, pos: (usize, usize)) -> Ordering {
-        if pos.1 < self.start.1 {
-            return Ordering::Greater;
-        } else if pos.1 == self.start.1 {
-            if pos.0 < self.start.0 {
-                return Ordering::Greater;
-            }
-        }
-
-        if pos.1 < self.end.1 {
-            return Ordering::Equal;
-        } else if pos.1 == self.end.1 {
-            if pos.0 <= self.end.0 {
-                return Ordering::Equal;
-            }
-        }
-
-        Ordering::Less
-
-        // SURPRISE: above is pretty much faster than that: ???
-        //           at least in debug mode...
-
-        // // reverse the args, then tuple cmp it works.
-        // if (pos.1, pos.0) < (self.start.1, self.start.0) {
-        //     Ordering::Greater
-        // } else if (pos.1, pos.0) <= (self.end.1, self.end.0) {
-        //     Ordering::Equal
-        // } else {
-        //     Ordering::Less
-        // }
+    pub fn intersects(&self, other: TextRange) -> bool {
+        other.start <= self.end && other.end >= self.start
     }
 
     /// Modify all positions in place.
@@ -287,23 +201,20 @@ impl TextRange {
     /// Return the modified position, as if this range expanded from its
     /// start to its full expansion.
     #[inline]
-    pub fn expand(&self, pos: (usize, usize)) -> (usize, usize) {
-        let delta_lines = self.end.1 - self.start.1;
+    pub fn expand(&self, pos: TextPosition) -> TextPosition {
+        let delta_lines = self.end.y - self.start.y;
 
         // swap x and y to enable tuple comparison
-        let lex_start = LexicalPosition::from(self.start);
-        let lex_pos = LexicalPosition::from(pos);
-
-        if lex_pos < lex_start {
+        if pos < self.start {
             pos
-        } else if lex_pos == lex_start {
+        } else if pos == self.start {
             self.end
         } else {
-            if lex_pos.y > lex_start.y {
-                (pos.0, pos.1 + delta_lines)
-            } else if lex_pos.y == lex_start.y {
-                if lex_pos.x >= lex_start.x {
-                    (pos.0 - self.start.0 + self.end.0, pos.1 + delta_lines)
+            if pos.y > self.start.y {
+                TextPosition::new(pos.x, pos.y + delta_lines)
+            } else if pos.y == self.start.y {
+                if pos.x >= self.start.x {
+                    TextPosition::new(pos.x - self.start.x + self.end.x, pos.y + delta_lines)
                 } else {
                     pos
                 }
@@ -315,25 +226,21 @@ impl TextRange {
 
     /// Return the modified position, as if this range would shrink to nothing.
     #[inline]
-    pub fn shrink(&self, pos: (usize, usize)) -> (usize, usize) {
-        let delta_lines = self.end.1 - self.start.1;
+    pub fn shrink(&self, pos: TextPosition) -> TextPosition {
+        let delta_lines = self.end.y - self.start.y;
 
         // swap x and y to enable tuple comparison
-        let lex_start = LexicalPosition::from(self.start);
-        let lex_end = LexicalPosition::from(self.end);
-        let lex_pos = LexicalPosition::from(pos);
-
-        if lex_pos < lex_start {
+        if pos < self.start {
             pos
-        } else if lex_pos >= lex_start && lex_pos <= lex_end {
+        } else if pos >= self.start && pos <= self.end {
             self.start
         } else {
             // after row
-            if lex_pos.y > lex_end.y {
-                (pos.0, pos.1 - delta_lines)
-            } else if lex_pos.y == lex_end.y {
-                if lex_pos.x >= lex_end.x {
-                    (pos.0 - self.end.0 + self.start.0, pos.1 - delta_lines)
+            if pos.y > self.end.y {
+                TextPosition::new(pos.x, pos.y - delta_lines)
+            } else if pos.y == self.end.y {
+                if pos.x >= self.end.x {
+                    TextPosition::new(pos.x - self.end.x + self.start.x, pos.y - delta_lines)
                 } else {
                     pos
                 }
@@ -344,27 +251,19 @@ impl TextRange {
     }
 }
 
-impl PartialEq<(usize, usize)> for TextRange {
+impl PartialEq<TextPosition> for TextRange {
     #[inline]
-    fn eq(&self, pos: &(usize, usize)) -> bool {
-        let lex_start = LexicalPosition::from(self.start);
-        let lex_end = LexicalPosition::from(self.end);
-        let lex_pos = LexicalPosition::from(*pos);
-
-        lex_pos >= lex_start && lex_pos < lex_end
+    fn eq(&self, pos: &TextPosition) -> bool {
+        *pos >= self.start && *pos < self.end
     }
 }
 
-impl PartialOrd<(usize, usize)> for TextRange {
+impl PartialOrd<TextPosition> for TextRange {
     #[inline]
-    fn partial_cmp(&self, pos: &(usize, usize)) -> Option<Ordering> {
-        let lex_start = LexicalPosition::from(self.start);
-        let lex_end = LexicalPosition::from(self.end);
-        let lex_pos = LexicalPosition::from(*pos);
-
-        if lex_pos >= lex_end {
+    fn partial_cmp(&self, pos: &TextPosition) -> Option<Ordering> {
+        if *pos >= self.end {
             Some(Ordering::Less)
-        } else if lex_pos < lex_start {
+        } else if *pos < self.start {
             Some(Ordering::Greater)
         } else {
             Some(Ordering::Equal)
@@ -372,43 +271,8 @@ impl PartialOrd<(usize, usize)> for TextRange {
     }
 }
 
-// This needs its own impl, because the order is exactly wrong.
-// For any sane range I'd need (row,col) but what I got is (col,row).
-// Need this to conform with the rest of ratatui ...
-impl PartialOrd for TextRange {
-    #[allow(clippy::comparison_chain)]
-    #[allow(clippy::non_canonical_partial_ord_impl)]
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        // reverse the args, then it works.
-        let start = LexicalPosition::from(self.start);
-        let end = LexicalPosition::from(self.end);
-        let ostart = LexicalPosition::from(other.start);
-        let oend = LexicalPosition::from(other.end);
-
-        if start < ostart {
-            Some(Ordering::Less)
-        } else if start > ostart {
-            Some(Ordering::Greater)
-        } else {
-            if end < oend {
-                Some(Ordering::Less)
-            } else if end > oend {
-                Some(Ordering::Greater)
-            } else {
-                Some(Ordering::Equal)
-            }
-        }
-    }
-}
-
-impl Ord for TextRange {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).expect("order")
-    }
-}
-
 impl<'a> StyleMapIter<'a> {
-    fn new(styles: &'a [StyledRange], first: usize, pos: (usize, usize)) -> Self {
+    fn new(styles: &'a [StyledRange], first: usize, pos: TextPosition) -> Self {
         Self {
             styles,
             filter_pos: pos,
@@ -492,7 +356,7 @@ impl StyleMap {
     /// Find styles that touch the given pos and all styles after that point.
     pub(crate) fn styles_after_mut(
         &mut self,
-        pos: (usize, usize),
+        pos: TextPosition,
     ) -> impl Iterator<Item = &mut StyledRange> {
         let first = match self
             .styles
@@ -519,7 +383,7 @@ impl StyleMap {
     }
 
     /// Find all styles that touch the given position.
-    pub(crate) fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
+    pub(crate) fn styles_at(&self, pos: TextPosition) -> impl Iterator<Item = usize> + '_ {
         let first = match self
             .styles
             .binary_search_by(|v| v.range.partial_cmp(&pos).expect("order"))
@@ -555,8 +419,8 @@ impl Default for TextAreaCore {
             tabs: 8,
             expand_tabs: true,
             move_col: None,
-            cursor: (0, 0),
-            anchor: (0, 0),
+            cursor: Default::default(),
+            anchor: Default::default(),
             buf: Default::default(),
         }
     }
@@ -800,22 +664,22 @@ impl TextAreaCore {
 
     /// Finds all styles for the given position.
     #[inline]
-    pub fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
+    pub fn styles_at(&self, pos: TextPosition) -> impl Iterator<Item = usize> + '_ {
         self.styles.styles_at(pos)
     }
 
     /// Set the cursor position.
     /// The value is capped to the number of text lines and the line-width for the given line.
     /// Returns true, if the cursor actually changed.
-    pub fn set_cursor(&mut self, mut cursor: (usize, usize), extend_selection: bool) -> bool {
+    pub fn set_cursor(&mut self, mut cursor: TextPosition, extend_selection: bool) -> bool {
         let old_cursor = self.cursor;
         let old_anchor = self.anchor;
 
-        let (mut cx, mut cy) = cursor;
-        cy = min(cy, self.len_lines() - 1);
-        cx = min(cx, self.line_width(cy).expect("valid_line"));
+        let mut c = cursor;
+        c.y = min(c.y, self.len_lines() - 1);
+        c.x = min(c.x, self.line_width(c.y).expect("valid_line"));
 
-        cursor = (cx, cy);
+        cursor = c;
 
         self.cursor = cursor;
 
@@ -828,13 +692,13 @@ impl TextAreaCore {
 
     /// Cursor position.
     #[inline]
-    pub fn cursor(&self) -> (usize, usize) {
+    pub fn cursor(&self) -> TextPosition {
         self.cursor
     }
 
     /// Selection anchor.
     #[inline]
-    pub fn anchor(&self) -> (usize, usize) {
+    pub fn anchor(&self) -> TextPosition {
         self.anchor
     }
 
@@ -855,8 +719,8 @@ impl TextAreaCore {
     #[inline]
     pub fn set_rope(&mut self, s: Rope) {
         self.value = s;
-        self.cursor = (0, 0);
-        self.anchor = (0, 0);
+        self.cursor = Default::default();
+        self.anchor = Default::default();
         self.move_col = None;
         self.styles.clear_styles();
     }
@@ -1015,10 +879,10 @@ impl TextAreaCore {
     pub fn select_all(&mut self) -> bool {
         let old_selection = self.selection();
 
-        self.set_cursor((0, 0), false);
+        self.set_cursor(TextPosition::new(0, 0), false);
         let last = self.len_lines() - 1;
         let last_width = self.line_width(last).expect("valid_last_line");
-        self.set_cursor((last_width, last), true);
+        self.set_cursor(TextPosition::new(last_width, last), true);
 
         old_selection != self.selection()
     }
@@ -1026,18 +890,18 @@ impl TextAreaCore {
     /// Returns the selection as TextRange.
     pub fn selection(&self) -> TextRange {
         #[allow(clippy::comparison_chain)]
-        if self.cursor.1 < self.anchor.1 {
+        if self.cursor.y < self.anchor.y {
             TextRange {
                 start: self.cursor,
                 end: self.anchor,
             }
-        } else if self.cursor.1 > self.anchor.1 {
+        } else if self.cursor.y > self.anchor.y {
             TextRange {
                 start: self.anchor,
                 end: self.cursor,
             }
         } else {
-            if self.cursor.0 < self.anchor.0 {
+            if self.cursor.x < self.anchor.x {
                 TextRange {
                     start: self.cursor,
                     end: self.anchor,
@@ -1062,7 +926,7 @@ impl TextAreaCore {
     }
 
     /// Char position to grapheme position.
-    pub fn char_pos(&self, char_pos: usize) -> Option<(usize, usize)> {
+    pub fn char_pos(&self, char_pos: usize) -> Option<TextPosition> {
         let Ok(byte_pos) = self.value.try_char_to_byte(char_pos) else {
             return None;
         };
@@ -1076,7 +940,7 @@ impl TextAreaCore {
     fn line_grapheme_idx(
         &self,
         n: usize,
-    ) -> Option<impl Iterator<Item = ((usize, usize), RopeSlice<'_>)>> {
+    ) -> Option<impl Iterator<Item = (Range<usize>, RopeSlice<'_>)>> {
         let mut lines = self.value.get_lines_at(n)?;
         let line = lines.next();
         if let Some(line) = line {
@@ -1088,7 +952,7 @@ impl TextAreaCore {
 
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
-    pub fn byte_pos(&self, byte: usize) -> Option<(usize, usize)> {
+    pub fn byte_pos(&self, byte: usize) -> Option<TextPosition> {
         let Ok(y) = self.value.try_byte_to_line(byte) else {
             return None;
         };
@@ -1097,7 +961,7 @@ impl TextAreaCore {
 
         let mut it_line = self.line_grapheme_idx(y).expect("valid_y");
         loop {
-            let Some(((sb, _eb), _cc)) = it_line.next() else {
+            let Some((Range { start: sb, .. }, _cc)) = it_line.next() else {
                 break;
             };
             if byte_y + sb >= byte {
@@ -1106,35 +970,35 @@ impl TextAreaCore {
             x += 1;
         }
 
-        Some((x, y))
+        Some(TextPosition::new(x, y))
     }
 
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
-    pub fn byte_at(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
-        let Ok(line_byte) = self.value.try_line_to_byte(pos.1) else {
+    pub fn byte_at(&self, pos: TextPosition) -> Option<Range<usize>> {
+        let Ok(line_byte) = self.value.try_line_to_byte(pos.y) else {
             return None;
         };
 
         let len_bytes = self.value.len_bytes();
-        let mut it_line = self.line_grapheme_idx(pos.1).expect("valid_line");
+        let mut it_line = self.line_grapheme_idx(pos.y).expect("valid_line");
         let mut x = -1isize;
         let mut last_eb = 0;
         loop {
-            let (sb, eb, last) = if let Some((v, _)) = it_line.next() {
+            let (range, last) = if let Some((range, _)) = it_line.next() {
                 x += 1;
-                last_eb = v.1;
-                (v.0, v.1, false)
+                last_eb = range.end;
+                (range, false)
             } else {
-                (last_eb, last_eb, true)
+                (last_eb..last_eb, true)
             };
 
-            if pos.0 == x as usize {
-                return Some((line_byte + sb, line_byte + eb));
+            if pos.x == x as usize {
+                return Some(line_byte + range.start..line_byte + range.end);
             }
             // one past the end is ok.
-            if pos.0 == (x + 1) as usize && line_byte + eb == len_bytes {
-                return Some((line_byte + eb, line_byte + eb));
+            if pos.x == (x + 1) as usize && line_byte + range.end == len_bytes {
+                return Some(line_byte + range.end..line_byte + range.end);
             }
             if last {
                 return None;
@@ -1143,22 +1007,22 @@ impl TextAreaCore {
     }
 
     /// Returns the first char position for the grapheme position.
-    pub fn char_at(&self, pos: (usize, usize)) -> Option<usize> {
-        let (byte_pos, _) = self.byte_at(pos)?;
+    pub fn char_at(&self, pos: TextPosition) -> Option<usize> {
+        let byte_range = self.byte_at(pos)?;
         Some(
             self.value
-                .try_byte_to_char(byte_pos)
+                .try_byte_to_char(byte_range.start)
                 .expect("valid_byte_pos"),
         )
     }
 
     /// Insert a character.
-    pub fn insert_tab(&mut self, mut pos: (usize, usize)) {
+    pub fn insert_tab(&mut self, mut pos: TextPosition) {
         if self.expand_tabs {
-            let n = self.tabs as usize - pos.0 % self.tabs as usize;
+            let n = self.tabs as usize - pos.x % self.tabs as usize;
             for _ in 0..n {
                 self.insert_char(pos, ' ');
-                pos.0 += 1;
+                pos.x += 1;
             }
         } else {
             self.insert_char(pos, '\t');
@@ -1166,15 +1030,15 @@ impl TextAreaCore {
     }
 
     /// Insert a line break.
-    pub fn insert_newline(&mut self, mut pos: (usize, usize)) {
+    pub fn insert_newline(&mut self, mut pos: TextPosition) {
         for c in self.newline.clone().chars() {
             self.insert_char(pos, c);
-            pos.0 += 1;
+            pos.x += 1;
         }
     }
 
     /// Insert a character.
-    pub fn insert_char(&mut self, pos: (usize, usize), c: char) {
+    pub fn insert_char(&mut self, pos: TextPosition, c: char) {
         let Some(char_pos) = self.char_at(pos) else {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
         };
@@ -1190,15 +1054,15 @@ impl TextAreaCore {
         let insert = if line_count > 0 {
             self.value.insert_char(char_pos, c);
 
-            TextRange::new(pos, (0, pos.1 + line_count))
+            TextRange::new(pos, (0, pos.y + line_count))
         } else {
             // no way to know if the new char combines with a surrounding char.
             // the difference of the graphem len seems safe though.
-            let old_len = self.line_width(pos.1).expect("valid_pos");
+            let old_len = self.line_width(pos.y).expect("valid_pos");
             self.value.insert_char(char_pos, c);
-            let new_len = self.line_width(pos.1).expect("valid_pos");
+            let new_len = self.line_width(pos.y).expect("valid_pos");
 
-            TextRange::new(pos, (pos.0 + new_len - old_len, pos.1))
+            TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
         };
 
         insert.expand_all(self.styles.styles_after_mut(pos));
@@ -1219,7 +1083,7 @@ impl TextAreaCore {
     }
 
     /// Insert some text.
-    pub fn insert_str(&mut self, pos: (usize, usize), t: &str) {
+    pub fn insert_str(&mut self, pos: TextPosition, t: &str) {
         let Some(char_pos) = self.char_at(pos) else {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
         };
@@ -1243,7 +1107,7 @@ impl TextAreaCore {
 
             // Find the length of line after the insert position.
             let split = self.char_at(pos).expect("valid_pos");
-            let line = self.line_chars(pos.1).expect("valid_pos");
+            let line = self.line_chars(pos.y).expect("valid_pos");
             buf.clear();
             for c in line.skip(split) {
                 buf.push(c);
@@ -1253,7 +1117,7 @@ impl TextAreaCore {
             // compose the new line and find its length.
             buf.clear();
             buf.push_str(&t[linebreak_idx..]);
-            let line = self.line_chars(pos.1).expect("valid_pos");
+            let line = self.line_chars(pos.y).expect("valid_pos");
             for c in line.skip(split) {
                 buf.push(c);
             }
@@ -1264,15 +1128,15 @@ impl TextAreaCore {
 
             self.value.insert(char_pos, t);
 
-            TextRange::new(pos, (new_len - old_len, pos.1 + line_count))
+            TextRange::new(pos, (new_len - old_len, pos.y + line_count))
         } else {
             // no way to know if the insert text combines with a surrounding char.
             // the difference of the graphem len seems safe though.
-            let old_len = self.line_width(pos.1).expect("valid_pos");
+            let old_len = self.line_width(pos.y).expect("valid_pos");
             self.value.insert(char_pos, t);
-            let new_len = self.line_width(pos.1).expect("valid_pos");
+            let new_len = self.line_width(pos.y).expect("valid_pos");
 
-            TextRange::new(pos, (pos.0 + new_len - old_len, pos.1))
+            TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
         };
 
         insert.expand_all(self.styles.styles_after_mut(pos));
@@ -1293,34 +1157,34 @@ impl TextAreaCore {
     }
 
     /// Remove the previous character
-    pub fn remove_prev_char(&mut self, pos: (usize, usize)) -> bool {
-        let (sx, sy) = if pos.1 == 0 && pos.0 == 0 {
+    pub fn remove_prev_char(&mut self, pos: TextPosition) -> bool {
+        let (sx, sy) = if pos.y == 0 && pos.x == 0 {
             (0, 0)
-        } else if pos.1 != 0 && pos.0 == 0 {
-            let prev_line_width = self.line_width(pos.1 - 1).expect("line_width");
-            (prev_line_width, pos.1 - 1)
+        } else if pos.y != 0 && pos.x == 0 {
+            let prev_line_width = self.line_width(pos.y - 1).expect("line_width");
+            (prev_line_width, pos.y - 1)
         } else {
-            (pos.0 - 1, pos.1)
+            (pos.x - 1, pos.y)
         };
 
-        let range = TextRange::new((sx, sy), (pos.0, pos.1));
+        let range = TextRange::new((sx, sy), (pos.x, pos.y));
 
         self._remove_range(range, true)
     }
 
     /// Remove the next character
-    pub fn remove_next_char(&mut self, pos: (usize, usize)) -> bool {
-        let c_line_width = self.line_width(pos.1).expect("width");
+    pub fn remove_next_char(&mut self, pos: TextPosition) -> bool {
+        let c_line_width = self.line_width(pos.y).expect("width");
         let c_last_line = self.len_lines() - 1;
 
-        let (ex, ey) = if pos.1 == c_last_line && pos.0 == c_line_width {
-            (pos.0, pos.1)
-        } else if pos.1 != c_last_line && pos.0 == c_line_width {
-            (0, pos.1 + 1)
+        let (ex, ey) = if pos.y == c_last_line && pos.x == c_line_width {
+            (pos.x, pos.y)
+        } else if pos.y != c_last_line && pos.x == c_line_width {
+            (0, pos.y + 1)
         } else {
-            (pos.0 + 1, pos.1)
+            (pos.x + 1, pos.y)
         };
-        let range = TextRange::new((pos.0, pos.1), (ex, ey));
+        let range = TextRange::new((pos.x, pos.y), (ex, ey));
 
         self._remove_range(range, true)
     }

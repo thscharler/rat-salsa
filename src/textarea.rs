@@ -5,7 +5,7 @@ use crate::_private::NonExhaustive;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::fill::Fill;
 use crate::text::graphemes::RopeGlyphIter;
-use crate::text::textarea_core::{TextAreaCore, TextRange};
+use crate::text::textarea_core::{TextAreaCore, TextPosition, TextRange};
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
@@ -22,7 +22,7 @@ use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetR
 use ropey::{Rope, RopeSlice};
 use std::cmp::{max, min};
 use std::fmt::Debug;
-use std::ops::RangeBounds;
+use std::ops::{Range, RangeBounds};
 
 /// Text area widget.
 ///
@@ -295,7 +295,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                 if d.len > 0 {
                     let mut style = style;
                     // text-styles
-                    for idx in state.styles_at((tx, ty)) {
+                    for idx in state.styles_at(TextPosition::new(tx, ty)) {
                         let Some(s) = widget.text_style.get(idx) else {
                             panic!("invalid style nr: {}", idx);
                         };
@@ -395,7 +395,7 @@ impl TextAreaState {
 
     /// Cursor position.
     #[inline]
-    pub fn cursor(&self) -> (usize, usize) {
+    pub fn cursor(&self) -> TextPosition {
         self.value.cursor()
     }
 
@@ -403,13 +403,13 @@ impl TextAreaState {
     /// This doesn't scroll the cursor to a visible position.
     /// Use [TextAreaState::scroll_cursor_to_visible()] for that.
     #[inline]
-    pub fn set_cursor(&mut self, cursor: (usize, usize), extend_selection: bool) -> bool {
+    pub fn set_cursor(&mut self, cursor: TextPosition, extend_selection: bool) -> bool {
         self.value.set_cursor(cursor, extend_selection)
     }
 
     /// Selection anchor.
     #[inline]
-    pub fn anchor(&self) -> (usize, usize) {
+    pub fn anchor(&self) -> TextPosition {
         self.value.anchor()
     }
 
@@ -629,14 +629,14 @@ impl TextAreaState {
 
     /// All styles active at the given position.
     #[inline]
-    pub fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
+    pub fn styles_at(&self, pos: TextPosition) -> impl Iterator<Item = usize> + '_ {
         self.value.styles_at(pos)
     }
 
     /// Convert a byte position to a text area position.
     /// Uses grapheme based column indexes.
     #[inline]
-    pub fn byte_pos(&self, byte: usize) -> Option<(usize, usize)> {
+    pub fn byte_pos(&self, byte: usize) -> Option<TextPosition> {
         self.value.byte_pos(byte)
     }
 
@@ -644,21 +644,21 @@ impl TextAreaState {
     /// Uses grapheme based column indexes.
     /// Returns (byte-start, byte-end) of the grapheme at the given position.
     #[inline]
-    pub fn byte_at(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+    pub fn byte_at(&self, pos: TextPosition) -> Option<Range<usize>> {
         self.value.byte_at(pos)
     }
 
     /// Convert a char position to a text area position.
     /// Uses grapheme based column indexes.
     #[inline]
-    pub fn char_pos(&self, byte: usize) -> Option<(usize, usize)> {
+    pub fn char_pos(&self, byte: usize) -> Option<TextPosition> {
         self.value.char_pos(byte)
     }
 
     /// Convert a text area position to a char position.
     /// Uses grapheme based column indexes.
     #[inline]
-    pub fn char_at(&self, pos: (usize, usize)) -> Option<usize> {
+    pub fn char_at(&self, pos: TextPosition) -> Option<usize> {
         self.value.char_at(pos)
     }
 
@@ -747,7 +747,7 @@ impl TextAreaState {
     }
 
     /// Find the start of the next word. Word is everything that is not whitespace.
-    pub fn next_word_start(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+    pub fn next_word_start(&self, pos: TextPosition) -> Option<TextPosition> {
         let mut char_pos = self.char_at(pos)?;
 
         let chars_after = self.value.char_slice(char_pos..);
@@ -767,7 +767,7 @@ impl TextAreaState {
 
     /// Find the end of the next word. Skips whitespace first, then goes on
     /// until it finds the next whitespace.
-    pub fn next_word_end(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+    pub fn next_word_end(&self, pos: TextPosition) -> Option<TextPosition> {
         let mut char_pos = self.char_at(pos)?;
 
         let chars_after = self.value.char_slice(char_pos..);
@@ -797,7 +797,7 @@ impl TextAreaState {
     /// Find prev word. Skips whitespace first.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
-    pub fn prev_word_start(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+    pub fn prev_word_start(&self, pos: TextPosition) -> Option<TextPosition> {
         let mut char_pos = self.char_at(pos)?;
 
         let chars_before = self.value.char_slice(..char_pos);
@@ -827,7 +827,7 @@ impl TextAreaState {
     /// Find the end of the previous word. Word is everything that is not whitespace.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
-    pub fn prev_word_end(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+    pub fn prev_word_end(&self, pos: TextPosition) -> Option<TextPosition> {
         let mut char_pos = self.char_at(pos)?;
 
         let chars_before = self.value.char_slice(..char_pos);
@@ -846,7 +846,7 @@ impl TextAreaState {
     }
 
     /// Is the position at a word boundary?
-    pub fn is_word_boundary(&self, pos: (usize, usize)) -> bool {
+    pub fn is_word_boundary(&self, pos: TextPosition) -> bool {
         let char_pos = self.char_at(pos).expect("valid_selection");
         let mut it = self.char_slice(..).chars_at(char_pos);
         if let Some(c0) = it.prev() {
@@ -863,7 +863,7 @@ impl TextAreaState {
     }
 
     /// Find the start of the word at pos.
-    pub fn word_start(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+    pub fn word_start(&self, pos: TextPosition) -> Option<TextPosition> {
         let mut char_pos = self.char_at(pos)?;
 
         let chars_before = self.value.char_slice(..char_pos);
@@ -882,7 +882,7 @@ impl TextAreaState {
     }
 
     /// Find the end of the word at pos.
-    pub fn word_end(&self, pos: (usize, usize)) -> Option<(usize, usize)> {
+    pub fn word_end(&self, pos: TextPosition) -> Option<TextPosition> {
         let mut char_pos = self.char_at(pos)?;
 
         let chars_after = self.value.char_slice(char_pos..);
@@ -906,14 +906,14 @@ impl TextAreaState {
         if self.value.has_selection() {
             self.delete_range(self.value.selection())
         } else {
-            let (cx, cy) = self.value.cursor();
-            let (sx, sy) = self.next_word_start((cx, cy)).expect("valid_cursor");
+            let cursor = self.value.cursor();
+            let start = self.next_word_start(cursor).expect("valid_cursor");
 
-            let range = if (cx, cy) == (sx, sy) {
-                let (ex, ey) = self.next_word_end((cx, cy)).expect("valid_cursor");
-                TextRange::new((cx, cy), (ex, ey))
+            let range = if cursor == start {
+                let end = self.next_word_end(cursor).expect("valid_cursor");
+                TextRange::new(cursor, end)
             } else {
-                TextRange::new((cx, cy), (sx, sy))
+                TextRange::new(cursor, start)
             };
 
             self.delete_range(range)
@@ -926,14 +926,14 @@ impl TextAreaState {
         if self.value.has_selection() {
             self.delete_range(self.value.selection())
         } else {
-            let (cx, cy) = self.value.cursor();
-            let (ex, ey) = self.prev_word_end((cx, cy)).expect("valid_cursor");
+            let cursor = self.value.cursor();
+            let end = self.prev_word_end(cursor).expect("valid_cursor");
 
-            let range = if (cx, cy) == (ex, ey) {
-                let (sx, sy) = self.prev_word_start((cx, cy)).expect("valid_cursor");
-                TextRange::new((sx, sy), (cx, cy))
+            let range = if cursor == end {
+                let start = self.prev_word_start(cursor).expect("valid_cursor");
+                TextRange::new(start, cursor)
             } else {
-                TextRange::new((ex, ey), (cx, cy))
+                TextRange::new(end, cursor)
             };
 
             self.delete_range(range)
@@ -943,22 +943,26 @@ impl TextAreaState {
     /// Move the cursor left. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_left(&mut self, n: usize, extend_selection: bool) -> bool {
-        let (mut cx, mut cy) = self.value.cursor();
+        let mut cursor = self.value.cursor();
 
-        if cx == 0 {
-            if cy > 0 {
-                cy = cy.saturating_sub(1);
-                let Some(c_line_width) = self.value.line_width(cy) else {
-                    panic!("invalid_cursor: {:?} value {:?}", (cx, cy), self.value);
+        if cursor.x == 0 {
+            if cursor.y > 0 {
+                cursor.y = cursor.y.saturating_sub(1);
+                let Some(c_line_width) = self.value.line_width(cursor.y) else {
+                    panic!(
+                        "invalid_cursor: {:?} value {:?}",
+                        (cursor.x, cursor.y),
+                        self.value
+                    );
                 };
-                cx = c_line_width;
+                cursor.x = c_line_width;
             }
         } else {
-            cx = cx.saturating_sub(n);
+            cursor.x = cursor.x.saturating_sub(n);
         }
 
-        self.value.set_move_col(Some(cx));
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        self.value.set_move_col(Some(cursor.x));
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -966,22 +970,26 @@ impl TextAreaState {
     /// Move the cursor right. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_right(&mut self, n: usize, extend_selection: bool) -> bool {
-        let (mut cx, mut cy) = self.value.cursor();
-        let Some(c_line_width) = self.value.line_width(cy) else {
-            panic!("invalid_cursor: {:?} value {:?}", (cx, cy), self.value);
+        let mut cursor = self.value.cursor();
+        let Some(c_line_width) = self.value.line_width(cursor.y) else {
+            panic!(
+                "invalid_cursor: {:?} value {:?}",
+                (cursor.x, cursor.y),
+                self.value
+            );
         };
 
-        if cx == c_line_width {
-            if cy + 1 < self.value.len_lines() {
-                cy += 1;
-                cx = 0;
+        if cursor.x == c_line_width {
+            if cursor.y + 1 < self.value.len_lines() {
+                cursor.y += 1;
+                cursor.x = 0;
             }
         } else {
-            cx = min(cx + n, c_line_width)
+            cursor.x = min(cursor.x + n, c_line_width)
         }
 
-        self.value.set_move_col(Some(cx));
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        self.value.set_move_col(Some(cursor.x));
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -989,19 +997,23 @@ impl TextAreaState {
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_up(&mut self, n: usize, extend_selection: bool) -> bool {
-        let (mut cx, mut cy) = self.value.cursor();
-        let Some(c_line_width) = self.value.line_width(cy) else {
-            panic!("invalid_cursor: {:?} value {:?}", (cx, cy), self.value);
+        let mut cursor = self.value.cursor();
+        let Some(c_line_width) = self.value.line_width(cursor.y) else {
+            panic!(
+                "invalid_cursor: {:?} value {:?}",
+                (cursor.x, cursor.y),
+                self.value
+            );
         };
 
-        cy = cy.saturating_sub(n);
+        cursor.y = cursor.y.saturating_sub(n);
         if let Some(xx) = self.value.move_col() {
-            cx = min(xx, c_line_width);
+            cursor.x = min(xx, c_line_width);
         } else {
-            cx = min(cx, c_line_width);
+            cursor.x = min(cursor.x, c_line_width);
         }
 
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1009,19 +1021,23 @@ impl TextAreaState {
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_down(&mut self, n: usize, extend_selection: bool) -> bool {
-        let (mut cx, mut cy) = self.value.cursor();
-        let Some(c_line_width) = self.value.line_width(cy) else {
-            panic!("invalid_cursor: {:?} value {:?}", (cx, cy), self.value);
+        let mut cursor = self.value.cursor();
+        let Some(c_line_width) = self.value.line_width(cursor.y) else {
+            panic!(
+                "invalid_cursor: {:?} value {:?}",
+                (cursor.x, cursor.y),
+                self.value
+            );
         };
 
-        cy = min(cy + n, self.value.len_lines() - 1);
+        cursor.y = min(cursor.y + n, self.value.len_lines() - 1);
         if let Some(xx) = self.value.move_col() {
-            cx = min(xx, c_line_width);
+            cursor.x = min(xx, c_line_width);
         } else {
-            cx = min(cx, c_line_width);
+            cursor.x = min(cursor.x, c_line_width);
         }
 
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1030,17 +1046,21 @@ impl TextAreaState {
     /// Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let (mut cx, cy) = self.value.cursor();
+        let mut cursor = self.value.cursor();
 
-        cx = 'f: {
-            if cx > 0 {
-                let Some(line) = self.value.line_graphemes(cy) else {
-                    panic!("invalid_cursor: {:?} value {:?}", (cx, cy), self.value);
+        cursor.x = 'f: {
+            if cursor.x > 0 {
+                let Some(line) = self.value.line_graphemes(cursor.y) else {
+                    panic!(
+                        "invalid_cursor: {:?} value {:?}",
+                        (cursor.x, cursor.y),
+                        self.value
+                    );
                 };
-                for (c, ch) in line.enumerate() {
+                for (idx, ch) in line.enumerate() {
                     if ch.as_str() != Some(" ") {
-                        if cx != c {
-                            break 'f c;
+                        if cursor.x != idx {
+                            break 'f idx;
                         } else {
                             break 'f 0;
                         }
@@ -1050,8 +1070,8 @@ impl TextAreaState {
             0
         };
 
-        self.value.set_move_col(Some(cx));
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        self.value.set_move_col(Some(cursor.x));
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1060,25 +1080,28 @@ impl TextAreaState {
     /// necessary.
     /// Returns true if there was any real change.
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
-        let (cx, cy) = self.value.cursor();
-        let Some(c_line_width) = self.value.line_width(cy) else {
-            panic!("invalid_cursor: {:?} value {:?}", (cx, cy), self.value);
+        let mut cursor = self.value.cursor();
+        let Some(c_line_width) = self.value.line_width(cursor.y) else {
+            panic!(
+                "invalid_cursor: {:?} value {:?}",
+                (cursor.x, cursor.y),
+                self.value
+            );
         };
 
-        let cx = c_line_width;
+        cursor.x = c_line_width;
 
-        self.value.set_move_col(Some(cx));
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        self.value.set_move_col(Some(cursor.x));
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
 
     /// Move the cursor to the document start.
     pub fn move_to_start(&mut self, extend_selection: bool) -> bool {
-        let cx = 0;
-        let cy = 0;
+        let cursor = TextPosition::new(0, 0);
 
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1087,10 +1110,9 @@ impl TextAreaState {
     pub fn move_to_end(&mut self, extend_selection: bool) -> bool {
         let len = self.value.len_lines();
 
-        let cx = 0;
-        let cy = len - 1;
+        let cursor = TextPosition::new(0, len - 1);
 
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1099,10 +1121,9 @@ impl TextAreaState {
     pub fn move_to_screen_start(&mut self, extend_selection: bool) -> bool {
         let (ox, oy) = self.offset();
 
-        let cx = ox;
-        let cy = oy;
+        let cursor = TextPosition::new(ox, oy);
 
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1112,32 +1133,31 @@ impl TextAreaState {
         let (ox, oy) = self.offset();
         let len = self.value.len_lines();
 
-        let cx = ox;
-        let cy = min(oy + self.vertical_page() - 1, len - 1);
+        let cursor = TextPosition::new(ox, min(oy + self.vertical_page() - 1, len - 1));
 
-        let c = self.value.set_cursor((cx, cy), extend_selection);
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
 
     /// Move the cursor to the next word.
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
-        let (cx, cy) = self.value.cursor();
+        let cursor = self.value.cursor();
 
-        let (px, py) = self.next_word_end((cx, cy)).expect("valid_cursor");
+        let word = self.next_word_end(cursor).expect("valid_cursor");
 
-        let c = self.value.set_cursor((px, py), extend_selection);
+        let c = self.value.set_cursor(word, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
 
     /// Move the cursor to the previous word.
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
-        let (cx, cy) = self.value.cursor();
+        let cursor = self.value.cursor();
 
-        let (px, py) = self.prev_word_start((cx, cy)).expect("valid_cursor");
+        let word = self.prev_word_start(cursor).expect("valid_cursor");
 
-        let c = self.value.set_cursor((px, py), extend_selection);
+        let c = self.value.set_cursor(word, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1196,14 +1216,13 @@ impl TextAreaState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
-    pub fn to_screen_col(&self, pos: (usize, usize)) -> Option<u16> {
-        let (px, py) = pos;
-        let (ox, _oy) = self.offset();
+    pub fn to_screen_col(&self, pos: TextPosition) -> Option<u16> {
+        let (ox, _) = self.offset();
 
-        let mut line = self.line_glyphs(py)?;
+        let mut line = self.line_glyphs(pos.y)?;
         line.set_offset(ox);
 
-        let sx = line.take(px - ox).map(|v| v.len).sum::<usize>();
+        let sx = line.take(pos.x - ox).map(|v| v.len).sum::<usize>();
 
         Some(sx as u16)
     }
@@ -1211,21 +1230,21 @@ impl TextAreaState {
     /// Cursor position on the screen.
     pub fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
-            let (cx, cy) = self.value.cursor();
+            let cursor = self.value.cursor();
             let (ox, oy) = self.offset();
 
-            if cy < oy {
+            if cursor.y < oy {
                 None
-            } else if cy >= oy + self.inner.height as usize {
+            } else if cursor.y >= oy + self.inner.height as usize {
                 None
             } else {
-                let sy = cy - oy;
-                if cx < ox {
+                let sy = cursor.y - oy;
+                if cursor.x < ox {
                     None
-                } else if cx > ox + self.inner.width as usize {
+                } else if cursor.x > ox + self.inner.width as usize {
                     None
                 } else {
-                    let sx = self.to_screen_col((cx, cy)).expect("valid_cursor");
+                    let sx = self.to_screen_col(cursor).expect("valid_cursor");
 
                     Some((self.inner.x + sx, self.inner.y + sy as u16))
                 }
@@ -1246,7 +1265,7 @@ impl TextAreaState {
         let cy = self.from_screen_row(scy);
         let cx = self.from_screen_col(cy, scx);
 
-        let c = self.set_cursor((cx, cy), extend_selection);
+        let c = self.set_cursor(TextPosition::new(cx, cy), extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1259,41 +1278,40 @@ impl TextAreaState {
     /// to a position that is currently scrolled away.
     pub fn set_screen_cursor_words(&mut self, cursor: (i16, i16), extend_selection: bool) -> bool {
         let (scx, scy) = (cursor.0, cursor.1);
-        let (ax, ay) = self.anchor();
+        let anchor = self.anchor();
 
         let cy = self.from_screen_row(scy);
         let cx = self.from_screen_col(cy, scx);
+        let cursor = TextPosition::new(cx, cy);
 
-        debug!("  word {} {}", cx, cy);
-
-        let (cx, cy) = if (cy, cx) < (ay, ax) {
-            if let Some((wx, wy)) = self.word_start((cx, cy)) {
-                (wx, wy)
+        let cursor = if cursor < anchor {
+            if let Some(word) = self.word_start(cursor) {
+                word
             } else {
-                (cx, cy)
+                cursor
             }
         } else {
-            if let Some((wx, wy)) = self.word_end((cx, cy)) {
-                (wx, wy)
+            if let Some(word) = self.word_end(cursor) {
+                word
             } else {
-                (cy, cy)
+                cursor
             }
         };
 
         // extend anchor
-        if !self.is_word_boundary((ax, ay)) {
-            if (cy, cx) < (ay, ax) {
-                if let Some((ax, ay)) = self.word_end((ax, ay)) {
-                    self.set_cursor((ax, ay), false);
+        if !self.is_word_boundary(anchor) {
+            if cursor < anchor {
+                if let Some(anchor) = self.word_end(anchor) {
+                    self.set_cursor(anchor, false);
                 }
             } else {
-                if let Some((ax, ay)) = self.word_start((ax, ay)) {
-                    self.set_cursor((ax, ay), false);
+                if let Some(anchor) = self.word_start(anchor) {
+                    self.set_cursor(anchor, false);
                 }
             }
         }
 
-        let c = self.set_cursor((cx, cy), extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1404,21 +1422,21 @@ impl TextAreaState {
     pub fn scroll_cursor_to_visible(&mut self) -> bool {
         let old_offset = self.offset();
 
-        let (cx, cy) = self.value.cursor();
+        let cursor = self.value.cursor();
         let (ox, oy) = self.offset();
 
-        let noy = if cy < oy {
-            cy
-        } else if cy >= oy + self.inner.height as usize {
-            cy.saturating_sub(self.inner.height as usize - 1)
+        let noy = if cursor.y < oy {
+            cursor.y
+        } else if cursor.y >= oy + self.inner.height as usize {
+            cursor.y.saturating_sub(self.inner.height as usize - 1)
         } else {
             oy
         };
 
-        let nox = if cx < ox {
-            cx
-        } else if cx >= ox + self.inner.width as usize {
-            cx.saturating_sub(self.inner.width as usize)
+        let nox = if cursor.x < ox {
+            cursor.x
+        } else if cursor.x >= ox + self.inner.width as usize {
+            cursor.x.saturating_sub(self.inner.width as usize)
         } else {
             ox
         };
@@ -1610,8 +1628,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
                 let ty = self.from_screen_row(m.row as i16 - self.inner.y as i16);
                 let tx = self.from_screen_col(ty, m.column as i16 - self.inner.x as i16);
-                if let Some(b0) = self.word_start((tx, ty)) {
-                    if let Some(b1) = self.word_end((tx, ty)) {
+                let test = TextPosition::new(tx, ty);
+                if let Some(b0) = self.word_start(test) {
+                    if let Some(b1) = self.word_end(test) {
                         self.set_selection(TextRange::new(b0, b1)).into()
                     } else {
                         TextOutcome::Unchanged

@@ -1,8 +1,9 @@
 use crate::text::graphemes::{char_len, str_line_len};
-use crate::text::textarea_core::TextRange;
+use crate::text::textarea_core::{TextPosition, TextRange};
 use log::debug;
 use std::fmt::Debug;
 use std::mem;
+use std::ops::Range;
 
 /// Undo buffer.
 pub trait UndoBuffer: Debug {
@@ -10,10 +11,10 @@ pub trait UndoBuffer: Debug {
     fn insert_char(
         &mut self,
         char_pos: usize,
-        before_cursor: (usize, usize),
-        before_anchor: (usize, usize),
-        after_cursor: (usize, usize),
-        after_anchor: (usize, usize),
+        before_cursor: TextPosition,
+        before_anchor: TextPosition,
+        after_cursor: TextPosition,
+        after_anchor: TextPosition,
         range: TextRange,
         c: char,
     );
@@ -22,10 +23,10 @@ pub trait UndoBuffer: Debug {
     fn insert_str(
         &mut self,
         chars: (usize, usize),
-        cursor: (usize, usize),
-        anchor: (usize, usize),
-        after_cursor: (usize, usize),
-        after_anchor: (usize, usize),
+        cursor: TextPosition,
+        anchor: TextPosition,
+        after_cursor: TextPosition,
+        after_anchor: TextPosition,
         range: TextRange,
         txt: String,
     );
@@ -34,10 +35,10 @@ pub trait UndoBuffer: Debug {
     fn remove_char(
         &mut self,
         chars: (usize, usize),
-        cursor: (usize, usize),
-        anchor: (usize, usize),
-        after_cursor: (usize, usize),
-        after_anchor: (usize, usize),
+        cursor: TextPosition,
+        anchor: TextPosition,
+        after_cursor: TextPosition,
+        after_anchor: TextPosition,
         range: TextRange,
         txt: String,
     );
@@ -46,10 +47,10 @@ pub trait UndoBuffer: Debug {
     fn remove_str(
         &mut self,
         chars: (usize, usize),
-        cursor: (usize, usize),
-        anchor: (usize, usize),
-        after_cursor: (usize, usize),
-        after_anchor: (usize, usize),
+        cursor: TextPosition,
+        anchor: TextPosition,
+        after_cursor: TextPosition,
+        after_anchor: TextPosition,
         range: TextRange,
         txt: String,
     );
@@ -69,37 +70,37 @@ pub trait UndoBuffer: Debug {
 pub enum UndoEntry {
     InsertChar {
         chars: (usize, usize),
-        cursor: (usize, usize),
-        anchor: (usize, usize),
-        redo_cursor: (usize, usize),
-        redo_anchor: (usize, usize),
+        cursor: TextPosition,
+        anchor: TextPosition,
+        redo_cursor: TextPosition,
+        redo_anchor: TextPosition,
         range: TextRange,
         txt: String,
     },
     InsertStr {
         chars: (usize, usize),
-        cursor: (usize, usize),
-        anchor: (usize, usize),
-        redo_cursor: (usize, usize),
-        redo_anchor: (usize, usize),
+        cursor: TextPosition,
+        anchor: TextPosition,
+        redo_cursor: TextPosition,
+        redo_anchor: TextPosition,
         range: TextRange,
         txt: String,
     },
     RemoveChar {
         chars: (usize, usize),
-        cursor: (usize, usize),
-        anchor: (usize, usize),
-        redo_cursor: (usize, usize),
-        redo_anchor: (usize, usize),
+        cursor: TextPosition,
+        anchor: TextPosition,
+        redo_cursor: TextPosition,
+        redo_anchor: TextPosition,
         range: TextRange,
         txt: String,
     },
     RemoveStr {
         chars: (usize, usize),
-        cursor: (usize, usize),
-        anchor: (usize, usize),
-        redo_cursor: (usize, usize),
-        redo_anchor: (usize, usize),
+        cursor: TextPosition,
+        anchor: TextPosition,
+        redo_cursor: TextPosition,
+        redo_anchor: TextPosition,
         range: TextRange,
         txt: String,
     },
@@ -256,10 +257,10 @@ impl UndoBuffer for UndoVec {
     fn insert_char(
         &mut self,
         char_pos: usize,
-        before_cursor: (usize, usize),
-        before_anchor: (usize, usize),
-        after_cursor: (usize, usize),
-        after_anchor: (usize, usize),
+        before_cursor: TextPosition,
+        before_anchor: TextPosition,
+        after_cursor: TextPosition,
+        after_anchor: TextPosition,
         range: TextRange,
         c: char,
     ) {
@@ -277,10 +278,10 @@ impl UndoBuffer for UndoVec {
     fn insert_str(
         &mut self,
         chars: (usize, usize),
-        before_cursor: (usize, usize),
-        before_anchor: (usize, usize),
-        after_cursor: (usize, usize),
-        after_anchor: (usize, usize),
+        before_cursor: TextPosition,
+        before_anchor: TextPosition,
+        after_cursor: TextPosition,
+        after_anchor: TextPosition,
         range: TextRange,
         txt: String,
     ) {
@@ -298,10 +299,10 @@ impl UndoBuffer for UndoVec {
     fn remove_char(
         &mut self,
         chars: (usize, usize),
-        before_cursor: (usize, usize),
-        before_anchor: (usize, usize),
-        after_cursor: (usize, usize),
-        after_anchor: (usize, usize),
+        before_cursor: TextPosition,
+        before_anchor: TextPosition,
+        after_cursor: TextPosition,
+        after_anchor: TextPosition,
         range: TextRange,
         txt: String,
     ) {
@@ -319,10 +320,10 @@ impl UndoBuffer for UndoVec {
     fn remove_str(
         &mut self,
         chars: (usize, usize),
-        before_cursor: (usize, usize),
-        before_anchor: (usize, usize),
-        after_cursor: (usize, usize),
-        after_anchor: (usize, usize),
+        before_cursor: TextPosition,
+        before_anchor: TextPosition,
+        after_cursor: TextPosition,
+        after_anchor: TextPosition,
         range: TextRange,
         txt: String,
     ) {
