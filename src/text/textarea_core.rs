@@ -67,26 +67,40 @@ impl From<(usize, usize)> for LexicalPosition {
     }
 }
 
+#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct StyledRange {
+    pub range: TextRange,
+    pub style: usize,
+}
+
 #[derive(Debug, Default, Clone)]
 struct StyleMap {
     /// Vec of (range, style-idx)
-    styles: Vec<(TextRange, usize)>,
+    styles: Vec<StyledRange>,
 }
 
 #[derive(Debug, Clone)]
 struct StyleMapIter<'a> {
-    styles: &'a [(TextRange, usize)],
+    styles: &'a [StyledRange],
     filter_pos: (usize, usize),
     idx: usize,
 }
 
 impl Debug for TextRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "TextRange  {}|{}-{}|{}",
-            self.start.0, self.start.1, self.end.0, self.end.1
-        )
+        if f.alternate() {
+            write!(
+                f,
+                "{}|{}-{}|{}",
+                self.start.0, self.start.1, self.end.0, self.end.1
+            )
+        } else {
+            write!(
+                f,
+                "TextRange  {}|{}-{}|{}",
+                self.start.0, self.start.1, self.end.0, self.end.1
+            )
+        }
     }
 }
 
@@ -124,29 +138,19 @@ impl TextRange {
     /// Range contains the given position.
     #[inline]
     pub fn contains_pos(&self, pos: (usize, usize)) -> bool {
-        let lex_start = LexicalPosition::from(self.start);
-        let lex_end = LexicalPosition::from(self.end);
-        let lex_pos = LexicalPosition::from(pos);
-
-        lex_pos >= lex_start && lex_pos < lex_end
+        *self == pos
     }
 
     /// Range fully before the given position.
     #[inline]
     pub fn before_pos(&self, pos: (usize, usize)) -> bool {
-        let lex_end = LexicalPosition::from(self.end);
-        let lex_pos = LexicalPosition::from(pos);
-
-        lex_end <= lex_pos
+        *self < pos
     }
 
     /// Range fully after the given position.
     #[inline]
     pub fn after_pos(&self, pos: (usize, usize)) -> bool {
-        let lex_start = LexicalPosition::from(self.start);
-        let lex_pos = LexicalPosition::from(pos);
-
-        lex_start > lex_pos
+        *self > pos
     }
 
     /// Range contains the other range.
@@ -264,26 +268,26 @@ impl TextRange {
 
     /// Modify all positions in place.
     #[inline]
-    pub fn expand_all<'a>(&self, it: impl Iterator<Item = &'a mut (TextRange, usize)>) {
-        for (r, _s) in it {
-            r.start = self.expand(r.start);
-            r.end = self.expand(r.end);
+    pub fn expand_all<'a>(&self, it: impl Iterator<Item = &'a mut StyledRange>) {
+        for r in it {
+            r.range.start = self.expand(r.range.start);
+            r.range.end = self.expand(r.range.end);
         }
     }
 
     /// Modify all positions in place.
     #[inline]
-    pub fn shrink_all<'a>(&self, it: impl Iterator<Item = &'a mut (TextRange, usize)>) {
-        for (r, _s) in it {
-            r.start = self.shrink(r.start);
-            r.end = self.shrink(r.end);
+    pub fn shrink_all<'a>(&self, it: impl Iterator<Item = &'a mut StyledRange>) {
+        for r in it {
+            r.range.start = self.shrink(r.range.start);
+            r.range.end = self.shrink(r.range.end);
         }
     }
 
     /// Return the modified position, as if this range expanded from its
     /// start to its full expansion.
     #[inline]
-    pub fn expand(&self, mut pos: (usize, usize)) -> (usize, usize) {
+    pub fn expand(&self, pos: (usize, usize)) -> (usize, usize) {
         let delta_lines = self.end.1 - self.start.1;
 
         // swap x and y to enable tuple comparison
@@ -311,7 +315,7 @@ impl TextRange {
 
     /// Return the modified position, as if this range would shrink to nothing.
     #[inline]
-    pub fn shrink(&self, mut pos: (usize, usize)) -> (usize, usize) {
+    pub fn shrink(&self, pos: (usize, usize)) -> (usize, usize) {
         let delta_lines = self.end.1 - self.start.1;
 
         // swap x and y to enable tuple comparison
@@ -340,6 +344,34 @@ impl TextRange {
     }
 }
 
+impl PartialEq<(usize, usize)> for TextRange {
+    #[inline]
+    fn eq(&self, pos: &(usize, usize)) -> bool {
+        let lex_start = LexicalPosition::from(self.start);
+        let lex_end = LexicalPosition::from(self.end);
+        let lex_pos = LexicalPosition::from(*pos);
+
+        lex_pos >= lex_start && lex_pos < lex_end
+    }
+}
+
+impl PartialOrd<(usize, usize)> for TextRange {
+    #[inline]
+    fn partial_cmp(&self, pos: &(usize, usize)) -> Option<Ordering> {
+        let lex_start = LexicalPosition::from(self.start);
+        let lex_end = LexicalPosition::from(self.end);
+        let lex_pos = LexicalPosition::from(*pos);
+
+        if lex_pos >= lex_end {
+            Some(Ordering::Less)
+        } else if lex_pos < lex_start {
+            Some(Ordering::Greater)
+        } else {
+            Some(Ordering::Equal)
+        }
+    }
+}
+
 // This needs its own impl, because the order is exactly wrong.
 // For any sane range I'd need (row,col) but what I got is (col,row).
 // Need this to conform with the rest of ratatui ...
@@ -348,10 +380,10 @@ impl PartialOrd for TextRange {
     #[allow(clippy::non_canonical_partial_ord_impl)]
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         // reverse the args, then it works.
-        let start = (self.start.1, self.start.0);
-        let end = (self.end.1, self.end.0);
-        let ostart = (other.start.1, other.start.0);
-        let oend = (other.end.1, other.end.0);
+        let start = LexicalPosition::from(self.start);
+        let end = LexicalPosition::from(self.end);
+        let ostart = LexicalPosition::from(other.start);
+        let oend = LexicalPosition::from(other.end);
 
         if start < ostart {
             Some(Ordering::Less)
@@ -376,32 +408,11 @@ impl Ord for TextRange {
 }
 
 impl<'a> StyleMapIter<'a> {
-    fn new(styles: &'a [(TextRange, usize)], pos: (usize, usize)) -> Self {
-        match styles.binary_search_by(|v| v.0.ordering(pos)) {
-            Ok(mut i) => {
-                // binary-search found *some* matching style, we need all of them.
-                // this finds the first one.
-                loop {
-                    if i == 0 {
-                        break;
-                    }
-                    if !styles[i - 1].0.contains_pos(pos) {
-                        break;
-                    }
-                    i -= 1;
-                }
-
-                Self {
-                    styles,
-                    filter_pos: pos,
-                    idx: i,
-                }
-            }
-            Err(_) => Self {
-                styles,
-                filter_pos: pos,
-                idx: styles.len(),
-            },
+    fn new(styles: &'a [StyledRange], first: usize, pos: (usize, usize)) -> Self {
+        Self {
+            styles,
+            filter_pos: pos,
+            idx: first,
         }
     }
 }
@@ -412,14 +423,31 @@ impl<'a> Iterator for StyleMapIter<'a> {
     fn next(&mut self) -> Option<Self::Item> {
         let idx = self.idx;
         if idx < self.styles.len() {
-            if self.styles[idx].0.contains_pos(self.filter_pos) {
+            if self.styles[idx].range.contains_pos(self.filter_pos) {
                 self.idx += 1;
-                Some(self.styles[idx].1)
+                Some(self.styles[idx].style)
             } else {
                 None
             }
         } else {
             None
+        }
+    }
+}
+
+impl StyledRange {}
+
+impl Debug for StyledRange {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "StyledRange {{{:#?} -> {}}}", self.range, self.style)
+    }
+}
+
+impl From<(TextRange, usize)> for StyledRange {
+    fn from(value: (TextRange, usize)) -> Self {
+        Self {
+            range: value.0,
+            style: value.1,
         }
     }
 }
@@ -435,7 +463,7 @@ impl StyleMap {
     /// The same range can be added again with a different style.
     /// Overlapping regions get the merged style.
     pub(crate) fn add_style(&mut self, range: TextRange, style: usize) {
-        let stylemap = (range, style);
+        let stylemap = StyledRange::from((range, style));
         match self.styles.binary_search(&stylemap) {
             Ok(_) => {
                 // noop
@@ -450,7 +478,7 @@ impl StyleMap {
     ///
     /// This must match exactly in range and style to be removed.
     pub(crate) fn remove_style(&mut self, range: TextRange, style: usize) {
-        let stylemap = (range, style);
+        let stylemap = StyledRange::from((range, style));
         match self.styles.binary_search(&stylemap) {
             Ok(idx) => {
                 self.styles.remove(idx);
@@ -465,8 +493,11 @@ impl StyleMap {
     pub(crate) fn styles_after_mut(
         &mut self,
         pos: (usize, usize),
-    ) -> impl Iterator<Item = &mut (TextRange, usize)> {
-        let first = match self.styles.binary_search_by(|v| v.0.ordering(pos)) {
+    ) -> impl Iterator<Item = &mut StyledRange> {
+        let first = match self
+            .styles
+            .binary_search_by(|v| v.range.partial_cmp(&pos).expect("ordering"))
+        {
             Ok(mut i) => {
                 // binary-search found *some* matching style, we need all of them.
                 // this finds the first one.
@@ -474,7 +505,7 @@ impl StyleMap {
                     if i == 0 {
                         break;
                     }
-                    if !self.styles[i - 1].0.contains_pos(pos) {
+                    if !self.styles[i - 1].range.contains_pos(pos) {
                         break;
                     }
                     i -= 1;
@@ -489,7 +520,28 @@ impl StyleMap {
 
     /// Find all styles that touch the given position.
     pub(crate) fn styles_at(&self, pos: (usize, usize)) -> impl Iterator<Item = usize> + '_ {
-        StyleMapIter::new(&self.styles, pos)
+        let first = match self
+            .styles
+            .binary_search_by(|v| v.range.partial_cmp(&pos).expect("order"))
+        {
+            Ok(mut i) => {
+                // binary-search found *some* matching style, we need all of them.
+                // this finds the first one.
+                loop {
+                    if i == 0 {
+                        break;
+                    }
+                    if !self.styles[i - 1].range.contains_pos(pos) {
+                        break;
+                    }
+                    i -= 1;
+                }
+                i
+            }
+            Err(_) => self.styles.len(),
+        };
+
+        StyleMapIter::new(&self.styles, first, pos)
     }
 }
 
@@ -742,7 +794,7 @@ impl TextAreaCore {
 
     /// Style map.
     #[inline]
-    pub fn styles(&self) -> &[(TextRange, usize)] {
+    pub fn styles(&self) -> &[StyledRange] {
         &self.styles.styles
     }
 
@@ -1302,7 +1354,7 @@ impl TextAreaCore {
         let styles = mem::take(&mut self.styles.styles);
         self.styles.styles = styles
             .into_iter()
-            .filter(|(r, _)| !range.contains(*r))
+            .filter(|v| !range.contains(v.range))
             .collect();
 
         range.shrink_all(self.styles.styles_after_mut(range.start));

@@ -137,8 +137,8 @@ fn repaint_input(
         "text-styles: {}",
         state.textarea.value.styles().len()
     );
-    for (r, s) in state.textarea.value.styles().iter().take(20) {
-        _ = writeln!(&mut stats, "    {:?}={} ", r, s);
+    for r in state.textarea.value.styles().iter().take(20) {
+        _ = writeln!(&mut stats, "    {:?}", r);
     }
     let dbg = Paragraph::new(stats);
     frame.render_widget(dbg, l2[3]);
