@@ -1,4 +1,4 @@
-use rat_widget::text::textarea_core::{TextAreaCore, TextRange};
+use rat_widget::text::textarea_core::{TextAreaCore, TextPosition, TextRange};
 use std::cmp::Ordering;
 #[allow(unused_imports)]
 use std::hint::black_box;
@@ -15,29 +15,34 @@ fn insert(v: &mut Vec<TextRange>, r: TextRange) {
 }
 
 fn search(v: &Vec<TextRange>, p: (usize, usize)) -> Option<usize> {
-    match v.binary_search_by(|v| v.ordering(p)) {
+    let p = TextPosition::from(p);
+    match v.binary_search_by(|v| v.start.cmp(&p)) {
         Ok(i) => Some(i),
         Err(_) => None,
     }
 }
 
 fn find(v: &Vec<TextRange>, p: (usize, usize)) -> Option<usize> {
-    // eprintln!("find {:?}", p);
-    match v.binary_search_by(|v| v.ordering(p)) {
+    let p = TextPosition::from(p);
+    eprintln!("find {:?}", p);
+    match v.binary_search_by(|v| v.start.cmp(&p)) {
         Ok(mut i) => loop {
-            // eprintln!("i={}", i);
+            eprintln!("i={}", i);
             if i == 0 {
-                // eprintln!("break 0");
+                eprintln!("break 0");
                 return Some(i);
             }
-            // eprintln!("order {:?}", v[i - 1].ordering(p));
+            eprintln!("order {:?}", v[i - 1].start.cmp(&p));
             if !v[i - 1].contains_pos(p) {
-                // eprintln!("break !{:?}.contains({:?})", v[i - 1], p);
+                eprintln!("break !{:?}.contains({:?})", v[i - 1], p);
                 return Some(i);
             }
             i -= 1;
         },
-        Err(_) => None,
+        Err(i) => {
+            eprintln!("insert {}", i);
+            None
+        }
     }
 }
 
@@ -63,28 +68,28 @@ fn test_insert() {
 fn test_partial_cmp() {
     let r = TextRange::new((1, 0), (10, 0));
 
-    assert_eq!(r.ordering((0, 0)), Ordering::Greater);
-    assert_eq!(r.ordering((1, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((2, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((5, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((9, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((10, 0)), Ordering::Less);
-    assert_eq!(r.ordering((11, 0)), Ordering::Less);
+    assert_eq!(r.start.cmp(&(0, 0).into()), Ordering::Greater);
+    assert_eq!(r.start.cmp(&(1, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(2, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(5, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(9, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(10, 0).into()), Ordering::Less);
+    assert_eq!(r.start.cmp(&(11, 0).into()), Ordering::Less);
 
     let r = TextRange::new((9, 0), (11, 0));
-    assert_eq!(r.ordering((8, 0)), Ordering::Greater);
-    assert_eq!(r.ordering((9, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((10, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((11, 0)), Ordering::Less);
-    assert_eq!(r.ordering((11, 0)), Ordering::Less);
+    assert_eq!(r.start.cmp(&(8, 0).into()), Ordering::Greater);
+    assert_eq!(r.start.cmp(&(9, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(10, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(11, 0).into()), Ordering::Less);
+    assert_eq!(r.start.cmp(&(11, 0).into()), Ordering::Less);
 
     let r = TextRange::new((10, 0), (20, 0));
-    assert_eq!(r.ordering((9, 0)), Ordering::Greater);
-    assert_eq!(r.ordering((10, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((11, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((19, 0)), Ordering::Equal);
-    assert_eq!(r.ordering((20, 0)), Ordering::Less);
-    assert_eq!(r.ordering((21, 0)), Ordering::Less);
+    assert_eq!(r.start.cmp(&(9, 0).into()), Ordering::Greater);
+    assert_eq!(r.start.cmp(&(10, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(11, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(19, 0).into()), Ordering::Equal);
+    assert_eq!(r.start.cmp(&(20, 0).into()), Ordering::Less);
+    assert_eq!(r.start.cmp(&(21, 0).into()), Ordering::Less);
 }
 
 #[test]
@@ -183,63 +188,63 @@ fn test_stylemap() {
     txt.add_style(TextRange::new((30, 7), (42, 7)), 0);
     txt.add_style(TextRange::new((37, 7), (41, 7)), 1);
 
-    let mut r = txt.styles_at((37, 7)).collect::<Vec<_>>();
+    let mut r = txt.styles_at((37, 7).into()).collect::<Vec<_>>();
     assert_eq!(r.len(), 2);
 }
 
 #[test]
 fn text_expansion() {
     let r = TextRange::new((5, 0), (10, 0));
-    assert_eq!(r.expand((4, 0)), (4, 0));
-    assert_eq!(r.expand((5, 0)), (10, 0));
-    assert_eq!(r.expand((6, 0)), (11, 0));
-    assert_eq!(r.expand((10, 0)), (15, 0));
-    assert_eq!(r.expand((11, 0)), (16, 0));
+    assert_eq!(r.expand_pos((4, 0).into()), (4, 0).into());
+    assert_eq!(r.expand_pos((5, 0).into()), (10, 0).into());
+    assert_eq!(r.expand_pos((6, 0).into()), (11, 0).into());
+    assert_eq!(r.expand_pos((10, 0).into()), (15, 0).into());
+    assert_eq!(r.expand_pos((11, 0).into()), (16, 0).into());
 
     let r = TextRange::new((5, 0), (0, 1));
-    assert_eq!(r.expand((4, 0)), (4, 0));
-    assert_eq!(r.expand((5, 0)), (0, 1));
-    assert_eq!(r.expand((6, 0)), (1, 1));
-    assert_eq!(r.expand((10, 0)), (5, 1));
-    assert_eq!(r.expand((11, 0)), (6, 1));
-    assert_eq!(r.expand((0, 1)), (0, 2));
-    assert_eq!(r.expand((1, 1)), (1, 2));
+    assert_eq!(r.expand_pos((4, 0).into()), (4, 0).into());
+    assert_eq!(r.expand_pos((5, 0).into()), (0, 1).into());
+    assert_eq!(r.expand_pos((6, 0).into()), (1, 1).into());
+    assert_eq!(r.expand_pos((10, 0).into()), (5, 1).into());
+    assert_eq!(r.expand_pos((11, 0).into()), (6, 1).into());
+    assert_eq!(r.expand_pos((0, 1).into()), (0, 2).into());
+    assert_eq!(r.expand_pos((1, 1).into()), (1, 2).into());
 
     let r = TextRange::new((5, 0), (3, 1));
-    assert_eq!(r.expand((4, 0)), (4, 0));
-    assert_eq!(r.expand((5, 0)), (3, 1));
-    assert_eq!(r.expand((6, 0)), (4, 1));
-    assert_eq!(r.expand((10, 0)), (8, 1));
-    assert_eq!(r.expand((11, 0)), (9, 1));
-    assert_eq!(r.expand((0, 1)), (0, 2));
-    assert_eq!(r.expand((1, 1)), (1, 2));
+    assert_eq!(r.expand_pos((4, 0).into()), (4, 0).into());
+    assert_eq!(r.expand_pos((5, 0).into()), (3, 1).into());
+    assert_eq!(r.expand_pos((6, 0).into()), (4, 1).into());
+    assert_eq!(r.expand_pos((10, 0).into()), (8, 1).into());
+    assert_eq!(r.expand_pos((11, 0).into()), (9, 1).into());
+    assert_eq!(r.expand_pos((0, 1).into()), (0, 2).into());
+    assert_eq!(r.expand_pos((1, 1).into()), (1, 2).into());
 
     let r = TextRange::new((10, 5), (10, 6));
-    assert_eq!(r.expand((10, 7)), (10, 8));
+    assert_eq!(r.expand_pos((10, 7).into()), (10, 8).into());
 }
 
 #[test]
 fn test_shrinking() {
     let r = TextRange::new((5, 0), (10, 0));
-    assert_eq!(r.shrink((4, 0)), (4, 0));
-    assert_eq!(r.shrink((5, 0)), (5, 0));
-    assert_eq!(r.shrink((6, 0)), (5, 0));
-    assert_eq!(r.shrink((10, 0)), (5, 0));
-    assert_eq!(r.shrink((11, 0)), (6, 0));
+    assert_eq!(r.shrink_pos((4, 0).into()), (4, 0).into());
+    assert_eq!(r.shrink_pos((5, 0).into()), (5, 0).into());
+    assert_eq!(r.shrink_pos((6, 0).into()), (5, 0).into());
+    assert_eq!(r.shrink_pos((10, 0).into()), (5, 0).into());
+    assert_eq!(r.shrink_pos((11, 0).into()), (6, 0).into());
 
     let r = TextRange::new((5, 0), (0, 1));
-    assert_eq!(r.shrink((4, 0)), (4, 0));
-    assert_eq!(r.shrink((5, 0)), (5, 0));
-    assert_eq!(r.shrink((6, 0)), (5, 0));
-    assert_eq!(r.shrink((10, 0)), (5, 0));
-    assert_eq!(r.shrink((11, 0)), (5, 0));
-    assert_eq!(r.shrink((0, 1)), (5, 0));
-    assert_eq!(r.shrink((1, 1)), (6, 0));
-    assert_eq!(r.shrink((0, 2)), (0, 1));
-    assert_eq!(r.shrink((1, 2)), (1, 1));
+    assert_eq!(r.shrink_pos((4, 0).into()), (4, 0).into());
+    assert_eq!(r.shrink_pos((5, 0).into()), (5, 0).into());
+    assert_eq!(r.shrink_pos((6, 0).into()), (5, 0).into());
+    assert_eq!(r.shrink_pos((10, 0).into()), (5, 0).into());
+    assert_eq!(r.shrink_pos((11, 0).into()), (5, 0).into());
+    assert_eq!(r.shrink_pos((0, 1).into()), (5, 0).into());
+    assert_eq!(r.shrink_pos((1, 1).into()), (6, 0).into());
+    assert_eq!(r.shrink_pos((0, 2).into()), (0, 1).into());
+    assert_eq!(r.shrink_pos((1, 2).into()), (1, 1).into());
 
     let r = TextRange::new((10, 5), (10, 6));
-    assert_eq!(r.shrink((10, 7)), (10, 6));
+    assert_eq!(r.shrink_pos((10, 7).into()), (10, 6).into());
 }
 
 #[test]

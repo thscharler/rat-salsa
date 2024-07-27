@@ -1,7 +1,7 @@
 use crate::text::graphemes::{
     rope_line_len, str_line_len, RopeGlyphIter, RopeGraphemes, RopeGraphemesIdx,
 };
-use crate::text::undo::{UndoBuffer, UndoEntry, UndoVec};
+use crate::text::undo::{StyledRangeChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
 #[allow(unused_imports)]
 use log::debug;
 use ropey::{Rope, RopeSlice};
@@ -141,19 +141,22 @@ impl TextRange {
     /// Range contains the given position.
     #[inline]
     pub fn contains_pos(&self, pos: impl Into<TextPosition>) -> bool {
-        *self == pos.into()
+        let pos = pos.into();
+        pos >= self.start && pos < self.end
     }
 
     /// Range fully before the given position.
     #[inline]
     pub fn before_pos(&self, pos: impl Into<TextPosition>) -> bool {
-        *self < pos.into()
+        let pos = pos.into();
+        pos >= self.end
     }
 
     /// Range fully after the given position.
     #[inline]
     pub fn after_pos(&self, pos: impl Into<TextPosition>) -> bool {
-        *self > pos.into()
+        let pos = pos.into();
+        pos < self.start
     }
 
     /// Range contains the other range.
@@ -184,8 +187,8 @@ impl TextRange {
     #[inline]
     pub fn expand_all<'a>(&self, it: impl Iterator<Item = &'a mut StyledRange>) {
         for r in it {
-            r.range.start = self.expand(r.range.start);
-            r.range.end = self.expand(r.range.end);
+            r.range.start = self.expand_pos(r.range.start);
+            r.range.end = self.expand_pos(r.range.end);
         }
     }
 
@@ -193,15 +196,20 @@ impl TextRange {
     #[inline]
     pub fn shrink_all<'a>(&self, it: impl Iterator<Item = &'a mut StyledRange>) {
         for r in it {
-            r.range.start = self.shrink(r.range.start);
-            r.range.end = self.shrink(r.range.end);
+            r.range.start = self.shrink_pos(r.range.start);
+            r.range.end = self.shrink_pos(r.range.end);
         }
     }
 
-    /// Return the modified position, as if this range expanded from its
-    /// start to its full expansion.
+    /// Return the modified range after the self-range is inserted.
     #[inline]
-    pub fn expand(&self, pos: TextPosition) -> TextPosition {
+    pub fn expand(&self, range: TextRange) -> TextRange {
+        TextRange::new(self.expand_pos(range.start), self.expand_pos(range.end))
+    }
+
+    /// Return the modified range after the self-range is inserted.
+    #[inline]
+    pub fn expand_pos(&self, pos: TextPosition) -> TextPosition {
         let delta_lines = self.end.y - self.start.y;
 
         // swap x and y to enable tuple comparison
@@ -224,9 +232,15 @@ impl TextRange {
         }
     }
 
-    /// Return the modified position, as if this range would shrink to nothing.
+    /// Return the modified range after the self-range is deleted.
     #[inline]
-    pub fn shrink(&self, pos: TextPosition) -> TextPosition {
+    pub fn shrink(&self, range: TextRange) -> TextRange {
+        TextRange::new(self.shrink_pos(range.start), self.shrink_pos(range.end))
+    }
+
+    /// Return the modified position after the self-range is deleted.
+    #[inline]
+    pub fn shrink_pos(&self, pos: TextPosition) -> TextPosition {
         let delta_lines = self.end.y - self.start.y;
 
         // swap x and y to enable tuple comparison
@@ -247,26 +261,6 @@ impl TextRange {
             } else {
                 pos
             }
-        }
-    }
-}
-
-impl PartialEq<TextPosition> for TextRange {
-    #[inline]
-    fn eq(&self, pos: &TextPosition) -> bool {
-        *pos >= self.start && *pos < self.end
-    }
-}
-
-impl PartialOrd<TextPosition> for TextRange {
-    #[inline]
-    fn partial_cmp(&self, pos: &TextPosition) -> Option<Ordering> {
-        if *pos >= self.end {
-            Some(Ordering::Less)
-        } else if *pos < self.start {
-            Some(Ordering::Greater)
-        } else {
-            Some(Ordering::Equal)
         }
     }
 }
@@ -358,10 +352,7 @@ impl StyleMap {
         &mut self,
         pos: TextPosition,
     ) -> impl Iterator<Item = &mut StyledRange> {
-        let first = match self
-            .styles
-            .binary_search_by(|v| v.range.partial_cmp(&pos).expect("ordering"))
-        {
+        let first = match self.styles.binary_search_by(|v| v.range.start.cmp(&pos)) {
             Ok(mut i) => {
                 // binary-search found *some* matching style, we need all of them.
                 // this finds the first one.
@@ -382,27 +373,59 @@ impl StyleMap {
         self.styles.iter_mut().skip(first)
     }
 
+    // find the first index where start <= pos.
+    pub(crate) fn find_first(&self, pos: TextPosition) -> usize {
+        // find some approximate position
+        let mut i = self
+            .styles
+            .binary_search_by(|v| v.range.start.cmp(&pos))
+            .unwrap_or_else(|i| i);
+
+        loop {
+            if i == 0 {
+                debug!("break 0");
+                break;
+            }
+            debug!("-> range {:?} contains {:?}", self.styles[i - 1].range, pos);
+            if self.styles[i - 1].range.start <= pos {
+                debug!("-> break");
+                break;
+            }
+            i -= 1;
+        }
+        i
+    }
+
     /// Find all styles that touch the given position.
     pub(crate) fn styles_at(&self, pos: TextPosition) -> impl Iterator<Item = usize> + '_ {
-        let first = match self
-            .styles
-            .binary_search_by(|v| v.range.partial_cmp(&pos).expect("order"))
-        {
+        debug!("pos {:?}", pos);
+        debug!("styles {:#?}", self.styles);
+
+        let first = match self.styles.binary_search_by(|v| {
+            debug!("partial_cmp {:?} {:?}", v.range, pos);
+            v.range.start.cmp(&pos)
+        }) {
             Ok(mut i) => {
+                debug!("-> search {:?}", i);
                 // binary-search found *some* matching style, we need all of them.
                 // this finds the first one.
                 loop {
                     if i == 0 {
                         break;
                     }
+                    debug!("-> range {:?} contains {:?}", self.styles[i - 1].range, pos);
                     if !self.styles[i - 1].range.contains_pos(pos) {
+                        debug!("-> break!!");
                         break;
                     }
                     i -= 1;
                 }
                 i
             }
-            Err(_) => self.styles.len(),
+            Err(i) => {
+                debug!("-> err {:?}", i);
+                self.styles.len()
+            }
         };
 
         StyleMapIter::new(&self.styles, first, pos)
@@ -542,25 +565,32 @@ impl TextAreaCore {
                 chars,
                 cursor,
                 anchor,
-                redo_cursor: _,
-                redo_anchor: _,
-                range: _,
+                range,
                 txt,
+                styles,
             })
             | Some(UndoEntry::RemoveChar {
                 chars,
                 cursor,
                 anchor,
-                redo_cursor: _,
-                redo_anchor: _,
-                range: _,
+                range,
                 txt,
+                styles,
             }) => {
-                self.value.insert(chars.0, &txt);
+                self.value.insert(chars.start, &txt);
 
-                // todo: ranges
-                self.anchor = anchor;
-                self.cursor = cursor;
+                for s in &styles {
+                    self.styles.remove_style(s.after, s.style);
+                }
+                for s in &styles {
+                    self.styles.add_style(s.before, s.style);
+                }
+                for s in self.styles.styles_after_mut(range.end) {
+                    s.range = range.expand(s.range);
+                }
+
+                self.anchor = anchor.before;
+                self.cursor = cursor.before;
 
                 true
             }
@@ -605,27 +635,25 @@ impl TextAreaCore {
 
             Some(UndoEntry::RemoveChar {
                 chars,
-                cursor: _,
-                anchor: _,
-                redo_cursor,
-                redo_anchor,
+                cursor,
+                anchor,
                 range: _,
                 txt: _,
+                styles,
             })
             | Some(UndoEntry::RemoveStr {
                 chars,
-                cursor: _,
-                anchor: _,
-                redo_cursor,
-                redo_anchor,
+                cursor,
+                anchor,
                 range: _,
                 txt: _,
+                styles,
             }) => {
-                self.value.remove(chars.0..chars.1);
+                self.value.remove(chars);
 
                 // todo: ranges
-                self.anchor = redo_anchor;
-                self.cursor = redo_cursor;
+                self.anchor = anchor.after;
+                self.cursor = cursor.after;
 
                 true
             }
@@ -1066,8 +1094,8 @@ impl TextAreaCore {
         };
 
         insert.expand_all(self.styles.styles_after_mut(pos));
-        self.anchor = insert.expand(self.anchor);
-        self.cursor = insert.expand(self.cursor);
+        self.anchor = insert.expand_pos(self.anchor);
+        self.cursor = insert.expand_pos(self.cursor);
 
         if let Some(undo) = self.undo.as_mut() {
             undo.insert_char(
@@ -1140,8 +1168,8 @@ impl TextAreaCore {
         };
 
         insert.expand_all(self.styles.styles_after_mut(pos));
-        self.anchor = insert.expand(self.anchor);
-        self.cursor = insert.expand(self.cursor);
+        self.anchor = insert.expand_pos(self.anchor);
+        self.cursor = insert.expand_pos(self.cursor);
 
         if let Some(undo) = self.undo.as_mut() {
             undo.insert_str(
@@ -1214,37 +1242,73 @@ impl TextAreaCore {
         self.value.remove(start_pos..end_pos);
 
         // remove deleted styles.
-        // this is not a simple range, so filter+collect seems ok.
-        let styles = mem::take(&mut self.styles.styles);
-        self.styles.styles = styles
-            .into_iter()
-            .filter(|v| !range.contains(v.range))
-            .collect();
+        let mut changed = Vec::new();
+        self.styles.styles.retain_mut(|v| {
+            if range.after(v.range) {
+                debug!("before {:?} -> {:?}", v.range, v.range);
+                true
+            } else if range.contains(v.range) {
+                debug!("contains {:?} -> ", v.range);
+                changed.push(StyledRangeChange {
+                    before: v.range,
+                    after: TextRange::new(v.range.start, v.range.start),
+                    style: v.style,
+                });
+                false
+            } else if range.intersects(v.range) {
+                let new_range = range.shrink(v.range);
+                debug!("intersect {:?} -> {:?}", v.range, new_range);
+                changed.push(StyledRangeChange {
+                    before: v.range,
+                    after: new_range,
+                    style: v.style,
+                });
+                v.range = new_range;
+                true
+            } else if range.before(v.range) {
+                let new_range = range.shrink(v.range);
+                debug!("after {:?} -> {:?}", v.range, new_range);
+                // can be calculated
+                v.range = new_range;
+                true
+            } else {
+                unreachable!("fail range check")
+            }
+        });
 
-        range.shrink_all(self.styles.styles_after_mut(range.start));
-        self.anchor = range.shrink(self.anchor);
-        self.cursor = range.shrink(self.anchor);
+        self.anchor = range.shrink_pos(self.anchor);
+        self.cursor = range.shrink_pos(self.anchor);
 
         if let Some(undo) = &mut self.undo {
             if char_range {
                 undo.remove_char(
-                    (start_pos, end_pos),
-                    old_cursor,
-                    old_anchor,
-                    self.cursor,
-                    self.anchor,
+                    start_pos..end_pos,
+                    TextPositionChange {
+                        before: old_cursor,
+                        after: self.cursor,
+                    },
+                    TextPositionChange {
+                        before: old_anchor,
+                        after: self.anchor,
+                    },
                     range,
                     old_text,
+                    changed,
                 );
             } else {
                 undo.remove_str(
-                    (start_pos, end_pos),
-                    old_cursor,
-                    old_anchor,
-                    self.cursor,
-                    self.anchor,
+                    start_pos..end_pos,
+                    TextPositionChange {
+                        before: old_cursor,
+                        after: self.cursor,
+                    },
+                    TextPositionChange {
+                        before: old_anchor,
+                        after: self.anchor,
+                    },
                     range,
                     old_text,
+                    changed,
                 );
             }
         }

@@ -261,6 +261,35 @@ pub(crate) fn insert_text_0(state: &mut State) {
     state
         .textarea
         .add_style(TextRange::new((37, 7), (41, 7)), 1);
+
+    state
+        .textarea
+        .add_style(TextRange::new((44, 7), (63, 7)), 0);
+    state
+        .textarea
+        .add_style(TextRange::new((58, 7), (62, 7)), 1);
+    //
+    // state.textarea.add_style(TextRange::new((65, 7), (6, 8)), 0);
+    // state.textarea.add_style(TextRange::new((1, 8), (5, 8)), 0);
+    //
+    // state.textarea.add_style(TextRange::new((8, 8), (24, 8)), 0);
+    // state
+    //     .textarea
+    //     .add_style(TextRange::new((19, 8), (23, 8)), 0);
+    //
+    // state
+    //     .textarea
+    //     .add_style(TextRange::new((26, 8), (48, 8)), 0);
+    // state
+    //     .textarea
+    //     .add_style(TextRange::new((43, 8), (47, 8)), 0);
+    //
+    // state
+    //     .textarea
+    //     .add_style(TextRange::new((53, 8), (73, 8)), 0);
+    // state
+    //     .textarea
+    //     .add_style(TextRange::new((68, 8), (72, 8)), 0);
 }
 
 static DATA_0: &str = "Ridley Scott

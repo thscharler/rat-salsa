@@ -5,6 +5,19 @@ use std::fmt::Debug;
 use std::mem;
 use std::ops::Range;
 
+#[derive(Debug, Clone)]
+pub struct StyledRangeChange {
+    pub before: TextRange,
+    pub after: TextRange,
+    pub style: usize,
+}
+
+#[derive(Debug, Clone)]
+pub struct TextPositionChange {
+    pub before: TextPosition,
+    pub after: TextPosition,
+}
+
 /// Undo buffer.
 pub trait UndoBuffer: Debug {
     /// Add an insert operation to the undo buffer.
@@ -34,25 +47,23 @@ pub trait UndoBuffer: Debug {
     /// Add a remove operation to the undo buffer.
     fn remove_char(
         &mut self,
-        chars: (usize, usize),
-        cursor: TextPosition,
-        anchor: TextPosition,
-        after_cursor: TextPosition,
-        after_anchor: TextPosition,
+        chars: Range<usize>,
+        cursor: TextPositionChange,
+        anchor: TextPositionChange,
         range: TextRange,
         txt: String,
+        styles: Vec<StyledRangeChange>,
     );
 
     /// Add a remove operation to the undo buffer.
     fn remove_str(
         &mut self,
-        chars: (usize, usize),
-        cursor: TextPosition,
-        anchor: TextPosition,
-        after_cursor: TextPosition,
-        after_anchor: TextPosition,
+        chars: Range<usize>,
+        cursor: TextPositionChange,
+        anchor: TextPositionChange,
         range: TextRange,
         txt: String,
+        styles: Vec<StyledRangeChange>,
     );
 
     /// Next undo.
@@ -87,22 +98,20 @@ pub enum UndoEntry {
         txt: String,
     },
     RemoveChar {
-        chars: (usize, usize),
-        cursor: TextPosition,
-        anchor: TextPosition,
-        redo_cursor: TextPosition,
-        redo_anchor: TextPosition,
+        chars: Range<usize>,
+        cursor: TextPositionChange,
+        anchor: TextPositionChange,
         range: TextRange,
         txt: String,
+        styles: Vec<StyledRangeChange>,
     },
     RemoveStr {
-        chars: (usize, usize),
-        cursor: TextPosition,
-        anchor: TextPosition,
-        redo_cursor: TextPosition,
-        redo_anchor: TextPosition,
+        chars: Range<usize>,
+        cursor: TextPositionChange,
+        anchor: TextPositionChange,
         range: TextRange,
         txt: String,
+        styles: Vec<StyledRangeChange>,
     },
 }
 
@@ -170,49 +179,88 @@ impl UndoVec {
                 chars: last_chars,
                 cursor: last_cursor,
                 anchor: last_anchor,
-                redo_cursor: _last_redo_cursor,
-                redo_anchor: _last_redo_anchor,
                 range: last_range,
                 txt: last_txt,
+                styles: last_styles,
             } => match &mut curr {
                 UndoEntry::RemoveChar {
                     chars: curr_chars,
-                    cursor: _curr_cursor,
-                    anchor: _curr_anchor,
-                    redo_cursor: curr_redo_cursor,
-                    redo_anchor: curr_redo_anchor,
+                    cursor: curr_cursor,
+                    anchor: curr_anchor,
                     range: curr_range,
                     txt: curr_txt,
+                    styles: curr_styles,
                 } => {
-                    if curr_chars.1 == last_chars.0 {
+                    if curr_chars.end == last_chars.start {
+                        debug!("backspace {:#?}\n=> {:#?}", last_range, curr_range);
+                        debug!("backspace {:#?}\n=> {:#?}", last_styles, curr_styles);
                         // backspace
-                        let mut curr_txt = mem::take(curr_txt);
-                        curr_txt.push_str(last_txt);
+                        let mut txt = mem::take(curr_txt);
+                        txt.push_str(last_txt);
+
+                        // merge into last_styles
+                        let mut styles = mem::take(last_styles);
+                        Self::remove_merge_style(*last_range, &mut styles, curr_styles);
+
+                        debug!("backspace m {:#?}", styles);
+
                         (
                             Some(UndoEntry::RemoveChar {
-                                chars: (curr_chars.0, last_chars.1),
-                                cursor: *last_cursor,
-                                anchor: *last_anchor,
-                                redo_cursor: *curr_redo_cursor,
-                                redo_anchor: *curr_redo_anchor,
+                                chars: curr_chars.start..last_chars.end,
+                                cursor: TextPositionChange {
+                                    before: last_cursor.before,
+                                    after: curr_cursor.after,
+                                },
+                                anchor: TextPositionChange {
+                                    before: last_anchor.before,
+                                    after: curr_anchor.after,
+                                },
                                 range: TextRange::new(curr_range.start, last_range.end),
-                                txt: curr_txt,
+                                txt,
+                                styles,
                             }),
                             None,
                         )
-                    } else if curr_chars.0 == last_chars.0 {
+                    } else if curr_chars.start == last_chars.start {
+                        debug!("delete {:#?}\n=> {:#?}", last_range, curr_range);
+                        debug!("delete {:#?}\n=> {:#?}", last_styles, curr_styles);
                         // delete
-                        let mut last_txt = mem::take(last_txt);
-                        last_txt.push_str(curr_txt);
+                        let mut txt = mem::take(last_txt);
+                        txt.push_str(curr_txt);
+
+                        let delta_x = char_len(curr_txt);
+                        let delta_y = if matches!(curr_txt.as_str(), "\n" | "\r\n") {
+                            1
+                        } else {
+                            0
+                        };
+
+                        // merge into last_styles
+                        let mut styles = mem::take(last_styles);
+                        Self::remove_merge_style(*last_range, &mut styles, curr_styles);
+
+                        debug!("delete m {:#?}", styles);
+
                         (
                             Some(UndoEntry::RemoveChar {
-                                chars: (last_chars.0, last_chars.1 + char_len(curr_txt)),
-                                cursor: *last_cursor,
-                                anchor: *last_anchor,
-                                redo_cursor: *curr_redo_cursor,
-                                redo_anchor: *curr_redo_anchor,
-                                range: TextRange::new(curr_range.start, last_range.end),
-                                txt: last_txt,
+                                chars: last_chars.start..last_chars.end + delta_x,
+                                cursor: TextPositionChange {
+                                    before: last_cursor.before,
+                                    after: curr_cursor.after,
+                                },
+                                anchor: TextPositionChange {
+                                    before: last_anchor.before,
+                                    after: curr_anchor.after,
+                                },
+                                range: TextRange::new(
+                                    last_range.start,
+                                    TextPosition::new(
+                                        last_range.end.x + delta_x,
+                                        last_range.end.y + delta_y,
+                                    ),
+                                ),
+                                txt,
+                                styles,
                             }),
                             None,
                         )
@@ -225,6 +273,30 @@ impl UndoVec {
 
             UndoEntry::InsertStr { .. } => (Some(last), Some(curr)),
             UndoEntry::RemoveStr { .. } => (Some(last), Some(curr)),
+        }
+    }
+
+    /// Merge styles from two deletes.
+    fn remove_merge_style(
+        last_range: TextRange,
+        last: &mut Vec<StyledRangeChange>,
+        curr: &mut Vec<StyledRangeChange>,
+    ) {
+        for i in (0..last.len()).rev() {
+            for j in (0..curr.len()).rev() {
+                if last[i].style == curr[j].style {
+                    if last[i].after == curr[j].before {
+                        last[i].after = curr[j].after;
+                        curr.remove(j);
+                    }
+                }
+            }
+        }
+
+        // expand before and add
+        for mut curr in curr.drain(..) {
+            curr.before = last_range.expand(curr.before);
+            last.push(curr);
         }
     }
 
@@ -298,43 +370,39 @@ impl UndoBuffer for UndoVec {
 
     fn remove_char(
         &mut self,
-        chars: (usize, usize),
-        before_cursor: TextPosition,
-        before_anchor: TextPosition,
-        after_cursor: TextPosition,
-        after_anchor: TextPosition,
+        chars: Range<usize>,
+        cursor: TextPositionChange,
+        anchor: TextPositionChange,
         range: TextRange,
         txt: String,
+        styles: Vec<StyledRangeChange>,
     ) {
         self.append(UndoEntry::RemoveChar {
             chars,
-            cursor: before_cursor,
-            anchor: before_anchor,
-            redo_cursor: after_cursor,
-            redo_anchor: after_anchor,
+            cursor,
+            anchor,
             range,
             txt,
+            styles,
         });
     }
 
     fn remove_str(
         &mut self,
-        chars: (usize, usize),
-        before_cursor: TextPosition,
-        before_anchor: TextPosition,
-        after_cursor: TextPosition,
-        after_anchor: TextPosition,
+        chars: Range<usize>,
+        cursor: TextPositionChange,
+        anchor: TextPositionChange,
         range: TextRange,
         txt: String,
+        styles: Vec<StyledRangeChange>,
     ) {
         self.append(UndoEntry::RemoveStr {
             chars,
-            cursor: before_cursor,
-            anchor: before_anchor,
-            redo_cursor: after_cursor,
-            redo_anchor: after_anchor,
+            cursor,
+            anchor,
             range,
             txt,
+            styles,
         });
     }
 
