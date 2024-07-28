@@ -117,23 +117,19 @@ fn repaint_input(
     );
 
     _ = write!(&mut stats, "cursor-styles: ",);
-    let mut styles = Vec::new();
-    state
-        .textarea
-        .styles_at(state.textarea.cursor(), &mut styles);
-    for s in styles {
+    for s in state.textarea.styles_at(state.textarea.cursor()) {
         _ = write!(&mut stats, "{}, ", s);
     }
     _ = writeln!(&mut stats);
 
-    // _ = writeln!(
-    //     &mut stats,
-    //     "text-styles: {}",
-    //     state.textarea.value.styles().len()
-    // );
-    // for r in state.textarea.value.styles().iter().take(20) {
-    //     _ = writeln!(&mut stats, "    {:?}", r);
-    // }
+    _ = writeln!(
+        &mut stats,
+        "text-styles: {}",
+        state.textarea.value.styles().count()
+    );
+    for r in state.textarea.value.styles().take(20) {
+        _ = writeln!(&mut stats, "    {:?}", r);
+    }
     let dbg = Paragraph::new(stats);
     frame.render_widget(dbg, l2[3]);
 

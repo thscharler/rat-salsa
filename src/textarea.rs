@@ -381,7 +381,6 @@ impl TextAreaState {
         self.value.clear()
     }
 
-    // todo: create a TextPosition{x, y} for this.
     /// Current offset for scrolling.
     #[inline]
     pub fn offset(&self) -> (usize, usize) {

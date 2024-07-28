@@ -4,10 +4,8 @@ use crate::text::graphemes::{
 use crate::text::undo::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
 use iset::IntervalMap;
 use log::debug;
-use pure_rust_locales::Locale::en_DK;
 use ropey::{Rope, RopeSlice};
-use std::cmp::{max, min};
-use std::collections::HashSet;
+use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::ops::{Range, RangeBounds};
 use std::{mem, slice};
@@ -60,17 +58,13 @@ pub struct TextPosition {
 /// Styles.
 #[derive(Debug, Default, Clone)]
 struct StyleMap {
-    // todo: there is probably some order for applying the styles,
-    //       on the other hand merging of styles is dubious at best.
-    //       anyway, what should that order be?
-    // -> order by style-nr. a bit arbitrary, but maybe ok.
     buf: Vec<(Range<TextPosition>, StyleMapEntry)>,
     styles: IntervalMap<TextPosition, StyleMapEntry>,
 }
 
 /// Styles as stored in the style map.
 #[derive(Debug, Default, Clone)]
-pub enum StyleMapEntry {
+enum StyleMapEntry {
     #[default]
     NoStyle,
     Style(usize),
@@ -274,7 +268,7 @@ impl TextRange {
 }
 
 impl StyleMapEntry {
-    pub fn iter(&self) -> StyleMapEntryIter<'_> {
+    fn iter(&self) -> StyleMapEntryIter<'_> {
         match self {
             StyleMapEntry::NoStyle => StyleMapEntryIter {
                 single: None,
@@ -292,6 +286,7 @@ impl StyleMapEntry {
     }
 }
 
+#[derive(Debug)]
 pub struct StyleMapEntryIter<'a> {
     single: Option<usize>,
     iter: Option<slice::Iter<'a, usize>>,
@@ -315,6 +310,7 @@ impl<'a> Iterator for StyleMapEntryIter<'a> {
 impl StyleMap {
     /// Remove all styles.
     pub(crate) fn clear_styles(&mut self) {
+        self.buf = Vec::new();
         self.styles.clear();
     }
 
@@ -323,6 +319,9 @@ impl StyleMap {
     /// The same range can be added again with a different style.
     /// Overlapping regions get the merged style.
     pub(crate) fn add_style(&mut self, range: TextRange, style: usize) {
+        if range.is_empty() {
+            return;
+        }
         self.styles
             .entry(range.into())
             .and_modify(|v| {
@@ -358,6 +357,9 @@ impl StyleMap {
     ///
     /// This must match exactly in range and style to be removed.
     pub(crate) fn remove_style(&mut self, range: TextRange, style: usize) {
+        if range.is_empty() {
+            return;
+        }
         let Some(v) = self.styles.get_mut(range.into()) else {
             return;
         };
@@ -390,6 +392,16 @@ impl StyleMap {
         if is_empty {
             self.styles.remove(range.into());
         }
+    }
+
+    /// List of all styles.
+    pub(crate) fn styles(&self) -> impl Iterator<Item = (TextRange, Vec<usize>)> + '_ {
+        self.styles.iter(..).map(|v| {
+            (
+                v.0.into(), //
+                v.1.iter().collect::<Vec<_>>(),
+            )
+        })
     }
 
     /// Find all styles that touch the given position.
@@ -536,25 +548,21 @@ impl TextAreaCore {
                 chars,
                 cursor,
                 anchor,
-                redo_cursor: _,
-                redo_anchor: _,
-                range: _,
+                range,
                 txt: _,
             })
             | Some(UndoEntry::InsertStr {
                 chars,
                 cursor,
                 anchor,
-                redo_cursor: _,
-                redo_anchor: _,
-                range: _,
+                range,
                 txt: _,
             }) => {
-                self.value.remove(chars.0..chars.1);
+                self.value.remove(chars);
 
-                // todo: ranges
-                self.anchor = anchor;
-                self.cursor = cursor;
+                self.styles.remap(|r, _s| Some(range.shrink(r)));
+                self.anchor = anchor.before;
+                self.cursor = cursor.before;
 
                 true
             }
@@ -580,13 +588,15 @@ impl TextAreaCore {
                     self.styles.remove_style(s.after, s.style);
                 }
                 for s in &styles {
-                    self.styles.add_style(s.after, s.style);
+                    self.styles.add_style(s.before, s.style);
                 }
-                // todo:
-                // for s in self.styles.styles_after_mut(range.end) {
-                //     s.range = range.expand(s.range);
-                // }
-
+                self.styles.remap(|r, _s| {
+                    if range.intersects(r) {
+                        Some(r)
+                    } else {
+                        Some(range.expand(r))
+                    }
+                });
                 self.anchor = anchor.before;
                 self.cursor = cursor.before;
 
@@ -606,27 +616,23 @@ impl TextAreaCore {
         match op {
             Some(UndoEntry::InsertChar {
                 chars,
-                cursor: _,
-                anchor: _,
-                redo_cursor,
-                redo_anchor,
-                range: _,
+                cursor,
+                anchor,
+                range,
                 txt,
             })
             | Some(UndoEntry::InsertStr {
                 chars,
-                cursor: _,
-                anchor: _,
-                redo_cursor,
-                redo_anchor,
-                range: _,
+                cursor,
+                anchor,
+                range,
                 txt,
             }) => {
-                self.value.insert(chars.0, &txt);
+                self.value.insert(chars.start, &txt);
 
-                // todo: ranges
-                self.anchor = redo_anchor;
-                self.cursor = redo_cursor;
+                self.styles.remap(|r, _s| Some(range.expand(r)));
+                self.anchor = anchor.after;
+                self.cursor = cursor.after;
 
                 true
             }
@@ -635,7 +641,7 @@ impl TextAreaCore {
                 chars,
                 cursor,
                 anchor,
-                range: _,
+                range,
                 txt: _,
                 styles,
             })
@@ -643,13 +649,26 @@ impl TextAreaCore {
                 chars,
                 cursor,
                 anchor,
-                range: _,
+                range,
                 txt: _,
                 styles,
             }) => {
                 self.value.remove(chars);
 
-                // todo: ranges
+                self.styles.remap(|r, _s| {
+                    if range.intersects(r) {
+                        Some(r)
+                    } else {
+                        Some(range.shrink(r))
+                    }
+                });
+                for s in &styles {
+                    self.styles.remove_style(s.before, s.style);
+                }
+                for s in &styles {
+                    self.styles.add_style(s.after, s.style);
+                }
+
                 self.anchor = anchor.after;
                 self.cursor = cursor.after;
 
@@ -686,6 +705,12 @@ impl TextAreaCore {
     #[inline]
     pub fn styles_at(&self, pos: TextPosition, buf: &mut Vec<usize>) {
         self.styles.styles_at(pos, buf)
+    }
+
+    /// List of all styles.
+    #[inline]
+    pub fn styles(&self) -> impl Iterator<Item = (TextRange, Vec<usize>)> + '_ {
+        self.styles.styles()
     }
 
     /// Set the cursor position.
@@ -743,6 +768,9 @@ impl TextAreaCore {
         self.anchor = Default::default();
         self.move_col = None;
         self.styles.clear_styles();
+        if let Some(undo) = &mut self.undo {
+            undo.clear();
+        }
     }
 
     /// Access the underlying Rope with the text value.
@@ -1085,18 +1113,21 @@ impl TextAreaCore {
             TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
         };
 
-        self.styles
-            .remap(|r: TextRange, s: &StyleMapEntry| Some(insert.expand(r)));
+        self.styles.remap(|r, _s| Some(insert.expand(r)));
         self.anchor = insert.expand_pos(self.anchor);
         self.cursor = insert.expand_pos(self.cursor);
 
         if let Some(undo) = self.undo.as_mut() {
             undo.insert_char(
                 char_pos,
-                old_cursor,
-                old_anchor,
-                self.cursor,
-                self.anchor,
+                TextPositionChange {
+                    before: old_cursor,
+                    after: self.cursor,
+                },
+                TextPositionChange {
+                    before: old_anchor,
+                    after: self.anchor,
+                },
                 insert,
                 c,
             );
@@ -1160,17 +1191,21 @@ impl TextAreaCore {
             TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
         };
 
-        self.styles.remap(|r, s| Some(insert.expand(r)));
+        self.styles.remap(|r, _s| Some(insert.expand(r)));
         self.anchor = insert.expand_pos(self.anchor);
         self.cursor = insert.expand_pos(self.cursor);
 
         if let Some(undo) = self.undo.as_mut() {
             undo.insert_str(
-                (char_pos, char_pos + char_count),
-                old_cursor,
-                old_anchor,
-                self.cursor,
-                self.anchor,
+                char_pos..char_pos + char_count,
+                TextPositionChange {
+                    before: old_cursor,
+                    after: self.cursor,
+                },
+                TextPositionChange {
+                    before: old_anchor,
+                    after: self.anchor,
+                },
                 insert,
                 t.to_string(),
             );
@@ -1237,22 +1272,8 @@ impl TextAreaCore {
         // remove deleted styles.
         let mut changed = Vec::new();
         self.styles.remap(|r: TextRange, s: &StyleMapEntry| {
-            if range.after(r) {
-                debug!("before {:?} -> {:?}", r, r);
-                Some(r)
-            } else if range.contains(r) {
-                debug!("contains {:?} -> ", r);
-                for s in s.iter() {
-                    changed.push(StyleChange {
-                        before: r,
-                        after: TextRange::new(r.start, r.start),
-                        style: s,
-                    });
-                }
-                None
-            } else if range.intersects(r) {
-                let new_range = range.shrink(r);
-                debug!("intersect {:?} -> {:?}", r, new_range);
+            let new_range = range.shrink(r);
+            if range.intersects(r) {
                 for s in s.iter() {
                     changed.push(StyleChange {
                         before: r,
@@ -1260,17 +1281,15 @@ impl TextAreaCore {
                         style: s,
                     });
                 }
-                Some(new_range)
-            } else if range.before(r) {
-                let new_range = range.shrink(r);
-                debug!("after {:?} -> {:?}", r, new_range);
-                // can be calculated
-                Some(new_range)
+                if new_range.is_empty() {
+                    None
+                } else {
+                    Some(new_range)
+                }
             } else {
-                unreachable!("fail range check")
+                Some(new_range)
             }
         });
-
         self.anchor = range.shrink_pos(self.anchor);
         self.cursor = range.shrink_pos(self.anchor);
 
