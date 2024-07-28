@@ -198,14 +198,14 @@ fn repaint_input(
     area.y += 1;
     Line::from("split").render(area, frame.buffer_mut());
     area.y += 1;
-    for s in &state.split.split {
+    for s in &state.split.split_areas {
         Line::from(format!("{},{}+{}+{}", s.x, s.y, s.width, s.height))
             .render(area, frame.buffer_mut());
         area.y += 1;
     }
     Line::from("mark").render(area, frame.buffer_mut());
     area.y += 1;
-    for s in &state.split.mark {
+    for s in &state.split.mark_area {
         Line::from(format!("{},{}", s.x, s.y)).render(area, frame.buffer_mut());
         area.y += 1;
     }

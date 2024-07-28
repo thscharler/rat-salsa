@@ -152,12 +152,12 @@ pub struct SplitState {
     pub areas: Vec<Rect>,
     /// Area used by the splitter. This is area is used for moving the splitter.
     /// It might overlap with the widget area.
-    pub split: Vec<Rect>,
+    pub split_areas: Vec<Rect>,
     /// If there is a mark_offset, that leaves a blind spot above. This is
     /// noticeable, when the split_type is Scroll.
-    pub blind: Vec<Rect>,
+    pub blind_area: Vec<Rect>,
     /// Start position for drawing the mark.
-    pub mark: Vec<Position>,
+    pub mark_area: Vec<Position>,
 
     /// Direction of the split.
     pub direction: Direction,
@@ -395,16 +395,16 @@ impl<'a> Split<'a> {
 
             let mut old_length: u16 = state.areas.iter().map(length).sum();
             if self.split_type.is_full() {
-                old_length += state.split.iter().map(length).sum::<u16>();
+                old_length += state.split_areas.iter().map(length).sum::<u16>();
             }
 
             if meta_change || length(&inner) != old_length {
                 let mut constraints = Vec::new();
                 for i in 0..state.areas.len() {
                     if self.split_type.is_full() {
-                        if i < state.split.len() {
+                        if i < state.split_areas.len() {
                             constraints.push(Constraint::Fill(
-                                length(&state.areas[i]) + length(&state.split[i]),
+                                length(&state.areas[i]) + length(&state.split_areas[i]),
                             ));
                         } else {
                             constraints.push(Constraint::Fill(length(&state.areas[i])));
@@ -424,9 +424,9 @@ impl<'a> Split<'a> {
         // Areas changed, create areas and splits.
         if let Some(rects) = new_split_areas {
             state.areas.clear();
-            state.split.clear();
-            state.blind.clear();
-            state.mark.clear();
+            state.split_areas.clear();
+            state.blind_area.clear();
+            state.mark_area.clear();
 
             for mut area in rects.iter().take(rects.len().saturating_sub(1)).copied() {
                 let mut split = if self.direction == Direction::Horizontal {
@@ -474,9 +474,9 @@ impl<'a> Split<'a> {
                 self.adjust_for_split_type(&mut area, &mut split, &mut blind, &mut mark);
 
                 state.areas.push(area);
-                state.split.push(split);
-                state.blind.push(blind);
-                state.mark.push(mark);
+                state.split_areas.push(split);
+                state.blind_area.push(blind);
+                state.mark_area.push(mark);
             }
             if let Some(area) = rects.last() {
                 state.areas.push(*area);
@@ -490,7 +490,7 @@ impl<'a> Split<'a> {
                     for r in &mut state.areas {
                         r.height = inner.height;
                     }
-                    for r in &mut state.split {
+                    for r in &mut state.split_areas {
                         r.height = inner.height;
                     }
                 }
@@ -499,7 +499,7 @@ impl<'a> Split<'a> {
                     for r in &mut state.areas {
                         r.width = inner.width;
                     }
-                    for r in &mut state.split {
+                    for r in &mut state.split_areas {
                         r.width = inner.width;
                     }
                 }
@@ -840,7 +840,7 @@ fn render_widget(split: &Split<'_>, area: Rect, buf: &mut Buffer, state: &mut Sp
 }
 
 fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
-    for (n, split_area) in state.split.iter().enumerate() {
+    for (n, split_area) in state.split_areas.iter().enumerate() {
         let arrow_style = if let Some(arrow) = split.arrow_style {
             arrow
         } else {
@@ -871,11 +871,11 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
                 if let Some(blind) = split.get_blind_char() {
                     f = f.fill_char(blind);
                 }
-                f.render(state.blind[n], buf);
+                f.render(state.blind_area[n], buf);
             }
         }
 
-        let mark = state.mark[n];
+        let mark = state.mark_area[n];
         if split.direction == Direction::Horizontal {
             if buf.area.contains((mark.x, mark.y).into()) {
                 buf.get_mut(mark.x, mark.y).set_style(arrow_style);
@@ -915,9 +915,9 @@ impl Default for SplitState {
             focus: Default::default(),
             focus_split: Default::default(),
             areas: Default::default(),
-            split: Default::default(),
-            blind: Default::default(),
-            mark: Default::default(),
+            split_areas: Default::default(),
+            blind_area: Default::default(),
+            mark_area: Default::default(),
             direction: Default::default(),
             split_type: Default::default(),
             mark_offset: 0,
@@ -966,9 +966,9 @@ impl SplitState {
                     };
 
                     self.areas[n] = Rect::new(area1.x, area1.y, p - area1.x, area1.height);
-                    self.split[n] = Rect::new(p, area1.y, 1, area1.height);
-                    self.blind[n] = Rect::new(p, area1.y, 1, self.mark_offset);
-                    self.mark[n] = Position::new(p, area1.y + self.mark_offset);
+                    self.split_areas[n] = Rect::new(p, area1.y, 1, area1.height);
+                    self.blind_area[n] = Rect::new(p, area1.y, 1, self.mark_offset);
+                    self.mark_area[n] = Position::new(p, area1.y + self.mark_offset);
                     self.areas[n + 1] = Rect::new(p + 1, area2.y, area2.right() - p, area2.height);
                 }
                 Scroll => {
@@ -981,9 +981,9 @@ impl SplitState {
                     };
 
                     self.areas[n] = Rect::new(area1.x, area1.y, (p + 1) - area1.x, area1.height);
-                    self.split[n] = Rect::new(p, area1.y + self.mark_offset, 1, 2);
-                    self.blind[n] = Rect::new(p, area1.y, 1, self.mark_offset);
-                    self.mark[n] = Position::new(p, area1.y + self.mark_offset);
+                    self.split_areas[n] = Rect::new(p, area1.y + self.mark_offset, 1, 2);
+                    self.blind_area[n] = Rect::new(p, area1.y, 1, self.mark_offset);
+                    self.mark_area[n] = Position::new(p, area1.y + self.mark_offset);
                     self.areas[n + 1] =
                         Rect::new(p + 1, area2.y, area2.right() - 1 - p, area2.height);
                 }
@@ -996,9 +996,9 @@ impl SplitState {
                         pos.0
                     };
                     self.areas[n] = Rect::new(area1.x, area1.y, (p + 1) - area1.x, area1.height);
-                    self.split[n] = Rect::new(p, area1.y, 1, area1.height);
-                    self.blind[n] = Rect::new(p, area1.y, 1, self.mark_offset);
-                    self.mark[n] = Position::default();
+                    self.split_areas[n] = Rect::new(p, area1.y, 1, area1.height);
+                    self.blind_area[n] = Rect::new(p, area1.y, 1, self.mark_offset);
+                    self.mark_area[n] = Position::default();
                     self.areas[n + 1] =
                         Rect::new(p + 1, area2.y, area2.right() - 1 - p, area2.height);
                 }
@@ -1015,9 +1015,9 @@ impl SplitState {
                         pos.1
                     };
                     self.areas[n] = Rect::new(area1.x, area1.y, area1.width, p - area1.y);
-                    self.split[n] = Rect::new(area1.x, p, area1.width, 1);
-                    self.blind[n] = Rect::new(area1.x, p, self.mark_offset, 1);
-                    self.mark[n] = Position::new(area1.x + self.mark_offset, p);
+                    self.split_areas[n] = Rect::new(area1.x, p, area1.width, 1);
+                    self.blind_area[n] = Rect::new(area1.x, p, self.mark_offset, 1);
+                    self.mark_area[n] = Position::new(area1.x + self.mark_offset, p);
                     self.areas[n + 1] = Rect::new(area2.x, p + 1, area2.width, area2.bottom() - p);
                 }
                 Scroll => {
@@ -1029,9 +1029,9 @@ impl SplitState {
                         pos.1
                     };
                     self.areas[n] = Rect::new(area1.x, area1.y, area1.width, (p + 1) - area1.y);
-                    self.split[n] = Rect::new(area1.x + self.mark_offset, p, 2, 1);
-                    self.blind[n] = Rect::new(area1.x, p, self.mark_offset, 1);
-                    self.mark[n] = Position::new(area1.x + self.mark_offset, p);
+                    self.split_areas[n] = Rect::new(area1.x + self.mark_offset, p, 2, 1);
+                    self.blind_area[n] = Rect::new(area1.x, p, self.mark_offset, 1);
+                    self.mark_area[n] = Position::new(area1.x + self.mark_offset, p);
                     self.areas[n + 1] =
                         Rect::new(area2.x, p + 1, area2.width, area2.bottom() - 1 - p);
                 }
@@ -1044,9 +1044,9 @@ impl SplitState {
                         pos.1
                     };
                     self.areas[n] = Rect::new(area1.x, area1.y, area1.width, (p + 1) - area1.y);
-                    self.split[n] = Rect::new(area1.x, p, area1.width, 1);
-                    self.blind[n] = Rect::new(area1.x, p, self.mark_offset, 1);
-                    self.mark[n] = Position::default();
+                    self.split_areas[n] = Rect::new(area1.x, p, area1.width, 1);
+                    self.blind_area[n] = Rect::new(area1.x, p, self.mark_offset, 1);
+                    self.mark_area[n] = Position::default();
                     self.areas[n + 1] =
                         Rect::new(area2.x, p + 1, area2.width, area2.bottom() - 1 - p);
                 }
@@ -1059,7 +1059,7 @@ impl SplitState {
     /// Move the nth split position.
     /// Does nothing if the direction is not matching.
     pub fn move_split_left(&mut self, n: usize, delta: u16) -> bool {
-        let split = self.split[n];
+        let split = self.split_areas[n];
         if self.direction == Direction::Horizontal {
             self.set_screen_split_pos(n, (split.left().saturating_sub(delta), split.y))
         } else {
@@ -1070,7 +1070,7 @@ impl SplitState {
     /// Move the nth split position.
     /// Does nothing if the direction is not matching.
     pub fn move_split_right(&mut self, n: usize, delta: u16) -> bool {
-        let split = self.split[n];
+        let split = self.split_areas[n];
         if self.direction == Direction::Horizontal {
             self.set_screen_split_pos(n, (split.right() + delta, split.y))
         } else {
@@ -1081,7 +1081,7 @@ impl SplitState {
     /// Move the nth split position.
     /// Does nothing if the direction is not matching.
     pub fn move_split_up(&mut self, n: usize, delta: u16) -> bool {
-        let split = self.split[n];
+        let split = self.split_areas[n];
         if self.direction == Direction::Vertical {
             self.set_screen_split_pos(n, (split.x, split.top().saturating_sub(delta)))
         } else {
@@ -1092,7 +1092,7 @@ impl SplitState {
     /// Move the nth split position.
     /// Does nothing if the direction is not matching.
     pub fn move_split_down(&mut self, n: usize, delta: u16) -> bool {
-        let split = self.split[n];
+        let split = self.split_areas[n];
         if self.direction == Direction::Vertical {
             self.set_screen_split_pos(n, (split.x, split.bottom() + delta))
         } else {
@@ -1104,7 +1104,7 @@ impl SplitState {
     pub fn select_next_split(&mut self) -> bool {
         if self.is_focused() {
             let n = self.focus_split.unwrap_or_default();
-            if n + 1 >= self.split.len() {
+            if n + 1 >= self.split_areas.len() {
                 self.focus_split = Some(0);
             } else {
                 self.focus_split = Some(n + 1);
@@ -1120,7 +1120,7 @@ impl SplitState {
         if self.is_focused() {
             let n = self.focus_split.unwrap_or_default();
             if n == 0 {
-                self.focus_split = Some(self.split.len() - 1);
+                self.focus_split = Some(self.split_areas.len() - 1);
             } else {
                 self.focus_split = Some(n - 1);
             }
@@ -1163,7 +1163,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for SplitState {
         match event {
             ct_event!(mouse any for m) => {
                 let was_drag = self.mouse.drag.get();
-                if self.mouse.drag(&self.split, m) {
+                if self.mouse.drag(&self.split_areas, m) {
                     if let Some(n) = self.mouse.drag.get() {
                         self.set_screen_split_pos(n, self.mouse.pos_of(m)).into()
                     } else {
