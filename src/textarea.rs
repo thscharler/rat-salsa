@@ -274,6 +274,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     Fill::new().style(style).render(area, buf);
 
     let selection = state.selection();
+    let mut styles = Vec::new();
 
     let mut line_iter = state.value.lines_at(state.vscroll.offset());
     let (ox, oy) = state.offset();
@@ -295,8 +296,10 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                 if d.len > 0 {
                     let mut style = style;
                     // text-styles
-                    for idx in state.styles_at(TextPosition::new(tx, ty)) {
-                        let Some(s) = widget.text_style.get(idx) else {
+                    styles.clear();
+                    state.styles_at((tx, ty), &mut styles);
+                    for idx in &styles {
+                        let Some(s) = widget.text_style.get(*idx) else {
                             panic!("invalid style nr: {}", idx);
                         };
                         style = style.patch(*s);
@@ -403,8 +406,8 @@ impl TextAreaState {
     /// This doesn't scroll the cursor to a visible position.
     /// Use [TextAreaState::scroll_cursor_to_visible()] for that.
     #[inline]
-    pub fn set_cursor(&mut self, cursor: TextPosition, extend_selection: bool) -> bool {
-        self.value.set_cursor(cursor, extend_selection)
+    pub fn set_cursor(&mut self, cursor: impl Into<TextPosition>, extend_selection: bool) -> bool {
+        self.value.set_cursor(cursor.into(), extend_selection)
     }
 
     /// Selection anchor.
@@ -447,8 +450,8 @@ impl TextAreaState {
 
     /// Text value
     #[inline]
-    pub fn text_slice(&self, range: TextRange) -> Option<RopeSlice<'_>> {
-        self.value.text_slice(range)
+    pub fn text_slice(&self, range: impl Into<TextRange>) -> Option<RopeSlice<'_>> {
+        self.value.text_slice(range.into())
     }
 
     /// Text as Bytes iterator.
@@ -592,8 +595,8 @@ impl TextAreaState {
 
     /// Set the selection.
     #[inline]
-    pub fn set_selection(&mut self, range: TextRange) -> bool {
-        self.value.set_selection(range)
+    pub fn set_selection(&mut self, range: impl Into<TextRange>) -> bool {
+        self.value.set_selection(range.into())
     }
 
     /// Select all.
@@ -617,20 +620,20 @@ impl TextAreaState {
     /// Add a style for a [TextRange]. The style-nr refers to one
     /// of the styles set with the widget.
     #[inline]
-    pub fn add_style(&mut self, range: TextRange, style: usize) {
-        self.value.add_style(range, style);
+    pub fn add_style(&mut self, range: impl Into<TextRange>, style: usize) {
+        self.value.add_style(range.into(), style);
     }
 
     /// Remove the exact TextRange and style.
     #[inline]
-    pub fn remove_style(&mut self, range: TextRange, style: usize) {
-        self.value.remove_style(range, style);
+    pub fn remove_style(&mut self, range: impl Into<TextRange>, style: usize) {
+        self.value.remove_style(range.into(), style);
     }
 
     /// All styles active at the given position.
     #[inline]
-    pub fn styles_at(&self, pos: TextPosition) -> impl Iterator<Item = usize> + '_ {
-        self.value.styles_at(pos)
+    pub fn styles_at(&self, pos: impl Into<TextPosition>, buf: &mut Vec<usize>) {
+        self.value.styles_at(pos.into(), buf)
     }
 
     /// Convert a byte position to a text area position.
@@ -644,8 +647,8 @@ impl TextAreaState {
     /// Uses grapheme based column indexes.
     /// Returns (byte-start, byte-end) of the grapheme at the given position.
     #[inline]
-    pub fn byte_at(&self, pos: TextPosition) -> Option<Range<usize>> {
-        self.value.byte_at(pos)
+    pub fn byte_at(&self, pos: impl Into<TextPosition>) -> Option<Range<usize>> {
+        self.value.byte_at(pos.into())
     }
 
     /// Convert a char position to a text area position.
@@ -658,8 +661,8 @@ impl TextAreaState {
     /// Convert a text area position to a char position.
     /// Uses grapheme based column indexes.
     #[inline]
-    pub fn char_at(&self, pos: TextPosition) -> Option<usize> {
-        self.value.char_at(pos)
+    pub fn char_at(&self, pos: impl Into<TextPosition>) -> Option<usize> {
+        self.value.char_at(pos.into())
     }
 
     /// Insert a character at the cursor position.
@@ -692,7 +695,8 @@ impl TextAreaState {
 
     /// Insert text at the cursor position.
     /// Removes the selection and inserts the text.
-    pub fn insert_str(&mut self, t: &str) -> bool {
+    pub fn insert_str(&mut self, t: impl AsRef<str>) -> bool {
+        let t = t.as_ref();
         if self.value.has_selection() {
             self.value.remove_range(self.value.selection());
         }
@@ -712,7 +716,8 @@ impl TextAreaState {
     }
 
     /// Deletes the given range.
-    pub fn delete_range(&mut self, range: TextRange) -> bool {
+    pub fn delete_range(&mut self, range: impl Into<TextRange>) -> bool {
+        let range = range.into();
         if !range.is_empty() {
             self.value.remove_range(range);
             self.scroll_cursor_to_visible();
@@ -747,8 +752,8 @@ impl TextAreaState {
     }
 
     /// Find the start of the next word. Word is everything that is not whitespace.
-    pub fn next_word_start(&self, pos: TextPosition) -> Option<TextPosition> {
-        let mut char_pos = self.char_at(pos)?;
+    pub fn next_word_start(&self, pos: impl Into<TextPosition>) -> Option<TextPosition> {
+        let mut char_pos = self.char_at(pos.into())?;
 
         let chars_after = self.value.char_slice(char_pos..);
         let mut it = chars_after.chars_at(0);
@@ -767,8 +772,8 @@ impl TextAreaState {
 
     /// Find the end of the next word. Skips whitespace first, then goes on
     /// until it finds the next whitespace.
-    pub fn next_word_end(&self, pos: TextPosition) -> Option<TextPosition> {
-        let mut char_pos = self.char_at(pos)?;
+    pub fn next_word_end(&self, pos: impl Into<TextPosition>) -> Option<TextPosition> {
+        let mut char_pos = self.char_at(pos.into())?;
 
         let chars_after = self.value.char_slice(char_pos..);
         let mut it = chars_after.chars_at(0);
@@ -797,8 +802,8 @@ impl TextAreaState {
     /// Find prev word. Skips whitespace first.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
-    pub fn prev_word_start(&self, pos: TextPosition) -> Option<TextPosition> {
-        let mut char_pos = self.char_at(pos)?;
+    pub fn prev_word_start(&self, pos: impl Into<TextPosition>) -> Option<TextPosition> {
+        let mut char_pos = self.char_at(pos.into())?;
 
         let chars_before = self.value.char_slice(..char_pos);
         let mut it = chars_before.chars_at(chars_before.len_chars());
@@ -827,8 +832,8 @@ impl TextAreaState {
     /// Find the end of the previous word. Word is everything that is not whitespace.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
-    pub fn prev_word_end(&self, pos: TextPosition) -> Option<TextPosition> {
-        let mut char_pos = self.char_at(pos)?;
+    pub fn prev_word_end(&self, pos: impl Into<TextPosition>) -> Option<TextPosition> {
+        let mut char_pos = self.char_at(pos.into())?;
 
         let chars_before = self.value.char_slice(..char_pos);
         let mut it = chars_before.chars_at(chars_before.len_chars());
@@ -846,8 +851,8 @@ impl TextAreaState {
     }
 
     /// Is the position at a word boundary?
-    pub fn is_word_boundary(&self, pos: TextPosition) -> bool {
-        let char_pos = self.char_at(pos).expect("valid_selection");
+    pub fn is_word_boundary(&self, pos: impl Into<TextPosition>) -> bool {
+        let char_pos = self.char_at(pos.into()).expect("valid_selection");
         let mut it = self.char_slice(..).chars_at(char_pos);
         if let Some(c0) = it.prev() {
             it.next();
@@ -863,8 +868,8 @@ impl TextAreaState {
     }
 
     /// Find the start of the word at pos.
-    pub fn word_start(&self, pos: TextPosition) -> Option<TextPosition> {
-        let mut char_pos = self.char_at(pos)?;
+    pub fn word_start(&self, pos: impl Into<TextPosition>) -> Option<TextPosition> {
+        let mut char_pos = self.char_at(pos.into())?;
 
         let chars_before = self.value.char_slice(..char_pos);
         let mut it = chars_before.chars_at(chars_before.len_chars());
@@ -882,8 +887,8 @@ impl TextAreaState {
     }
 
     /// Find the end of the word at pos.
-    pub fn word_end(&self, pos: TextPosition) -> Option<TextPosition> {
-        let mut char_pos = self.char_at(pos)?;
+    pub fn word_end(&self, pos: impl Into<TextPosition>) -> Option<TextPosition> {
+        let mut char_pos = self.char_at(pos.into())?;
 
         let chars_after = self.value.char_slice(char_pos..);
         let mut it = chars_after.chars_at(0);
@@ -1216,7 +1221,8 @@ impl TextAreaState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
-    pub fn to_screen_col(&self, pos: TextPosition) -> Option<u16> {
+    pub fn to_screen_col(&self, pos: impl Into<TextPosition>) -> Option<u16> {
+        let pos = pos.into();
         let (ox, _) = self.offset();
 
         let mut line = self.line_glyphs(pos.y)?;

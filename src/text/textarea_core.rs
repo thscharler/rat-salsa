@@ -1,15 +1,16 @@
 use crate::text::graphemes::{
     rope_line_len, str_line_len, RopeGlyphIter, RopeGraphemes, RopeGraphemesIdx,
 };
-use crate::text::undo::{StyledRangeChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
-#[allow(unused_imports)]
+use crate::text::undo::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
+use iset::IntervalMap;
 use log::debug;
+use pure_rust_locales::Locale::en_DK;
 use ropey::{Rope, RopeSlice};
-use std::any::Any;
-use std::cmp::{min, Ordering};
+use std::cmp::{max, min};
+use std::collections::HashSet;
 use std::fmt::{Debug, Formatter};
-use std::mem;
 use std::ops::{Range, RangeBounds};
+use std::{mem, slice};
 
 /// Core for text editing.
 #[derive(Debug)]
@@ -40,7 +41,7 @@ pub struct TextAreaCore {
     buf: String,
 }
 
-/// Range for text ranges.
+/// Exclusive range for text ranges.
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct TextRange {
     /// column, row
@@ -49,31 +50,31 @@ pub struct TextRange {
     pub end: TextPosition,
 }
 
-/// Position for text.
+/// Text position.
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct TextPosition {
     pub y: usize,
     pub x: usize,
 }
 
-/// Combined Range + Style.
-#[derive(Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct StyledRange {
-    pub range: TextRange,
-    pub style: usize,
-}
-
+/// Styles.
 #[derive(Debug, Default, Clone)]
 struct StyleMap {
-    /// Vec of (range, style-idx)
-    styles: Vec<StyledRange>,
+    // todo: there is probably some order for applying the styles,
+    //       on the other hand merging of styles is dubious at best.
+    //       anyway, what should that order be?
+    // -> order by style-nr. a bit arbitrary, but maybe ok.
+    buf: Vec<(Range<TextPosition>, StyleMapEntry)>,
+    styles: IntervalMap<TextPosition, StyleMapEntry>,
 }
 
-#[derive(Debug, Clone)]
-struct StyleMapIter<'a> {
-    styles: &'a [StyledRange],
-    filter_pos: TextPosition,
-    idx: usize,
+/// Styles as stored in the style map.
+#[derive(Debug, Default, Clone)]
+pub enum StyleMapEntry {
+    #[default]
+    NoStyle,
+    Style(usize),
+    Styles(Vec<usize>),
 }
 
 impl TextPosition {
@@ -98,6 +99,12 @@ impl From<(usize, usize)> for TextPosition {
     }
 }
 
+impl From<TextPosition> for (usize, usize) {
+    fn from(value: TextPosition) -> Self {
+        (value.x, value.y)
+    }
+}
+
 impl Debug for TextRange {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         if f.alternate() {
@@ -113,6 +120,21 @@ impl Debug for TextRange {
                 self.start.x, self.start.y, self.end.x, self.end.y
             )
         }
+    }
+}
+
+impl From<Range<TextPosition>> for TextRange {
+    fn from(value: Range<TextPosition>) -> Self {
+        Self {
+            start: value.start,
+            end: value.end,
+        }
+    }
+}
+
+impl From<TextRange> for Range<TextPosition> {
+    fn from(value: TextRange) -> Self {
+        value.start..value.end
     }
 }
 
@@ -183,31 +205,15 @@ impl TextRange {
         other.start <= self.end && other.end >= self.start
     }
 
-    /// Modify all positions in place.
-    #[inline]
-    pub fn expand_all<'a>(&self, it: impl Iterator<Item = &'a mut StyledRange>) {
-        for r in it {
-            r.range.start = self.expand_pos(r.range.start);
-            r.range.end = self.expand_pos(r.range.end);
-        }
-    }
-
-    /// Modify all positions in place.
-    #[inline]
-    pub fn shrink_all<'a>(&self, it: impl Iterator<Item = &'a mut StyledRange>) {
-        for r in it {
-            r.range.start = self.shrink_pos(r.range.start);
-            r.range.end = self.shrink_pos(r.range.end);
-        }
-    }
-
-    /// Return the modified range after the self-range is inserted.
+    /// Return the modified value range, that accounts for a
+    /// text insertion of range.
     #[inline]
     pub fn expand(&self, range: TextRange) -> TextRange {
         TextRange::new(self.expand_pos(range.start), self.expand_pos(range.end))
     }
 
-    /// Return the modified range after the self-range is inserted.
+    /// Return the modified position, that accounts for a
+    /// text insertion of range.
     #[inline]
     pub fn expand_pos(&self, pos: TextPosition) -> TextPosition {
         let delta_lines = self.end.y - self.start.y;
@@ -232,13 +238,15 @@ impl TextRange {
         }
     }
 
-    /// Return the modified range after the self-range is deleted.
+    /// Return the modified value range, that accounts for a
+    /// text deletion of range.
     #[inline]
     pub fn shrink(&self, range: TextRange) -> TextRange {
         TextRange::new(self.shrink_pos(range.start), self.shrink_pos(range.end))
     }
 
-    /// Return the modified position after the self-range is deleted.
+    /// Return the modified position, that accounts for a
+    /// text deletion of the range.
     #[inline]
     pub fn shrink_pos(&self, pos: TextPosition) -> TextPosition {
         let delta_lines = self.end.y - self.start.y;
@@ -265,47 +273,41 @@ impl TextRange {
     }
 }
 
-impl<'a> StyleMapIter<'a> {
-    fn new(styles: &'a [StyledRange], first: usize, pos: TextPosition) -> Self {
-        Self {
-            styles,
-            filter_pos: pos,
-            idx: first,
+impl StyleMapEntry {
+    pub fn iter(&self) -> StyleMapEntryIter<'_> {
+        match self {
+            StyleMapEntry::NoStyle => StyleMapEntryIter {
+                single: None,
+                iter: None,
+            },
+            StyleMapEntry::Style(s) => StyleMapEntryIter {
+                single: Some(*s),
+                iter: None,
+            },
+            StyleMapEntry::Styles(s) => StyleMapEntryIter {
+                single: None,
+                iter: Some(s.iter()),
+            },
         }
     }
 }
 
-impl<'a> Iterator for StyleMapIter<'a> {
+pub struct StyleMapEntryIter<'a> {
+    single: Option<usize>,
+    iter: Option<slice::Iter<'a, usize>>,
+}
+
+impl<'a> Iterator for StyleMapEntryIter<'a> {
     type Item = usize;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let idx = self.idx;
-        if idx < self.styles.len() {
-            if self.styles[idx].range.contains_pos(self.filter_pos) {
-                self.idx += 1;
-                Some(self.styles[idx].style)
-            } else {
-                None
-            }
+        if let Some(single) = self.single {
+            self.single = None;
+            Some(single)
+        } else if let Some(iter) = &mut self.iter {
+            iter.next().copied()
         } else {
             None
-        }
-    }
-}
-
-impl StyledRange {}
-
-impl Debug for StyledRange {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "StyledRange {{{:#?} -> {}}}", self.range, self.style)
-    }
-}
-
-impl From<(TextRange, usize)> for StyledRange {
-    fn from(value: (TextRange, usize)) -> Self {
-        Self {
-            range: value.0,
-            style: value.1,
         }
     }
 }
@@ -321,114 +323,109 @@ impl StyleMap {
     /// The same range can be added again with a different style.
     /// Overlapping regions get the merged style.
     pub(crate) fn add_style(&mut self, range: TextRange, style: usize) {
-        let stylemap = StyledRange::from((range, style));
-        match self.styles.binary_search(&stylemap) {
-            Ok(_) => {
-                // noop
-            }
-            Err(idx) => {
-                self.styles.insert(idx, stylemap);
-            }
-        }
+        self.styles
+            .entry(range.into())
+            .and_modify(|v| {
+                let new_v = match v {
+                    StyleMapEntry::NoStyle => {
+                        //
+                        StyleMapEntry::Style(style)
+                    }
+                    StyleMapEntry::Style(w) => {
+                        if *w != style {
+                            let mut s_vec = vec![*w, style];
+                            s_vec.sort();
+                            StyleMapEntry::Styles(s_vec)
+                        } else {
+                            StyleMapEntry::Style(*w)
+                        }
+                    }
+                    StyleMapEntry::Styles(w) => {
+                        let mut w = mem::take(w);
+                        match w.binary_search(&style) {
+                            Ok(_) => {}
+                            Err(i) => w.insert(i, style),
+                        }
+                        StyleMapEntry::Styles(w)
+                    }
+                };
+                *v = new_v;
+            })
+            .or_insert_with(|| StyleMapEntry::Style(style));
     }
 
     /// Remove a text-style for a range.
     ///
     /// This must match exactly in range and style to be removed.
     pub(crate) fn remove_style(&mut self, range: TextRange, style: usize) {
-        let stylemap = StyledRange::from((range, style));
-        match self.styles.binary_search(&stylemap) {
-            Ok(idx) => {
-                self.styles.remove(idx);
-            }
-            Err(_) => {
-                // noop
-            }
-        }
-    }
-
-    /// Find styles that touch the given pos and all styles after that point.
-    pub(crate) fn styles_after_mut(
-        &mut self,
-        pos: TextPosition,
-    ) -> impl Iterator<Item = &mut StyledRange> {
-        let first = match self.styles.binary_search_by(|v| v.range.start.cmp(&pos)) {
-            Ok(mut i) => {
-                // binary-search found *some* matching style, we need all of them.
-                // this finds the first one.
-                loop {
-                    if i == 0 {
-                        break;
-                    }
-                    if !self.styles[i - 1].range.contains_pos(pos) {
-                        break;
-                    }
-                    i -= 1;
-                }
-                i
-            }
-            Err(i) => i,
+        let Some(v) = self.styles.get_mut(range.into()) else {
+            return;
         };
 
-        self.styles.iter_mut().skip(first)
-    }
-
-    // find the first index where start <= pos.
-    pub(crate) fn find_first(&self, pos: TextPosition) -> usize {
-        // find some approximate position
-        let mut i = self
-            .styles
-            .binary_search_by(|v| v.range.start.cmp(&pos))
-            .unwrap_or_else(|i| i);
-
-        loop {
-            if i == 0 {
-                debug!("break 0");
-                break;
+        let new_v = match v {
+            StyleMapEntry::NoStyle => {
+                //
+                StyleMapEntry::NoStyle
             }
-            debug!("-> range {:?} contains {:?}", self.styles[i - 1].range, pos);
-            if self.styles[i - 1].range.start <= pos {
-                debug!("-> break");
-                break;
+            StyleMapEntry::Style(w) => {
+                if *w == style {
+                    StyleMapEntry::NoStyle
+                } else {
+                    StyleMapEntry::Style(*w)
+                }
             }
-            i -= 1;
+            StyleMapEntry::Styles(w) => {
+                let mut w = mem::take(w);
+                w.retain(|s| *s != style);
+                if w.len() > 1 {
+                    StyleMapEntry::Styles(w)
+                } else {
+                    StyleMapEntry::Style(w[0])
+                }
+            }
+        };
+        let is_empty = matches!(new_v, StyleMapEntry::NoStyle);
+        *v = new_v;
+
+        if is_empty {
+            self.styles.remove(range.into());
         }
-        i
     }
 
     /// Find all styles that touch the given position.
-    pub(crate) fn styles_at(&self, pos: TextPosition) -> impl Iterator<Item = usize> + '_ {
-        debug!("pos {:?}", pos);
-        debug!("styles {:#?}", self.styles);
-
-        let first = match self.styles.binary_search_by(|v| {
-            debug!("partial_cmp {:?} {:?}", v.range, pos);
-            v.range.start.cmp(&pos)
-        }) {
-            Ok(mut i) => {
-                debug!("-> search {:?}", i);
-                // binary-search found *some* matching style, we need all of them.
-                // this finds the first one.
-                loop {
-                    if i == 0 {
-                        break;
-                    }
-                    debug!("-> range {:?} contains {:?}", self.styles[i - 1].range, pos);
-                    if !self.styles[i - 1].range.contains_pos(pos) {
-                        debug!("-> break!!");
-                        break;
-                    }
-                    i -= 1;
+    pub(crate) fn styles_at(&self, pos: TextPosition, buf: &mut Vec<usize>) {
+        for v in self
+            .styles
+            .overlap(pos) //
+            .map(|v| v.1)
+        {
+            match v {
+                StyleMapEntry::NoStyle => {}
+                StyleMapEntry::Style(w) => {
+                    buf.push(*w);
                 }
-                i
+                StyleMapEntry::Styles(w) => {
+                    buf.extend_from_slice(w);
+                }
             }
-            Err(i) => {
-                debug!("-> err {:?}", i);
-                self.styles.len()
-            }
-        };
+        }
+    }
 
-        StyleMapIter::new(&self.styles, first, pos)
+    /// Map and rebuild the IntervalMap.
+    #[inline]
+    pub(crate) fn remap(
+        &mut self,
+        mut remap_fn: impl FnMut(TextRange, &StyleMapEntry) -> Option<TextRange>,
+    ) {
+        self.buf.clear();
+
+        let styles = mem::take(&mut self.styles);
+        for (r, s) in styles.into_iter(..) {
+            if let Some(r) = remap_fn(r.into(), &s) {
+                self.buf.push((r.into(), s));
+            }
+        }
+        self.styles = IntervalMap::from_sorted(self.buf.drain(..));
     }
 }
 
@@ -583,11 +580,12 @@ impl TextAreaCore {
                     self.styles.remove_style(s.after, s.style);
                 }
                 for s in &styles {
-                    self.styles.add_style(s.before, s.style);
+                    self.styles.add_style(s.after, s.style);
                 }
-                for s in self.styles.styles_after_mut(range.end) {
-                    s.range = range.expand(s.range);
-                }
+                // todo:
+                // for s in self.styles.styles_after_mut(range.end) {
+                //     s.range = range.expand(s.range);
+                // }
 
                 self.anchor = anchor.before;
                 self.cursor = cursor.before;
@@ -684,16 +682,10 @@ impl TextAreaCore {
         self.styles.remove_style(range, style);
     }
 
-    /// Style map.
-    #[inline]
-    pub fn styles(&self) -> &[StyledRange] {
-        &self.styles.styles
-    }
-
     /// Finds all styles for the given position.
     #[inline]
-    pub fn styles_at(&self, pos: TextPosition) -> impl Iterator<Item = usize> + '_ {
-        self.styles.styles_at(pos)
+    pub fn styles_at(&self, pos: TextPosition, buf: &mut Vec<usize>) {
+        self.styles.styles_at(pos, buf)
     }
 
     /// Set the cursor position.
@@ -800,8 +792,8 @@ impl TextAreaCore {
 
     /// Iterate over text-lines, starting at offset.
     #[inline]
-    pub fn lines_at(&self, line_offset: usize) -> impl Iterator<Item = RopeSlice<'_>> {
-        self.value.lines_at(line_offset)
+    pub fn lines_at(&self, n: usize) -> impl Iterator<Item = RopeSlice<'_>> {
+        self.value.lines_at(n)
     }
 
     /// Iterator for the glyphs of a given line.
@@ -1093,7 +1085,8 @@ impl TextAreaCore {
             TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
         };
 
-        insert.expand_all(self.styles.styles_after_mut(pos));
+        self.styles
+            .remap(|r: TextRange, s: &StyleMapEntry| Some(insert.expand(r)));
         self.anchor = insert.expand_pos(self.anchor);
         self.cursor = insert.expand_pos(self.cursor);
 
@@ -1167,7 +1160,7 @@ impl TextAreaCore {
             TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
         };
 
-        insert.expand_all(self.styles.styles_after_mut(pos));
+        self.styles.remap(|r, s| Some(insert.expand(r)));
         self.anchor = insert.expand_pos(self.anchor);
         self.cursor = insert.expand_pos(self.cursor);
 
@@ -1243,34 +1236,36 @@ impl TextAreaCore {
 
         // remove deleted styles.
         let mut changed = Vec::new();
-        self.styles.styles.retain_mut(|v| {
-            if range.after(v.range) {
-                debug!("before {:?} -> {:?}", v.range, v.range);
-                true
-            } else if range.contains(v.range) {
-                debug!("contains {:?} -> ", v.range);
-                changed.push(StyledRangeChange {
-                    before: v.range,
-                    after: TextRange::new(v.range.start, v.range.start),
-                    style: v.style,
-                });
-                false
-            } else if range.intersects(v.range) {
-                let new_range = range.shrink(v.range);
-                debug!("intersect {:?} -> {:?}", v.range, new_range);
-                changed.push(StyledRangeChange {
-                    before: v.range,
-                    after: new_range,
-                    style: v.style,
-                });
-                v.range = new_range;
-                true
-            } else if range.before(v.range) {
-                let new_range = range.shrink(v.range);
-                debug!("after {:?} -> {:?}", v.range, new_range);
+        self.styles.remap(|r: TextRange, s: &StyleMapEntry| {
+            if range.after(r) {
+                debug!("before {:?} -> {:?}", r, r);
+                Some(r)
+            } else if range.contains(r) {
+                debug!("contains {:?} -> ", r);
+                for s in s.iter() {
+                    changed.push(StyleChange {
+                        before: r,
+                        after: TextRange::new(r.start, r.start),
+                        style: s,
+                    });
+                }
+                None
+            } else if range.intersects(r) {
+                let new_range = range.shrink(r);
+                debug!("intersect {:?} -> {:?}", r, new_range);
+                for s in s.iter() {
+                    changed.push(StyleChange {
+                        before: r,
+                        after: new_range,
+                        style: s,
+                    });
+                }
+                Some(new_range)
+            } else if range.before(r) {
+                let new_range = range.shrink(r);
+                debug!("after {:?} -> {:?}", r, new_range);
                 // can be calculated
-                v.range = new_range;
-                true
+                Some(new_range)
             } else {
                 unreachable!("fail range check")
             }

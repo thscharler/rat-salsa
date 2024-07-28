@@ -1,12 +1,12 @@
 use crate::text::graphemes::{char_len, str_line_len};
-use crate::text::textarea_core::{TextPosition, TextRange};
+use crate::text::textarea_core::{StyleMapEntry, TextPosition, TextRange};
 use log::debug;
 use std::fmt::Debug;
 use std::mem;
 use std::ops::Range;
 
 #[derive(Debug, Clone)]
-pub struct StyledRangeChange {
+pub struct StyleChange {
     pub before: TextRange,
     pub after: TextRange,
     pub style: usize,
@@ -52,7 +52,7 @@ pub trait UndoBuffer: Debug {
         anchor: TextPositionChange,
         range: TextRange,
         txt: String,
-        styles: Vec<StyledRangeChange>,
+        styles: Vec<StyleChange>,
     );
 
     /// Add a remove operation to the undo buffer.
@@ -63,7 +63,7 @@ pub trait UndoBuffer: Debug {
         anchor: TextPositionChange,
         range: TextRange,
         txt: String,
-        styles: Vec<StyledRangeChange>,
+        styles: Vec<StyleChange>,
     );
 
     /// Next undo.
@@ -103,7 +103,7 @@ pub enum UndoEntry {
         anchor: TextPositionChange,
         range: TextRange,
         txt: String,
-        styles: Vec<StyledRangeChange>,
+        styles: Vec<StyleChange>,
     },
     RemoveStr {
         chars: Range<usize>,
@@ -111,7 +111,7 @@ pub enum UndoEntry {
         anchor: TextPositionChange,
         range: TextRange,
         txt: String,
-        styles: Vec<StyledRangeChange>,
+        styles: Vec<StyleChange>,
     },
 }
 
@@ -279,8 +279,8 @@ impl UndoVec {
     /// Merge styles from two deletes.
     fn remove_merge_style(
         last_range: TextRange,
-        last: &mut Vec<StyledRangeChange>,
-        curr: &mut Vec<StyledRangeChange>,
+        last: &mut Vec<StyleChange>,
+        curr: &mut Vec<StyleChange>,
     ) {
         for i in (0..last.len()).rev() {
             for j in (0..curr.len()).rev() {
@@ -295,7 +295,7 @@ impl UndoVec {
 
         // expand before and add
         for mut curr in curr.drain(..) {
-            curr.before = last_range.expand(curr.before);
+            curr.before = last_range.expand(curr.before.into());
             last.push(curr);
         }
     }
@@ -375,7 +375,7 @@ impl UndoBuffer for UndoVec {
         anchor: TextPositionChange,
         range: TextRange,
         txt: String,
-        styles: Vec<StyledRangeChange>,
+        styles: Vec<StyleChange>,
     ) {
         self.append(UndoEntry::RemoveChar {
             chars,
@@ -394,7 +394,7 @@ impl UndoBuffer for UndoVec {
         anchor: TextPositionChange,
         range: TextRange,
         txt: String,
-        styles: Vec<StyledRangeChange>,
+        styles: Vec<StyleChange>,
     ) {
         self.append(UndoEntry::RemoveStr {
             chars,
