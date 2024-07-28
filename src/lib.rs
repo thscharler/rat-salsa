@@ -47,14 +47,6 @@ pub mod event {
         }
     }
 
-    impl BitOr for TextOutcome {
-        type Output = TextOutcome;
-
-        fn bitor(self, rhs: Self) -> Self::Output {
-            max(self, rhs)
-        }
-    }
-
     // Useful for converting most navigation/edit results.
     impl From<bool> for TextOutcome {
         fn from(value: bool) -> Self {
@@ -62,6 +54,16 @@ pub mod event {
                 TextOutcome::Changed
             } else {
                 TextOutcome::Unchanged
+            }
+        }
+    }
+
+    impl From<Outcome> for TextOutcome {
+        fn from(value: Outcome) -> Self {
+            match value {
+                Outcome::NotUsed => TextOutcome::NotUsed,
+                Outcome::Unchanged => TextOutcome::Unchanged,
+                Outcome::Changed => TextOutcome::Changed,
             }
         }
     }
@@ -94,6 +96,12 @@ pub mod event {
         Cancel,
         /// Ok
         Ok(PathBuf),
+    }
+
+    impl ConsumedEvent for FileOutcome {
+        fn is_consumed(&self) -> bool {
+            !matches!(self, FileOutcome::NotUsed)
+        }
     }
 
     impl From<FileOutcome> for Outcome {
@@ -129,9 +137,58 @@ pub mod event {
         }
     }
 
-    impl ConsumedEvent for FileOutcome {
+    /// Result of event handling.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum TabbedOutcome {
+        /// The given event has not been used at all.
+        NotUsed,
+        /// The event has been recognized, but the result was nil.
+        /// Further processing for this event may stop.
+        Unchanged,
+        /// The event has been recognized and there is some change
+        /// due to it.
+        /// Further processing for this event may stop.
+        /// Rendering the ui is advised.
+        Changed,
+        /// Selected tab should be closed.
+        Close(usize),
+    }
+
+    impl ConsumedEvent for TabbedOutcome {
         fn is_consumed(&self) -> bool {
-            !matches!(self, FileOutcome::NotUsed)
+            *self != TabbedOutcome::NotUsed
+        }
+    }
+
+    // Useful for converting most navigation/edit results.
+    impl From<bool> for TabbedOutcome {
+        fn from(value: bool) -> Self {
+            if value {
+                TabbedOutcome::Changed
+            } else {
+                TabbedOutcome::Unchanged
+            }
+        }
+    }
+
+    impl From<Outcome> for TabbedOutcome {
+        fn from(value: Outcome) -> Self {
+            match value {
+                Outcome::NotUsed => TabbedOutcome::NotUsed,
+                Outcome::Unchanged => TabbedOutcome::Unchanged,
+                Outcome::Changed => TabbedOutcome::Changed,
+            }
+        }
+    }
+
+    impl From<TabbedOutcome> for Outcome {
+        fn from(value: TabbedOutcome) -> Self {
+            match value {
+                TabbedOutcome::NotUsed => Outcome::NotUsed,
+                TabbedOutcome::Unchanged => Outcome::Unchanged,
+                TabbedOutcome::Changed => Outcome::Changed,
+                TabbedOutcome::Close(_) => Outcome::Changed,
+            }
         }
     }
 
@@ -197,6 +254,7 @@ pub mod table {
 }
 
 pub mod paragraph;
+pub mod tabbed;
 pub mod textarea;
 pub mod view;
 pub mod viewport;
