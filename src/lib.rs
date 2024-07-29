@@ -205,7 +205,7 @@ pub mod event {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum DoubleClickOutcome {
         /// The given event has not been used at all.
-        NotUsed,
+        Continue,
         /// The event has been recognized, but the result was nil.
         /// Further processing for this event may stop.
         Unchanged,
@@ -221,7 +221,7 @@ pub mod event {
     impl From<DoubleClickOutcome> for Outcome {
         fn from(value: DoubleClickOutcome) -> Self {
             match value {
-                DoubleClickOutcome::NotUsed => Outcome::Continue,
+                DoubleClickOutcome::Continue => Outcome::Continue,
                 DoubleClickOutcome::Unchanged => Outcome::Unchanged,
                 DoubleClickOutcome::Changed => Outcome::Changed,
                 DoubleClickOutcome::ClickClick(_, _) => Outcome::Changed,
@@ -232,7 +232,7 @@ pub mod event {
     impl From<Outcome> for DoubleClickOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::Continue => DoubleClickOutcome::NotUsed,
+                Outcome::Continue => DoubleClickOutcome::Continue,
                 Outcome::Unchanged => DoubleClickOutcome::Unchanged,
                 Outcome::Changed => DoubleClickOutcome::Changed,
             }
@@ -241,7 +241,7 @@ pub mod event {
 
     impl ConsumedEvent for DoubleClickOutcome {
         fn is_consumed(&self) -> bool {
-            !matches!(self, DoubleClickOutcome::NotUsed)
+            !matches!(self, DoubleClickOutcome::Continue)
         }
     }
 
@@ -265,7 +265,7 @@ pub mod event {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum EditOutcome {
         /// The given event has not been used at all.
-        NotUsed,
+        Continue,
         /// The event has been recognized, but the result was nil.
         /// Further processing for this event may stop.
         Unchanged,
@@ -296,7 +296,7 @@ pub mod event {
     impl From<Outcome> for EditOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::Continue => EditOutcome::NotUsed,
+                Outcome::Continue => EditOutcome::Continue,
                 Outcome::Unchanged => EditOutcome::Unchanged,
                 Outcome::Changed => EditOutcome::Changed,
             }
@@ -306,7 +306,7 @@ pub mod event {
     impl From<EditOutcome> for Outcome {
         fn from(value: EditOutcome) -> Self {
             match value {
-                EditOutcome::NotUsed => Outcome::Continue,
+                EditOutcome::Continue => Outcome::Continue,
                 EditOutcome::Unchanged => Outcome::Unchanged,
                 EditOutcome::Changed => Outcome::Changed,
                 EditOutcome::Insert => Outcome::Unchanged,
@@ -323,7 +323,7 @@ pub mod event {
 
     impl ConsumedEvent for EditOutcome {
         fn is_consumed(&self) -> bool {
-            !matches!(self, EditOutcome::NotUsed)
+            !matches!(self, EditOutcome::Continue)
         }
     }
 }

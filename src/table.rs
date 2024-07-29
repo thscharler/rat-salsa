@@ -2074,10 +2074,10 @@ impl<Selection> HandleEvent<crossterm::event::Event, DoubleClick, DoubleClickOut
                 if let Some((col, row)) = self.cell_at_clicked((m.column, m.row)) {
                     DoubleClickOutcome::ClickClick(col, row)
                 } else {
-                    DoubleClickOutcome::NotUsed
+                    DoubleClickOutcome::Continue
                 }
             }
-            _ => DoubleClickOutcome::NotUsed,
+            _ => DoubleClickOutcome::Continue,
         }
     }
 }

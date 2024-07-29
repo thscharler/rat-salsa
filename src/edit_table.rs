@@ -133,10 +133,10 @@ where
                 if self.table.cell_at_clicked((m.column, m.row)).is_some() {
                     EditOutcome::Edit
                 } else {
-                    EditOutcome::NotUsed
+                    EditOutcome::Continue
                 }
             }
-            _ => EditOutcome::NotUsed,
+            _ => EditOutcome::Continue,
         });
 
         if self.table.is_focused() {
@@ -154,13 +154,13 @@ where
                         if self.table.selected() != Some(self.table.rows().saturating_sub(1)) {
                             EditOutcome::Commit
                         } else {
-                            EditOutcome::NotUsed
+                            EditOutcome::Continue
                         }
                     }
-                    _ => EditOutcome::NotUsed,
+                    _ => EditOutcome::Continue,
                 });
 
-                EditOutcome::NotUsed
+                EditOutcome::Continue
             } else {
                 flow!(match event {
                     ct_event!(keycode press Insert) => {
@@ -178,15 +178,15 @@ where
                                 break 'f EditOutcome::Append;
                             }
                         }
-                        EditOutcome::NotUsed
+                        EditOutcome::Continue
                     }
                     _ => {
-                        EditOutcome::NotUsed
+                        EditOutcome::Continue
                     }
                 });
 
                 match self.table.handle(event, Regular) {
-                    Outcome::Continue => EditOutcome::NotUsed,
+                    Outcome::Continue => EditOutcome::Continue,
                     Outcome::Unchanged => EditOutcome::Unchanged,
                     Outcome::Changed => EditOutcome::Changed,
                 }
