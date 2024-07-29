@@ -188,8 +188,9 @@ fn test_stylemap() {
     txt.add_style(TextRange::new((30, 7), (42, 7)), 0);
     txt.add_style(TextRange::new((37, 7), (41, 7)), 1);
 
-    let mut r = txt.styles_at((37, 7).into()).collect::<Vec<_>>();
-    assert_eq!(r.len(), 2);
+    let mut buf = Vec::new();
+    txt.styles_at((37, 7).into(), &mut buf);
+    assert_eq!(buf.len(), 2);
 }
 
 #[test]

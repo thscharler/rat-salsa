@@ -1,14 +1,13 @@
 use crate::event::TabbedOutcome;
 use crate::tabbed::glued::GluedTabs;
-use crossterm::event::Event;
 use rat_event::util::item_at_clicked;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
+use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
 use std::cmp::min;
 use std::fmt::Debug;
 
@@ -253,18 +252,23 @@ impl TabbedState {
     }
 }
 
-/// Handle the regular events for the tabbed.
-///
-/// There is currently no key-handling to change the tab. I couldn't find
-/// something agreeable.
+/// Handle the regular events for Tabbed.
 impl HandleEvent<crossterm::event::Event, Regular, TabbedOutcome> for TabbedState {
-    fn handle(&mut self, event: &Event, qualifier: Regular) -> TabbedOutcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> TabbedOutcome {
+        if self.is_focused() {
+            flow!(match event {
+                ct_event!(keycode press Right) => self.next_tab().into(),
+                ct_event!(keycode press Left) => self.prev_tab().into(),
+                _ => TabbedOutcome::Continue,
+            });
+        }
+
         self.handle(event, MouseOnly)
     }
 }
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedState {
-    fn handle(&mut self, event: &Event, qualifier: MouseOnly) -> TabbedOutcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> TabbedOutcome {
         match event {
             ct_event!(mouse down Left for x, y) => {
                 if let Some(sel) = item_at_clicked(&self.close_areas, *x, *y) {
@@ -797,7 +801,7 @@ pub mod attached {
             }
             block.render_ref(state.block_area, buf);
 
-            for (idx, mut tab_area) in state.tab_areas.iter().copied().enumerate() {
+            for (idx, tab_area) in state.tab_areas.iter().copied().enumerate() {
                 if idx == state.selected {
                     Fill::new()
                         .style(select_style)

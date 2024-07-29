@@ -1,6 +1,5 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use anyhow::anyhow;
 use rat_event::flow_ok;
 use rat_widget::button::ButtonStyle;
 use rat_widget::event::Outcome;
@@ -10,7 +9,7 @@ use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::{menuline, msgdialog};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Padding, StatefulWidget};
+use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
 use std::iter::repeat_with;
 

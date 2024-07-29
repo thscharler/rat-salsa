@@ -1,6 +1,8 @@
+use rat_widget::text::textinput_core::TextInputCore;
+
 #[test]
 fn test_byte_at() {
-    let mut core = rat_widget::input::core::InputCore::new();
+    let mut core = TextInputCore::new();
     core.set_value("jklö asdf");
 
     assert_eq!(core.byte_at(0), Some((0, 1)));
@@ -18,7 +20,7 @@ fn test_byte_at() {
 
 #[test]
 fn test_byte_pos() {
-    let mut core = rat_widget::input::core::InputCore::new();
+    let mut core = TextInputCore::new();
     core.set_value("jklö asdf");
 
     assert_eq!(core.byte_pos(0), Some(0));
@@ -37,7 +39,7 @@ fn test_byte_pos() {
 
 #[test]
 fn test_char_at() {
-    let mut core = rat_widget::input::core::InputCore::new();
+    let mut core = TextInputCore::new();
     core.set_value("jklö 👩🏾‍🏫asdf");
 
     assert_eq!(core.char_at(0), Some(0));
@@ -57,7 +59,7 @@ fn test_char_at() {
 
 #[test]
 fn test_char_pos() {
-    let mut core = rat_widget::input::core::InputCore::new();
+    let mut core = TextInputCore::new();
     core.set_value("jklö 👩🏾‍🏫asdf");
 
     assert_eq!(core.char_pos(0), Some(0));

@@ -117,7 +117,11 @@ fn repaint_input(
     );
 
     _ = write!(&mut stats, "cursor-styles: ",);
-    for s in state.textarea.styles_at(state.textarea.cursor()) {
+    let mut styles = Vec::new();
+    state
+        .textarea
+        .styles_at(state.textarea.cursor(), &mut styles);
+    for s in styles {
         _ = write!(&mut stats, "{}, ", s);
     }
     _ = writeln!(&mut stats);

@@ -16,8 +16,6 @@ pub mod event {
         crossterm, ct_event, flow, flow_ok, or_else, util, ConsumedEvent, Dialog, DoubleClick,
         HandleEvent, MouseOnly, Outcome, Popup, Regular,
     };
-    use std::cmp::max;
-    use std::ops::BitOr;
     use std::path::PathBuf;
 
     /// Runs only the navigation events, not any editing.

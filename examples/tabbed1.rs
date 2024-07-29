@@ -4,7 +4,7 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{ct_event, flow_ok, HandleEvent, Regular};
-use rat_focus::{Focus, HasFocusFlag};
+use rat_focus::Focus;
 use rat_scrolled::Scroll;
 use rat_widget::event::Outcome;
 use rat_widget::list::selection::RowSelection;
@@ -14,7 +14,7 @@ use rat_widget::statusline::StatusLineState;
 use rat_widget::tabbed::attached::AttachedTabs;
 use rat_widget::tabbed::glued::GluedTabs;
 use rat_widget::tabbed::{TabPlacement, Tabbed, TabbedState};
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::Line;
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
