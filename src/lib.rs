@@ -57,7 +57,7 @@ impl<Action> ConsumedEvent for Control<Action> {
 impl<Action> From<Outcome> for Control<Action> {
     fn from(value: Outcome) -> Self {
         match value {
-            Outcome::NotUsed => Control::Continue,
+            Outcome::Continue => Control::Continue,
             Outcome::Unchanged => Control::Break,
             Outcome::Changed => Control::Repaint,
         }

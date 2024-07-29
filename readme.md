@@ -98,13 +98,13 @@ AppContext contains
   cancellation support.
 * queue() - Queues additional results from event-handling.
 
-        Remark: The main reason for this is focus-handling.
-                When handling the click to focus a widget, the same
-                click event should interact with the widget. This gives
-                two results from event-handling. The focus change wants
-                a Control::Repaint, and the widget might have its own 
-                ideas. So now you queue() the focus result and go on
-                with event-handling. 
+> Remark: The main reason for this is focus-handling.
+    When handling the click to focus a widget, the same
+    click event should interact with the widget. This gives
+    two results from event-handling. The focus change wants
+    a Control::Repaint, and the widget might have its own 
+    ideas. So now you queue() the focus result and go on
+    with event-handling. 
 
 RenderContext contains
 
@@ -117,4 +117,8 @@ RenderContext contains
 ## Example
 
 There is no example here, that would be too much.
-The examples directory contains minimal.rs and showcase.rs.
+The examples directory contains files.rs and mdedit.rs.
+There is minimal.rs for a starter.
+
+
+

@@ -463,13 +463,13 @@ pub mod show_scheme {
 
     impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ShowSchemeState {
         fn handle(&mut self, event: &crossterm::event::Event, qualifier: Regular) -> Outcome {
-            Outcome::NotUsed
+            Outcome::Continue
         }
     }
 
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ShowSchemeState {
         fn handle(&mut self, event: &crossterm::event::Event, qualifier: MouseOnly) -> Outcome {
-            Outcome::NotUsed
+            Outcome::Continue
         }
     }
 }
