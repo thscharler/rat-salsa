@@ -844,7 +844,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                     }
                     r
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
             ct_event!(keycode press Tab) => {
@@ -858,7 +858,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                     }
                     r
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
             ct_event!(keycode press SHIFT-Tab) | ct_event!(keycode press SHIFT-BackTab) => {
@@ -872,7 +872,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
                     }
                     r
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
             _ => self.handle(event, MouseOnly),
@@ -897,12 +897,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus {
                         debug!("=> None");
                     }
                     self.reset_lost_gained();
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
             _ => {
                 self.reset_lost_gained();
-                Outcome::NotUsed
+                Outcome::Continue
             }
         }
     }

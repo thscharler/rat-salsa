@@ -83,12 +83,12 @@ impl HasFocusFlag for TextInputFState {
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TextInputFState {
     fn handle(&mut self, _event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
-        Outcome::NotUsed
+        Outcome::Continue
     }
 }
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TextInputFState {
     fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        Outcome::NotUsed
+        Outcome::Continue
     }
 }
