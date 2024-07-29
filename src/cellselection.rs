@@ -179,13 +179,13 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<CellS
                     self.move_to_col(self.columns.saturating_sub(1)).into()
                 }
 
-                _ => Outcome::NotUsed,
+                _ => Outcome::Continue,
             }
         } else {
-            Outcome::NotUsed
+            Outcome::Continue
         };
 
-        if res == Outcome::NotUsed {
+        if res == Outcome::Continue {
             self.handle(event, MouseOnly)
         } else {
             res
@@ -204,13 +204,13 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<Cel
                     if let Some(new_cell) = self.cell_at_clicked((*column, *row)) {
                         self.move_to(new_cell).into()
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
-            _ => Outcome::NotUsed,
+            _ => Outcome::Continue,
         });
 
         let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))

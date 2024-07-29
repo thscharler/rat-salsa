@@ -143,13 +143,13 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<RowSe
                 ct_event!(keycode press CONTROL-Right) => {
                     self.scroll_to_x(self.x_max_offset()).into()
                 }
-                _ => Outcome::NotUsed,
+                _ => Outcome::Continue,
             }
         } else {
-            Outcome::NotUsed
+            Outcome::Continue
         };
 
-        if res == Outcome::NotUsed {
+        if res == Outcome::Continue {
             self.handle(event, MouseOnly)
         } else {
             res
@@ -168,14 +168,14 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<Row
                     if let Some(new_row) = self.row_at_clicked((*column, *row)) {
                         self.move_to(new_row).into()
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
 
-            _ => Outcome::NotUsed,
+            _ => Outcome::Continue,
         });
 
         let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
@@ -214,7 +214,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<Row
             return Outcome::Changed;
         }
 
-        Outcome::NotUsed
+        Outcome::Continue
     }
 }
 

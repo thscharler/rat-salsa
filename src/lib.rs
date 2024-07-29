@@ -221,7 +221,7 @@ pub mod event {
     impl From<DoubleClickOutcome> for Outcome {
         fn from(value: DoubleClickOutcome) -> Self {
             match value {
-                DoubleClickOutcome::NotUsed => Outcome::NotUsed,
+                DoubleClickOutcome::NotUsed => Outcome::Continue,
                 DoubleClickOutcome::Unchanged => Outcome::Unchanged,
                 DoubleClickOutcome::Changed => Outcome::Changed,
                 DoubleClickOutcome::ClickClick(_, _) => Outcome::Changed,
@@ -232,7 +232,7 @@ pub mod event {
     impl From<Outcome> for DoubleClickOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::NotUsed => DoubleClickOutcome::NotUsed,
+                Outcome::Continue => DoubleClickOutcome::NotUsed,
                 Outcome::Unchanged => DoubleClickOutcome::Unchanged,
                 Outcome::Changed => DoubleClickOutcome::Changed,
             }
@@ -296,7 +296,7 @@ pub mod event {
     impl From<Outcome> for EditOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::NotUsed => EditOutcome::NotUsed,
+                Outcome::Continue => EditOutcome::NotUsed,
                 Outcome::Unchanged => EditOutcome::Unchanged,
                 Outcome::Changed => EditOutcome::Changed,
             }
@@ -306,7 +306,7 @@ pub mod event {
     impl From<EditOutcome> for Outcome {
         fn from(value: EditOutcome) -> Self {
             match value {
-                EditOutcome::NotUsed => Outcome::NotUsed,
+                EditOutcome::NotUsed => Outcome::Continue,
                 EditOutcome::Unchanged => Outcome::Unchanged,
                 EditOutcome::Changed => Outcome::Changed,
                 EditOutcome::Insert => Outcome::Unchanged,

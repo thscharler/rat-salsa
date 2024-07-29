@@ -278,10 +278,10 @@ fn handle_table(
                     break 'f Outcome::Changed;
                 }
                 _ => {
-                    break 'f Outcome::NotUsed;
+                    break 'f Outcome::Continue;
                 }
             },
-            _ => Outcome::NotUsed,
+            _ => Outcome::Continue,
         }
     };
 

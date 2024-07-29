@@ -58,13 +58,13 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<NoSel
                 ct_event!(keycode press CONTROL-Right) => {
                     self.scroll_to_x(self.x_max_offset()).into()
                 }
-                _ => Outcome::NotUsed,
+                _ => Outcome::Continue,
             }
         } else {
-            Outcome::NotUsed
+            Outcome::Continue
         };
 
-        if res == Outcome::NotUsed {
+        if res == Outcome::Continue {
             self.handle(event, MouseOnly)
         } else {
             res
