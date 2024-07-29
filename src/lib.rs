@@ -100,7 +100,7 @@ pub trait HandleEvent<Event, Qualifier, R: ConsumedEvent> {
 /// Catch all event-handler for the null state `()`.
 impl<E, Q> HandleEvent<E, Q, Outcome> for () {
     fn handle(&mut self, _event: &E, _qualifier: Q) -> Outcome {
-        Outcome::NotUsed
+        Outcome::Continue
     }
 }
 
@@ -154,7 +154,7 @@ where
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Outcome {
     /// The given event has not been used at all.
-    NotUsed,
+    Continue,
     /// The event has been recognized, but nothing noticeable has changed.
     /// Further processing for this event may stop.
     /// Rendering the ui is not necessary.
@@ -167,7 +167,7 @@ pub enum Outcome {
 
 impl ConsumedEvent for Outcome {
     fn is_consumed(&self) -> bool {
-        !matches!(self, Outcome::NotUsed)
+        !matches!(self, Outcome::Continue)
     }
 }
 

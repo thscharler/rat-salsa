@@ -1,6 +1,6 @@
-# 0.27.0
-
 ** Start of BETA **
+
+# 0.15.0
 
 * break: rename `FocusKeys` to the more fitting `Regular`.
 
