@@ -147,7 +147,7 @@ impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
         let t0 = SystemTime::now();
 
         flow_ok!(match &event {
-            Event::Resize(_, _) => Control::Repaint,
+            Event::Resize(_, _) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             _ => Control::Continue,
         });
@@ -168,7 +168,7 @@ impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
         Ok(Control::Continue)
     }
 
-    fn action(
+    fn message(
         &mut self,
         event: &mut MinimalAction,
         ctx: &mut AppContext<'_>,
@@ -179,7 +179,7 @@ impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
         flow_ok!(match event {
             MinimalAction::Message(s) => {
                 ctx.g.status.status(0, &*s);
-                Control::Repaint
+                Control::Changed
             }
         });
 
@@ -195,7 +195,7 @@ impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<MinimalAction>, Error> {
         ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Repaint)
+        Ok(Control::Changed)
     }
 }
 
@@ -271,19 +271,19 @@ mod mask0 {
             flow_ok!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(0) => {
                     _ = ctx.spawn(|cancel, send| {
-                        Ok(Control::Action(MinimalAction::Message(
+                        Ok(Control::Message(MinimalAction::Message(
                             "hello from the other side".into(),
                         )))
                     });
-                    Control::Break
+                    Control::Unchanged
                 }
                 MenuOutcome::Activated(1) => {
                     _ = ctx.spawn(|cancel, send| {
-                        Ok(Control::Action(MinimalAction::Message(
+                        Ok(Control::Message(MinimalAction::Message(
                             "another background task finished ...".into(),
                         )))
                     });
-                    Control::Break
+                    Control::Unchanged
                 }
                 MenuOutcome::Activated(2) => {
                     Control::Continue

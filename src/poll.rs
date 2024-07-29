@@ -16,10 +16,10 @@ use std::time::Duration;
 /// * Implement this trait for a struct that fits.
 ///     TODO: try this
 ///
-pub trait PollEvents<App, Global, Action, Error>
+pub trait PollEvents<App, Global, Message, Error>
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// Poll for a new event.
@@ -32,7 +32,7 @@ where
     /// one source cannot just flood the app with events.
     fn poll(
         &mut self, //
-        ctx: &mut AppContext<'_, Global, Action, Error>,
+        ctx: &mut AppContext<'_, Global, Message, Error>,
     ) -> Result<bool, Error>;
 
     /// Read the event and distribute it.
@@ -43,22 +43,22 @@ where
         &mut self,
         app: &mut App,
         state: &mut App::State,
-        term: &mut dyn Terminal<App, Global, Action, Error>,
-        ctx: &mut AppContext<'_, Global, Action, Error>,
-    ) -> Result<Control<Action>, Error>;
+        term: &mut dyn Terminal<App, Global, Message, Error>,
+        ctx: &mut AppContext<'_, Global, Message, Error>,
+    ) -> Result<Control<Message>, Error>;
 }
 
 /// Processes results from background tasks.
 #[derive(Debug)]
 pub struct PollTasks;
 
-impl<App, Global, Action, Error> PollEvents<App, Global, Action, Error> for PollTasks
+impl<App, Global, Message, Error> PollEvents<App, Global, Message, Error> for PollTasks
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug + From<TryRecvError> + Debug,
 {
-    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Action, Error>) -> Result<bool, Error> {
+    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
         Ok(!ctx.tasks.is_empty())
     }
 
@@ -66,9 +66,9 @@ where
         &mut self,
         _app: &mut App,
         _state: &mut App::State,
-        _term: &mut dyn Terminal<App, Global, Action, Error>,
-        ctx: &mut AppContext<'_, Global, Action, Error>,
-    ) -> Result<Control<Action>, Error> {
+        _term: &mut dyn Terminal<App, Global, Message, Error>,
+        ctx: &mut AppContext<'_, Global, Message, Error>,
+    ) -> Result<Control<Message>, Error> {
         ctx.tasks.try_recv()
     }
 }
@@ -77,13 +77,13 @@ where
 #[derive(Debug)]
 pub struct PollTimers;
 
-impl<App, Global, Action, Error> PollEvents<App, Global, Action, Error> for PollTimers
+impl<App, Global, Message, Error> PollEvents<App, Global, Message, Error> for PollTimers
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug + From<std::io::Error>,
 {
-    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Action, Error>) -> Result<bool, Error> {
+    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
         Ok(ctx.timers.poll())
     }
 
@@ -91,9 +91,9 @@ where
         &mut self,
         app: &mut App,
         state: &mut App::State,
-        term: &mut dyn Terminal<App, Global, Action, Error>,
-        ctx: &mut AppContext<'_, Global, Action, Error>,
-    ) -> Result<Control<Action>, Error> {
+        term: &mut dyn Terminal<App, Global, Message, Error>,
+        ctx: &mut AppContext<'_, Global, Message, Error>,
+    ) -> Result<Control<Message>, Error> {
         match ctx.timers.read() {
             None => Ok(Control::Continue),
             Some(TimerEvent::Repaint(t)) => {
@@ -120,13 +120,13 @@ where
 #[derive(Debug)]
 pub struct PollCrossterm;
 
-impl<App, Global, Action, Error> PollEvents<App, Global, Action, Error> for PollCrossterm
+impl<App, Global, Message, Error> PollEvents<App, Global, Message, Error> for PollCrossterm
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug + From<std::io::Error>,
 {
-    fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Action, Error>) -> Result<bool, Error> {
+    fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
         Ok(crossterm::event::poll(Duration::from_millis(0))?)
     }
 
@@ -134,9 +134,9 @@ where
         &mut self,
         _app: &mut App,
         state: &mut App::State,
-        _term: &mut dyn Terminal<App, Global, Action, Error>,
-        ctx: &mut AppContext<'_, Global, Action, Error>,
-    ) -> Result<Control<Action>, Error> {
+        _term: &mut dyn Terminal<App, Global, Message, Error>,
+        ctx: &mut AppContext<'_, Global, Message, Error>,
+    ) -> Result<Control<Message>, Error> {
         match crossterm::event::read() {
             // NOTODO: can this be abstracted out too? sure.
             // but it's not worth it.

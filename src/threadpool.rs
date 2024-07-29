@@ -11,8 +11,8 @@ use std::thread::JoinHandle;
 use std::{mem, thread};
 
 /// Type for a background task.
-type BoxTask<Action, Error> = Box<
-    dyn FnOnce(Cancel, &Sender<Result<Control<Action>, Error>>) -> Result<Control<Action>, Error>
+type BoxTask<Message, Error> = Box<
+    dyn FnOnce(Cancel, &Sender<Result<Control<Message>, Error>>) -> Result<Control<Message>, Error>
         + Send,
 >;
 
@@ -24,25 +24,25 @@ pub type Cancel = Arc<Mutex<bool>>;
 ///
 ///
 #[derive(Debug)]
-pub(crate) struct ThreadPool<Action, Error>
+pub(crate) struct ThreadPool<Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
-    send: Sender<(Cancel, BoxTask<Action, Error>)>,
-    recv: Receiver<Result<Control<Action>, Error>>,
+    send: Sender<(Cancel, BoxTask<Message, Error>)>,
+    recv: Receiver<Result<Control<Message>, Error>>,
     handles: Vec<JoinHandle<()>>,
 }
 
-impl<Action, Error> ThreadPool<Action, Error>
+impl<Message, Error> ThreadPool<Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// New thread-pool with the given task executor.
     pub(crate) fn new(n_worker: usize) -> Self {
-        let (send, t_recv) = unbounded::<(Cancel, BoxTask<Action, Error>)>();
-        let (t_send, recv) = unbounded::<Result<Control<Action>, Error>>();
+        let (send, t_recv) = unbounded::<(Cancel, BoxTask<Message, Error>)>();
+        let (t_send, recv) = unbounded::<Result<Control<Message>, Error>>();
 
         let mut handles = Vec::new();
 
@@ -93,15 +93,15 @@ where
         &self,
         task: impl FnOnce(
                 Cancel,
-                &Sender<Result<Control<Action>, Error>>,
-            ) -> Result<Control<Action>, Error>
+                &Sender<Result<Control<Message>, Error>>,
+            ) -> Result<Control<Message>, Error>
             + Send
             + 'static,
     ) -> Result<Cancel, SendError<()>> {
         self._send(Box::new(task))
     }
 
-    fn _send(&self, task: BoxTask<Action, Error>) -> Result<Cancel, SendError<()>> {
+    fn _send(&self, task: BoxTask<Message, Error>) -> Result<Cancel, SendError<()>> {
         if self.handles.is_empty() {
             return Err(SendError(()));
         }
@@ -130,7 +130,7 @@ where
     }
 
     /// Receive a result.
-    pub(crate) fn try_recv(&self) -> Result<Control<Action>, Error>
+    pub(crate) fn try_recv(&self) -> Result<Control<Message>, Error>
     where
         Error: From<TryRecvError>,
     {
@@ -142,9 +142,9 @@ where
     }
 }
 
-impl<Action, Error> Drop for ThreadPool<Action, Error>
+impl<Message, Error> Drop for ThreadPool<Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     fn drop(&mut self) {

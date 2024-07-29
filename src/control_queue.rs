@@ -9,17 +9,17 @@ use std::fmt::Debug;
 
 /// Queue for event-handling results.
 #[derive(Debug)]
-pub(crate) struct ControlQueue<Action, Error>
+pub(crate) struct ControlQueue<Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
-    queue: RefCell<VecDeque<Result<Control<Action>, Error>>>,
+    queue: RefCell<VecDeque<Result<Control<Message>, Error>>>,
 }
 
-impl<Action, Error> Default for ControlQueue<Action, Error>
+impl<Message, Error> Default for ControlQueue<Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     fn default() -> Self {
@@ -29,9 +29,9 @@ where
     }
 }
 
-impl<Action, Error> ControlQueue<Action, Error>
+impl<Message, Error> ControlQueue<Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// is empty
@@ -40,12 +40,12 @@ where
     }
 
     /// take the first result.
-    pub(crate) fn take(&self) -> Option<Result<Control<Action>, Error>> {
+    pub(crate) fn take(&self) -> Option<Result<Control<Message>, Error>> {
         self.queue.borrow_mut().pop_front()
     }
 
     /// push a new result to the queue.
-    pub(crate) fn push(&self, ctrl: Result<Control<Action>, Error>) {
+    pub(crate) fn push(&self, ctrl: Result<Control<Message>, Error>) {
         self.queue.borrow_mut().push_back(ctrl);
     }
 }

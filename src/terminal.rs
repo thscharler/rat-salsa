@@ -22,10 +22,10 @@ use std::io::{stdout, Stdout};
 ///
 /// If you want to send other than the default Commands to the backend,
 /// implement this trait.
-pub trait Terminal<App, Global, Action, Error>
+pub trait Terminal<App, Global, Message, Error>
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// Terminal init.
@@ -46,7 +46,7 @@ where
         &mut self,
         app: &mut App,
         state: &mut App::State,
-        ctx: &'b mut AppContext<'a, Global, Action, Error>,
+        ctx: &'b mut AppContext<'a, Global, Message, Error>,
     ) -> Result<(), Error>
     where
         Error: From<io::Error>;
@@ -66,10 +66,10 @@ impl CrosstermTerminal {
     }
 }
 
-impl<App, Global, Action, Error> Terminal<App, Global, Action, Error> for CrosstermTerminal
+impl<App, Global, Message, Error> Terminal<App, Global, Message, Error> for CrosstermTerminal
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     fn init(&mut self) -> Result<(), Error>
@@ -105,10 +105,10 @@ where
         &mut self,
         app: &mut App,
         state: &mut App::State,
-        ctx: &'b mut AppContext<'a, Global, Action, Error>,
+        ctx: &'b mut AppContext<'a, Global, Message, Error>,
     ) -> Result<(), Error>
     where
-        App: AppWidget<Global, Action, Error>,
+        App: AppWidget<Global, Message, Error>,
         Error: From<io::Error>,
     {
         let mut res = Ok(());

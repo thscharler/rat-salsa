@@ -208,11 +208,11 @@ pub mod facilities {
                     if let Some(handle) = self.handle.take() {
                         handle(path)?
                     } else {
-                        Control::Repaint
+                        Control::Changed
                     }
                 }
                 FileOutcome::Cancel => {
-                    Control::Repaint
+                    Control::Changed
                 }
                 r => r.into(),
             });
@@ -395,7 +395,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
 
         let mut r;
         r = match &event {
-            ct_event!(resized) => Control::Repaint,
+            ct_event!(resized) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             _ => Control::Continue,
         };
@@ -411,11 +411,11 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         or_else!(
             r,
             match self.menu.handle(event, Popup) {
-                MenuOutcome::MenuActivated(0, 0) => Control::Action(MDAction::MenuOpen),
-                MenuOutcome::MenuActivated(0, 1) => Control::Action(MDAction::MenuSave),
+                MenuOutcome::MenuActivated(0, 0) => Control::Message(MDAction::MenuOpen),
+                MenuOutcome::MenuActivated(0, 1) => Control::Message(MDAction::MenuSave),
                 MenuOutcome::MenuActivated(1, 0) => {
                     self.editor.show_ctrl = !self.editor.show_ctrl;
-                    Control::Repaint
+                    Control::Changed
                 }
                 MenuOutcome::MenuActivated(1, 1) => {
                     if self.editor.edit.newline() == "\r\n" {
@@ -423,11 +423,11 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
                     } else {
                         self.editor.edit.set_newline("\r\n");
                     }
-                    Control::Repaint
+                    Control::Changed
                 }
                 MenuOutcome::MenuSelected(2, n) => {
                     ctx.g.theme = dark_themes()[n].clone();
-                    Control::Repaint
+                    Control::Changed
                 }
                 r => r.into(),
             }
@@ -449,7 +449,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         Ok(r)
     }
 
-    fn action(
+    fn message(
         &mut self,
         event: &mut MDAction,
         ctx: &mut AppContext<'_>,
@@ -460,7 +460,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         r = match event {
             MDAction::Message(s) => {
                 ctx.g.status.status(0, &*s);
-                Control::Repaint
+                Control::Changed
             }
             _ => Control::Continue,
         };
@@ -468,7 +468,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
         ctx.focus = Some(self.focus());
 
         // TODO: actions
-        or_else!(r, self.editor.action(event, ctx)?);
+        or_else!(r, self.editor.message(event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         // debug!("action {:?} {:?}", r, el);
@@ -480,7 +480,7 @@ impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
     fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<MDAction>, Error> {
         ctx.g.error_dlg.title("Error occured");
         ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Repaint)
+        Ok(Control::Changed)
     }
 }
 
@@ -644,7 +644,7 @@ pub mod mdedit {
             if let Some(parse_timer) = &self.parse_timer {
                 if event.tag == *parse_timer {
                     self.parse_markdown();
-                    Ok(Control::Repaint)
+                    Ok(Control::Changed)
                 } else {
                     Ok(Control::Continue)
                 }
@@ -661,7 +661,7 @@ pub mod mdedit {
             flow_ok!(match event {
                 ct_event!(key press CONTROL-'s') => {
                     self.save()?;
-                    Control::Repaint
+                    Control::Changed
                 }
                 ct_event!(key press CONTROL-'c') => {
                     use cli_clipboard;
@@ -669,7 +669,7 @@ pub mod mdedit {
                         let r = cli_clipboard::set_contents(v.to_string());
                         debug!("{:?}", r);
                     }
-                    Control::Repaint
+                    Control::Changed
                 }
                 ct_event!(key press CONTROL-'x') => {
                     use cli_clipboard;
@@ -677,7 +677,7 @@ pub mod mdedit {
                         _ = cli_clipboard::set_contents(v.to_string());
                     }
                     self.edit.delete_range(self.edit.selection());
-                    Control::Repaint
+                    Control::Changed
                 }
                 ct_event!(key press CONTROL-'v') => {
                     // todo: might do the insert two times depending on the terminal.
@@ -685,7 +685,7 @@ pub mod mdedit {
                     if let Ok(v) = cli_clipboard::get_contents() {
                         self.edit.insert_str(&v);
                     }
-                    Control::Repaint
+                    Control::Changed
                 }
                 _ => Control::Continue,
             });
@@ -697,14 +697,14 @@ pub mod mdedit {
                         self.parse_timer,
                         TimerDef::new().next(Instant::now() + Duration::from_millis(500)),
                     ));
-                    Control::Repaint
+                    Control::Changed
                 }
                 r => r.into(),
             });
             Ok(Control::Continue)
         }
 
-        fn action(
+        fn message(
             &mut self,
             event: &mut MDAction,
             ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
@@ -713,16 +713,16 @@ pub mod mdedit {
                 MDAction::MenuOpen => ctx.g.file_dlg.engage(
                     |w| {
                         w.open_dialog(".")?;
-                        Ok(Control::Repaint)
+                        Ok(Control::Changed)
                     },
-                    |p| Ok(Control::Action(MDAction::Open(p))),
+                    |p| Ok(Control::Message(MDAction::Open(p))),
                 )?,
                 MDAction::MenuSave => ctx.g.file_dlg.engage(
                     |w| {
                         w.save_dialog(".", "")?;
-                        Ok(Control::Repaint)
+                        Ok(Control::Changed)
                     },
-                    |p| Ok(Control::Action(MDAction::SaveAs(p))),
+                    |p| Ok(Control::Message(MDAction::SaveAs(p))),
                 )?,
 
                 MDAction::Open(p) => {
@@ -732,18 +732,18 @@ pub mod mdedit {
                         TimerDef::new().next(Instant::now() + Duration::from_millis(0)),
                     ));
                     ctx.focus.as_ref().expect("focus").focus(&self.edit);
-                    Control::Repaint
+                    Control::Changed
                 }
 
                 MDAction::Save() => {
                     self.save()?;
-                    Control::Repaint
+                    Control::Changed
                 }
 
                 MDAction::SaveAs(p) => {
                     self.path = Some(p.clone());
                     self.save()?;
-                    Control::Repaint
+                    Control::Changed
                 }
 
                 _ => Control::Continue,

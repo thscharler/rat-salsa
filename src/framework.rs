@@ -14,10 +14,10 @@ use std::time::Duration;
 use std::{io, thread};
 
 /// Captures some parameters for [crate::run_tui()].
-pub struct RunConfig<App, Global, Action, Error>
+pub struct RunConfig<App, Global, Message, Error>
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// How many worker threads are wanted?
@@ -27,17 +27,17 @@ where
     /// for rendering the application.
     ///
     /// Defaults to RenderCrossterm.
-    pub term: Box<dyn Terminal<App, Global, Action, Error>>,
+    pub term: Box<dyn Terminal<App, Global, Message, Error>>,
     /// List of all event-handlers for the application.
     ///
     /// Defaults to PollTimers, PollCrossterm, PollTasks. Add yours here.
-    pub poll: Vec<Box<dyn PollEvents<App, Global, Action, Error>>>,
+    pub poll: Vec<Box<dyn PollEvents<App, Global, Message, Error>>>,
 }
 
-impl<App, Global, Action, Error> Debug for RunConfig<App, Global, Action, Error>
+impl<App, Global, Message, Error> Debug for RunConfig<App, Global, Message, Error>
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -49,10 +49,10 @@ where
     }
 }
 
-impl<App, Global, Action, Error> RunConfig<App, Global, Action, Error>
+impl<App, Global, Message, Error> RunConfig<App, Global, Message, Error>
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: 'static + Send + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug + From<io::Error> + From<TryRecvError>,
 {
     /// New configuration with some defaults.
@@ -76,7 +76,7 @@ where
     }
 
     /// Terminal is a rat-salsa::terminal::Terminal not a ratatui::Terminal.
-    pub fn term(mut self, term: impl Terminal<App, Global, Action, Error> + 'static) -> Self {
+    pub fn term(mut self, term: impl Terminal<App, Global, Message, Error> + 'static) -> Self {
         self.term = Box::new(term);
         self
     }
@@ -88,7 +88,7 @@ where
     }
 
     /// Add poll
-    pub fn poll(mut self, poll: impl PollEvents<App, Global, Action, Error> + 'static) -> Self {
+    pub fn poll(mut self, poll: impl PollEvents<App, Global, Message, Error> + 'static) -> Self {
         self.poll.push(Box::new(poll));
         self
     }
@@ -121,15 +121,15 @@ impl PollQueue {
     }
 }
 
-fn _run_tui<App, Global, Action, Error>(
+fn _run_tui<App, Global, Message, Error>(
     mut app: App,
     global: &mut Global,
     state: &mut App::State,
-    cfg: &mut RunConfig<App, Global, Action, Error>,
+    cfg: &mut RunConfig<App, Global, Message, Error>,
 ) -> Result<(), Error>
 where
-    App: AppWidget<Global, Action, Error>,
-    Action: Send + 'static + Debug,
+    App: AppWidget<Global, Message, Error>,
+    Message: Send + 'static + Debug,
     Error: Send + 'static + Debug + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
     let term = cfg.term.as_mut();
@@ -211,14 +211,14 @@ where
                 appctx.queue_result(r);
             }
             Some(Ok(Control::Continue)) => {}
-            Some(Ok(Control::Break)) => {}
-            Some(Ok(Control::Repaint)) => {
+            Some(Ok(Control::Unchanged)) => {}
+            Some(Ok(Control::Changed)) => {
                 if let Err(e) = term.render(&mut app, state, &mut appctx) {
                     appctx.queue_err(e);
                 }
             }
-            Some(Ok(Control::Action(mut a))) => {
-                let r = state.action(&mut a, &mut appctx);
+            Some(Ok(Control::Message(mut a))) => {
+                let r = state.message(&mut a, &mut appctx);
                 appctx.queue_result(r);
             }
             Some(Ok(Control::Quit)) => {
@@ -293,15 +293,15 @@ where
 ///
 /// Maybe `examples/minimal.rs` is more useful.
 ///
-pub fn run_tui<Widget, Global, Action, Error>(
+pub fn run_tui<Widget, Global, Message, Error>(
     app: Widget,
     global: &mut Global,
     state: &mut Widget::State,
-    mut cfg: RunConfig<Widget, Global, Action, Error>,
+    mut cfg: RunConfig<Widget, Global, Message, Error>,
 ) -> Result<(), Error>
 where
-    Widget: AppWidget<Global, Action, Error>,
-    Action: Send + 'static + Debug,
+    Widget: AppWidget<Global, Message, Error>,
+    Message: Send + 'static + Debug,
     Error: Send + 'static + Debug + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
     cfg.term.init()?;

@@ -47,10 +47,10 @@ Task-Results. You can add your own to cfg.
 The result-type for event-handling:
 
 * Continue - poll the next event.
-* Break - Does nothing for the main loop, but can be used with `flow_ok!`
+* Unchanged - Does nothing for the main loop, but can be used with `flow_ok!`
   to break early from event-handling.
-* Repaint - Renders the application.
-* Action - Calls into the action handlers.
+* Changed - Renders the application.
+* Message - Calls `message` to distribute application level events.
 * Quit - Quit the application.
 
 The result of an event is processed immediately after the
@@ -77,7 +77,7 @@ AppEvents packs together the currently supported event-handlers.
 * init - called at application startup before the first repaint.
 * timer - application timers
 * crossterm - crossterm events.
-* action - application supplied actions.
+* message - application supplied messages/events.
 * error - error handling
 
 Each of them get some event and an AppContext.
@@ -99,12 +99,12 @@ AppContext contains
 * queue() - Queues additional results from event-handling.
 
 > Remark: The main reason for this is focus-handling.
-    When handling the click to focus a widget, the same
-    click event should interact with the widget. This gives
-    two results from event-handling. The focus change wants
-    a Control::Repaint, and the widget might have its own 
-    ideas. So now you queue() the focus result and go on
-    with event-handling. 
+> When handling the click to focus a widget, the same
+> click event should interact with the widget. This gives
+> two results from event-handling. The focus change wants
+> a Control::Repaint, and the widget might have its own
+> ideas. So now you queue() the focus result and go on
+> with event-handling.
 
 RenderContext contains
 

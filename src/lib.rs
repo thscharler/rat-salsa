@@ -33,74 +33,79 @@ pub use threadpool::Cancel;
 /// provides control-flow using this enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[must_use]
-pub enum Control<Action> {
-    /// Continue handling the current event.
-    /// In the event-loop this goes on waiting for a new event.
+pub enum Control<Message> {
+    /// Continue with event-handling.
+    /// In the event-loop this waits for the next event.
     Continue,
-    /// Break handling the current event.
-    /// In the event-loop this does nothing and just waits for a new event.
-    Break,
-    /// Triggers a repaint in the event-loop.
-    Repaint,
-    /// The event-loop calls out the action-handlers to take care of it.
-    Action(Action),
+    /// Break event-handling without repaint.
+    /// In the event-loop this waits for the next event.
+    Unchanged,
+    /// Break event-handling and repaints/renders the application.
+    /// In the event-loop this calls `render`.
+    Changed,
+    /// Handle an application defined event. This calls `message`
+    /// to distribute the message throughout the application.
+    ///
+    /// This helps with interactions between parts of the
+    /// application.
+    Message(Message),
     /// Quit the application.
     Quit,
 }
 
-impl<Action> ConsumedEvent for Control<Action> {
+impl<Message> ConsumedEvent for Control<Message> {
     fn is_consumed(&self) -> bool {
         !matches!(self, Control::Continue)
     }
 }
 
-impl<Action> From<Outcome> for Control<Action> {
+impl<Message> From<Outcome> for Control<Message> {
     fn from(value: Outcome) -> Self {
         match value {
             Outcome::Continue => Control::Continue,
-            Outcome::Unchanged => Control::Break,
-            Outcome::Changed => Control::Repaint,
+            Outcome::Unchanged => Control::Unchanged,
+            Outcome::Changed => Control::Changed,
         }
     }
 }
 
-impl<Action> From<MenuOutcome> for Control<Action> {
+impl<Message> From<MenuOutcome> for Control<Message> {
     fn from(value: MenuOutcome) -> Self {
         Outcome::from(value).into()
     }
 }
 
-impl<Action> From<ButtonOutcome> for Control<Action> {
+impl<Message> From<ButtonOutcome> for Control<Message> {
     fn from(value: ButtonOutcome) -> Self {
         Outcome::from(value).into()
     }
 }
 
-impl<Action> From<TextOutcome> for Control<Action> {
+impl<Message> From<TextOutcome> for Control<Message> {
     fn from(value: TextOutcome) -> Self {
         Outcome::from(value).into()
     }
 }
 
-impl<Action> From<ScrollOutcome> for Control<Action> {
+impl<Message> From<ScrollOutcome> for Control<Message> {
     fn from(value: ScrollOutcome) -> Self {
         Outcome::from(value).into()
     }
 }
 
-impl<Action> From<DoubleClickOutcome> for Control<Action> {
+impl<Message> From<DoubleClickOutcome> for Control<Message> {
     fn from(value: DoubleClickOutcome) -> Self {
         Outcome::from(value).into()
     }
 }
 
-impl<Action> From<EditOutcome> for Control<Action> {
+impl<Message> From<EditOutcome> for Control<Message> {
     fn from(value: EditOutcome) -> Self {
         Outcome::from(value).into()
     }
 }
 
-impl<Action> From<FileOutcome> for Control<Action> {
+impl<Message> From<FileOutcome> for Control<Message> {
     fn from(value: FileOutcome) -> Self {
         Outcome::from(value).into()
     }
@@ -114,13 +119,13 @@ impl<Action> From<FileOutcome> for Control<Action> {
 /// extras needed in an application.
 ///
 #[allow(unused_variables)]
-pub trait AppWidget<Global, Action, Error>
+pub trait AppWidget<Global, Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// Type of the State.
-    type State: AppEvents<Global, Action, Error> + Debug;
+    type State: AppEvents<Global, Message, Error> + Debug;
 
     /// Renders an application widget.
     fn render(
@@ -139,13 +144,13 @@ where
 /// Implement this one on the state struct.
 ///
 #[allow(unused_variables)]
-pub trait AppEvents<Global, Action, Error>
+pub trait AppEvents<Global, Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// Initialize the application. Runs before the first repaint.
-    fn init(&mut self, ctx: &mut AppContext<'_, Global, Action, Error>) -> Result<(), Error> {
+    fn init(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<(), Error> {
         Ok(())
     }
 
@@ -153,8 +158,8 @@ where
     fn timer(
         &mut self,
         event: &TimeOut,
-        ctx: &mut AppContext<'_, Global, Action, Error>,
-    ) -> Result<Control<Action>, Error> {
+        ctx: &mut AppContext<'_, Global, Message, Error>,
+    ) -> Result<Control<Message>, Error> {
         Ok(Control::Continue)
     }
 
@@ -162,17 +167,17 @@ where
     fn crossterm(
         &mut self,
         event: &crossterm::event::Event,
-        ctx: &mut AppContext<'_, Global, Action, Error>,
-    ) -> Result<Control<Action>, Error> {
+        ctx: &mut AppContext<'_, Global, Message, Error>,
+    ) -> Result<Control<Message>, Error> {
         Ok(Control::Continue)
     }
 
-    /// Run an action.
-    fn action(
+    /// Process a message.
+    fn message(
         &mut self,
-        event: &mut Action,
-        ctx: &mut AppContext<'_, Global, Action, Error>,
-    ) -> Result<Control<Action>, Error> {
+        event: &mut Message,
+        ctx: &mut AppContext<'_, Global, Message, Error>,
+    ) -> Result<Control<Message>, Error> {
         Ok(Control::Continue)
     }
 
@@ -180,17 +185,17 @@ where
     fn error(
         &self,
         event: Error,
-        ctx: &mut AppContext<'_, Global, Action, Error>,
-    ) -> Result<Control<Action>, Error> {
+        ctx: &mut AppContext<'_, Global, Message, Error>,
+    ) -> Result<Control<Message>, Error> {
         Ok(Control::Continue)
     }
 }
 
 /// A collection of context data used by the application.
 #[derive(Debug)]
-pub struct AppContext<'a, Global, Action, Error>
+pub struct AppContext<'a, Global, Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// Some global state for the application.
@@ -204,9 +209,9 @@ where
     /// Application timers.
     pub(crate) timers: &'a Timers,
     /// Background tasks.
-    pub(crate) tasks: &'a ThreadPool<Action, Error>,
+    pub(crate) tasks: &'a ThreadPool<Message, Error>,
     /// Queue foreground tasks.
-    queue: &'a ControlQueue<Action, Error>,
+    queue: &'a ControlQueue<Message, Error>,
 }
 
 /// A collection of context data used for rendering.
@@ -225,9 +230,9 @@ pub struct RenderContext<'a, Global> {
     pub cursor: Option<(u16, u16)>,
 }
 
-impl<'a, Global, Action, Error> AppContext<'a, Global, Action, Error>
+impl<'a, Global, Message, Error> AppContext<'a, Global, Message, Error>
 where
-    Action: 'static + Send + Debug,
+    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// Add a timer.
@@ -264,13 +269,13 @@ where
         &self,
         task: impl FnOnce(
                 Cancel,
-                &Sender<Result<Control<Action>, Error>>,
-            ) -> Result<Control<Action>, Error>
+                &Sender<Result<Control<Message>, Error>>,
+            ) -> Result<Control<Message>, Error>
             + Send
             + 'static,
     ) -> Result<Cancel, SendError<()>>
     where
-        Action: 'static + Send + Debug,
+        Message: 'static + Send + Debug,
         Error: 'static + Send + Debug,
     {
         self.tasks.send(task)
@@ -278,7 +283,7 @@ where
 
     /// Queue additional results.
     #[inline]
-    pub fn queue(&self, ctrl: impl Into<Control<Action>>) {
+    pub fn queue(&self, ctrl: impl Into<Control<Message>>) {
         self.queue.push(Ok(ctrl.into()));
     }
 
@@ -289,7 +294,7 @@ where
 
     /// Queue additional results.
     #[inline]
-    pub fn queue_result(&self, ctrl: Result<impl Into<Control<Action>>, Error>) {
+    pub fn queue_result(&self, ctrl: Result<impl Into<Control<Message>>, Error>) {
         match ctrl {
             Ok(v) => self.queue.push(Ok(v.into())),
             Err(e) => self.queue.push(Err(e)),

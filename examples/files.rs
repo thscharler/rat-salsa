@@ -437,7 +437,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         } else {
             PathBuf::from(".")
         };
-        ctx.queue(Control::Action(ReadDir(Full, self.main_dir.clone(), None)));
+        ctx.queue(Control::Message(ReadDir(Full, self.main_dir.clone(), None)));
 
         self.w_dirs.set_scroll_selection(true);
         self.w_dirs.focus().set(true);
@@ -464,7 +464,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         let t0 = SystemTime::now();
 
         flow_ok!(match &event {
-            Event::Resize(_, _) => Control::Repaint,
+            Event::Resize(_, _) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             _ => Control::Continue,
         });
@@ -486,29 +486,29 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
                 } else {
                     self.focus().focus(&self.w_split);
                 }
-                Control::Repaint
+                Control::Changed
             }
             _ => Control::Continue,
         });
 
         flow_ok!(match self.w_menu.handle(event, Popup) {
             MenuOutcome::MenuSelected(0, n) => {
-                Control::Repaint
+                Control::Changed
             }
             MenuOutcome::MenuActivated(0, n) => {
                 if let Some(root) = fs_roots().get(n) {
                     self.main_dir = root.1.clone();
-                    ctx.queue(Control::Action(ReadDir(Full, self.main_dir.clone(), None)));
+                    ctx.queue(Control::Message(ReadDir(Full, self.main_dir.clone(), None)));
                 }
-                Control::Repaint
+                Control::Changed
             }
             MenuOutcome::MenuSelected(1, n) => {
                 ctx.g.theme = dark_themes()[n].clone();
-                Control::Repaint
+                Control::Changed
             }
             MenuOutcome::MenuActivated(1, n) => {
                 ctx.g.theme = dark_themes()[n].clone();
-                Control::Repaint
+                Control::Changed
             }
             r => r.into(),
         });
@@ -575,7 +575,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         Ok(Control::Continue)
     }
 
-    fn action(
+    fn message(
         &mut self,
         event: &mut FilesAction,
         ctx: &mut AppContext<'_>,
@@ -586,7 +586,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
         flow_ok!(match event {
             Message(s) => {
                 ctx.g.status.status(0, &*s);
-                Control::Repaint
+                Control::Changed
             }
             ReadDir(rel, path, sub) => {
                 self.read_dir(*rel, path, sub, ctx)?
@@ -606,7 +606,7 @@ impl AppEvents<GlobalState, FilesAction, Error> for FilesState {
 
     fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
         ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Repaint)
+        Ok(Control::Changed)
     }
 }
 
@@ -615,19 +615,19 @@ impl FilesState {
         if let Some(n) = self.w_dirs.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from(".") {
-                    Ok(Control::Action(ReadDir(
+                    Ok(Control::Message(ReadDir(
                         Current,
                         self.main_dir.clone(),
                         None,
                     )))
                 } else if sub == &OsString::from("..") {
-                    Ok(Control::Action(ReadDir(
+                    Ok(Control::Message(ReadDir(
                         Parent,
                         self.main_dir.clone(),
                         None,
                     )))
                 } else {
-                    Ok(Control::Action(ReadDir(
+                    Ok(Control::Message(ReadDir(
                         SubDir,
                         self.main_dir.clone(),
                         Some(sub.clone()),
@@ -635,10 +635,10 @@ impl FilesState {
                 }
             } else {
                 self.files.clear();
-                Ok(Control::Repaint)
+                Ok(Control::Changed)
             }
         } else {
-            Ok(Control::Repaint)
+            Ok(Control::Changed)
         }
     }
 
@@ -654,7 +654,7 @@ impl FilesState {
 
         if Some(path) == sel {
             self.w_data.set_value(text);
-            Ok(Control::Repaint)
+            Ok(Control::Changed)
         } else {
             Ok(Control::Continue)
         }
@@ -721,7 +721,7 @@ impl FilesState {
 
         _ = self.show_file(ctx)?;
 
-        Ok(Control::Repaint)
+        Ok(Control::Changed)
     }
 
     fn read_dir(
@@ -778,11 +778,11 @@ impl FilesState {
                             }
                         }
                     }
-                    Ok(Control::Action(Update(rel, path, sub, ddd, fff, None)))
+                    Ok(Control::Message(Update(rel, path, sub, ddd, fff, None)))
                 }
                 Err(e) => {
                     let msg = format!("{:?}", e);
-                    Ok(Control::Action(Update(
+                    Ok(Control::Message(Update(
                         rel,
                         path,
                         sub,
@@ -802,18 +802,18 @@ impl FilesState {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from("..") {
                     if let Some(file) = self.main_dir.parent() {
-                        ctx.queue(Control::Action(ReadDir(
+                        ctx.queue(Control::Message(ReadDir(
                             Full,
                             file.to_path_buf(),
                             Some(OsString::from("..")),
                         )));
-                        ctx.queue(Control::Action(ReadDir(Parent, file.to_path_buf(), None)));
+                        ctx.queue(Control::Message(ReadDir(Parent, file.to_path_buf(), None)));
                     }
                 } else if sub == &OsString::from(".") {
                     // noop
                 } else {
                     let file = self.main_dir.join(sub);
-                    ctx.queue(Control::Action(ReadDir(Full, file, None)))
+                    ctx.queue(Control::Message(ReadDir(Full, file, None)))
                 }
             }
         }
@@ -869,9 +869,9 @@ impl FilesState {
                 let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
                     Ok(data) => {
                         let str_data = FilesState::to_display_text(can, snd, &file, &data)?;
-                        Ok(Control::Action(UpdateFile(file, str_data)))
+                        Ok(Control::Message(UpdateFile(file, str_data)))
                     }
-                    Err(e) => Ok(Control::Action(UpdateFile(
+                    Err(e) => Ok(Control::Message(UpdateFile(
                         file,
                         format!("{:?}", e).to_string(),
                     ))),
@@ -879,14 +879,14 @@ impl FilesState {
 
                 self.cancel_show = Some(cancel_show);
 
-                Ok(Control::Repaint)
+                Ok(Control::Changed)
             } else {
                 self.w_data.set_value("");
-                Ok(Control::Repaint)
+                Ok(Control::Changed)
             }
         } else {
             self.w_data.set_value("");
-            Ok(Control::Repaint)
+            Ok(Control::Changed)
         }
     }
 
@@ -962,7 +962,7 @@ impl FilesState {
                     mega = v.len() / 1_000_000;
 
                     if mega == 1 {
-                        _ = snd.send(Ok(Control::Action(UpdateFile(
+                        _ = snd.send(Ok(Control::Message(UpdateFile(
                             file.to_path_buf(),
                             v.clone(),
                         ))));
@@ -987,11 +987,11 @@ impl FilesState {
 
         if let Some(file) = file {
             if file.metadata()?.is_dir() {
-                ctx.queue(Control::Action(ReadDir(Full, file.clone(), None)));
-                ctx.queue(Control::Action(ReadDir(Parent, file, None)));
+                ctx.queue(Control::Message(ReadDir(Full, file.clone(), None)));
+                ctx.queue(Control::Message(ReadDir(Parent, file, None)));
             }
         };
-        Ok(Control::Repaint)
+        Ok(Control::Changed)
     }
 }
 
