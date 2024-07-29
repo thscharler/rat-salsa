@@ -286,6 +286,6 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
             return Outcome::Changed;
         }
 
-        Outcome::NotUsed
+        Outcome::Continue
     }
 }

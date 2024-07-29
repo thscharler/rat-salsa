@@ -259,12 +259,12 @@ impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
                     self.active.set(false);
                     Outcome::Changed
                 }
-                _ => Outcome::NotUsed,
+                _ => Outcome::Continue,
             });
             // mandatory consume everything else.
             Outcome::Unchanged
         } else {
-            Outcome::NotUsed
+            Outcome::Continue
         }
     }
 }

@@ -152,7 +152,7 @@ fn handle_text(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     flow_ok!(state.double.handle(event, MouseOnly));
-    Ok(Outcome::NotUsed)
+    Ok(Outcome::Continue)
 }
 
 mod double_widget {
@@ -203,7 +203,7 @@ mod double_widget {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
             flow!(self.first.handle(event, MouseOnly));
             flow!(self.second.handle(event, MouseOnly));
-            Outcome::NotUsed
+            Outcome::Continue
         }
     }
 }

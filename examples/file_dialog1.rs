@@ -121,5 +121,5 @@ fn handle_input(
         r => r.into(),
     });
 
-    Ok(Outcome::NotUsed)
+    Ok(Outcome::Continue)
 }

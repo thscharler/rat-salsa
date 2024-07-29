@@ -253,7 +253,7 @@ fn handle_input(
             };
             Outcome::Changed
         }
-        _ => Outcome::NotUsed,
+        _ => Outcome::Continue,
     });
 
     flow_ok!(HandleEvent::handle(&mut state.tabbed, event, Regular), consider f);
@@ -268,7 +268,7 @@ fn handle_input(
             Outcome::Changed
         }
         _ => {
-            Outcome::NotUsed
+            Outcome::Continue
         }
     }, consider f);
 

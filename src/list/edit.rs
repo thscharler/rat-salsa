@@ -172,7 +172,7 @@ where
                 });
 
                 match self.list.handle(event, Regular) {
-                    Outcome::NotUsed => EditOutcome::NotUsed,
+                    Outcome::Continue => EditOutcome::NotUsed,
                     Outcome::Unchanged => EditOutcome::Unchanged,
                     Outcome::Changed => EditOutcome::Changed,
                 }

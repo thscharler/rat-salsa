@@ -330,5 +330,5 @@ fn handle_input(
         r => r,
     }, consider f);
 
-    Ok(f.max(Outcome::NotUsed))
+    Ok(f.max(Outcome::Continue))
 }

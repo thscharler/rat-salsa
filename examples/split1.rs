@@ -334,7 +334,7 @@ fn handle_input(
             }
             Outcome::Changed
         }
-        _ => Outcome::NotUsed,
+        _ => Outcome::Continue,
     });
 
     let f = focus(state).handle(event, Regular);
@@ -354,7 +354,7 @@ fn handle_input(
             Outcome::Changed
         }
         _ => {
-            Outcome::NotUsed
+            Outcome::Continue
         }
     }, consider f);
 

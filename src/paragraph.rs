@@ -261,10 +261,10 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
                 ct_event!(keycode press PageDown) => self.scroll_down(self.vscroll.page_len).into(),
                 ct_event!(keycode press Home) => self.set_line_offset(0).into(),
                 ct_event!(keycode press End) => self.set_line_offset(1).into(),
-                _ => Outcome::NotUsed,
+                _ => Outcome::Continue,
             }
         } else {
-            Outcome::NotUsed
+            Outcome::Continue
         });
 
         self.handle(event, MouseOnly)
@@ -280,28 +280,28 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphState
                 if self.scroll_up(v) {
                     Outcome::Changed
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
             ScrollOutcome::Down(v) => {
                 if self.scroll_down(v) {
                     Outcome::Changed
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
             ScrollOutcome::Left(v) => {
                 if self.scroll_left(v) {
                     Outcome::Changed
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
             ScrollOutcome::Right(v) => {
                 if self.scroll_right(v) {
                     Outcome::Changed
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
             ScrollOutcome::VPos(v) => self.set_line_offset(v).into(),

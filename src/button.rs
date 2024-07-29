@@ -281,7 +281,7 @@ impl ConsumedEvent for ButtonOutcome {
 impl From<ButtonOutcome> for Outcome {
     fn from(value: ButtonOutcome) -> Self {
         match value {
-            ButtonOutcome::NotUsed => Outcome::NotUsed,
+            ButtonOutcome::NotUsed => Outcome::Continue,
             ButtonOutcome::Unchanged => Outcome::Unchanged,
             ButtonOutcome::Changed => Outcome::Changed,
             ButtonOutcome::Pressed => Outcome::Changed,

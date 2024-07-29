@@ -316,6 +316,6 @@ where
             return Outcome::Changed.into();
         }
 
-        Outcome::NotUsed.into()
+        Outcome::Continue.into()
     }
 }

@@ -117,5 +117,5 @@ fn handle_input(
         }
     );
 
-    Ok(Outcome::NotUsed)
+    Ok(Outcome::Continue)
 }

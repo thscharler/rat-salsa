@@ -128,7 +128,7 @@ fn handle_stuff(
             state.placement = Placement::Right;
             Outcome::Changed
         }
-        _ => Outcome::NotUsed,
+        _ => Outcome::Continue,
     };
     Ok(r2)
 }

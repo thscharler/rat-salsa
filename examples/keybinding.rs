@@ -80,7 +80,7 @@ fn handle_buttons(
             data.journal.push((Local::now().time(), k.clone()));
             Outcome::Changed
         }
-        _ => Outcome::NotUsed,
+        _ => Outcome::Continue,
     };
 
     Ok(r2)

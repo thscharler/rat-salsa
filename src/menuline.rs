@@ -363,7 +363,7 @@ impl ConsumedEvent for MenuOutcome {
 impl From<MenuOutcome> for Outcome {
     fn from(value: MenuOutcome) -> Self {
         match value {
-            MenuOutcome::NotUsed => Outcome::NotUsed,
+            MenuOutcome::NotUsed => Outcome::Continue,
             MenuOutcome::Unchanged => Outcome::Unchanged,
             MenuOutcome::Changed => Outcome::Changed,
             MenuOutcome::Selected(_) => Outcome::Changed,

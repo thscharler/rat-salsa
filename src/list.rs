@@ -668,13 +668,13 @@ pub mod selection {
                     ct_event!(keycode press PageDown) => {
                         self.scroll_down(self.page_len().saturating_sub(1)).into()
                     }
-                    _ => Outcome::NotUsed,
+                    _ => Outcome::Continue,
                 }
             } else {
-                Outcome::NotUsed
+                Outcome::Continue
             };
 
-            if res == Outcome::NotUsed {
+            if res == Outcome::Continue {
                 self.handle(event, MouseOnly)
             } else {
                 res
@@ -743,13 +743,13 @@ pub mod selection {
                     ct_event!(keycode press PageDown) => {
                         self.move_down(self.page_len().saturating_sub(1)).into()
                     }
-                    _ => Outcome::NotUsed,
+                    _ => Outcome::Continue,
                 }
             } else {
-                Outcome::NotUsed
+                Outcome::Continue
             };
 
-            if res == Outcome::NotUsed {
+            if res == Outcome::Continue {
                 self.handle(event, MouseOnly)
             } else {
                 res
@@ -768,14 +768,14 @@ pub mod selection {
                         if let Some(new_row) = self.row_at_clicked((*column, *row)) {
                             self.move_to(new_row).into()
                         } else {
-                            Outcome::NotUsed
+                            Outcome::Continue
                         }
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
 
-                _ => Outcome::NotUsed,
+                _ => Outcome::Continue,
             });
 
             let r = match ScrollArea(self.inner, None, Some(&mut self.scroll))
@@ -814,7 +814,7 @@ pub mod selection {
                 return Outcome::Changed;
             }
 
-            Outcome::NotUsed
+            Outcome::Continue
         }
     }
 
@@ -879,13 +879,13 @@ pub mod selection {
                     ct_event!(keycode press SHIFT-PageDown) => self
                         .move_down(self.page_len().saturating_sub(1), true)
                         .into(),
-                    _ => Outcome::NotUsed,
+                    _ => Outcome::Continue,
                 }
             } else {
-                Outcome::NotUsed
+                Outcome::Continue
             };
 
-            if res == Outcome::NotUsed {
+            if res == Outcome::Continue {
                 self.handle(event, MouseOnly)
             } else {
                 res
@@ -909,10 +909,10 @@ pub mod selection {
                         if let Some(new_row) = self.row_at_clicked(pos) {
                             self.move_to(new_row, false).into()
                         } else {
-                            Outcome::NotUsed
+                            Outcome::Continue
                         }
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
                 ct_event!(mouse down ALT-Left for column, row) => {
@@ -921,10 +921,10 @@ pub mod selection {
                         if let Some(new_row) = self.row_at_clicked(pos) {
                             self.move_to(new_row, true).into()
                         } else {
-                            Outcome::NotUsed
+                            Outcome::Continue
                         }
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
                 ct_event!(mouse down CONTROL-Left for column, row) => {
@@ -939,13 +939,13 @@ pub mod selection {
                             }
                             Outcome::Changed
                         } else {
-                            Outcome::NotUsed
+                            Outcome::Continue
                         }
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
-                _ => Outcome::NotUsed,
+                _ => Outcome::Continue,
             });
 
             let r = match ScrollArea(self.inner, None, Some(&mut self.scroll))

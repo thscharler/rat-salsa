@@ -69,5 +69,5 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     flow_ok!(date_input::handle_events(&mut state.input, true, event));
-    Ok(Outcome::NotUsed)
+    Ok(Outcome::Continue)
 }

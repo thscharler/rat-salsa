@@ -61,7 +61,7 @@ pub mod event {
     impl From<Outcome> for TextOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::NotUsed => TextOutcome::NotUsed,
+                Outcome::Continue => TextOutcome::NotUsed,
                 Outcome::Unchanged => TextOutcome::Unchanged,
                 Outcome::Changed => TextOutcome::Changed,
             }
@@ -71,7 +71,7 @@ pub mod event {
     impl From<TextOutcome> for Outcome {
         fn from(value: TextOutcome) -> Self {
             match value {
-                TextOutcome::NotUsed => Outcome::NotUsed,
+                TextOutcome::NotUsed => Outcome::Continue,
                 TextOutcome::Unchanged => Outcome::Unchanged,
                 TextOutcome::Changed => Outcome::Changed,
                 TextOutcome::TextChanged => Outcome::Changed,
@@ -107,7 +107,7 @@ pub mod event {
     impl From<FileOutcome> for Outcome {
         fn from(value: FileOutcome) -> Self {
             match value {
-                FileOutcome::NotUsed => Outcome::NotUsed,
+                FileOutcome::NotUsed => Outcome::Continue,
                 FileOutcome::Unchanged => Outcome::Unchanged,
                 FileOutcome::Changed => Outcome::Changed,
                 FileOutcome::Ok(_) => Outcome::Changed,
@@ -119,7 +119,7 @@ pub mod event {
     impl From<Outcome> for FileOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::NotUsed => FileOutcome::NotUsed,
+                Outcome::Continue => FileOutcome::NotUsed,
                 Outcome::Unchanged => FileOutcome::Unchanged,
                 Outcome::Changed => FileOutcome::Changed,
             }
@@ -174,7 +174,7 @@ pub mod event {
     impl From<Outcome> for TabbedOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::NotUsed => TabbedOutcome::NotUsed,
+                Outcome::Continue => TabbedOutcome::NotUsed,
                 Outcome::Unchanged => TabbedOutcome::Unchanged,
                 Outcome::Changed => TabbedOutcome::Changed,
             }
@@ -184,7 +184,7 @@ pub mod event {
     impl From<TabbedOutcome> for Outcome {
         fn from(value: TabbedOutcome) -> Self {
             match value {
-                TabbedOutcome::NotUsed => Outcome::NotUsed,
+                TabbedOutcome::NotUsed => Outcome::Continue,
                 TabbedOutcome::Unchanged => Outcome::Unchanged,
                 TabbedOutcome::Changed => Outcome::Changed,
                 TabbedOutcome::Close(_) => Outcome::Changed,

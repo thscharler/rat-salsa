@@ -145,5 +145,5 @@ fn handle_buttons(
         }
     );
 
-    Ok(Outcome::NotUsed)
+    Ok(Outcome::Continue)
 }

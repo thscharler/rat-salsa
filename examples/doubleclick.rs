@@ -160,7 +160,7 @@ fn handle_buttons(
             state.drag_pos = Some(state.mouse.pos_of(m));
             Outcome::Changed
         }
-        _ => Outcome::NotUsed,
+        _ => Outcome::Continue,
     };
 
     let r2 = match event {
@@ -177,7 +177,7 @@ fn handle_buttons(
                 Outcome::Unchanged
             }
         }
-        _ => Outcome::NotUsed,
+        _ => Outcome::Continue,
     };
 
     Ok(max(r1, r2))

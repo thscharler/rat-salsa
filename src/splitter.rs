@@ -1145,13 +1145,13 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SplitState {
                     ct_event!(keycode press CONTROL-Right) => self.select_prev_split().into(),
                     ct_event!(keycode press CONTROL-Up) => self.select_next_split().into(),
                     ct_event!(keycode press CONTROL-Down) => self.select_prev_split().into(),
-                    _ => Outcome::NotUsed,
+                    _ => Outcome::Continue,
                 }
             } else {
-                Outcome::NotUsed
+                Outcome::Continue
             }
         } else {
-            Outcome::NotUsed
+            Outcome::Continue
         });
 
         self.handle(event, MouseOnly)
@@ -1167,18 +1167,18 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for SplitState {
                     if let Some(n) = self.mouse.drag.get() {
                         self.set_screen_split_pos(n, self.mouse.pos_of(m)).into()
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 } else {
                     // repaint after drag is finished. resets the displayed style.
                     if was_drag.is_some() {
                         Outcome::Changed
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
             }
-            _ => Outcome::NotUsed,
+            _ => Outcome::Continue,
         }
     }
 }
