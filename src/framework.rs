@@ -142,7 +142,6 @@ where
     let mut appctx = AppContext {
         g: global,
         focus: None,
-        timeout: None,
         timers: &timers,
         tasks: &tasks,
         queue: &queue,
@@ -155,7 +154,7 @@ where
     state.init(&mut appctx)?;
 
     // initial render
-    term.render(&mut app, state, &mut appctx)?;
+    term.render(&mut app, state, None, &mut appctx)?;
 
     'ui: loop {
         // panic on worker panic
@@ -213,7 +212,7 @@ where
             Some(Ok(Control::Continue)) => {}
             Some(Ok(Control::Unchanged)) => {}
             Some(Ok(Control::Changed)) => {
-                if let Err(e) = term.render(&mut app, state, &mut appctx) {
+                if let Err(e) = term.render(&mut app, state, None, &mut appctx) {
                     appctx.queue_err(e);
                 }
             }

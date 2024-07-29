@@ -2,6 +2,7 @@
 //! Defines the trait RenderUI to hide the different rendering backends.
 //!
 
+use crate::timer::TimeOut;
 use crate::{AppContext, AppWidget, RenderContext};
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
@@ -46,6 +47,7 @@ where
         &mut self,
         app: &mut App,
         state: &mut App::State,
+        timeout: Option<TimeOut>,
         ctx: &'b mut AppContext<'a, Global, Message, Error>,
     ) -> Result<(), Error>
     where
@@ -105,6 +107,7 @@ where
         &mut self,
         app: &mut App,
         state: &mut App::State,
+        timeout: Option<TimeOut>,
         ctx: &'b mut AppContext<'a, Global, Message, Error>,
     ) -> Result<(), Error>
     where
@@ -118,7 +121,7 @@ where
         self.term.draw(|frame| {
             let mut ctx = RenderContext {
                 g: ctx.g,
-                timeout: ctx.timeout,
+                timeout,
                 timers: ctx.timers,
                 counter: frame.count(),
                 cursor: None,

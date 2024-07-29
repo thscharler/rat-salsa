@@ -203,8 +203,6 @@ where
     /// Can be set to hold a Focus, if needed.
     /// Will be reset after each run of an event-handler.
     pub focus: Option<Focus>,
-    /// Current timeout, if any.
-    pub timeout: Option<TimeOut>,
 
     /// Application timers.
     pub(crate) timers: &'a Timers,

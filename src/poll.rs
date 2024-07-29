@@ -97,19 +97,14 @@ where
         match ctx.timers.read() {
             None => Ok(Control::Continue),
             Some(TimerEvent::Repaint(t)) => {
-                ctx.timeout = Some(t);
-                if let Err(e) = term.render(app, state, ctx) {
-                    ctx.timeout = None;
+                if let Err(e) = term.render(app, state, Some(t), ctx) {
                     Err(e)
                 } else {
-                    ctx.timeout = None;
                     Ok(Control::Continue)
                 }
             }
             Some(TimerEvent::Application(t)) => {
-                ctx.timeout = Some(t);
                 let r = state.timer(&t, ctx);
-                ctx.timeout = None;
                 r
             }
         }
