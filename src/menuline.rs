@@ -300,7 +300,7 @@ impl MenuLineState {
                 }
             }
         }
-        MenuOutcome::NotUsed
+        MenuOutcome::Continue
     }
 
     /// Select item at position
@@ -339,7 +339,7 @@ impl Default for MenuLineState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MenuOutcome {
     /// The given event was not handled at all.
-    NotUsed,
+    Continue,
     /// The event was handled, no repaint necessary.
     Unchanged,
     /// The event was handled, repaint necessary.
@@ -356,14 +356,14 @@ pub enum MenuOutcome {
 
 impl ConsumedEvent for MenuOutcome {
     fn is_consumed(&self) -> bool {
-        *self != MenuOutcome::NotUsed
+        *self != MenuOutcome::Continue
     }
 }
 
 impl From<MenuOutcome> for Outcome {
     fn from(value: MenuOutcome) -> Self {
         match value {
-            MenuOutcome::NotUsed => Outcome::Continue,
+            MenuOutcome::Continue => Outcome::Continue,
             MenuOutcome::Unchanged => Outcome::Unchanged,
             MenuOutcome::Changed => Outcome::Changed,
             MenuOutcome::Selected(_) => Outcome::Changed,
@@ -415,7 +415,7 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuLineStat
                     if let Some(select) = self.selected {
                         MenuOutcome::Activated(select)
                     } else {
-                        MenuOutcome::NotUsed
+                        MenuOutcome::Continue
                     }
                 }
 
@@ -426,13 +426,13 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuLineStat
                 | ct_event!(keycode release End)
                 | ct_event!(keycode release Enter) => MenuOutcome::Unchanged,
 
-                _ => MenuOutcome::NotUsed,
+                _ => MenuOutcome::Continue,
             }
         } else {
-            MenuOutcome::NotUsed
+            MenuOutcome::Continue
         };
 
-        if res == MenuOutcome::NotUsed {
+        if res == MenuOutcome::Continue {
             self.handle(event, MouseOnly)
         } else {
             res
@@ -448,10 +448,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineSt
                 if self.selected() == idx {
                     match self.selected {
                         Some(a) => MenuOutcome::Activated(a),
-                        None => MenuOutcome::NotUsed,
+                        None => MenuOutcome::Continue,
                     }
                 } else {
-                    MenuOutcome::NotUsed
+                    MenuOutcome::Continue
                 }
             }
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
@@ -463,17 +463,17 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineSt
                         MenuOutcome::Unchanged
                     }
                 } else {
-                    MenuOutcome::NotUsed
+                    MenuOutcome::Continue
                 }
             }
             ct_event!(mouse down Left for col, row) if self.area.contains((*col, *row).into()) => {
                 if self.select_at((*col, *row)) {
                     MenuOutcome::Selected(self.selected().expect("selected"))
                 } else {
-                    MenuOutcome::NotUsed
+                    MenuOutcome::Continue
                 }
             }
-            _ => MenuOutcome::NotUsed,
+            _ => MenuOutcome::Continue,
         }
     }
 }

@@ -867,17 +867,17 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
                 | ct_event!(keycode release CONTROL-Delete)
                 | ct_event!(key release CONTROL-'d') => TextOutcome::Unchanged,
 
-                _ => TextOutcome::NotUsed,
+                _ => TextOutcome::Continue,
             }
         } else {
-            TextOutcome::NotUsed
+            TextOutcome::Continue
         };
         // remap to TextChanged
         if r == TextOutcome::Changed {
             r = TextOutcome::TextChanged;
         }
 
-        if r == TextOutcome::NotUsed {
+        if r == TextOutcome::Continue {
             r = self.handle(event, ReadOnly);
         }
         r
@@ -916,13 +916,13 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
                 | ct_event!(keycode release SHIFT-End)
                 | ct_event!(key release CONTROL-'a') => TextOutcome::Unchanged,
 
-                _ => TextOutcome::NotUsed,
+                _ => TextOutcome::Continue,
             }
         } else {
-            TextOutcome::NotUsed
+            TextOutcome::Continue
         };
 
-        if r == TextOutcome::NotUsed {
+        if r == TextOutcome::Continue {
             r = self.handle(event, MouseOnly);
         }
         r
@@ -945,10 +945,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
                     let c = (column - self.inner.x) as i16;
                     self.set_screen_cursor(c, false).into()
                 } else {
-                    TextOutcome::NotUsed
+                    TextOutcome::Continue
                 }
             }
-            _ => TextOutcome::NotUsed,
+            _ => TextOutcome::Continue,
         }
     }
 }

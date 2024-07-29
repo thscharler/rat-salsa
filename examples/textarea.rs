@@ -163,7 +163,7 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let r = textarea::handle_events(&mut state.textarea, true, event);
-    if r != TextOutcome::NotUsed {
+    if r != TextOutcome::Continue {
         return Ok(r.into());
     }
 

@@ -278,7 +278,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
             ScrollOutcome::Right(v) => self.scroll_right(v),
             ScrollOutcome::VPos(v) => self.set_vertical_offset(v),
             ScrollOutcome::HPos(v) => self.set_horizontal_offset(v),
-            ScrollOutcome::NotUsed => false,
+            ScrollOutcome::Continue => false,
             ScrollOutcome::Unchanged => false,
             ScrollOutcome::Changed => true,
         };

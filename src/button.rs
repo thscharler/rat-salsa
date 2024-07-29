@@ -263,7 +263,7 @@ impl Default for ButtonState {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ButtonOutcome {
     /// The given event was not handled at all.
-    NotUsed,
+    Continue,
     /// The event was handled, no repaint necessary.
     Unchanged,
     /// The event was handled, repaint necessary.
@@ -274,14 +274,14 @@ pub enum ButtonOutcome {
 
 impl ConsumedEvent for ButtonOutcome {
     fn is_consumed(&self) -> bool {
-        *self != ButtonOutcome::NotUsed
+        *self != ButtonOutcome::Continue
     }
 }
 
 impl From<ButtonOutcome> for Outcome {
     fn from(value: ButtonOutcome) -> Self {
         match value {
-            ButtonOutcome::NotUsed => Outcome::Continue,
+            ButtonOutcome::Continue => Outcome::Continue,
             ButtonOutcome::Unchanged => Outcome::Unchanged,
             ButtonOutcome::Changed => Outcome::Changed,
             ButtonOutcome::Pressed => Outcome::Changed,
@@ -306,13 +306,13 @@ impl HandleEvent<crossterm::event::Event, Regular, ButtonOutcome> for ButtonStat
                         ButtonOutcome::Unchanged
                     }
                 }
-                _ => ButtonOutcome::NotUsed,
+                _ => ButtonOutcome::Continue,
             }
         } else {
-            ButtonOutcome::NotUsed
+            ButtonOutcome::Continue
         };
 
-        if r == ButtonOutcome::NotUsed {
+        if r == ButtonOutcome::Continue {
             HandleEvent::handle(self, event, MouseOnly)
         } else {
             r
@@ -328,7 +328,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonSt
                     self.armed = true;
                     ButtonOutcome::Changed
                 } else {
-                    ButtonOutcome::NotUsed
+                    ButtonOutcome::Continue
                 }
             }
             ct_event!(mouse up Left for column, row) => {
@@ -340,11 +340,11 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonSt
                         self.armed = false;
                         ButtonOutcome::Changed
                     } else {
-                        ButtonOutcome::NotUsed
+                        ButtonOutcome::Continue
                     }
                 }
             }
-            _ => ButtonOutcome::NotUsed,
+            _ => ButtonOutcome::Continue,
         }
     }
 }

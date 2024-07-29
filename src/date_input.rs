@@ -637,13 +637,13 @@ impl HandleEvent<crossterm::event::Event, ConvenientKeys, TextOutcome> for DateI
                     }
                     TextOutcome::Changed
                 }
-                _ => TextOutcome::NotUsed,
+                _ => TextOutcome::Continue,
             }
         } else {
-            TextOutcome::NotUsed
+            TextOutcome::Continue
         };
 
-        if r == TextOutcome::NotUsed {
+        if r == TextOutcome::Continue {
             self.handle(event, Regular)
         } else {
             r

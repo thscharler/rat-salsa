@@ -350,10 +350,10 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenuBarState {
                     r => r,
                 }
             } else {
-                MenuOutcome::NotUsed
+                MenuOutcome::Continue
             }
         } else {
-            MenuOutcome::NotUsed
+            MenuOutcome::Continue
         }
     }
 }
@@ -400,10 +400,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuBarSta
                     r => r,
                 }
             } else {
-                MenuOutcome::NotUsed
+                MenuOutcome::Continue
             }
         } else {
-            MenuOutcome::NotUsed
+            MenuOutcome::Continue
         });
 
         let old_selected = self.bar.selected();

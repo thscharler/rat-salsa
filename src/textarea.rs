@@ -1496,17 +1496,17 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 | ct_event!(keycode release CONTROL-Delete)
                 | ct_event!(key release  CONTROL-'y')
                 | ct_event!(key release  CONTROL-'p') => TextOutcome::Unchanged,
-                _ => TextOutcome::NotUsed,
+                _ => TextOutcome::Continue,
             }
         } else {
-            TextOutcome::NotUsed
+            TextOutcome::Continue
         };
         // remap to TextChanged
         if r == TextOutcome::Changed {
             r = TextOutcome::TextChanged;
         }
 
-        if r == TextOutcome::NotUsed {
+        if r == TextOutcome::Continue {
             r = self.handle(event, ReadOnly);
         }
         r
@@ -1604,13 +1604,13 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 | ct_event!(keycode release CONTROL_SHIFT-Left)
                 | ct_event!(keycode release CONTROL_SHIFT-Right)
                 | ct_event!(key release CONTROL-'a') => TextOutcome::Unchanged,
-                _ => TextOutcome::NotUsed,
+                _ => TextOutcome::Continue,
             }
         } else {
-            TextOutcome::NotUsed
+            TextOutcome::Continue
         };
 
-        if r == TextOutcome::NotUsed {
+        if r == TextOutcome::Continue {
             r = self.handle(event, MouseOnly);
         }
         r
@@ -1650,7 +1650,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
                     let cy = (row - self.inner.y) as i16;
                     self.set_screen_cursor((cx, cy), false).into()
                 } else {
-                    TextOutcome::NotUsed
+                    TextOutcome::Continue
                 }
             }
             ct_event!(mouse down CONTROL-Left for column,row) => {
@@ -1659,7 +1659,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
                     let cy = (row - self.inner.y) as i16;
                     self.set_screen_cursor((cx, cy), true).into()
                 } else {
-                    TextOutcome::NotUsed
+                    TextOutcome::Continue
                 }
             }
             ct_event!(mouse down ALT-Left for column,row) => {
@@ -1668,10 +1668,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
                     let cy = (row - self.inner.y) as i16;
                     self.set_screen_cursor_words((cx, cy), true).into()
                 } else {
-                    TextOutcome::NotUsed
+                    TextOutcome::Continue
                 }
             }
-            _ => TextOutcome::NotUsed,
+            _ => TextOutcome::Continue,
         });
 
         let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
@@ -1689,7 +1689,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
             return TextOutcome::Changed;
         }
 
-        TextOutcome::NotUsed
+        TextOutcome::Continue
     }
 }
 

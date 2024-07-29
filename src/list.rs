@@ -694,7 +694,7 @@ pub mod selection {
                 ScrollOutcome::Right(_) => false,
                 ScrollOutcome::HPos(_) => false,
 
-                ScrollOutcome::NotUsed => false,
+                ScrollOutcome::Continue => false,
                 ScrollOutcome::Unchanged => false,
                 ScrollOutcome::Changed => true,
             };
@@ -806,7 +806,7 @@ pub mod selection {
                 ScrollOutcome::Right(_) => false,
                 ScrollOutcome::HPos(_) => false,
 
-                ScrollOutcome::NotUsed => false,
+                ScrollOutcome::Continue => false,
                 ScrollOutcome::Unchanged => false,
                 ScrollOutcome::Changed => true,
             };
@@ -958,7 +958,7 @@ pub mod selection {
                 ScrollOutcome::Right(_) => false,
                 ScrollOutcome::HPos(_) => false,
 
-                ScrollOutcome::NotUsed => false,
+                ScrollOutcome::Continue => false,
                 ScrollOutcome::Unchanged => false,
                 ScrollOutcome::Changed => true,
             };

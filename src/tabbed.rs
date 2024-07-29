@@ -273,10 +273,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedSt
                     self.selected = sel;
                     TabbedOutcome::Changed
                 } else {
-                    TabbedOutcome::NotUsed
+                    TabbedOutcome::Continue
                 }
             }
-            _ => TabbedOutcome::NotUsed,
+            _ => TabbedOutcome::Continue,
         }
     }
 }

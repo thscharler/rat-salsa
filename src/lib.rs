@@ -28,7 +28,7 @@ pub mod event {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum TextOutcome {
         /// The given event has not been used at all.
-        NotUsed,
+        Continue,
         /// The event has been recognized, but the result was nil.
         /// Further processing for this event may stop.
         Unchanged,
@@ -43,7 +43,7 @@ pub mod event {
 
     impl ConsumedEvent for TextOutcome {
         fn is_consumed(&self) -> bool {
-            *self != TextOutcome::NotUsed
+            *self != TextOutcome::Continue
         }
     }
 
@@ -61,7 +61,7 @@ pub mod event {
     impl From<Outcome> for TextOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::Continue => TextOutcome::NotUsed,
+                Outcome::Continue => TextOutcome::Continue,
                 Outcome::Unchanged => TextOutcome::Unchanged,
                 Outcome::Changed => TextOutcome::Changed,
             }
@@ -71,7 +71,7 @@ pub mod event {
     impl From<TextOutcome> for Outcome {
         fn from(value: TextOutcome) -> Self {
             match value {
-                TextOutcome::NotUsed => Outcome::Continue,
+                TextOutcome::Continue => Outcome::Continue,
                 TextOutcome::Unchanged => Outcome::Unchanged,
                 TextOutcome::Changed => Outcome::Changed,
                 TextOutcome::TextChanged => Outcome::Changed,
@@ -83,7 +83,7 @@ pub mod event {
     #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
     pub enum FileOutcome {
         /// The given event has not been used at all.
-        NotUsed,
+        Continue,
         /// The event has been recognized, but the result was nil.
         /// Further processing for this event may stop.
         Unchanged,
@@ -100,14 +100,14 @@ pub mod event {
 
     impl ConsumedEvent for FileOutcome {
         fn is_consumed(&self) -> bool {
-            !matches!(self, FileOutcome::NotUsed)
+            !matches!(self, FileOutcome::Continue)
         }
     }
 
     impl From<FileOutcome> for Outcome {
         fn from(value: FileOutcome) -> Self {
             match value {
-                FileOutcome::NotUsed => Outcome::Continue,
+                FileOutcome::Continue => Outcome::Continue,
                 FileOutcome::Unchanged => Outcome::Unchanged,
                 FileOutcome::Changed => Outcome::Changed,
                 FileOutcome::Ok(_) => Outcome::Changed,
@@ -119,7 +119,7 @@ pub mod event {
     impl From<Outcome> for FileOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::Continue => FileOutcome::NotUsed,
+                Outcome::Continue => FileOutcome::Continue,
                 Outcome::Unchanged => FileOutcome::Unchanged,
                 Outcome::Changed => FileOutcome::Changed,
             }
@@ -141,7 +141,7 @@ pub mod event {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum TabbedOutcome {
         /// The given event has not been used at all.
-        NotUsed,
+        Continue,
         /// The event has been recognized, but the result was nil.
         /// Further processing for this event may stop.
         Unchanged,
@@ -156,7 +156,7 @@ pub mod event {
 
     impl ConsumedEvent for TabbedOutcome {
         fn is_consumed(&self) -> bool {
-            *self != TabbedOutcome::NotUsed
+            *self != TabbedOutcome::Continue
         }
     }
 
@@ -174,7 +174,7 @@ pub mod event {
     impl From<Outcome> for TabbedOutcome {
         fn from(value: Outcome) -> Self {
             match value {
-                Outcome::Continue => TabbedOutcome::NotUsed,
+                Outcome::Continue => TabbedOutcome::Continue,
                 Outcome::Unchanged => TabbedOutcome::Unchanged,
                 Outcome::Changed => TabbedOutcome::Changed,
             }
@@ -184,7 +184,7 @@ pub mod event {
     impl From<TabbedOutcome> for Outcome {
         fn from(value: TabbedOutcome) -> Self {
             match value {
-                TabbedOutcome::NotUsed => Outcome::Continue,
+                TabbedOutcome::Continue => Outcome::Continue,
                 TabbedOutcome::Unchanged => Outcome::Unchanged,
                 TabbedOutcome::Changed => Outcome::Changed,
                 TabbedOutcome::Close(_) => Outcome::Changed,

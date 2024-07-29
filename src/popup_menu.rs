@@ -393,7 +393,7 @@ impl PopupMenuState {
                 }
             }
         }
-        MenuOutcome::NotUsed
+        MenuOutcome::Continue
     }
 
     /// Select item at position.
@@ -456,7 +456,7 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
                         self.set_active(false);
                         MenuOutcome::Activated(select)
                     } else {
-                        MenuOutcome::NotUsed
+                        MenuOutcome::Continue
                     }
                 }
 
@@ -468,10 +468,10 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
                 | ct_event!(keycode release Esc)
                 | ct_event!(keycode release Enter) => MenuOutcome::Unchanged,
 
-                _ => MenuOutcome::NotUsed,
+                _ => MenuOutcome::Continue,
             }
         } else {
-            MenuOutcome::NotUsed
+            MenuOutcome::Continue
         };
 
         if !res.is_consumed() {
@@ -503,10 +503,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
                         MenuOutcome::Unchanged
                     }
                 }
-                _ => MenuOutcome::NotUsed,
+                _ => MenuOutcome::Continue,
             }
         } else {
-            MenuOutcome::NotUsed
+            MenuOutcome::Continue
         }
     }
 }

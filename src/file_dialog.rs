@@ -368,7 +368,7 @@ impl EditDirNameState {
 impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditDirNameState {
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: Regular) -> EditOutcome {
         match self.edit_dir.handle(event, qualifier) {
-            TextOutcome::NotUsed => EditOutcome::NotUsed,
+            TextOutcome::Continue => EditOutcome::Continue,
             TextOutcome::Unchanged => EditOutcome::Unchanged,
             TextOutcome::Changed => EditOutcome::Changed,
             TextOutcome::TextChanged => EditOutcome::Changed,
@@ -948,10 +948,10 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
         _qualifier: Dialog,
     ) -> Result<FileOutcome, io::Error> {
         if !self.active {
-            return Ok(FileOutcome::NotUsed);
+            return Ok(FileOutcome::Continue);
         }
         if matches!(event, ct_event!(mouse moved)) {
-            return Ok(FileOutcome::NotUsed);
+            return Ok(FileOutcome::Continue);
         }
 
         let focus_outcome = self.focus().handle(event, Regular).into();
@@ -986,9 +986,9 @@ fn handle_new(
         ct_event!(key press CONTROL-'n') => {
             state.start_edit_dir()
         }
-        _ => FileOutcome::NotUsed,
+        _ => FileOutcome::Continue,
     });
-    Ok(FileOutcome::NotUsed)
+    Ok(FileOutcome::Continue)
 }
 
 fn handle_ok(
@@ -999,7 +999,7 @@ fn handle_ok(
         ButtonOutcome::Pressed => state.choose_selected(),
         r => Outcome::from(r).into(),
     });
-    Ok(FileOutcome::NotUsed)
+    Ok(FileOutcome::Continue)
 }
 
 fn handle_cancel(
@@ -1016,9 +1016,9 @@ fn handle_cancel(
         ct_event!(keycode press Esc) => {
             state.close_cancel()
         }
-        _ => FileOutcome::NotUsed,
+        _ => FileOutcome::Continue,
     });
-    Ok(FileOutcome::NotUsed)
+    Ok(FileOutcome::Continue)
 }
 
 fn handle_name(
@@ -1031,10 +1031,10 @@ fn handle_name(
             ct_event!(keycode press Enter) => {
                 state.choose_selected()
             }
-            _ => FileOutcome::NotUsed,
+            _ => FileOutcome::Continue,
         });
     }
-    Ok(FileOutcome::NotUsed)
+    Ok(FileOutcome::Continue)
 }
 
 fn handle_path(
@@ -1049,7 +1049,7 @@ fn handle_path(
                 state.focus().focus_no_lost(&state.dir_state.list);
                 FileOutcome::Changed
             }
-            _ => FileOutcome::NotUsed,
+            _ => FileOutcome::Continue,
         });
     }
     on_lost!(
@@ -1057,7 +1057,7 @@ fn handle_path(
             state.use_path_input()?
         }
     );
-    Ok(FileOutcome::NotUsed)
+    Ok(FileOutcome::Continue)
 }
 
 fn handle_roots(
@@ -1070,7 +1070,7 @@ fn handle_roots(
         }
         r => r.into(),
     });
-    Ok(FileOutcome::NotUsed)
+    Ok(FileOutcome::Continue)
 }
 
 fn handle_dirs(
@@ -1092,7 +1092,7 @@ fn handle_dirs(
                 ct_event!(keycode press Enter) => {
                     state.chdir_selected()?
                 }
-                _ => FileOutcome::NotUsed,
+                _ => FileOutcome::Continue,
             });
             flow_ok!(handle_nav(&mut state.dir_state.list, &state.dirs, event));
         }
@@ -1108,7 +1108,7 @@ fn handle_dirs(
             Outcome::from(r).into()
         }
     });
-    Ok(FileOutcome::NotUsed)
+    Ok(FileOutcome::Continue)
 }
 
 fn handle_files(
@@ -1128,7 +1128,7 @@ fn handle_files(
             ct_event!(keycode press Enter) => {
                 state.choose_selected()
             }
-            _ => FileOutcome::NotUsed,
+            _ => FileOutcome::Continue,
         });
         flow_ok!(
             match handle_nav(&mut state.file_state, &state.files, event) {
@@ -1153,7 +1153,7 @@ fn handle_files(
         }
         r => r,
     });
-    Ok(FileOutcome::NotUsed)
+    Ok(FileOutcome::Continue)
 }
 
 fn handle_nav(
@@ -1170,9 +1170,9 @@ fn handle_nav(
                 FileOutcome::Unchanged
             }
         }
-        _ => FileOutcome::NotUsed,
+        _ => FileOutcome::Continue,
     });
-    FileOutcome::NotUsed
+    FileOutcome::Continue
 }
 
 fn find_next_by_key(c: char, start: usize, names: &[OsString]) -> Option<usize> {
