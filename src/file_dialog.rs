@@ -656,7 +656,7 @@ impl FileDialogState {
         } else {
             self.set_path(path)?;
         }
-        self.focus().initial();
+        self.focus().first();
         Ok(())
     }
 
@@ -686,7 +686,7 @@ impl FileDialogState {
         } else {
             self.set_path(path)?;
         }
-        self.focus().initial();
+        self.focus().first();
         Ok(())
     }
 
