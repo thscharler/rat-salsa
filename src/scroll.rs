@@ -792,7 +792,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollSt
             {
                 ScrollOutcome::Left(self.scroll_by())
             }
-            _ => ScrollOutcome::NotUsed,
+            _ => ScrollOutcome::Continue,
         }
     }
 }
@@ -817,7 +817,7 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
                     if area.contains(Position::new(*column, *row)) {
                         ScrollOutcome::Right(hscroll.scroll_by())
                     } else {
-                        ScrollOutcome::NotUsed
+                        ScrollOutcome::Continue
                     }
                 }
                 // left scroll with ALT up. shift doesn't work?
@@ -825,10 +825,10 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
                     if area.contains(Position::new(*column, *row)) {
                         ScrollOutcome::Left(hscroll.scroll_by())
                     } else {
-                        ScrollOutcome::NotUsed
+                        ScrollOutcome::Continue
                     }
                 }
-                _ => ScrollOutcome::NotUsed,
+                _ => ScrollOutcome::Continue,
             });
             flow!(hscroll.handle(event, MouseOnly));
         }
@@ -838,22 +838,22 @@ impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for Scro
                     if area.contains(Position::new(*column, *row)) {
                         ScrollOutcome::Down(vscroll.scroll_by())
                     } else {
-                        ScrollOutcome::NotUsed
+                        ScrollOutcome::Continue
                     }
                 }
                 ct_event!(scroll up for column, row) => {
                     if area.contains(Position::new(*column, *row)) {
                         ScrollOutcome::Up(vscroll.scroll_by())
                     } else {
-                        ScrollOutcome::NotUsed
+                        ScrollOutcome::Continue
                     }
                 }
-                _ => ScrollOutcome::NotUsed,
+                _ => ScrollOutcome::Continue,
             });
             flow!(vscroll.handle(event, MouseOnly));
         }
 
-        ScrollOutcome::NotUsed
+        ScrollOutcome::Continue
     }
 }
 

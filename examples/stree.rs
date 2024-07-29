@@ -283,9 +283,9 @@ fn main() {
 //     state: &mut State,
 // ) -> Result<Outcome, anyhow::Error> {
 //     match HandleEvent::handle(&mut state.tree1, event, FocusKeys) {
-//         Outcome::NotUsed => {}
+//         Outcome::Continue => {}
 //         r => return Ok(r),
 //     };
 //
-//     Ok(Outcome::NotUsed)
+//     Ok(Outcome::Continue)
 // }

@@ -12,7 +12,7 @@ pub mod event {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum ScrollOutcome {
         /// The given event has not been used at all.
-        NotUsed,
+        Continue,
         /// The event has been recognized, but the result was nil.
         /// Further processing for this event may stop.
         Unchanged,
@@ -37,14 +37,14 @@ pub mod event {
 
     impl ConsumedEvent for ScrollOutcome {
         fn is_consumed(&self) -> bool {
-            !matches!(self, ScrollOutcome::NotUsed)
+            !matches!(self, ScrollOutcome::Continue)
         }
     }
 
     impl From<ScrollOutcome> for Outcome {
         fn from(value: ScrollOutcome) -> Self {
             match value {
-                ScrollOutcome::NotUsed => Outcome::Continue,
+                ScrollOutcome::Continue => Outcome::Continue,
                 ScrollOutcome::Unchanged => Outcome::Unchanged,
                 ScrollOutcome::Changed => Outcome::Changed,
                 ScrollOutcome::Up(_) => Outcome::Changed,
