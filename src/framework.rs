@@ -2,9 +2,11 @@ use crate::control_queue::ControlQueue;
 use crate::poll::{PollCrossterm, PollEvents, PollTasks, PollTimers};
 use crate::terminal::{CrosstermTerminal, Terminal};
 use crate::threadpool::ThreadPool;
-use crate::timer::Timers;
-use crate::{AppContext, AppEvents, AppWidget, Control};
+use crate::timer::{TimeOut, Timers};
+use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
 use crossbeam::channel::{SendError, TryRecvError};
+use ratatui::buffer::Buffer;
+use ratatui::layout::Rect;
 use std::cell::RefCell;
 use std::cmp::min;
 use std::collections::VecDeque;
@@ -237,7 +239,7 @@ where
 /// ```
 /// use crossterm::event::Event;
 /// use rat_salsa::event::{ct_event, flow_ok};
-/// use rat_salsa::{run_tui, AppContext, AppEvents, AppWidget, Control, RenderContext, RunConfig};
+/// use rat_salsa::{run_tui, AppContext, AppState, AppWidget, Control, RenderContext, RunConfig};
 /// use ratatui::buffer::Buffer;
 /// use ratatui::layout::Rect;
 /// use ratatui::style::Stylize;
@@ -268,7 +270,7 @@ where
 ///     }
 /// }
 ///
-/// impl AppEvents<(), (), anyhow::Error> for MainState {
+/// impl AppState<(), (), anyhow::Error> for MainState {
 ///     fn crossterm(
 ///         &mut self,
 ///         event: &Event,

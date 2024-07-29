@@ -21,9 +21,9 @@ pub mod timer;
 use crate::control_queue::ControlQueue;
 use crate::threadpool::ThreadPool;
 use crate::timer::{TimeOut, TimerDef, TimerHandle, Timers};
-
-pub use framework::{run_tui, RunConfig};
 use rat_widget::focus::Focus;
+
+pub use framework::*;
 pub use threadpool::Cancel;
 
 /// Result of event-handling.
@@ -125,7 +125,7 @@ where
     Error: 'static + Send + Debug,
 {
     /// Type of the State.
-    type State: AppEvents<Global, Message, Error> + Debug;
+    type State: AppState<Global, Message, Error> + Debug;
 
     /// Renders an application widget.
     fn render(
@@ -144,7 +144,7 @@ where
 /// Implement this one on the state struct.
 ///
 #[allow(unused_variables)]
-pub trait AppEvents<Global, Message, Error>
+pub trait AppState<Global, Message, Error>
 where
     Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
@@ -209,7 +209,7 @@ where
     /// Background tasks.
     pub(crate) tasks: &'a ThreadPool<Message, Error>,
     /// Queue foreground tasks.
-    queue: &'a ControlQueue<Message, Error>,
+    pub(crate) queue: &'a ControlQueue<Message, Error>,
 }
 
 /// A collection of context data used for rendering.
@@ -286,6 +286,7 @@ where
     }
 
     /// Queue an error.
+    #[inline]
     pub fn queue_err(&self, err: Error) {
         self.queue.push(Err(err));
     }

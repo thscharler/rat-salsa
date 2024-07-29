@@ -4,7 +4,7 @@
 
 use crate::terminal::Terminal;
 use crate::timer::TimerEvent;
-use crate::{AppContext, AppEvents, AppWidget, Control};
+use crate::{AppContext, AppState, AppWidget, Control};
 use crossbeam::channel::TryRecvError;
 use std::fmt::Debug;
 use std::time::Duration;

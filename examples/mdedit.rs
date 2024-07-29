@@ -9,7 +9,7 @@ use anyhow::Error;
 use log::debug;
 use pulldown_cmark::{Event, Options, Parser, Tag};
 use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
+use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_theme::{dark_themes, Scheme};
@@ -364,7 +364,7 @@ impl HasFocus for MDAppState {
     }
 }
 
-impl AppEvents<GlobalState, MDAction, Error> for MDAppState {
+impl AppState<GlobalState, MDAction, Error> for MDAppState {
     fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         self.menu.focus().set(true);
         Ok(())
@@ -493,7 +493,7 @@ pub mod mdedit {
     use log::debug;
     use rat_salsa::event::{ct_event, flow_ok};
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
-    use rat_salsa::{AppEvents, AppWidget, Control};
+    use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{HandleEvent, Regular, TextOutcome};
     use rat_widget::focus::{Focus, HasFocus};
     use rat_widget::scrolled::Scroll;
@@ -635,7 +635,7 @@ pub mod mdedit {
         }
     }
 
-    impl AppEvents<GlobalState, MDAction, Error> for MDEditState {
+    impl AppState<GlobalState, MDAction, Error> for MDEditState {
         fn timer(
             &mut self,
             event: &TimeOut,

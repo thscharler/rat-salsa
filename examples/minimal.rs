@@ -6,7 +6,7 @@ use crossterm::event::Event;
 #[allow(unused_imports)]
 use log::debug;
 use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, AppEvents, AppWidget, Control, RunConfig};
+use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{ct_event, flow_ok, Dialog, HandleEvent};
@@ -124,7 +124,7 @@ impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
     }
 }
 
-impl AppEvents<GlobalState, MinimalAction, Error> for MinimalState {
+impl AppState<GlobalState, MinimalAction, Error> for MinimalState {
     fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         Ok(())
     }
@@ -205,7 +205,7 @@ mod mask0 {
     use crossterm::event::Event;
     #[allow(unused_imports)]
     use log::debug;
-    use rat_salsa::{AppEvents, AppWidget, Control};
+    use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{flow_ok, HandleEvent, Regular};
     use rat_widget::focus::HasFocusFlag;
     use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
@@ -261,7 +261,7 @@ mod mask0 {
         }
     }
 
-    impl AppEvents<GlobalState, MinimalAction, Error> for Mask0State {
+    impl AppState<GlobalState, MinimalAction, Error> for Mask0State {
         fn crossterm(
             &mut self,
             event: &Event,
