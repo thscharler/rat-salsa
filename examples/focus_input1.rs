@@ -128,7 +128,7 @@ fn handle_input(
     //     return Ok(max(r, f));
     // }
 
-    // Return early if the outcome is anything but Outcome::NotUsed.
+    // Return early if the outcome is anything but Outcome::Continue.
     // But when returning early take the result of focus into
     // consideration and return max(r, f).
     //
