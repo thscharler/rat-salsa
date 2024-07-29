@@ -502,10 +502,10 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableSState {
                 self.scroll_to_selected();
                 Outcome::Changed
             }
-            _ => Outcome::NotUsed,
+            _ => Outcome::Continue,
         };
 
-        if res == Outcome::NotUsed {
+        if res == Outcome::Continue {
             HandleEvent::handle(self, event, MouseOnly)
         } else {
             res
@@ -523,13 +523,13 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
                         self.select(Some(new_row));
                         Outcome::Changed
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
-            _ => Outcome::NotUsed,
+            _ => Outcome::Continue,
         });
 
         flow!(match self.scroll.handle(event, MouseOnly) {
@@ -552,6 +552,6 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
             }
         );
 
-        Outcome::NotUsed
+        Outcome::Continue
     }
 }

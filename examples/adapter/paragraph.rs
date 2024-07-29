@@ -222,34 +222,34 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSStat
                     if self.vscroll(-(v as isize)) {
                         Outcome::Changed
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
                 ScrollOutcome::Down(v) => {
                     if self.vscroll(v as isize) {
                         Outcome::Changed
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
                 ScrollOutcome::Left(v) => {
                     if self.hscroll(-(v as isize)) {
                         Outcome::Changed
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
                 ScrollOutcome::Right(v) => {
                     if self.hscroll(v as isize) {
                         Outcome::Changed
                     } else {
-                        Outcome::NotUsed
+                        Outcome::Continue
                     }
                 }
                 r => Outcome::from(r),
             }
         );
 
-        Outcome::NotUsed
+        Outcome::Continue
     }
 }

@@ -44,7 +44,7 @@ pub mod event {
     impl From<ScrollOutcome> for Outcome {
         fn from(value: ScrollOutcome) -> Self {
             match value {
-                ScrollOutcome::NotUsed => Outcome::NotUsed,
+                ScrollOutcome::NotUsed => Outcome::Continue,
                 ScrollOutcome::Unchanged => Outcome::Unchanged,
                 ScrollOutcome::Changed => Outcome::Changed,
                 ScrollOutcome::Up(_) => Outcome::Changed,

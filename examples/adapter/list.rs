@@ -398,12 +398,12 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ListSState {
                 self.scroll_to_selected();
                 Outcome::Changed
             }
-            _ => Outcome::NotUsed,
+            _ => Outcome::Continue,
         };
 
         match r {
-            Outcome::NotUsed => HandleEvent::handle(self, event, MouseOnly),
-            _ => Outcome::NotUsed,
+            Outcome::Continue => HandleEvent::handle(self, event, MouseOnly),
+            _ => Outcome::Continue,
         }
     }
 }
@@ -421,10 +421,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
                         Outcome::Unchanged
                     }
                 } else {
-                    Outcome::NotUsed
+                    Outcome::Continue
                 }
             }
-            _ => Outcome::NotUsed,
+            _ => Outcome::Continue,
         });
 
         flow!(match self.scroll.handle(event, MouseOnly) {
@@ -447,6 +447,6 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
             }
         );
 
-        Outcome::NotUsed
+        Outcome::Continue
     }
 }

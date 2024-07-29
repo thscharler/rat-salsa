@@ -130,21 +130,21 @@ fn handle_lists(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     match state.list1.handle(event, MouseOnly).into() {
-        Outcome::NotUsed => {}
+        Outcome::Continue => {}
         r => return Ok(r),
     };
     match state.list2.handle(event, MouseOnly).into() {
-        Outcome::NotUsed => {}
+        Outcome::Continue => {}
         r => return Ok(r),
     };
     match state.list3.handle(event, MouseOnly).into() {
-        Outcome::NotUsed => {}
+        Outcome::Continue => {}
         r => return Ok(r),
     };
     match state.list4.handle(event, MouseOnly).into() {
-        Outcome::NotUsed => {}
+        Outcome::Continue => {}
         r => return Ok(r),
     };
 
-    Ok(Outcome::NotUsed)
+    Ok(Outcome::Continue)
 }

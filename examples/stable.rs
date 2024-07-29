@@ -131,13 +131,13 @@ fn handle_lists(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     match Outcome::from(state.table1.handle(event, MouseOnly)) {
-        Outcome::NotUsed => {}
+        Outcome::Continue => {}
         r => return Ok(r),
     };
     match Outcome::from(state.table2.handle(event, MouseOnly)) {
-        Outcome::NotUsed => {}
+        Outcome::Continue => {}
         r => return Ok(r),
     };
 
-    Ok(Outcome::NotUsed)
+    Ok(Outcome::Continue)
 }

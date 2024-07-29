@@ -116,14 +116,14 @@ fn handle_text(
 
     r = state.text1.handle(event, MouseOnly).into();
     match r {
-        Outcome::NotUsed => {}
+        Outcome::Continue => {}
         r => return Ok(r),
     };
     r = state.text2.handle(event, MouseOnly).into();
     match r {
-        Outcome::NotUsed => {}
+        Outcome::Continue => {}
         r => return Ok(r),
     };
 
-    Ok(Outcome::NotUsed)
+    Ok(Outcome::Continue)
 }
