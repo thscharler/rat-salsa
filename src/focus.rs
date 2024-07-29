@@ -148,17 +148,6 @@ impl Focus {
         self.name.as_str()
     }
 
-    /// Set the initial state for all widgets.
-    ///
-    /// This ensures that there is only one focused widget.
-    /// The first widget in the list gets the focus.
-    pub fn initial(&self) {
-        if self.core.log.get() {
-            debug!("init focus");
-        }
-        self.core.focus_init();
-    }
-
     /// Sets the focus to the widget.
     ///
     /// Sets the focus, but doesn't set lost or gained.
@@ -279,6 +268,17 @@ impl Focus {
         self.core.use_primary_keys()
     }
 
+    /// Set the initial state for all widgets.
+    ///
+    /// This ensures that there is only one focused widget.
+    /// The first widget in the list gets the focus.
+    pub fn first(&self) {
+        if self.core.log.get() {
+            debug!("first focus");
+        }
+        self.core.first(true);
+    }
+
     /// Focus the next widget in the cycle.
     ///
     /// Sets the focus, gained and lost flags. If this ends up with the same widget as
@@ -289,7 +289,7 @@ impl Focus {
         if self.core.log.get() {
             debug!("next {:?}", self.core.focused());
         }
-        self.core.next()
+        self.core.next(true)
     }
 
     /// Focus the previous widget in the cycle.
@@ -302,7 +302,54 @@ impl Focus {
         if self.core.log.get() {
             debug!("prev {:?}", self.core.focused());
         }
-        self.core.prev()
+        self.core.prev(true)
+    }
+
+    /// Focus the first non-navigable widget.
+    ///
+    /// This ensures that there is only one focused widget.
+    /// The first widget in the list gets the focus.
+    pub fn first_non_navigable(&self) {
+        if self.core.log.get() {
+            debug!("first-nn focus");
+        }
+        self.core.first(false);
+    }
+
+    /// Focus the next non-navigable widget.
+    ///
+    /// Widgets like Split, Tabbed, etc. don't want to be reachable
+    /// with normal tab navigation. But if they can get the focus
+    /// otherwise they can do useful keyboard interaction. And
+    /// they can always be *left* by pressing the tab key.
+    ///
+    /// Sets the focus, gained and lost flags. If this ends up with the same widget as
+    /// before focus, gained and lost flag are all set.
+    ///
+    /// If no field has the focus the first one gets it.
+    pub fn next_non_navigable(&self) -> bool {
+        if self.core.log.get() {
+            debug!("next-nn {:?}", self.core.focused());
+        }
+        self.core.next(false)
+    }
+
+    /// Focus the next non-navigable widget.
+    ///
+    /// Widgets like Split, Tabbed, etc. don't want to be reachable
+    /// with normal tab navigation. But if they can get the focus
+    /// otherwise they can do useful keyboard interaction. And
+    /// they can always be *left* by pressing the tab key.
+    ///
+    /// Sets the focus and lost flags. If this ends up with the same widget as
+    /// before it returns *true* and sets the focus, gained and lost flag.
+    ///
+    /// If no field has the focus the first one gets it.
+    pub fn prev_non_navigable(&self) -> bool {
+        if self.core.log.get() {
+            debug!("prev-nn {:?}", self.core.focused());
+        }
+        self.core.prev(false)
     }
 }
 
@@ -496,12 +543,12 @@ mod core {
         }
 
         /// Set the initial focus.
-        pub(super) fn focus_init(&self) {
+        pub(super) fn first(&self, navigable: bool) {
             if self.log.get() {
                 debug!("first init");
             }
             self.__start_change(true);
-            if let Some(n) = self.first_navigable(0) {
+            if let Some(n) = self.first_navigable(0, navigable) {
                 if self.log.get() {
                     debug!("    -> focus {:?}", self.focus[n]);
                 }
@@ -617,7 +664,7 @@ mod core {
                         }
                         if let Some(max_last) = max_last {
                             if let Some(max_last) = self.index_of(max_last) {
-                                if let Some(n) = self.first_navigable(max_last) {
+                                if let Some(n) = self.first_navigable(max_last, true) {
                                     self.__start_change(true);
                                     self.__focus(n, true);
                                     self.__accumulate();
@@ -657,7 +704,7 @@ mod core {
                     }
 
                     if change {
-                        if let Some(n) = self.first_navigable(0) {
+                        if let Some(n) = self.first_navigable(0, true) {
                             self.__start_change(true);
                             self.__focus(n, true);
                             self.__accumulate();
@@ -680,7 +727,7 @@ mod core {
         }
 
         /// Focus next.
-        pub(super) fn next(&self) -> bool {
+        pub(super) fn next(&self, navigable: bool) -> bool {
             if self.log.get() {
                 debug!("next");
             }
@@ -690,7 +737,7 @@ mod core {
                     if self.log.get() {
                         debug!("    current {:?}", p);
                     }
-                    let n = self.next_navigable(n);
+                    let n = self.next_navigable(n, navigable);
                     if self.log.get() {
                         debug!("    -> focus {:?}", self.focus[n]);
                     }
@@ -699,7 +746,7 @@ mod core {
                     return true;
                 }
             }
-            if let Some(n) = self.first_navigable(0) {
+            if let Some(n) = self.first_navigable(0, navigable) {
                 if self.log.get() {
                     debug!("    -> focus {:?}", self.focus[n]);
                 }
@@ -711,7 +758,7 @@ mod core {
         }
 
         /// Focus prev.
-        pub(super) fn prev(&self) -> bool {
+        pub(super) fn prev(&self, navigable: bool) -> bool {
             if self.log.get() {
                 debug!("prev");
             }
@@ -721,7 +768,7 @@ mod core {
                     if self.log.get() {
                         debug!("    current {:?}", p);
                     }
-                    let n = self.prev_navigable(i);
+                    let n = self.prev_navigable(i, navigable);
                     if self.log.get() {
                         debug!("    -> focus {:?}", self.focus[n]);
                     }
@@ -730,7 +777,7 @@ mod core {
                     return true;
                 }
             }
-            if let Some(n) = self.first_navigable(0) {
+            if let Some(n) = self.first_navigable(0, navigable) {
                 if self.log.get() {
                     debug!("    -> focus {:?}", self.focus[n]);
                 }
@@ -762,12 +809,12 @@ mod core {
         }
 
         /// First navigable flag starting at n.
-        fn first_navigable(&self, start: usize) -> Option<usize> {
+        fn first_navigable(&self, start: usize, navigable: bool) -> Option<usize> {
             if self.log.get() {
                 debug!("first navigable {:?}", self.focus[start].name());
             }
             for n in start..self.len() {
-                if self.navigable[n] {
+                if self.navigable[n] == navigable {
                     if self.log.get() {
                         debug!("first navigable -> {:?}", self.focus[n].name());
                     }
@@ -781,7 +828,7 @@ mod core {
         }
 
         /// Next navigable flag, starting at start.
-        fn next_navigable(&self, start: usize) -> usize {
+        fn next_navigable(&self, start: usize, navigable: bool) -> usize {
             if self.log.get() {
                 debug!("next navigable {:?}", self.focus[start].name());
             }
@@ -789,7 +836,7 @@ mod core {
             let mut n = start;
             loop {
                 n = if n + 1 < self.len() { n + 1 } else { 0 };
-                if self.navigable[n] {
+                if self.navigable[n] == navigable {
                     if self.log.get() {
                         debug!("next navigable -> {:?}", self.focus[n].name());
                     }
@@ -805,7 +852,7 @@ mod core {
         }
 
         /// Previous navigable flag, starting at start.
-        fn prev_navigable(&self, start: usize) -> usize {
+        fn prev_navigable(&self, start: usize, navigable: bool) -> usize {
             if self.log.get() {
                 debug!("prev navigable {:?}", self.focus[start].name());
             }
@@ -813,7 +860,7 @@ mod core {
             let mut n = start;
             loop {
                 n = if n > 0 { n - 1 } else { self.len() - 1 };
-                if self.navigable[n] {
+                if self.navigable[n] == navigable {
                     if self.log.get() {
                         debug!("prev navigable -> {:?}", self.focus[n].name());
                     }
