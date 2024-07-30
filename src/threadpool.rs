@@ -89,19 +89,7 @@ where
     ///
     /// If you need more, create an extra channel for communication to the background task.
     #[inline]
-    pub(crate) fn send(
-        &self,
-        task: impl FnOnce(
-                Cancel,
-                &Sender<Result<Control<Message>, Error>>,
-            ) -> Result<Control<Message>, Error>
-            + Send
-            + 'static,
-    ) -> Result<Cancel, SendError<()>> {
-        self._send(Box::new(task))
-    }
-
-    fn _send(&self, task: BoxTask<Message, Error>) -> Result<Cancel, SendError<()>> {
+    pub(crate) fn send(&self, task: BoxTask<Message, Error>) -> Result<Cancel, SendError<()>> {
         if self.handles.is_empty() {
             return Err(SendError(()));
         }

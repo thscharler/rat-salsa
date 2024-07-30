@@ -2,10 +2,21 @@
 //! Queue for all the results from event-handling.
 //!
 
+use crate::timer::TimeOut;
 use crate::Control;
 use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::fmt::Debug;
+
+#[derive(Debug)]
+pub(crate) struct QueueEntry<Message, Error>
+where
+    Message: 'static + Send + Debug,
+    Error: 'static + Send + Debug,
+{
+    pub(crate) ctrl: Result<Control<Message>, Error>,
+    pub(crate) timeout: Option<TimeOut>,
+}
 
 /// Queue for event-handling results.
 #[derive(Debug)]
@@ -14,7 +25,7 @@ where
     Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
-    queue: RefCell<VecDeque<Result<Control<Message>, Error>>>,
+    queue: RefCell<VecDeque<QueueEntry<Message, Error>>>,
 }
 
 impl<Message, Error> Default for ControlQueue<Message, Error>
@@ -40,12 +51,14 @@ where
     }
 
     /// take the first result.
-    pub(crate) fn take(&self) -> Option<Result<Control<Message>, Error>> {
+    pub(crate) fn take(&self) -> Option<QueueEntry<Message, Error>> {
         self.queue.borrow_mut().pop_front()
     }
 
     /// push a new result to the queue.
-    pub(crate) fn push(&self, ctrl: Result<Control<Message>, Error>) {
-        self.queue.borrow_mut().push_back(ctrl);
+    pub(crate) fn push(&self, ctrl: Result<Control<Message>, Error>, timeout: Option<TimeOut>) {
+        self.queue
+            .borrow_mut()
+            .push_back(QueueEntry { ctrl, timeout });
     }
 }

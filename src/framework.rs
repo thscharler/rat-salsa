@@ -1,130 +1,18 @@
 use crate::control_queue::ControlQueue;
-use crate::poll::{PollCrossterm, PollEvents, PollTasks, PollTimers};
-use crate::terminal::{CrosstermTerminal, Terminal};
+use crate::poll_queue::PollQueue;
+use crate::run_config::RunConfig;
 use crate::threadpool::ThreadPool;
-use crate::timer::{TimeOut, Timers};
+use crate::timer::Timers;
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
 use crossbeam::channel::{SendError, TryRecvError};
-use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use std::cell::RefCell;
 use std::cmp::min;
-use std::collections::VecDeque;
-use std::fmt::{Debug, Formatter};
+use std::fmt::Debug;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::time::Duration;
 use std::{io, thread};
 
-/// Captures some parameters for [crate::run_tui()].
-pub struct RunConfig<App, Global, Message, Error>
-where
-    App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
-{
-    /// How many worker threads are wanted?
-    /// Most of the time 1 should be sufficient to offload any gui-blocking tasks.
-    pub n_threats: usize,
-    /// This is the renderer that connects to the backend, and calls out
-    /// for rendering the application.
-    ///
-    /// Defaults to RenderCrossterm.
-    pub term: Box<dyn Terminal<App, Global, Message, Error>>,
-    /// List of all event-handlers for the application.
-    ///
-    /// Defaults to PollTimers, PollCrossterm, PollTasks. Add yours here.
-    pub poll: Vec<Box<dyn PollEvents<App, Global, Message, Error>>>,
-}
-
-impl<App, Global, Message, Error> Debug for RunConfig<App, Global, Message, Error>
-where
-    App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
-{
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RunConfig")
-            .field("n_threads", &self.n_threats)
-            .field("render", &"...")
-            .field("events", &"...")
-            .finish()
-    }
-}
-
-impl<App, Global, Message, Error> RunConfig<App, Global, Message, Error>
-where
-    App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug + From<io::Error> + From<TryRecvError>,
-{
-    /// New configuration with some defaults.
-    #[allow(clippy::should_implement_trait)]
-    pub fn default() -> Result<Self, Error> {
-        Ok(Self {
-            n_threats: 1,
-            term: Box::new(CrosstermTerminal::new()?),
-            poll: vec![
-                Box::new(PollTimers),
-                Box::new(PollCrossterm),
-                Box::new(PollTasks),
-            ],
-        })
-    }
-
-    /// Number of threads.
-    pub fn threads(mut self, n: usize) -> Self {
-        self.n_threats = n;
-        self
-    }
-
-    /// Terminal is a rat-salsa::terminal::Terminal not a ratatui::Terminal.
-    pub fn term(mut self, term: impl Terminal<App, Global, Message, Error> + 'static) -> Self {
-        self.term = Box::new(term);
-        self
-    }
-
-    /// Remove default PollEvents.
-    pub fn no_poll(mut self) -> Self {
-        self.poll.clear();
-        self
-    }
-
-    /// Add poll
-    pub fn poll(mut self, poll: impl PollEvents<App, Global, Message, Error> + 'static) -> Self {
-        self.poll.push(Box::new(poll));
-        self
-    }
-}
-
-/// Handle for which EventPoll wants to be read.
-#[derive(Debug)]
-struct PollHandle(usize);
-
-/// Queue for which EventPoll wants to be read.
-#[derive(Debug, Default)]
-struct PollQueue {
-    queue: RefCell<VecDeque<PollHandle>>,
-}
-
-impl PollQueue {
-    /// Empty
-    fn is_empty(&self) -> bool {
-        self.queue.borrow().is_empty()
-    }
-
-    /// Take the next handle.
-    fn take(&self) -> Option<PollHandle> {
-        self.queue.borrow_mut().pop_front()
-    }
-
-    /// Push a handle to the queue.
-    fn push(&self, poll: PollHandle) {
-        self.queue.borrow_mut().push_back(poll);
-    }
-}
-
 fn _run_tui<App, Global, Message, Error>(
-    mut app: App,
+    app: App,
     global: &mut Global,
     state: &mut App::State,
     cfg: &mut RunConfig<App, Global, Message, Error>,
@@ -135,7 +23,7 @@ where
     Error: Send + 'static + Debug + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
     let term = cfg.term.as_mut();
-    let poll = &mut cfg.poll;
+    let poll = cfg.poll.as_mut_slice();
 
     let timers = Timers::default();
     let tasks = ThreadPool::new(cfg.n_threats);
@@ -156,7 +44,24 @@ where
     state.init(&mut appctx)?;
 
     // initial render
-    term.render(&mut app, state, None, &mut appctx)?;
+    term.render(
+        &mut |frame, timeout| {
+            let mut ctx = RenderContext {
+                g: appctx.g,
+                timeout,
+                timers: appctx.timers,
+                count: frame.count(),
+                cursor: None,
+            };
+            let frame_area = frame.size();
+            app.render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
+            if let Some((cursor_x, cursor_y)) = ctx.cursor {
+                frame.set_cursor(cursor_x, cursor_y);
+            }
+            Ok(())
+        },
+        None,
+    )?;
 
     'ui: loop {
         // panic on worker panic
@@ -165,21 +70,25 @@ where
             break 'ui;
         }
 
+        // No events queued, check here.
         if queue.is_empty() {
+            // The events are not processed immediately, but all
+            // notifies are queued in the poll_queue.
             if poll_queue.is_empty() {
                 for (n, p) in poll.iter_mut().enumerate() {
                     match p.poll(&mut appctx) {
                         Ok(true) => {
-                            poll_queue.push(PollHandle(n));
+                            poll_queue.push(n);
                         }
                         Ok(false) => {}
                         Err(e) => {
-                            appctx.queue_err(e);
+                            appctx.queue.push(Err(e), None);
                         }
                     }
                 }
             }
 
+            // Sleep regime.
             if poll_queue.is_empty() {
                 let t = if let Some(timer_sleep) = timers.sleep_time() {
                     min(timer_sleep, poll_sleep)
@@ -197,36 +106,58 @@ where
             }
         }
 
+        // All the fall-out of the last event has cleared.
+        // Run the next event.
         if queue.is_empty() {
             if let Some(h) = poll_queue.take() {
-                let r = poll[h.0].read_exec(&mut app, state, term, &mut appctx);
-                appctx.queue_result(r);
+                let r = poll[h].read_exec(state, &mut appctx);
+                let t = poll[h].timeout();
+                appctx.queue.push(r, t);
             }
         }
 
-        let n = queue.take();
-        match n {
-            None => {}
-            Some(Err(e)) => {
-                let r = state.error(e, &mut appctx);
-                appctx.queue_result(r);
-            }
-            Some(Ok(Control::Continue)) => {}
-            Some(Ok(Control::Unchanged)) => {}
-            Some(Ok(Control::Changed)) => {
-                if let Err(e) = term.render(&mut app, state, None, &mut appctx) {
-                    appctx.queue_err(e);
+        // Result of event-handling.
+        if let Some(n) = queue.take() {
+            match n.ctrl {
+                Err(e) => {
+                    let r = state.error(e, &mut appctx);
+                    appctx.queue.push(r, None);
+                }
+                Ok(Control::Continue) => {}
+                Ok(Control::Unchanged) => {}
+                Ok(Control::Changed) => {
+                    if let Err(e) = term.render(
+                        &mut |frame, timeout| {
+                            let mut ctx = RenderContext {
+                                g: appctx.g,
+                                timeout,
+                                timers: appctx.timers,
+                                count: frame.count(),
+                                cursor: None,
+                            };
+                            let frame_area = frame.size();
+                            app.render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
+                            if let Some((cursor_x, cursor_y)) = ctx.cursor {
+                                frame.set_cursor(cursor_x, cursor_y);
+                            }
+                            Ok(())
+                        },
+                        n.timeout,
+                    ) {
+                        appctx.queue.push(Err(e), None);
+                    }
+                }
+                Ok(Control::Message(mut a)) => {
+                    let r = state.message(&mut a, &mut appctx);
+                    appctx.queue.push(r, None);
+                }
+                Ok(Control::Quit) => {
+                    break 'ui;
                 }
             }
-            Some(Ok(Control::Message(mut a))) => {
-                let r = state.message(&mut a, &mut appctx);
-                appctx.queue_result(r);
-            }
-            Some(Ok(Control::Quit)) => {
-                break 'ui;
-            }
         }
 
+        // reset some appctx data
         appctx.focus = None;
     }
 

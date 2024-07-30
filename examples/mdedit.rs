@@ -433,6 +433,8 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
             }
         );
 
+        or_else!(r, self.editor.crossterm(event, ctx)?);
+
         or_else!(
             r,
             match self.menu.handle(event, Regular) {
@@ -440,7 +442,6 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                 r => r.into(),
             }
         );
-        or_else!(r, self.editor.crossterm(event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         // debug!("crossterm {:?} {:?}", r, el);

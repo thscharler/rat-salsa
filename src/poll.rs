@@ -2,9 +2,8 @@
 //! Defines the trait for event-sources.
 //!
 
-use crate::terminal::Terminal;
-use crate::timer::TimerEvent;
-use crate::{AppContext, AppState, AppWidget, Control};
+use crate::timer::{TimeOut, TimerEvent};
+use crate::{AppContext, AppState, Control};
 use crossbeam::channel::TryRecvError;
 use std::fmt::Debug;
 use std::time::Duration;
@@ -16,9 +15,9 @@ use std::time::Duration;
 /// * Implement this trait for a struct that fits.
 ///     TODO: try this
 ///
-pub trait PollEvents<App, Global, Message, Error>
+pub trait PollEvents<Global, State, Message, Error>
 where
-    App: AppWidget<Global, Message, Error>,
+    State: AppState<Global, Message, Error>,
     Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
@@ -41,20 +40,24 @@ where
     /// have to define a new trait for your AppState and use that.
     fn read_exec(
         &mut self,
-        app: &mut App,
-        state: &mut App::State,
-        term: &mut dyn Terminal<App, Global, Message, Error>,
+        state: &mut State,
         ctx: &mut AppContext<'_, Global, Message, Error>,
     ) -> Result<Control<Message>, Error>;
+
+    /// The timer needs a side-channel for the repaint-Timeout.
+    /// This is it.
+    fn timeout(&mut self) -> Option<TimeOut> {
+        None
+    }
 }
 
 /// Processes results from background tasks.
 #[derive(Debug)]
 pub struct PollTasks;
 
-impl<App, Global, Message, Error> PollEvents<App, Global, Message, Error> for PollTasks
+impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollTasks
 where
-    App: AppWidget<Global, Message, Error>,
+    State: AppState<Global, Message, Error>,
     Message: 'static + Send + Debug,
     Error: 'static + Send + Debug + From<TryRecvError> + Debug,
 {
@@ -64,9 +67,7 @@ where
 
     fn read_exec(
         &mut self,
-        _app: &mut App,
-        _state: &mut App::State,
-        _term: &mut dyn Terminal<App, Global, Message, Error>,
+        _state: &mut State,
         ctx: &mut AppContext<'_, Global, Message, Error>,
     ) -> Result<Control<Message>, Error> {
         ctx.tasks.try_recv()
@@ -74,12 +75,14 @@ where
 }
 
 /// Processes timers.
-#[derive(Debug)]
-pub struct PollTimers;
+#[derive(Debug, Default)]
+pub struct PollTimers {
+    timeout: Option<TimeOut>,
+}
 
-impl<App, Global, Message, Error> PollEvents<App, Global, Message, Error> for PollTimers
+impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollTimers
 where
-    App: AppWidget<Global, Message, Error>,
+    State: AppState<Global, Message, Error>,
     Message: 'static + Send + Debug,
     Error: 'static + Send + Debug + From<std::io::Error>,
 {
@@ -89,19 +92,14 @@ where
 
     fn read_exec(
         &mut self,
-        app: &mut App,
-        state: &mut App::State,
-        term: &mut dyn Terminal<App, Global, Message, Error>,
+        state: &mut State,
         ctx: &mut AppContext<'_, Global, Message, Error>,
     ) -> Result<Control<Message>, Error> {
         match ctx.timers.read() {
             None => Ok(Control::Continue),
             Some(TimerEvent::Repaint(t)) => {
-                if let Err(e) = term.render(app, state, Some(t), ctx) {
-                    Err(e)
-                } else {
-                    Ok(Control::Continue)
-                }
+                self.timeout = Some(t);
+                Ok(Control::Changed)
             }
             Some(TimerEvent::Application(t)) => {
                 let r = state.timer(&t, ctx);
@@ -109,15 +107,19 @@ where
             }
         }
     }
+
+    fn timeout(&mut self) -> Option<TimeOut> {
+        self.timeout.take()
+    }
 }
 
 /// Processes crossterm events.
 #[derive(Debug)]
 pub struct PollCrossterm;
 
-impl<App, Global, Message, Error> PollEvents<App, Global, Message, Error> for PollCrossterm
+impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollCrossterm
 where
-    App: AppWidget<Global, Message, Error>,
+    State: AppState<Global, Message, Error>,
     Message: 'static + Send + Debug,
     Error: 'static + Send + Debug + From<std::io::Error>,
 {
@@ -127,14 +129,10 @@ where
 
     fn read_exec(
         &mut self,
-        _app: &mut App,
-        state: &mut App::State,
-        _term: &mut dyn Terminal<App, Global, Message, Error>,
+        state: &mut State,
         ctx: &mut AppContext<'_, Global, Message, Error>,
     ) -> Result<Control<Message>, Error> {
         match crossterm::event::read() {
-            // NOTODO: can this be abstracted out too? sure.
-            // but it's not worth it.
             Ok(event) => state.crossterm(&event, ctx),
             Err(e) => Err(e.into()),
         }

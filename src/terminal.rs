@@ -3,7 +3,6 @@
 //!
 
 use crate::timer::TimeOut;
-use crate::{AppContext, AppWidget, RenderContext};
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
@@ -13,6 +12,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use ratatui::backend::CrosstermBackend;
+use ratatui::Frame;
 use std::fmt::Debug;
 use std::io;
 use std::io::{stdout, Stdout};
@@ -23,10 +23,8 @@ use std::io::{stdout, Stdout};
 ///
 /// If you want to send other than the default Commands to the backend,
 /// implement this trait.
-pub trait Terminal<App, Global, Message, Error>
+pub trait Terminal<Error>
 where
-    App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     /// Terminal init.
@@ -43,12 +41,10 @@ where
     ///
     /// Creates the render-context, fetches the frame and calls render.
     #[allow(clippy::needless_lifetimes)]
-    fn render<'a, 'b>(
+    fn render(
         &mut self,
-        app: &mut App,
-        state: &mut App::State,
+        f: &mut dyn FnMut(&mut Frame<'_>, Option<TimeOut>) -> Result<(), Error>,
         timeout: Option<TimeOut>,
-        ctx: &'b mut AppContext<'a, Global, Message, Error>,
     ) -> Result<(), Error>
     where
         Error: From<io::Error>;
@@ -68,10 +64,8 @@ impl CrosstermTerminal {
     }
 }
 
-impl<App, Global, Message, Error> Terminal<App, Global, Message, Error> for CrosstermTerminal
+impl<Error> Terminal<Error> for CrosstermTerminal
 where
-    App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
     fn init(&mut self) -> Result<(), Error>
@@ -103,38 +97,17 @@ where
     }
 
     #[allow(clippy::needless_lifetimes)]
-    fn render<'a, 'b>(
+    fn render(
         &mut self,
-        app: &mut App,
-        state: &mut App::State,
+        f: &mut dyn FnMut(&mut Frame<'_>, Option<TimeOut>) -> Result<(), Error>,
         timeout: Option<TimeOut>,
-        ctx: &'b mut AppContext<'a, Global, Message, Error>,
     ) -> Result<(), Error>
     where
-        App: AppWidget<Global, Message, Error>,
         Error: From<io::Error>,
     {
         let mut res = Ok(());
-
         _ = self.term.hide_cursor();
-
-        self.term.draw(|frame| {
-            let mut ctx = RenderContext {
-                g: ctx.g,
-                timeout,
-                timers: ctx.timers,
-                counter: frame.count(),
-                cursor: None,
-            };
-
-            let frame_area = frame.size();
-            res = app.render(frame_area, frame.buffer_mut(), state, &mut ctx);
-
-            if let Some((cursor_x, cursor_y)) = ctx.cursor {
-                frame.set_cursor(cursor_x, cursor_y);
-            }
-        })?;
-
+        self.term.draw(|frame| res = f(frame, timeout))?;
         res
     }
 }

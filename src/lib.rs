@@ -14,6 +14,8 @@ use std::fmt::Debug;
 pub(crate) mod control_queue;
 mod framework;
 pub mod poll;
+pub(crate) mod poll_queue;
+mod run_config;
 pub mod terminal;
 mod threadpool;
 pub mod timer;
@@ -24,6 +26,7 @@ use crate::timer::{TimeOut, TimerDef, TimerHandle, Timers};
 use rat_widget::focus::Focus;
 
 pub use framework::*;
+pub use run_config::*;
 pub use threadpool::Cancel;
 
 /// Result of event-handling.
@@ -219,13 +222,13 @@ pub struct RenderContext<'a, Global> {
     pub g: &'a mut Global,
     /// Current timeout that triggered the repaint.
     pub timeout: Option<TimeOut>,
+    /// Frame counter.
+    pub count: usize,
+    /// Output cursor position. Set after rendering is complete.
+    pub cursor: Option<(u16, u16)>,
 
     /// Application timers.
     pub(crate) timers: &'a Timers,
-    /// Frame counter.
-    pub counter: usize,
-    /// Output cursor position. Set after rendering is complete.
-    pub cursor: Option<(u16, u16)>,
 }
 
 impl<'a, Global, Message, Error> AppContext<'a, Global, Message, Error>
@@ -276,28 +279,19 @@ where
         Message: 'static + Send + Debug,
         Error: 'static + Send + Debug,
     {
-        self.tasks.send(task)
+        self.tasks.send(Box::new(task))
     }
 
     /// Queue additional results.
     #[inline]
     pub fn queue(&self, ctrl: impl Into<Control<Message>>) {
-        self.queue.push(Ok(ctrl.into()));
+        self.queue.push(Ok(ctrl.into()), None);
     }
 
     /// Queue an error.
     #[inline]
     pub fn queue_err(&self, err: Error) {
-        self.queue.push(Err(err));
-    }
-
-    /// Queue additional results.
-    #[inline]
-    pub fn queue_result(&self, ctrl: Result<impl Into<Control<Message>>, Error>) {
-        match ctrl {
-            Ok(v) => self.queue.push(Ok(v.into())),
-            Err(e) => self.queue.push(Err(e)),
-        }
+        self.queue.push(Err(err), None);
     }
 }
 
