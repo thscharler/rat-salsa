@@ -475,7 +475,7 @@ impl MouseFlagsN {
     }
 }
 
-static DOUBLE_CLICK: AtomicU32 = AtomicU32::new(1000);
+static DOUBLE_CLICK: AtomicU32 = AtomicU32::new(250);
 
 /// Sets the global double click time-out between consecutive clicks.
 /// In milliseconds.
