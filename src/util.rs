@@ -7,6 +7,8 @@ use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
 use log::debug;
 use ratatui::layout::Rect;
 use std::cell::Cell;
+use std::sync::atomic::{AtomicU32, Ordering};
+use std::time::SystemTime;
 
 /// Which of the given rects is at the position.
 pub fn item_at_clicked(areas: &[Rect], x_pos: u16, y_pos: u16) -> Option<usize> {
@@ -94,16 +96,25 @@ pub fn column_at_drag(encompassing: Rect, areas: &[Rect], x_pos: u16) -> Result<
     }
 }
 
+/// Click states for double click.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum Clicks {
+    #[default]
+    None,
+    Down1(usize),
+    Up1(usize),
+    Down2(usize),
+}
+
 /// Some state for mouse interactions.
 ///
 /// This helps with double-click and mouse drag recognition.
 /// Add this to your widget state.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct MouseFlags {
+    pub time: Cell<Option<SystemTime>>,
     /// Flag for the first down.
-    pub click: Cell<bool>,
-    /// Flag for the first up.
-    pub clack: Cell<bool>,
+    pub click: Cell<Clicks>,
     /// Drag enabled.
     pub drag: Cell<bool>,
 }
@@ -213,13 +224,31 @@ impl MouseFlags {
                 column,
                 row,
                 modifiers,
-            } if *modifiers == filter => {
+            } if *modifiers == filter => 'f: {
                 if area.contains((*column, *row).into()) {
-                    self.click.set(true);
-                    self.clack.set(false);
+                    match self.click.get() {
+                        Clicks::Up1(_) => {
+                            if let Some(time) = self.time.get() {
+                                if time.elapsed().unwrap_or_default().as_millis() as u32
+                                    > double_click_timeout()
+                                {
+                                    self.time.set(None);
+                                    self.click.set(Clicks::None);
+                                    break 'f false;
+                                }
+                            }
+                            self.click.set(Clicks::Down2(0));
+                        }
+                        _ => {
+                            self.time.set(Some(SystemTime::now()));
+                            self.click.set(Clicks::Down1(0));
+                        }
+                    }
+                    break 'f false;
                 } else {
-                    self.click.set(false);
-                    self.clack.set(false);
+                    self.time.set(None);
+                    self.click.set(Clicks::None);
+                    break 'f false;
                 }
             }
             MouseEvent {
@@ -227,27 +256,33 @@ impl MouseFlags {
                 column,
                 row,
                 modifiers,
-            } if *modifiers == filter => {
+            } if *modifiers == filter => 'f: {
                 if area.contains((*column, *row).into()) {
-                    if self.click.get() {
-                        if !self.clack.get() {
-                            self.clack.set(true);
-                        } else {
-                            self.click.set(false);
-                            self.clack.set(false);
-                            return true;
+                    match self.click.get() {
+                        Clicks::Down1(_) => {
+                            self.click.set(Clicks::Up1(0));
+                            break 'f false;
                         }
-                    } else {
-                        // something else
+                        Clicks::Up1(_) => {
+                            self.click.set(Clicks::None);
+                            break 'f true;
+                        }
+                        Clicks::Down2(_) => {
+                            self.click.set(Clicks::None);
+                            break 'f true;
+                        }
+                        _ => {
+                            self.click.set(Clicks::None);
+                            break 'f false;
+                        }
                     }
                 } else {
-                    self.click.set(false);
-                    self.clack.set(false);
+                    self.click.set(Clicks::None);
+                    break 'f false;
                 }
             }
-            _ => {}
+            _ => false,
         }
-        false
     }
 }
 
@@ -257,10 +292,9 @@ impl MouseFlags {
 /// Add this to your widget state.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct MouseFlagsN {
+    pub time: Cell<Option<SystemTime>>,
     /// Flag for the first down.
-    pub click: Cell<Option<usize>>,
-    /// Flag for the first up.
-    pub clack: Cell<bool>,
+    pub click: Cell<Clicks>,
     /// Drag enabled.
     pub drag: Cell<Option<usize>>,
 }
@@ -362,44 +396,93 @@ impl MouseFlagsN {
                 column,
                 row,
                 modifiers,
-            } if *modifiers == filter => {
-                self.click.set(None);
-                self.clack.set(false);
+            } if *modifiers == filter => 'f: {
                 for (n, area) in areas.iter().enumerate() {
                     if area.contains((*column, *row).into()) {
-                        self.click.set(Some(n));
-                        self.clack.set(false);
+                        match self.click.get() {
+                            Clicks::Up1(v) => {
+                                if let Some(time) = self.time.get() {
+                                    if time.elapsed().unwrap_or_default().as_millis() as u32
+                                        > double_click_timeout()
+                                    {
+                                        self.time.set(None);
+                                        self.click.set(Clicks::None);
+                                        break 'f false;
+                                    }
+                                }
+                                if n == v {
+                                    self.click.set(Clicks::Down2(n));
+                                } else {
+                                    self.click.set(Clicks::None);
+                                }
+                            }
+                            _ => {
+                                self.time.set(Some(SystemTime::now()));
+                                self.click.set(Clicks::Down1(n));
+                            }
+                        }
+                        break 'f false;
                     }
                 }
+                self.time.set(None);
+                self.click.set(Clicks::None);
+                false
             }
             MouseEvent {
                 kind: MouseEventKind::Up(MouseButton::Left),
                 column,
                 row,
                 modifiers,
-            } if *modifiers == filter => {
+            } if *modifiers == filter => 'f: {
                 for (n, area) in areas.iter().enumerate() {
                     if area.contains((*column, *row).into()) {
-                        if self.click.get() == Some(n) {
-                            if !self.clack.get() {
-                                self.clack.set(true);
-                            } else {
-                                self.click.set(None);
-                                self.clack.set(false);
-                                return true;
+                        match self.click.get() {
+                            Clicks::Down1(v) => {
+                                if n == v {
+                                    self.click.set(Clicks::Up1(v));
+                                } else {
+                                    self.click.set(Clicks::None);
+                                }
                             }
-                        } else {
-                            // Something else ...
+                            Clicks::Up1(v) => {
+                                if n == v {
+                                    self.click.set(Clicks::None);
+                                    break 'f true;
+                                } else {
+                                    self.click.set(Clicks::None);
+                                }
+                            }
+                            Clicks::Down2(v) => {
+                                if n == v {
+                                    self.click.set(Clicks::None);
+                                    break 'f true;
+                                } else {
+                                    self.click.set(Clicks::None);
+                                }
+                            }
+                            _ => {
+                                self.click.set(Clicks::None);
+                            }
                         }
-                    } else {
-                        self.click.set(None);
-                        self.clack.set(false);
+                        break 'f false;
                     }
                 }
+                self.click.set(Clicks::None);
+                false
             }
-            _ => {}
+            _ => false,
         }
-
-        false
     }
+}
+
+static DOUBLE_CLICK: AtomicU32 = AtomicU32::new(1000);
+
+/// Sets the global double click time-out between consecutive clicks.
+/// In milliseconds.
+pub fn set_double_click_timeout(timeout: u32) {
+    DOUBLE_CLICK.store(timeout, Ordering::Release);
+}
+
+fn double_click_timeout() -> u32 {
+    DOUBLE_CLICK.load(Ordering::Acquire)
 }
