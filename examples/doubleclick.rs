@@ -33,15 +33,15 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 struct Data {
-    pub(crate) journal: Vec<(NaiveTime, MouseEvent)>,
+    journal: Vec<(NaiveTime, MouseEvent)>,
 }
 
 struct State {
-    pub(crate) area: Rect,
-    pub(crate) mouse: MouseFlags,
-    pub(crate) flip: bool,
-    pub(crate) flip2: bool,
-    pub(crate) drag_pos: Option<(u16, u16)>,
+    area: Rect,
+    mouse: MouseFlags,
+    flip: bool,
+    flip2: bool,
+    drag_pos: Option<(u16, u16)>,
 }
 
 fn repaint_buttons(
