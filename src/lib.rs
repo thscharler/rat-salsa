@@ -24,16 +24,31 @@ pub mod event {
 /// Holds the flags for the focus.
 /// This struct is embedded in the widget state.
 ///
-/// Internally it has is a `Rc<Cell<>>`, so it can be freely cloned
-/// when needed, and doesn't interfere with borrow checking on the state.
+/// This is a wrapper around Rc<_some_impl_>, so cloning this is
+/// cheap and what you want to do if you implement any high-level
+/// focus-handling.
+///
+/// Attention:
+/// Equality for FocusFlag means pointer-equality of the underlying
+/// Rc using Rc::ptr_eq.
 ///
 /// See [HasFocusFlag], [on_gained!](crate::on_gained!) and
 /// [on_lost!](crate::on_lost!).
 ///
-#[derive(Clone, Default, PartialEq, Eq)]
+#[derive(Clone, Default)]
 pub struct FocusFlag(Rc<FocusFlagCore>);
 
-#[derive(Clone, Default, PartialEq, Eq)]
+/// Equality for FocusFlag means pointer equality of the underlying
+/// Rc using Rc::ptr_eq.
+impl PartialEq for FocusFlag {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for FocusFlag {}
+
+#[derive(Clone, Default)]
 struct FocusFlagCore {
     /// Field name for debugging purposes.
     name: Cell<&'static str>,
