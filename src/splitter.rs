@@ -14,6 +14,7 @@ use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
+use std::cmp::{max, min};
 
 /// Splits the area in multiple parts and allows changing the sizes.
 ///
@@ -374,11 +375,12 @@ impl<'a> Split<'a> {
         // use only the inner from here on
         let inner = state.inner;
 
+        let layout_change = state.widget_areas.len() != self.constraints.len();
         let meta_change = state.direction != self.direction
             || state.split_type != self.split_type
             || state.mark_offset != self.mark_offset;
 
-        let new_split_areas = if state.widget_areas.is_empty() {
+        let new_split_areas = if layout_change {
             // initial
             let new_areas = Layout::new(self.direction, self.constraints.clone())
                 .flex(Flex::Legacy)
@@ -952,115 +954,61 @@ impl SplitState {
 
         let area1 = self.widget_areas[n];
         let area2 = self.widget_areas[n + 1];
-        let area = area1.union(area2);
 
         if self.direction == Direction::Horizontal {
-            match self.split_type {
-                FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
-                | FullQuadrantOutside => {
-                    let p = if pos.0 < area.left() {
-                        area.left()
-                    } else if pos.0 >= area.right() {
-                        area.right()
-                    } else {
-                        pos.0
-                    };
+            let min_pos = area1.x;
+            let mut max_pos = if matches!(self.split_type, Scroll | Widget) {
+                area2.right().saturating_sub(2)
+            } else {
+                area2.right().saturating_sub(1)
+            };
+            if n + 2 == self.widget_areas.len() {
+                max_pos += 1;
+            }
 
-                    self.widget_areas[n] = Rect::new(area1.x, area1.y, p - area1.x, area1.height);
-                    self.splitline_areas[n] = Rect::new(p, area1.y, 1, area1.height);
-                    self.splitline_blind_areas[n] = Rect::new(p, area1.y, 1, self.mark_offset);
-                    self.splitline_mark_areas[n] = Position::new(p, area1.y + self.mark_offset);
-                    self.widget_areas[n + 1] =
-                        Rect::new(p + 1, area2.y, area2.right() - p, area2.height);
-                }
-                Scroll => {
-                    let p = if pos.0 < area.left() {
-                        area.left()
-                    } else if pos.0 >= area.right() {
-                        area.right().saturating_sub(1)
-                    } else {
-                        pos.0
-                    };
+            let pos_x = min(max(pos.0, min_pos), max_pos);
 
-                    self.widget_areas[n] =
-                        Rect::new(area1.x, area1.y, (p + 1) - area1.x, area1.height);
-                    self.splitline_areas[n] = Rect::new(p, area1.y + self.mark_offset, 1, 2);
-                    self.splitline_blind_areas[n] = Rect::new(p, area1.y, 1, self.mark_offset);
-                    self.splitline_mark_areas[n] = Position::new(p, area1.y + self.mark_offset);
-                    self.widget_areas[n + 1] =
-                        Rect::new(p + 1, area2.y, area2.right() - 1 - p, area2.height);
-                }
-                Widget => {
-                    let p = if pos.0 < area.left() {
-                        area.left()
-                    } else if pos.0 >= area.right() {
-                        area.right().saturating_sub(1)
-                    } else {
-                        pos.0
-                    };
-                    self.widget_areas[n] =
-                        Rect::new(area1.x, area1.y, (p + 1) - area1.x, area1.height);
-                    self.splitline_areas[n] = Rect::new(p, area1.y, 1, area1.height);
-                    self.splitline_blind_areas[n] = Rect::new(p, area1.y, 1, self.mark_offset);
-                    self.splitline_mark_areas[n] = Position::default();
-                    self.widget_areas[n + 1] =
-                        Rect::new(p + 1, area2.y, area2.right() - 1 - p, area2.height);
-                }
+            self.widget_areas[n] = Rect::new(area1.x, area1.y, pos_x - area1.x, area1.height);
+            self.splitline_areas[n] = Rect::new(pos_x, area1.y, 1, area1.height);
+            self.splitline_blind_areas[n] = Rect::new(pos_x, area1.y, 1, self.mark_offset);
+            self.splitline_mark_areas[n] = Position::new(pos_x, area1.y + self.mark_offset);
+            self.widget_areas[n + 1] = Rect::new(
+                pos_x + 1,
+                area2.y,
+                area2.right() - (pos_x + 1),
+                area2.height,
+            );
+
+            if matches!(self.split_type, Scroll | Widget) {
+                self.widget_areas[n].width += 1;
             }
         } else {
-            match self.split_type {
-                FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
-                | FullQuadrantOutside => {
-                    let p = if pos.1 < area.top() {
-                        area.top()
-                    } else if pos.1 >= area.bottom() {
-                        area.bottom()
-                    } else {
-                        pos.1
-                    };
-                    self.widget_areas[n] = Rect::new(area1.x, area1.y, area1.width, p - area1.y);
-                    self.splitline_areas[n] = Rect::new(area1.x, p, area1.width, 1);
-                    self.splitline_blind_areas[n] = Rect::new(area1.x, p, self.mark_offset, 1);
-                    self.splitline_mark_areas[n] = Position::new(area1.x + self.mark_offset, p);
-                    self.widget_areas[n + 1] =
-                        Rect::new(area2.x, p + 1, area2.width, area2.bottom() - p);
-                }
-                Scroll => {
-                    let p = if pos.1 < area.top() {
-                        area.top()
-                    } else if pos.1 >= area.bottom() {
-                        area.bottom().saturating_sub(1)
-                    } else {
-                        pos.1
-                    };
-                    self.widget_areas[n] =
-                        Rect::new(area1.x, area1.y, area1.width, (p + 1) - area1.y);
-                    self.splitline_areas[n] = Rect::new(area1.x + self.mark_offset, p, 2, 1);
-                    self.splitline_blind_areas[n] = Rect::new(area1.x, p, self.mark_offset, 1);
-                    self.splitline_mark_areas[n] = Position::new(area1.x + self.mark_offset, p);
-                    self.widget_areas[n + 1] =
-                        Rect::new(area2.x, p + 1, area2.width, area2.bottom() - 1 - p);
-                }
-                Widget => {
-                    let p = if pos.1 < area.top() {
-                        area.top()
-                    } else if pos.1 >= area.bottom().saturating_sub(1) {
-                        area.bottom().saturating_sub(2)
-                    } else {
-                        pos.1
-                    };
-                    self.widget_areas[n] =
-                        Rect::new(area1.x, area1.y, area1.width, (p + 1) - area1.y);
-                    self.splitline_areas[n] = Rect::new(area1.x, p, area1.width, 1);
-                    self.splitline_blind_areas[n] = Rect::new(area1.x, p, self.mark_offset, 1);
-                    self.splitline_mark_areas[n] = Position::default();
-                    self.widget_areas[n + 1] =
-                        Rect::new(area2.x, p + 1, area2.width, area2.bottom() - 1 - p);
-                }
+            let min_pos = area1.y;
+            let max_pos = if matches!(self.split_type, Scroll | Widget) {
+                area2.bottom().saturating_sub(2)
+            } else {
+                area2.bottom().saturating_sub(1)
+            };
+
+            let pos_y = min(max(pos.1, min_pos), max_pos);
+
+            self.widget_areas[n] = Rect::new(area1.x, area1.y, area1.width, pos_y - area1.y);
+            self.splitline_areas[n] = Rect::new(area1.x, pos_y, area1.width, 1);
+            self.splitline_blind_areas[n] = Rect::new(area1.x, pos_y, self.mark_offset, 1);
+            self.splitline_mark_areas[n] = Position::new(area1.x + self.mark_offset, pos_y);
+            self.widget_areas[n + 1] = Rect::new(
+                area2.x,
+                pos_y + 1,
+                area2.width,
+                area2.bottom() - (pos_y + 1),
+            );
+
+            if matches!(self.split_type, Scroll | Widget) {
+                self.widget_areas[n].height += 1;
             }
         }
 
-        area1 != self.widget_areas[n] || area2 != self.widget_areas[n + 1]
+        true
     }
 
     /// Move the nth split position.
