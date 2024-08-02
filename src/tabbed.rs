@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::event::TabbedOutcome;
 use crate::tabbed::glued::GluedTabs;
 use rat_event::util::item_at_clicked;
@@ -8,8 +9,10 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
+use std::cell::Cell;
 use std::cmp::min;
 use std::fmt::Debug;
+use std::rc::Rc;
 
 /// The design space for tabs is too big to capture with a handful of parameters.
 ///
@@ -112,6 +115,15 @@ impl<'a> Tabbed<'a> {
         self.block.as_ref()
     }
 
+    /// Set combined styles.
+    pub fn styles(mut self, styles: TabbedStyle) -> Self {
+        self.style = styles.style;
+        self.tab_style = styles.tab_style;
+        self.select_style = styles.select_style;
+        self.focus_style = styles.focus_style;
+        self
+    }
+
     /// Base style. Mostly for any background.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
@@ -157,6 +169,29 @@ impl<'a> Tabbed<'a> {
     }
 }
 
+/// Combined Styles
+#[derive(Debug, Clone)]
+pub struct TabbedStyle {
+    pub style: Style,
+    pub tab_style: Option<Style>,
+    pub select_style: Option<Style>,
+    pub focus_style: Option<Style>,
+
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for TabbedStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            tab_style: None,
+            select_style: None,
+            focus_style: None,
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 /// State & event-handling.
 #[derive(Debug, Default, Clone)]
 pub struct TabbedState {
@@ -166,18 +201,18 @@ pub struct TabbedState {
     pub block_area: Rect,
     /// Area used to render the content of the tab.
     /// Use this area to render the current tab content.
-    pub inner_area: Rect,
+    pub widget_area: Rect,
 
     /// Total area reserved for tabs.
-    pub tab_area: Rect,
+    pub tab_title_area: Rect,
     /// Area of each tab.
-    pub tab_areas: Vec<Rect>,
-    // todo: text-areas?
+    pub tab_title_areas: Vec<Rect>,
     /// Area for 'Close Tab' interaction.
-    pub close_areas: Vec<Rect>,
+    pub tab_title_close_areas: Vec<Rect>,
 
-    /// Selected Tab
-    pub selected: usize,
+    /// Selected Tab, only ever is None if there are no tabs.
+    /// Otherwise, set to 0 on render.
+    pub selected: Rc<Cell<Option<usize>>>,
 
     /// Focus
     pub focus: FocusFlag,
@@ -200,6 +235,14 @@ impl<'a> StatefulWidgetRef for Tabbed<'a> {
 }
 
 fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut TabbedState) {
+    if tabbed.tabs.is_empty() {
+        state.selected.set(None)
+    } else {
+        if state.selected.get().is_none() {
+            state.selected.set(Some(0));
+        }
+    }
+
     tabbed.tab_type.layout(area, tabbed, state);
     tabbed.tab_type.render(buf, tabbed, state);
 }
@@ -223,32 +266,39 @@ impl TabbedState {
         Default::default()
     }
 
-    pub fn selected(&self) -> usize {
-        self.selected
+    pub fn selected(&self) -> Option<usize> {
+        self.selected.get()
     }
 
     pub fn set_selected(&mut self, selected: usize) {
-        self.selected = selected;
+        self.selected.set(Some(selected));
     }
 
     /// Selects the next tab. Stops at the end.
     pub fn next_tab(&mut self) -> bool {
-        let old_selected = self.selected;
+        let old_selected = self.selected.get();
 
-        self.selected = min(self.selected + 1, self.tab_areas.len().saturating_sub(1));
+        if let Some(selected) = self.selected() {
+            self.selected.set(Some(min(
+                selected + 1,
+                self.tab_title_areas.len().saturating_sub(1),
+            )));
+        }
 
-        old_selected != self.selected
+        old_selected != self.selected.get()
     }
 
     /// Selects the previous tab. Stops at the end.
     pub fn prev_tab(&mut self) -> bool {
-        let old_selected = self.selected;
+        let old_selected = self.selected.get();
 
-        if self.selected > 0 {
-            self.selected = self.selected - 1;
+        if let Some(selected) = self.selected() {
+            if selected > 0 {
+                self.selected.set(Some(selected - 1));
+            }
         }
 
-        old_selected != self.selected
+        old_selected != self.selected.get()
     }
 }
 
@@ -271,10 +321,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedSt
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> TabbedOutcome {
         match event {
             ct_event!(mouse down Left for x, y) => {
-                if let Some(sel) = item_at_clicked(&self.close_areas, *x, *y) {
+                if let Some(sel) = item_at_clicked(&self.tab_title_close_areas, *x, *y) {
                     TabbedOutcome::Close(sel)
-                } else if let Some(sel) = item_at_clicked(&self.tab_areas, *x, *y) {
-                    self.selected = sel;
+                } else if let Some(sel) = item_at_clicked(&self.tab_title_areas, *x, *y) {
+                    self.set_selected(sel);
                     TabbedOutcome::Changed
                 } else {
                     TabbedOutcome::Continue
@@ -353,26 +403,26 @@ pub mod glued {
             match self.placement {
                 TabPlacement::Top => {
                     state.block_area = Rect::new(area.x, area.y + 1, area.width, area.height - 1);
-                    state.tab_area = Rect::new(area.x, area.y, area.width, 1);
+                    state.tab_title_area = Rect::new(area.x, area.y, area.width, 1);
                     if let Some(block) = tabbed.get_block() {
-                        state.inner_area = block.inner(state.block_area);
+                        state.widget_area = block.inner(state.block_area);
                     } else {
-                        state.inner_area = state.block_area;
+                        state.widget_area = state.block_area;
                     }
                 }
                 TabPlacement::Bottom => {
                     state.block_area =
                         Rect::new(area.x, area.y, area.width, area.height.saturating_sub(1));
-                    state.tab_area = Rect::new(
+                    state.tab_title_area = Rect::new(
                         area.x,
                         area.y + area.height.saturating_sub(1),
                         area.width,
                         1,
                     );
                     if let Some(block) = tabbed.get_block() {
-                        state.inner_area = block.inner(state.block_area);
+                        state.widget_area = block.inner(state.block_area);
                     } else {
-                        state.inner_area = state.block_area;
+                        state.widget_area = state.block_area;
                     }
                 }
                 TabPlacement::Left => {
@@ -382,12 +432,12 @@ pub mod glued {
                         area.width - (max_width + 2 + close_width),
                         area.height,
                     );
-                    state.tab_area =
+                    state.tab_title_area =
                         Rect::new(area.x, area.y, max_width + 2 + close_width, area.height);
                     if let Some(block) = tabbed.get_block() {
-                        state.inner_area = block.inner(state.block_area);
+                        state.widget_area = block.inner(state.block_area);
                     } else {
-                        state.inner_area = state.block_area;
+                        state.widget_area = state.block_area;
                     }
                 }
                 TabPlacement::Right => {
@@ -397,16 +447,16 @@ pub mod glued {
                         area.width - (max_width + 2 + close_width),
                         area.height,
                     );
-                    state.tab_area = Rect::new(
+                    state.tab_title_area = Rect::new(
                         area.x + area.width - (max_width + 2 + close_width),
                         area.y,
                         max_width + 2 + close_width,
                         area.height,
                     );
                     if let Some(block) = tabbed.get_block() {
-                        state.inner_area = block.inner(state.block_area);
+                        state.widget_area = block.inner(state.block_area);
                     } else {
-                        state.inner_area = state.block_area;
+                        state.widget_area = state.block_area;
                     }
                 }
             }
@@ -418,12 +468,12 @@ pub mod glued {
                         constraints.push(Constraint::Length(tab.width() as u16 + 2 + close_width));
                     }
 
-                    state.tab_areas = Vec::from(
+                    state.tab_title_areas = Vec::from(
                         Layout::horizontal(constraints)
                             .flex(Flex::Start)
                             .spacing(1)
                             .horizontal_margin(block_offset)
-                            .split(state.tab_area)
+                            .split(state.tab_title_area)
                             .as_ref(),
                     );
                 }
@@ -433,11 +483,11 @@ pub mod glued {
                         constraints.push(Constraint::Length(1));
                     }
 
-                    state.tab_areas = Vec::from(
+                    state.tab_title_areas = Vec::from(
                         Layout::vertical(constraints)
                             .flex(Flex::Start)
                             .vertical_margin(block_offset)
-                            .split(state.tab_area)
+                            .split(state.tab_title_area)
                             .as_ref(),
                     );
                 }
@@ -445,8 +495,8 @@ pub mod glued {
 
             match self.placement {
                 TabPlacement::Top | TabPlacement::Bottom => {
-                    state.close_areas = state
-                        .tab_areas
+                    state.tab_title_close_areas = state
+                        .tab_title_areas
                         .iter()
                         .map(|v| {
                             Rect::new(
@@ -459,8 +509,8 @@ pub mod glued {
                         .collect::<Vec<_>>();
                 }
                 TabPlacement::Left => {
-                    state.close_areas = state
-                        .tab_areas
+                    state.tab_title_close_areas = state
+                        .tab_title_areas
                         .iter()
                         .map(|v| {
                             Rect::new(
@@ -473,8 +523,8 @@ pub mod glued {
                         .collect::<Vec<_>>();
                 }
                 TabPlacement::Right => {
-                    state.close_areas = state
-                        .tab_areas
+                    state.tab_title_close_areas = state
+                        .tab_title_areas
                         .iter()
                         .map(|v| {
                             Rect::new(
@@ -514,11 +564,13 @@ pub mod glued {
                 tabbed.style
             };
 
-            Fill::new().style(tabbed.style).render(state.tab_area, buf);
+            Fill::new()
+                .style(tabbed.style)
+                .render(state.tab_title_area, buf);
             tabbed.block.render_ref(state.block_area, buf);
 
-            for (idx, tab_area) in state.tab_areas.iter().copied().enumerate() {
-                if idx == state.selected {
+            for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
+                if Some(idx) == state.selected() {
                     buf.set_style(tab_area, select_style);
                 } else {
                     buf.set_style(tab_area, tab_style);
@@ -544,8 +596,8 @@ pub mod glued {
                 tabbed.get_tabs()[idx].render_ref(txt_area, buf);
             }
             if tabbed.is_closeable() {
-                for i in 0..state.close_areas.len() {
-                    "\u{2A2F}".render_ref(state.close_areas[i], buf);
+                for i in 0..state.tab_title_close_areas.len() {
+                    "\u{2A2F}".render_ref(state.tab_title_close_areas[i], buf);
                 }
             }
         }
@@ -628,18 +680,18 @@ pub mod attached {
             match self.placement {
                 TabPlacement::Top => {
                     state.block_area = Rect::new(area.x, area.y, area.width, area.height);
-                    state.tab_area = Rect::new(area.x, area.y, area.width, 1);
-                    state.inner_area = block.inner(state.block_area);
+                    state.tab_title_area = Rect::new(area.x, area.y, area.width, 1);
+                    state.widget_area = block.inner(state.block_area);
                 }
                 TabPlacement::Bottom => {
                     state.block_area = Rect::new(area.x, area.y, area.width, area.height);
-                    state.tab_area = Rect::new(
+                    state.tab_title_area = Rect::new(
                         area.x,
                         area.y + area.height.saturating_sub(1),
                         area.width,
                         1,
                     );
-                    state.inner_area = block.inner(state.block_area);
+                    state.widget_area = block.inner(state.block_area);
                 }
                 TabPlacement::Left => {
                     state.block_area = Rect::new(
@@ -648,9 +700,9 @@ pub mod attached {
                         area.width - (max_width + 2 + close_width),
                         area.height,
                     );
-                    state.tab_area =
+                    state.tab_title_area =
                         Rect::new(area.x, area.y, max_width + 2 + close_width, area.height);
-                    state.inner_area = block.inner(state.block_area);
+                    state.widget_area = block.inner(state.block_area);
                 }
                 TabPlacement::Right => {
                     state.block_area = Rect::new(
@@ -659,13 +711,13 @@ pub mod attached {
                         area.width - (max_width + 2 + close_width),
                         area.height,
                     );
-                    state.tab_area = Rect::new(
+                    state.tab_title_area = Rect::new(
                         (area.x + area.width).saturating_sub(max_width + 2 + close_width),
                         area.y,
                         max_width + 2 + close_width,
                         area.height,
                     );
-                    state.inner_area = block.inner(state.block_area);
+                    state.widget_area = block.inner(state.block_area);
                 }
             }
 
@@ -676,12 +728,12 @@ pub mod attached {
                         constraints.push(Constraint::Length(tab.width() as u16 + 2 + close_width));
                     }
 
-                    state.tab_areas = Vec::from(
+                    state.tab_title_areas = Vec::from(
                         Layout::horizontal(constraints)
                             .flex(Flex::Start)
                             .spacing(1)
                             .horizontal_margin(block_offset + 1)
-                            .split(state.tab_area)
+                            .split(state.tab_title_area)
                             .as_ref(),
                     );
                 }
@@ -691,11 +743,11 @@ pub mod attached {
                         constraints.push(Constraint::Length(1));
                     }
 
-                    state.tab_areas = Vec::from(
+                    state.tab_title_areas = Vec::from(
                         Layout::vertical(constraints)
                             .flex(Flex::Start)
                             .vertical_margin(block_offset)
-                            .split(state.tab_area)
+                            .split(state.tab_title_area)
                             .as_ref(),
                     );
                 }
@@ -703,8 +755,8 @@ pub mod attached {
 
             match self.placement {
                 TabPlacement::Top | TabPlacement::Bottom => {
-                    state.close_areas = state
-                        .tab_areas
+                    state.tab_title_close_areas = state
+                        .tab_title_areas
                         .iter()
                         .map(|v| {
                             Rect::new(
@@ -717,8 +769,8 @@ pub mod attached {
                         .collect::<Vec<_>>();
                 }
                 TabPlacement::Left => {
-                    state.close_areas = state
-                        .tab_areas
+                    state.tab_title_close_areas = state
+                        .tab_title_areas
                         .iter()
                         .map(|v| {
                             Rect::new(
@@ -731,8 +783,8 @@ pub mod attached {
                         .collect::<Vec<_>>();
                 }
                 TabPlacement::Right => {
-                    state.close_areas = state
-                        .tab_areas
+                    state.tab_title_close_areas = state
+                        .tab_title_areas
                         .iter()
                         .map(|v| {
                             Rect::new(
@@ -795,14 +847,16 @@ pub mod attached {
 
             match self.placement {
                 TabPlacement::Left | TabPlacement::Right => {
-                    Fill::new().style(tabbed.style).render(state.tab_area, buf);
+                    Fill::new()
+                        .style(tabbed.style)
+                        .render(state.tab_title_area, buf);
                 }
                 TabPlacement::Top | TabPlacement::Bottom => {}
             }
             block.render_ref(state.block_area, buf);
 
-            for (idx, tab_area) in state.tab_areas.iter().copied().enumerate() {
-                if idx == state.selected {
+            for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
+                if Some(idx) == state.selected() {
                     Fill::new()
                         .style(select_style)
                         .fill_char(" ")
@@ -864,8 +918,8 @@ pub mod attached {
                 }
             }
             if tabbed.is_closeable() {
-                for i in 0..state.close_areas.len() {
-                    "\u{2A2F}".render_ref(state.close_areas[i], buf);
+                for i in 0..state.tab_title_close_areas.len() {
+                    "\u{2A2F}".render_ref(state.tab_title_close_areas[i], buf);
                 }
             }
         }
