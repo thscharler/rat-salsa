@@ -345,7 +345,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                     .split_mark_offset(0)
                     .scroll_by(1),
             )
-            .render(state.w_split.areas[0], buf, &mut state.w_dirs);
+            .render(state.w_split.widget_areas[0], buf, &mut state.w_dirs);
 
         Table::new()
             .data(FileData {
@@ -362,7 +362,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                     .split_mark_offset(0)
                     .scroll_by(1),
             )
-            .render(state.w_split.areas[1], buf, &mut state.w_files);
+            .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
 
         let title = if state.w_data.is_focused() {
             Title::from(Line::from("Content").style(ctx.g.theme.focus()))
@@ -392,7 +392,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                     .style(ctx.g.theme.data())
                     .title(title),
             )
-            .render(state.w_split.areas[2], buf, &mut state.w_data);
+            .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
         ctx.cursor = state.w_data.screen_cursor();
 
         split_overlay.render(r[2], buf, &mut state.w_split);
