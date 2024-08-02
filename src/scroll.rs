@@ -486,13 +486,15 @@ fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     if state.max_offset() == 0 {
         match scroll.policy {
             ScrollbarType::Show => {
-                scroll.scrollbar().render(
-                    area,
-                    buf,
-                    &mut ScrollbarState::new(state.max_offset())
-                        .position(state.offset())
-                        .viewport_content_length(state.page_len()),
-                );
+                if !area.is_empty() {
+                    scroll.scrollbar().render(
+                        area,
+                        buf,
+                        &mut ScrollbarState::new(state.max_offset())
+                            .position(state.offset())
+                            .viewport_content_length(state.page_len()),
+                    );
+                }
             }
             ScrollbarType::Minimal => {
                 let sym = if let Some(no_symbol) = scroll.no_symbol {
@@ -517,13 +519,15 @@ fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             }
         }
     } else {
-        scroll.scrollbar().render(
-            area,
-            buf,
-            &mut ScrollbarState::new(state.max_offset())
-                .position(state.offset())
-                .viewport_content_length(state.page_len()),
-        );
+        if !area.is_empty() {
+            scroll.scrollbar().render(
+                area,
+                buf,
+                &mut ScrollbarState::new(state.max_offset())
+                    .position(state.offset())
+                    .viewport_content_length(state.page_len()),
+            );
+        }
     }
 }
 
