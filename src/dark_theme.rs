@@ -288,8 +288,8 @@ impl DarkTheme {
         let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
         TabbedStyle {
             style,
-            tab_style: Some(self.gray(3)),
-            select_style: Some(self.select()),
+            tab_style: Some(self.gray(1)),
+            select_style: Some(self.gray(3)),
             focus_style: Some(self.focus()),
             ..Default::default()
         }
