@@ -4,7 +4,7 @@ use crossbeam::channel::{SendError, Sender};
 use rat_widget::button::ButtonOutcome;
 use rat_widget::event::{
     ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, Outcome, ScrollOutcome,
-    TextOutcome,
+    TabbedOutcome, TextOutcome,
 };
 use rat_widget::menuline::MenuOutcome;
 use ratatui::buffer::Buffer;
@@ -72,6 +72,12 @@ impl<Message> From<Outcome> for Control<Message> {
     }
 }
 
+impl<Message> From<bool> for Control<Message> {
+    fn from(value: bool) -> Self {
+        Outcome::from(value).into()
+    }
+}
+
 impl<Message> From<MenuOutcome> for Control<Message> {
     fn from(value: MenuOutcome) -> Self {
         Outcome::from(value).into()
@@ -110,6 +116,12 @@ impl<Message> From<EditOutcome> for Control<Message> {
 
 impl<Message> From<FileOutcome> for Control<Message> {
     fn from(value: FileOutcome) -> Self {
+        Outcome::from(value).into()
+    }
+}
+
+impl<Message> From<TabbedOutcome> for Control<Message> {
+    fn from(value: TabbedOutcome) -> Self {
         Outcome::from(value).into()
     }
 }
