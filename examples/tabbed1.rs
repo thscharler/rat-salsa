@@ -102,7 +102,7 @@ fn repaint_input(
     tab = tab.tabs(["Tabbed 1", "Tabbed 2", "Tabbed 3"]);
     tab.render(l2[1], frame.buffer_mut(), &mut state.tabbed);
 
-    match state.tabbed.selected {
+    match state.tabbed.selected().expect("tab") {
         0 => {
             List::<RowSelection>::new([
                 "L-0", "L-1", "L-2", "L-3", "L-4", "L-5", "L-6", "L-7", "L-8", "L-9", //
@@ -114,7 +114,7 @@ fn repaint_input(
             .style(THEME.gray(3))
             .scroll(Scroll::new().styles(THEME.scrolled_style()))
             .render(
-                state.tabbed.inner_area,
+                state.tabbed.widget_area,
                 frame.buffer_mut(),
                 &mut state.tabs[0],
             );
@@ -131,12 +131,12 @@ fn repaint_input(
             .block(Block::bordered().style(THEME.block()))
             .scroll(Scroll::new().styles(THEME.scrolled_style()))
             .render(
-                state.tabbed.inner_area,
+                state.tabbed.widget_area,
                 frame.buffer_mut(),
                 &mut state.tabs[1],
             );
         }
-        2 => "nothing".render(state.tabbed.inner_area, frame.buffer_mut()),
+        2 => "nothing".render(state.tabbed.widget_area, frame.buffer_mut()),
         _ => {}
     }
 
@@ -177,7 +177,7 @@ fn repaint_input(
 fn focus(state: &State) -> Focus {
     let mut f = Focus::default();
     f.add(&state.tabbed);
-    f.add(&state.tabs[state.tabbed.selected]);
+    f.add(&state.tabs[state.tabbed.selected().expect("tab")]);
     f.add(&state.menu);
     f
 }
@@ -257,7 +257,7 @@ fn handle_input(
     });
 
     flow_ok!(HandleEvent::handle(&mut state.tabbed, event, Regular), consider f);
-    match state.tabbed.selected {
+    match state.tabbed.selected().expect("tab") {
         0 => flow_ok!(state.tabs[0].handle(event, Regular), consider f),
         1 => flow_ok!(state.tabs[1].handle(event, Regular), consider f),
         _ => {}

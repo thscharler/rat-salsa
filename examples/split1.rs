@@ -137,7 +137,11 @@ fn repaint_input(
             }
         }
     }
-    w_left.render(state.split.areas[0], frame.buffer_mut(), &mut state.left);
+    w_left.render(
+        state.split.widget_areas[0],
+        frame.buffer_mut(),
+        &mut state.left,
+    );
 
     let w_right = List::<RowSelection>::new([
         "R-0", "R-1", "R-2", "R-3", "R-4", "R-5", "R-6", "R-7", "R-8", "R-9", //
@@ -145,7 +149,11 @@ fn repaint_input(
         "R-20", "R-21", "R-22", "R-23", "R-24", "R-25", "R-26", "R-27", "R-28", "R-29", //
     ])
     .style(THEME.gray(3));
-    w_right.render(state.split.areas[1], frame.buffer_mut(), &mut state.right);
+    w_right.render(
+        state.split.widget_areas[1],
+        frame.buffer_mut(),
+        &mut state.right,
+    );
 
     // There might be an overlay, if the stars are right.
     split_overlay.render(l2[1], frame.buffer_mut(), &mut state.split);
@@ -190,7 +198,7 @@ fn repaint_input(
     area.y += 1;
     Line::from("areas").render(area, frame.buffer_mut());
     area.y += 1;
-    for a in &state.split.areas {
+    for a in &state.split.widget_areas {
         Line::from(format!("{},{}+{}+{}", a.x, a.y, a.width, a.height))
             .render(area, frame.buffer_mut());
         area.y += 1;
@@ -198,14 +206,14 @@ fn repaint_input(
     area.y += 1;
     Line::from("split").render(area, frame.buffer_mut());
     area.y += 1;
-    for s in &state.split.split_areas {
+    for s in &state.split.splitline_areas {
         Line::from(format!("{},{}+{}+{}", s.x, s.y, s.width, s.height))
             .render(area, frame.buffer_mut());
         area.y += 1;
     }
     Line::from("mark").render(area, frame.buffer_mut());
     area.y += 1;
-    for s in &state.split.mark_area {
+    for s in &state.split.splitline_mark_areas {
         Line::from(format!("{},{}", s.x, s.y)).render(area, frame.buffer_mut());
         area.y += 1;
     }
