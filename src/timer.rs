@@ -62,12 +62,12 @@ impl Timers {
             if Instant::now() >= timer.next {
                 let evt = if timer.repaint {
                     TimerEvent::Repaint(TimeOut {
-                        tag: TimerHandle(timer.tag),
+                        handle: TimerHandle(timer.tag),
                         counter: timer.count,
                     })
                 } else {
                     TimerEvent::Application(TimeOut {
-                        tag: TimerHandle(timer.tag),
+                        handle: TimerHandle(timer.tag),
                         counter: timer.count,
                     })
                 };
@@ -142,7 +142,7 @@ impl Timers {
 /// Timing event data. Used by [TimerEvent].
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct TimeOut {
-    pub tag: TimerHandle,
+    pub handle: TimerHandle,
     pub counter: usize,
 }
 
