@@ -262,7 +262,12 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
         vscroll.render_ref(vscroll_area, buf, &mut state.vscroll);
     }
 
-    let area = state.inner;
+    let inner = state.inner;
+
+    if inner.width == 0 {
+        // noop
+        return;
+    }
 
     let select_style = if let Some(select_style) = widget.select_style {
         select_style
@@ -271,14 +276,13 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     };
     let style = widget.style;
 
-    Fill::new().style(style).render(area, buf);
+    Fill::new().style(style).render(inner, buf);
 
     let selection = state.selection();
     let mut styles = Vec::new();
-
     let mut line_iter = state.value.lines_at(state.vscroll.offset());
     let (ox, oy) = state.offset();
-    for row in 0..area.height {
+    for row in 0..inner.height {
         // text-index
         let ty = oy + row as usize;
 
@@ -309,20 +313,20 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                         style = style.patch(select_style);
                     };
 
-                    let cell = buf.get_mut(area.x + col, area.y + row);
+                    let cell = buf.get_mut(inner.x + col, inner.y + row);
                     cell.set_symbol(d.glyph.as_ref());
                     cell.set_style(style);
                     col += 1;
-                    if col >= area.width {
+                    if col >= inner.width {
                         break 'line;
                     }
 
                     for _ in 1..d.len {
-                        let cell = buf.get_mut(area.x + col, area.y + row);
+                        let cell = buf.get_mut(inner.x + col, inner.y + row);
                         cell.reset();
                         cell.set_style(style);
                         col += 1;
-                        if col >= area.width {
+                        if col >= inner.width {
                             break 'line;
                         }
                     }
