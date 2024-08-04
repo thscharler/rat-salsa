@@ -7,66 +7,13 @@ use std::ops::Range;
 
 /// Undo buffer.
 pub trait UndoBuffer: Debug {
+    fn cloned(&self) -> Box<dyn UndoBuffer>;
+
     /// Sets a new value.
-    fn set_rope(
-        &mut self,
-        old_text: Rope,
-        new_text: Rope,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        styles: Vec<(TextRange, usize)>,
-    );
+    fn append(&mut self, undo: UndoEntry);
 
-    /// Add an insert operation to the undo buffer.
-    fn insert_char(
-        &mut self,
-        char_pos: usize,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        range: TextRange,
-        c: char,
-    );
-
-    /// Add an insert operation to the undo buffer.
-    fn insert_str(
-        &mut self,
-        chars: Range<usize>,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        range: TextRange,
-        txt: String,
-    );
-
-    /// Add a remove operation to the undo buffer.
-    fn remove_char(
-        &mut self,
-        chars: Range<usize>,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        range: TextRange,
-        txt: String,
-        styles: Vec<StyleChange>,
-    );
-
-    /// Add a remove operation to the undo buffer.
-    fn remove_str(
-        &mut self,
-        chars: Range<usize>,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        range: TextRange,
-        txt: String,
-        styles: Vec<StyleChange>,
-    );
-
-    /// Undo for set_styles.
-    fn set_styles(&mut self, removed: Vec<(TextRange, usize)>, added: Vec<(TextRange, usize)>);
-
-    /// Undo for add_style.
-    fn add_style(&mut self, range: TextRange, style: usize);
-
-    /// Undo for remove_style.
-    fn remove_style(&mut self, range: TextRange, style: usize);
+    /// Sets a new value, never adds to replay.
+    fn append_no_replay(&mut self, undo: UndoEntry);
 
     /// Next undo.
     fn undo(&mut self) -> Option<UndoEntry>;
@@ -74,9 +21,15 @@ pub trait UndoBuffer: Debug {
     /// Next redo.
     fn redo(&mut self) -> Option<UndoEntry>;
 
+    /// Enable/disable replay recording.
+    fn set_replay(&mut self, replay: bool);
+
+    /// Is replay active?
+    fn replay(&self) -> bool;
+
     /// Get the replay information to sync with another textarea.
     /// This empties the replay buffer.
-    fn replay(&mut self) -> Vec<UndoEntry>;
+    fn recent_replay(&mut self) -> Vec<UndoEntry>;
 }
 
 /// Stores one style change.
@@ -103,7 +56,6 @@ pub enum UndoEntry {
         cursor: TextPositionChange,
         anchor: TextPositionChange,
         styles_before: Vec<(TextRange, usize)>,
-        styles_after: Vec<(TextRange, usize)>,
     },
     InsertChar {
         /// char range for the insert.
@@ -169,21 +121,29 @@ pub enum UndoEntry {
         range: TextRange,
         style: usize,
     },
+    /// For replay only.
+    Undo,
+    /// For replay only.
+    Redo,
 }
 
 /// Standard implementation for undo.
 #[derive(Debug)]
 pub struct UndoVec {
-    buf: Vec<UndoEntry>,
     undo_styles: bool,
+    track_replay: bool,
+    buf: Vec<UndoEntry>,
+    replay: Vec<UndoEntry>,
     idx: usize,
 }
 
 impl Default for UndoVec {
     fn default() -> Self {
         Self {
-            buf: Vec::with_capacity(40),
             undo_styles: false,
+            track_replay: false,
+            buf: Vec::with_capacity(40),
+            replay: Vec::default(),
             idx: 0,
         }
     }
@@ -192,8 +152,10 @@ impl Default for UndoVec {
 impl UndoVec {
     pub fn new(capacity: usize) -> Self {
         Self {
-            buf: Vec::with_capacity(capacity),
             undo_styles: false,
+            track_replay: false,
+            buf: Vec::with_capacity(capacity),
+            replay: Vec::default(),
             idx: 0,
         }
     }
@@ -202,33 +164,41 @@ impl UndoVec {
     ///
     /// This is not recommended if you do your styling
     /// with some parser and rerun styling after every text-change.
-    pub fn undo_styles(mut self, undo_styles: bool) -> Self {
+    pub fn set_undo_styles(&mut self, undo_styles: bool) {
         self.undo_styles = undo_styles;
-        self
     }
 
-    fn append(&mut self, undo: UndoEntry) {
-        if matches!(
-            undo,
-            UndoEntry::AddStyle { .. }
-                | UndoEntry::RemoveStyle { .. }
-                | UndoEntry::SetStyles { .. }
-        ) && !self.undo_styles
-        {
-            return;
+    /// Append to undo buffer.
+    fn _append(&mut self, undo: UndoEntry, replay: bool) {
+        // tracking?
+        if replay && self.track_replay {
+            self.replay.push(undo.clone());
+        }
+        // only useful for tracking
+        match &undo {
+            UndoEntry::Undo | UndoEntry::Redo => return,
+            _ => {}
+        }
+
+        // filter style changes
+        if !self.undo_styles {
+            match &undo {
+                UndoEntry::SetStyles { .. }
+                | UndoEntry::AddStyle { .. }
+                | UndoEntry::RemoveStyle { .. } => return,
+                _ => {}
+            }
         }
 
         // remove redo
         while self.idx < self.buf.len() {
             self.buf.pop();
         }
-
         let (last, undo) = if let Some(last) = self.buf.pop() {
             merge_undo(last, undo)
         } else {
             (None, Some(undo))
         };
-
         if let Some(last) = last {
             self.buf.push(last);
         }
@@ -243,106 +213,25 @@ impl UndoVec {
 }
 
 impl UndoBuffer for UndoVec {
-    fn set_rope(
-        &mut self,
-        _old_text: Rope,
-        _new_text: Rope,
-        _cursor: TextPositionChange,
-        _anchor: TextPositionChange,
-        _styles: Vec<(TextRange, usize)>,
-    ) {
-        // don't undo set_value()
-        self.buf.clear();
-        self.idx = 0;
-    }
-
-    fn insert_char(
-        &mut self,
-        char_pos: usize,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        range: TextRange,
-        c: char,
-    ) {
-        self.append(UndoEntry::InsertChar {
-            chars: char_pos..char_pos + 1,
-            cursor,
-            anchor,
-            range,
-            txt: c.to_string(),
-        });
-    }
-
-    fn insert_str(
-        &mut self,
-        chars: Range<usize>,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        range: TextRange,
-        txt: String,
-    ) {
-        self.append(UndoEntry::InsertStr {
-            chars,
-            cursor,
-            anchor,
-            range,
-            txt,
-        });
-    }
-
-    fn remove_char(
-        &mut self,
-        chars: Range<usize>,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        range: TextRange,
-        txt: String,
-        styles: Vec<StyleChange>,
-    ) {
-        self.append(UndoEntry::RemoveChar {
-            chars,
-            cursor,
-            anchor,
-            range,
-            txt,
-            styles,
-        });
-    }
-
-    fn remove_str(
-        &mut self,
-        chars: Range<usize>,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        range: TextRange,
-        txt: String,
-        styles: Vec<StyleChange>,
-    ) {
-        self.append(UndoEntry::RemoveStr {
-            chars,
-            cursor,
-            anchor,
-            range,
-            txt,
-            styles,
-        });
-    }
-
-    fn set_styles(&mut self, removed: Vec<(TextRange, usize)>, added: Vec<(TextRange, usize)>) {
-        self.append(UndoEntry::SetStyles {
-            styles_before: removed,
-            styles_after: added,
+    fn cloned(&self) -> Box<dyn UndoBuffer> {
+        Box::new(Self {
+            undo_styles: self.undo_styles,
+            track_replay: self.track_replay,
+            buf: self.buf.clone(),
+            replay: self.replay.clone(),
+            idx: self.idx,
         })
     }
 
-    fn add_style(&mut self, range: TextRange, style: usize) {
-        self.append(UndoEntry::AddStyle { range, style })
+    fn append(&mut self, undo: UndoEntry) {
+        self._append(undo, true);
     }
 
-    fn remove_style(&mut self, range: TextRange, style: usize) {
-        self.append(UndoEntry::RemoveStyle { range, style })
+    fn append_no_replay(&mut self, undo: UndoEntry) {
+        self._append(undo, false);
     }
 
+    /// Get next undo
     fn undo(&mut self) -> Option<UndoEntry> {
         if self.idx > 0 {
             self.idx -= 1;
@@ -352,6 +241,7 @@ impl UndoBuffer for UndoVec {
         }
     }
 
+    /// Get next redo
     fn redo(&mut self) -> Option<UndoEntry> {
         if self.idx < self.buf.len() {
             self.idx += 1;
@@ -361,8 +251,25 @@ impl UndoBuffer for UndoVec {
         }
     }
 
-    fn replay(&mut self) -> Vec<UndoEntry> {
-        Vec::default()
+    /// Enable replay functionality.
+    ///
+    /// This keeps track of all changes to a textarea.
+    /// These changes can be copied to another textarea with
+    /// the replay() function.
+    fn set_replay(&mut self, replay: bool) {
+        if self.track_replay != replay {
+            self.replay.clear();
+        }
+        self.track_replay = replay;
+    }
+
+    fn replay(&self) -> bool {
+        self.track_replay
+    }
+
+    /// Get all new replay entries.
+    fn recent_replay(&mut self) -> Vec<UndoEntry> {
+        mem::take(&mut self.replay)
     }
 }
 

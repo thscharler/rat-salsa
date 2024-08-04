@@ -268,6 +268,23 @@ impl Default for TextAreaCore {
     }
 }
 
+impl Clone for TextAreaCore {
+    fn clone(&self) -> Self {
+        Self {
+            value: self.value.clone(),
+            styles: self.styles.clone(),
+            cursor: self.cursor,
+            anchor: self.anchor,
+            undo: self.undo.as_ref().map(|v| v.cloned()),
+            newline: self.newline.clone(),
+            tabs: self.tabs,
+            expand_tabs: self.expand_tabs,
+            move_col: self.move_col,
+            buf: Default::default(),
+        }
+    }
+}
+
 impl TextAreaCore {
     pub fn new() -> Self {
         Self::default()
@@ -346,8 +363,28 @@ impl TextAreaCore {
         }
     }
 
+    /// Undo
+    #[inline]
+    pub fn undo_buffer_mut(&mut self) -> Option<&mut dyn UndoBuffer> {
+        match &mut self.undo {
+            None => None,
+            Some(v) => Some(v.as_mut()),
+        }
+    }
+
     /// Undo last.
     pub fn undo(&mut self) -> TextOutcome {
+        let Some(undo) = self.undo.as_mut() else {
+            return TextOutcome::Continue;
+        };
+
+        undo.append(UndoEntry::Undo);
+
+        self._undo()
+    }
+
+    /// Undo last.
+    fn _undo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
             return TextOutcome::Continue;
         };
@@ -358,14 +395,14 @@ impl TextAreaCore {
                 cursor,
                 anchor,
                 range,
-                txt: _,
+                ..
             })
             | Some(UndoEntry::InsertStr {
                 chars,
                 cursor,
                 anchor,
                 range,
-                txt: _,
+                ..
             }) => {
                 self.value.remove(chars);
 
@@ -436,12 +473,24 @@ impl TextAreaCore {
                 self.styles.add(range, style);
                 TextOutcome::Changed
             }
+            Some(UndoEntry::Undo) => TextOutcome::Unchanged,
+            Some(UndoEntry::Redo) => TextOutcome::Unchanged,
             None => TextOutcome::Continue,
         }
     }
 
     /// Redo last.
     pub fn redo(&mut self) -> TextOutcome {
+        let Some(undo) = self.undo.as_mut() else {
+            return TextOutcome::Continue;
+        };
+
+        undo.append(UndoEntry::Redo);
+
+        self._redo()
+    }
+
+    fn _redo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
             return TextOutcome::Continue;
         };
@@ -462,7 +511,6 @@ impl TextAreaCore {
                 txt,
             }) => {
                 self.value.insert(chars.start, &txt);
-
                 self.styles.remap(|r, _| Some(range.expand(r)));
                 self.anchor = anchor.after;
                 self.cursor = cursor.after;
@@ -474,16 +522,16 @@ impl TextAreaCore {
                 cursor,
                 anchor,
                 range,
-                txt: _,
                 styles,
+                ..
             })
             | Some(UndoEntry::RemoveStr {
                 chars,
                 cursor,
                 anchor,
                 range,
-                txt: _,
                 styles,
+                ..
             }) => {
                 self.value.remove(chars);
 
@@ -510,13 +558,12 @@ impl TextAreaCore {
                 txt_after,
                 cursor,
                 anchor,
-                styles_after,
                 ..
             }) => {
                 self.value = txt_after;
                 self.cursor = cursor.after;
                 self.anchor = anchor.after;
-                self.styles.set(styles_after.iter().copied());
+                self.styles.clear();
                 TextOutcome::TextChanged
             }
             Some(UndoEntry::SetStyles { styles_after, .. }) => {
@@ -531,7 +578,85 @@ impl TextAreaCore {
                 self.styles.remove(range, style);
                 TextOutcome::Changed
             }
+            Some(UndoEntry::Undo) => TextOutcome::Unchanged,
+            Some(UndoEntry::Redo) => TextOutcome::Unchanged,
             None => TextOutcome::Continue,
+        }
+    }
+
+    /// Get last replay recording.
+    pub fn recent_replay(&mut self) -> Vec<UndoEntry> {
+        if let Some(undo) = &mut self.undo {
+            undo.recent_replay()
+        } else {
+            Vec::default()
+        }
+    }
+
+    /// Replay a recording of changes.
+    pub fn replay(&mut self, replay: &[UndoEntry]) {
+        for replay_entry in replay {
+            match replay_entry {
+                UndoEntry::SetText { txt_after, .. } => {
+                    self.value = txt_after.clone();
+                    self.styles.clear();
+                }
+                UndoEntry::InsertChar {
+                    chars, range, txt, ..
+                }
+                | UndoEntry::InsertStr {
+                    chars, range, txt, ..
+                } => {
+                    self.value.insert(chars.start, txt);
+                    self.styles.remap(|r, _| Some(range.expand(r)));
+                }
+                UndoEntry::RemoveChar {
+                    chars,
+                    range,
+                    styles,
+                    ..
+                }
+                | UndoEntry::RemoveStr {
+                    chars,
+                    range,
+                    styles,
+                    ..
+                } => {
+                    self.value.remove(chars.clone());
+                    self.styles.remap(|r, _| {
+                        if range.intersects(r) {
+                            Some(r)
+                        } else {
+                            Some(range.shrink(r))
+                        }
+                    });
+                    for s in styles {
+                        self.styles.remove(s.before, s.style);
+                    }
+                    for s in styles {
+                        self.styles.add(s.after, s.style);
+                    }
+                }
+                UndoEntry::SetStyles { styles_after, .. } => {
+                    self.styles.set(styles_after.iter().copied());
+                }
+                UndoEntry::AddStyle { range, style } => {
+                    self.styles.add(*range, *style);
+                }
+                UndoEntry::RemoveStyle { range, style } => {
+                    self.styles.remove(*range, *style);
+                }
+                UndoEntry::Undo => {
+                    self._undo();
+                }
+                UndoEntry::Redo => {
+                    self._redo();
+                }
+            }
+
+            if let Some(undo) = self.undo.as_mut() {
+                undo.append_no_replay(replay_entry.clone());
+            };
         }
     }
 
@@ -539,7 +664,10 @@ impl TextAreaCore {
     #[inline]
     pub fn set_styles(&mut self, styles: Vec<(TextRange, usize)>) {
         if let Some(undo) = &mut self.undo {
-            undo.set_styles(self.styles.values().collect::<Vec<_>>(), styles.clone())
+            undo.append(UndoEntry::SetStyles {
+                styles_before: self.styles.values().collect::<Vec<_>>(),
+                styles_after: styles.clone(),
+            });
         }
         self.styles.set(styles.iter().copied());
     }
@@ -553,7 +681,7 @@ impl TextAreaCore {
         self.styles.add(range, style);
 
         if let Some(undo) = &mut self.undo {
-            undo.add_style(range, style);
+            undo.append(UndoEntry::AddStyle { range, style });
         }
     }
 
@@ -565,7 +693,7 @@ impl TextAreaCore {
         self.styles.remove(range, style);
 
         if let Some(undo) = &mut self.undo {
-            undo.remove_style(range, style);
+            undo.append(UndoEntry::RemoveStyle { range, style });
         }
     }
 
@@ -632,22 +760,23 @@ impl TextAreaCore {
     #[inline]
     pub fn set_rope(&mut self, value: Rope) {
         if let Some(undo) = &mut self.undo {
-            undo.set_rope(
-                self.value.clone(),
-                value.clone(),
-                TextPositionChange {
+            undo.append(UndoEntry::SetText {
+                txt_before: self.value.clone(),
+                txt_after: value.clone(),
+                cursor: TextPositionChange {
                     before: self.cursor,
                     after: Default::default(),
                 },
-                TextPositionChange {
+                anchor: TextPositionChange {
                     before: self.anchor,
                     after: Default::default(),
                 },
-                self.styles
+                styles_before: self
+                    .styles
                     .values()
                     .map(|(r, s)| (r.into(), s))
                     .collect::<Vec<_>>(),
-            );
+            });
         }
 
         self.value = value;
@@ -1002,19 +1131,19 @@ impl TextAreaCore {
         self.cursor = insert.expand_pos(self.cursor);
 
         if let Some(undo) = self.undo.as_mut() {
-            undo.insert_char(
-                char_pos,
-                TextPositionChange {
+            undo.append(UndoEntry::InsertChar {
+                chars: char_pos..char_pos + 1,
+                cursor: TextPositionChange {
                     before: old_cursor,
                     after: self.cursor,
                 },
-                TextPositionChange {
+                anchor: TextPositionChange {
                     before: old_anchor,
                     after: self.anchor,
                 },
-                insert,
-                c,
-            );
+                range: insert,
+                txt: c.to_string(),
+            });
         }
     }
 
@@ -1080,19 +1209,19 @@ impl TextAreaCore {
         self.cursor = insert.expand_pos(self.cursor);
 
         if let Some(undo) = self.undo.as_mut() {
-            undo.insert_str(
-                char_pos..char_pos + char_count,
-                TextPositionChange {
+            undo.append(UndoEntry::InsertStr {
+                chars: char_pos..char_pos + char_count,
+                cursor: TextPositionChange {
                     before: old_cursor,
                     after: self.cursor,
                 },
-                TextPositionChange {
+                anchor: TextPositionChange {
                     before: old_anchor,
                     after: self.anchor,
                 },
-                insert,
-                t.to_string(),
-            );
+                range: insert,
+                txt: t.to_string(),
+            });
         }
     }
 
@@ -1177,35 +1306,35 @@ impl TextAreaCore {
 
         if let Some(undo) = &mut self.undo {
             if char_range {
-                undo.remove_char(
-                    start_pos..end_pos,
-                    TextPositionChange {
+                undo.append(UndoEntry::RemoveChar {
+                    chars: start_pos..end_pos,
+                    cursor: TextPositionChange {
                         before: old_cursor,
                         after: self.cursor,
                     },
-                    TextPositionChange {
+                    anchor: TextPositionChange {
                         before: old_anchor,
                         after: self.anchor,
                     },
                     range,
-                    old_text,
-                    changed_style,
-                );
+                    txt: old_text,
+                    styles: changed_style,
+                });
             } else {
-                undo.remove_str(
-                    start_pos..end_pos,
-                    TextPositionChange {
+                undo.append(UndoEntry::RemoveStr {
+                    chars: start_pos..end_pos,
+                    cursor: TextPositionChange {
                         before: old_cursor,
                         after: self.cursor,
                     },
-                    TextPositionChange {
+                    anchor: TextPositionChange {
                         before: old_anchor,
                         after: self.anchor,
                     },
                     range,
-                    old_text,
-                    changed_style,
-                );
+                    txt: old_text,
+                    styles: changed_style,
+                });
             }
         }
 

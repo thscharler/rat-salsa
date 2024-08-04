@@ -6,7 +6,7 @@ use crate::event::{ReadOnly, TextOutcome};
 use crate::fill::Fill;
 use crate::text::graphemes::RopeGlyphIter;
 use crate::text::textarea_core::{TextAreaCore, TextPosition, TextRange};
-use crate::text::undo::UndoBuffer;
+use crate::text::undo::{UndoBuffer, UndoEntry};
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
@@ -108,6 +108,22 @@ pub struct TextAreaState {
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+impl Clone for TextAreaState {
+    fn clone(&self) -> Self {
+        Self {
+            focus: FocusFlag::default(),
+            area: self.area,
+            inner: self.inner,
+            value: self.value.clone(),
+            hscroll: self.hscroll.clone(),
+            vscroll: self.vscroll.clone(),
+            clip: self.clip.clone(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl Default for TextAreaStyle {
@@ -265,11 +281,6 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
 
     let inner = state.inner;
 
-    if inner.width == 0 {
-        // noop
-        return;
-    }
-
     let select_style = if let Some(select_style) = widget.select_style {
         select_style
     } else {
@@ -278,6 +289,14 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     let style = widget.style;
 
     Fill::new().style(style).render(inner, buf);
+
+    if inner.width == 0 || inner.height == 0 {
+        // noop
+        return;
+    }
+    if state.vscroll.offset() > state.value.len_lines() {
+        return;
+    }
 
     let selection = state.selection();
     let mut styles = Vec::new();
@@ -535,6 +554,22 @@ impl TextAreaState {
     #[inline]
     pub fn undo_buffer(&self) -> Option<&dyn UndoBuffer> {
         self.value.undo_buffer()
+    }
+
+    /// Undo
+    #[inline]
+    pub fn undo_buffer_mut(&mut self) -> Option<&mut dyn UndoBuffer> {
+        self.value.undo_buffer_mut()
+    }
+
+    /// Get all recent replay recordings.
+    pub fn recent_replay(&mut self) -> Vec<UndoEntry> {
+        self.value.recent_replay()
+    }
+
+    /// Apply the replay recording.
+    pub fn replay(&mut self, replay: &[UndoEntry]) {
+        self.value.replay(replay);
     }
 
     /// Empty.
