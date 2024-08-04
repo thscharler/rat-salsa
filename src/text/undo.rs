@@ -1,6 +1,5 @@
 use crate::text::graphemes::char_len;
 use crate::text::textarea_core::{TextPosition, TextRange};
-use log::debug;
 use std::fmt::Debug;
 use std::mem;
 use std::ops::Range;
@@ -184,17 +183,13 @@ impl UndoVec {
                     styles: curr_styles,
                 } => {
                     if curr_chars.end == last_chars.start {
-                        debug!("backspace {:#?}\n=> {:#?}", last_range, curr_range);
-                        debug!("backspace {:#?}\n=> {:#?}", last_styles, curr_styles);
                         // backspace
                         let mut txt = mem::take(curr_txt);
                         txt.push_str(last_txt);
 
                         // merge into last_styles
                         let mut styles = mem::take(last_styles);
-                        Self::remove_merge_style(*last_range, &mut styles, curr_styles);
-
-                        debug!("backspace m {:#?}", styles);
+                        Self::merge_remove_style(*last_range, &mut styles, curr_styles);
 
                         (
                             Some(UndoEntry::RemoveChar {
@@ -214,8 +209,6 @@ impl UndoVec {
                             None,
                         )
                     } else if curr_chars.start == last_chars.start {
-                        debug!("delete {:#?}\n=> {:#?}", last_range, curr_range);
-                        debug!("delete {:#?}\n=> {:#?}", last_styles, curr_styles);
                         // delete
                         let mut txt = mem::take(last_txt);
                         txt.push_str(curr_txt);
@@ -229,9 +222,7 @@ impl UndoVec {
 
                         // merge into last_styles
                         let mut styles = mem::take(last_styles);
-                        Self::remove_merge_style(*last_range, &mut styles, curr_styles);
-
-                        debug!("delete m {:#?}", styles);
+                        Self::merge_remove_style(*last_range, &mut styles, curr_styles);
 
                         (
                             Some(UndoEntry::RemoveChar {
@@ -269,7 +260,7 @@ impl UndoVec {
     }
 
     /// Merge styles from two deletes.
-    fn remove_merge_style(
+    fn merge_remove_style(
         last_range: TextRange,
         last: &mut Vec<StyleChange>,
         curr: &mut Vec<StyleChange>,
@@ -287,7 +278,7 @@ impl UndoVec {
 
         // expand before and add
         for mut curr in curr.drain(..) {
-            curr.before = last_range.expand(curr.before.into());
+            curr.before = last_range.expand(curr.before);
             last.push(curr);
         }
     }

@@ -1,8 +1,8 @@
 /// Grapheme based string functions.
 pub mod graphemes;
+mod range_map;
+pub mod undo;
 
 pub mod maskedinput_core;
-/// Core functionality for the textarea.
 pub mod textarea_core;
 pub mod textinput_core;
-pub mod undo;
