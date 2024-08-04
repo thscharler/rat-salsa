@@ -9,7 +9,7 @@ use anyhow::Error;
 use log::debug;
 use pulldown_cmark::{Event, Options, Parser, Tag};
 use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
+use rat_salsa::{run_tui, AppState, AppWidget, Control, RenderContext, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_theme::{dark_themes, Scheme};
@@ -25,7 +25,7 @@ use rat_widget::text::textarea_core::TextRange;
 use rat_widget::textarea::TextAreaState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::prelude::Line;
+use ratatui::prelude::{Line, Modifier, Stylize};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, Padding, StatefulWidget};
 use std::fs;
@@ -34,12 +34,18 @@ use std::path::PathBuf;
 use std::time::{Duration, SystemTime};
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MDAction, Error>;
-type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
 
-    let config = MDConfig::default();
+    let config = MDConfig {
+        show_ctrl: false,
+        new_line: if cfg!(windows) {
+            "\r\n".to_string()
+        } else {
+            "\n".to_string()
+        },
+    };
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
@@ -63,6 +69,7 @@ pub struct GlobalState {
     pub cfg: MDConfig,
     pub theme: DarkTheme,
 
+    // pub mdfocus: Option<MDFocus>,
     pub status: StatusLineState,
     pub error_dlg: MsgDialogState,
     pub file_dlg: MDFileDialogState,
@@ -90,9 +97,10 @@ impl GlobalState {
 
 // -----------------------------------------------------------------------
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct MDConfig {
-    // ...
+    pub show_ctrl: bool,
+    pub new_line: String,
 }
 
 #[derive(Debug)]
@@ -125,7 +133,7 @@ impl Default for MDAppState {
         };
         s.menu.focus().set_name("menu");
         s.menu.bar.focus().set_name("menu_bar");
-        s.editor.edit.focus.set_name("edit");
+        // s.editor.edit.focus.set_name("edit");
         s
     }
 }
@@ -280,7 +288,7 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
         area: Rect,
         buf: &mut Buffer,
         state: &mut Self::State,
-        ctx: &mut RenderContext<'_>,
+        ctx: &mut RenderContext<'_, GlobalState>,
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
 
@@ -291,8 +299,8 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
         MDEdit.render(r[0], buf, &mut state.editor, ctx)?;
 
         let menu_struct = Menu {
-            show_ctrl: state.editor.show_ctrl,
-            use_crlf: state.editor.edit.newline() == "\r\n",
+            show_ctrl: ctx.g.cfg.show_ctrl,
+            use_crlf: ctx.g.cfg.new_line == "\r\n",
         };
         let (menu, menu_popup) = Menubar::new(&menu_struct)
             .title("^^°n°^^")
@@ -338,7 +346,6 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        // debug!("render {:?} {:?}", (), el);
         ctx.g.status.status(2, format!("R {:.3?}", el).to_string());
 
         let status = StatusLine::new()
@@ -380,7 +387,6 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
         let r = self.editor.timer(event, ctx)?;
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        // debug!("timer {:?} {:?}", r, el);
         ctx.g.status.status(3, format!("T {:.3?}", el).to_string());
 
         Ok(r)
@@ -414,14 +420,14 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                 MenuOutcome::MenuActivated(0, 0) => Control::Message(MDAction::MenuOpen),
                 MenuOutcome::MenuActivated(0, 1) => Control::Message(MDAction::MenuSave),
                 MenuOutcome::MenuActivated(1, 0) => {
-                    self.editor.show_ctrl = !self.editor.show_ctrl;
+                    ctx.g.cfg.show_ctrl = !ctx.g.cfg.show_ctrl;
                     Control::Changed
                 }
                 MenuOutcome::MenuActivated(1, 1) => {
-                    if self.editor.edit.newline() == "\r\n" {
-                        self.editor.edit.set_newline("\n");
+                    if ctx.g.cfg.new_line == "\r\n" {
+                        ctx.g.cfg.new_line = "\n".into();
                     } else {
-                        self.editor.edit.set_newline("\r\n");
+                        ctx.g.cfg.new_line = "\r\n".into();
                     }
                     Control::Changed
                 }
@@ -444,7 +450,6 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
         );
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        // debug!("crossterm {:?} {:?}", r, el);
         ctx.g.status.status(3, format!("H {:.3?}", el).to_string());
 
         Ok(r)
@@ -472,7 +477,6 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
         or_else!(r, self.editor.message(event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        // debug!("action {:?} {:?}", r, el);
         ctx.g.status.status(3, format!("A {:.3?}", el).to_string());
 
         Ok(r)
@@ -485,84 +489,467 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
     }
 }
 
-pub mod mdedit {
-    use crate::facilities::Facility;
-    use crate::{collect_ast, AppContext, GlobalState, MDAction, RenderContext};
+pub mod mdsingle {
+    use crate::{collect_ast, text_style, AppContext, GlobalState, MDAction};
     use anyhow::{anyhow, Error};
     use crossterm::event::Event;
-    #[allow(unused_imports)]
     use log::debug;
-    use rat_salsa::event::{ct_event, flow_ok};
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
-    use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{HandleEvent, Regular, TextOutcome};
-    use rat_widget::focus::{Focus, HasFocus};
+    use rat_salsa::{AppState, AppWidget, Control, RenderContext};
+    use rat_widget::event::{ct_event, flow_ok, HandleEvent, Outcome, Regular, TextOutcome};
+    use rat_widget::focus::{FocusFlag, HasFocusFlag};
     use rat_widget::scrolled::Scroll;
+    use rat_widget::text::undo::UndoVec;
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
-    use ratatui::style::{Modifier, Style, Stylize};
-    use ratatui::widgets::StatefulWidget;
+    use ratatui::prelude::StatefulWidget;
     use std::fs;
     use std::fs::File;
     use std::io::{BufWriter, Write};
-    use std::path::PathBuf;
+    use std::path::{Path, PathBuf};
     use std::time::{Duration, Instant};
 
-    #[derive(Debug)]
-    pub struct MDEdit;
+    #[derive(Debug, Default, Clone)]
+    pub struct MDSingle;
 
     #[derive(Debug)]
-    pub struct MDEditState {
-        pub show_ctrl: bool,
+    pub struct MDSingleState {
         pub path: Option<PathBuf>,
+        pub changed: bool,
         pub edit: TextAreaState,
         pub parse_timer: Option<TimerHandle>,
     }
 
-    impl Default for MDEditState {
+    impl Default for MDSingleState {
         fn default() -> Self {
-            let s = Self {
-                show_ctrl: false,
+            Self {
                 path: None,
-                edit: Default::default(),
+                changed: false,
+                edit: TextAreaState::default(),
                 parse_timer: None,
-            };
-            // s.edit.set_expand_tabs(false);
-            s
+            }
         }
     }
 
-    impl HasFocus for MDEditState {
+    impl Clone for MDSingleState {
+        fn clone(&self) -> Self {
+            Self {
+                path: self.path.clone(),
+                changed: self.changed,
+                edit: self.edit.clone(),
+                parse_timer: None,
+            }
+        }
+    }
+
+    impl AppWidget<GlobalState, MDAction, Error> for MDSingle {
+        type State = MDSingleState;
+
+        fn render(
+            &self,
+            area: Rect,
+            buf: &mut Buffer,
+            state: &mut Self::State,
+            ctx: &mut RenderContext<'_, GlobalState>,
+        ) -> Result<(), Error> {
+            TextArea::new()
+                .styles(ctx.g.theme.textarea_style())
+                .vscroll(
+                    Scroll::new()
+                        .split_mark_offset(1)
+                        .scroll_by(1)
+                        .styles(ctx.g.theme.scroll_style()),
+                )
+                .show_ctrl(ctx.g.cfg.show_ctrl)
+                .text_style(text_style(ctx))
+                .render(area, buf, &mut state.edit);
+            ctx.set_screen_cursor(state.edit.screen_cursor());
+
+            if state.is_focused() {
+                let cursor = state.edit.cursor();
+
+                let sel = state.edit.selection();
+                let sel_len = if sel.start.y == sel.end.y {
+                    sel.end.x.saturating_sub(sel.start.x)
+                } else {
+                    sel.end.y.saturating_sub(sel.start.y) + 1
+                };
+
+                ctx.g
+                    .status
+                    .status(1, format!("{}:{}|{}", cursor.x, cursor.y, sel_len));
+            }
+
+            Ok(())
+        }
+    }
+
+    impl HasFocusFlag for MDSingleState {
+        fn focus(&self) -> &FocusFlag {
+            self.edit.focus()
+        }
+
+        fn area(&self) -> Rect {
+            self.edit.area()
+        }
+
+        fn navigable(&self) -> bool {
+            self.edit.navigable()
+        }
+
+        fn primary_keys(&self) -> bool {
+            self.edit.primary_keys()
+        }
+    }
+
+    impl MDSingleState {
+        pub fn parse_markdown(&mut self) {
+            let styles = collect_ast(&self.edit);
+            self.edit.set_styles(styles);
+        }
+
+        pub fn open(&mut self, path: &Path, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+            self.path = Some(path.into());
+            let t = fs::read_to_string(path)?;
+            self.edit.set_value(t.as_str());
+            self.parse_timer = Some(
+                ctx.add_timer(TimerDef::new().next(Instant::now() + Duration::from_millis(0))),
+            );
+            Ok(())
+        }
+
+        pub fn save_as(&mut self, path: &Path) -> Result<(), Error> {
+            self.path = Some(path.into());
+            self.save()
+        }
+
+        pub fn save(&mut self) -> Result<(), Error> {
+            if self.changed {
+                let Some(path) = &self.path else {
+                    return Err(anyhow!("No file."));
+                };
+
+                let mut f = BufWriter::new(File::create(path)?);
+                let mut buf = Vec::new();
+                for line in self.edit.lines_at(0) {
+                    buf.clear();
+                    buf.extend(line.bytes().filter(|v| *v != b'\n' && *v != b'\r'));
+                    buf.extend_from_slice(self.edit.newline().as_bytes());
+                    f.write_all(&buf)?;
+                }
+
+                self.changed = false;
+            }
+            Ok(())
+        }
+    }
+
+    impl AppState<GlobalState, MDAction, Error> for MDSingleState {
+        fn timer(
+            &mut self,
+            event: &TimeOut,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MDAction>, Error> {
+            debug!(
+                "test_parse_timer {:?} <> {:?} => {}",
+                self.parse_timer,
+                event.handle,
+                self.parse_timer == Some(event.handle)
+            );
+            if self.parse_timer == Some(event.handle) {
+                self.parse_markdown();
+                return Ok(Control::Changed);
+            }
+            Ok(Control::Continue)
+        }
+
+        fn crossterm(
+            &mut self,
+            event: &Event,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MDAction>, Error> {
+            flow_ok!(match event {
+                ct_event!(key press CONTROL-'c') => {
+                    use cli_clipboard;
+                    if let Some(v) = self.edit.selected_value() {
+                        let r = cli_clipboard::set_contents(v.to_string());
+                    }
+                    Outcome::Changed
+                }
+                ct_event!(key press CONTROL-'x') => {
+                    use cli_clipboard;
+                    if let Some(v) = self.edit.selected_value() {
+                        _ = cli_clipboard::set_contents(v.to_string());
+                    }
+                    self.edit.delete_range(self.edit.selection());
+                    Outcome::Changed
+                }
+                ct_event!(key press CONTROL-'v') => {
+                    // todo: might do the insert two times depending on the terminal.
+                    use cli_clipboard;
+                    if let Ok(v) = cli_clipboard::get_contents() {
+                        self.edit.insert_str(&v);
+                    }
+                    Outcome::Changed
+                }
+                _ => Outcome::Continue,
+            });
+
+            flow_ok!(match self.edit.handle(event, Regular) {
+                TextOutcome::TextChanged => {
+                    // restart timer
+                    debug!("old timer {:?}", self.parse_timer);
+                    self.parse_timer = Some(ctx.replace_timer(
+                        self.parse_timer,
+                        TimerDef::new().next(Instant::now() + Duration::from_millis(200)),
+                    ));
+                    debug!("timer {:?}", self.parse_timer);
+                    Control::Changed
+                }
+                r => r.into(),
+            });
+
+            Ok(Control::Continue)
+        }
+    }
+}
+
+pub mod mdtabbed {
+    use crate::mdsingle::{MDSingle, MDSingleState};
+    use crate::{AppContext, GlobalState, MDAction};
+    use anyhow::Error;
+    use crossterm::event::Event;
+    use log::debug;
+    use rat_salsa::event::flow_ok;
+    use rat_salsa::timer::TimeOut;
+    use rat_salsa::{AppState, AppWidget, Control, RenderContext};
+    use rat_widget::event::{HandleEvent, Regular};
+    use rat_widget::focus::HasFocusFlag;
+    use rat_widget::tabbed::attached::AttachedTabs;
+    use rat_widget::tabbed::{Tabbed, TabbedState};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::prelude::{Line, StatefulWidget};
+    use std::borrow::Cow;
+
+    #[derive(Debug, Default)]
+    pub struct MDTabbed;
+
+    #[derive(Debug, Default)]
+    pub struct MDTabbedState {
+        pub tabbed: TabbedState,
+        pub tabs: Vec<MDSingleState>,
+    }
+
+    impl AppWidget<GlobalState, MDAction, Error> for MDTabbed {
+        type State = MDTabbedState;
+
+        fn render(
+            &self,
+            area: Rect,
+            buf: &mut Buffer,
+            state: &mut Self::State,
+            ctx: &mut RenderContext<'_, GlobalState>,
+        ) -> Result<(), Error> {
+            Tabbed::new()
+                .tab_type(AttachedTabs::new())
+                .styles(ctx.g.theme.tabbed_style())
+                .as_if_focused(state.is_focused())
+                .tabs(state.tabs.iter().map(|v| {
+                    let title = if let Some(path) = v.path.as_ref() {
+                        path.file_name().unwrap_or_default().to_string_lossy()
+                    } else {
+                        Cow::Borrowed("**New**")
+                    };
+                    Line::from(title.to_string())
+                }))
+                .render(area, buf, &mut state.tabbed);
+
+            if let Some(tab) = state.tabbed.selected() {
+                MDSingle.render(state.tabbed.widget_area, buf, &mut state.tabs[tab], ctx)?;
+            }
+
+            Ok(())
+        }
+    }
+
+    impl AppState<GlobalState, MDAction, Error> for MDTabbedState {
+        fn timer(
+            &mut self,
+            event: &TimeOut,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
+        ) -> Result<Control<MDAction>, Error> {
+            for v in &mut self.tabs {
+                debug!("timer tabs");
+                flow_ok!(v.timer(event, ctx)?);
+            }
+            debug!("no timer tabs");
+            Ok(Control::Continue)
+        }
+
+        fn crossterm(
+            &mut self,
+            event: &Event,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MDAction>, Error> {
+            flow_ok!(self.tabbed.handle(event, Regular));
+            if let Some(selected) = self.tabbed.selected() {
+                flow_ok!(self.tabs[selected].crossterm(event, ctx)?);
+            }
+            Ok(Control::Continue)
+        }
+    }
+
+    impl MDTabbedState {
+        pub fn gained_focus(&self) -> bool {
+            if let Some(selected) = self.tabbed.selected() {
+                self.tabs[selected].gained_focus()
+            } else {
+                false
+            }
+        }
+
+        pub fn is_focused(&self) -> bool {
+            if let Some(selected) = self.tabbed.selected() {
+                self.tabs[selected].is_focused()
+            } else {
+                false
+            }
+        }
+    }
+}
+
+pub mod mdsplit {
+    use crate::mdtabbed::{MDTabbed, MDTabbedState};
+    use crate::{AppContext, GlobalState, MDAction};
+    use anyhow::Error;
+    use crossterm::event::Event;
+    use log::debug;
+    use rat_salsa::timer::TimeOut;
+    use rat_salsa::{AppState, AppWidget, Control, RenderContext};
+    use rat_widget::event::{flow_ok, HandleEvent, Regular};
+    use rat_widget::focus::{Focus, FocusFlag, HasFocus, HasFocusFlag};
+    use rat_widget::splitter::{Split, SplitState, SplitType};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Direction, Rect};
+    use ratatui::prelude::StatefulWidget;
+
+    #[derive(Debug, Default)]
+    pub struct MDSplit;
+
+    #[derive(Debug, Default)]
+    pub struct MDSplitState {
+        pub focus: FocusFlag,
+        pub splitter: SplitState,
+        pub selected_split: Option<usize>,
+        pub split: Vec<MDTabbedState>,
+    }
+
+    impl AppWidget<GlobalState, MDAction, Error> for MDSplit {
+        type State = MDSplitState;
+
+        fn render(
+            &self,
+            area: Rect,
+            buf: &mut Buffer,
+            state: &mut Self::State,
+            ctx: &mut RenderContext<'_, GlobalState>,
+        ) -> Result<(), Error> {
+            let (s0, s1) = Split::new()
+                .constraints(vec![Constraint::Fill(1); state.split.len()])
+                .mark_offset(1)
+                .split_type(SplitType::FullPlain)
+                .styles(ctx.g.theme.split_style())
+                .direction(Direction::Horizontal)
+                .into_widgets();
+
+            s0.render(area, buf, &mut state.splitter);
+
+            for (i, edit_area) in state.splitter.widget_areas.iter().enumerate() {
+                MDTabbed.render(*edit_area, buf, &mut state.split[i], ctx)?;
+            }
+            s1.render(area, buf, &mut state.splitter);
+
+            Ok(())
+        }
+    }
+
+    impl HasFocus for MDSplitState {
         fn focus(&self) -> Focus {
-            Focus::new(&[&self.edit])
+            let mut f = Focus::new_grp(&self.focus, &[]);
+            for v in self.split.iter() {
+                if let Some(tab) = v.tabbed.selected() {
+                    f.add(&v.tabs[tab]);
+                }
+            }
+            f
         }
     }
 
-    impl MDEdit {
-        fn text_style(&self, ctx: &mut RenderContext<'_>) -> [Style; 17] {
-            [
-                Style::default().fg(ctx.g.scheme().yellow[2]).underlined(), // Heading,
-                Style::default().fg(ctx.g.scheme().yellow[1]),              // BlockQuote,
-                Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeBlock,
-                Style::default().fg(ctx.g.scheme().bluegreen[3]),           // FootnodeDefinition
-                Style::default().fg(ctx.g.scheme().bluegreen[2]),           // FootnodeReference
-                Style::default().fg(ctx.g.scheme().orange[2]),              // Item
-                Style::default()
-                    .fg(ctx.g.scheme().white[3])
-                    .add_modifier(Modifier::ITALIC), // Emphasis
-                Style::default().fg(ctx.g.scheme().white[3]),               // Strong
-                Style::default().fg(ctx.g.scheme().gray[2]),                // Strikethrough
-                Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Link
-                Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Image
-                Style::default().fg(ctx.g.scheme().orange[1]),              // MetadataBlock
-                Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeInline
-                Style::default().fg(ctx.g.scheme().redpink[2]),             // MathInline
-                Style::default().fg(ctx.g.scheme().redpink[2]),             // MathDisplay
-                Style::default().fg(ctx.g.scheme().white[3]),               // Rule
-                Style::default().fg(ctx.g.scheme().orange[2]),              // TaskListMarker
-            ]
+    impl MDSplitState {}
+
+    impl AppState<GlobalState, MDAction, Error> for MDSplitState {
+        fn timer(
+            &mut self,
+            event: &TimeOut,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MDAction>, Error> {
+            for v in &mut self.split {
+                debug!("timer split");
+                flow_ok!(v.timer(event, ctx)?);
+            }
+            debug!("no timer split");
+            Ok(Control::Continue)
         }
+
+        fn crossterm(
+            &mut self,
+            event: &Event,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MDAction>, Error> {
+            for (idx, v) in self.split.iter().enumerate() {
+                if v.gained_focus() {
+                    self.selected_split = Some(idx);
+                }
+            }
+
+            flow_ok!(self.splitter.handle(event, Regular));
+            for w in &mut self.split {
+                flow_ok!(w.crossterm(event, ctx)?);
+            }
+
+            Ok(Control::Continue)
+        }
+    }
+}
+
+pub mod mdedit {
+    use crate::facilities::Facility;
+    use crate::mdsingle::MDSingleState;
+    use crate::mdsplit::{MDSplit, MDSplitState};
+    use crate::mdtabbed::MDTabbedState;
+    use crate::{AppContext, GlobalState, MDAction, RenderContext};
+    use anyhow::Error;
+    use crossterm::event::Event;
+    #[allow(unused_imports)]
+    use log::debug;
+    use rat_salsa::event::{ct_event, flow_ok};
+    use rat_salsa::timer::TimeOut;
+    use rat_salsa::{AppState, AppWidget, Control};
+    use rat_widget::event::ConsumedEvent;
+    use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::Rect;
+    use ratatui::widgets::StatefulWidget;
+    use std::path::Path;
+
+    #[derive(Debug, Default)]
+    pub struct MDEdit;
+
+    #[derive(Debug, Default)]
+    pub struct MDEditState {
+        pub edit: MDSplitState,
     }
 
     impl AppWidget<GlobalState, MDAction, Error> for MDEdit {
@@ -573,66 +960,16 @@ pub mod mdedit {
             area: Rect,
             buf: &mut Buffer,
             state: &mut Self::State,
-            ctx: &mut RenderContext<'_>,
+            ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
-            TextArea::new()
-                .styles(ctx.g.theme.textarea_style())
-                // .set_horizontal_max_offset(255)
-                // .set_horizontal_overscroll(16384)
-                .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
-                .show_ctrl(state.show_ctrl)
-                .text_style(self.text_style(ctx))
-                .render(area, buf, &mut state.edit);
-            ctx.set_screen_cursor(state.edit.screen_cursor());
-
-            let cursor = state.edit.cursor();
-            ctx.g.status.status(
-                1,
-                format!(
-                    "{:?}+{}",
-                    cursor,
-                    state.edit.line_width(cursor.y).unwrap_or_default()
-                ),
-            );
-
+            MDSplit.render(area, buf, &mut state.edit, ctx)?;
             Ok(())
         }
     }
 
-    impl MDEditState {
-        pub fn parse_markdown(&mut self) {
-            let styles = collect_ast(&self.edit);
-            self.edit.clear_styles();
-            for (r, s) in styles {
-                self.edit.add_style(r, s);
-            }
-        }
-
-        pub fn load(&mut self) -> Result<(), Error> {
-            let Some(path) = &self.path else {
-                return Err(anyhow!("No file."));
-            };
-
-            let t = fs::read_to_string(path)?;
-            self.edit.set_value(t.as_str());
-
-            Ok(())
-        }
-
-        pub fn save(&mut self) -> Result<(), Error> {
-            let Some(path) = &self.path else {
-                return Err(anyhow!("No file."));
-            };
-
-            let mut f = BufWriter::new(File::create(path)?);
-            let mut buf = Vec::new();
-            for line in self.edit.lines_at(0) {
-                buf.clear();
-                buf.extend(line.bytes().filter(|v| *v != b'\n' && *v != b'\r'));
-                buf.extend_from_slice(self.edit.newline().as_bytes());
-                f.write_all(&buf)?;
-            }
-            Ok(())
+    impl HasFocus for MDEditState {
+        fn focus(&self) -> Focus {
+            self.edit.focus()
         }
     }
 
@@ -640,18 +977,10 @@ pub mod mdedit {
         fn timer(
             &mut self,
             event: &TimeOut,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
+            ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDAction>, Error> {
-            if let Some(parse_timer) = &self.parse_timer {
-                if event.tag == *parse_timer {
-                    self.parse_markdown();
-                    Ok(Control::Changed)
-                } else {
-                    Ok(Control::Continue)
-                }
-            } else {
-                Ok(Control::Continue)
-            }
+            flow_ok!(self.edit.timer(event, ctx)?);
+            Ok(Control::Changed)
         }
 
         fn crossterm(
@@ -664,45 +993,37 @@ pub mod mdedit {
                     self.save()?;
                     Control::Changed
                 }
-                ct_event!(key press CONTROL-'c') => {
-                    use cli_clipboard;
-                    if let Some(v) = self.edit.selected_value() {
-                        let r = cli_clipboard::set_contents(v.to_string());
-                        debug!("{:?}", r);
-                    }
-                    Control::Changed
-                }
-                ct_event!(key press CONTROL-'x') => {
-                    use cli_clipboard;
-                    if let Some(v) = self.edit.selected_value() {
-                        _ = cli_clipboard::set_contents(v.to_string());
-                    }
-                    self.edit.delete_range(self.edit.selection());
-                    Control::Changed
-                }
-                ct_event!(key press CONTROL-'v') => {
-                    // todo: might do the insert two times depending on the terminal.
-                    use cli_clipboard;
-                    if let Ok(v) = cli_clipboard::get_contents() {
-                        self.edit.insert_str(&v);
-                    }
+                ct_event!(key press CONTROL-'h') => {
+                    self.split(ctx)?;
                     Control::Changed
                 }
                 _ => Control::Continue,
             });
 
-            flow_ok!(match self.edit.handle(event, Regular) {
-                TextOutcome::TextChanged => {
-                    // restart timer
-                    self.parse_timer = Some(ctx.replace_timer(
-                        self.parse_timer,
-                        TimerDef::new().next(Instant::now() + Duration::from_millis(500)),
-                    ));
-                    Control::Changed
+            // todo: ctrl+w for window nav
+            // todo: ctrl+t for tab nav
+
+            let r = self.edit.crossterm(event, ctx)?;
+
+            // synchronize instances
+            if r.is_consumed() {
+                let (replay_path, replay) = if let Some(sel_edit) = self.selected_mut() {
+                    (sel_edit.path.clone(), sel_edit.edit.recent_replay())
+                } else {
+                    (None, Vec::default())
+                };
+                if !replay.is_empty() {
+                    for v in &mut self.edit.split {
+                        for t in &mut v.tabs {
+                            if t.path == replay_path && !t.is_focused() {
+                                t.edit.replay(&replay);
+                            }
+                        }
+                    }
                 }
-                r => r.into(),
-            });
-            Ok(Control::Continue)
+            }
+
+            Ok(r)
         }
 
         fn message(
@@ -727,29 +1048,115 @@ pub mod mdedit {
                 )?,
 
                 MDAction::Open(p) => {
-                    self.path = Some(p.clone());
-                    self.load()?;
-                    self.parse_timer = Some(ctx.add_timer(
-                        TimerDef::new().next(Instant::now() + Duration::from_millis(0)),
-                    ));
-                    ctx.focus.as_ref().expect("focus").focus(&self.edit);
+                    self.open(p, ctx)?;
                     Control::Changed
                 }
-
                 MDAction::Save() => {
                     self.save()?;
                     Control::Changed
                 }
-
                 MDAction::SaveAs(p) => {
-                    self.path = Some(p.clone());
-                    self.save()?;
+                    self.save_as(p)?;
                     Control::Changed
                 }
-
                 _ => Control::Continue,
             });
             Ok(Control::Continue)
+        }
+    }
+
+    impl MDEditState {
+        pub fn selected(&self) -> Option<&MDSingleState> {
+            for v in &self.edit.split {
+                if let Some(tab) = v.tabbed.selected() {
+                    if v.tabs[tab].is_focused() {
+                        return Some(&v.tabs[tab]);
+                    }
+                }
+            }
+            None
+        }
+
+        pub fn selected_mut(&mut self) -> Option<&mut MDSingleState> {
+            for v in &mut self.edit.split {
+                if let Some(tab) = v.tabbed.selected() {
+                    if v.tabs[tab].is_focused() {
+                        return Some(&mut v.tabs[tab]);
+                    }
+                }
+            }
+            None
+        }
+
+        pub fn open(&mut self, path: &Path, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+            let mut new = MDSingleState::default();
+            let new_focus = new.focus().clone();
+
+            new.open(path, ctx)?;
+
+            if self.edit.selected_split.is_none() {
+                self.edit.split.push(MDTabbedState::default());
+                self.edit.selected_split = Some(0);
+            }
+            if let Some(selected_split) = self.edit.selected_split {
+                let tab = &mut self.edit.split[selected_split];
+                tab.tabs.push(new);
+                tab.tabbed.set_selected(tab.tabs.len() - 1);
+            }
+
+            if let Some(focus) = &mut ctx.focus {
+                // just add at end, the exact order is not important here.
+                focus.add_flag(&new_focus, Rect::default());
+                focus.focus_flag(&new_focus);
+            }
+
+            Ok(())
+        }
+
+        pub fn split(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+            let Some(sel_single) = self.selected_mut() else {
+                return Ok(());
+            };
+
+            sel_single
+                .edit
+                .undo_buffer_mut()
+                .expect("undo")
+                .set_replay(true);
+
+            let mut new = sel_single.clone();
+            let new_focus = new.focus().clone();
+
+            if let Some(selected_split) = self.edit.selected_split {
+                self.edit
+                    .split
+                    .insert(selected_split + 1, MDTabbedState::default());
+                self.edit.selected_split = Some(selected_split + 1);
+            } else {
+                self.edit.split.push(MDTabbedState::default());
+                self.edit.selected_split = Some(0);
+            }
+
+            if let Some(selected_split) = self.edit.selected_split {
+                let tab = &mut self.edit.split[selected_split];
+                tab.tabs.push(new);
+            }
+
+            if let Some(focus) = &mut ctx.focus {
+                // just add at end, the exact order is not important here.
+                focus.add_flag(&new_focus, Rect::default());
+                focus.focus_flag(&new_focus);
+            }
+
+            Ok(())
+        }
+
+        pub fn save(&mut self) -> Result<(), Error> {
+            Ok(())
+        }
+
+        pub fn save_as(&mut self, path: &Path) -> Result<(), Error> {
+            Ok(())
         }
     }
 }
@@ -871,6 +1278,30 @@ fn collect_ast(state: &TextAreaState) -> Vec<(TextRange, usize)> {
     }
 
     styles
+}
+
+fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 17] {
+    [
+        Style::default().fg(ctx.g.scheme().yellow[2]).underlined(), // Heading,
+        Style::default().fg(ctx.g.scheme().yellow[1]),              // BlockQuote,
+        Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeBlock,
+        Style::default().fg(ctx.g.scheme().bluegreen[3]),           // FootnodeDefinition
+        Style::default().fg(ctx.g.scheme().bluegreen[2]),           // FootnodeReference
+        Style::default().fg(ctx.g.scheme().orange[2]),              // Item
+        Style::default()
+            .fg(ctx.g.scheme().white[3])
+            .add_modifier(Modifier::ITALIC), // Emphasis
+        Style::default().fg(ctx.g.scheme().white[3]),               // Strong
+        Style::default().fg(ctx.g.scheme().gray[2]),                // Strikethrough
+        Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Link
+        Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Image
+        Style::default().fg(ctx.g.scheme().orange[1]),              // MetadataBlock
+        Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeInline
+        Style::default().fg(ctx.g.scheme().redpink[2]),             // MathInline
+        Style::default().fg(ctx.g.scheme().redpink[2]),             // MathDisplay
+        Style::default().fg(ctx.g.scheme().white[3]),               // Rule
+        Style::default().fg(ctx.g.scheme().orange[2]),              // TaskListMarker
+    ]
 }
 
 fn setup_logging() -> Result<(), Error> {
