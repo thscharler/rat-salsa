@@ -6,6 +6,7 @@ use crate::event::{ReadOnly, TextOutcome};
 use crate::fill::Fill;
 use crate::text::graphemes::RopeGlyphIter;
 use crate::text::textarea_core::{TextAreaCore, TextPosition, TextRange};
+use crate::text::undo::UndoBuffer;
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
@@ -525,6 +526,17 @@ impl TextAreaState {
         self.value.expand_tabs()
     }
 
+    /// Set undo buffer.
+    pub fn set_undo_buffer(&mut self, undo: impl UndoBuffer + 'static) {
+        self.value.set_undo_buffer(Box::new(undo));
+    }
+
+    /// Undo
+    #[inline]
+    pub fn undo_buffer(&self) -> Option<&dyn UndoBuffer> {
+        self.value.undo_buffer()
+    }
+
     /// Empty.
     #[inline]
     pub fn is_empty(&self) -> bool {
@@ -614,10 +626,10 @@ impl TextAreaState {
         self.value.text_slice(self.value.selection())
     }
 
-    /// Clear all set styles.
+    /// Set and replace all styles.
     #[inline]
-    pub fn clear_styles(&mut self) {
-        self.value.clear_styles();
+    pub fn set_styles(&mut self, styles: Vec<(TextRange, usize)>) {
+        self.value.set_styles(styles);
     }
 
     /// Add a style for a [TextRange]. The style-nr refers to one
@@ -670,7 +682,7 @@ impl TextAreaState {
 
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
-    pub fn insert_char(&mut self, c: char) -> bool {
+    pub fn insert_char(&mut self, c: char) -> TextOutcome {
         if self.value.has_selection() {
             self.value.remove_range(self.value.selection());
         }
@@ -682,75 +694,89 @@ impl TextAreaState {
             self.value.insert_char(self.value.cursor(), c);
         }
         self.scroll_cursor_to_visible();
-        true
+        TextOutcome::TextChanged
     }
 
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
-    pub fn insert_tab(&mut self) -> bool {
+    pub fn insert_tab(&mut self) -> TextOutcome {
         if self.value.has_selection() {
             self.value.remove_range(self.value.selection());
         }
         self.value.insert_tab(self.value.cursor());
         self.scroll_cursor_to_visible();
-        true
+        TextOutcome::TextChanged
     }
 
     /// Insert text at the cursor position.
     /// Removes the selection and inserts the text.
-    pub fn insert_str(&mut self, t: impl AsRef<str>) -> bool {
+    pub fn insert_str(&mut self, t: impl AsRef<str>) -> TextOutcome {
         let t = t.as_ref();
         if self.value.has_selection() {
             self.value.remove_range(self.value.selection());
         }
         self.value.insert_str(self.value.cursor(), t);
         self.scroll_cursor_to_visible();
-        true
+        TextOutcome::TextChanged
     }
 
     /// Insert a line break at the cursor position.
-    pub fn insert_newline(&mut self) -> bool {
+    pub fn insert_newline(&mut self) -> TextOutcome {
         if self.value.has_selection() {
             self.value.remove_range(self.value.selection());
         }
         self.value.insert_newline(self.value.cursor());
         self.scroll_cursor_to_visible();
-        true
+        TextOutcome::TextChanged
     }
 
     /// Deletes the given range.
-    pub fn delete_range(&mut self, range: impl Into<TextRange>) -> bool {
+    pub fn delete_range(&mut self, range: impl Into<TextRange>) -> TextOutcome {
         let range = range.into();
         if !range.is_empty() {
             self.value.remove_range(range);
             self.scroll_cursor_to_visible();
-            true
+            TextOutcome::TextChanged
         } else {
-            false
+            TextOutcome::Unchanged
         }
     }
 
     /// Deletes the next char or the current selection.
     /// Returns true if there was any real change.
-    pub fn delete_next_char(&mut self) -> bool {
+    pub fn delete_next_char(&mut self) -> TextOutcome {
         if self.value.has_selection() {
             self.delete_range(self.selection())
         } else {
             let r = self.value.remove_next_char(self.value.cursor());
             let s = self.scroll_cursor_to_visible();
-            r || s
+
+            if r {
+                TextOutcome::TextChanged
+            } else if s {
+                TextOutcome::Changed
+            } else {
+                TextOutcome::Continue
+            }
         }
     }
 
     /// Deletes the previous char or the selection.
     /// Returns true if there was any real change.
-    pub fn delete_prev_char(&mut self) -> bool {
+    pub fn delete_prev_char(&mut self) -> TextOutcome {
         if self.value.has_selection() {
             self.delete_range(self.selection())
         } else {
             let r = self.value.remove_prev_char(self.value.cursor());
             let s = self.scroll_cursor_to_visible();
-            r || s
+
+            if r {
+                TextOutcome::TextChanged
+            } else if s {
+                TextOutcome::Changed
+            } else {
+                TextOutcome::Continue
+            }
         }
     }
 
@@ -910,7 +936,7 @@ impl TextAreaState {
 
     /// Delete the next word. This alternates deleting the whitespace between words and
     /// the words themselves.
-    pub fn delete_next_word(&mut self) -> bool {
+    pub fn delete_next_word(&mut self) -> TextOutcome {
         if self.value.has_selection() {
             self.delete_range(self.value.selection())
         } else {
@@ -930,7 +956,7 @@ impl TextAreaState {
 
     /// Deletes the previous word. This alternates deleting the whitespace between words and
     /// the words themselves.
-    pub fn delete_prev_word(&mut self) -> bool {
+    pub fn delete_prev_word(&mut self) -> TextOutcome {
         if self.value.has_selection() {
             self.delete_range(self.value.selection())
         } else {
@@ -1168,6 +1194,39 @@ impl TextAreaState {
         let c = self.value.set_cursor(word, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
+    }
+
+    /// Undo operation
+    pub fn undo(&mut self) -> TextOutcome {
+        self.value.undo()
+    }
+
+    /// Redo operation
+    pub fn redo(&mut self) -> TextOutcome {
+        self.value.redo()
+    }
+
+    /// Copy to internal buffer
+    pub fn copy_to_buffer(&mut self) -> TextOutcome {
+        self.clip = self
+            .selected_value()
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+        TextOutcome::Unchanged
+    }
+
+    /// Cut to internal buffer
+    pub fn cut_to_buffer(&mut self) -> TextOutcome {
+        self.clip = self
+            .selected_value()
+            .map(|v| v.to_string())
+            .unwrap_or_default();
+        self.delete_range(self.selection())
+    }
+
+    /// Paste from internal buffer.
+    pub fn paste_from_buffer(&mut self) -> TextOutcome {
+        self.insert_str(&self.clip.clone())
     }
 
     /// Converts from a widget relative screen coordinate to a line.
@@ -1462,32 +1521,25 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
             match event {
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => self.insert_char(*c).into(),
+                | ct_event!(key press CONTROL_ALT-c) => self.insert_char(*c),
                 ct_event!(keycode press Tab) => {
+                    // ignore tab from focus
                     if !self.focus.gained() {
-                        self.insert_tab().into()
+                        self.insert_tab()
                     } else {
                         TextOutcome::Unchanged
                     }
                 }
-                ct_event!(keycode press Enter) => self.insert_newline().into(),
-                ct_event!(keycode press Backspace) => self.delete_prev_char().into(),
-                ct_event!(keycode press Delete) => self.delete_next_char().into(),
-                ct_event!(keycode press CONTROL-Backspace) => self.delete_prev_word().into(),
-                ct_event!(keycode press CONTROL-Delete) => self.delete_next_word().into(),
-                ct_event!(key press CONTROL-'y') => {
-                    self.clip = self
-                        .selected_value()
-                        .map(|v| v.to_string())
-                        .unwrap_or_default();
-                    TextOutcome::Unchanged
-                }
-                ct_event!(key press CONTROL-'p') => {
-                    self.insert_str(&self.clip.clone());
-                    TextOutcome::Changed
-                }
-                ct_event!(key press CONTROL-'z') => self.value.undo().into(),
-                ct_event!(key press CONTROL_SHIFT-'Z') => self.value.redo().into(),
+                ct_event!(keycode press Enter) => self.insert_newline(),
+                ct_event!(keycode press Backspace) => self.delete_prev_char(),
+                ct_event!(keycode press Delete) => self.delete_next_char(),
+                ct_event!(keycode press CONTROL-Backspace) => self.delete_prev_word(),
+                ct_event!(keycode press CONTROL-Delete) => self.delete_next_word(),
+                ct_event!(key press CONTROL-'c') => self.copy_to_buffer(),
+                ct_event!(key press CONTROL-'x') => self.cut_to_buffer(),
+                ct_event!(key press CONTROL-'v') => self.paste_from_buffer(),
+                ct_event!(key press CONTROL-'z') => self.value.undo(),
+                ct_event!(key press CONTROL_SHIFT-'Z') => self.value.redo(),
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
@@ -1498,18 +1550,16 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 | ct_event!(keycode release Delete)
                 | ct_event!(keycode release CONTROL-Backspace)
                 | ct_event!(keycode release CONTROL-Delete)
-                | ct_event!(key release  CONTROL-'y')
-                | ct_event!(key release  CONTROL-'p') => TextOutcome::Unchanged,
+                | ct_event!(key release CONTROL-'c')
+                | ct_event!(key release CONTROL-'x')
+                | ct_event!(key release CONTROL-'v')
+                | ct_event!(key release CONTROL-'z')
+                | ct_event!(key release CONTROL_SHIFT-'Z') => TextOutcome::Unchanged,
                 _ => TextOutcome::Continue,
             }
         } else {
             TextOutcome::Continue
         };
-        // remap to TextChanged
-        if r == TextOutcome::Changed {
-            r = TextOutcome::TextChanged;
-        }
-
         if r == TextOutcome::Continue {
             r = self.handle(event, ReadOnly);
         }
