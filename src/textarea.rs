@@ -761,6 +761,28 @@ impl TextAreaState {
             self.value.remove_range(self.value.selection());
         }
         self.value.insert_newline(self.value.cursor());
+
+        // insert leading spaces
+        let pos = self.value.cursor();
+        if pos.y > 0 {
+            let blanks = if let Some(chars) = self.value.line_chars(pos.y - 1) {
+                let mut blanks = String::new();
+                for c in chars {
+                    if c == ' ' || c == '\t' {
+                        blanks.push(c);
+                    } else {
+                        break;
+                    }
+                }
+                Some(blanks)
+            } else {
+                None
+            };
+            if let Some(blanks) = blanks {
+                self.value.insert_str(pos, &blanks);
+            }
+        }
+
         self.scroll_cursor_to_visible();
         TextOutcome::TextChanged
     }
@@ -996,13 +1018,30 @@ impl TextAreaState {
             self.delete_range(self.value.selection())
         } else {
             let cursor = self.value.cursor();
-            let end = self.prev_word_end(cursor).expect("valid_cursor");
 
-            let range = if cursor == end {
-                let start = self.prev_word_start(cursor).expect("valid_cursor");
-                TextRange::new(start, cursor)
+            // delete to beginning of line
+            let line_start = if cursor.x != 0 {
+                if let Some(line_start) =
+                    self.value.text_slice(TextRange::new((0, cursor.y), cursor))
+                {
+                    line_start.chars().find(|v| !v.is_whitespace()).is_none()
+                } else {
+                    false
+                }
             } else {
-                TextRange::new(end, cursor)
+                false
+            };
+
+            let range = if line_start {
+                TextRange::new((0, cursor.y), cursor)
+            } else {
+                let end = self.prev_word_end(cursor).expect("valid_cursor");
+                if cursor == end {
+                    let start = self.prev_word_start(cursor).expect("valid_cursor");
+                    TextRange::new(start, cursor)
+                } else {
+                    TextRange::new(end, cursor)
+                }
             };
 
             self.delete_range(range)
