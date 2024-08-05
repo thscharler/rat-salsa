@@ -9,10 +9,8 @@ use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
-use std::cell::Cell;
 use std::cmp::min;
 use std::fmt::Debug;
-use std::rc::Rc;
 
 /// The design space for tabs is too big to capture with a handful of parameters.
 ///
@@ -226,7 +224,7 @@ pub struct TabbedState {
 
     /// Selected Tab, only ever is None if there are no tabs.
     /// Otherwise, set to 0 on render.
-    pub selected: Rc<Cell<Option<usize>>>,
+    pub selected: Option<usize>,
 
     /// Focus
     pub focus: FocusFlag,
@@ -250,10 +248,10 @@ impl<'a> StatefulWidgetRef for Tabbed<'a> {
 
 fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut TabbedState) {
     if tabbed.tabs.is_empty() {
-        state.selected.set(None)
+        state.selected = None;
     } else {
-        if state.selected.get().is_none() {
-            state.selected.set(Some(0));
+        if state.selected.is_none() {
+            state.selected = Some(0);
         }
     }
 
@@ -281,38 +279,38 @@ impl TabbedState {
     }
 
     pub fn selected(&self) -> Option<usize> {
-        self.selected.get()
+        self.selected
     }
 
-    pub fn set_selected(&mut self, selected: usize) {
-        self.selected.set(Some(selected));
+    pub fn select(&mut self, selected: usize) {
+        self.selected = Some(selected);
     }
 
     /// Selects the next tab. Stops at the end.
     pub fn next_tab(&mut self) -> bool {
-        let old_selected = self.selected.get();
+        let old_selected = self.selected;
 
         if let Some(selected) = self.selected() {
-            self.selected.set(Some(min(
+            self.selected = Some(min(
                 selected + 1,
                 self.tab_title_areas.len().saturating_sub(1),
-            )));
+            ));
         }
 
-        old_selected != self.selected.get()
+        old_selected != self.selected
     }
 
     /// Selects the previous tab. Stops at the end.
     pub fn prev_tab(&mut self) -> bool {
-        let old_selected = self.selected.get();
+        let old_selected = self.selected;
 
         if let Some(selected) = self.selected() {
             if selected > 0 {
-                self.selected.set(Some(selected - 1));
+                self.selected = Some(selected - 1);
             }
         }
 
-        old_selected != self.selected.get()
+        old_selected != self.selected
     }
 }
 
@@ -338,7 +336,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedSt
                 if let Some(sel) = item_at_clicked(&self.tab_title_close_areas, *x, *y) {
                     TabbedOutcome::Close(sel)
                 } else if let Some(sel) = item_at_clicked(&self.tab_title_areas, *x, *y) {
-                    self.set_selected(sel);
+                    self.select(sel);
                     TabbedOutcome::Changed
                 } else {
                     TabbedOutcome::Continue
