@@ -619,10 +619,10 @@ impl FileDialogState {
                 OsString::from("Home"), //
                 user.home_dir().to_path_buf(),
             ));
-            self.roots.push((
-                OsString::from("Documents"),
-                user.document_dir().unwrap().to_path_buf(),
-            ));
+            if let Some(document_dir) = user.document_dir() {
+                self.roots
+                    .push((OsString::from("Documents"), document_dir.to_path_buf()));
+            }
         }
 
         let disks = Disks::new_with_refreshed_list();
