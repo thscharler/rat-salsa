@@ -214,10 +214,14 @@ impl UndoVec {
 
 impl UndoBuffer for UndoVec {
     fn cloned(&self) -> Box<dyn UndoBuffer> {
+        // capacity is essential here.
+        let mut buf = Vec::with_capacity(self.buf.capacity());
+        buf.extend_from_slice(&self.buf);
+
         Box::new(Self {
             undo_styles: self.undo_styles,
             track_replay: self.track_replay,
-            buf: self.buf.clone(),
+            buf,
             replay: self.replay.clone(),
             idx: self.idx,
         })
