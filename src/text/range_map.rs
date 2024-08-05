@@ -81,15 +81,22 @@ impl RangeMap {
     ) {
         self.buf.clear();
 
-        for (r, v) in self.map.iter(..) {
-            if let Some(r) = remap_fn(r.into(), *v) {
-                self.buf.push((r.into(), *v));
+        let mut change = false;
+        for (range, value) in self.map.iter(..) {
+            let range = TextRange::from(range);
+            if let Some(new_range) = remap_fn(range, *value) {
+                if range != new_range {
+                    change = true;
+                }
+                self.buf.push((new_range.into(), *value));
             }
         }
-        self.map.clear();
-        for (r, v) in self.buf.drain(..) {
-            if !r.is_empty() {
-                self.map.force_insert(r.into(), v);
+        if change {
+            self.map.clear();
+            for (r, v) in self.buf.drain(..) {
+                if !r.is_empty() {
+                    self.map.force_insert(r.into(), v);
+                }
             }
         }
     }
