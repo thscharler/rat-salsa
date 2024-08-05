@@ -418,7 +418,13 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
         let res = if self.active() {
             match event {
-                ct_event!(key press ANY-c) => self.navigate(*c),
+                ct_event!(key press ANY-c) => {
+                    let r = self.navigate(*c);
+                    if matches!(r, MenuOutcome::Activated(_)) {
+                        self.set_active(false);
+                    }
+                    r
+                }
                 ct_event!(keycode press Up) => {
                     if self.prev_item() {
                         MenuOutcome::Selected(self.selected.expect("selected"))
