@@ -880,20 +880,20 @@ mod core {
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         match event {
-            ct_event!(keycode press Esc) => {
-                if !self.use_primary_keys() {
-                    if self.core.log.get() {
-                        debug!("Esc {:?}", self.focused());
-                    }
-                    let r = self.next().into();
-                    if self.core.log.get() {
-                        debug!("=> {:?}", self.focused());
-                    }
-                    r
-                } else {
-                    Outcome::Continue
-                }
-            }
+            // ct_event!(keycode press Esc) => {
+            //     if !self.use_primary_keys() {
+            //         if self.core.log.get() {
+            //             debug!("Esc {:?}", self.focused());
+            //         }
+            //         let r = self.next().into();
+            //         if self.core.log.get() {
+            //             debug!("=> {:?}", self.focused());
+            //         }
+            //         r
+            //     } else {
+            //         Outcome::Continue
+            //     }
+            // }
             ct_event!(keycode press Tab) => {
                 if self.use_primary_keys() {
                     if self.core.log.get() {
