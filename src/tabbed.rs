@@ -221,6 +221,8 @@ pub struct TabbedState {
     pub tab_title_areas: Vec<Rect>,
     /// Area for 'Close Tab' interaction.
     pub tab_title_close_areas: Vec<Rect>,
+    /// Hover over tab
+    pub tab_hover: Option<usize>,
 
     /// Selected Tab, only ever is None if there are no tabs.
     /// Otherwise, set to 0 on render.
@@ -337,7 +339,20 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedSt
                     TabbedOutcome::Close(sel)
                 } else if let Some(sel) = item_at_clicked(&self.tab_title_areas, *x, *y) {
                     self.select(sel);
-                    TabbedOutcome::Changed
+                    TabbedOutcome::Select(sel)
+                } else {
+                    TabbedOutcome::Continue
+                }
+            }
+            ct_event!(mouse moved for x,y) => {
+                if self.area.contains((*x, *y).into()) {
+                    let old_hover = self.tab_hover;
+                    self.tab_hover = item_at_clicked(&self.tab_title_close_areas, *x, *y);
+                    if old_hover != self.tab_hover {
+                        TabbedOutcome::Changed
+                    } else {
+                        TabbedOutcome::Continue
+                    }
                 } else {
                     TabbedOutcome::Continue
                 }
@@ -609,6 +624,9 @@ pub mod glued {
             }
             if tabbed.is_closeable() {
                 for i in 0..state.tab_title_close_areas.len() {
+                    if state.tab_hover == Some(i) {
+                        buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
+                    }
                     "\u{2A2F}".render_ref(state.tab_title_close_areas[i], buf);
                 }
             }
@@ -931,6 +949,9 @@ pub mod attached {
             }
             if tabbed.is_closeable() {
                 for i in 0..state.tab_title_close_areas.len() {
+                    if state.tab_hover == Some(i) {
+                        buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
+                    }
                     "\u{2A2F}".render_ref(state.tab_title_close_areas[i], buf);
                 }
             }
