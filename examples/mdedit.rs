@@ -19,7 +19,7 @@ use rat_widget::layout::layout_middle;
 use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::popup_menu::Placement;
+use rat_widget::popup_menu::{MenuItem, Placement, Separator};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use rat_widget::text::textarea_core::TextRange;
 use rat_widget::textarea::TextAreaState;
@@ -114,8 +114,11 @@ pub enum MDAction {
     Open(PathBuf),
     Show(String, Vec<(TextRange, usize)>),
     SaveAs(PathBuf),
-    Save(),
-    SplitView,
+    Save,
+    CloseSelected,
+    Close(usize, usize),
+    Select(usize, usize),
+    Split,
 }
 
 // -----------------------------------------------------------------------
@@ -259,26 +262,27 @@ impl<'a> MenuStructure<'a> for Menu {
         MENU.menus()
     }
 
-    fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)> {
+    fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>> {
         match n {
             1 => {
                 vec![
                     if self.show_ctrl {
-                        ("\u{2611} Control chars".into(), None)
+                        MenuItem::Item("\u{2611} Control chars".into())
                     } else {
-                        ("\u{2610} Control chars".into(), None)
+                        MenuItem::Item("\u{2610} Control chars".into())
                     },
                     if self.use_crlf {
-                        ("\u{2611} Use CR+LF".into(), None)
+                        MenuItem::Item("\u{2611} Use CR+LF".into())
                     } else {
-                        ("\u{2611} Use CR+LF".into(), None)
+                        MenuItem::Item("\u{2610} Use CR+LF".into())
                     },
-                    ("Split view".into(), Some('s')),
+                    MenuItem::Sep(Separator::Dotted),
+                    MenuItem::Item2("Split view".into(), Some('s')),
                 ]
             }
             2 => dark_themes()
                 .iter()
-                .map(|v| (v.name().to_string().into(), None))
+                .map(|v| MenuItem::Item(v.name().to_string().into()))
                 .collect(),
             _ => MENU.submenu(n),
         }
@@ -420,44 +424,12 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
             ct_event!(resized) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             ct_event!(keycode press Esc) => {
-                ctx.focus.as_ref().expect("focus").focus(&self.menu);
-                Control::Changed
-            }
-            ct_event!(keycode press SHIFT-F(2)) => {
-                if let Some((pos, sel)) = self.editor.structure.selected() {
-                    if sel.is_focused() {
-                        ctx.focus
-                            .as_ref()
-                            .expect("focus")
-                            .focus(&self.editor.structure.splitter);
-                    } else if self.editor.structure.splitter.is_focused() {
-                        ctx.focus
-                            .as_ref()
-                            .expect("focus")
-                            .focus(&self.editor.structure.tabbed[pos.0]);
-                    } else {
-                        ctx.focus.as_ref().expect("focus").focus(sel);
-                    }
+                if !self.menu.is_focused() {
+                    ctx.focus.as_ref().expect("focus").focus(&self.menu);
+                    Control::Changed
+                } else {
+                    Control::Continue
                 }
-                Control::Changed
-            }
-            ct_event!(keycode press F(2)) => {
-                if let Some((pos, sel)) = self.editor.structure.selected() {
-                    if sel.is_focused() {
-                        ctx.focus
-                            .as_ref()
-                            .expect("focus")
-                            .focus(&self.editor.structure.tabbed[pos.0]);
-                    } else if self.editor.structure.tabbed[pos.0].is_focused() {
-                        ctx.focus
-                            .as_ref()
-                            .expect("focus")
-                            .focus(&self.editor.structure.splitter);
-                    } else {
-                        ctx.focus.as_ref().expect("focus").focus(sel);
-                    }
-                }
-                Control::Changed
             }
             _ => Control::Continue,
         };
@@ -493,7 +465,7 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                     Control::Changed
                 }
                 MenuOutcome::MenuActivated(1, 2) => {
-                    Control::Message(MDAction::SplitView)
+                    Control::Message(MDAction::Split)
                 }
                 MenuOutcome::MenuSelected(2, n) => {
                     ctx.g.theme = dark_themes()[n].clone();
@@ -777,7 +749,7 @@ pub mod mdstructure {
     use crossterm::event::Event;
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{flow_ok, HandleEvent, Regular};
+    use rat_widget::event::{flow_ok, HandleEvent, Regular, TabbedOutcome};
     use rat_widget::focus::{Focus, FocusFlag, HasFocus, HasFocusFlag};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::tabbed::attached::AttachedTabs;
@@ -823,6 +795,7 @@ pub mod mdstructure {
             for (idx_split, edit_area) in state.splitter.widget_areas.iter().enumerate() {
                 Tabbed::new()
                     .tab_type(AttachedTabs::new())
+                    .closeable(true)
                     .styles(ctx.g.theme.tabbed_style())
                     .as_if_focused(state.sel_split == Some(idx_split))
                     .tabs(state.tabs[idx_split].iter().map(|v| {
@@ -875,6 +848,63 @@ pub mod mdstructure {
             }
         }
 
+        pub fn select_next(&mut self, ctx: &mut AppContext<'_>) -> bool {
+            if let Some(idx_split) = self.sel_split {
+                if idx_split < self.tabs.len() {
+                    let new_split = idx_split + 1;
+                    let new_tab = self.tabbed[new_split].selected().unwrap_or_default();
+                    self.select((new_split, new_tab), ctx);
+                    return true;
+                }
+            }
+            false
+        }
+
+        pub fn select_prev(&mut self, ctx: &mut AppContext<'_>) -> bool {
+            if let Some(idx_split) = self.sel_split {
+                if idx_split > 0 {
+                    let new_split = idx_split - 1;
+                    let new_tab = self.tabbed[new_split].selected().unwrap_or_default();
+                    self.select((new_split, new_tab), ctx);
+                    return true;
+                }
+            }
+            false
+        }
+
+        pub fn close(
+            &mut self,
+            pos: (usize, usize),
+            ctx: &mut AppContext<'_>,
+        ) -> Result<(), Error> {
+            if pos.0 < self.tabs.len() {
+                if pos.1 < self.tabs[pos.0].len() {
+                    self.tabs[pos.0][pos.1].save()?;
+                    self.tabs[pos.0].remove(pos.1);
+
+                    if self.tabs[pos.0].len() == 0 {
+                        self.tabs.remove(pos.0);
+                        self.tabbed.remove(pos.0);
+                        if let Some(sel_split) = self.sel_split {
+                            if sel_split == pos.0 {
+                                if sel_split > 0 {
+                                    self.sel_split = Some(sel_split - 1);
+                                } else if self.tabbed.len() > 0 {
+                                    self.sel_split = Some(0);
+                                } else {
+                                    self.sel_split = None;
+                                }
+                            }
+                        }
+                        if self.sel_split == Some(pos.0) {}
+                    } else if pos.1 > self.tabs[pos.0].len() {
+                        self.tabbed[pos.0].select(self.tabs[pos.0].len() - 1);
+                    }
+                }
+            }
+            Ok(())
+        }
+
         pub fn show_edit(&mut self, pos: (usize, usize), new: MDFileState) {
             if pos.0 == self.tabs.len() {
                 self.tabs.push(Vec::new());
@@ -905,6 +935,28 @@ pub mod mdstructure {
             if let Some(idx_split) = self.sel_split {
                 if let Some(idx_tab) = self.tabbed[idx_split].selected() {
                     return Some(((idx_split, idx_tab), &mut self.tabs[idx_split][idx_tab]));
+                }
+            }
+            None
+        }
+
+        pub fn for_path(&self, path: &Path) -> Option<((usize, usize), &MDFileState)> {
+            for (idx_split, tabs) in self.tabs.iter().enumerate() {
+                for (idx_tab, tab) in tabs.iter().enumerate() {
+                    if tab.path == path {
+                        return Some(((idx_split, idx_tab), tab));
+                    }
+                }
+            }
+            None
+        }
+
+        pub fn for_path_mut(&mut self, path: &Path) -> Option<((usize, usize), &mut MDFileState)> {
+            for (idx_split, tabs) in self.tabs.iter_mut().enumerate() {
+                for (idx_tab, tab) in tabs.iter_mut().enumerate() {
+                    if tab.path == path {
+                        return Some(((idx_split, idx_tab), tab));
+                    }
                 }
             }
             None
@@ -960,7 +1012,16 @@ pub mod mdstructure {
 
             flow_ok!(self.splitter.handle(event, Regular));
             for (idx_split, tabbed) in self.tabbed.iter_mut().enumerate() {
-                flow_ok!(tabbed.handle(event, Regular));
+                flow_ok!(match tabbed.handle(event, Regular) {
+                    TabbedOutcome::Close(n) => {
+                        Control::Message(MDAction::Close(idx_split, n))
+                    }
+                    TabbedOutcome::Select(n) => {
+                        Control::Message(MDAction::Select(idx_split, n))
+                    }
+                    r => r.into(),
+                });
+
                 if let Some(idx_tab) = tabbed.selected() {
                     flow_ok!(self.tabs[idx_split][idx_tab].crossterm(event, ctx)?);
                 }
@@ -984,7 +1045,7 @@ pub mod mdedit {
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::ConsumedEvent;
-    use rat_widget::focus::{Focus, HasFocus};
+    use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use std::path::{Path, PathBuf};
@@ -994,6 +1055,7 @@ pub mod mdedit {
 
     #[derive(Debug, Default)]
     pub struct MDEditState {
+        pub window_cmd: bool,
         pub structure: MDStructureState,
     }
 
@@ -1008,6 +1070,11 @@ pub mod mdedit {
             ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
             MDStructure.render(area, buf, &mut state.structure, ctx)?;
+
+            if state.window_cmd {
+                ctx.g.status.status(1, "^W");
+            }
+
             Ok(())
         }
     }
@@ -1033,22 +1100,73 @@ pub mod mdedit {
             event: &Event,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDAction>, Error> {
+            if self.window_cmd {
+                self.window_cmd = false;
+                flow_ok!(match event {
+                    ct_event!(keycode press Left) => {
+                        self.structure.select_prev(ctx);
+                        Control::Changed
+                    }
+                    ct_event!(keycode press Right) => {
+                        self.structure.select_next(ctx);
+                        Control::Changed
+                    }
+                    ct_event!(key press 'c') => {
+                        Control::Message(MDAction::CloseSelected)
+                    }
+                    ct_event!(key press CONTROL-'t') | ct_event!(key press 't') => {
+                        if let Some((pos, sel)) = self.structure.selected() {
+                            if sel.is_focused() {
+                                ctx.focus
+                                    .as_ref()
+                                    .expect("focus")
+                                    .focus(&self.structure.tabbed[pos.0]);
+                            } else {
+                                ctx.focus.as_ref().expect("focus").focus(sel);
+                            }
+                            Control::Changed
+                        } else {
+                            Control::Unchanged
+                        }
+                    }
+                    ct_event!(key press CONTROL-'s') | ct_event!(key press 's') => {
+                        if let Some((pos, sel)) = self.structure.selected() {
+                            if sel.is_focused() {
+                                ctx.focus
+                                    .as_ref()
+                                    .expect("focus")
+                                    .focus(&self.structure.splitter);
+                            } else {
+                                ctx.focus.as_ref().expect("focus").focus(sel);
+                            }
+                            Control::Changed
+                        } else {
+                            Control::Unchanged
+                        }
+                    }
+                    _ => Control::Continue,
+                });
+            }
+
             flow_ok!(match event {
                 ct_event!(key press CONTROL-'n') => {
                     Control::Message(MDAction::MenuNew)
                 }
                 ct_event!(key press CONTROL-'s') => {
-                    Control::Message(MDAction::MenuSave)
+                    Control::Message(MDAction::Save)
                 }
-                ct_event!(key press CONTROL-'o') => {
-                    self.split(ctx)?;
+                ct_event!(key press CONTROL-'d') => {
+                    Control::Message(MDAction::Split)
+                }
+                ct_event!(key release CONTROL-'w') => {
+                    self.window_cmd = true;
                     Control::Changed
+                }
+                ct_event!(focus_lost) => {
+                    Control::Message(MDAction::Save)
                 }
                 _ => Control::Continue,
             });
-
-            // todo: ctrl+w for window nav?
-            // todo: ctrl+t for tab nav?
 
             let r = self.structure.crossterm(event, ctx)?;
 
@@ -1090,7 +1208,7 @@ pub mod mdedit {
                     },
                     |p| Ok(Control::Message(MDAction::Open(p))),
                 )?,
-                MDAction::MenuSave => Control::Message(MDAction::Save()),
+                MDAction::MenuSave => Control::Message(MDAction::Save),
                 MDAction::MenuSaveAs => ctx.g.file_dlg.engage(
                     |w| {
                         w.save_dialog(".", "")?;
@@ -1107,7 +1225,23 @@ pub mod mdedit {
                     self.open(p, ctx)?;
                     Control::Changed
                 }
-                MDAction::Save() => {
+                MDAction::CloseSelected => {
+                    if let Some(pos) = self.structure.selected_pos() {
+                        self.structure.close((pos.0, pos.1), ctx)?;
+                        Control::Changed
+                    } else {
+                        Control::Continue
+                    }
+                }
+                MDAction::Close(idx_split, idx_tab) => {
+                    self.structure.close((*idx_split, *idx_tab), ctx)?;
+                    Control::Changed
+                }
+                MDAction::Select(idx_split, idx_tab) => {
+                    self.structure.select((*idx_split, *idx_tab), ctx);
+                    Control::Changed
+                }
+                MDAction::Save => {
                     self.save()?;
                     Control::Changed
                 }
@@ -1115,7 +1249,7 @@ pub mod mdedit {
                     self.save_as(p)?;
                     Control::Changed
                 }
-                MDAction::SplitView => {
+                MDAction::Split => {
                     self.split(ctx)?;
                     Control::Changed
                 }
@@ -1141,7 +1275,7 @@ pub mod mdedit {
             new.changed = true;
 
             let pos = if let Some(pos) = self.structure.selected_pos() {
-                pos
+                (pos.0, pos.1 + 1)
             } else {
                 (0, 0)
             };
@@ -1155,11 +1289,17 @@ pub mod mdedit {
         }
 
         pub fn open(&mut self, path: &Path, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            let mut new = MDFileState::new(path);
-            new.open(path, ctx)?;
+            let new = if let Some((_, md)) = self.structure.for_path_mut(path) {
+                md.edit.undo_buffer_mut().expect("undo").set_replay(true);
+                md.clone()
+            } else {
+                let mut new = MDFileState::new(path);
+                new.open(path, ctx)?;
+                new
+            };
 
             let pos = if let Some(pos) = self.structure.selected_pos() {
-                pos
+                (pos.0, pos.1 + 1)
             } else {
                 (0, 0)
             };
