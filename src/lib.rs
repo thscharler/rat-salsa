@@ -148,6 +148,8 @@ pub mod event {
         /// Further processing for this event may stop.
         /// Rendering the ui is advised.
         Changed,
+        /// Tab selection changed.
+        Select(usize),
         /// Selected tab should be closed.
         Close(usize),
     }
@@ -185,6 +187,7 @@ pub mod event {
                 TabbedOutcome::Continue => Outcome::Continue,
                 TabbedOutcome::Unchanged => Outcome::Unchanged,
                 TabbedOutcome::Changed => Outcome::Changed,
+                TabbedOutcome::Select(_) => Outcome::Changed,
                 TabbedOutcome::Close(_) => Outcome::Changed,
             }
         }
