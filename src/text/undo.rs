@@ -48,6 +48,7 @@ pub struct TextPositionChange {
 }
 
 /// Storage for undo.
+#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum UndoEntry {
     SetText {

@@ -4,7 +4,6 @@ use crate::text::graphemes::{
 };
 use crate::text::range_map::RangeMap;
 use crate::text::undo::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
-use log::debug;
 use ropey::{Rope, RopeSlice};
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
