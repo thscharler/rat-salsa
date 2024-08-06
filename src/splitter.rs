@@ -142,8 +142,12 @@ pub struct SplitState {
     pub area: Rect,
     /// Area inside the border.
     pub inner: Rect,
-    /// The widget areas. Use this after calling layout() to render your
-    /// widgets.
+    /// The widget areas.
+    ///
+    /// Use this after calling layout() to render your widgets.
+    ///
+    /// If the widget is resized, widget_areas and splitline_areas are used
+    /// to build the constraints for the new layout.
     pub widget_areas: Vec<Rect>,
 
     /// Focus
