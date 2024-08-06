@@ -55,10 +55,34 @@ pub enum Placement {
     Bottom,
 }
 
+/// Separator style
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum Separator {
+    #[default]
+    None,
+    Empty,
+    Plain,
+    Thick,
+    Double,
+    Dashed,
+    Dotted,
+}
+
+/// Menu-Item
+pub enum MenuItem<'a> {
+    /// menu item
+    Item(Line<'a>),
+    /// menu item, access key
+    Item2(Line<'a>, Option<char>),
+    /// separator
+    Sep(Separator),
+}
+
 /// Popup menu.
 #[derive(Debug, Default, Clone)]
 pub struct PopupMenu<'a> {
-    items: Vec<Line<'a>>,
+    items: Vec<Item<'a>>,
     navchar: Vec<Option<char>>,
 
     width: Option<u16>,
@@ -81,6 +105,8 @@ pub struct PopupMenuState {
     pub z_areas: [ZRect; 1],
     /// Areas for each item.
     pub item_areas: Vec<Rect>,
+    /// Area for the separator after each item.
+    pub sep_areas: Vec<Rect>,
     /// Letter navigation
     pub navchar: Vec<Option<char>>,
 
@@ -90,6 +116,29 @@ pub struct PopupMenuState {
     pub non_exhaustive: NonExhaustive,
 }
 
+/// A menu-item with the following separator.
+#[derive(Debug, Default, Clone)]
+struct Item<'a> {
+    /// Item text
+    line: Line<'a>,
+    /// Following separator.
+    sep: Separator,
+}
+
+impl<'a> Item<'a> {
+    fn width(&self) -> u16 {
+        self.line.width() as u16
+    }
+
+    fn height(&self) -> u16 {
+        if self.sep == Separator::None {
+            1
+        } else {
+            2
+        }
+    }
+}
+
 impl Default for PopupMenuState {
     fn default() -> Self {
         Self {
@@ -97,6 +146,7 @@ impl Default for PopupMenuState {
             area: Default::default(),
             z_areas: [Default::default()],
             item_areas: vec![],
+            sep_areas: vec![],
             navchar: vec![],
             selected: None,
             non_exhaustive: NonExhaustive,
@@ -110,37 +160,38 @@ impl<'a> PopupMenu<'a> {
             width
         } else {
             let text_width = self.items.iter().map(|v| v.width()).max();
-            ((text_width.unwrap_or(10) as u16) * 3) / 2
+            (text_width.unwrap_or(10) * 3) / 2
         };
+        let height = self.items.iter().map(Item::height).sum::<u16>();
 
         let vertical_margin = if self.block.is_some() { 1 } else { 1 };
         let horizontal_margin = if self.block.is_some() { 2 } else { 1 };
-        let len = self.items.len() as u16;
+        let horizontal_offset_sep = if self.block.is_some() { 1 } else { 0 };
 
         let mut area = match self.placement {
             Placement::Top => Rect::new(
                 area.x.saturating_sub(horizontal_margin),
-                area.y.saturating_sub(len + vertical_margin * 2),
+                area.y.saturating_sub(height + vertical_margin * 2),
                 width + horizontal_margin * 2,
-                len + vertical_margin * 2,
+                height + vertical_margin * 2,
             ),
             Placement::Left => Rect::new(
                 area.x.saturating_sub(width + horizontal_margin * 2),
                 area.y,
                 width + horizontal_margin * 2,
-                len + vertical_margin * 2,
+                height + vertical_margin * 2,
             ),
             Placement::Right => Rect::new(
                 area.x + area.width,
                 area.y,
                 width + horizontal_margin * 2,
-                len + vertical_margin * 2,
+                height + vertical_margin * 2,
             ),
             Placement::Bottom => Rect::new(
                 area.x.saturating_sub(horizontal_margin),
                 area.y + area.height,
                 width + horizontal_margin * 2,
-                len + vertical_margin * 2,
+                height + vertical_margin * 2,
             ),
         };
 
@@ -155,15 +206,35 @@ impl<'a> PopupMenu<'a> {
         state.z_areas[0] = ZRect::from((1, area));
 
         state.item_areas.clear();
-        let mut r = Rect::new(
-            area.x + horizontal_margin,
-            area.y + vertical_margin,
-            width,
-            1,
-        );
-        for _ in 0..len {
-            state.item_areas.push(r);
-            r.y += 1;
+        state.sep_areas.clear();
+
+        let mut row = 0;
+
+        for item in &self.items {
+            state.item_areas.push(Rect::new(
+                area.x + horizontal_margin,
+                row + area.y + vertical_margin,
+                width,
+                1,
+            ));
+
+            if item.sep == Separator::None {
+                state.sep_areas.push(Rect::new(
+                    area.x + horizontal_offset_sep,
+                    row + 1 + area.y + vertical_margin,
+                    width + 2,
+                    0,
+                ));
+            } else {
+                state.sep_areas.push(Rect::new(
+                    area.x + horizontal_offset_sep,
+                    row + 1 + area.y + vertical_margin,
+                    width + 2,
+                    1,
+                ));
+            }
+
+            row += item.height();
         }
     }
 }
@@ -177,8 +248,21 @@ impl<'a> PopupMenu<'a> {
     /// Add a formatted item.
     /// The navchar is optional, any markup for it is your problem.
     pub fn add(mut self, item: Line<'a>, navchar: Option<char>) -> Self {
-        self.items.push(item);
+        self.items.push(Item {
+            line: item,
+            sep: Default::default(),
+        });
         self.navchar.push(navchar);
+        self
+    }
+
+    /// Add a separator item. This is added to the item before, so
+    /// it is not possible to start the menu with a separator, or
+    /// to add more than one separator.
+    pub fn add_sep(mut self, ty: Separator) -> Self {
+        if let Some(last) = self.items.last_mut() {
+            last.sep = ty;
+        }
         self
     }
 
@@ -186,9 +270,21 @@ impl<'a> PopupMenu<'a> {
     /// The first underscore is used to denote the navchar.
     pub fn add_str(mut self, txt: &'a str) -> Self {
         let (item, navchar) = menu_str(txt);
-        self.items.push(item);
+        self.items.push(Item {
+            line: item,
+            sep: Default::default(),
+        });
         self.navchar.push(navchar);
         self
+    }
+
+    /// Add an item.
+    pub fn add_item(self, item: MenuItem<'a>) -> Self {
+        match item {
+            MenuItem::Item(txt) => self.add(txt, None),
+            MenuItem::Item2(txt, navchar) => self.add(txt, navchar),
+            MenuItem::Sep(sep) => self.add_sep(sep),
+        }
     }
 
     /// Fixed width for the menu.
@@ -273,6 +369,8 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     widget.block.render_ref(state.area, buf);
 
     for (n, txt) in widget.items.iter().enumerate() {
+        let it_area = state.item_areas[n];
+
         let style = if state.selected == Some(n) {
             if let Some(focus) = widget.focus_style {
                 focus
@@ -283,9 +381,27 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             widget.style
         };
 
-        // todo: separator
-        buf.set_style(state.item_areas[n], style);
-        txt.render(state.item_areas[n], buf);
+        buf.set_style(it_area, style);
+        txt.line.render_ref(it_area, buf);
+
+        if txt.sep != Separator::None {
+            let sep_area = state.sep_areas[n];
+            buf.set_style(sep_area, widget.style);
+            let sym = match txt.sep {
+                Separator::Empty => " ",
+                Separator::Plain => "\u{2500}",
+                Separator::Thick => "\u{2501}",
+                Separator::Double => "\u{2550}",
+                Separator::Dashed => "\u{2212}",
+                Separator::Dotted => "\u{2508}",
+                Separator::None => {
+                    unreachable!()
+                }
+            };
+            for x in 0..sep_area.width {
+                buf.get_mut(sep_area.x + x, sep_area.y).set_symbol(sym);
+            }
+        }
     }
 }
 

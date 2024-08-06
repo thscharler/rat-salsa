@@ -16,7 +16,7 @@
 //!
 use crate::event::Popup;
 use crate::menuline::{MenuLine, MenuLineState, MenuOutcome, MenuStyle};
-use crate::popup_menu::{Placement, PopupMenu, PopupMenuState};
+use crate::popup_menu::{MenuItem, Placement, PopupMenu, PopupMenuState, Separator};
 use crate::util::menu_str;
 use rat_event::{flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
@@ -31,10 +31,23 @@ pub trait MenuStructure<'a> {
     /// Main menu.
     fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)>;
     /// Submenus.
-    fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)>;
+    fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>>;
 }
 
 /// Static menu structure.
+///
+/// Uses `_` (underscore) to mark the navigation character.
+///
+/// You can add separators too. This uses `_` (underscore) as prefix and
+/// a fixed string to identify the separator:
+///
+/// * `_   ` - three blanks -> empty separator
+/// * `____` - three underscores -> plain line
+/// * `_______` - six underscore -> thick line
+/// * `_===` - three equals -> double line
+/// * `_---` - three hyphen -> dashed line
+/// * `_...` - three dots -> dotted line
+///
 #[derive(Debug)]
 pub struct StaticMenu {
     pub menu: &'static [(&'static str, &'static [&'static str])],
@@ -45,8 +58,27 @@ impl MenuStructure<'static> for StaticMenu {
         self.menu.iter().map(|v| menu_str(v.0)).collect()
     }
 
-    fn submenu(&'static self, n: usize) -> Vec<(Line<'static>, Option<char>)> {
-        self.menu[n].1.iter().map(|v| menu_str(v)).collect()
+    fn submenu(&'static self, n: usize) -> Vec<MenuItem<'_>> {
+        let mut menu = Vec::<MenuItem<'_>>::new();
+        for s in self.menu[n].1 {
+            if *s == "_   " {
+                menu.push(MenuItem::Sep(Separator::Empty));
+            } else if *s == "____" {
+                menu.push(MenuItem::Sep(Separator::Plain));
+            } else if *s == "_______" {
+                menu.push(MenuItem::Sep(Separator::Thick));
+            } else if *s == "_===" {
+                menu.push(MenuItem::Sep(Separator::Double));
+            } else if *s == "_---" {
+                menu.push(MenuItem::Sep(Separator::Dashed));
+            } else if *s == "_..." {
+                menu.push(MenuItem::Sep(Separator::Dotted));
+            } else {
+                let s = menu_str(s);
+                menu.push(MenuItem::Item2(s.0, s.1));
+            }
+        }
+        menu
     }
 }
 
@@ -286,8 +318,8 @@ fn render_menu_popup(
         if let Some(focus_style) = widget.focus_style {
             popup = popup.focus_style(focus_style);
         }
-        for (item, navchar) in structure.submenu(selected) {
-            popup = popup.add(item, navchar);
+        for item in structure.submenu(selected) {
+            popup = popup.add_item(item);
             len += 1;
         }
 
