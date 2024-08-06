@@ -6,7 +6,7 @@ use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::StatefulWidget;
+use ratatui::widgets::{Block, BorderType, StatefulWidget};
 use ratatui::Frame;
 
 mod mini_salsa;
@@ -31,8 +31,8 @@ struct State {
 
 static MENU: StaticMenu = StaticMenu {
     menu: &[
-        ("Alpha", &["One", "Two", "Three"]),
-        ("Beta", &["Ex", "Why", "Sed"]),
+        ("Alpha", &["One", "Two", "_...", "Three"]),
+        ("Beta", &["Ex", "Why", "_---", "Sed"]),
         ("Gamma", &["No", "more", "ideas"]),
         ("Quit", &[]),
     ],
@@ -48,7 +48,9 @@ fn repaint_input(
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
     let (menu, menu_popup) = Menubar::new(&MENU)
-        .title("Sample")
+        .popup_block(Block::bordered().border_type(BorderType::Rounded))
+        .popup_width(17)
+        .title("⋱⋰⋱⋰⋱")
         .title_style(Style::default().black().on_yellow())
         .style(Style::default().black().on_dark_gray())
         .focus_style(Style::default().black().on_cyan())
@@ -91,7 +93,9 @@ fn handle_input(
         MenuOutcome::Activated(v) => {
             istate.status[0] = format!("Activated {}", v);
             match v {
-                3 => return Err(anyhow!("Quit")),
+                3 => {
+                    istate.quit = true;
+                }
                 _ => {}
             }
             Outcome::Changed

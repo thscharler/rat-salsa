@@ -4,7 +4,7 @@ use rat_widget::event::Outcome;
 use rat_widget::layout::layout_grid;
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::popup_menu;
-use rat_widget::popup_menu::{Placement, PopupMenu, PopupMenuState};
+use rat_widget::popup_menu::{Placement, PopupMenu, PopupMenuState, Separator};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
@@ -79,6 +79,7 @@ fn repaint_stuff(
             .block(Block::bordered().title("Nice popup"))
             .placement(state.placement)
             .add_str("Item _1")
+            .add_sep(Separator::Plain)
             .add_str("Item _2")
             .add_str("Item _3")
             .add_str("Item _4")
