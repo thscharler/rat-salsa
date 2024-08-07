@@ -7,21 +7,44 @@ use std::ops::Range;
 
 /// Undo buffer.
 pub trait UndoBuffer: Debug {
+    /// To enable `dyn Clone`.
     fn cloned(&self) -> Box<dyn UndoBuffer>;
 
-    /// Sets a new value.
+    /// Undo of SetStyles, AddStyle, RemoveStyle is enabled?
+    fn undo_styles_enabled(&self) -> bool;
+
+    /// Adds a new operation. The redo list will be cleared.
     fn append(&mut self, undo: UndoEntry);
 
-    /// Sets a new value, never adds to replay.
+    /// Adds a new operation, but doesn't feed the replay buffer.
+    /// Used by replay itself, to allow undo of replayed operations,
+    /// without causing a loop.
     fn append_no_replay(&mut self, undo: UndoEntry);
 
-    /// Next undo.
+    /// Clear the undo buffer.
+    ///
+    /// Attention:
+    /// This doesn't play with the replay buffer. Don't do this. At all.
+    /// It's only ever useful in set_value().
+    fn clear(&mut self);
+
+    /// Next undo operation.
     fn undo(&mut self) -> Option<UndoEntry>;
 
-    /// Next redo.
+    /// Next redo operation.
     fn redo(&mut self) -> Option<UndoEntry>;
 
     /// Enable/disable replay recording.
+    ///
+    /// Attention:
+    /// This must be done immediately before *cloning* the TextAreaCore
+    /// to create another view. Only then the replay operations
+    /// obtained by recent_replay() will make sense to the clone.
+    ///
+    /// Attention 2:
+    /// All *other* existing clones of this one must be synced and
+    /// the replay buffer be empty before enabling this feature.
+    /// There is only one buffer for all the clones.
     fn set_replay(&mut self, replay: bool);
 
     /// Is replay active?
@@ -51,13 +74,10 @@ pub struct TextPositionChange {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum UndoEntry {
-    SetText {
-        txt_before: Rope,
-        txt_after: Rope,
-        cursor: TextPositionChange,
-        anchor: TextPositionChange,
-        styles_before: Vec<(TextRange, usize)>,
-    },
+    /// Insert a single char.
+    ///
+    /// This can contain a longer text, if consecutive InsertChar have
+    /// been merged.
     InsertChar {
         /// char range for the insert.
         chars: Range<usize>,
@@ -70,6 +90,7 @@ pub enum UndoEntry {
         /// inserted text
         txt: String,
     },
+    /// Insert a longer text.
     InsertStr {
         /// char range for the insert.
         chars: Range<usize>,
@@ -82,6 +103,10 @@ pub enum UndoEntry {
         /// inserted text
         txt: String,
     },
+    /// Remove a single char range.
+    ///
+    /// This can be a longer range, if consecutive RemoveChar have been
+    /// merged.
     RemoveChar {
         /// char range for the remove.
         chars: Range<usize>,
@@ -96,6 +121,7 @@ pub enum UndoEntry {
         /// removed styles
         styles: Vec<StyleChange>,
     },
+    /// Remove longer text range.
     RemoveStr {
         /// char range for the remove.
         chars: Range<usize>,
@@ -110,21 +136,43 @@ pub enum UndoEntry {
         /// removed styles
         styles: Vec<StyleChange>,
     },
-    SetStyles {
+    /// Complete content was replaced.
+    SetText {
+        /// Old text
+        txt_before: Rope,
+        /// New text
+        txt_after: Rope,
+        /// cursor change
+        cursor: TextPositionChange,
+        /// anchor change
+        anchor: TextPositionChange,
+        /// styles before
         styles_before: Vec<(TextRange, usize)>,
+    },
+    /// Set of styles was replaced.
+    SetStyles {
+        /// old styles
+        styles_before: Vec<(TextRange, usize)>,
+        /// new styles
         styles_after: Vec<(TextRange, usize)>,
     },
+    /// Add one style.
     AddStyle {
+        /// style range
         range: TextRange,
+        /// style
         style: usize,
     },
+    /// Remove one style.
     RemoveStyle {
+        /// style range
         range: TextRange,
+        /// style
         style: usize,
     },
-    /// For replay only.
+    /// For replay only. Undo one operation.
     Undo,
-    /// For replay only.
+    /// For replay only. Redo one operation.
     Redo,
 }
 
@@ -133,8 +181,11 @@ pub enum UndoEntry {
 pub struct UndoVec {
     undo_styles: bool,
     track_replay: bool,
+
     buf: Vec<UndoEntry>,
     replay: Vec<UndoEntry>,
+
+    // undo/redo split
     idx: usize,
 }
 
@@ -161,10 +212,17 @@ impl UndoVec {
         }
     }
 
-    /// Undo style-changes.
+    /// Enable undo for style changes.
     ///
-    /// This is not recommended if you do your styling
-    /// with some parser and rerun styling after every text-change.
+    /// Usually not what you want.
+    /// Unless you allow your users to set styles manually.
+    /// If your styling is done by a parser, don't activate this.
+    ///
+    /// Changes to the range of styles and removal of styles
+    /// caused by text edits *will* be undone with those undo operations.
+    ///
+    /// Recording those operations for *replay* will not be affected
+    /// by this setting.
     pub fn set_undo_styles(&mut self, undo_styles: bool) {
         self.undo_styles = undo_styles;
     }
@@ -175,13 +233,16 @@ impl UndoVec {
         if replay && self.track_replay {
             self.replay.push(undo.clone());
         }
+
         // only useful for tracking
-        match &undo {
-            UndoEntry::Undo | UndoEntry::Redo => return,
-            _ => {}
+        if matches!(
+            undo,
+            UndoEntry::Undo | UndoEntry::Redo | UndoEntry::SetText { .. }
+        ) {
+            return;
         }
 
-        // filter style changes
+        // style changes may/may not be undone
         if !self.undo_styles {
             match &undo {
                 UndoEntry::SetStyles { .. }
@@ -195,17 +256,21 @@ impl UndoVec {
         while self.idx < self.buf.len() {
             self.buf.pop();
         }
+        // try merge
         let (last, undo) = if let Some(last) = self.buf.pop() {
             merge_undo(last, undo)
         } else {
             (None, Some(undo))
         };
+        // re-add last if it survived merge
         if let Some(last) = last {
             self.buf.push(last);
         }
+        // cap undo at capacity
         if self.buf.capacity() == self.buf.len() {
             self.buf.remove(0);
         }
+        // add new undo if it survived merge
         if let Some(undo) = undo {
             self.buf.push(undo);
         }
@@ -228,12 +293,21 @@ impl UndoBuffer for UndoVec {
         })
     }
 
+    fn undo_styles_enabled(&self) -> bool {
+        self.undo_styles
+    }
+
     fn append(&mut self, undo: UndoEntry) {
         self._append(undo, true);
     }
 
     fn append_no_replay(&mut self, undo: UndoEntry) {
         self._append(undo, false);
+    }
+
+    fn clear(&mut self) {
+        self.buf.clear();
+        self.idx = 0;
     }
 
     /// Get next undo

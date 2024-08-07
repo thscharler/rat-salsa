@@ -10,6 +10,7 @@ use crate::text::undo::{UndoBuffer, UndoEntry};
 use crossterm::event::KeyModifiers;
 #[allow(unused_imports)]
 use log::debug;
+use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -323,10 +324,12 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                     styles.clear();
                     state.styles_at((tx, ty), &mut styles);
                     for idx in &styles {
-                        let Some(s) = widget.text_style.get(*idx) else {
-                            panic!("invalid style nr: {}", idx);
+                        if let Some(s) = widget.text_style.get(*idx) {
+                            style = style.patch(*s);
+                        } else {
+                            #[cfg(debug_assertions)]
+                            warn!("invalid style nr: {}", idx);
                         };
-                        style = style.patch(*s);
                     }
                     // selection
                     if selection.contains_pos((tx, ty)) {
@@ -684,13 +687,6 @@ impl TextAreaState {
     #[inline]
     pub fn styles_at(&self, pos: impl Into<TextPosition>, buf: &mut Vec<usize>) {
         self.value.styles_at(pos.into(), buf)
-    }
-
-    /// All styles active at the given position.
-    /// Gives the ranges of the styles too.
-    #[inline]
-    pub fn styles_at_ext(&self, pos: impl Into<TextPosition>, buf: &mut Vec<(TextRange, usize)>) {
-        self.value.styles_at_ext(pos.into(), buf)
     }
 
     /// Convert a byte position to a text area position.

@@ -599,6 +599,9 @@ impl TextAreaCore {
                 UndoEntry::SetText { txt_after, .. } => {
                     self.value = txt_after.clone();
                     self.styles.clear();
+                    if let Some(undo) = self.undo.as_mut() {
+                        undo.clear();
+                    };
                 }
                 UndoEntry::InsertChar {
                     chars, range, txt, ..
@@ -663,10 +666,12 @@ impl TextAreaCore {
     #[inline]
     pub fn set_styles(&mut self, styles: Vec<(TextRange, usize)>) {
         if let Some(undo) = &mut self.undo {
-            undo.append(UndoEntry::SetStyles {
-                styles_before: self.styles.values().collect::<Vec<_>>(),
-                styles_after: styles.clone(),
-            });
+            if undo.undo_styles_enabled() || undo.replay() {
+                undo.append(UndoEntry::SetStyles {
+                    styles_before: self.styles.values().collect::<Vec<_>>(),
+                    styles_after: styles.clone(),
+                });
+            }
         }
         self.styles.set(styles.iter().copied());
     }
@@ -680,7 +685,9 @@ impl TextAreaCore {
         self.styles.add(range, style);
 
         if let Some(undo) = &mut self.undo {
-            undo.append(UndoEntry::AddStyle { range, style });
+            if undo.undo_styles_enabled() || undo.replay() {
+                undo.append(UndoEntry::AddStyle { range, style });
+            }
         }
     }
 
@@ -692,7 +699,9 @@ impl TextAreaCore {
         self.styles.remove(range, style);
 
         if let Some(undo) = &mut self.undo {
-            undo.append(UndoEntry::RemoveStyle { range, style });
+            if undo.undo_styles_enabled() || undo.replay() {
+                undo.append(UndoEntry::RemoveStyle { range, style });
+            }
         }
     }
 
@@ -766,23 +775,27 @@ impl TextAreaCore {
     #[inline]
     pub fn set_rope(&mut self, value: Rope) {
         if let Some(undo) = &mut self.undo {
-            undo.append(UndoEntry::SetText {
-                txt_before: self.value.clone(),
-                txt_after: value.clone(),
-                cursor: TextPositionChange {
-                    before: self.cursor,
-                    after: Default::default(),
-                },
-                anchor: TextPositionChange {
-                    before: self.anchor,
-                    after: Default::default(),
-                },
-                styles_before: self
-                    .styles
-                    .values()
-                    .map(|(r, s)| (r.into(), s))
-                    .collect::<Vec<_>>(),
-            });
+            undo.clear();
+
+            if undo.replay() {
+                undo.append(UndoEntry::SetText {
+                    txt_before: self.value.clone(),
+                    txt_after: value.clone(),
+                    cursor: TextPositionChange {
+                        before: self.cursor,
+                        after: Default::default(),
+                    },
+                    anchor: TextPositionChange {
+                        before: self.anchor,
+                        after: Default::default(),
+                    },
+                    styles_before: self
+                        .styles
+                        .values()
+                        .map(|(r, s)| (r.into(), s))
+                        .collect::<Vec<_>>(),
+                });
+            }
         }
 
         self.value = value;
