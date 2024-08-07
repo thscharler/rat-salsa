@@ -70,11 +70,14 @@ pub enum Separator {
 }
 
 /// Menu-Item
+#[derive(Debug, Clone)]
 pub enum MenuItem<'a> {
     /// menu item
     Item(Line<'a>),
     /// menu item, access key
     Item2(Line<'a>, Option<char>),
+    /// right aligned 2nd Line
+    Item3(Line<'a>, Option<char>, Line<'a>),
     /// separator
     Sep(Separator),
 }
@@ -121,6 +124,8 @@ pub struct PopupMenuState {
 struct Item<'a> {
     /// Item text
     line: Line<'a>,
+    /// Right aligned text
+    right: Option<Line<'a>>,
     /// Following separator.
     sep: Separator,
 }
@@ -250,6 +255,19 @@ impl<'a> PopupMenu<'a> {
     pub fn add(mut self, item: Line<'a>, navchar: Option<char>) -> Self {
         self.items.push(Item {
             line: item,
+            right: None,
+            sep: Default::default(),
+        });
+        self.navchar.push(navchar);
+        self
+    }
+
+    /// Add a formatted item.
+    /// The navchar is optional, any markup for it is your problem.
+    pub fn add_ext(mut self, item: Line<'a>, navchar: Option<char>, item_right: Line<'a>) -> Self {
+        self.items.push(Item {
+            line: item,
+            right: Some(item_right),
             sep: Default::default(),
         });
         self.navchar.push(navchar);
@@ -272,6 +290,7 @@ impl<'a> PopupMenu<'a> {
         let (item, navchar) = menu_str(txt);
         self.items.push(Item {
             line: item,
+            right: None,
             sep: Default::default(),
         });
         self.navchar.push(navchar);
@@ -283,6 +302,7 @@ impl<'a> PopupMenu<'a> {
         match item {
             MenuItem::Item(txt) => self.add(txt, None),
             MenuItem::Item2(txt, navchar) => self.add(txt, navchar),
+            MenuItem::Item3(txt, navchar, txt2) => self.add_ext(txt, navchar, txt2),
             MenuItem::Sep(sep) => self.add_sep(sep),
         }
     }
@@ -369,7 +389,7 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     widget.block.render_ref(state.area, buf);
 
     for (n, txt) in widget.items.iter().enumerate() {
-        let it_area = state.item_areas[n];
+        let mut it_area = state.item_areas[n];
 
         let style = if state.selected == Some(n) {
             if let Some(focus) = widget.focus_style {
@@ -383,6 +403,15 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
         buf.set_style(it_area, style);
         txt.line.render_ref(it_area, buf);
+        if let Some(txt_right) = &txt.right {
+            let txt_width = txt_right.width() as u16;
+            if txt_width < it_area.width {
+                let delta = it_area.width.saturating_sub(txt_width);
+                it_area.x += delta;
+                it_area.width -= delta;
+            }
+            txt_right.render_ref(it_area, buf);
+        }
 
         if txt.sep != Separator::None {
             let sep_area = state.sep_areas[n];
