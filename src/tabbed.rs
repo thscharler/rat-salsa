@@ -284,8 +284,8 @@ impl TabbedState {
         self.selected
     }
 
-    pub fn select(&mut self, selected: usize) {
-        self.selected = Some(selected);
+    pub fn select(&mut self, selected: Option<usize>) {
+        self.selected = selected;
     }
 
     /// Selects the next tab. Stops at the end.
@@ -338,7 +338,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedSt
                 if let Some(sel) = item_at_clicked(&self.tab_title_close_areas, *x, *y) {
                     TabbedOutcome::Close(sel)
                 } else if let Some(sel) = item_at_clicked(&self.tab_title_areas, *x, *y) {
-                    self.select(sel);
+                    self.select(Some(sel));
                     TabbedOutcome::Select(sel)
                 } else {
                     TabbedOutcome::Continue
