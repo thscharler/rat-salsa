@@ -73,6 +73,15 @@ impl RangeMap {
         }
     }
 
+    /// All styles active at the given position.
+    /// Gives the ranges of the styles too.
+    #[inline]
+    pub fn values_at_ext(&self, pos: impl Into<TextPosition>, buf: &mut Vec<(TextRange, usize)>) {
+        for (r, s) in self.map.overlap(pos.into()) {
+            buf.push((r.into(), *s));
+        }
+    }
+
     /// Map and rebuild the IntervalMap.
     #[inline]
     pub(crate) fn remap(

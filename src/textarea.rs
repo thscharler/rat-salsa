@@ -686,6 +686,13 @@ impl TextAreaState {
         self.value.styles_at(pos.into(), buf)
     }
 
+    /// All styles active at the given position.
+    /// Gives the ranges of the styles too.
+    #[inline]
+    pub fn styles_at_ext(&self, pos: impl Into<TextPosition>, buf: &mut Vec<(TextRange, usize)>) {
+        self.value.styles_at_ext(pos.into(), buf)
+    }
+
     /// Convert a byte position to a text area position.
     /// Uses grapheme based column indexes.
     #[inline]
@@ -1608,6 +1615,7 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(keycode press Backspace) => self.delete_prev_char(),
                 ct_event!(keycode press Delete) => self.delete_next_char(),
                 ct_event!(keycode press CONTROL-Backspace) => self.delete_prev_word(),
+                ct_event!(keycode press ALT-Backspace) => self.delete_prev_word(),
                 ct_event!(keycode press CONTROL-Delete) => self.delete_next_word(),
                 ct_event!(key press CONTROL-'c') => self.copy_to_buffer(),
                 ct_event!(key press CONTROL-'x') => self.cut_to_buffer(),
@@ -1623,6 +1631,7 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 | ct_event!(keycode release Backspace)
                 | ct_event!(keycode release Delete)
                 | ct_event!(keycode release CONTROL-Backspace)
+                | ct_event!(keycode release ALT-Backspace)
                 | ct_event!(keycode release CONTROL-Delete)
                 | ct_event!(key release CONTROL-'c')
                 | ct_event!(key release CONTROL-'x')

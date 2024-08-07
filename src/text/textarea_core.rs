@@ -702,6 +702,13 @@ impl TextAreaCore {
         self.styles.values_at(pos, buf)
     }
 
+    /// All styles active at the given position.
+    /// Gives the ranges of the styles too.
+    #[inline]
+    pub fn styles_at_ext(&self, pos: impl Into<TextPosition>, buf: &mut Vec<(TextRange, usize)>) {
+        self.styles.values_at_ext(pos, buf)
+    }
+
     /// List of all styles.
     #[inline]
     pub fn styles(&self) -> impl Iterator<Item = (TextRange, usize)> + '_ {
