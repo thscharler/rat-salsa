@@ -979,7 +979,7 @@ impl SplitState {
             self.widget_areas[n + 1] = Rect::new(
                 pos_x + 1,
                 area2.y,
-                area2.right() - (pos_x + 1),
+                area2.right().saturating_sub(pos_x + 1),
                 area2.height,
             );
 
@@ -1004,7 +1004,7 @@ impl SplitState {
                 area2.x,
                 pos_y + 1,
                 area2.width,
-                area2.bottom() - (pos_y + 1),
+                area2.bottom().saturating_sub(pos_y + 1),
             );
 
             if matches!(self.split_type, Scroll | Widget) {
