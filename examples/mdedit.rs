@@ -27,10 +27,12 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::{Line, Modifier, Stylize};
 use ratatui::style::Style;
+use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, Padding, StatefulWidget};
 use std::fs;
 use std::ops::Range;
 use std::path::PathBuf;
+use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MDAction, Error>;
@@ -264,6 +266,14 @@ impl<'a> MenuStructure<'a> for Menu {
 
     fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>> {
         match n {
+            0 => {
+                vec![
+                    MenuItem::Item3("New..".into(), Some('n'), Line::from("Ctrl-N").italic()),
+                    MenuItem::Item3("Open..".into(), Some('o'), Line::from("Ctrl-O").italic()),
+                    MenuItem::Item3("Save..".into(), Some('s'), Line::from("Ctrl-S").italic()),
+                    MenuItem::Item2(Line::from("Save as.."), Some('a')),
+                ]
+            }
             1 => {
                 vec![
                     if self.show_ctrl {
@@ -277,7 +287,11 @@ impl<'a> MenuStructure<'a> for Menu {
                         MenuItem::Item("\u{2610} Use CR+LF".into())
                     },
                     MenuItem::Sep(Separator::Dotted),
-                    MenuItem::Item2("Split view".into(), Some('s')),
+                    MenuItem::Item3(
+                        "Split view".into(),
+                        Some('s'),
+                        Line::from("Ctrl-D").italic(),
+                    ),
                 ]
             }
             2 => dark_themes()
@@ -430,6 +444,10 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                 } else {
                     Control::Continue
                 }
+            }
+            ct_event!(keycode press F(1)) => {
+                ctx.g.error_dlg.append(from_utf8(HELP)?);
+                Control::Changed
             }
             _ => Control::Continue,
         };
@@ -839,7 +857,7 @@ pub mod mdstructure {
             if pos.0 < self.tabs.len() {
                 if pos.1 < self.tabs[pos.0].len() {
                     self.sel_split = Some(pos.0);
-                    self.tabbed[pos.0].select(pos.1);
+                    self.tabbed[pos.0].select(Some(pos.1));
                     ctx.focus
                         .as_mut()
                         .expect("focus")
@@ -850,7 +868,7 @@ pub mod mdstructure {
 
         pub fn select_next(&mut self, ctx: &mut AppContext<'_>) -> bool {
             if let Some(idx_split) = self.sel_split {
-                if idx_split < self.tabs.len() {
+                if idx_split + 1 < self.tabs.len() {
                     let new_split = idx_split + 1;
                     let new_tab = self.tabbed[new_split].selected().unwrap_or_default();
                     self.select((new_split, new_tab), ctx);
@@ -880,25 +898,38 @@ pub mod mdstructure {
             if pos.0 < self.tabs.len() {
                 if pos.1 < self.tabs[pos.0].len() {
                     self.tabs[pos.0][pos.1].save()?;
-                    self.tabs[pos.0].remove(pos.1);
 
+                    // remove tab
+                    self.tabs[pos.0].remove(pos.1);
+                    if let Some(sel_tab) = self.tabbed[pos.0].selected() {
+                        let new_tab = if sel_tab > pos.1 {
+                            Some(sel_tab - 1)
+                        } else {
+                            if sel_tab == 0 {
+                                None
+                            } else {
+                                Some(sel_tab)
+                            }
+                        };
+                        self.tabbed[pos.0].select(new_tab);
+                    }
+
+                    // maybe remove split
                     if self.tabs[pos.0].len() == 0 {
                         self.tabs.remove(pos.0);
                         self.tabbed.remove(pos.0);
                         if let Some(sel_split) = self.sel_split {
-                            if sel_split == pos.0 {
-                                if sel_split > 0 {
-                                    self.sel_split = Some(sel_split - 1);
-                                } else if self.tabbed.len() > 0 {
-                                    self.sel_split = Some(0);
+                            let new_split = if sel_split > pos.0 {
+                                Some(sel_split - 1)
+                            } else {
+                                if sel_split == 0 {
+                                    None
                                 } else {
-                                    self.sel_split = None;
+                                    Some(sel_split)
                                 }
-                            }
+                            };
+                            self.sel_split = new_split;
                         }
-                        if self.sel_split == Some(pos.0) {}
-                    } else if pos.1 > self.tabs[pos.0].len() {
-                        self.tabbed[pos.0].select(self.tabs[pos.0].len() - 1);
                     }
                 }
             }
@@ -1124,10 +1155,8 @@ pub mod mdedit {
                             } else {
                                 ctx.focus.as_ref().expect("focus").focus(sel);
                             }
-                            Control::Changed
-                        } else {
-                            Control::Unchanged
                         }
+                        Control::Changed
                     }
                     ct_event!(key press CONTROL-'s') | ct_event!(key press 's') => {
                         if let Some((pos, sel)) = self.structure.selected() {
@@ -1139,18 +1168,19 @@ pub mod mdedit {
                             } else {
                                 ctx.focus.as_ref().expect("focus").focus(sel);
                             }
-                            Control::Changed
-                        } else {
-                            Control::Unchanged
                         }
+                        Control::Changed
                     }
-                    _ => Control::Continue,
+                    _ => Control::Changed,
                 });
             }
 
             flow_ok!(match event {
                 ct_event!(key press CONTROL-'n') => {
                     Control::Message(MDAction::MenuNew)
+                }
+                ct_event!(key press CONTROL-'o') => {
+                    Control::Message(MDAction::MenuOpen)
                 }
                 ct_event!(key press CONTROL-'s') => {
                     Control::Message(MDAction::Save)
@@ -1367,6 +1397,11 @@ enum MDStyle {
     MathDisplay,
     Rule,
     TaskListMarker,
+    Html,
+    Table,
+    TableHead,
+    TableRow,
+    TableCell,
 }
 
 fn collect_ast(state: &TextAreaState) -> Vec<(TextRange, usize)> {
@@ -1441,6 +1476,25 @@ fn collect_ast(state: &TextAreaState) -> Vec<(TextRange, usize)> {
             Event::Start(Tag::MetadataBlock { .. }) => {
                 styles.push((range(r), MDStyle::MetadataBlock as usize));
             }
+            Event::Start(Tag::Paragraph) => {
+                // base style
+            }
+            Event::Start(Tag::HtmlBlock) => {
+                styles.push((range(r), MDStyle::Html as usize));
+            }
+            Event::Start(Tag::List(_)) => {
+                // base style
+            }
+            Event::Start(Tag::Table(_)) => styles.push((range(r), MDStyle::Table as usize)),
+            Event::Start(Tag::TableHead) => {
+                styles.push((range(r), MDStyle::TableHead as usize));
+            }
+            Event::Start(Tag::TableRow) => {
+                styles.push((range(r), MDStyle::TableRow as usize));
+            }
+            Event::Start(Tag::TableCell) => {
+                styles.push((range(r), MDStyle::TableCell as usize));
+            }
 
             Event::Code(v) => {
                 styles.push((range(r), MDStyle::CodeInline as usize));
@@ -1460,6 +1514,9 @@ fn collect_ast(state: &TextAreaState) -> Vec<(TextRange, usize)> {
             Event::TaskListMarker(v) => {
                 styles.push((range(r), MDStyle::TaskListMarker as usize));
             }
+            Event::Html(v) | Event::InlineHtml(v) => {
+                styles.push((range(r), MDStyle::Html as usize));
+            }
 
             _ => {}
         }
@@ -1468,10 +1525,10 @@ fn collect_ast(state: &TextAreaState) -> Vec<(TextRange, usize)> {
     styles
 }
 
-fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 17] {
+fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 22] {
     [
         Style::default().fg(ctx.g.scheme().yellow[2]).underlined(), // Heading,
-        Style::default().fg(ctx.g.scheme().yellow[1]),              // BlockQuote,
+        Style::default().fg(ctx.g.scheme().orange[2]),              // BlockQuote,
         Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeBlock,
         Style::default().fg(ctx.g.scheme().bluegreen[3]),           // FootnodeDefinition
         Style::default().fg(ctx.g.scheme().bluegreen[2]),           // FootnodeReference
@@ -1483,12 +1540,17 @@ fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 17] {
         Style::default().fg(ctx.g.scheme().gray[2]),                // Strikethrough
         Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Link
         Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Image
-        Style::default().fg(ctx.g.scheme().orange[1]),              // MetadataBlock
+        Style::default().fg(ctx.g.scheme().orange[2]),              // MetadataBlock
         Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeInline
         Style::default().fg(ctx.g.scheme().redpink[2]),             // MathInline
         Style::default().fg(ctx.g.scheme().redpink[2]),             // MathDisplay
         Style::default().fg(ctx.g.scheme().white[3]),               // Rule
         Style::default().fg(ctx.g.scheme().orange[2]),              // TaskListMarker
+        Style::default().fg(ctx.g.scheme().gray[2]),                // Html
+        Style::default().fg(ctx.g.scheme().orange[2]),              // Table-Head
+        Style::default().fg(ctx.g.scheme().yellow[2]),              // Table
+        Style::default().fg(ctx.g.scheme().orange[1]),              // Table-Row
+        Style::default().fg(ctx.g.scheme().orange[3]),              // Table-Cell
     ]
 }
 
@@ -1501,3 +1563,5 @@ fn setup_logging() -> Result<(), Error> {
         .apply()?;
     Ok(())
 }
+
+static HELP: &[u8] = include_bytes!("mdedit.md");
