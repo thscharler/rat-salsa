@@ -27,13 +27,13 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::{Line, Modifier, Stylize};
 use ratatui::style::Style;
-use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, Padding, StatefulWidget};
 use std::fs;
 use std::ops::Range;
 use std::path::PathBuf;
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
+use unicode_segmentation::UnicodeSegmentation;
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MDAction, Error>;
 
@@ -112,9 +112,14 @@ pub enum MDAction {
     MenuOpen,
     MenuSave,
     MenuSaveAs,
+
+    FocusedFile(PathBuf),
+
+    SyncEdit,
+
     New(PathBuf),
     Open(PathBuf),
-    Show(String, Vec<(TextRange, usize)>),
+    SelectOrOpen(PathBuf),
     SaveAs(PathBuf),
     Save,
     CloseSelected,
@@ -404,6 +409,7 @@ impl HasFocus for MDAppState {
 impl AppState<GlobalState, MDAction, Error> for MDAppState {
     fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         self.menu.focus().set(true);
+        self.editor.init(ctx)?;
         Ok(())
     }
 
@@ -548,12 +554,14 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
 }
 
 pub mod mdfile {
-    use crate::{collect_ast, text_style, AppContext, GlobalState, MDAction};
+    use crate::{
+        collect_ast, duplicate_md_row, next_tab_md_row, prev_tab_md_row, text_style, AppContext,
+        GlobalState, MDAction, MDStyle,
+    };
     use anyhow::Error;
-    use crossterm::event::Event;
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{ct_event, flow_ok, HandleEvent, Outcome, Regular, TextOutcome};
+    use rat_widget::event::{ct_event, flow, flow_ok, HandleEvent, Outcome, Regular, TextOutcome};
     use rat_widget::focus::{FocusFlag, HasFocusFlag};
     use rat_widget::scrolled::Scroll;
     use rat_widget::textarea::{TextArea, TextAreaState};
@@ -710,7 +718,7 @@ pub mod mdfile {
 
         fn crossterm(
             &mut self,
-            event: &Event,
+            event: &crossterm::event::Event,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDAction>, Error> {
             flow_ok!(match event {
@@ -742,20 +750,99 @@ pub mod mdfile {
                 _ => Outcome::Continue,
             });
 
-            flow_ok!(match self.edit.handle(event, Regular) {
+            flow_ok!(match self.edit.handle(event, MarkDown) {
                 TextOutcome::TextChanged => {
                     self.changed = true;
+                    // send sync
+                    ctx.queue(Control::Message(MDAction::SyncEdit));
                     // restart timer
                     self.parse_timer = Some(ctx.replace_timer(
                         self.parse_timer,
                         TimerDef::new().next(Instant::now() + Duration::from_millis(200)),
                     ));
+
                     Control::Changed
                 }
                 r => r.into(),
             });
 
             Ok(Control::Continue)
+        }
+    }
+
+    struct MarkDown;
+
+    impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaState {
+        fn handle(&mut self, event: &crossterm::event::Event, qualifier: MarkDown) -> TextOutcome {
+            flow!(match event {
+                ct_event!(keycode press Enter) => {
+                    let pos = self.cursor();
+                    if pos.x == self.line_width(pos.y).expect("line") {
+                        if let Some(row_range) =
+                            self.value.style_match(pos, MDStyle::TableRow as usize)
+                        {
+                            let row = self.value.str_slice(row_range).expect("row");
+                            let (x, row) = duplicate_md_row(row.as_ref());
+                            self.insert_str(row);
+                            self.set_cursor((x, pos.y + 1), false);
+                            TextOutcome::TextChanged
+                        } else if let Some(row_range) =
+                            self.value.style_match(pos, MDStyle::TableHead as usize)
+                        {
+                            let row = self.value.str_slice(row_range).expect("row");
+                            let (x, row) = duplicate_md_row(row.as_ref());
+                            self.insert_str(row);
+                            self.set_cursor((x, pos.y + 1), false);
+                            TextOutcome::TextChanged
+                        } else {
+                            TextOutcome::Continue
+                        }
+                    } else {
+                        TextOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press Tab) => {
+                    let pos = self.cursor();
+                    if let Some(row_range) = self.value.style_match(pos, MDStyle::TableRow as usize)
+                    {
+                        let row = self.value.str_slice(row_range).expect("row");
+                        let x = next_tab_md_row(row.as_ref(), pos.x - row_range.start.x);
+                        self.set_cursor((x, pos.y), false);
+                        TextOutcome::TextChanged
+                    } else if let Some(row_range) =
+                        self.value.style_match(pos, MDStyle::TableHead as usize)
+                    {
+                        let row = self.value.str_slice(row_range).expect("row");
+                        let x = next_tab_md_row(row.as_ref(), pos.x - row_range.start.x);
+                        self.set_cursor((x, pos.y), false);
+                        TextOutcome::TextChanged
+                    } else {
+                        TextOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press SHIFT-BackTab) => {
+                    let pos = self.cursor();
+                    if let Some(row_range) = self.value.style_match(pos, MDStyle::TableRow as usize)
+                    {
+                        let row = self.value.str_slice(row_range).expect("row");
+                        let x = prev_tab_md_row(row.as_ref(), pos.x - row_range.start.x);
+                        self.set_cursor((x, pos.y), false);
+                        TextOutcome::TextChanged
+                    } else if let Some(row_range) =
+                        self.value.style_match(pos, MDStyle::TableHead as usize)
+                    {
+                        let row = self.value.str_slice(row_range).expect("row");
+                        let x = prev_tab_md_row(row.as_ref(), pos.x - row_range.start.x);
+                        self.set_cursor((x, pos.y), false);
+                        TextOutcome::TextChanged
+                    } else {
+                        TextOutcome::Continue
+                    }
+                }
+                _ => TextOutcome::Continue,
+            });
+
+            self.handle(event, Regular)
         }
     }
 }
@@ -1036,6 +1123,9 @@ pub mod mdstructure {
                 if let Some(idx_tab) = tabbed.selected() {
                     if self.tabs[idx_split][idx_tab].gained_focus() {
                         self.sel_split = Some(idx_split);
+                        ctx.queue(Control::Message(MDAction::FocusedFile(
+                            self.tabs[idx_split][idx_tab].path.clone(),
+                        )));
                         break;
                     }
                 }
@@ -1075,10 +1165,19 @@ pub mod mdedit {
     use rat_salsa::event::{ct_event, flow_ok};
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::ConsumedEvent;
+    use rat_widget::event::{ConsumedEvent, DoubleClick, HandleEvent, Regular};
+    use rat_widget::fill::Fill;
     use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
+    use rat_widget::list::selection::RowSelection;
+    use rat_widget::list::{List, ListState};
+    use rat_widget::scrolled::Scroll;
+    use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
+    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::text::Line;
+    use ratatui::widgets::{StatefulWidget, StatefulWidgetRef, Widget};
+    use std::ffi::{OsStr, OsString};
+    use std::fs::read_dir;
     use std::path::{Path, PathBuf};
 
     #[derive(Debug, Default)]
@@ -1087,6 +1186,12 @@ pub mod mdedit {
     #[derive(Debug, Default)]
     pub struct MDEditState {
         pub window_cmd: bool,
+
+        pub split_files: SplitState,
+        pub files_dir: PathBuf,
+        pub files: Vec<PathBuf>,
+        pub file_list: ListState<RowSelection>,
+
         pub structure: MDStructureState,
     }
 
@@ -1100,7 +1205,41 @@ pub mod mdedit {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_, GlobalState>,
         ) -> Result<(), Error> {
-            MDStructure.render(area, buf, &mut state.structure, ctx)?;
+            let (s0, s1) = Split::new()
+                .styles(ctx.g.theme.split_style())
+                .mark_offset(1)
+                .constraints([Constraint::Length(15), Constraint::Fill(1)])
+                .direction(Direction::Horizontal)
+                .split_type(SplitType::FullQuadrantInside)
+                .into_widgets();
+
+            s0.render_ref(area, buf, &mut state.split_files);
+
+            let l_file_list = Layout::vertical([Constraint::Length(1), Constraint::Fill(1)])
+                .split(state.split_files.widget_areas[0]);
+            Fill::new()
+                .style(ctx.g.theme.data())
+                .render(l_file_list[0], buf);
+            List::default()
+                .styles(ctx.g.theme.list_style())
+                .scroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
+                .items(state.files.iter().map(|v| {
+                    if let Some(name) = v.file_name() {
+                        Line::from(name.to_string_lossy().to_string())
+                    } else {
+                        Line::from("???")
+                    }
+                }))
+                .render(l_file_list[1], buf, &mut state.file_list);
+
+            MDStructure.render(
+                state.split_files.widget_areas[1],
+                buf,
+                &mut state.structure,
+                ctx,
+            )?;
+
+            s1.render_ref(area, buf, &mut state.split_files);
 
             if state.window_cmd {
                 ctx.g.status.status(1, "^W");
@@ -1117,6 +1256,11 @@ pub mod mdedit {
     }
 
     impl AppState<GlobalState, MDAction, Error> for MDEditState {
+        fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+            self.update_files(&Path::new("."))?;
+            Ok(())
+        }
+
         fn timer(
             &mut self,
             event: &TimeOut,
@@ -1142,8 +1286,15 @@ pub mod mdedit {
                         self.structure.select_next(ctx);
                         Control::Changed
                     }
-                    ct_event!(key press 'c') => {
+                    ct_event!(key press CONTROL-'c')
+                    | ct_event!(key press 'c')
+                    | ct_event!(key press '-') => {
                         Control::Message(MDAction::CloseSelected)
+                    }
+                    ct_event!(key press CONTROL-'d')
+                    | ct_event!(key press 'd')
+                    | ct_event!(key press '+') => {
+                        Control::Message(MDAction::Split)
                     }
                     ct_event!(key press CONTROL-'t') | ct_event!(key press 't') => {
                         if let Some((pos, sel)) = self.structure.selected() {
@@ -1185,9 +1336,6 @@ pub mod mdedit {
                 ct_event!(key press CONTROL-'s') => {
                     Control::Message(MDAction::Save)
                 }
-                ct_event!(key press CONTROL-'d') => {
-                    Control::Message(MDAction::Split)
-                }
                 ct_event!(key release CONTROL-'w') => {
                     self.window_cmd = true;
                     Control::Changed
@@ -1198,20 +1346,22 @@ pub mod mdedit {
                 _ => Control::Continue,
             });
 
-            let r = self.structure.crossterm(event, ctx)?;
-
-            // synchronize instances
-            if r.is_consumed() {
-                let (id_sel, sel_path, replay) =
-                    if let Some((id_sel, sel)) = self.structure.selected_mut() {
-                        (id_sel, sel.path.clone(), sel.edit.recent_replay())
+            flow_ok!(self.split_files.handle(event, Regular));
+            flow_ok!(match event {
+                ct_event!(mouse any for m)
+                    if self.file_list.mouse.doubleclick(self.file_list.area, m) =>
+                {
+                    if let Some(row) = self.file_list.row_at_clicked((m.column, m.row)) {
+                        Control::Message(MDAction::SelectOrOpen(self.files[row].clone()))
                     } else {
-                        ((0, 0), PathBuf::default(), Vec::default())
-                    };
-                if !replay.is_empty() {
-                    self.structure.replay(id_sel, &sel_path, &replay);
+                        Control::Continue
+                    }
                 }
-            }
+                _ => Control::Continue,
+            });
+            flow_ok!(self.file_list.handle(event, Regular));
+
+            let r = self.structure.crossterm(event, ctx)?;
 
             Ok(r)
         }
@@ -1251,10 +1401,42 @@ pub mod mdedit {
                     self.new(p, ctx)?;
                     Control::Changed
                 }
+                MDAction::SelectOrOpen(p) => {
+                    self.select_or_open(p, ctx)?;
+                    Control::Changed
+                }
                 MDAction::Open(p) => {
                     self.open(p, ctx)?;
                     Control::Changed
                 }
+
+                MDAction::SyncEdit => {
+                    // synchronize instances
+                    let (id_sel, sel_path, replay) =
+                        if let Some((id_sel, sel)) = self.structure.selected_mut() {
+                            (id_sel, sel.path.clone(), sel.edit.recent_replay())
+                        } else {
+                            ((0, 0), PathBuf::default(), Vec::default())
+                        };
+                    if !replay.is_empty() {
+                        self.structure.replay(id_sel, &sel_path, &replay);
+                    }
+                    Control::Changed
+                }
+
+                MDAction::FocusedFile(p) => {
+                    debug!("focused file {:?}", p);
+                    // update files view
+                    if let Some(parent) = p.parent() {
+                        if parent != self.files_dir {
+                            self.update_files(p)?;
+                        }
+                    } else {
+                        self.select_in_files(p)?;
+                    }
+                    Control::Changed
+                }
+
                 MDAction::CloseSelected => {
                     if let Some(pos) = self.structure.selected_pos() {
                         self.structure.close((pos.0, pos.1), ctx)?;
@@ -1342,6 +1524,19 @@ pub mod mdedit {
             Ok(())
         }
 
+        pub fn select_or_open(
+            &mut self,
+            path: &Path,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<(), Error> {
+            if let Some((pos, md)) = self.structure.for_path(path) {
+                self.structure.select(pos, ctx);
+            } else {
+                self.open(path, ctx)?;
+            }
+            Ok(())
+        }
+
         pub fn split(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
             let Some((pos, sel)) = self.structure.selected_mut() else {
                 return Ok(());
@@ -1376,7 +1571,136 @@ pub mod mdedit {
             }
             Ok(())
         }
+
+        pub fn update_files(&mut self, file: &Path) -> Result<(), Error> {
+            let dir;
+            let dir = if !file.is_dir() {
+                if let Some(parent) = file.parent() {
+                    parent
+                } else {
+                    dir = PathBuf::new();
+                    &dir
+                }
+            } else {
+                file
+            };
+
+            self.files.clear();
+            if let Ok(rd) = read_dir(dir) {
+                for f in rd {
+                    let Ok(f) = f else {
+                        continue;
+                    };
+                    let f = f.path();
+                    if let Some(ext) = f.extension() {
+                        if ext == "md" {
+                            self.files.push(f);
+                        }
+                    }
+                }
+            }
+
+            self.select_in_files(file)?;
+
+            Ok(())
+        }
+
+        pub fn select_in_files(&mut self, file: &Path) -> Result<(), Error> {
+            self.file_list.clear_selection();
+            for (i, f) in self.files.iter().enumerate() {
+                if file == f {
+                    self.file_list.select(Some(i));
+                    break;
+                }
+            }
+            Ok(())
+        }
     }
+}
+
+/// Length as grapheme count, excluding line breaks.
+pub(crate) fn str_line_len(s: &str) -> usize {
+    let it = s.graphemes(true);
+    it.filter(|c| *c != "\n" && *c != "\r\n").count()
+}
+
+fn prev_tab_md_row(txt: &str, pos: usize) -> usize {
+    let row = parse_md_row(txt);
+
+    let mut last_0 = 0;
+    let mut last_1 = 0;
+    let mut x = 0;
+    for s in row {
+        last_0 = last_1;
+        last_1 = x;
+        if str_line_len(s) > 0 {
+            last_1 += 1;
+        }
+
+        for g in s.graphemes(true) {
+            x += 1;
+        }
+        x += 1;
+
+        if pos < x {
+            break;
+        }
+    }
+
+    last_0
+}
+
+fn next_tab_md_row(txt: &str, pos: usize) -> usize {
+    let row = parse_md_row(txt);
+
+    let mut x = 0;
+    for s in row {
+        if pos < x {
+            if str_line_len(s) > 0 {
+                x += 1;
+            }
+            break;
+        }
+
+        for g in s.graphemes(true) {
+            x += 1;
+        }
+        x += 1;
+    }
+
+    x
+}
+
+// duplicate as empty row
+fn duplicate_md_row(txt: &str) -> (usize, String) {
+    let row = parse_md_row(txt);
+    let mut new_row = String::new();
+    new_row.push('\n');
+    new_row.push_str(row[0]);
+    new_row.push('|');
+    for idx in 1..row.len() - 1 {
+        for g in row[idx].graphemes(true) {
+            new_row.push(' ');
+        }
+        new_row.push('|');
+    }
+
+    let x = if row.len() > 1 && row[1].len() > 0 {
+        str_line_len(row[0]) + 1 + 1
+    } else {
+        str_line_len(row[0]) + 1
+    };
+
+    (x, new_row)
+}
+
+// split single row.
+fn parse_md_row(txt: &str) -> Vec<&str> {
+    let mut tmp = Vec::new();
+    for s in txt.split('|') {
+        tmp.push(s);
+    }
+    tmp
 }
 
 enum MDStyle {
@@ -1444,7 +1768,7 @@ fn collect_ast(state: &TextAreaState) -> Vec<(TextRange, usize)> {
             }
             Event::Start(Tag::Item) => {
                 // only color the marker
-                let r = if let Some(s) = state.text_slice(range(r.clone())) {
+                let r = if let Some(s) = state.rope_slice(range(r.clone())) {
                     let mut n = 0;
                     for c in s.bytes() {
                         if c == b' ' {
@@ -1547,7 +1871,7 @@ fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 22] {
         Style::default().fg(ctx.g.scheme().white[3]),               // Rule
         Style::default().fg(ctx.g.scheme().orange[2]),              // TaskListMarker
         Style::default().fg(ctx.g.scheme().gray[2]),                // Html
-        Style::default().fg(ctx.g.scheme().orange[2]),              // Table-Head
+        Style::default().fg(ctx.g.scheme().gray[2]),                // Table-Head
         Style::default().fg(ctx.g.scheme().yellow[2]),              // Table
         Style::default().fg(ctx.g.scheme().orange[1]),              // Table-Row
         Style::default().fg(ctx.g.scheme().orange[3]),              // Table-Cell
