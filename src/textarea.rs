@@ -22,6 +22,7 @@ use ratatui::prelude::Stylize;
 use ratatui::style::Style;
 use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
 use ropey::{Rope, RopeSlice};
+use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::fmt::Debug;
 use std::ops::{Range, RangeBounds};

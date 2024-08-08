@@ -5,6 +5,7 @@ use crate::text::graphemes::{
 use crate::text::range_map::RangeMap;
 use crate::text::undo::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
 use ropey::{Rope, RopeSlice};
+use std::borrow::Cow;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::mem;
@@ -716,6 +717,20 @@ impl TextAreaCore {
     #[inline]
     pub fn styles_at_ext(&self, pos: impl Into<TextPosition>, buf: &mut Vec<(TextRange, usize)>) {
         self.styles.values_at_ext(pos, buf)
+    }
+
+    /// Check if the given style applies at the position and
+    /// return the complete range for the style.
+    pub fn style_match(&self, pos: impl Into<TextPosition>, style: usize) -> Option<TextRange> {
+        let mut tmp = Vec::new();
+        self.styles_at_ext(pos, &mut tmp);
+
+        for (r, s) in tmp {
+            if style == s {
+                return Some(r);
+            }
+        }
+        None
     }
 
     /// List of all styles.
