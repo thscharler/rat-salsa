@@ -812,10 +812,20 @@ impl TextAreaCore {
     }
 
     /// A range of the text as RopeSlice.
-    pub fn text_slice(&self, range: TextRange) -> Option<RopeSlice<'_>> {
+    pub fn rope_slice(&self, range: TextRange) -> Option<RopeSlice<'_>> {
         let s = self.char_at(range.start)?;
         let e = self.char_at(range.end)?;
         Some(self.value.slice(s..e))
+    }
+
+    /// A range of the text as Cow<str>
+    pub fn str_slice(&self, range: TextRange) -> Option<Cow<'_, str>> {
+        let s = self.rope_slice(range)?;
+        if let Some(str) = s.as_str() {
+            Some(Cow::Borrowed(str))
+        } else {
+            Some(Cow::Owned(s.to_string()))
+        }
     }
 
     /// Value as Bytes iterator.
@@ -1037,9 +1047,10 @@ impl TextAreaCore {
             return None;
         };
         let mut x = 0;
-        let byte_y = self.value.try_line_to_byte(y).expect("valid_y");
-
-        let mut it_line = self.line_grapheme_idx(y).expect("valid_y");
+        let byte_y = self.value.try_line_to_byte(y).expect("valid_roundtrip");
+        let Some(mut it_line) = self.line_grapheme_idx(y) else {
+            return None;
+        };
         loop {
             let Some((Range { start: sb, .. }, _cc)) = it_line.next() else {
                 break;
@@ -1059,9 +1070,11 @@ impl TextAreaCore {
         let Ok(line_byte) = self.value.try_line_to_byte(pos.y) else {
             return None;
         };
+        let Some(mut it_line) = self.line_grapheme_idx(pos.y) else {
+            return None;
+        };
 
         let len_bytes = self.value.len_bytes();
-        let mut it_line = self.line_grapheme_idx(pos.y).expect("valid_line");
         let mut x = -1isize;
         let mut last_eb = 0;
         loop {
@@ -1089,11 +1102,7 @@ impl TextAreaCore {
     /// Returns the first char position for the grapheme position.
     pub fn char_at(&self, pos: TextPosition) -> Option<usize> {
         let byte_range = self.byte_at(pos)?;
-        Some(
-            self.value
-                .try_byte_to_char(byte_range.start)
-                .expect("valid_byte_pos"),
-        )
+        self.value.try_byte_to_char(byte_range.start).ok()
     }
 
     /// Insert a character.
@@ -1297,7 +1306,7 @@ impl TextAreaCore {
 
         let old_cursor = self.cursor;
         let old_anchor = self.anchor;
-        let old_text = self.text_slice(range).expect("some text").to_string();
+        let old_text = self.rope_slice(range).expect("some text").to_string();
 
         self.value.remove(start_pos..end_pos);
 

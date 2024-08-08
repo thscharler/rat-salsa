@@ -476,8 +476,14 @@ impl TextAreaState {
 
     /// Text value
     #[inline]
-    pub fn text_slice(&self, range: impl Into<TextRange>) -> Option<RopeSlice<'_>> {
-        self.value.text_slice(range.into())
+    pub fn rope_slice(&self, range: impl Into<TextRange>) -> Option<RopeSlice<'_>> {
+        self.value.rope_slice(range.into())
+    }
+
+    /// Text value
+    #[inline]
+    pub fn str_slice(&self, range: impl Into<TextRange>) -> Option<Cow<'_, str>> {
+        self.value.str_slice(range.into())
     }
 
     /// Text as Bytes iterator.
@@ -494,7 +500,7 @@ impl TextAreaState {
         self.value.byte_slice(byte_range)
     }
 
-    /// Text as Bytes iterator.
+    /// Text as char iterator.
     #[inline]
     pub fn chars(&self) -> impl Iterator<Item = char> + '_ {
         self.value.chars()
@@ -661,7 +667,7 @@ impl TextAreaState {
     /// Selection.
     #[inline]
     pub fn selected_value(&self) -> Option<RopeSlice<'_>> {
-        self.value.text_slice(self.value.selection())
+        self.value.rope_slice(self.value.selection())
     }
 
     /// Set and replace all styles.
@@ -799,6 +805,41 @@ impl TextAreaState {
             TextOutcome::TextChanged
         } else {
             TextOutcome::Unchanged
+        }
+    }
+
+    /// Duplicates the selection or the current line.
+    /// Returns TextOutcome::TextChanged if there was any real change.
+    pub fn duplicate_text(&mut self) -> TextOutcome {
+        if self.value.has_selection() {
+            let sel = self.selection();
+            if let Some(txt) = self.value.str_slice(sel).map(|v| v.to_string()) {
+                self.value.insert_str(sel.end, txt.as_ref());
+                TextOutcome::TextChanged
+            } else {
+                TextOutcome::Unchanged
+            }
+        } else {
+            let pos = self.cursor();
+            let row = TextRange::new((0, pos.y), (0, pos.y + 1));
+            if let Some(txt) = self.value.str_slice(row).map(|v| v.to_string()) {
+                self.value.insert_str(row.start, txt.as_ref());
+                TextOutcome::TextChanged
+            } else {
+                TextOutcome::Unchanged
+            }
+        }
+    }
+
+    /// Deletes the current line.
+    /// Returns true if there was any real change.
+    pub fn delete_line(&mut self) -> TextOutcome {
+        let pos = self.cursor();
+        if pos.y + 1 < self.line_len() {
+            self.delete_range(TextRange::new((0, pos.y), (0, pos.y + 1)))
+        } else {
+            let width = self.line_width(pos.y).expect("valid_cursor");
+            self.delete_range(TextRange::new((0, pos.y), (width, pos.y)))
         }
     }
 
@@ -1025,7 +1066,7 @@ impl TextAreaState {
             // delete to beginning of line
             let line_start = if cursor.x != 0 {
                 if let Some(line_start) =
-                    self.value.text_slice(TextRange::new((0, cursor.y), cursor))
+                    self.value.rope_slice(TextRange::new((0, cursor.y), cursor))
                 {
                     line_start.chars().find(|v| !v.is_whitespace()).is_none()
                 } else {
@@ -1616,6 +1657,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(key press CONTROL-'c') => self.copy_to_buffer(),
                 ct_event!(key press CONTROL-'x') => self.cut_to_buffer(),
                 ct_event!(key press CONTROL-'v') => self.paste_from_buffer(),
+                ct_event!(key press CONTROL-'d') => self.duplicate_text(),
+                ct_event!(key press CONTROL-'y') => self.delete_line(),
                 ct_event!(key press CONTROL-'z') => self.value.undo(),
                 ct_event!(key press CONTROL_SHIFT-'Z') => self.value.redo(),
 
@@ -1632,6 +1675,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 | ct_event!(key release CONTROL-'c')
                 | ct_event!(key release CONTROL-'x')
                 | ct_event!(key release CONTROL-'v')
+                | ct_event!(key release CONTROL-'d')
+                | ct_event!(key release CONTROL-'y')
                 | ct_event!(key release CONTROL-'z')
                 | ct_event!(key release CONTROL_SHIFT-'Z') => TextOutcome::Unchanged,
                 _ => TextOutcome::Continue,
