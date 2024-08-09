@@ -712,25 +712,11 @@ impl TextAreaCore {
         self.styles.values_at(pos, buf)
     }
 
-    /// All styles active at the given position.
-    /// Gives the ranges of the styles too.
-    #[inline]
-    pub fn styles_at_ext(&self, pos: impl Into<TextPosition>, buf: &mut Vec<(TextRange, usize)>) {
-        self.styles.values_at_ext(pos, buf)
-    }
-
     /// Check if the given style applies at the position and
     /// return the complete range for the style.
-    pub fn style_match(&self, pos: impl Into<TextPosition>, style: usize) -> Option<TextRange> {
-        let mut tmp = Vec::new();
-        self.styles_at_ext(pos, &mut tmp);
-
-        for (r, s) in tmp {
-            if style == s {
-                return Some(r);
-            }
-        }
-        None
+    #[inline]
+    pub fn style_match(&self, pos: TextPosition, style: usize) -> Option<TextRange> {
+        self.styles.value_match(pos, style)
     }
 
     /// List of all styles.

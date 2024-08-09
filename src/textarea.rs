@@ -403,6 +403,15 @@ impl TextAreaState {
         Self::default()
     }
 
+    /// New state with a focus name.
+    #[inline]
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..Default::default()
+        }
+    }
+
     /// Clear everything.
     #[inline]
     pub fn clear(&mut self) -> bool {
@@ -694,6 +703,17 @@ impl TextAreaState {
     #[inline]
     pub fn styles_at(&self, pos: impl Into<TextPosition>, buf: &mut Vec<usize>) {
         self.value.styles_at(pos.into(), buf)
+    }
+
+    /// Check if the given style applies at the position and
+    /// return the complete range for the style.
+    #[inline]
+    pub fn style_match(
+        &self,
+        pos: impl Into<TextPosition>,
+        style: impl Into<usize>,
+    ) -> Option<TextRange> {
+        self.value.style_match(pos.into(), style.into())
     }
 
     /// Convert a byte position to a text area position.

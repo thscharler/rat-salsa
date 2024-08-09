@@ -73,13 +73,14 @@ impl RangeMap {
         }
     }
 
-    /// All styles active at the given position.
-    /// Gives the ranges of the styles too.
-    #[inline]
-    pub fn values_at_ext(&self, pos: impl Into<TextPosition>, buf: &mut Vec<(TextRange, usize)>) {
+    /// Check if a given value exists for the position and return the range.
+    pub(crate) fn value_match(&self, pos: TextPosition, value: usize) -> Option<TextRange> {
         for (r, s) in self.map.overlap(pos.into()) {
-            buf.push((r.into(), *s));
+            if value == *s {
+                return Some(r.into());
+            }
         }
+        None
     }
 
     /// Map and rebuild the IntervalMap.
