@@ -342,7 +342,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .vscroll(
                 Scroll::new()
                     .styles(ctx.g.theme.scroll_style())
-                    .split_mark_offset(0)
+                    .start_margin(0)
                     .scroll_by(1),
             )
             .render(state.w_split.widget_areas[0], buf, &mut state.w_dirs);
@@ -359,7 +359,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .vscroll(
                 Scroll::new()
                     .styles(ctx.g.theme.scroll_style())
-                    .split_mark_offset(0)
+                    .start_margin(0)
                     .scroll_by(1),
             )
             .render(state.w_split.widget_areas[1], buf, &mut state.w_files);

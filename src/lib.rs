@@ -216,7 +216,6 @@ where
     /// Some global state for the application.
     pub g: &'a mut Global,
     /// Can be set to hold a Focus, if needed.
-    /// Will be reset after each run of an event-handler.
     pub focus: Option<Focus>,
 
     /// Application timers.
@@ -261,6 +260,8 @@ where
     }
 
     /// Replace a timer.
+    /// Remove the old timer and create a new one.
+    /// If the old timer no longer exists it just creates the new one.
     #[inline]
     pub fn replace_timer(&self, h: Option<TimerHandle>, t: TimerDef) -> TimerHandle {
         if let Some(h) = h {
@@ -304,6 +305,24 @@ where
     #[inline]
     pub fn queue_err(&self, err: Error) {
         self.queue.push(Err(err), None);
+    }
+
+    /// Access the focus-field.
+    ///
+    /// # Panic
+    /// Panics if no focus has been set.
+    #[inline]
+    pub fn focus(&self) -> &Focus {
+        self.focus.as_ref().expect("focus")
+    }
+
+    /// Access the focus-field.
+    ///
+    /// # Panic
+    /// Panics if no focus has been set.
+    #[inline]
+    pub fn focus_mut(&mut self) -> &mut Focus {
+        self.focus.as_mut().expect("focus")
     }
 }
 
