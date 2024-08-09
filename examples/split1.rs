@@ -122,7 +122,7 @@ fn repaint_input(
             }
             let mut scroll_left = Scroll::new().styles(THEME.scrolled_style());
             if state.dir == Direction::Horizontal {
-                scroll_left = scroll_left.split_mark_offset(1);
+                scroll_left = scroll_left.start_margin(1);
             }
             w_left = w_left.scroll(scroll_left);
         }
