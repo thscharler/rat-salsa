@@ -950,6 +950,14 @@ impl HasFocusFlag for SplitState {
 }
 
 impl SplitState {
+    /// New state with a focus-name.
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..Default::default()
+        }
+    }
+
     /// Set the position for the nth splitter.
     ///
     /// The position is limited the combined area of the two adjacent areas.

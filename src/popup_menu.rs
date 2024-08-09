@@ -462,6 +462,14 @@ impl PopupMenuState {
         Default::default()
     }
 
+    /// New with a focus name.
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..Default::default()
+        }
+    }
+
     /// Reset the state to defaults.
     pub fn clear(&mut self) {
         *self = Default::default();

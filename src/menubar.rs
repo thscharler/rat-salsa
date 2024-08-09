@@ -343,6 +343,15 @@ impl MenuBarState {
         Self::default()
     }
 
+    /// New state with a focus name.
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            bar: MenuLineState::named(format!("{}.bar", name).to_string().leak()),
+            popup: PopupMenuState::named(format!("{}.popup", name).to_string().leak()),
+            ..Default::default()
+        }
+    }
+
     /// Submenu visible/active.
     pub fn popup_active(&self) -> bool {
         self.popup.is_focused()

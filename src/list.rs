@@ -335,6 +335,25 @@ impl<Selection> HasFocusFlag for ListState<Selection> {
 }
 
 impl<Selection: ListSelection> ListState<Selection> {
+    /// New initial state.
+    pub fn new() -> Self
+    where
+        Selection: Default,
+    {
+        Default::default()
+    }
+
+    /// New state with a focus name
+    pub fn named(name: &'static str) -> Self
+    where
+        Selection: Default,
+    {
+        Self {
+            focus: FocusFlag::named(name),
+            ..Default::default()
+        }
+    }
+
     #[inline]
     pub fn rows(&self) -> usize {
         self.rows

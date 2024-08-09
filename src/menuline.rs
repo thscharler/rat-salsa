@@ -245,6 +245,14 @@ impl MenuLineState {
         Self::default()
     }
 
+    /// New with a focus name.
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..Default::default()
+        }
+    }
+
     /// Number of items.
     #[inline]
     pub fn len(&self) -> usize {
