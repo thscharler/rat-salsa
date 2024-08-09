@@ -138,6 +138,12 @@ impl Focus {
         self
     }
 
+    /// Writes a log for each operation.
+    pub fn enable_log2(&self, log: bool) -> &Self {
+        self.core.log.set(log);
+        self
+    }
+
     /// Set a name for debugging.
     pub fn set_name(&mut self, name: impl Into<String>) {
         self.name = name.into();
@@ -358,19 +364,20 @@ mod core {
     use log::debug;
     use ratatui::layout::Rect;
     use std::cell::Cell;
+    use std::ops::Range;
     use std::rc::Rc;
 
     /// Struct for the data of the focus-container itself.
     #[derive(Debug, Clone)]
     struct Container {
-        /// Area for the whole compound. Only valid if container_focus is Some().
-        area: Rect,
-        /// Area split in regions. Only valid if container_focus is Some().
-        z_area: Vec<ZRect>,
         /// Summarizes all the contained FocusFlags.
         /// If any of them has the focus set, this will be set too.
         /// This can help if you build compound widgets.
         focus: FocusFlag,
+        /// Area for the whole compound.
+        area: Rect,
+        /// Area split in regions.
+        z_area: Vec<ZRect>,
     }
 
     /// Focus core.
@@ -398,7 +405,9 @@ mod core {
         /// This is filled if you call [crate::Focus::add_focus]. The
         /// container_focus of the appended Focus and all its focus-flags
         /// are added. And all the sub_container's of it are appended too.
-        sub_container: Vec<(Container, Vec<FocusFlag>)>,
+        ///
+        /// Range here is a range in the vecs above.
+        sub_containers: Vec<(Container, Range<usize>)>,
     }
 
     impl FocusCore {
@@ -432,15 +441,31 @@ mod core {
             self.primary_keys.push(primary_keys);
         }
 
+        /// Remove a focus flag
+        pub(super) fn remove(&mut self, focus: &'_ FocusFlag) {
+            let Some((idx, _)) = self.focus.iter().enumerate().find(|(i, f)| *f == focus) else {
+                return;
+            };
+
+            self.focus.remove(idx);
+            self.areas.remove(idx);
+            self.z_areas.remove(idx);
+            self.navigable.remove(idx);
+            self.primary_keys.remove(idx);
+        }
+
         /// Append another focus to this one.
         pub(super) fn add_focus(&mut self, focus: FocusCore) {
-            // container area probably overlaps with the areas of sub-containers.
-            // search those first.
-            for v in focus.sub_container {
-                self.sub_container.push(v);
+            // range for the data of the added container.
+            let start = self.focus.len();
+            let end = start + focus.focus.len();
+
+            for (c, r) in focus.sub_containers {
+                self.sub_containers
+                    .push((c, r.start + start..r.end + start));
             }
-            if let Some(container) = focus.container {
-                self.sub_container.push((container, focus.focus.clone()));
+            if let Some(c) = focus.container {
+                self.sub_containers.push((c, start..end));
             }
 
             self.focus.extend(focus.focus);
@@ -509,15 +534,15 @@ mod core {
                 }
             }
 
-            for (f, list) in &self.sub_container {
+            for (f, r) in &self.sub_containers {
                 let mut any_gained = false;
                 let mut any_lost = false;
                 let mut any_focused = false;
 
-                for f in list {
-                    any_gained |= f.gained();
-                    any_lost |= f.lost();
-                    any_focused |= f.get();
+                for idx in r.clone() {
+                    any_gained |= self.focus[idx].gained();
+                    any_lost |= self.focus[idx].lost();
+                    any_focused |= self.focus[idx].get();
                 }
 
                 f.focus.set(any_focused);
@@ -532,13 +557,13 @@ mod core {
                 container.focus.set_gained(false);
                 container.focus.set_lost(false);
             }
-            for p in self.focus.iter() {
-                p.set_lost(false);
-                p.set_gained(false);
+            for f in self.focus.iter() {
+                f.set_lost(false);
+                f.set_gained(false);
             }
-            for (p, _) in self.sub_container.iter() {
-                p.focus.set_gained(false);
-                p.focus.set_lost(false);
+            for (f, _) in self.sub_containers.iter() {
+                f.focus.set_gained(false);
+                f.focus.set_lost(false);
             }
         }
 
@@ -635,7 +660,7 @@ mod core {
 
             // look through the sub-containers
             let mut z_order = Vec::new();
-            for (sub, focus) in &self.sub_container {
+            for (sub, range) in &self.sub_containers {
                 if sub.area.contains(pos) {
                     if self.log.get() {
                         debug!("    container area-match {:?}", sub.focus);
@@ -649,12 +674,12 @@ mod core {
                                 if self.log.get() {
                                     debug!("    add z-area-match {:?} -> {:?}", sub.focus, z_area);
                                 }
-                                z_order.push((focus.first(), z_area.z));
+                                z_order.push((range.start, z_area.z));
                                 break;
                             }
                         }
                     } else {
-                        z_order.push((focus.first(), 0));
+                        z_order.push((range.start, 0));
                     }
 
                     // process in order, last is on top if more than one.
@@ -662,23 +687,18 @@ mod core {
                         if self.log.get() {
                             debug!("    -> focus {:?}", max_last);
                         }
-                        if let Some(max_last) = max_last {
-                            if let Some(max_last) = self.index_of(max_last) {
-                                if let Some(n) = self.first_navigable(max_last, true) {
-                                    self.__start_change(true);
-                                    self.__focus(n, true);
-                                    self.__accumulate();
-                                    return true;
-                                }
-                            }
+
+                        if let Some(n) = self.first_navigable(*max_last, true) {
+                            self.__start_change(true);
+                            self.__focus(n, true);
+                            self.__accumulate();
+                            return true;
                         }
                     }
                 }
             }
 
             // main container
-            // look through the sub-containers
-
             if let Some(con) = &self.container {
                 let mut change = false;
 

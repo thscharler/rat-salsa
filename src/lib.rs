@@ -137,6 +137,12 @@ impl Debug for FocusFlag {
 }
 
 impl FocusFlag {
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            0: Rc::new(FocusFlagCore::named(name)),
+        }
+    }
+
     /// Has the focus.
     #[inline]
     pub fn get(&self) -> bool {
@@ -189,6 +195,17 @@ impl FocusFlag {
         self.0.focus.set(false);
         self.0.lost.set(false);
         self.0.gained.set(false);
+    }
+}
+
+impl FocusFlagCore {
+    pub(crate) fn named(name: &'static str) -> Self {
+        Self {
+            name: Cell::new(name),
+            focus: Cell::new(false),
+            gained: Cell::new(false),
+            lost: Cell::new(false),
+        }
     }
 }
 
