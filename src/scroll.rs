@@ -21,7 +21,8 @@ use std::cmp::{max, min};
 pub struct Scroll<'a> {
     policy: ScrollbarType,
     orientation: ScrollbarOrientation,
-    split_offset: Option<u16>,
+    start_margin: u16,
+    end_margin: u16,
     overscroll_by: Option<usize>,
     scroll_by: Option<usize>,
 
@@ -132,11 +133,15 @@ impl<'a> Scroll<'a> {
         self
     }
 
-    /// Leave space for a Split with SplitType::Scrollbar.
-    /// Use the same value here, that got used for Split::mark_offset,
-    /// or 0 as default.
-    pub fn split_mark_offset(mut self, offset: u16) -> Self {
-        self.split_offset = Some(offset);
+    /// Leave a margin at the start of the scrollbar.
+    pub fn start_margin(mut self, start_margin: u16) -> Self {
+        self.start_margin = start_margin;
+        self
+    }
+
+    /// Leave a margin at the end of the scrollbar.
+    pub fn end_margin(mut self, end_margin: u16) -> Self {
+        self.end_margin = end_margin;
         self
     }
 
@@ -343,25 +348,25 @@ pub fn layout_scroll(
     h_scroll: Option<&Scroll<'_>>,
     v_scroll: Option<&Scroll<'_>>,
 ) -> (Rect, Rect, Rect) {
-    let mut cl = 0;
-    let mut cr = 0;
-    let mut ct = 0;
-    let mut cb = 0;
+    let mut margin_left = 0;
+    let mut margin_right = 0;
+    let mut margin_top = 0;
+    let mut margin_bottom = 0;
 
     if block.is_some() {
-        cl = 1;
-        cr = 1;
-        ct = 1;
-        cb = 1;
+        margin_left = 1;
+        margin_right = 1;
+        margin_top = 1;
+        margin_bottom = 1;
     }
     match v_scroll.map(|v| &v.orientation) {
-        Some(ScrollbarOrientation::VerticalLeft) => cl = 1,
-        Some(ScrollbarOrientation::VerticalRight) => cr = 1,
+        Some(ScrollbarOrientation::VerticalLeft) => margin_left = 1,
+        Some(ScrollbarOrientation::VerticalRight) => margin_right = 1,
         _ => {}
     }
     match h_scroll.map(|v| &v.orientation) {
-        Some(ScrollbarOrientation::HorizontalTop) => ct = 1,
-        Some(ScrollbarOrientation::HorizontalBottom) => cb = 1,
+        Some(ScrollbarOrientation::HorizontalTop) => margin_top = 1,
+        Some(ScrollbarOrientation::HorizontalBottom) => margin_bottom = 1,
         _ => {}
     }
 
@@ -377,60 +382,44 @@ pub fn layout_scroll(
                     "ScrollbarOrientation::VerticalLeft not supported for horizontal scrolling."
                 );
             }
-            ScrollbarOrientation::HorizontalBottom => {
-                let split = if let Some(split) = h_scroll.split_offset {
-                    split + 2 - cl
-                } else {
-                    0
-                };
-                if area.height > 0 {
-                    Rect::new(
-                        area.x + cl + split,
-                        area.y + area.height - 1,
-                        area.width.saturating_sub(cl + cr + split),
-                        1,
-                    )
-                } else {
-                    Rect::new(area.x + cl, area.y, area.width.saturating_sub(cl + cr), 0)
-                }
-            }
-            ScrollbarOrientation::HorizontalTop => {
-                if area.height > 0 {
-                    Rect::new(area.x + cl, area.y, area.width.saturating_sub(cl + cr), 1)
-                } else {
-                    Rect::new(area.x + cl, area.y, area.width.saturating_sub(cl + cr), 0)
-                }
-            }
+            ScrollbarOrientation::HorizontalBottom => Rect::new(
+                area.x + margin_left + h_scroll.start_margin,
+                area.y + area.height.saturating_sub(1),
+                area.width.saturating_sub(
+                    margin_left + margin_right + h_scroll.start_margin + h_scroll.end_margin,
+                ),
+                if area.height > 0 { 1 } else { 0 },
+            ),
+            ScrollbarOrientation::HorizontalTop => Rect::new(
+                area.x + margin_left + h_scroll.start_margin,
+                area.y,
+                area.width.saturating_sub(
+                    margin_left + margin_right + h_scroll.start_margin + h_scroll.end_margin,
+                ),
+                if area.height > 0 { 1 } else { 0 },
+            ),
         }
     } else {
         Rect::new(area.x, area.y, 0, 0)
     };
     let v_area = if let Some(v_scroll) = v_scroll {
         match v_scroll.orientation {
-            ScrollbarOrientation::VerticalRight => {
-                let split = if let Some(split) = v_scroll.split_offset {
-                    split + 2 - ct
-                } else {
-                    0
-                };
-                if area.width > 0 {
-                    Rect::new(
-                        area.x + area.width - 1,
-                        area.y + ct + split,
-                        1,
-                        area.height.saturating_sub(ct + cb + split),
-                    )
-                } else {
-                    Rect::new(area.x, area.y + ct, 0, area.height.saturating_sub(ct + cb))
-                }
-            }
-            ScrollbarOrientation::VerticalLeft => {
-                if area.width > 0 {
-                    Rect::new(area.x, area.y + ct, 1, area.height.saturating_sub(ct + cb))
-                } else {
-                    Rect::new(area.x, area.y + ct, 0, area.height.saturating_sub(ct + cb))
-                }
-            }
+            ScrollbarOrientation::VerticalRight => Rect::new(
+                area.x + area.width.saturating_sub(1),
+                area.y + margin_top + v_scroll.start_margin,
+                if area.width > 0 { 1 } else { 0 },
+                area.height.saturating_sub(
+                    margin_top + margin_bottom + v_scroll.start_margin + v_scroll.end_margin,
+                ),
+            ),
+            ScrollbarOrientation::VerticalLeft => Rect::new(
+                area.x,
+                area.y + margin_top + v_scroll.start_margin,
+                if area.width > 0 { 1 } else { 0 },
+                area.height.saturating_sub(
+                    margin_top + margin_bottom + v_scroll.start_margin + v_scroll.end_margin,
+                ),
+            ),
             ScrollbarOrientation::HorizontalBottom => {
                 unimplemented!(
                     "ScrollbarOrientation::HorizontalBottom not supported for vertical scrolling."
@@ -447,10 +436,10 @@ pub fn layout_scroll(
     };
 
     let inner = Rect::new(
-        area.x + cl,
-        area.y + ct,
-        area.width.saturating_sub(cl + cr),
-        area.height.saturating_sub(ct + cb),
+        area.x + margin_left,
+        area.y + margin_top,
+        area.width.saturating_sub(margin_left + margin_right),
+        area.height.saturating_sub(margin_top + margin_bottom),
     );
 
     (h_area, v_area, inner)
