@@ -53,7 +53,6 @@ pub struct Tabbed<'a> {
     tab_style: Option<Style>,
     select_style: Option<Style>,
     focus_style: Option<Style>,
-    as_if_focused: bool,
 }
 
 impl<'a> Tabbed<'a> {
@@ -67,7 +66,6 @@ impl<'a> Tabbed<'a> {
             tab_style: None,
             select_style: None,
             focus_style: None,
-            as_if_focused: false,
         }
     }
 
@@ -113,18 +111,6 @@ impl<'a> Tabbed<'a> {
     /// Block
     pub fn get_block(&self) -> Option<&Block<'a>> {
         self.block.as_ref()
-    }
-
-    /// Render the tab in focused style, even if the tab itself
-    /// doesn't have the focus.
-    pub fn as_if_focused(mut self, as_focused: bool) -> Self {
-        self.as_if_focused = as_focused;
-        self
-    }
-
-    ///
-    pub fn get_as_if_focused(&self) -> bool {
-        self.as_if_focused
     }
 
     /// Set combined styles.
@@ -276,8 +262,17 @@ impl HasFocusFlag for TabbedState {
 }
 
 impl TabbedState {
+    /// New initial state.
     pub fn new() -> Self {
         Default::default()
+    }
+
+    /// State with a focus name.
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..Default::default()
+        }
     }
 
     pub fn selected(&self) -> Option<usize> {
@@ -857,13 +852,13 @@ pub mod attached {
                 revert_style(tabbed.style)
             };
             let select_style = if let Some(select_style) = tabbed.select_style {
-                if state.focus.get() || tabbed.as_if_focused {
+                if state.focus.get() {
                     focus_style
                 } else {
                     select_style
                 }
             } else {
-                if state.focus.get() || tabbed.as_if_focused {
+                if state.focus.get() {
                     focus_style
                 } else {
                     revert_style(tabbed.style)
