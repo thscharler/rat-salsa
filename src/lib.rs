@@ -38,6 +38,18 @@ pub mod event {
 #[derive(Clone, Default)]
 pub struct FocusFlag(Rc<FocusFlagCore>);
 
+/// The same as FocusFlag, but distinct to mark the focus for
+/// a container.
+///
+/// This serves the purpose of
+///
+/// * summarizing the focus for the container. If any of the
+///     widgets of the container has the focus, the container
+///     itself has the focus).
+/// * identifying the container.
+#[derive(Clone, Default)]
+pub struct ContainerFlag(Rc<FocusFlagCore>);
+
 /// Equality for FocusFlag means pointer equality of the underlying
 /// Rc using Rc::ptr_eq.
 impl PartialEq for FocusFlag {
@@ -47,6 +59,16 @@ impl PartialEq for FocusFlag {
 }
 
 impl Eq for FocusFlag {}
+
+/// Equality for ContainerFlag means pointer equality of the underlying
+/// Rc using Rc::ptr_eq.
+impl PartialEq for ContainerFlag {
+    fn eq(&self, other: &Self) -> bool {
+        Rc::ptr_eq(&self.0, &other.0)
+    }
+}
+
+impl Eq for ContainerFlag {}
 
 #[derive(Clone, Default)]
 struct FocusFlagCore {
@@ -71,7 +93,7 @@ struct FocusFlagCore {
 /// Trait for a widget that has a focus flag.
 pub trait HasFocusFlag {
     /// Access to the flag for the rest.
-    fn focus(&self) -> &FocusFlag;
+    fn focus(&self) -> FocusFlag;
 
     /// Access the area for mouse focus.
     fn area(&self) -> Rect;
@@ -119,10 +141,48 @@ pub trait HasFocusFlag {
     }
 }
 
-/// Is this a container widget of sorts.
+/// Is this a container widget.
+/// todo: rename?
 pub trait HasFocus {
     /// Returns a Focus struct.
     fn focus(&self) -> Focus;
+
+    /// Returns the container-flag
+    fn container(&self) -> Option<ContainerFlag> {
+        self.focus().container_flag()
+    }
+
+    /// Area of the container.
+    fn area(&self) -> Rect {
+        self.focus().container_area()
+    }
+
+    /// Focused?
+    fn is_focused(&self) -> bool {
+        if let Some(flag) = self.container() {
+            flag.get()
+        } else {
+            false
+        }
+    }
+
+    /// Just lost focus.
+    fn lost_focus(&self) -> bool {
+        if let Some(flag) = self.container() {
+            flag.lost()
+        } else {
+            false
+        }
+    }
+
+    /// Just gained focus.
+    fn gained_focus(&self) -> bool {
+        if let Some(flag) = self.container() {
+            flag.gained()
+        } else {
+            false
+        }
+    }
 }
 
 impl Debug for FocusFlag {
@@ -136,7 +196,92 @@ impl Debug for FocusFlag {
     }
 }
 
+impl Debug for ContainerFlag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContainerFlag")
+            .field("name", &self.name())
+            .field("focus", &self.get())
+            .field("gained", &self.gained())
+            .field("lost", &self.lost())
+            .finish()
+    }
+}
+
 impl FocusFlag {
+    /// Create a default flag.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a named flag.
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            0: Rc::new(FocusFlagCore::named(name)),
+        }
+    }
+
+    /// Has the focus.
+    #[inline]
+    pub fn get(&self) -> bool {
+        self.0.focus.get()
+    }
+
+    /// Set the focus.
+    #[inline]
+    pub fn set(&self, focus: bool) {
+        self.0.focus.set(focus);
+    }
+
+    /// Set the field-name.
+    #[inline]
+    pub fn set_name(&self, name: &'static str) {
+        self.0.name.set(name);
+    }
+
+    /// Get the field-name.
+    #[inline]
+    pub fn name(&self) -> &'static str {
+        self.0.name.get()
+    }
+
+    /// Just lost the focus.
+    #[inline]
+    pub fn lost(&self) -> bool {
+        self.0.lost.get()
+    }
+
+    #[inline]
+    pub fn set_lost(&self, lost: bool) {
+        self.0.lost.set(lost);
+    }
+
+    /// Just gained the focus.
+    #[inline]
+    pub fn gained(&self) -> bool {
+        self.0.gained.get()
+    }
+
+    #[inline]
+    pub fn set_gained(&self, gained: bool) {
+        self.0.gained.set(gained);
+    }
+
+    /// Reset all flags to false.
+    #[inline]
+    pub fn clear(&self) {
+        self.0.focus.set(false);
+        self.0.lost.set(false);
+        self.0.gained.set(false);
+    }
+}
+
+impl ContainerFlag {
+    /// Create a default flag.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Create a named flag.
     pub fn named(name: &'static str) -> Self {
         Self {
             0: Rc::new(FocusFlagCore::named(name)),
