@@ -116,6 +116,7 @@ pub enum MDAction {
     New(PathBuf),
     Open(PathBuf),
     SelectOrOpen(PathBuf),
+    SelectOrOpenSplit(PathBuf),
     SaveAs(PathBuf),
     Save,
     Split,
@@ -138,12 +139,9 @@ pub struct MDAppState {
 impl Default for MDAppState {
     fn default() -> Self {
         let s = Self {
-            editor: Default::default(),
+            editor: MDEditState::default(),
             menu: MenuBarState::named("menu"),
         };
-        s.menu.focus().set_name("menu");
-        s.menu.bar.focus().set_name("menu_bar");
-        // s.editor.edit.focus.set_name("edit");
         s
     }
 }
@@ -957,7 +955,7 @@ pub mod mdfile {
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, flow_ok, HandleEvent, Outcome, TextOutcome};
-    use rat_widget::focus::{FocusFlag, HasFocusFlag};
+    use rat_widget::focus::{FocusFlag, HasFocusFlag, Navigation};
     use rat_widget::scrolled::Scroll;
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
@@ -1072,12 +1070,8 @@ pub mod mdfile {
             self.edit.area()
         }
 
-        fn navigable(&self) -> bool {
+        fn navigable(&self) -> Navigation {
             self.edit.navigable()
-        }
-
-        fn primary_keys(&self) -> bool {
-            self.edit.primary_keys()
         }
     }
 
@@ -1164,8 +1158,7 @@ pub mod mdfile {
                     path.file_name()
                         .unwrap_or_default()
                         .to_string_lossy()
-                        .to_string()
-                        .leak(),
+                        .as_ref(),
                 ),
                 parse_timer: None,
             }
@@ -1182,8 +1175,7 @@ pub mod mdfile {
                         path.file_name()
                             .unwrap_or_default()
                             .to_string_lossy()
-                            .to_string()
-                            .leak(),
+                            .as_ref(),
                     );
                     let t = fs::read_to_string(&path)?;
                     edit.set_value(t.as_str());
@@ -1419,12 +1411,15 @@ pub mod split_tab {
         pub fn open(&mut self, pos: (usize, usize), new: MDFileState, ctx: &mut AppContext<'_>) {
             if pos.0 == self.tabs.len() {
                 self.tabs.push(Vec::new());
-                self.tabbed.push(TabbedState::new());
+                self.tabbed
+                    .push(TabbedState::named(format!("tabbed-{}", pos.0).as_str()));
             }
             if let Some(sel_tab) = self.tabbed[pos.0].selected() {
                 if sel_tab >= pos.1 {
                     self.tabbed[pos.0].select(Some(sel_tab + 1));
                 }
+            } else {
+                self.tabbed[pos.0].select(Some(0));
             }
             self.tabs[pos.0].insert(pos.1, new);
 
@@ -1494,12 +1489,8 @@ pub mod split_tab {
                 if pos.1 < self.tabs[pos.0].len() {
                     self.sel_split = Some(pos.0);
                     self.tabbed[pos.0].select(Some(pos.1));
-                    // only the active tab is included in focus().
-                    // have to clear the focus flag for the rest manually.
-                    for md in &self.tabs[pos.0] {
-                        md.focus().clear();
-                    }
 
+                    ctx.focus_mut().update_container(self);
                     ctx.focus().focus(&self.tabs[pos.0][pos.1]);
                 }
             }
@@ -1711,6 +1702,25 @@ pub mod file_list {
             event: &Event,
             ctx: &mut AppContext<'_, GlobalState, MDAction, Error>,
         ) -> Result<Control<MDAction>, Error> {
+            if self.file_list.is_focused() {
+                flow_ok!(match event {
+                    ct_event!(keycode press Enter) => {
+                        if let Some(row) = self.file_list.selected() {
+                            Control::Message(MDAction::SelectOrOpen(self.files[row].clone()))
+                        } else {
+                            Control::Continue
+                        }
+                    }
+                    ct_event!(key press '+') => {
+                        if let Some(row) = self.file_list.selected() {
+                            Control::Message(MDAction::SelectOrOpenSplit(self.files[row].clone()))
+                        } else {
+                            Control::Continue
+                        }
+                    }
+                    _ => Control::Continue,
+                });
+            }
             flow_ok!(match event {
                 ct_event!(mouse any for m)
                     if self.file_list.mouse.doubleclick(self.file_list.area, m) =>
@@ -1721,6 +1731,7 @@ pub mod file_list {
                         Control::Continue
                     }
                 }
+
                 _ => Control::Continue,
             });
             flow_ok!(self.file_list.handle(event, Regular));
@@ -1745,6 +1756,17 @@ pub mod file_list {
                         }
                     }
                 }
+            }
+            if self.files.len() > 0 {
+                if let Some(sel) = self.file_list.selected() {
+                    if sel > self.files.len() {
+                        self.file_list.select(Some(self.files.len() - 1));
+                    }
+                } else {
+                    self.file_list.select(Some(0));
+                }
+            } else {
+                self.file_list.select(None);
             }
             Ok(())
         }
@@ -1880,6 +1902,10 @@ pub mod mdedit {
             if self.window_cmd {
                 self.window_cmd = false;
                 flow_ok!(match event {
+                    ct_event!(key release CONTROL-'w') => {
+                        self.window_cmd = true;
+                        Control::Changed
+                    }
                     ct_event!(keycode press Left) => {
                         self.split_tab.select_prev(ctx);
                         Control::Changed
@@ -1940,7 +1966,11 @@ pub mod mdedit {
                 ct_event!(key press CONTROL-'s') => {
                     Control::Message(MDAction::Save)
                 }
-                ct_event!(key release CONTROL-'w') => {
+                ct_event!(keycode press F(2)) => {
+                    ctx.focus().focus(&self.file_list);
+                    Control::Changed
+                }
+                ct_event!(key press CONTROL-'w') => {
                     self.window_cmd = true;
                     Control::Changed
                 }
@@ -1970,6 +2000,10 @@ pub mod mdedit {
                 }
                 MDAction::SelectOrOpen(p) => {
                     self.select_or_open(p, ctx)?;
+                    Control::Changed
+                }
+                MDAction::SelectOrOpenSplit(p) => {
+                    self.select_or_open_split(p, ctx)?;
                     Control::Changed
                 }
                 MDAction::Open(p) => {
@@ -2051,6 +2085,25 @@ pub mod mdedit {
         }
 
         // Open path.
+        pub fn open_split(&mut self, path: &Path, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+            let pos = if let Some(pos) = self.split_tab.selected_pos() {
+                if pos.0 + 1 >= self.split_tab.tabs.len() {
+                    (pos.0 + 1, 0)
+                } else {
+                    if let Some(sel_tab) = self.split_tab.tabbed[pos.0 + 1].selected() {
+                        (pos.0 + 1, sel_tab + 1)
+                    } else {
+                        (pos.0 + 1, 0)
+                    }
+                }
+            } else {
+                (0, 0)
+            };
+
+            self._open(pos, path, ctx)
+        }
+
+        // Open path.
         pub fn open(&mut self, path: &Path, ctx: &mut AppContext<'_>) -> Result<(), Error> {
             let pos = if let Some(pos) = self.split_tab.selected_pos() {
                 (pos.0, pos.1 + 1)
@@ -2058,6 +2111,15 @@ pub mod mdedit {
                 (0, 0)
             };
 
+            self._open(pos, path, ctx)
+        }
+
+        fn _open(
+            &mut self,
+            pos: (usize, usize),
+            path: &Path,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<(), Error> {
             let new = if let Some((_, md)) = self.split_tab.for_path_mut(path) {
                 // enable replay and clone the buffer
                 md.edit.undo_buffer_mut().expect("undo").set_replay(true);
@@ -2081,6 +2143,20 @@ pub mod mdedit {
                 self.split_tab.select(pos, ctx);
             } else {
                 self.open(path, ctx)?;
+            }
+            Ok(())
+        }
+
+        // Focus path or open file.
+        pub fn select_or_open_split(
+            &mut self,
+            path: &Path,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<(), Error> {
+            if let Some((pos, md)) = self.split_tab.for_path(path) {
+                self.split_tab.select(pos, ctx);
+            } else {
+                self.open_split(path, ctx)?;
             }
             Ok(())
         }
