@@ -5,7 +5,7 @@ use crate::rowselection::RowSelection;
 use crate::{Table, TableSelection, TableState};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{Focus, HasFocus, HasFocusFlag};
+use rat_focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
@@ -111,12 +111,28 @@ impl<EditorState> HasFocus for EditTableState<EditorState>
 where
     EditorState: HasFocus,
 {
+    fn container(&self) -> Option<ContainerFlag> {
+        if let Some(edit_state) = self.edit.as_ref() {
+            edit_state.container()
+        } else {
+            None
+        }
+    }
+
+    fn area(&self) -> Rect {
+        if let Some(edit_state) = self.edit.as_ref() {
+            edit_state.area()
+        } else {
+            Rect::default()
+        }
+    }
+
     fn focus(&self) -> Focus {
-        let mut f = Focus::default();
+        let mut f = Focus::new();
         if let Some(edit_state) = self.edit.as_ref() {
             f.add_container(edit_state);
         } else {
-            f.add_flag(&self.table.focus, self.table.area);
+            f.add(&self.table);
         }
         f
     }

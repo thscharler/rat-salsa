@@ -1497,8 +1497,8 @@ impl<Selection: Default> Default for TableState<Selection> {
 
 impl<Selection> HasFocusFlag for TableState<Selection> {
     #[inline]
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     #[inline]
