@@ -3,7 +3,7 @@ use crate::event::TabbedOutcome;
 use crate::tabbed::glued::GluedTabs;
 use rat_event::util::item_at_clicked;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -256,8 +256,8 @@ impl HasFocusFlag for TabbedState {
         Rect::default()
     }
 
-    fn navigable(&self) -> bool {
-        false
+    fn navigable(&self) -> Navigation {
+        Navigation::Leave
     }
 }
 

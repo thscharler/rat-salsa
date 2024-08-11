@@ -8,7 +8,7 @@ use crate::util::revert_style;
 use log::debug;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
@@ -944,8 +944,8 @@ impl HasFocusFlag for SplitState {
         Rect::default()
     }
 
-    fn navigable(&self) -> bool {
-        false
+    fn navigable(&self) -> Navigation {
+        Navigation::Leave
     }
 }
 

@@ -13,7 +13,7 @@ use log::debug;
 use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use ratatui::buffer::Buffer;
@@ -390,9 +390,8 @@ impl HasFocusFlag for TextAreaState {
         self.area
     }
 
-    // use secondary focus keys.
-    fn primary_keys(&self) -> bool {
-        false
+    fn navigable(&self) -> Navigation {
+        Navigation::Reach
     }
 }
 

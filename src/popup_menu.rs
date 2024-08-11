@@ -26,7 +26,7 @@ use crate::menuline::{MenuOutcome, MenuStyle};
 use crate::util::{menu_str, next_opt, prev_opt, revert_style};
 use rat_event::util::item_at_clicked;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly};
-use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
+use rat_focus::{FocusFlag, HasFocusFlag, Navigation, ZRect};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
@@ -450,8 +450,8 @@ impl HasFocusFlag for PopupMenuState {
         &self.z_areas
     }
 
-    fn navigable(&self) -> bool {
-        false
+    fn navigable(&self) -> Navigation {
+        Navigation::Leave
     }
 }
 
