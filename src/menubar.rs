@@ -364,8 +364,8 @@ impl MenuBarState {
 }
 
 impl HasFocusFlag for MenuBarState {
-    fn focus(&self) -> &FocusFlag {
-        &self.bar.focus
+    fn focus(&self) -> FocusFlag {
+        self.bar.focus.clone()
     }
 
     fn area(&self) -> Rect {

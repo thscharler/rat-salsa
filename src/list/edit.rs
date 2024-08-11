@@ -9,7 +9,7 @@ use crate::list::{List, ListSelection, ListState};
 use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{Focus, HasFocus, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{StatefulWidget, StatefulWidgetRef};
@@ -86,18 +86,24 @@ fn render_ref<'a, Editor>(
     }
 }
 
-impl<EditorState> HasFocus for EditListState<EditorState>
+impl<EditorState> HasFocusFlag for EditListState<EditorState>
 where
     EditorState: HasFocusFlag,
 {
-    fn focus(&self) -> Focus {
-        let mut f = Focus::default();
+    fn focus(&self) -> FocusFlag {
         if let Some(edit_state) = self.edit.as_ref() {
-            f.add(edit_state);
+            edit_state.focus()
         } else {
-            f.add(&self.list);
+            self.list.focus()
         }
-        f
+    }
+
+    fn area(&self) -> Rect {
+        if let Some(edit_state) = self.edit.as_ref() {
+            edit_state.area()
+        } else {
+            self.list.area()
+        }
     }
 }
 

@@ -324,8 +324,8 @@ fn render_list<'a, Selection: ListSelection>(
 
 impl<Selection> HasFocusFlag for ListState<Selection> {
     #[inline]
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     #[inline]

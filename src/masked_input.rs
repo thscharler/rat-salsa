@@ -836,8 +836,8 @@ impl MaskedInputState {
 }
 
 impl HasFocusFlag for MaskedInputState {
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     fn area(&self) -> Rect {

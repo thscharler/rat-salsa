@@ -377,7 +377,7 @@ impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditDirNameS
 }
 
 impl HasFocusFlag for EditDirNameState {
-    fn focus(&self) -> &FocusFlag {
+    fn focus(&self) -> FocusFlag {
         self.edit_dir.focus()
     }
 
@@ -925,7 +925,7 @@ impl FileDialogState {
 impl FileDialogState {
     fn focus(&self) -> Focus {
         let mut f = Focus::default();
-        f.add_container(&self.dir_state);
+        f.add(&self.dir_state);
         f.add(&self.file_state);
         if self.mode == Mode::Save {
             f.add(&self.save_name_state);

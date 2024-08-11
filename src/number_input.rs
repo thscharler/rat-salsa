@@ -115,8 +115,8 @@ impl<'a> StatefulWidget for NumberInput<'a> {
 
 impl HasFocusFlag for NumberInputState {
     #[inline]
-    fn focus(&self) -> &FocusFlag {
-        &self.widget.focus
+    fn focus(&self) -> FocusFlag {
+        self.widget.focus.clone()
     }
 
     #[inline]

@@ -248,8 +248,8 @@ fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut Tab
 }
 
 impl HasFocusFlag for TabbedState {
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     fn area(&self) -> Rect {

@@ -490,8 +490,8 @@ impl DateInputState {
 
 impl HasFocusFlag for DateInputState {
     #[inline]
-    fn focus(&self) -> &FocusFlag {
-        &self.widget.focus
+    fn focus(&self) -> FocusFlag {
+        self.widget.focus.clone()
     }
 
     #[inline]

@@ -678,8 +678,8 @@ impl TextInputState {
 
 impl HasFocusFlag for TextInputState {
     #[inline]
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     #[inline]

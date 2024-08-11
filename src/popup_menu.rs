@@ -436,8 +436,8 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
 impl HasFocusFlag for PopupMenuState {
     /// Focus flag.
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     /// Focus area.

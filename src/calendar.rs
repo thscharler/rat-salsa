@@ -320,8 +320,8 @@ fn render_ref(widget: &Month, area: Rect, buf: &mut Buffer, state: &mut MonthSta
 
 impl HasFocusFlag for MonthState {
     #[inline]
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     #[inline]

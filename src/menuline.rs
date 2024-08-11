@@ -229,8 +229,8 @@ impl Default for MenuStyle {
 
 impl HasFocusFlag for MenuLineState {
     /// Focus flag.
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     /// Focus area.

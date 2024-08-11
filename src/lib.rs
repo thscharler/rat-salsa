@@ -201,7 +201,8 @@ pub mod event {
 /// For details see [rat-focus](https://docs.rs/rat-focus)
 pub mod focus {
     pub use rat_focus::{
-        match_focus, on_gained, on_lost, Focus, FocusFlag, HasFocus, HasFocusFlag, ZRect,
+        match_focus, on_gained, on_lost, ContainerFlag, Focus, FocusFlag, HasFocus, HasFocusFlag,
+        ZRect,
     };
 }
 

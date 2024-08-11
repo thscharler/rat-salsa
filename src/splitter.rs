@@ -935,8 +935,8 @@ impl Default for SplitState {
 }
 
 impl HasFocusFlag for SplitState {
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     fn area(&self) -> Rect {

@@ -382,8 +382,8 @@ impl Default for TextAreaState {
 }
 
 impl HasFocusFlag for TextAreaState {
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     fn area(&self) -> Rect {
