@@ -268,7 +268,7 @@ impl TabbedState {
     }
 
     /// State with a focus name.
-    pub fn named(name: &'static str) -> Self {
+    pub fn named(name: &str) -> Self {
         Self {
             focus: FocusFlag::named(name),
             ..Default::default()

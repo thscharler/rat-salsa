@@ -115,7 +115,7 @@ pub struct TextAreaState {
 impl Clone for TextAreaState {
     fn clone(&self) -> Self {
         Self {
-            focus: FocusFlag::default(),
+            focus: FocusFlag::named(self.focus.name()),
             area: self.area,
             inner: self.inner,
             value: self.value.clone(),
@@ -404,7 +404,7 @@ impl TextAreaState {
 
     /// New state with a focus name.
     #[inline]
-    pub fn named(name: &'static str) -> Self {
+    pub fn named(name: &str) -> Self {
         Self {
             focus: FocusFlag::named(name),
             ..Default::default()
