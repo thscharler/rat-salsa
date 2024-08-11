@@ -70,10 +70,11 @@ impl PartialEq for ContainerFlag {
 
 impl Eq for ContainerFlag {}
 
-#[derive(Clone, Default)]
+// not Clone, always Rc<>
+#[derive(Default)]
 struct FocusFlagCore {
     /// Field name for debugging purposes.
-    name: Cell<&'static str>,
+    name: Box<str>,
     /// Focus.
     focus: Cell<bool>,
     /// This widget just gained the focus. This flag is set by [Focus::handle]
@@ -88,6 +89,24 @@ struct FocusFlagCore {
     ///
     /// See [on_lost!](crate::on_lost!)
     lost: Cell<bool>,
+}
+
+/// Focus navigation for widgets.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum Navigation {
+    /// Widget is not reachable with normal keyboard or mouse navigation.
+    None,
+    /// Widget is not reachable with keyboard navigation, but can be focused with the mouse.
+    Mouse,
+    /// Widget cannot be reached with normal keyboard navigation, but can be left.
+    /// (e.g. Tabs, Split-Divider)
+    Leave,
+    /// Widget can be reached with normal keyboard navigation, but not left.
+    /// (e.g. TextArea)
+    Reach,
+    /// Widget can be reached and left with normal keyboard navigation.
+    #[default]
+    Regular,
 }
 
 /// Trait for a widget that has a focus flag.
@@ -109,20 +128,11 @@ pub trait HasFocusFlag {
         &[]
     }
 
-    /// If the widget is focusable, but doesn't want to partake
-    /// in keyboard navigation it returns false here.
+    /// Declares how the widget interacts with focus.
     ///
-    /// Default is true.
-    fn navigable(&self) -> bool {
-        true
-    }
-
-    /// If the widget has the focus, it might want to use
-    /// tab/shift-tab itself. The widget can signal this by returning
-    /// false here. Then the secondary focus key `Esc` will be used
-    /// to focus the next widget.
-    fn primary_keys(&self) -> bool {
-        true
+    /// Default is Navigation::Regular.
+    fn navigable(&self) -> Navigation {
+        Navigation::Regular
     }
 
     /// Focused?
@@ -142,7 +152,6 @@ pub trait HasFocusFlag {
 }
 
 /// Is this a container widget.
-/// todo: rename?
 pub trait HasFocus {
     /// Returns a Focus struct.
     fn focus(&self) -> Focus;
@@ -214,7 +223,7 @@ impl FocusFlag {
     }
 
     /// Create a named flag.
-    pub fn named(name: &'static str) -> Self {
+    pub fn named(name: &str) -> Self {
         Self {
             0: Rc::new(FocusFlagCore::named(name)),
         }
@@ -232,16 +241,10 @@ impl FocusFlag {
         self.0.focus.set(focus);
     }
 
-    /// Set the field-name.
-    #[inline]
-    pub fn set_name(&self, name: &'static str) {
-        self.0.name.set(name);
-    }
-
     /// Get the field-name.
     #[inline]
-    pub fn name(&self) -> &'static str {
-        self.0.name.get()
+    pub fn name(&self) -> &str {
+        self.0.name.as_ref()
     }
 
     /// Just lost the focus.
@@ -282,7 +285,7 @@ impl ContainerFlag {
     }
 
     /// Create a named flag.
-    pub fn named(name: &'static str) -> Self {
+    pub fn named(name: &str) -> Self {
         Self {
             0: Rc::new(FocusFlagCore::named(name)),
         }
@@ -300,16 +303,10 @@ impl ContainerFlag {
         self.0.focus.set(focus);
     }
 
-    /// Set the field-name.
-    #[inline]
-    pub fn set_name(&self, name: &'static str) {
-        self.0.name.set(name);
-    }
-
     /// Get the field-name.
     #[inline]
-    pub fn name(&self) -> &'static str {
-        self.0.name.get()
+    pub fn name(&self) -> &str {
+        self.0.name.as_ref()
     }
 
     /// Just lost the focus.
@@ -344,9 +341,9 @@ impl ContainerFlag {
 }
 
 impl FocusFlagCore {
-    pub(crate) fn named(name: &'static str) -> Self {
+    pub(crate) fn named(name: &str) -> Self {
         Self {
-            name: Cell::new(name),
+            name: name.into(),
             focus: Cell::new(false),
             gained: Cell::new(false),
             lost: Cell::new(false),
