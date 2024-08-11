@@ -7,30 +7,26 @@ use crate::mdedit::{MDEdit, MDEditState};
 use anyhow::Error;
 #[allow(unused_imports)]
 use log::debug;
-use pulldown_cmark::{Event, Options, Parser, Tag};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RenderContext, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_theme::{dark_themes, Scheme};
 use rat_widget::event::{ct_event, or_else, ConsumedEvent, Dialog, HandleEvent, Popup, Regular};
-use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
+use rat_widget::focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
 use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::{MenuItem, Placement, Separator};
 use rat_widget::statusline::{StatusLine, StatusLineState};
-use rat_widget::text::textarea_core::TextRange;
-use rat_widget::textarea::TextAreaState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::prelude::{Line, Modifier, Stylize};
+use ratatui::prelude::{Line, Stylize};
 use ratatui::style::Style;
 use ratatui::widgets::{Block, BorderType, Padding, StatefulWidget};
 use std::fmt::Debug;
 use std::fs;
-use std::ops::Range;
 use std::path::PathBuf;
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
@@ -1068,7 +1064,7 @@ pub mod mdfile {
     }
 
     impl HasFocusFlag for MDFileState {
-        fn focus(&self) -> &FocusFlag {
+        fn focus(&self) -> FocusFlag {
             self.edit.focus()
         }
 
@@ -1232,15 +1228,15 @@ pub mod mdfile {
 
 // combined split + tab structure
 pub mod split_tab {
-    use crate::mdedit::MDEditState;
     use crate::mdfile::{MDFile, MDFileState};
     use crate::{AppContext, AppFocus, GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
+    use log::debug;
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{flow_ok, HandleEvent, Regular, TabbedOutcome};
-    use rat_widget::focus::{Focus, FocusFlag, HasFocus, HasFocusFlag};
+    use rat_widget::focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::tabbed::attached::AttachedTabs;
     use rat_widget::tabbed::{Tabbed, TabbedState};
@@ -1255,7 +1251,7 @@ pub mod split_tab {
 
     #[derive(Debug)]
     pub struct SplitTabState {
-        pub focus: FocusFlag,
+        pub focus: ContainerFlag,
         pub splitter: SplitState,
         pub sel_split: Option<usize>,
         pub tabbed: Vec<TabbedState>,
@@ -1265,7 +1261,7 @@ pub mod split_tab {
     impl Default for SplitTabState {
         fn default() -> Self {
             Self {
-                focus: Default::default(),
+                focus: ContainerFlag::named("split_tab"),
                 splitter: SplitState::named("splitter"),
                 sel_split: None,
                 tabbed: vec![],
@@ -1340,7 +1336,7 @@ pub mod split_tab {
 
     impl HasFocus for SplitTabState {
         fn focus(&self) -> Focus {
-            let mut f = Focus::new_grp(&self.focus, &[]);
+            let mut f = Focus::new_container(self.focus.clone(), Rect::default());
             f.add(&self.splitter);
             for (idx_split, tabbed) in self.tabbed.iter().enumerate() {
                 f.add(&self.tabbed[idx_split]);
@@ -1349,6 +1345,10 @@ pub mod split_tab {
                 }
             }
             f
+        }
+
+        fn container(&self) -> Option<ContainerFlag> {
+            Some(self.focus.clone())
         }
     }
 
@@ -1415,24 +1415,20 @@ pub mod split_tab {
     }
 
     impl SplitTabState {
-        // Add file at position (split-idx, tab-idx)
-        pub fn open(&mut self, pos: (usize, usize), new: MDFileState) {
+        // Add file at position (split-idx, tab-idx).
+        pub fn open(&mut self, pos: (usize, usize), new: MDFileState, ctx: &mut AppContext<'_>) {
             if pos.0 == self.tabs.len() {
                 self.tabs.push(Vec::new());
-                self.tabbed
-                    .push(TabbedState::named(pos.0.to_string().leak()));
+                self.tabbed.push(TabbedState::new());
             }
-            self.tabs[pos.0].insert(pos.1, new);
-        }
-
-        // Save all files.
-        pub fn save(&mut self) -> Result<(), Error> {
-            for (idx_split, tabs) in self.tabs.iter_mut().enumerate() {
-                for (idx_tab, tab) in tabs.iter_mut().enumerate() {
-                    return tab.save();
+            if let Some(sel_tab) = self.tabbed[pos.0].selected() {
+                if sel_tab >= pos.1 {
+                    self.tabbed[pos.0].select(Some(sel_tab + 1));
                 }
             }
-            Ok(())
+            self.tabs[pos.0].insert(pos.1, new);
+
+            ctx.focus_mut().update_container(self);
         }
 
         // Close tab (split-idx, tab-idx).
@@ -1448,8 +1444,12 @@ pub mod split_tab {
                     // remove tab
                     self.tabs[pos.0].remove(pos.1);
                     if let Some(sel_tab) = self.tabbed[pos.0].selected() {
-                        let new_tab = if sel_tab > pos.1 {
-                            Some(sel_tab - 1)
+                        let new_tab = if sel_tab >= pos.1 {
+                            if sel_tab > 0 {
+                                Some(sel_tab - 1)
+                            } else {
+                                None
+                            }
                         } else {
                             if sel_tab == 0 {
                                 None
@@ -1465,8 +1465,12 @@ pub mod split_tab {
                         self.tabs.remove(pos.0);
                         self.tabbed.remove(pos.0);
                         if let Some(sel_split) = self.sel_split {
-                            let new_split = if sel_split > pos.0 {
-                                Some(sel_split - 1)
+                            let new_split = if sel_split >= pos.0 {
+                                if sel_split > 0 {
+                                    Some(sel_split - 1)
+                                } else {
+                                    None
+                                }
                             } else {
                                 if sel_split == 0 {
                                     None
@@ -1477,6 +1481,8 @@ pub mod split_tab {
                             self.sel_split = new_split;
                         }
                     }
+
+                    ctx.focus_mut().update_container(self);
                 }
             }
             Ok(())
@@ -1494,12 +1500,7 @@ pub mod split_tab {
                         md.focus().clear();
                     }
 
-                    ctx.focus = Some(self.focus());
-                    // ctx.queue(Control::Message(MDAction::FocusedFile(md.path.clone())));
-                    ctx.focus()
-                        .enable_log2(true)
-                        .focus(&self.tabs[pos.0][pos.1]);
-                    ctx.focus().enable_log2(false);
+                    ctx.focus().focus(&self.tabs[pos.0][pos.1]);
                 }
             }
         }
@@ -1584,6 +1585,16 @@ pub mod split_tab {
             None
         }
 
+        // Save all files.
+        pub fn save(&mut self) -> Result<(), Error> {
+            for (idx_split, tabs) in self.tabs.iter_mut().enumerate() {
+                for (idx_tab, tab) in tabs.iter_mut().enumerate() {
+                    return tab.save();
+                }
+            }
+            Ok(())
+        }
+
         // Run the replay for the file at path.
         pub fn replay(&mut self, id: (usize, usize), path: &Path, replay: &[UndoEntry]) {
             for (idx_split, tabs) in self.tabs.iter_mut().enumerate() {
@@ -1599,7 +1610,6 @@ pub mod split_tab {
 
 // md files in current directory.
 pub mod file_list {
-    use crate::mdedit::MDEditState;
     use crate::{AppFocus, GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
@@ -1672,7 +1682,7 @@ pub mod file_list {
     }
 
     impl HasFocusFlag for FileListState {
-        fn focus(&self) -> &FocusFlag {
+        fn focus(&self) -> FocusFlag {
             self.file_list.focus()
         }
 
@@ -1766,12 +1776,12 @@ pub mod mdedit {
     use rat_salsa::event::{ct_event, flow_ok};
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{ConsumedEvent, HandleEvent, Regular};
+    use rat_widget::event::{HandleEvent, Regular};
     use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Rect};
-    use ratatui::widgets::{StatefulWidget, StatefulWidgetRef};
+    use ratatui::widgets::StatefulWidgetRef;
     use std::path::{Path, PathBuf};
 
     #[derive(Debug, Default)]
@@ -2034,9 +2044,7 @@ pub mod mdedit {
             };
 
             let new = MDFileState::new_file(&path);
-            self.split_tab.open(pos, new);
-
-            ctx.focus = Some(self.focus());
+            self.split_tab.open(pos, new, ctx);
             self.split_tab.select(pos, ctx);
 
             Ok(())
@@ -2057,9 +2065,7 @@ pub mod mdedit {
             } else {
                 MDFileState::open_file(path, ctx)?
             };
-            self.split_tab.open(pos, new);
-
-            ctx.focus = Some(self.focus());
+            self.split_tab.open(pos, new, ctx);
             self.split_tab.select(pos, ctx);
 
             Ok(())
@@ -2112,9 +2118,7 @@ pub mod mdedit {
             } else {
                 (pos.0 + 1, self.split_tab.tabs[pos.0 + 1].len())
             };
-            self.split_tab.open(new_pos, new);
-
-            ctx.focus = Some(self.focus());
+            self.split_tab.open(new_pos, new, ctx);
             self.split_tab.select(pos, ctx);
 
             Ok(())
