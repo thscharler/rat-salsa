@@ -1,5 +1,4 @@
 use crate::mini_salsa::MiniSalsaState;
-use anyhow::anyhow;
 use rat_event::{flow_ok, Outcome};
 use rat_widget::menubar;
 use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};

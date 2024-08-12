@@ -54,7 +54,7 @@ fn main() -> Result<(), anyhow::Error> {
         ],
     };
     let mut state = State::default();
-    focus(&state).enable_log(true).first();
+    focus(&state).first();
 
     mini_salsa::run_ui(handle_input, repaint_input, &mut data, &mut state)
 }
@@ -72,15 +72,10 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         let mut s = Self {
-            list1: Default::default(),
-            menu: Default::default(),
+            list1: EditListState::named("list1"),
+            menu: MenuBarState::named("menu"),
         };
-        s.menu.focus().set_name("menu");
-        s.menu.bar.focus().set_name("menu-bar");
-        s.menu.popup.focus().set_name("menu-popup");
         s.menu.bar.select(Some(0));
-        s.list1.focus().set_name("list1-edit");
-        s.list1.list.focus().set_name("list1");
         s.list1.list.select(Some(0));
         s
     }
@@ -116,10 +111,9 @@ impl Default for EditEntryState {
     fn default() -> Self {
         let s = Self {
             insert: false,
-            edit: Default::default(),
+            edit: TextInputState::named("edit"),
         };
         s.edit.focus().set(true);
-        s.edit.focus().set_name("edit");
         s
     }
 }
@@ -131,7 +125,7 @@ impl EditEntryState {
 }
 
 impl HasFocusFlag for EditEntryState {
-    fn focus(&self) -> &FocusFlag {
+    fn focus(&self) -> FocusFlag {
         self.edit.focus()
     }
 
@@ -203,7 +197,7 @@ fn repaint_input(
 
 fn focus(state: &State) -> Focus {
     let mut f = Focus::default();
-    f.add_container(&state.list1);
+    f.add(&state.list1);
     f.add(&state.menu);
     f
 }

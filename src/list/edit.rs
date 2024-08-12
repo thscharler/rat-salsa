@@ -107,6 +107,22 @@ where
     }
 }
 
+impl<EditorState> EditListState<EditorState>
+where
+    EditorState: Default,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
+        Self {
+            list: ListState::named(name),
+            ..Self::default()
+        }
+    }
+}
+
 impl<EditorState, EQualifier> HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>
     for EditListState<EditorState>
 where

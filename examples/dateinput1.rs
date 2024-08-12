@@ -16,7 +16,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        input: DateInputState::new("%x")?,
+        input: DateInputState::new().with_pattern("%x")?,
     };
 
     run_ui(handle_input, repaint_input, &mut data, &mut state)

@@ -233,7 +233,7 @@ fn repaint_input(
 }
 
 fn focus(state: &State) -> Focus {
-    Focus::new(&[&state.split, &state.left, &state.right, &state.menu])
+    Focus::new_list(&[&state.split, &state.left, &state.right, &state.menu])
 }
 
 fn handle_input(

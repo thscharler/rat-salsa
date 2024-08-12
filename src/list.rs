@@ -344,7 +344,7 @@ impl<Selection: ListSelection> ListState<Selection> {
     }
 
     /// New state with a focus name
-    pub fn named(name: &'static str) -> Self
+    pub fn named(name: &str) -> Self
     where
         Selection: Default,
     {
