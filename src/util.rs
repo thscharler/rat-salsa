@@ -11,7 +11,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::SystemTime;
 
 /// Which of the given rects is at the position.
-fn item_at(areas: &[Rect], x_pos: u16, y_pos: u16) -> Option<usize> {
+pub fn item_at(areas: &[Rect], x_pos: u16, y_pos: u16) -> Option<usize> {
     for (i, r) in areas.iter().enumerate() {
         if y_pos >= r.top() && y_pos < r.bottom() && x_pos >= r.left() && x_pos < r.right() {
             return Some(i);
@@ -25,7 +25,7 @@ fn item_at(areas: &[Rect], x_pos: u16, y_pos: u16) -> Option<usize> {
 ///
 /// You might want to limit calling this functions when the full
 /// position is inside your target rect.
-fn row_at(areas: &[Rect], y_pos: u16) -> Option<usize> {
+pub fn row_at(areas: &[Rect], y_pos: u16) -> Option<usize> {
     for (i, r) in areas.iter().enumerate() {
         if y_pos >= r.top() && y_pos < r.bottom() {
             return Some(i);
@@ -39,7 +39,7 @@ fn row_at(areas: &[Rect], y_pos: u16) -> Option<usize> {
 ///
 /// You might want to limit calling this functions when the full
 /// position is inside your target rect.
-fn column_at(areas: &[Rect], x_pos: u16) -> Option<usize> {
+pub fn column_at(areas: &[Rect], x_pos: u16) -> Option<usize> {
     for (i, r) in areas.iter().enumerate() {
         if x_pos >= r.left() && x_pos < r.right() {
             return Some(i);
@@ -54,7 +54,7 @@ fn column_at(areas: &[Rect], x_pos: u16) -> Option<usize> {
 /// sake.
 ///
 /// Rows outside the bounds are returned as Err(isize), rows inside as Ok(usize).
-fn row_at_drag(encompassing: Rect, areas: &[Rect], y_pos: u16) -> Result<usize, isize> {
+pub fn row_at_drag(encompassing: Rect, areas: &[Rect], y_pos: u16) -> Result<usize, isize> {
     if let Some(row) = row_at(areas, y_pos) {
         return Ok(row);
     }
@@ -78,7 +78,7 @@ fn row_at_drag(encompassing: Rect, areas: &[Rect], y_pos: u16) -> Result<usize, 
 /// sake.
 ///
 /// Columns outside the bounds are returned as Err(isize), rows inside as Ok(usize).
-fn column_at_drag(encompassing: Rect, areas: &[Rect], x_pos: u16) -> Result<usize, isize> {
+pub fn column_at_drag(encompassing: Rect, areas: &[Rect], x_pos: u16) -> Result<usize, isize> {
     if let Some(column) = column_at(areas, x_pos) {
         return Ok(column);
     }

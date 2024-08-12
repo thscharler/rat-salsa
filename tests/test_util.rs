@@ -1,4 +1,4 @@
-use rat_event::util::{column_at_clicked, column_at_drag, row_at_clicked, row_at_drag};
+use rat_event::util::{column_at, column_at_drag, row_at, row_at_drag};
 use ratatui::layout::Rect;
 
 #[test]
@@ -11,12 +11,12 @@ fn test_rows0() {
         Rect::new(0, 3, 0, 1),
     ];
 
-    assert_eq!(row_at_clicked(&rows, 0), Some(0));
-    assert_eq!(row_at_clicked(&rows, 1), Some(1));
-    assert_eq!(row_at_clicked(&rows, 2), Some(2));
-    assert_eq!(row_at_clicked(&rows, 3), Some(3));
-    assert_eq!(row_at_clicked(&rows, 4), None);
-    assert_eq!(row_at_clicked(&rows, 16384), None);
+    assert_eq!(row_at(&rows, 0), Some(0));
+    assert_eq!(row_at(&rows, 1), Some(1));
+    assert_eq!(row_at(&rows, 2), Some(2));
+    assert_eq!(row_at(&rows, 3), Some(3));
+    assert_eq!(row_at(&rows, 4), None);
+    assert_eq!(row_at(&rows, 16384), None);
 
     assert_eq!(row_at_drag(area, &rows, 0), Ok(0));
     assert_eq!(row_at_drag(area, &rows, 1), Ok(1));
@@ -37,14 +37,14 @@ fn test_rows1() {
         Rect::new(0, 13, 0, 1),
     ];
 
-    assert_eq!(row_at_clicked(&rows, 0), None);
-    assert_eq!(row_at_clicked(&rows, 9), None);
-    assert_eq!(row_at_clicked(&rows, 10), Some(0));
-    assert_eq!(row_at_clicked(&rows, 11), Some(1));
-    assert_eq!(row_at_clicked(&rows, 12), Some(2));
-    assert_eq!(row_at_clicked(&rows, 13), Some(3));
-    assert_eq!(row_at_clicked(&rows, 14), None);
-    assert_eq!(row_at_clicked(&rows, 16384), None);
+    assert_eq!(row_at(&rows, 0), None);
+    assert_eq!(row_at(&rows, 9), None);
+    assert_eq!(row_at(&rows, 10), Some(0));
+    assert_eq!(row_at(&rows, 11), Some(1));
+    assert_eq!(row_at(&rows, 12), Some(2));
+    assert_eq!(row_at(&rows, 13), Some(3));
+    assert_eq!(row_at(&rows, 14), None);
+    assert_eq!(row_at(&rows, 16384), None);
 
     assert_eq!(row_at_drag(area, &rows, 0), Err(-10));
     assert_eq!(row_at_drag(area, &rows, 9), Err(-1));
@@ -61,7 +61,7 @@ fn test_rows1() {
 fn test_rows_empty0() {
     let area = Rect::new(0, 0, 0, 10);
     let rows = vec![];
-    assert_eq!(row_at_clicked(&rows, 23), None);
+    assert_eq!(row_at(&rows, 23), None);
 
     assert_eq!(row_at_drag(area, &rows, 0), Err(0));
     assert_eq!(row_at_drag(area, &rows, 1), Err(1));
@@ -72,7 +72,7 @@ fn test_rows_empty0() {
 fn test_rows_empty1() {
     let area = Rect::new(0, 10, 0, 10);
     let rows = vec![];
-    assert_eq!(row_at_clicked(&rows, 23), None);
+    assert_eq!(row_at(&rows, 23), None);
 
     assert_eq!(row_at_drag(area, &rows, 0), Err(-10));
     assert_eq!(row_at_drag(area, &rows, 1), Err(-9));
@@ -92,12 +92,12 @@ fn test_cols0() {
         Rect::new(3, 0, 1, 0),
     ];
 
-    assert_eq!(column_at_clicked(&cols, 0), Some(0));
-    assert_eq!(column_at_clicked(&cols, 1), Some(1));
-    assert_eq!(column_at_clicked(&cols, 2), Some(2));
-    assert_eq!(column_at_clicked(&cols, 3), Some(3));
-    assert_eq!(column_at_clicked(&cols, 4), None);
-    assert_eq!(column_at_clicked(&cols, 16384), None);
+    assert_eq!(column_at(&cols, 0), Some(0));
+    assert_eq!(column_at(&cols, 1), Some(1));
+    assert_eq!(column_at(&cols, 2), Some(2));
+    assert_eq!(column_at(&cols, 3), Some(3));
+    assert_eq!(column_at(&cols, 4), None);
+    assert_eq!(column_at(&cols, 16384), None);
 
     assert_eq!(column_at_drag(area, &cols, 0), Ok(0));
     assert_eq!(column_at_drag(area, &cols, 1), Ok(1));
@@ -118,14 +118,14 @@ fn test_cols1() {
         Rect::new(13, 0, 1, 0),
     ];
 
-    assert_eq!(column_at_clicked(&cols, 0), None);
-    assert_eq!(column_at_clicked(&cols, 9), None);
-    assert_eq!(column_at_clicked(&cols, 10), Some(0));
-    assert_eq!(column_at_clicked(&cols, 11), Some(1));
-    assert_eq!(column_at_clicked(&cols, 12), Some(2));
-    assert_eq!(column_at_clicked(&cols, 13), Some(3));
-    assert_eq!(column_at_clicked(&cols, 14), None);
-    assert_eq!(column_at_clicked(&cols, 16384), None);
+    assert_eq!(column_at(&cols, 0), None);
+    assert_eq!(column_at(&cols, 9), None);
+    assert_eq!(column_at(&cols, 10), Some(0));
+    assert_eq!(column_at(&cols, 11), Some(1));
+    assert_eq!(column_at(&cols, 12), Some(2));
+    assert_eq!(column_at(&cols, 13), Some(3));
+    assert_eq!(column_at(&cols, 14), None);
+    assert_eq!(column_at(&cols, 16384), None);
 
     assert_eq!(column_at_drag(area, &cols, 0), Err(-10));
     assert_eq!(column_at_drag(area, &cols, 9), Err(-1));
@@ -142,7 +142,7 @@ fn test_cols1() {
 fn test_cols_empty0() {
     let area = Rect::new(0, 0, 10, 0);
     let cols = vec![];
-    assert_eq!(column_at_clicked(&cols, 23), None);
+    assert_eq!(column_at(&cols, 23), None);
 
     assert_eq!(column_at_drag(area, &cols, 0), Err(0));
     assert_eq!(column_at_drag(area, &cols, 1), Err(1));
@@ -153,7 +153,7 @@ fn test_cols_empty0() {
 fn test_cols_empty1() {
     let area = Rect::new(10, 0, 10, 0);
     let cols = vec![];
-    assert_eq!(column_at_clicked(&cols, 23), None);
+    assert_eq!(column_at(&cols, 23), None);
 
     assert_eq!(column_at_drag(area, &cols, 0), Err(-10));
     assert_eq!(column_at_drag(area, &cols, 1), Err(-9));
