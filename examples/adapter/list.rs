@@ -262,13 +262,15 @@ impl ListSState {
 
     /// Row at the given position.
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        rat_event::util::row_at_clicked(&self.item_areas, pos.y).map(|v| self.offset() + v)
+        self.mouse
+            .row_at(&self.item_areas, pos.y)
+            .map(|v| self.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     pub fn row_at_drag(&self, pos: Position) -> usize {
         let offset = self.offset();
-        match rat_event::util::row_at_drag(self.inner, &self.item_areas, pos.y) {
+        match self.mouse.row_at_drag(self.inner, &self.item_areas, pos.y) {
             Ok(v) => offset + v,
             Err(v) if v <= 0 => offset.saturating_sub((-v) as usize),
             Err(v) => offset + self.item_areas.len() + v as usize,

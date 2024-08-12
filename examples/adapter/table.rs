@@ -441,14 +441,19 @@ impl TableSState {
     /// Row at given position.
     #[inline]
     pub fn row_at_clicked(&self, pos: Position) -> Option<usize> {
-        rat_event::util::row_at_clicked(&self.row_areas, pos.y).map(|v| self.scroll.offset() + v)
+        self.mouse
+            .row_at(&self.row_areas, pos.y)
+            .map(|v| self.scroll.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: Position) -> usize {
         let offset = self.scroll.offset();
-        match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.y) {
+        match self
+            .mouse
+            .row_at_drag(self.table_area, &self.row_areas, pos.y)
+        {
             Ok(v) => offset + v,
             Err(v) if v <= 0 => offset.saturating_sub((-v) as usize),
             Err(v) => offset + self.row_areas.len() + v as usize,
