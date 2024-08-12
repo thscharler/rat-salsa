@@ -81,9 +81,6 @@ fn repaint_input(
         .styles(THEME.split_style(state.split_type))
         .direction(state.dir)
         .split_type(state.split_type)
-        // .join_0_char("p")
-        // .join_1_char("b")
-        // .split_char("$")
         .mark_offset(1)
         .constraints([Constraint::Fill(1), Constraint::Fill(1)]);
     if let Some(blk) = state.border_type {
@@ -122,7 +119,7 @@ fn repaint_input(
             }
             let mut scroll_left = Scroll::new().styles(THEME.scrolled_style());
             if state.dir == Direction::Horizontal {
-                scroll_left = scroll_left.start_margin(1);
+                scroll_left = scroll_left.start_margin(3);
             }
             w_left = w_left.scroll(scroll_left);
         }

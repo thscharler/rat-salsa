@@ -478,7 +478,14 @@ impl<'a> Split<'a> {
                     )
                 };
 
-                self.adjust_for_split_type(&mut area, &mut split, &mut blind, &mut mark);
+                adjust_for_split_type(
+                    self.direction,
+                    self.split_type,
+                    &mut area,
+                    &mut split,
+                    &mut blind,
+                    &mut mark,
+                );
 
                 state.widget_areas.push(area);
                 state.splitline_areas.push(split);
@@ -518,46 +525,47 @@ impl<'a> Split<'a> {
         state.split_type = self.split_type;
         state.mark_offset = self.mark_offset;
     }
+}
 
-    /// Adjust area and split according to the split_type.
-    fn adjust_for_split_type(
-        &self,
-        area: &mut Rect,
-        split: &mut Rect,
-        _blind: &mut Rect,
-        mark: &mut Position,
-    ) {
-        use Direction::*;
-        use SplitType::*;
+/// Adjust area and split according to the split_type.
+fn adjust_for_split_type(
+    direction: Direction,
+    split_type: SplitType,
+    area: &mut Rect,
+    split: &mut Rect,
+    _blind: &mut Rect,
+    mark: &mut Position,
+) {
+    use Direction::*;
+    use SplitType::*;
 
-        match (self.direction, self.split_type) {
-            (
-                Horizontal,
-                FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
-                | FullQuadrantOutside,
-            ) => {
-                area.width = area.width.saturating_sub(1);
-            }
-            (
-                Vertical,
-                FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
-                | FullQuadrantOutside,
-            ) => {
-                area.height = area.height.saturating_sub(1);
-            }
-
-            (Horizontal, Scroll) => {
-                split.y = mark.y;
-                split.height = 2;
-            }
-            (Vertical, Scroll) => {
-                split.x = mark.x;
-                split.width = 2;
-            }
-
-            (Horizontal, Widget) => {}
-            (Vertical, Widget) => {}
+    match (direction, split_type) {
+        (
+            Horizontal,
+            FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
+            | FullQuadrantOutside,
+        ) => {
+            area.width = area.width.saturating_sub(1);
         }
+        (
+            Vertical,
+            FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
+            | FullQuadrantOutside,
+        ) => {
+            area.height = area.height.saturating_sub(1);
+        }
+
+        (Horizontal, Scroll) => {
+            split.y = mark.y;
+            split.height = 2;
+        }
+        (Vertical, Scroll) => {
+            split.x = mark.x;
+            split.width = 2;
+        }
+
+        (Horizontal, Widget) => {}
+        (Vertical, Widget) => {}
     }
 }
 
@@ -848,11 +856,20 @@ fn render_widget(split: &Split<'_>, area: Rect, buf: &mut Buffer, state: &mut Sp
 
 fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
     for (n, split_area) in state.splitline_areas.iter().enumerate() {
-        let arrow_style = if let Some(arrow) = split.arrow_style {
-            arrow
+        let arrow_style = if state.mouse.hover.get() == Some(n) {
+            if let Some(drag) = split.drag_style {
+                drag
+            } else {
+                revert_style(split.style)
+            }
         } else {
-            split.style
+            if let Some(arrow) = split.arrow_style {
+                arrow
+            } else {
+                split.style
+            }
         };
+
         let (style, arrow_style) =
             if Some(n) == state.mouse.drag.get() || Some(n) == state.focus_marker {
                 if let Some(drag) = split.drag_style {
@@ -985,7 +1002,7 @@ impl SplitState {
 
             let pos_x = min(max(pos.0, min_pos), max_pos);
 
-            self.widget_areas[n] = Rect::new(area1.x, area1.y, pos_x - area1.x, area1.height);
+            self.widget_areas[n] = Rect::new(area1.x, area1.y, pos_x - area1.x + 1, area1.height);
             self.splitline_areas[n] = Rect::new(pos_x, area1.y, 1, area1.height);
             self.splitline_blind_areas[n] = Rect::new(pos_x, area1.y, 1, self.mark_offset);
             self.splitline_mark_areas[n] = Position::new(pos_x, area1.y + self.mark_offset);
@@ -996,9 +1013,14 @@ impl SplitState {
                 area2.height,
             );
 
-            if matches!(self.split_type, Scroll | Widget) {
-                self.widget_areas[n].width += 1;
-            }
+            adjust_for_split_type(
+                self.direction,
+                self.split_type,
+                &mut self.widget_areas[n],
+                &mut self.splitline_areas[n],
+                &mut self.splitline_blind_areas[n],
+                &mut self.splitline_mark_areas[n],
+            );
         } else {
             let min_pos = area1.y;
             let max_pos = if matches!(self.split_type, Scroll | Widget) {
@@ -1009,7 +1031,7 @@ impl SplitState {
 
             let pos_y = min(max(pos.1, min_pos), max_pos);
 
-            self.widget_areas[n] = Rect::new(area1.x, area1.y, area1.width, pos_y - area1.y);
+            self.widget_areas[n] = Rect::new(area1.x, area1.y, area1.width, pos_y - area1.y + 1);
             self.splitline_areas[n] = Rect::new(area1.x, pos_y, area1.width, 1);
             self.splitline_blind_areas[n] = Rect::new(area1.x, pos_y, self.mark_offset, 1);
             self.splitline_mark_areas[n] = Position::new(area1.x + self.mark_offset, pos_y);
@@ -1020,9 +1042,14 @@ impl SplitState {
                 area2.bottom().saturating_sub(pos_y + 1),
             );
 
-            if matches!(self.split_type, Scroll | Widget) {
-                self.widget_areas[n].height += 1;
-            }
+            adjust_for_split_type(
+                self.direction,
+                self.split_type,
+                &mut self.widget_areas[n],
+                &mut self.splitline_areas[n],
+                &mut self.splitline_blind_areas[n],
+                &mut self.splitline_mark_areas[n],
+            );
         }
 
         true
@@ -1133,6 +1160,9 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SplitState {
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for SplitState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
         match event {
+            ct_event!(mouse any for m) if self.mouse.hover(&self.splitline_areas, m) => {
+                Outcome::Changed
+            }
             ct_event!(mouse any for m) => {
                 let was_drag = self.mouse.drag.get();
                 if self.mouse.drag(&self.splitline_areas, m) {

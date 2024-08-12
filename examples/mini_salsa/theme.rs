@@ -291,9 +291,7 @@ impl Scheme {
             SplitStyle {
                 style,
                 arrow_style: Some(arrow_style),
-                drag_style: Some(self.focus()),
-                // mark_0: Some("\u{259A}"),
-                // mark_1: Some("\u{259A}"),
+                drag_style: Some(self.secondary(2)),
                 ..Default::default()
             }
         } else {
@@ -302,9 +300,7 @@ impl Scheme {
             SplitStyle {
                 style,
                 arrow_style: Some(arrow_style),
-                drag_style: Some(self.focus()),
-                // mark_0: Some("\u{259A}"),
-                // mark_1: Some("\u{259A}"),
+                drag_style: Some(self.secondary(2)),
                 ..Default::default()
             }
         }
