@@ -8,7 +8,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
 use rat_event::ct_event;
-use rat_event::util::item_at_clicked;
+use rat_event::util::item_at;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{rowselection, RowSelection};
 use rat_ftable::textdata::{Cell, Row};
@@ -248,7 +248,7 @@ fn handle_table(
 ) -> Result<Outcome, anyhow::Error> {
     let r0 = 'f: {
         match event {
-            ct_event!(mouse down Left for x,y) => match item_at_clicked(&state.edit[0], *x, *y) {
+            ct_event!(mouse down Left for x,y) => match item_at(&state.edit[0], *x, *y) {
                 Some(1) => {
                     state.report_rows = None;
                     break 'f Outcome::Changed;
