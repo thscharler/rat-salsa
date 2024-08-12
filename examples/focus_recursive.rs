@@ -1,7 +1,7 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::substratum1::{Substratum, SubstratumState};
 use rat_event::{flow_ok, HandleEvent, Outcome, Regular};
-use rat_focus::Focus;
+use rat_focus::{Focus, HasFocus};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
 use ratatui::Frame;
@@ -126,7 +126,7 @@ pub mod substratum1 {
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
     use rat_event::{flow, HandleEvent, Outcome, Regular};
-    use rat_focus::{Focus, FocusFlag, HasFocusFlag};
+    use rat_focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
@@ -152,7 +152,7 @@ pub mod substratum1 {
 
     #[derive(Debug, Default)]
     pub struct SubstratumState {
-        pub focus: FocusFlag,
+        pub focus: ContainerFlag,
         pub area: Rect,
         pub input1: TextInputFState,
         pub input2: TextInputFState,
@@ -217,13 +217,6 @@ pub mod substratum1 {
     }
 
     impl SubstratumState {
-        pub fn focus(&self) -> Focus {
-            Focus::new_container(
-                self,
-                &[&self.input1, &self.input2, &self.input3, &self.input4],
-            )
-        }
-
         pub fn screen_cursor(&self) -> Option<(u16, u16)> {
             if self.input1.is_focused() {
                 self.input1.screen_cursor()
@@ -239,9 +232,17 @@ pub mod substratum1 {
         }
     }
 
-    impl HasFocusFlag for SubstratumState {
-        fn focus(&self) -> &FocusFlag {
-            &self.focus
+    impl HasFocus for SubstratumState {
+        fn focus(&self) -> Focus {
+            Focus::new_container_list(
+                self.focus.clone(),
+                self.area,
+                &[&self.input1, &self.input2, &self.input3, &self.input4],
+            )
+        }
+
+        fn container(&self) -> Option<ContainerFlag> {
+            Some(self.focus.clone())
         }
 
         fn area(&self) -> Rect {

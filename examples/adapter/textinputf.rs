@@ -72,8 +72,8 @@ impl TextInputFState {
 }
 
 impl HasFocusFlag for TextInputFState {
-    fn focus(&self) -> &FocusFlag {
-        &self.focus
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
     }
 
     fn area(&self) -> Rect {
