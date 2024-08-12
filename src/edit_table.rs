@@ -111,6 +111,16 @@ impl<EditorState> HasFocus for EditTableState<EditorState>
 where
     EditorState: HasFocus,
 {
+    fn focus(&self) -> Focus {
+        let mut f = Focus::new();
+        if let Some(edit_state) = self.edit.as_ref() {
+            f.add_container(edit_state);
+        } else {
+            f.add(&self.table);
+        }
+        f
+    }
+
     fn container(&self) -> Option<ContainerFlag> {
         if let Some(edit_state) = self.edit.as_ref() {
             edit_state.container()
@@ -126,15 +136,22 @@ where
             Rect::default()
         }
     }
+}
 
-    fn focus(&self) -> Focus {
-        let mut f = Focus::new();
-        if let Some(edit_state) = self.edit.as_ref() {
-            f.add_container(edit_state);
-        } else {
-            f.add(&self.table);
+impl<EditorState> EditTableState<EditorState> {
+    pub fn new() -> Self {
+        Self {
+            table: TableState::new(),
+            edit: None,
+            mouse: Default::default(),
         }
-        f
+    }
+    pub fn named(name: &str) -> Self {
+        Self {
+            table: TableState::named(name),
+            edit: None,
+            mouse: Default::default(),
+        }
     }
 }
 

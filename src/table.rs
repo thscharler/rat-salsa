@@ -1528,6 +1528,23 @@ impl<Selection> TableState<Selection> {
 }
 
 // Baseline
+impl<Selection> TableState<Selection>
+where
+    Selection: Default,
+{
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..TableState::default()
+        }
+    }
+}
+
+// Baseline
 impl<Selection> TableState<Selection> {
     /// Number of rows.
     #[inline]
@@ -1579,12 +1596,14 @@ impl<Selection> TableState<Selection> {
 
     /// Column at given position.
     pub fn column_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
-        rat_event::util::column_at_clicked(&self.column_areas, pos.0)
+        self.mouse.column_at(&self.column_areas, pos.0)
     }
 
     /// Row at given position.
     pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
-        rat_event::util::row_at_clicked(&self.row_areas, pos.1).map(|v| self.vscroll.offset() + v)
+        self.mouse
+            .row_at(&self.row_areas, pos.1)
+            .map(|v| self.vscroll.offset() + v)
     }
 
     /// Cell when dragging. Position can be outside the table area.
@@ -1603,7 +1622,10 @@ impl<Selection> TableState<Selection> {
     /// This doesn't account for the row-height of the actual rows outside
     /// the table area, just assumes '1'.
     pub fn row_at_drag(&self, pos: (u16, u16)) -> usize {
-        match rat_event::util::row_at_drag(self.table_area, &self.row_areas, pos.1) {
+        match self
+            .mouse
+            .row_at_drag(self.table_area, &self.row_areas, pos.1)
+        {
             Ok(v) => self.vscroll.offset() + v,
             Err(v) if v <= 0 => self.vscroll.offset().saturating_sub((-v) as usize),
             Err(v) => self.vscroll.offset() + self.row_areas.len() + v as usize,
@@ -1614,7 +1636,10 @@ impl<Selection> TableState<Selection> {
     /// If the position is left of the table area this returns offset - 1.
     /// If the position is right of the table area this returns offset + page_width + 1.
     pub fn column_at_drag(&self, pos: (u16, u16)) -> usize {
-        match rat_event::util::column_at_drag(self.table_area, &self.column_areas, pos.0) {
+        match self
+            .mouse
+            .column_at_drag(self.table_area, &self.column_areas, pos.0)
+        {
             Ok(v) => v,
             Err(_) => todo!(),
         }
