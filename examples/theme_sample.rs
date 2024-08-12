@@ -36,10 +36,7 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig {
-            n_threats: 1,
-            ..RunConfig::default()?
-        },
+        RunConfig::default()?.threads(1),
     )?;
 
     Ok(())
@@ -215,7 +212,7 @@ pub mod mask0 {
     use rat_widget::event::{flow_ok, HandleEvent, Popup, Regular};
     use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
     use rat_widget::menuline::MenuOutcome;
-    use rat_widget::popup_menu::Placement;
+    use rat_widget::popup_menu::{MenuItem, Placement};
     use rat_widget::scrolled::Scroll;
     use rat_widget::viewport::{Viewport, ViewportState};
     use ratatui::buffer::Buffer;
@@ -255,11 +252,11 @@ pub mod mask0 {
             ]
         }
 
-        fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)> {
+        fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>> {
             match n {
                 0 => dark_themes()
                     .iter()
-                    .map(|v| (v.name().to_string().into(), None))
+                    .map(|v| MenuItem::Item(v.name().to_string().into()))
                     .collect(),
                 _ => vec![],
             }
@@ -359,8 +356,8 @@ pub mod show_scheme {
     }
 
     impl HasFocusFlag for ShowSchemeState {
-        fn focus(&self) -> &FocusFlag {
-            &self.focus
+        fn focus(&self) -> FocusFlag {
+            self.focus.clone()
         }
 
         fn area(&self) -> Rect {

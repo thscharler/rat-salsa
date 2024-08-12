@@ -13,7 +13,7 @@ use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_theme::{dark_themes, Scheme};
 use rat_widget::event::{ct_event, or_else, ConsumedEvent, Dialog, HandleEvent, Popup, Regular};
-use rat_widget::focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
+use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
 use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
@@ -458,6 +458,7 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
         // keyboard + mouse focus
         if !r.is_consumed() {
             let f = ctx.focus_mut().handle(event, Regular);
+            debug!("*focus* {:?}", ctx.focus().focused_name());
             ctx.queue(f);
         }
 
@@ -468,6 +469,7 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                 ct_event!(keycode press Esc) => {
                     if !self.menu.is_focused() {
                         ctx.focus().focus(&self.menu);
+                        debug!("*focus* {:?}", ctx.focus().focused_name());
                         Control::Changed
                     } else {
                         Control::Continue
@@ -610,6 +612,7 @@ pub mod markdown {
     use unicode_segmentation::UnicodeSegmentation;
 
     // Markdown styles
+    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
     pub enum MDStyle {
         Heading = 0,
         BlockQuote,
@@ -675,6 +678,7 @@ pub mod markdown {
     }
 
     // qualifier for markdown-editing.
+    #[derive(Debug)]
     pub struct MarkDown;
 
     impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaState {
@@ -1492,6 +1496,8 @@ pub mod split_tab {
 
                     ctx.focus_mut().update_container(self);
                     ctx.focus().focus(&self.tabs[pos.0][pos.1]);
+                    debug!("*focus* {:?}", ctx.focus().focused_name());
+                    // TODO focus
                 }
             }
         }
@@ -1916,10 +1922,14 @@ pub mod mdedit {
                     }
                     ct_event!(keycode press Tab) => {
                         ctx.focus().next();
+                        debug!("*focus* {:?}", ctx.focus().focused_name());
+                        // todo: focus
                         Control::Changed
                     }
                     ct_event!(keycode press SHIFT-BackTab) => {
                         ctx.focus().prev();
+                        debug!("*focus* {:?}", ctx.focus().focused_name());
+                        // todo: focus
                         Control::Changed
                     }
                     ct_event!(key press CONTROL-'c')
@@ -1936,8 +1946,11 @@ pub mod mdedit {
                         if let Some((pos, sel)) = self.split_tab.selected() {
                             if sel.is_focused() {
                                 ctx.focus().focus(&self.split_tab.tabbed[pos.0]);
+                                debug!("*focus* {:?}", ctx.focus().focused_name());
                             } else {
+                                // todo: foucs
                                 ctx.focus().focus(sel);
+                                debug!("*focus* {:?}", ctx.focus().focused_name());
                             }
                         }
                         Control::Changed
@@ -1946,8 +1959,11 @@ pub mod mdedit {
                         if let Some((pos, sel)) = self.split_tab.selected() {
                             if sel.is_focused() {
                                 ctx.focus().focus(&self.split_tab.splitter);
+                                debug!("*focus* {:?}", ctx.focus().focused_name());
                             } else {
+                                // todo: foucs
                                 ctx.focus().focus(sel);
+                                debug!("*focus* {:?}", ctx.focus().focused_name());
                             }
                         }
                         Control::Changed
@@ -1967,7 +1983,9 @@ pub mod mdedit {
                     Control::Message(MDAction::Save)
                 }
                 ct_event!(keycode press F(2)) => {
+                    // todo: foucs
                     ctx.focus().focus(&self.file_list);
+                    debug!("*focus* {:?}", ctx.focus().focused_name());
                     Control::Changed
                 }
                 ct_event!(key press CONTROL-'w') => {

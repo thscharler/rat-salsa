@@ -22,7 +22,7 @@ use rat_widget::list::selection::RowSelection;
 use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::popup_menu::Placement;
+use rat_widget::popup_menu::{MenuItem, Placement};
 use rat_widget::scrolled::Scroll;
 use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -267,15 +267,15 @@ impl<'a> MenuStructure<'a> for Menu {
         ]
     }
 
-    fn submenu(&'a self, n: usize) -> Vec<(Line<'a>, Option<char>)> {
+    fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>> {
         match n {
             0 => fs_roots()
                 .iter()
-                .map(|v| (v.0.to_string().into(), None))
+                .map(|v| MenuItem::Item(v.0.to_string().into()))
                 .collect(),
             1 => dark_themes()
                 .iter()
-                .map(|v| (v.name().to_string().into(), None))
+                .map(|v| MenuItem::Item(v.name().to_string().into()))
                 .collect(),
             _ => vec![],
         }
