@@ -7,7 +7,7 @@ mod zrect;
 use log::debug;
 use ratatui::layout::Rect;
 use std::cell::Cell;
-use std::fmt::{Debug, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 
 pub use crate::focus::{handle_focus, handle_mouse_focus, Focus};
@@ -60,6 +60,12 @@ impl PartialEq for FocusFlag {
 
 impl Eq for FocusFlag {}
 
+impl Display for FocusFlag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "|{}|", self.0.name)
+    }
+}
+
 /// Equality for ContainerFlag means pointer equality of the underlying
 /// Rc using Rc::ptr_eq.
 impl PartialEq for ContainerFlag {
@@ -69,6 +75,12 @@ impl PartialEq for ContainerFlag {
 }
 
 impl Eq for ContainerFlag {}
+
+impl Display for ContainerFlag {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "|{}|", self.0.name)
+    }
+}
 
 // not Clone, always Rc<>
 #[derive(Default)]
