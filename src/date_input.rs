@@ -124,19 +124,33 @@ impl Default for DateInputState {
 }
 
 impl DateInputState {
+    /// New state.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
+        Self {
+            widget: MaskedInputState::named(name),
+            ..Default::default()
+        }
+    }
+
     /// New state with a chrono date pattern.
-    pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, fmt::Error> {
-        let mut s = Self::default();
-        s.set_format(pattern)?;
-        Ok(s)
+    pub fn with_pattern<S: AsRef<str>>(mut self, pattern: S) -> Result<Self, fmt::Error> {
+        self.set_format(pattern)?;
+        Ok(self)
     }
 
     /// New state with a localized chrono date pattern.
     #[inline]
-    pub fn new_loc<S: AsRef<str>>(pattern: S, locale: chrono::Locale) -> Result<Self, fmt::Error> {
-        let mut s = Self::default();
-        s.set_format_loc(pattern, locale)?;
-        Ok(s)
+    pub fn with_loc_pattern<S: AsRef<str>>(
+        mut self,
+        pattern: S,
+        locale: chrono::Locale,
+    ) -> Result<Self, fmt::Error> {
+        self.set_format_loc(pattern, locale)?;
+        Ok(self)
     }
 
     /// chrono format string.

@@ -221,14 +221,27 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
     widget.text.render_ref(layout[0], buf);
 }
 
-impl ButtonState {
-    pub fn new() -> Self {
+impl Default for ButtonState {
+    fn default() -> Self {
         Self {
             focus: Default::default(),
             area: Default::default(),
             inner_area: Default::default(),
             armed: false,
             non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl ButtonState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..ButtonState::default()
         }
     }
 }
@@ -242,18 +255,6 @@ impl HasFocusFlag for ButtonState {
     #[inline]
     fn area(&self) -> Rect {
         self.area
-    }
-}
-
-impl Default for ButtonState {
-    fn default() -> Self {
-        Self {
-            focus: Default::default(),
-            area: Default::default(),
-            inner_area: Default::default(),
-            armed: false,
-            non_exhaustive: NonExhaustive,
-        }
     }
 }
 

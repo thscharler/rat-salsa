@@ -1,7 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::TabbedOutcome;
 use crate::tabbed::glued::GluedTabs;
-use rat_event::util::item_at_clicked;
+use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use ratatui::buffer::Buffer;
@@ -207,8 +207,6 @@ pub struct TabbedState {
     pub tab_title_areas: Vec<Rect>,
     /// Area for 'Close Tab' interaction.
     pub tab_title_close_areas: Vec<Rect>,
-    /// Hover over tab
-    pub tab_hover: Option<usize>,
 
     /// Selected Tab, only ever is None if there are no tabs.
     /// Otherwise, set to 0 on render.
@@ -216,6 +214,8 @@ pub struct TabbedState {
 
     /// Focus
     pub focus: FocusFlag,
+    /// Mouse flags
+    pub mouse: MouseFlagsN,
 }
 
 impl<'a> StatefulWidget for Tabbed<'a> {
@@ -329,29 +329,20 @@ impl HandleEvent<crossterm::event::Event, Regular, TabbedOutcome> for TabbedStat
 impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> TabbedOutcome {
         match event {
+            ct_event!(mouse any for e) if self.mouse.hover(&self.tab_title_close_areas, e) => {
+                TabbedOutcome::Changed
+            }
             ct_event!(mouse down Left for x, y) => {
-                if let Some(sel) = item_at_clicked(&self.tab_title_close_areas, *x, *y) {
+                if let Some(sel) = self.mouse.item_at(&self.tab_title_close_areas, *x, *y) {
                     TabbedOutcome::Close(sel)
-                } else if let Some(sel) = item_at_clicked(&self.tab_title_areas, *x, *y) {
+                } else if let Some(sel) = self.mouse.item_at(&self.tab_title_areas, *x, *y) {
                     self.select(Some(sel));
                     TabbedOutcome::Select(sel)
                 } else {
                     TabbedOutcome::Continue
                 }
             }
-            ct_event!(mouse moved for x,y) => {
-                if self.area.contains((*x, *y).into()) {
-                    let old_hover = self.tab_hover;
-                    self.tab_hover = item_at_clicked(&self.tab_title_close_areas, *x, *y);
-                    if old_hover != self.tab_hover {
-                        TabbedOutcome::Changed
-                    } else {
-                        TabbedOutcome::Continue
-                    }
-                } else {
-                    TabbedOutcome::Continue
-                }
-            }
+
             _ => TabbedOutcome::Continue,
         }
     }
@@ -619,7 +610,7 @@ pub mod glued {
             }
             if tabbed.is_closeable() {
                 for i in 0..state.tab_title_close_areas.len() {
-                    if state.tab_hover == Some(i) {
+                    if state.mouse.hover.get() == Some(i) {
                         buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
                     }
                     "\u{2A2F}".render_ref(state.tab_title_close_areas[i], buf);
@@ -944,7 +935,7 @@ pub mod attached {
             }
             if tabbed.is_closeable() {
                 for i in 0..state.tab_title_close_areas.len() {
-                    if state.tab_hover == Some(i) {
+                    if state.mouse.hover.get() == Some(i) {
                         buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
                     }
                     "\u{2A2F}".render_ref(state.tab_title_close_areas[i], buf);

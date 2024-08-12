@@ -266,6 +266,13 @@ impl TextInputState {
         Self::default()
     }
 
+    pub fn named(name: &str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..TextInputState::default()
+        }
+    }
+
     /// Renders the widget in invalid style.
     #[inline]
     pub fn set_invalid(&mut self, invalid: bool) {

@@ -212,6 +212,18 @@ impl<S: Default> Default for ViewportState<S> {
     }
 }
 
+impl<S> ViewportState<S>
+where
+    S: Default,
+{
+    pub fn new(widget_state: S) -> Self {
+        Self {
+            widget: widget_state,
+            ..Self::default()
+        }
+    }
+}
+
 impl<S> ViewportState<S> {
     /// Relocate mouse-events for use inside the viewport.
     pub fn relocate_crossterm(&self, event: &crossterm::event::Event) -> crossterm::event::Event {

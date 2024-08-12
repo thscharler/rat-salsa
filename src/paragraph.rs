@@ -184,6 +184,16 @@ fn render_para(widget: &Paragraph<'_>, area: Rect, buf: &mut Buffer, state: &mut
     }
 }
 
+impl HasFocusFlag for ParagraphState {
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
+    }
+
+    fn area(&self) -> Rect {
+        self.area
+    }
+}
+
 impl Default for ParagraphState {
     fn default() -> Self {
         Self {
@@ -197,17 +207,18 @@ impl Default for ParagraphState {
     }
 }
 
-impl HasFocusFlag for ParagraphState {
-    fn focus(&self) -> FocusFlag {
-        self.focus.clone()
-    }
-
-    fn area(&self) -> Rect {
-        self.area
-    }
-}
-
 impl ParagraphState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..Self::default()
+        }
+    }
+
     /// Current offset.
     pub fn line_offset(&self) -> usize {
         self.vscroll.offset()

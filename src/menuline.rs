@@ -14,7 +14,7 @@ use crate::_private::NonExhaustive;
 use crate::util::{menu_str, next_opt, prev_opt, revert_style};
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::util::{item_at_clicked, MouseFlags};
+use rat_event::util::MouseFlags;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
@@ -246,7 +246,7 @@ impl MenuLineState {
     }
 
     /// New with a focus name.
-    pub fn named(name: &'static str) -> Self {
+    pub fn named(name: &str) -> Self {
         Self {
             focus: FocusFlag::named(name),
             ..Default::default()
@@ -314,7 +314,7 @@ impl MenuLineState {
     /// Select item at position
     #[inline]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
-        if let Some(idx) = item_at_clicked(&self.item_areas, pos.0, pos.1) {
+        if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
             self.selected = Some(idx);
             true
         } else {
@@ -325,7 +325,7 @@ impl MenuLineState {
     /// Item at position.
     #[inline]
     pub fn item_at(&self, pos: (u16, u16)) -> Option<usize> {
-        item_at_clicked(&self.item_areas, pos.0, pos.1)
+        self.mouse.item_at(&self.item_areas, pos.0, pos.1)
     }
 }
 

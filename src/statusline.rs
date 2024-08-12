@@ -71,6 +71,10 @@ impl Default for StatusLineState {
 }
 
 impl StatusLineState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     /// Clear all status text.
     pub fn clear_status(&mut self) {
         self.status.clear();

@@ -24,7 +24,7 @@ use crate::event::Popup;
 use crate::fill::Fill;
 use crate::menuline::{MenuOutcome, MenuStyle};
 use crate::util::{menu_str, next_opt, prev_opt, revert_style};
-use rat_event::util::item_at_clicked;
+use rat_event::util::MouseFlags;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation, ZRect};
 use ratatui::buffer::Buffer;
@@ -116,6 +116,9 @@ pub struct PopupMenuState {
     /// Selected item.
     pub selected: Option<usize>,
 
+    /// Mouse flags
+    pub mouse: MouseFlags,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -154,6 +157,7 @@ impl Default for PopupMenuState {
             sep_areas: vec![],
             navchar: vec![],
             selected: None,
+            mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -463,7 +467,7 @@ impl PopupMenuState {
     }
 
     /// New with a focus name.
-    pub fn named(name: &'static str) -> Self {
+    pub fn named(name: &str) -> Self {
         Self {
             focus: FocusFlag::named(name),
             ..Default::default()
@@ -552,7 +556,7 @@ impl PopupMenuState {
     /// Select item at position.
     #[inline]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
-        if let Some(idx) = item_at_clicked(&self.item_areas, pos.0, pos.1) {
+        if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
             self.selected = Some(idx);
             true
         } else {
@@ -563,7 +567,7 @@ impl PopupMenuState {
     /// Item at position.
     #[inline]
     pub fn item_at(&self, pos: (u16, u16)) -> Option<usize> {
-        item_at_clicked(&self.item_areas, pos.0, pos.1)
+        self.mouse.item_at(&self.item_areas, pos.0, pos.1)
     }
 }
 

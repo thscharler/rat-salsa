@@ -63,8 +63,8 @@ impl Default for MonthStyle {
     }
 }
 
-impl MonthState {
-    pub fn new() -> Self {
+impl Default for MonthState {
+    fn default() -> Self {
         Self {
             focus: Default::default(),
             area: Default::default(),
@@ -76,15 +76,15 @@ impl MonthState {
     }
 }
 
-impl Default for MonthState {
-    fn default() -> Self {
+impl MonthState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
         Self {
-            focus: Default::default(),
-            area: Default::default(),
-            area_month: Default::default(),
-            area_days: [Rect::default(); 31],
-            weeks: [Rect::default(); 6],
-            non_exhaustive: NonExhaustive,
+            focus: FocusFlag::named(name),
+            ..Self::default()
         }
     }
 }

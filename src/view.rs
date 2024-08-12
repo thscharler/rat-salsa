@@ -210,6 +210,10 @@ impl Default for ViewState {
 }
 
 impl ViewState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
     pub fn vertical_offset(&self) -> usize {
         self.vscroll.offset()
     }

@@ -329,12 +329,24 @@ impl MaskedInputState {
         Self::default()
     }
 
-    /// Uses localized symbols for number formatting.
+    pub fn named(name: &str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..MaskedInputState::default()
+        }
+    }
+
+    /// With localized symbols for number formatting.
     #[inline]
-    pub fn new_with_symbols(sym: NumberSymbols) -> Self {
-        let mut s = Self::default();
-        s.set_num_symbols(sym);
-        s
+    pub fn with_symbols(mut self, sym: NumberSymbols) -> Self {
+        self.set_num_symbols(sym);
+        self
+    }
+
+    /// With input mask.
+    pub fn with_mask<S: AsRef<str>>(mut self, mask: S) -> Result<Self, fmt::Error> {
+        self.value.set_mask(mask.as_ref())?;
+        Ok(self)
     }
 
     /// Renders the widget in invalid style.

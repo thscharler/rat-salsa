@@ -138,19 +138,29 @@ impl Default for NumberInputState {
 }
 
 impl NumberInputState {
-    pub fn new<S: AsRef<str>>(pattern: S) -> Result<Self, NumberFmtError> {
-        let mut s = Self::default();
-        s.set_format(pattern)?;
-        Ok(s)
+    pub fn new() -> Self {
+        Self::default()
     }
 
-    pub fn new_loc<S: AsRef<str>>(
+    pub fn named(name: &str) -> Self {
+        Self {
+            widget: MaskedInputState::named(name),
+            ..Default::default()
+        }
+    }
+
+    pub fn with_pattern<S: AsRef<str>>(mut self, pattern: S) -> Result<Self, NumberFmtError> {
+        self.set_format(pattern)?;
+        Ok(self)
+    }
+
+    pub fn with_loc_pattern<S: AsRef<str>>(
+        mut self,
         pattern: S,
         locale: format_num_pattern::Locale,
     ) -> Result<Self, NumberFmtError> {
-        let mut s = Self::default();
-        s.set_format_loc(pattern.as_ref(), locale)?;
-        Ok(s)
+        self.set_format_loc(pattern.as_ref(), locale)?;
+        Ok(self)
     }
 
     /// [format_num_pattern] format string.

@@ -3,7 +3,7 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::event::util::{row_at_clicked, row_at_drag, MouseFlags};
+use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
 use crate::util::revert_style;
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -437,13 +437,15 @@ impl<Selection: ListSelection> ListState<Selection> {
 
     #[inline]
     pub fn row_at_clicked(&self, pos: (u16, u16)) -> Option<usize> {
-        row_at_clicked(&self.row_areas, pos.1).map(|v| self.scroll.offset() + v)
+        self.mouse
+            .row_at(&self.row_areas, pos.1)
+            .map(|v| self.scroll.offset() + v)
     }
 
     /// Row when dragging. Can go outside the area.
     #[inline]
     pub fn row_at_drag(&self, pos: (u16, u16)) -> usize {
-        match row_at_drag(self.inner, &self.row_areas, pos.1) {
+        match self.mouse.row_at_drag(self.inner, &self.row_areas, pos.1) {
             Ok(v) => self.scroll.offset() + v,
             Err(v) if v <= 0 => self.scroll.offset().saturating_sub((-v) as usize),
             Err(v) => self.scroll.offset() + self.row_areas.len() + v as usize,
