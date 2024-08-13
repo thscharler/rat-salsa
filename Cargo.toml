@@ -45,7 +45,7 @@ unused_qualifications = "warn"
 variant_size_differences = "warn"
 
 [dependencies]
-ratatui = { version = "0.27", features = ["unstable-widget-ref", "unstable-rendered-line-info"], path = "../ratatui" }
-crossterm = "0.27"
+ratatui = { version = "0.27", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
+crossterm = "0.28"
 log = "0.4"
 rat-widget = { version = "0.13", path = "../rat-widget" }
