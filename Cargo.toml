@@ -45,11 +45,11 @@ unused_qualifications = "warn"
 variant_size_differences = "warn"
 
 [dependencies]
-ratatui = { version = "0.27", features = ["unstable-widget-ref", "unstable-rendered-line-info"], path = "../ratatui" }
+ratatui = { version = "0.27", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
 chrono = { version = "0.4", features = ["unstable-locales"] }
-crossterm = "0.27"
+crossterm = "0.28"
 ropey = "1.6.1"
-iset = "0.2.2"
+iset = "0.3"
 pure-rust-locales = "0.8"
 unicode-segmentation = "1.11"
 unicode-width = "0.1.12"
@@ -60,7 +60,7 @@ memchr = "2.7.2"
 format_num_pattern = "0.9"
 log = "0.4"
 directories-next = "2.0.0"
-sysinfo = "0.30.12"
+sysinfo = "0.31"
 
 rat-event = { version = "0.14", path = "../rat-event" }
 rat-focus = { version = "0.10", path = "../rat-focus" }
