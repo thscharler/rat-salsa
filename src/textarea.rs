@@ -300,6 +300,9 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
         return;
     }
 
+    let (ox, oy) = state.offset();
+    let screen = TextRange::new((ox, oy), (0, oy + inner.height as usize));
+    state.clear_page_styles();
     let selection = state.selection();
     let mut styles = Vec::new();
     let mut line_iter = state.value.lines_at(state.vscroll.offset());
@@ -323,7 +326,8 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
                     let mut style = style;
                     // text-styles
                     styles.clear();
-                    state.styles_at((tx, ty), &mut styles);
+                    state.styles_at_page(screen, (tx, ty), &mut styles);
+                    // state.styles_at((tx, ty), &mut styles);
                     for idx in &styles {
                         if let Some(s) = widget.text_style.get(*idx) {
                             style = style.patch(*s);
@@ -696,6 +700,23 @@ impl TextAreaState {
     #[inline]
     pub fn remove_style(&mut self, range: impl Into<TextRange>, style: usize) {
         self.value.remove_style(range.into(), style);
+    }
+
+    /// Clear page cache.
+    #[inline]
+    pub(crate) fn clear_page_styles(&self) {
+        self.value.clear_page_styles();
+    }
+
+    /// Find all values for the page that touch the given position.
+    #[inline]
+    pub(crate) fn styles_at_page(
+        &self,
+        range: TextRange,
+        pos: impl Into<TextPosition>,
+        buf: &mut Vec<usize>,
+    ) {
+        self.value.styles_at_page(range, pos.into(), buf)
     }
 
     /// All styles active at the given position.

@@ -1,5 +1,6 @@
 use crate::text::textarea_core::{TextPosition, TextRange};
 use iset::IntervalMap;
+use std::cell::{Cell, RefCell};
 use std::ops::Range;
 
 /// Maps a range to a list of usize.
@@ -7,6 +8,10 @@ use std::ops::Range;
 pub(crate) struct RangeMap {
     buf: Vec<(Range<TextPosition>, usize)>,
     map: IntervalMap<TextPosition, usize>,
+
+    // cache for page-render
+    page: Cell<TextRange>,
+    page_map: RefCell<IntervalMap<TextPosition, usize>>,
 }
 
 impl RangeMap {
@@ -14,6 +19,8 @@ impl RangeMap {
     pub(crate) fn clear(&mut self) {
         self.buf.clear();
         self.map.clear();
+        self.page.set(TextRange::default());
+        self.page_map.borrow_mut().clear();
     }
 
     /// Add a list of values to a range.
@@ -62,13 +69,31 @@ impl RangeMap {
         self.map.iter(..).map(|(r, v)| (r.into(), *v))
     }
 
+    /// Clear page cache.
+    #[inline]
+    pub(crate) fn clear_page_values(&self) {
+        self.page.set(TextRange::default());
+        self.page_map.borrow_mut().clear();
+    }
+
+    /// Find all values for the page that touch the given position.
+    pub(crate) fn values_at_page(&self, range: TextRange, pos: TextPosition, buf: &mut Vec<usize>) {
+        let mut page_map = self.page_map.borrow_mut();
+        if self.page.get() != range {
+            self.page.set(range);
+            page_map.clear();
+            for (r, v) in self.map.iter(Range::from(range)) {
+                page_map.force_insert(r, *v);
+            }
+        }
+        for v in page_map.overlap(pos).map(|v| v.1) {
+            buf.push(*v);
+        }
+    }
+
     /// Find all values that touch the given position.
     pub(crate) fn values_at(&self, pos: TextPosition, buf: &mut Vec<usize>) {
-        for v in self
-            .map
-            .overlap(pos) //
-            .map(|v| v.1)
-        {
+        for v in self.map.overlap(pos).map(|v| v.1) {
             buf.push(*v);
         }
     }
@@ -99,8 +124,14 @@ impl RangeMap {
                     change = true;
                 }
                 self.buf.push((new_range.into(), *value));
+            } else {
+                change = true;
             }
         }
+        // TODO: faster but doesn't allow duplicates.
+        // if change {
+        //     self.map = IntervalMap::from_sorted(self.buf.drain(..));
+        // }
         if change {
             self.map.clear();
             for (r, v) in self.buf.drain(..) {

@@ -4,12 +4,14 @@ use crate::text::graphemes::{
 };
 use crate::text::range_map::RangeMap;
 use crate::text::undo::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
+use log::debug;
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Range, RangeBounds};
+use std::time::SystemTime;
 
 /// Core for text editing.
 #[derive(Debug)]
@@ -706,6 +708,18 @@ impl TextAreaCore {
         }
     }
 
+    /// Clear page cache.
+    #[inline]
+    pub(crate) fn clear_page_styles(&self) {
+        self.styles.clear_page_values();
+    }
+
+    /// Find all values for the page that touch the given position.
+    #[inline]
+    pub(crate) fn styles_at_page(&self, range: TextRange, pos: TextPosition, buf: &mut Vec<usize>) {
+        self.styles.values_at_page(range, pos, buf)
+    }
+
     /// Finds all styles for the given position.
     #[inline]
     pub fn styles_at(&self, pos: TextPosition, buf: &mut Vec<usize>) {
@@ -1294,6 +1308,7 @@ impl TextAreaCore {
 
     /// Remove the given range.
     fn _remove_range(&mut self, range: TextRange, char_range: bool) -> bool {
+        let t0 = SystemTime::now();
         let Some(start_pos) = self.char_at(range.start) else {
             panic!("invalid range {:?} value {:?}", range, self.value);
         };
@@ -1309,7 +1324,13 @@ impl TextAreaCore {
         let old_anchor = self.anchor;
         let old_text = self.rope_slice(range).expect("some text").to_string();
 
+        debug!("prepare {:?}", t0.elapsed());
+        let t0 = SystemTime::now();
+
         self.value.remove(start_pos..end_pos);
+
+        debug!("remove {:?}", t0.elapsed());
+        let t0 = SystemTime::now();
 
         // remove deleted styles.
         let mut changed_style = Vec::new();
@@ -1332,6 +1353,10 @@ impl TextAreaCore {
         });
         self.anchor = range.shrink_pos(self.anchor);
         self.cursor = range.shrink_pos(self.anchor);
+
+        debug!("remap {:?}", t0.elapsed());
+        debug!("changed styles {:?}", changed_style);
+        let t0 = SystemTime::now();
 
         if let Some(undo) = &mut self.undo {
             if char_range {
@@ -1366,6 +1391,8 @@ impl TextAreaCore {
                 });
             }
         }
+
+        debug!("undo {:?}", t0.elapsed());
 
         true
     }
