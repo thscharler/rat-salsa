@@ -1,8 +1,7 @@
+use crate::{Glyph, Grapheme};
 use ropey::iter::Chunks;
 use ropey::RopeSlice;
 use std::borrow::Cow;
-use std::iter::once;
-use std::ops::Range;
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete, UnicodeSegmentation};
 
 /// Length as grapheme count, excluding line breaks.
@@ -16,54 +15,6 @@ pub(crate) fn rope_line_len(r: RopeSlice<'_>) -> usize {
 pub(crate) fn str_line_len(s: &str) -> usize {
     let it = s.graphemes(true);
     it.filter(|c| *c != "\n" && *c != "\r\n").count()
-}
-
-/// Split the string at the range bounds.
-pub(crate) fn split3(value: &str, selection: Range<usize>) -> (&str, &str, &str) {
-    let mut byte_selection_start = None;
-    let mut byte_selection_end = None;
-
-    for (cidx, (idx, _c)) in value
-        .grapheme_indices(true)
-        .chain(once((value.len(), "")))
-        .enumerate()
-    {
-        if cidx == selection.start {
-            byte_selection_start = Some(idx);
-        }
-        if cidx == selection.end {
-            byte_selection_end = Some(idx)
-        }
-    }
-
-    let byte_selection_start = byte_selection_start.expect("byte_selection_start_not_found");
-    let byte_selection_end = byte_selection_end.expect("byte_selection_end_not_found");
-
-    (
-        &value[0..byte_selection_start],
-        &value[byte_selection_start..byte_selection_end],
-        &value[byte_selection_end..value.len()],
-    )
-}
-
-/// One grapheme.
-#[derive(Debug)]
-pub struct Grapheme<'a> {
-    /// grapheme
-    pub grapheme: Cow<'a, str>,
-    /// byte-range of the grapheme.
-    pub bytes: Range<usize>,
-}
-
-/// Data for rendering/mapping graphemes to screen coordinates.
-#[derive(Debug)]
-pub struct Glyph<'a> {
-    /// First char.
-    pub glyph: Cow<'a, str>,
-    /// byte-range of the glyph.
-    pub bytes: Range<usize>,
-    /// Display length for the glyph.
-    pub len: usize,
 }
 
 /// An implementation of a graphemes iterator, for iterating over
@@ -247,7 +198,7 @@ where
                     return Some(Glyph {
                         glyph,
                         bytes: grapheme.bytes,
-                        len,
+                        display: len,
                     });
                 } else {
                     // out left
@@ -258,7 +209,7 @@ where
                 return Some(Glyph {
                     glyph,
                     bytes: grapheme.bytes,
-                    len,
+                    display: len,
                 });
             }
         }

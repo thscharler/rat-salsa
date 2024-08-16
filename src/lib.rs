@@ -1,3 +1,4 @@
+use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
@@ -164,15 +165,6 @@ pub struct TextPosition {
     pub x: upos_type,
 }
 
-/// Exclusive range for text ranges.
-#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
-pub struct TextRange {
-    /// column, row
-    pub start: TextPosition,
-    /// column, row
-    pub end: TextPosition,
-}
-
 impl TextPosition {
     /// New position.
     pub fn new(x: upos_type, y: upos_type) -> TextPosition {
@@ -199,6 +191,15 @@ impl From<TextPosition> for (upos_type, upos_type) {
     fn from(value: TextPosition) -> Self {
         (value.x, value.y)
     }
+}
+
+/// Exclusive range for text ranges.
+#[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
+pub struct TextRange {
+    /// column, row
+    pub start: TextPosition,
+    /// column, row
+    pub end: TextPosition,
 }
 
 impl Debug for TextRange {
@@ -358,4 +359,45 @@ impl TextRange {
             }
         }
     }
+}
+
+/// One grapheme.
+#[derive(Debug)]
+pub struct Grapheme<'a> {
+    /// grapheme
+    pub grapheme: Cow<'a, str>,
+    /// byte-range of the grapheme.
+    pub bytes: Range<usize>,
+}
+
+impl<'a, R: AsRef<str>> PartialEq<R> for Grapheme<'a> {
+    fn eq(&self, other: &R) -> bool {
+        self.grapheme.as_ref() == other.as_ref()
+    }
+}
+
+impl<'a> Grapheme<'a> {
+    pub fn is_whitespace(&self) -> bool {
+        self.grapheme
+            .chars()
+            .next()
+            .map(|v| v.is_whitespace())
+            .unwrap_or(false)
+    }
+}
+
+/// Data for rendering/mapping graphemes to screen coordinates.
+#[derive(Debug)]
+pub struct Glyph<'a> {
+    /// First char.
+    pub glyph: Cow<'a, str>,
+    /// byte-range of the glyph.
+    pub bytes: Range<usize>,
+    /// Display length for the glyph.
+    pub display: usize,
+}
+
+mod _private {
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+    pub struct NonExhaustive;
 }

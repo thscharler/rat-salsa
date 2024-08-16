@@ -1,5 +1,4 @@
-use crate::grapheme::Grapheme;
-use crate::{upos_type, TextError, TextPosition, TextRange};
+use crate::{upos_type, Grapheme, TextError, TextPosition, TextRange};
 use std::borrow::Cow;
 use std::ops::Range;
 
@@ -22,57 +21,76 @@ pub trait TextStore {
     /// Set content from string.
     fn set_string(&mut self, t: &str);
 
-    /// Is empty?
-    fn is_empty(&self) -> bool;
-
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
-    fn byte_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError>;
+    fn byte_range_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError>;
+
+    /// Grapheme range to byte range.
+    fn byte_range(&self, range: TextRange) -> Result<Range<usize>, TextError>;
 
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
-    fn byte_pos(&self, byte: usize) -> Result<TextPosition, TextError>;
+    fn byte_to_pos(&self, byte: usize) -> Result<TextPosition, TextError>;
 
-    /// Line as str
-    fn line_at(&self, row: upos_type) -> Option<Cow<'_, str>>;
+    /// Byte range to grapheme range.
+    fn bytes_to_range(&self, bytes: Range<usize>) -> Result<TextRange, TextError>;
+
+    /// A range of the text as Cow<str>.
+    ///
+    /// If the range is long this will do extensive copying.
+    fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError>;
+
+    /// Line as str.
+    fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError>;
 
     /// Iterate over text-lines, starting at line-offset.
-    fn lines_at(&self, row: upos_type) -> impl Iterator<Item = Cow<'_, str>>;
+    fn lines_at(&self, row: upos_type) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError>;
 
     /// Return a line as an iterator over the graphemes.
     /// This contains the '\n' at the end.
-    fn line_graphemes(&self, row: upos_type) -> Option<impl Iterator<Item = Grapheme<'_>>>;
+    fn line_graphemes(
+        &self,
+        row: upos_type,
+    ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError>;
 
     /// Line width of row as grapheme count.
-    fn line_width(&self, row: upos_type) -> Option<upos_type>;
+    fn line_width(&self, row: upos_type) -> Result<upos_type, TextError>;
 
     /// Number of lines.
     fn len_lines(&self) -> upos_type;
 
     /// Insert a char at the given position.
-    fn insert_char(&mut self, pos: TextPosition, c: char) -> Result<StoreRange, TextError>;
+    fn insert_char(
+        &mut self,
+        pos: TextPosition,
+        c: char,
+    ) -> Result<(TextRange, Range<usize>), TextError>;
 
     /// Insert a text str at the given position.
-    fn insert_str(&mut self, pos: TextPosition, t: &str) -> Result<StoreRange, TextError>;
+    fn insert_str(
+        &mut self,
+        pos: TextPosition,
+        t: &str,
+    ) -> Result<(TextRange, Range<usize>), TextError>;
 
     /// Remove the given text range.
     /// Returns the byte-range removed.
-    fn remove(&mut self, range: TextRange) -> Result<(String, StoreRange), TextError>;
-
-    /// Insert a char at the given byte index.
-    fn insert_char_b(&mut self, byte_pos: usize, c: char) -> Result<(), TextError>;
+    fn remove(
+        &mut self,
+        range: TextRange,
+    ) -> Result<(String, (TextRange, Range<usize>)), TextError>;
 
     /// Insert a string at the given byte index.
-    fn insert_str_b(&mut self, byte_pos: usize, t: &str) -> Result<(), TextError>;
+    fn insert_b(&mut self, byte_pos: usize, t: &str) -> Result<(), TextError>;
 
     /// Remove the given byte-range.
     fn remove_b(&mut self, byte_range: Range<usize>) -> Result<(), TextError>;
 }
 
 pub mod text_rope {
-    use crate::grapheme::{rope_line_len, str_line_len, Grapheme, RopeGraphemesIdx};
-    use crate::text_store::{StoreRange, TextStore};
-    use crate::{upos_type, TextError, TextPosition, TextRange};
+    use crate::grapheme::{rope_line_len, str_line_len, RopeGraphemesIdx};
+    use crate::text_store::TextStore;
+    use crate::{upos_type, Grapheme, TextError, TextPosition, TextRange};
     use ropey::{Rope, RopeSlice};
     use std::borrow::Cow;
     use std::mem;
@@ -90,7 +108,7 @@ pub mod text_rope {
         /// Returns the first char position for the grapheme position.
         #[inline]
         fn char_at(&self, pos: TextPosition) -> Result<usize, TextError> {
-            let byte_range = self.byte_at(pos)?;
+            let byte_range = self.byte_range_at(pos)?;
             Ok(self.text.try_byte_to_char(byte_range.start)?)
         }
 
@@ -109,17 +127,6 @@ pub mod text_rope {
             } else {
                 Ok(RopeSlice::from("").chars())
             }
-        }
-
-        /// A range of the text as RopeSlice.
-        #[inline]
-        fn rope_slice(&self, range: TextRange) -> Result<RopeSlice<'_>, TextError> {
-            let s = self.char_at(range.start)?;
-            let e = self.char_at(range.end)?;
-            let Some(slice) = self.text.get_slice(s..e) else {
-                return Err(TextError::TextRangeOutOfBounds(range));
-            };
-            Ok(slice)
         }
     }
 
@@ -144,6 +151,22 @@ pub mod text_rope {
                 buf: Default::default(),
             }
         }
+
+        /// Borrow the rope
+        pub fn rope(&self) -> &Rope {
+            &self.text
+        }
+
+        /// A range of the text as RopeSlice.
+        #[inline]
+        pub fn rope_slice(&self, range: TextRange) -> Result<RopeSlice<'_>, TextError> {
+            let s = self.char_at(range.start)?;
+            let e = self.char_at(range.end)?;
+            let Some(slice) = self.text.get_slice(s..e) else {
+                return Err(TextError::TextRangeOutOfBounds(range));
+            };
+            Ok(slice)
+        }
     }
 
     impl TextStore for TextRope {
@@ -152,25 +175,20 @@ pub mod text_rope {
             true
         }
 
+        /// Content as string.
         fn string(&self) -> String {
             self.text.to_string()
         }
 
+        /// Set content.
         fn set_string(&mut self, t: &str) {
             self.text = Rope::from_str(t);
         }
 
-        /// Is empty?
-        fn is_empty(&self) -> bool {
-            self.text.len_bytes() == 0
-        }
-
         /// Grapheme position to byte position.
         /// This is the (start,end) position of the single grapheme after pos.
-        fn byte_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
-            let Some(it_line) = self.line_graphemes(pos.y) else {
-                return Err(TextError::LineIndexOutOfBounds(pos.y, self.len_lines()));
-            };
+        fn byte_range_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
+            let it_line = self.line_graphemes(pos.y)?;
 
             let mut col = 0;
             let mut byte_end = 0;
@@ -189,24 +207,65 @@ pub mod text_rope {
             }
         }
 
+        /// Grapheme range to byte range.
+        fn byte_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
+            if range.start.y == range.end.y {
+                let it_line = self.line_graphemes(range.start.y)?;
+
+                let mut col = 0;
+                let mut range_start = None;
+                let mut range_end = None;
+                let mut byte_end = 0;
+                for grapheme in it_line {
+                    if col == range.start.x {
+                        range_start = Some(grapheme.bytes.start);
+                    }
+                    if col == range.end.x {
+                        range_end = Some(grapheme.bytes.end);
+                    }
+                    if range_start.is_some() && range_end.is_some() {
+                        break;
+                    }
+                    col += 1;
+                    byte_end = grapheme.bytes.end;
+                }
+                // one past the end is ok.
+                if col == range.start.x {
+                    range_start = Some(byte_end);
+                }
+                if col == range.end.x {
+                    range_end = Some(byte_end);
+                }
+
+                let Some(range_start) = range_start else {
+                    return Err(TextError::ColumnIndexOutOfBounds(range.start.x, col));
+                };
+                let Some(range_end) = range_end else {
+                    return Err(TextError::ColumnIndexOutOfBounds(range.end.x, col));
+                };
+
+                Ok(range_start..range_end)
+            } else {
+                let range_start = self.byte_range_at(range.start)?;
+                let range_end = self.byte_range_at(range.end)?;
+
+                Ok(range_start.start..range_end.start)
+            }
+        }
+
         /// Byte position to grapheme position.
         /// Returns the position that contains the given byte index.
-        fn byte_pos(&self, byte_pos: usize) -> Result<TextPosition, TextError> {
-            let Ok(y) = self.text.try_byte_to_line(byte_pos) else {
+        fn byte_to_pos(&self, byte_pos: usize) -> Result<TextPosition, TextError> {
+            let Ok(row) = self.text.try_byte_to_line(byte_pos) else {
                 return Err(TextError::ByteIndexOutOfBounds(
                     byte_pos,
                     self.text.len_bytes(),
                 ));
             };
-
-            let Some(it_line) = self.line_graphemes(y as upos_type) else {
-                return Err(TextError::LineIndexOutOfBounds(
-                    y as upos_type,
-                    self.len_lines(),
-                ));
-            };
+            let row = row as upos_type;
 
             let mut col = 0;
+            let it_line = self.line_graphemes(row)?;
             for grapheme in it_line {
                 if grapheme.bytes.start >= byte_pos {
                     break;
@@ -214,45 +273,139 @@ pub mod text_rope {
                 col += 1;
             }
 
-            Ok(TextPosition::new(col, y as upos_type))
+            Ok(TextPosition::new(col, row))
         }
 
-        fn line_at(&self, row: upos_type) -> Option<Cow<'_, str>> {
-            let v = self.text.get_line(row as usize)?;
-            match v.as_str() {
-                Some(v) => Some(Cow::Borrowed(v)),
-                None => Some(Cow::Owned(v.to_string())),
+        /// Byte range to grapheme range.
+        fn bytes_to_range(&self, bytes: Range<usize>) -> Result<TextRange, TextError> {
+            let Ok(start_row) = self.text.try_byte_to_line(bytes.start) else {
+                return Err(TextError::ByteIndexOutOfBounds(
+                    bytes.start,
+                    self.text.len_bytes(),
+                ));
+            };
+            let start_row = start_row as upos_type;
+            let Ok(end_row) = self.text.try_byte_to_line(bytes.end) else {
+                return Err(TextError::ByteIndexOutOfBounds(
+                    bytes.end,
+                    self.text.len_bytes(),
+                ));
+            };
+            let end_row = end_row as upos_type;
+
+            if start_row == end_row {
+                let mut col = 0;
+                let mut start = None;
+                let mut end = None;
+                let it_line = self.line_graphemes(start_row)?;
+                for grapheme in it_line {
+                    if grapheme.bytes.start >= bytes.start {
+                        if start == None {
+                            start = Some(col);
+                        }
+                    }
+                    if grapheme.bytes.end >= bytes.start {
+                        if start == None {
+                            end = Some(col);
+                        }
+                    }
+                    if start.is_some() && end.is_some() {
+                        break;
+                    }
+                    col += 1;
+                }
+
+                let Some(start) = start else {
+                    return Err(TextError::ByteIndexOutOfBounds(
+                        bytes.start,
+                        self.text.len_bytes(),
+                    ));
+                };
+                let Some(end) = end else {
+                    return Err(TextError::ByteIndexOutOfBounds(
+                        bytes.end,
+                        self.text.len_bytes(),
+                    ));
+                };
+
+                Ok(TextRange::new((start, start_row), (end, end_row)))
+            } else {
+                let start = self.byte_to_pos(bytes.start)?;
+                let end = self.byte_to_pos(bytes.end)?;
+
+                Ok(TextRange::new(start, end))
             }
         }
 
-        fn lines_at(&self, row: upos_type) -> impl Iterator<Item = Cow<'_, str>> {
-            self.text.lines_at(row as usize).map(|v| match v.as_str() {
+        /// A range of the text as Cow<str>
+        fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError> {
+            let start_char = self.char_at(range.start)?;
+            let end_char = self.char_at(range.end)?;
+            let Some(v) = self.text.get_slice(start_char..end_char) else {
+                return Err(TextError::TextRangeOutOfBounds(range));
+            };
+            match v.as_str() {
+                Some(v) => Ok(Cow::Borrowed(v)),
+                None => Ok(Cow::Owned(v.to_string())),
+            }
+        }
+
+        fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
+            let Some(v) = self.text.get_line(row as usize) else {
+                return Err(TextError::LineIndexOutOfBounds(row, self.len_lines()));
+            };
+            match v.as_str() {
+                Some(v) => Ok(Cow::Borrowed(v)),
+                None => Ok(Cow::Owned(v.to_string())),
+            }
+        }
+
+        /// Iterate over text-lines, starting at line-offset.
+        fn lines_at(
+            &self,
+            row: upos_type,
+        ) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
+            let Some(it) = self.text.get_lines_at(row as usize) else {
+                return Err(TextError::LineIndexOutOfBounds(row, self.len_lines()));
+            };
+            Ok(it.map(|v| match v.as_str() {
                 Some(v) => Cow::Borrowed(v),
                 None => Cow::Owned(v.to_string()),
-            })
+            }))
         }
 
         /// Line as grapheme iterator.
         #[inline]
-        fn line_graphemes(&self, row: upos_type) -> Option<impl Iterator<Item = Grapheme<'_>>> {
-            let line = self.text.get_line(row as usize)?;
-            Some(RopeGraphemesIdx::new(line))
+        fn line_graphemes(
+            &self,
+            row: upos_type,
+        ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError> {
+            let Some(v) = self.text.get_line(row as usize) else {
+                return Err(TextError::LineIndexOutOfBounds(row, self.len_lines()));
+            };
+            Ok(RopeGraphemesIdx::new(v))
         }
 
         /// Line width as grapheme count. Excludes the terminating '\n'.
         #[inline]
-        fn line_width(&self, row: upos_type) -> Option<upos_type> {
-            let line = self.text.get_line(row as usize)?;
-            Some(rope_line_len(line) as upos_type)
+        fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
+            let Some(v) = self.text.get_line(row as usize) else {
+                return Err(TextError::LineIndexOutOfBounds(row, self.len_lines()));
+            };
+            Ok(rope_line_len(v) as upos_type)
         }
 
         fn len_lines(&self) -> upos_type {
             self.text.len_lines() as upos_type
         }
 
-        fn insert_char(&mut self, pos: TextPosition, c: char) -> Result<StoreRange, TextError> {
-            let byte_pos = self.byte_at(pos)?;
-            let char_pos = self.text.try_byte_to_char(byte_pos.start)?;
+        fn insert_char(
+            &mut self,
+            pos: TextPosition,
+            c: char,
+        ) -> Result<(TextRange, Range<usize>), TextError> {
+            let pos_byte = self.byte_range_at(pos)?;
+            let pos_char = self.text.try_byte_to_char(pos_byte.start)?;
 
             let mut line_count = 0;
             if c == '\n' {
@@ -260,28 +413,29 @@ pub mod text_rope {
             }
 
             let insert_range = if line_count > 0 {
-                self.text.try_insert_char(char_pos, c)?;
+                self.text.try_insert_char(pos_char, c)?;
 
                 TextRange::new(pos, (0, pos.y + line_count))
             } else {
                 // no way to know if the new char combines with a surrounding char.
                 // the difference of the graphem len seems safe though.
                 let old_len = self.line_width(pos.y).expect("valid_line");
-                self.text.try_insert_char(char_pos, c)?;
+                self.text.try_insert_char(pos_char, c)?;
                 let new_len = self.line_width(pos.y).expect("valid_line");
 
                 TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
             };
 
-            Ok(StoreRange {
-                range: insert_range,
-                bytes: byte_pos.start..byte_pos.start + c.len_utf8(),
-            })
+            Ok((insert_range, pos_byte.start..pos_byte.start + c.len_utf8()))
         }
 
-        fn insert_str(&mut self, pos: TextPosition, t: &str) -> Result<StoreRange, TextError> {
-            let byte_pos = self.byte_at(pos)?;
-            let char_pos = self.text.try_byte_to_char(byte_pos.start)?;
+        fn insert_str(
+            &mut self,
+            pos: TextPosition,
+            t: &str,
+        ) -> Result<(TextRange, Range<usize>), TextError> {
+            let pos_byte = self.byte_range_at(pos)?;
+            let pos_char = self.text.try_byte_to_char(pos_byte.start)?;
 
             let mut line_count = 0;
             let mut last_linebreak_idx = 0;
@@ -315,7 +469,7 @@ pub mod text_rope {
                 buf.clear();
                 self.buf = buf;
 
-                self.text.try_insert(char_pos, t)?;
+                self.text.try_insert(pos_char, t)?;
 
                 TextRange::new(pos, (new_len - old_len, pos.y + line_count))
             } else {
@@ -323,55 +477,46 @@ pub mod text_rope {
                 // the difference of the graphem len seems safe though.
                 let old_len = self.line_width(pos.y).expect("valid_line");
 
-                self.text.try_insert(char_pos, t)?;
+                self.text.try_insert(pos_char, t)?;
 
                 let new_len = self.line_width(pos.y).expect("valid_line");
 
                 TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
             };
 
-            Ok(StoreRange {
-                range: insert_range,
-                bytes: byte_pos.start..byte_pos.start + t.len(),
-            })
+            Ok((insert_range, pos_byte.start..pos_byte.start + t.len()))
         }
 
-        fn remove(&mut self, range: TextRange) -> Result<(String, StoreRange), TextError> {
-            let start_byte_pos = self.byte_at(range.start)?;
-            let end_byte_pos = self.byte_at(range.end)?;
+        fn remove(
+            &mut self,
+            range: TextRange,
+        ) -> Result<(String, (TextRange, Range<usize>)), TextError> {
+            let start_byte_pos = self.byte_range_at(range.start)?;
+            let end_byte_pos = self.byte_range_at(range.end)?;
 
             let start_pos = self.text.try_byte_to_char(start_byte_pos.start)?;
             let end_pos = self.text.try_byte_to_char(end_byte_pos.start)?;
 
-            let old_text = self.rope_slice(range)?.to_string();
+            let Some(old_text) = self.text.get_slice(start_pos..end_pos) else {
+                return Err(TextError::TextRangeOutOfBounds(range));
+            };
+            let old_text = old_text.to_string();
 
             self.text.try_remove(start_pos..end_pos)?;
 
-            Ok((
-                old_text,
-                StoreRange {
-                    range,
-                    bytes: start_byte_pos.start..end_byte_pos.start,
-                },
-            ))
+            Ok((old_text, (range, start_byte_pos.start..end_byte_pos.start)))
         }
 
-        fn insert_char_b(&mut self, byte_pos: usize, c: char) -> Result<(), TextError> {
-            let char_pos = self.text.try_byte_to_char(byte_pos)?;
-            self.text.try_insert_char(char_pos, c)?;
-            Ok(())
-        }
-
-        fn insert_str_b(&mut self, byte_pos: usize, t: &str) -> Result<(), TextError> {
-            let char_pos = self.text.try_byte_to_char(byte_pos)?;
-            self.text.try_insert(char_pos, t)?;
+        fn insert_b(&mut self, byte_pos: usize, t: &str) -> Result<(), TextError> {
+            let pos_char = self.text.try_byte_to_char(byte_pos)?;
+            self.text.try_insert(pos_char, t)?;
             Ok(())
         }
 
         fn remove_b(&mut self, byte_range: Range<usize>) -> Result<(), TextError> {
-            let start_pos = self.text.try_byte_to_char(byte_range.start)?;
-            let end_pos = self.text.try_byte_to_char(byte_range.end)?;
-            self.text.try_remove(start_pos..end_pos)?;
+            let start_char = self.text.try_byte_to_char(byte_range.start)?;
+            let end_char = self.text.try_byte_to_char(byte_range.end)?;
+            self.text.try_remove(start_char..end_char)?;
             Ok(())
         }
     }
@@ -403,9 +548,9 @@ pub mod text_rope {
 }
 
 pub mod text_string {
-    use crate::grapheme::{split3, str_line_len, Grapheme};
-    use crate::text_store::{StoreRange, TextStore};
-    use crate::{upos_type, TextError, TextPosition, TextRange};
+    use crate::grapheme::str_line_len;
+    use crate::text_store::TextStore;
+    use crate::{upos_type, Grapheme, TextError, TextPosition, TextRange};
     use std::borrow::Cow;
     use std::iter::once;
     use std::mem;
@@ -474,14 +619,14 @@ pub mod text_string {
 
         fn set_string(&mut self, t: &str) {
             self.text = t.to_string();
+            self.len = str_line_len(&self.text) as upos_type;
         }
 
-        /// Is empty?
-        fn is_empty(&self) -> bool {
-            self.text.is_empty()
-        }
+        fn byte_range_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
+            if pos.y != 0 {
+                return Err(TextError::LineIndexOutOfBounds(pos.y, 1));
+            };
 
-        fn byte_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
             let mut byte_range = None;
 
             for (cidx, (idx, c)) in self
@@ -506,7 +651,50 @@ pub mod text_string {
             }
         }
 
-        fn byte_pos(&self, byte_pos: usize) -> Result<TextPosition, TextError> {
+        fn byte_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
+            if range.start.y != 0 {
+                return Err(TextError::LineIndexOutOfBounds(range.start.y, 1));
+            };
+            if range.end.y != 0 {
+                return Err(TextError::LineIndexOutOfBounds(range.end.y, 1));
+            };
+
+            let mut byte_start = None;
+            let mut byte_end = None;
+            for (cidx, (idx, _)) in self
+                .text
+                .grapheme_indices(true)
+                .chain(once((self.text.len(), "")))
+                .enumerate()
+            {
+                if cidx == range.start.x as usize {
+                    byte_start = Some(idx);
+                }
+                if cidx == range.end.x as usize {
+                    byte_end = Some(idx);
+                }
+                if byte_start.is_some() && byte_end.is_some() {
+                    break;
+                }
+            }
+
+            let Some(byte_start) = byte_start else {
+                return Err(TextError::ColumnIndexOutOfBounds(
+                    range.start.x,
+                    str_line_len(&self.text) as upos_type,
+                ));
+            };
+            let Some(byte_end) = byte_end else {
+                return Err(TextError::ColumnIndexOutOfBounds(
+                    range.end.x,
+                    str_line_len(&self.text) as upos_type,
+                ));
+            };
+
+            Ok(byte_start..byte_end)
+        }
+
+        fn byte_to_pos(&self, byte_pos: usize) -> Result<TextPosition, TextError> {
             let mut pos = None;
 
             for (cidx, (idx, _c)) in self
@@ -528,41 +716,90 @@ pub mod text_string {
             }
         }
 
-        fn line_at(&self, row: upos_type) -> Option<Cow<'_, str>> {
+        /// Byte range to grapheme range.
+        fn bytes_to_range(&self, bytes: Range<usize>) -> Result<TextRange, TextError> {
+            let mut start = None;
+            let mut end = None;
+            for (cidx, (idx, _c)) in self
+                .text
+                .grapheme_indices(true)
+                .chain(once((self.text.len(), "")))
+                .enumerate()
+            {
+                if idx >= bytes.start {
+                    if start.is_none() {
+                        start = Some(cidx as upos_type);
+                    }
+                }
+                if idx >= bytes.end {
+                    if end.is_none() {
+                        end = Some(cidx as upos_type);
+                    }
+                }
+                if start.is_some() && end.is_some() {
+                    break;
+                }
+            }
+
+            let Some(start) = start else {
+                return Err(TextError::ByteIndexOutOfBounds(
+                    bytes.start,
+                    self.text.len(),
+                ));
+            };
+            let Some(end) = end else {
+                return Err(TextError::ByteIndexOutOfBounds(bytes.end, self.text.len()));
+            };
+
+            Ok(TextRange::new((start, 0), (end, 0)))
+        }
+
+        /// A range of the text as Cow<str>
+        fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError> {
+            let range = self.byte_range(range)?;
+            Ok(Cow::Borrowed(&self.text[range.start..range.end]))
+        }
+
+        /// Line as str.
+        fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
             if row == 0 {
-                Some(Cow::Borrowed(&self.text))
+                Ok(Cow::Borrowed(&self.text))
             } else {
-                None
+                Err(TextError::LineIndexOutOfBounds(row, 1))
             }
         }
 
-        fn lines_at(&self, row: upos_type) -> impl Iterator<Item = Cow<'_, str>> {
+        fn lines_at(
+            &self,
+            row: upos_type,
+        ) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
             if row == 0 {
-                once(Cow::Borrowed(self.text.as_str()))
+                Ok(once(Cow::Borrowed(self.text.as_str())))
             } else {
-                let mut it = once(Cow::Borrowed(""));
-                it.next();
-                it
+                Err(TextError::LineIndexOutOfBounds(row, 1))
             }
         }
 
-        fn line_graphemes(&self, row: upos_type) -> Option<impl Iterator<Item = Grapheme<'_>>> {
+        fn line_graphemes(
+            &self,
+            row: upos_type,
+        ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError> {
             if row == 0 {
-                Some(self.text.grapheme_indices(true).map(|(idx, gr)| Grapheme {
+                Ok(self.text.grapheme_indices(true).map(|(idx, gr)| Grapheme {
                     grapheme: Cow::Borrowed(gr),
                     bytes: idx..idx + gr.len(),
                 }))
             } else {
-                None
+                Err(TextError::LineIndexOutOfBounds(row, 1))
             }
         }
 
         /// Line width as grapheme count.
-        fn line_width(&self, row: upos_type) -> Option<upos_type> {
+        fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
             if row == 0 {
-                Some(self.len)
+                Ok(self.len)
             } else {
-                None
+                Err(TextError::LineIndexOutOfBounds(row, 1))
             }
         }
 
@@ -572,7 +809,11 @@ pub mod text_string {
         }
 
         /// Insert a char at position.
-        fn insert_char(&mut self, pos: TextPosition, c: char) -> Result<StoreRange, TextError> {
+        fn insert_char(
+            &mut self,
+            pos: TextPosition,
+            c: char,
+        ) -> Result<(TextRange, Range<usize>), TextError> {
             if pos.y != 0 {
                 return Err(TextError::TextPositionOutOfBounds(pos));
             }
@@ -580,7 +821,7 @@ pub mod text_string {
                 return Err(TextError::InvalidText(c.to_string()));
             }
 
-            let byte_pos = self.byte_at(pos)?;
+            let byte_pos = self.byte_range_at(pos)?;
             let (before, after) = self.text.split_at(byte_pos.start);
 
             let old_len = self.len;
@@ -595,14 +836,18 @@ pub mod text_string {
             mem::swap(&mut self.text, &mut self.buf);
             self.len = new_len;
 
-            Ok(StoreRange {
-                range: TextRange::new((0, pos.x), (0, pos.x + (new_len - old_len))),
-                bytes: before_bytes..before_bytes + c.len_utf8(),
-            })
+            Ok((
+                TextRange::new((0, pos.x), (0, pos.x + (new_len - old_len))),
+                before_bytes..before_bytes + c.len_utf8(),
+            ))
         }
 
         /// Insert a str at position.
-        fn insert_str(&mut self, pos: TextPosition, t: &str) -> Result<StoreRange, TextError> {
+        fn insert_str(
+            &mut self,
+            pos: TextPosition,
+            t: &str,
+        ) -> Result<(TextRange, Range<usize>), TextError> {
             if pos.y != 0 {
                 return Err(TextError::TextPositionOutOfBounds(pos));
             }
@@ -610,7 +855,7 @@ pub mod text_string {
                 return Err(TextError::InvalidText(t.to_string()));
             }
 
-            let byte_pos = self.byte_at(pos)?;
+            let byte_pos = self.byte_range_at(pos)?;
             let (before, after) = self.text.split_at(byte_pos.start);
 
             let old_len = self.len;
@@ -625,21 +870,27 @@ pub mod text_string {
             mem::swap(&mut self.text, &mut self.buf);
             self.len = new_len;
 
-            Ok(StoreRange {
-                range: TextRange::new((0, pos.x), (0, pos.x + (new_len - old_len))),
-                bytes: before_bytes..before_bytes + t.len(),
-            })
+            Ok((
+                TextRange::new((0, pos.x), (0, pos.x + (new_len - old_len))),
+                before_bytes..before_bytes + t.len(),
+            ))
         }
 
         /// Remove a range.
-        fn remove(&mut self, range: TextRange) -> Result<(String, StoreRange), TextError> {
+        fn remove(
+            &mut self,
+            range: TextRange,
+        ) -> Result<(String, (TextRange, Range<usize>)), TextError> {
             if range.start.y != 0 || range.end.y != 0 {
                 return Err(TextError::TextRangeOutOfBounds(range));
             }
 
-            let (before, remove, after) = split3(
-                self.text.as_str(),
-                (range.start.x as usize)..(range.end.x as usize),
+            let bytes = self.byte_range(range)?;
+
+            let (before, remove, after) = (
+                &self.text[..bytes.start],
+                &self.text[bytes.start..bytes.end],
+                &self.text[bytes.end..],
             );
 
             self.buf.clear();
@@ -656,33 +907,12 @@ pub mod text_string {
 
             Ok((
                 remove_str,
-                StoreRange {
-                    range,
-                    bytes: before_bytes..before_bytes + remove_bytes,
-                },
+                (range, before_bytes..before_bytes + remove_bytes),
             ))
         }
 
-        /// Insert a char at the given byte index.
-        fn insert_char_b(&mut self, byte_pos: usize, c: char) -> Result<(), TextError> {
-            let Some((before, after)) = self.text.split_at_checked(byte_pos) else {
-                return Err(TextError::ByteIndexNotCharBoundary(byte_pos));
-            };
-
-            self.buf.clear();
-            self.buf.push_str(before);
-            self.buf.push(c);
-            self.buf.push_str(after);
-            let new_len = str_line_len(&self.buf) as upos_type;
-
-            mem::swap(&mut self.text, &mut self.buf);
-            self.len = new_len;
-
-            Ok(())
-        }
-
         /// Insert a string at the given byte index.
-        fn insert_str_b(&mut self, byte_pos: usize, t: &str) -> Result<(), TextError> {
+        fn insert_b(&mut self, byte_pos: usize, t: &str) -> Result<(), TextError> {
             let Some((before, after)) = self.text.split_at_checked(byte_pos) else {
                 return Err(TextError::ByteIndexNotCharBoundary(byte_pos));
             };
