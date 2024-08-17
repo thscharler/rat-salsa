@@ -1,7 +1,9 @@
-use crate::{Glyph, Grapheme};
+use crate::text_store::Cursor;
+use crate::{Glyph, Grapheme, TextError};
 use ropey::iter::Chunks;
 use ropey::RopeSlice;
 use std::borrow::Cow;
+use std::cmp;
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete, UnicodeSegmentation};
 
 /// Length as grapheme count, excluding line breaks.
@@ -17,10 +19,64 @@ pub(crate) fn str_line_len(s: &str) -> usize {
     it.filter(|c| *c != "\n" && *c != "\r\n").count()
 }
 
+/// A cursor over graphemes of a string.
+#[derive(Debug)]
+pub(crate) struct StrGraphemesIdx<'a> {
+    string: &'a str,
+    cursor: GraphemeCursor,
+}
+
+impl<'a> StrGraphemesIdx<'a> {
+    pub(crate) fn new(s: &'a str) -> Self {
+        Self {
+            string: s,
+            cursor: GraphemeCursor::new(0, s.len(), true),
+        }
+    }
+
+    pub(crate) fn new_offset(s: &'a str, offset: usize) -> Self {
+        Self {
+            string: s,
+            cursor: GraphemeCursor::new(offset, s.len(), true),
+        }
+    }
+}
+
+impl<'a> Cursor for StrGraphemesIdx<'a> {
+    fn prev(&mut self) -> Option<Self::Item> {
+        let start = self.cursor.cur_cursor();
+        let prev = self.cursor.prev_boundary(self.string, 0).unwrap()?;
+        Some(Grapheme {
+            grapheme: Cow::Borrowed(&self.string[prev..start]),
+            bytes: prev..start,
+        })
+    }
+}
+
+impl<'a> Iterator for StrGraphemesIdx<'a> {
+    type Item = Grapheme<'a>;
+
+    #[inline]
+    fn next(&mut self) -> Option<Grapheme<'a>> {
+        let start = self.cursor.cur_cursor();
+        let next = self.cursor.next_boundary(self.string, 0).unwrap()?;
+        Some(Grapheme {
+            grapheme: Cow::Borrowed(&self.string[start..next]),
+            bytes: start..next,
+        })
+    }
+
+    #[inline]
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let slen = self.string.len() - self.cursor.cur_cursor();
+        (cmp::min(slen, 1), Some(slen))
+    }
+}
+
 /// An implementation of a graphemes iterator, for iterating over
 /// the graphemes of a RopeSlice.
 #[derive(Debug)]
-pub(crate) struct RopeGraphemesIdx<'a> {
+pub struct RopeGraphemesIdx<'a> {
     text: RopeSlice<'a>,
     chunks: Chunks<'a>,
     cur_chunk: &'a str,
@@ -29,6 +85,7 @@ pub(crate) struct RopeGraphemesIdx<'a> {
 }
 
 impl<'a> RopeGraphemesIdx<'a> {
+    /// New grapheme iterator.
     pub(crate) fn new(slice: RopeSlice<'a>) -> RopeGraphemesIdx<'a> {
         let mut chunks = slice.chunks();
         let first_chunk = chunks.next().unwrap_or("");
@@ -38,6 +95,73 @@ impl<'a> RopeGraphemesIdx<'a> {
             cur_chunk: first_chunk,
             cur_chunk_start: 0,
             cursor: GraphemeCursor::new(0, slice.len_bytes(), true),
+        }
+    }
+
+    /// New grapheme iterator.
+    ///
+    /// Offset must be a valid char boundary.
+    pub(crate) fn new_offset(
+        slice: RopeSlice<'a>,
+        offset: usize,
+    ) -> Result<RopeGraphemesIdx<'a>, TextError> {
+        let Some((mut chunks, chunk_start, _, _)) = slice.get_chunks_at_byte(offset) else {
+            return Err(TextError::ByteIndexOutOfBounds(offset, slice.len_bytes()));
+        };
+        let first_chunk = chunks.next().unwrap_or("");
+        Ok(RopeGraphemesIdx {
+            text: slice,
+            chunks,
+            cur_chunk: first_chunk,
+            cur_chunk_start: chunk_start,
+            cursor: GraphemeCursor::new(offset, slice.len_bytes(), true),
+        })
+    }
+}
+
+impl<'a> Cursor for RopeGraphemesIdx<'a> {
+    fn prev(&mut self) -> Option<Grapheme<'a>> {
+        let a = self.cursor.cur_cursor();
+        let b;
+        loop {
+            match self
+                .cursor
+                .prev_boundary(self.cur_chunk, self.cur_chunk_start)
+            {
+                Ok(None) => {
+                    return None;
+                }
+                Ok(Some(n)) => {
+                    b = n;
+                    break;
+                }
+                Err(GraphemeIncomplete::PrevChunk) => {
+                    self.cur_chunk = self.chunks.prev().unwrap_or("");
+                    self.cur_chunk_start -= self.cur_chunk.len();
+                }
+                Err(GraphemeIncomplete::PreContext(idx)) => {
+                    let (chunk, byte_idx, _, _) = self.text.chunk_at_byte(idx.saturating_sub(1));
+                    self.cursor.provide_context(chunk, byte_idx);
+                }
+                _ => unreachable!(),
+            }
+        }
+
+        if a >= self.cur_chunk_start + self.cur_chunk.len() {
+            let a_char = self.text.byte_to_char(a);
+            let b_char = self.text.byte_to_char(b);
+
+            Some(Grapheme {
+                grapheme: Cow::Owned(self.text.slice(b_char..a_char).to_string()),
+                bytes: b..a,
+            })
+        } else {
+            let a2 = a - self.cur_chunk_start;
+            let b2 = b - self.cur_chunk_start;
+            Some(Grapheme {
+                grapheme: Cow::Borrowed(&self.cur_chunk[b2..a2]),
+                bytes: b..a,
+            })
         }
     }
 }
@@ -91,8 +215,7 @@ impl<'a> Iterator for RopeGraphemesIdx<'a> {
     }
 }
 
-/// Iterates a RopeSlice and returns graphemes + length as
-/// [Glyph].
+/// Converts a grapheme-iterator into a glyph iterator.
 ///
 /// This is used for rendering text, and for mapping text-positions
 /// to screen-positions and vice versa.
@@ -192,6 +315,8 @@ where
             // clip left
             if self.col < self.offset {
                 if self.col + len > self.offset {
+                    // don't show partial glyphs, but show the space they need.
+                    // avoids flickering when scrolling left/right.
                     glyph = Cow::Borrowed(" ");
                     len = self.offset - self.col;
                     self.col = next_col;
