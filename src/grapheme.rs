@@ -585,7 +585,7 @@ where
                 } else {
                     // out left
                 }
-            } else if screen_pos.0 + len >= self.screen_offset + self.screen_width {
+            } else if screen_pos.0 + len > self.screen_offset + self.screen_width {
                 if screen_pos.0 < self.screen_offset + self.screen_width {
                     // don't show partial glyphs, but show the space they need.
                     // avoids flickering when scrolling left/right.
@@ -595,7 +595,7 @@ where
                         text_offset: grapheme.text_offset,
                         display: screen_pos.0 + len - (self.screen_offset + self.screen_width),
                         pos,
-                        screen_pos: (0, screen_pos.1),
+                        screen_pos: (screen_pos.0 - self.screen_offset, screen_pos.1),
                     });
                 } else {
                     // out right
@@ -617,7 +617,7 @@ where
 }
 
 #[cfg(test)]
-mod test {
+mod test_str {
     use crate::grapheme::{RopeGraphemes, StrGraphemes};
     use crate::Cursor;
     use ropey::Rope;
@@ -797,6 +797,13 @@ mod test {
         assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
     }
+}
+
+#[cfg(test)]
+mod test_rope {
+    use crate::grapheme::RopeGraphemes;
+    use crate::Cursor;
+    use ropey::Rope;
 
     #[test]
     fn test_rope_graphemes1() {
@@ -837,9 +844,9 @@ mod test {
     #[test]
     fn test_rope_graphemes2() {
         // complicated graphemes
-        let s = String::from("w🤷‍♂️xw🤷‍♀️xw🤦‍♂️xw❤️xw🤦‍♀️xw💕🙍🏿‍♀️x");
+        let s = Rope::from("w🤷‍♂️xw🤷‍♀️xw🤦‍♂️xw❤️xw🤦‍♀️xw💕🙍🏿‍♀️x");
 
-        let mut s0 = StrGraphemes::new(0, &s);
+        let mut s0 = RopeGraphemes::new(0, s.byte_slice(..));
         assert_eq!(s0.next().unwrap(), "w");
         assert_eq!(s0.next().unwrap(), "🤷‍♂️");
         assert_eq!(s0.next().unwrap(), "x");
@@ -1069,5 +1076,237 @@ mod test {
         assert_eq!(s0.next().unwrap(), "1");
         assert_eq!(s0.offset(), 613);
         assert_eq!(s0.text_offset(), 614);
+    }
+}
+
+#[cfg(test)]
+mod test_glyph {
+    use crate::grapheme::{GlyphIter, RopeGraphemes};
+    use crate::TextPosition;
+    use ropey::Rope;
+
+    #[test]
+    fn test_glyph1() {
+        let s = Rope::from(
+            r#"0123456789
+abcdefghij
+jklöjklöjk
+uiopü+uiop"#,
+        );
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "0");
+        assert_eq!(n.bytes(), 0..1);
+        assert_eq!(n.screen_pos(), (0, 0));
+        assert_eq!(n.pos(), TextPosition::new(0, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "1");
+        assert_eq!(n.bytes(), 1..2);
+        assert_eq!(n.screen_pos(), (1, 0));
+        assert_eq!(n.pos(), TextPosition::new(1, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "2");
+        assert_eq!(n.bytes(), 2..3);
+        assert_eq!(n.screen_pos(), (2, 0));
+        assert_eq!(n.pos(), TextPosition::new(2, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.nth(7).unwrap();
+        assert_eq!(n.glyph(), "");
+        assert_eq!(n.bytes(), 10..11);
+        assert_eq!(n.screen_pos(), (10, 0));
+        assert_eq!(n.pos(), TextPosition::new(10, 0));
+        assert_eq!(n.display(), 0);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "a");
+        assert_eq!(n.bytes(), 11..12);
+        assert_eq!(n.screen_pos(), (0, 1));
+        assert_eq!(n.pos(), TextPosition::new(0, 1));
+        assert_eq!(n.display(), 1);
+    }
+
+    #[test]
+    fn test_glyph2() {
+        // screen offset
+        let s = Rope::from(
+            r#"0123456789
+abcdefghij
+jklöjklöjk
+uiopü+uiop"#,
+        );
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
+        glyphs.set_screen_offset(2);
+        glyphs.set_screen_width(100);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "2");
+        assert_eq!(n.bytes(), 2..3);
+        assert_eq!(n.screen_pos(), (0, 0));
+        assert_eq!(n.pos(), TextPosition::new(2, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "3");
+        assert_eq!(n.bytes(), 3..4);
+        assert_eq!(n.screen_pos(), (1, 0));
+        assert_eq!(n.pos(), TextPosition::new(3, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.nth(6).unwrap();
+        assert_eq!(n.glyph(), "");
+        assert_eq!(n.bytes(), 10..11);
+        assert_eq!(n.screen_pos(), (8, 0));
+        assert_eq!(n.pos(), TextPosition::new(10, 0));
+        assert_eq!(n.display(), 0);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "c");
+        assert_eq!(n.bytes(), 13..14);
+        assert_eq!(n.screen_pos(), (0, 1));
+        assert_eq!(n.pos(), TextPosition::new(2, 1));
+        assert_eq!(n.display(), 1);
+    }
+
+    #[test]
+    fn test_glyph3() {
+        // screen offset + width
+        let s = Rope::from(
+            r#"0123456789
+abcdefghij
+jklöjklöjk
+uiopü+uiop"#,
+        );
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
+        glyphs.set_screen_offset(2);
+        glyphs.set_screen_width(6);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "2");
+        assert_eq!(n.bytes(), 2..3);
+        assert_eq!(n.screen_pos(), (0, 0));
+        assert_eq!(n.pos(), TextPosition::new(2, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "3");
+        assert_eq!(n.bytes(), 3..4);
+        assert_eq!(n.screen_pos(), (1, 0));
+        assert_eq!(n.pos(), TextPosition::new(3, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.nth(2).unwrap();
+        assert_eq!(n.glyph(), "6");
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "7");
+        assert_eq!(n.bytes(), 7..8);
+        assert_eq!(n.screen_pos(), (5, 0));
+        assert_eq!(n.pos(), TextPosition::new(7, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "c");
+        assert_eq!(n.bytes(), 13..14);
+        assert_eq!(n.screen_pos(), (0, 1));
+        assert_eq!(n.pos(), TextPosition::new(2, 1));
+        assert_eq!(n.display(), 1);
+    }
+
+    #[test]
+    fn test_glyph4() {
+        // tabs
+        let s = Rope::from(
+            "012\t3456789
+abcdefghij
+jklöjklöjk
+uiopü+uiop",
+        );
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
+        glyphs.set_screen_offset(2);
+        glyphs.set_screen_width(100);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "2");
+        assert_eq!(n.bytes(), 2..3);
+        assert_eq!(n.screen_pos(), (0, 0));
+        assert_eq!(n.pos(), TextPosition::new(2, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), " ");
+        assert_eq!(n.bytes(), 3..4);
+        assert_eq!(n.screen_pos(), (1, 0));
+        assert_eq!(n.pos(), TextPosition::new(3, 0));
+        assert_eq!(n.display(), 5);
+
+        let n = glyphs.nth(7).unwrap();
+        assert_eq!(n.glyph(), "");
+        assert_eq!(n.bytes(), 11..12);
+        assert_eq!(n.screen_pos(), (13, 0));
+        assert_eq!(n.pos(), TextPosition::new(11, 0));
+        assert_eq!(n.display(), 0);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "c");
+        assert_eq!(n.bytes(), 14..15);
+        assert_eq!(n.screen_pos(), (0, 1));
+        assert_eq!(n.pos(), TextPosition::new(2, 1));
+        assert_eq!(n.display(), 1);
+    }
+
+    #[test]
+    fn test_glyph5() {
+        // clipping wide
+        let s = Rope::from(
+            "0\t12345678\t9
+abcdefghij
+jklöjklöjk
+uiopü+uiop",
+        );
+        let r = RopeGraphemes::new(0, s.byte_slice(..));
+        let mut glyphs = GlyphIter::new(TextPosition::new(0, 0), r);
+        glyphs.set_screen_offset(2);
+        glyphs.set_screen_width(20);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "∃");
+        assert_eq!(n.bytes(), 1..2);
+        assert_eq!(n.screen_pos(), (0, 0));
+        assert_eq!(n.pos(), TextPosition::new(1, 0));
+        assert_eq!(n.display(), 6);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "1");
+        assert_eq!(n.bytes(), 2..3);
+        assert_eq!(n.screen_pos(), (6, 0));
+        assert_eq!(n.pos(), TextPosition::new(2, 0));
+        assert_eq!(n.display(), 1);
+
+        let n = glyphs.nth(6).unwrap();
+        assert_eq!(n.glyph(), "8");
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "∃");
+        assert_eq!(n.bytes(), 10..11);
+        assert_eq!(n.screen_pos(), (14, 0));
+        assert_eq!(n.pos(), TextPosition::new(10, 0));
+        assert_eq!(n.display(), 2);
+
+        let n = glyphs.next().unwrap();
+        assert_eq!(n.glyph(), "c");
+        assert_eq!(n.bytes(), 15..16);
+        assert_eq!(n.screen_pos(), (0, 1));
+        assert_eq!(n.pos(), TextPosition::new(2, 1));
+        assert_eq!(n.display(), 1);
     }
 }
