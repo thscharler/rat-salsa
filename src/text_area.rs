@@ -13,14 +13,16 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
 use crate::{ipos_type, upos_type, Cursor, TextError, TextPosition, TextRange};
 use crossterm::event::KeyModifiers;
+use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{Scroll, ScrollArea, ScrollState};
+use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::Style;
-use ratatui::widgets::Block;
+use ratatui::prelude::{StatefulWidget, Style, Stylize};
+use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef};
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cmp::{max, min};
@@ -223,6 +225,130 @@ impl<'a> TextArea<'a> {
     pub fn vscroll(mut self, scroll: Scroll<'a>) -> Self {
         self.vscroll = Some(scroll.override_vertical());
         self
+    }
+}
+
+impl<'a> StatefulWidgetRef for TextArea<'a> {
+    type State = TextAreaState;
+
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_ref(self, area, buf, state);
+    }
+}
+
+impl<'a> StatefulWidget for TextArea<'a> {
+    type State = TextAreaState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_ref(&self, area, buf, state);
+    }
+}
+
+fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut TextAreaState) {
+    state.area = area;
+
+    let (hscroll_area, vscroll_area, inner_area) = layout_scroll(
+        area,
+        widget.block.as_ref(),
+        widget.hscroll.as_ref(),
+        widget.vscroll.as_ref(),
+    );
+    state.inner = inner_area;
+    if let Some(h_max_offset) = widget.h_max_offset {
+        state.hscroll.set_max_offset(h_max_offset);
+    }
+    if let Some(h_overscroll) = widget.h_overscroll {
+        state.hscroll.set_overscroll_by(Some(h_overscroll));
+    }
+    state.hscroll.set_page_len(state.inner.width as usize);
+    state.vscroll.set_max_offset(
+        state
+            .len_lines()
+            .saturating_sub(state.inner.height as upos_type) as usize,
+    );
+    state.vscroll.set_page_len(state.inner.height as usize);
+
+    widget.block.render_ref(area, buf);
+    if let Some(hscroll) = widget.hscroll.as_ref() {
+        hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
+    }
+    if let Some(vscroll) = widget.vscroll.as_ref() {
+        vscroll.render_ref(vscroll_area, buf, &mut state.vscroll);
+    }
+
+    let inner = state.inner;
+
+    let select_style = if let Some(select_style) = widget.select_style {
+        select_style
+    } else {
+        Style::default().on_yellow()
+    };
+    let style = widget.style;
+
+    // set base style
+    for y in inner.top()..inner.bottom() {
+        for x in inner.left()..inner.right() {
+            let cell = buf.get_mut(x, y);
+            cell.reset();
+            cell.set_style(style);
+        }
+    }
+
+    if inner.width == 0 || inner.height == 0 {
+        // noop
+        return;
+    }
+    if state.vscroll.offset() > state.value.len_lines() as usize {
+        return;
+    }
+
+    let (ox, oy) = state.offset();
+    let rows = (oy as upos_type)
+        ..min(
+            oy as upos_type + inner.height as upos_type,
+            state.value.len_lines(),
+        );
+    let selection = state.selection();
+    let mut styles = Vec::new();
+
+    let glyph_iter = state
+        .value
+        .glyphs(rows.clone(), ox as u16, inner.width)
+        .expect("valid_offset");
+
+    for g in glyph_iter {
+        if g.display() > 0 {
+            let mut style = style;
+            // text-styles
+            styles.clear();
+            state.styles_at(g.bytes().start, &mut styles);
+            for style_nr in &styles {
+                if let Some(s) = widget.text_style.get(*style_nr) {
+                    style = style.patch(*s);
+                } else {
+                    #[cfg(debug_assertions)]
+                    warn!("invalid style-nr: {}", style_nr);
+                };
+            }
+            // selection
+            if selection.contains_pos(g.pos()) {
+                style = style.patch(select_style);
+            };
+
+            // relative screen-pos of the glyph
+            let screen_pos = g.screen_pos();
+
+            // render glyph
+            let cell = buf.get_mut(inner.x + screen_pos.0, inner.y + screen_pos.1);
+            cell.set_symbol(g.glyph());
+            cell.set_style(style);
+            // clear the reset of the cells to avoid interferences.
+            for d in 1..g.display() {
+                let cell = buf.get_mut(inner.x + screen_pos.0 + d, inner.y + screen_pos.1);
+                cell.reset();
+                cell.set_style(style);
+            }
+        }
     }
 }
 
@@ -605,17 +731,16 @@ impl TextAreaState {
         self.value.lines_at(row)
     }
 
-    /// Iterator for the glyphs of a given line.
+    // Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
-    /// This covers multi-column graphemes as well as tabs (with varying width).
-    /// This contains the \n at the end.
     #[inline]
-    pub fn line_glyphs(
+    pub fn glyphs(
         &self,
-        row: upos_type,
-        col_offset: upos_type,
+        rows: Range<upos_type>,
+        screen_offset: u16,
+        screen_width: u16,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        self.value.line_glyphs(row, col_offset)
+        self.value.glyphs(rows, screen_offset, screen_width)
     }
 
     /// Grapheme iterator for a given line.
@@ -1333,7 +1458,7 @@ impl TextAreaState {
 
         if scx < 0 {
             ox.saturating_sub((scx as ipos_type).abs() as upos_type)
-        } else if scx as u16 >= self.area.width {
+        } else if scx as u16 >= self.inner.width {
             min(
                 ox + scx as upos_type,
                 self.line_width(row).expect("valid_row"),
@@ -1341,18 +1466,19 @@ impl TextAreaState {
         } else {
             let scx = scx as u16;
 
-            let line = self.line_glyphs(row, ox).expect("valid_row");
-            let mut cx = 0;
-            let mut testx = 0;
+            let line = self
+                .glyphs(row..row + 1, ox as u16, self.inner.width)
+                .expect("valid_row");
+
+            let mut col = ox;
             for g in line {
-                if scx >= testx && scx < testx + g.display() {
+                col = g.pos().x;
+                if scx >= g.screen_pos().0 {
                     break;
                 }
-                testx += g.display();
-                cx += 1;
             }
 
-            min(ox + cx, self.line_width(row).expect("valid_row"))
+            col
         }
     }
 
@@ -1362,13 +1488,18 @@ impl TextAreaState {
         let pos = pos.into();
         let (ox, _) = self.offset();
 
-        let line = self.line_glyphs(pos.y, ox as upos_type)?;
-        let sx = line
-            .take(pos.x as usize - ox)
-            .map(|v| v.display())
-            .sum::<u16>();
+        if pos.x < ox as upos_type {
+            return Ok(0);
+        }
 
-        Ok(sx)
+        let line = self.glyphs(pos.y..pos.y + 1, ox as u16, self.inner.width)?;
+        for g in line {
+            if g.pos().x == pos.x {
+                return Ok(g.screen_pos().0);
+            }
+        }
+
+        Ok(self.inner.width.saturating_sub(1))
     }
 
     /// Cursor position on the screen.

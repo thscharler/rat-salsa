@@ -635,18 +635,23 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.text.lines_at(row)
     }
 
-    /// Iterator for the glyphs of a given line.
+    /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
-    pub fn line_glyphs(
+    pub fn glyphs(
         &self,
-        row: upos_type,
-        col_offset: upos_type,
+        rows: Range<upos_type>,
+        screen_offset: u16,
+        screen_width: u16,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        let iter = self.line_graphemes(row)?;
+        let iter = self.graphemes(
+            TextRange::new((0, rows.start), (0, rows.end)),
+            TextPosition::new(0, rows.start),
+        )?;
 
-        let mut it = GlyphIter::new(iter);
-        it.set_col_offset(col_offset);
+        let mut it = GlyphIter::new(TextPosition::new(0, rows.start), iter);
+        it.set_screen_offset(screen_offset);
+        it.set_screen_width(screen_width);
         it.set_tabs(self.tabs);
         it.set_show_ctrl(self.show_ctrl);
         Ok(it)

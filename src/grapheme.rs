@@ -1,4 +1,4 @@
-use crate::{upos_type, Cursor, TextError};
+use crate::{Cursor, TextError, TextPosition};
 use ropey::iter::Chunks;
 use ropey::RopeSlice;
 use std::borrow::Cow;
@@ -59,12 +59,17 @@ impl<'a> Grapheme<'a> {
 pub struct Glyph<'a> {
     /// First char.
     glyph: Cow<'a, str>,
+    /// Display length for the glyph.
+    display: u16,
     /// byte-range of the glyph in the given slice.
     bytes: Range<usize>,
     /// offset of the slice into the complete text.
     text_offset: usize,
-    /// Display length for the glyph.
-    display: u16,
+    /// screen-position corrected by text_offset.
+    /// first visible column is at 0.
+    screen_pos: (u16, u16),
+    /// text-position
+    pos: TextPosition,
 }
 
 impl<'a> Glyph<'a> {
@@ -86,6 +91,16 @@ impl<'a> Glyph<'a> {
     /// Get the byte-range as absolute range into the complete text.
     pub fn text_bytes(&self) -> Range<usize> {
         self.text_offset + self.bytes.start..self.text_offset + self.bytes.end
+    }
+
+    /// Get the position of the glyph
+    pub fn pos(&self) -> TextPosition {
+        self.pos
+    }
+
+    /// Get the screen position of the glyph.
+    pub fn screen_pos(&self) -> (u16, u16) {
+        self.screen_pos
     }
 }
 
@@ -422,23 +437,25 @@ impl<'a> Cursor for RevRopeGraphemes<'a> {
     }
 }
 
-/// Converts a grapheme-iterator into a glyph iterator.
+/// Iterates over the glyphs of a row-range.
+///
+/// Keeps track of the text-position and the display-position on screen.
+/// Does a conversion from graphemes to glyph-text and glyph-width.
 ///
 /// This is used for rendering text, and for mapping text-positions
 /// to screen-positions and vice versa.
-///
-/// It
-/// * has a length for the glyph. This is used for wide characters
-///   and tab support.
-/// * has a column-offset.
-/// * can translate control-codes to visible graphemes.
 #[derive(Debug)]
 pub(crate) struct GlyphIter<Iter> {
     iter: Iter,
-    col_offset: upos_type,
+
+    pos: TextPosition,
+
+    screen_offset: u16,
+    screen_width: u16,
+    screen_pos: (u16, u16),
+
     tabs: u16,
     show_ctrl: bool,
-    col: upos_type,
 }
 
 impl<'a, Iter> GlyphIter<Iter>
@@ -446,21 +463,26 @@ where
     Iter: Iterator<Item = Grapheme<'a>>,
 {
     /// New iterator.
-    pub(crate) fn new(iter: Iter) -> Self {
+    pub(crate) fn new(pos: TextPosition, iter: Iter) -> Self {
         Self {
             iter,
-            col_offset: 0,
+            pos,
+            screen_offset: 0,
+            screen_width: u16::MAX,
+            screen_pos: Default::default(),
             tabs: 8,
             show_ctrl: false,
-            col: 0,
         }
     }
 
-    /// Text offset.
-    /// Iterates only graphemes beyond this offset.
-    /// Might return partial glyphs.
-    pub(crate) fn set_col_offset(&mut self, offset: upos_type) {
-        self.col_offset = offset;
+    /// Screen offset.
+    pub(crate) fn set_screen_offset(&mut self, offset: u16) {
+        self.screen_offset = offset;
+    }
+
+    /// Screen width.
+    pub(crate) fn set_screen_width(&mut self, width: u16) {
+        self.screen_width = width;
     }
 
     /// Tab width
@@ -482,16 +504,20 @@ where
 
     fn next(&mut self) -> Option<Self::Item> {
         while let Some(grapheme) = self.iter.next() {
-            let mut glyph;
-            let mut len: upos_type;
+            let glyph;
+            let len: u16;
+            let mut lbrk = false;
+
+            // todo: maybe add some ligature support.
 
             match grapheme.grapheme.as_ref() {
                 "\n" | "\r\n" => {
+                    lbrk = true;
                     len = if self.show_ctrl { 1 } else { 0 };
                     glyph = Cow::Borrowed(if self.show_ctrl { "\u{2424}" } else { "" });
                 }
                 "\t" => {
-                    len = self.tabs as upos_type - (self.col % self.tabs as upos_type);
+                    len = self.tabs - (self.screen_pos.0 % self.tabs);
                     glyph = Cow::Borrowed(if self.show_ctrl { "\u{2409}" } else { " " });
                 }
                 c if ("\x00".."\x20").contains(&c) => {
@@ -512,38 +538,63 @@ where
                     });
                 }
                 c => {
-                    len = unicode_display_width::width(c) as upos_type;
+                    len = unicode_display_width::width(c) as u16;
                     glyph = grapheme.grapheme;
                 }
             }
 
-            let next_col = self.col + len;
+            let pos = self.pos;
+            let screen_pos = self.screen_pos;
+
+            if lbrk {
+                self.screen_pos.0 = 0;
+                self.screen_pos.1 += 1;
+                self.pos.x = 0;
+                self.pos.y += 1;
+            } else {
+                self.screen_pos.0 += len;
+                self.pos.x += 1;
+            }
 
             // clip left
-            if self.col < self.col_offset {
-                if self.col + len > self.col_offset {
+            if screen_pos.0 < self.screen_offset {
+                if screen_pos.0 + len > self.screen_offset {
                     // don't show partial glyphs, but show the space they need.
                     // avoids flickering when scrolling left/right.
-                    glyph = Cow::Borrowed(" ");
-                    len = self.col_offset - self.col;
-                    self.col = next_col;
                     return Some(Glyph {
-                        glyph,
+                        glyph: Cow::Borrowed("\u{2203}"),
                         bytes: grapheme.bytes,
                         text_offset: grapheme.text_offset,
-                        display: len as u16,
+                        display: screen_pos.0 + len - self.screen_offset,
+                        pos,
+                        screen_pos: (0, screen_pos.1),
                     });
                 } else {
                     // out left
-                    self.col = next_col;
+                }
+            } else if screen_pos.0 + len >= self.screen_offset + self.screen_width {
+                if screen_pos.0 < self.screen_offset + self.screen_width {
+                    // don't show partial glyphs, but show the space they need.
+                    // avoids flickering when scrolling left/right.
+                    return Some(Glyph {
+                        glyph: Cow::Borrowed("\u{2203}"),
+                        bytes: grapheme.bytes,
+                        text_offset: grapheme.text_offset,
+                        display: screen_pos.0 + len - (self.screen_offset + self.screen_width),
+                        pos,
+                        screen_pos: (0, screen_pos.1),
+                    });
+                } else {
+                    // out right
                 }
             } else {
-                self.col = next_col;
                 return Some(Glyph {
                     glyph,
                     bytes: grapheme.bytes,
                     text_offset: grapheme.text_offset,
-                    display: len as u16,
+                    display: len,
+                    pos,
+                    screen_pos: (screen_pos.0 - self.screen_offset, screen_pos.1),
                 });
             }
         }
