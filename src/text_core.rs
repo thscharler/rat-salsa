@@ -1,10 +1,10 @@
 use crate::clipboard::{Clipboard, LocalClipboard};
 use crate::event::TextOutcome;
-use crate::grapheme::GlyphIter;
+use crate::grapheme::{Glyph, GlyphIter, Grapheme};
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::TextStore;
 use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
-use crate::{upos_type, Glyph, Grapheme, TextError, TextPosition, TextRange};
+use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
 use std::borrow::Cow;
 use std::cmp::min;
@@ -31,13 +31,11 @@ pub struct TextCore<Store> {
     /// line-break
     newline: String,
     /// tab-width
-    tabs: upos_type,
+    tabs: u16,
     /// expand tabs
     expand_tabs: bool,
     /// show ctrl chars
     show_ctrl: bool,
-    /// movement column
-    move_col: Option<upos_type>,
 }
 
 impl<Store: Default> Default for TextCore<Store> {
@@ -53,7 +51,6 @@ impl<Store: Default> Default for TextCore<Store> {
             tabs: 8,
             expand_tabs: true,
             show_ctrl: false,
-            move_col: None,
         }
     }
 }
@@ -71,7 +68,6 @@ impl<Store: Clone> Clone for TextCore<Store> {
             tabs: self.tabs,
             expand_tabs: self.expand_tabs,
             show_ctrl: self.show_ctrl,
-            move_col: self.move_col,
         }
     }
 }
@@ -79,23 +75,6 @@ impl<Store: Clone> Clone for TextCore<Store> {
 impl<Store: TextStore + Default> TextCore<Store> {
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Extra column information for cursor movement.
-    ///
-    /// The cursor position is capped to the current line length, so if you
-    /// move up one row, you might end at a position left of the current column.
-    /// If you move up once more you want to return to the original position.
-    /// That's what is stored here.
-    #[inline]
-    pub fn set_move_col(&mut self, col: Option<upos_type>) {
-        self.move_col = col;
-    }
-
-    /// Extra column information for cursor movement.
-    #[inline]
-    pub fn move_col(&mut self) -> Option<upos_type> {
-        self.move_col
     }
 
     /// Sets the line ending to be used for insert.
@@ -117,13 +96,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Set the tab-width.
     /// Default is 8.
     #[inline]
-    pub fn set_tab_width(&mut self, tabs: upos_type) {
+    pub fn set_tab_width(&mut self, tabs: u16) {
         self.tabs = tabs;
     }
 
     /// Tab-width
     #[inline]
-    pub fn tab_width(&self) -> upos_type {
+    pub fn tab_width(&self) -> u16 {
         self.tabs
     }
 
@@ -152,10 +131,25 @@ impl<Store: TextStore + Default> TextCore<Store> {
 }
 
 impl<Store: TextStore + Default> TextCore<Store> {
+    /// Clipboard
+    pub fn set_clipboard(&mut self, clip: Option<Box<dyn Clipboard + 'static>>) {
+        self.clip = clip;
+    }
+
+    /// Clipboard
+    pub fn clipboard(&self) -> Option<&dyn Clipboard> {
+        match &self.clip {
+            None => None,
+            Some(v) => Some(v.as_ref()),
+        }
+    }
+}
+
+impl<Store: TextStore + Default> TextCore<Store> {
     /// Undo
     #[inline]
-    pub fn set_undo_buffer(&mut self, undo: Box<dyn UndoBuffer>) {
-        self.undo = Some(undo);
+    pub fn set_undo_buffer(&mut self, undo: Option<Box<dyn UndoBuffer>>) {
+        self.undo = undo;
     }
 
     /// Undo
@@ -177,9 +171,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Undo last.
-    pub fn undo(&mut self) -> Result<TextOutcome, TextError> {
+    pub fn undo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
-            return Ok(TextOutcome::Continue);
+            return TextOutcome::Continue;
         };
 
         undo.append(UndoEntry::Undo);
@@ -188,9 +182,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Undo last.
-    fn _undo(&mut self) -> Result<TextOutcome, TextError> {
+    fn _undo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
-            return Ok(TextOutcome::Continue);
+            return TextOutcome::Continue;
         };
         let op = undo.undo();
         match op {
@@ -206,14 +200,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 anchor,
                 ..
             }) => {
-                self.text.remove_b(bytes.clone())?;
+                self.text.remove_b(bytes.clone()).expect("valid_bytes");
 
                 self.styles
                     .remap(|r, _| Some(shrink_range_by(bytes.clone(), r)));
                 self.anchor = anchor.before;
                 self.cursor = cursor.before;
 
-                Ok(TextOutcome::TextChanged)
+                TextOutcome::TextChanged
             }
             Some(UndoEntry::RemoveStr {
                 bytes,
@@ -229,7 +223,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 txt,
                 styles,
             }) => {
-                self.text.insert_b(bytes.start, &txt)?;
+                self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
 
                 for s in &styles {
                     self.styles.remove(s.after.clone(), s.style);
@@ -247,31 +241,31 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 self.anchor = anchor.before;
                 self.cursor = cursor.before;
 
-                Ok(TextOutcome::TextChanged)
+                TextOutcome::TextChanged
             }
             Some(UndoEntry::SetStyles { styles_before, .. }) => {
                 self.styles.set(styles_before.iter().cloned());
-                Ok(TextOutcome::Changed)
+                TextOutcome::Changed
             }
             Some(UndoEntry::AddStyle { range, style }) => {
                 self.styles.remove(range, style);
-                Ok(TextOutcome::Changed)
+                TextOutcome::Changed
             }
             Some(UndoEntry::RemoveStyle { range, style }) => {
                 self.styles.add(range, style);
-                Ok(TextOutcome::Changed)
+                TextOutcome::Changed
             }
-            Some(UndoEntry::SetText { .. }) => Ok(TextOutcome::Unchanged),
-            Some(UndoEntry::Undo) => Ok(TextOutcome::Unchanged),
-            Some(UndoEntry::Redo) => Ok(TextOutcome::Unchanged),
-            None => Ok(TextOutcome::Continue),
+            Some(UndoEntry::SetText { .. }) | Some(UndoEntry::Undo) | Some(UndoEntry::Redo) => {
+                unreachable!()
+            }
+            None => TextOutcome::Continue,
         }
     }
 
     /// Redo last.
-    pub fn redo(&mut self) -> Result<TextOutcome, TextError> {
+    pub fn redo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
-            return Ok(TextOutcome::Continue);
+            return TextOutcome::Continue;
         };
 
         undo.append(UndoEntry::Redo);
@@ -279,9 +273,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self._redo()
     }
 
-    fn _redo(&mut self) -> Result<TextOutcome, TextError> {
+    fn _redo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
-            return Ok(TextOutcome::Continue);
+            return TextOutcome::Continue;
         };
         let op = undo.redo();
         match op {
@@ -297,13 +291,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 anchor,
                 txt,
             }) => {
-                self.text.insert_b(bytes.start, &txt)?;
+                self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
                 self.styles
                     .remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
                 self.anchor = anchor.after;
                 self.cursor = cursor.after;
 
-                Ok(TextOutcome::TextChanged)
+                TextOutcome::TextChanged
             }
             Some(UndoEntry::RemoveChar {
                 bytes,
@@ -319,7 +313,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 styles,
                 ..
             }) => {
-                self.text.remove_b(bytes.clone())?;
+                self.text.remove_b(bytes.clone()).expect("valid_bytes");
 
                 self.styles.remap(|r, _| {
                     if ranges_intersect(bytes.clone(), r.clone()) {
@@ -338,25 +332,25 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 self.anchor = anchor.after;
                 self.cursor = cursor.after;
 
-                Ok(TextOutcome::TextChanged)
+                TextOutcome::TextChanged
             }
 
             Some(UndoEntry::SetStyles { styles_after, .. }) => {
                 self.styles.set(styles_after.iter().cloned());
-                Ok(TextOutcome::Changed)
+                TextOutcome::Changed
             }
             Some(UndoEntry::AddStyle { range, style }) => {
                 self.styles.add(range, style);
-                Ok(TextOutcome::Changed)
+                TextOutcome::Changed
             }
             Some(UndoEntry::RemoveStyle { range, style }) => {
                 self.styles.remove(range, style);
-                Ok(TextOutcome::Changed)
+                TextOutcome::Changed
             }
-            Some(UndoEntry::SetText { .. }) => Ok(TextOutcome::Unchanged),
-            Some(UndoEntry::Undo) => Ok(TextOutcome::Unchanged),
-            Some(UndoEntry::Redo) => Ok(TextOutcome::Unchanged),
-            None => Ok(TextOutcome::Continue),
+            Some(UndoEntry::SetText { .. }) | Some(UndoEntry::Undo) | Some(UndoEntry::Redo) => {
+                unreachable!()
+            }
+            None => TextOutcome::Continue,
         }
     }
 
@@ -370,7 +364,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Replay a recording of changes.
-    pub fn replay_log(&mut self, replay: &[UndoEntry]) -> Result<(), TextError> {
+    pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         for replay_entry in replay {
             match replay_entry {
                 UndoEntry::SetText { txt } => {
@@ -382,13 +376,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 }
                 UndoEntry::InsertChar { bytes, txt, .. }
                 | UndoEntry::InsertStr { bytes, txt, .. } => {
-                    self.text.insert_b(bytes.start, txt)?;
+                    self.text.insert_b(bytes.start, txt).expect("valid_range");
                     self.styles
                         .remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
                 }
                 UndoEntry::RemoveChar { bytes, styles, .. }
                 | UndoEntry::RemoveStr { bytes, styles, .. } => {
-                    self.text.remove_b(bytes.clone())?;
+                    self.text.remove_b(bytes.clone()).expect("valid_range");
                     self.styles.remap(|r, _| {
                         if ranges_intersect(bytes.clone(), r.clone()) {
                             Some(r)
@@ -413,10 +407,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.styles.remove(range.clone(), *style);
                 }
                 UndoEntry::Undo => {
-                    self._undo()?;
+                    self._undo();
                 }
                 UndoEntry::Redo => {
-                    self._redo()?;
+                    self._redo();
                 }
             }
 
@@ -424,7 +418,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 undo.append_no_replay(replay_entry.clone());
             };
         }
-        Ok(())
     }
 }
 
@@ -653,8 +646,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let iter = self.line_graphemes(row)?;
 
         let mut it = GlyphIter::new(iter);
-        it.set_offset(col_offset as usize);
-        it.set_tabs(self.tabs as u16);
+        it.set_col_offset(col_offset);
+        it.set_tabs(self.tabs);
         it.set_show_ctrl(self.show_ctrl);
         Ok(it)
     }
@@ -664,8 +657,30 @@ impl<Store: TextStore + Default> TextCore<Store> {
     pub fn line_graphemes(
         &self,
         row: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError> {
+    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
         self.text.line_graphemes(row)
+    }
+
+    /// Get a cursor over all the text with the current position set at pos.
+    #[inline]
+    pub fn text_graphemes(
+        &self,
+        pos: TextPosition,
+    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+        let rows = self.text.len_lines();
+        let cols = self.text.line_width(rows).expect("valid_row");
+        self.text
+            .graphemes(TextRange::new((0, 0), (rows, cols)), pos)
+    }
+
+    /// Get a cursor over the text-range the current position set at pos.
+    #[inline]
+    pub fn graphemes(
+        &self,
+        range: TextRange,
+        pos: TextPosition,
+    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+        self.text.graphemes(range, pos)
     }
 
     /// Line width as grapheme count. Excludes the terminating '\n'.
@@ -730,7 +745,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Insert a tab, either expanded or literally.
     pub fn insert_tab(&mut self, mut pos: TextPosition) -> Result<bool, TextError> {
         if self.expand_tabs {
-            let n = self.tabs - pos.x % self.tabs;
+            let n = self.tabs as upos_type - (pos.x % self.tabs as upos_type);
             for _ in 0..n {
                 self.insert_char(pos, ' ')?;
                 pos.x += 1;

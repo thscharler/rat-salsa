@@ -2,6 +2,7 @@
 //! There are too many clipboard crates.
 //!
 
+use crate::TextError;
 use dyn_clone::DynClone;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
@@ -17,6 +18,12 @@ impl Display for ClipboardError {
 }
 
 impl Error for ClipboardError {}
+
+impl From<ClipboardError> for TextError {
+    fn from(_value: ClipboardError) -> Self {
+        TextError::Clipboard
+    }
+}
 
 /// Access some clipboard.
 pub trait Clipboard: DynClone + Debug {

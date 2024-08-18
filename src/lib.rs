@@ -1,18 +1,26 @@
-use std::borrow::Cow;
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 
 pub mod clipboard;
-pub mod grapheme;
-pub mod range_map;
+mod grapheme;
+mod range_map;
 pub mod text_area;
-pub mod text_core;
-pub mod text_store;
+pub(crate) mod text_core;
+pub(crate) mod text_store;
 pub mod undo_buffer;
 
+pub use grapheme::{Glyph, Grapheme};
+
 pub mod event {
-    use rat_event::{ConsumedEvent, Outcome};
+    //!
+    //! Event-handler traits and Keybindings.
+    //!
+
+    pub use rat_event::{
+        crossterm, ct_event, flow, flow_ok, or_else, util, ConsumedEvent, Dialog, DoubleClick,
+        HandleEvent, MouseOnly, Outcome, Popup, Regular,
+    };
 
     /// Runs only the navigation events, not any editing.
     #[derive(Debug)]
@@ -74,10 +82,24 @@ pub mod event {
     }
 }
 
+pub mod core {
+    //!
+    //! Core structs for text-editing.
+    //! Used to implement the widgets.
+    //!
+
+    pub use crate::text_core::TextCore;
+    pub use crate::text_store::text_rope::TextRope;
+    pub use crate::text_store::text_string::TextString;
+    pub use crate::text_store::TextStore;
+}
+
 #[derive(Debug)]
 pub enum TextError {
     /// Invalid text.
     InvalidText(String),
+    /// Clipboard error occurred.
+    Clipboard,
     /// Indicates that the passed text-range was out of bounds.
     TextRangeOutOfBounds(TextRange),
     /// Indicates that the passed text-position was out of bounds.
@@ -155,6 +177,7 @@ impl Error for TextError {}
 /// Row/Column type.
 #[allow(non_camel_case_types)]
 pub type upos_type = u32;
+/// Row/Column type.
 #[allow(non_camel_case_types)]
 pub type ipos_type = i32;
 
@@ -361,40 +384,25 @@ impl TextRange {
     }
 }
 
-/// One grapheme.
-#[derive(Debug)]
-pub struct Grapheme<'a> {
-    /// grapheme
-    pub grapheme: Cow<'a, str>,
-    /// byte-range of the grapheme.
-    pub bytes: Range<usize>,
-}
+/// Trait for a cursor.
+///
+/// This is not a [DoubleEndedIterator] which can iterate from both ends of
+/// the iterator, but moves a cursor forward/back over the collection.
+pub trait Cursor: Iterator {
+    /// Return the previous item.
+    fn prev(&mut self) -> Option<Self::Item>;
 
-impl<'a, R: AsRef<str>> PartialEq<R> for Grapheme<'a> {
-    fn eq(&self, other: &R) -> bool {
-        self.grapheme.as_ref() == other.as_ref()
-    }
-}
+    /// Return a cursor with prev/next reversed.
+    /// All iterator functions work backwards.
+    fn rev_cursor(self) -> impl Cursor<Item = Self::Item>
+    where
+        Self: Sized;
 
-impl<'a> Grapheme<'a> {
-    pub fn is_whitespace(&self) -> bool {
-        self.grapheme
-            .chars()
-            .next()
-            .map(|v| v.is_whitespace())
-            .unwrap_or(false)
-    }
-}
+    /// Current offset into the slice.
+    fn offset(&self) -> usize;
 
-/// Data for rendering/mapping graphemes to screen coordinates.
-#[derive(Debug)]
-pub struct Glyph<'a> {
-    /// First char.
-    pub glyph: Cow<'a, str>,
-    /// byte-range of the glyph.
-    pub bytes: Range<usize>,
-    /// Display length for the glyph.
-    pub display: usize,
+    /// Current offset into the underlying text.
+    fn text_offset(&self) -> usize;
 }
 
 mod _private {

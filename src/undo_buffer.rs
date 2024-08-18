@@ -207,7 +207,7 @@ impl UndoVec {
     /// If your styling is done by a parser, don't activate this.
     ///
     /// Changes to the range of styles and removal of styles
-    /// caused by text edits *will* be undone with those undo operations.
+    /// caused by text edits *will* be undone anyway.
     ///
     /// Recording those operations for *replay* will not be affected
     /// by this setting.

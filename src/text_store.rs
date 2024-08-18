@@ -1,15 +1,7 @@
-use crate::{upos_type, Grapheme, TextError, TextPosition, TextRange};
+use crate::grapheme::Grapheme;
+use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use std::borrow::Cow;
 use std::ops::Range;
-
-/// Trait for a cursor.
-///
-/// This is not a [DoubleEndedIterator] which can iterate from both ends of
-/// the iterator, but moves a cursor forward/back over the collection.
-pub trait Cursor: Iterator {
-    /// Return the previous item.
-    fn prev(&mut self) -> Option<Self::Item>;
-}
 
 /// Backing store for the TextCore.
 pub trait TextStore {
@@ -47,9 +39,10 @@ pub trait TextStore {
     /// Iterate over text-lines, starting at line-offset.
     fn lines_at(&self, row: upos_type) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError>;
 
-    /// Return a cursor over the graphemes at the given position.
+    /// Return a cursor over the graphemes of the range, start at the given position.
     fn graphemes(
         &self,
+        range: TextRange,
         pos: TextPosition,
     ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError>;
 
@@ -58,7 +51,7 @@ pub trait TextStore {
     fn line_graphemes(
         &self,
         row: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError>;
+    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError>;
 
     /// Line width of row as grapheme count.
     fn line_width(&self, row: upos_type) -> Result<upos_type, TextError>;
@@ -94,10 +87,10 @@ pub trait TextStore {
     fn remove_b(&mut self, byte_range: Range<usize>) -> Result<(), TextError>;
 }
 
-pub mod text_rope {
-    use crate::grapheme::{rope_line_len, str_line_len, RopeGraphemesIdx};
+pub(crate) mod text_rope {
+    use crate::grapheme::{rope_line_len, str_line_len, Grapheme, RopeGraphemes};
     use crate::text_store::{Cursor, TextStore};
-    use crate::{upos_type, Grapheme, TextError, TextPosition, TextRange};
+    use crate::{upos_type, TextError, TextPosition, TextRange};
     use ropey::{Rope, RopeSlice};
     use std::borrow::Cow;
     use std::mem;
@@ -196,10 +189,10 @@ pub mod text_rope {
             let mut byte_end = 0;
             for grapheme in it_line {
                 if col == pos.x {
-                    return Ok(grapheme.bytes);
+                    return Ok(grapheme.text_bytes());
                 }
                 col += 1;
-                byte_end = grapheme.bytes.end;
+                byte_end = grapheme.text_bytes().end;
             }
             // one past the end is ok.
             if col == pos.x {
@@ -220,16 +213,16 @@ pub mod text_rope {
                 let mut byte_end = 0;
                 for grapheme in it_line {
                     if col == range.start.x {
-                        range_start = Some(grapheme.bytes.start);
+                        range_start = Some(grapheme.text_bytes().start);
                     }
                     if col == range.end.x {
-                        range_end = Some(grapheme.bytes.end);
+                        range_end = Some(grapheme.text_bytes().end);
                     }
                     if range_start.is_some() && range_end.is_some() {
                         break;
                     }
                     col += 1;
-                    byte_end = grapheme.bytes.end;
+                    byte_end = grapheme.text_bytes().end;
                 }
                 // one past the end is ok.
                 if col == range.start.x {
@@ -269,7 +262,7 @@ pub mod text_rope {
             let mut col = 0;
             let it_line = self.line_graphemes(row)?;
             for grapheme in it_line {
-                if grapheme.bytes.start >= byte_pos {
+                if grapheme.text_bytes().start >= byte_pos {
                     break;
                 }
                 col += 1;
@@ -301,12 +294,12 @@ pub mod text_rope {
                 let mut end = None;
                 let it_line = self.line_graphemes(start_row)?;
                 for grapheme in it_line {
-                    if grapheme.bytes.start >= bytes.start {
+                    if grapheme.text_bytes().start >= bytes.start {
                         if start == None {
                             start = Some(col);
                         }
                     }
-                    if grapheme.bytes.end >= bytes.start {
+                    if grapheme.text_bytes().end >= bytes.start {
                         if start == None {
                             end = Some(col);
                         }
@@ -379,11 +372,21 @@ pub mod text_rope {
 
         fn graphemes(
             &self,
+            range: TextRange,
             pos: TextPosition,
         ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+            let range_bytes = self.byte_range(range)?;
             let pos_byte = self.byte_range_at(pos)?.start;
-            let s = self.text.get_slice(..).expect("no_bounds_are_ok");
-            Ok(RopeGraphemesIdx::new_offset(s, pos_byte).expect("valid_bytes"))
+
+            let s = self
+                .text
+                .get_byte_slice(range_bytes.clone())
+                .expect("valid_range");
+
+            Ok(
+                RopeGraphemes::new_offset(range_bytes.start, s, pos_byte - range_bytes.start)
+                    .expect("valid_bytes"),
+            )
         }
 
         /// Line as grapheme iterator.
@@ -391,11 +394,12 @@ pub mod text_rope {
         fn line_graphemes(
             &self,
             row: upos_type,
-        ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError> {
-            let Some(v) = self.text.get_line(row as usize) else {
+        ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+            let line_byte = self.text.try_line_to_byte(row as usize)?;
+            let Some(line) = self.text.get_line(row as usize) else {
                 return Err(TextError::LineIndexOutOfBounds(row, self.len_lines()));
             };
-            Ok(RopeGraphemesIdx::new(v))
+            Ok(RopeGraphemes::new(line_byte, line))
         }
 
         /// Line width as grapheme count. Excludes the terminating '\n'.
@@ -578,16 +582,17 @@ pub mod text_rope {
     }
 }
 
-pub mod text_string {
-    use crate::grapheme::{str_line_len, StrGraphemesIdx};
+pub(crate) mod text_string {
+    use crate::grapheme::{str_line_len, Grapheme, StrGraphemes};
     use crate::text_store::{Cursor, TextStore};
-    use crate::{upos_type, Grapheme, TextError, TextPosition, TextRange};
+    use crate::{upos_type, TextError, TextPosition, TextRange};
     use std::borrow::Cow;
     use std::iter::once;
     use std::mem;
     use std::ops::Range;
     use unicode_segmentation::UnicodeSegmentation;
 
+    /// Single line text-store.
     #[derive(Debug, Default, Clone)]
     pub struct TextString {
         // text
@@ -811,18 +816,24 @@ pub mod text_string {
 
         fn graphemes(
             &self,
+            range: TextRange,
             pos: TextPosition,
         ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+            let range_byte = self.byte_range(range)?;
             let pos_byte = self.byte_range_at(pos)?;
-            Ok(StrGraphemesIdx::new_offset(&self.text, pos_byte.start))
+            Ok(StrGraphemes::new_offset(
+                range_byte.start,
+                &self.text[range_byte.clone()],
+                pos_byte.start - range_byte.start,
+            ))
         }
 
         fn line_graphemes(
             &self,
             row: upos_type,
-        ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError> {
+        ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
             if row == 0 {
-                Ok(StrGraphemesIdx::new(&self.text))
+                Ok(StrGraphemes::new(0, &self.text))
             } else {
                 Err(TextError::LineIndexOutOfBounds(row, 1))
             }
