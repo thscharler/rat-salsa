@@ -94,7 +94,7 @@ pub mod core {
     pub use crate::text_store::TextStore;
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum TextError {
     /// Invalid text.
     InvalidText(String),

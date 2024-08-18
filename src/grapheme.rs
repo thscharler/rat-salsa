@@ -7,7 +7,7 @@ use std::ops::Range;
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete, UnicodeSegmentation};
 
 /// One grapheme.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct Grapheme<'a> {
     /// grapheme
     grapheme: Cow<'a, str>,

@@ -186,7 +186,7 @@ pub(crate) mod text_rope {
             let it_line = self.line_graphemes(pos.y)?;
 
             let mut col = 0;
-            let mut byte_end = 0;
+            let mut byte_end = it_line.text_offset();
             for grapheme in it_line {
                 if col == pos.x {
                     return Ok(grapheme.text_bytes());
@@ -207,10 +207,10 @@ pub(crate) mod text_rope {
             if range.start.y == range.end.y {
                 let it_line = self.line_graphemes(range.start.y)?;
 
-                let mut col = 0;
                 let mut range_start = None;
                 let mut range_end = None;
-                let mut byte_end = 0;
+                let mut col = 0;
+                let mut byte_end = it_line.text_offset();
                 for grapheme in it_line {
                     if col == range.start.x {
                         range_start = Some(grapheme.text_bytes().start);
@@ -262,7 +262,7 @@ pub(crate) mod text_rope {
             let mut col = 0;
             let it_line = self.line_graphemes(row)?;
             for grapheme in it_line {
-                if grapheme.text_bytes().start >= byte_pos {
+                if byte_pos < grapheme.text_bytes().end {
                     break;
                 }
                 col += 1;
@@ -294,13 +294,13 @@ pub(crate) mod text_rope {
                 let mut end = None;
                 let it_line = self.line_graphemes(start_row)?;
                 for grapheme in it_line {
-                    if grapheme.text_bytes().start >= bytes.start {
+                    if bytes.start < grapheme.text_bytes().end {
                         if start == None {
                             start = Some(col);
                         }
                     }
-                    if grapheme.text_bytes().end >= bytes.start {
-                        if start == None {
+                    if bytes.end < grapheme.text_bytes().end {
+                        if end == None {
                             end = Some(col);
                         }
                     }
@@ -731,13 +731,13 @@ pub(crate) mod text_string {
         fn byte_to_pos(&self, byte_pos: usize) -> Result<TextPosition, TextError> {
             let mut pos = None;
 
-            for (cidx, (idx, _c)) in self
+            for (cidx, (c_start, c)) in self
                 .text
                 .grapheme_indices(true)
-                .chain(once((self.text.len(), "")))
+                .chain(once((self.text.len(), " ")))
                 .enumerate()
             {
-                if idx >= byte_pos {
+                if byte_pos < c_start + c.len() {
                     pos = Some(cidx);
                     break;
                 }
@@ -754,18 +754,18 @@ pub(crate) mod text_string {
         fn bytes_to_range(&self, bytes: Range<usize>) -> Result<TextRange, TextError> {
             let mut start = None;
             let mut end = None;
-            for (cidx, (idx, _c)) in self
+            for (cidx, (c_start, c)) in self
                 .text
                 .grapheme_indices(true)
-                .chain(once((self.text.len(), "")))
+                .chain(once((self.text.len(), " ")))
                 .enumerate()
             {
-                if idx >= bytes.start {
+                if bytes.start < c_start + c.len() {
                     if start.is_none() {
                         start = Some(cidx as upos_type);
                     }
                 }
-                if idx >= bytes.end {
+                if bytes.end < c_start + c.len() {
                     if end.is_none() {
                         end = Some(cidx as upos_type);
                     }
@@ -882,7 +882,7 @@ pub(crate) mod text_string {
             self.len = new_len;
 
             Ok((
-                TextRange::new((0, pos.x), (0, pos.x + (new_len - old_len))),
+                TextRange::new((pos.x, 0), (pos.x + (new_len - old_len), 0)),
                 before_bytes..before_bytes + c.len_utf8(),
             ))
         }
@@ -916,7 +916,7 @@ pub(crate) mod text_string {
             self.len = new_len;
 
             Ok((
-                TextRange::new((0, pos.x), (0, pos.x + (new_len - old_len))),
+                TextRange::new((pos.x, 0), (pos.x + (new_len - old_len), 0)),
                 before_bytes..before_bytes + t.len(),
             ))
         }
