@@ -209,7 +209,7 @@ impl<'a> Iterator for RevStrGraphemes<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.prev()
+        self.it.prev()
     }
 }
 
@@ -240,6 +240,7 @@ pub(crate) struct RopeGraphemes<'a> {
     text_offset: usize,
     text: RopeSlice<'a>,
     chunks: Chunks<'a>,
+    was_next: bool,
     cur_chunk: &'a str,
     cur_chunk_start: usize,
     cursor: GraphemeCursor,
@@ -257,6 +258,7 @@ impl<'a> RopeGraphemes<'a> {
             text_offset: slice_offset,
             text: slice,
             chunks,
+            was_next: true,
             cur_chunk: first_chunk,
             cur_chunk_start: 0,
             cursor: GraphemeCursor::new(0, slice.len_bytes(), true),
@@ -283,6 +285,7 @@ impl<'a> RopeGraphemes<'a> {
             text_offset: slice_offset,
             text: slice,
             chunks,
+            was_next: true,
             cur_chunk: first_chunk,
             cur_chunk_start: chunk_start,
             cursor: GraphemeCursor::new(offset, slice.len_bytes(), true),
@@ -307,6 +310,11 @@ impl<'a> Cursor for RopeGraphemes<'a> {
                     break;
                 }
                 Err(GraphemeIncomplete::PrevChunk) => {
+                    if self.was_next {
+                        // skip current
+                        self.chunks.prev();
+                    }
+                    self.was_next = false;
                     self.cur_chunk = self.chunks.prev().unwrap_or("");
                     self.cur_chunk_start -= self.cur_chunk.len();
                 }
@@ -372,6 +380,11 @@ impl<'a> Iterator for RopeGraphemes<'a> {
                 }
                 Err(GraphemeIncomplete::NextChunk) => {
                     self.cur_chunk_start += self.cur_chunk.len();
+                    if !self.was_next {
+                        // skip current
+                        self.chunks.next();
+                    }
+                    self.was_next = true;
                     self.cur_chunk = self.chunks.next().unwrap_or("");
                 }
                 Err(GraphemeIncomplete::PreContext(idx)) => {
@@ -413,7 +426,7 @@ impl<'a> Iterator for RevRopeGraphemes<'a> {
 
     #[inline]
     fn next(&mut self) -> Option<Self::Item> {
-        self.prev()
+        self.it.prev()
     }
 }
 
@@ -600,5 +613,461 @@ where
         }
 
         None
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use crate::grapheme::{RopeGraphemes, StrGraphemes};
+    use crate::Cursor;
+    use ropey::Rope;
+
+    #[test]
+    fn test_str_graphemes1() {
+        // basic graphemes
+        let s = String::from("qwertz");
+
+        let mut s0 = StrGraphemes::new(0, &s);
+        assert_eq!(s0.next().unwrap(), "q");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "e");
+        assert_eq!(s0.next().unwrap(), "r");
+        assert_eq!(s0.next().unwrap(), "t");
+        assert_eq!(s0.next().unwrap(), "z");
+        assert!(s0.next().is_none());
+        assert_eq!(s0.prev().unwrap(), "z");
+        assert_eq!(s0.prev().unwrap(), "t");
+        assert_eq!(s0.prev().unwrap(), "r");
+        assert_eq!(s0.prev().unwrap(), "e");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "q");
+
+        let mut s0 = StrGraphemes::new(1, &s[1..s.len() - 1]);
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "e");
+        assert_eq!(s0.next().unwrap(), "r");
+        assert_eq!(s0.next().unwrap(), "t");
+        assert!(s0.next().is_none());
+        assert_eq!(s0.prev().unwrap(), "t");
+        assert_eq!(s0.prev().unwrap(), "r");
+        assert_eq!(s0.prev().unwrap(), "e");
+        assert_eq!(s0.prev().unwrap(), "w");
+
+        let mut s0 = StrGraphemes::new(3, &s[3..3]);
+        assert!(s0.next().is_none());
+        assert!(s0.prev().is_none());
+    }
+
+    #[test]
+    fn test_str_graphemes2() {
+        // complicated graphemes
+        let s = String::from("w🤷‍♂️xw🤷‍♀️xw🤦‍♂️xw❤️xw🤦‍♀️xw💕🙍🏿‍♀️x");
+
+        let mut s0 = StrGraphemes::new(0, &s);
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "🤷‍♂️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "🤷‍♀️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "🤦‍♂️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "❤️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "🤦‍♀️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "💕");
+        assert_eq!(s0.next().unwrap(), "🙍🏿‍♀️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert!(s0.next().is_none());
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🙍🏿‍♀️");
+        assert_eq!(s0.prev().unwrap(), "💕");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🤦‍♀️");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "❤️");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🤦‍♂️");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🤷‍♀️");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🤷‍♂️");
+        assert_eq!(s0.prev().unwrap(), "w");
+    }
+
+    #[test]
+    fn test_str_graphemes3() {
+        // complicated slices
+        let s = String::from("qwertz");
+        let mut s0 = StrGraphemes::new_offset(0, &s, 3);
+        assert_eq!(s0.next().unwrap(), "r");
+        assert_eq!(s0.prev().unwrap(), "r");
+        assert_eq!(s0.prev().unwrap(), "e");
+
+        let mut s0 = StrGraphemes::new_offset(0, &s, 3);
+        assert_eq!(s0.next().unwrap().bytes, 3..4);
+        assert_eq!(s0.prev().unwrap().bytes, 3..4);
+        assert_eq!(s0.prev().unwrap().bytes, 2..3);
+
+        let s = String::from("w🤷‍♂️🤷‍♀️🤦‍♂️❤️🤦‍♀️💕🙍🏿‍♀️x");
+        let mut s0 = StrGraphemes::new_offset(0, &s, 21);
+        assert_eq!(s0.next().unwrap(), "♀\u{fe0f}");
+        assert_eq!(s0.next().unwrap(), "🤦\u{200d}♂\u{fe0f}");
+        assert_eq!(s0.prev().unwrap(), "🤦\u{200d}♂\u{fe0f}");
+        assert_eq!(s0.prev().unwrap(), "🤷\u{200d}♀\u{fe0f}");
+
+        let s = String::from("w🤷‍♂️🤷‍♀️🤦‍♂️❤️🤦‍♀️💕🙍🏿‍♀️x");
+        let mut s0 = StrGraphemes::new_offset(0, &s, 21);
+        assert_eq!(s0.next().unwrap().bytes, 21..27);
+        assert_eq!(s0.next().unwrap().bytes, 27..40);
+        assert_eq!(s0.prev().unwrap().bytes, 27..40);
+        assert_eq!(s0.prev().unwrap().bytes, 14..27);
+    }
+
+    #[test]
+    fn test_str_graphemes4() {
+        // offsets and partial slices
+        let s = String::from("qwertz");
+        let mut s0 = StrGraphemes::new_offset(1, &s[1..5], 2);
+        s0.next();
+        assert_eq!(s0.offset(), 3);
+        assert_eq!(s0.text_offset(), 4);
+        s0.next();
+        assert_eq!(s0.offset(), 4);
+        assert_eq!(s0.text_offset(), 5);
+        s0.next();
+        assert_eq!(s0.offset(), 4);
+        assert_eq!(s0.text_offset(), 5);
+        s0.next();
+        assert_eq!(s0.offset(), 4);
+        assert_eq!(s0.text_offset(), 5);
+        s0.prev();
+        assert_eq!(s0.offset(), 3);
+        assert_eq!(s0.text_offset(), 4);
+        s0.prev();
+        assert_eq!(s0.offset(), 2);
+        assert_eq!(s0.text_offset(), 3);
+        s0.prev();
+        assert_eq!(s0.offset(), 1);
+        assert_eq!(s0.text_offset(), 2);
+        s0.prev();
+        assert_eq!(s0.offset(), 0);
+        assert_eq!(s0.text_offset(), 1);
+        s0.prev();
+        assert_eq!(s0.offset(), 0);
+        assert_eq!(s0.text_offset(), 1);
+    }
+
+    #[test]
+    fn test_str_graphemes5() {
+        // offsets and partial slices
+        let s = String::from("qwertz");
+        let mut s0 = StrGraphemes::new_offset(1, &s[1..5], 2).rev_cursor();
+        assert_eq!(s0.next().unwrap(), "e");
+        assert_eq!(s0.offset(), 1);
+        assert_eq!(s0.text_offset(), 2);
+
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.offset(), 0);
+        assert_eq!(s0.text_offset(), 1);
+
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.offset(), 1);
+        assert_eq!(s0.text_offset(), 2);
+
+        assert_eq!(s0.prev().unwrap(), "e");
+        assert_eq!(s0.offset(), 2);
+        assert_eq!(s0.text_offset(), 3);
+
+        assert_eq!(s0.prev().unwrap(), "r");
+        assert_eq!(s0.offset(), 3);
+        assert_eq!(s0.text_offset(), 4);
+
+        assert_eq!(s0.prev().unwrap(), "t");
+        assert_eq!(s0.offset(), 4);
+        assert_eq!(s0.text_offset(), 5);
+    }
+
+    #[test]
+    fn test_rope_graphemes1() {
+        // basic graphemes
+        let s = Rope::from("qwertz");
+
+        let mut s0 = RopeGraphemes::new(0, s.byte_slice(..));
+        assert_eq!(s0.next().unwrap(), "q");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "e");
+        assert_eq!(s0.next().unwrap(), "r");
+        assert_eq!(s0.next().unwrap(), "t");
+        assert_eq!(s0.next().unwrap(), "z");
+        assert!(s0.next().is_none());
+        assert_eq!(s0.prev().unwrap(), "z");
+        assert_eq!(s0.prev().unwrap(), "t");
+        assert_eq!(s0.prev().unwrap(), "r");
+        assert_eq!(s0.prev().unwrap(), "e");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "q");
+
+        let mut s0 = RopeGraphemes::new(1, s.byte_slice(1..s.len_bytes() - 1));
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "e");
+        assert_eq!(s0.next().unwrap(), "r");
+        assert_eq!(s0.next().unwrap(), "t");
+        assert!(s0.next().is_none());
+        assert_eq!(s0.prev().unwrap(), "t");
+        assert_eq!(s0.prev().unwrap(), "r");
+        assert_eq!(s0.prev().unwrap(), "e");
+        assert_eq!(s0.prev().unwrap(), "w");
+
+        let mut s0 = RopeGraphemes::new(3, s.byte_slice(3..3));
+        assert!(s0.next().is_none());
+        assert!(s0.prev().is_none());
+    }
+
+    #[test]
+    fn test_rope_graphemes2() {
+        // complicated graphemes
+        let s = String::from("w🤷‍♂️xw🤷‍♀️xw🤦‍♂️xw❤️xw🤦‍♀️xw💕🙍🏿‍♀️x");
+
+        let mut s0 = StrGraphemes::new(0, &s);
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "🤷‍♂️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "🤷‍♀️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "🤦‍♂️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "❤️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "🤦‍♀️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.next().unwrap(), "💕");
+        assert_eq!(s0.next().unwrap(), "🙍🏿‍♀️");
+        assert_eq!(s0.next().unwrap(), "x");
+        assert!(s0.next().is_none());
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🙍🏿‍♀️");
+        assert_eq!(s0.prev().unwrap(), "💕");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🤦‍♀️");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "❤️");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🤦‍♂️");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🤷‍♀️");
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.prev().unwrap(), "x");
+        assert_eq!(s0.prev().unwrap(), "🤷‍♂️");
+        assert_eq!(s0.prev().unwrap(), "w");
+    }
+
+    #[test]
+    fn test_rope_graphemes3() {
+        // complicated graphemes
+        let s = Rope::from("qwertz");
+        let mut s0 = RopeGraphemes::new_offset(0, s.byte_slice(..), 3).expect("fine");
+        assert_eq!(s0.next().unwrap(), "r");
+        assert_eq!(s0.prev().unwrap(), "r");
+        assert_eq!(s0.prev().unwrap(), "e");
+
+        let mut s0 = RopeGraphemes::new_offset(0, s.byte_slice(..), 3).expect("fine");
+        assert_eq!(s0.next().unwrap().bytes, 3..4);
+        assert_eq!(s0.prev().unwrap().bytes, 3..4);
+        assert_eq!(s0.prev().unwrap().bytes, 2..3);
+
+        let s = Rope::from("w🤷‍♂️🤷‍♀️🤦‍♂️❤️🤦‍♀️💕🙍🏿‍♀️x");
+        let mut s0 = RopeGraphemes::new_offset(0, s.byte_slice(..), 21).expect("fine");
+        assert_eq!(s0.next().unwrap(), "♀\u{fe0f}");
+        assert_eq!(s0.next().unwrap(), "🤦\u{200d}♂\u{fe0f}");
+        assert_eq!(s0.prev().unwrap(), "🤦\u{200d}♂\u{fe0f}");
+        assert_eq!(s0.prev().unwrap(), "🤷\u{200d}♀\u{fe0f}");
+
+        let s = Rope::from("w🤷‍♂️🤷‍♀️🤦‍♂️❤️🤦‍♀️💕🙍🏿‍♀️x");
+        let mut s0 = RopeGraphemes::new_offset(0, s.byte_slice(..), 21).expect("fine");
+        assert_eq!(s0.next().unwrap().bytes, 21..27);
+        assert_eq!(s0.next().unwrap().bytes, 27..40);
+        assert_eq!(s0.prev().unwrap().bytes, 27..40);
+        assert_eq!(s0.prev().unwrap().bytes, 14..27);
+    }
+
+    #[test]
+    fn test_rope_graphemes4() {
+        // offsets and partial slices
+        let s = Rope::from("qwertz");
+        let mut s0 = RopeGraphemes::new_offset(1, s.byte_slice(1..5), 2).expect("fine");
+        s0.next();
+        assert_eq!(s0.offset(), 3);
+        assert_eq!(s0.text_offset(), 4);
+        s0.next();
+        assert_eq!(s0.offset(), 4);
+        assert_eq!(s0.text_offset(), 5);
+        s0.next();
+        assert_eq!(s0.offset(), 4);
+        assert_eq!(s0.text_offset(), 5);
+        s0.next();
+        assert_eq!(s0.offset(), 4);
+        assert_eq!(s0.text_offset(), 5);
+        s0.prev();
+        assert_eq!(s0.offset(), 3);
+        assert_eq!(s0.text_offset(), 4);
+        s0.prev();
+        assert_eq!(s0.offset(), 2);
+        assert_eq!(s0.text_offset(), 3);
+        s0.prev();
+        assert_eq!(s0.offset(), 1);
+        assert_eq!(s0.text_offset(), 2);
+        s0.prev();
+        assert_eq!(s0.offset(), 0);
+        assert_eq!(s0.text_offset(), 1);
+        s0.prev();
+        assert_eq!(s0.offset(), 0);
+        assert_eq!(s0.text_offset(), 1);
+    }
+
+    #[test]
+    fn test_rope_graphemes5() {
+        // offsets and partial slices
+        let s = Rope::from("qwertz");
+        let mut s0 = RopeGraphemes::new_offset(1, s.byte_slice(1..5), 2)
+            .expect("fine")
+            .rev_cursor();
+        assert_eq!(s0.next().unwrap(), "e");
+        assert_eq!(s0.offset(), 1);
+        assert_eq!(s0.text_offset(), 2);
+
+        assert_eq!(s0.next().unwrap(), "w");
+        assert_eq!(s0.offset(), 0);
+        assert_eq!(s0.text_offset(), 1);
+
+        assert_eq!(s0.prev().unwrap(), "w");
+        assert_eq!(s0.offset(), 1);
+        assert_eq!(s0.text_offset(), 2);
+
+        assert_eq!(s0.prev().unwrap(), "e");
+        assert_eq!(s0.offset(), 2);
+        assert_eq!(s0.text_offset(), 3);
+
+        assert_eq!(s0.prev().unwrap(), "r");
+        assert_eq!(s0.offset(), 3);
+        assert_eq!(s0.text_offset(), 4);
+
+        assert_eq!(s0.prev().unwrap(), "t");
+        assert_eq!(s0.offset(), 4);
+        assert_eq!(s0.text_offset(), 5);
+    }
+
+    #[test]
+    fn test_rope_graphemes6() {
+        /// text rope boundary
+        let s = Rope::from(
+            "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             "
+        );
+        assert_eq!(s.len_bytes(), 1200);
+        let mut s0 = RopeGraphemes::new_offset(1, s.byte_slice(1..1199), 0).expect("fine");
+        assert_eq!(s0.nth(598).unwrap(), "J");
+
+        assert_eq!(s0.next().unwrap(), "0");
+        assert_eq!(s0.offset(), 600);
+        assert_eq!(s0.text_offset(), 601);
+        assert_eq!(s0.next().unwrap(), "1");
+        assert_eq!(s0.offset(), 601);
+        assert_eq!(s0.text_offset(), 602);
+        assert_eq!(s0.prev().unwrap(), "1");
+        assert_eq!(s0.offset(), 600);
+        assert_eq!(s0.text_offset(), 601);
+        assert_eq!(s0.prev().unwrap(), "0");
+        assert_eq!(s0.offset(), 599);
+        assert_eq!(s0.text_offset(), 600);
+        assert_eq!(s0.prev().unwrap(), "J");
+        assert_eq!(s0.offset(), 598);
+        assert_eq!(s0.text_offset(), 599);
+    }
+
+    #[test]
+    fn test_rope_graphemes7() {
+        /// test complicated grapheme at rope boundary
+        let s = Rope::from(
+            "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghi🤷‍♂️\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
+             abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
+             "
+        );
+        assert_eq!(s.len_bytes(), 1212);
+        assert_eq!(s.chunks().next().unwrap().len(), 606);
+        let mut s0 = RopeGraphemes::new_offset(1, s.byte_slice(1..1199), 0).expect("fine");
+        assert_eq!(s0.nth(598).unwrap(), "🤷‍♂️");
+
+        assert_eq!(s0.next().unwrap(), "0");
+        assert_eq!(s0.offset(), 612);
+        assert_eq!(s0.text_offset(), 613);
+        assert_eq!(s0.next().unwrap(), "1");
+        assert_eq!(s0.offset(), 613);
+        assert_eq!(s0.text_offset(), 614);
+        assert_eq!(s0.prev().unwrap(), "1");
+        assert_eq!(s0.offset(), 612);
+        assert_eq!(s0.text_offset(), 613);
+        assert_eq!(s0.prev().unwrap(), "0");
+        assert_eq!(s0.offset(), 611);
+        assert_eq!(s0.text_offset(), 612);
+        assert_eq!(s0.prev().unwrap(), "🤷‍♂️");
+        assert_eq!(s0.offset(), 598);
+        assert_eq!(s0.text_offset(), 599);
+        assert_eq!(s0.prev().unwrap(), "i");
+        assert_eq!(s0.offset(), 597);
+        assert_eq!(s0.text_offset(), 598);
+
+        assert_eq!(s0.next().unwrap(), "i");
+        assert_eq!(s0.offset(), 598);
+        assert_eq!(s0.text_offset(), 599);
+        assert_eq!(s0.next().unwrap(), "🤷‍♂️");
+        assert_eq!(s0.offset(), 611);
+        assert_eq!(s0.text_offset(), 612);
+        assert_eq!(s0.next().unwrap(), "0");
+        assert_eq!(s0.offset(), 612);
+        assert_eq!(s0.text_offset(), 613);
+        assert_eq!(s0.next().unwrap(), "1");
+        assert_eq!(s0.offset(), 613);
+        assert_eq!(s0.text_offset(), 614);
     }
 }
