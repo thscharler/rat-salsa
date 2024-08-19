@@ -240,7 +240,7 @@ pub(crate) struct RopeGraphemes<'a> {
     text_offset: usize,
     text: RopeSlice<'a>,
     chunks: Chunks<'a>,
-    was_next: bool,
+    was_next: Option<bool>,
     cur_chunk: &'a str,
     cur_chunk_start: usize,
     cursor: GraphemeCursor,
@@ -253,12 +253,19 @@ impl<'a> RopeGraphemes<'a> {
     /// * slice - slice of the complete text
     pub(crate) fn new(slice_offset: usize, slice: RopeSlice<'a>) -> RopeGraphemes<'a> {
         let mut chunks = slice.chunks();
-        let first_chunk = chunks.next().unwrap_or("");
+
+        // was_next is only useful, if there was a true next().
+        // otherwise it confuses the algorithm.
+        let (first_chunk, was_next) = match chunks.next() {
+            Some(v) => (v, Some(true)),
+            None => ("", None),
+        };
+
         RopeGraphemes {
             text_offset: slice_offset,
             text: slice,
             chunks,
-            was_next: true,
+            was_next,
             cur_chunk: first_chunk,
             cur_chunk_start: 0,
             cursor: GraphemeCursor::new(0, slice.len_bytes(), true),
@@ -280,12 +287,19 @@ impl<'a> RopeGraphemes<'a> {
         let Some((mut chunks, chunk_start, _, _)) = slice.get_chunks_at_byte(offset) else {
             return Err(TextError::ByteIndexOutOfBounds(offset, slice.len_bytes()));
         };
-        let first_chunk = chunks.next().unwrap_or("");
+
+        // was_next is only useful, if there was a true next().
+        // otherwise it confuses the algorithm.
+        let (first_chunk, was_next) = match chunks.next() {
+            Some(v) => (v, Some(true)),
+            None => ("", None),
+        };
+
         Ok(RopeGraphemes {
             text_offset: slice_offset,
             text: slice,
             chunks,
-            was_next: true,
+            was_next,
             cur_chunk: first_chunk,
             cur_chunk_start: chunk_start,
             cursor: GraphemeCursor::new(offset, slice.len_bytes(), true),
@@ -310,12 +324,14 @@ impl<'a> Cursor for RopeGraphemes<'a> {
                     break;
                 }
                 Err(GraphemeIncomplete::PrevChunk) => {
-                    if self.was_next {
+                    if self.was_next == Some(true) {
                         // skip current
                         self.chunks.prev();
                     }
-                    self.was_next = false;
-                    self.cur_chunk = self.chunks.prev().unwrap_or("");
+                    (self.cur_chunk, self.was_next) = match self.chunks.prev() {
+                        Some(v) => (v, Some(false)),
+                        None => ("", None),
+                    };
                     self.cur_chunk_start -= self.cur_chunk.len();
                 }
                 Err(GraphemeIncomplete::PreContext(idx)) => {
@@ -380,12 +396,14 @@ impl<'a> Iterator for RopeGraphemes<'a> {
                 }
                 Err(GraphemeIncomplete::NextChunk) => {
                     self.cur_chunk_start += self.cur_chunk.len();
-                    if !self.was_next {
+                    if self.was_next == Some(false) {
                         // skip current
                         self.chunks.next();
                     }
-                    self.was_next = true;
-                    self.cur_chunk = self.chunks.next().unwrap_or("");
+                    (self.cur_chunk, self.was_next) = match self.chunks.prev() {
+                        Some(v) => (v, Some(true)),
+                        None => ("", None),
+                    };
                 }
                 Err(GraphemeIncomplete::PreContext(idx)) => {
                     let (chunk, byte_idx, _, _) = self.text.chunk_at_byte(idx.saturating_sub(1));
@@ -618,9 +636,8 @@ where
 
 #[cfg(test)]
 mod test_str {
-    use crate::grapheme::{RopeGraphemes, StrGraphemes};
+    use crate::grapheme::StrGraphemes;
     use crate::Cursor;
-    use ropey::Rope;
 
     #[test]
     fn test_str_graphemes1() {
