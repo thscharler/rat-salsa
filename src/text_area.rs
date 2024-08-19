@@ -1492,11 +1492,10 @@ impl TextAreaState {
             let mut col = ox;
             for g in line {
                 col = g.pos().x;
-                if scx >= g.screen_pos().0 {
+                if scx < g.screen_pos().0 + g.display() {
                     break;
                 }
             }
-
             col
         }
     }
@@ -1512,13 +1511,14 @@ impl TextAreaState {
         }
 
         let line = self.glyphs(pos.y..pos.y + 1, ox as u16, self.inner.width)?;
+        let mut screen_x = 0;
         for g in line {
             if g.pos().x == pos.x {
-                return Ok(g.screen_pos().0);
+                break;
             }
+            screen_x = g.screen_pos().0 + g.display();
         }
-
-        Ok(self.inner.width.saturating_sub(1))
+        Ok(screen_x)
     }
 
     /// Cursor position on the screen.

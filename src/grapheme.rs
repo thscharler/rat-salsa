@@ -400,7 +400,7 @@ impl<'a> Iterator for RopeGraphemes<'a> {
                         // skip current
                         self.chunks.next();
                     }
-                    (self.cur_chunk, self.was_next) = match self.chunks.prev() {
+                    (self.cur_chunk, self.was_next) = match self.chunks.next() {
                         Some(v) => (v, Some(true)),
                         None => ("", None),
                     };
