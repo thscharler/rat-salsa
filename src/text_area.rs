@@ -579,10 +579,27 @@ impl TextAreaState {
         self.value.add_style(range.into(), style);
     }
 
+    /// Add a style for a [TextRange]. The style-nr refers to one
+    /// of the styles set with the widget.
+    #[inline]
+    pub fn add_range_style(&mut self, range: TextRange, style: usize) -> Result<(), TextError> {
+        let r = self.value.bytes_at_range(range)?;
+        self.value.add_style(r, style);
+        Ok(())
+    }
+
     /// Remove the exact TextRange and style.
     #[inline]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
         self.value.remove_style(range.into(), style);
+    }
+
+    /// Remove the exact TextRange and style.
+    #[inline]
+    pub fn remove_range_style(&mut self, range: TextRange, style: usize) -> Result<(), TextError> {
+        let r = self.value.bytes_at_range(range)?;
+        self.value.remove_style(r, style);
+        Ok(())
     }
 
     /// All styles active at the given position.
@@ -718,6 +735,7 @@ impl TextAreaState {
 
     /// Line as RopeSlice.
     /// This contains the \n at the end.
+    #[inline]
     pub fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
         self.value.line_at(row)
     }
