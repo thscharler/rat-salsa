@@ -26,6 +26,7 @@ use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef};
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::mem;
 use std::ops::Range;
 
 /// Text area widget.
@@ -103,7 +104,7 @@ pub struct TextAreaState {
     pub vscroll: ScrollState,
 
     /// movement column
-    move_col: Option<upos_type>,
+    pub move_col: Option<upos_type>,
 
     /// Helper for mouse.
     pub mouse: MouseFlags,
@@ -303,17 +304,20 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     }
 
     let (ox, oy) = state.offset();
-    let rows = (oy as upos_type)
+    let page_rows = (oy as upos_type)
         ..min(
             oy as upos_type + inner.height as upos_type,
             state.value.len_lines(),
         );
+    let page_bytes = state
+        .bytes_at_range(TextRange::new((0, page_rows.start), (0, page_rows.end)))
+        .expect("valid_rows");
     let selection = state.selection();
     let mut styles = Vec::new();
 
     let glyph_iter = state
         .value
-        .glyphs(rows.clone(), ox as u16, inner.width)
+        .glyphs(page_rows.clone(), ox as u16, inner.width)
         .expect("valid_offset");
 
     for g in glyph_iter {
@@ -321,7 +325,9 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
             let mut style = style;
             // text-styles
             styles.clear();
-            state.styles_at(g.text_bytes().start, &mut styles);
+            state
+                .value
+                .styles_at_page(page_bytes.clone(), g.text_bytes().start, &mut styles);
             for style_nr in &styles {
                 if let Some(s) = widget.text_style.get(*style_nr) {
                     style = style.patch(*s);

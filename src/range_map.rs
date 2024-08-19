@@ -1,4 +1,5 @@
 use iset::IntervalMap;
+use std::cell::RefCell;
 use std::ops::Range;
 
 /// Maps byte ranges to a style index.
@@ -6,6 +7,10 @@ use std::ops::Range;
 pub(crate) struct RangeMap {
     buf: Vec<(Range<usize>, usize)>,
     map: IntervalMap<usize, usize>,
+
+    // cache for page-render
+    page: RefCell<Range<usize>>,
+    page_map: RefCell<IntervalMap<usize, usize>>,
 }
 
 impl RangeMap {
@@ -60,6 +65,21 @@ impl RangeMap {
     /// List of all values.
     pub(crate) fn values(&self) -> impl Iterator<Item = (Range<usize>, usize)> + '_ {
         self.map.iter(..).map(|(r, v)| (r.into(), *v))
+    }
+
+    /// Find all values for the page that touch the given position.
+    pub(crate) fn values_at_page(&self, range: Range<usize>, pos: usize, buf: &mut Vec<usize>) {
+        let mut page_map = self.page_map.borrow_mut();
+        if *self.page.borrow() != range {
+            *self.page.borrow_mut() = range.clone();
+            page_map.clear();
+            for (r, v) in self.map.iter(range) {
+                page_map.force_insert(r, *v);
+            }
+        }
+        for v in page_map.overlap(pos).map(|v| v.1) {
+            buf.push(*v);
+        }
     }
 
     /// Find all values that touch the given position.

@@ -468,6 +468,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
     }
 
+    /// Find all values for the given position.
+    ///
+    /// Creates a cache for the styles in range.
+    #[inline]
+    pub(crate) fn styles_at_page(&self, range: Range<usize>, pos: usize, buf: &mut Vec<usize>) {
+        self.styles.values_at_page(range, pos, buf)
+    }
+
     /// Finds all styles for the given position.
     #[inline]
     pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<usize>) {
