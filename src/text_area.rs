@@ -1054,10 +1054,10 @@ impl TextAreaState {
             let Some(c) = cursor.next() else {
                 break;
             };
+            last_pos = c.text_bytes().start;
             if !c.is_whitespace() {
                 break;
             }
-            last_pos = c.text_bytes().start;
         }
 
         Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
@@ -1075,6 +1075,7 @@ impl TextAreaState {
             let Some(c) = cursor.next() else {
                 break;
             };
+            last_pos = c.text_bytes().start;
             if init {
                 if !c.is_whitespace() {
                     init = false;
@@ -1084,7 +1085,6 @@ impl TextAreaState {
                     break;
                 }
             }
-            last_pos = c.text_bytes().start;
         }
 
         Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
@@ -1190,10 +1190,10 @@ impl TextAreaState {
             let Some(c) = cursor.next() else {
                 break;
             };
+            last_pos = c.text_bytes().start;
             if c.is_whitespace() {
                 break;
             }
-            last_pos = c.text_bytes().start;
         }
 
         Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
