@@ -13,7 +13,6 @@ use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
 use crate::{ipos_type, upos_type, Cursor, TextError, TextPosition, TextRange};
 use crossterm::event::KeyModifiers;
-use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
@@ -331,10 +330,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
             for style_nr in &styles {
                 if let Some(s) = widget.text_style.get(*style_nr) {
                     style = style.patch(*s);
-                } else {
-                    #[cfg(debug_assertions)]
-                    warn!("invalid style-nr: {}", style_nr);
-                };
+                }
             }
             // selection
             if selection.contains_pos(g.pos()) {
