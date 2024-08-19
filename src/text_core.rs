@@ -651,7 +651,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let rows = self.text.len_lines();
         let cols = self.text.line_width(rows).expect("valid_row");
         self.text
-            .graphemes(TextRange::new((0, 0), (rows, cols)), pos)
+            .graphemes(TextRange::new((0, 0), (cols, rows)), pos)
     }
 
     /// Get a cursor over the text-range the current position set at pos.
@@ -693,11 +693,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Line width as grapheme count. Excludes the terminating '\n'.
+    #[inline]
     pub fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
         self.text.line_width(row)
     }
 
     /// Number of lines.
+    #[inline]
     pub fn len_lines(&self) -> upos_type {
         self.text.len_lines()
     }
