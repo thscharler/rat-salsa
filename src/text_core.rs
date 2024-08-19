@@ -620,21 +620,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.text.str_slice(range)
     }
 
-    /// Line as RopeSlice
-    #[inline]
-    pub fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
-        self.text.line_at(row)
-    }
-
-    /// Iterate over text-lines, starting at offset.
-    #[inline]
-    pub fn lines_at(
-        &self,
-        row: upos_type,
-    ) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
-        self.text.lines_at(row)
-    }
-
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
@@ -657,15 +642,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
         Ok(it)
     }
 
-    /// Get the text for a line as iterator over the graphemes.
-    #[inline]
-    pub fn line_graphemes(
-        &self,
-        row: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
-        self.text.line_graphemes(row)
-    }
-
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
     pub fn text_graphemes(
@@ -686,6 +662,34 @@ impl<Store: TextStore + Default> TextCore<Store> {
         pos: TextPosition,
     ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
         self.text.graphemes(range, pos)
+    }
+
+    /// Line as str.
+    ///
+    /// * row must be < len_lines
+    #[inline]
+    pub fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
+        self.text.line_at(row)
+    }
+
+    /// Iterate over text-lines, starting at row.
+    ///
+    /// * row must be < len_lines
+    #[inline]
+    pub fn lines_at(
+        &self,
+        row: upos_type,
+    ) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
+        self.text.lines_at(row)
+    }
+
+    /// Get the text for a line as iterator over the graphemes.
+    #[inline]
+    pub fn line_graphemes(
+        &self,
+        row: upos_type,
+    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+        self.text.line_graphemes(row)
     }
 
     /// Line width as grapheme count. Excludes the terminating '\n'.
