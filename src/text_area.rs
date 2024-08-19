@@ -321,7 +321,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
             let mut style = style;
             // text-styles
             styles.clear();
-            state.styles_at(g.bytes().start, &mut styles);
+            state.styles_at(g.text_bytes().start, &mut styles);
             for style_nr in &styles {
                 if let Some(s) = widget.text_style.get(*style_nr) {
                     style = style.patch(*s);
