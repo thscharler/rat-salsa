@@ -401,6 +401,10 @@ pub(crate) mod text_rope {
             range: TextRange,
             pos: TextPosition,
         ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+            if !range.contains_pos(pos) && range.end != pos {
+                return Err(TextError::TextPositionOutOfBounds(pos));
+            }
+
             let range_bytes = self.byte_range(range)?;
             let pos_byte = self.byte_range_at(pos)?.start;
 
@@ -462,10 +466,14 @@ pub(crate) mod text_rope {
             row: upos_type,
         ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
             let line_byte = self.text.try_line_to_byte(row as usize)?;
-            let Some(line) = self.text.get_line(row as usize) else {
-                return Err(TextError::LineIndexOutOfBounds(row, self.len_lines()));
-            };
-            Ok(RopeGraphemes::new(line_byte, line))
+            // try_line_to_byte and get_line don't have the same boundaries.
+            // the former accepts one past the end, the latter doesn't.
+            // here we need the first behaviour.
+            if let Some(line) = self.text.get_line(row as usize) {
+                Ok(RopeGraphemes::new(line_byte, line))
+            } else {
+                Ok(RopeGraphemes::new(line_byte, RopeSlice::from("")))
+            }
         }
 
         /// Line width as grapheme count.
@@ -474,10 +482,15 @@ pub(crate) mod text_rope {
         /// * row must be <= len_lines
         #[inline]
         fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
-            let Some(v) = self.text.get_line(row as usize) else {
-                return Err(TextError::LineIndexOutOfBounds(row, self.len_lines()));
-            };
-            Ok(rope_line_len(v) as upos_type)
+            let len = self.text.len_lines() as upos_type;
+            if row > len {
+                return Err(TextError::LineIndexOutOfBounds(row, len));
+            } else if row == len {
+                Ok(0)
+            } else {
+                let v = self.text.get_line(row as usize).expect("valid_row");
+                Ok(rope_line_len(v) as upos_type)
+            }
         }
 
         fn len_lines(&self) -> upos_type {
