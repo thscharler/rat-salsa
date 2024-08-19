@@ -1,4 +1,5 @@
 use rat_text::core::{TextRope, TextStore};
+use rat_text::Cursor;
 use rat_text::{TextError, TextPosition, TextRange};
 
 #[test]
@@ -171,6 +172,32 @@ fn test_string3_1() {
     let gg = g.next().unwrap();
     assert_eq!(gg.bytes(), 5..6);
     assert_eq!(gg.grapheme(), "g");
+    assert_eq!(g.next(), None);
+}
+
+#[test]
+fn test_string3_2() {
+    // grapheme iterator at the boundaries.
+    let s = TextRope::new_text("asöfg");
+
+    let mut g = s
+        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(1, 0))
+        .unwrap();
+    assert_eq!(g.prev(), None);
+
+    let mut g = s
+        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(4, 0))
+        .unwrap();
+    assert_eq!(g.prev().unwrap(), "f");
+
+    let mut g = s
+        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(1, 0))
+        .unwrap();
+    assert_eq!(g.next().unwrap(), "s");
+
+    let mut g = s
+        .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(4, 0))
+        .unwrap();
     assert_eq!(g.next(), None);
 }
 
