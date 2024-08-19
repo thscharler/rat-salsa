@@ -317,7 +317,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
         .expect("valid_offset");
 
     for g in glyph_iter {
-        if g.display() > 0 {
+        if g.screen_width() > 0 {
             let mut style = style;
             // text-styles
             styles.clear();
@@ -343,7 +343,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
             cell.set_symbol(g.glyph());
             cell.set_style(style);
             // clear the reset of the cells to avoid interferences.
-            for d in 1..g.display() {
+            for d in 1..g.screen_width() {
                 let cell = buf.get_mut(inner.x + screen_pos.0 + d, inner.y + screen_pos.1);
                 cell.reset();
                 cell.set_style(style);
@@ -1492,7 +1492,7 @@ impl TextAreaState {
             let mut col = ox;
             for g in line {
                 col = g.pos().x;
-                if scx < g.screen_pos().0 + g.display() {
+                if scx < g.screen_pos().0 + g.screen_width() {
                     break;
                 }
             }
@@ -1516,7 +1516,7 @@ impl TextAreaState {
             if g.pos().x == pos.x {
                 break;
             }
-            screen_x = g.screen_pos().0 + g.display();
+            screen_x = g.screen_pos().0 + g.screen_width();
         }
         Ok(screen_x)
     }

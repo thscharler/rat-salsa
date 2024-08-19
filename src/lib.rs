@@ -398,10 +398,7 @@ pub trait Cursor: Iterator {
     where
         Self: Sized;
 
-    /// Current offset into the slice.
-    fn offset(&self) -> usize;
-
-    /// Current offset into the underlying text.
+    /// Offset of the current cursor position into the underlying text.
     fn text_offset(&self) -> usize;
 }
 
