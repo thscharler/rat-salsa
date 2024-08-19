@@ -1452,14 +1452,15 @@ impl TextAreaState {
 
         if scy < 0 {
             oy.saturating_sub((scy as ipos_type).abs() as upos_type)
-        } else if scy as u16 >= self.area.height {
+        } else if scy as u16 >= self.inner.height {
             min(oy + scy as upos_type, self.len_lines().saturating_sub(1))
         } else {
-            let cy = oy + scy as upos_type;
-            if cy < self.len_lines() {
-                cy
+            let scy = oy + scy as upos_type;
+            let len = self.len_lines();
+            if scy < len {
+                scy
             } else {
-                self.len_lines().saturating_sub(1)
+                len.saturating_sub(1)
             }
         }
     }
