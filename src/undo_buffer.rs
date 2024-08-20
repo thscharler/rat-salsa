@@ -12,6 +12,12 @@ use std::ops::Range;
 /// TextCore to sync them.
 ///
 pub trait UndoBuffer: DynClone + Debug {
+    /// How many undo's are stored?
+    fn undo_count(&self) -> usize;
+
+    /// How many undo's are stored?
+    fn set_undo_count(&mut self, n: usize);
+
     /// Undo of SetStyles, AddStyle, RemoveStyle is enabled?
     fn undo_styles_enabled(&self) -> bool;
 
@@ -170,7 +176,9 @@ pub struct UndoVec {
     undo_styles: bool,
     track_replay: bool,
 
+    undo_count: usize,
     buf: Vec<UndoEntry>,
+
     replay: Vec<UndoEntry>,
 
     // undo/redo split
@@ -182,7 +190,8 @@ impl Default for UndoVec {
         Self {
             undo_styles: false,
             track_replay: false,
-            buf: Vec::with_capacity(40),
+            undo_count: 99,
+            buf: Vec::default(),
             replay: Vec::default(),
             idx: 0,
         }
@@ -190,13 +199,11 @@ impl Default for UndoVec {
 }
 
 impl UndoVec {
-    pub fn new(capacity: usize) -> Self {
+    /// New undo.
+    pub fn new(num_undo: usize) -> Self {
         Self {
-            undo_styles: false,
-            track_replay: false,
-            buf: Vec::with_capacity(capacity),
-            replay: Vec::default(),
-            idx: 0,
+            undo_count: num_undo,
+            ..Default::default()
         }
     }
 
@@ -255,7 +262,7 @@ impl UndoVec {
             self.buf.push(last);
         }
         // cap undo at capacity
-        if self.buf.capacity() == self.buf.len() {
+        if self.buf.len() > self.undo_count {
             self.buf.remove(0);
         }
         // add new undo if it survived merge
@@ -267,6 +274,14 @@ impl UndoVec {
 }
 
 impl UndoBuffer for UndoVec {
+    fn undo_count(&self) -> usize {
+        self.undo_count
+    }
+
+    fn set_undo_count(&mut self, n: usize) {
+        self.undo_count = n;
+    }
+
     fn undo_styles_enabled(&self) -> bool {
         self.undo_styles
     }
