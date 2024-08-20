@@ -958,3 +958,161 @@ impl<Store: TextStore + Default> TextCore<Store> {
         Ok(true)
     }
 }
+
+impl<Store: TextStore + Default> TextCore<Store> {
+    /// Find the start of the next word. If the position is at the start
+    /// or inside a word, the same position is returned.
+    pub fn next_word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
+        let pos = pos.into();
+
+        let mut cursor = self.text_graphemes(pos)?;
+        let mut last_pos = cursor.text_offset();
+        loop {
+            let Some(c) = cursor.next() else {
+                break;
+            };
+            last_pos = c.text_bytes().start;
+            if !c.is_whitespace() {
+                break;
+            }
+        }
+
+        Ok(self.byte_pos(last_pos).expect("valid_pos"))
+    }
+
+    /// Find the end of the next word. Skips whitespace first, then goes on
+    /// until it finds the next whitespace.
+    pub fn next_word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
+        let pos = pos.into();
+
+        let mut cursor = self.text_graphemes(pos)?;
+        let mut last_pos = cursor.text_offset();
+        let mut init = true;
+        loop {
+            let Some(c) = cursor.next() else {
+                break;
+            };
+            last_pos = c.text_bytes().start;
+            if init {
+                if !c.is_whitespace() {
+                    init = false;
+                }
+            } else {
+                if c.is_whitespace() {
+                    break;
+                }
+            }
+        }
+
+        Ok(self.byte_pos(last_pos).expect("valid_pos"))
+    }
+
+    /// Find the start of the prev word. Skips whitespace first, then goes on
+    /// until it finds the next whitespace.
+    ///
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn prev_word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
+        let pos = pos.into();
+
+        let mut cursor = self.text_graphemes(pos)?;
+        let mut last_pos = cursor.text_offset();
+        let mut init = true;
+        loop {
+            let Some(c) = cursor.prev() else {
+                break;
+            };
+            if init {
+                if !c.is_whitespace() {
+                    init = false;
+                }
+            } else {
+                if c.is_whitespace() {
+                    break;
+                }
+            }
+            last_pos = c.text_bytes().start;
+        }
+
+        Ok(self.byte_pos(last_pos).expect("valid_pos"))
+    }
+
+    /// Find the end of the previous word. Word is everything that is not whitespace.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn prev_word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
+        let pos = pos.into();
+
+        let mut cursor = self.text_graphemes(pos)?;
+        let mut last_pos = cursor.text_offset();
+        loop {
+            let Some(c) = cursor.prev() else {
+                break;
+            };
+            if !c.is_whitespace() {
+                break;
+            }
+            last_pos = c.text_bytes().start;
+        }
+
+        Ok(self.byte_pos(last_pos).expect("valid_pos"))
+    }
+
+    /// Is the position at a word boundary?
+    pub fn is_word_boundary(&self, pos: TextPosition) -> Result<bool, TextError> {
+        let pos = pos.into();
+
+        let mut cursor = self.text_graphemes(pos)?;
+        if let Some(c0) = cursor.prev() {
+            cursor.next();
+            if let Some(c1) = cursor.next() {
+                Ok(c0.is_whitespace() && !c1.is_whitespace()
+                    || !c0.is_whitespace() && c1.is_whitespace())
+            } else {
+                Ok(false)
+            }
+        } else {
+            Ok(false)
+        }
+    }
+
+    /// Find the start of the word at pos.
+    /// Returns pos if the position is not inside a word.
+    pub fn word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
+        let pos = pos.into();
+
+        let mut cursor = self.text_graphemes(pos)?;
+        let mut last_pos = cursor.text_offset();
+        loop {
+            let Some(c) = cursor.prev() else {
+                break;
+            };
+            if c.is_whitespace() {
+                break;
+            }
+            last_pos = c.text_bytes().start;
+        }
+
+        Ok(self.byte_pos(last_pos).expect("valid_pos"))
+    }
+
+    /// Find the end of the word at pos.
+    /// Returns pos if the position is not inside a word.
+    pub fn word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
+        let pos = pos.into();
+
+        let mut cursor = self.text_graphemes(pos)?;
+        let mut last_pos = cursor.text_offset();
+        loop {
+            let Some(c) = cursor.next() else {
+                break;
+            };
+            last_pos = c.text_bytes().start;
+            if c.is_whitespace() {
+                break;
+            }
+        }
+
+        Ok(self.byte_pos(last_pos).expect("valid_pos"))
+    }
+}
