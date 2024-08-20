@@ -1,5 +1,4 @@
 use crate::clipboard::{Clipboard, LocalClipboard};
-use crate::event::TextOutcome;
 use crate::grapheme::{Glyph, GlyphIter, Grapheme};
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::TextStore;
@@ -171,9 +170,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Undo last.
-    pub fn undo(&mut self) -> TextOutcome {
+    pub fn undo(&mut self) -> bool {
         let Some(undo) = self.undo.as_mut() else {
-            return TextOutcome::Continue;
+            return false;
         };
 
         undo.append(UndoEntry::Undo);
@@ -182,9 +181,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Undo last.
-    fn _undo(&mut self) -> TextOutcome {
+    fn _undo(&mut self) -> bool {
         let Some(undo) = self.undo.as_mut() else {
-            return TextOutcome::Continue;
+            return false;
         };
         let op = undo.undo();
         match op {
@@ -207,7 +206,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 self.anchor = anchor.before;
                 self.cursor = cursor.before;
 
-                TextOutcome::TextChanged
+                true
             }
             Some(UndoEntry::RemoveStr {
                 bytes,
@@ -241,31 +240,31 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 self.anchor = anchor.before;
                 self.cursor = cursor.before;
 
-                TextOutcome::TextChanged
+                true
             }
             Some(UndoEntry::SetStyles { styles_before, .. }) => {
                 self.styles.set(styles_before.iter().cloned());
-                TextOutcome::Changed
+                true
             }
             Some(UndoEntry::AddStyle { range, style }) => {
                 self.styles.remove(range, style);
-                TextOutcome::Changed
+                true
             }
             Some(UndoEntry::RemoveStyle { range, style }) => {
                 self.styles.add(range, style);
-                TextOutcome::Changed
+                true
             }
             Some(UndoEntry::SetText { .. }) | Some(UndoEntry::Undo) | Some(UndoEntry::Redo) => {
                 unreachable!()
             }
-            None => TextOutcome::Continue,
+            None => false,
         }
     }
 
     /// Redo last.
-    pub fn redo(&mut self) -> TextOutcome {
+    pub fn redo(&mut self) -> bool {
         let Some(undo) = self.undo.as_mut() else {
-            return TextOutcome::Continue;
+            return false;
         };
 
         undo.append(UndoEntry::Redo);
@@ -273,9 +272,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self._redo()
     }
 
-    fn _redo(&mut self) -> TextOutcome {
+    fn _redo(&mut self) -> bool {
         let Some(undo) = self.undo.as_mut() else {
-            return TextOutcome::Continue;
+            return false;
         };
         let op = undo.redo();
         match op {
@@ -297,7 +296,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 self.anchor = anchor.after;
                 self.cursor = cursor.after;
 
-                TextOutcome::TextChanged
+                true
             }
             Some(UndoEntry::RemoveChar {
                 bytes,
@@ -332,25 +331,25 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 self.anchor = anchor.after;
                 self.cursor = cursor.after;
 
-                TextOutcome::TextChanged
+                true
             }
 
             Some(UndoEntry::SetStyles { styles_after, .. }) => {
                 self.styles.set(styles_after.iter().cloned());
-                TextOutcome::Changed
+                true
             }
             Some(UndoEntry::AddStyle { range, style }) => {
                 self.styles.add(range, style);
-                TextOutcome::Changed
+                true
             }
             Some(UndoEntry::RemoveStyle { range, style }) => {
                 self.styles.remove(range, style);
-                TextOutcome::Changed
+                true
             }
             Some(UndoEntry::SetText { .. }) | Some(UndoEntry::Undo) | Some(UndoEntry::Redo) => {
                 unreachable!()
             }
-            None => TextOutcome::Continue,
+            None => false,
         }
     }
 
@@ -537,11 +536,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Select text.
     #[inline]
-    pub fn set_selection(&mut self, range: TextRange) -> bool {
+    pub fn set_selection(&mut self, anchor: TextPosition, cursor: TextPosition) -> bool {
         let old_selection = self.selection();
 
-        self.set_cursor(range.start, false);
-        self.set_cursor(range.end, true);
+        self.set_cursor(anchor, false);
+        self.set_cursor(cursor, true);
 
         old_selection != self.selection()
     }

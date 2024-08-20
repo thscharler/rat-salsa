@@ -487,40 +487,39 @@ impl TextAreaState {
     }
 
     /// Copy to internal buffer
-    pub fn copy_to_clip(&mut self) -> TextOutcome {
+    pub fn copy_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
-            return TextOutcome::Unchanged;
+            return false;
         };
 
         _ = clip.set_string(self.selected_value().as_ref());
-
-        TextOutcome::Unchanged
+        false
     }
 
     /// Cut to internal buffer
-    pub fn cut_to_clip(&mut self) -> TextOutcome {
+    pub fn cut_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
-            return TextOutcome::Unchanged;
+            return false;
         };
 
         match clip.set_string(self.selected_value().as_ref()) {
             Ok(_) => self
                 .delete_range(self.selection())
                 .expect("valid_selection"),
-            Err(_) => TextOutcome::Unchanged,
+            Err(_) => false,
         }
     }
 
     /// Paste from internal buffer.
-    pub fn paste_from_clip(&mut self) -> TextOutcome {
+    pub fn paste_from_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
-            return TextOutcome::Unchanged;
+            return false;
         };
 
         if let Ok(text) = clip.get_string() {
             self.insert_str(text)
         } else {
-            TextOutcome::Unchanged
+            false
         }
     }
 }
@@ -557,12 +556,12 @@ impl TextAreaState {
     }
 
     /// Undo operation
-    pub fn undo(&mut self) -> TextOutcome {
+    pub fn undo(&mut self) -> bool {
         self.value.undo()
     }
 
     /// Redo operation
-    pub fn redo(&mut self) -> TextOutcome {
+    pub fn redo(&mut self) -> bool {
         self.value.redo()
     }
 }
@@ -673,8 +672,12 @@ impl TextAreaState {
 
     /// Set the selection.
     #[inline]
-    pub fn set_selection(&mut self, range: impl Into<TextRange>) -> bool {
-        self.value.set_selection(range.into())
+    pub fn set_selection(
+        &mut self,
+        anchor: impl Into<TextPosition>,
+        cursor: impl Into<TextPosition>,
+    ) -> bool {
+        self.value.set_selection(anchor.into(), cursor.into())
     }
 
     /// Select all.
@@ -853,7 +856,7 @@ impl TextAreaState {
 
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
-    pub fn insert_char(&mut self, c: char) -> TextOutcome {
+    pub fn insert_char(&mut self, c: char) -> bool {
         if self.value.has_selection() {
             self.value
                 .remove_str_range(self.value.selection())
@@ -873,12 +876,12 @@ impl TextAreaState {
                 .expect("valid_cursor");
         }
         self.scroll_cursor_to_visible();
-        TextOutcome::TextChanged
+        true
     }
 
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
-    pub fn insert_tab(&mut self) -> TextOutcome {
+    pub fn insert_tab(&mut self) -> bool {
         if self.value.has_selection() {
             self.value
                 .remove_str_range(self.value.selection())
@@ -888,12 +891,12 @@ impl TextAreaState {
             .insert_tab(self.value.cursor())
             .expect("valid_cursor");
         self.scroll_cursor_to_visible();
-        TextOutcome::TextChanged
+        true
     }
 
     /// Insert text at the cursor position.
     /// Removes the selection and inserts the text.
-    pub fn insert_str(&mut self, t: impl AsRef<str>) -> TextOutcome {
+    pub fn insert_str(&mut self, t: impl AsRef<str>) -> bool {
         let t = t.as_ref();
         if self.value.has_selection() {
             self.value
@@ -904,11 +907,11 @@ impl TextAreaState {
             .insert_str(self.value.cursor(), t)
             .expect("valid_cursor");
         self.scroll_cursor_to_visible();
-        TextOutcome::TextChanged
+        true
     }
 
     /// Insert a line break at the cursor position.
-    pub fn insert_newline(&mut self) -> TextOutcome {
+    pub fn insert_newline(&mut self) -> bool {
         if self.value.has_selection() {
             self.value
                 .remove_str_range(self.value.selection())
@@ -935,26 +938,26 @@ impl TextAreaState {
         }
 
         self.scroll_cursor_to_visible();
-        TextOutcome::TextChanged
+        true
     }
 
     /// Deletes the given range.
-    pub fn delete_range(&mut self, range: impl Into<TextRange>) -> Result<TextOutcome, TextError> {
+    pub fn delete_range(&mut self, range: impl Into<TextRange>) -> Result<bool, TextError> {
         let range = range.into();
         if !range.is_empty() {
             self.value.remove_str_range(range)?;
             self.scroll_cursor_to_visible();
-            Ok(TextOutcome::TextChanged)
+            Ok(true)
         } else {
-            Ok(TextOutcome::Unchanged)
+            Ok(false)
         }
     }
 }
 
 impl TextAreaState {
     /// Duplicates the selection or the current line.
-    /// Returns TextOutcome::TextChanged if there was any real change.
-    pub fn duplicate_text(&mut self) -> TextOutcome {
+    /// Returns true if there was any real change.
+    pub fn duplicate_text(&mut self) -> bool {
         if self.value.has_selection() {
             let sel_range = self.value.selection();
             if !sel_range.is_empty() {
@@ -966,9 +969,9 @@ impl TextAreaState {
                 self.value
                     .insert_str(sel_range.end, &v)
                     .expect("valid_selection");
-                TextOutcome::TextChanged
+                true
             } else {
-                TextOutcome::Unchanged
+                false
             }
         } else {
             let pos = self.value.cursor();
@@ -981,13 +984,13 @@ impl TextAreaState {
             self.value
                 .insert_str(row_range.start, &v)
                 .expect("valid_cursor");
-            TextOutcome::TextChanged
+            true
         }
     }
 
     /// Deletes the current line.
     /// Returns true if there was any real change.
-    pub fn delete_line(&mut self) -> TextOutcome {
+    pub fn delete_line(&mut self) -> bool {
         let pos = self.value.cursor();
         if pos.y + 1 < self.value.len_lines() {
             self.delete_range(TextRange::new((0, pos.y), (0, pos.y + 1)))
@@ -1001,7 +1004,7 @@ impl TextAreaState {
 
     /// Deletes the next char or the current selection.
     /// Returns true if there was any real change.
-    pub fn delete_next_char(&mut self) -> TextOutcome {
+    pub fn delete_next_char(&mut self) -> bool {
         if self.value.has_selection() {
             self.delete_range(self.selection())
                 .expect("valid_selection")
@@ -1012,19 +1015,13 @@ impl TextAreaState {
                 .expect("valid_cursor");
             let s = self.scroll_cursor_to_visible();
 
-            if r {
-                TextOutcome::TextChanged
-            } else if s {
-                TextOutcome::Changed
-            } else {
-                TextOutcome::Continue
-            }
+            r || s
         }
     }
 
     /// Deletes the previous char or the selection.
     /// Returns true if there was any real change.
-    pub fn delete_prev_char(&mut self) -> TextOutcome {
+    pub fn delete_prev_char(&mut self) -> bool {
         if self.value.has_selection() {
             self.delete_range(self.selection())
                 .expect("valid_selection")
@@ -1035,61 +1032,20 @@ impl TextAreaState {
                 .expect("valid_cursor");
             let s = self.scroll_cursor_to_visible();
 
-            if r {
-                TextOutcome::TextChanged
-            } else if s {
-                TextOutcome::Changed
-            } else {
-                TextOutcome::Continue
-            }
+            r || s
         }
     }
 
     /// Find the start of the next word. If the position is at the start
     /// or inside a word, the same position is returned.
     pub fn next_word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
-        let mut cursor = self.value.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
-        loop {
-            let Some(c) = cursor.next() else {
-                break;
-            };
-            last_pos = c.text_bytes().start;
-            if !c.is_whitespace() {
-                break;
-            }
-        }
-
-        Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
+        self.value.next_word_start(pos.into())
     }
 
     /// Find the end of the next word. Skips whitespace first, then goes on
     /// until it finds the next whitespace.
     pub fn next_word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
-        let mut cursor = self.value.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
-        let mut init = true;
-        loop {
-            let Some(c) = cursor.next() else {
-                break;
-            };
-            last_pos = c.text_bytes().start;
-            if init {
-                if !c.is_whitespace() {
-                    init = false;
-                }
-            } else {
-                if c.is_whitespace() {
-                    break;
-                }
-            }
-        }
-
-        Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
+        self.value.next_word_end(pos.into())
     }
 
     /// Find the start of the prev word. Skips whitespace first, then goes on
@@ -1098,112 +1054,36 @@ impl TextAreaState {
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
     pub fn prev_word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
-        let mut cursor = self.value.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
-        let mut init = true;
-        loop {
-            let Some(c) = cursor.prev() else {
-                break;
-            };
-            if init {
-                if !c.is_whitespace() {
-                    init = false;
-                }
-            } else {
-                if c.is_whitespace() {
-                    break;
-                }
-            }
-            last_pos = c.text_bytes().start;
-        }
-
-        Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
+        self.value.prev_word_start(pos.into())
     }
 
     /// Find the end of the previous word. Word is everything that is not whitespace.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
     pub fn prev_word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
-        let mut cursor = self.value.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
-        loop {
-            let Some(c) = cursor.prev() else {
-                break;
-            };
-            if !c.is_whitespace() {
-                break;
-            }
-            last_pos = c.text_bytes().start;
-        }
-
-        Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
+        self.value.prev_word_end(pos.into())
     }
 
     /// Is the position at a word boundary?
     pub fn is_word_boundary(&self, pos: impl Into<TextPosition>) -> Result<bool, TextError> {
-        let pos = pos.into();
-
-        let mut cursor = self.value.text_graphemes(pos)?;
-        if let Some(c0) = cursor.prev() {
-            cursor.next();
-            if let Some(c1) = cursor.next() {
-                Ok(c0.is_whitespace() && !c1.is_whitespace()
-                    || !c0.is_whitespace() && c1.is_whitespace())
-            } else {
-                Ok(false)
-            }
-        } else {
-            Ok(false)
-        }
+        self.value.is_word_boundary(pos.into())
     }
 
     /// Find the start of the word at pos.
     /// Returns pos if the position is not inside a word.
     pub fn word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
-        let mut cursor = self.value.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
-        loop {
-            let Some(c) = cursor.prev() else {
-                break;
-            };
-            if c.is_whitespace() {
-                break;
-            }
-            last_pos = c.text_bytes().start;
-        }
-
-        Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
+        self.value.word_start(pos.into())
     }
 
     /// Find the end of the word at pos.
     /// Returns pos if the position is not inside a word.
     pub fn word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
-        let mut cursor = self.value.text_graphemes(pos)?;
-        let mut last_pos = cursor.text_offset();
-        loop {
-            let Some(c) = cursor.next() else {
-                break;
-            };
-            last_pos = c.text_bytes().start;
-            if c.is_whitespace() {
-                break;
-            }
-        }
-
-        Ok(self.value.byte_pos(last_pos).expect("valid_pos"))
+        self.value.word_end(pos.into())
     }
 
     /// Delete the next word. This alternates deleting the whitespace between words and
     /// the words themselves.
-    pub fn delete_next_word(&mut self) -> TextOutcome {
+    pub fn delete_next_word(&mut self) -> bool {
         if self.value.has_selection() {
             self.delete_range(self.value.selection())
                 .expect("valid_selection")
@@ -1222,7 +1102,7 @@ impl TextAreaState {
 
     /// Deletes the previous word. This alternates deleting the whitespace
     /// between words and the words themselves.
-    pub fn delete_prev_word(&mut self) -> TextOutcome {
+    pub fn delete_prev_word(&mut self) -> bool {
         if self.value.has_selection() {
             self.delete_range(self.value.selection())
                 .expect("valid_selection")
@@ -1735,32 +1615,41 @@ impl TextAreaState {
 
 impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> TextOutcome {
+        // small helper ...
+        fn tc(r: bool) -> TextOutcome {
+            if r {
+                TextOutcome::TextChanged
+            } else {
+                TextOutcome::Unchanged
+            }
+        }
+
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => self.insert_char(*c),
+                | ct_event!(key press CONTROL_ALT-c) => tc(self.insert_char(*c)),
                 ct_event!(keycode press Tab) => {
                     // ignore tab from focus
-                    if !self.focus.gained() {
+                    tc(if !self.focus.gained() {
                         self.insert_tab()
                     } else {
-                        TextOutcome::Unchanged
-                    }
+                        false
+                    })
                 }
-                ct_event!(keycode press Enter) => self.insert_newline(),
-                ct_event!(keycode press Backspace) => self.delete_prev_char(),
-                ct_event!(keycode press Delete) => self.delete_next_char(),
-                ct_event!(keycode press CONTROL-Backspace) => self.delete_prev_word(),
-                ct_event!(keycode press ALT-Backspace) => self.delete_prev_word(),
-                ct_event!(keycode press CONTROL-Delete) => self.delete_next_word(),
-                ct_event!(key press CONTROL-'c') => self.copy_to_clip(),
-                ct_event!(key press CONTROL-'x') => self.cut_to_clip(),
-                ct_event!(key press CONTROL-'v') => self.paste_from_clip(),
-                ct_event!(key press CONTROL-'d') => self.duplicate_text(),
-                ct_event!(key press CONTROL-'y') => self.delete_line(),
-                ct_event!(key press CONTROL-'z') => self.value.undo(),
-                ct_event!(key press CONTROL_SHIFT-'Z') => self.value.redo(),
+                ct_event!(keycode press Enter) => tc(self.insert_newline()),
+                ct_event!(keycode press Backspace) => tc(self.delete_prev_char()),
+                ct_event!(keycode press Delete) => tc(self.delete_next_char()),
+                ct_event!(keycode press CONTROL-Backspace)
+                | ct_event!(keycode press ALT-Backspace) => tc(self.delete_prev_word()),
+                ct_event!(keycode press CONTROL-Delete) => tc(self.delete_next_word()),
+                ct_event!(key press CONTROL-'c') => tc(self.copy_to_clip()),
+                ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
+                ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
+                ct_event!(key press CONTROL-'d') => tc(self.duplicate_text()),
+                ct_event!(key press CONTROL-'y') => tc(self.delete_line()),
+                ct_event!(key press CONTROL-'z') => tc(self.value.undo()),
+                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.value.redo()),
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
@@ -1847,6 +1736,8 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
                 ct_event!(keycode press CONTROL_SHIFT-Left) => self.move_to_prev_word(true).into(),
                 ct_event!(keycode press CONTROL_SHIFT-Right) => self.move_to_next_word(true).into(),
+                ct_event!(keycode press CONTROL_SHIFT-Home) => self.move_to_start(true).into(),
+                ct_event!(keycode press CONTROL_SHIFT-End) => self.move_to_end(true).into(),
                 ct_event!(key press CONTROL-'a') => self.select_all().into(),
 
                 ct_event!(keycode release Left)
@@ -1883,6 +1774,8 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 | ct_event!(keycode release SHIFT-End)
                 | ct_event!(keycode release CONTROL_SHIFT-Left)
                 | ct_event!(keycode release CONTROL_SHIFT-Right)
+                | ct_event!(keycode release CONTROL_SHIFT-Home)
+                | ct_event!(keycode release CONTROL_SHIFT-End)
                 | ct_event!(key release CONTROL-'a') => TextOutcome::Unchanged,
                 _ => TextOutcome::Continue,
             }
@@ -1916,7 +1809,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
                 let test = TextPosition::new(tx, ty);
                 let start = self.word_start(test).expect("valid_pos");
                 let end = self.word_end(test).expect("valid_pos");
-                self.set_selection(TextRange::new(start, end)).into()
+                self.set_selection(start, end).into()
             }
             ct_event!(mouse down Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
