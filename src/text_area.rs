@@ -4,13 +4,14 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::clipboard::Clipboard;
+use crate::clipboard::{Clipboard, LocalClipboard};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::grapheme::{Glyph, Grapheme};
+use crate::range_map::RangeMap;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
-use crate::undo_buffer::{UndoBuffer, UndoEntry};
+use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{ipos_type, upos_type, Cursor, TextError, TextPosition, TextRange};
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
@@ -25,7 +26,6 @@ use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef};
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::mem;
 use std::ops::Range;
 
 /// Text area widget.
@@ -278,6 +278,11 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
 
     let inner = state.inner;
 
+    if inner.width == 0 || inner.height == 0 {
+        // noop
+        return;
+    }
+
     let select_style = if let Some(select_style) = widget.select_style {
         select_style
     } else {
@@ -294,10 +299,6 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
         }
     }
 
-    if inner.width == 0 || inner.height == 0 {
-        // noop
-        return;
-    }
     if state.vscroll.offset() > state.value.len_lines() as usize {
         return;
     }
@@ -361,7 +362,11 @@ impl Default for TextAreaState {
             area: Default::default(),
             inner: Default::default(),
             mouse: Default::default(),
-            value: TextCore::default(),
+            value: TextCore::new(
+                Some(Box::new(RangeMap::default())),
+                Some(Box::new(UndoVec::new(99))),
+                Some(Box::new(LocalClipboard::new())),
+            ),
             hscroll: Default::default(),
             non_exhaustive: NonExhaustive,
             vscroll: Default::default(),
@@ -619,7 +624,7 @@ impl TextAreaState {
     /// List of all styles.
     #[inline]
     pub fn styles(&self) -> impl Iterator<Item = (Range<usize>, usize)> + '_ {
-        self.value.styles()
+        self.value.styles().expect("styles")
     }
 }
 

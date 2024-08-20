@@ -1,8 +1,8 @@
-use crate::clipboard::{Clipboard, LocalClipboard};
+use crate::clipboard::Clipboard;
 use crate::grapheme::{Glyph, GlyphIter, Grapheme};
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::TextStore;
-use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
+use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
 use std::borrow::Cow;
@@ -21,7 +21,7 @@ pub struct TextCore<Store> {
     anchor: TextPosition,
 
     /// styles
-    styles: RangeMap,
+    styles: Option<Box<RangeMap>>,
     /// undo-buffer
     undo: Option<Box<dyn UndoBuffer>>,
     /// clipboard
@@ -35,23 +35,6 @@ pub struct TextCore<Store> {
     expand_tabs: bool,
     /// show ctrl chars
     show_ctrl: bool,
-}
-
-impl<Store: Default> Default for TextCore<Store> {
-    fn default() -> Self {
-        Self {
-            text: Store::default(),
-            cursor: Default::default(),
-            anchor: Default::default(),
-            styles: Default::default(),
-            undo: Some(Box::new(UndoVec::new(40))),
-            clip: Some(Box::new(LocalClipboard::default())),
-            newline: "\n".to_string(),
-            tabs: 8,
-            expand_tabs: true,
-            show_ctrl: false,
-        }
-    }
 }
 
 impl<Store: Clone> Clone for TextCore<Store> {
@@ -72,8 +55,23 @@ impl<Store: Clone> Clone for TextCore<Store> {
 }
 
 impl<Store: TextStore + Default> TextCore<Store> {
-    pub fn new() -> Self {
-        Self::default()
+    pub(crate) fn new(
+        styles: Option<Box<RangeMap>>,
+        undo: Option<Box<dyn UndoBuffer>>,
+        clip: Option<Box<dyn Clipboard>>,
+    ) -> Self {
+        Self {
+            text: Store::default(),
+            cursor: Default::default(),
+            anchor: Default::default(),
+            styles,
+            undo,
+            clip,
+            newline: "\n".to_string(),
+            tabs: 8,
+            expand_tabs: true,
+            show_ctrl: false,
+        }
     }
 
     /// Sets the line ending to be used for insert.
@@ -201,8 +199,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
             }) => {
                 self.text.remove_b(bytes.clone()).expect("valid_bytes");
 
-                self.styles
-                    .remap(|r, _| Some(shrink_range_by(bytes.clone(), r)));
+                if let Some(st) = &mut self.styles {
+                    st.remap(|r, _| Some(shrink_range_by(bytes.clone(), r)));
+                }
                 self.anchor = anchor.before;
                 self.cursor = cursor.before;
 
@@ -224,34 +223,42 @@ impl<Store: TextStore + Default> TextCore<Store> {
             }) => {
                 self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
 
-                for s in &styles {
-                    self.styles.remove(s.after.clone(), s.style);
-                }
-                for s in &styles {
-                    self.styles.add(s.before.clone(), s.style);
-                }
-                self.styles.remap(|r, _| {
-                    if ranges_intersect(bytes.clone(), r.clone()) {
-                        Some(r)
-                    } else {
-                        Some(expand_range_by(bytes.clone(), r))
+                if let Some(st) = &mut self.styles {
+                    for s in &styles {
+                        st.remove(s.after.clone(), s.style);
                     }
-                });
+                    for s in &styles {
+                        st.add(s.before.clone(), s.style);
+                    }
+                    st.remap(|r, _| {
+                        if ranges_intersect(bytes.clone(), r.clone()) {
+                            Some(r)
+                        } else {
+                            Some(expand_range_by(bytes.clone(), r))
+                        }
+                    });
+                }
                 self.anchor = anchor.before;
                 self.cursor = cursor.before;
 
                 true
             }
             Some(UndoEntry::SetStyles { styles_before, .. }) => {
-                self.styles.set(styles_before.iter().cloned());
+                if let Some(st) = &mut self.styles {
+                    st.set(styles_before.iter().cloned());
+                }
                 true
             }
             Some(UndoEntry::AddStyle { range, style }) => {
-                self.styles.remove(range, style);
+                if let Some(st) = &mut self.styles {
+                    st.remove(range, style);
+                }
                 true
             }
             Some(UndoEntry::RemoveStyle { range, style }) => {
-                self.styles.add(range, style);
+                if let Some(st) = &mut self.styles {
+                    st.add(range, style);
+                }
                 true
             }
             Some(UndoEntry::SetText { .. }) | Some(UndoEntry::Undo) | Some(UndoEntry::Redo) => {
@@ -291,8 +298,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 txt,
             }) => {
                 self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
-                self.styles
-                    .remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
+                if let Some(st) = &mut self.styles {
+                    st.remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
+                }
                 self.anchor = anchor.after;
                 self.cursor = cursor.after;
 
@@ -314,18 +322,20 @@ impl<Store: TextStore + Default> TextCore<Store> {
             }) => {
                 self.text.remove_b(bytes.clone()).expect("valid_bytes");
 
-                self.styles.remap(|r, _| {
-                    if ranges_intersect(bytes.clone(), r.clone()) {
-                        Some(r)
-                    } else {
-                        Some(shrink_range_by(bytes.clone(), r))
+                if let Some(st) = &mut self.styles {
+                    st.remap(|r, _| {
+                        if ranges_intersect(bytes.clone(), r.clone()) {
+                            Some(r)
+                        } else {
+                            Some(shrink_range_by(bytes.clone(), r))
+                        }
+                    });
+                    for s in &styles {
+                        st.remove(s.before.clone(), s.style);
                     }
-                });
-                for s in &styles {
-                    self.styles.remove(s.before.clone(), s.style);
-                }
-                for s in &styles {
-                    self.styles.add(s.after.clone(), s.style);
+                    for s in &styles {
+                        st.add(s.after.clone(), s.style);
+                    }
                 }
 
                 self.anchor = anchor.after;
@@ -335,15 +345,21 @@ impl<Store: TextStore + Default> TextCore<Store> {
             }
 
             Some(UndoEntry::SetStyles { styles_after, .. }) => {
-                self.styles.set(styles_after.iter().cloned());
+                if let Some(st) = &mut self.styles {
+                    st.set(styles_after.iter().cloned());
+                }
                 true
             }
             Some(UndoEntry::AddStyle { range, style }) => {
-                self.styles.add(range, style);
+                if let Some(st) = &mut self.styles {
+                    st.add(range, style);
+                }
                 true
             }
             Some(UndoEntry::RemoveStyle { range, style }) => {
-                self.styles.remove(range, style);
+                if let Some(st) = &mut self.styles {
+                    st.remove(range, style);
+                }
                 true
             }
             Some(UndoEntry::SetText { .. }) | Some(UndoEntry::Undo) | Some(UndoEntry::Redo) => {
@@ -368,7 +384,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
             match replay_entry {
                 UndoEntry::SetText { txt } => {
                     self.text.set_string(txt);
-                    self.styles.clear();
+                    if let Some(st) = &mut self.styles {
+                        st.clear();
+                    }
                     if let Some(undo) = self.undo.as_mut() {
                         undo.clear();
                     };
@@ -376,34 +394,43 @@ impl<Store: TextStore + Default> TextCore<Store> {
                 UndoEntry::InsertChar { bytes, txt, .. }
                 | UndoEntry::InsertStr { bytes, txt, .. } => {
                     self.text.insert_b(bytes.start, txt).expect("valid_range");
-                    self.styles
-                        .remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
+                    if let Some(st) = &mut self.styles {
+                        st.remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
+                    }
                 }
                 UndoEntry::RemoveChar { bytes, styles, .. }
                 | UndoEntry::RemoveStr { bytes, styles, .. } => {
                     self.text.remove_b(bytes.clone()).expect("valid_range");
-                    self.styles.remap(|r, _| {
-                        if ranges_intersect(bytes.clone(), r.clone()) {
-                            Some(r)
-                        } else {
-                            Some(shrink_range_by(bytes.clone(), r))
+                    if let Some(st) = &mut self.styles {
+                        st.remap(|r, _| {
+                            if ranges_intersect(bytes.clone(), r.clone()) {
+                                Some(r)
+                            } else {
+                                Some(shrink_range_by(bytes.clone(), r))
+                            }
+                        });
+                        for s in styles {
+                            st.remove(s.before.clone(), s.style);
                         }
-                    });
-                    for s in styles {
-                        self.styles.remove(s.before.clone(), s.style);
-                    }
-                    for s in styles {
-                        self.styles.add(s.after.clone(), s.style);
+                        for s in styles {
+                            st.add(s.after.clone(), s.style);
+                        }
                     }
                 }
                 UndoEntry::SetStyles { styles_after, .. } => {
-                    self.styles.set(styles_after.iter().cloned());
+                    if let Some(st) = &mut self.styles {
+                        st.set(styles_after.iter().cloned());
+                    }
                 }
                 UndoEntry::AddStyle { range, style } => {
-                    self.styles.add(range.clone(), *style);
+                    if let Some(st) = &mut self.styles {
+                        st.add(range.clone(), *style);
+                    }
                 }
                 UndoEntry::RemoveStyle { range, style } => {
-                    self.styles.remove(range.clone(), *style);
+                    if let Some(st) = &mut self.styles {
+                        st.remove(range.clone(), *style);
+                    }
                 }
                 UndoEntry::Undo => {
                     self._undo();
@@ -426,16 +453,20 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// The ranges are byte-ranges. The usize value is the index of the
     /// actual style. Those are set with the widget.
     #[inline]
-    pub fn set_styles(&mut self, styles: Vec<(Range<usize>, usize)>) {
+    pub fn set_styles(&mut self, new_styles: Vec<(Range<usize>, usize)>) {
+        let Some(styles) = &mut self.styles else {
+            return;
+        };
+
         if let Some(undo) = &mut self.undo {
             if undo.undo_styles_enabled() || undo.replay_log() {
                 undo.append(UndoEntry::SetStyles {
-                    styles_before: self.styles.values().collect::<Vec<_>>(),
-                    styles_after: styles.clone(),
+                    styles_before: styles.values().collect::<Vec<_>>(),
+                    styles_after: new_styles.clone(),
                 });
             }
         }
-        self.styles.set(styles.iter().cloned());
+        styles.set(new_styles.iter().cloned());
     }
 
     /// Add a style for the given byte-range.
@@ -444,7 +475,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Those are set at the widget.
     #[inline]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
-        self.styles.add(range.clone(), style);
+        let Some(styles) = &mut self.styles else {
+            return;
+        };
+
+        styles.add(range.clone(), style);
 
         if let Some(undo) = &mut self.undo {
             if undo.undo_styles_enabled() || undo.replay_log() {
@@ -458,7 +493,11 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Range and style must match to be removed.
     #[inline]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
-        self.styles.remove(range.clone(), style);
+        let Some(styles) = &mut self.styles else {
+            return;
+        };
+
+        styles.remove(range.clone(), style);
 
         if let Some(undo) = &mut self.undo {
             if undo.undo_styles_enabled() || undo.replay_log() {
@@ -472,26 +511,38 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Creates a cache for the styles in range.
     #[inline]
     pub(crate) fn styles_at_page(&self, range: Range<usize>, pos: usize, buf: &mut Vec<usize>) {
-        self.styles.values_at_page(range, pos, buf)
+        if let Some(styles) = &self.styles {
+            styles.values_at_page(range, pos, buf);
+        }
     }
 
     /// Finds all styles for the given position.
     #[inline]
     pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<usize>) {
-        self.styles.values_at(byte_pos, buf)
+        if let Some(styles) = &self.styles {
+            styles.values_at(byte_pos, buf);
+        }
     }
 
     /// Check if the given style applies at the position and
     /// return the complete range for the style.
     #[inline]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.styles.value_match(byte_pos, style)
+        if let Some(styles) = &self.styles {
+            styles.value_match(byte_pos, style)
+        } else {
+            None
+        }
     }
 
     /// List of all styles.
     #[inline]
-    pub fn styles(&self) -> impl Iterator<Item = (Range<usize>, usize)> + '_ {
-        self.styles.values()
+    pub fn styles(&self) -> Option<impl Iterator<Item = (Range<usize>, usize)> + '_> {
+        if let Some(styles) = &self.styles {
+            Some(styles.values())
+        } else {
+            None
+        }
     }
 }
 
@@ -718,7 +769,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.text.set_string("");
         self.cursor = TextPosition::default();
         self.anchor = TextPosition::default();
-        self.styles.clear();
+        if let Some(st) = &mut self.styles {
+            st.clear();
+        }
         if let Some(undo) = &mut self.undo {
             undo.clear();
         }
@@ -734,7 +787,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Caps cursor and anchor.
     pub fn set_text(&mut self, t: Store) -> bool {
         self.text = t;
-        self.styles.clear();
+        if let Some(st) = &mut self.styles {
+            st.clear();
+        }
 
         self.cursor.y = min(self.cursor.y, self.len_lines().saturating_sub(1));
         self.cursor.x = min(
@@ -794,8 +849,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let old_cursor = self.cursor;
         let old_anchor = self.anchor;
 
-        self.styles
-            .remap(|r, _| Some(expand_range_by((&inserted_bytes).clone(), r)));
+        if let Some(st) = &mut self.styles {
+            st.remap(|r, _| Some(expand_range_by((&inserted_bytes).clone(), r)));
+        }
         self.cursor = inserted_range.expand_pos(self.cursor);
         self.anchor = inserted_range.expand_pos(self.anchor);
 
@@ -824,8 +880,9 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
         let (inserted_range, inserted_bytes) = self.text.insert_str(pos, t)?;
 
-        self.styles
-            .remap(|r, _| Some(expand_range_by((&inserted_bytes).clone(), r)));
+        if let Some(st) = &mut self.styles {
+            st.remap(|r, _| Some(expand_range_by((&inserted_bytes).clone(), r)));
+        }
         self.anchor = inserted_range.expand_pos(self.anchor);
         self.cursor = inserted_range.expand_pos(self.cursor);
 
@@ -903,23 +960,25 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
         // remove deleted styles.
         let mut changed_style = Vec::new();
-        self.styles.remap(|r, s| {
-            let new_range = shrink_range_by(removed_bytes.clone(), r.clone());
-            if ranges_intersect(r.clone(), removed_bytes.clone()) {
-                changed_style.push(StyleChange {
-                    before: r.clone(),
-                    after: new_range.clone(),
-                    style: s,
-                });
-                if new_range.is_empty() {
-                    None
+        if let Some(st) = &mut self.styles {
+            st.remap(|r, s| {
+                let new_range = shrink_range_by(removed_bytes.clone(), r.clone());
+                if ranges_intersect(r.clone(), removed_bytes.clone()) {
+                    changed_style.push(StyleChange {
+                        before: r.clone(),
+                        after: new_range.clone(),
+                        style: s,
+                    });
+                    if new_range.is_empty() {
+                        None
+                    } else {
+                        Some(new_range)
+                    }
                 } else {
                     Some(new_range)
                 }
-            } else {
-                Some(new_range)
-            }
-        });
+            });
+        }
         self.anchor = range.shrink_pos(self.anchor);
         self.cursor = range.shrink_pos(self.anchor);
 
