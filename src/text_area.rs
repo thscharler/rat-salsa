@@ -7,7 +7,6 @@ use crate::_private::NonExhaustive;
 use crate::clipboard::{Clipboard, LocalClipboard};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::grapheme::{Glyph, Grapheme};
-use crate::range_map::RangeMap;
 use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
@@ -363,7 +362,6 @@ impl Default for TextAreaState {
             inner: Default::default(),
             mouse: Default::default(),
             value: TextCore::new(
-                Some(Box::new(RangeMap::default())),
                 Some(Box::new(UndoVec::new(99))),
                 Some(Box::new(LocalClipboard::new())),
             ),
