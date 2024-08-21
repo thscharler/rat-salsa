@@ -120,13 +120,14 @@ pub trait TextStore {
 }
 
 pub(crate) mod text_rope {
-    use crate::grapheme::{rope_line_len, str_line_len, Grapheme, RopeGraphemes};
+    use crate::grapheme::{Grapheme, RopeGraphemes};
     use crate::text_store::{Cursor, TextStore};
     use crate::{upos_type, TextError, TextPosition, TextRange};
     use ropey::{Rope, RopeSlice};
     use std::borrow::Cow;
     use std::mem;
     use std::ops::Range;
+    use unicode_segmentation::UnicodeSegmentation;
 
     /// Text store with a rope.
     #[derive(Debug, Clone, Default)]
@@ -134,6 +135,20 @@ pub(crate) mod text_rope {
         text: Rope,
         // tmp buf
         buf: String,
+    }
+
+    /// Length as grapheme count, excluding line breaks.
+    #[inline]
+    fn rope_line_len(r: RopeSlice<'_>) -> upos_type {
+        let it = RopeGraphemes::new(0, r);
+        it.filter(|g| !g.is_line_break()).count() as upos_type
+    }
+
+    /// Length as grapheme count, excluding line breaks.
+    #[inline]
+    fn str_line_len(s: &str) -> upos_type {
+        let it = s.graphemes(true);
+        it.filter(|c| *c != "\n" && *c != "\r\n").count() as upos_type
     }
 
     impl TextRope {
@@ -489,7 +504,7 @@ pub(crate) mod text_rope {
                 Ok(0)
             } else {
                 let v = self.text.get_line(row as usize).expect("valid_row");
-                Ok(rope_line_len(v) as upos_type)
+                Ok(rope_line_len(v))
             }
         }
 
@@ -570,7 +585,7 @@ pub(crate) mod text_rope {
                 for c in line.skip(split) {
                     buf.push(c);
                 }
-                let old_len = str_line_len(&buf) as upos_type;
+                let old_len = str_line_len(&buf);
                 buf.clear();
 
                 // compose the new line and find its length.
@@ -579,7 +594,7 @@ pub(crate) mod text_rope {
                 for c in line.skip(split) {
                     buf.push(c);
                 }
-                let new_len = str_line_len(&buf) as upos_type;
+                let new_len = str_line_len(&buf);
                 buf.clear();
                 self.buf = buf;
 
@@ -682,7 +697,7 @@ pub(crate) mod text_rope {
 }
 
 pub(crate) mod text_string {
-    use crate::grapheme::{str_line_len, Grapheme, StrGraphemes};
+    use crate::grapheme::{Grapheme, StrGraphemes};
     use crate::text_store::{Cursor, TextStore};
     use crate::{upos_type, TextError, TextPosition, TextRange};
     use std::borrow::Cow;
@@ -702,6 +717,12 @@ pub(crate) mod text_string {
         buf: String,
     }
 
+    /// Length as grapheme count, excluding line breaks.
+    #[inline]
+    fn str_len(s: &str) -> upos_type {
+        s.graphemes(true).count() as upos_type
+    }
+
     impl TextString {
         /// New empty.
         pub fn new() -> Self {
@@ -713,30 +734,27 @@ pub(crate) mod text_string {
         }
 
         /// New from string.
-        pub fn new_text(t: &str) -> Result<Self, TextError> {
-            if t.contains(|c| c == '\n' || c == '\r') {
-                return Err(TextError::InvalidText(t.to_string()));
-            }
-
-            Ok(Self {
+        pub fn new_text(t: &str) -> Self {
+            Self {
                 text: t.into(),
-                len: str_line_len(t) as upos_type,
+                len: str_len(t),
                 buf: Default::default(),
-            })
+            }
         }
 
         /// New from string.
-        pub fn new_string(t: String) -> Result<Self, TextError> {
-            if t.contains(|c| c == '\n' || c == '\r') {
-                return Err(TextError::InvalidText(t));
-            }
-
-            let len = str_line_len(&t) as upos_type;
-            Ok(Self {
+        pub fn new_string(t: String) -> Self {
+            let len = str_len(&t);
+            Self {
                 text: t,
                 len,
                 buf: Default::default(),
-            })
+            }
+        }
+
+        /// str
+        pub fn as_str(&self) -> &str {
+            self.text.as_str()
         }
     }
 
@@ -756,7 +774,7 @@ pub(crate) mod text_string {
         /// Set content as string.
         fn set_string(&mut self, t: &str) {
             self.text = t.to_string();
-            self.len = str_line_len(&self.text) as upos_type;
+            self.len = str_len(&self.text);
         }
 
         /// Grapheme position to byte position.
@@ -764,12 +782,16 @@ pub(crate) mod text_string {
         ///
         /// * pos must be a valid position: row <= len_lines, col <= line_width of the row.
         fn byte_range_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
-            if pos.y != 0 {
+            if pos.y != 0 && pos != TextPosition::new(0, 1) {
                 return Err(TextError::LineIndexOutOfBounds(pos.y, 1));
             };
 
-            let mut byte_range = None;
+            if pos == TextPosition::new(0, 1) {
+                let len = self.text.len();
+                return Ok(len..len);
+            }
 
+            let mut byte_range = None;
             for (cidx, (idx, c)) in self
                 .text
                 .grapheme_indices(true)
@@ -787,7 +809,7 @@ pub(crate) mod text_string {
             } else {
                 Err(TextError::ColumnIndexOutOfBounds(
                     pos.x,
-                    str_line_len(&self.text) as upos_type,
+                    str_len(&self.text),
                 ))
             }
         }
@@ -796,42 +818,52 @@ pub(crate) mod text_string {
         ///
         /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
         fn byte_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
-            if range.start.y != 0 {
+            if range.start.y != 0 && range.start != TextPosition::new(0, 1) {
                 return Err(TextError::LineIndexOutOfBounds(range.start.y, 1));
             };
-            if range.end.y != 0 {
+            if range.end.y != 0 && range.end != TextPosition::new(0, 1) {
                 return Err(TextError::LineIndexOutOfBounds(range.end.y, 1));
             };
 
             let mut byte_start = None;
             let mut byte_end = None;
-            for (cidx, (idx, _)) in self
-                .text
-                .grapheme_indices(true)
-                .chain(once((self.text.len(), "")))
-                .enumerate()
-            {
-                if cidx == range.start.x as usize {
-                    byte_start = Some(idx);
-                }
-                if cidx == range.end.x as usize {
-                    byte_end = Some(idx);
-                }
-                if byte_start.is_some() && byte_end.is_some() {
-                    break;
+
+            if range.start == TextPosition::new(0, 1) {
+                byte_start = Some(self.text.len());
+            }
+            if range.end == TextPosition::new(0, 1) {
+                byte_end = Some(self.text.len());
+            }
+
+            if byte_start.is_none() || byte_end.is_none() {
+                for (cidx, (idx, _)) in self
+                    .text
+                    .grapheme_indices(true)
+                    .chain(once((self.text.len(), "")))
+                    .enumerate()
+                {
+                    if TextPosition::new(cidx as upos_type, 0) == range.start {
+                        byte_start = Some(idx);
+                    }
+                    if TextPosition::new(cidx as upos_type, 0) == range.end {
+                        byte_end = Some(idx);
+                    }
+                    if byte_start.is_some() && byte_end.is_some() {
+                        break;
+                    }
                 }
             }
 
             let Some(byte_start) = byte_start else {
                 return Err(TextError::ColumnIndexOutOfBounds(
                     range.start.x,
-                    str_line_len(&self.text) as upos_type,
+                    str_len(&self.text),
                 ));
             };
             let Some(byte_end) = byte_end else {
                 return Err(TextError::ColumnIndexOutOfBounds(
                     range.end.x,
-                    str_line_len(&self.text) as upos_type,
+                    str_len(&self.text),
                 ));
             };
 
@@ -937,6 +969,8 @@ pub(crate) mod text_string {
         fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
             if row == 0 {
                 Ok(Cow::Borrowed(&self.text))
+            } else if row == 1 {
+                Ok(Cow::Borrowed(""))
             } else {
                 Err(TextError::LineIndexOutOfBounds(row, 1))
             }
@@ -951,6 +985,8 @@ pub(crate) mod text_string {
         ) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
             if row == 0 {
                 Ok(once(Cow::Borrowed(self.text.as_str())))
+            } else if row == 1 {
+                Ok(once(Cow::Borrowed("")))
             } else {
                 Err(TextError::LineIndexOutOfBounds(row, 1))
             }
@@ -966,6 +1002,8 @@ pub(crate) mod text_string {
         ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
             if row == 0 {
                 Ok(StrGraphemes::new(0, &self.text))
+            } else if row == 1 {
+                Ok(StrGraphemes::new(self.text.len(), ""))
             } else {
                 Err(TextError::LineIndexOutOfBounds(row, 1))
             }
@@ -978,6 +1016,8 @@ pub(crate) mod text_string {
         fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
             if row == 0 {
                 Ok(self.len)
+            } else if row == 1 {
+                Ok(0)
             } else {
                 Err(TextError::LineIndexOutOfBounds(row, 1))
             }
@@ -996,11 +1036,8 @@ pub(crate) mod text_string {
             pos: TextPosition,
             c: char,
         ) -> Result<(TextRange, Range<usize>), TextError> {
-            if pos.y != 0 {
+            if pos.y != 0 && pos != TextPosition::new(0, 1) {
                 return Err(TextError::TextPositionOutOfBounds(pos));
-            }
-            if c == '\n' || c == '\r' {
-                return Err(TextError::InvalidText(c.to_string()));
             }
 
             let byte_pos = self.byte_range_at(pos)?;
@@ -1013,7 +1050,7 @@ pub(crate) mod text_string {
             self.buf.push_str(after);
 
             let before_bytes = before.len();
-            let new_len = str_line_len(&self.buf) as upos_type;
+            let new_len = str_len(&self.buf);
 
             mem::swap(&mut self.text, &mut self.buf);
             self.len = new_len;
@@ -1030,11 +1067,8 @@ pub(crate) mod text_string {
             pos: TextPosition,
             t: &str,
         ) -> Result<(TextRange, Range<usize>), TextError> {
-            if pos.y != 0 {
+            if pos.y != 0 && pos != TextPosition::new(0, 1) {
                 return Err(TextError::TextPositionOutOfBounds(pos));
-            }
-            if t.contains(|c| c == '\n' || c == '\r') {
-                return Err(TextError::InvalidText(t.to_string()));
             }
 
             let byte_pos = self.byte_range_at(pos)?;
@@ -1047,7 +1081,7 @@ pub(crate) mod text_string {
             self.buf.push_str(after);
 
             let before_bytes = before.len();
-            let new_len = str_line_len(&self.buf) as upos_type;
+            let new_len = str_len(&self.buf);
 
             mem::swap(&mut self.text, &mut self.buf);
             self.len = new_len;
@@ -1063,7 +1097,10 @@ pub(crate) mod text_string {
             &mut self,
             range: TextRange,
         ) -> Result<(String, (TextRange, Range<usize>)), TextError> {
-            if range.start.y != 0 || range.end.y != 0 {
+            if range.start.y != 0 && range.start != TextPosition::new(0, 1) {
+                return Err(TextError::TextRangeOutOfBounds(range));
+            }
+            if range.end.y != 0 && range.end != TextPosition::new(0, 1) {
                 return Err(TextError::TextRangeOutOfBounds(range));
             }
 
@@ -1082,7 +1119,7 @@ pub(crate) mod text_string {
             let remove_str = remove.to_string();
             let before_bytes = before.len();
             let remove_bytes = remove.len();
-            let new_len = str_line_len(&self.buf) as upos_type;
+            let new_len = str_len(&self.buf);
 
             mem::swap(&mut self.text, &mut self.buf);
             self.len = new_len;
@@ -1103,7 +1140,7 @@ pub(crate) mod text_string {
             self.buf.push_str(before);
             self.buf.push_str(t);
             self.buf.push_str(after);
-            let new_len = str_line_len(&self.buf) as upos_type;
+            let new_len = str_len(&self.buf);
 
             mem::swap(&mut self.text, &mut self.buf);
             self.len = new_len;
@@ -1124,7 +1161,7 @@ pub(crate) mod text_string {
             self.buf.clear();
             self.buf.push_str(before);
             self.buf.push_str(after);
-            let new_len = str_line_len(&self.buf) as upos_type;
+            let new_len = str_len(&self.buf);
 
             mem::swap(&mut self.text, &mut self.buf);
             self.len = new_len;
