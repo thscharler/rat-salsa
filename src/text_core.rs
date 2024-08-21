@@ -35,6 +35,8 @@ pub struct TextCore<Store> {
     expand_tabs: bool,
     /// show ctrl chars
     show_ctrl: bool,
+    /// show line breaks
+    line_break: bool,
 }
 
 impl<Store: Clone> Clone for TextCore<Store> {
@@ -50,6 +52,7 @@ impl<Store: Clone> Clone for TextCore<Store> {
             tabs: self.tabs,
             expand_tabs: self.expand_tabs,
             show_ctrl: self.show_ctrl,
+            line_break: self.line_break,
         }
     }
 }
@@ -67,6 +70,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             tabs: 8,
             expand_tabs: true,
             show_ctrl: false,
+            line_break: true,
         }
     }
 
@@ -120,6 +124,17 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Show control characters.
     pub fn show_ctrl(&self) -> bool {
         self.show_ctrl
+    }
+
+    /// Handle line-breaks. If false everything is treated as one line.
+    #[inline]
+    pub fn set_line_break(&mut self, line_break: bool) {
+        self.line_break = line_break;
+    }
+
+    /// Handle line-breaks. If false everything is treated as one line.
+    pub fn line_break(&self) -> bool {
+        self.line_break
     }
 }
 
@@ -699,6 +714,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         it.set_screen_width(screen_width);
         it.set_tabs(self.tabs);
         it.set_show_ctrl(self.show_ctrl);
+        it.set_line_break(self.line_break);
         Ok(it)
     }
 

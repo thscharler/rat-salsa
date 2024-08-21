@@ -4,7 +4,7 @@ use ropey::RopeSlice;
 use std::borrow::Cow;
 use std::cmp;
 use std::ops::Range;
-use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete, UnicodeSegmentation};
+use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete};
 
 /// One grapheme.
 #[derive(Debug, PartialEq)]
@@ -90,19 +90,6 @@ impl<'a> Glyph<'a> {
     }
 }
 
-/// Length as grapheme count, excluding line breaks.
-pub(crate) fn rope_line_len(r: RopeSlice<'_>) -> usize {
-    let it = RopeGraphemes::new(0, r);
-    it.filter(|g| g.grapheme != "\n" && g.grapheme != "\r\n")
-        .count()
-}
-
-/// Length as grapheme count, excluding line breaks.
-pub(crate) fn str_line_len(s: &str) -> usize {
-    let it = s.graphemes(true);
-    it.filter(|c| *c != "\n" && *c != "\r\n").count()
-}
-
 /// A cursor over graphemes of a string.
 #[derive(Debug)]
 pub(crate) struct StrGraphemes<'a> {
@@ -132,11 +119,12 @@ impl<'a> StrGraphemes<'a> {
     /// * offset - relative offset into the slice
     ///
     pub(crate) fn new_offset(slice_offset: usize, slice: &'a str, offset: usize) -> Self {
-        Self {
+        let s = Self {
             text_offset: slice_offset,
             text: slice,
             cursor: GraphemeCursor::new(offset, slice.len(), true),
-        }
+        };
+        s
     }
 }
 
@@ -451,6 +439,7 @@ pub(crate) struct GlyphIter<Iter> {
 
     tabs: u16,
     show_ctrl: bool,
+    line_break: bool,
 }
 
 impl<'a, Iter> GlyphIter<Iter>
@@ -467,6 +456,7 @@ where
             screen_pos: Default::default(),
             tabs: 8,
             show_ctrl: false,
+            line_break: true,
         }
     }
 
@@ -483,6 +473,11 @@ where
     /// Tab width
     pub(crate) fn set_tabs(&mut self, tabs: u16) {
         self.tabs = tabs;
+    }
+
+    /// Handle line-breaks. If false everything is treated as one line.
+    pub(crate) fn set_line_break(&mut self, line_break: bool) {
+        self.line_break = line_break;
     }
 
     /// Show ASCII control codes.
@@ -506,10 +501,15 @@ where
             // todo: maybe add some ligature support.
 
             match grapheme.grapheme.as_ref() {
-                "\n" | "\r\n" => {
+                "\n" | "\r\n" if self.line_break => {
                     lbrk = true;
                     len = if self.show_ctrl { 1 } else { 0 };
                     glyph = Cow::Borrowed(if self.show_ctrl { "\u{2424}" } else { "" });
+                }
+                "\n" | "\r\n" if !self.line_break => {
+                    lbrk = false;
+                    len = 1;
+                    glyph = Cow::Borrowed("\u{2424}");
                 }
                 "\t" => {
                     len = self.tabs - (self.screen_pos.0 % self.tabs);
@@ -579,6 +579,9 @@ where
                     });
                 } else {
                     // out right
+                    if !self.line_break {
+                        break;
+                    }
                 }
             } else {
                 return Some(Glyph {
