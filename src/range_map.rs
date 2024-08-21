@@ -18,6 +18,8 @@ impl RangeMap {
     pub(crate) fn clear(&mut self) {
         self.buf.clear();
         self.map.clear();
+        self.page = Default::default();
+        self.page_map.borrow_mut().clear();
     }
 
     /// Sets a list of byte-range/style.
