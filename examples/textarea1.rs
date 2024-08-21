@@ -1,6 +1,5 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 #[allow(unused_imports)]
-use log::debug;
 use rat_event::{ct_event, flow_ok, Outcome};
 use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
@@ -20,6 +19,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
+        info: true,
         textarea: Default::default(),
     };
     insert_text_1(&mut state);
@@ -30,6 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
+    pub(crate) info: bool,
     pub(crate) textarea: TextAreaState,
 }
 
@@ -56,7 +57,6 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
-    debug!("*** render textarea ***");
     TextArea::new()
         .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
         .scroll(
@@ -79,64 +79,58 @@ fn repaint_input(
         frame.set_cursor(cx, cy);
     }
 
-    // debug!("*** render stats ***");
-    // use fmt::Write;
-    // let mut stats = String::new();
-    // _ = writeln!(&mut stats);
-    // _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
-    // _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
-    // if let Some((scx, scy)) = state.textarea.screen_cursor() {
-    //     _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
-    // } else {
-    //     _ = writeln!(&mut stats, "screen: None",);
-    // }
-    // debug!("*** render stats width ***");
-    // _ = writeln!(
-    //     &mut stats,
-    //     "width: {:?} ",
-    //     state.textarea.line_width(state.textarea.cursor().y)
-    // );
-    // debug!("*** render stats next_word ***");
-    // _ = writeln!(
-    //     &mut stats,
-    //     "next word: {:?} {:?}",
-    //     state.textarea.next_word_start(state.textarea.cursor()),
-    //     state.textarea.next_word_end(state.textarea.cursor())
-    // );
-    // debug!("*** render stats prev_word ***");
-    // _ = writeln!(
-    //     &mut stats,
-    //     "prev word: {:?} {:?}",
-    //     state.textarea.prev_word_start(state.textarea.cursor()),
-    //     state.textarea.prev_word_end(state.textarea.cursor())
-    // );
-    //
-    // debug!("*** render stats styles_at ***");
-    // _ = write!(&mut stats, "cursor-styles: ",);
-    // let mut styles = Vec::new();
-    // let cursor_byte = state
-    //     .textarea
-    //     .byte_at(state.textarea.cursor())
-    //     .expect("cursor");
-    // state.textarea.styles_at(cursor_byte.start, &mut styles);
-    // for s in styles {
-    //     _ = write!(&mut stats, "{}, ", s);
-    // }
-    // _ = writeln!(&mut stats);
-    //
-    // debug!("*** render stats styles ***");
-    // _ = writeln!(
-    //     &mut stats,
-    //     "text-styles: {}",
-    //     state.textarea.value.styles().count()
-    // );
-    // for r in state.textarea.value.styles().take(20) {
-    //     _ = writeln!(&mut stats, "    {:?}", r);
-    // }
-    // let dbg = Paragraph::new(stats);
-    // frame.render_widget(dbg, l2[3]);
+    if state.info {
+        use fmt::Write;
+        let mut stats = String::new();
+        _ = writeln!(&mut stats);
+        _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
+        _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
+        if let Some((scx, scy)) = state.textarea.screen_cursor() {
+            _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
+        } else {
+            _ = writeln!(&mut stats, "screen: None",);
+        }
+        _ = writeln!(
+            &mut stats,
+            "width: {:?} ",
+            state.textarea.line_width(state.textarea.cursor().y)
+        );
+        _ = writeln!(
+            &mut stats,
+            "next word: {:?} {:?}",
+            state.textarea.next_word_start(state.textarea.cursor()),
+            state.textarea.next_word_end(state.textarea.cursor())
+        );
+        _ = writeln!(
+            &mut stats,
+            "prev word: {:?} {:?}",
+            state.textarea.prev_word_start(state.textarea.cursor()),
+            state.textarea.prev_word_end(state.textarea.cursor())
+        );
 
-    debug!("*** render __done__ ***");
+        _ = write!(&mut stats, "cursor-styles: ",);
+        let mut styles = Vec::new();
+        let cursor_byte = state
+            .textarea
+            .byte_at(state.textarea.cursor())
+            .expect("cursor");
+        state.textarea.styles_at(cursor_byte.start, &mut styles);
+        for s in styles {
+            _ = write!(&mut stats, "{}, ", s);
+        }
+        _ = writeln!(&mut stats);
+
+        if let Some(st) = state.textarea.value.styles() {
+            _ = writeln!(&mut stats, "text-styles: {}", st.count());
+        }
+        if let Some(st) = state.textarea.value.styles() {
+            for r in st.take(20) {
+                _ = writeln!(&mut stats, "    {:?}", r);
+            }
+        }
+        let dbg = Paragraph::new(stats);
+        frame.render_widget(dbg, l2[3]);
+    }
 
     let ccursor = state.textarea.selection();
     istate.status[0] = format!(
@@ -154,9 +148,12 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     flow_ok!(text_area::handle_events(&mut state.textarea, true, event));
-    debug!("*** event-handling done ***");
 
     flow_ok!(match event {
+        ct_event!(key press ALT-'0') => {
+            state.info = !state.info;
+            Outcome::Changed
+        }
         ct_event!(key press ALT-'1') => insert_text_0(state),
         ct_event!(key press ALT-'2') => insert_text_1(state),
         ct_event!(key press ALT-'3') => insert_text_2(state),
@@ -168,9 +165,6 @@ fn handle_input(
 }
 
 pub(crate) fn insert_text_3(state: &mut State) -> Outcome {
-    #[cfg(debug_assertions)]
-    let l = lorem_rustum::LoremRustum::new(1_000_000);
-    #[cfg(not(debug_assertions))]
     let l = lorem_rustum::LoremRustum::new(1_000_000);
 
     let mut style = Vec::new();
