@@ -7,6 +7,7 @@ mod grapheme;
 mod range_map;
 pub mod text_area;
 pub(crate) mod text_core;
+pub mod text_input;
 pub(crate) mod text_store;
 pub mod undo_buffer;
 
@@ -190,8 +191,8 @@ pub struct TextPosition {
 
 impl TextPosition {
     /// New position.
-    pub fn new(x: upos_type, y: upos_type) -> TextPosition {
-        Self::from((x, y))
+    pub const fn new(x: upos_type, y: upos_type) -> TextPosition {
+        Self { y, x }
     }
 }
 
