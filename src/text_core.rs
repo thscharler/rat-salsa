@@ -160,6 +160,30 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.undo = undo;
     }
 
+    /// Set undo count
+    #[inline]
+    pub fn set_undo_count(&mut self, n: u32) {
+        if let Some(undo) = self.undo.as_mut() {
+            undo.set_undo_count(n);
+        };
+    }
+
+    /// Begin a sequence of changes that should be undone in one go.
+    #[inline]
+    pub fn begin_undo_seq(&mut self) {
+        if let Some(undo) = self.undo.as_mut() {
+            undo.begin_seq();
+        };
+    }
+
+    /// End a sequence of changes that should be undone in one go.
+    #[inline]
+    pub fn end_undo_seq(&mut self) {
+        if let Some(undo) = self.undo.as_mut() {
+            undo.end_seq();
+        };
+    }
+
     /// Undo
     #[inline]
     pub fn undo_buffer(&self) -> Option<&dyn UndoBuffer> {
@@ -194,89 +218,85 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let Some(undo) = self.undo.as_mut() else {
             return false;
         };
-        let op = undo.undo();
-        match op {
-            Some(UndoEntry::InsertChar {
-                bytes,
-                cursor,
-                anchor,
-                ..
-            })
-            | Some(UndoEntry::InsertStr {
-                bytes,
-                cursor,
-                anchor,
-                ..
-            }) => {
-                self.text.remove_b(bytes.clone()).expect("valid_bytes");
-
-                if let Some(sty) = &mut self.styles {
-                    sty.remap(|r, _| Some(shrink_range_by(bytes.clone(), r)));
+        let undo_op = undo.undo();
+        let changed = !undo_op.is_empty();
+        for op in undo_op {
+            match op {
+                UndoEntry::InsertChar {
+                    bytes,
+                    cursor,
+                    anchor,
+                    ..
                 }
-                self.anchor = anchor.before;
-                self.cursor = cursor.before;
+                | UndoEntry::InsertStr {
+                    bytes,
+                    cursor,
+                    anchor,
+                    ..
+                } => {
+                    self.text.remove_b(bytes.clone()).expect("valid_bytes");
 
-                true
-            }
-            Some(UndoEntry::RemoveStr {
-                bytes,
-                cursor,
-                anchor,
-                txt,
-                styles,
-            })
-            | Some(UndoEntry::RemoveChar {
-                bytes,
-                cursor,
-                anchor,
-                txt,
-                styles,
-            }) => {
-                self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
+                    if let Some(sty) = &mut self.styles {
+                        sty.remap(|r, _| Some(shrink_range_by(bytes.clone(), r)));
+                    }
+                    self.anchor = anchor.before;
+                    self.cursor = cursor.before;
+                }
+                UndoEntry::RemoveStr {
+                    bytes,
+                    cursor,
+                    anchor,
+                    txt,
+                    styles,
+                }
+                | UndoEntry::RemoveChar {
+                    bytes,
+                    cursor,
+                    anchor,
+                    txt,
+                    styles,
+                } => {
+                    self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
 
-                if let Some(sty) = &mut self.styles {
-                    for s in &styles {
-                        sty.remove(s.after.clone(), s.style);
-                    }
-                    for s in &styles {
-                        sty.add(s.before.clone(), s.style);
-                    }
-                    sty.remap(|r, _| {
-                        if ranges_intersect(bytes.clone(), r.clone()) {
-                            Some(r)
-                        } else {
-                            Some(expand_range_by(bytes.clone(), r))
+                    if let Some(sty) = &mut self.styles {
+                        for s in &styles {
+                            sty.remove(s.after.clone(), s.style);
                         }
-                    });
+                        for s in &styles {
+                            sty.add(s.before.clone(), s.style);
+                        }
+                        sty.remap(|r, _| {
+                            if ranges_intersect(bytes.clone(), r.clone()) {
+                                Some(r)
+                            } else {
+                                Some(expand_range_by(bytes.clone(), r))
+                            }
+                        });
+                    }
+                    self.anchor = anchor.before;
+                    self.cursor = cursor.before;
                 }
-                self.anchor = anchor.before;
-                self.cursor = cursor.before;
-
-                true
-            }
-            Some(UndoEntry::SetStyles { styles_before, .. }) => {
-                if let Some(sty) = &mut self.styles {
-                    sty.set(styles_before.iter().cloned());
+                UndoEntry::SetStyles { styles_before, .. } => {
+                    if let Some(sty) = &mut self.styles {
+                        sty.set(styles_before.iter().cloned());
+                    }
                 }
-                true
-            }
-            Some(UndoEntry::AddStyle { range, style }) => {
-                if let Some(sty) = &mut self.styles {
-                    sty.remove(range, style);
+                UndoEntry::AddStyle { range, style } => {
+                    if let Some(sty) = &mut self.styles {
+                        sty.remove(range, style);
+                    }
                 }
-                true
-            }
-            Some(UndoEntry::RemoveStyle { range, style }) => {
-                if let Some(sty) = &mut self.styles {
-                    sty.add(range, style);
+                UndoEntry::RemoveStyle { range, style } => {
+                    if let Some(sty) = &mut self.styles {
+                        sty.add(range, style);
+                    }
                 }
-                true
+                UndoEntry::SetText { .. } | UndoEntry::Undo | UndoEntry::Redo => {
+                    unreachable!()
+                }
             }
-            Some(UndoEntry::SetText { .. }) | Some(UndoEntry::Undo) | Some(UndoEntry::Redo) => {
-                unreachable!()
-            }
-            None => false,
         }
+        changed
     }
 
     /// Redo last.
@@ -294,90 +314,86 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let Some(undo) = self.undo.as_mut() else {
             return false;
         };
-        let op = undo.redo();
-        match op {
-            Some(UndoEntry::InsertChar {
-                bytes,
-                cursor,
-                anchor,
-                txt,
-            })
-            | Some(UndoEntry::InsertStr {
-                bytes,
-                cursor,
-                anchor,
-                txt,
-            }) => {
-                self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
-                if let Some(sty) = &mut self.styles {
-                    sty.remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
+        let redo_op = undo.redo();
+        let changed = !redo_op.is_empty();
+        for op in redo_op {
+            match op {
+                UndoEntry::InsertChar {
+                    bytes,
+                    cursor,
+                    anchor,
+                    txt,
                 }
-                self.anchor = anchor.after;
-                self.cursor = cursor.after;
+                | UndoEntry::InsertStr {
+                    bytes,
+                    cursor,
+                    anchor,
+                    txt,
+                } => {
+                    self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
+                    if let Some(sty) = &mut self.styles {
+                        sty.remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
+                    }
+                    self.anchor = anchor.after;
+                    self.cursor = cursor.after;
+                }
+                UndoEntry::RemoveChar {
+                    bytes,
+                    cursor,
+                    anchor,
+                    styles,
+                    ..
+                }
+                | UndoEntry::RemoveStr {
+                    bytes,
+                    cursor,
+                    anchor,
+                    styles,
+                    ..
+                } => {
+                    self.text.remove_b(bytes.clone()).expect("valid_bytes");
 
-                true
-            }
-            Some(UndoEntry::RemoveChar {
-                bytes,
-                cursor,
-                anchor,
-                styles,
-                ..
-            })
-            | Some(UndoEntry::RemoveStr {
-                bytes,
-                cursor,
-                anchor,
-                styles,
-                ..
-            }) => {
-                self.text.remove_b(bytes.clone()).expect("valid_bytes");
-
-                if let Some(sty) = &mut self.styles {
-                    sty.remap(|r, _| {
-                        if ranges_intersect(bytes.clone(), r.clone()) {
-                            Some(r)
-                        } else {
-                            Some(shrink_range_by(bytes.clone(), r))
+                    if let Some(sty) = &mut self.styles {
+                        sty.remap(|r, _| {
+                            if ranges_intersect(bytes.clone(), r.clone()) {
+                                Some(r)
+                            } else {
+                                Some(shrink_range_by(bytes.clone(), r))
+                            }
+                        });
+                        for s in &styles {
+                            sty.remove(s.before.clone(), s.style);
                         }
-                    });
-                    for s in &styles {
-                        sty.remove(s.before.clone(), s.style);
+                        for s in &styles {
+                            sty.add(s.after.clone(), s.style);
+                        }
                     }
-                    for s in &styles {
-                        sty.add(s.after.clone(), s.style);
+
+                    self.anchor = anchor.after;
+                    self.cursor = cursor.after;
+                }
+
+                UndoEntry::SetStyles { styles_after, .. } => {
+                    if let Some(sty) = &mut self.styles {
+                        sty.set(styles_after.iter().cloned());
                     }
                 }
-
-                self.anchor = anchor.after;
-                self.cursor = cursor.after;
-
-                true
-            }
-
-            Some(UndoEntry::SetStyles { styles_after, .. }) => {
-                if let Some(sty) = &mut self.styles {
-                    sty.set(styles_after.iter().cloned());
+                UndoEntry::AddStyle { range, style } => {
+                    if let Some(sty) = &mut self.styles {
+                        sty.add(range, style);
+                    }
                 }
-                true
-            }
-            Some(UndoEntry::AddStyle { range, style }) => {
-                if let Some(sty) = &mut self.styles {
-                    sty.add(range, style);
+                UndoEntry::RemoveStyle { range, style } => {
+                    if let Some(sty) = &mut self.styles {
+                        sty.remove(range, style);
+                    }
                 }
-                true
-            }
-            Some(UndoEntry::RemoveStyle { range, style }) => {
-                if let Some(sty) = &mut self.styles {
-                    sty.remove(range, style);
+                UndoEntry::SetText { .. } | UndoEntry::Undo | UndoEntry::Redo => {
+                    unreachable!()
                 }
-                true
             }
-            Some(UndoEntry::SetText { .. }) | Some(UndoEntry::Undo) | Some(UndoEntry::Redo) => {
-                unreachable!()
-            }
-            None => false,
         }
+        changed
     }
 
     /// Get last replay recording.
@@ -718,6 +734,15 @@ impl<Store: TextStore + Default> TextCore<Store> {
         Ok(it)
     }
 
+    /// Get the grapheme at the given position.
+    #[inline]
+    pub fn grapheme_at(&self, pos: TextPosition) -> Result<Option<Grapheme<'_>>, TextError> {
+        let mut it = self
+            .text
+            .graphemes(TextRange::new(pos, (pos.x + 1, pos.y)), pos)?;
+        Ok(it.next())
+    }
+
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
     pub fn text_graphemes(
@@ -792,6 +817,12 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
         if let Some(undo) = &mut self.undo {
             undo.clear();
+
+            if undo.replay_log() {
+                undo.append(UndoEntry::SetText {
+                    txt: self.text.string(),
+                });
+            }
         }
     }
 
