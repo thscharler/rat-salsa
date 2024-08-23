@@ -305,8 +305,8 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     let (ox, oy) = state.offset();
     let page_rows = (oy as upos_type)
         ..min(
-        oy as upos_type + inner.height as upos_type,
-        state.value.len_lines(),
+            oy as upos_type + inner.height as upos_type,
+            state.value.len_lines(),
         );
     let page_bytes = state
         .bytes_at_range(TextRange::new((0, page_rows.start), (0, page_rows.end)))
