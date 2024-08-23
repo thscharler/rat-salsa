@@ -67,7 +67,7 @@ pub struct TextInputState {
     /// Display as invalid.
     pub invalid: bool,
     /// Display offset
-    pub offset: usize,
+    pub offset: upos_type,
 
     /// Mouse selection in progress.
     pub mouse: MouseFlags,
@@ -278,7 +278,7 @@ impl Default for TextInputState {
             Some(Box::new(UndoVec::new(99))),
             Some(Box::new(LocalClipboard::new())),
         );
-        value.set_line_break(false);
+        value.set_glyph_line_break(false);
 
         Self {
             focus: Default::default(),
@@ -315,30 +315,6 @@ impl TextInputState {
         }
     }
 
-    /// Set tab-width.
-    #[inline]
-    pub fn set_tab_width(&mut self, tabs: u16) {
-        self.value.set_tab_width(tabs);
-    }
-
-    /// Tab-width
-    #[inline]
-    pub fn tab_width(&self) -> u16 {
-        self.value.tab_width()
-    }
-
-    /// Expand tabs to spaces. Only for new inputs.
-    #[inline]
-    pub fn set_expand_tabs(&mut self, expand: bool) {
-        self.value.set_expand_tabs(expand);
-    }
-
-    /// Expand tabs to spaces. Only for new inputs.
-    #[inline]
-    pub fn expand_tabs(&self) -> bool {
-        self.value.expand_tabs()
-    }
-
     /// Renders the widget in invalid style.
     #[inline]
     pub fn set_invalid(&mut self, invalid: bool) {
@@ -372,7 +348,7 @@ impl TextInputState {
             return false;
         };
 
-        _ = clip.set_string(self.selected_value().as_ref());
+        _ = clip.set_string(self.selected_text().as_ref());
 
         true
     }
@@ -383,7 +359,7 @@ impl TextInputState {
             return false;
         };
 
-        match clip.set_string(self.selected_value().as_ref()) {
+        match clip.set_string(self.selected_text().as_ref()) {
             Ok(_) => self
                 .delete_range(self.selection())
                 .expect("valid_selection"),
@@ -519,13 +495,13 @@ impl TextInputState {
 impl TextInputState {
     /// Offset shown.
     #[inline]
-    pub fn offset(&self) -> usize {
+    pub fn offset(&self) -> upos_type {
         self.offset
     }
 
     /// Offset shown. This is corrected if the cursor wouldn't be visible.
     #[inline]
-    pub fn set_offset(&mut self, offset: usize) {
+    pub fn set_offset(&mut self, offset: upos_type) {
         self.offset = offset;
     }
 
@@ -576,7 +552,7 @@ impl TextInputState {
 
     /// Selection.
     #[inline]
-    pub fn selected_value(&self) -> &str {
+    pub fn selected_text(&self) -> &str {
         match self
             .value
             .str_slice(self.value.selection())
@@ -954,7 +930,7 @@ impl TextInputState {
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
     pub fn screen_to_col(&self, scx: i16) -> upos_type {
-        let ox = self.offset() as upos_type;
+        let ox = self.offset();
 
         if scx < 0 {
             ox.saturating_sub((scx as ipos_type).abs() as upos_type)
@@ -981,7 +957,7 @@ impl TextInputState {
     pub fn col_to_screen(&self, pos: upos_type) -> Result<u16, TextError> {
         let ox = self.offset();
 
-        if pos < ox as upos_type {
+        if pos < ox {
             return Ok(0);
         }
 
@@ -1015,7 +991,7 @@ impl TextInputState {
     pub fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
             let cx = self.cursor();
-            let ox = self.offset() as upos_type;
+            let ox = self.offset();
 
             if cx < ox {
                 None
@@ -1031,13 +1007,13 @@ impl TextInputState {
     }
 
     /// Scrolling
-    pub fn scroll_left(&mut self, delta: usize) -> bool {
+    pub fn scroll_left(&mut self, delta: upos_type) -> bool {
         self.set_offset(self.offset.saturating_sub(delta));
         true
     }
 
     /// Scrolling
-    pub fn scroll_right(&mut self, delta: usize) -> bool {
+    pub fn scroll_right(&mut self, delta: upos_type) -> bool {
         self.set_offset(self.offset + delta);
         true
     }
@@ -1046,13 +1022,13 @@ impl TextInputState {
     pub fn scroll_cursor_to_visible(&mut self) -> bool {
         let old_offset = self.offset();
 
-        let c = self.cursor() as usize;
+        let c = self.cursor();
         let o = self.offset();
 
         let no = if c < o {
             c
-        } else if c >= o + self.inner.width as usize {
-            c.saturating_sub(self.inner.width as usize)
+        } else if c >= o + self.inner.width as upos_type {
+            c.saturating_sub(self.inner.width as upos_type)
         } else {
             o
         };
