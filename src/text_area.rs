@@ -305,8 +305,8 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     let (ox, oy) = state.offset();
     let page_rows = (oy as upos_type)
         ..min(
-            oy as upos_type + inner.height as upos_type,
-            state.value.len_lines(),
+        oy as upos_type + inner.height as upos_type,
+        state.value.len_lines(),
         );
     let page_bytes = state
         .bytes_at_range(TextRange::new((0, page_rows.start), (0, page_rows.end)))
@@ -449,12 +449,12 @@ impl TextAreaState {
     /// Show control characters.
     #[inline]
     pub fn set_show_ctrl(&mut self, show_ctrl: bool) {
-        self.value.set_show_ctrl(show_ctrl);
+        self.value.set_glyph_ctrl(show_ctrl);
     }
 
     /// Show control characters.
     pub fn show_ctrl(&self) -> bool {
-        self.value.show_ctrl()
+        self.value.glyph_ctrl()
     }
 
     /// Extra column information for cursor movement.
@@ -495,7 +495,7 @@ impl TextAreaState {
             return false;
         };
 
-        _ = clip.set_string(self.selected_value().as_ref());
+        _ = clip.set_string(self.selected_text().as_ref());
         false
     }
 
@@ -505,7 +505,7 @@ impl TextAreaState {
             return false;
         };
 
-        match clip.set_string(self.selected_value().as_ref()) {
+        match clip.set_string(self.selected_text().as_ref()) {
             Ok(_) => self
                 .delete_range(self.selection())
                 .expect("valid_selection"),
@@ -691,7 +691,7 @@ impl TextAreaState {
 
     /// Selection.
     #[inline]
-    pub fn selected_value(&self) -> Cow<'_, str> {
+    pub fn selected_text(&self) -> Cow<'_, str> {
         self.value
             .str_slice(self.value.selection())
             .expect("valid_selection")
