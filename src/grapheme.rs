@@ -22,6 +22,13 @@ impl<'a, R: AsRef<str>> PartialEq<R> for Grapheme<'a> {
 }
 
 impl<'a> Grapheme<'a> {
+    pub fn new(grapheme: Cow<'a, str>, text_bytes: Range<usize>) -> Self {
+        Self {
+            grapheme,
+            text_bytes,
+        }
+    }
+
     /// First (only) char of the grapheme is a whitespace.
     pub fn is_whitespace(&self) -> bool {
         self.grapheme
@@ -64,6 +71,22 @@ pub struct Glyph<'a> {
 }
 
 impl<'a> Glyph<'a> {
+    pub fn new(
+        glyph: Cow<'a, str>,
+        text_bytes: Range<usize>,
+        screen_pos: (u16, u16),
+        screen_width: u16,
+        pos: TextPosition,
+    ) -> Self {
+        Self {
+            glyph,
+            text_bytes,
+            screen_pos,
+            screen_width,
+            pos,
+        }
+    }
+
     /// Get the glyph.
     pub fn glyph(&'a self) -> &'a str {
         self.glyph.as_ref()
@@ -721,31 +744,22 @@ mod test_str {
         let s = String::from("qwertz");
         let mut s0 = StrGraphemes::new_offset(1, &s[1..5], 2);
         s0.next();
-        assert_eq!(s0.offset(), 3);
         assert_eq!(s0.text_offset(), 4);
         s0.next();
-        assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
         s0.next();
-        assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
         s0.next();
-        assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
         s0.prev();
-        assert_eq!(s0.offset(), 3);
         assert_eq!(s0.text_offset(), 4);
         s0.prev();
-        assert_eq!(s0.offset(), 2);
         assert_eq!(s0.text_offset(), 3);
         s0.prev();
-        assert_eq!(s0.offset(), 1);
         assert_eq!(s0.text_offset(), 2);
         s0.prev();
-        assert_eq!(s0.offset(), 0);
         assert_eq!(s0.text_offset(), 1);
         s0.prev();
-        assert_eq!(s0.offset(), 0);
         assert_eq!(s0.text_offset(), 1);
     }
 
@@ -904,31 +918,22 @@ mod test_rope {
         let s = Rope::from("qwertz");
         let mut s0 = RopeGraphemes::new_offset(1, s.byte_slice(1..5), 2).expect("fine");
         s0.next();
-        assert_eq!(s0.offset(), 3);
         assert_eq!(s0.text_offset(), 4);
         s0.next();
-        assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
         s0.next();
-        assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
         s0.next();
-        assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
         s0.prev();
-        assert_eq!(s0.offset(), 3);
         assert_eq!(s0.text_offset(), 4);
         s0.prev();
-        assert_eq!(s0.offset(), 2);
         assert_eq!(s0.text_offset(), 3);
         s0.prev();
-        assert_eq!(s0.offset(), 1);
         assert_eq!(s0.text_offset(), 2);
         s0.prev();
-        assert_eq!(s0.offset(), 0);
         assert_eq!(s0.text_offset(), 1);
         s0.prev();
-        assert_eq!(s0.offset(), 0);
         assert_eq!(s0.text_offset(), 1);
     }
 
@@ -987,19 +992,14 @@ mod test_rope {
         assert_eq!(s0.nth(598).unwrap(), "J");
 
         assert_eq!(s0.next().unwrap(), "0");
-        assert_eq!(s0.offset(), 600);
         assert_eq!(s0.text_offset(), 601);
         assert_eq!(s0.next().unwrap(), "1");
-        assert_eq!(s0.offset(), 601);
         assert_eq!(s0.text_offset(), 602);
         assert_eq!(s0.prev().unwrap(), "1");
-        assert_eq!(s0.offset(), 600);
         assert_eq!(s0.text_offset(), 601);
         assert_eq!(s0.prev().unwrap(), "0");
-        assert_eq!(s0.offset(), 599);
         assert_eq!(s0.text_offset(), 600);
         assert_eq!(s0.prev().unwrap(), "J");
-        assert_eq!(s0.offset(), 598);
         assert_eq!(s0.text_offset(), 599);
     }
 
@@ -1027,35 +1027,25 @@ mod test_rope {
         assert_eq!(s0.nth(598).unwrap(), "🤷‍♂️");
 
         assert_eq!(s0.next().unwrap(), "0");
-        assert_eq!(s0.offset(), 612);
         assert_eq!(s0.text_offset(), 613);
         assert_eq!(s0.next().unwrap(), "1");
-        assert_eq!(s0.offset(), 613);
         assert_eq!(s0.text_offset(), 614);
         assert_eq!(s0.prev().unwrap(), "1");
-        assert_eq!(s0.offset(), 612);
         assert_eq!(s0.text_offset(), 613);
         assert_eq!(s0.prev().unwrap(), "0");
-        assert_eq!(s0.offset(), 611);
         assert_eq!(s0.text_offset(), 612);
         assert_eq!(s0.prev().unwrap(), "🤷‍♂️");
-        assert_eq!(s0.offset(), 598);
         assert_eq!(s0.text_offset(), 599);
         assert_eq!(s0.prev().unwrap(), "i");
-        assert_eq!(s0.offset(), 597);
         assert_eq!(s0.text_offset(), 598);
 
         assert_eq!(s0.next().unwrap(), "i");
-        assert_eq!(s0.offset(), 598);
         assert_eq!(s0.text_offset(), 599);
         assert_eq!(s0.next().unwrap(), "🤷‍♂️");
-        assert_eq!(s0.offset(), 611);
         assert_eq!(s0.text_offset(), 612);
         assert_eq!(s0.next().unwrap(), "0");
-        assert_eq!(s0.offset(), 612);
         assert_eq!(s0.text_offset(), 613);
         assert_eq!(s0.next().unwrap(), "1");
-        assert_eq!(s0.offset(), 613);
         assert_eq!(s0.text_offset(), 614);
     }
 }
