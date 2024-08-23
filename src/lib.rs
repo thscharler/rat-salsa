@@ -4,6 +4,7 @@ use std::ops::Range;
 
 pub mod clipboard;
 mod grapheme;
+pub mod masked_input;
 mod range_map;
 pub mod text_area;
 pub(crate) mod text_core;
