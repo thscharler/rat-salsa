@@ -33,10 +33,10 @@ pub struct TextCore<Store> {
     tabs: u16,
     /// expand tabs
     expand_tabs: bool,
-    /// show ctrl chars
-    show_ctrl: bool,
-    /// show line breaks
-    line_break: bool,
+    /// show ctrl chars in glyphs
+    glyph_ctrl: bool,
+    /// use line-breaks in glyphs
+    glyph_line_break: bool,
 }
 
 impl<Store: Clone> Clone for TextCore<Store> {
@@ -51,8 +51,8 @@ impl<Store: Clone> Clone for TextCore<Store> {
             newline: self.newline.clone(),
             tabs: self.tabs,
             expand_tabs: self.expand_tabs,
-            show_ctrl: self.show_ctrl,
-            line_break: self.line_break,
+            glyph_ctrl: self.glyph_ctrl,
+            glyph_line_break: self.glyph_line_break,
         }
     }
 }
@@ -69,8 +69,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
             newline: "\n".to_string(),
             tabs: 8,
             expand_tabs: true,
-            show_ctrl: false,
-            line_break: true,
+            glyph_ctrl: false,
+            glyph_line_break: true,
         }
     }
 
@@ -115,26 +115,27 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.expand_tabs
     }
 
-    /// Show control characters.
+    /// Show control characters when iterating glyphs.
     #[inline]
-    pub fn set_show_ctrl(&mut self, show_ctrl: bool) {
-        self.show_ctrl = show_ctrl;
+    pub fn set_glyph_ctrl(&mut self, show_ctrl: bool) {
+        self.glyph_ctrl = show_ctrl;
     }
 
-    /// Show control characters.
-    pub fn show_ctrl(&self) -> bool {
-        self.show_ctrl
+    /// Show control characters when iterating glyphs.
+    pub fn glyph_ctrl(&self) -> bool {
+        self.glyph_ctrl
+    }
+
+    /// Handle line-breaks when iterating glyphs.
+    /// If false everything is treated as one line.
+    #[inline]
+    pub fn set_glyph_line_break(&mut self, line_break: bool) {
+        self.glyph_line_break = line_break;
     }
 
     /// Handle line-breaks. If false everything is treated as one line.
-    #[inline]
-    pub fn set_line_break(&mut self, line_break: bool) {
-        self.line_break = line_break;
-    }
-
-    /// Handle line-breaks. If false everything is treated as one line.
-    pub fn line_break(&self) -> bool {
-        self.line_break
+    pub fn glyph_line_break(&self) -> bool {
+        self.glyph_line_break
     }
 }
 
@@ -729,8 +730,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
         it.set_screen_offset(screen_offset);
         it.set_screen_width(screen_width);
         it.set_tabs(self.tabs);
-        it.set_show_ctrl(self.show_ctrl);
-        it.set_line_break(self.line_break);
+        it.set_show_ctrl(self.glyph_ctrl);
+        it.set_line_break(self.glyph_line_break);
         Ok(it)
     }
 
