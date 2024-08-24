@@ -277,6 +277,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.anchor = anchor.before;
                     self.cursor = cursor.before;
                 }
+                UndoEntry::Cursor { cursor, anchor } => {
+                    self.anchor = anchor.before;
+                    self.cursor = cursor.before;
+                }
                 UndoEntry::SetStyles { styles_before, .. } => {
                     if let Some(sty) = &mut self.styles {
                         sty.set(styles_before.iter().cloned());
@@ -373,6 +377,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.anchor = anchor.after;
                     self.cursor = cursor.after;
                 }
+                UndoEntry::Cursor { cursor, anchor } => {
+                    self.anchor = anchor.after;
+                    self.cursor = cursor.after;
+                }
 
                 UndoEntry::SetStyles { styles_after, .. } => {
                     if let Some(sty) = &mut self.styles {
@@ -445,6 +453,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
                         }
                     }
                 }
+                UndoEntry::Cursor { .. } => {
+                    // don't do cursor
+                }
+
                 UndoEntry::SetStyles { styles_after, .. } => {
                     self.init_styles();
                     if let Some(sty) = &mut self.styles {
@@ -596,6 +608,19 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.cursor = cursor;
         if !extend_selection {
             self.anchor = cursor;
+        }
+
+        if let Some(undo) = self.undo.as_mut() {
+            undo.append(UndoEntry::Cursor {
+                cursor: TextPositionChange {
+                    before: old_cursor,
+                    after: self.cursor,
+                },
+                anchor: TextPositionChange {
+                    before: old_anchor,
+                    after: self.anchor,
+                },
+            });
         }
 
         old_cursor != self.cursor || old_anchor != self.anchor
@@ -1030,7 +1055,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             });
         }
         self.anchor = range.shrink_pos(self.anchor);
-        self.cursor = range.shrink_pos(self.anchor);
+        self.cursor = range.shrink_pos(self.cursor);
 
         if let Some(undo) = &mut self.undo {
             if char_range {

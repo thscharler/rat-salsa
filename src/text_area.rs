@@ -1445,7 +1445,9 @@ impl TextAreaState {
         let cy = self.screen_to_row(scy);
         let cx = self.screen_to_col(cy, scx);
 
-        let c = self.set_cursor(TextPosition::new(cx, cy), extend_selection);
+        let c = self
+            .value
+            .set_cursor(TextPosition::new(cx, cy), extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1473,13 +1475,15 @@ impl TextAreaState {
         // extend anchor
         if !self.is_word_boundary(anchor).expect("valid_anchor") {
             if cursor < anchor {
-                self.set_cursor(self.word_end(anchor).expect("valid_anchor"), false);
+                self.value
+                    .set_cursor(self.word_end(anchor).expect("valid_anchor"), false);
             } else {
-                self.set_cursor(self.word_start(anchor).expect("valid_anchor"), false);
+                self.value
+                    .set_cursor(self.word_start(anchor).expect("valid_anchor"), false);
             }
         }
 
-        let c = self.set_cursor(cursor, extend_selection);
+        let c = self.value.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }

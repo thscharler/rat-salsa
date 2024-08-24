@@ -7,7 +7,8 @@ use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_text::{text_input, text_input_mask};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, Paragraph, StatefulWidget};
+use ratatui::text::{Line, Span};
+use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::fmt;
 use std::fmt::Error;
@@ -56,7 +57,7 @@ fn repaint_input(
         Constraint::Length(15),
         Constraint::Fill(1),
         Constraint::Length(1),
-        Constraint::Fill(1),
+        Constraint::Length(25),
     ])
     .split(l1[1]);
 
@@ -75,6 +76,14 @@ fn repaint_input(
     if let Some((cx, cy)) = state.masked.screen_cursor() {
         frame.set_cursor(cx, cy);
     }
+
+    let info_area = Rect::new(l2[0].x + 1, l2[0].y + 1, l2[0].width - 2, 1);
+    let info = Line::from("F2 next mask").black().on_cyan();
+    info.render(info_area, frame.buffer_mut());
+
+    let mask_area = Rect::new(l2[0].x + 1, l2[0].y + 2, l2[0].width - 2, 1);
+    let mask = Line::from(state.masked.mask()).black().on_cyan();
+    mask.render(mask_area, frame.buffer_mut());
 
     if state.info {
         use fmt::Write;
@@ -144,7 +153,24 @@ fn handle_input(
     Ok(Outcome::Continue)
 }
 
-static MASKS: [&str; 12] = [
+static MASKS: [&str; 29] = [
+    "",
+    "#",
+    "##",
+    "###",
+    "##0",
+    "#00",
+    "000",
+    "###.#",
+    "###.##",
+    "###.###",
+    "###.0",
+    "###.0##",
+    "###.00",
+    "###.00#",
+    "###.000",
+    "##0.000",
+    "#00.000",
     "##/##/####",
     "###,##0.0##",
     "###,##0.0##-",

@@ -162,6 +162,17 @@ pub enum UndoEntry {
         styles: Vec<StyleChange>,
     },
 
+    /// Cursor/anchor changed.
+    ///
+    /// This will be merged with a cursor-change immediately before.
+    /// And it will merge with both removes and inserts.
+    Cursor {
+        /// cursor position change
+        cursor: TextPositionChange,
+        /// anchor position change
+        anchor: TextPositionChange,
+    },
+
     /// Set of styles was replaced.
     SetStyles {
         /// old styles
@@ -334,18 +345,18 @@ impl UndoVec {
             return (Some((last_sequence, last)), Some(curr));
         }
 
-        match &mut last {
+        match &mut curr {
             UndoEntry::InsertChar {
-                bytes: last_bytes,
-                cursor: last_cursor,
-                anchor: last_anchor,
-                txt: last_txt,
-            } => match &mut curr {
+                bytes: curr_bytes,
+                cursor: curr_cursor,
+                anchor: curr_anchor,
+                txt: curr_txt,
+            } => match &mut last {
                 UndoEntry::InsertChar {
-                    bytes: curr_bytes,
-                    cursor: curr_cursor,
-                    anchor: curr_anchor,
-                    txt: curr_txt,
+                    bytes: last_bytes,
+                    cursor: last_cursor,
+                    anchor: last_anchor,
+                    txt: last_txt,
                 } => {
                     if last_bytes.end == curr_bytes.start {
                         let mut last_txt = mem::take(last_txt);
@@ -375,18 +386,18 @@ impl UndoVec {
                 _ => (Some((last_sequence, last)), Some(curr)),
             },
             UndoEntry::RemoveChar {
-                bytes: last_bytes,
-                cursor: last_cursor,
-                anchor: last_anchor,
-                txt: last_txt,
-                styles: last_styles,
-            } => match &mut curr {
+                bytes: curr_bytes,
+                cursor: curr_cursor,
+                anchor: curr_anchor,
+                txt: curr_txt,
+                styles: curr_styles,
+            } => match &mut last {
                 UndoEntry::RemoveChar {
-                    bytes: curr_bytes,
-                    cursor: curr_cursor,
-                    anchor: curr_anchor,
-                    txt: curr_txt,
-                    styles: curr_styles,
+                    bytes: last_bytes,
+                    cursor: last_cursor,
+                    anchor: last_anchor,
+                    txt: last_txt,
+                    styles: last_styles,
                 } => {
                     if curr_bytes.end == last_bytes.start {
                         // backspace
@@ -453,6 +464,127 @@ impl UndoVec {
                 _ => (Some((last_sequence, last)), Some(curr)),
             },
 
+            UndoEntry::Cursor {
+                cursor: curr_cursor,
+                anchor: curr_anchor,
+            } => match &mut last {
+                UndoEntry::InsertChar {
+                    bytes: last_bytes,
+                    cursor: last_cursor,
+                    anchor: last_anchor,
+                    txt: last_txt,
+                } => (
+                    Some((
+                        last_sequence,
+                        UndoEntry::InsertChar {
+                            bytes: mem::take(last_bytes),
+                            cursor: TextPositionChange {
+                                before: last_cursor.before,
+                                after: curr_cursor.after,
+                            },
+                            anchor: TextPositionChange {
+                                before: last_anchor.before,
+                                after: curr_anchor.after,
+                            },
+                            txt: mem::take(last_txt),
+                        },
+                    )),
+                    None,
+                ),
+                UndoEntry::InsertStr {
+                    bytes: last_bytes,
+                    cursor: last_cursor,
+                    anchor: last_anchor,
+                    txt: last_txt,
+                } => (
+                    Some((
+                        last_sequence,
+                        UndoEntry::InsertStr {
+                            bytes: mem::take(last_bytes),
+                            cursor: TextPositionChange {
+                                before: last_cursor.before,
+                                after: curr_cursor.after,
+                            },
+                            anchor: TextPositionChange {
+                                before: last_anchor.before,
+                                after: curr_anchor.after,
+                            },
+                            txt: mem::take(last_txt),
+                        },
+                    )),
+                    None,
+                ),
+                UndoEntry::RemoveChar {
+                    bytes: last_bytes,
+                    cursor: last_cursor,
+                    anchor: last_anchor,
+                    txt: last_txt,
+                    styles: last_styles,
+                } => (
+                    Some((
+                        last_sequence,
+                        UndoEntry::RemoveChar {
+                            bytes: mem::take(last_bytes),
+                            cursor: TextPositionChange {
+                                before: last_cursor.before,
+                                after: curr_cursor.after,
+                            },
+                            anchor: TextPositionChange {
+                                before: last_anchor.before,
+                                after: curr_anchor.after,
+                            },
+                            txt: mem::take(last_txt),
+                            styles: mem::take(last_styles),
+                        },
+                    )),
+                    None,
+                ),
+                UndoEntry::RemoveStr {
+                    bytes: last_bytes,
+                    cursor: last_cursor,
+                    anchor: last_anchor,
+                    txt: last_txt,
+                    styles: last_styles,
+                } => (
+                    Some((
+                        last_sequence,
+                        UndoEntry::RemoveChar {
+                            bytes: mem::take(last_bytes),
+                            cursor: TextPositionChange {
+                                before: last_cursor.before,
+                                after: curr_cursor.after,
+                            },
+                            anchor: TextPositionChange {
+                                before: last_anchor.before,
+                                after: curr_anchor.after,
+                            },
+                            txt: mem::take(last_txt),
+                            styles: mem::take(last_styles),
+                        },
+                    )),
+                    None,
+                ),
+                UndoEntry::Cursor {
+                    cursor: last_cursor,
+                    anchor: last_anchor,
+                } => (
+                    Some((
+                        last_sequence,
+                        UndoEntry::Cursor {
+                            cursor: TextPositionChange {
+                                before: last_cursor.before,
+                                after: curr_cursor.after,
+                            },
+                            anchor: TextPositionChange {
+                                before: last_anchor.before,
+                                after: curr_anchor.after,
+                            },
+                        },
+                    )),
+                    None,
+                ),
+                _ => (Some((last_sequence, last)), Some(curr)),
+            },
             _ => (Some((last_sequence, last)), Some(curr)),
         }
     }
