@@ -472,7 +472,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             }
 
             if let Some(undo) = self.undo.as_mut() {
-                undo.append_no_replay(replay_entry.clone());
+                undo.append_from_replay(replay_entry.clone());
             };
         }
     }
@@ -497,7 +497,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             return;
         };
         if let Some(undo) = &mut self.undo {
-            if undo.undo_styles_enabled() || undo.replay_log() {
+            if undo.undo_styles_enabled() || undo.has_replay_log() {
                 undo.append(UndoEntry::SetStyles {
                     styles_before: sty.values().collect::<Vec<_>>(),
                     styles_after: new_styles.clone(),
@@ -519,7 +519,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             sty.add(range.clone(), style);
         }
         if let Some(undo) = &mut self.undo {
-            if undo.undo_styles_enabled() || undo.replay_log() {
+            if undo.undo_styles_enabled() || undo.has_replay_log() {
                 undo.append(UndoEntry::AddStyle { range, style });
             }
         }
@@ -534,7 +534,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             sty.remove(range.clone(), style);
         }
         if let Some(undo) = &mut self.undo {
-            if undo.undo_styles_enabled() || undo.replay_log() {
+            if undo.undo_styles_enabled() || undo.has_replay_log() {
                 undo.append(UndoEntry::RemoveStyle { range, style });
             }
         }
@@ -819,7 +819,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         if let Some(undo) = &mut self.undo {
             undo.clear();
 
-            if undo.replay_log() {
+            if undo.has_replay_log() {
                 undo.append(UndoEntry::SetText {
                     txt: self.text.string(),
                 });
@@ -855,7 +855,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         if let Some(undo) = &mut self.undo {
             undo.clear();
 
-            if undo.replay_log() {
+            if undo.has_replay_log() {
                 undo.append(UndoEntry::SetText {
                     txt: self.text.string(),
                 });

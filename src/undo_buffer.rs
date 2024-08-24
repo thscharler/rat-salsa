@@ -7,69 +7,77 @@ use std::ops::Range;
 
 /// Undo buffer.
 ///
-/// Covers undo/redo operations and can provide a log of
-/// the recent activities which can be replayed in a different
-/// TextCore to sync them.
+/// Keeps up to undo_count operations that can be undone/redone.
+/// Additionally, it can provide a change-log which can be used
+/// to sync other text-widgets.
 ///
 pub trait UndoBuffer: DynClone + Debug {
-    /// How many undo's are stored?
+    /// How many undoes are stored?
     fn undo_count(&self) -> u32;
 
-    /// How many undo's are stored?
+    /// How many undoes are stored?
     fn set_undo_count(&mut self, n: u32);
 
-    /// Undo of SetStyles, AddStyle, RemoveStyle is enabled?
-    fn undo_styles_enabled(&self) -> bool;
-
     /// Begin a sequence of changes that should be undone at once.
-    /// This function can be called multiple times and must be
-    /// matched with the same number of end_seq() calls.
-    /// Only the first begin_seq starts a new sequence.
+    ///
+    /// begin/end calls can be nested, but only the outer one
+    /// will define the actual scope of the undo.
+    ///
+    /// A call to begin_seq must be matched with a call to end_seq.
     fn begin_seq(&mut self);
 
     /// End a sequence of changes that should be undone at once.
     fn end_seq(&mut self);
 
-    /// Adds a new operation. The redo list will be cleared.
+    /// Appends a new operation at the current undo-position.
+    ///
+    /// Redoes will be truncated by this call.
+    ///
+    /// This call tries merge InsertChar/RemoveChar operations,
+    /// if they lie next to each other. InsertStr/RemoveStr
+    /// will never be merged.
     fn append(&mut self, undo: UndoEntry);
 
-    /// Adds a new operation, but doesn't feed the replay buffer.
-    /// Used by replay itself, to allow undo of replayed operations,
-    /// without causing a loop.
-    fn append_no_replay(&mut self, undo: UndoEntry);
-
-    /// Clear the undo buffer.
+    /// Appends a new operation but doesn't fill the replay-log.
     ///
-    /// Attention:
-    /// This doesn't play with the replay buffer. Don't do this. At all.
-    /// It's only ever useful in set_value().
+    /// Used to add to the undo-buffer during replay from another
+    /// text-widget.
+    fn append_from_replay(&mut self, undo: UndoEntry);
+
+    /// Clear the undo and the replay buffer.
     fn clear(&mut self);
 
-    /// Next undo operation.
+    /// Get the list of the next undo operations.
     fn undo(&mut self) -> Vec<UndoEntry>;
 
-    /// Next redo operation.
+    /// Get the list of the next redo operations.
     fn redo(&mut self) -> Vec<UndoEntry>;
 
     /// Enable/disable replay recording.
     ///
-    /// Attention:
-    /// This must be done immediately before *cloning* the TextAreaCore
-    /// to create another view. Only then the replay operations
-    /// obtained by recent_replay() will make sense to the clone.
+    /// __Attention__:
+    /// For this to work the widget state must be in a 'cleared' state,
+    /// or you must *create a clone* of the widget-state *immediately* after
+    /// activating the replay-log.
     ///
-    /// Attention 2:
-    /// All *other* existing clones of this one must be synced and
-    /// the replay buffer be empty before enabling this feature.
-    /// There is only one buffer for all the clones.
-    fn set_replay_log(&mut self, replay: bool);
+    /// Only then the replay operations obtained by recent_replay()
+    /// will make sense to the clone.
+    ///
+    /// __Info__:
+    /// How you identify the widgets that should receive the replay-log
+    /// and other distribution problems are in the domain of the user
+    /// of this feature.
+    fn enable_replay_log(&mut self, replay: bool);
 
-    /// Is replay active?
-    fn replay_log(&self) -> bool;
+    /// Is the replay-log active?
+    fn has_replay_log(&self) -> bool;
 
-    /// Get the replay information to sync with another textarea.
+    /// Get the replay-log to sync with another textarea.
     /// This empties the replay buffer.
     fn recent_replay_log(&mut self) -> Vec<UndoEntry>;
+
+    /// Is there undo for setting/removing styles.
+    fn undo_styles_enabled(&self) -> bool;
 }
 
 /// Stores one style change.
@@ -91,7 +99,7 @@ pub struct TextPositionChange {
 #[non_exhaustive]
 #[derive(Debug, Clone)]
 pub enum UndoEntry {
-    /// Insert a single char.
+    /// Insert a single char/grapheme.
     ///
     /// This can contain a longer text, if consecutive InsertChar have
     /// been merged.
@@ -116,10 +124,14 @@ pub enum UndoEntry {
         /// inserted text
         txt: String,
     },
-    /// Remove a single char range.
+    /// Remove a single char/grapheme range.
     ///
     /// This can be a longer range, if consecutive RemoveChar have been
     /// merged.
+    ///
+    /// styles contains only styles whose range __intersects__ the
+    /// removed range. Styles that lie after the bytes-range will be
+    /// shifted left.
     RemoveChar {
         /// byte range for the remove.
         bytes: Range<usize>,
@@ -133,6 +145,10 @@ pub enum UndoEntry {
         styles: Vec<StyleChange>,
     },
     /// Remove longer text range.
+    ///
+    /// styles contains only styles whose range __intersects__ the
+    /// removed range. Styles that lie after the bytes-range will be
+    /// shifted left.
     RemoveStr {
         /// byte range for the remove.
         bytes: Range<usize>,
@@ -230,8 +246,13 @@ impl UndoVec {
     ///
     /// Recording those operations for *replay* will not be affected
     /// by this setting.
-    pub fn set_undo_styles(&mut self, undo_styles: bool) {
+    pub fn enable_undo_styles(&mut self, undo_styles: bool) {
         self.undo_styles = undo_styles;
+    }
+
+    /// Undo for styles are enabled.
+    pub fn undo_styles(&self) -> bool {
+        self.undo_styles
     }
 
     /// Append to undo buffer.
@@ -491,7 +512,7 @@ impl UndoBuffer for UndoVec {
         self._append(undo, true);
     }
 
-    fn append_no_replay(&mut self, undo: UndoEntry) {
+    fn append_from_replay(&mut self, undo: UndoEntry) {
         self._append(undo, false);
     }
 
@@ -552,14 +573,14 @@ impl UndoBuffer for UndoVec {
     /// This keeps track of all changes to a textarea.
     /// These changes can be copied to another textarea with
     /// the replay() function.
-    fn set_replay_log(&mut self, replay: bool) {
+    fn enable_replay_log(&mut self, replay: bool) {
         if self.track_replay != replay {
             self.replay.clear();
         }
         self.track_replay = replay;
     }
 
-    fn replay_log(&self) -> bool {
+    fn has_replay_log(&self) -> bool {
         self.track_replay
     }
 
