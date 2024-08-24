@@ -813,10 +813,10 @@ impl MaskedInputState {
                 .remove_range(self.value.selection())
                 .expect("valid_selection");
         }
-        self.value.advance_cursor(c);
-        self.value.insert_char(c);
+        let c0 = self.value.advance_cursor(c);
+        let c1 = self.value.insert_char(c);
         self.scroll_cursor_to_visible();
-        true
+        c0 || c1
     }
 
     /// Remove the selected range. The text will be replaced with the default value
@@ -824,9 +824,9 @@ impl MaskedInputState {
     #[inline]
     pub fn delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
         if !range.is_empty() {
-            self.value.remove_range(range)?;
+            let r = self.value.remove_range(range)?;
             self.scroll_cursor_to_visible();
-            Ok(true)
+            Ok(r)
         } else {
             Ok(false)
         }
