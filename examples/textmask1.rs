@@ -2,9 +2,9 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 #[allow(unused_imports)]
 use rat_event::{ct_event, flow_ok, Outcome};
-use rat_text::masked_input::{MaskedInput, MaskedInputState};
 use rat_text::text_input::{TextInput, TextInputState};
-use rat_text::{masked_input, text_input};
+use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
+use rat_text::{text_input, text_input_mask};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
@@ -125,7 +125,11 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(masked_input::handle_events(&mut state.masked, true, event));
+    flow_ok!(text_input_mask::handle_events(
+        &mut state.masked,
+        true,
+        event
+    ));
 
     flow_ok!(match event {
         ct_event!(key press ALT-'0') => {

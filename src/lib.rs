@@ -3,14 +3,16 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 
 pub mod clipboard;
-mod grapheme;
-pub mod masked_input;
-mod range_map;
 pub mod text_area;
-pub(crate) mod text_core;
 pub mod text_input;
-pub(crate) mod text_store;
+pub mod text_input_mask;
 pub mod undo_buffer;
+
+mod grapheme;
+mod range_map;
+mod text_core;
+mod text_mask_core;
+mod text_store;
 
 pub use grapheme::{Glyph, Grapheme};
 
@@ -91,6 +93,7 @@ pub mod core {
     //!
 
     pub use crate::text_core::TextCore;
+    pub use crate::text_mask_core::MaskedCore;
     pub use crate::text_store::text_rope::TextRope;
     pub use crate::text_store::text_string::TextString;
     pub use crate::text_store::TextStore;
