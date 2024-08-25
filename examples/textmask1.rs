@@ -150,7 +150,7 @@ fn handle_input(
     Ok(Outcome::Continue)
 }
 
-static MASKS: [&str; 34] = [
+static MASKS: [&str; 36] = [
     "",
     //
     "##/##/####",
@@ -183,6 +183,8 @@ static MASKS: [&str; 34] = [
     "###,##0.0##-",
     "###,##0.0##+",
     "HHH",
+    "dddd dddd dddd dddd \\c\\v\\c ddd",
+    "\\C\\C aaaa \\R aaaa \\I ddd",
     "llllll",
     "aaaaaa",
     "cccccc",

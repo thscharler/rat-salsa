@@ -1031,7 +1031,9 @@ impl MaskedInputState {
     pub fn select_prev_section(&mut self) -> bool {
         if self.selection().is_empty() {
             if let Some(range) = self.value.section_range(self.cursor()) {
-                self.set_selection(range.start, range.end)
+                self.set_selection(range.end, range.start)
+            } else if let Some(range) = self.value.section_range(self.cursor().saturating_sub(1)) {
+                self.set_selection(range.end, range.start)
             } else {
                 false
             }
