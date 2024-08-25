@@ -1,3 +1,15 @@
+# 0.23.0
+
+* Start example mdedit.
+* Update examples files.
+
+* break: remove timeout from AppContext and add to Terminal::render() instead.
+* break: rename AppEvents to AppState to be more in sync with ratatui.
+
+* feature: add replace_timer() to both contexts.
+* feature: addd set_screen_cursor() to RenderContext.
+* fix: Timer must use next from TimerDef if it exists.
+
 # 0.22.2
 
 * refactor: adaptations for new internal Scroll<'a> instead of Scrolled widget.
