@@ -79,6 +79,7 @@ use crate::text_input::{TextInputState, TextInputStyle};
 use crate::text_mask_core::MaskedCore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
 use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, TextError};
+use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
@@ -896,6 +897,36 @@ impl MaskedInputState {
         }
     }
 
+    /// Delete the previous section.
+    #[inline]
+    pub fn delete_prev_section(&mut self) -> bool {
+        if self.has_selection() {
+            self.delete_range(self.selection())
+                .expect("valid_selection")
+        } else {
+            if let Some(range) = self.value.prev_section_range(self.cursor()) {
+                self.delete_range(range).expect("valid_range")
+            } else {
+                false
+            }
+        }
+    }
+
+    /// Delete the next section.
+    #[inline]
+    pub fn delete_next_section(&mut self) -> bool {
+        if self.has_selection() {
+            self.delete_range(self.selection())
+                .expect("valid_selection")
+        } else {
+            if let Some(range) = self.value.next_section_range(self.cursor()) {
+                self.delete_range(range).expect("valid_range")
+            } else {
+                false
+            }
+        }
+    }
+
     /// Move to the next char.
     #[inline]
     pub fn move_right(&mut self, extend_selection: bool) -> bool {
@@ -939,11 +970,57 @@ impl MaskedInputState {
         c || s
     }
 
+    /// Move to start of previous section.
+    #[inline]
+    pub fn move_to_prev_section(&mut self, extend_selection: bool) -> bool {
+        if let Some(curr) = self.value.section_range(self.cursor()) {
+            if self.value.cursor() != curr.start {
+                return self.value.set_cursor(curr.start, extend_selection);
+            }
+        }
+        if let Some(range) = self.value.prev_section_range(self.cursor()) {
+            self.value.set_cursor(range.start, extend_selection)
+        } else {
+            false
+        }
+    }
+
+    /// Move to end of previous section.
+    #[inline]
+    pub fn move_to_next_section(&mut self, extend_selection: bool) -> bool {
+        if let Some(curr) = self.value.section_range(self.cursor()) {
+            if self.value.cursor() != curr.end {
+                return self.value.set_cursor(curr.end, extend_selection);
+            }
+        }
+        if let Some(range) = self.value.next_section_range(self.cursor()) {
+            self.value.set_cursor(range.end, extend_selection)
+        } else {
+            false
+        }
+    }
+
     /// Select next section.
     #[inline]
     pub fn select_next_section(&mut self) -> bool {
-        if let Some(range) = self.value.next_section_range(self.cursor()) {
-            self.set_selection(range.start, range.end)
+        if self.selection().is_empty() {
+            if let Some(range) = self.value.section_range(self.cursor()) {
+                self.set_selection(range.start, range.end)
+            } else if let Some(range) = self.value.section_range(self.cursor().saturating_sub(1)) {
+                self.set_selection(range.start, range.end)
+            } else {
+                false
+            }
+        } else if let Some(range) = self.value.next_section_range(self.cursor()) {
+            if range == self.selection() {
+                if let Some(range) = self.value.next_section_range(self.cursor()) {
+                    self.set_selection(range.start, range.end)
+                } else {
+                    false
+                }
+            } else {
+                self.set_selection(range.start, range.end)
+            }
         } else {
             false
         }
@@ -952,8 +1029,22 @@ impl MaskedInputState {
     /// Select previous section.
     #[inline]
     pub fn select_prev_section(&mut self) -> bool {
-        if let Some(range) = self.value.prev_section_range(self.cursor()) {
-            self.set_selection(range.start, range.end)
+        if self.selection().is_empty() {
+            if let Some(range) = self.value.section_range(self.cursor()) {
+                self.set_selection(range.start, range.end)
+            } else {
+                false
+            }
+        } else if let Some(range) = self.value.prev_section_range(self.cursor()) {
+            if range == self.selection() {
+                if let Some(range) = self.value.prev_section_range(self.cursor()) {
+                    self.set_selection(range.end, range.start)
+                } else {
+                    false
+                }
+            } else {
+                self.set_selection(range.end, range.start)
+            }
         } else {
             false
         }
@@ -1040,6 +1131,46 @@ impl MaskedInputState {
         }
     }
 
+    /// Set the cursor position from screen coordinates,
+    /// rounds the position to the next section bounds.
+    ///
+    /// The cursor positions are relative to the inner rect.
+    /// They may be negative too, this allows setting the cursor
+    /// to a position that is currently scrolled away.
+    pub fn set_screen_cursor_sections(
+        &mut self,
+        screen_cursor: i16,
+        extend_selection: bool,
+    ) -> bool {
+        let anchor = self.anchor();
+        let cursor = self.screen_to_col(screen_cursor);
+
+        let Some(range) = self.value.section_range(cursor) else {
+            return false;
+        };
+
+        let cursor = if cursor < anchor {
+            range.start
+        } else {
+            range.end
+        };
+
+        // extend anchor
+        if !self.value.is_section_boundary(anchor) {
+            if let Some(range) = self.value.section_range(anchor) {
+                if cursor < anchor {
+                    self.set_cursor(range.end, false);
+                } else {
+                    self.set_cursor(range.start, false);
+                }
+            };
+        }
+
+        let c = self.set_cursor(cursor, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
     /// Scrolling
     pub fn scroll_left(&mut self, delta: upos_type) -> bool {
         self.set_offset(self.offset.saturating_sub(delta));
@@ -1091,18 +1222,28 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
                 | ct_event!(key press CONTROL_ALT-c) => tc(self.insert_char(*c)),
                 ct_event!(keycode press Backspace) => tc(self.delete_prev_char()),
                 ct_event!(keycode press Delete) => tc(self.delete_next_char()),
-                // ct_event!(keycode press CONTROL-Backspace) => tc(self.delete_prev_word()),
-                // ct_event!(keycode press CONTROL-Delete) => tc(self.delete_next_word()),
+                ct_event!(keycode press CONTROL-Backspace) => tc(self.delete_prev_section()),
+                ct_event!(keycode press CONTROL-Delete) => tc(self.delete_next_section()),
+                ct_event!(key press CONTROL-'c') => tc(self.copy_to_clip()),
+                ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
+                ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
                 ct_event!(key press CONTROL-'d') => tc(self.clear()),
+                ct_event!(key press CONTROL-'z') => tc(self.value.undo()),
+                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.value.redo()),
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
                 | ct_event!(key release CONTROL_ALT-_)
                 | ct_event!(keycode release Backspace)
                 | ct_event!(keycode release Delete)
-                // | ct_event!(keycode release CONTROL-Backspace)
-                // | ct_event!(keycode release CONTROL-Delete)
-                | ct_event!(key release CONTROL-'d') => TextOutcome::Unchanged,
+                | ct_event!(keycode release CONTROL-Backspace)
+                | ct_event!(keycode release CONTROL-Delete)
+                | ct_event!(key release CONTROL-'c')
+                | ct_event!(key release CONTROL-'x')
+                | ct_event!(key release CONTROL-'v')
+                | ct_event!(key release CONTROL-'d')
+                | ct_event!(key release CONTROL-'z')
+                | ct_event!(key release CONTROL_SHIFT-'Z') => TextOutcome::Unchanged,
 
                 _ => TextOutcome::Continue,
             }
@@ -1127,14 +1268,18 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
             match event {
                 ct_event!(keycode press Left) => self.move_left(false).into(),
                 ct_event!(keycode press Right) => self.move_right(false).into(),
-                // ct_event!(keycode press CONTROL-Left) => self.move_to_prev_word(false).into(),
-                // ct_event!(keycode press CONTROL-Right) => self.move_to_next_word(false).into(),
+                ct_event!(keycode press CONTROL-Left) => self.move_to_prev_section(false).into(),
+                ct_event!(keycode press CONTROL-Right) => self.move_to_next_section(false).into(),
                 ct_event!(keycode press Home) => self.move_to_line_start(false).into(),
                 ct_event!(keycode press End) => self.move_to_line_end(false).into(),
                 ct_event!(keycode press SHIFT-Left) => self.move_left(true).into(),
                 ct_event!(keycode press SHIFT-Right) => self.move_right(true).into(),
-                // ct_event!(keycode press CONTROL_SHIFT-Left) => self.move_to_prev_word(true).into(),
-                // ct_event!(keycode press CONTROL_SHIFT-Right) => self.move_to_next_word(true).into(),
+                ct_event!(keycode press CONTROL_SHIFT-Left) => {
+                    self.move_to_prev_section(true).into()
+                }
+                ct_event!(keycode press CONTROL_SHIFT-Right) => {
+                    self.move_to_next_section(true).into()
+                }
                 ct_event!(keycode press SHIFT-Home) => self.move_to_line_start(true).into(),
                 ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
                 ct_event!(keycode press Tab) => self.select_next_section().into(),
@@ -1143,14 +1288,14 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
 
                 ct_event!(keycode release Left)
                 | ct_event!(keycode release Right)
-                // | ct_event!(keycode release CONTROL-Left)
-                // | ct_event!(keycode release CONTROL-Right)
+                | ct_event!(keycode release CONTROL-Left)
+                | ct_event!(keycode release CONTROL-Right)
                 | ct_event!(keycode release Home)
                 | ct_event!(keycode release End)
                 | ct_event!(keycode release SHIFT-Left)
                 | ct_event!(keycode release SHIFT-Right)
-                // | ct_event!(keycode release CONTROL_SHIFT-Left)
-                // | ct_event!(keycode release CONTROL_SHIFT-Right)
+                | ct_event!(keycode release CONTROL_SHIFT-Left)
+                | ct_event!(keycode release CONTROL_SHIFT-Right)
                 | ct_event!(keycode release SHIFT-Home)
                 | ct_event!(keycode release SHIFT-End)
                 | ct_event!(key release CONTROL-'a') => TextOutcome::Unchanged,
@@ -1175,6 +1320,18 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
                 let c = (m.column as i16) - (self.inner.x as i16);
                 self.set_screen_cursor(c, true).into()
             }
+            ct_event!(mouse any for m) if self.mouse.drag2(self.inner, m, KeyModifiers::ALT) => {
+                let cx = m.column as i16 - self.inner.x as i16;
+                self.set_screen_cursor_sections(cx, true).into()
+            }
+            ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
+                let tx = self.screen_to_col(m.column as i16 - self.inner.x as i16);
+                if let Some(range) = self.value.section_range(tx) {
+                    self.set_selection(range.start, range.end).into()
+                } else {
+                    TextOutcome::Unchanged
+                }
+            }
             ct_event!(mouse down Left for column,row) => {
                 if self.gained_focus() {
                     // don't react to the first click that's for
@@ -1183,6 +1340,22 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
                 } else if self.inner.contains((*column, *row).into()) {
                     let c = (column - self.inner.x) as i16;
                     self.set_screen_cursor(c, false).into()
+                } else {
+                    TextOutcome::Continue
+                }
+            }
+            ct_event!(mouse down CONTROL-Left for column,row) => {
+                if self.inner.contains((*column, *row).into()) {
+                    let cx = (column - self.inner.x) as i16;
+                    self.set_screen_cursor(cx, true).into()
+                } else {
+                    TextOutcome::Continue
+                }
+            }
+            ct_event!(mouse down ALT-Left for column,row) => {
+                if self.inner.contains((*column, *row).into()) {
+                    let cx = (column - self.inner.x) as i16;
+                    self.set_screen_cursor_sections(cx, true).into()
                 } else {
                     TextOutcome::Continue
                 }
