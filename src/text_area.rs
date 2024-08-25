@@ -1475,15 +1475,13 @@ impl TextAreaState {
         // extend anchor
         if !self.is_word_boundary(anchor).expect("valid_anchor") {
             if cursor < anchor {
-                self.value
-                    .set_cursor(self.word_end(anchor).expect("valid_anchor"), false);
+                self.set_cursor(self.word_end(anchor).expect("valid_anchor"), false);
             } else {
-                self.value
-                    .set_cursor(self.word_start(anchor).expect("valid_anchor"), false);
+                self.set_cursor(self.word_start(anchor).expect("valid_anchor"), false);
             }
         }
 
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
