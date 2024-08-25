@@ -1,0 +1,3 @@
+# Text-widgets for ratatui
+
+... document this ...
