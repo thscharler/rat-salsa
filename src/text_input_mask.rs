@@ -833,13 +833,18 @@ impl MaskedInputState {
     /// Insert a char at the current position.
     #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
+        self.value.begin_undo_seq();
         if self.value.has_selection() {
+            let sel = self.value.selection();
             self.value
-                .remove_range(self.value.selection())
+                .remove_range(sel.clone())
                 .expect("valid_selection");
+            self.value.set_cursor(sel.start, false);
         }
         let c0 = self.value.advance_cursor(c);
         let c1 = self.value.insert_char(c);
+        self.value.end_undo_seq();
+
         self.scroll_cursor_to_visible();
         c0 || c1
     }
@@ -848,13 +853,15 @@ impl MaskedInputState {
     /// as defined by the mask.
     #[inline]
     pub fn delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
-        if !range.is_empty() {
-            let r = self.value.remove_range(range)?;
-            self.scroll_cursor_to_visible();
-            Ok(r)
-        } else {
-            Ok(false)
+        self.value.begin_undo_seq();
+        let r = self.value.remove_range(range.clone())?;
+        if let Some(pos) = self.value.section_cursor(range.start) {
+            self.value.set_cursor(pos, false);
         }
+        self.value.end_undo_seq();
+
+        self.scroll_cursor_to_visible();
+        Ok(r)
     }
 }
 
