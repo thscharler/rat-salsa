@@ -2,16 +2,14 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 #[allow(unused_imports)]
 use rat_event::{ct_event, flow_ok, Outcome};
-use rat_text::text_input::{TextInput, TextInputState};
+use rat_text::text_input_mask;
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
-use rat_text::{text_input, text_input_mask};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span};
+use ratatui::text::Line;
 use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::fmt;
-use std::fmt::Error;
 
 mod mini_salsa;
 
@@ -25,7 +23,6 @@ fn main() -> Result<(), anyhow::Error> {
         masked: Default::default(),
         mask_idx: 0,
     };
-    insert_text_1(&mut state);
 
     run_ui(handle_input, repaint_input, &mut data, &mut state)
 }
@@ -217,65 +214,5 @@ fn prev_mask(state: &mut State) -> Outcome {
             debug!("{:?}", e)
         }
     };
-    Outcome::Changed
-}
-
-pub(crate) fn insert_text_3(state: &mut State) -> Outcome {
-    let l = lorem_rustum::LoremRustum::new(1_000);
-
-    let mut style = Vec::new();
-
-    let mut buf = String::new();
-    let mut pos = 0;
-    let mut width = 0;
-    for p in l.body {
-        buf.push_str(p);
-        buf.push_str(" ");
-        width += p.len() + 1;
-
-        if p == "macro" {
-            style.push((pos..pos + p.len(), 0));
-        } else if p == "assert!" {
-            style.push((pos..pos + p.len(), 1));
-        } else if p == "<'a>" {
-            style.push((pos..pos + p.len(), 2));
-        } else if p == "await" {
-            style.push((pos..pos + p.len(), 3));
-        }
-
-        pos += p.len() + 1;
-
-        if width > 66 {
-            buf.push_str("\n");
-            width = 0;
-            pos += 1;
-        }
-    }
-
-    state.masked.set_text(buf);
-    state.masked.set_styles(style);
-
-    Outcome::Changed
-}
-
-pub(crate) fn insert_text_2(state: &mut State) -> Outcome {
-    state.masked.set_text("");
-    Outcome::Changed
-}
-
-pub(crate) fn insert_text_1(state: &mut State) -> Outcome {
-    let str = "w🤷‍♂️x w🤷‍♀️x w🤦‍♂️x w❤️x w🤦‍♀️x w💕x w🙍🏿‍♀️x";
-    state.masked.set_text(str);
-    Outcome::Changed
-}
-
-pub(crate) fn insert_text_0(state: &mut State) -> Outcome {
-    state.masked.set_text(
-        "Sir Ridley Scott GBE[1] (* 30. November 1937 in South Shields, England) ist ein
-britischer Filmregisseur und Filmproduzent. Er gilt heute als einer der",
-    );
-
-    state.masked.add_range_style(4..16, 0).unwrap();
-
     Outcome::Changed
 }

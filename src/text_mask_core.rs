@@ -1819,7 +1819,6 @@ mod mask {
     use crate::upos_type;
     use std::fmt;
     use std::fmt::{Debug, Display, Formatter};
-    use std::ops::Range;
 
     /// Edit direction for part of a mask.
     /// Numeric values can switch between right-to-left (integer part) and left-to-right (fraction).
@@ -2190,7 +2189,7 @@ mod mask {
                 Mask::LetterOrDigit => false,
                 Mask::LetterDigitSpace => false,
                 Mask::AnyChar => false,
-                Mask::Separator(sep) => false,
+                Mask::Separator(_) => false,
                 Mask::None => false,
             }
         }
