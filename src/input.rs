@@ -275,17 +275,20 @@ impl TextInputState {
 
     /// Renders the widget in invalid style.
     #[inline]
+    // xxx
     pub fn set_invalid(&mut self, invalid: bool) {
         self.invalid = invalid;
     }
 
     /// Renders the widget in invalid style.
+    // xxx
     #[inline]
     pub fn get_invalid(&self) -> bool {
         self.invalid
     }
 
     /// Reset to empty.
+    // xxx
     #[inline]
     pub fn clear(&mut self) -> bool {
         if self.is_empty() {
@@ -298,24 +301,28 @@ impl TextInputState {
     }
 
     /// Offset shown.
+    // xxx
     #[inline]
     pub fn offset(&self) -> usize {
         self.offset
     }
 
     /// Offset shown. This is corrected if the cursor wouldn't be visible.
+    // xxx
     #[inline]
     pub fn set_offset(&mut self, offset: usize) {
         self.offset = offset;
     }
 
     /// Cursor position.
+    // xxx
     #[inline]
     pub fn cursor(&self) -> usize {
         self.value.cursor()
     }
 
     /// Set the cursor position, reset selection.
+    // xxx
     #[inline]
     pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) -> bool {
         self.value.set_cursor(cursor, extend_selection)
@@ -329,12 +336,14 @@ impl TextInputState {
     }
 
     /// Selection anchor.
+    // xxx
     #[inline]
     pub fn anchor(&self) -> usize {
         self.value.anchor()
     }
 
     /// Text value.
+    // xxx
     #[inline]
     pub fn value(&self) -> &str {
         self.value.value()
@@ -348,6 +357,7 @@ impl TextInputState {
     }
 
     /// Set text.
+    // xxx
     #[inline]
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         self.offset = 0;
@@ -355,24 +365,28 @@ impl TextInputState {
     }
 
     /// Empty.
+    // xxx
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
 
     /// Length as grapheme count.
+    // xxx
     #[inline]
     pub fn len(&self) -> usize {
         self.value.len()
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn has_selection(&self) -> bool {
         self.value.has_selection()
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn selection(&self) -> Range<usize> {
         self.value.selection()
@@ -380,23 +394,27 @@ impl TextInputState {
 
     /// Selection.
     #[inline]
+    // xxx
     pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
         self.value.set_selection(anchor, cursor)
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn select_all(&mut self) -> bool {
         self.value.select_all()
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn selected_value(&self) -> &str {
         split3(self.value.value(), self.value.selection()).1
     }
 
     /// Change the offset in a way that the cursor is visible.
+    // xxx
     pub fn scroll_cursor_to_visible(&mut self) -> bool {
         let old_offset = self.offset();
 
@@ -417,6 +435,7 @@ impl TextInputState {
     }
 
     /// Insert a char at the current position.
+    // xxx
     #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
         if self.value.has_selection() {
@@ -428,6 +447,7 @@ impl TextInputState {
     }
 
     /// Insert a str at the current position.
+    // xxx
     #[inline]
     pub fn insert_str(&mut self, t: &str) -> bool {
         if self.value.has_selection() {
@@ -439,6 +459,7 @@ impl TextInputState {
     }
 
     /// Deletes the given range.
+    // xxx
     #[inline]
     pub fn delete_range(&mut self, range: Range<usize>) -> bool {
         if !range.is_empty() {
@@ -451,12 +472,14 @@ impl TextInputState {
     }
 
     /// Find the start of the next word. Word is everything that is not whitespace.
+    // xxx
     pub fn next_word_start(&self, pos: usize) -> usize {
         next_word_start(self.value(), pos)
     }
 
     /// Find the end of the next word.  Skips whitespace first, then goes on
     /// until it finds the next whitespace.
+    // xxx
     pub fn next_word_end(&self, pos: usize) -> usize {
         next_word_end(self.value(), pos)
     }
@@ -464,6 +487,7 @@ impl TextInputState {
     /// Find prev word. Skips whitespace first.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
+    // xxx
     pub fn prev_word_start(&self, pos: usize) -> usize {
         prev_word_start(self.value(), pos)
     }
@@ -471,26 +495,31 @@ impl TextInputState {
     /// Find the end of the previous word. Word is everything that is not whitespace.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
+    // xxx
     pub fn prev_word_end(&self, pos: usize) -> usize {
         prev_word_end(self.value(), pos)
     }
 
     /// Is the position at a word boundary?
+    // xxx
     pub fn is_word_boundary(&self, pos: usize) -> bool {
         is_word_boundary(self.value(), pos)
     }
 
     /// Find the start of the word at pos.
+    // xxx
     pub fn word_start(&self, pos: usize) -> usize {
         word_start(self.value(), pos)
     }
 
     /// Find the end of the word at pos.
+    // xxx
     pub fn word_end(&self, pos: usize) -> usize {
         word_end(self.value(), pos)
     }
 
     /// Deletes the next word.
+    // xxx
     #[inline]
     pub fn delete_next_word(&mut self) -> bool {
         if self.has_selection() {
@@ -510,6 +539,7 @@ impl TextInputState {
     }
 
     /// Deletes the given range.
+    // xxx
     #[inline]
     pub fn delete_prev_word(&mut self) -> bool {
         if self.has_selection() {
@@ -529,6 +559,7 @@ impl TextInputState {
     }
 
     /// Delete the char before the cursor.
+    // xxx
     #[inline]
     pub fn delete_prev_char(&mut self) -> bool {
         if self.has_selection() {
@@ -541,6 +572,7 @@ impl TextInputState {
     }
 
     /// Delete the char after the cursor.
+    // xxx
     #[inline]
     pub fn delete_next_char(&mut self) -> bool {
         if self.has_selection() {
@@ -552,6 +584,7 @@ impl TextInputState {
         }
     }
 
+    // xxx
     #[inline]
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
         let cp = self.cursor();
@@ -561,6 +594,7 @@ impl TextInputState {
         c || s
     }
 
+    // xxx
     #[inline]
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
         let cp = self.cursor();
@@ -571,6 +605,7 @@ impl TextInputState {
     }
 
     /// Move to the next char.
+    // xxx
     #[inline]
     pub fn move_to_next(&mut self, extend_selection: bool) -> bool {
         let c = min(self.cursor() + 1, self.len());
@@ -580,6 +615,7 @@ impl TextInputState {
     }
 
     /// Move to the previous char.
+    // xxx
     #[inline]
     pub fn move_to_prev(&mut self, extend_selection: bool) -> bool {
         let c = self.cursor().saturating_sub(1);
@@ -589,6 +625,7 @@ impl TextInputState {
     }
 
     /// Start of line
+    // xxx
     #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
         let c = self.set_cursor(0, extend_selection);
@@ -597,6 +634,7 @@ impl TextInputState {
     }
 
     /// End of line
+    // xxx
     #[inline]
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
         let c = self.len();
@@ -607,6 +645,7 @@ impl TextInputState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
+    // xxx
     pub fn to_screen_col(&self, pos: usize) -> Option<u16> {
         let px = pos;
         let ox = self.offset();
@@ -621,6 +660,7 @@ impl TextInputState {
 
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
+    // xxx
     pub fn from_screen_col(&self, scx: i16) -> usize {
         let ox = self.offset();
 
@@ -651,6 +691,7 @@ impl TextInputState {
     /// Set the cursor position from a screen position relative to the origin
     /// of the widget. This value can be negative, which selects a currently
     /// not visible position and scrolls to it.
+    // xxx
     #[inline]
     pub fn set_screen_cursor(&mut self, cursor: i16, extend_selection: bool) -> bool {
         let scx = cursor;
@@ -663,6 +704,7 @@ impl TextInputState {
     }
 
     /// The current text cursor as an absolute screen position.
+    // xxx
     #[inline]
     pub fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {

@@ -83,60 +83,60 @@ fn repaint_input(
         frame.set_cursor(cx, cy);
     }
 
-    use fmt::Write;
-    let mut stats = String::new();
-    _ = writeln!(&mut stats);
-    _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
-    _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
-    if let Some((scx, scy)) = state.textarea.screen_cursor() {
-        _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
-    } else {
-        _ = writeln!(&mut stats, "screen: None",);
-    }
-    _ = writeln!(
-        &mut stats,
-        "width: {:?} ",
-        state.textarea.line_width(state.textarea.cursor().y)
-    );
-    _ = writeln!(
-        &mut stats,
-        "char: pos {:?} len {:?} ",
-        state.textarea.value.char_at(state.textarea.cursor()),
-        state.textarea.value.len_chars()
-    );
-    _ = writeln!(
-        &mut stats,
-        "next word: {:?} {:?}",
-        state.textarea.next_word_start(state.textarea.cursor()),
-        state.textarea.next_word_end(state.textarea.cursor())
-    );
-    _ = writeln!(
-        &mut stats,
-        "prev word: {:?} {:?}",
-        state.textarea.prev_word_start(state.textarea.cursor()),
-        state.textarea.prev_word_end(state.textarea.cursor())
-    );
-
-    _ = write!(&mut stats, "cursor-styles: ",);
-    let mut styles = Vec::new();
-    state
-        .textarea
-        .styles_at(state.textarea.cursor(), &mut styles);
-    for s in styles {
-        _ = write!(&mut stats, "{}, ", s);
-    }
-    _ = writeln!(&mut stats);
-
-    _ = writeln!(
-        &mut stats,
-        "text-styles: {}",
-        state.textarea.value.styles().count()
-    );
-    for r in state.textarea.value.styles().take(20) {
-        _ = writeln!(&mut stats, "    {:?}", r);
-    }
-    let dbg = Paragraph::new(stats);
-    frame.render_widget(dbg, l2[3]);
+    // use fmt::Write;
+    // let mut stats = String::new();
+    // _ = writeln!(&mut stats);
+    // _ = writeln!(&mut stats, "cursor: {:?}", state.textarea.cursor(),);
+    // _ = writeln!(&mut stats, "anchor: {:?}", state.textarea.anchor());
+    // if let Some((scx, scy)) = state.textarea.screen_cursor() {
+    //     _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
+    // } else {
+    //     _ = writeln!(&mut stats, "screen: None",);
+    // }
+    // _ = writeln!(
+    //     &mut stats,
+    //     "width: {:?} ",
+    //     state.textarea.line_width(state.textarea.cursor().y)
+    // );
+    // _ = writeln!(
+    //     &mut stats,
+    //     "char: pos {:?} len {:?} ",
+    //     state.textarea.value.char_at(state.textarea.cursor()),
+    //     state.textarea.value.len_chars()
+    // );
+    // _ = writeln!(
+    //     &mut stats,
+    //     "next word: {:?} {:?}",
+    //     state.textarea.next_word_start(state.textarea.cursor()),
+    //     state.textarea.next_word_end(state.textarea.cursor())
+    // );
+    // _ = writeln!(
+    //     &mut stats,
+    //     "prev word: {:?} {:?}",
+    //     state.textarea.prev_word_start(state.textarea.cursor()),
+    //     state.textarea.prev_word_end(state.textarea.cursor())
+    // );
+    //
+    // _ = write!(&mut stats, "cursor-styles: ",);
+    // let mut styles = Vec::new();
+    // state
+    //     .textarea
+    //     .styles_at(state.textarea.cursor(), &mut styles);
+    // for s in styles {
+    //     _ = write!(&mut stats, "{}, ", s);
+    // }
+    // _ = writeln!(&mut stats);
+    //
+    // _ = writeln!(
+    //     &mut stats,
+    //     "text-styles: {}",
+    //     state.textarea.value.styles().count()
+    // );
+    // for r in state.textarea.value.styles().take(20) {
+    //     _ = writeln!(&mut stats, "    {:?}", r);
+    // }
+    // let dbg = Paragraph::new(stats);
+    // frame.render_widget(dbg, l2[3]);
 
     let ccursor = state.textarea.selection();
     state.status.status(

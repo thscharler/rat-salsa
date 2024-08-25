@@ -1,3 +1,17 @@
+# 0.14.0
+
+* add FileDialog
+* add Split
+* add Tabbed
+* moved View and Viewport from rat-scrolled here.
+* PopupMenu: add separators.
+
+* List: add inline editing
+* TextArea: tab support, undo, sync via replaying changes.
+* TextArea: styling
+
+... and about a few hundred changes more ...
+
 # 0.13.0
 
 Move all the widgets from rat-input over here. The original reason for the

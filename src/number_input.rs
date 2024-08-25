@@ -138,10 +138,12 @@ impl Default for NumberInputState {
 }
 
 impl NumberInputState {
+    // xxx
     pub fn new() -> Self {
         Self::default()
     }
 
+    // xxx
     pub fn named(name: &str) -> Self {
         Self {
             widget: MaskedInputState::named(name),
@@ -149,11 +151,13 @@ impl NumberInputState {
         }
     }
 
+    // xxx
     pub fn with_pattern<S: AsRef<str>>(mut self, pattern: S) -> Result<Self, NumberFmtError> {
         self.set_format(pattern)?;
         Ok(self)
     }
 
+    // xxx
     pub fn with_loc_pattern<S: AsRef<str>>(
         mut self,
         pattern: S,
@@ -164,23 +168,27 @@ impl NumberInputState {
     }
 
     /// [format_num_pattern] format string.
+    // xxx
     #[inline]
     pub fn format(&self) -> &str {
         self.pattern.as_str()
     }
 
     /// chrono locale.
+    // xxx
     #[inline]
     pub fn locale(&self) -> chrono::Locale {
         self.locale
     }
 
     /// Set format.
+    // xxx
     pub fn set_format<S: AsRef<str>>(&mut self, pattern: S) -> Result<(), NumberFmtError> {
         self.set_format_loc(pattern, format_num_pattern::Locale::default())
     }
 
     /// Set format and locale.
+    // xxx
     pub fn set_format_loc<S: AsRef<str>>(
         &mut self,
         pattern: S,
@@ -212,53 +220,62 @@ impl NumberInputState {
     }
 
     /// Renders the widget in invalid style.
+    // xxx
     #[inline]
     pub fn set_invalid(&mut self, invalid: bool) {
         self.widget.invalid = invalid;
     }
 
     /// Renders the widget in invalid style.
+    // xxx
     #[inline]
     pub fn get_invalid(&self) -> bool {
         self.widget.invalid
     }
 
     /// Reset to empty
+    // xxx
     pub fn clear(&mut self) {
         self.widget.clear();
     }
 
     /// Offset shown.
+    // xxx
     #[inline]
     pub fn offset(&self) -> usize {
         self.widget.offset()
     }
 
     /// Offset shown. This is corrected if the cursor wouldn't be visible.
+    // xxx
     #[inline]
     pub fn set_offset(&mut self, offset: usize) {
         self.widget.set_offset(offset)
     }
 
     /// Cursor position
+    // xxx
     #[inline]
     pub fn cursor(&self) -> usize {
         self.widget.cursor()
     }
 
     /// Set the cursor position, reset selection.
+    // xxx
     #[inline]
     pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) -> bool {
         self.widget.set_cursor(cursor, extend_selection)
     }
 
     /// Place cursor at decimal separator, if any. 0 otherwise.
+    // xxx
     #[inline]
     pub fn set_default_cursor(&mut self) {
         self.widget.set_default_cursor()
     }
 
     /// Selection anchor.
+    // xxx
     #[inline]
     pub fn anchor(&self) -> usize {
         self.widget.anchor()
@@ -271,12 +288,14 @@ impl NumberInputState {
     }
 
     /// Parses the text as the desired value type.
+    // xxx
     pub fn value<T: FromStr>(&self) -> Result<T, NumberFmtError> {
         let s = self.widget.value();
         self.format.parse(s)
     }
 
     /// Sets the numeric value.
+    // xxx
     pub fn set_value<T: LowerExp + Display + Debug>(
         &mut self,
         number: T,
@@ -287,48 +306,56 @@ impl NumberInputState {
     }
 
     /// Empty
+    // xxx
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.widget.is_empty()
     }
 
     /// Length in grapheme count.
+    // xxx
     #[inline]
     pub fn len(&self) -> usize {
         self.widget.len()
     }
 
     /// Selection
+    // xxx
     #[inline]
     pub fn has_selection(&self) -> bool {
         self.widget.has_selection()
     }
 
     /// Selection
+    // xxx
     #[inline]
     pub fn selection(&self) -> Range<usize> {
         self.widget.selection()
     }
 
     /// Selection
+    // xxx
     #[inline]
     pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
         self.widget.set_selection(anchor, cursor)
     }
 
     /// Select all text.
+    // xxx
     #[inline]
     pub fn select_all(&mut self) {
         self.widget.select_all();
     }
 
     /// Selection
+    // xxx
     #[inline]
     pub fn selected_value(&self) -> &str {
         self.widget.selected_value()
     }
 
     /// Insert a char at the current position.
+    // xxx
     #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
         self.widget.insert_char(c)
@@ -336,6 +363,7 @@ impl NumberInputState {
 
     /// Remove the selected range. The text will be replaced with the default value
     /// as defined by the mask.
+    // xxx
     #[inline]
     pub fn delete_range(&mut self, range: Range<usize>) -> bool {
         self.widget.delete_range(range)
@@ -354,12 +382,14 @@ impl NumberInputState {
     }
 
     /// Delete the char before the cursor.
+    // xxx
     #[inline]
     pub fn delete_prev_char(&mut self) -> bool {
         self.widget.delete_prev_char()
     }
 
     /// Delete the char after the cursor.
+    // xxx
     #[inline]
     pub fn delete_next_char(&mut self) -> bool {
         self.widget.delete_next_char()
@@ -375,24 +405,28 @@ impl NumberInputState {
         self.widget.move_to_next_word(extend_selection)
     }
     /// Move to the next char.
+    // xxx
     #[inline]
     pub fn move_to_next(&mut self, extend_selection: bool) -> bool {
         self.widget.move_to_next(extend_selection)
     }
 
     /// Move to the previous char.
+    // xxx
     #[inline]
     pub fn move_to_prev(&mut self, extend_selection: bool) -> bool {
         self.widget.move_to_prev(extend_selection)
     }
 
     /// Start of line
+    // xxx
     #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
         self.widget.move_to_line_start(extend_selection)
     }
 
     /// End of line
+    // xxx
     #[inline]
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
         self.widget.move_to_line_end(extend_selection)

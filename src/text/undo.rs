@@ -6,6 +6,7 @@ use std::mem;
 use std::ops::Range;
 
 /// Undo buffer.
+// xxx
 pub trait UndoBuffer: Debug {
     /// To enable `dyn Clone`.
     fn cloned(&self) -> Box<dyn UndoBuffer>;

@@ -7,12 +7,14 @@ use std::ops::Range;
 use unicode_segmentation::{GraphemeCursor, GraphemeIncomplete, Graphemes, UnicodeSegmentation};
 
 /// Length as grapheme count, excluding line breaks.
+// xxx
 pub(crate) fn rope_line_len(r: RopeSlice<'_>) -> usize {
     let it = RopeGraphemes::new(r);
     it.filter(|c| c != "\n" && c != "\r\n").count()
 }
 
 /// Length as grapheme count, excluding line breaks.
+// xxx
 pub(crate) fn str_line_len(s: &str) -> usize {
     let it = s.graphemes(true);
     it.filter(|c| *c != "\n" && *c != "\r\n").count()
@@ -194,6 +196,7 @@ pub(crate) fn word_end(s: &str, mut pos: usize) -> usize {
 
 /// Drop first graphem.
 /// If s is empty do nothing.
+// xxx
 pub(crate) fn drop_first(s: &str) -> &str {
     if s.is_empty() {
         s
@@ -204,6 +207,7 @@ pub(crate) fn drop_first(s: &str) -> &str {
 
 /// Drop last graphem.
 /// If s is empty do nothing.
+// xxx
 pub(crate) fn drop_last(s: &str) -> &str {
     if s.is_empty() {
         s
@@ -321,6 +325,7 @@ pub(crate) fn split_mask_match<'a>(
 }
 
 /// Split along mask bounds and again at the cursor.
+// xxx
 pub(crate) fn split_mask(
     value: &str,
     cursor: usize,
@@ -364,6 +369,7 @@ pub(crate) fn split_mask(
     )
 }
 
+// xxx
 pub(crate) fn split_at(value: &str, cursor: usize) -> (&str, &str) {
     let mut byte_cursor = None;
 
@@ -383,6 +389,7 @@ pub(crate) fn split_at(value: &str, cursor: usize) -> (&str, &str) {
 }
 
 /// Split off selection
+// xxx
 pub(crate) fn split3(value: &str, selection: Range<usize>) -> (&str, &str, &str) {
     let mut byte_selection_start = None;
     let mut byte_selection_end = None;
@@ -411,6 +418,7 @@ pub(crate) fn split3(value: &str, selection: Range<usize>) -> (&str, &str, &str)
 }
 
 /// Data for rendering/mapping graphemes to screen coordinates.
+// xxx
 pub struct Glyph<'a> {
     /// First char.
     pub glyph: Cow<'a, str>,
@@ -435,6 +443,7 @@ impl<'a> Debug for Glyph<'a> {
 ///   and tab support.
 /// * has a column-offset.
 /// * can translate control-codes to visible graphemes.
+// xxx
 #[derive(Debug)]
 pub struct RopeGlyphIter<'a> {
     iter: RopeGraphemes<'a>,
@@ -555,6 +564,7 @@ impl<'a> Iterator for RopeGlyphIter<'a> {
 ///   and tab support.
 /// * has a column-offset.
 /// * can translate control-codes to visible graphemes.
+// xxx
 #[derive(Debug)]
 pub struct GlyphIter<'a> {
     iter: Graphemes<'a>,
@@ -654,6 +664,7 @@ impl<'a> Iterator for GlyphIter<'a> {
 
 /// An implementation of a graphemes iterator, for iterating over
 /// the graphemes of a RopeSlice.
+// xxx
 #[derive(Debug)]
 pub struct RopeGraphemes<'a> {
     text: RopeSlice<'a>,
@@ -722,6 +733,7 @@ impl<'a> Iterator for RopeGraphemes<'a> {
 
 /// An implementation of a graphemes iterator, for iterating over
 /// the graphemes of a RopeSlice.
+// xxx
 #[derive(Debug)]
 pub struct RopeGraphemesIdx<'a> {
     text: RopeSlice<'a>,

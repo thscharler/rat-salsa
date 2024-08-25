@@ -4,14 +4,12 @@ use crate::text::graphemes::{
 };
 use crate::text::range_map::RangeMap;
 use crate::text::undo::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoVec};
-use log::debug;
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cmp::min;
 use std::fmt::{Debug, Formatter};
 use std::mem;
 use std::ops::{Range, RangeBounds};
-use std::time::SystemTime;
 
 /// Core for text editing.
 #[derive(Debug)]
@@ -42,6 +40,7 @@ pub struct TextAreaCore {
 }
 
 /// Exclusive range for text ranges.
+// xxx
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct TextRange {
     /// column, row
@@ -51,6 +50,7 @@ pub struct TextRange {
 }
 
 /// Text position.
+// xxx
 #[derive(Default, PartialEq, Eq, PartialOrd, Ord, Clone, Copy)]
 pub struct TextPosition {
     pub y: usize,
@@ -253,6 +253,7 @@ impl TextRange {
     }
 }
 
+// xxx
 impl Default for TextAreaCore {
     fn default() -> Self {
         Self {
@@ -270,6 +271,7 @@ impl Default for TextAreaCore {
     }
 }
 
+// xxx
 impl Clone for TextAreaCore {
     fn clone(&self) -> Self {
         Self {
@@ -298,12 +300,14 @@ impl TextAreaCore {
     /// move up one row, you might end at a position left of the current column.
     /// If you move up once more you want to return to the original position.
     /// That's what is stored here.
+    // xxx
     #[inline]
     pub fn set_move_col(&mut self, col: Option<usize>) {
         self.move_col = col;
     }
 
     /// Extra column information for cursor movement.
+    // xxx
     #[inline]
     pub fn move_col(&mut self) -> Option<usize> {
         self.move_col
@@ -314,12 +318,14 @@ impl TextAreaCore {
     ///
     /// Caution: If this doesn't match the line ending used in the value, you
     /// will get a value with mixed line endings.
+    // xxx
     #[inline]
     pub fn set_newline(&mut self, br: String) {
         self.newline = br;
     }
 
     /// Line ending used for insert.
+    // xxx
     #[inline]
     pub fn newline(&self) -> &str {
         &self.newline
@@ -327,36 +333,42 @@ impl TextAreaCore {
 
     /// Set the tab-width.
     /// Default is 8.
+    // xxx
     #[inline]
     pub fn set_tab_width(&mut self, tabs: u16) {
         self.tabs = tabs;
     }
 
     /// Tab-width
+    // xxx
     #[inline]
     pub fn tab_width(&self) -> u16 {
         self.tabs
     }
 
     /// Expand tabs to spaces. Only for new inputs.
+    // xxx
     #[inline]
     pub fn set_expand_tabs(&mut self, expand: bool) {
         self.expand_tabs = expand;
     }
 
     /// Expand tabs to spaces. Only for new inputs.
+    // xxx
     #[inline]
     pub fn expand_tabs(&self) -> bool {
         self.expand_tabs
     }
 
     /// Undo
+    // xxx
     #[inline]
     pub fn set_undo_buffer(&mut self, undo: Box<dyn UndoBuffer>) {
         self.undo = Some(undo);
     }
 
     /// Undo
+    // xxx
     #[inline]
     pub fn undo_buffer(&self) -> Option<&dyn UndoBuffer> {
         match &self.undo {
@@ -366,6 +378,7 @@ impl TextAreaCore {
     }
 
     /// Undo
+    // xxx
     #[inline]
     pub fn undo_buffer_mut(&mut self) -> Option<&mut dyn UndoBuffer> {
         match &mut self.undo {
@@ -375,6 +388,7 @@ impl TextAreaCore {
     }
 
     /// Undo last.
+    // xxx
     pub fn undo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
             return TextOutcome::Continue;
@@ -386,6 +400,7 @@ impl TextAreaCore {
     }
 
     /// Undo last.
+    // xxx
     fn _undo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
             return TextOutcome::Continue;
@@ -482,6 +497,7 @@ impl TextAreaCore {
     }
 
     /// Redo last.
+    // xxx
     pub fn redo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
             return TextOutcome::Continue;
@@ -492,6 +508,7 @@ impl TextAreaCore {
         self._redo()
     }
 
+    // xxx
     fn _redo(&mut self) -> TextOutcome {
         let Some(undo) = self.undo.as_mut() else {
             return TextOutcome::Continue;
@@ -587,6 +604,7 @@ impl TextAreaCore {
     }
 
     /// Get last replay recording.
+    // xxx
     pub fn recent_replay(&mut self) -> Vec<UndoEntry> {
         if let Some(undo) = &mut self.undo {
             undo.recent_replay()
@@ -596,6 +614,7 @@ impl TextAreaCore {
     }
 
     /// Replay a recording of changes.
+    // xxx
     pub fn replay(&mut self, replay: &[UndoEntry]) {
         for replay_entry in replay {
             match replay_entry {
@@ -666,6 +685,7 @@ impl TextAreaCore {
     }
 
     /// Set all styles.
+    // xxx
     #[inline]
     pub fn set_styles(&mut self, styles: Vec<(TextRange, usize)>) {
         if let Some(undo) = &mut self.undo {
@@ -683,6 +703,7 @@ impl TextAreaCore {
     ///
     /// What is given here is the index into the Vec with the actual Styles.
     /// Those are set at the widget.
+    // xxx
     #[inline]
     pub fn add_style(&mut self, range: TextRange, style: usize) {
         self.styles.add(range, style);
@@ -697,6 +718,7 @@ impl TextAreaCore {
     /// Remove a style for the given range.
     ///
     /// Range and style must match to be removed.
+    // xxx
     #[inline]
     pub fn remove_style(&mut self, range: TextRange, style: usize) {
         self.styles.remove(range, style);
@@ -721,6 +743,7 @@ impl TextAreaCore {
     }
 
     /// Finds all styles for the given position.
+    // xxx
     #[inline]
     pub fn styles_at(&self, pos: TextPosition, buf: &mut Vec<usize>) {
         self.styles.values_at(pos, buf)
@@ -728,12 +751,14 @@ impl TextAreaCore {
 
     /// Check if the given style applies at the position and
     /// return the complete range for the style.
+    // xxx
     #[inline]
     pub fn style_match(&self, pos: TextPosition, style: usize) -> Option<TextRange> {
         self.styles.value_match(pos, style)
     }
 
     /// List of all styles.
+    // xxx
     #[inline]
     pub fn styles(&self) -> impl Iterator<Item = (TextRange, usize)> + '_ {
         self.styles.values()
@@ -742,6 +767,7 @@ impl TextAreaCore {
     /// Set the cursor position.
     /// The value is capped to the number of text lines and the line-width for the given line.
     /// Returns true, if the cursor actually changed.
+    // xxx
     pub fn set_cursor(&mut self, mut cursor: TextPosition, extend_selection: bool) -> bool {
         let old_cursor = self.cursor;
         let old_anchor = self.anchor;
@@ -762,12 +788,14 @@ impl TextAreaCore {
     }
 
     /// Cursor position.
+    // xxx
     #[inline]
     pub fn cursor(&self) -> TextPosition {
         self.cursor
     }
 
     /// Selection anchor.
+    // xxx
     #[inline]
     pub fn anchor(&self) -> TextPosition {
         self.anchor
@@ -775,11 +803,13 @@ impl TextAreaCore {
 
     /// Set the text.
     /// Resets the selection and any styles.
+    // xxx
     pub fn set_value<S: AsRef<str>>(&mut self, s: S) {
         self.set_rope(Rope::from_str(s.as_ref()));
     }
 
     /// Copy of the text value.
+    // xxx
     #[inline]
     pub fn value(&self) -> String {
         String::from(&self.value)
@@ -787,6 +817,7 @@ impl TextAreaCore {
 
     /// Set the text value as a Rope.
     /// Resets the selection and any styles.
+    // xxx
     #[inline]
     pub fn set_rope(&mut self, value: Rope) {
         if let Some(undo) = &mut self.undo {
@@ -827,6 +858,7 @@ impl TextAreaCore {
     }
 
     /// A range of the text as RopeSlice.
+    // xxx
     pub fn rope_slice(&self, range: TextRange) -> Option<RopeSlice<'_>> {
         let s = self.char_at(range.start)?;
         let e = self.char_at(range.end)?;
@@ -834,6 +866,7 @@ impl TextAreaCore {
     }
 
     /// A range of the text as Cow<str>
+    // xxx
     pub fn str_slice(&self, range: TextRange) -> Option<Cow<'_, str>> {
         let s = self.rope_slice(range)?;
         if let Some(str) = s.as_str() {
@@ -844,6 +877,7 @@ impl TextAreaCore {
     }
 
     /// Value as Bytes iterator.
+    // xxx
     pub fn byte_slice<R>(&self, byte_range: R) -> RopeSlice<'_>
     where
         R: RangeBounds<usize>,
@@ -870,12 +904,14 @@ impl TextAreaCore {
     }
 
     /// Line as RopeSlice
+    // xxx
     #[inline]
     pub fn line_at(&self, n: usize) -> Option<RopeSlice<'_>> {
         self.value.get_line(n)
     }
 
     /// Iterate over text-lines, starting at offset.
+    // xxx
     #[inline]
     pub fn lines_at(&self, n: usize) -> impl Iterator<Item = RopeSlice<'_>> {
         self.value.lines_at(n)
@@ -883,6 +919,7 @@ impl TextAreaCore {
 
     /// Iterator for the glyphs of a given line.
     /// Glyphs here a grapheme + display length.
+    // xxx
     #[inline]
     pub fn line_glyphs(&self, n: usize) -> Option<RopeGlyphIter<'_>> {
         let mut lines = self.value.get_lines_at(n)?;
@@ -897,6 +934,7 @@ impl TextAreaCore {
 
     /// Returns a line as an iterator over the graphemes for the line.
     /// This contains the \n at the end.
+    // xxx
     #[inline]
     pub fn line_graphemes(&self, n: usize) -> Option<impl Iterator<Item = RopeSlice<'_>>> {
         let mut lines = self.value.get_lines_at(n)?;
@@ -908,6 +946,7 @@ impl TextAreaCore {
     }
 
     /// Iterator for the chars of a given line.
+    // xxx
     #[inline]
     pub fn line_chars(&self, n: usize) -> Option<impl Iterator<Item = char> + '_> {
         let mut lines = self.value.get_lines_at(n)?;
@@ -930,6 +969,7 @@ impl TextAreaCore {
     }
 
     /// Line width as grapheme count. Excludes the terminating '\n'.
+    // xxx
     #[inline]
     pub fn line_width(&self, n: usize) -> Option<usize> {
         let mut lines = self.value.get_lines_at(n)?;
@@ -942,6 +982,7 @@ impl TextAreaCore {
     }
 
     /// Reset.
+    // xxx
     #[inline]
     pub fn clear(&mut self) -> bool {
         if self.is_empty() {
@@ -953,23 +994,27 @@ impl TextAreaCore {
     }
 
     /// Empty.
+    // xxx
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.len_bytes() == 0
     }
 
     /// Number of lines.
+    // xxx
     #[inline]
     pub fn len_lines(&self) -> usize {
         self.value.len_lines()
     }
 
     /// Any text selection.
+    // xxx
     #[inline]
     pub fn has_selection(&self) -> bool {
         self.anchor != self.cursor
     }
 
+    // xxx
     #[inline]
     pub fn set_selection(&mut self, range: TextRange) -> bool {
         let old_selection = self.selection();
@@ -980,6 +1025,7 @@ impl TextAreaCore {
         old_selection != self.selection()
     }
 
+    // xxx
     #[inline]
     pub fn select_all(&mut self) -> bool {
         let old_selection = self.selection();
@@ -993,6 +1039,7 @@ impl TextAreaCore {
     }
 
     /// Returns the selection as TextRange.
+    // xxx
     pub fn selection(&self) -> TextRange {
         #[allow(clippy::comparison_chain)]
         if self.cursor.y < self.anchor.y {
@@ -1041,6 +1088,7 @@ impl TextAreaCore {
     /// Returns a line as an iterator over the graphemes for the line.
     /// This contains the \n at the end.
     /// Returns byte-start and byte-end position and the grapheme.
+    // xxx
     #[inline]
     fn line_grapheme_idx(
         &self,
@@ -1057,6 +1105,7 @@ impl TextAreaCore {
 
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
+    // xxx
     pub fn byte_pos(&self, byte: usize) -> Option<TextPosition> {
         let Ok(y) = self.value.try_byte_to_line(byte) else {
             return None;
@@ -1081,6 +1130,7 @@ impl TextAreaCore {
 
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
+    // xxx
     pub fn byte_at(&self, pos: TextPosition) -> Option<Range<usize>> {
         let Ok(line_byte) = self.value.try_line_to_byte(pos.y) else {
             return None;
@@ -1115,12 +1165,14 @@ impl TextAreaCore {
     }
 
     /// Returns the first char position for the grapheme position.
+    // xxx
     pub fn char_at(&self, pos: TextPosition) -> Option<usize> {
         let byte_range = self.byte_at(pos)?;
         self.value.try_byte_to_char(byte_range.start).ok()
     }
 
     /// Insert a character.
+    // xxx
     pub fn insert_tab(&mut self, mut pos: TextPosition) {
         if self.expand_tabs {
             let n = self.tabs as usize - pos.x % self.tabs as usize;
@@ -1134,6 +1186,7 @@ impl TextAreaCore {
     }
 
     /// Insert a line break.
+    // xxx
     pub fn insert_newline(&mut self, mut pos: TextPosition) {
         for c in self.newline.clone().chars() {
             self.insert_char(pos, c);
@@ -1142,6 +1195,7 @@ impl TextAreaCore {
     }
 
     /// Insert a character.
+    // xxx
     pub fn insert_char(&mut self, pos: TextPosition, c: char) {
         let Some(char_pos) = self.char_at(pos) else {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
@@ -1191,6 +1245,7 @@ impl TextAreaCore {
     }
 
     /// Insert some text.
+    // xxx
     pub fn insert_str(&mut self, pos: TextPosition, t: &str) {
         let Some(char_pos) = self.char_at(pos) else {
             panic!("invalid pos {:?} value {:?}", pos, self.value);
@@ -1269,6 +1324,7 @@ impl TextAreaCore {
     }
 
     /// Remove the previous character
+    // xxx
     pub fn remove_prev_char(&mut self, pos: TextPosition) -> bool {
         let (sx, sy) = if pos.y == 0 && pos.x == 0 {
             (0, 0)
@@ -1285,6 +1341,7 @@ impl TextAreaCore {
     }
 
     /// Remove the next character
+    // xxx
     pub fn remove_next_char(&mut self, pos: TextPosition) -> bool {
         let c_line_width = self.line_width(pos.y).expect("width");
         let c_last_line = self.len_lines() - 1;
@@ -1302,13 +1359,14 @@ impl TextAreaCore {
     }
 
     /// Remove the given range.
+    // xxx
     pub fn remove_range(&mut self, range: TextRange) -> bool {
         self._remove_range(range, false)
     }
 
     /// Remove the given range.
+    // xxx
     fn _remove_range(&mut self, range: TextRange, char_range: bool) -> bool {
-        let t0 = SystemTime::now();
         let Some(start_pos) = self.char_at(range.start) else {
             panic!("invalid range {:?} value {:?}", range, self.value);
         };
@@ -1324,13 +1382,7 @@ impl TextAreaCore {
         let old_anchor = self.anchor;
         let old_text = self.rope_slice(range).expect("some text").to_string();
 
-        debug!("prepare {:?}", t0.elapsed());
-        let t0 = SystemTime::now();
-
         self.value.remove(start_pos..end_pos);
-
-        debug!("remove {:?}", t0.elapsed());
-        let t0 = SystemTime::now();
 
         // remove deleted styles.
         let mut changed_style = Vec::new();
@@ -1353,10 +1405,6 @@ impl TextAreaCore {
         });
         self.anchor = range.shrink_pos(self.anchor);
         self.cursor = range.shrink_pos(self.anchor);
-
-        debug!("remap {:?}", t0.elapsed());
-        debug!("changed styles {:?}", changed_style);
-        let t0 = SystemTime::now();
 
         if let Some(undo) = &mut self.undo {
             if char_range {
@@ -1391,8 +1439,6 @@ impl TextAreaCore {
                 });
             }
         }
-
-        debug!("undo {:?}", t0.elapsed());
 
         true
     }

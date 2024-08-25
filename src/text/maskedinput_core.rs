@@ -203,6 +203,7 @@ impl EditDirection {
     }
 }
 
+// xxx
 impl Mask {
     /// is not editable. the last field of the mask at position txt.len() can not be edited,
     /// but it's a valid cursor position.
@@ -371,7 +372,7 @@ impl Mask {
         }
     }
 
-    // mask should overwrite instead of insert
+    // mask should overwrite instead of insert+drop end
     fn can_overwrite(&self, c: &str) -> bool {
         match self {
             Mask::Digit0(_) | Mask::Digit(_) | Mask::Numeric(_) => false,
@@ -543,16 +544,19 @@ impl Debug for MaskToken {
 
 impl MaskToken {
     /// Number range as Range.
+    // xxx
     fn nr_range(&self) -> Range<usize> {
         self.nr_start..self.nr_end
     }
 
     /// Range as Range.
+    // xxx
     fn range(&self) -> Range<usize> {
         self.sec_start..self.sec_end
     }
 
     /// Create a string with the default edit mask.
+    // xxx
     fn empty_section(mask: &[MaskToken]) -> String {
         let mut buf = String::new();
         for m in mask {
@@ -561,6 +565,7 @@ impl MaskToken {
         buf
     }
 
+    // xxx
     fn remap_number(submask: &[MaskToken], v: &str) -> String {
         // to be safe, always use our internal symbol set.
         let sym = NumberSymbols {
@@ -654,6 +659,7 @@ impl MaskedInputCore {
 
     /// Place cursor at decimal separator, if any.
     /// 0 otherwise.
+    // xxx
     #[inline]
     pub fn set_default_cursor(&mut self) {
         'f: {
@@ -685,6 +691,7 @@ impl MaskedInputCore {
     /// No checks if the value conforms to the mask.
     /// If the value is too short it will be filled with space.
     /// if the value is too long it will be truncated.
+    // xxx
     #[allow(clippy::comparison_chain)]
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         let mut value = s.into();
@@ -711,6 +718,7 @@ impl MaskedInputCore {
     }
 
     /// Create a default value according to the mask.
+    // xxx
     #[inline]
     pub fn default_value(&self) -> String {
         MaskToken::empty_section(&self.mask)
@@ -732,6 +740,7 @@ impl MaskedInputCore {
 
     /// Reset value but not the mask and width.
     /// Resets offset and cursor position too.
+    // xxx
     #[inline]
     pub fn clear(&mut self) {
         self.set_value(self.default_value());
@@ -739,6 +748,7 @@ impl MaskedInputCore {
     }
 
     /// Is equal to the default value.
+    // xxx
     #[inline]
     pub fn is_empty(&self) -> bool {
         for (m, c) in self.mask.iter().zip(self.value.graphemes(true)) {
@@ -874,12 +884,14 @@ impl MaskedInputCore {
     /// Set the decimal separator and other symbols.
     /// Only used for rendering and to map user input.
     /// The value itself uses "."
+    // xxx
     pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
         self.sym = Some(sym);
     }
 
     /// Changes the mask.
     /// Resets the value to a default.
+    // xxx
     pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
         self.mask = parse_mask(s.as_ref())?;
         self.set_value(MaskToken::empty_section(&self.mask));
@@ -887,6 +899,7 @@ impl MaskedInputCore {
     }
 
     /// Return the mask.
+    // xxx
     pub fn mask(&self) -> String {
         use std::fmt::Write;
 
@@ -898,6 +911,7 @@ impl MaskedInputCore {
     }
 
     /// Set the mask that is shown.
+    // xxx
     pub fn set_display_mask<S: Into<String>>(&mut self, s: S) {
         let display_mask = s.into();
 
@@ -915,6 +929,7 @@ impl MaskedInputCore {
     }
 
     /// Display mask
+    // xxx
     pub fn display_mask(&self) -> String {
         let mut buf = String::new();
         for t in &self.mask {
@@ -924,6 +939,7 @@ impl MaskedInputCore {
     }
 
     /// Value without whitespace and grouping separators. Might be easier to parse.
+    // xxx
     pub fn compact_value(&self) -> String {
         let mut buf = String::new();
         for (c, m) in self.value.graphemes(true).zip(self.mask.iter()) {
@@ -935,6 +951,7 @@ impl MaskedInputCore {
     }
 
     /// Create the rendered value.
+    // xxx
     #[allow(unused_variables)]
     pub fn render_value(&mut self) {
         self.rendered.clear();
@@ -1059,6 +1076,7 @@ impl MaskedInputCore {
     }
 
     /// Create the rendered value.
+    // xxx
     #[allow(unused_variables)]
     pub fn render_condensed_value(&mut self) {
         self.rendered.clear();
@@ -1250,6 +1268,7 @@ impl MaskedInputCore {
 }
 
 impl MaskedInputCore {
+    // xxx
     fn dec_sep(&self) -> char {
         if let Some(sym) = &self.sym {
             sym.decimal_sep
@@ -1258,6 +1277,7 @@ impl MaskedInputCore {
         }
     }
 
+    // xxx
     fn grp_sep(&self) -> char {
         if let Some(sym) = &self.sym {
             if let Some(grp) = sym.decimal_grp {
@@ -1273,6 +1293,7 @@ impl MaskedInputCore {
         }
     }
 
+    // xxx
     fn neg_sym(&self) -> char {
         if let Some(sym) = &self.sym {
             sym.negative_sym
@@ -1281,6 +1302,7 @@ impl MaskedInputCore {
         }
     }
 
+    // xxx
     fn pos_sym(&self) -> char {
         if let Some(sym) = &self.sym {
             sym.positive_sym
@@ -1293,6 +1315,7 @@ impl MaskedInputCore {
 impl MaskedInputCore {
     /// Start at the cursor position and find a valid insert position for the input c.
     /// Put the cursor at that position.
+    // xxx
     #[allow(clippy::if_same_then_else)]
     pub fn advance_cursor(&mut self, c: char) {
         let mut new_cursor = self.cursor;
@@ -1365,6 +1388,7 @@ impl MaskedInputCore {
     }
 
     /// Use mapped-char instead of input.
+    // xxx
     fn map_input_c(&self, mask: &Mask, c: char) -> char {
         match mask {
             Mask::Numeric(_) => {
@@ -1399,6 +1423,7 @@ impl MaskedInputCore {
     }
 
     /// Valid input for this mask.
+    // xxx
     fn is_valid_c(&self, mask: &Mask, c: char) -> bool {
         match mask {
             Mask::Digit0(_) => c.is_ascii_digit(),
@@ -1438,6 +1463,7 @@ impl MaskedInputCore {
     }
 
     // Can insert one more digit into the field to the left.
+    // xxx
     #[inline]
     fn can_skip_left_in_fraction(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
         let (_b, a) = split_at(&self.value, new_cursor - 1);
@@ -1446,6 +1472,7 @@ impl MaskedInputCore {
     }
 
     // Can input a sign here?
+    // xxx
     #[inline]
     fn can_edit_sign(&self, mask: &MaskToken, c: char) -> bool {
         if !self.is_valid_c(&Mask::Sign, c) {
@@ -1471,6 +1498,7 @@ impl MaskedInputCore {
     }
 
     // Is this the correct input position for a rtol field
+    // xxx
     #[inline]
     fn is_integer_insert_pos(&self, mask: &MaskToken, new_cursor: usize, c: char) -> bool {
         let (_b, a) = split_at(&self.value, new_cursor);
@@ -1481,6 +1509,7 @@ impl MaskedInputCore {
     }
 
     // Can edit the field left of the cursor.
+    // xxx
     #[inline]
     fn can_edit_left_integer(&self, new_cursor: usize, c: char) -> bool {
         let left = &self.mask[new_cursor - 1];
@@ -1497,6 +1526,7 @@ impl MaskedInputCore {
     /// `advance_cursor()` must be called before for correct functionality.
     ///
     /// Otherwise: your mileage might vary.
+    // xxx
     pub fn insert_char(&mut self, c: char) {
         // let mask = &self.mask[self.cursor];
         // debug!("// INSERT CHAR {:?} {:?}", mask, c);
@@ -1556,6 +1586,7 @@ impl MaskedInputCore {
     }
 
     /// Insert c into a ltor section.
+    // xxx
     fn insert_ltor(&mut self, c: char) -> bool {
         let mask = &self.mask[self.cursor];
         let mask9 = &self.mask[mask.sec_end - 1];
@@ -1596,6 +1627,7 @@ impl MaskedInputCore {
     }
 
     /// Insert c into a rtol section
+    // xxx
     fn insert_rtol(&mut self, c: char) -> bool {
         let mut mask = &self.mask[self.cursor];
         // boundary right/left. prefer right, change mask.
@@ -1629,6 +1661,7 @@ impl MaskedInputCore {
     }
 
     /// Insert a sign c into the current number section
+    // xxx
     #[allow(clippy::single_match)]
     fn insert_sign(&mut self, c: char) -> bool {
         let mut mask = &self.mask[self.cursor];
@@ -1814,6 +1847,7 @@ impl MaskedInputCore {
     }
 
     /// Remove the previous char.
+    // xxx
     pub fn remove_prev(&mut self) {
         if self.cursor == 0 {
             return;
@@ -1887,6 +1921,7 @@ impl MaskedInputCore {
     }
 
     /// Remove the next char.
+    // xxx
     pub fn remove_next(&mut self) {
         if self.cursor == self.mask.len() - 1 {
             return;
@@ -1960,6 +1995,7 @@ impl MaskedInputCore {
     }
 }
 
+// xxx
 #[allow(clippy::needless_range_loop)]
 fn parse_mask(mask_str: &str) -> Result<Vec<MaskToken>, fmt::Error> {
     let mut out = Vec::<MaskToken>::new();

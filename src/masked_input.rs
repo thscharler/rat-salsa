@@ -325,10 +325,12 @@ impl Default for MaskedInputState {
 }
 
 impl MaskedInputState {
+    // xxx
     pub fn new() -> Self {
         Self::default()
     }
 
+    // xxx
     pub fn named(name: &str) -> Self {
         Self {
             focus: FocusFlag::named(name),
@@ -337,6 +339,7 @@ impl MaskedInputState {
     }
 
     /// With localized symbols for number formatting.
+    // xxx
     #[inline]
     pub fn with_symbols(mut self, sym: NumberSymbols) -> Self {
         self.set_num_symbols(sym);
@@ -344,24 +347,28 @@ impl MaskedInputState {
     }
 
     /// With input mask.
+    // xxx
     pub fn with_mask<S: AsRef<str>>(mut self, mask: S) -> Result<Self, fmt::Error> {
         self.value.set_mask(mask.as_ref())?;
         Ok(self)
     }
 
     /// Renders the widget in invalid style.
+    // xxx
     #[inline]
     pub fn set_invalid(&mut self, invalid: bool) {
         self.invalid = invalid;
     }
 
     /// Renders the widget in invalid style.
+    // xxx
     #[inline]
     pub fn get_invalid(&self) -> bool {
         self.invalid
     }
 
     /// Reset to empty.
+    // xxx
     #[inline]
     pub fn clear(&mut self) -> bool {
         if self.is_empty() {
@@ -374,24 +381,28 @@ impl MaskedInputState {
     }
 
     /// Offset shown.
+    // xxx
     #[inline]
     pub fn offset(&self) -> usize {
         self.offset
     }
 
     /// Offset shown. This is corrected if the cursor wouldn't be visible.
+    // xxx
     #[inline]
     pub fn set_offset(&mut self, offset: usize) {
         self.offset = offset;
     }
 
     /// Cursor position.
+    // xxx
     #[inline]
     pub fn cursor(&self) -> usize {
         self.value.cursor()
     }
 
     /// Set the cursor position, reset selection.
+    // xxx
     #[inline]
     pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) -> bool {
         self.value.set_cursor(cursor, extend_selection)
@@ -399,18 +410,21 @@ impl MaskedInputState {
 
     /// Place cursor at the decimal separator, if any.
     /// 0 otherwise.
+    // xxx
     #[inline]
     pub fn set_default_cursor(&mut self) {
         self.value.set_default_cursor();
     }
 
     /// Selection anchor.
+    // xxx
     #[inline]
     pub fn anchor(&self) -> usize {
         self.value.anchor()
     }
 
     /// Value with all punctuation and default values according to the mask type.
+    // xxx
     #[inline]
     pub fn value(&self) -> &str {
         self.value.value()
@@ -427,6 +441,7 @@ impl MaskedInputState {
     /// No checks if the value conforms to the mask.
     /// If the value is too short it will be filled with space.
     /// if the value is too long it will be truncated.
+    // xxx
     #[inline]
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         self.offset = 0;
@@ -434,48 +449,56 @@ impl MaskedInputState {
     }
 
     /// Empty
+    // xxx
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
 
     /// Length as grapheme count.
+    // xxx
     #[inline]
     pub fn len(&self) -> usize {
         self.value.len()
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn has_selection(&self) -> bool {
         self.value.has_selection()
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn selection(&self) -> Range<usize> {
         self.value.selection()
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
         self.value.set_selection(anchor, cursor)
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn select_all(&mut self) -> bool {
         self.value.select_all()
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn selected_value(&self) -> &str {
         split3(self.value.value(), self.value.selection()).1
     }
 
     /// Change the offset in a way that the cursor is visible.
+    // xxx
     pub fn scroll_cursor_to_visible(&mut self) -> bool {
         let old_offset = self.offset();
 
@@ -496,6 +519,7 @@ impl MaskedInputState {
     }
 
     /// Insert a char at the current position.
+    // xxx
     #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
         if self.value.has_selection() {
@@ -521,6 +545,7 @@ impl MaskedInputState {
 
     /// Remove the selected range. The text will be replaced with the default value
     /// as defined by the mask.
+    // xxx
     #[inline]
     pub fn delete_range(&mut self, range: Range<usize>) -> bool {
         if !range.is_empty() {
@@ -611,6 +636,7 @@ impl MaskedInputState {
     }
 
     /// Delete the char before the cursor.
+    // xxx
     #[inline]
     pub fn delete_prev_char(&mut self) -> bool {
         if self.has_selection() {
@@ -625,6 +651,7 @@ impl MaskedInputState {
     }
 
     /// Delete the char after the cursor.
+    // xxx
     #[inline]
     pub fn delete_next_char(&mut self) -> bool {
         if self.has_selection() {
@@ -657,6 +684,7 @@ impl MaskedInputState {
     }
 
     /// Move to the next char.
+    // xxx
     #[inline]
     pub fn move_to_next(&mut self, extend_selection: bool) -> bool {
         let c = min(self.cursor() + 1, self.len());
@@ -666,6 +694,7 @@ impl MaskedInputState {
     }
 
     /// Move to the previous char.
+    // xxx
     #[inline]
     pub fn move_to_prev(&mut self, extend_selection: bool) -> bool {
         let c = self.cursor().saturating_sub(1);
@@ -675,6 +704,7 @@ impl MaskedInputState {
     }
 
     /// Start of line
+    // xxx
     #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
         let c = self.set_cursor(0, extend_selection);
@@ -683,6 +713,7 @@ impl MaskedInputState {
     }
 
     /// End of line
+    // xxx
     #[inline]
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
         let c = self.len();
@@ -693,6 +724,7 @@ impl MaskedInputState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
+    // xxx
     pub fn to_screen_col(&self, pos: usize) -> Option<u16> {
         let px = pos;
         let ox = self.offset();
@@ -707,6 +739,7 @@ impl MaskedInputState {
 
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
+    // xxx
     pub fn from_screen_col(&self, scx: i16) -> usize {
         let ox = self.offset();
 
@@ -737,6 +770,7 @@ impl MaskedInputState {
     /// Set the cursor position from a screen position relative to the origin
     /// of the widget. This value can be negative, which selects a currently
     /// not visible position and scrolls to it.
+    // xxx
     #[inline]
     pub fn set_screen_cursor(&mut self, cursor: i16, extend_selection: bool) -> bool {
         let scx = cursor;
@@ -749,6 +783,7 @@ impl MaskedInputState {
     }
 
     /// The current text cursor as an absolute screen position.
+    // xxx
     #[inline]
     pub fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
@@ -774,6 +809,7 @@ impl MaskedInputState {
     ///
     /// These are only used for rendering and to map user input.
     /// The value itself uses ".", "," and "-".
+    // xxx
     #[inline]
     pub fn set_num_symbols(&mut self, sym: NumberSymbols) {
         self.value.set_num_symbols(sym);
@@ -829,12 +865,14 @@ impl MaskedInputState {
     /// * all other ascii characters a reserved.
     ///
     /// Inspired by <https://support.microsoft.com/en-gb/office/control-data-entry-formats-with-input-masks-e125997a-7791-49e5-8672-4a47832de8da>
+    // xxx
     #[inline]
     pub fn set_mask<S: AsRef<str>>(&mut self, s: S) -> Result<(), fmt::Error> {
         self.value.set_mask(s)
     }
 
     /// Display mask.
+    // xxx
     #[inline]
     pub fn mask(&self) -> String {
         self.value.mask()

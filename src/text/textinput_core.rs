@@ -30,6 +30,7 @@ impl TextInputCore {
 
     /// Cursor position as grapheme-idx. Moves the cursor to the new position,
     /// but can leave the current cursor position as anchor of the selection.
+    // xxx
     #[inline]
     pub fn set_cursor(&mut self, cursor: usize, extend_selection: bool) -> bool {
         let old_selection = (self.cursor, self.anchor);
@@ -52,18 +53,21 @@ impl TextInputCore {
     }
 
     /// Cursor position as grapheme-idx.
+    // xxx
     #[inline]
     pub fn cursor(&self) -> usize {
         self.cursor
     }
 
     /// Selection anchor
+    // xxx
     #[inline]
     pub fn anchor(&self) -> usize {
         self.anchor
     }
 
     /// Set the value. Resets cursor and anchor to 0.
+    // xxx
     #[inline]
     pub fn set_value<S: Into<String>>(&mut self, s: S) {
         self.value = s.into();
@@ -80,12 +84,14 @@ impl TextInputCore {
     }
 
     /// Value
+    // xxx
     #[inline]
     pub fn value(&self) -> &str {
         self.value.as_str()
     }
 
     /// Value as glyph iterator.
+    // xxx
     #[inline]
     pub fn value_glyphs(&self) -> GlyphIter<'_> {
         GlyphIter::new(self.value())
@@ -93,6 +99,7 @@ impl TextInputCore {
 
     /// Reset value to an empty default.
     /// Resets offset and cursor position too.
+    // xxx
     #[inline]
     pub fn clear(&mut self) {
         self.set_value(self.default_value());
@@ -100,24 +107,28 @@ impl TextInputCore {
     }
 
     /// Is equal to the default value.
+    // xxx
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.value.is_empty()
     }
 
     /// Value length as grapheme-count
+    // xxx
     #[inline]
     pub fn len(&self) -> usize {
         self.len
     }
 
     /// Is there a selection.
+    // xxx
     #[inline]
     pub fn has_selection(&self) -> bool {
         self.anchor != self.cursor
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn set_selection(&mut self, anchor: usize, cursor: usize) -> bool {
         let old_selection = self.selection();
@@ -129,6 +140,7 @@ impl TextInputCore {
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn select_all(&mut self) -> bool {
         let old_selection = self.selection();
@@ -140,6 +152,7 @@ impl TextInputCore {
     }
 
     /// Selection.
+    // xxx
     #[inline]
     pub fn selection(&self) -> Range<usize> {
         if self.cursor < self.anchor {
@@ -168,6 +181,7 @@ impl TextInputCore {
     }
 
     /// Convert the byte-position to a grapheme position.
+    // xxx
     pub fn byte_pos(&self, byte_pos: usize) -> Option<usize> {
         let mut pos = None;
 
@@ -228,6 +242,7 @@ impl TextInputCore {
 
 impl TextInputCore {
     /// Insert a char at the position.
+    // xxx
     pub fn insert_char(&mut self, pos: usize, new: char) -> bool {
         let old_len = self.len;
         let (before, after) = split_at(&self.value, pos);
@@ -252,6 +267,7 @@ impl TextInputCore {
     }
 
     /// Insert a char at the position.
+    // xx
     pub fn insert_str(&mut self, pos: usize, new: &str) -> bool {
         let (before, after) = split_at(&self.value, pos);
 
@@ -277,6 +293,7 @@ impl TextInputCore {
     }
 
     /// Remove the range.
+    // xxx
     pub fn remove_range(&mut self, range: Range<usize>) -> bool {
         let (before_str, _remove_str, after_str) = split3(self.value.as_str(), range.clone());
 
