@@ -398,7 +398,7 @@ impl MaskedCore {
             return None;
         }
 
-        let mut mask = &self.mask[cursor as usize];
+        let mask = &self.mask[cursor as usize];
 
         if mask.right.is_number() {
             Some(self.number_cursor(mask.nr_start..mask.nr_end))
@@ -484,7 +484,7 @@ impl MaskedCore {
             return None;
         }
 
-        let mut mask = &self.mask[cursor as usize];
+        let mask = &self.mask[cursor as usize];
         if mask.right.is_number() {
             Some(mask.nr_start..mask.nr_end)
         } else if mask.right.is_separator() {

@@ -469,6 +469,7 @@ impl MaskedInputState {
 
 impl MaskedInputState {
     /// Clipboard
+    #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
         match clip {
             None => self.value.set_clipboard(None),
@@ -477,11 +478,13 @@ impl MaskedInputState {
     }
 
     /// Clipboard
+    #[inline]
     pub fn clipboard(&self) -> Option<&dyn Clipboard> {
         self.value.clipboard()
     }
 
     /// Copy to internal buffer
+    #[inline]
     pub fn copy_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -493,6 +496,7 @@ impl MaskedInputState {
     }
 
     /// Cut to internal buffer
+    #[inline]
     pub fn cut_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -507,6 +511,7 @@ impl MaskedInputState {
     }
 
     /// Paste from internal buffer.
+    #[inline]
     pub fn paste_from_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -525,6 +530,7 @@ impl MaskedInputState {
 
 impl MaskedInputState {
     /// Set undo buffer.
+    #[inline]
     pub fn set_undo_buffer(&mut self, undo: Option<impl UndoBuffer + 'static>) {
         match undo {
             None => self.value.set_undo_buffer(None),
@@ -545,21 +551,25 @@ impl MaskedInputState {
     }
 
     /// Get all recent replay recordings.
+    #[inline]
     pub fn recent_replay_log(&mut self) -> Vec<UndoEntry> {
         self.value.recent_replay_log()
     }
 
     /// Apply the replay recording.
+    #[inline]
     pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         self.value.replay_log(replay)
     }
 
     /// Undo operation
+    #[inline]
     pub fn undo(&mut self) -> bool {
         self.value.undo()
     }
 
     /// Redo operation
+    #[inline]
     pub fn redo(&mut self) -> bool {
         self.value.redo()
     }

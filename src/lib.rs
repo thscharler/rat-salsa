@@ -3,6 +3,8 @@ use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
 
 pub mod clipboard;
+pub mod date_input;
+pub mod number_input;
 pub mod text_area;
 pub mod text_input;
 pub mod text_input_mask;
