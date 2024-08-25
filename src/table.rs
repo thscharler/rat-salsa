@@ -1566,8 +1566,6 @@ impl<Selection> TableState<Selection> {
     ///
     /// Attention: These areas might be 0-length if the column is scrolled
     /// beyond the table-area.
-    ///
-    /// See: [TableState::scroll_to]
     pub fn row_cells(&self, row: usize) -> Option<(Rect, Vec<Rect>)> {
         if row < self.vscroll.offset() || row >= self.vscroll.offset() + self.vscroll.page_len() {
             return None;

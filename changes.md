@@ -1,3 +1,16 @@
+# 0.17.0
+
+* break: horizontal scrolling scroll cell-wise instead of column-wise.
+    * adds Table::auto_layout_width
+    * adds TableState:::scroll_to_col
+* break: rename FTable to plain Table
+
+* feature: TableState::items_added() and TableState::items_removed() to
+  update part of the state to reflect changes in the data. Sometimes
+  useful.
+* fix: TableState::select() must not constrain the selection.
+* fix: panics with offsets near usize::MAX
+
 # 0.16.0
 
 * refactor: replace Scrolled widget with internal handling via Scroll<'a>.
