@@ -1549,6 +1549,7 @@ impl MaskedCore {
                         &MaskToken::empty_section(fill_after),
                     )
                     .expect("valid_range");
+                Self::reformat(&mut self.masked, &self.mask, mask.sec_start..mask.sec_end);
                 self.masked.end_undo_seq();
             }
 
