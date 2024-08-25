@@ -1289,7 +1289,7 @@ impl MaskedCore {
             .iter()
             .enumerate()
             .find(|(_, t)| matches!(t.right, Mask::Sign | Mask::Plus))
-            .map(|(i, _)| i);
+            .map(|(i, _)| mask.nr_start as usize + i);
 
         // existing sign somewhere?
         let idx = if idx.is_none() {
@@ -1301,7 +1301,7 @@ impl MaskedCore {
                 .expect("valid_range")
                 .enumerate()
                 .find(|(_, g)| *g == "-" || *g == "+")
-                .map(|(i, _)| i)
+                .map(|(i, _)| mask.nr_start as usize + i)
         } else {
             idx
         };
