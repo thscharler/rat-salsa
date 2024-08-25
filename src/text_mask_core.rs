@@ -1203,6 +1203,12 @@ impl MaskedCore {
                 };
                 self.masked.end_undo_seq();
                 return r;
+            } else if mask.right == Mask::DecimalSep {
+                self.masked.begin_undo_seq();
+                self.masked
+                    .set_cursor(TextPosition::new(cursor.x + 1, 0), false);
+                self.masked.end_undo_seq();
+                return true;
             } else {
                 self.masked.begin_undo_seq();
                 self.masked
