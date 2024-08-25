@@ -58,7 +58,7 @@ impl<Store: Clone> Clone for TextCore<Store> {
 }
 
 impl<Store: TextStore + Default> TextCore<Store> {
-    pub(crate) fn new(undo: Option<Box<dyn UndoBuffer>>, clip: Option<Box<dyn Clipboard>>) -> Self {
+    pub fn new(undo: Option<Box<dyn UndoBuffer>>, clip: Option<Box<dyn Clipboard>>) -> Self {
         Self {
             text: Store::default(),
             cursor: Default::default(),

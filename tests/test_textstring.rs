@@ -4,7 +4,7 @@ use rat_text::{TextError, TextPosition, TextRange};
 #[test]
 fn test_string1() {
     // positions
-    let s = TextString::new_text("asdfg").expect("fine");
+    let s = TextString::new_text("asdfg");
 
     assert_eq!(s.line_width(0).unwrap(), 5);
 
@@ -38,7 +38,7 @@ fn test_string1() {
 #[test]
 fn test_string1_2() {
     // positions
-    let s = TextString::new_text("aöa").unwrap();
+    let s = TextString::new_text("aöa");
 
     assert_eq!(s.byte_range_at(TextPosition::new(0, 0)).unwrap(), 0..1);
     assert_eq!(s.byte_range_at(TextPosition::new(1, 0)).unwrap(), 1..3);
@@ -55,7 +55,7 @@ fn test_string1_2() {
 #[test]
 fn test_string2() {
     // different status
-    let s = TextString::new_text("asöfg").expect("fine");
+    let s = TextString::new_text("asöfg");
 
     assert_eq!(s.str_slice(TextRange::new((1, 0), (3, 0))).unwrap(), "sö");
 
@@ -72,26 +72,26 @@ fn test_string2() {
 #[test]
 fn test_string3() {
     // grapheme
-    let s = TextString::new_text("asöfg").expect("fine");
+    let s = TextString::new_text("asöfg");
 
     let mut g = s
         .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(1, 0))
         .unwrap();
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 0..1);
+    assert_eq!(gg.text_bytes(), 0..1);
     assert_eq!(gg.grapheme(), "s");
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 1..3);
+    assert_eq!(gg.text_bytes(), 1..3);
     assert_eq!(gg.grapheme(), "ö");
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 3..4);
+    assert_eq!(gg.text_bytes(), 3..4);
     assert_eq!(gg.grapheme(), "f");
     assert_eq!(g.next(), None);
 }
 
 #[test]
 fn test_string4() {
-    let mut s = TextString::new_text("asöfg").expect("fine");
+    let mut s = TextString::new_text("asöfg");
 
     assert_eq!(
         (TextRange::new((0, 0), (1, 0)), 0..1),
@@ -110,7 +110,7 @@ fn test_string4() {
 
 #[test]
 fn test_string5() {
-    let mut s = TextString::new_text("asöfg").expect("fine");
+    let mut s = TextString::new_text("asöfg");
 
     assert_eq!(
         (TextRange::new((0, 0), (2, 0)), 0..2),
@@ -129,14 +129,14 @@ fn test_string5() {
 
 #[test]
 fn test_string6() {
-    let mut s = TextString::new_text("asöfg").expect("fine");
+    let mut s = TextString::new_text("asöfg");
     assert_eq!(
         ("s".to_string(), (TextRange::new((1, 0), (2, 0)), 1..2)),
         s.remove(TextRange::new((1, 0), (2, 0))).unwrap()
     );
     assert_eq!(s.string(), "aöfg");
 
-    let mut s = TextString::new_text("asöfg").expect("fine");
+    let mut s = TextString::new_text("asöfg");
     assert_eq!(
         ("asöfg".to_string(), (TextRange::new((0, 0), (5, 0)), 0..6)),
         s.remove(TextRange::new((0, 0), (5, 0))).unwrap()

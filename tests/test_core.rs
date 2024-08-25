@@ -1,9 +1,14 @@
+use rat_text::clipboard::LocalClipboard;
 use rat_text::core::{TextCore, TextRope, TextStore};
+use rat_text::undo_buffer::UndoVec;
 use rat_text::{TextPosition, TextRange};
 
 #[test]
 fn test_undo() {
-    let mut s = TextCore::<TextRope>::new();
+    let mut s = TextCore::<TextRope>::new(
+        Some(Box::new(UndoVec::new(40))),
+        Some(Box::new(LocalClipboard::new())),
+    );
 
     s.set_text(TextRope::new_text("asdf\njklö\nqwer\nuiop\n"));
     assert_eq!(s.text().string(), "asdf\njklö\nqwer\nuiop\n");
@@ -68,7 +73,10 @@ fn test_undo() {
 
 #[test]
 fn test_undo2() {
-    let mut s = TextCore::<TextRope>::new();
+    let mut s = TextCore::<TextRope>::new(
+        Some(Box::new(UndoVec::new(40))),
+        Some(Box::new(LocalClipboard::new())),
+    );
 
     s.set_text(TextRope::new_text("asdf\njklö\nqwer\nuiop\n"));
     assert_eq!(s.text().string(), "asdf\njklö\nqwer\nuiop\n");

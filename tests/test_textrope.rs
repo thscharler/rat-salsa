@@ -140,13 +140,13 @@ fn test_string3() {
         .graphemes(TextRange::new((1, 0), (4, 0)), TextPosition::new(1, 0))
         .unwrap();
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 0..1);
+    assert_eq!(gg.text_bytes(), 0..1);
     assert_eq!(gg.grapheme(), "s");
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 1..3);
+    assert_eq!(gg.text_bytes(), 1..3);
     assert_eq!(gg.grapheme(), "ö");
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 3..4);
+    assert_eq!(gg.text_bytes(), 3..4);
     assert_eq!(gg.grapheme(), "f");
     assert_eq!(g.next(), None);
 }
@@ -158,19 +158,19 @@ fn test_string3_1() {
 
     let mut g = s.line_graphemes(0).unwrap();
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 0..1);
+    assert_eq!(gg.text_bytes(), 0..1);
     assert_eq!(gg.grapheme(), "a");
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 1..2);
+    assert_eq!(gg.text_bytes(), 1..2);
     assert_eq!(gg.grapheme(), "s");
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 2..4);
+    assert_eq!(gg.text_bytes(), 2..4);
     assert_eq!(gg.grapheme(), "ö");
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 4..5);
+    assert_eq!(gg.text_bytes(), 4..5);
     assert_eq!(gg.grapheme(), "f");
     let gg = g.next().unwrap();
-    assert_eq!(gg.bytes(), 5..6);
+    assert_eq!(gg.text_bytes(), 5..6);
     assert_eq!(gg.grapheme(), "g");
     assert_eq!(g.next(), None);
 }

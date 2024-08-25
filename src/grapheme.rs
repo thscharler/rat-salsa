@@ -769,27 +769,21 @@ mod test_str {
         let s = String::from("qwertz");
         let mut s0 = StrGraphemes::new_offset(1, &s[1..5], 2).rev_cursor();
         assert_eq!(s0.next().unwrap(), "e");
-        assert_eq!(s0.offset(), 1);
         assert_eq!(s0.text_offset(), 2);
 
         assert_eq!(s0.next().unwrap(), "w");
-        assert_eq!(s0.offset(), 0);
         assert_eq!(s0.text_offset(), 1);
 
         assert_eq!(s0.prev().unwrap(), "w");
-        assert_eq!(s0.offset(), 1);
         assert_eq!(s0.text_offset(), 2);
 
         assert_eq!(s0.prev().unwrap(), "e");
-        assert_eq!(s0.offset(), 2);
         assert_eq!(s0.text_offset(), 3);
 
         assert_eq!(s0.prev().unwrap(), "r");
-        assert_eq!(s0.offset(), 3);
         assert_eq!(s0.text_offset(), 4);
 
         assert_eq!(s0.prev().unwrap(), "t");
-        assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
     }
 }
@@ -945,27 +939,21 @@ mod test_rope {
             .expect("fine")
             .rev_cursor();
         assert_eq!(s0.next().unwrap(), "e");
-        assert_eq!(s0.offset(), 1);
         assert_eq!(s0.text_offset(), 2);
 
         assert_eq!(s0.next().unwrap(), "w");
-        assert_eq!(s0.offset(), 0);
         assert_eq!(s0.text_offset(), 1);
 
         assert_eq!(s0.prev().unwrap(), "w");
-        assert_eq!(s0.offset(), 1);
         assert_eq!(s0.text_offset(), 2);
 
         assert_eq!(s0.prev().unwrap(), "e");
-        assert_eq!(s0.offset(), 2);
         assert_eq!(s0.text_offset(), 3);
 
         assert_eq!(s0.prev().unwrap(), "r");
-        assert_eq!(s0.offset(), 3);
         assert_eq!(s0.text_offset(), 4);
 
         assert_eq!(s0.prev().unwrap(), "t");
-        assert_eq!(s0.offset(), 4);
         assert_eq!(s0.text_offset(), 5);
     }
 
