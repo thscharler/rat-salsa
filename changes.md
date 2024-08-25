@@ -1,9 +1,16 @@
-** Start of BETA **
-
 # 0.15.0
 
 * break: rename `FocusKeys` to the more fitting `Regular`.
-
+* break: unified naming of Outcome and rat_salsa::Control
+    * rename Outcome::NotUsed -> Outcome::Continue
+* break: rename utils: item_at_clicked->item_at, row_at_clicked->row_at
+  column_at_clicked->column_at
+  
+* feature: add a hover flag
+* feature: MouseFlags recognize double-click patterns
+    * down-up-up seems to occur
+    * down-up-down-up with a timeout is added.
+* feature: add general qualifier DoubleClick.
 * feature: flow! and flow_ok! get one more variant: flow!(regular, consider extra)
 * feature: or_else! for another type of control-flow.
 * feature: add ConsumedEvent::then() for chaining.
