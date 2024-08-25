@@ -984,7 +984,7 @@ impl MaskedCore {
             return false;
         }
         // boundary right/left. prefer right, change mask.
-        if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
+        if mask.is_right_number_boundary() {
             mask = &self.mask[new_cursor as usize - 1];
         }
         if !mask.right.is_number() {
@@ -1116,7 +1116,7 @@ impl MaskedCore {
         }
         {
             let mask = &self.mask[cursor.x as usize];
-            if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
+            if mask.is_right_number_boundary() {
                 let left = &self.mask[cursor.x as usize - 1];
                 if self.can_insert_sign(left, cursor.x, c) {
                     if self.insert_sign(c) {
@@ -1135,7 +1135,7 @@ impl MaskedCore {
         }
         {
             let mask = &self.mask[cursor.x as usize];
-            if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
+            if mask.is_right_number_boundary() {
                 if self.insert_rtol(c) {
                     return true;
                 }
@@ -1239,7 +1239,7 @@ impl MaskedCore {
         let mut mask = &self.mask[cursor.x as usize];
 
         // boundary right/left. prefer right, change mask.
-        if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
+        if mask.is_right_number_boundary() {
             mask = &self.mask[cursor.x as usize - 1];
         }
 
@@ -1273,7 +1273,7 @@ impl MaskedCore {
 
         let mut mask = &self.mask[cursor.x as usize];
         // boundary right/left. prefer right, change mask.
-        if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
+        if mask.is_right_number_boundary() {
             mask = &self.mask[cursor.x as usize - 1];
         }
 
