@@ -2,7 +2,7 @@ use crate::Scheme;
 
 /// An adaption of nvchad's vscode_dark theme.
 ///
-/// -- Thanks to original theme for existing https://github.com/microsoft/vscode/blob/main/extensions/theme-defaults/themes/dark_plus.json
+/// -- Thanks to original theme for existing <https://github.com/microsoft/vscode/blob/main/extensions/theme-defaults/themes/dark_plus.json>
 /// -- this is a modified version of it
 pub const VSCODE_DARK: Scheme = Scheme {
     primary: Scheme::linear4(0xd4d4d4, 0xffffff),

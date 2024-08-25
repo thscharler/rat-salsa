@@ -1,3 +1,9 @@
+# 0.11.0
+
+* break: added and renamed various styles.
+
+* add: ocean, vscode_dark
+
 # 0.10.2
 
 * Add: Oxocarbon
