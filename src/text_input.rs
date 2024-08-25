@@ -19,6 +19,7 @@ use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, TextError, TextPosition, TextRange};
+use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -1006,6 +1007,38 @@ impl TextInputState {
         }
     }
 
+    /// Set the cursor position from screen coordinates,
+    /// rounds the position to the next word start/end.
+    ///
+    /// The cursor positions are relative to the inner rect.
+    /// They may be negative too, this allows setting the cursor
+    /// to a position that is currently scrolled away.
+    pub fn set_screen_cursor_words(&mut self, screen_cursor: i16, extend_selection: bool) -> bool {
+        let anchor = self.anchor();
+
+        let cx = self.screen_to_col(screen_cursor);
+        let cursor = cx;
+
+        let cursor = if cursor < anchor {
+            self.word_start(cursor).expect("valid_cursor")
+        } else {
+            self.word_end(cursor).expect("valid_cursor")
+        };
+
+        // extend anchor
+        if !self.is_word_boundary(anchor).expect("valid_anchor") {
+            if cursor < anchor {
+                self.set_cursor(self.word_end(anchor).expect("valid_anchor"), false);
+            } else {
+                self.set_cursor(self.word_start(anchor).expect("valid_anchor"), false);
+            }
+        }
+
+        let c = self.set_cursor(cursor, extend_selection);
+        let s = self.scroll_cursor_to_visible();
+        c || s
+    }
+
     /// Scrolling
     pub fn scroll_left(&mut self, delta: upos_type) -> bool {
         self.set_offset(self.offset.saturating_sub(delta));
@@ -1158,6 +1191,16 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
                 let c = (m.column as i16) - (self.inner.x as i16);
                 self.set_screen_cursor(c, true).into()
             }
+            ct_event!(mouse any for m) if self.mouse.drag2(self.inner, m, KeyModifiers::ALT) => {
+                let cx = m.column as i16 - self.inner.x as i16;
+                self.set_screen_cursor_words(cx, true).into()
+            }
+            ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
+                let tx = self.screen_to_col(m.column as i16 - self.inner.x as i16);
+                let start = self.word_start(tx).expect("valid_pos");
+                let end = self.word_end(tx).expect("valid_pos");
+                self.set_selection(start, end).into()
+            }
             ct_event!(mouse down Left for column,row) => {
                 if self.gained_focus() {
                     // don't react to the first click that's for
@@ -1166,6 +1209,22 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
                 } else if self.inner.contains((*column, *row).into()) {
                     let c = (column - self.inner.x) as i16;
                     self.set_screen_cursor(c, false).into()
+                } else {
+                    TextOutcome::Continue
+                }
+            }
+            ct_event!(mouse down CONTROL-Left for column,row) => {
+                if self.inner.contains((*column, *row).into()) {
+                    let cx = (column - self.inner.x) as i16;
+                    self.set_screen_cursor(cx, true).into()
+                } else {
+                    TextOutcome::Continue
+                }
+            }
+            ct_event!(mouse down ALT-Left for column,row) => {
+                if self.inner.contains((*column, *row).into()) {
+                    let cx = (column - self.inner.x) as i16;
+                    self.set_screen_cursor_words(cx, true).into()
                 } else {
                     TextOutcome::Continue
                 }
