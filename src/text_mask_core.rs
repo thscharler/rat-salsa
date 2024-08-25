@@ -6,7 +6,6 @@ use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{upos_type, Cursor, Glyph, Grapheme, TextError, TextPosition, TextRange};
 use format_num_pattern::core::{clean_num, map_num};
 use format_num_pattern::{CurrencySym, NumberFormat, NumberSymbols};
-use log::debug;
 use std::borrow::Cow;
 use std::fmt;
 use std::iter::once;
@@ -395,6 +394,10 @@ impl MaskedCore {
     /// Get the default cursor for the section at the given cursor position,
     /// if it is an editable section.
     pub fn section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
         let mut mask = &self.mask[cursor as usize];
 
         // don't jump from integer to fraction
@@ -414,9 +417,17 @@ impl MaskedCore {
 
     /// Get the default cursor position for the next editable section.
     pub fn next_section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
         let mut mask = &self.mask[cursor as usize];
         let mut next;
         loop {
+            if mask.right.is_none() {
+                return None;
+            }
+
             next = mask.nr_end;
             mask = &self.mask[next as usize];
 
@@ -424,8 +435,6 @@ impl MaskedCore {
                 return Some(self.number_cursor(mask.nr_start..mask.nr_end));
             } else if mask.right.is_separator() {
                 continue;
-            } else if mask.right.is_none() {
-                return None;
             } else {
                 return Some(mask.sec_start);
             }
@@ -434,9 +443,26 @@ impl MaskedCore {
 
     /// Get the default cursor position for the next editable section.
     pub fn prev_section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
-        let mut mask = &self.mask[cursor as usize];
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
         let mut prev;
+        let mut mask;
+        // at a section boundary start at the left section.
+        if cursor > 0 && self.mask[cursor as usize].nr_id != self.mask[cursor as usize - 1].nr_id {
+            prev = self.mask[cursor as usize - 1].nr_start;
+            mask = &self.mask[prev as usize];
+        } else {
+            prev = self.mask[cursor as usize].nr_start;
+            mask = &self.mask[prev as usize];
+        }
+
         loop {
+            if mask.peek_left.is_none() {
+                return None;
+            }
+
             prev = self.mask[mask.nr_start as usize - 1].nr_start;
             mask = &self.mask[prev as usize];
 
@@ -444,8 +470,6 @@ impl MaskedCore {
                 return Some(self.number_cursor(mask.nr_start..mask.nr_end));
             } else if mask.right.is_separator() {
                 continue;
-            } else if mask.right.is_none() {
-                return None;
             } else {
                 return Some(mask.sec_start);
             }
@@ -455,6 +479,10 @@ impl MaskedCore {
     /// Get the range for the section at the given cursor position,
     /// if it is an editable section.
     pub fn section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
         let mut mask = &self.mask[cursor as usize];
         if mask.is_right_number_boundary() {
             mask = &self.mask[cursor as usize - 1];
@@ -472,9 +500,17 @@ impl MaskedCore {
 
     /// Get the default cursor position for the next editable section.
     pub fn next_section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
         let mut mask = &self.mask[cursor as usize];
         let mut next;
         loop {
+            if mask.right.is_none() {
+                return None;
+            }
+
             next = mask.nr_end;
             mask = &self.mask[next as usize];
 
@@ -482,8 +518,6 @@ impl MaskedCore {
                 return Some(mask.nr_start..mask.nr_end);
             } else if mask.right.is_separator() {
                 continue;
-            } else if mask.right.is_none() {
-                return None;
             } else {
                 return Some(mask.sec_start..mask.sec_end);
             }
@@ -492,9 +526,26 @@ impl MaskedCore {
 
     /// Get the default cursor position for the next editable section.
     pub fn prev_section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
-        let mut mask = &self.mask[cursor as usize];
+        if cursor as usize >= self.mask.len() {
+            return None;
+        }
+
         let mut prev;
+        let mut mask;
+        // at a section boundary start at the left section.
+        if cursor > 0 && self.mask[cursor as usize].nr_id != self.mask[cursor as usize - 1].nr_id {
+            prev = self.mask[cursor as usize - 1].nr_start;
+            mask = &self.mask[prev as usize];
+        } else {
+            prev = self.mask[cursor as usize].nr_start;
+            mask = &self.mask[prev as usize];
+        }
+
         loop {
+            if mask.peek_left.is_none() {
+                return None;
+            }
+
             prev = self.mask[mask.nr_start as usize - 1].nr_start;
             mask = &self.mask[prev as usize];
 
@@ -502,8 +553,6 @@ impl MaskedCore {
                 return Some(mask.nr_start..mask.nr_end);
             } else if mask.right.is_separator() {
                 continue;
-            } else if mask.right.is_none() {
-                return None;
             } else {
                 return Some(mask.sec_start..mask.sec_end);
             }

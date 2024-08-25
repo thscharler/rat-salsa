@@ -82,7 +82,7 @@ use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, TextError};
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{BlockExt, StatefulWidget, Style, Stylize, Widget};
@@ -358,7 +358,24 @@ impl HasFocusFlag for MaskedInputState {
         self.area
     }
 
-    // todo: leavefwd
+    fn navigable(&self) -> Navigation {
+        let has_next = self.value.next_section_range(self.value.cursor()).is_some();
+        let has_prev = self.value.prev_section_range(self.value.cursor()).is_some();
+
+        if has_next {
+            if has_prev {
+                Navigation::Reach
+            } else {
+                Navigation::ReachLeaveFront
+            }
+        } else {
+            if has_prev {
+                Navigation::ReachLeaveBack
+            } else {
+                Navigation::Regular
+            }
+        }
+    }
 }
 
 impl MaskedInputState {
@@ -906,6 +923,26 @@ impl MaskedInputState {
         let s = self.scroll_cursor_to_visible();
         c || s
     }
+
+    /// Select next section.
+    #[inline]
+    pub fn select_next_section(&mut self) -> bool {
+        if let Some(range) = self.value.next_section_range(self.cursor()) {
+            self.set_selection(range.start, range.end)
+        } else {
+            false
+        }
+    }
+
+    /// Select previous section.
+    #[inline]
+    pub fn select_prev_section(&mut self) -> bool {
+        if let Some(range) = self.value.prev_section_range(self.cursor()) {
+            self.set_selection(range.start, range.end)
+        } else {
+            false
+        }
+    }
 }
 
 impl MaskedInputState {
@@ -1085,6 +1122,8 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
                 // ct_event!(keycode press CONTROL_SHIFT-Right) => self.move_to_next_word(true).into(),
                 ct_event!(keycode press SHIFT-Home) => self.move_to_line_start(true).into(),
                 ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
+                ct_event!(keycode press Tab) => self.select_next_section().into(),
+                ct_event!(keycode press SHIFT-BackTab) => self.select_prev_section().into(),
                 ct_event!(key press CONTROL-'a') => self.select_all().into(),
 
                 ct_event!(keycode release Left)
