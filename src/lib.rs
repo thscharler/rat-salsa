@@ -116,6 +116,12 @@ pub enum Navigation {
     /// Widget can be reached with normal keyboard navigation, but not left.
     /// (e.g. TextArea)
     Reach,
+    /// Widget can be reached with normal keyboard navigation, but only be left with
+    /// backward navigation.
+    ReachLeaveFront,
+    /// Widget can be reached with normal keyboard navigation, but only be left with
+    /// forward navigation.
+    ReachLeaveBack,
     /// Widget can be reached and left with normal keyboard navigation.
     #[default]
     Regular,

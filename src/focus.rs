@@ -991,7 +991,13 @@ mod core {
                 self.focus_flags[start].name()
             );
             for n in start..self.len() {
-                if matches!(self.navigable[n], Navigation::Reach | Navigation::Regular) {
+                if matches!(
+                    self.navigable[n],
+                    Navigation::Reach
+                        | Navigation::ReachLeaveBack
+                        | Navigation::ReachLeaveFront
+                        | Navigation::Regular
+                ) {
                     focus_debug!(self.log, "    -> {:?}", self.focus_flags[n].name());
                     return Some(n);
                 }
@@ -1011,7 +1017,13 @@ mod core {
             let mut n = start;
             loop {
                 n = if n + 1 < self.len() { n + 1 } else { 0 };
-                if matches!(self.navigable[n], Navigation::Reach | Navigation::Regular) {
+                if matches!(
+                    self.navigable[n],
+                    Navigation::Reach
+                        | Navigation::ReachLeaveBack
+                        | Navigation::ReachLeaveFront
+                        | Navigation::Regular
+                ) {
                     focus_debug!(self.log, "    -> {:?}", self.focus_flags[n].name());
                     return n;
                 }
@@ -1033,7 +1045,13 @@ mod core {
             let mut n = start;
             loop {
                 n = if n > 0 { n - 1 } else { self.len() - 1 };
-                if matches!(self.navigable[n], Navigation::Reach | Navigation::Regular) {
+                if matches!(
+                    self.navigable[n],
+                    Navigation::Reach
+                        | Navigation::ReachLeaveBack
+                        | Navigation::ReachLeaveFront
+                        | Navigation::Regular
+                ) {
                     focus_debug!(self.log, "    -> {:?}", self.focus_flags[n].name());
                     return n;
                 }
@@ -1297,7 +1315,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
             ct_event!(keycode press Tab) => {
                 if matches!(
                     self.navigation(),
-                    Some(Navigation::Leave | Navigation::Regular)
+                    Some(Navigation::Leave | Navigation::ReachLeaveBack | Navigation::Regular)
                 ) {
                     focus_debug!(
                         self.core.log,
@@ -1318,7 +1336,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
             ct_event!(keycode press SHIFT-Tab) | ct_event!(keycode press SHIFT-BackTab) => {
                 if matches!(
                     self.navigation(),
-                    Some(Navigation::Leave | Navigation::Regular)
+                    Some(Navigation::Leave | Navigation::ReachLeaveFront | Navigation::Regular)
                 ) {
                     focus_debug!(
                         self.core.log,
