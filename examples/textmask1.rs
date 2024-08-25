@@ -54,7 +54,7 @@ fn repaint_input(
     .split(area);
 
     let l2 = Layout::horizontal([
-        Constraint::Length(15),
+        Constraint::Length(25),
         Constraint::Fill(1),
         Constraint::Length(1),
         Constraint::Length(25),
@@ -153,8 +153,15 @@ fn handle_input(
     Ok(Outcome::Continue)
 }
 
-static MASKS: [&str; 29] = [
+static MASKS: [&str; 34] = [
     "",
+    //
+    "##/##/####",
+    "€ ###,##0.0##+",
+    "HH HH HH",
+    "dd\\°dd\\'dd\\\"",
+    "90\\°90\\'90\\\"",
+    //
     "#",
     "##",
     "###",
@@ -171,18 +178,18 @@ static MASKS: [&str; 29] = [
     "###.000",
     "##0.000",
     "#00.000",
-    "##/##/####",
+    "990.000-",
+    "990.000+",
+    "-990.000-",
+    "+990.000+",
     "###,##0.0##",
     "###,##0.0##-",
     "###,##0.0##+",
-    "€ ###,##0.0##+",
     "HHH",
-    "HH HH HH",
     "llllll",
     "aaaaaa",
     "cccccc",
     "______",
-    "dd°dd'dd\"",
 ];
 
 fn next_mask(state: &mut State) -> Outcome {

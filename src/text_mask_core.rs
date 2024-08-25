@@ -373,52 +373,153 @@ impl MaskedCore {
             .set_cursor(TextPosition::new(cursor, 0), extend_selection)
     }
 
+    // find default cursor position for a number range
+    fn number_cursor(&self, range: Range<upos_type>) -> upos_type {
+        for (i, t) in self.mask[range.start as usize..range.end as usize]
+            .iter()
+            .enumerate()
+            .rev()
+        {
+            match t.right {
+                Mask::Digit(EditDirection::Rtol)
+                | Mask::Digit0(EditDirection::Rtol)
+                | Mask::Numeric(EditDirection::Rtol) => {
+                    return range.start + i as upos_type + 1;
+                }
+                _ => {}
+            }
+        }
+        range.start
+    }
+
+    /// Get the default cursor for the section at the given cursor position,
+    /// if it is an editable section.
+    pub fn section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
+        let mut mask = &self.mask[cursor as usize];
+
+        // don't jump from integer to fraction
+        if mask.is_right_number_boundary() {
+            mask = &self.mask[cursor as usize - 1];
+            Some(self.number_cursor(mask.nr_start..mask.nr_end))
+        } else if mask.right.is_number() {
+            Some(self.number_cursor(mask.nr_start..mask.nr_end))
+        } else if mask.right.is_separator() {
+            None
+        } else if mask.right.is_none() {
+            None
+        } else {
+            Some(mask.sec_start)
+        }
+    }
+
+    /// Get the default cursor position for the next editable section.
+    pub fn next_section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
+        let mut mask = &self.mask[cursor as usize];
+        let mut next;
+        loop {
+            next = mask.nr_end;
+            mask = &self.mask[next as usize];
+
+            if mask.right.is_number() {
+                return Some(self.number_cursor(mask.nr_start..mask.nr_end));
+            } else if mask.right.is_separator() {
+                continue;
+            } else if mask.right.is_none() {
+                return None;
+            } else {
+                return Some(mask.sec_start);
+            }
+        }
+    }
+
+    /// Get the default cursor position for the next editable section.
+    pub fn prev_section_cursor(&self, cursor: upos_type) -> Option<upos_type> {
+        let mut mask = &self.mask[cursor as usize];
+        let mut prev;
+        loop {
+            prev = self.mask[mask.nr_start as usize - 1].nr_start;
+            mask = &self.mask[prev as usize];
+
+            if mask.right.is_number() {
+                return Some(self.number_cursor(mask.nr_start..mask.nr_end));
+            } else if mask.right.is_separator() {
+                continue;
+            } else if mask.right.is_none() {
+                return None;
+            } else {
+                return Some(mask.sec_start);
+            }
+        }
+    }
+
+    /// Get the range for the section at the given cursor position,
+    /// if it is an editable section.
+    pub fn section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+        let mut mask = &self.mask[cursor as usize];
+        if mask.is_right_number_boundary() {
+            mask = &self.mask[cursor as usize - 1];
+            Some(mask.nr_start..mask.nr_end)
+        } else if mask.right.is_number() {
+            Some(mask.nr_start..mask.nr_end)
+        } else if mask.right.is_separator() {
+            None
+        } else if mask.right.is_none() {
+            None
+        } else {
+            Some(mask.sec_start..mask.sec_end)
+        }
+    }
+
+    /// Get the default cursor position for the next editable section.
+    pub fn next_section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+        let mut mask = &self.mask[cursor as usize];
+        let mut next;
+        loop {
+            next = mask.nr_end;
+            mask = &self.mask[next as usize];
+
+            if mask.right.is_number() {
+                return Some(mask.nr_start..mask.nr_end);
+            } else if mask.right.is_separator() {
+                continue;
+            } else if mask.right.is_none() {
+                return None;
+            } else {
+                return Some(mask.sec_start..mask.sec_end);
+            }
+        }
+    }
+
+    /// Get the default cursor position for the next editable section.
+    pub fn prev_section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+        let mut mask = &self.mask[cursor as usize];
+        let mut prev;
+        loop {
+            prev = self.mask[mask.nr_start as usize - 1].nr_start;
+            mask = &self.mask[prev as usize];
+
+            if mask.right.is_number() {
+                return Some(mask.nr_start..mask.nr_end);
+            } else if mask.right.is_separator() {
+                continue;
+            } else if mask.right.is_none() {
+                return None;
+            } else {
+                return Some(mask.sec_start..mask.sec_end);
+            }
+        }
+    }
+
     /// Place cursor at decimal separator, if any.
     /// 0 otherwise.
     #[inline]
     pub fn set_default_cursor(&mut self) {
-        'f: {
-            for (i, t) in self.mask.iter().enumerate() {
-                if t.right == Mask::DecimalSep {
-                    self.masked
-                        .set_cursor(TextPosition::new(i as upos_type, 0), false);
-                    break 'f;
-                }
-            }
-            for (i, t) in self.mask.iter().enumerate().rev() {
-                match t.peek_left {
-                    Mask::Digit(EditDirection::Rtol)
-                    | Mask::Digit0(EditDirection::Rtol)
-                    | Mask::Numeric(EditDirection::Rtol) => {
-                        self.masked
-                            .set_cursor(TextPosition::new(i as upos_type, 0), false);
-                        break 'f;
-                    }
-                    _ => {}
-                }
-            }
-            for (i, t) in self.mask.iter().enumerate() {
-                match t.right {
-                    Mask::Dec
-                    | Mask::Dec0
-                    | Mask::Hex
-                    | Mask::Hex0
-                    | Mask::Oct
-                    | Mask::Oct0
-                    | Mask::AnyChar
-                    | Mask::Letter
-                    | Mask::LetterDigitSpace
-                    | Mask::LetterOrDigit => {
-                        self.masked
-                            .set_cursor(TextPosition::new(i as upos_type, 0), false);
-                        break 'f;
-                    }
-                    _ => {}
-                }
-            }
-
+        if let Some(pos) = self.section_cursor(0) {
+            self.masked.set_cursor(TextPosition::new(pos, 0), false);
+        } else if let Some(pos) = self.next_section_cursor(0) {
+            self.masked.set_cursor(TextPosition::new(pos, 0), false);
+        } else {
             self.masked.set_cursor(TextPosition::new(0, 0), false);
-            self.masked.set_cursor(TextPosition::new(0, 0), true);
         }
     }
 
@@ -1027,7 +1128,6 @@ impl MaskedCore {
         {
             let mask = &self.mask[cursor.x as usize];
             if mask.right.is_rtol() {
-                debug!("insert_char: right.rtol");
                 if self.insert_rtol(c) {
                     return true;
                 }
@@ -1036,7 +1136,6 @@ impl MaskedCore {
         {
             let mask = &self.mask[cursor.x as usize];
             if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
-                debug!("insert_char: left.rtol");
                 if self.insert_rtol(c) {
                     return true;
                 }
@@ -1044,7 +1143,6 @@ impl MaskedCore {
         }
         {
             let mask = &self.mask[cursor.x as usize];
-            debug!("insert_char: right.ltor");
             if mask.right.is_ltor() {
                 if self.insert_ltor(c) {
                     #[allow(clippy::needless_return)]
@@ -1865,33 +1963,6 @@ mod mask {
             *self == Mask::None
         }
 
-        /// is a number mask
-        #[inline]
-        pub(super) fn is_number(&self) -> bool {
-            match self {
-                Mask::Digit0(_) => true,
-                Mask::Digit(_) => true,
-                Mask::Numeric(_) => true,
-                Mask::DecimalSep => true,
-                Mask::GroupingSep => true,
-                Mask::Sign => true,
-                Mask::Plus => true,
-
-                Mask::Hex0 => false,
-                Mask::Hex => false,
-                Mask::Oct0 => false,
-                Mask::Oct => false,
-                Mask::Dec0 => false,
-                Mask::Dec => false,
-                Mask::Letter => false,
-                Mask::LetterOrDigit => false,
-                Mask::LetterDigitSpace => false,
-                Mask::AnyChar => false,
-                Mask::Separator(_) => false,
-                Mask::None => false,
-            }
-        }
-
         /// left to right editing
         #[inline]
         pub(super) fn is_ltor(&self) -> bool {
@@ -1944,28 +2015,38 @@ mod mask {
             }
         }
 
+        /// is a number mask
+        #[inline]
+        pub(super) fn is_number(&self) -> bool {
+            match self {
+                Mask::Digit0(_)
+                | Mask::Digit(_)
+                | Mask::Numeric(_)
+                | Mask::DecimalSep
+                | Mask::GroupingSep
+                | Mask::Sign
+                | Mask::Plus => true,
+                Mask::None => false,
+                _ => false,
+            }
+        }
+
+        /// is a separator
+        #[inline]
+        pub(super) fn is_separator(&self) -> bool {
+            match self {
+                Mask::Separator(_) => true,
+                Mask::None => false,
+                _ => false,
+            }
+        }
+
         #[inline]
         pub(super) fn is_fraction(&self) -> bool {
             match self {
-                Mask::Digit0(d) => d.is_ltor(),
-                Mask::Digit(d) => d.is_ltor(),
-                Mask::Numeric(d) => d.is_ltor(),
-                Mask::GroupingSep => false,
-                Mask::Sign => false,
-                Mask::Plus => false,
-                Mask::DecimalSep => false,
-                Mask::Hex0 => false,
-                Mask::Hex => false,
-                Mask::Oct0 => false,
-                Mask::Oct => false,
-                Mask::Dec0 => false,
-                Mask::Dec => false,
-                Mask::Letter => false,
-                Mask::LetterOrDigit => false,
-                Mask::LetterDigitSpace => false,
-                Mask::AnyChar => false,
-                Mask::Separator(_) => false,
+                Mask::Digit0(d) | Mask::Digit(d) | Mask::Numeric(d) => d.is_ltor(),
                 Mask::None => false,
+                _ => false,
             }
         }
 
