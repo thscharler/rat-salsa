@@ -408,7 +408,8 @@ fn test_section_cursor2() {
     let mut m = MaskedCore::new();
 
     m.set_mask("###,##0.0##-").expect("ok");
-    assert_eq!(m.section_cursor(12), Some(7));
+    assert_eq!(m.section_cursor(12), None);
+    assert_eq!(m.section_cursor(11), Some(7));
 }
 
 #[test]

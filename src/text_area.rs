@@ -1376,10 +1376,10 @@ impl TextAreaState {
 
             let mut col = ox;
             for g in line {
-                col = g.pos().x;
                 if scx < g.screen_pos().0 + g.screen_width() {
                     break;
                 }
+                col = g.pos().x + 1;
             }
             col
         }
