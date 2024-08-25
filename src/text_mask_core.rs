@@ -1096,15 +1096,27 @@ impl MaskedCore {
             .expect("valid_cursor")
             .expect("mask");
         if mask.right.can_overwrite(g.grapheme()) && self.is_valid_char(&mask.right, c) {
-            self.masked.begin_undo_seq();
-            self.masked
-                .remove_char_range(TextRange::new(cursor, (cursor.x + 1, 0)))
-                .expect("valid_cursor");
-            self.masked.insert_char(cursor, c).expect("valid_cursor");
-            self.masked.end_undo_seq();
-            return true;
+            if mask.right.is_separator() {
+                self.masked.begin_undo_seq();
+                let r = if let Some(next) = self.next_section_cursor(cursor.x) {
+                    self.masked.set_cursor(TextPosition::new(next, 0), false)
+                } else {
+                    false
+                };
+                self.masked.end_undo_seq();
+                return r;
+            } else {
+                self.masked.begin_undo_seq();
+                self.masked
+                    .remove_char_range(TextRange::new(cursor, (cursor.x + 1, 0)))
+                    .expect("valid_cursor");
+                self.masked.insert_char(cursor, c).expect("valid_cursor");
+                self.masked.end_undo_seq();
+                return true;
+            }
         }
 
+        // can shift right
         let g9 = self
             .masked
             .grapheme_at(TextPosition::new(mask.sec_end - 1, 0))
@@ -2133,6 +2145,12 @@ mod mask {
     }
 
     impl MaskToken {
+        /// is at the right-most position of a number.
+        #[inline]
+        pub(super) fn is_right_number_boundary(&self) -> bool {
+            self.peek_left.is_number() && (self.right.is_none() || self.right.is_ltor())
+        }
+
         /// is somewhere in the integer part of a number.
         #[inline]
         pub(super) fn is_integer_part(&self) -> bool {
