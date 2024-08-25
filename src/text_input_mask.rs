@@ -688,7 +688,15 @@ impl MaskedInputState {
     /// Selection.
     #[inline]
     pub fn select_all(&mut self) -> bool {
-        self.value.select_all()
+        if let Some(section) = self.value.section_range(self.cursor()) {
+            if self.selection() == section {
+                self.value.select_all()
+            } else {
+                self.value.set_selection(section.start, section.end)
+            }
+        } else {
+            self.value.select_all()
+        }
     }
 
     /// Selection.
