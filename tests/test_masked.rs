@@ -192,6 +192,20 @@ fn test_number6() {
 }
 
 #[test]
+fn test_number7() {
+    let mut m = MaskedCore::new();
+
+    m.set_mask("###.0##").expect("ok");
+    m.set_text("   .0  ");
+    m.set_cursor(5, false);
+    assert_eq!(m.cursor(), 5);
+    m.advance_cursor('1');
+    assert_eq!(m.cursor(), 5);
+    m.insert_char('1');
+    assert_eq!(m.text(), "   .01 ");
+}
+
+#[test]
 fn test_sign1() {
     let mut m = MaskedCore::new();
 

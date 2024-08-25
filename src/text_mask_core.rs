@@ -1022,7 +1022,7 @@ impl MaskedCore {
             return false;
         }
         // boundary right/left. prefer right, change mask.
-        if mask.is_right_number_boundary() {
+        if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
             mask = &self.mask[new_cursor as usize - 1];
         }
         if !mask.right.is_number() {
@@ -1154,7 +1154,7 @@ impl MaskedCore {
         }
         {
             let mask = &self.mask[cursor.x as usize];
-            if mask.is_right_number_boundary() {
+            if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
                 let left = &self.mask[cursor.x as usize - 1];
                 if self.can_insert_sign(left, cursor.x, c) {
                     if self.insert_sign(c) {
@@ -1173,7 +1173,7 @@ impl MaskedCore {
         }
         {
             let mask = &self.mask[cursor.x as usize];
-            if mask.is_right_number_boundary() {
+            if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
                 if self.insert_rtol(c) {
                     return true;
                 }
@@ -1284,7 +1284,7 @@ impl MaskedCore {
         let mut mask = &self.mask[cursor.x as usize];
 
         // boundary right/left. prefer right, change mask.
-        if mask.is_right_number_boundary() {
+        if mask.peek_left.is_rtol() && (mask.right.is_ltor() || mask.right.is_none()) {
             mask = &self.mask[cursor.x as usize - 1];
         }
 
@@ -1318,7 +1318,7 @@ impl MaskedCore {
 
         let mut mask = &self.mask[cursor.x as usize];
         // boundary right/left. prefer right, change mask.
-        if mask.is_right_number_boundary() {
+        if mask.peek_left.is_number() && (mask.right.is_ltor() || mask.right.is_none()) {
             mask = &self.mask[cursor.x as usize - 1];
         }
 
@@ -2271,12 +2271,6 @@ mod mask {
     }
 
     impl MaskToken {
-        /// is at the right-most position of a number.
-        #[inline]
-        pub(super) fn is_right_number_boundary(&self) -> bool {
-            self.peek_left.is_number() && (self.right.is_none() || self.right.is_ltor())
-        }
-
         /// is somewhere in the integer part of a number.
         #[inline]
         pub(super) fn is_integer_part(&self) -> bool {
