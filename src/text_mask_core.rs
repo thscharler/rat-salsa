@@ -1199,7 +1199,8 @@ impl MaskedCore {
                 let r = if let Some(next) = self.next_section_cursor(cursor.x) {
                     self.masked.set_cursor(TextPosition::new(next, 0), false)
                 } else {
-                    false
+                    self.masked
+                        .set_cursor(TextPosition::new(self.line_width(), 0), false)
                 };
                 self.masked.end_undo_seq();
                 return r;

@@ -318,6 +318,19 @@ fn test_sign3() {
 }
 
 #[test]
+fn test_sign4() {
+    let mut m = MaskedCore::new();
+
+    m.set_mask("\\X###.###-").expect("ok");
+    m.set_text("   1.0   ");
+
+    m.advance_cursor('-');
+    assert_eq!(m.cursor(), 4);
+    m.insert_char('-');
+    assert_eq!(m.text(), "   1.0  -");
+}
+
+#[test]
 fn test_section_cursor1() {
     let mut m = MaskedCore::new();
 
@@ -424,6 +437,10 @@ fn test_section2() {
     assert_eq!(m.cursor(), 5);
     m.insert_char('\'');
     assert_eq!(m.cursor(), 8);
+    m.advance_cursor('"');
+    assert_eq!(m.cursor(), 8);
+    m.insert_char('"');
+    assert_eq!(m.cursor(), 9);
 
     m.set_mask("€ ###,##0.0##+").expect("ok");
     m.set_cursor(0, false);
