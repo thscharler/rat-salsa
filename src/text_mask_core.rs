@@ -730,50 +730,40 @@ impl MaskedCore {
             let mask = &self.mask[new_cursor as usize];
 
             if self.can_insert_integer_left(mask, new_cursor, c) {
-                dbg!(new_cursor);
                 // At the gap between an integer field and something else.
                 // Integer fields are served first.
                 break;
             } else if self.can_insert_integer(mask, new_cursor, c) {
-                dbg!(new_cursor);
                 // Insert position inside an integer field. After any spaces
                 // and the sign.
                 break;
             } else if self.can_insert_sign(mask, new_cursor, c) {
-                dbg!(new_cursor);
                 // Can insert a sign here.
                 break;
             } else if self.can_insert_decimal_sep(mask, c) {
-                dbg!(new_cursor);
                 // Decimal separator matches.
                 break;
             } else if mask.right == Mask::GroupingSep {
                 // Never stop here.
                 new_cursor += 1;
             } else if self.can_insert_separator(mask, c) {
-                dbg!(new_cursor);
-                // todo: jump to default pos of next field
                 break;
             } else if self.can_move_left_in_fraction(mask_c, mask, new_cursor, c) {
                 // skip left
                 new_cursor -= 1;
             } else if self.can_insert_fraction(mask_c, mask, c) {
-                dbg!(new_cursor);
                 break;
             } else if self.can_insert_other(mask, c) {
-                dbg!(new_cursor);
                 break;
             } else if mask.right == Mask::None {
                 // No better position found. Reset and break;
                 new_cursor = self.masked.cursor().x;
-                dbg!(new_cursor);
                 break;
             } else {
                 new_cursor += 1;
             }
         }
 
-        dbg!(new_cursor);
         self.masked
             .set_cursor(TextPosition::new(new_cursor, 0), false)
     }
@@ -838,7 +828,7 @@ impl MaskedCore {
             return false;
         }
         // don't jump from integer to fraction
-        if mask_c.peek_left.is_rtol() || mask_c.peek_left.is_none() && mask_c.right.is_rtol() {
+        if mask_c.is_integer_part() {
             return false;
         }
 
@@ -859,12 +849,11 @@ impl MaskedCore {
         if !mask.peek_left.is_fraction() {
             return false;
         }
-
         if !self.is_valid_char(&mask.peek_left, c) {
             return false;
         }
         // don't jump from integer to fraction
-        if mask_c.peek_left.is_rtol() || mask_c.peek_left.is_none() && mask_c.right.is_rtol() {
+        if mask_c.is_integer_part() {
             return false;
         }
 
@@ -2031,7 +2020,7 @@ mod mask {
             }
         }
 
-        // mask should overwrite instead of insert
+        /// mask should overwrite instead of insert
         #[inline]
         pub(super) fn can_overwrite_fraction(&self, c: &str) -> bool {
             match self {
@@ -2056,7 +2045,7 @@ mod mask {
             }
         }
 
-        // mask should overwrite instead of insert
+        /// mask should overwrite instead of insert
         #[inline]
         pub(super) fn can_overwrite(&self, c: &str) -> bool {
             match self {
@@ -2080,7 +2069,7 @@ mod mask {
             }
         }
 
-        // char can be dropped
+        /// char can be dropped from the text and it's ok.
         #[inline]
         pub(super) fn can_drop(&self, c: &str) -> bool {
             match self {
@@ -2106,7 +2095,7 @@ mod mask {
             }
         }
 
-        /// Get the default char for this mask.
+        /// default char for this mask.
         #[inline]
         pub(super) fn edit_value(&self) -> &str {
             match self {
@@ -2144,6 +2133,12 @@ mod mask {
     }
 
     impl MaskToken {
+        /// is somewhere in the integer part of a number.
+        #[inline]
+        pub(super) fn is_integer_part(&self) -> bool {
+            self.peek_left.is_rtol() || self.peek_left.is_none() && self.right.is_rtol()
+        }
+
         /// Create a string with the default edit mask.
         pub(super) fn empty_section(mask: &[MaskToken]) -> String {
             let mut buf = String::new();
