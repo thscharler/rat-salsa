@@ -885,7 +885,15 @@ impl MaskedInputState {
     /// Start of line
     #[inline]
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let c = self.set_cursor(0, extend_selection);
+        let c = if let Some(c) = self.value.section_cursor(self.cursor()) {
+            if c != self.cursor() {
+                self.set_cursor(c, extend_selection)
+            } else {
+                self.set_cursor(0, extend_selection)
+            }
+        } else {
+            self.set_cursor(0, extend_selection)
+        };
         let s = self.scroll_cursor_to_visible();
         c || s
     }
