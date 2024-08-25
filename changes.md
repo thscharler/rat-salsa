@@ -1,8 +1,7 @@
-# 0.27.0
+# 0.13.0
 
-** Start of BETA **
-
-* feature: add collaboration with Split
+* feature: add collaboration with Split with Scroll::start_margin
+  and Scroll::end_margin to leave space for split.
 * refactor: rename everything from Scrolled* to Scroll*
 * refactor: Remove scroll.core, too much.
 * refactor: Move View and Viewport to rat-widget. They have no
