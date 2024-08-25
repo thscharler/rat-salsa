@@ -1,3 +1,5 @@
+!! This is out of date !!
+
 # Focus handling for ratatui
 
 This crate works by adding a [FocusFlag] to each widget's state.
@@ -112,7 +114,7 @@ The trait [HasFocus] indicates the existence of this behaviour.
 Focus has a method `add_container()` for this too.
 
 > There is a lighter version of a container too.
-> [Focus::new_grp()] creates a list of widgets, but without a
+> [xxFocus::new_grp()xx] creates a list of widgets, but without a
 > container area.
 
 Focus can handle recursive containers too.

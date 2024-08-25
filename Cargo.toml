@@ -1,6 +1,6 @@
 [package]
 name = "rat-focus"
-version = "0.10.5"
+version = "0.11.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "focus handling for ratatui widgets"
@@ -47,7 +47,7 @@ ratatui = { version = "0.27", features = ["unstable-widget-ref", "unstable-rende
 crossterm = "0.28"
 log = "0.4"
 
-rat-event = { version = "0.14", path = "../rat-event" }
+rat-event = { version = "0.15", path = "../rat-event" }
 
 [dev-dependencies]
 fern = "0.6"

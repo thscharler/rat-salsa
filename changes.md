@@ -1,3 +1,23 @@
+# 0.11.0
+
+* break: rename Focus::init() to Focus::initial()
+* break: remove the lifetime from Focus.
+  FocusFlags now contain a Rc<> of the flags, and when constructing
+  the Focus a clone of the Rc<> is used inside Focus. This makes Focus
+  more generally usable.
+* break: Containers get their own ContainerFlag which works the same
+  as FocusFlag for widgets. Avoids confusion of the two.
+* break: trait HasFocus has been extended for better container support.
+* break: replace the HasFocus::navigable() result with it's own
+  enum for fine grain control of widget/focus interaction.
+* break: change the name in FocusFlag to Box<str> to allow non-static names.
+
+* feature: FocusFlags can now be compared. It uses Rc::ptr_eq for
+  comparison.
+* feature: add functions to manipulate the focus-list after construction.
+  Allows adding/removing/replacing widgets and containers.
+*
+
 # 0.10.5
 
 * change FocusFlag::set() to take a bool

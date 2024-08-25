@@ -242,9 +242,7 @@ impl FocusFlag {
 
     /// Create a named flag.
     pub fn named(name: &str) -> Self {
-        Self {
-            0: Rc::new(FocusFlagCore::named(name)),
-        }
+        Self(Rc::new(FocusFlagCore::named(name)))
     }
 
     /// Has the focus.
@@ -304,9 +302,7 @@ impl ContainerFlag {
 
     /// Create a named flag.
     pub fn named(name: &str) -> Self {
-        Self {
-            0: Rc::new(FocusFlagCore::named(name)),
-        }
+        Self(Rc::new(FocusFlagCore::named(name)))
     }
 
     /// Has the focus.
