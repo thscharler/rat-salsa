@@ -400,11 +400,7 @@ impl MaskedCore {
 
         let mut mask = &self.mask[cursor as usize];
 
-        // don't jump from integer to fraction
-        if mask.is_right_number_boundary() {
-            mask = &self.mask[cursor as usize - 1];
-            Some(self.number_cursor(mask.nr_start..mask.nr_end))
-        } else if mask.right.is_number() {
+        if mask.right.is_number() {
             Some(self.number_cursor(mask.nr_start..mask.nr_end))
         } else if mask.right.is_separator() {
             None
@@ -447,16 +443,8 @@ impl MaskedCore {
             return None;
         }
 
-        let mut prev;
-        let mut mask;
-        // at a section boundary start at the left section.
-        if cursor > 0 && self.mask[cursor as usize].nr_id != self.mask[cursor as usize - 1].nr_id {
-            prev = self.mask[cursor as usize - 1].nr_start;
-            mask = &self.mask[prev as usize];
-        } else {
-            prev = self.mask[cursor as usize].nr_start;
-            mask = &self.mask[prev as usize];
-        }
+        let mut prev = self.mask[cursor as usize].nr_start;
+        let mut mask = &self.mask[prev as usize];
 
         loop {
             if mask.peek_left.is_none() {
@@ -476,6 +464,19 @@ impl MaskedCore {
         }
     }
 
+    /// Is the position at a word boundary?
+    pub fn is_section_boundary(&self, pos: upos_type) -> bool {
+        if pos == 0 {
+            return false;
+        }
+        if pos as usize >= self.mask.len() {
+            return false;
+        }
+        let prev = &self.mask[pos as usize - 1];
+        let mask = &self.mask[pos as usize];
+        prev.nr_id != mask.nr_id
+    }
+
     /// Get the range for the section at the given cursor position,
     /// if it is an editable section.
     pub fn section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
@@ -484,10 +485,7 @@ impl MaskedCore {
         }
 
         let mut mask = &self.mask[cursor as usize];
-        if mask.is_right_number_boundary() {
-            mask = &self.mask[cursor as usize - 1];
-            Some(mask.nr_start..mask.nr_end)
-        } else if mask.right.is_number() {
+        if mask.right.is_number() {
             Some(mask.nr_start..mask.nr_end)
         } else if mask.right.is_separator() {
             None
@@ -530,17 +528,8 @@ impl MaskedCore {
             return None;
         }
 
-        let mut prev;
-        let mut mask;
-        // at a section boundary start at the left section.
-        if cursor > 0 && self.mask[cursor as usize].nr_id != self.mask[cursor as usize - 1].nr_id {
-            prev = self.mask[cursor as usize - 1].nr_start;
-            mask = &self.mask[prev as usize];
-        } else {
-            prev = self.mask[cursor as usize].nr_start;
-            mask = &self.mask[prev as usize];
-        }
-
+        let mut prev = self.mask[cursor as usize].nr_start;
+        let mut mask = &self.mask[prev as usize];
         loop {
             if mask.peek_left.is_none() {
                 return None;
