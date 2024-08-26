@@ -1648,7 +1648,6 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(keycode press CONTROL-Backspace)
                 | ct_event!(keycode press ALT-Backspace) => tc(self.delete_prev_word()),
                 ct_event!(keycode press CONTROL-Delete) => tc(self.delete_next_word()),
-                ct_event!(key press CONTROL-'c') => tc(self.copy_to_clip()),
                 ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
                 ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
                 ct_event!(key press CONTROL-'d') => tc(self.duplicate_text()),
@@ -1666,7 +1665,6 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 | ct_event!(keycode release CONTROL-Backspace)
                 | ct_event!(keycode release ALT-Backspace)
                 | ct_event!(keycode release CONTROL-Delete)
-                | ct_event!(key release CONTROL-'c')
                 | ct_event!(key release CONTROL-'x')
                 | ct_event!(key release CONTROL-'v')
                 | ct_event!(key release CONTROL-'d')
@@ -1744,6 +1742,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 ct_event!(keycode press CONTROL_SHIFT-Home) => self.move_to_start(true).into(),
                 ct_event!(keycode press CONTROL_SHIFT-End) => self.move_to_end(true).into(),
                 ct_event!(key press CONTROL-'a') => self.select_all().into(),
+                ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
 
                 ct_event!(keycode release Left)
                 | ct_event!(keycode release Right)
@@ -1781,7 +1780,8 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextAreaSta
                 | ct_event!(keycode release CONTROL_SHIFT-Right)
                 | ct_event!(keycode release CONTROL_SHIFT-Home)
                 | ct_event!(keycode release CONTROL_SHIFT-End)
-                | ct_event!(key release CONTROL-'a') => TextOutcome::Unchanged,
+                | ct_event!(key release CONTROL-'a')
+                | ct_event!(key release CONTROL-'c') => TextOutcome::Unchanged,
                 _ => TextOutcome::Continue,
             }
         } else {
