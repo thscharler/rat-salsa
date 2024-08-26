@@ -1,7 +1,6 @@
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
 use rat_widget::file_dialog::FileDialogStyle;
-use rat_widget::input::TextInputStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
@@ -9,6 +8,7 @@ use rat_widget::scrolled::ScrollStyle;
 use rat_widget::splitter::SplitStyle;
 use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
+use rat_widget::text_input::TextInputStyle;
 use rat_widget::textarea::TextAreaStyle;
 use ratatui::prelude::Style;
 
