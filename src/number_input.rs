@@ -29,14 +29,7 @@ pub struct NumberInput<'a> {
 #[derive(Debug, Clone)]
 pub struct NumberInputState {
     pub widget: MaskedInputState,
-    pub format: NumberInputFormat,
 
-    pub non_exhaustive: NonExhaustive,
-}
-
-/// Some internals.
-#[derive(Debug, Clone)]
-pub struct NumberInputFormat {
     /// NumberFormat pattern.
     pattern: String,
     /// Locale
@@ -45,6 +38,8 @@ pub struct NumberInputFormat {
     // So don't be surprised, if you see that one instead of the
     // paramter locale used here.
     format: NumberFormat,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a> NumberInput<'a> {
@@ -121,18 +116,10 @@ impl Default for NumberInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            format: Default::default(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
-impl Default for NumberInputFormat {
-    fn default() -> Self {
-        Self {
             pattern: Default::default(),
             locale: Default::default(),
             format: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -182,13 +169,13 @@ impl NumberInputState {
     /// [format_num_pattern] format string.
     #[inline]
     pub fn format(&self) -> &str {
-        self.format.pattern.as_str()
+        self.pattern.as_str()
     }
 
     /// chrono locale.
     #[inline]
     pub fn locale(&self) -> chrono::Locale {
-        self.format.locale
+        self.locale
     }
 
     /// Set format.
@@ -204,7 +191,7 @@ impl NumberInputState {
     ) -> Result<(), NumberFmtError> {
         let sym = NumberSymbols::monetary(locale);
 
-        self.format.format = NumberFormat::new(pattern.as_ref())?;
+        self.format = NumberFormat::new(pattern.as_ref())?;
         self.widget.set_mask(pattern.as_ref())?;
         self.widget.set_num_symbols(sym);
 
@@ -439,7 +426,7 @@ impl NumberInputState {
     /// Parses the text as the desired value type.
     pub fn value<T: FromStr>(&self) -> Result<T, NumberFmtError> {
         let s = self.widget.text();
-        self.format.format.parse(s)
+        self.format.parse(s)
     }
 
     /// Length in grapheme count.
@@ -467,7 +454,7 @@ impl NumberInputState {
         &mut self,
         number: T,
     ) -> Result<(), NumberFmtError> {
-        let s = self.format.format.fmt(number)?;
+        let s = self.format.fmt(number)?;
         self.widget.set_text(s);
         Ok(())
     }
