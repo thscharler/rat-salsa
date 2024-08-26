@@ -653,7 +653,7 @@ impl FilesState {
         let text = mem::take(text);
 
         if Some(path) == sel {
-            self.w_data.set_value(text);
+            self.w_data.set_text(text);
             Ok(Control::Changed)
         } else {
             Ok(Control::Continue)
@@ -881,11 +881,11 @@ impl FilesState {
 
                 Ok(Control::Changed)
             } else {
-                self.w_data.set_value("");
+                self.w_data.set_text("");
                 Ok(Control::Changed)
             }
         } else {
-            self.w_data.set_value("");
+            self.w_data.set_text("");
             Ok(Control::Changed)
         }
     }
