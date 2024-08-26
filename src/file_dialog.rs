@@ -6,7 +6,6 @@ use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::event::{FileOutcome, TextOutcome};
 use crate::fill::Fill;
-use crate::input::{TextInput, TextInputState, TextInputStyle};
 use crate::layout::{layout_dialog, layout_grid};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
@@ -19,6 +18,7 @@ use rat_event::{ct_event, flow, flow_ok, Dialog, HandleEvent, Outcome, Regular};
 use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
+use rat_text::text_input::{TextInput, TextInputState, TextInputStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
@@ -99,6 +99,69 @@ pub struct FileDialogState {
     new_state: ButtonState,
     cancel_state: ButtonState,
     ok_state: ButtonState,
+}
+
+pub(crate) mod event {
+    use rat_event::{ConsumedEvent, Outcome};
+    use std::path::PathBuf;
+
+    /// Result for the FileDialog.
+    #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum FileOutcome {
+        /// The given event has not been used at all.
+        Continue,
+        /// The event has been recognized, but the result was nil.
+        /// Further processing for this event may stop.
+        Unchanged,
+        /// The event has been recognized and there is some change
+        /// due to it.
+        /// Further processing for this event may stop.
+        /// Rendering the ui is advised.
+        Changed,
+        /// Cancel
+        Cancel,
+        /// Ok
+        Ok(PathBuf),
+    }
+
+    impl ConsumedEvent for FileOutcome {
+        fn is_consumed(&self) -> bool {
+            !matches!(self, FileOutcome::Continue)
+        }
+    }
+
+    impl From<FileOutcome> for Outcome {
+        fn from(value: FileOutcome) -> Self {
+            match value {
+                FileOutcome::Continue => Outcome::Continue,
+                FileOutcome::Unchanged => Outcome::Unchanged,
+                FileOutcome::Changed => Outcome::Changed,
+                FileOutcome::Ok(_) => Outcome::Changed,
+                FileOutcome::Cancel => Outcome::Changed,
+            }
+        }
+    }
+
+    impl From<Outcome> for FileOutcome {
+        fn from(value: Outcome) -> Self {
+            match value {
+                Outcome::Continue => FileOutcome::Continue,
+                Outcome::Unchanged => FileOutcome::Unchanged,
+                Outcome::Changed => FileOutcome::Changed,
+            }
+        }
+    }
+
+    // Useful for converting most navigation/edit results.
+    impl From<bool> for FileOutcome {
+        fn from(value: bool) -> Self {
+            if value {
+                FileOutcome::Changed
+            } else {
+                FileOutcome::Unchanged
+            }
+        }
+    }
 }
 
 impl Debug for FileDialogState {
@@ -750,7 +813,7 @@ impl FileDialogState {
             self.dirs = dirs;
             self.files = files;
 
-            self.path_state.set_value(self.path.to_string_lossy());
+            self.path_state.set_text(self.path.to_string_lossy());
             if self.path_state.inner.width != 0 {
                 // only works when this has been rendered once. todo:
                 self.path_state.move_to_line_end(false);
@@ -765,17 +828,17 @@ impl FileDialogState {
             if !self.files.is_empty() {
                 self.file_state.select(Some(0));
                 if let Some(name) = &self.save_name {
-                    self.save_name_state.set_value(name.to_string_lossy());
+                    self.save_name_state.set_text(name.to_string_lossy());
                 } else {
                     self.save_name_state
-                        .set_value(self.files[0].to_string_lossy());
+                        .set_text(self.files[0].to_string_lossy());
                 }
             } else {
                 self.file_state.select(None);
                 if let Some(name) = &self.save_name {
-                    self.save_name_state.set_value(name.to_string_lossy());
+                    self.save_name_state.set_text(name.to_string_lossy());
                 } else {
-                    self.save_name_state.set_value("");
+                    self.save_name_state.set_text("");
                 }
             }
             self.file_state.set_offset(0);
@@ -787,7 +850,7 @@ impl FileDialogState {
     }
 
     fn use_path_input(&mut self) -> Result<FileOutcome, io::Error> {
-        let path = PathBuf::from(self.path_state.value());
+        let path = PathBuf::from(self.path_state.text());
         if !path.exists() || !path.is_dir() {
             self.path_state.invalid = true;
         } else {
@@ -834,7 +897,7 @@ impl FileDialogState {
         if let Some(select) = self.file_state.selected() {
             if let Some(file) = self.files.get(select).cloned() {
                 let name = file.to_string_lossy();
-                self.save_name_state.set_value(name);
+                self.save_name_state.set_text(name);
                 return Ok(FileOutcome::Changed);
             }
         }
@@ -860,7 +923,7 @@ impl FileDialogState {
 
     fn commit_edit_dir(&mut self) -> Result<FileOutcome, io::Error> {
         if let Some(edit) = &mut self.dir_state.edit {
-            let name = edit.edit_dir.value().trim();
+            let name = edit.edit_dir.text().trim();
             let path = self.path.join(name);
             if fs::create_dir(&path).is_err() {
                 edit.edit_dir.invalid = true;
@@ -891,7 +954,7 @@ impl FileDialogState {
                 }
             }
         } else if self.mode == Mode::Save {
-            let path = self.path.join(self.save_name_state.value().trim());
+            let path = self.path.join(self.save_name_state.text().trim());
             self.active = false;
             return FileOutcome::Ok(path);
         }

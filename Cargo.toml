@@ -64,6 +64,7 @@ sysinfo = "0.31"
 rat-event = { version = "0.15", path = "../rat-event" }
 rat-focus = { version = "0.11", path = "../rat-focus" }
 rat-ftable = { version = "0.17", path = "../rat-ftable" }
+rat-text = { version = "0.10", path = "../rat-text" }
 rat-scrolled = { version = "0.13", path = "../rat-scrolled" }
 
 

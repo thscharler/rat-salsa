@@ -4,10 +4,10 @@ use anyhow::anyhow;
 #[allow(unused_imports)]
 use log::Log;
 use rat_event::{flow_ok, HandleEvent, Outcome, Popup, Regular};
-use rat_focus::{Focus, FocusFlag, HasFocus, HasFocusFlag};
+use rat_focus::{Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
-use rat_widget::input::{TextInput, TextInputState};
+use rat_text::text_input::{TextInput, TextInputState};
 use rat_widget::list::edit::{EditList, EditListState};
 use rat_widget::list::List;
 use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
@@ -255,7 +255,7 @@ fn handle_input(
         fn edit(data: &mut Data, state: &mut State) -> Outcome {
             if let Some(sel) = state.list1.list.selected() {
                 let mut edit = EditEntryState::default();
-                edit.edit.set_value(&data.data[sel]);
+                edit.edit.set_text(&data.data[sel]);
                 state.list1.edit = Some(edit);
             }
             Outcome::Changed
@@ -263,7 +263,7 @@ fn handle_input(
         fn commit(data: &mut Data, state: &mut State) -> Outcome {
             if let Some(sel) = state.list1.list.selected() {
                 if let Some(edit) = &state.list1.edit {
-                    let s = edit.edit.value().to_string();
+                    let s = edit.edit.text().to_string();
                     if !s.is_empty() {
                         data.data[sel] = s;
                     } else {

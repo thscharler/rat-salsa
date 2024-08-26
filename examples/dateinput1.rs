@@ -36,28 +36,37 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l0 = Layout::horizontal([
-        Constraint::Length(14),
+        Constraint::Length(25),
+        Constraint::Length(20),
         Constraint::Fill(1),
         Constraint::Fill(1),
     ])
     .split(area);
 
     let l1 = Layout::vertical([
-        Constraint::Fill(1),
+        Constraint::Length(7),
         Constraint::Length(1),
         Constraint::Length(1),
         Constraint::Fill(1),
     ])
-    .split(l0[0]);
+    .split(l0[1]);
 
-    let input1 = DateInput::default().style(Style::default().black().on_green());
+    let l2 = Layout::vertical([
+        Constraint::Length(7),
+        Constraint::Length(1),
+        Constraint::Length(1),
+        Constraint::Fill(1),
+    ])
+    .split(l0[1]);
+
+    let input1 = DateInput::default().style(Style::default().white().on_dark_gray());
     frame.render_stateful_widget(input1, l1[1], &mut state.input);
     if let Some((x, y)) = state.input.screen_cursor() {
         frame.set_cursor(x, y);
     }
 
     let txt1 = Span::from(format!("{:?}", state.input.value()));
-    frame.render_widget(txt1, l1[2]);
+    frame.render_widget(txt1, l2[1]);
 
     Ok(())
 }
