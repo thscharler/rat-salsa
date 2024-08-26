@@ -360,8 +360,18 @@ impl HasFocusFlag for MaskedInputState {
     }
 
     fn navigable(&self) -> Navigation {
-        let has_next = self.value.next_section_range(self.value.cursor()).is_some();
-        let has_prev = self.value.prev_section_range(self.value.cursor()).is_some();
+        let sel = self.value.selection();
+
+        let has_next = self
+            .value
+            .next_section_range(sel.end)
+            .map(|v| !v.is_empty())
+            .is_some();
+        let has_prev = self
+            .value
+            .prev_section_range(sel.start.saturating_sub(1))
+            .map(|v| !v.is_empty())
+            .is_some();
 
         if has_next {
             if has_prev {
@@ -1013,23 +1023,13 @@ impl MaskedInputState {
     /// Select next section.
     #[inline]
     pub fn select_next_section(&mut self) -> bool {
-        if self.selection().is_empty() {
-            if let Some(range) = self.value.section_range(self.cursor()) {
-                self.set_selection(range.start, range.end)
-            } else if let Some(range) = self.value.section_range(self.cursor().saturating_sub(1)) {
-                self.set_selection(range.start, range.end)
+        let selection = self.selection();
+
+        if let Some(next) = self.value.next_section_range(selection.start) {
+            if !next.is_empty() {
+                self.set_selection(next.start, next.end)
             } else {
                 false
-            }
-        } else if let Some(range) = self.value.next_section_range(self.cursor()) {
-            if range == self.selection() {
-                if let Some(range) = self.value.next_section_range(self.cursor()) {
-                    self.set_selection(range.start, range.end)
-                } else {
-                    false
-                }
-            } else {
-                self.set_selection(range.start, range.end)
             }
         } else {
             false
@@ -1039,23 +1039,16 @@ impl MaskedInputState {
     /// Select previous section.
     #[inline]
     pub fn select_prev_section(&mut self) -> bool {
-        if self.selection().is_empty() {
-            if let Some(range) = self.value.section_range(self.cursor()) {
-                self.set_selection(range.end, range.start)
-            } else if let Some(range) = self.value.section_range(self.cursor().saturating_sub(1)) {
-                self.set_selection(range.end, range.start)
+        let selection = self.selection();
+
+        if let Some(next) = self
+            .value
+            .prev_section_range(selection.start.saturating_sub(1))
+        {
+            if !next.is_empty() {
+                self.set_selection(next.start, next.end)
             } else {
                 false
-            }
-        } else if let Some(range) = self.value.prev_section_range(self.cursor()) {
-            if range == self.selection() {
-                if let Some(range) = self.value.prev_section_range(self.cursor()) {
-                    self.set_selection(range.end, range.start)
-                } else {
-                    false
-                }
-            } else {
-                self.set_selection(range.end, range.start)
             }
         } else {
             false

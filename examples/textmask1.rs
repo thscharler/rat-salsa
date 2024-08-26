@@ -2,6 +2,7 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 #[allow(unused_imports)]
 use rat_event::{ct_event, flow_ok, Outcome};
+use rat_focus::HasFocusFlag;
 use rat_text::text_input_mask;
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -88,6 +89,27 @@ fn repaint_input(
         _ = writeln!(&mut stats);
         _ = writeln!(&mut stats, "cursor: {:?}", state.masked.cursor(),);
         _ = writeln!(&mut stats, "anchor: {:?}", state.masked.anchor());
+
+        _ = writeln!(&mut stats, "navig: {:?}", state.masked.navigable());
+
+        let sel = state.masked.selection();
+        _ = writeln!(&mut stats, "selection: {:?}", sel.clone());
+        _ = writeln!(
+            &mut stats,
+            "curr-sec: {:?}",
+            state.masked.value.section_range(state.masked.cursor())
+        );
+        _ = writeln!(
+            &mut stats,
+            "prev-sec: {:?}",
+            state.masked.value.prev_section_range(sel.start)
+        );
+        _ = writeln!(
+            &mut stats,
+            "next-sec: {:?}",
+            state.masked.value.next_section_range(sel.end)
+        );
+
         if let Some((scx, scy)) = state.masked.screen_cursor() {
             _ = writeln!(&mut stats, "screen: {}:{}", scx, scy);
         } else {

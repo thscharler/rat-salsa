@@ -431,6 +431,8 @@ impl MaskedCore {
                 return Some(self.number_cursor(mask.nr_start..mask.nr_end));
             } else if mask.right.is_separator() {
                 continue;
+            } else if mask.right.is_none() {
+                return None;
             } else {
                 return Some(mask.sec_start);
             }
@@ -516,6 +518,8 @@ impl MaskedCore {
                 return Some(mask.nr_start..mask.nr_end);
             } else if mask.right.is_separator() {
                 continue;
+            } else if mask.right.is_none() {
+                return None;
             } else {
                 return Some(mask.sec_start..mask.sec_end);
             }
@@ -523,7 +527,7 @@ impl MaskedCore {
     }
 
     /// Get the default cursor position for the next editable section.
-    pub fn prev_section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
+    pub fn prev_section_range(&self, mut cursor: upos_type) -> Option<Range<upos_type>> {
         if cursor as usize >= self.mask.len() {
             return None;
         }
