@@ -1,6 +1,7 @@
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
 use rat_widget::file_dialog::FileDialogStyle;
+use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
@@ -191,6 +192,15 @@ impl DarkTheme {
     /// Style for the status line.
     pub fn status_style(&self) -> Style {
         Style::default().fg(self.s.white[0]).bg(self.s.black[2])
+    }
+
+    ///
+    pub fn line_nr_style(&self) -> LineNumberStyle {
+        LineNumberStyle {
+            style: self.data().fg(self.s.gray[0]),
+            cursor_style: Some(self.text_select()),
+            ..LineNumberStyle::default()
+        }
     }
 
     /// Complete TextAreaStyle
