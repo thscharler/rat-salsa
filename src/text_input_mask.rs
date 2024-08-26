@@ -1285,8 +1285,22 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
                 }
                 ct_event!(keycode press SHIFT-Home) => self.move_to_line_start(true).into(),
                 ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
-                ct_event!(keycode press Tab) => self.select_next_section().into(),
-                ct_event!(keycode press SHIFT-BackTab) => self.select_prev_section().into(),
+                ct_event!(keycode press Tab) => {
+                    // ignore tab from focus
+                    if !self.focus.gained() {
+                        self.select_next_section().into()
+                    } else {
+                        TextOutcome::Unchanged
+                    }
+                }
+                ct_event!(keycode press SHIFT-BackTab) => {
+                    // ignore tab from focus
+                    if !self.focus.gained() {
+                        self.select_prev_section().into()
+                    } else {
+                        TextOutcome::Unchanged
+                    }
+                }
                 ct_event!(key press CONTROL-'a') => self.select_all().into(),
                 ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
 
