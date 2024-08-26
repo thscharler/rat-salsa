@@ -76,6 +76,9 @@ pub mod file_dialog;
 pub mod fill;
 pub(crate) mod inner;
 pub mod list;
+pub mod line_number {
+    pub use rat_text::line_number::{LineNumberState, LineNumberStyle, LineNumbers};
+}
 pub mod menubar;
 pub mod menuline;
 pub mod msgdialog;
