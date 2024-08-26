@@ -4,6 +4,7 @@ use std::ops::Range;
 
 pub mod clipboard;
 pub mod date_input;
+pub mod line_number;
 pub mod number_input;
 pub mod text_area;
 pub mod text_input;
