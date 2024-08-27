@@ -527,7 +527,7 @@ impl MaskedCore {
     }
 
     /// Get the default cursor position for the next editable section.
-    pub fn prev_section_range(&self, mut cursor: upos_type) -> Option<Range<upos_type>> {
+    pub fn prev_section_range(&self, cursor: upos_type) -> Option<Range<upos_type>> {
         if cursor as usize >= self.mask.len() {
             return None;
         }

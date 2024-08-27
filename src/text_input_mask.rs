@@ -1022,6 +1022,22 @@ impl MaskedInputState {
 
     /// Select next section.
     #[inline]
+    pub fn select_current_section(&mut self) -> bool {
+        let selection = self.selection();
+
+        if let Some(next) = self.value.section_range(selection.start.saturating_sub(1)) {
+            if !next.is_empty() {
+                self.set_selection(next.start, next.end)
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    /// Select next section.
+    #[inline]
     pub fn select_next_section(&mut self) -> bool {
         let selection = self.selection();
 
@@ -1268,6 +1284,11 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         let mut r = if self.is_focused() {
+            if self.focus.gained() {
+                self.set_default_cursor();
+                self.select_current_section();
+            };
+
             match event {
                 ct_event!(keycode press Left) => self.move_left(false).into(),
                 ct_event!(keycode press Right) => self.move_right(false).into(),

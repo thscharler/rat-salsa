@@ -1,10 +1,12 @@
-use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 #[allow(unused_imports)]
 use rat_event::{ct_event, flow_ok, Outcome};
-use rat_focus::HasFocusFlag;
-use rat_text::text_input_mask;
+use rat_event::{HandleEvent, Regular};
+use rat_focus::{Focus, HasFocusFlag};
+use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
+use rat_text::{text_input, text_input_mask};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
@@ -21,6 +23,8 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         info: true,
+        sample1: Default::default(),
+        sample2: Default::default(),
         masked: Default::default(),
         mask_idx: 0,
     };
@@ -32,6 +36,8 @@ struct Data {}
 
 struct State {
     pub(crate) info: bool,
+    pub(crate) sample1: TextInputState,
+    pub(crate) sample2: TextInputState,
     pub(crate) masked: MaskedInputState,
     pub(crate) mask_idx: usize,
 }
@@ -43,25 +49,34 @@ fn repaint_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l1 = Layout::vertical([
-        Constraint::Length(1),
-        Constraint::Fill(1),
-        Constraint::Length(1),
-        Constraint::Length(1),
-    ])
-    .split(area);
+    let ll: [[Rect; 6]; 4] = layout_grid(
+        area,
+        Layout::horizontal([
+            Constraint::Length(25),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+            Constraint::Length(25),
+        ]),
+        Layout::vertical([
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Fill(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+            Constraint::Length(1),
+        ]),
+    );
 
-    let l2 = Layout::horizontal([
-        Constraint::Length(25),
-        Constraint::Fill(1),
-        Constraint::Length(1),
-        Constraint::Length(25),
-    ])
-    .split(l1[1]);
+    TextInput::new()
+        .style(Style::default().white().on_dark_gray())
+        .select_style(Style::default().black().on_yellow())
+        .focus_style(Style::default().black().on_cyan())
+        .render(ll[1][1], frame.buffer_mut(), &mut state.sample1);
 
     MaskedInput::new()
         .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
         .style(Style::default().white().on_dark_gray())
+        .focus_style(Style::default().black().on_cyan())
         .select_style(Style::default().black().on_yellow())
         .text_style([
             Style::new().red(),
@@ -69,17 +84,28 @@ fn repaint_input(
             Style::new().green(),
             Style::new().on_yellow(),
         ])
-        .render(l2[1], frame.buffer_mut(), &mut state.masked);
+        .render(ll[1][2], frame.buffer_mut(), &mut state.masked);
 
-    if let Some((cx, cy)) = state.masked.screen_cursor() {
+    TextInput::new()
+        .style(Style::default().white().on_dark_gray())
+        .select_style(Style::default().black().on_yellow())
+        .focus_style(Style::default().black().on_cyan())
+        .render(ll[1][3], frame.buffer_mut(), &mut state.sample2);
+
+    if let Some((cx, cy)) = state
+        .masked
+        .screen_cursor()
+        .or_else(|| state.sample1.screen_cursor())
+        .or_else(|| state.sample2.screen_cursor())
+    {
         frame.set_cursor(cx, cy);
     }
 
-    let info_area = Rect::new(l2[0].x + 1, l2[0].y + 1, l2[0].width - 2, 1);
+    let info_area = Rect::new(ll[0][1].x + 1, ll[0][1].y + 1, ll[0][1].width - 2, 1);
     let info = Line::from("F2 next mask").black().on_cyan();
     info.render(info_area, frame.buffer_mut());
 
-    let mask_area = Rect::new(l2[0].x + 1, l2[0].y + 2, l2[0].width - 2, 1);
+    let mask_area = Rect::new(ll[0][2].x + 1, ll[0][2].y + 2, ll[0][2].width - 2, 1);
     let mask = Line::from(state.masked.mask()).black().on_cyan();
     mask.render(mask_area, frame.buffer_mut());
 
@@ -138,7 +164,8 @@ fn repaint_input(
             }
         }
         let dbg = Paragraph::new(stats);
-        frame.render_widget(dbg, l2[3]);
+        let lx = ll[3][1].union(ll[3][2]).union(ll[3][3]).union(ll[3][4]);
+        frame.render_widget(dbg, lx);
     }
 
     let ccursor = state.masked.selection();
@@ -153,11 +180,13 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(text_input_mask::handle_events(
-        &mut state.masked,
-        true,
-        event
-    ));
+    let mut f = Focus::new_list(&[&state.sample1, &state.masked, &state.sample2]);
+    let ff = f.handle(event, Regular);
+    debug!("ff{:?}", ff);
+
+    flow_ok!(state.sample1.handle(event, Regular), consider ff);
+    flow_ok!(state.masked.handle(event, Regular), consider ff);
+    flow_ok!(state.sample2.handle(event, Regular), consider ff);
 
     flow_ok!(match event {
         ct_event!(key press ALT-'0') => {
@@ -167,9 +196,9 @@ fn handle_input(
         ct_event!(keycode press F(2)) => next_mask(state),
         ct_event!(keycode press SHIFT-F(2)) => prev_mask(state),
         _ => Outcome::Continue,
-    });
+    }, consider ff);
 
-    Ok(Outcome::Continue)
+    Ok(ff)
 }
 
 static MASKS: [&str; 36] = [
