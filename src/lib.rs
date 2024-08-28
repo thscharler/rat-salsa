@@ -9,12 +9,12 @@ pub mod util;
 ///
 /// All the normal key-handling, maybe dependent on an internal
 /// focus-state, all the mouse-handling.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Regular;
 
 /// Handle mouse-events only. Useful whenever you want to write new key-bindings,
 /// but keep the mouse-events.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct MouseOnly;
 
 /// Popup/Overlays are a bit difficult to handle, as there is no z-order/area tree,
@@ -31,14 +31,14 @@ pub struct MouseOnly;
 /// * Menubar. Would define _two_ event-handlers, a regular one for all events
 ///   on the main menu bar, and a popup event-handler for the menus. The event-handling
 ///   function calls the popup handler first and the regular one at some time later.
-#[derive(Debug)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Popup;
 
 /// Event-handling for a dialog like widget.
 ///
 /// Similar to [Popup] but with the extra that it consumes _all_ events when active.
 /// No regular widget gets any event, and we have modal behaviour.
-#[derive(Debug)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct Dialog;
 
 /// Event-handler for double-click on a widget.
@@ -50,7 +50,7 @@ pub struct Dialog;
 ///
 /// This event-handler doesn't consume the first click, just
 /// the second one.
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Clone, Copy)]
 pub struct DoubleClick;
 
 ///
@@ -125,13 +125,35 @@ pub trait ConsumedEvent {
         }
     }
 
+    /// Or-Else chaining with `is_consumed()` as the split.
+    fn or_else_try<F, E1>(self, f: F) -> Result<Self, E1>
+    where
+        Self: Sized,
+        F: FnOnce() -> Result<Self, E1>,
+    {
+        if self.is_consumed() {
+            Ok(self)
+        } else {
+            Ok(f()?)
+        }
+    }
+
     /// Then-chaining. Returns max(self, f()).
-    fn then<F>(self, f: F) -> Self
+    fn and<F>(self, f: F) -> Self
     where
         Self: Sized + Ord,
         F: FnOnce() -> Self,
     {
         max(self, f())
+    }
+
+    /// Then-chaining. Returns max(self, f()).
+    fn and_try<F, E1>(self, f: F) -> Result<Self, E1>
+    where
+        Self: Sized + Ord,
+        F: FnOnce() -> Result<Self, E1>,
+    {
+        Ok(max(self, f()?))
     }
 }
 
@@ -142,7 +164,7 @@ where
     fn is_consumed(&self) -> bool {
         match self {
             Ok(v) => v.is_consumed(),
-            Err(_) => true, // this can somewhat be argued for.
+            Err(_) => true,
         }
     }
 }
@@ -167,7 +189,7 @@ pub enum Outcome {
 
 impl ConsumedEvent for Outcome {
     fn is_consumed(&self) -> bool {
-        !matches!(self, Outcome::Continue)
+        *self != Outcome::Continue
     }
 }
 
@@ -214,16 +236,6 @@ macro_rules! flow {
             _ = r;
         }
     }};
-    ($x:expr, consider $f:expr) => {{
-        use std::cmp::max;
-        use $crate::ConsumedEvent;
-        let r = $x;
-        if r.is_consumed() {
-            return max(r.into(), $f);
-        } else {
-            _ = r;
-        }
-    }};
     ($x:expr) => {{
         use $crate::ConsumedEvent;
         let r = $x;
@@ -244,14 +256,6 @@ macro_rules! flow {
 ///
 /// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
 /// the result of the operation is written to the log.
-///
-/// Extras: Focus handling is tricky, see [rat-focus](https://docs.rs/rat-focus/).
-/// The result of focus handling is a second result of an event-handler,
-/// that must be combined to form the single return value that a function
-/// can have.
-/// Therefore, one more extension for this macro:
-/// `flow_ok!(_do_something_with_an_outcome(), consider focus_outcome)`.
-/// This returns max(outcome, focus_outcome).
 #[macro_export]
 macro_rules! flow_ok {
     (log $n:ident: $x:expr) => {{
@@ -266,16 +270,6 @@ macro_rules! flow_ok {
             _ = r;
         }
     }};
-    ($x:expr, consider $f:expr) => {{
-        use std::cmp::max;
-        use $crate::ConsumedEvent;
-        let r = $x;
-        if r.is_consumed() {
-            return Ok(max(r.into(), $f));
-        } else {
-            _ = r;
-        }
-    }};
     ($x:expr) => {{
         use $crate::ConsumedEvent;
         let r = $x;
@@ -285,31 +279,4 @@ macro_rules! flow_ok {
             _ = r;
         }
     }};
-}
-
-/// Another control-flow macro based on [ConsumedEvent].
-///
-/// If you don't want to return early from event-handling, you can use this.
-///
-/// Define a mut that holds the result, and `or_else!` through all
-/// event-handlers.
-///
-/// ```not_rust
-/// let mut r;
-///
-/// r = first_activity();
-/// or_else!(r, second_activity());
-/// or_else!(r, third_activity());
-/// ```
-///
-/// This executes `second_activity()` if `!r.is_consumed()` and stores the
-/// result in r. The same with `third_activity` ...
-///
-#[macro_export]
-macro_rules! or_else {
-    ($x:ident, $e:expr) => {
-        if !$crate::ConsumedEvent::is_consumed(&$x) {
-            $x = $e;
-        }
-    };
 }
