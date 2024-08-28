@@ -752,17 +752,17 @@ pub mod markdown {
             flow!(match event {
                 ct_event!(keycode press Enter) => {
                     let pos = self.cursor();
-                    let pos_byte = self.byte_at(pos).expect("valid_cursor").start;
+                    let pos_byte = self.byte_at(pos).start;
 
-                    if pos.x == self.line_width(pos.y).expect("line") {
+                    if pos.x == self.line_width(pos.y) {
                         let row_byte = self
                             .style_match(pos_byte, MDStyle::TableRow as usize)
                             .or_else(|| self.style_match(pos_byte, MDStyle::TableHead as usize));
 
                         if let Some(row_byte) = row_byte {
-                            let row_range = self.byte_range(row_byte).expect("valid_range");
+                            let row_range = self.byte_range(row_byte);
 
-                            let row = self.value.str_slice(row_range).expect("row");
+                            let row = self.str_slice(row_range);
                             let (x, row) = duplicate_md_row(row.as_ref());
                             self.insert_str(row);
                             self.set_cursor((x, pos.y + 1), false);
@@ -776,15 +776,15 @@ pub mod markdown {
                 }
                 ct_event!(keycode press Tab) => {
                     let pos = self.cursor();
-                    let pos_byte = self.byte_at(pos).expect("valid_pos").start;
+                    let pos_byte = self.byte_at(pos).start;
 
                     let row_byte = self
                         .style_match(pos_byte, MDStyle::TableRow as usize)
                         .or_else(|| self.style_match(pos_byte, MDStyle::TableHead as usize));
 
                     if let Some(row_byte) = row_byte {
-                        let row_range = self.byte_range(row_byte).expect("valid_range");
-                        let row = self.value.str_slice(row_range).expect("row");
+                        let row_range = self.byte_range(row_byte);
+                        let row = self.str_slice(row_range);
                         let x = next_tab_md_row(row.as_ref(), pos.x - row_range.start.x);
                         self.set_cursor((x, pos.y), false);
                         TextOutcome::TextChanged
@@ -794,15 +794,15 @@ pub mod markdown {
                 }
                 ct_event!(keycode press SHIFT-BackTab) => {
                     let pos = self.cursor();
-                    let pos_byte = self.byte_at(pos).expect("valid_pos").start;
+                    let pos_byte = self.byte_at(pos).start;
 
                     let row_byte = self
                         .style_match(pos_byte, MDStyle::TableRow as usize)
                         .or_else(|| self.style_match(pos_byte, MDStyle::TableHead as usize));
 
                     if let Some(row_byte) = row_byte {
-                        let row_range = self.byte_range(row_byte).expect("valid_range");
-                        let row = self.value.str_slice(row_range).expect("row");
+                        let row_range = self.byte_range(row_byte);
+                        let row = self.str_slice(row_range);
                         let x = prev_tab_md_row(row.as_ref(), pos.x - row_range.start.x);
                         self.set_cursor((x, pos.y), false);
                         TextOutcome::TextChanged
@@ -850,8 +850,8 @@ pub mod markdown {
                 }
                 Event::Start(Tag::Item) => {
                     // only color the marker
-                    let text_range = state.byte_range(r.clone()).expect("valid_range");
-                    let text = state.rope_slice(text_range).expect("valid_range");
+                    let text_range = state.byte_range(r.clone());
+                    let text = state.rope_slice(text_range);
                     let r = 'f: {
                         let mut n = 0;
                         for c in text.bytes() {
@@ -1287,7 +1287,7 @@ pub mod mdfile {
             if self.changed {
                 let mut f = BufWriter::new(File::create(&self.path)?);
                 let mut buf = Vec::new();
-                for line in self.edit.lines_at(0).expect("valid_pos") {
+                for line in self.edit.lines_at(0) {
                     buf.clear();
                     buf.extend(line.bytes().filter(|v| *v != b'\n' && *v != b'\r'));
                     buf.extend_from_slice(self.edit.newline().as_bytes());
