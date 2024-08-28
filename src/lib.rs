@@ -197,7 +197,7 @@ pub mod selection {
 /// Eventhandling.
 pub mod event {
     pub use rat_event::{
-        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, DoubleClick, HandleEvent,
+        crossterm, ct_event, flow, try_flow, util, ConsumedEvent, DoubleClick, HandleEvent,
         MouseOnly, Outcome, Regular,
     };
 
