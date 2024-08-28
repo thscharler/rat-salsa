@@ -2,11 +2,10 @@ use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 #[allow(unused_imports)]
 use rat_event::{ct_event, flow_ok, Outcome};
-use rat_event::{HandleEvent, Regular};
+use rat_event::{flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, HasFocusFlag};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
-use rat_text::{text_input, text_input_mask};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
@@ -181,24 +180,25 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let mut f = Focus::new_list(&[&state.sample1, &state.masked, &state.sample2]);
-    let ff = f.handle(event, Regular);
-    debug!("ff{:?}", ff);
 
-    flow_ok!(state.sample1.handle(event, Regular), consider ff);
-    flow_ok!(state.masked.handle(event, Regular), consider ff);
-    flow_ok!(state.sample2.handle(event, Regular), consider ff);
+    let r = f.handle(event, Regular);
+    let r = r.and(|| {
+        flow!(state.sample1.handle(event, Regular));
+        flow!(state.masked.handle(event, Regular));
+        flow!(state.sample2.handle(event, Regular));
+        flow!(match event {
+            ct_event!(key press ALT-'0') => {
+                state.info = !state.info;
+                Outcome::Changed
+            }
+            ct_event!(keycode press F(2)) => next_mask(state),
+            ct_event!(keycode press SHIFT-F(2)) => prev_mask(state),
+            _ => Outcome::Continue,
+        });
+        Outcome::Continue
+    });
 
-    flow_ok!(match event {
-        ct_event!(key press ALT-'0') => {
-            state.info = !state.info;
-            Outcome::Changed
-        }
-        ct_event!(keycode press F(2)) => next_mask(state),
-        ct_event!(keycode press SHIFT-F(2)) => prev_mask(state),
-        _ => Outcome::Continue,
-    }, consider ff);
-
-    Ok(ff)
+    Ok(r)
 }
 
 static MASKS: [&str; 36] = [
