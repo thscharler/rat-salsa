@@ -169,7 +169,7 @@ where
 /// The shortest version I can come up with:
 /// ```
 /// use crossterm::event::Event;
-/// use rat_salsa::event::{ct_event, flow_ok};
+/// use rat_salsa::event::{ct_event, try_flow};
 /// use rat_salsa::{run_tui, AppContext, AppState, AppWidget, Control, RenderContext, RunConfig};
 /// use ratatui::buffer::Buffer;
 /// use ratatui::layout::Rect;
@@ -207,7 +207,7 @@ where
 ///         event: &Event,
 ///         _ctx: &mut AppContext<'_, (), (), anyhow::Error>,
 ///     ) -> Result<Control<()>, anyhow::Error> {
-///         flow_ok!(match event {
+///         try_flow!(match event {
 ///             ct_event!(key press 'q') => Control::Quit,
 ///             _ => Control::Continue,
 ///         });

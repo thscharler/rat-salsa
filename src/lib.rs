@@ -32,7 +32,7 @@ pub use threadpool::Cancel;
 /// Result of event-handling.
 ///
 /// The macro
-/// [rat-event::flow_ok!](https://docs.rs/rat-event/latest/rat_event/macro.flow_ok.html)
+/// [rat-event::flow!](https://docs.rs/rat-event/latest/rat_event/macro.flow.html)
 /// provides control-flow using this enum.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[must_use]
@@ -360,5 +360,5 @@ impl<'a, Global> RenderContext<'a, Global> {
 /// Event-handler traits and Keybindings.
 ///
 pub mod event {
-    pub use rat_widget::event::{ct_event, flow_ok};
+    pub use rat_widget::event::{ct_event, try_flow};
 }

@@ -9,7 +9,7 @@ use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
-use rat_widget::event::{ct_event, flow_ok, Dialog, HandleEvent};
+use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
@@ -147,13 +147,13 @@ impl AppState<GlobalState, MinimalAction, Error> for MinimalState {
 
         let t0 = SystemTime::now();
 
-        flow_ok!(match &event {
+        try_flow!(match &event {
             Event::Resize(_, _) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             _ => Control::Continue,
         });
 
-        flow_ok!({
+        try_flow!({
             if ctx.g.error_dlg.active() {
                 ctx.g.error_dlg.handle(&event, Dialog).into()
             } else {
@@ -161,7 +161,7 @@ impl AppState<GlobalState, MinimalAction, Error> for MinimalState {
             }
         });
 
-        flow_ok!(self.mask0.crossterm(&event, ctx)?);
+        try_flow!(self.mask0.crossterm(&event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
@@ -177,7 +177,7 @@ impl AppState<GlobalState, MinimalAction, Error> for MinimalState {
         let t0 = SystemTime::now();
 
         // TODO: actions
-        flow_ok!(match event {
+        try_flow!(match event {
             MinimalAction::Message(s) => {
                 ctx.g.status.status(0, &*s);
                 Control::Changed
@@ -209,7 +209,7 @@ pub mod mask0 {
     use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_theme::dark_themes;
-    use rat_widget::event::{flow_ok, HandleEvent, Popup, Regular};
+    use rat_widget::event::{try_flow, HandleEvent, Popup, Regular};
     use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
     use rat_widget::menuline::MenuOutcome;
     use rat_widget::popup_menu::{MenuItem, Placement};
@@ -303,7 +303,7 @@ pub mod mask0 {
             event: &Event,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MinimalAction>, Error> {
-            flow_ok!(match self.menu.handle(event, Popup) {
+            try_flow!(match self.menu.handle(event, Popup) {
                 MenuOutcome::MenuSelected(0, n) => {
                     ctx.g.theme = dark_themes()[n].clone();
                     Control::Changed
@@ -317,14 +317,14 @@ pub mod mask0 {
 
             // TODO: handle_mask
 
-            flow_ok!(match self.menu.handle(event, Regular) {
+            try_flow!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(1) => {
                     Control::Quit
                 }
                 r => r.into(),
             });
 
-            flow_ok!(self.scroll.handle(event, Regular));
+            try_flow!(self.scroll.handle(event, Regular));
 
             Ok(Control::Continue)
         }

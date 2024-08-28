@@ -14,7 +14,7 @@ use rat_theme::dark_theme::DarkTheme;
 use rat_theme::dark_themes;
 use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{
-    ct_event, flow_ok, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, Outcome, Popup,
+    ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, Outcome, Popup,
     ReadOnly, Regular,
 };
 use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
@@ -463,13 +463,13 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
 
         let t0 = SystemTime::now();
 
-        flow_ok!(match &event {
+        try_flow!(match &event {
             Event::Resize(_, _) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             _ => Control::Continue,
         });
 
-        flow_ok!({
+        try_flow!({
             if ctx.g.error_dlg.active() {
                 ctx.g.error_dlg.handle(&event, Dialog).into()
             } else {
@@ -479,7 +479,7 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
 
         ctx.queue(self.focus().handle(event, Regular));
 
-        flow_ok!(match event {
+        try_flow!(match event {
             ct_event!(keycode press F(5)) => {
                 if self.w_split.is_focused() {
                     self.focus().next();
@@ -491,7 +491,7 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
             _ => Control::Continue,
         });
 
-        flow_ok!(match self.w_menu.handle(event, Popup) {
+        try_flow!(match self.w_menu.handle(event, Popup) {
             MenuOutcome::MenuSelected(0, n) => {
                 Control::Changed
             }
@@ -513,16 +513,16 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
             r => r.into(),
         });
 
-        flow_ok!(self.w_split.handle(event, Regular));
+        try_flow!(self.w_split.handle(event, Regular));
 
-        flow_ok!(match self.w_menu.handle(event, Regular) {
+        try_flow!(match self.w_menu.handle(event, Regular) {
             MenuOutcome::Activated(2) => {
                 Control::Quit
             }
             r => r.into(),
         });
 
-        flow_ok!(match_focus!(
+        try_flow!(match_focus!(
             self.w_files => {
                 match event {
                     ct_event!(keycode press Enter) => {
@@ -543,31 +543,31 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
                 Control::Continue
             }
         ));
-        flow_ok!(match self.w_files.handle(event, DoubleClick) {
+        try_flow!(match self.w_files.handle(event, DoubleClick) {
             DoubleClickOutcome::ClickClick(_, _) => {
                 self.follow_file(ctx)?
             }
             r => r.into(),
         });
-        flow_ok!(match self.w_dirs.handle(event, DoubleClick) {
+        try_flow!(match self.w_dirs.handle(event, DoubleClick) {
             DoubleClickOutcome::ClickClick(_, _) => {
                 self.follow_dir(ctx)?
             }
             r => r.into(),
         });
-        flow_ok!(match self.w_files.handle(event, Regular) {
+        try_flow!(match self.w_files.handle(event, Regular) {
             Outcome::Changed => {
                 self.show_file(ctx)?
             }
             r => r.into(),
         });
-        flow_ok!(match self.w_dirs.handle(event, Regular) {
+        try_flow!(match self.w_dirs.handle(event, Regular) {
             Outcome::Changed => {
                 self.show_dir()?
             }
             v => Control::from(v),
         });
-        flow_ok!(self.w_data.handle(event, ReadOnly));
+        try_flow!(self.w_data.handle(event, ReadOnly));
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
@@ -583,7 +583,7 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
         let t0 = SystemTime::now();
 
         // TODO: actions
-        flow_ok!(match event {
+        try_flow!(match event {
             Message(s) => {
                 ctx.g.status.status(0, &*s);
                 Control::Changed
