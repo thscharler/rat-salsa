@@ -14,7 +14,7 @@ use crate::util::revert_style;
 use directories_next::UserDirs;
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{ct_event, flow, flow_ok, Dialog, HandleEvent, Outcome, Regular};
+use rat_event::{ct_event, flow, flow_ok, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
 use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
@@ -23,7 +23,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
 use ratatui::widgets::{Block, ListItem, StatefulWidgetRef, WidgetRef};
-use std::cmp::max;
 use std::ffi::OsString;
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
@@ -1017,21 +1016,24 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
             return Ok(FileOutcome::Continue);
         }
 
-        let focus_outcome = self.focus().handle(event, Regular).into();
-
-        flow_ok!(handle_path(self, event)?, consider focus_outcome);
-        if self.mode == Mode::Save {
-            flow_ok!(handle_name(self, event)?, consider focus_outcome);
-        }
-        flow_ok!(handle_files(self, event)?, consider focus_outcome);
-        flow_ok!(handle_dirs(self, event)?, consider focus_outcome);
-        flow_ok!(handle_roots(self, event)?, consider focus_outcome);
-
-        flow_ok!(handle_new(self, event)?);
-        flow_ok!(handle_cancel(self, event)?);
-        flow_ok!(handle_ok(self, event)?);
-
-        Ok(max(FileOutcome::Unchanged, focus_outcome))
+        let f: FileOutcome = self.focus().handle(event, Regular).into();
+        let f = f.and_try(|| {
+            handle_path(self, event)?
+                .or_else_try(|| {
+                    if self.mode == Mode::Save {
+                        handle_name(self, event)
+                    } else {
+                        Ok(FileOutcome::Continue)
+                    }
+                })?
+                .or_else_try(|| handle_files(self, event))?
+                .or_else_try(|| handle_dirs(self, event))?
+                .or_else_try(|| handle_roots(self, event))?
+                .or_else_try(|| handle_new(self, event))?
+                .or_else_try(|| handle_cancel(self, event))?
+                .or_else_try(|| handle_ok(self, event))
+        });
+        f
     }
 }
 

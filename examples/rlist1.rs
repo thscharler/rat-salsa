@@ -1,9 +1,8 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, MiniSalsaState};
-use anyhow::anyhow;
 #[allow(unused_imports)]
 use log::Log;
-use rat_event::{flow_ok, HandleEvent, Outcome, Popup, Regular};
+use rat_event::{flow, ConsumedEvent, HandleEvent, Outcome, Popup, Regular};
 use rat_focus::{Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
@@ -209,9 +208,8 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus(state).handle(event, Regular);
-
-    flow_ok!(
-        match state.menu.handle(event, Popup) {
+    let r = f.and(|| {
+        flow!(match state.menu.handle(event, Popup) {
             MenuOutcome::MenuSelected(v, w) => {
                 istate.status[0] = format!("Selected {}-{}", v, w);
                 Outcome::Changed
@@ -222,107 +220,110 @@ fn handle_input(
                 Outcome::Changed
             }
             r => r.into(),
-        }
-    , consider f);
+        });
 
-    flow_ok!({
-        fn insert(data: &mut Data, state: &mut State) -> Outcome {
-            if let Some(sel) = state.list1.list.selected() {
+        flow!({
+            fn insert(data: &mut Data, state: &mut State) -> Outcome {
+                if let Some(sel) = state.list1.list.selected() {
+                    let mut edit = EditEntryState::default();
+                    edit.insert = true;
+                    data.data.insert(sel, "".into());
+                    state.list1.list.items_added(sel, 1);
+                    state.list1.list.move_to(sel);
+                    state.list1.edit = Some(edit);
+                }
+                Outcome::Changed
+            }
+            fn remove(data: &mut Data, state: &mut State) -> Outcome {
+                if let Some(sel) = state.list1.list.selected() {
+                    data.data.remove(sel);
+                }
+                Outcome::Changed
+            }
+            fn append(data: &mut Data, state: &mut State) -> Outcome {
                 let mut edit = EditEntryState::default();
                 edit.insert = true;
-                data.data.insert(sel, "".into());
-                state.list1.list.items_added(sel, 1);
-                state.list1.list.move_to(sel);
+                data.data.push("".into());
+                state.list1.list.items_added(data.data.len(), 1);
+                state.list1.list.move_to(data.data.len() - 1);
                 state.list1.edit = Some(edit);
+                Outcome::Changed
             }
-            Outcome::Changed
-        }
-        fn remove(data: &mut Data, state: &mut State) -> Outcome {
-            if let Some(sel) = state.list1.list.selected() {
-                data.data.remove(sel);
-            }
-            Outcome::Changed
-        }
-        fn append(data: &mut Data, state: &mut State) -> Outcome {
-            let mut edit = EditEntryState::default();
-            edit.insert = true;
-            data.data.push("".into());
-            state.list1.list.items_added(data.data.len(), 1);
-            state.list1.list.move_to(data.data.len() - 1);
-            state.list1.edit = Some(edit);
-            Outcome::Changed
-        }
-        fn edit(data: &mut Data, state: &mut State) -> Outcome {
-            if let Some(sel) = state.list1.list.selected() {
-                let mut edit = EditEntryState::default();
-                edit.edit.set_text(&data.data[sel]);
-                state.list1.edit = Some(edit);
-            }
-            Outcome::Changed
-        }
-        fn commit(data: &mut Data, state: &mut State) -> Outcome {
-            if let Some(sel) = state.list1.list.selected() {
-                if let Some(edit) = &state.list1.edit {
-                    let s = edit.edit.text().to_string();
-                    if !s.is_empty() {
-                        data.data[sel] = s;
-                    } else {
-                        data.data.remove(sel);
-                        state.list1.list.items_removed(sel, 1);
-                        if data.data.is_empty() {
-                            data.data.insert(sel, "".to_string());
-                            state.list1.list.items_added(sel, 1);
-                        }
-                        if sel >= data.data.len() {
-                            state.list1.list.select(Some(data.data.len() - 1));
-                        }
-                    }
-                    state.list1.edit = None;
+            fn edit(data: &mut Data, state: &mut State) -> Outcome {
+                if let Some(sel) = state.list1.list.selected() {
+                    let mut edit = EditEntryState::default();
+                    edit.edit.set_text(&data.data[sel]);
+                    state.list1.edit = Some(edit);
                 }
+                Outcome::Changed
             }
-            Outcome::Changed
-        }
-        fn cancel(data: &mut Data, state: &mut State) -> Outcome {
-            if let Some(sel) = state.list1.list.selected() {
-                if let Some(edit) = &state.list1.edit {
-                    if edit.insert {
-                        data.data.remove(sel);
-                        state.list1.list.items_removed(sel, 1);
-                        if data.data.is_empty() {
-                            data.data.insert(sel, "".to_string());
-                            state.list1.list.items_added(sel, 1);
+            fn commit(data: &mut Data, state: &mut State) -> Outcome {
+                if let Some(sel) = state.list1.list.selected() {
+                    if let Some(edit) = &state.list1.edit {
+                        let s = edit.edit.text().to_string();
+                        if !s.is_empty() {
+                            data.data[sel] = s;
+                        } else {
+                            data.data.remove(sel);
+                            state.list1.list.items_removed(sel, 1);
+                            if data.data.is_empty() {
+                                data.data.insert(sel, "".to_string());
+                                state.list1.list.items_added(sel, 1);
+                            }
+                            if sel >= data.data.len() {
+                                state.list1.list.select(Some(data.data.len() - 1));
+                            }
                         }
-                        if sel >= data.data.len() {
-                            state.list1.list.select(Some(data.data.len() - 1));
-                        }
+                        state.list1.edit = None;
                     }
-                    state.list1.edit = None;
                 }
+                Outcome::Changed
             }
-            Outcome::Changed
-        }
+            fn cancel(data: &mut Data, state: &mut State) -> Outcome {
+                if let Some(sel) = state.list1.list.selected() {
+                    if let Some(edit) = &state.list1.edit {
+                        if edit.insert {
+                            data.data.remove(sel);
+                            state.list1.list.items_removed(sel, 1);
+                            if data.data.is_empty() {
+                                data.data.insert(sel, "".to_string());
+                                state.list1.list.items_added(sel, 1);
+                            }
+                            if sel >= data.data.len() {
+                                state.list1.list.select(Some(data.data.len() - 1));
+                            }
+                        }
+                        state.list1.edit = None;
+                    }
+                }
+                Outcome::Changed
+            }
 
-        match state.list1.handle(event, Regular) {
-            EditOutcome::Cancel => cancel(data, state),
-            EditOutcome::Commit => commit(data, state),
-            EditOutcome::CommitAndAppend => commit(data, state).then(|| append(data, state)),
-            EditOutcome::CommitAndEdit => commit(data, state)
-                .then(|| state.list1.list.move_down(1).into())
-                .then(|| edit(data, state)),
-            EditOutcome::Insert => insert(data, state),
-            EditOutcome::Remove => remove(data, state),
-            EditOutcome::Edit => edit(data, state),
-            EditOutcome::Append => append(data, state),
-            r => r.into(),
-        }
-    }, consider f);
+            match state.list1.handle(event, Regular) {
+                EditOutcome::Cancel => cancel(data, state),
+                EditOutcome::Commit => commit(data, state),
+                EditOutcome::CommitAndAppend => commit(data, state).and(|| append(data, state)),
+                EditOutcome::CommitAndEdit => commit(data, state)
+                    .and(|| state.list1.list.move_down(1).into())
+                    .and(|| edit(data, state)),
+                EditOutcome::Insert => insert(data, state),
+                EditOutcome::Remove => remove(data, state),
+                EditOutcome::Edit => edit(data, state),
+                EditOutcome::Append => append(data, state),
+                r => r.into(),
+            }
+        });
 
-    flow_ok!(match state.menu.handle(event, Regular) {
-        MenuOutcome::Activated(0) => {
-            return Err(anyhow!("Quit"));
-        }
-        r => r,
-    }, consider f);
+        flow!(match state.menu.handle(event, Regular) {
+            MenuOutcome::Activated(0) => {
+                istate.quit = true;
+                MenuOutcome::Changed
+            }
+            r => r,
+        });
 
-    Ok(f.max(Outcome::Continue))
+        Outcome::Continue
+    });
+
+    Ok(r)
 }
