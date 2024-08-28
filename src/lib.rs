@@ -13,7 +13,7 @@ pub mod event {
     //!
 
     pub use rat_event::{
-        crossterm, ct_event, flow, flow_ok, util, ConsumedEvent, Dialog, DoubleClick, HandleEvent,
+        crossterm, ct_event, flow, try_flow, util, ConsumedEvent, Dialog, DoubleClick, HandleEvent,
         MouseOnly, Outcome, Popup, Regular,
     };
 

@@ -2,7 +2,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::MiniSalsaState;
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{flow_ok, Dialog, HandleEvent, Outcome};
+use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
 use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState};
 use rat_widget::layout::layout_middle;
@@ -85,7 +85,7 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(match state.file_open.handle(event, Dialog)? {
+    try_flow!(match state.file_open.handle(event, Dialog)? {
         FileOutcome::Ok(path) => {
             state.file_open = Default::default();
             istate.status[0] = format!("Selected file {:?}", path);
@@ -99,7 +99,7 @@ fn handle_input(
         r => r.into(),
     });
 
-    flow_ok!(
+    try_flow!(
         match menubar::handle_popup_events(&mut state.menu, true, event) {
             MenuOutcome::MenuActivated(0, 0) => {
                 state.file_open.open_dialog(&PathBuf::from("."))?;
@@ -113,7 +113,7 @@ fn handle_input(
         }
     );
 
-    flow_ok!(match menubar::handle_events(&mut state.menu, true, event) {
+    try_flow!(match menubar::handle_events(&mut state.menu, true, event) {
         MenuOutcome::Activated(1) => {
             istate.quit = true;
             Outcome::Changed

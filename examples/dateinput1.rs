@@ -1,5 +1,5 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::flow_ok;
+use rat_event::try_flow;
 use rat_widget::date_input;
 use rat_widget::date_input::{DateInput, DateInputState};
 use rat_widget::event::Outcome;
@@ -77,6 +77,6 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(date_input::handle_events(&mut state.input, true, event));
+    try_flow!(date_input::handle_events(&mut state.input, true, event));
     Ok(Outcome::Continue)
 }

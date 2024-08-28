@@ -1,5 +1,5 @@
 use crate::mini_salsa::MiniSalsaState;
-use rat_event::{flow_ok, Outcome};
+use rat_event::{try_flow, Outcome};
 use rat_widget::menubar;
 use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
 use rat_widget::menuline::MenuOutcome;
@@ -69,7 +69,7 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(
+    try_flow!(
         match menubar::handle_popup_events(&mut state.menu, true, event) {
             MenuOutcome::MenuSelected(v, w) => {
                 istate.status[0] = format!("Selected {}-{}", v, w);
@@ -84,7 +84,7 @@ fn handle_input(
         }
     );
 
-    flow_ok!(match menubar::handle_events(&mut state.menu, true, event) {
+    try_flow!(match menubar::handle_events(&mut state.menu, true, event) {
         MenuOutcome::Selected(v) => {
             istate.status[0] = format!("Selected {}", v);
             Outcome::Changed

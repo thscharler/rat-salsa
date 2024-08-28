@@ -3,7 +3,7 @@
 use crate::double_widget::{DoubleView, DoubleViewState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{flow_ok, HandleEvent, MouseOnly, Outcome};
+use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::Scroll;
 use rat_widget::paragraph::Paragraph;
 use rat_widget::viewport::{Viewport, ViewportState};
@@ -151,7 +151,7 @@ fn handle_text(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(state.double.handle(event, MouseOnly));
+    try_flow!(state.double.handle(event, MouseOnly));
     Ok(Outcome::Continue)
 }
 

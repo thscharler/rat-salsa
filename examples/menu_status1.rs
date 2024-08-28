@@ -1,6 +1,6 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::flow_ok;
+use rat_event::try_flow;
 use rat_widget::button::ButtonStyle;
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_middle;
@@ -84,9 +84,9 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(msgdialog::handle_dialog_events(&mut state.msg, event));
+    try_flow!(msgdialog::handle_dialog_events(&mut state.msg, event));
 
-    flow_ok!(
+    try_flow!(
         match menuline::handle_events(&mut state.menu, true, event) {
             MenuOutcome::Selected(v) => {
                 istate.status[0] = format!("Selected {}", v);

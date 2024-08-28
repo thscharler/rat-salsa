@@ -1,5 +1,5 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::flow_ok;
+use rat_event::try_flow;
 use rat_widget::button;
 use rat_widget::button::{Button, ButtonOutcome, ButtonState};
 use rat_widget::event::Outcome;
@@ -115,7 +115,7 @@ fn handle_buttons(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(
+    try_flow!(
         match button::handle_mouse_events(&mut state.button1, event) {
             ButtonOutcome::Pressed => {
                 data.p0 = !data.p0;
@@ -125,7 +125,7 @@ fn handle_buttons(
         }
     );
 
-    flow_ok!(
+    try_flow!(
         match button::handle_mouse_events(&mut state.button2, event) {
             ButtonOutcome::Pressed => {
                 data.p1 = !data.p1;
@@ -135,7 +135,7 @@ fn handle_buttons(
         }
     );
 
-    flow_ok!(
+    try_flow!(
         match button::handle_mouse_events(&mut state.button3, event) {
             ButtonOutcome::Pressed => {
                 data.p2 = !data.p2;

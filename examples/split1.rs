@@ -3,7 +3,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{ct_event, flow_ok, ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, HasFocusFlag};
 use rat_scrolled::Scroll;
 use rat_widget::event::Outcome;
@@ -239,7 +239,7 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(match event {
+    try_flow!(match event {
         ct_event!(keycode press F(1)) => {
             state.dir = Direction::Horizontal;
             Outcome::Changed
@@ -344,16 +344,16 @@ fn handle_input(
 
     let f = focus(state).handle(event, Regular);
     let r = f.and_try(|| {
-        flow_ok!(HandleEvent::handle(&mut state.split, event, Regular));
-        flow_ok!(match state.left.handle(event, Regular) {
+        try_flow!(HandleEvent::handle(&mut state.split, event, Regular));
+        try_flow!(match state.left.handle(event, Regular) {
             Outcome::Changed => {
                 debug!("sel left {:?}", state.left.selected());
                 Outcome::Changed
             }
             r => r,
         });
-        flow_ok!(state.right.handle(event, Regular));
-        flow_ok!(match state.menu.handle(event, Regular) {
+        try_flow!(state.right.handle(event, Regular));
+        try_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => {
                 istate.quit = true;
                 Outcome::Changed
