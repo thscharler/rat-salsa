@@ -1,7 +1,7 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 #[allow(unused_imports)]
-use rat_event::{ct_event, flow_ok, Outcome};
+use rat_event::{ct_event, try_flow, Outcome};
 use rat_text::text_input;
 use rat_text::text_input::{TextInput, TextInputState};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -136,9 +136,9 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(text_input::handle_events(&mut state.textinput, true, event));
+    try_flow!(text_input::handle_events(&mut state.textinput, true, event));
 
-    flow_ok!(match event {
+    try_flow!(match event {
         ct_event!(key press ALT-'0') => {
             state.info = !state.info;
             Outcome::Changed

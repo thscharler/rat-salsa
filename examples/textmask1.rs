@@ -1,7 +1,7 @@
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 #[allow(unused_imports)]
-use rat_event::{ct_event, flow_ok, Outcome};
+use rat_event::{ct_event, try_flow, Outcome};
 use rat_event::{flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, HasFocusFlag};
 use rat_text::text_input::{TextInput, TextInputState};

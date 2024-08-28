@@ -1,6 +1,6 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 #[allow(unused_imports)]
-use rat_event::{ct_event, flow_ok, Outcome};
+use rat_event::{ct_event, try_flow, Outcome};
 use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::{text_area, TextRange};
@@ -147,9 +147,9 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    flow_ok!(text_area::handle_events(&mut state.textarea, true, event));
+    try_flow!(text_area::handle_events(&mut state.textarea, true, event));
 
-    flow_ok!(match event {
+    try_flow!(match event {
         ct_event!(key press ALT-'0') => {
             state.info = !state.info;
             Outcome::Changed
