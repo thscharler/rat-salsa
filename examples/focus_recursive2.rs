@@ -1,7 +1,7 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::substratum1::{Substratum, SubstratumState};
 use crate::substratum2::{Substratum2, Substratum2State};
-use rat_event::{flow_ok, HandleEvent, Outcome, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, HasFocus};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
@@ -84,34 +84,18 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     let f = focus_input(state).handle(event, Regular);
-
-    flow_ok!(state.sub1.handle(event, Regular), consider f);
-    flow_ok!(state.sub3.handle(event, Regular), consider f);
-    flow_ok!(state.sub4.handle(event, Regular), consider f);
-
-    Ok(f)
-
-    // -- old style
-    // let r = state.sub1.handle(event, Regular);
-    // if r.is_consumed() {
-    //     return Ok(max(r, f));
-    // }
-    // let r = state.sub3.handle(event, Regular);
-    // if r.is_consumed() {
-    //     return Ok(max(r, f));
-    // }
-    // let r = state.sub4.handle(event, Regular);
-    // if r.is_consumed() {
-    //     return Ok(max(r, f));
-    // }
-    //
-    // Ok(max(r, f))
+    let r = f.and(|| {
+        (state.sub1.handle(event, Regular))
+            .or_else(|| state.sub3.handle(event, Regular))
+            .or_else(|| state.sub4.handle(event, Regular))
+    });
+    Ok(r)
 }
 
 pub mod substratum2 {
     use crate::mini_salsa::theme::THEME;
     use crate::substratum1::{Substratum, SubstratumState};
-    use rat_event::{flow, HandleEvent, Outcome, Regular};
+    use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{ContainerFlag, Focus, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -203,18 +187,9 @@ pub mod substratum2 {
 
     impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Substratum2State {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
-            flow!(self.stratum1.handle(event, Regular));
-            flow!(self.stratum2.handle(event, Regular));
-            // -- old style
-            // let r = self.stratum1.handle(event, Regular);
-            // if r.is_consumed() {
-            //     return r;
-            // }
-            // let r = self.stratum2.handle(event, Regular);
-            // if r.is_consumed() {
-            //     return r;
-            // }
-            Outcome::Continue
+            self.stratum1
+                .handle(event, Regular) //
+                .or_else(|| self.stratum2.handle(event, Regular))
         }
     }
 }
@@ -223,7 +198,7 @@ pub mod substratum1 {
     use crate::adapter::textinputf::{TextInputF, TextInputFState};
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
-    use rat_event::{flow, HandleEvent, Outcome, Regular};
+    use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
     use rat_focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -351,28 +326,11 @@ pub mod substratum1 {
 
     impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SubstratumState {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
-            flow!(self.input1.handle(event, Regular));
-            flow!(self.input2.handle(event, Regular));
-            flow!(self.input3.handle(event, Regular));
-            flow!(self.input4.handle(event, Regular));
-
-            // let mut r: Outcome = self.input1.handle(event, Regular).into();
-            // if r.is_consumed() {
-            //     return r;
-            // }
-            // r = self.input2.handle(event, Regular).into();
-            // if r.is_consumed() {
-            //     return r;
-            // }
-            // r = self.input3.handle(event, Regular).into();
-            // if r.is_consumed() {
-            //     return r;
-            // }
-            // r = self.input4.handle(event, Regular).into();
-            // if r.is_consumed() {
-            //     return r;
-            // }
-            Outcome::Continue
+            self.input1
+                .handle(event, Regular) //
+                .or_else(|| self.input2.handle(event, Regular))
+                .or_else(|| self.input3.handle(event, Regular))
+                .or_else(|| self.input4.handle(event, Regular))
         }
     }
 }
