@@ -309,7 +309,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
             state.value.len_lines(),
         );
     let page_bytes = state
-        .bytes_at_range(TextRange::new((0, page_rows.start), (0, page_rows.end)))
+        .try_bytes_at_range(TextRange::new((0, page_rows.start), (0, page_rows.end)))
         .expect("valid_rows");
     let selection = state.selection();
     let mut styles = Vec::new();
@@ -506,9 +506,7 @@ impl TextAreaState {
         };
 
         match clip.set_string(self.selected_text().as_ref()) {
-            Ok(_) => self
-                .delete_range(self.selection())
-                .expect("valid_selection"),
+            Ok(_) => self.delete_range(self.selection()),
             Err(_) => false,
         }
     }
@@ -719,13 +717,28 @@ impl TextAreaState {
 
     /// Text slice as RopeSlice
     #[inline]
-    pub fn rope_slice(&self, range: impl Into<TextRange>) -> Result<RopeSlice<'_>, TextError> {
+    pub fn rope_slice(&self, range: impl Into<TextRange>) -> RopeSlice<'_> {
+        self.value
+            .text()
+            .rope_slice(range.into())
+            .expect("valid_range")
+    }
+
+    /// Text slice as RopeSlice
+    #[inline]
+    pub fn try_rope_slice(&self, range: impl Into<TextRange>) -> Result<RopeSlice<'_>, TextError> {
         self.value.text().rope_slice(range.into())
     }
 
     /// Text slice as Cow<str>
     #[inline]
-    pub fn str_slice(&self, range: impl Into<TextRange>) -> Result<Cow<'_, str>, TextError> {
+    pub fn str_slice(&self, range: impl Into<TextRange>) -> Cow<'_, str> {
+        self.value.str_slice(range.into()).expect("valid_range")
+    }
+
+    /// Text slice as Cow<str>
+    #[inline]
+    pub fn try_str_slice(&self, range: impl Into<TextRange>) -> Result<Cow<'_, str>, TextError> {
         self.value.str_slice(range.into())
     }
 
@@ -737,20 +750,39 @@ impl TextAreaState {
 
     /// Line width as grapheme count.
     #[inline]
-    pub fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
+    pub fn line_width(&self, row: upos_type) -> upos_type {
+        self.value.line_width(row).expect("valid_row")
+    }
+
+    /// Line width as grapheme count.
+    #[inline]
+    pub fn try_line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
         self.value.line_width(row)
     }
 
     /// Line as RopeSlice.
     /// This contains the \n at the end.
     #[inline]
-    pub fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
+    pub fn line_at(&self, row: upos_type) -> Cow<'_, str> {
+        self.value.line_at(row).expect("valid_row")
+    }
+
+    /// Line as RopeSlice.
+    /// This contains the \n at the end.
+    #[inline]
+    pub fn try_line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
         self.value.line_at(row)
     }
 
     /// Iterate over text-lines, starting at offset.
     #[inline]
-    pub fn lines_at(
+    pub fn lines_at(&self, row: upos_type) -> impl Iterator<Item = Cow<'_, str>> {
+        self.value.lines_at(row).expect("valid_row")
+    }
+
+    /// Iterate over text-lines, starting at offset.
+    #[inline]
+    pub fn try_lines_at(
         &self,
         row: upos_type,
     ) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
@@ -765,6 +797,20 @@ impl TextAreaState {
         rows: Range<upos_type>,
         screen_offset: u16,
         screen_width: u16,
+    ) -> impl Iterator<Item = Glyph<'_>> {
+        self.value
+            .glyphs(rows, screen_offset, screen_width)
+            .expect("valid_rows")
+    }
+
+    // Iterator for the glyphs of the lines in range.
+    /// Glyphs here a grapheme + display length.
+    #[inline]
+    pub fn try_glyphs(
+        &self,
+        rows: Range<upos_type>,
+        screen_offset: u16,
+        screen_width: u16,
     ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
         self.value.glyphs(rows, screen_offset, screen_width)
     }
@@ -772,7 +818,14 @@ impl TextAreaState {
     /// Grapheme iterator for a given line.
     /// This contains the \n at the end.
     #[inline]
-    pub fn line_graphemes(
+    pub fn line_graphemes(&self, row: upos_type) -> impl Iterator<Item = Grapheme<'_>> {
+        self.value.line_graphemes(row).expect("valid_row")
+    }
+
+    /// Grapheme iterator for a given line.
+    /// This contains the \n at the end.
+    #[inline]
+    pub fn try_line_graphemes(
         &self,
         row: upos_type,
     ) -> Result<impl Iterator<Item = Grapheme<'_>>, TextError> {
@@ -781,7 +834,13 @@ impl TextAreaState {
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
-    pub fn text_graphemes(
+    pub fn text_graphemes(&self, pos: TextPosition) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+        self.value.text_graphemes(pos).expect("valid_pos")
+    }
+
+    /// Get a cursor over all the text with the current position set at pos.
+    #[inline]
+    pub fn try_text_graphemes(
         &self,
         pos: TextPosition,
     ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
@@ -794,6 +853,16 @@ impl TextAreaState {
         &self,
         range: TextRange,
         pos: TextPosition,
+    ) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+        self.value.graphemes(range, pos).expect("valid_args")
+    }
+
+    /// Get a cursor over the text-range the current position set at pos.
+    #[inline]
+    pub fn try_graphemes(
+        &self,
+        range: TextRange,
+        pos: TextPosition,
     ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
         self.value.graphemes(range, pos)
     }
@@ -801,26 +870,52 @@ impl TextAreaState {
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     #[inline]
-    pub fn byte_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
+    pub fn byte_at(&self, pos: TextPosition) -> Range<usize> {
+        self.value.byte_at(pos).expect("valid_pos")
+    }
+
+    /// Grapheme position to byte position.
+    /// This is the (start,end) position of the single grapheme after pos.
+    #[inline]
+    pub fn try_byte_at(&self, pos: TextPosition) -> Result<Range<usize>, TextError> {
         self.value.byte_at(pos)
     }
 
     /// Grapheme range to byte range.
     #[inline]
-    pub fn bytes_at_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
+    pub fn try_bytes_at_range(&self, range: TextRange) -> Result<Range<usize>, TextError> {
         self.value.bytes_at_range(range)
+    }
+
+    /// Grapheme range to byte range.
+    #[inline]
+    pub fn bytes_at_range(&self, range: TextRange) -> Range<usize> {
+        self.value.bytes_at_range(range).expect("valid_range")
     }
 
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
     #[inline]
-    pub fn byte_pos(&self, byte: usize) -> Result<TextPosition, TextError> {
+    pub fn byte_pos(&self, byte: usize) -> TextPosition {
+        self.value.byte_pos(byte).expect("valid_pos")
+    }
+
+    /// Byte position to grapheme position.
+    /// Returns the position that contains the given byte index.
+    #[inline]
+    pub fn try_byte_pos(&self, byte: usize) -> Result<TextPosition, TextError> {
         self.value.byte_pos(byte)
     }
 
     /// Byte range to grapheme range.
     #[inline]
-    pub fn byte_range(&self, bytes: Range<usize>) -> Result<TextRange, TextError> {
+    pub fn byte_range(&self, bytes: Range<usize>) -> TextRange {
+        self.value.byte_range(bytes).expect("valid_range")
+    }
+
+    /// Byte range to grapheme range.
+    #[inline]
+    pub fn try_byte_range(&self, bytes: Range<usize>) -> Result<TextRange, TextError> {
         self.value.byte_range(bytes)
     }
 }
@@ -829,7 +924,7 @@ impl TextAreaState {
     /// Clear everything.
     #[inline]
     pub fn clear(&mut self) -> bool {
-        if !self.value.is_empty() {
+        if !self.is_empty() {
             self.value.clear();
             true
         } else {
@@ -860,22 +955,20 @@ impl TextAreaState {
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
     pub fn insert_char(&mut self, c: char) -> bool {
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.value
-                .remove_str_range(self.value.selection())
+                .remove_str_range(self.selection())
                 .expect("valid_selection");
         }
         if c == '\n' {
             self.value
-                .insert_newline(self.value.cursor())
+                .insert_newline(self.cursor())
                 .expect("valid_cursor");
         } else if c == '\t' {
-            self.value
-                .insert_tab(self.value.cursor())
-                .expect("valid_cursor");
+            self.value.insert_tab(self.cursor()).expect("valid_cursor");
         } else {
             self.value
-                .insert_char(self.value.cursor(), c)
+                .insert_char(self.cursor(), c)
                 .expect("valid_cursor");
         }
         self.scroll_cursor_to_visible();
@@ -885,14 +978,12 @@ impl TextAreaState {
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
     pub fn insert_tab(&mut self) -> bool {
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.value
-                .remove_str_range(self.value.selection())
+                .remove_str_range(self.selection())
                 .expect("valid_selection");
         }
-        self.value
-            .insert_tab(self.value.cursor())
-            .expect("valid_cursor");
+        self.value.insert_tab(self.cursor()).expect("valid_cursor");
         self.scroll_cursor_to_visible();
         true
     }
@@ -901,13 +992,13 @@ impl TextAreaState {
     /// Removes the selection and inserts the text.
     pub fn insert_str(&mut self, t: impl AsRef<str>) -> bool {
         let t = t.as_ref();
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.value
-                .remove_str_range(self.value.selection())
+                .remove_str_range(self.selection())
                 .expect("valid_selection");
         }
         self.value
-            .insert_str(self.value.cursor(), t)
+            .insert_str(self.cursor(), t)
             .expect("valid_cursor");
         self.scroll_cursor_to_visible();
         true
@@ -915,20 +1006,20 @@ impl TextAreaState {
 
     /// Insert a line break at the cursor position.
     pub fn insert_newline(&mut self) -> bool {
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.value
-                .remove_str_range(self.value.selection())
+                .remove_str_range(self.selection())
                 .expect("valid_selection");
         }
         self.value
-            .insert_newline(self.value.cursor())
+            .insert_newline(self.cursor())
             .expect("valid_cursor");
 
         // insert leading spaces
-        let pos = self.value.cursor();
-        if pos.y > 0 {
+        let cursor = self.cursor();
+        if cursor.y > 0 {
             let mut blanks = String::new();
-            for g in self.value.line_graphemes(pos.y - 1).expect("valid_cursor") {
+            for g in self.line_graphemes(cursor.y - 1) {
                 if g == " " || g == "\t" {
                     blanks.push_str(g.grapheme());
                 } else {
@@ -936,7 +1027,9 @@ impl TextAreaState {
                 }
             }
             if blanks.len() > 0 {
-                self.value.insert_str(pos, &blanks).expect("valid_cursor");
+                self.value
+                    .insert_str(cursor, &blanks)
+                    .expect("valid_cursor");
             }
         }
 
@@ -945,7 +1038,12 @@ impl TextAreaState {
     }
 
     /// Deletes the given range.
-    pub fn delete_range(&mut self, range: impl Into<TextRange>) -> Result<bool, TextError> {
+    pub fn delete_range(&mut self, range: impl Into<TextRange>) -> bool {
+        self.try_delete_range(range).expect("valid_range")
+    }
+
+    /// Deletes the given range.
+    pub fn try_delete_range(&mut self, range: impl Into<TextRange>) -> Result<bool, TextError> {
         let range = range.into();
         if !range.is_empty() {
             self.value.remove_str_range(range)?;
@@ -961,14 +1059,10 @@ impl TextAreaState {
     /// Duplicates the selection or the current line.
     /// Returns true if there was any real change.
     pub fn duplicate_text(&mut self) -> bool {
-        if self.value.has_selection() {
-            let sel_range = self.value.selection();
+        if self.has_selection() {
+            let sel_range = self.selection();
             if !sel_range.is_empty() {
-                let v = self
-                    .value
-                    .str_slice(sel_range)
-                    .expect("valid_selection")
-                    .to_string();
+                let v = self.str_slice(sel_range).to_string();
                 self.value
                     .insert_str(sel_range.end, &v)
                     .expect("valid_selection");
@@ -977,13 +1071,9 @@ impl TextAreaState {
                 false
             }
         } else {
-            let pos = self.value.cursor();
+            let pos = self.cursor();
             let row_range = TextRange::new((0, pos.y), (0, pos.y + 1));
-            let v = self
-                .value
-                .str_slice(row_range)
-                .expect("valid_cursor")
-                .to_string();
+            let v = self.str_slice(row_range).to_string();
             self.value
                 .insert_str(row_range.start, &v)
                 .expect("valid_cursor");
@@ -994,27 +1084,24 @@ impl TextAreaState {
     /// Deletes the current line.
     /// Returns true if there was any real change.
     pub fn delete_line(&mut self) -> bool {
-        let pos = self.value.cursor();
-        if pos.y + 1 < self.value.len_lines() {
+        let pos = self.cursor();
+        if pos.y + 1 < self.len_lines() {
             self.delete_range(TextRange::new((0, pos.y), (0, pos.y + 1)))
-                .expect("valid_cursor")
         } else {
-            let width = self.value.line_width(pos.y).expect("valid_cursor");
+            let width = self.line_width(pos.y);
             self.delete_range(TextRange::new((0, pos.y), (width, pos.y)))
-                .expect("valid_cursor")
         }
     }
 
     /// Deletes the next char or the current selection.
     /// Returns true if there was any real change.
     pub fn delete_next_char(&mut self) -> bool {
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else {
             let r = self
                 .value
-                .remove_next_char(self.value.cursor())
+                .remove_next_char(self.cursor())
                 .expect("valid_cursor");
             let s = self.scroll_cursor_to_visible();
 
@@ -1025,13 +1112,12 @@ impl TextAreaState {
     /// Deletes the previous char or the selection.
     /// Returns true if there was any real change.
     pub fn delete_prev_char(&mut self) -> bool {
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else {
             let r = self
                 .value
-                .remove_prev_char(self.value.cursor())
+                .remove_prev_char(self.cursor())
                 .expect("valid_cursor");
             let s = self.scroll_cursor_to_visible();
 
@@ -1041,13 +1127,31 @@ impl TextAreaState {
 
     /// Find the start of the next word. If the position is at the start
     /// or inside a word, the same position is returned.
-    pub fn next_word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
+    pub fn next_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        self.value.next_word_start(pos.into()).expect("valid_pos")
+    }
+
+    /// Find the start of the next word. If the position is at the start
+    /// or inside a word, the same position is returned.
+    pub fn try_next_word_start(
+        &self,
+        pos: impl Into<TextPosition>,
+    ) -> Result<TextPosition, TextError> {
         self.value.next_word_start(pos.into())
     }
 
     /// Find the end of the next word. Skips whitespace first, then goes on
     /// until it finds the next whitespace.
-    pub fn next_word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
+    pub fn next_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        self.value.next_word_end(pos.into()).expect("valid_pos")
+    }
+
+    /// Find the end of the next word. Skips whitespace first, then goes on
+    /// until it finds the next whitespace.
+    pub fn try_next_word_end(
+        &self,
+        pos: impl Into<TextPosition>,
+    ) -> Result<TextPosition, TextError> {
         self.value.next_word_end(pos.into())
     }
 
@@ -1056,49 +1160,87 @@ impl TextAreaState {
     ///
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
-    pub fn prev_word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
+    pub fn prev_word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        self.value.prev_word_start(pos.into()).expect("valid_pos")
+    }
+
+    /// Find the start of the prev word. Skips whitespace first, then goes on
+    /// until it finds the next whitespace.
+    ///
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn try_prev_word_start(
+        &self,
+        pos: impl Into<TextPosition>,
+    ) -> Result<TextPosition, TextError> {
         self.value.prev_word_start(pos.into())
     }
 
     /// Find the end of the previous word. Word is everything that is not whitespace.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
-    pub fn prev_word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
+    pub fn prev_word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        self.value.prev_word_end(pos.into()).expect("valid_pos")
+    }
+
+    /// Find the end of the previous word. Word is everything that is not whitespace.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn try_prev_word_end(
+        &self,
+        pos: impl Into<TextPosition>,
+    ) -> Result<TextPosition, TextError> {
         self.value.prev_word_end(pos.into())
     }
 
     /// Is the position at a word boundary?
-    pub fn is_word_boundary(&self, pos: impl Into<TextPosition>) -> Result<bool, TextError> {
+    pub fn is_word_boundary(&self, pos: impl Into<TextPosition>) -> bool {
+        self.value.is_word_boundary(pos.into()).expect("valid_pos")
+    }
+
+    /// Is the position at a word boundary?
+    pub fn try_is_word_boundary(&self, pos: impl Into<TextPosition>) -> Result<bool, TextError> {
         self.value.is_word_boundary(pos.into())
     }
 
     /// Find the start of the word at pos.
     /// Returns pos if the position is not inside a word.
-    pub fn word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
+    pub fn word_start(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        self.value.word_start(pos.into()).expect("valid_pos")
+    }
+
+    /// Find the start of the word at pos.
+    /// Returns pos if the position is not inside a word.
+    pub fn try_word_start(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
         self.value.word_start(pos.into())
     }
 
     /// Find the end of the word at pos.
     /// Returns pos if the position is not inside a word.
-    pub fn word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
+    pub fn word_end(&self, pos: impl Into<TextPosition>) -> TextPosition {
+        self.value.word_end(pos.into()).expect("valid_pos")
+    }
+
+    /// Find the end of the word at pos.
+    /// Returns pos if the position is not inside a word.
+    pub fn try_word_end(&self, pos: impl Into<TextPosition>) -> Result<TextPosition, TextError> {
         self.value.word_end(pos.into())
     }
 
     /// Delete the next word. This alternates deleting the whitespace between words and
     /// the words themselves.
     pub fn delete_next_word(&mut self) -> bool {
-        if self.value.has_selection() {
-            self.delete_range(self.value.selection())
-                .expect("valid_selection")
+        if self.has_selection() {
+            self.delete_range(self.selection())
         } else {
-            let cursor = self.value.cursor();
+            let cursor = self.cursor();
 
-            let start = self.next_word_start(cursor).expect("valid_cursor");
+            let start = self.next_word_start(cursor);
             if start != cursor {
-                self.delete_range(cursor..start).expect("valid_range")
+                self.delete_range(cursor..start)
             } else {
-                let end = self.next_word_end(cursor).expect("valid_cursor");
-                self.delete_range(cursor..end).expect("valid_range")
+                let end = self.next_word_end(cursor);
+                self.delete_range(cursor..end)
             }
         }
     }
@@ -1106,17 +1248,14 @@ impl TextAreaState {
     /// Deletes the previous word. This alternates deleting the whitespace
     /// between words and the words themselves.
     pub fn delete_prev_word(&mut self) -> bool {
-        if self.value.has_selection() {
-            self.delete_range(self.value.selection())
-                .expect("valid_selection")
+        if self.has_selection() {
+            self.delete_range(self.selection())
         } else {
-            let cursor = self.value.cursor();
+            let cursor = self.cursor();
 
             // delete to beginning of line?
             let till_line_start = if cursor.x != 0 {
-                self.value
-                    .graphemes(TextRange::new((0, cursor.y), cursor), cursor)
-                    .expect("valid_cursor")
+                self.graphemes(TextRange::new((0, cursor.y), cursor), cursor)
                     .rev_cursor()
                     .find(|v| !v.is_whitespace())
                     .is_none()
@@ -1126,14 +1265,13 @@ impl TextAreaState {
 
             if till_line_start {
                 self.delete_range(TextRange::new((0, cursor.y), cursor))
-                    .expect("valid_cursor")
             } else {
-                let end = self.prev_word_end(cursor).expect("valid_cursor");
+                let end = self.prev_word_end(cursor);
                 if end != cursor {
-                    self.delete_range(end..cursor).expect("valid_cursor")
+                    self.delete_range(end..cursor)
                 } else {
-                    let start = self.prev_word_start(cursor).expect("valid_cursor");
-                    self.delete_range(start..cursor).expect("valid_cursor")
+                    let start = self.prev_word_start(cursor);
+                    self.delete_range(start..cursor)
                 }
             }
         }
@@ -1142,19 +1280,19 @@ impl TextAreaState {
     /// Move the cursor left. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_left(&mut self, n: upos_type, extend_selection: bool) -> bool {
-        let mut cursor = self.value.cursor();
+        let mut cursor = self.cursor();
 
         if cursor.x == 0 {
             if cursor.y > 0 {
                 cursor.y = cursor.y.saturating_sub(1);
-                cursor.x = self.value.line_width(cursor.y).expect("valid_cursor");
+                cursor.x = self.line_width(cursor.y);
             }
         } else {
             cursor.x = cursor.x.saturating_sub(n);
         }
 
         self.set_move_col(Some(cursor.x));
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1162,11 +1300,11 @@ impl TextAreaState {
     /// Move the cursor right. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_right(&mut self, n: upos_type, extend_selection: bool) -> bool {
-        let mut cursor = self.value.cursor();
+        let mut cursor = self.cursor();
 
-        let c_line_width = self.value.line_width(cursor.y).expect("valid_cursor");
+        let c_line_width = self.line_width(cursor.y);
         if cursor.x == c_line_width {
-            if cursor.y + 1 < self.value.len_lines() {
+            if cursor.y + 1 < self.len_lines() {
                 cursor.y += 1;
                 cursor.x = 0;
             }
@@ -1175,7 +1313,7 @@ impl TextAreaState {
         }
 
         self.set_move_col(Some(cursor.x));
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1183,17 +1321,17 @@ impl TextAreaState {
     /// Move the cursor up. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_up(&mut self, n: upos_type, extend_selection: bool) -> bool {
-        let mut cursor = self.value.cursor();
+        let mut cursor = self.cursor();
 
         cursor.y = cursor.y.saturating_sub(n);
-        let c_line_width = self.value.line_width(cursor.y).expect("valid_cursor");
+        let c_line_width = self.line_width(cursor.y);
         if let Some(move_col) = self.move_col() {
             cursor.x = min(move_col, c_line_width);
         } else {
             cursor.x = min(cursor.x, c_line_width);
         }
 
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1201,17 +1339,17 @@ impl TextAreaState {
     /// Move the cursor down. Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_down(&mut self, n: upos_type, extend_selection: bool) -> bool {
-        let mut cursor = self.value.cursor();
+        let mut cursor = self.cursor();
 
-        cursor.y = min(cursor.y + n, self.value.len_lines() - 1);
-        let c_line_width = self.value.line_width(cursor.y).expect("valid_cursor");
+        cursor.y = min(cursor.y + n, self.len_lines() - 1);
+        let c_line_width = self.line_width(cursor.y);
         if let Some(move_col) = self.move_col() {
             cursor.x = min(move_col, c_line_width);
         } else {
             cursor.x = min(cursor.x, c_line_width);
         }
 
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1220,15 +1358,10 @@ impl TextAreaState {
     /// Scrolls the cursor to visible.
     /// Returns true if there was any real change.
     pub fn move_to_line_start(&mut self, extend_selection: bool) -> bool {
-        let mut cursor = self.value.cursor();
+        let mut cursor = self.cursor();
 
         cursor.x = 'f: {
-            for (idx, g) in self
-                .value
-                .line_graphemes(cursor.y)
-                .expect("valid_cursor")
-                .enumerate()
-            {
+            for (idx, g) in self.line_graphemes(cursor.y).enumerate() {
                 if g != " " && g != "\t" {
                     if cursor.x != idx as upos_type {
                         break 'f idx as upos_type;
@@ -1241,7 +1374,7 @@ impl TextAreaState {
         };
 
         self.set_move_col(Some(cursor.x));
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1250,12 +1383,12 @@ impl TextAreaState {
     /// necessary.
     /// Returns true if there was any real change.
     pub fn move_to_line_end(&mut self, extend_selection: bool) -> bool {
-        let mut cursor = self.value.cursor();
+        let mut cursor = self.cursor();
 
-        cursor.x = self.value.line_width(cursor.y).expect("valid_cursor");
+        cursor.x = self.line_width(cursor.y);
 
         self.set_move_col(Some(cursor.x));
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1264,18 +1397,18 @@ impl TextAreaState {
     pub fn move_to_start(&mut self, extend_selection: bool) -> bool {
         let cursor = TextPosition::new(0, 0);
 
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
 
     /// Move the cursor to the document end.
     pub fn move_to_end(&mut self, extend_selection: bool) -> bool {
-        let len = self.value.len_lines();
+        let len = self.len_lines();
 
         let cursor = TextPosition::new(0, len - 1);
 
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1286,7 +1419,7 @@ impl TextAreaState {
 
         let cursor = TextPosition::new(ox as upos_type, oy as upos_type);
 
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1295,34 +1428,34 @@ impl TextAreaState {
     pub fn move_to_screen_end(&mut self, extend_selection: bool) -> bool {
         let (ox, oy) = self.offset();
         let (ox, oy) = (ox as upos_type, oy as upos_type);
-        let len = self.value.len_lines();
+        let len = self.len_lines();
 
         let cursor =
             TextPosition::new(ox, min(oy + self.vertical_page() as upos_type - 1, len - 1));
 
-        let c = self.value.set_cursor(cursor, extend_selection);
+        let c = self.set_cursor(cursor, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
 
     /// Move the cursor to the next word.
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
-        let cursor = self.value.cursor();
+        let cursor = self.cursor();
 
-        let word = self.next_word_end(cursor).expect("valid_cursor");
+        let word = self.next_word_end(cursor);
 
-        let c = self.value.set_cursor(word, extend_selection);
+        let c = self.set_cursor(word, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
 
     /// Move the cursor to the previous word.
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
-        let cursor = self.value.cursor();
+        let cursor = self.cursor();
 
-        let word = self.prev_word_start(cursor).expect("valid_cursor");
+        let word = self.prev_word_start(cursor);
 
-        let c = self.value.set_cursor(word, extend_selection);
+        let c = self.set_cursor(word, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1357,22 +1490,27 @@ impl TextAreaState {
     ///   with screen_to_row().
     /// * x is the relative screen position.
     pub fn screen_to_col(&self, row: upos_type, scx: i16) -> upos_type {
+        self.try_screen_to_col(row, scx).expect("valid_row")
+    }
+
+    /// Converts from a widget relative screen coordinate to a grapheme index.
+    /// It limits its result to a valid column.
+    ///
+    /// * row is a row-index into the value, not a screen-row. It can be calculated
+    ///   with screen_to_row().
+    /// * x is the relative screen position.
+    pub fn try_screen_to_col(&self, row: upos_type, scx: i16) -> Result<upos_type, TextError> {
         let (ox, _) = self.offset();
         let ox = ox as upos_type;
 
         if scx < 0 {
-            ox.saturating_sub((scx as ipos_type).abs() as upos_type)
+            Ok(ox.saturating_sub((scx as ipos_type).abs() as upos_type))
         } else if scx as u16 >= self.inner.width {
-            min(
-                ox + scx as upos_type,
-                self.line_width(row).expect("valid_row"),
-            )
+            Ok(min(ox + scx as upos_type, self.line_width(row)))
         } else {
             let scx = scx as u16;
 
-            let line = self
-                .glyphs(row..row + 1, ox as u16, self.inner.width)
-                .expect("valid_row");
+            let line = self.try_glyphs(row..row + 1, ox as u16, self.inner.width)?;
 
             let mut col = ox;
             for g in line {
@@ -1381,13 +1519,19 @@ impl TextAreaState {
                 }
                 col = g.pos().x + 1;
             }
-            col
+            Ok(col)
         }
     }
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
-    pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> Result<u16, TextError> {
+    pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> u16 {
+        self.try_col_to_screen(pos).expect("valid_pos")
+    }
+
+    /// Converts a grapheme based position to a screen position
+    /// relative to the widget area.
+    pub fn try_col_to_screen(&self, pos: impl Into<TextPosition>) -> Result<u16, TextError> {
         let pos = pos.into();
         let (ox, _) = self.offset();
 
@@ -1395,7 +1539,7 @@ impl TextAreaState {
             return Ok(0);
         }
 
-        let line = self.glyphs(pos.y..pos.y + 1, ox as u16, self.inner.width)?;
+        let line = self.try_glyphs(pos.y..pos.y + 1, ox as u16, self.inner.width)?;
         let mut screen_x = 0;
         for g in line {
             if g.pos().x == pos.x {
@@ -1409,7 +1553,7 @@ impl TextAreaState {
     /// Cursor position on the screen.
     pub fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.is_focused() {
-            let cursor = self.value.cursor();
+            let cursor = self.cursor();
             let (ox, oy) = self.offset();
             let (ox, oy) = (ox as upos_type, oy as upos_type);
 
@@ -1424,7 +1568,7 @@ impl TextAreaState {
                 } else if cursor.x > ox + self.inner.width as upos_type {
                     None
                 } else {
-                    let sx = self.col_to_screen(cursor).expect("valid_cursor");
+                    let sx = self.col_to_screen(cursor);
 
                     Some((self.inner.x + sx, self.inner.y + sy as u16))
                 }
@@ -1445,9 +1589,7 @@ impl TextAreaState {
         let cy = self.screen_to_row(scy);
         let cx = self.screen_to_col(cy, scx);
 
-        let c = self
-            .value
-            .set_cursor(TextPosition::new(cx, cy), extend_selection);
+        let c = self.set_cursor(TextPosition::new(cx, cy), extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
     }
@@ -1467,17 +1609,17 @@ impl TextAreaState {
         let cursor = TextPosition::new(cx, cy);
 
         let cursor = if cursor < anchor {
-            self.word_start(cursor).expect("valid_cursor")
+            self.word_start(cursor)
         } else {
-            self.word_end(cursor).expect("valid_cursor")
+            self.word_end(cursor)
         };
 
         // extend anchor
-        if !self.is_word_boundary(anchor).expect("valid_anchor") {
+        if !self.is_word_boundary(anchor) {
             if cursor < anchor {
-                self.set_cursor(self.word_end(anchor).expect("valid_anchor"), false);
+                self.set_cursor(self.word_end(anchor), false);
             } else {
-                self.set_cursor(self.word_start(anchor).expect("valid_anchor"), false);
+                self.set_cursor(self.word_start(anchor), false);
             }
         }
 
@@ -1592,7 +1734,7 @@ impl TextAreaState {
     pub fn scroll_cursor_to_visible(&mut self) -> bool {
         let old_offset = self.offset();
 
-        let cursor = self.value.cursor();
+        let cursor = self.cursor();
         let (ox, oy) = self.offset();
         let (ox, oy) = (ox as upos_type, oy as upos_type);
 
@@ -1652,8 +1794,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
                 ct_event!(key press CONTROL-'d') => tc(self.duplicate_text()),
                 ct_event!(key press CONTROL-'y') => tc(self.delete_line()),
-                ct_event!(key press CONTROL-'z') => tc(self.value.undo()),
-                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.value.redo()),
+                ct_event!(key press CONTROL-'z') => tc(self.undo()),
+                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.redo()),
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
@@ -1812,8 +1954,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
                 let ty = self.screen_to_row(m.row as i16 - self.inner.y as i16);
                 let tx = self.screen_to_col(ty, m.column as i16 - self.inner.x as i16);
                 let test = TextPosition::new(tx, ty);
-                let start = self.word_start(test).expect("valid_pos");
-                let end = self.word_end(test).expect("valid_pos");
+                let start = self.word_start(test);
+                let end = self.word_end(test);
                 self.set_selection(start, end).into()
             }
             ct_event!(mouse down Left for column,row) => {

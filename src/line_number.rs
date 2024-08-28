@@ -11,7 +11,6 @@ use ratatui::layout::Rect;
 use ratatui::prelude::{BlockExt, StatefulWidget, Style};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, Widget};
-use std::cmp::max;
 
 /// Renders line-numbers.
 #[derive(Debug, Default, Clone)]

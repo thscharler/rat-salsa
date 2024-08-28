@@ -468,8 +468,15 @@ impl NumberInputState {
     /// Remove the selected range. The text will be replaced with the default value
     /// as defined by the mask.
     #[inline]
-    pub fn delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
+    pub fn delete_range(&mut self, range: Range<upos_type>) -> bool {
         self.widget.delete_range(range)
+    }
+
+    /// Remove the selected range. The text will be replaced with the default value
+    /// as defined by the mask.
+    #[inline]
+    pub fn try_delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
+        self.widget.try_delete_range(range)
     }
 }
 
@@ -515,7 +522,7 @@ impl NumberInputState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
     #[inline]
-    pub fn col_to_screen(&self, pos: upos_type) -> Result<u16, TextError> {
+    pub fn col_to_screen(&self, pos: upos_type) -> u16 {
         self.widget.col_to_screen(pos)
     }
 

@@ -230,7 +230,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     let show_range = {
         let start = ox as upos_type;
         let end = min(start + inner.width as upos_type, state.len());
-        state.bytes_at_range(start..end).expect("valid_range")
+        state.bytes_at_range(start..end)
     };
     let selection = state.selection();
     let mut styles = Vec::new();
@@ -361,9 +361,7 @@ impl TextInputState {
         };
 
         match clip.set_string(self.selected_text().as_ref()) {
-            Ok(_) => self
-                .delete_range(self.selection())
-                .expect("valid_selection"),
+            Ok(_) => self.delete_range(self.selection()),
             Err(_) => true,
         }
     }
@@ -554,11 +552,7 @@ impl TextInputState {
     /// Selection.
     #[inline]
     pub fn selected_text(&self) -> &str {
-        match self
-            .value
-            .str_slice(self.value.selection())
-            .expect("valid_range")
-        {
+        match self.str_slice(self.selection()) {
             Cow::Borrowed(v) => v,
             Cow::Owned(_) => {
                 unreachable!()
@@ -582,7 +576,15 @@ impl TextInputState {
 
     /// Text slice as Cow<str>
     #[inline]
-    pub fn str_slice(&self, range: Range<upos_type>) -> Result<Cow<'_, str>, TextError> {
+    pub fn str_slice(&self, range: Range<upos_type>) -> Cow<'_, str> {
+        self.value
+            .str_slice(TextRange::new((range.start, 0), (range.end, 0)))
+            .expect("valid_range")
+    }
+
+    /// Text slice as Cow<str>
+    #[inline]
+    pub fn try_str_slice(&self, range: Range<upos_type>) -> Result<Cow<'_, str>, TextError> {
         self.value
             .str_slice(TextRange::new((range.start, 0), (range.end, 0)))
     }
@@ -602,17 +604,23 @@ impl TextInputState {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
-    pub fn glyphs(
-        &self,
-        screen_offset: u16,
-        screen_width: u16,
-    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        self.value.glyphs(0..1, screen_offset, screen_width)
+    pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
+        self.value
+            .glyphs(0..1, screen_offset, screen_width)
+            .expect("valid_rows")
     }
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
-    pub fn text_graphemes(
+    pub fn text_graphemes(&self, pos: upos_type) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+        self.value
+            .text_graphemes(TextPosition::new(pos, 0))
+            .expect("valid_pos")
+    }
+
+    /// Get a cursor over all the text with the current position set at pos.
+    #[inline]
+    pub fn try_text_graphemes(
         &self,
         pos: upos_type,
     ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
@@ -622,6 +630,21 @@ impl TextInputState {
     /// Get a cursor over the text-range the current position set at pos.
     #[inline]
     pub fn graphemes(
+        &self,
+        range: Range<upos_type>,
+        pos: upos_type,
+    ) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+        self.value
+            .graphemes(
+                TextRange::new((range.start, 0), (range.end, 0)),
+                TextPosition::new(pos, 0),
+            )
+            .expect("valid_args")
+    }
+
+    /// Get a cursor over the text-range the current position set at pos.
+    #[inline]
+    pub fn try_graphemes(
         &self,
         range: Range<upos_type>,
         pos: upos_type,
@@ -635,13 +658,30 @@ impl TextInputState {
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     #[inline]
-    pub fn byte_at(&self, pos: upos_type) -> Result<Range<usize>, TextError> {
+    pub fn byte_at(&self, pos: upos_type) -> Range<usize> {
+        self.value
+            .byte_at(TextPosition::new(pos, 0))
+            .expect("valid_pos")
+    }
+
+    /// Grapheme position to byte position.
+    /// This is the (start,end) position of the single grapheme after pos.
+    #[inline]
+    pub fn try_byte_at(&self, pos: upos_type) -> Result<Range<usize>, TextError> {
         self.value.byte_at(TextPosition::new(pos, 0))
     }
 
     /// Grapheme range to byte range.
     #[inline]
-    pub fn bytes_at_range(&self, range: Range<upos_type>) -> Result<Range<usize>, TextError> {
+    pub fn bytes_at_range(&self, range: Range<upos_type>) -> Range<usize> {
+        self.value
+            .bytes_at_range(TextRange::new((range.start, 0), (range.end, 0)))
+            .expect("valid_range")
+    }
+
+    /// Grapheme range to byte range.
+    #[inline]
+    pub fn try_bytes_at_range(&self, range: Range<upos_type>) -> Result<Range<usize>, TextError> {
         self.value
             .bytes_at_range(TextRange::new((range.start, 0), (range.end, 0)))
     }
@@ -649,13 +689,29 @@ impl TextInputState {
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
     #[inline]
-    pub fn byte_pos(&self, byte: usize) -> Result<upos_type, TextError> {
+    pub fn byte_pos(&self, byte: usize) -> upos_type {
+        self.value.byte_pos(byte).map(|v| v.x).expect("valid_pos")
+    }
+
+    /// Byte position to grapheme position.
+    /// Returns the position that contains the given byte index.
+    #[inline]
+    pub fn try_byte_pos(&self, byte: usize) -> Result<upos_type, TextError> {
         self.value.byte_pos(byte).map(|v| v.x)
     }
 
     /// Byte range to grapheme range.
     #[inline]
-    pub fn byte_range(&self, bytes: Range<usize>) -> Result<Range<upos_type>, TextError> {
+    pub fn byte_range(&self, bytes: Range<usize>) -> Range<upos_type> {
+        self.value
+            .byte_range(bytes)
+            .map(|v| v.start.x..v.end.x)
+            .expect("valid_range")
+    }
+
+    /// Byte range to grapheme range.
+    #[inline]
+    pub fn try_byte_range(&self, bytes: Range<usize>) -> Result<Range<upos_type>, TextError> {
         self.value.byte_range(bytes).map(|v| v.start.x..v.end.x)
     }
 }
@@ -685,7 +741,7 @@ impl TextInputState {
     /// Insert a char at the current position.
     #[inline]
     pub fn insert_char(&mut self, c: char) -> bool {
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.value
                 .remove_str_range(self.value.selection())
                 .expect("valid_selection");
@@ -708,7 +764,7 @@ impl TextInputState {
     /// Insert a tab character at the cursor position.
     /// Removes the selection and inserts the tab.
     pub fn insert_tab(&mut self) -> bool {
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.value
                 .remove_str_range(self.value.selection())
                 .expect("valid_selection");
@@ -724,7 +780,7 @@ impl TextInputState {
     #[inline]
     pub fn insert_str(&mut self, t: impl AsRef<str>) -> bool {
         let t = t.as_ref();
-        if self.value.has_selection() {
+        if self.has_selection() {
             self.value
                 .remove_str_range(self.value.selection())
                 .expect("valid_selection");
@@ -738,7 +794,13 @@ impl TextInputState {
 
     /// Deletes the given range.
     #[inline]
-    pub fn delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
+    pub fn delete_range(&mut self, range: Range<upos_type>) -> bool {
+        self.try_delete_range(range).expect("valid_range")
+    }
+
+    /// Deletes the given range.
+    #[inline]
+    pub fn try_delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
         if !range.is_empty() {
             self.value
                 .remove_str_range(TextRange::new((range.start, 0), (range.end, 0)))?;
@@ -756,7 +818,6 @@ impl TextInputState {
     pub fn delete_next_char(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else {
             let r = self
                 .value
@@ -773,7 +834,6 @@ impl TextInputState {
     pub fn delete_prev_char(&mut self) -> bool {
         if self.value.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else {
             let r = self
                 .value
@@ -786,7 +846,12 @@ impl TextInputState {
     }
 
     /// Find the start of the next word. Word is everything that is not whitespace.
-    pub fn next_word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
+    pub fn next_word_start(&self, pos: upos_type) -> upos_type {
+        self.try_next_word_start(pos).expect("valid_pos")
+    }
+
+    /// Find the start of the next word. Word is everything that is not whitespace.
+    pub fn try_next_word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
         self.value
             .next_word_start(TextPosition::new(pos, 0))
             .map(|v| v.x)
@@ -794,7 +859,13 @@ impl TextInputState {
 
     /// Find the end of the next word.  Skips whitespace first, then goes on
     /// until it finds the next whitespace.
-    pub fn next_word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
+    pub fn next_word_end(&self, pos: upos_type) -> upos_type {
+        self.try_next_word_end(pos).expect("valid_pos")
+    }
+
+    /// Find the end of the next word.  Skips whitespace first, then goes on
+    /// until it finds the next whitespace.
+    pub fn try_next_word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
         self.value
             .next_word_end(TextPosition::new(pos, 0))
             .map(|v| v.x)
@@ -803,7 +874,14 @@ impl TextInputState {
     /// Find prev word. Skips whitespace first.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
-    pub fn prev_word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
+    pub fn prev_word_start(&self, pos: upos_type) -> upos_type {
+        self.try_prev_word_start(pos).expect("valid_pos")
+    }
+
+    /// Find prev word. Skips whitespace first.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn try_prev_word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
         self.value
             .prev_word_start(TextPosition::new(pos, 0))
             .map(|v| v.x)
@@ -812,26 +890,48 @@ impl TextInputState {
     /// Find the end of the previous word. Word is everything that is not whitespace.
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
-    pub fn prev_word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
+    pub fn prev_word_end(&self, pos: upos_type) -> upos_type {
+        self.try_prev_word_end(pos).expect("valid_pos")
+    }
+
+    /// Find the end of the previous word. Word is everything that is not whitespace.
+    /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
+    /// both return start<=end!
+    pub fn try_prev_word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
         self.value
             .prev_word_end(TextPosition::new(pos, 0))
             .map(|v| v.x)
     }
 
     /// Is the position at a word boundary?
-    pub fn is_word_boundary(&self, pos: upos_type) -> Result<bool, TextError> {
+    pub fn is_word_boundary(&self, pos: upos_type) -> bool {
+        self.try_is_word_boundary(pos).expect("valid_pos")
+    }
+
+    /// Is the position at a word boundary?
+    pub fn try_is_word_boundary(&self, pos: upos_type) -> Result<bool, TextError> {
         self.value.is_word_boundary(TextPosition::new(pos, 0))
     }
 
     /// Find the start of the word at pos.
-    pub fn word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
+    pub fn word_start(&self, pos: upos_type) -> upos_type {
+        self.try_word_start(pos).expect("valid_pos")
+    }
+
+    /// Find the start of the word at pos.
+    pub fn try_word_start(&self, pos: upos_type) -> Result<upos_type, TextError> {
         self.value
             .word_start(TextPosition::new(pos, 0))
             .map(|v| v.x)
     }
 
     /// Find the end of the word at pos.
-    pub fn word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
+    pub fn word_end(&self, pos: upos_type) -> upos_type {
+        self.try_word_end(pos).expect("valid_pos")
+    }
+
+    /// Find the end of the word at pos.
+    pub fn try_word_end(&self, pos: upos_type) -> Result<upos_type, TextError> {
         self.value.word_end(TextPosition::new(pos, 0)).map(|v| v.x)
     }
 
@@ -840,16 +940,15 @@ impl TextInputState {
     pub fn delete_next_word(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else {
             let cursor = self.cursor();
 
-            let start = self.next_word_start(cursor).expect("valid_cursor");
+            let start = self.next_word_start(cursor);
             if start != cursor {
-                self.delete_range(cursor..start).expect("valid_range")
+                self.delete_range(cursor..start)
             } else {
-                let end = self.next_word_end(cursor).expect("valid_cursor");
-                self.delete_range(cursor..end).expect("valid_range")
+                let end = self.next_word_end(cursor);
+                self.delete_range(cursor..end)
             }
         }
     }
@@ -859,16 +958,15 @@ impl TextInputState {
     pub fn delete_prev_word(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else {
             let cursor = self.cursor();
 
-            let end = self.prev_word_end(cursor).expect("valid_cursor");
+            let end = self.prev_word_end(cursor);
             if end != cursor {
-                self.delete_range(end..cursor).expect("valid_cursor")
+                self.delete_range(end..cursor)
             } else {
-                let start = self.prev_word_start(cursor).expect("valid_cursor");
-                self.delete_range(start..cursor).expect("valid_cursor")
+                let start = self.prev_word_start(cursor);
+                self.delete_range(start..cursor)
             }
         }
     }
@@ -911,7 +1009,7 @@ impl TextInputState {
     #[inline]
     pub fn move_to_next_word(&mut self, extend_selection: bool) -> bool {
         let cursor = self.cursor();
-        let end = self.next_word_end(cursor).expect("valid_cursor");
+        let end = self.next_word_end(cursor);
         let c = self.set_cursor(end, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
@@ -920,7 +1018,7 @@ impl TextInputState {
     #[inline]
     pub fn move_to_prev_word(&mut self, extend_selection: bool) -> bool {
         let cursor = self.cursor();
-        let start = self.prev_word_start(cursor).expect("valid_cursor");
+        let start = self.prev_word_start(cursor);
         let c = self.set_cursor(start, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
@@ -940,7 +1038,7 @@ impl TextInputState {
         } else {
             let scx = scx as u16;
 
-            let line = self.glyphs(ox as u16, self.inner.width).expect("valid_row");
+            let line = self.glyphs(ox as u16, self.inner.width);
 
             let mut col = ox;
             for g in line {
@@ -955,14 +1053,14 @@ impl TextInputState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
-    pub fn col_to_screen(&self, pos: upos_type) -> Result<u16, TextError> {
+    pub fn col_to_screen(&self, pos: upos_type) -> u16 {
         let ox = self.offset();
 
         if pos < ox {
-            return Ok(0);
+            return 0;
         }
 
-        let line = self.glyphs(ox as u16, self.inner.width)?;
+        let line = self.glyphs(ox as u16, self.inner.width);
         let mut screen_x = 0;
         for g in line {
             if g.pos().x == pos {
@@ -970,7 +1068,7 @@ impl TextInputState {
             }
             screen_x = g.screen_pos().0 + g.screen_width();
         }
-        Ok(screen_x)
+        screen_x
     }
 
     /// Set the cursor position from a screen position relative to the origin
@@ -999,7 +1097,7 @@ impl TextInputState {
             } else if cx > ox + self.inner.width as upos_type {
                 None
             } else {
-                let sc = self.col_to_screen(cx).expect("valid_cursor");
+                let sc = self.col_to_screen(cx);
                 Some((self.inner.x + sc, self.inner.y))
             }
         } else {
@@ -1020,17 +1118,17 @@ impl TextInputState {
         let cursor = cx;
 
         let cursor = if cursor < anchor {
-            self.word_start(cursor).expect("valid_cursor")
+            self.word_start(cursor)
         } else {
-            self.word_end(cursor).expect("valid_cursor")
+            self.word_end(cursor)
         };
 
         // extend anchor
-        if !self.is_word_boundary(anchor).expect("valid_anchor") {
+        if !self.is_word_boundary(anchor) {
             if cursor < anchor {
-                self.set_cursor(self.word_end(anchor).expect("valid_anchor"), false);
+                self.set_cursor(self.word_end(anchor), false);
             } else {
-                self.set_cursor(self.word_start(anchor).expect("valid_anchor"), false);
+                self.set_cursor(self.word_start(anchor), false);
             }
         }
 
@@ -1104,8 +1202,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
                 ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
                 ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
                 ct_event!(key press CONTROL-'d') => tc(self.clear()),
-                ct_event!(key press CONTROL-'z') => tc(self.value.undo()),
-                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.value.redo()),
+                ct_event!(key press CONTROL-'z') => tc(self.undo()),
+                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.redo()),
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
@@ -1197,8 +1295,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
             }
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
                 let tx = self.screen_to_col(m.column as i16 - self.inner.x as i16);
-                let start = self.word_start(tx).expect("valid_pos");
-                let end = self.word_end(tx).expect("valid_pos");
+                let start = self.word_start(tx);
+                let end = self.word_end(tx);
                 self.set_selection(start, end).into()
             }
             ct_event!(mouse down Left for column,row) => {

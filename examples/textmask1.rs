@@ -147,7 +147,7 @@ fn repaint_input(
 
         _ = write!(&mut stats, "cursor-styles: ",);
         let mut styles = Vec::new();
-        let cursor_byte = state.masked.byte_at(state.masked.cursor()).expect("cursor");
+        let cursor_byte = state.masked.byte_at(state.masked.cursor());
         state.masked.styles_at(cursor_byte.start, &mut styles);
         for s in styles {
             _ = write!(&mut stats, "{}, ", s);

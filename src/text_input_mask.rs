@@ -279,7 +279,7 @@ fn render_ref(
     let show_range = {
         let start = ox as upos_type;
         let end = min(start + inner.width as upos_type, state.len());
-        state.bytes_at_range(start..end).expect("valid_range")
+        state.bytes_at_range(start..end)
     };
     let selection = state.selection();
     let mut styles = Vec::new();
@@ -360,7 +360,7 @@ impl HasFocusFlag for MaskedInputState {
     }
 
     fn navigable(&self) -> Navigation {
-        let sel = self.value.selection();
+        let sel = self.selection();
 
         let has_next = self
             .value
@@ -513,9 +513,7 @@ impl MaskedInputState {
         };
 
         match clip.set_string(self.selected_text().as_ref()) {
-            Ok(_) => self
-                .delete_range(self.selection())
-                .expect("valid_selection"),
+            Ok(_) => self.delete_range(self.selection()),
             Err(_) => true,
         }
     }
@@ -742,7 +740,13 @@ impl MaskedInputState {
 
     /// Text slice as Cow<str>
     #[inline]
-    pub fn str_slice(&self, range: Range<upos_type>) -> Result<Cow<'_, str>, TextError> {
+    pub fn str_slice(&self, range: Range<upos_type>) -> Cow<'_, str> {
+        self.value.str_slice(range).expect("valid_range")
+    }
+
+    /// Text slice as Cow<str>
+    #[inline]
+    pub fn try_str_slice(&self, range: Range<upos_type>) -> Result<Cow<'_, str>, TextError> {
         self.value.str_slice(range)
     }
 
@@ -761,12 +765,10 @@ impl MaskedInputState {
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
-    pub fn glyphs(
-        &self,
-        screen_offset: u16,
-        screen_width: u16,
-    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
-        self.value.glyphs(0..1, screen_offset, screen_width)
+    pub fn glyphs(&self, screen_offset: u16, screen_width: u16) -> impl Iterator<Item = Glyph<'_>> {
+        self.value
+            .glyphs(0..1, screen_offset, screen_width)
+            .expect("valid_row")
     }
 
     /// Iterator for the glyphs of the lines in range.
@@ -776,14 +778,21 @@ impl MaskedInputState {
         &self,
         screen_offset: u16,
         screen_width: u16,
-    ) -> Result<impl Iterator<Item = Glyph<'_>>, TextError> {
+    ) -> impl Iterator<Item = Glyph<'_>> {
         self.value
             .condensed_glyphs(0..1, screen_offset, screen_width)
+            .expect("valid_row")
     }
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
-    pub fn text_graphemes(
+    pub fn text_graphemes(&self, pos: upos_type) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+        self.value.text_graphemes(pos).expect("valid_pos")
+    }
+
+    /// Get a cursor over all the text with the current position set at pos.
+    #[inline]
+    pub fn try_text_graphemes(
         &self,
         pos: upos_type,
     ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
@@ -796,6 +805,16 @@ impl MaskedInputState {
         &self,
         range: Range<upos_type>,
         pos: upos_type,
+    ) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+        self.value.graphemes(range, pos).expect("valid_args")
+    }
+
+    /// Get a cursor over the text-range the current position set at pos.
+    #[inline]
+    pub fn try_graphemes(
+        &self,
+        range: Range<upos_type>,
+        pos: upos_type,
     ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
         self.value.graphemes(range, pos)
     }
@@ -803,26 +822,52 @@ impl MaskedInputState {
     /// Grapheme position to byte position.
     /// This is the (start,end) position of the single grapheme after pos.
     #[inline]
-    pub fn byte_at(&self, pos: upos_type) -> Result<Range<usize>, TextError> {
+    pub fn byte_at(&self, pos: upos_type) -> Range<usize> {
+        self.value.byte_at(pos).expect("valid_pos")
+    }
+
+    /// Grapheme position to byte position.
+    /// This is the (start,end) position of the single grapheme after pos.
+    #[inline]
+    pub fn try_byte_at(&self, pos: upos_type) -> Result<Range<usize>, TextError> {
         self.value.byte_at(pos)
     }
 
     /// Grapheme range to byte range.
     #[inline]
-    pub fn bytes_at_range(&self, range: Range<upos_type>) -> Result<Range<usize>, TextError> {
+    pub fn bytes_at_range(&self, range: Range<upos_type>) -> Range<usize> {
+        self.value.bytes_at_range(range).expect("valid_range")
+    }
+
+    /// Grapheme range to byte range.
+    #[inline]
+    pub fn try_bytes_at_range(&self, range: Range<upos_type>) -> Result<Range<usize>, TextError> {
         self.value.bytes_at_range(range)
     }
 
     /// Byte position to grapheme position.
     /// Returns the position that contains the given byte index.
     #[inline]
-    pub fn byte_pos(&self, byte: usize) -> Result<upos_type, TextError> {
+    pub fn byte_pos(&self, byte: usize) -> upos_type {
+        self.value.byte_pos(byte).expect("valid_pos")
+    }
+
+    /// Byte position to grapheme position.
+    /// Returns the position that contains the given byte index.
+    #[inline]
+    pub fn try_byte_pos(&self, byte: usize) -> Result<upos_type, TextError> {
         self.value.byte_pos(byte)
     }
 
     /// Byte range to grapheme range.
     #[inline]
-    pub fn byte_range(&self, bytes: Range<usize>) -> Result<Range<upos_type>, TextError> {
+    pub fn byte_range(&self, bytes: Range<usize>) -> Range<upos_type> {
+        self.value.byte_range(bytes).expect("valid_range")
+    }
+
+    /// Byte range to grapheme range.
+    #[inline]
+    pub fn try_byte_range(&self, bytes: Range<usize>) -> Result<Range<upos_type>, TextError> {
         self.value.byte_range(bytes)
     }
 }
@@ -873,7 +918,14 @@ impl MaskedInputState {
     /// Remove the selected range. The text will be replaced with the default value
     /// as defined by the mask.
     #[inline]
-    pub fn delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
+    pub fn delete_range(&mut self, range: Range<upos_type>) -> bool {
+        self.try_delete_range(range).expect("valid_range")
+    }
+
+    /// Remove the selected range. The text will be replaced with the default value
+    /// as defined by the mask.
+    #[inline]
+    pub fn try_delete_range(&mut self, range: Range<upos_type>) -> Result<bool, TextError> {
         self.value.begin_undo_seq();
         let r = self.value.remove_range(range.clone())?;
         if let Some(pos) = self.value.section_cursor(range.start) {
@@ -892,7 +944,6 @@ impl MaskedInputState {
     pub fn delete_next_char(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else if self.cursor() == self.len() {
             false
         } else {
@@ -907,7 +958,6 @@ impl MaskedInputState {
     pub fn delete_prev_char(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else if self.cursor() == 0 {
             false
         } else {
@@ -922,10 +972,9 @@ impl MaskedInputState {
     pub fn delete_prev_section(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else {
             if let Some(range) = self.value.prev_section_range(self.cursor()) {
-                self.delete_range(range).expect("valid_range")
+                self.delete_range(range)
             } else {
                 false
             }
@@ -937,10 +986,9 @@ impl MaskedInputState {
     pub fn delete_next_section(&mut self) -> bool {
         if self.has_selection() {
             self.delete_range(self.selection())
-                .expect("valid_selection")
         } else {
             if let Some(range) = self.value.next_section_range(self.cursor()) {
-                self.delete_range(range).expect("valid_range")
+                self.delete_range(range)
             } else {
                 false
             }
@@ -1075,14 +1123,14 @@ impl MaskedInputState {
 impl MaskedInputState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
-    pub fn col_to_screen(&self, pos: upos_type) -> Result<u16, TextError> {
+    pub fn col_to_screen(&self, pos: upos_type) -> u16 {
         let ox = self.offset();
 
         if pos < ox {
-            return Ok(0);
+            return 0;
         }
 
-        let line = self.glyphs(ox as u16, self.inner.width)?;
+        let line = self.glyphs(ox as u16, self.inner.width);
         let mut screen_x = 0;
         for g in line {
             if g.pos().x >= pos {
@@ -1090,7 +1138,7 @@ impl MaskedInputState {
             }
             screen_x = g.screen_pos().0 + g.screen_width();
         }
-        Ok(screen_x)
+        screen_x
     }
 
     /// Converts from a widget relative screen coordinate to a grapheme index.
@@ -1105,7 +1153,7 @@ impl MaskedInputState {
         } else {
             let scx = scx as u16;
 
-            let line = self.glyphs(ox as u16, self.inner.width).expect("valid_row");
+            let line = self.glyphs(ox as u16, self.inner.width);
 
             let mut col = ox;
             for g in line {
@@ -1144,7 +1192,7 @@ impl MaskedInputState {
             } else if cx > ox + self.inner.width as upos_type {
                 None
             } else {
-                let sc = self.col_to_screen(cx).expect("valid_cursor");
+                let sc = self.col_to_screen(cx);
                 Some((self.inner.x + sc, self.inner.y))
             }
         } else {
@@ -1248,8 +1296,8 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
                 ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
                 ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
                 ct_event!(key press CONTROL-'d') => tc(self.clear()),
-                ct_event!(key press CONTROL-'z') => tc(self.value.undo()),
-                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.value.redo()),
+                ct_event!(key press CONTROL-'z') => tc(self.undo()),
+                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.redo()),
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
