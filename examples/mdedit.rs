@@ -7,12 +7,13 @@ use crate::mdedit::{MDEdit, MDEditState};
 use anyhow::Error;
 #[allow(unused_imports)]
 use log::debug;
+use rat_salsa::event::flow_ok;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RenderContext, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_theme::{dark_themes, Scheme};
-use rat_widget::event::{ct_event, or_else, ConsumedEvent, Dialog, HandleEvent, Popup, Regular};
+use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Popup, Regular};
 use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
 use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar, StaticMenu};
@@ -47,8 +48,8 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let app = MDApp;
-    let mut state = MDAppState::default();
+    let app = MDRoot;
+    let mut state = MDRootState::default();
 
     run_tui(
         app,
@@ -101,7 +102,7 @@ pub struct MDConfig {
     pub new_line: String,
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
 pub enum MDAction {
     Message(String),
     MenuNew,
@@ -123,6 +124,152 @@ pub enum MDAction {
     Close,
     CloseAt(usize, usize),
     SelectAt(usize, usize),
+}
+
+// -----------------------------------------------------------------------
+
+trait AppFocus<Global, Message, Error>
+where
+    Message: 'static + Send + Debug,
+    Error: 'static + Send + Debug,
+{
+    fn focus_changed(
+        &mut self,
+        ctx: &mut rat_salsa::AppContext<'_, Global, Message, Error>,
+    ) -> Result<(), Error>;
+}
+
+// -----------------------------------------------------------------------
+
+#[derive(Debug)]
+pub struct MDRoot;
+
+#[derive(Debug, Default)]
+pub struct MDRootState {
+    pub app: MDAppState,
+}
+
+impl AppWidget<GlobalState, MDAction, Error> for MDRoot {
+    type State = MDRootState;
+
+    fn render(
+        &self,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut Self::State,
+        ctx: &mut RenderContext<'_, GlobalState>,
+    ) -> Result<(), Error> {
+        let t0 = SystemTime::now();
+
+        let r = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+        let s = Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
+            .split(r[1]);
+
+        MDApp.render(area, buf, &mut state.app, ctx)?;
+
+        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+        ctx.g.status.status(2, format!("R {:.0?}", el).to_string());
+
+        let status = StatusLine::new()
+            .layout([
+                Constraint::Fill(1),
+                Constraint::Length(14),
+                Constraint::Length(7),
+                Constraint::Length(7),
+                Constraint::Length(7),
+            ])
+            .styles(vec![
+                ctx.g.theme.status_style(),
+                ctx.g.theme.deepblue(3),
+                ctx.g.theme.deepblue(2),
+                ctx.g.theme.deepblue(1),
+                ctx.g.theme.deepblue(0),
+            ]);
+        status.render(s[1], buf, &mut ctx.g.status);
+
+        Ok(())
+    }
+}
+
+impl AppState<GlobalState, MDAction, Error> for MDRootState {
+    fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+        self.app.init(ctx)
+    }
+
+    fn timer(
+        &mut self,
+        event: &TimeOut,
+        ctx: &mut AppContext<'_>,
+    ) -> Result<Control<MDAction>, Error> {
+        let t0 = SystemTime::now();
+
+        let r = self.app.timer(event, ctx)?;
+
+        if r == Control::Changed {
+            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            ctx.g.status.status(4, format!("T {:.0?}", el).to_string());
+        }
+
+        Ok(r)
+    }
+
+    fn crossterm(
+        &mut self,
+        event: &crossterm::event::Event,
+        ctx: &mut AppContext<'_>,
+    ) -> Result<Control<MDAction>, Error> {
+        let t0 = SystemTime::now();
+
+        flow_ok!(match &event {
+            ct_event!(resized) => Control::Changed,
+            ct_event!(key press CONTROL-'q') => Control::Quit,
+            _ => Control::Continue,
+        });
+
+        // keyboard + mouse focus
+        ctx.focus = Some(self.app.focus());
+
+        let r = self.app.crossterm(event, ctx)?;
+
+        if ctx.focus().gained_focus().is_some() {
+            self.app.focus_changed(ctx)?;
+        }
+
+        if r == Control::Changed {
+            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            ctx.g.status.status(3, format!("H {:.0?}", el).to_string());
+        }
+
+        Ok(r)
+    }
+
+    fn message(
+        &mut self,
+        event: &mut MDAction,
+        ctx: &mut AppContext<'_>,
+    ) -> Result<Control<MDAction>, Error> {
+        let t0 = SystemTime::now();
+
+        ctx.focus = Some(self.app.focus());
+
+        let r = self.app.message(event, ctx)?;
+
+        // todo focus
+        if ctx.focus().gained_focus().is_some() {
+            self.app.focus_changed(ctx)?;
+        }
+
+        if r == Control::Changed {
+            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            ctx.g.status.status(4, format!("A {:.0?}", el).to_string());
+        }
+
+        Ok(r)
+    }
+
+    fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<MDAction>, Error> {
+        self.app.error(event, ctx)
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -312,8 +459,6 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
         state: &mut Self::State,
         ctx: &mut RenderContext<'_, GlobalState>,
     ) -> Result<(), Error> {
-        let t0 = SystemTime::now();
-
         let r = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
         let s = Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
             .split(r[1]);
@@ -367,26 +512,6 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
             err.render(l_msg, buf, &mut ctx.g.error_dlg);
         }
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(2, format!("R {:.0?}", el).to_string());
-
-        let status = StatusLine::new()
-            .layout([
-                Constraint::Fill(1),
-                Constraint::Length(14),
-                Constraint::Length(7),
-                Constraint::Length(7),
-                Constraint::Length(7),
-            ])
-            .styles(vec![
-                ctx.g.theme.status_style(),
-                ctx.g.theme.deepblue(3),
-                ctx.g.theme.deepblue(2),
-                ctx.g.theme.deepblue(1),
-                ctx.g.theme.deepblue(0),
-            ]);
-        status.render(s[1], buf, &mut ctx.g.status);
-
         Ok(())
     }
 }
@@ -400,15 +525,13 @@ impl HasFocus for MDAppState {
     }
 }
 
-trait AppFocus<Global, Message, Error>
-where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
-{
+impl AppFocus<GlobalState, MDAction, Error> for MDAppState {
     fn focus_changed(
         &mut self,
-        ctx: &mut rat_salsa::AppContext<'_, Global, Message, Error>,
-    ) -> Result<(), Error>;
+        ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
+    ) -> Result<(), Error> {
+        self.editor.focus_changed(ctx)
+    }
 }
 
 impl AppState<GlobalState, MDAction, Error> for MDAppState {
@@ -424,15 +547,7 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
         event: &TimeOut,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<MDAction>, Error> {
-        let t0 = SystemTime::now();
-
         let r = self.editor.timer(event, ctx)?;
-
-        if r == Control::Changed {
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(4, format!("T {:.0?}", el).to_string());
-        }
-
         Ok(r)
     }
 
@@ -441,31 +556,14 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
         event: &crossterm::event::Event,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<MDAction>, Error> {
-        let t0 = SystemTime::now();
+        flow_ok!(ctx.g.error_dlg.handle(event, Dialog));
+        flow_ok!(ctx.g.file_dlg.handle(event)?);
 
-        ctx.focus = Some(self.focus());
+        let f = Control::from(ctx.focus_mut().handle(event, Regular));
 
-        let mut r;
-        r = match &event {
-            ct_event!(resized) => Control::Changed,
-            ct_event!(key press CONTROL-'q') => Control::Quit,
-            _ => Control::Continue,
-        };
-
-        or_else!(r, ctx.g.error_dlg.handle(event, Dialog).into());
-        or_else!(r, ctx.g.file_dlg.handle(event)?);
-
-        // keyboard + mouse focus
-        if !r.is_consumed() {
-            let f = ctx.focus_mut().handle(event, Regular);
-            debug!("*focus* {:?}", ctx.focus().focused_name());
-            ctx.queue(f);
-        }
-
-        // regular global
-        or_else!(
-            r,
-            match &event {
+        f.and_try(|| {
+            // regular global
+            flow_ok!(match &event {
                 ct_event!(keycode press Esc) => {
                     if !self.menu.is_focused() {
                         ctx.focus().focus(&self.menu);
@@ -480,12 +578,9 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                     Control::Changed
                 }
                 _ => Control::Continue,
-            }
-        );
+            });
 
-        or_else!(
-            r,
-            match self.menu.handle(event, Popup) {
+            flow_ok!(match self.menu.handle(event, Popup) {
                 MenuOutcome::MenuActivated(0, 0) => {
                     ctx.g.file_dlg.engage(
                         |w| {
@@ -534,30 +629,16 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                     Control::Changed
                 }
                 r => r.into(),
-            }
-        );
+            });
 
-        or_else!(r, self.editor.crossterm(event, ctx)?);
-
-        or_else!(
-            r,
-            match self.menu.handle(event, Regular) {
+            flow_ok!(self.editor.crossterm(event, ctx)?);
+            flow_ok!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(3) => Control::Quit,
                 r => r.into(),
-            }
-        );
+            });
 
-        // TODO focus
-        if ctx.focus().gained_focus().is_some() {
-            self.editor.focus_changed(ctx)?;
-        }
-
-        if r == Control::Changed {
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(3, format!("H {:.0?}", el).to_string());
-        }
-
-        Ok(r)
+            Ok(Control::Continue)
+        })
     }
 
     fn message(
@@ -565,32 +646,17 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
         event: &mut MDAction,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<MDAction>, Error> {
-        let t0 = SystemTime::now();
-
-        let mut r;
-        r = match event {
+        flow_ok!(match event {
             MDAction::Message(s) => {
                 ctx.g.status.status(0, &*s);
                 Control::Changed
             }
             _ => Control::Continue,
-        };
+        });
 
-        ctx.focus = Some(self.focus());
+        flow_ok!(self.editor.message(event, ctx)?);
 
-        or_else!(r, self.editor.message(event, ctx)?);
-
-        // todo focus
-        if ctx.focus().gained_focus().is_some() {
-            self.editor.focus_changed(ctx)?;
-        }
-
-        if r == Control::Changed {
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(4, format!("A {:.0?}", el).to_string());
-        }
-
-        Ok(r)
+        Ok(Control::Continue)
     }
 
     fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<MDAction>, Error> {
@@ -956,7 +1022,6 @@ pub mod mdfile {
     use crate::markdown::{parse_md_styles, MarkDown};
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
-    use log::debug;
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, flow_ok, HandleEvent, Outcome, TextOutcome};
@@ -1011,6 +1076,7 @@ pub mod mdfile {
         ) -> Result<(), Error> {
             let line_nr = LineNumbers::new()
                 .start(state.edit.offset().1 as upos_type)
+                .end(state.edit.len_lines())
                 .cursor(state.edit.cursor().y)
                 // .relative(true)
                 .styles(ctx.g.theme.line_nr_style());
