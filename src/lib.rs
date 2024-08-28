@@ -107,7 +107,7 @@ impl<E, Q> HandleEvent<E, Q, Outcome> for () {
 /// When calling multiple event-handlers, the minimum information required
 /// from the result is consumed the event/didn't consume the event.
 ///
-/// See also [flow], [flow_ok] and [or_else] macros.
+/// See also [flow], [try_flow] and [or_else] macros.
 pub trait ConsumedEvent {
     /// Is this the 'consumed' result.
     fn is_consumed(&self) -> bool;
@@ -210,18 +210,10 @@ impl From<bool> for Outcome {
 ///
 /// It does the classic `into()`-conversion and returns the result.
 ///
-/// *The difference to [flow_ok] is that this on doesn't Ok-wrap the result.*
+/// *The difference to [try_flow] is that this on doesn't Ok-wrap the result.*
 ///
-/// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
+/// Extras: If you add a marker as in `flow!(log ident: {...});`
 /// the result of the operation is written to the log.
-///
-/// Extras: Focus handling is tricky, see [rat-focus](https://docs.rs/rat-focus/).
-/// The result of focus handling is a second result of an event-handler,
-/// that must be combined to form the single return value that a function
-/// can have.
-/// Therefore, one more extension for this macro:
-/// `flow_ok!(_do_something_with_an_outcome(), consider focus_outcome)`.
-/// This returns max(outcome, focus_outcome).
 #[macro_export]
 macro_rules! flow {
     (log $n:ident: $x:expr) => {{
@@ -254,10 +246,10 @@ macro_rules! flow {
 ///
 /// *The difference to [flow] is that this one Ok-wraps the result.*
 ///
-/// Extras: If you add a marker as in `flow_ok!(log ident: {...});`
+/// Extras: If you add a marker as in `try_flow!(log ident: {...});`
 /// the result of the operation is written to the log.
 #[macro_export]
-macro_rules! flow_ok {
+macro_rules! try_flow {
     (log $n:ident: $x:expr) => {{
         use log::debug;
         use $crate::ConsumedEvent;
