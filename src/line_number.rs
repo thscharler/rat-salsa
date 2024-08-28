@@ -17,11 +17,11 @@ use std::cmp::max;
 #[derive(Debug, Default, Clone)]
 pub struct LineNumbers<'a> {
     start: upos_type,
+    end: Option<upos_type>,
     cursor: upos_type,
     relative: bool,
     flags: Vec<Line<'a>>,
 
-    nr_width: Option<u16>,
     flag_width: Option<u16>,
     margin: (u16, u16),
 
@@ -35,7 +35,6 @@ pub struct LineNumbers<'a> {
 /// Styles as a package.
 #[derive(Debug, Clone)]
 pub struct LineNumberStyle {
-    pub nr_width: Option<u16>,
     pub flag_width: Option<u16>,
     pub margin: Option<(u16, u16)>,
     pub format: Option<NumberFormat>,
@@ -70,6 +69,11 @@ impl<'a> LineNumbers<'a> {
         self
     }
 
+    pub fn end(mut self, end: upos_type) -> Self {
+        self.end = Some(end);
+        self
+    }
+
     pub fn cursor(mut self, cursor: upos_type) -> Self {
         self.cursor = cursor;
         self
@@ -82,11 +86,6 @@ impl<'a> LineNumbers<'a> {
 
     pub fn flags(mut self, flags: Vec<Line<'a>>) -> Self {
         self.flags = flags;
-        self
-    }
-
-    pub fn nr_width(mut self, width: u16) -> Self {
-        self.nr_width = Some(width);
         self
     }
 
@@ -106,9 +105,6 @@ impl<'a> LineNumbers<'a> {
     }
 
     pub fn styles(mut self, styles: LineNumberStyle) -> Self {
-        if let Some(nr_width) = styles.nr_width {
-            self.nr_width = Some(nr_width);
-        }
         if let Some(flag_width) = styles.flag_width {
             self.flag_width = Some(flag_width);
         }
@@ -144,11 +140,10 @@ impl<'a> LineNumbers<'a> {
     }
 
     pub fn width(&self) -> u16 {
-        let nr_width = if let Some(nr_width) = self.nr_width {
-            nr_width
+        let nr_width = if let Some(end) = self.end {
+            end.ilog10() as u16 + 1
         } else {
-            let max_nr = self.start + 100;
-            max(max_nr.ilog10() as u16 + 1, 3)
+            (self.start + 100).ilog10() as u16 + 1
         };
         let flag_width = if let Some(flag_width) = self.flag_width {
             flag_width
@@ -171,7 +166,6 @@ impl<'a> LineNumbers<'a> {
 impl Default for LineNumberStyle {
     fn default() -> Self {
         Self {
-            nr_width: None,
             flag_width: None,
             margin: None,
             format: None,
@@ -191,12 +185,12 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
         state.inner = self.block.inner_if_some(area);
         let inner = state.inner;
         state.start = self.start;
+        let end = self.end.unwrap_or(upos_type::MAX);
 
-        let nr_width = if let Some(nr_width) = self.nr_width {
-            nr_width
+        let nr_width = if let Some(end) = self.end {
+            end.ilog10() as u16 + 1
         } else {
-            let max_nr = self.start + area.height as upos_type;
-            max(max_nr.ilog10() as u16 + 1, 3)
+            (self.start + 100).ilog10() as u16 + 1
         };
         let flag_width = if let Some(flag_width) = self.flag_width {
             flag_width
@@ -242,7 +236,9 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
             };
 
             tmp.clear();
-            _ = format.fmt_to(nr, &mut tmp);
+            if nr < end {
+                _ = format.fmt_to(nr, &mut tmp);
+            }
 
             if is_cursor {
                 for x in inner.x + self.margin.0..inner.x + self.margin.0 + nr_width {

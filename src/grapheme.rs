@@ -959,7 +959,7 @@ mod test_rope {
 
     #[test]
     fn test_rope_graphemes6() {
-        /// text rope boundary
+        // text rope boundary
         let s = Rope::from(
             "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
              abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
@@ -993,7 +993,7 @@ mod test_rope {
 
     #[test]
     fn test_rope_graphemes7() {
-        /// test complicated grapheme at rope boundary
+        // test complicated grapheme at rope boundary
         let s = Rope::from(
             "012345678901234567890123456789012345678901234567890123456789012345678901234567890123456789012345678)\
              abcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghijabcdefghiJ\
