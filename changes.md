@@ -1,3 +1,11 @@
+# 0.16.0
+
+* upgrade ratatui to 0.28
+
+* break: remove consider syntext in flow!
+* break: remove or_else!
+* break: renamed flow_ok! to try_flow!
+
 # 0.15.0
 
 * break: rename `FocusKeys` to the more fitting `Regular`.
@@ -5,7 +13,7 @@
     * rename Outcome::NotUsed -> Outcome::Continue
 * break: rename utils: item_at_clicked->item_at, row_at_clicked->row_at
   column_at_clicked->column_at
-  
+
 * feature: add a hover flag
 * feature: MouseFlags recognize double-click patterns
     * down-up-up seems to occur
