@@ -13,7 +13,7 @@ use rat_scrolled::Scroll;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{block, Block, StatefulWidgetRef, Widget};
+use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::iter::Enumerate;
 use std::slice::Iter;
@@ -161,7 +161,7 @@ fn repaint_table(
         .flex(Flex::End)
         .style(THEME.table())
         .select_row_style(Some(THEME.gray(3)))
-        .render_ref(l0[0], frame.buffer_mut(), &mut state.table);
+        .render(l0[0], frame.buffer_mut(), &mut state.table);
     Ok(())
 }
 

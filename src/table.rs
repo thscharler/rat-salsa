@@ -7,10 +7,6 @@ use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::util::{revert_style, transfer_buffer};
 use crate::{TableContext, TableData, TableDataIter, TableSelection};
-#[allow(unused_imports)]
-use log::debug;
-#[cfg(debug_assertions)]
-use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -18,11 +14,9 @@ use rat_scrolled::{layout_scroll, Scroll, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
-#[cfg(debug_assertions)]
-use ratatui::style::Stylize;
-#[cfg(debug_assertions)]
-use ratatui::text::Text;
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
+use ratatui::widgets::{Block, StatefulWidget, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::{max, min};
 use std::collections::HashSet;
 use std::fmt::Debug;
@@ -107,6 +101,7 @@ mod data {
             }
         }
 
+        #[cfg(feature = "unstable-widget-ref")]
         pub(super) fn iter<'b>(&'b self) -> DataReprIter<'a, 'b> {
             match self {
                 DataRepr::None => DataReprIter::None,
@@ -134,9 +129,11 @@ mod data {
     pub(super) enum DataReprIter<'a, 'b> {
         #[default]
         None,
+        #[allow(dead_code)]
         Invalid(Option<usize>),
         IterText(TextTableData<'a>, Option<usize>),
         IterData(Box<dyn TableData<'a> + 'a>, Option<usize>),
+        #[allow(dead_code)]
         IterDataRef(&'b dyn TableData<'a>, Option<usize>),
         IterIter(Box<dyn TableDataIter<'a> + 'a>),
     }
@@ -524,6 +521,7 @@ impl<'a, Selection> Table<'a, Selection> {
     pub fn iter(mut self, data: impl TableDataIter<'a> + 'a) -> Self {
         #[cfg(debug_assertions)]
         if data.rows().is_none() {
+            use log::warn;
             warn!("Table::iter - rows is None, this will be slower");
         }
         self.header = data.header();
@@ -825,6 +823,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a, Selection> StatefulWidgetRef for Table<'a, Selection>
 where
     Selection: TableSelection,
@@ -833,7 +832,13 @@ where
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let iter = self.data.iter();
-        self.render_iter(iter, area, buf, state);
+        self.render_iter(
+            iter,
+            |area, buf| self.block.render_ref(area, buf),
+            area,
+            buf,
+            state,
+        );
     }
 }
 
@@ -845,7 +850,14 @@ where
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let iter = mem::take(&mut self.data).into_iter();
-        self.render_iter(iter, area, buf, state);
+        let block = mem::take(&mut self.block);
+        self.render_iter(
+            iter, //
+            |area, buf| block.render(area, buf),
+            area,
+            buf,
+            state,
+        );
     }
 }
 
@@ -860,6 +872,7 @@ where
     fn render_iter<'b>(
         &self,
         mut data: DataReprIter<'a, 'b>,
+        block: impl FnOnce(Rect, &mut Buffer),
         area: Rect,
         buf: &mut Buffer,
         state: &mut TableState<Selection>,
@@ -1213,7 +1226,7 @@ where
         }
 
         // render block+scroll
-        self.block.render_ref(area, buf);
+        block(area, buf);
         if let Some(hscroll) = self.hscroll.as_ref() {
             hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
         }
@@ -1239,6 +1252,10 @@ where
                 );
             }
             if !msg.is_empty() {
+                use log::warn;
+                use ratatui::style::Stylize;
+                use ratatui::text::Text;
+
                 warn!("{}", &msg);
                 Text::from(msg)
                     .white()

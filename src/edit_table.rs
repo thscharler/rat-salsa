@@ -9,6 +9,7 @@ use rat_focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
+#[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 
 /// Widget that supports row-wise editing of a table.
@@ -62,6 +63,7 @@ where
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a, Editor> StatefulWidgetRef for EditTable<'a, Editor>
 where
     Editor: EditorWidget + 'a,
@@ -69,7 +71,8 @@ where
     type State = EditTableState<Editor::State>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
+        self.table.render_ref(area, buf, &mut state.table);
+        render_ref(&self.edit, buf, state);
     }
 }
 
@@ -80,28 +83,24 @@ where
     type State = EditTableState<Editor::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(&self, area, buf, state);
+        self.table.render(area, buf, &mut state.table);
+        render_ref(&self.edit, buf, state);
     }
 }
 
 fn render_ref<'a, Editor>(
-    widget: &EditTable<'a, Editor>,
-    area: Rect,
+    editor: &Editor,
     buf: &mut Buffer,
     state: &mut EditTableState<Editor::State>,
 ) where
     Editor: EditorWidget + 'a,
 {
-    widget.table.render_ref(area, buf, &mut state.table);
-
     if let Some(edit_state) = &mut state.edit {
         // expect a selected row
         if let Some(row) = state.table.selected() {
             // but it might be out of view
             if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
-                widget
-                    .edit
-                    .render_ref(row_area, &cell_areas, buf, edit_state);
+                editor.render_ref(row_area, &cell_areas, buf, edit_state);
             }
         }
     }
