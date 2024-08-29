@@ -102,10 +102,9 @@ impl MaskedCore {
     fn parse_mask(mask_str: &str) -> Result<Vec<MaskToken>, fmt::Error> {
         let mut out = Vec::<MaskToken>::new();
 
-        let mut start_id = 0;
-        let mut id = 0;
-        let mut start_nr = 0;
-        let mut nr_id = 0;
+        let mut start_sub = 0;
+        let mut start_sec = 0;
+        let mut sec_id = 0;
         let mut last_mask = Mask::None;
         let mut dec_dir = EditDirection::Rtol;
         let mut esc = false;
@@ -134,13 +133,12 @@ impl MaskedCore {
                     "c" => Mask::LetterDigitSpace,
                     "_" => Mask::AnyChar,
                     "" => Mask::None,
-                    " " | ";" | ":" | "/" => Mask::Separator(Box::from(m)),
+                    " " => Mask::Separator(Box::from(m)),
                     "\\" => {
                         esc = true;
                         continue;
                     }
-                    s if s.is_ascii() => return Err(fmt::Error),
-                    s => Mask::Separator(Box::from(s)),
+                    _ => return Err(fmt::Error),
                 }
             };
 
@@ -175,32 +173,29 @@ impl MaskedCore {
                 }
             }
 
-            if matches!(mask, Mask::Separator(_)) || mask.number() != last_mask.number() {
-                for j in start_nr..idx {
-                    out[j].nr_id = nr_id;
-                    out[j].nr_start = start_nr as upos_type;
-                    out[j].nr_end = idx as upos_type;
-                }
-                nr_id += 1;
-                start_nr = idx;
-            }
             if matches!(mask, Mask::Separator(_)) || mask.section() != last_mask.section() {
-                for j in start_id..idx {
-                    out[j].sec_id = id;
-                    out[j].sec_start = start_id as upos_type;
+                for j in start_sec..idx {
+                    out[j].sec_id = sec_id;
+                    out[j].sec_start = start_sec as upos_type;
                     out[j].sec_end = idx as upos_type;
                 }
-                id += 1;
-                start_id = idx;
+                sec_id += 1;
+                start_sec = idx;
+            }
+            if matches!(mask, Mask::Separator(_)) || mask.sub_section() != last_mask.sub_section() {
+                for j in start_sub..idx {
+                    out[j].sub_start = start_sub as upos_type;
+                    out[j].sub_end = idx as upos_type;
+                }
+                start_sub = idx;
             }
 
             let tok = MaskToken {
-                nr_id: 0,
-                nr_start: 0,
-                nr_end: 0,
                 sec_id: 0,
                 sec_start: 0,
                 sec_end: 0,
+                sub_start: 0,
+                sub_end: 0,
                 peek_left: last_mask,
                 right: mask.clone(),
                 edit: mask.edit_value().into(),
@@ -210,15 +205,14 @@ impl MaskedCore {
             idx += 1;
             last_mask = mask;
         }
-        for j in start_nr..out.len() {
-            out[j].nr_id = nr_id;
-            out[j].nr_start = start_nr as upos_type;
-            out[j].nr_end = mask_str.graphemes(true).count() as upos_type;
-        }
-        for j in start_id..out.len() {
-            out[j].sec_id = id;
-            out[j].sec_start = start_id as upos_type;
+        for j in start_sec..out.len() {
+            out[j].sec_id = sec_id;
+            out[j].sec_start = start_sec as upos_type;
             out[j].sec_end = mask_str.graphemes(true).count() as upos_type;
+        }
+        for j in start_sub..out.len() {
+            out[j].sub_start = start_sub as upos_type;
+            out[j].sub_end = mask_str.graphemes(true).count() as upos_type;
         }
 
         Ok(out)
@@ -401,7 +395,7 @@ impl MaskedCore {
         let mask = &self.mask[cursor as usize];
 
         if mask.right.is_number() {
-            Some(self.number_cursor(mask.nr_start..mask.nr_end))
+            Some(self.number_cursor(mask.sec_start..mask.sec_end))
         } else if mask.right.is_separator() {
             None
         } else if mask.right.is_none() {
@@ -424,11 +418,11 @@ impl MaskedCore {
                 return None;
             }
 
-            next = mask.nr_end;
+            next = mask.sec_end;
             mask = &self.mask[next as usize];
 
             if mask.right.is_number() {
-                return Some(self.number_cursor(mask.nr_start..mask.nr_end));
+                return Some(self.number_cursor(mask.sec_start..mask.sec_end));
             } else if mask.right.is_separator() {
                 continue;
             } else if mask.right.is_none() {
@@ -445,7 +439,7 @@ impl MaskedCore {
             return None;
         }
 
-        let mut prev = self.mask[cursor as usize].nr_start;
+        let mut prev = self.mask[cursor as usize].sec_start;
         let mut mask = &self.mask[prev as usize];
 
         loop {
@@ -453,11 +447,11 @@ impl MaskedCore {
                 return None;
             }
 
-            prev = self.mask[mask.nr_start as usize - 1].nr_start;
+            prev = self.mask[mask.sec_start as usize - 1].sec_start;
             mask = &self.mask[prev as usize];
 
             if mask.right.is_number() {
-                return Some(self.number_cursor(mask.nr_start..mask.nr_end));
+                return Some(self.number_cursor(mask.sec_start..mask.sec_end));
             } else if mask.right.is_separator() {
                 continue;
             } else {
@@ -476,7 +470,7 @@ impl MaskedCore {
         }
         let prev = &self.mask[pos as usize - 1];
         let mask = &self.mask[pos as usize];
-        prev.nr_id != mask.nr_id
+        prev.sec_id != mask.sec_id
     }
 
     /// Get the range for the section at the given cursor position,
@@ -488,7 +482,7 @@ impl MaskedCore {
 
         let mask = &self.mask[cursor as usize];
         if mask.right.is_number() {
-            Some(mask.nr_start..mask.nr_end)
+            Some(mask.sec_start..mask.sec_end)
         } else if mask.right.is_separator() {
             None
         } else if mask.right.is_none() {
@@ -511,11 +505,11 @@ impl MaskedCore {
                 return None;
             }
 
-            next = mask.nr_end;
+            next = mask.sec_end;
             mask = &self.mask[next as usize];
 
             if mask.right.is_number() {
-                return Some(mask.nr_start..mask.nr_end);
+                return Some(mask.sec_start..mask.sec_end);
             } else if mask.right.is_separator() {
                 continue;
             } else if mask.right.is_none() {
@@ -532,18 +526,18 @@ impl MaskedCore {
             return None;
         }
 
-        let mut prev = self.mask[cursor as usize].nr_start;
+        let mut prev = self.mask[cursor as usize].sec_start;
         let mut mask = &self.mask[prev as usize];
         loop {
             if mask.peek_left.is_none() {
                 return None;
             }
 
-            prev = self.mask[mask.nr_start as usize - 1].nr_start;
+            prev = self.mask[mask.sec_start as usize - 1].sec_start;
             mask = &self.mask[prev as usize];
 
             if mask.right.is_number() {
-                return Some(mask.nr_start..mask.nr_end);
+                return Some(mask.sec_start..mask.sec_end);
             } else if mask.right.is_separator() {
                 continue;
             } else {
@@ -1034,7 +1028,7 @@ impl MaskedCore {
         }
 
         // check possible positions for the sign.
-        for i in mask.nr_start..mask.nr_end {
+        for i in mask.sec_start..mask.sec_end {
             let t = &self.mask[i as usize];
             match t.right {
                 Mask::Plus => return true,
@@ -1122,10 +1116,10 @@ impl MaskedCore {
             return false;
         }
 
-        let mask0 = &self.mask[left.sec_start as usize];
+        let mask0 = &self.mask[left.sub_start as usize];
         let g0 = self
             .masked
-            .grapheme_at(TextPosition::new(left.sec_start, 0))
+            .grapheme_at(TextPosition::new(left.sub_start, 0))
             .expect("valid_position")
             .expect("grapheme");
         if !mask0.right.can_drop(g0.grapheme()) {
@@ -1201,7 +1195,7 @@ impl MaskedCore {
         let cursor = self.masked.cursor();
 
         let mask = &self.mask[cursor.x as usize];
-        let mask9 = &self.mask[mask.sec_end as usize - 1];
+        let mask9 = &self.mask[mask.sub_end as usize - 1];
 
         // overwrite digit in fraction?
         let g = self
@@ -1214,10 +1208,10 @@ impl MaskedCore {
             && self.is_valid_char(&mask.right, c)
         {
             // to the right only defaults
-            let frac_mask = &self.mask[cursor.x as usize + 1..mask.sec_end as usize];
+            let frac_mask = &self.mask[cursor.x as usize + 1..mask.sub_end as usize];
             let frac_str = self
                 .masked
-                .str_slice(TextRange::new((cursor.x + 1, 0), (mask.sec_end, 0)))
+                .str_slice(TextRange::new((cursor.x + 1, 0), (mask.sub_end, 0)))
                 .expect("valid_range");
             if frac_str == MaskToken::empty_section(frac_mask) {
                 self.masked.begin_undo_seq();
@@ -1266,13 +1260,13 @@ impl MaskedCore {
         // can shift right
         let g9 = self
             .masked
-            .grapheme_at(TextPosition::new(mask.sec_end - 1, 0))
+            .grapheme_at(TextPosition::new(mask.sub_end - 1, 0))
             .expect("valid_pos")
             .expect("mask");
         if mask9.right.can_drop(g9.grapheme()) && self.is_valid_char(&mask.right, c) {
             self.masked.begin_undo_seq();
             self.masked
-                .remove_char_range(TextRange::new((mask.sec_end - 1, 0), (mask.sec_end, 0)))
+                .remove_char_range(TextRange::new((mask.sub_end - 1, 0), (mask.sub_end, 0)))
                 .expect("valid_range");
             self.masked.insert_char(cursor, c).expect("valid_cursor");
             self.masked.end_undo_seq();
@@ -1292,22 +1286,22 @@ impl MaskedCore {
             mask = &self.mask[cursor.x as usize - 1];
         }
 
-        let mask0 = &self.mask[mask.sec_start as usize];
+        let mask0 = &self.mask[mask.sub_start as usize];
 
         let g0 = self
             .masked
-            .grapheme_at(TextPosition::new(mask.sec_start, 0))
+            .grapheme_at(TextPosition::new(mask.sub_start, 0))
             .expect("valid_pos")
             .expect("grapheme");
         if mask0.right.can_drop(g0.grapheme()) && self.is_valid_char(&mask.right, c) {
             self.masked.begin_undo_seq();
             self.masked
-                .remove_char_range(TextRange::new((mask.sec_start, 0), (mask.sec_start + 1, 0)))
+                .remove_char_range(TextRange::new((mask.sub_start, 0), (mask.sub_start + 1, 0)))
                 .expect("valid_position");
             self.masked
                 .insert_char(TextPosition::new(cursor.x - 1, 0), c)
                 .expect("valid_position");
-            Self::reformat(&mut self.masked, &self.mask, mask.sec_start..mask.sec_end);
+            Self::reformat(&mut self.masked, &self.mask, mask.sub_start..mask.sub_end);
             self.masked.end_undo_seq();
             return true;
         }
@@ -1327,32 +1321,32 @@ impl MaskedCore {
         }
 
         // explicit sign?
-        let idx = self.mask[mask.nr_start as usize..mask.nr_end as usize]
+        let idx = self.mask[mask.sec_start as usize..mask.sec_end as usize]
             .iter()
             .enumerate()
             .find(|(_, t)| matches!(t.right, Mask::Sign | Mask::Plus))
-            .map(|(i, _)| mask.nr_start as usize + i);
+            .map(|(i, _)| mask.sec_start as usize + i);
 
         // existing sign somewhere?
         let idx = if idx.is_none() {
             self.masked
                 .graphemes(
-                    TextRange::new((mask.nr_start, 0), (mask.nr_end, 0)),
-                    TextPosition::new(mask.nr_start, 0),
+                    TextRange::new((mask.sec_start, 0), (mask.sec_end, 0)),
+                    TextPosition::new(mask.sec_start, 0),
                 )
                 .expect("valid_range")
                 .enumerate()
                 .find(|(_, g)| *g == "-" || *g == "+")
-                .map(|(i, _)| mask.nr_start as usize + i)
+                .map(|(i, _)| mask.sec_start as usize + i)
         } else {
             idx
         };
 
         let idx = if idx.is_none() {
             // moving sign
-            let mut idx = mask.nr_end - 1;
+            let mut idx = mask.sec_end - 1;
             'f: {
-                while idx >= mask.nr_start {
+                while idx >= mask.sec_start {
                     if self.mask[idx as usize].right == Mask::Numeric(EditDirection::Rtol) {
                         let g = self
                             .grapheme_at(idx)
@@ -1440,48 +1434,48 @@ impl MaskedCore {
             let sec_empty = if left.right.is_rtol() {
                 let sec_str = self
                     .masked
-                    .str_slice(TextRange::new((left.sec_start, 0), (left.sec_end, 0)))
+                    .str_slice(TextRange::new((left.sub_start, 0), (left.sub_end, 0)))
                     .expect("valid_range");
-                let sec_mask = &self.mask[left.sec_start as usize..left.sec_end as usize];
+                let sec_mask = &self.mask[left.sub_start as usize..left.sub_end as usize];
                 sec_str == MaskToken::empty_section(sec_mask)
             } else {
                 false
             };
 
-            let l0 = &self.mask[left.sec_start as usize];
+            let l0 = &self.mask[left.sub_start as usize];
 
             self.masked.begin_undo_seq();
             self.masked
                 .remove_char_range(TextRange::new((cursor.x - 1, 0), cursor))
                 .expect("valid_range");
             self.masked
-                .insert_str(TextPosition::new(left.sec_start, 0), &l0.edit)
+                .insert_str(TextPosition::new(left.sub_start, 0), &l0.edit)
                 .expect("valid_position");
-            Self::reformat(&mut self.masked, &self.mask, left.sec_start..left.sec_end);
+            Self::reformat(&mut self.masked, &self.mask, left.sub_start..left.sub_end);
 
             // in a rtol field keep the cursor at the same position until the
             // whole section is empty. Only then put it at the beginning of the section
             // to continue left of the section.
             if sec_empty {
                 self.masked
-                    .set_cursor(TextPosition::new(left.sec_start, 0), false);
+                    .set_cursor(TextPosition::new(left.sub_start, 0), false);
             } else {
                 // cursor stays
             }
 
             self.masked.end_undo_seq();
         } else if left.right.is_ltor() {
-            let l9 = &self.mask[left.sec_end as usize - 1];
+            let l9 = &self.mask[left.sub_end as usize - 1];
 
             self.masked.begin_undo_seq();
             self.masked
                 .remove_char_range(TextRange::new((cursor.x - 1, 0), cursor))
                 .expect("valid_range");
             self.masked
-                .insert_str(TextPosition::new(left.sec_end - 1, 0), &l9.edit)
+                .insert_str(TextPosition::new(left.sub_end - 1, 0), &l9.edit)
                 .expect("valid_position");
 
-            Self::reformat(&mut self.masked, &self.mask, left.sec_start..left.sec_end);
+            Self::reformat(&mut self.masked, &self.mask, left.sub_start..left.sub_end);
 
             self.masked
                 .set_cursor(TextPosition::new(cursor.x - 1, 0), false);
@@ -1502,16 +1496,16 @@ impl MaskedCore {
 
         // remove and fill with empty
         if right.right.is_rtol() {
-            let l0 = &self.mask[right.sec_start as usize];
+            let l0 = &self.mask[right.sub_start as usize];
 
             self.masked.begin_undo_seq();
             self.masked
                 .remove_char_range(TextRange::new(cursor, (cursor.x + 1, 0)))
                 .expect("valid_range");
             self.masked
-                .insert_str(TextPosition::new(right.sec_start, 0), &l0.edit)
+                .insert_str(TextPosition::new(right.sub_start, 0), &l0.edit)
                 .expect("valid_position");
-            Self::reformat(&mut self.masked, &self.mask, right.sec_start..right.sec_end);
+            Self::reformat(&mut self.masked, &self.mask, right.sub_start..right.sub_end);
 
             self.masked
                 .set_cursor(TextPosition::new(cursor.x + 1, 0), false);
@@ -1521,29 +1515,29 @@ impl MaskedCore {
             // Check if the section is empty
             let sec_str = self
                 .masked
-                .str_slice(TextRange::new((right.sec_start, 0), (right.sec_end, 0)))
+                .str_slice(TextRange::new((right.sub_start, 0), (right.sub_end, 0)))
                 .expect("valid_range");
-            let sec_mask = &self.mask[right.sec_start as usize..right.sec_end as usize];
+            let sec_mask = &self.mask[right.sub_start as usize..right.sub_end as usize];
             let sec_empty = sec_str == MaskToken::empty_section(sec_mask);
 
-            let l9 = &self.mask[right.sec_end as usize - 1];
+            let l9 = &self.mask[right.sub_end as usize - 1];
 
             self.masked.begin_undo_seq();
             self.masked
                 .remove_char_range(TextRange::new(cursor, (cursor.x + 1, 0)))
                 .expect("valid_range");
             self.masked
-                .insert_str(TextPosition::new(right.sec_end - 1, 0), &l9.edit)
+                .insert_str(TextPosition::new(right.sub_end - 1, 0), &l9.edit)
                 .expect("valid_position");
 
-            Self::reformat(&mut self.masked, &self.mask, right.sec_start..right.sec_end);
+            Self::reformat(&mut self.masked, &self.mask, right.sub_start..right.sub_end);
 
             // in a ltor field keep the cursor at the same position until the
             // whole section is empty. Only then put it at the end of the section
             // to continue right of the section.
             if sec_empty {
                 self.masked
-                    .set_cursor(TextPosition::new(right.sec_end, 0), false);
+                    .set_cursor(TextPosition::new(right.sub_end, 0), false);
             } else {
                 // cursor stays
             }
@@ -1563,21 +1557,21 @@ impl MaskedCore {
         }
 
         let mask = &self.mask[range.start as usize];
-        if range.start >= mask.sec_start && range.end <= mask.sec_end {
+        if range.start >= mask.sub_start && range.end <= mask.sub_end {
             if mask.right.is_rtol() {
                 self.masked.begin_undo_seq();
                 self.masked
                     .remove_str_range(TextRange::new((range.start, 0), (range.end, 0)))
                     .expect("valid_range");
                 let fill_before =
-                    &self.mask[mask.sec_start as usize..mask.sec_start as usize + range.len()];
+                    &self.mask[mask.sub_start as usize..mask.sub_start as usize + range.len()];
                 self.masked
                     .insert_str(
-                        TextPosition::new(mask.sec_start, 0),
+                        TextPosition::new(mask.sub_start, 0),
                         &MaskToken::empty_section(fill_before),
                     )
                     .expect("valid_range");
-                Self::reformat(&mut self.masked, &self.mask, mask.sec_start..mask.sec_end);
+                Self::reformat(&mut self.masked, &self.mask, mask.sub_start..mask.sub_end);
                 self.masked.end_undo_seq();
             } else if mask.right.is_ltor() {
                 self.masked.begin_undo_seq();
@@ -1585,14 +1579,14 @@ impl MaskedCore {
                     .remove_str_range(TextRange::new((range.start, 0), (range.end, 0)))
                     .expect("valid_range");
                 let fill_after =
-                    &self.mask[mask.sec_end as usize - range.len()..mask.sec_end as usize];
+                    &self.mask[mask.sub_end as usize - range.len()..mask.sub_end as usize];
                 self.masked
                     .insert_str(
-                        TextPosition::new(mask.sec_end - range.len() as upos_type, 0),
+                        TextPosition::new(mask.sub_end - range.len() as upos_type, 0),
                         &MaskToken::empty_section(fill_after),
                     )
                     .expect("valid_range");
-                Self::reformat(&mut self.masked, &self.mask, mask.sec_start..mask.sec_end);
+                Self::reformat(&mut self.masked, &self.mask, mask.sub_start..mask.sub_end);
                 self.masked.end_undo_seq();
             }
 
@@ -1604,32 +1598,32 @@ impl MaskedCore {
         loop {
             let mask = &self.mask[pos as usize];
 
-            if mask.sec_start < range.start {
+            if mask.sub_start < range.start {
                 // partial start
                 if mask.right.is_rtol() {
                     self.masked
-                        .remove_str_range(TextRange::new((range.start, 0), (mask.sec_end, 0)))
+                        .remove_str_range(TextRange::new((range.start, 0), (mask.sub_end, 0)))
                         .expect("valid_range");
 
-                    let len = mask.sec_end - range.start;
+                    let len = mask.sub_end - range.start;
                     let fill_before =
-                        &self.mask[mask.sec_start as usize..(mask.sec_start + len) as usize];
+                        &self.mask[mask.sub_start as usize..(mask.sub_start + len) as usize];
                     self.masked
                         .insert_str(
-                            TextPosition::new(mask.sec_start, 0),
+                            TextPosition::new(mask.sub_start, 0),
                             &MaskToken::empty_section(fill_before),
                         )
                         .expect("valid_range");
 
-                    Self::reformat(&mut self.masked, &self.mask, mask.sec_start..mask.sec_end);
+                    Self::reformat(&mut self.masked, &self.mask, mask.sub_start..mask.sub_end);
 
-                    pos = mask.sec_end;
+                    pos = mask.sub_end;
                 } else if mask.right.is_ltor() {
                     self.masked
-                        .remove_str_range(TextRange::new((range.start, 0), (mask.sec_end, 0)))
+                        .remove_str_range(TextRange::new((range.start, 0), (mask.sub_end, 0)))
                         .expect("valid_range");
 
-                    let fill_after = &self.mask[range.start as usize..mask.sec_end as usize];
+                    let fill_after = &self.mask[range.start as usize..mask.sub_end as usize];
                     self.masked
                         .insert_str(
                             TextPosition::new(range.start, 0),
@@ -1637,60 +1631,60 @@ impl MaskedCore {
                         )
                         .expect("valid_range");
 
-                    Self::reformat(&mut self.masked, &self.mask, mask.sec_start..mask.sec_end);
+                    Self::reformat(&mut self.masked, &self.mask, mask.sub_start..mask.sub_end);
 
-                    pos = mask.sec_end;
+                    pos = mask.sub_end;
                 }
-            } else if mask.sec_end > range.end {
+            } else if mask.sub_end > range.end {
                 // partial end
                 if mask.right.is_rtol() {
                     self.masked
-                        .remove_str_range(TextRange::new((mask.sec_start, 0), (range.end, 0)))
+                        .remove_str_range(TextRange::new((mask.sub_start, 0), (range.end, 0)))
                         .expect("valid_range");
 
-                    let fill_before = &self.mask[mask.sec_start as usize..range.end as usize];
+                    let fill_before = &self.mask[mask.sub_start as usize..range.end as usize];
                     self.masked
                         .insert_str(
-                            TextPosition::new(mask.sec_start, 0),
+                            TextPosition::new(mask.sub_start, 0),
                             &MaskToken::empty_section(fill_before),
                         )
                         .expect("valid_range");
 
-                    Self::reformat(&mut self.masked, &self.mask, mask.sec_start..mask.sec_end);
-                    pos = mask.sec_end;
+                    Self::reformat(&mut self.masked, &self.mask, mask.sub_start..mask.sub_end);
+                    pos = mask.sub_end;
                 } else if mask.right.is_ltor() {
                     self.masked
-                        .remove_str_range(TextRange::new((mask.sec_start, 0), (range.end, 0)))
+                        .remove_str_range(TextRange::new((mask.sub_start, 0), (range.end, 0)))
                         .expect("valid_range");
 
-                    let len = range.end - mask.sec_start;
+                    let len = range.end - mask.sub_start;
                     let fill_after =
-                        &self.mask[(mask.sec_end - len) as usize..mask.sec_end as usize];
+                        &self.mask[(mask.sub_end - len) as usize..mask.sub_end as usize];
                     self.masked
                         .insert_str(
-                            TextPosition::new(mask.sec_end - len, 0),
+                            TextPosition::new(mask.sub_end - len, 0),
                             &MaskToken::empty_section(fill_after),
                         )
                         .expect("valid_range");
 
-                    pos = mask.sec_end;
+                    pos = mask.sub_end;
                 }
             } else {
                 // full section
                 self.masked
-                    .remove_str_range(TextRange::new((mask.sec_start, 0), (mask.sec_end, 0)))
+                    .remove_str_range(TextRange::new((mask.sub_start, 0), (mask.sub_end, 0)))
                     .expect("valid_range");
 
-                let sec_range = &self.mask[mask.sec_start as usize..mask.sec_end as usize];
+                let sec_range = &self.mask[mask.sub_start as usize..mask.sub_end as usize];
                 self.masked
                     .insert_str(
-                        TextPosition::new(mask.sec_start, 0),
+                        TextPosition::new(mask.sub_start, 0),
                         &MaskToken::empty_section(sec_range),
                     )
                     .expect("valid_range");
 
                 // todo: needed?: Self::reformat(&mut self.masked, &self.mask, mask.sec_start..mask.sec_end);
-                pos = mask.sec_end;
+                pos = mask.sub_end;
             }
 
             if pos >= range.end {
@@ -1864,16 +1858,22 @@ mod mask {
     #[derive(Clone, PartialEq, Eq)]
     #[non_exhaustive]
     pub(super) struct MaskToken {
-        pub nr_id: u16,
-        pub nr_start: upos_type,
-        pub nr_end: upos_type,
-
         pub sec_id: u16,
+        // section/number
         pub sec_start: upos_type,
+        // section/number
         pub sec_end: upos_type,
+        // part of a number/section
+        pub sub_start: upos_type,
+        // part of a number/section
+        pub sub_end: upos_type,
 
+        // token left of the cursor
         pub peek_left: Mask,
+        // token right of the cursor
         pub right: Mask,
+
+        // edit-value of the token
         pub edit: Box<str>,
     }
 
@@ -1911,27 +1911,7 @@ mod mask {
                 Mask::LetterDigitSpace => "c",
                 Mask::AnyChar => "_",
                 Mask::Separator(s) => {
-                    if matches!(
-                        s.as_ref(),
-                        "0" | "9"
-                            | "#"
-                            | "."
-                            | ","
-                            | "-"
-                            | "+"
-                            | "H"
-                            | "h"
-                            | "O"
-                            | "o"
-                            | "D"
-                            | "d"
-                            | "l"
-                            | "a"
-                            | "c"
-                            | "_"
-                    ) {
-                        write!(f, "\\")?;
-                    }
+                    write!(f, "\\")?;
                     s
                 }
                 Mask::None => "",
@@ -1967,27 +1947,7 @@ mod mask {
                 Mask::LetterDigitSpace => write!(f, "c"),
                 Mask::AnyChar => write!(f, "_"),
                 Mask::Separator(s) => {
-                    if matches!(
-                        s.as_ref(),
-                        "0" | "9"
-                            | "#"
-                            | "."
-                            | ","
-                            | "-"
-                            | "+"
-                            | "H"
-                            | "h"
-                            | "O"
-                            | "o"
-                            | "D"
-                            | "d"
-                            | "l"
-                            | "a"
-                            | "c"
-                            | "_"
-                    ) {
-                        write!(f, "\\")?;
-                    }
+                    write!(f, "\\")?;
                     write!(f, "{}", s)
                 }
                 Mask::None => write!(f, ""),
@@ -2099,9 +2059,9 @@ mod mask {
             }
         }
 
-        /// which mask-types are put together into one section.
+        /// which mask-types are put together.
         #[inline]
-        pub(super) fn section(&self) -> u8 {
+        pub(super) fn sub_section(&self) -> u8 {
             match self {
                 Mask::Digit0(_) => 0,
                 Mask::Digit(_) => 0,
@@ -2134,9 +2094,9 @@ mod mask {
             }
         }
 
-        /// which mask-types constitute a number
+        /// which mask-types constitute a number/section
         #[inline]
-        pub(super) fn number(&self) -> u8 {
+        pub(super) fn section(&self) -> u8 {
             match self {
                 Mask::Digit0(_) => 0,
                 Mask::Digit(_) => 0,
@@ -2268,8 +2228,8 @@ mod mask {
         fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
             write!(
                 f,
-                "Mask #{}:{}:{}-{} {:?} | {:?}",
-                self.nr_id, self.sec_id, self.sec_start, self.sec_end, self.peek_left, self.right
+                "Mask #{}:{}-{} {:?} | {:?}",
+                self.sec_id, self.sub_start, self.sub_end, self.peek_left, self.right
             )
         }
     }

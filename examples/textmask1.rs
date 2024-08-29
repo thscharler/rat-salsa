@@ -201,15 +201,15 @@ fn handle_input(
     Ok(r)
 }
 
-static MASKS: [&str; 36] = [
+static MASKS: [&str; 39] = [
     "",
-    //
-    "##/##/####",
-    "€ ###,##0.0##+",
+    "##\\/##\\/####",
+    "##\\.##\\.####",
+    "\\€ ###,##0.0#+",
+    "\\€ ###,##0.0#-",
     "HH HH HH",
     "dd\\°dd\\'dd\\\"",
     "90\\°90\\'90\\\"",
-    //
     "#",
     "##",
     "###",
@@ -240,6 +240,7 @@ static MASKS: [&str; 36] = [
     "aaaaaa",
     "cccccc",
     "______",
+    "aaaddaaa",
 ];
 
 fn next_mask(state: &mut State) -> Outcome {

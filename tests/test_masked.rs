@@ -390,7 +390,7 @@ fn test_section_cursor1() {
     assert_eq!(m.section_cursor(0), Some(4));
     m.set_mask("+990.000+").expect("ok");
     assert_eq!(m.section_cursor(0), Some(4));
-    m.set_mask("##/##/####").expect("ok");
+    m.set_mask("##\\/##\\/####").expect("ok");
     assert_eq!(m.section_cursor(0), Some(2));
     m.set_mask("###,##0.0##").expect("ok");
     assert_eq!(m.section_cursor(0), Some(7));
@@ -398,7 +398,7 @@ fn test_section_cursor1() {
     assert_eq!(m.section_cursor(0), Some(7));
     m.set_mask("###,##0.0##+").expect("ok");
     assert_eq!(m.section_cursor(0), Some(7));
-    m.set_mask("€ ###,##0.0##+").expect("ok");
+    m.set_mask("\\€ ###,##0.0##+").expect("ok");
     assert_eq!(m.section_cursor(0), None);
     assert_eq!(m.next_section_cursor(0), Some(9));
     m.set_mask("HHH").expect("ok");
@@ -429,7 +429,7 @@ fn test_section_cursor2() {
 #[test]
 fn test_section2() {
     let mut m = MaskedCore::new();
-    m.set_mask("##/##/####").expect("ok");
+    m.set_mask("##\\/##\\/####").expect("ok");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
     m.advance_cursor('/');
@@ -457,7 +457,7 @@ fn test_section2() {
     m.insert_char('"');
     assert_eq!(m.cursor(), 9);
 
-    m.set_mask("€ ###,##0.0##+").expect("ok");
+    m.set_mask("\\€ ###,##0.0##+").expect("ok");
     m.set_cursor(0, false);
     assert_eq!(m.cursor(), 0);
     m.advance_cursor('€');

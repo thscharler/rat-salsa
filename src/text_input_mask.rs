@@ -4,7 +4,6 @@
 //! * Text selection with keyboard + mouse
 //! * Scrolls with the cursor.
 //! * Modes for focus and valid.
-//! * Info-overlay for sub-fields without value.
 //! * Localization with [format_num_pattern::NumberSymbols]
 //!
 //! * Accepts an input mask:
@@ -27,10 +26,9 @@
 //!   * `c`: can enter character or space, display as space
 //!   * `_`: anything, display as space
 //!
-//!   * `<space>`, `:`, `;`, `/`: separator characters move the cursor when entered.
+//!   * `<space>` separator character move the cursor when entered.
 //!   * `\`: escapes the following character and uses it as a separator.
-//!   * all other ascii characters a reserved.
-//!   * other unicode characters can be used as separators without escaping.
+//!   * everything else must be escaped
 //!
 //! * Accepts a display overlay used instead of the default chars of the input mask.
 //!
@@ -44,8 +42,7 @@
 //! let buf = Buffer::default();
 //!
 //! let mut date_state = MaskedInputState::new();
-//! date_state.set_mask("99/99/9999")?;
-//! date_state.set_display_mask("mm/dd/yyyy");
+//! date_state.set_mask("99\\/99\\/9999")?;
 //!
 //! let w_date = MaskedInput::default();
 //! w_date.render(area, &mut buf, &mut date_state);
@@ -448,7 +445,7 @@ impl MaskedInputState {
     /// * `c`: can enter character or space, display as space
     /// * `_`: anything, display as space
     ///
-    /// * `:` `;` `-` `/`: separator characters move the cursor when entered.
+    /// * `SPACE`: separator character move the cursor when entered.
     /// * `\`: escapes the following character and uses it as a separator.
     /// * all other ascii characters a reserved.
     ///
