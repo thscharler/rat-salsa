@@ -43,5 +43,5 @@ variant_size_differences = "warn"
 
 [dependencies]
 crossterm = "0.28"
-ratatui = { version = "0.27", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
+ratatui = { version = "0.28", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
 log = "0.4"
