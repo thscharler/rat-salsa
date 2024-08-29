@@ -495,11 +495,12 @@ fn render_scroll(scroll: &Scroll<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 };
                 for row in area.y..area.y + area.height {
                     for col in area.x..area.x + area.width {
-                        let cell = buf.get_mut(col, row);
-                        if let Some(no_style) = scroll.no_style {
-                            cell.set_style(no_style);
+                        if let Some(cell) = buf.cell_mut((col, row)) {
+                            if let Some(no_style) = scroll.no_style {
+                                cell.set_style(no_style);
+                            }
+                            cell.set_symbol(sym);
                         }
-                        cell.set_symbol(sym);
                     }
                 }
             }
