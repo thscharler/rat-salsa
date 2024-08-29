@@ -1,3 +1,9 @@
+# 0.11.0
+
+* feature: add LineNumbers widget
+
+* fix: text_input_mask cleanup section navigation.
+
 # 0.10.0
 
 Moved the text-widgets from rat-widgets to this crate.
