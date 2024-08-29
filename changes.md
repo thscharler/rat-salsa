@@ -1,3 +1,7 @@
+# 0.12.0
+
+* update ratatui 0.28
+
 # 0.11.0
 
 * break: added and renamed various styles.
