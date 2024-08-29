@@ -167,7 +167,7 @@ where
 /// Run the event-loop
 ///
 /// The shortest version I can come up with:
-/// ```
+/// ```rust norun
 /// use crossterm::event::Event;
 /// use rat_salsa::event::{ct_event, try_flow};
 /// use rat_salsa::{run_tui, AppContext, AppState, AppWidget, Control, RenderContext, RunConfig};

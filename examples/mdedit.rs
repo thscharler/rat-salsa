@@ -23,8 +23,8 @@ use rat_widget::popup_menu::{MenuItem, Placement, Separator};
 use rat_widget::statusline::{StatusLine, StatusLineState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::prelude::{Line, Stylize};
-use ratatui::style::Style;
+use ratatui::style::{Style, Stylize};
+use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Padding, StatefulWidget};
 use std::fmt::Debug;
 use std::fs;
@@ -1894,7 +1894,7 @@ pub mod mdedit {
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Rect};
-    use ratatui::widgets::StatefulWidgetRef;
+    use ratatui::widgets::StatefulWidget;
     use std::path::{Path, PathBuf};
 
     #[derive(Debug, Default)]
@@ -1927,7 +1927,7 @@ pub mod mdedit {
                 .split_type(SplitType::FullQuadrantInside)
                 .into_widgets();
 
-            s0.render_ref(area, buf, &mut state.split_files);
+            s0.render(area, buf, &mut state.split_files);
 
             FileList.render(
                 state.split_files.widget_areas[0],
@@ -1943,7 +1943,7 @@ pub mod mdedit {
                 ctx,
             )?;
 
-            s1.render_ref(area, buf, &mut state.split_files);
+            s1.render(area, buf, &mut state.split_files);
 
             if state.window_cmd {
                 ctx.g.status.status(1, "^W");
