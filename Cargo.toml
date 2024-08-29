@@ -43,7 +43,7 @@ unused_qualifications = "warn"
 variant_size_differences = "warn"
 
 [dependencies]
-ratatui = { version = "0.28", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
+ratatui = { version = "0.28" }
 crossterm = "0.28"
 log = "0.4"
 

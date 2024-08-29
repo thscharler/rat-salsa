@@ -1,3 +1,5 @@
+# 0.12.0
+
 # 0.11.0
 
 * break: rename Focus::init() to Focus::initial()
