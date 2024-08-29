@@ -6,9 +6,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
 use ratatui::text::Text;
-use ratatui::widgets::{
-    Block, Paragraph, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef, Wrap,
-};
+use ratatui::widgets::{Block, Paragraph, StatefulWidget, Widget, Wrap};
 
 #[derive(Debug, Default)]
 pub struct ParagraphS<'a> {
@@ -101,57 +99,43 @@ impl<'a> StatefulWidget for ParagraphS<'a> {
     type State = ParagraphSState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_para(&self, area, buf, state);
+        state.area = area;
+
+        (state.hscroll.area, state.vscroll.area, state.inner) = layout_scroll(
+            area,
+            self.block.as_ref(),
+            self.hscroll.as_ref(),
+            self.vscroll.as_ref(),
+        );
+
+        state.hscroll.set_max_offset(if self.is_wrap {
+            0
+        } else {
+            self.widget
+                .line_width()
+                .saturating_sub(state.inner.width as usize)
+        });
+        state.hscroll.set_page_len(state.inner.width as usize);
+
+        let lines = self.widget.line_count(area.width) + 4; // 4 is an estimate. line_count seems not very accurate.
+        state
+            .vscroll
+            .set_max_offset(lines.saturating_sub(state.inner.height as usize));
+        state.vscroll.set_page_len(state.inner.height as usize);
+
+        self.block.render(area, buf);
+        if let Some(vscroll) = self.vscroll {
+            vscroll.render(state.vscroll.area, buf, &mut state.vscroll);
+        }
+        if let Some(hscroll) = self.hscroll {
+            hscroll.render(state.hscroll.area, buf, &mut state.hscroll);
+        }
+
+        self.widget
+            .clone() // TODO: not optimal
+            .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16))
+            .render(state.inner, buf);
     }
-}
-
-impl<'a> StatefulWidgetRef for ParagraphS<'a> {
-    type State = ParagraphSState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_para(self, area, buf, state);
-    }
-}
-
-fn render_para(widget: &ParagraphS<'_>, area: Rect, buf: &mut Buffer, state: &mut ParagraphSState) {
-    state.area = area;
-
-    (state.hscroll.area, state.vscroll.area, state.inner) = layout_scroll(
-        area,
-        widget.block.as_ref(),
-        widget.hscroll.as_ref(),
-        widget.vscroll.as_ref(),
-    );
-
-    state.hscroll.set_max_offset(if widget.is_wrap {
-        0
-    } else {
-        widget
-            .widget
-            .line_width()
-            .saturating_sub(state.inner.width as usize)
-    });
-    state.hscroll.set_page_len(state.inner.width as usize);
-
-    let lines = widget.widget.line_count(area.width) + 4; // 4 is an estimate. line_count seems not very accurate.
-    state
-        .vscroll
-        .set_max_offset(lines.saturating_sub(state.inner.height as usize));
-    state.vscroll.set_page_len(state.inner.height as usize);
-
-    widget.block.render_ref(area, buf);
-    if let Some(vscroll) = &widget.vscroll {
-        vscroll.render_ref(state.vscroll.area, buf, &mut state.vscroll);
-    }
-    if let Some(hscroll) = &widget.hscroll {
-        hscroll.render_ref(state.hscroll.area, buf, &mut state.hscroll);
-    }
-
-    widget
-        .widget
-        .clone() // TODO: not optimal
-        .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16))
-        .render(state.inner, buf);
 }
 
 impl Default for ParagraphSState {

@@ -42,18 +42,19 @@ unused_qualifications = "warn"
 # NO: unused_results = "warn"
 variant_size_differences = "warn"
 
+[features]
+unstable-widget-ref = ["ratatui/unstable-widget-ref"]
+
 [dependencies]
-ratatui = { version = "0.28", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
+ratatui = { version = "0.28" }
 crossterm = "0.28"
 log = "0.4"
-#tui-tree-widget = "0.19.0"
 
 rat-event = { version = "0.15", path = "../rat-event" }
 
 [dev-dependencies.tui-tree-widget]
 version = "0.22"
 features = []
-#path = "../tui-rs-tree-widget"
 
 [dev-dependencies]
 fern = "0.6"

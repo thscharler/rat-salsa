@@ -6,9 +6,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::Style;
 use ratatui::symbols::scrollbar::Set;
-use ratatui::widgets::{
-    Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget, StatefulWidgetRef,
-};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
 use std::cmp::{max, min};
 
 /// Scrolling indicator.
@@ -453,10 +453,18 @@ impl<'a> StatefulWidget for Scroll<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for Scroll<'a> {
     type State = ScrollState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_scroll(self, area, buf, state);
+    }
+}
+
+#[cfg(not(feature = "unstable-widget-ref"))]
+impl<'a> Scroll<'a> {
+    pub fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut ScrollState) {
         render_scroll(self, area, buf, state);
     }
 }

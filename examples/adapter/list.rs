@@ -7,9 +7,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::ListDirection::BottomToTop;
-use ratatui::widgets::{
-    Block, HighlightSpacing, List, ListDirection, ListItem, ListState, StatefulWidgetRef, WidgetRef,
-};
+use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState, Widget};
 use std::cmp::{max, min};
 
 ///
@@ -195,9 +193,9 @@ impl<'a> StatefulWidget for ListS<'a> {
             state.scroll.set_max_offset(state.len.saturating_sub(n));
         }
 
-        self.block.render_ref(area, buf);
-        if let Some(scroll) = &self.scroll {
-            scroll.render_ref(scroll_area, buf, &mut state.scroll);
+        self.block.render(area, buf);
+        if let Some(scroll) = self.scroll {
+            scroll.render(scroll_area, buf, &mut state.scroll);
         }
         StatefulWidget::render(
             self.list.clone().items(self.items),
