@@ -154,7 +154,7 @@ fn repaint_tui<Data, State>(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let t0 = SystemTime::now();
-    let area = frame.size();
+    let area = frame.area();
 
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
