@@ -83,8 +83,11 @@ use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{BlockExt, StatefulWidget, Style, Stylize, Widget};
-use ratatui::widgets::{Block, StatefulWidgetRef};
+use ratatui::prelude::BlockExt;
+use ratatui::style::{Style, Stylize};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::borrow::Cow;
 use std::cmp::min;
 use std::fmt;
@@ -196,6 +199,7 @@ impl<'a> MaskedInput<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for MaskedInput<'a> {
     type State = MaskedInputState;
 

@@ -15,7 +15,9 @@ use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
-use ratatui::widgets::{Block, StatefulWidgetRef};
+use ratatui::widgets::Block;
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
 use std::fmt::{Debug, Display, LowerExp};
 use std::ops::Range;
 use std::str::FromStr;
@@ -96,6 +98,7 @@ impl<'a> NumberInput<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for NumberInput<'a> {
     type State = NumberInputState;
 

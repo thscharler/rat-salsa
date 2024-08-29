@@ -20,11 +20,14 @@ use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{StatefulWidget, Style, Stylize};
-use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef};
+use ratatui::style::{Style, Stylize};
+use ratatui::widgets::{Block, StatefulWidget, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cmp::{max, min};
+use std::mem;
 use std::ops::Range;
 
 /// Text area widget.
@@ -227,23 +230,43 @@ impl<'a> TextArea<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for TextArea<'a> {
     type State = TextAreaState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
+        render_ref(
+            self,
+            |area, buf| self.block.render_ref(area, buf),
+            area,
+            buf,
+            state,
+        );
     }
 }
 
 impl<'a> StatefulWidget for TextArea<'a> {
     type State = TextAreaState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(&self, area, buf, state);
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let block = mem::take(&mut self.block);
+        render_ref(
+            &self, //
+            |area, buf| block.render(area, buf),
+            area,
+            buf,
+            state,
+        );
     }
 }
 
-fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut TextAreaState) {
+fn render_ref(
+    widget: &TextArea<'_>,
+    block: impl FnOnce(Rect, &mut Buffer),
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut TextAreaState,
+) {
     state.area = area;
 
     let (hscroll_area, vscroll_area, inner_area) = layout_scroll(
@@ -267,7 +290,7 @@ fn render_ref(widget: &TextArea<'_>, area: Rect, buf: &mut Buffer, state: &mut T
     );
     state.vscroll.set_page_len(state.inner.height as usize);
 
-    widget.block.render_ref(area, buf);
+    block(area, buf);
     if let Some(hscroll) = widget.hscroll.as_ref() {
         hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
     }
