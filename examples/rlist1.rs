@@ -15,7 +15,7 @@ use rat_widget::popup_menu::Placement;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, ListItem, StatefulWidget, StatefulWidgetRef, Widget};
+use ratatui::widgets::{Block, ListItem, StatefulWidget, Widget};
 use ratatui::Frame;
 
 mod mini_salsa;
@@ -96,13 +96,13 @@ struct EditEntryState {
     edit: TextInputState,
 }
 
-impl StatefulWidgetRef for EditEntry {
+impl StatefulWidget for EditEntry {
     type State = EditEntryState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         TextInput::new()
             .styles(THEME.input_style())
-            .render_ref(area, buf, &mut state.edit);
+            .render(area, buf, &mut state.edit);
     }
 }
 

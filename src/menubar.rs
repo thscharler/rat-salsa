@@ -22,8 +22,11 @@ use rat_event::{flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::{Line, StatefulWidget, Style};
-use ratatui::widgets::{Block, StatefulWidgetRef};
+use ratatui::style::Style;
+use ratatui::text::Line;
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt::{Debug, Formatter};
 
 /// Trait for the structural data of the MenuBar.
@@ -230,6 +233,7 @@ impl<'a> Menubar<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for MenubarLine<'a> {
     type State = MenuBarState;
 
@@ -264,13 +268,14 @@ fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mu
             menu = menu.add(m, n);
         }
     }
-    menu.render_ref(area, buf, &mut state.bar);
+    menu.render(area, buf, &mut state.bar);
 
     // Combined area + each part with a z-index.
     state.area = state.bar.area;
     state.z_areas = [ZRect::from((0, state.bar.area)), ZRect::default()];
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for MenubarPopup<'a> {
     type State = MenuBarState;
 

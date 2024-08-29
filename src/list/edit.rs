@@ -12,13 +12,13 @@ use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::widgets::{StatefulWidget, StatefulWidgetRef};
+use ratatui::widgets::StatefulWidget;
 
 /// Edit-List widget.
 ///
 /// Contains the base list and the edit-widget.
 #[derive(Debug, Default)]
-pub struct EditList<'a, Editor: StatefulWidgetRef + 'a> {
+pub struct EditList<'a, Editor: StatefulWidget + 'a> {
     list: List<'a, RowSelection>,
     edit: Editor,
 }
@@ -36,51 +36,52 @@ pub struct EditListState<EditorState> {
 
 impl<'a, Editor> EditList<'a, Editor>
 where
-    Editor: StatefulWidgetRef + 'a,
+    Editor: StatefulWidget + 'a,
 {
     pub fn new(list: List<'a, RowSelection>, edit: Editor) -> Self {
         Self { list, edit }
     }
 }
 
-impl<'a, Editor> StatefulWidgetRef for EditList<'a, Editor>
-where
-    Editor: StatefulWidgetRef + 'a,
-{
-    type State = EditListState<Editor::State>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
-    }
-}
+// todo: not possible for now
+// impl<'a, Editor> StatefulWidget for EditList<'a, Editor>
+// where
+//     Editor: StatefulWidget + 'a,
+// {
+//     type State = EditListState<Editor::State>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_ref(self, area, buf, state);
+//     }
+// }
 
 impl<'a, Editor> StatefulWidget for EditList<'a, Editor>
 where
-    Editor: StatefulWidgetRef + 'a,
+    Editor: StatefulWidget + 'a,
 {
     type State = EditListState<Editor::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(&self, area, buf, state);
+        render_ref(self, area, buf, state);
     }
 }
 
 fn render_ref<'a, Editor>(
-    widget: &EditList<'a, Editor>,
+    widget: EditList<'a, Editor>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut EditListState<Editor::State>,
 ) where
-    Editor: StatefulWidgetRef + 'a,
+    Editor: StatefulWidget + 'a,
 {
-    widget.list.render_ref(area, buf, &mut state.list);
+    widget.list.render(area, buf, &mut state.list);
 
     if let Some(edit_state) = &mut state.edit {
         // expect a selected row
         if let Some(row) = state.list.selected() {
             // but it might be out of view
             if let Some(row_area) = state.list.row_area(row) {
-                widget.edit.render_ref(row_area, buf, edit_state);
+                widget.edit.render(row_area, buf, edit_state);
             }
         }
     }

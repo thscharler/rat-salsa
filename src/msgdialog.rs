@@ -13,7 +13,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
 use ratatui::style::Style;
 use ratatui::text::{Line, Text};
-use ratatui::widgets::{Block, Padding, StatefulWidget, StatefulWidgetRef, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
 use std::cell::{Cell, RefCell};
 use std::fmt::Debug;
 
@@ -163,6 +165,7 @@ impl Default for MsgDialogState {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for MsgDialog<'a> {
     type State = MsgDialogState;
 

@@ -32,7 +32,10 @@ use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::Style;
 use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidgetRef, Widget, WidgetRef};
+use ratatui::widgets::{Block, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use std::mem;
 
 /// Placement relative to the Rect given to render.
 ///
@@ -357,23 +360,43 @@ impl<'a> PopupMenu<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for PopupMenu<'a> {
     type State = PopupMenuState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
+        render_ref(
+            self,
+            |area, buf| self.block.render_ref(area, buf),
+            area,
+            buf,
+            state,
+        );
     }
 }
 
 impl<'a> StatefulWidget for PopupMenu<'a> {
     type State = PopupMenuState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(&self, area, buf, state);
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let block = mem::take(&mut self.block);
+        render_ref(
+            &self, //
+            |area, buf| block.render(area, buf),
+            area,
+            buf,
+            state,
+        );
     }
 }
 
-fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut PopupMenuState) {
+fn render_ref(
+    widget: &PopupMenu<'_>,
+    block: impl FnOnce(Rect, &mut Buffer),
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut PopupMenuState,
+) {
     if !state.active() {
         state.clear();
         return;
@@ -390,7 +413,8 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     widget.layout(area, fit_in, state);
 
     Fill::new().style(widget.style).render(state.area, buf);
-    widget.block.render_ref(state.area, buf);
+
+    block(state.area, buf);
 
     for (n, txt) in widget.items.iter().enumerate() {
         let mut it_area = state.item_areas[n];
@@ -406,7 +430,7 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         };
 
         buf.set_style(it_area, style);
-        txt.line.render_ref(it_area, buf);
+        txt.line.clone().render(it_area, buf); // todo:clone
         if let Some(txt_right) = &txt.right {
             let txt_width = txt_right.width() as u16;
             if txt_width < it_area.width {
@@ -414,7 +438,7 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 it_area.x += delta;
                 it_area.width -= delta;
             }
-            txt_right.render_ref(it_area, buf);
+            txt_right.clone().render(it_area, buf); // todo: clone
         }
 
         if txt.sep != Separator::None {

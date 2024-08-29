@@ -13,8 +13,11 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, BorderType, StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
+use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::{max, min};
+use std::mem;
 
 /// Splits the area in multiple parts and allows changing the sizes.
 ///
@@ -792,11 +795,18 @@ impl<'a> Split<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for SplitWidget<'a> {
     type State = SplitState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_widget(&self.split, area, buf, state);
+        render_widget(
+            &self.split,
+            |area, buf| self.split.block.render_ref(area, buf),
+            area,
+            buf,
+            state,
+        );
         if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
             render_split(&self.split, buf, state);
         }
@@ -806,14 +816,22 @@ impl<'a> StatefulWidgetRef for SplitWidget<'a> {
 impl<'a> StatefulWidget for SplitWidget<'a> {
     type State = SplitState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_widget(&self.split, area, buf, state);
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let block = mem::take(&mut self.split.block);
+        render_widget(
+            &self.split,
+            |area, buf| block.render(area, buf),
+            area,
+            buf,
+            state,
+        );
         if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
             render_split(&self.split, buf, state);
         }
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for SplitOverlay<'a> {
     type State = SplitState;
 
@@ -840,7 +858,13 @@ impl<'a> StatefulWidget for SplitOverlay<'a> {
     }
 }
 
-fn render_widget(split: &Split<'_>, area: Rect, buf: &mut Buffer, state: &mut SplitState) {
+fn render_widget(
+    split: &Split<'_>,
+    block: impl FnOnce(Rect, &mut Buffer),
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut SplitState,
+) {
     split.layout_split(area, state);
 
     if state.is_focused() {
@@ -851,7 +875,7 @@ fn render_widget(split: &Split<'_>, area: Rect, buf: &mut Buffer, state: &mut Sp
         state.focus_marker = None;
     }
 
-    split.block.render_ref(area, buf);
+    block(area, buf);
 }
 
 fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {

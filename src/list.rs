@@ -11,9 +11,9 @@ use rat_scrolled::{layout_scroll, Scroll, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::{
-    Block, ListDirection, ListItem, StatefulWidget, StatefulWidgetRef, WidgetRef,
-};
+use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidget, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::min;
 use std::collections::HashSet;
 use std::marker::PhantomData;
@@ -223,11 +223,19 @@ where
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a, Selection: ListSelection> StatefulWidgetRef for List<'a, Selection> {
     type State = ListState<Selection>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_list(self, self.items.clone(), area, buf, state)
+        render_list(
+            self,
+            |area, buf| self.block.render_ref(area, buf),
+            self.items.clone(),
+            area,
+            buf,
+            state,
+        )
     }
 }
 
@@ -236,12 +244,21 @@ impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let items = mem::take(&mut self.items);
-        render_list(&self, items, area, buf, state)
+        let block = mem::take(&mut self.block);
+        render_list(
+            &self,
+            |area, buf| block.render(area, buf),
+            items,
+            area,
+            buf,
+            state,
+        )
     }
 }
 
 fn render_list<'a, Selection: ListSelection>(
     widget: &List<'a, Selection>,
+    block: impl FnOnce(Rect, &mut Buffer),
     items: Vec<ListItem<'a>>,
     area: Rect,
     buf: &mut Buffer,
@@ -295,7 +312,7 @@ fn render_list<'a, Selection: ListSelection>(
         (widget.style, widget.defaulted_select())
     };
 
-    widget.block.render_ref(area, buf);
+    block(area, buf);
     if let Some(scroll) = widget.scroll.as_ref() {
         scroll.render_ref(scroll_area, buf, &mut state.scroll);
     }
@@ -315,11 +332,15 @@ fn render_list<'a, Selection: ListSelection>(
 
     let mut list_state = ratatui::widgets::ListState::default().with_offset(state.scroll.offset());
 
-    ratatui::widgets::List::default()
-        .items(items)
-        .style(widget.style)
-        .direction(widget.direction)
-        .render(state.inner, buf, &mut list_state);
+    StatefulWidget::render(
+        ratatui::widgets::List::default()
+            .items(items)
+            .style(widget.style)
+            .direction(widget.direction),
+        state.inner,
+        buf,
+        &mut list_state,
+    );
 }
 
 impl<Selection> HasFocusFlag for ListState<Selection> {

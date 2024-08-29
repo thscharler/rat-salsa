@@ -11,7 +11,10 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::{Block, StatefulWidget, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use std::mem;
 
 /// Button widget.
 #[derive(Debug, Default, Clone)]
@@ -171,27 +174,51 @@ impl<'a> From<Line<'a>> for Button<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for Button<'a> {
     type State = ButtonState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(self, area, buf, state);
+        render_ref(
+            self,
+            |area, buf| self.block.render_ref(area, buf),
+            |area, buf| self.text.render_ref(area, buf),
+            area,
+            buf,
+            state,
+        );
     }
 }
 
 impl<'a> StatefulWidget for Button<'a> {
     type State = ButtonState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(&self, area, buf, state);
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        let block = mem::take(&mut self.block);
+        let text = mem::take(&mut self.text);
+        render_ref(
+            &self, //
+            |area, buf| block.render(area, buf),
+            |area, buf| text.render(area, buf),
+            area,
+            buf,
+            state,
+        );
     }
 }
 
-fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut ButtonState) {
+fn render_ref(
+    widget: &Button<'_>,
+    block: impl FnOnce(Rect, &mut Buffer),
+    text: impl FnOnce(Rect, &mut Buffer),
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut ButtonState,
+) {
     state.area = area;
     state.inner_area = widget.block.inner_if_some(area);
 
-    widget.block.render_ref(area, buf);
+    block(area, buf);
 
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -218,7 +245,7 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
         .flex(Flex::Center)
         .split(state.inner_area);
 
-    widget.text.render_ref(layout[0], buf);
+    text(layout[0], buf);
 }
 
 impl Default for ButtonState {

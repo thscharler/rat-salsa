@@ -22,7 +22,7 @@ use rat_text::text_input::{TextInput, TextInputState, TextInputStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
-use ratatui::widgets::{Block, ListItem, StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::{Block, ListItem};
 use std::ffi::OsString;
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
@@ -413,11 +413,11 @@ struct EditDirNameState {
     edit_dir: TextInputState,
 }
 
-impl StatefulWidgetRef for EditDirName {
+impl StatefulWidget for EditDirName {
     type State = EditDirNameState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        TextInput::new().render_ref(area, buf, &mut state.edit_dir);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        TextInput::new().render(area, buf, &mut state.edit_dir);
     }
 }
 
@@ -482,7 +482,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             Flex::Center,
         );
 
-        block.render_ref(area, buf);
+        block.render(area, buf);
         Fill::new()
             .fill_char(" ")
             .style(self.style)

@@ -15,7 +15,9 @@ use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt;
 use std::fmt::Debug;
 use std::ops::Range;

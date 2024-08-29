@@ -9,16 +9,17 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
-use crate::inner::InnerStatefulOwn;
 use crate::util::copy_buffer;
 use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::style::Style;
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef, WidgetRef};
-use std::cell::Cell;
+use ratatui::widgets::{Block, StatefulWidget, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::fmt::Debug;
+use std::mem;
 
 /// Viewport has its own size, and can contain a stateful widget
 /// that will be rendered to a view sized buffer.
@@ -102,6 +103,7 @@ impl<'a, T> Viewport<'a, T> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a, T> StatefulWidgetRef for Viewport<'a, T>
 where
     T: StatefulWidgetRef,
@@ -110,7 +112,14 @@ where
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if let Some(w) = &self.widget {
-            render_ref(&self.viewport, w, area, buf, state);
+            render_ref(
+                &self.viewport,
+                |area, buf, state| w.render_ref(area, buf, state),
+                |area, buf| self.viewport.block.render_ref(area, buf),
+                area,
+                buf,
+                state,
+            );
         } else {
             unreachable!()
         }
@@ -125,11 +134,11 @@ where
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if let Some(w) = self.widget.take() {
+            let block = mem::take(&mut self.viewport.block);
             render_ref(
                 &self.viewport,
-                &InnerStatefulOwn {
-                    w: Cell::new(Some(w)),
-                },
+                |area, buf, state| w.render(area, buf, state),
+                |area, buf| block.render(area, buf),
                 area,
                 buf,
                 state,
@@ -142,7 +151,8 @@ where
 
 fn render_ref<S>(
     viewport: &ViewportImpl<'_>,
-    widget: &dyn StatefulWidgetRef<State = S>,
+    widget: impl FnOnce(Rect, &mut Buffer, &mut S),
+    block: impl FnOnce(Rect, &mut Buffer),
     area: Rect,
     buf: &mut Buffer,
     state: &mut ViewportState<S>,
@@ -176,7 +186,7 @@ fn render_ref<S>(
     );
     state.vscroll.set_page_len(state.inner_area.height as usize);
 
-    viewport.block.render_ref(area, buf);
+    block(area, buf);
     if let Some(hscroll) = &viewport.hscroll {
         hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
     }
@@ -185,7 +195,7 @@ fn render_ref<S>(
     }
 
     let mut tmp = Buffer::empty(state.view_area);
-    widget.render_ref(state.view_area, &mut tmp, &mut state.widget);
+    widget(state.view_area, &mut tmp, &mut state.widget);
 
     copy_buffer(
         state.view_area,

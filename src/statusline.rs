@@ -7,7 +7,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{StatefulWidget, StatefulWidgetRef, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::fmt::Debug;
 
 /// Statusbar with multiple sections.
@@ -89,6 +91,7 @@ impl StatusLineState {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl StatefulWidgetRef for StatusLine {
     type State = StatusLineState;
 

@@ -8,8 +8,11 @@ use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
-use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
-use ratatui::widgets::{Block, StatefulWidgetRef, WidgetRef, Wrap};
+use ratatui::style::Style;
+use ratatui::text::Text;
+use ratatui::widgets::{Block, StatefulWidget, Widget, Wrap};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 
 /// List widget.
 ///
@@ -132,9 +135,11 @@ impl<'a> Paragraph<'a> {
         state.hscroll.set_max_offset(if self.is_wrap {
             0
         } else {
-            self.w
+            let b = self
+                .w
                 .line_width()
-                .saturating_sub(state.inner.width as usize)
+                .saturating_sub(state.inner.width as usize);
+            b
         });
         state.hscroll.set_page_len(state.inner.width as usize);
 
@@ -152,7 +157,14 @@ impl<'a> StatefulWidget for Paragraph<'a> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.layout(area, state);
-        render_para(&self, area, buf, state);
+
+        self.block.render(area, buf);
+        if let Some(vscroll) = self.vscroll {
+            vscroll.render(state.vscroll.area, buf, &mut state.vscroll);
+        }
+        if let Some(hscroll) = self.hscroll {
+            hscroll.render(state.hscroll.area, buf, &mut state.hscroll);
+        }
 
         self.w
             .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16))
@@ -160,27 +172,25 @@ impl<'a> StatefulWidget for Paragraph<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for Paragraph<'a> {
     type State = ParagraphState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.layout(area, state);
-        render_para(self, area, buf, state);
+
+        self.block.render_ref(area, buf);
+        if let Some(vscroll) = &self.vscroll {
+            vscroll.render_ref(state.vscroll.area, buf, &mut state.vscroll);
+        }
+        if let Some(hscroll) = &self.hscroll {
+            hscroll.render_ref(state.hscroll.area, buf, &mut state.hscroll);
+        }
 
         self.w
             .clone()
             .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16))
             .render(state.inner, buf);
-    }
-}
-
-fn render_para(widget: &Paragraph<'_>, area: Rect, buf: &mut Buffer, state: &mut ParagraphState) {
-    widget.block.render_ref(area, buf);
-    if let Some(vscroll) = &widget.vscroll {
-        vscroll.render_ref(state.vscroll.area, buf, &mut state.vscroll);
-    }
-    if let Some(hscroll) = &widget.hscroll {
-        hscroll.render_ref(state.hscroll.area, buf, &mut state.hscroll);
     }
 }
 

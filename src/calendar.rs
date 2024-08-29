@@ -10,7 +10,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{StatefulWidget, StatefulWidgetRef, Widget};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::fmt::{Debug, Formatter};
 
 /// Renders a month.
@@ -208,6 +210,7 @@ impl Month {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl StatefulWidgetRef for Month {
     type State = MonthState;
 

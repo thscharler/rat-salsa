@@ -7,7 +7,9 @@
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::{Widget, WidgetRef};
+use ratatui::widgets::Widget;
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::WidgetRef;
 
 /// Fill the area with a grapheme and a style.
 /// Useful when overwriting an already rendered buffer
@@ -36,6 +38,7 @@ impl<'a> Fill<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> WidgetRef for Fill<'a> {
     fn render_ref(&self, area: Rect, buf: &mut Buffer) {
         render_ref(self, area, buf);

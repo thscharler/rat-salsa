@@ -8,7 +8,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
 use ratatui::text::Line;
-use ratatui::widgets::{Block, StatefulWidget, StatefulWidgetRef};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::min;
 use std::fmt::Debug;
 
@@ -288,6 +290,7 @@ impl<'a> StatefulWidget for Tabbed<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for Tabbed<'a> {
     type State = TabbedState;
 
@@ -438,7 +441,7 @@ pub mod glued {
     use crate::util::revert_style;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
-    use ratatui::widgets::{Widget, WidgetRef};
+    use ratatui::widgets::Widget;
 
     /// Renders tab at the given placement.
     /// The block is rendered inside the tabs.
@@ -642,7 +645,7 @@ pub mod glued {
             Fill::new()
                 .style(tabbed.style)
                 .render(state.tab_title_area, buf);
-            tabbed.block.render_ref(state.block_area, buf);
+            tabbed.block.clone().render(state.block_area, buf); // todo: clone
 
             for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
                 if Some(idx) == state.selected() {
@@ -668,14 +671,16 @@ pub mod glued {
                         }
                     }
                 };
-                tabbed.get_tabs()[idx].render_ref(txt_area, buf);
+                tabbed.get_tabs()[idx].clone().render(txt_area, buf); // todo: clone
             }
             if tabbed.is_closeable() {
                 for i in 0..state.tab_title_close_areas.len() {
                     if state.mouse.hover.get() == Some(i) {
                         buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
                     }
-                    "\u{2A2F}".render_ref(state.tab_title_close_areas[i], buf);
+                    if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
+                        cell.set_symbol("\u{2A2F}");
+                    }
                 }
             }
         }
@@ -692,7 +697,7 @@ pub mod attached {
     use crate::util::revert_style;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
-    use ratatui::widgets::{Block, BorderType, Borders, Widget, WidgetRef};
+    use ratatui::widgets::{Block, BorderType, Borders, Widget};
 
     /// Embeds tabs in the Block.
     ///
@@ -931,7 +936,7 @@ pub mod attached {
                 }
                 TabPlacement::Top | TabPlacement::Bottom => {}
             }
-            block.render_ref(state.block_area, buf);
+            block.clone().render(state.block_area, buf); // todo: clone
 
             for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
                 if Some(idx) == state.selected() {
@@ -963,7 +968,7 @@ pub mod attached {
                         }
                     }
                 };
-                tabbed.get_tabs()[idx].render_ref(txt_area, buf);
+                tabbed.get_tabs()[idx].clone().render(txt_area, buf); // todo: clone
 
                 match self.placement {
                     TabPlacement::Top => {}
@@ -1004,7 +1009,9 @@ pub mod attached {
                     if state.mouse.hover.get() == Some(i) {
                         buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
                     }
-                    "\u{2A2F}".render_ref(state.tab_title_close_areas[i], buf);
+                    if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
+                        cell.set_symbol("\u{2A2F}");
+                    }
                 }
             }
         }

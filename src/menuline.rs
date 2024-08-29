@@ -21,7 +21,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
-use ratatui::widgets::{StatefulWidget, StatefulWidgetRef, Widget, WidgetRef};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::fmt::Debug;
 
 /// One line menu widget.
@@ -138,6 +140,7 @@ impl<'a> MenuLine<'a> {
     }
 }
 
+#[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for MenuLine<'a> {
     type State = MenuLineState;
 
@@ -185,7 +188,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         item_area.width = widget.title.width() as u16;
 
         buf.set_style(item_area, title_style);
-        widget.title.render_ref(item_area, buf);
+        widget.title.clone().render(item_area, buf); // todo: clone
 
         item_area.x += item_area.width + 1;
     }
