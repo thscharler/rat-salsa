@@ -1,3 +1,9 @@
+# 0.15.0
+
+* update ratatui to 0.28
+
+* use text widgets from rat-text instead of the old ones.
+
 # 0.14.0
 
 * add FileDialog
