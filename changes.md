@@ -1,5 +1,7 @@
 # 0.12.0
 
+* update ratatui to 0.28
+
 # 0.11.0
 
 * break: rename Focus::init() to Focus::initial()
