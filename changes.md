@@ -1,3 +1,7 @@
+# 0.18.0
+
+* update ratatui to 0.28
+
 # 0.17.0
 
 * break: horizontal scrolling scroll cell-wise instead of column-wise.
