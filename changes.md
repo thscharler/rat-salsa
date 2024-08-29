@@ -1,3 +1,7 @@
+# 0.14.0
+
+* update ratatui to 0.28
+
 # 0.13.0
 
 * feature: add collaboration with Split with Scroll::start_margin
