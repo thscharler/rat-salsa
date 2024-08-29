@@ -64,7 +64,7 @@ fn repaint_input(
             .or_else(|| state.sub4.screen_cursor())
     });
     if let Some((x, y)) = cursor {
-        frame.set_cursor(x, y);
+        frame.set_cursor_position((x, y));
     }
     Ok(())
 }

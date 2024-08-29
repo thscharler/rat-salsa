@@ -91,7 +91,7 @@ fn repaint_input(
         None
     };
     if let Some(cursor) = cursor {
-        frame.set_cursor(cursor.0, cursor.1);
+        frame.set_cursor_position((cursor.0, cursor.1));
     }
 
     Ok(())
