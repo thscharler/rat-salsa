@@ -1,3 +1,7 @@
+# 0.24.0
+
+* update ratatui to 0.28
+
 # 0.23.0
 
 * Start example mdedit.
