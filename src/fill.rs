@@ -57,36 +57,40 @@ fn render_ref(widget: &Fill<'_>, area: Rect, buf: &mut Buffer) {
         (Some(c), Some(s)) => {
             for y in area.top()..area.bottom() {
                 for x in area.left()..area.right() {
-                    let cell = buf.get_mut(x, y);
-                    cell.reset();
-                    cell.set_symbol(c);
-                    cell.set_style(s);
+                    if let Some(cell) = buf.cell_mut((x, y)) {
+                        cell.reset();
+                        cell.set_symbol(c);
+                        cell.set_style(s);
+                    }
                 }
             }
         }
         (None, Some(s)) => {
             for y in area.top()..area.bottom() {
                 for x in area.left()..area.right() {
-                    let cell = buf.get_mut(x, y);
-                    cell.reset();
-                    cell.set_style(s);
+                    if let Some(cell) = buf.cell_mut((x, y)) {
+                        cell.reset();
+                        cell.set_style(s);
+                    }
                 }
             }
         }
         (Some(c), None) => {
             for y in area.top()..area.bottom() {
                 for x in area.left()..area.right() {
-                    let cell = buf.get_mut(x, y);
-                    cell.reset();
-                    cell.set_symbol(c);
+                    if let Some(cell) = buf.cell_mut((x, y)) {
+                        cell.reset();
+                        cell.set_symbol(c);
+                    }
                 }
             }
         }
         (None, None) => {
             for y in area.top()..area.bottom() {
                 for x in area.left()..area.right() {
-                    let cell = buf.get_mut(x, y);
-                    cell.reset();
+                    if let Some(cell) = buf.cell_mut((x, y)) {
+                        cell.reset();
+                    }
                 }
             }
         }

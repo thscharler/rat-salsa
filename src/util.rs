@@ -1,7 +1,7 @@
 #[allow(unused_imports)]
 use log::debug;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
 use std::cmp::min;
@@ -113,10 +113,8 @@ pub(crate) fn copy_buffer(
             let row = area.y + tmp_row - v_offset as u16;
             let col = area.x + tmp_col - h_offset as u16;
 
-            if area.contains(Position::new(col, row)) {
-                *buf.get_mut(col, row) = cell;
-            } else {
-                // clip
+            if let Some(buf_cell) = buf.cell_mut((col, row)) {
+                *buf_cell = cell;
             }
         } else {
             // clip2
@@ -130,8 +128,10 @@ pub(crate) fn copy_buffer(
     for r in area.y..area.y + area.height {
         for c in area.x..area.x + area.width {
             if c >= filled_left || r >= filled_bottom {
-                buf.get_mut(c, r).reset();
-                buf.get_mut(c, r).set_style(empty_style);
+                if let Some(buf_cell) = buf.cell_mut((c, r)) {
+                    buf_cell.reset();
+                    buf_cell.set_style(empty_style);
+                }
             }
         }
     }

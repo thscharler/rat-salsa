@@ -432,7 +432,9 @@ fn render_ref(widget: &PopupMenu<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 }
             };
             for x in 0..sep_area.width {
-                buf.get_mut(sep_area.x + x, sep_area.y).set_symbol(sym);
+                if let Some(cell) = buf.cell_mut((sep_area.x + x, sep_area.y)) {
+                    cell.set_symbol(sym);
+                }
             }
         }
     }

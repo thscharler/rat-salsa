@@ -978,8 +978,10 @@ pub mod attached {
                             Some(BorderType::QuadrantInside) => "\u{2588}",
                             Some(BorderType::QuadrantOutside) => "\u{258C}",
                         };
-                        buf.get_mut(tab_area.x + tab_area.width, tab_area.y)
-                            .set_symbol(join);
+                        if let Some(cell) = buf.cell_mut((tab_area.x + tab_area.width, tab_area.y))
+                        {
+                            cell.set_symbol(join);
+                        }
                     }
                     TabPlacement::Right => {
                         let join = match self.join {
@@ -991,7 +993,9 @@ pub mod attached {
                             Some(BorderType::QuadrantInside) => "\u{2588}",
                             Some(BorderType::QuadrantOutside) => "\u{2590}",
                         };
-                        buf.get_mut(tab_area.x - 1, tab_area.y).set_symbol(join);
+                        if let Some(cell) = buf.cell_mut((tab_area.x - 1, tab_area.y)) {
+                            cell.set_symbol(join);
+                        }
                     }
                 }
             }

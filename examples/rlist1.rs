@@ -185,7 +185,7 @@ fn repaint_input(
     .render(l_grid[1][0], frame.buffer_mut(), &mut state.list1);
     if let Some(edit) = &state.list1.edit {
         if let Some(cursor) = edit.screen_cursor() {
-            frame.set_cursor(cursor.0, cursor.1)
+            frame.set_cursor_position((cursor.0, cursor.1))
         }
     }
 

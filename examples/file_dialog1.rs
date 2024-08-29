@@ -70,7 +70,7 @@ fn repaint_input(
             .render(l, frame.buffer_mut(), &mut state.file_open);
 
         if let Some(cursor) = state.file_open.screen_cursor() {
-            frame.set_cursor(cursor.0, cursor.1);
+            frame.set_cursor_position((cursor.0, cursor.1));
         }
     }
 

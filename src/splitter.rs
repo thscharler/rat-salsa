@@ -902,31 +902,37 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
         let mark = state.splitline_mark_areas[n];
         if split.direction == Direction::Horizontal {
             if buf.area.contains((mark.x, mark.y).into()) {
-                buf.get_mut(mark.x, mark.y).set_style(arrow_style);
-                buf.get_mut(mark.x, mark.y).set_symbol(split.get_mark_0());
+                if let Some(cell) = buf.cell_mut((mark.x, mark.y)) {
+                    cell.set_style(arrow_style);
+                    cell.set_symbol(split.get_mark_0());
+                }
             }
             if buf.area.contains((mark.x, mark.y + 1).into()) {
-                buf.get_mut(mark.x, mark.y + 1).set_style(arrow_style);
-                buf.get_mut(mark.x, mark.y + 1)
-                    .set_symbol(split.get_mark_1());
+                if let Some(cell) = buf.cell_mut((mark.x, mark.y + 1)) {
+                    cell.set_style(arrow_style);
+                    cell.set_symbol(split.get_mark_1());
+                }
             }
         } else {
-            if buf.area.contains((mark.x, mark.y).into()) {
-                buf.get_mut(mark.x, mark.y).set_style(arrow_style);
-                buf.get_mut(mark.x, mark.y).set_symbol(split.get_mark_0());
+            if let Some(cell) = buf.cell_mut((mark.x, mark.y)) {
+                cell.set_style(arrow_style);
+                cell.set_symbol(split.get_mark_0());
             }
-            if buf.area.contains((mark.x + 1, mark.y).into()) {
-                buf.get_mut(mark.x + 1, mark.y).set_style(arrow_style);
-                buf.get_mut(mark.x + 1, mark.y)
-                    .set_symbol(split.get_mark_1());
+            if let Some(cell) = buf.cell_mut((mark.x + 1, mark.y)) {
+                cell.set_style(arrow_style);
+                cell.set_symbol(split.get_mark_1());
             }
         }
 
         if let Some((pos_0, c_0)) = split.get_join_0(*split_area, state) {
-            buf.get_mut(pos_0.x, pos_0.y).set_symbol(c_0);
+            if let Some(cell) = buf.cell_mut((pos_0.x, pos_0.y)) {
+                cell.set_symbol(c_0);
+            }
         }
         if let Some((pos_1, c_1)) = split.get_join_1(*split_area, state) {
-            buf.get_mut(pos_1.x, pos_1.y).set_symbol(c_1);
+            if let Some(cell) = buf.cell_mut((pos_1.x, pos_1.y)) {
+                cell.set_symbol(c_1);
+            }
         }
     }
 }

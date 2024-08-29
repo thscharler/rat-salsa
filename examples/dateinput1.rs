@@ -62,7 +62,7 @@ fn repaint_input(
     let input1 = DateInput::default().style(Style::default().white().on_dark_gray());
     frame.render_stateful_widget(input1, l1[1], &mut state.input);
     if let Some((x, y)) = state.input.screen_cursor() {
-        frame.set_cursor(x, y);
+        frame.set_cursor_position((x, y));
     }
 
     let txt1 = Span::from(format!("{:?}", state.input.value()));
