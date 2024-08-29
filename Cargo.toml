@@ -46,7 +46,7 @@ variant_size_differences = "warn"
 crossbeam = "0.8"
 crossterm = "0.28"
 log = "0.4"
-ratatui = { version = "0.27", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
+ratatui = { version = "0.28", features = ["unstable-widget-ref", "unstable-rendered-line-info"] }
 
 rat-widget = { version = "0.14", path = "../rat-widget" }
 
@@ -57,7 +57,7 @@ anyhow = "1.0"
 rat-theme = { version = "0.11", path = "../rat-theme" }
 directories-next = "2.0.0"
 sysinfo = "0.31"
-pulldown-cmark = "0.11.0"
+pulldown-cmark = "0.12.0"
 ropey = "1.6.1"
 cli-clipboard = "0.4.0"
 unicode-segmentation = "1.11"

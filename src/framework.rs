@@ -53,10 +53,10 @@ where
                 count: frame.count(),
                 cursor: None,
             };
-            let frame_area = frame.size();
+            let frame_area = frame.area();
             app.render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
             if let Some((cursor_x, cursor_y)) = ctx.cursor {
-                frame.set_cursor(cursor_x, cursor_y);
+                frame.set_cursor_position((cursor_x, cursor_y));
             }
             Ok(())
         },
@@ -135,10 +135,10 @@ where
                                 count: frame.count(),
                                 cursor: None,
                             };
-                            let frame_area = frame.size();
+                            let frame_area = frame.area();
                             app.render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
                             if let Some((cursor_x, cursor_y)) = ctx.cursor {
-                                frame.set_cursor(cursor_x, cursor_y);
+                                frame.set_cursor_position((cursor_x, cursor_y));
                             }
                             Ok(())
                         },
