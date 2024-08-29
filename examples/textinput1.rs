@@ -69,7 +69,7 @@ fn repaint_input(
         .render(l2[1], frame.buffer_mut(), &mut state.textinput);
 
     if let Some((cx, cy)) = state.textinput.screen_cursor() {
-        frame.set_cursor(cx, cy);
+        frame.set_cursor_position((cx, cy));
     }
 
     if state.info {

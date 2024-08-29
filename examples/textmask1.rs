@@ -97,7 +97,7 @@ fn repaint_input(
         .or_else(|| state.sample1.screen_cursor())
         .or_else(|| state.sample2.screen_cursor())
     {
-        frame.set_cursor(cx, cy);
+        frame.set_cursor_position((cx, cy));
     }
 
     let info_area = Rect::new(ll[0][1].x + 1, ll[0][1].y + 1, ll[0][1].width - 2, 1);

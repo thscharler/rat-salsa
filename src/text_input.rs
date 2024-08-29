@@ -219,9 +219,10 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     // set base style
     for y in inner.top()..inner.bottom() {
         for x in inner.left()..inner.right() {
-            let cell = buf.get_mut(x, y);
-            cell.reset();
-            cell.set_style(style);
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.reset();
+                cell.set_style(style);
+            }
         }
     }
 
@@ -260,14 +261,18 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             let screen_pos = g.screen_pos();
 
             // render glyph
-            let cell = buf.get_mut(inner.x + screen_pos.0, inner.y + screen_pos.1);
-            cell.set_symbol(g.glyph());
-            cell.set_style(style);
+            if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
+                cell.set_symbol(g.glyph());
+                cell.set_style(style);
+            }
             // clear the reset of the cells to avoid interferences.
             for d in 1..g.screen_width() {
-                let cell = buf.get_mut(inner.x + screen_pos.0 + d, inner.y + screen_pos.1);
-                cell.reset();
-                cell.set_style(style);
+                if let Some(cell) =
+                    buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
+                {
+                    cell.reset();
+                    cell.set_style(style);
+                }
             }
         }
     }

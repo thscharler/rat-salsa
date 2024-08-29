@@ -218,9 +218,10 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
         // set base style
         for y in inner.top()..inner.bottom() {
             for x in inner.left()..inner.right() {
-                let cell = buf.get_mut(x, y);
-                cell.reset();
-                cell.set_style(self.style);
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.reset();
+                    cell.set_style(self.style);
+                }
             }
         }
 
@@ -241,9 +242,10 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
 
             if is_cursor {
                 for x in inner.x + self.margin.0..inner.x + self.margin.0 + nr_width {
-                    let cell = buf.get_mut(x, y);
-                    cell.reset();
-                    cell.set_style(cursor_style);
+                    if let Some(cell) = buf.cell_mut((x, y)) {
+                        cell.reset();
+                        cell.set_style(cursor_style);
+                    }
                 }
             }
             buf.set_string(inner.x + self.margin.0, y, &tmp, Style::default());
