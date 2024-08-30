@@ -274,7 +274,7 @@ impl DarkTheme {
         ScrollStyle {
             thumb_style: Some(style),
             track_style: Some(style),
-            no_style: Some(style),
+            min_style: Some(style),
             begin_style: Some(arrow_style),
             end_style: Some(arrow_style),
             ..Default::default()
