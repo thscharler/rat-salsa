@@ -22,6 +22,7 @@ fn main() -> Result<(), anyhow::Error> {
         info: true,
         textarea: Default::default(),
     };
+    state.textarea.set_auto_indent(false);
     insert_text_1(&mut state);
 
     run_ui(handle_input, repaint_input, &mut data, &mut state)
@@ -53,7 +54,7 @@ fn repaint_input(
         Constraint::Length(15),
         Constraint::Fill(1),
         Constraint::Length(1),
-        Constraint::Fill(1),
+        Constraint::Length(25),
     ])
     .split(l1[1]);
 

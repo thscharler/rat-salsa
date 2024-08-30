@@ -17,13 +17,13 @@ use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
 #[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidget};
 use ropey::{Rope, RopeSlice};
 use std::borrow::Cow;
 use std::cmp::{max, min};
@@ -106,6 +106,7 @@ pub struct TextAreaState {
 
     /// movement column
     pub move_col: Option<upos_type>,
+    pub auto_indent: bool,
 
     /// Helper for mouse.
     pub mouse: MouseFlags,
@@ -123,6 +124,7 @@ impl Clone for TextAreaState {
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
             move_col: None,
+            auto_indent: self.auto_indent,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -235,13 +237,12 @@ impl<'a> StatefulWidgetRef for TextArea<'a> {
     type State = TextAreaState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(
-            self,
-            |area, buf| self.block.render_ref(area, buf),
-            area,
-            buf,
-            state,
-        );
+        let scroll = ScrollArea::new()
+            .block(self.block.clone())
+            .h_scroll(self.hscroll.clone())
+            .v_scroll(self.vscroll.clone());
+
+        render_ref(self, scroll, area, buf, state);
     }
 }
 
@@ -250,32 +251,35 @@ impl<'a> StatefulWidget for TextArea<'a> {
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let block = mem::take(&mut self.block);
-        render_ref(
-            &self, //
-            |area, buf| block.render(area, buf),
-            area,
-            buf,
-            state,
-        );
+        let h_scroll = mem::take(&mut self.hscroll);
+        let v_scroll = mem::take(&mut self.vscroll);
+
+        let scroll = ScrollArea::new()
+            .block(block)
+            .h_scroll(h_scroll)
+            .v_scroll(v_scroll);
+
+        render_ref(&self, scroll, area, buf, state);
     }
 }
 
 fn render_ref(
     widget: &TextArea<'_>,
-    block: impl FnOnce(Rect, &mut Buffer),
+    scroll: ScrollArea<'_>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut TextAreaState,
 ) {
     state.area = area;
 
-    let (hscroll_area, vscroll_area, inner_area) = layout_scroll(
+    state.inner = scroll.inner(
         area,
-        widget.block.as_ref(),
-        widget.hscroll.as_ref(),
-        widget.vscroll.as_ref(),
+        ScrollAreaState {
+            area,
+            h_scroll: Some(&mut state.hscroll),
+            v_scroll: Some(&mut state.vscroll),
+        },
     );
-    state.inner = inner_area;
     if let Some(h_max_offset) = widget.h_max_offset {
         state.hscroll.set_max_offset(h_max_offset);
     }
@@ -290,13 +294,15 @@ fn render_ref(
     );
     state.vscroll.set_page_len(state.inner.height as usize);
 
-    block(area, buf);
-    if let Some(hscroll) = widget.hscroll.as_ref() {
-        hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
-    }
-    if let Some(vscroll) = widget.vscroll.as_ref() {
-        vscroll.render_ref(vscroll_area, buf, &mut state.vscroll);
-    }
+    scroll.render(
+        area,
+        buf,
+        &mut ScrollAreaState {
+            area,
+            h_scroll: Some(&mut state.hscroll),
+            v_scroll: Some(&mut state.vscroll),
+        },
+    );
 
     let inner = state.inner;
 
@@ -397,6 +403,7 @@ impl Default for TextAreaState {
             non_exhaustive: NonExhaustive,
             vscroll: Default::default(),
             move_col: None,
+            auto_indent: true,
         };
         s.hscroll.set_max_offset(255);
         s.hscroll.set_overscroll_by(Some(16384));
@@ -448,6 +455,12 @@ impl TextAreaState {
     #[inline]
     pub fn newline(&self) -> &str {
         self.value.newline()
+    }
+
+    /// Sets auto-indent on new-line.
+    #[inline]
+    pub fn set_auto_indent(&mut self, indent: bool) {
+        self.auto_indent = indent;
     }
 
     /// Set tab-width.
@@ -1044,20 +1057,22 @@ impl TextAreaState {
             .expect("valid_cursor");
 
         // insert leading spaces
-        let cursor = self.cursor();
-        if cursor.y > 0 {
-            let mut blanks = String::new();
-            for g in self.line_graphemes(cursor.y - 1) {
-                if g == " " || g == "\t" {
-                    blanks.push_str(g.grapheme());
-                } else {
-                    break;
+        if self.auto_indent {
+            let cursor = self.cursor();
+            if cursor.y > 0 {
+                let mut blanks = String::new();
+                for g in self.line_graphemes(cursor.y - 1) {
+                    if g == " " || g == "\t" {
+                        blanks.push_str(g.grapheme());
+                    } else {
+                        break;
+                    }
                 }
-            }
-            if blanks.len() > 0 {
-                self.value
-                    .insert_str(cursor, &blanks)
-                    .expect("valid_cursor");
+                if blanks.len() > 0 {
+                    self.value
+                        .insert_str(cursor, &blanks)
+                        .expect("valid_cursor");
+                }
             }
         }
 
@@ -2016,9 +2031,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
             _ => TextOutcome::Continue,
         });
 
-        let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
-            .handle(event, MouseOnly)
-        {
+        let mut sas = ScrollAreaState {
+            area: self.inner,
+            h_scroll: Some(&mut self.hscroll),
+            v_scroll: Some(&mut self.vscroll),
+        };
+        let r = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),
             ScrollOutcome::Left(v) => self.scroll_left(v),

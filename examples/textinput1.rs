@@ -52,7 +52,7 @@ fn repaint_input(
         Constraint::Length(15),
         Constraint::Fill(1),
         Constraint::Length(1),
-        Constraint::Fill(1),
+        Constraint::Length(25),
     ])
     .split(l1[1]);
 
