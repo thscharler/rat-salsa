@@ -2,13 +2,17 @@
 #![allow(clippy::collapsible_else_if)]
 
 mod scroll;
+mod scroll_area;
 
-pub use scroll::{layout_scroll, Scroll, ScrollArea, ScrollState, ScrollStyle, ScrollbarType};
+pub use scroll::{Scroll, ScrollState, ScrollStyle};
+pub use scroll_area::{ScrollArea, ScrollAreaState};
 
 pub mod event {
     use rat_event::{ConsumedEvent, Outcome};
 
     /// Result of event-handling for a scroll.
+    ///
+    /// All values are in terms of offset.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum ScrollOutcome {
         /// The given event has not been used at all.
@@ -56,6 +60,35 @@ pub mod event {
             }
         }
     }
+}
+
+///
+/// Behaviour of the scrollbar.
+///
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum ScrollbarPolicy {
+    /// Always renders the scrollbar recognizable as scrollbar.
+    Always,
+
+    /// If the scrollbar is not needed, it will be rendered in
+    /// a 'minimized' style.
+    ///
+    /// If a `min_symbol` is set, the area for the scrollbar will
+    /// be filled with the symbol.
+    /// If a `min_style`is set, the area for the scrollbar will
+    /// be set to this style. If no min_symbol is set, this will
+    /// just set the style.
+    ///
+    /// > The scrollbar is not needed, if `max_offset == 0`.
+    #[default]
+    Minimize,
+
+    /// If the scrollbar is not needed, no area is reserved for it.
+    /// The widget will get the extra area.
+    ///
+    /// If the scrollbar is rendered combined with a block,
+    /// the block still might reserve the same space for itself.
+    Collapse,
 }
 
 mod _private {

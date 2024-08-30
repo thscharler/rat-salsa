@@ -1,10 +1,8 @@
-!! This is out of date !!
-
 # Scroll
 
 Scroll adds support for widgets that want to scroll their content.
 
-Scroll works analogous to Block, as you set it on the widget struct.
+Scroll works analogous to Block, you can set it on the widget struct.
 The widget can decide wich scrolling it supports, horizontal, vertical
 or both.
 
@@ -31,8 +29,8 @@ embedded in the widgets state.
 
 ## Widget implementation
 
-* `layout_scroll()` can calculate the areas in the presence of one/two Scroll
-  and a Block, and makes all of them align smoothly (there are edge cases).
+For the implementation use the [ScrollArea] helper. It combines a Block
+and two Scroll's and can calculate the inner area and render all of them.
 
 * Scroll uses ScrollBarOrientation for the positioning of the scrollbars.
   With that there are the possible combinations VerticalLeft/VerticalRight
@@ -46,17 +44,21 @@ embedded in the widgets state.
 
 ### Event-handling
 
-* There is a MouseOnly event-handler for ScrollState. It reacts to mouse
-  clicks and drag directly on the scrollbar-area, and returns a
-  ScrollOutcome.
+#### ScrollState
 
-  The event-handler for ScrollState doesn't change the offset by itself,
-  that's up to the widget. This indirect approach gives the widget more
-  flexibility.
+There is a MouseOnly event-handler for ScrollState. It reacts to mouse
+clicks and drag directly on the scrollbar-area, and returns a
+ScrollOutcome.
 
-* `ScrollArea` is a small helper that implements a MouseOnly event-handler.
-  It consists of the widget-area and one or two Scroll. It covers all
-  the scrolling in the given area and the scrolling by the two ScrollBars.
+The event-handler for ScrollState doesn't change the offset by itself,
+that's up to the widget. This indirect approach gives the widget more
+flexibility.
+
+#### ScrollAreaState
+
+Implements a MouseOnly event-handler, that works for both Scroll widgets.
+It also acts upon mouse-wheel events that occur anywhere in the given
+widget area.
 
 * This too just returns a ScrollOutcome and changes no values.
 

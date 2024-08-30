@@ -1,7 +1,7 @@
 use crate::adapter::_private::NonExhaustive;
 use rat_event::{flow, HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
@@ -101,11 +101,17 @@ impl<'a> StatefulWidget for ParagraphS<'a> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
 
-        (state.hscroll.area, state.vscroll.area, state.inner) = layout_scroll(
+        let scroll = ScrollArea::new()
+            .block(self.block)
+            .h_scroll(self.hscroll)
+            .v_scroll(self.vscroll);
+        state.inner = scroll.inner(
             area,
-            self.block.as_ref(),
-            self.hscroll.as_ref(),
-            self.vscroll.as_ref(),
+            ScrollAreaState {
+                area,
+                h_scroll: Some(&mut state.hscroll),
+                v_scroll: Some(&mut state.vscroll),
+            },
         );
 
         state.hscroll.set_max_offset(if self.is_wrap {
@@ -123,13 +129,15 @@ impl<'a> StatefulWidget for ParagraphS<'a> {
             .set_max_offset(lines.saturating_sub(state.inner.height as usize));
         state.vscroll.set_page_len(state.inner.height as usize);
 
-        self.block.render(area, buf);
-        if let Some(vscroll) = self.vscroll {
-            vscroll.render(state.vscroll.area, buf, &mut state.vscroll);
-        }
-        if let Some(hscroll) = self.hscroll {
-            hscroll.render(state.hscroll.area, buf, &mut state.hscroll);
-        }
+        scroll.render(
+            area,
+            buf,
+            &mut ScrollAreaState {
+                area,
+                h_scroll: Some(&mut state.hscroll),
+                v_scroll: Some(&mut state.vscroll),
+            },
+        );
 
         self.widget
             .clone() // TODO: not optimal
@@ -198,10 +206,13 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSStat
             }
             r => Outcome::from(r),
         });
-        flow!(
-            match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
-                .handle(event, MouseOnly)
-            {
+        flow!({
+            let mut sas = ScrollAreaState {
+                area: self.inner,
+                h_scroll: Some(&mut self.hscroll),
+                v_scroll: Some(&mut self.vscroll),
+            };
+            match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => {
                     if self.vscroll(-(v as isize)) {
                         Outcome::Changed
@@ -232,7 +243,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSStat
                 }
                 r => Outcome::from(r),
             }
-        );
+        });
 
         Outcome::Continue
     }

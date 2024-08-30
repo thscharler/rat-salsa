@@ -2,12 +2,12 @@ use crate::adapter::_private::NonExhaustive;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::ListDirection::BottomToTop;
-use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState, Widget};
+use ratatui::widgets::{Block, HighlightSpacing, List, ListDirection, ListItem, ListState};
 use std::cmp::{max, min};
 
 ///
@@ -141,9 +141,15 @@ impl<'a> StatefulWidget for ListS<'a> {
         state.scroll_selection = self.scroll_selection;
         state.len = self.len();
 
-        let scroll_area;
-        (_, scroll_area, state.inner) =
-            layout_scroll(area, self.block.as_ref(), None, self.scroll.as_ref());
+        let scroll = ScrollArea::new().block(self.block).v_scroll(self.scroll);
+        state.inner = scroll.inner(
+            area,
+            ScrollAreaState {
+                area,
+                h_scroll: None,
+                v_scroll: Some(&mut state.scroll),
+            },
+        );
 
         // area for each item
         state.item_areas.clear();
@@ -193,10 +199,16 @@ impl<'a> StatefulWidget for ListS<'a> {
             state.scroll.set_max_offset(state.len.saturating_sub(n));
         }
 
-        self.block.render(area, buf);
-        if let Some(scroll) = self.scroll {
-            scroll.render(scroll_area, buf, &mut state.scroll);
-        }
+        scroll.render(
+            area,
+            buf,
+            &mut ScrollAreaState {
+                area,
+                h_scroll: None,
+                v_scroll: Some(&mut state.scroll),
+            },
+        );
+
         StatefulWidget::render(
             self.list.clone().items(self.items),
             state.inner,
@@ -435,17 +447,18 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
             r => r.into(),
         });
 
-        flow!(
-            match ScrollArea(self.inner, None, Some(&mut self.scroll)).handle(event, MouseOnly) {
-                ScrollOutcome::Up(v) => {
-                    Outcome::from(self.scroll(-(v as isize)))
-                }
-                ScrollOutcome::Down(v) => {
-                    Outcome::from(self.scroll(v as isize))
-                }
+        flow!({
+            let mut sas = ScrollAreaState {
+                area: self.inner,
+                h_scroll: None,
+                v_scroll: Some(&mut self.scroll),
+            };
+            match sas.handle(event, MouseOnly) {
+                ScrollOutcome::Up(v) => Outcome::from(self.scroll(-(v as isize))),
+                ScrollOutcome::Down(v) => Outcome::from(self.scroll(v as isize)),
                 r => r.into(),
             }
-        );
+        });
 
         Outcome::Continue
     }

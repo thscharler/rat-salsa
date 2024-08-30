@@ -7,12 +7,12 @@ use crate::adapter::_private::NonExhaustive;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Position, Rect};
 use ratatui::style::Style;
 use ratatui::text::Text;
-use ratatui::widgets::{Block, HighlightSpacing, Row, StatefulWidget, Table, TableState, Widget};
+use ratatui::widgets::{Block, HighlightSpacing, Row, StatefulWidget, Table, TableState};
 use std::fmt::Debug;
 
 /// Add some minor fixes to [ratatui::widgets::Table]
@@ -172,9 +172,15 @@ impl<'a> StatefulWidget for TableS<'a> {
         state.scroll_selection = self.scroll_selection;
         state.len = self.rows.len();
 
-        let (_, scroll_area, inner) =
-            layout_scroll(area, self.block.as_ref(), None, self.scroll.as_ref());
-        state.area = inner;
+        let scroll = ScrollArea::new().block(self.block).v_scroll(self.scroll);
+        state.area = scroll.inner(
+            area,
+            ScrollAreaState {
+                area,
+                h_scroll: None,
+                v_scroll: Some(&mut state.scroll),
+            },
+        );
 
         // row layout
         // TODO: as long as height_with_margin() is not accessible we are limited
@@ -229,10 +235,15 @@ impl<'a> StatefulWidget for TableS<'a> {
         }
         state.scroll.set_max_offset(state.len - n);
 
-        self.block.render(area, buf);
-        if let Some(scroll) = self.scroll {
-            scroll.render(scroll_area, buf, &mut state.scroll);
-        }
+        scroll.render(
+            area,
+            buf,
+            &mut ScrollAreaState {
+                area,
+                h_scroll: None,
+                v_scroll: Some(&mut state.scroll),
+            },
+        );
 
         *state.widget.offset_mut() = state.scroll.offset();
         // prepare table widget
@@ -247,7 +258,7 @@ impl<'a> StatefulWidget for TableS<'a> {
         } else {
             table
         };
-        StatefulWidget::render(table, inner, buf, &mut state.widget);
+        StatefulWidget::render(table, state.area, buf, &mut state.widget);
     }
 }
 
@@ -544,18 +555,18 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
             r => Outcome::from(r),
         });
 
-        flow!(
-            match ScrollArea(self.table_area, None, Some(&mut self.scroll)).handle(event, MouseOnly)
-            {
-                ScrollOutcome::Up(v) => {
-                    Outcome::from(self.scroll(-(v as isize)))
-                }
-                ScrollOutcome::Down(v) => {
-                    Outcome::from(self.scroll(v as isize))
-                }
+        flow!({
+            let mut sas = ScrollAreaState {
+                area: self.area,
+                h_scroll: None,
+                v_scroll: Some(&mut self.scroll),
+            };
+            match sas.handle(event, MouseOnly) {
+                ScrollOutcome::Up(v) => Outcome::from(self.scroll(-(v as isize))),
+                ScrollOutcome::Down(v) => Outcome::from(self.scroll(v as isize)),
                 r => Outcome::from(r),
             }
-        );
+        });
 
         Outcome::Continue
     }

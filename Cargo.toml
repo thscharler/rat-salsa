@@ -46,7 +46,7 @@ variant_size_differences = "warn"
 unstable-widget-ref = ["ratatui/unstable-widget-ref"]
 
 [dependencies]
-ratatui = { version = "0.28" }
+ratatui = { version = "0.28", features = ["unstable-rendered-line-info"] }
 crossterm = "0.28"
 log = "0.4"
 
