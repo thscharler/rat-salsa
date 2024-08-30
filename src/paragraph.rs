@@ -5,7 +5,7 @@ use crate::_private::NonExhaustive;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
@@ -125,11 +125,18 @@ impl<'a> Paragraph<'a> {
     fn layout(&self, area: Rect, state: &mut ParagraphState) {
         state.area = area;
 
-        (state.hscroll.area, state.vscroll.area, state.inner) = layout_scroll(
+        let scroll = ScrollArea::new()
+            .block(self.block.clone())
+            .h_scroll(self.hscroll.clone())
+            .v_scroll(self.vscroll.clone());
+
+        state.inner = scroll.inner(
             area,
-            self.block.as_ref(),
-            self.hscroll.as_ref(),
-            self.vscroll.as_ref(),
+            ScrollAreaState {
+                area,
+                h_scroll: Some(&mut state.hscroll),
+                v_scroll: Some(&mut state.vscroll),
+            },
         );
 
         state.hscroll.set_max_offset(if self.is_wrap {
@@ -294,9 +301,12 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
-            .handle(event, MouseOnly)
-        {
+        let mut sas = ScrollAreaState {
+            area: self.inner,
+            h_scroll: Some(&mut self.hscroll),
+            v_scroll: Some(&mut self.vscroll),
+        };
+        match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => {
                 if self.scroll_up(v) {
                     Outcome::Changed

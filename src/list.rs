@@ -7,11 +7,11 @@ use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
 use crate::util::revert_style;
 use rat_focus::{FocusFlag, HasFocusFlag};
-use rat_scrolled::{layout_scroll, Scroll, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
-use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidget, Widget};
+use ratatui::widgets::{Block, ListDirection, ListItem, StatefulWidget};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::min;
@@ -228,14 +228,11 @@ impl<'a, Selection: ListSelection> StatefulWidgetRef for List<'a, Selection> {
     type State = ListState<Selection>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_list(
-            self,
-            |area, buf| self.block.render_ref(area, buf),
-            self.items.clone(),
-            area,
-            buf,
-            state,
-        )
+        let scroll = ScrollArea::new()
+            .block(self.block.clone())
+            .v_scroll(self.scroll.clone());
+
+        render_list(self, scroll, self.items.clone(), area, buf, state)
     }
 }
 
@@ -245,20 +242,17 @@ impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let items = mem::take(&mut self.items);
         let block = mem::take(&mut self.block);
-        render_list(
-            &self,
-            |area, buf| block.render(area, buf),
-            items,
-            area,
-            buf,
-            state,
-        )
+        let scroll = mem::take(&mut self.scroll);
+
+        let scroll = ScrollArea::new().block(block).v_scroll(scroll);
+
+        render_list(&self, scroll, items, area, buf, state)
     }
 }
 
 fn render_list<'a, Selection: ListSelection>(
     widget: &List<'a, Selection>,
-    block: impl FnOnce(Rect, &mut Buffer),
+    scroll: ScrollArea<'_>,
     items: Vec<ListItem<'a>>,
     area: Rect,
     buf: &mut Buffer,
@@ -267,9 +261,14 @@ fn render_list<'a, Selection: ListSelection>(
     state.area = area;
     state.rows = items.len();
 
-    let (_, scroll_area, inner_area) =
-        layout_scroll(area, widget.block.as_ref(), None, widget.scroll.as_ref());
-    state.inner = inner_area;
+    state.inner = scroll.inner(
+        area,
+        ScrollAreaState {
+            area,
+            h_scroll: None,
+            v_scroll: Some(&mut state.scroll),
+        },
+    );
 
     // area for each item
     state.row_areas.clear();
@@ -312,10 +311,15 @@ fn render_list<'a, Selection: ListSelection>(
         (widget.style, widget.defaulted_select())
     };
 
-    block(area, buf);
-    if let Some(scroll) = widget.scroll.as_ref() {
-        scroll.render_ref(scroll_area, buf, &mut state.scroll);
-    }
+    scroll.render(
+        area,
+        buf,
+        &mut ScrollAreaState {
+            area,
+            h_scroll: None,
+            v_scroll: Some(&mut state.scroll),
+        },
+    );
 
     // rendering
     let items = items
@@ -674,7 +678,7 @@ pub mod selection {
     use rat_focus::HasFocusFlag;
     use rat_ftable::TableSelection;
     use rat_scrolled::event::ScrollOutcome;
-    use rat_scrolled::ScrollArea;
+    use rat_scrolled::ScrollAreaState;
     use std::mem;
 
     /// No selection
@@ -726,9 +730,12 @@ pub mod selection {
 
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<NoSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-            let r = match ScrollArea(self.inner, None, Some(&mut self.scroll))
-                .handle(event, MouseOnly)
-            {
+            let mut sas = ScrollAreaState {
+                area: self.inner,
+                h_scroll: None,
+                v_scroll: Some(&mut self.scroll),
+            };
+            let r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => self.scroll_up(v),
                 ScrollOutcome::Down(v) => self.scroll_down(v),
                 ScrollOutcome::VPos(v) => self.set_offset(v),
@@ -820,9 +827,12 @@ pub mod selection {
                 _ => Outcome::Continue,
             });
 
-            let r = match ScrollArea(self.inner, None, Some(&mut self.scroll))
-                .handle(event, MouseOnly)
-            {
+            let mut sas = ScrollAreaState {
+                area: self.inner,
+                h_scroll: None,
+                v_scroll: Some(&mut self.scroll),
+            };
+            let r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => {
                     if ListSelection::scroll_selected(&self.selection) {
                         self.move_up(1)
@@ -990,9 +1000,12 @@ pub mod selection {
                 _ => Outcome::Continue,
             });
 
-            let r = match ScrollArea(self.inner, None, Some(&mut self.scroll))
-                .handle(event, MouseOnly)
-            {
+            let mut sas = ScrollAreaState {
+                area: self.inner,
+                h_scroll: None,
+                v_scroll: Some(&mut self.scroll),
+            };
+            let r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => self.scroll_up(v),
                 ScrollOutcome::Down(v) => self.scroll_down(v),
                 ScrollOutcome::VPos(v) => self.set_offset(v),

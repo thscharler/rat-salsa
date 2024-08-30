@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
 use crate::util::copy_buffer;
 use rat_event::{HandleEvent, MouseOnly, Outcome};
-use rat_scrolled::{layout_scroll, Scroll, ScrollArea, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use std::mem;
 
 /// A view allows scrolling of a `Widget` without builtin
@@ -110,10 +110,15 @@ where
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if let Some(w) = &self.widget {
+            let scroll = ScrollArea::new()
+                .block(self.viewport.block.clone())
+                .h_scroll(self.viewport.hscroll.clone())
+                .v_scroll(self.viewport.vscroll.clone());
+
             render_ref(
                 &self.viewport,
                 |area, buf| w.render_ref(area, buf),
-                |area, buf| self.viewport.block.render_ref(area, buf),
+                scroll,
                 area,
                 buf,
                 state,
@@ -133,10 +138,18 @@ where
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if let Some(w) = self.widget.take() {
             let block = mem::take(&mut self.viewport.block);
+            let hscroll = mem::take(&mut self.viewport.hscroll);
+            let vscroll = mem::take(&mut self.viewport.vscroll);
+
+            let scroll = ScrollArea::new()
+                .block(block)
+                .h_scroll(hscroll)
+                .v_scroll(vscroll);
+
             render_ref(
                 &self.viewport,
                 |area, buf| w.render(area, buf),
-                |area, buf| block.render(area, buf),
+                scroll,
                 area,
                 buf,
                 state,
@@ -150,24 +163,25 @@ where
 fn render_ref(
     viewport: &ViewImpl<'_>,
     widget: impl FnOnce(Rect, &mut Buffer),
-    block: impl FnOnce(Rect, &mut Buffer),
+    scroll: ScrollArea<'_>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut ViewState,
 ) {
     state.area = area;
 
-    let (hscroll_area, vscroll_area, inner_area) = layout_scroll(
+    state.inner_area = scroll.inner(
         area,
-        viewport.block.as_ref(),
-        viewport.hscroll.as_ref(),
-        viewport.vscroll.as_ref(),
+        ScrollAreaState {
+            area,
+            h_scroll: Some(&mut state.hscroll),
+            v_scroll: Some(&mut state.vscroll),
+        },
     );
-    state.inner_area = inner_area;
 
     state.view_area = Rect::new(
-        inner_area.x,
-        inner_area.y,
+        state.inner_area.x,
+        state.inner_area.y,
         viewport.view_size.width,
         viewport.view_size.height,
     );
@@ -184,13 +198,15 @@ fn render_ref(
     );
     state.vscroll.set_page_len(state.inner_area.height as usize);
 
-    block(area, buf);
-    if let Some(hscroll) = &viewport.hscroll {
-        hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
-    }
-    if let Some(vscroll) = &viewport.vscroll {
-        vscroll.render_ref(vscroll_area, buf, &mut state.vscroll);
-    }
+    scroll.render(
+        area,
+        buf,
+        &mut ScrollAreaState {
+            area,
+            h_scroll: Some(&mut state.hscroll),
+            v_scroll: Some(&mut state.vscroll),
+        },
+    );
 
     let mut tmp = Buffer::empty(state.view_area);
     widget(state.view_area, &mut tmp);
@@ -279,13 +295,13 @@ impl ViewState {
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> Outcome {
-        let r = match ScrollArea(
-            self.inner_area,
-            Some(&mut self.hscroll),
-            Some(&mut self.vscroll),
-        )
-        .handle(event, MouseOnly)
-        {
+        let mut sas = ScrollAreaState {
+            area: self.inner_area,
+            h_scroll: Some(&mut self.hscroll),
+            v_scroll: Some(&mut self.vscroll),
+        };
+
+        let r = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),
             ScrollOutcome::Left(v) => self.scroll_left(v),
