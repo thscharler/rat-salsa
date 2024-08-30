@@ -3,7 +3,7 @@ use crate::{TableSelection, TableState};
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::HasFocusFlag;
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::ScrollArea;
+use rat_scrolled::ScrollAreaState;
 use std::cmp::{max, min};
 
 /// Allows selecting a single row of the table.
@@ -178,9 +178,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<Row
             _ => Outcome::Continue,
         });
 
-        let r = match ScrollArea(self.inner, Some(&mut self.hscroll), Some(&mut self.vscroll))
-            .handle(event, MouseOnly)
-        {
+        let mut sas = ScrollAreaState {
+            area: self.inner,
+            h_scroll: Some(&mut self.hscroll),
+            v_scroll: Some(&mut self.vscroll),
+        };
+        let r = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => {
                 if self.selection.scroll_selected() {
                     self.move_up(1)

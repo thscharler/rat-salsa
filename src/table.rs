@@ -10,7 +10,7 @@ use crate::{TableContext, TableData, TableDataIter, TableSelection};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
-use rat_scrolled::{layout_scroll, Scroll, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
@@ -832,13 +832,13 @@ where
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let iter = self.data.iter();
-        self.render_iter(
-            iter,
-            |area, buf| self.block.render_ref(area, buf),
-            area,
-            buf,
-            state,
-        );
+
+        let scroll = ScrollArea::new()
+            .block_ref(&self.block)
+            .h_scroll_ref(&self.hscroll)
+            .v_scroll_ref(&self.vscroll);
+
+        self.render_iter(iter, scroll, area, buf, state);
     }
 }
 
@@ -850,13 +850,19 @@ where
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let iter = mem::take(&mut self.data).into_iter();
+
         let block = mem::take(&mut self.block);
+        let hscroll = mem::take(&mut self.hscroll);
+        let vscroll = mem::take(&mut self.vscroll);
+
+        let scroll = ScrollArea::new()
+            .block(block)
+            .h_scroll(hscroll)
+            .v_scroll(vscroll);
+
         self.render_iter(
             iter, //
-            |area, buf| block.render(area, buf),
-            area,
-            buf,
-            state,
+            scroll, area, buf, state,
         );
     }
 }
@@ -872,7 +878,7 @@ where
     fn render_iter<'b>(
         &self,
         mut data: DataReprIter<'a, 'b>,
-        block: impl FnOnce(Rect, &mut Buffer),
+        scroll: ScrollArea<'a>,
         area: Rect,
         buf: &mut Buffer,
         state: &mut TableState<Selection>,
@@ -883,16 +889,16 @@ where
         state.columns = self.widths.len();
         state.area = area;
 
-        // vertical layout
-        let (hscroll_area, vscroll_area, inner_area) = layout_scroll(
+        state.inner = scroll.inner(
             area,
-            self.block.as_ref(),
-            self.hscroll.as_ref(),
-            self.vscroll.as_ref(),
+            ScrollAreaState {
+                area,
+                h_scroll: Some(&mut state.hscroll),
+                v_scroll: Some(&mut state.vscroll),
+            },
         );
-        state.inner = inner_area;
 
-        let l_rows = self.layout_areas(inner_area);
+        let l_rows = self.layout_areas(state.inner);
         state.header_area = l_rows[0];
         state.table_area = l_rows[1];
         state.footer_area = l_rows[2];
@@ -1226,13 +1232,12 @@ where
         }
 
         // render block+scroll
-        block(area, buf);
-        if let Some(hscroll) = self.hscroll.as_ref() {
-            hscroll.render_ref(hscroll_area, buf, &mut state.hscroll);
-        }
-        if let Some(vscroll) = self.vscroll.as_ref() {
-            vscroll.render_ref(vscroll_area, buf, &mut state.vscroll);
-        }
+        let mut sas = ScrollAreaState {
+            area,
+            h_scroll: Some(&mut state.hscroll),
+            v_scroll: Some(&mut state.vscroll),
+        };
+        scroll.render(area, buf, &mut sas);
 
         #[cfg(debug_assertions)]
         {

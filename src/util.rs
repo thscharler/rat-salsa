@@ -33,8 +33,10 @@ pub(crate) fn transfer_buffer(tmp: &mut Buffer, h_offset: u16, view_area: Rect, 
             let buf_row = view_area.y + tmp_row;
             let buf_col = view_area.x + tmp_col - h_offset;
 
-            if let Some(buf_cell) = buf.cell_mut((buf_col, buf_row)) {
-                *buf_cell = cell
+            if view_area.contains((buf_col, buf_row).into()) {
+                if let Some(buf_cell) = buf.cell_mut((buf_col, buf_row)) {
+                    *buf_cell = cell
+                }
             }
         }
     }
