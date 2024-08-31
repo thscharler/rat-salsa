@@ -97,6 +97,7 @@ pub struct PopupMenu<'a> {
     style: Style,
     focus_style: Option<Style>,
     block: Option<Block<'a>>,
+    block_indent: bool,
 }
 
 /// State & event handling.
@@ -175,9 +176,9 @@ impl<'a> PopupMenu<'a> {
         };
         let height = self.items.iter().map(Item::height).sum::<u16>();
 
-        let vertical_margin = if self.block.is_some() { 1 } else { 1 };
-        let horizontal_margin = if self.block.is_some() { 2 } else { 1 };
-        let horizontal_offset_sep = if self.block.is_some() { 1 } else { 0 };
+        let vertical_margin = if self.block_indent { 1 } else { 1 };
+        let horizontal_margin = if self.block_indent { 2 } else { 1 };
+        let horizontal_offset_sep = if self.block_indent { 1 } else { 0 };
 
         let mut area = match self.placement {
             Placement::Top => Rect::new(
@@ -355,6 +356,7 @@ impl<'a> PopupMenu<'a> {
     /// Block for borders.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block_indent = true;
         self
     }
 }
@@ -428,7 +430,7 @@ fn render_ref(
         };
 
         buf.set_style(it_area, style);
-        txt.line.clone().render(it_area, buf); // todo:clone
+        txt.line.clone().render(it_area, buf);
         if let Some(txt_right) = &txt.right {
             let txt_width = txt_right.width() as u16;
             if txt_width < it_area.width {
@@ -436,7 +438,7 @@ fn render_ref(
                 it_area.x += delta;
                 it_area.width -= delta;
             }
-            txt_right.clone().render(it_area, buf); // todo: clone
+            txt_right.clone().render(it_area, buf);
         }
 
         if txt.sep != Separator::None {
