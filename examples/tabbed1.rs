@@ -85,7 +85,7 @@ fn repaint_input(
         1 => tab.tab_type(
             AttachedTabs::new()
                 .placement(state.placement)
-                .join(state.border_type.unwrap_or_default()),
+                .link(state.border_type.unwrap_or_default()),
         ),
         _ => unreachable!(),
     };
