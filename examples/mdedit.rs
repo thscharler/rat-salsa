@@ -669,11 +669,14 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
 // Extended text-editing for markdown.
 pub mod markdown {
     use anyhow::{anyhow, Error};
+    use log::debug;
     use pulldown_cmark::{Event, Options, Parser, Tag};
     use rat_salsa::event::ct_event;
     use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
-    use rat_widget::text::upos_type;
+    use rat_widget::text::TextError::TextRangeOutOfBounds;
+    use rat_widget::text::{upos_type, TextPosition, TextRange};
     use rat_widget::textarea::TextAreaState;
+    use std::cmp::max;
     use std::ops::Range;
     use unicode_segmentation::UnicodeSegmentation;
 
@@ -690,7 +693,7 @@ pub mod markdown {
         Strong,
         Strikethrough,
         Link,
-        Image,
+        Image, // 10
         MetadataBlock,
         CodeInline,
         MathInline,
@@ -698,9 +701,9 @@ pub mod markdown {
         Rule,
         TaskListMarker,
         Html,
-        Table,
+        Table, // 18
         TableHead,
-        TableRow,
+        TableRow, // 20
         TableCell,
     }
 
@@ -750,61 +753,81 @@ pub mod markdown {
     impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaState {
         fn handle(&mut self, event: &crossterm::event::Event, qualifier: MarkDown) -> TextOutcome {
             flow!(match event {
-                ct_event!(keycode press Enter) => {
-                    let pos = self.cursor();
-                    let pos_byte = self.byte_at(pos).start;
-
-                    if pos.x == self.line_width(pos.y) {
-                        let row_byte = self
-                            .style_match(pos_byte, MDStyle::TableRow as usize)
-                            .or_else(|| self.style_match(pos_byte, MDStyle::TableHead as usize));
-
-                        if let Some(row_byte) = row_byte {
-                            let row_range = self.byte_range(row_byte);
-
-                            let row = self.str_slice(row_range);
-                            let (x, row) = duplicate_md_row(row.as_ref());
-                            self.insert_str(row);
-                            self.set_cursor((x, pos.y + 1), false);
-                            TextOutcome::TextChanged
-                        } else {
-                            TextOutcome::Continue
-                        }
+                ct_event!(key press ALT-'t') => {
+                    if let Some(table_range) = md_table(self) {
+                        let cursor = self.cursor();
+                        let (table, new_cursor) = reformat_md_table(
+                            self.str_slice(table_range).as_ref(),
+                            table_range,
+                            cursor,
+                        );
+                        self.begin_undo_seq();
+                        self.delete_range(table_range);
+                        self.value
+                            .insert_str(table_range.start, &table)
+                            .expect("fine");
+                        self.set_cursor(new_cursor, false);
+                        self.end_undo_seq();
+                        TextOutcome::TextChanged
                     } else {
                         TextOutcome::Continue
                     }
                 }
+                ct_event!(keycode press Enter) => {
+                    let cursor = self.cursor();
+                    if is_md_table(self) {
+                        let line = self.line_at(cursor.y);
+                        if cursor.x == self.line_width(cursor.y) {
+                            let (x, row) = empty_md_row(line.as_ref());
+                            self.insert_str(row);
+                            self.set_cursor((x, cursor.y + 1), false);
+                            TextOutcome::TextChanged
+                        } else {
+                            todo!()
+                        }
+                    } else {
+                        let cursor = self.cursor();
+                        if cursor.x == self.line_width(cursor.y) {
+                            let (maybe_table, maybe_header) = is_md_maybe_table(self);
+                            if maybe_header {
+                                let line = self.line_at(cursor.y);
+                                let (x, row) = empty_md_row(line.as_ref());
+                                self.insert_str(row);
+                                self.set_cursor((x, cursor.y + 1), false);
+                                TextOutcome::TextChanged
+                            } else if maybe_table {
+                                let line = self.line_at(cursor.y);
+                                let (x, row) = create_md_title(line.as_ref());
+                                self.insert_str(row);
+                                self.set_cursor((x, cursor.y + 1), false);
+                                TextOutcome::TextChanged
+                            } else {
+                                TextOutcome::Continue
+                            }
+                        } else {
+                            TextOutcome::Continue
+                        }
+                    }
+                }
                 ct_event!(keycode press Tab) => {
-                    let pos = self.cursor();
-                    let pos_byte = self.byte_at(pos).start;
-
-                    let row_byte = self
-                        .style_match(pos_byte, MDStyle::TableRow as usize)
-                        .or_else(|| self.style_match(pos_byte, MDStyle::TableHead as usize));
-
-                    if let Some(row_byte) = row_byte {
-                        let row_range = self.byte_range(row_byte);
-                        let row = self.str_slice(row_range);
-                        let x = next_tab_md_row(row.as_ref(), pos.x - row_range.start.x);
-                        self.set_cursor((x, pos.y), false);
+                    if is_md_table(self) {
+                        let cursor = self.cursor();
+                        let row = self.line_at(cursor.y);
+                        let x = next_tab_md_row(row.as_ref(), cursor.x);
+                        self.set_cursor((x, cursor.y), false);
+                        self.set_move_col(Some(x));
                         TextOutcome::TextChanged
                     } else {
                         TextOutcome::Continue
                     }
                 }
                 ct_event!(keycode press SHIFT-BackTab) => {
-                    let pos = self.cursor();
-                    let pos_byte = self.byte_at(pos).start;
-
-                    let row_byte = self
-                        .style_match(pos_byte, MDStyle::TableRow as usize)
-                        .or_else(|| self.style_match(pos_byte, MDStyle::TableHead as usize));
-
-                    if let Some(row_byte) = row_byte {
-                        let row_range = self.byte_range(row_byte);
-                        let row = self.str_slice(row_range);
-                        let x = prev_tab_md_row(row.as_ref(), pos.x - row_range.start.x);
-                        self.set_cursor((x, pos.y), false);
+                    if is_md_table(self) {
+                        let cursor = self.cursor();
+                        let row = self.line_at(cursor.y);
+                        let x = prev_tab_md_row(row.as_ref(), cursor.x);
+                        self.set_cursor((x, cursor.y), false);
+                        self.set_move_col(Some(x));
                         TextOutcome::TextChanged
                     } else {
                         TextOutcome::Continue
@@ -891,7 +914,9 @@ pub mod markdown {
                 Event::Start(Tag::List(_)) => {
                     // base style
                 }
-                Event::Start(Tag::Table(_)) => styles.push((r, MDStyle::Table as usize)),
+                Event::Start(Tag::Table(_)) => {
+                    styles.push((r, MDStyle::Table as usize));
+                }
                 Event::Start(Tag::TableHead) => {
                     styles.push((r, MDStyle::TableHead as usize));
                 }
@@ -937,82 +962,233 @@ pub mod markdown {
         it.filter(|c| *c != "\n" && *c != "\r\n").count() as upos_type
     }
 
-    fn prev_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
-        let row = parse_md_row(txt);
-
-        let mut last_0 = 0;
-        let mut last_1 = 0;
-        let mut x = 0;
-        for s in row {
-            last_0 = last_1;
-            last_1 = x;
-            if str_line_len(s) > 0 {
-                last_1 += 1;
+    fn is_md_maybe_table(state: &TextAreaState) -> (bool, bool) {
+        let mut gr = state.line_graphemes(state.cursor().y);
+        let (maybe_table, maybe_header) = if let Some(first) = gr.next() {
+            if first == "|" {
+                if let Some(second) = gr.next() {
+                    if second == "-" {
+                        (true, true)
+                    } else {
+                        (true, false)
+                    }
+                } else {
+                    (true, false)
+                }
+            } else {
+                (false, false)
             }
+        } else {
+            (false, false)
+        };
+        (maybe_table, maybe_header)
+    }
 
-            for g in s.graphemes(true) {
-                x += 1;
-            }
-            x += 1;
+    fn is_md_table(state: &TextAreaState) -> bool {
+        let pos = state.cursor();
+        let pos_byte = state.byte_at(pos).start;
+        state
+            .style_match(pos_byte, MDStyle::Table as usize)
+            .is_some()
+    }
 
-            if pos < x {
-                break;
-            }
+    fn md_table(state: &TextAreaState) -> Option<TextRange> {
+        let pos = state.cursor();
+        let pos_byte = state.byte_at(pos).start;
+
+        let row_byte = state.style_match(pos_byte, MDStyle::Table as usize);
+
+        if let Some(row_byte) = row_byte {
+            Some(state.byte_range(row_byte))
+        } else {
+            None
         }
+    }
 
-        last_0
+    fn prev_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
+        let row = parse_md_row(txt, pos);
+        if row.cursor_idx > 0 {
+            row.row[row.cursor_idx - 1].graphemes.start
+        } else {
+            pos
+        }
     }
 
     fn next_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
-        let row = parse_md_row(txt);
+        let row = parse_md_row(txt, pos);
+        if row.cursor_idx + 1 < row.row.len() {
+            row.row[row.cursor_idx + 1].graphemes.start
+        } else {
+            pos
+        }
+    }
 
-        let mut x = 0;
-        for s in row {
-            if pos < x {
-                if str_line_len(s) > 0 {
-                    x += 1;
+    // reformat
+    fn reformat_md_table(
+        txt: &str,
+        range: TextRange,
+        cursor: TextPosition,
+    ) -> (String, TextPosition) {
+        use std::fmt::Write;
+
+        let mut table = Vec::new();
+        for (row_idx, row) in txt.lines().enumerate() {
+            if !row.is_empty() {
+                if range.start.y + row_idx as upos_type == cursor.y {
+                    table.push(parse_md_row(row, cursor.x));
+                } else {
+                    table.push(parse_md_row(row, 0));
                 }
-                break;
             }
-
-            for g in s.graphemes(true) {
-                x += 1;
+        }
+        let mut width = Vec::new();
+        for row in &table {
+            for (idx, cell) in row.row.iter().enumerate() {
+                if idx >= width.len() {
+                    width.push(str_line_len(cell.txt));
+                } else {
+                    let len = str_line_len(cell.txt);
+                    width[idx] = max(width[idx], len)
+                }
             }
-            x += 1;
         }
 
-        x
+        let mut buf = String::new();
+        let mut buf_col = 0;
+        for (row_idx, row) in table.iter().enumerate() {
+            let mut col_pos = 0;
+            for idx in 1..width.len() {
+                // relocate cursor
+                if range.start.y + row_idx as upos_type == cursor.y {
+                    if idx == row.cursor_idx {
+                        buf_col = col_pos + 1 + row.cursor_offset;
+                    }
+                }
+
+                let len = width[idx];
+                col_pos += len + 1;
+                buf.push('|');
+                if let Some(cell) = row.row.get(idx) {
+                    if cell.txt.starts_with('-') {
+                        _ = write!(buf, "{}", "-".repeat(len as usize));
+                    } else {
+                        _ = write!(buf, "{:1$}", cell.txt, len as usize);
+                    }
+                } else {
+                    _ = write!(buf, "{}", " ".repeat(len as usize));
+                }
+            }
+            buf.push('\n');
+        }
+
+        (buf, TextPosition::new(buf_col, cursor.y))
+    }
+
+    // create underlines under the header
+    fn create_md_title(txt: &str) -> (upos_type, String) {
+        let row = parse_md_row(txt, 0);
+
+        let mut new_row = String::new();
+        new_row.push('\n');
+        new_row.push_str(row.row[0].txt);
+        new_row.push('|');
+        for idx in 1..row.row.len() - 1 {
+            for g in row.row[idx].txt.graphemes(true) {
+                new_row.push('-');
+            }
+            new_row.push('|');
+        }
+
+        let len = str_line_len(&new_row);
+
+        (len, new_row)
     }
 
     // duplicate as empty row
-    fn duplicate_md_row(txt: &str) -> (upos_type, String) {
-        let row = parse_md_row(txt);
+    fn empty_md_row(txt: &str) -> (upos_type, String) {
+        let row = parse_md_row(txt, 0);
         let mut new_row = String::new();
         new_row.push('\n');
-        new_row.push_str(row[0]);
+        new_row.push_str(row.row[0].txt);
         new_row.push('|');
-        for idx in 1..row.len() - 1 {
-            for g in row[idx].graphemes(true) {
+        for idx in 1..row.row.len() - 1 {
+            for g in row.row[idx].txt.graphemes(true) {
                 new_row.push(' ');
             }
             new_row.push('|');
         }
 
-        let x = if row.len() > 1 && row[1].len() > 0 {
-            str_line_len(row[0]) + 1 + 1
+        let x = if row.row.len() > 1 && row.row[1].txt.len() > 0 {
+            str_line_len(row.row[0].txt) + 1 + 1
         } else {
-            str_line_len(row[0]) + 1
+            str_line_len(row.row[0].txt) + 1
         };
 
         (x, new_row)
     }
 
-    // split single row.
-    fn parse_md_row(txt: &str) -> Vec<&str> {
-        let mut tmp = Vec::new();
-        for s in txt.split('|') {
-            tmp.push(s);
+    #[derive(Debug)]
+    struct MDCell<'a> {
+        txt: &'a str,
+        graphemes: Range<upos_type>,
+        bytes: Range<usize>,
+    }
+
+    #[derive(Debug)]
+    struct MDRow<'a> {
+        row: Vec<MDCell<'a>>,
+        cursor_idx: usize,
+        cursor_offset: upos_type,
+    }
+
+    // split single row. translate x-position to cell+cell_offset.
+    // __info__: returns the string before the first | and the string after the last | too!!
+    fn parse_md_row(txt: &str, x: upos_type) -> MDRow<'_> {
+        let mut tmp = MDRow {
+            row: Default::default(),
+            cursor_idx: 0,
+            cursor_offset: 0,
+        };
+
+        let mut byte_start = 0;
+        let mut grapheme_start = 0;
+        let mut grapheme_last = 0;
+        let mut esc = false;
+        let mut cell_offset = 0;
+        for (idx, (byte_idx, c)) in txt.grapheme_indices(true).enumerate() {
+            if idx == x as usize {
+                tmp.cursor_idx = tmp.row.len();
+                tmp.cursor_offset = cell_offset;
+            }
+
+            if c == "\\" {
+                cell_offset += 1;
+                esc = true;
+            } else if c == "|" && !esc {
+                cell_offset = 0;
+                tmp.row.push(MDCell {
+                    txt: &txt[byte_start..byte_idx],
+                    graphemes: grapheme_start..idx as upos_type,
+                    bytes: byte_start..byte_idx,
+                });
+                byte_start = byte_idx + 1;
+                grapheme_start = idx as upos_type + 1;
+            } else {
+                cell_offset += 1;
+                esc = false;
+            }
+
+            grapheme_last = idx as upos_type;
         }
+
+        tmp.row.push(MDCell {
+            txt: &txt[byte_start..txt.len()],
+            graphemes: grapheme_start..grapheme_last,
+            bytes: byte_start..txt.len(),
+        });
+
+        debug!("parse {}:{:?}\n{:#?}", x, txt, tmp);
+
         tmp
     }
 }
@@ -1022,12 +1198,14 @@ pub mod mdfile {
     use crate::markdown::{parse_md_styles, MarkDown};
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
+    use log::{debug, warn};
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, Outcome, TextOutcome};
     use rat_widget::focus::{FocusFlag, HasFocusFlag, Navigation};
     use rat_widget::line_number::{LineNumberState, LineNumbers};
     use rat_widget::scrolled::Scroll;
+    use rat_widget::text::clipboard::{Clipboard, ClipboardError};
     use rat_widget::text::upos_type;
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
@@ -1174,6 +1352,31 @@ pub mod mdfile {
         }
     }
 
+    #[derive(Debug, Default, Clone)]
+    struct CliClipboard;
+
+    impl Clipboard for CliClipboard {
+        fn get_string(&self) -> Result<String, ClipboardError> {
+            match cli_clipboard::get_contents() {
+                Ok(v) => Ok(v),
+                Err(e) => {
+                    warn!("{:?}", e);
+                    Err(ClipboardError)
+                }
+            }
+        }
+
+        fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+            match cli_clipboard::set_contents(s.to_string()) {
+                Ok(_) => Ok(()),
+                Err(e) => {
+                    warn!("{:?}", e);
+                    Err(ClipboardError)
+                }
+            }
+        }
+    }
+
     impl AppState<GlobalState, MDAction, Error> for MDFileState {
         fn timer(
             &mut self,
@@ -1181,6 +1384,7 @@ pub mod mdfile {
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDAction>, Error> {
             if self.parse_timer == Some(event.handle) {
+                debug!("parse markdown!!");
                 self.parse_markdown();
                 return Ok(Control::Changed);
             }
@@ -1192,37 +1396,10 @@ pub mod mdfile {
             event: &crossterm::event::Event,
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDAction>, Error> {
-            try_flow!(match event {
-                ct_event!(key press CONTROL-'c') => {
-                    // todo: use clipboard
-                    use cli_clipboard;
-                    let text = self.edit.selected_text();
-                    let r = cli_clipboard::set_contents(text.to_string());
-                    Outcome::Changed
-                }
-                ct_event!(key press CONTROL-'x') => {
-                    use cli_clipboard;
-                    let v = self.edit.selected_text();
-                    _ = cli_clipboard::set_contents(v.to_string());
-                    self.changed = true;
-                    _ = self.edit.delete_range(self.edit.selection());
-                    Outcome::Changed
-                }
-                ct_event!(key press CONTROL-'v') => {
-                    // todo: might do the insert two times depending on the terminal.
-                    use cli_clipboard;
-                    if let Ok(v) = cli_clipboard::get_contents() {
-                        self.changed = true;
-                        self.edit.insert_str(&v);
-                    }
-                    Outcome::Changed
-                }
-                _ => Outcome::Continue,
-            });
-
             // call markdown event-handling instead of regular.
             try_flow!(match self.edit.handle(event, MarkDown) {
                 TextOutcome::TextChanged => {
+                    debug!("change detect");
                     self.changed = true;
                     // send sync
                     ctx.queue(Control::Message(MDAction::SyncEdit));
@@ -1249,15 +1426,18 @@ pub mod mdfile {
                 path.set_extension("md");
             }
 
+            let mut text_area = TextAreaState::named(
+                path.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .as_ref(),
+            );
+            text_area.set_clipboard(Some(CliClipboard));
+
             Self {
                 path: path.clone(),
                 changed: true,
-                edit: TextAreaState::named(
-                    path.file_name()
-                        .unwrap_or_default()
-                        .to_string_lossy()
-                        .as_ref(),
-                ),
+                edit: text_area,
                 linenr: Default::default(),
                 parse_timer: None,
             }
@@ -1266,20 +1446,21 @@ pub mod mdfile {
         // New editor with existing file.
         pub fn open_file(path: &Path, ctx: &mut AppContext<'_>) -> Result<Self, Error> {
             let path = PathBuf::from(path);
+
+            let mut text_area = TextAreaState::named(
+                path.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .as_ref(),
+            );
+            text_area.set_clipboard(Some(CliClipboard));
+            let t = fs::read_to_string(&path)?;
+            text_area.set_text(t.as_str());
+
             Ok(Self {
                 path: path.clone(),
                 changed: false,
-                edit: {
-                    let mut edit = TextAreaState::named(
-                        path.file_name()
-                            .unwrap_or_default()
-                            .to_string_lossy()
-                            .as_ref(),
-                    );
-                    let t = fs::read_to_string(&path)?;
-                    edit.set_text(t.as_str());
-                    edit
-                },
+                edit: text_area,
                 linenr: Default::default(),
                 parse_timer: Some(
                     ctx.add_timer(TimerDef::new().next(Instant::now() + Duration::from_millis(0))),
@@ -1336,6 +1517,7 @@ pub mod split_tab {
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Rect};
     use ratatui::prelude::{Line, StatefulWidget};
+    use ratatui::widgets::BorderType;
     use std::path::Path;
 
     #[derive(Debug, Default)]
@@ -1401,7 +1583,7 @@ pub mod split_tab {
                 };
 
                 Tabbed::new()
-                    .tab_type(AttachedTabs::new())
+                    .tab_type(AttachedTabs::new().join_1(BorderType::Rounded))
                     .closeable(true)
                     .styles(ctx.g.theme.tabbed_style())
                     .select_style(select_style)
@@ -1596,8 +1778,6 @@ pub mod split_tab {
 
                     ctx.focus_mut().update_container(self);
                     ctx.focus().focus(&self.tabs[pos.0][pos.1]);
-                    debug!("*focus* {:?}", ctx.focus().focused_name());
-                    // TODO focus
                 }
             }
         }
@@ -2019,14 +2199,10 @@ pub mod mdedit {
                     }
                     ct_event!(keycode press Tab) => {
                         ctx.focus().next();
-                        debug!("*focus* {:?}", ctx.focus().focused_name());
-                        // todo: focus
                         Control::Changed
                     }
                     ct_event!(keycode press SHIFT-BackTab) => {
                         ctx.focus().prev();
-                        debug!("*focus* {:?}", ctx.focus().focused_name());
-                        // todo: focus
                         Control::Changed
                     }
                     ct_event!(key press CONTROL-'c')
@@ -2043,11 +2219,8 @@ pub mod mdedit {
                         if let Some((pos, sel)) = self.split_tab.selected() {
                             if sel.is_focused() {
                                 ctx.focus().focus(&self.split_tab.tabbed[pos.0]);
-                                debug!("*focus* {:?}", ctx.focus().focused_name());
                             } else {
-                                // todo: foucs
                                 ctx.focus().focus(sel);
-                                debug!("*focus* {:?}", ctx.focus().focused_name());
                             }
                         }
                         Control::Changed
@@ -2056,11 +2229,8 @@ pub mod mdedit {
                         if let Some((pos, sel)) = self.split_tab.selected() {
                             if sel.is_focused() {
                                 ctx.focus().focus(&self.split_tab.splitter);
-                                debug!("*focus* {:?}", ctx.focus().focused_name());
                             } else {
-                                // todo: foucs
                                 ctx.focus().focus(sel);
-                                debug!("*focus* {:?}", ctx.focus().focused_name());
                             }
                         }
                         Control::Changed
@@ -2080,9 +2250,7 @@ pub mod mdedit {
                     Control::Message(MDAction::Save)
                 }
                 ct_event!(keycode press F(2)) => {
-                    // todo: foucs
                     ctx.focus().focus(&self.file_list);
-                    debug!("*focus* {:?}", ctx.focus().focused_name());
                     Control::Changed
                 }
                 ct_event!(key press CONTROL-'w') => {
