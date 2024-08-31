@@ -17,6 +17,7 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::{max, min};
 use std::mem;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Splits the area in multiple parts and allows changing the sizes.
 ///
@@ -36,11 +37,8 @@ pub struct Split<'a> {
     constraints: Vec<Constraint>,
 
     split_type: SplitType,
-    split_char: Option<&'a str>,
     join_0: Option<BorderType>,
     join_1: Option<BorderType>,
-    join_0_char: Option<&'a str>,
-    join_1_char: Option<&'a str>,
     mark_offset: u16,
     mark_0_char: Option<&'a str>,
     mark_1_char: Option<&'a str>,
@@ -73,20 +71,12 @@ pub struct SplitStyle {
     /// Style while dragging.
     pub drag_style: Option<Style>,
 
-    /// Fill char for the split.
-    pub split_char: Option<&'static str>,
-    /// Left/Top join with the Split border.
-    pub join_0_char: Option<&'static str>,
-    /// Right/Bottom join with the Split border.
-    pub join_1_char: Option<&'static str>,
-    /// Offset for the mark from the top/left.
-    pub mark_offset: u16,
     /// Marker for a horizontal split.
     /// Only the first 2 chars are used.
-    pub mark_0_char: Option<&'static str>,
+    pub horizontal_mark: Option<&'static str>,
     /// Marker for a vertical split.
     /// Only the first 2 chars are used.
-    pub mark_1_str: Option<&'static str>,
+    pub vertical_mark: Option<&'static str>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -199,12 +189,8 @@ impl Default for SplitStyle {
             style: Default::default(),
             arrow_style: None,
             drag_style: None,
-            split_char: None,
-            join_0_char: None,
-            join_1_char: None,
-            mark_offset: 0,
-            mark_0_char: None,
-            mark_1_str: None,
+            horizontal_mark: None,
+            vertical_mark: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -239,36 +225,6 @@ impl<'a> Split<'a> {
     /// Controls rendering of the splitter.
     pub fn split_type(mut self, split_type: SplitType) -> Self {
         self.split_type = split_type;
-        self
-    }
-
-    /// Fill char for the splitter.
-    pub fn split_char(mut self, str: &'a str) -> Self {
-        self.split_char = Some(str);
-        self
-    }
-
-    /// Draw as join character between the split and the
-    /// border on the left/top side.
-    pub fn join_char(mut self, str: &'a str) -> Self {
-        self.join_0_char = Some(str);
-        self.join_1_char = Some(str);
-        self
-    }
-
-    /// Draw as join character between the split and the
-    /// border on the left/top side.
-    pub fn join_0_char(mut self, str: &'a str) -> Self {
-        self.join_0_char = Some(str);
-        debug!("join_0 {:?}", self.join_0_char);
-        self
-    }
-
-    /// Draw as join character between the split and the
-    /// border on the right/bottom side.
-    pub fn join_1_char(mut self, str: &'a str) -> Self {
-        self.join_1_char = Some(str);
-        debug!("join_1 {:?}", self.join_1_char);
         self
     }
 
@@ -308,11 +264,30 @@ impl<'a> Split<'a> {
         self.style = styles.style;
         self.drag_style = styles.drag_style;
         self.arrow_style = styles.arrow_style;
-        self.mark_0_char = styles.mark_0_char;
-        self.mark_1_char = styles.mark_1_str;
-        self.split_char = styles.split_char;
-        self.join_0_char = styles.join_0_char;
-        self.join_1_char = styles.join_1_char;
+        match self.direction {
+            Direction::Horizontal => {
+                if let Some(mark) = styles.horizontal_mark {
+                    let mut g = mark.graphemes(true);
+                    if let Some(g0) = g.next() {
+                        self.mark_0_char = Some(g0);
+                    }
+                    if let Some(g1) = g.next() {
+                        self.mark_1_char = Some(g1);
+                    }
+                }
+            }
+            Direction::Vertical => {
+                if let Some(mark) = styles.vertical_mark {
+                    let mut g = mark.graphemes(true);
+                    if let Some(g0) = g.next() {
+                        self.mark_0_char = Some(g0);
+                    }
+                    if let Some(g1) = g.next() {
+                        self.mark_1_char = Some(g1);
+                    }
+                }
+            }
+        }
         self
     }
 
@@ -571,10 +546,6 @@ impl<'a> Split<'a> {
     }
 
     fn get_fill_char(&self) -> Option<&str> {
-        if self.split_char.is_some() {
-            return self.split_char;
-        };
-
         use Direction::*;
         use SplitType::*;
 
@@ -601,9 +572,7 @@ impl<'a> Split<'a> {
         use Direction::*;
         use SplitType::*;
 
-        let s: Option<&str> = if self.join_0_char.is_some() {
-            self.join_0_char
-        } else if let Some(join_0) = self.join_0 {
+        let s: Option<&str> = if let Some(join_0) = self.join_0 {
             match (self.direction, join_0, self.split_type) {
                 (
                     Horizontal,
@@ -678,9 +647,7 @@ impl<'a> Split<'a> {
         use Direction::*;
         use SplitType::*;
 
-        let s: Option<&str> = if self.join_1_char.is_some() {
-            self.join_1_char
-        } else if let Some(join_1) = self.join_1 {
+        let s: Option<&str> = if let Some(join_1) = self.join_1 {
             match (self.direction, join_1, self.split_type) {
                 (
                     Horizontal,
