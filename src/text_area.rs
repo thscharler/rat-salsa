@@ -587,6 +587,18 @@ impl TextAreaState {
         self.value.undo_buffer_mut()
     }
 
+    /// Begin a sequence of changes that should be undone in one go.
+    #[inline]
+    pub fn begin_undo_seq(&mut self) {
+        self.value.begin_undo_seq()
+    }
+
+    /// End a sequence of changes that should be undone in one go.
+    #[inline]
+    pub fn end_undo_seq(&mut self) {
+        self.value.end_undo_seq()
+    }
+
     /// Get all recent replay recordings.
     pub fn recent_replay_log(&mut self) -> Vec<UndoEntry> {
         self.value.recent_replay_log()
