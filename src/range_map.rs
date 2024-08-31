@@ -1,4 +1,5 @@
 use iset::IntervalMap;
+use log::debug;
 use std::cell::RefCell;
 use std::ops::Range;
 
@@ -29,6 +30,8 @@ impl RangeMap {
     /// Empty ranges are ignored.
     pub(crate) fn set(&mut self, styles: impl Iterator<Item = (Range<usize>, usize)>) {
         self.map.clear();
+        self.page = Default::default();
+        self.page_map.borrow_mut().clear();
         for (r, v) in styles {
             if !r.is_empty() {
                 self.map.force_insert(r.into(), v);
@@ -52,6 +55,8 @@ impl RangeMap {
         {
             self.map.force_insert(range, value);
         }
+        self.page = Default::default();
+        self.page_map.borrow_mut().clear();
     }
 
     /// Remove a value for a range.
@@ -62,6 +67,8 @@ impl RangeMap {
             return;
         }
         self.map.remove_where(range, |v| *v == value);
+        self.page = Default::default();
+        self.page_map.borrow_mut().clear();
     }
 
     /// List of all values.
@@ -73,6 +80,7 @@ impl RangeMap {
     pub(crate) fn values_at_page(&self, range: Range<usize>, pos: usize, buf: &mut Vec<usize>) {
         let mut page_map = self.page_map.borrow_mut();
         if *self.page.borrow() != range {
+            debug!("invalidate cache {:?}->{:?}", self.page.borrow(), range);
             *self.page.borrow_mut() = range.clone();
             page_map.clear();
             for (r, v) in self.map.iter(range) {
@@ -132,6 +140,8 @@ impl RangeMap {
                 }
             }
         }
+        self.page = Default::default();
+        self.page_map.borrow_mut().clear();
     }
 }
 
