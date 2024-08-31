@@ -1034,6 +1034,7 @@ pub mod mdfile {
     use ratatui::layout::Rect;
     use ratatui::prelude::{Modifier, StatefulWidget, Style};
     use ratatui::style::Stylize;
+    use ratatui::widgets::{Block, BorderType, Borders};
     use std::fs;
     use std::fs::File;
     use std::io::{BufWriter, Write};
@@ -1041,7 +1042,10 @@ pub mod mdfile {
     use std::time::{Duration, Instant};
 
     #[derive(Debug, Default, Clone)]
-    pub struct MDFile;
+    pub struct MDFile {
+        // vary start margin of the scrollbar
+        pub start_margin: u16,
+    }
 
     #[derive(Debug)]
     pub struct MDFileState {
@@ -1080,6 +1084,7 @@ pub mod mdfile {
                 .cursor(state.edit.cursor().y)
                 // .relative(true)
                 .styles(ctx.g.theme.line_nr_style());
+
             let line_nr_area = Rect::new(area.x, area.y, line_nr.width(), area.height);
             let text_area = Rect::new(
                 area.x + line_nr.width(),
@@ -1087,13 +1092,19 @@ pub mod mdfile {
                 area.width.saturating_sub(line_nr.width()),
                 area.height,
             );
+
             line_nr.render(line_nr_area, buf, &mut state.linenr);
 
             TextArea::new()
                 .styles(ctx.g.theme.textarea_style())
+                .block(
+                    Block::new()
+                        .border_type(BorderType::Plain)
+                        .borders(Borders::RIGHT),
+                )
                 .vscroll(
                     Scroll::new()
-                        .start_margin(1)
+                        .start_margin(self.start_margin)
                         .scroll_by(1)
                         .styles(ctx.g.theme.scroll_style()),
                 )
@@ -1363,14 +1374,16 @@ pub mod split_tab {
         ) -> Result<(), Error> {
             let (s0, s1) = Split::new()
                 .constraints(vec![Constraint::Fill(1); state.tabbed.len()])
-                .mark_offset(1)
-                .split_type(SplitType::FullPlain)
+                .mark_offset(0)
+                .render_blind(false)
+                .split_type(SplitType::Scroll)
                 .styles(ctx.g.theme.split_style())
                 .direction(Direction::Horizontal)
                 .into_widgets();
 
             s0.render(area, buf, &mut state.splitter);
 
+            let max_idx_split = state.splitter.widget_areas.len().saturating_sub(1);
             for (idx_split, edit_area) in state.splitter.widget_areas.iter().enumerate() {
                 let select_style = if let Some((sel_pos, md)) = state.selected() {
                     if sel_pos.0 == idx_split {
@@ -1400,7 +1413,10 @@ pub mod split_tab {
                     .render(*edit_area, buf, &mut state.tabbed[idx_split]);
 
                 if let Some(idx_tab) = state.tabbed[idx_split].selected() {
-                    MDFile.render(
+                    MDFile {
+                        start_margin: if max_idx_split == idx_split { 0 } else { 1 },
+                    }
+                    .render(
                         state.tabbed[idx_split].widget_area,
                         buf,
                         &mut state.tabs[idx_split][idx_tab],
@@ -1698,7 +1714,6 @@ pub mod file_list {
     use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{HandleEvent, Regular};
-    use rat_widget::fill::Fill;
     use rat_widget::focus::{FocusFlag, HasFocusFlag};
     use rat_widget::list::selection::RowSelection;
     use rat_widget::list::{List, ListState};
@@ -1706,7 +1721,7 @@ pub mod file_list {
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::Line;
-    use ratatui::widgets::{StatefulWidget, Widget};
+    use ratatui::widgets::StatefulWidget;
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -1743,9 +1758,7 @@ pub mod file_list {
             let l_file_list =
                 Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).split(area);
 
-            Fill::new()
-                .style(ctx.g.theme.data())
-                .render(l_file_list[0], buf);
+            buf.set_style(l_file_list[0], ctx.g.theme.data());
 
             List::default()
                 .styles(ctx.g.theme.list_style())
@@ -1921,7 +1934,7 @@ pub mod mdedit {
         ) -> Result<(), Error> {
             let (s0, s1) = Split::new()
                 .styles(ctx.g.theme.split_style())
-                .mark_offset(1)
+                .mark_offset(0)
                 .constraints([Constraint::Length(15), Constraint::Fill(1)])
                 .direction(Direction::Horizontal)
                 .split_type(SplitType::FullQuadrantInside)

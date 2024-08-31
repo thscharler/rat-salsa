@@ -30,12 +30,12 @@ use rat_widget::table::textdata::{Cell, Row};
 use rat_widget::table::{Table, TableContext, TableData, TableState};
 use rat_widget::textarea::{TextArea, TextAreaState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Direction, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::symbols::border;
 use ratatui::text::{Line, Text};
 use ratatui::widgets::block::Title;
-use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
+use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
 use std::ffi::OsString;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
@@ -298,9 +298,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             Direction::Vertical,
             [
                 Constraint::Length(1),
-                Constraint::Length(1),
                 Constraint::Fill(1),
-                Constraint::Length(1),
                 Constraint::Length(1),
             ],
         )
@@ -314,11 +312,18 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 Constraint::Fill(1),
             ],
         )
+        .split(r[1]);
+
+        let m = Layout::new(
+            Direction::Horizontal,
+            [Constraint::Fill(1), Constraint::Length(48)],
+        )
         .split(r[2]);
 
         // -----------------------------------------------------
         Text::from(state.main_dir.to_string_lossy())
-            .style(ctx.g.theme.bluegreen(0))
+            .alignment(Alignment::Right)
+            .style(ctx.g.theme.black(3).fg(ctx.g.theme.scheme().secondary[2]))
             .render(r[0], buf);
 
         let (split, split_overlay) = Split::new()
@@ -331,7 +336,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .split_type(SplitType::Scroll)
             .styles(ctx.g.theme.split_style())
             .into_widgets();
-        split.render(r[2], buf, &mut state.w_split);
+        split.render(r[1], buf, &mut state.w_split);
 
         Table::new()
             .data(DirData {
@@ -339,10 +344,15 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 dirs: &state.sub_dirs,
             })
             .styles(ctx.g.theme.table_style())
+            .block(
+                Block::new()
+                    .borders(Borders::RIGHT)
+                    .border_type(BorderType::Rounded),
+            )
             .vscroll(
                 Scroll::new()
                     .styles(ctx.g.theme.scroll_style())
-                    .start_margin(0)
+                    .start_margin(2)
                     .scroll_by(1),
             )
             .render(state.w_split.widget_areas[0], buf, &mut state.w_dirs);
@@ -356,10 +366,15 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 err_style: ctx.g.theme.red(1),
             })
             .styles(ctx.g.theme.table_style())
+            .block(
+                Block::new()
+                    .borders(Borders::RIGHT)
+                    .border_type(BorderType::Rounded),
+            )
             .vscroll(
                 Scroll::new()
                     .styles(ctx.g.theme.scroll_style())
-                    .start_margin(0)
+                    .start_margin(2)
                     .scroll_by(1),
             )
             .render(state.w_split.widget_areas[1], buf, &mut state.w_files);
@@ -387,7 +402,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .scroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
             .block(
                 Block::bordered()
-                    .borders(Borders::TOP | Borders::BOTTOM | Borders::RIGHT)
+                    .borders(Borders::TOP)
                     .border_set(set)
                     .style(ctx.g.theme.data())
                     .title(title),
@@ -395,7 +410,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
         ctx.cursor = state.w_data.screen_cursor();
 
-        split_overlay.render(r[2], buf, &mut state.w_split);
+        split_overlay.render(r[1], buf, &mut state.w_split);
 
         let (menu, menu_popup) = Menubar::new(&Menu)
             .title("[-.-]")
@@ -403,14 +418,14 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
             .popup_placement(Placement::Top)
             .styles(ctx.g.theme.menu_style())
             .into_widgets();
-        menu.render(r[3], buf, &mut state.w_menu);
-        menu_popup.render(r[3], buf, &mut state.w_menu);
+        menu.render(m[0], buf, &mut state.w_menu);
+        menu_popup.render(m[0], buf, &mut state.w_menu);
 
         // -----------------------------------------------------
 
         if ctx.g.error_dlg.active() {
             let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(r[2], buf, &mut ctx.g.error_dlg);
+            err.render(r[1], buf, &mut ctx.g.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -424,7 +439,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 Constraint::Length(12),
             ])
             .styles(ctx.g.theme.statusline_style());
-        status.render(r[4], buf, &mut ctx.g.status);
+        status.render(m[1], buf, &mut ctx.g.status);
 
         Ok(())
     }

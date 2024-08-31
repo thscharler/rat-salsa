@@ -42,7 +42,7 @@ impl AppState<(), (), anyhow::Error> for MainState {
             _ => Control::Continue,
         });
 
-        Ok(Control::Continue)
+        Ok(Control::Quit)
     }
 }
 
