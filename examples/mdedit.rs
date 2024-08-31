@@ -760,6 +760,28 @@ pub mod markdown {
                             self.str_slice(table_range).as_ref(),
                             table_range,
                             cursor,
+                            false,
+                        );
+                        self.begin_undo_seq();
+                        self.delete_range(table_range);
+                        self.value
+                            .insert_str(table_range.start, &table)
+                            .expect("fine");
+                        self.set_cursor(new_cursor, false);
+                        self.end_undo_seq();
+                        TextOutcome::TextChanged
+                    } else {
+                        TextOutcome::Continue
+                    }
+                }
+                ct_event!(key press ALT_SHIFT-'T') => {
+                    if let Some(table_range) = md_table(self) {
+                        let cursor = self.cursor();
+                        let (table, new_cursor) = reformat_md_table(
+                            self.str_slice(table_range).as_ref(),
+                            table_range,
+                            cursor,
+                            true,
                         );
                         self.begin_undo_seq();
                         self.delete_range(table_range);
@@ -783,7 +805,13 @@ pub mod markdown {
                             self.set_cursor((x, cursor.y + 1), false);
                             TextOutcome::TextChanged
                         } else {
-                            todo!()
+                            let (x, row) = split_md_row(line.as_ref(), cursor.x);
+                            self.begin_undo_seq();
+                            self.delete_range(TextRange::new((0, cursor.y), (0, cursor.y + 1)));
+                            self.insert_str(row);
+                            self.set_cursor((x, cursor.y + 1), false);
+                            self.end_undo_seq();
+                            TextOutcome::TextChanged
                         }
                     } else {
                         let cursor = self.cursor();
@@ -1028,6 +1056,7 @@ pub mod markdown {
         txt: &str,
         range: TextRange,
         cursor: TextPosition,
+        eq_width: bool,
     ) -> (String, TextPosition) {
         use std::fmt::Write;
 
@@ -1042,7 +1071,8 @@ pub mod markdown {
             }
         }
         let mut width = Vec::new();
-        for row in &table {
+        // only use header widths
+        for row in table.first() {
             for (idx, cell) in row.row.iter().enumerate() {
                 if idx >= width.len() {
                     width.push(str_line_len(cell.txt));
@@ -1050,6 +1080,13 @@ pub mod markdown {
                     let len = str_line_len(cell.txt);
                     width[idx] = max(width[idx], len)
                 }
+            }
+        }
+        if eq_width {
+            let max_w = width.iter().max().copied().unwrap_or_default();
+            let width_end = width.len() - 1;
+            for w in &mut width[1..width_end] {
+                *w = max_w;
             }
         }
 
@@ -1072,7 +1109,12 @@ pub mod markdown {
                     if cell.txt.starts_with('-') {
                         _ = write!(buf, "{}", "-".repeat(len as usize));
                     } else {
-                        _ = write!(buf, "{:1$}", cell.txt, len as usize);
+                        _ = write!(
+                            buf,
+                            " {:1$}",
+                            cell.txt.trim(),
+                            len.saturating_sub(1) as usize
+                        );
                     }
                 } else {
                     _ = write!(buf, "{}", " ".repeat(len as usize));
@@ -1104,12 +1146,66 @@ pub mod markdown {
         (len, new_row)
     }
 
+    // add a line break
+    fn split_md_row(txt: &str, cursor: upos_type) -> (upos_type, String) {
+        let row = parse_md_row(txt, 0);
+
+        let mut tmp0 = String::new();
+        let mut tmp1 = String::new();
+        let mut tmp_pos = 0;
+        tmp0.push('|');
+        tmp1.push('|');
+        for row in &row.row[1..row.row.len() - 1] {
+            if row.graphemes.contains(&cursor) {
+                tmp_pos = row.graphemes.start + 1;
+
+                let mut pos = row.graphemes.start;
+                if cursor > row.graphemes.start {
+                    tmp1.push(' ');
+                }
+                for g in row.txt.graphemes(true) {
+                    if pos < cursor {
+                        tmp0.push_str(g);
+                    } else {
+                        tmp1.push_str(g);
+                    }
+                    pos += 1;
+                }
+                pos = row.graphemes.start;
+                for g in row.txt.graphemes(true) {
+                    if pos < cursor {
+                        // omit one blank
+                        if pos != row.graphemes.start || cursor == row.graphemes.start {
+                            tmp1.push(' ');
+                        }
+                    } else {
+                        tmp0.push(' ');
+                    }
+                    pos += 1;
+                }
+            } else if row.graphemes.start < cursor {
+                tmp0.push_str(row.txt);
+                tmp1.push_str(" ".repeat(row.graphemes.len()).as_str());
+            } else if row.graphemes.start >= cursor {
+                tmp0.push_str(" ".repeat(row.graphemes.len()).as_str());
+                tmp1.push_str(row.txt);
+            }
+
+            tmp0.push('|');
+            tmp1.push('|');
+        }
+        tmp0.push('\n');
+        tmp0.push_str(tmp1.as_str());
+        tmp0.push('\n');
+
+        (tmp_pos, tmp0)
+    }
+
     // duplicate as empty row
     fn empty_md_row(txt: &str) -> (upos_type, String) {
         let row = parse_md_row(txt, 0);
         let mut new_row = String::new();
         new_row.push('\n');
-        new_row.push_str(row.row[0].txt);
         new_row.push('|');
         for idx in 1..row.row.len() - 1 {
             for g in row.row[idx].txt.graphemes(true) {
