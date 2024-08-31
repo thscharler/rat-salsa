@@ -21,9 +21,8 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::Popup;
-use crate::fill::Fill;
 use crate::menuline::{MenuOutcome, MenuStyle};
-use crate::util::{menu_str, next_opt, prev_opt, revert_style};
+use crate::util::{fill_buf_area, menu_str, next_opt, prev_opt, revert_style};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation, ZRect};
@@ -412,8 +411,7 @@ fn render_ref(
 
     widget.layout(area, fit_in, state);
 
-    Fill::new().style(widget.style).render(state.area, buf);
-
+    fill_buf_area(buf, state.area, " ", widget.style);
     block(state.area, buf);
 
     for (n, txt) in widget.items.iter().enumerate() {

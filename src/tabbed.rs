@@ -642,10 +642,8 @@ pub mod glued {
                 tabbed.style
             };
 
-            Fill::new()
-                .style(tabbed.style)
-                .render(state.tab_title_area, buf);
-            tabbed.block.clone().render(state.block_area, buf); // todo: clone
+            buf.set_style(state.tab_title_area, tabbed.style);
+            tabbed.block.clone().render(state.block_area, buf);
 
             for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
                 if Some(idx) == state.selected() {
@@ -692,9 +690,8 @@ pub mod glued {
 /// If no block has been set, this will draw a block at the side
 /// of the tabs.
 pub mod attached {
-    use crate::fill::Fill;
     use crate::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
-    use crate::util::revert_style;
+    use crate::util::{fill_buf_area, revert_style};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
     use ratatui::widgets::{Block, BorderType, Borders, Widget};
@@ -930,9 +927,7 @@ pub mod attached {
 
             match self.placement {
                 TabPlacement::Left | TabPlacement::Right => {
-                    Fill::new()
-                        .style(tabbed.style)
-                        .render(state.tab_title_area, buf);
+                    buf.set_style(state.tab_title_area, tabbed.style);
                 }
                 TabPlacement::Top | TabPlacement::Bottom => {}
             }
@@ -940,15 +935,9 @@ pub mod attached {
 
             for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
                 if Some(idx) == state.selected() {
-                    Fill::new()
-                        .style(select_style)
-                        .fill_char(" ")
-                        .render(tab_area, buf);
+                    fill_buf_area(buf, tab_area, " ", select_style);
                 } else {
-                    Fill::new()
-                        .style(tab_style)
-                        .fill_char(" ")
-                        .render(tab_area, buf);
+                    fill_buf_area(buf, tab_area, " ", tab_style);
                 }
 
                 let txt_area = match self.placement {

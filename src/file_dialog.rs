@@ -5,12 +5,11 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::event::{FileOutcome, TextOutcome};
-use crate::fill::Fill;
 use crate::layout::{layout_dialog, layout_grid};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
-use crate::util::revert_style;
+use crate::util::{fill_buf_area, revert_style};
 use directories_next::UserDirs;
 #[allow(unused_imports)]
 use log::debug;
@@ -482,11 +481,8 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             Flex::Center,
         );
 
+        fill_buf_area(buf, layout.area, " ", self.style);
         block.render(area, buf);
-        Fill::new()
-            .fill_char(" ")
-            .style(self.style)
-            .render(layout.inner, buf);
 
         match state.mode {
             Mode::Open => {

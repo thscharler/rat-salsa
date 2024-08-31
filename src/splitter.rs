@@ -906,20 +906,17 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
             };
 
         if let Some(fill) = split.get_fill_char() {
-            Fill::new()
-                .style(style)
-                .fill_char(fill)
-                .render(*split_area, buf);
+            fill_buf_area(buf, *split_area, fill, style);
         }
 
         // mark_offset leaves some parts unrendered.
         if split.split_type == SplitType::Scroll {
             if split.mark_offset > 0 {
-                let mut f = Fill::new().style(split.style);
                 if let Some(blind) = split.get_blind_char() {
-                    f = f.fill_char(blind);
+                    fill_buf_area(buf, state.splitline_blind_areas[n], blind, split.style);
+                } else {
+                    buf.set_style(state.splitline_blind_areas[n], split.style);
                 }
-                f.render(state.splitline_blind_areas[n], buf);
             }
         }
 

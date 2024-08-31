@@ -73,7 +73,6 @@ pub mod date_input {
     };
 }
 pub mod file_dialog;
-pub mod fill;
 pub mod list;
 pub mod line_number {
     pub use rat_text::line_number::{LineNumberState, LineNumberStyle, LineNumbers};

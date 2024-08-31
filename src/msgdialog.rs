@@ -4,9 +4,9 @@
 
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
-use crate::fill::Fill;
 use crate::layout::layout_dialog;
 use crate::paragraph::{Paragraph, ParagraphState};
+use crate::util::fill_buf_area;
 use rat_event::{ct_event, flow, Dialog, HandleEvent, Outcome, Regular};
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -213,11 +213,7 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         state.area = l_dlg.area;
         state.inner = l_dlg.inner;
 
-        Fill::new()
-            .fill_char(" ")
-            .style(widget.style)
-            .render(state.area, buf);
-
+        fill_buf_area(buf, state.area, " ", widget.style);
         block.render(state.area, buf);
 
         {

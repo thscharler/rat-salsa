@@ -63,6 +63,32 @@ pub fn revert_style(mut style: Style) -> Style {
     }
 }
 
+/// Reset an area of the buffer.
+pub fn reset_buf_area(buf: &mut Buffer, area: Rect) {
+    for y in area.top()..area.bottom() {
+        for x in area.left()..area.right() {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.reset();
+            }
+        }
+    }
+}
+
+/// Fill the given area of the buffer.
+pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Into<Style>) {
+    let style = style.into();
+
+    for y in area.top()..area.bottom() {
+        for x in area.left()..area.right() {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.reset();
+                cell.set_symbol(symbol);
+                cell.set_style(style);
+            }
+        }
+    }
+}
+
 /// Select previous.
 pub(crate) fn prev_opt(select: Option<usize>, change: usize, len: usize) -> Option<usize> {
     if let Some(select) = select {
