@@ -3,8 +3,7 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::fill::Fill;
-use crate::util::revert_style;
+use crate::util::{fill_buf_area, revert_style};
 use log::debug;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
@@ -162,9 +161,6 @@ pub struct SplitState {
     /// Area used by the splitter. This is area is used for moving the splitter.
     /// It might overlap with the widget area.
     pub splitline_areas: Vec<Rect>,
-    /// If there is a mark_offset, that leaves a blind spot above. This is
-    /// noticeable, when the split_type is Scroll.
-    pub splitline_blind_areas: Vec<Rect>,
     /// Start position for drawing the mark.
     pub splitline_mark_areas: Vec<Position>,
 
@@ -435,7 +431,6 @@ impl<'a> Split<'a> {
         if let Some(rects) = new_split_areas {
             state.widget_areas.clear();
             state.splitline_areas.clear();
-            state.splitline_blind_areas.clear();
             state.splitline_mark_areas.clear();
 
             for mut area in rects.iter().take(rects.len().saturating_sub(1)).copied() {
@@ -465,34 +460,17 @@ impl<'a> Split<'a> {
                         area.y + area.height.saturating_sub(SPLIT_WIDTH),
                     )
                 };
-                let mut blind = if self.direction == Direction::Horizontal {
-                    Rect::new(
-                        area.x + area.width.saturating_sub(SPLIT_WIDTH),
-                        area.y,
-                        1,
-                        self.mark_offset,
-                    )
-                } else {
-                    Rect::new(
-                        area.x,
-                        area.y + area.height.saturating_sub(SPLIT_WIDTH),
-                        self.mark_offset,
-                        1,
-                    )
-                };
 
                 adjust_for_split_type(
                     self.direction,
                     self.split_type,
                     &mut area,
                     &mut split,
-                    &mut blind,
                     &mut mark,
                 );
 
                 state.widget_areas.push(area);
                 state.splitline_areas.push(split);
-                state.splitline_blind_areas.push(blind);
                 state.splitline_mark_areas.push(mark);
             }
             if let Some(area) = rects.last() {
@@ -536,7 +514,6 @@ fn adjust_for_split_type(
     split_type: SplitType,
     area: &mut Rect,
     split: &mut Rect,
-    _blind: &mut Rect,
     mark: &mut Position,
 ) {
     use Direction::*;
@@ -615,27 +592,6 @@ impl<'a> Split<'a> {
             (Horizontal, FullQuadrantOutside) => Some("\u{2590}"),
             (Vertical, FullQuadrantOutside) => Some("\u{2584}"),
             (_, Scroll) => None,
-            (_, Widget) => None,
-        }
-    }
-
-    fn get_blind_char(&self) -> Option<&str> {
-        if self.split_char.is_some() {
-            return self.split_char;
-        };
-
-        use Direction::*;
-        use SplitType::*;
-
-        match (self.direction, self.split_type) {
-            (_, FullEmpty) => None,
-            (Horizontal, Scroll) => Some("\u{2502}"),
-            (Vertical, Scroll) => Some("\u{2500}"),
-            (_, FullPlain) => None,
-            (_, FullDouble) => None,
-            (_, FullThick) => None,
-            (_, FullQuadrantInside) => None,
-            (_, FullQuadrantOutside) => None,
             (_, Widget) => None,
         }
     }
@@ -909,17 +865,6 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
             fill_buf_area(buf, *split_area, fill, style);
         }
 
-        // mark_offset leaves some parts unrendered.
-        if split.split_type == SplitType::Scroll {
-            if split.mark_offset > 0 {
-                if let Some(blind) = split.get_blind_char() {
-                    fill_buf_area(buf, state.splitline_blind_areas[n], blind, split.style);
-                } else {
-                    buf.set_style(state.splitline_blind_areas[n], split.style);
-                }
-            }
-        }
-
         let mark = state.splitline_mark_areas[n];
         if split.direction == Direction::Horizontal {
             if buf.area.contains((mark.x, mark.y).into()) {
@@ -967,7 +912,6 @@ impl Default for SplitState {
             focus_marker: Default::default(),
             widget_areas: Default::default(),
             splitline_areas: Default::default(),
-            splitline_blind_areas: Default::default(),
             splitline_mark_areas: Default::default(),
             direction: Default::default(),
             split_type: Default::default(),
@@ -1031,7 +975,6 @@ impl SplitState {
 
             self.widget_areas[n] = Rect::new(area1.x, area1.y, pos_x - area1.x + 1, area1.height);
             self.splitline_areas[n] = Rect::new(pos_x, area1.y, 1, area1.height);
-            self.splitline_blind_areas[n] = Rect::new(pos_x, area1.y, 1, self.mark_offset);
             self.splitline_mark_areas[n] = Position::new(pos_x, area1.y + self.mark_offset);
             self.widget_areas[n + 1] = Rect::new(
                 pos_x + 1,
@@ -1045,7 +988,6 @@ impl SplitState {
                 self.split_type,
                 &mut self.widget_areas[n],
                 &mut self.splitline_areas[n],
-                &mut self.splitline_blind_areas[n],
                 &mut self.splitline_mark_areas[n],
             );
         } else {
@@ -1060,7 +1002,6 @@ impl SplitState {
 
             self.widget_areas[n] = Rect::new(area1.x, area1.y, area1.width, pos_y - area1.y + 1);
             self.splitline_areas[n] = Rect::new(area1.x, pos_y, area1.width, 1);
-            self.splitline_blind_areas[n] = Rect::new(area1.x, pos_y, self.mark_offset, 1);
             self.splitline_mark_areas[n] = Position::new(area1.x + self.mark_offset, pos_y);
             self.widget_areas[n + 1] = Rect::new(
                 area2.x,
@@ -1074,7 +1015,6 @@ impl SplitState {
                 self.split_type,
                 &mut self.widget_areas[n],
                 &mut self.splitline_areas[n],
-                &mut self.splitline_blind_areas[n],
                 &mut self.splitline_mark_areas[n],
             );
         }
