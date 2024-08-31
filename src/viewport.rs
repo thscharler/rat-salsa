@@ -164,7 +164,7 @@ where
 
 fn render_ref<S>(
     viewport: &ViewportImpl<'_>,
-    widget: impl FnOnce(Rect, &mut Buffer, &mut S),
+    render_widget: impl FnOnce(Rect, &mut Buffer, &mut S),
     scroll: ScrollArea<'_>,
     area: Rect,
     buf: &mut Buffer,
@@ -211,7 +211,7 @@ fn render_ref<S>(
     );
 
     let mut tmp = Buffer::empty(state.view_area);
-    widget(state.view_area, &mut tmp, &mut state.widget);
+    render_widget(state.view_area, &mut tmp, &mut state.widget);
 
     copy_buffer(
         state.view_area,
