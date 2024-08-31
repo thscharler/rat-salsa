@@ -436,7 +436,6 @@ pub enum TabPlacement {
 
 /// Simple glued on the side tabs.
 pub mod glued {
-    use crate::fill::Fill;
     use crate::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
     use crate::util::revert_style;
     use ratatui::buffer::Buffer;
@@ -468,7 +467,7 @@ pub mod glued {
         fn layout<'a>(&self, area: Rect, tabbed: &Tabbed<'a>, state: &mut TabbedState) {
             state.area = area;
 
-            let block_offset = if tabbed.block.is_some() { 1 } else { 0 };
+            let margin_offset = 1 + if tabbed.block.is_some() { 1 } else { 0 };
             let close_width = if tabbed.is_closeable() { 2 } else { 0 };
 
             let max_width = tabbed
@@ -550,7 +549,7 @@ pub mod glued {
                         Layout::horizontal(constraints)
                             .flex(Flex::Start)
                             .spacing(1)
-                            .horizontal_margin(block_offset)
+                            .horizontal_margin(margin_offset)
                             .split(state.tab_title_area)
                             .as_ref(),
                     );
@@ -564,7 +563,7 @@ pub mod glued {
                     state.tab_title_areas = Vec::from(
                         Layout::vertical(constraints)
                             .flex(Flex::Start)
-                            .vertical_margin(block_offset)
+                            .vertical_margin(margin_offset)
                             .split(state.tab_title_area)
                             .as_ref(),
                     );
@@ -669,7 +668,7 @@ pub mod glued {
                         }
                     }
                 };
-                tabbed.get_tabs()[idx].clone().render(txt_area, buf); // todo: clone
+                tabbed.get_tabs()[idx].clone().render(txt_area, buf);
             }
             if tabbed.is_closeable() {
                 for i in 0..state.tab_title_close_areas.len() {
@@ -931,7 +930,7 @@ pub mod attached {
                 }
                 TabPlacement::Top | TabPlacement::Bottom => {}
             }
-            block.clone().render(state.block_area, buf); // todo: clone
+            block.clone().render(state.block_area, buf);
 
             for (idx, tab_area) in state.tab_title_areas.iter().copied().enumerate() {
                 if Some(idx) == state.selected() {
@@ -957,7 +956,7 @@ pub mod attached {
                         }
                     }
                 };
-                tabbed.get_tabs()[idx].clone().render(txt_area, buf); // todo: clone
+                tabbed.get_tabs()[idx].clone().render(txt_area, buf);
 
                 match self.placement {
                     TabPlacement::Top => {}
