@@ -1375,7 +1375,6 @@ pub mod split_tab {
             let (s0, s1) = Split::new()
                 .constraints(vec![Constraint::Fill(1); state.tabbed.len()])
                 .mark_offset(0)
-                .render_blind(false)
                 .split_type(SplitType::Scroll)
                 .styles(ctx.g.theme.split_style())
                 .direction(Direction::Horizontal)
