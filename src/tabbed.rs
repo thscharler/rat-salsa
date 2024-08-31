@@ -700,19 +700,25 @@ pub mod attached {
     /// If no block has been set, this will draw a block at the side
     /// of the tabs.
     ///
-    /// On the left/right side this will just draw a join to the tab-text.
+    /// On the left/right side this will just draw a link to the tab-text.
     /// On the top/bottom side the tabs will be embedded in the border.
     #[derive(Debug)]
     pub struct AttachedTabs {
         placement: TabPlacement,
-        join: Option<BorderType>,
+        border_type: Option<BorderType>,
+        link: Option<BorderType>,
+        join_0: Option<BorderType>,
+        join_1: Option<BorderType>,
     }
 
     impl AttachedTabs {
         pub fn new() -> Self {
             Self {
                 placement: Default::default(),
-                join: None,
+                border_type: None,
+                link: None,
+                join_0: None,
+                join_1: None,
             }
         }
 
@@ -722,10 +728,147 @@ pub mod attached {
             self
         }
 
-        /// Draw joins for this border-type.
-        pub fn join(mut self, border_type: BorderType) -> Self {
-            self.join = Some(border_type);
+        /// Border type used as background for the tabs.
+        ///
+        /// This is only used if the Tabbed itself has no Block set.
+        pub fn border_type(mut self, border_type: BorderType) -> Self {
+            self.border_type = Some(border_type);
             self
+        }
+
+        /// Link a left/right placed tab to the given BorderType.
+        pub fn link(mut self, border_type: BorderType) -> Self {
+            self.link = Some(border_type);
+            self
+        }
+
+        /// Draws a join between the tabbed and the given border type.
+        /// This is only used if the Tabbed itself has no Block set.
+        pub fn join(mut self, border: BorderType) -> Self {
+            self.join_0 = Some(border);
+            self.join_1 = Some(border);
+            self
+        }
+
+        /// Draws a join between the tabbed and the given border type.
+        /// This is used for the top/left side of the tab.
+        /// This is only used if the Tabbed itself has no Block set.
+        pub fn join_0(mut self, border: BorderType) -> Self {
+            self.join_0 = Some(border);
+            self
+        }
+
+        /// Draws a join between the tabbed and the given border type.
+        /// This is used for the bottom/right side of the tab.
+        /// This is only used if the Tabbed itself has no Block set.
+        pub fn join_1(mut self, border: BorderType) -> Self {
+            self.join_1 = Some(border);
+            self
+        }
+    }
+
+    impl AttachedTabs {
+        fn get_join_0(&self) -> Option<&str> {
+            use BorderType::*;
+            use TabPlacement::*;
+
+            match self.placement {
+                Top => {
+                    if let Some(join_0) = self.join_0 {
+                        Some(join_0.to_border_set().top_left)
+                    } else {
+                        None
+                    }
+                }
+                Left => {
+                    if let Some(join_0) = self.join_0 {
+                        Some(join_0.to_border_set().top_left)
+                    } else {
+                        None
+                    }
+                }
+                Right => {
+                    if let Some(join_0) = self.join_0 {
+                        Some(join_0.to_border_set().top_right)
+                    } else {
+                        None
+                    }
+                }
+                Bottom => {
+                    if let Some(join_0) = self.join_0 {
+                        Some(join_0.to_border_set().bottom_left)
+                    } else {
+                        None
+                    }
+                }
+            }
+        }
+
+        fn get_join_1(&self) -> Option<&str> {
+            use BorderType::*;
+            use TabPlacement::*;
+
+            match self.placement {
+                Top => {
+                    if let Some(join_1) = self.join_1 {
+                        Some(join_1.to_border_set().top_right)
+                    } else {
+                        None
+                    }
+                }
+                Left => {
+                    if let Some(join_1) = self.join_1 {
+                        Some(join_1.to_border_set().bottom_left)
+                    } else {
+                        None
+                    }
+                }
+                Right => {
+                    if let Some(join_1) = self.join_1 {
+                        Some(join_1.to_border_set().bottom_right)
+                    } else {
+                        None
+                    }
+                }
+                Bottom => {
+                    if let Some(join_1) = self.join_1 {
+                        Some(join_1.to_border_set().bottom_right)
+                    } else {
+                        None
+                    }
+                }
+            }
+        }
+
+        fn get_link(&self) -> &str {
+            match self.placement {
+                TabPlacement::Top => unreachable!(),
+                TabPlacement::Bottom => unreachable!(),
+                TabPlacement::Left => {
+                    let link = match self.link {
+                        None => "\u{2524}",
+                        Some(BorderType::Plain) => "\u{2524}",
+                        Some(BorderType::Rounded) => "\u{2524}",
+                        Some(BorderType::Double) => "\u{2562}",
+                        Some(BorderType::Thick) => "\u{2528}",
+                        Some(BorderType::QuadrantInside) => "\u{2588}",
+                        Some(BorderType::QuadrantOutside) => "\u{258C}",
+                    };
+                    link
+                }
+                TabPlacement::Right => {
+                    let link = match self.link {
+                        None => "\u{251C}",
+                        Some(BorderType::Plain) => "\u{251C}",
+                        Some(BorderType::Rounded) => "\u{251C}",
+                        Some(BorderType::Double) => "\u{255F}",
+                        Some(BorderType::Thick) => "\u{2520}",
+                        Some(BorderType::QuadrantInside) => "\u{2588}",
+                        Some(BorderType::QuadrantOutside) => "\u{2590}",
+                    };
+                    link
+                }
+            }
         }
     }
 
@@ -880,24 +1023,23 @@ pub mod attached {
 
         fn render<'a>(&self, buf: &mut Buffer, tabbed: &Tabbed<'a>, state: &mut TabbedState) {
             let mut block;
-            let block = if let Some(block) = &tabbed.block {
-                block
+            let (block, join_0, join_1) = if let Some(block) = &tabbed.block {
+                (block, None, None)
             } else {
+                let border_type = self.border_type.unwrap_or(BorderType::Plain);
                 block = Block::new();
                 block = match self.placement {
-                    TabPlacement::Top => block.borders(Borders::TOP).border_type(BorderType::Plain),
-                    TabPlacement::Bottom => block
-                        .borders(Borders::BOTTOM)
-                        .border_type(BorderType::Plain),
-                    TabPlacement::Left => {
-                        block.borders(Borders::LEFT).border_type(BorderType::Plain)
-                    }
-                    TabPlacement::Right => {
-                        block.borders(Borders::RIGHT).border_type(BorderType::Plain)
-                    }
+                    TabPlacement::Top => block.borders(Borders::TOP).border_type(border_type),
+                    TabPlacement::Bottom => block.borders(Borders::BOTTOM).border_type(border_type),
+                    TabPlacement::Left => block.borders(Borders::LEFT).border_type(border_type),
+                    TabPlacement::Right => block.borders(Borders::RIGHT).border_type(border_type),
                 };
                 block = block.style(tabbed.style);
-                &block
+
+                let join_0 = self.get_join_0();
+                let join_1 = self.get_join_1();
+
+                (&block, join_0, join_1)
             };
 
             let focus_style = if let Some(focus_style) = tabbed.focus_style {
@@ -962,36 +1104,19 @@ pub mod attached {
                     TabPlacement::Top => {}
                     TabPlacement::Bottom => {}
                     TabPlacement::Left => {
-                        let join = match self.join {
-                            None => "\u{2524}",
-                            Some(BorderType::Plain) => "\u{2524}",
-                            Some(BorderType::Rounded) => "\u{2524}",
-                            Some(BorderType::Double) => "\u{2562}",
-                            Some(BorderType::Thick) => "\u{2528}",
-                            Some(BorderType::QuadrantInside) => "\u{2588}",
-                            Some(BorderType::QuadrantOutside) => "\u{258C}",
-                        };
                         if let Some(cell) = buf.cell_mut((tab_area.x + tab_area.width, tab_area.y))
                         {
-                            cell.set_symbol(join);
+                            cell.set_symbol(self.get_link());
                         }
                     }
                     TabPlacement::Right => {
-                        let join = match self.join {
-                            None => "\u{251C}",
-                            Some(BorderType::Plain) => "\u{251C}",
-                            Some(BorderType::Rounded) => "\u{251C}",
-                            Some(BorderType::Double) => "\u{255F}",
-                            Some(BorderType::Thick) => "\u{2520}",
-                            Some(BorderType::QuadrantInside) => "\u{2588}",
-                            Some(BorderType::QuadrantOutside) => "\u{2590}",
-                        };
                         if let Some(cell) = buf.cell_mut((tab_area.x - 1, tab_area.y)) {
-                            cell.set_symbol(join);
+                            cell.set_symbol(self.get_link());
                         }
                     }
                 }
             }
+
             if tabbed.is_closeable() {
                 for i in 0..state.tab_title_close_areas.len() {
                     if state.mouse.hover.get() == Some(i) {
@@ -1000,6 +1125,46 @@ pub mod attached {
                     if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
                         cell.set_symbol("\u{2A2F}");
                     }
+                }
+            }
+
+            if let Some(join_0) = join_0 {
+                let pos = match self.placement {
+                    TabPlacement::Top => (state.tab_title_area.left(), state.tab_title_area.top()),
+                    TabPlacement::Left => (state.tab_title_area.left(), state.tab_title_area.top()),
+                    TabPlacement::Right => (
+                        state.tab_title_area.right().saturating_sub(1),
+                        state.tab_title_area.top(),
+                    ),
+                    TabPlacement::Bottom => {
+                        (state.tab_title_area.left(), state.tab_title_area.top())
+                    }
+                };
+                if let Some(cell) = buf.cell_mut(pos) {
+                    cell.set_symbol(join_0);
+                }
+            }
+            if let Some(join_1) = join_1 {
+                let pos = match self.placement {
+                    TabPlacement::Top => (
+                        state.tab_title_area.right().saturating_sub(1),
+                        state.tab_title_area.top(),
+                    ),
+                    TabPlacement::Left => (
+                        state.tab_title_area.left(),
+                        state.tab_title_area.bottom().saturating_sub(1),
+                    ),
+                    TabPlacement::Right => (
+                        state.tab_title_area.right().saturating_sub(1),
+                        state.tab_title_area.bottom().saturating_sub(1),
+                    ),
+                    TabPlacement::Bottom => (
+                        state.tab_title_area.right().saturating_sub(1),
+                        state.tab_title_area.top(),
+                    ),
+                };
+                if let Some(cell) = buf.cell_mut(pos) {
+                    cell.set_symbol(join_1);
                 }
             }
         }
