@@ -294,16 +294,6 @@ fn render_ref(
     );
     state.vscroll.set_page_len(state.inner.height as usize);
 
-    scroll.render(
-        area,
-        buf,
-        &mut ScrollAreaState {
-            area,
-            h_scroll: Some(&mut state.hscroll),
-            v_scroll: Some(&mut state.vscroll),
-        },
-    );
-
     let inner = state.inner;
 
     if inner.width == 0 || inner.height == 0 {
@@ -319,14 +309,24 @@ fn render_ref(
     let style = widget.style;
 
     // set base style
-    for y in inner.top()..inner.bottom() {
-        for x in inner.left()..inner.right() {
+    for y in area.top()..area.bottom() {
+        for x in area.left()..area.right() {
             if let Some(cell) = buf.cell_mut((x, y)) {
                 cell.reset();
                 cell.set_style(style);
             }
         }
     }
+
+    scroll.render(
+        area,
+        buf,
+        &mut ScrollAreaState {
+            area,
+            h_scroll: Some(&mut state.hscroll),
+            v_scroll: Some(&mut state.vscroll),
+        },
+    );
 
     if state.vscroll.offset() > state.value.len_lines() as usize {
         return;
