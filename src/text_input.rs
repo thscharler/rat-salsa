@@ -18,7 +18,10 @@ use crate::clipboard::{Clipboard, LocalClipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
-use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, TextError, TextPosition, TextRange};
+use crate::{
+    ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextPosition,
+    TextRange,
+};
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
@@ -1034,6 +1037,28 @@ impl TextInputState {
     }
 }
 
+impl HasScreenCursor for TextInputState {
+    /// The current text cursor as an absolute screen position.
+    #[inline]
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        if self.is_focused() {
+            let cx = self.cursor();
+            let ox = self.offset();
+
+            if cx < ox {
+                None
+            } else if cx > ox + self.inner.width as upos_type {
+                None
+            } else {
+                let sc = self.col_to_screen(cx);
+                Some((self.inner.x + sc, self.inner.y))
+            }
+        } else {
+            None
+        }
+    }
+}
+
 impl TextInputState {
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
@@ -1092,26 +1117,6 @@ impl TextInputState {
         let c = self.set_cursor(cx, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
-    }
-
-    /// The current text cursor as an absolute screen position.
-    #[inline]
-    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        if self.is_focused() {
-            let cx = self.cursor();
-            let ox = self.offset();
-
-            if cx < ox {
-                None
-            } else if cx > ox + self.inner.width as upos_type {
-                None
-            } else {
-                let sc = self.col_to_screen(cx);
-                Some((self.inner.x + sc, self.inner.y))
-            }
-        } else {
-            None
-        }
     }
 
     /// Set the cursor position from screen coordinates,

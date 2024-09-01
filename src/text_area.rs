@@ -11,7 +11,7 @@ use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
-use crate::{ipos_type, upos_type, Cursor, TextError, TextPosition, TextRange};
+use crate::{ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange};
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
@@ -1516,6 +1516,36 @@ impl TextAreaState {
     }
 }
 
+impl HasScreenCursor for TextAreaState {
+    /// Cursor position on the screen.
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        if self.is_focused() {
+            let cursor = self.cursor();
+            let (ox, oy) = self.offset();
+            let (ox, oy) = (ox as upos_type, oy as upos_type);
+
+            if cursor.y < oy {
+                None
+            } else if cursor.y >= oy + self.inner.height as upos_type {
+                None
+            } else {
+                let sy = cursor.y - oy;
+                if cursor.x < ox {
+                    None
+                } else if cursor.x > ox + self.inner.width as upos_type {
+                    None
+                } else {
+                    let sx = self.col_to_screen(cursor);
+
+                    Some((self.inner.x + sx, self.inner.y + sy as u16))
+                }
+            }
+        } else {
+            None
+        }
+    }
+}
+
 impl TextAreaState {
     /// Converts from a widget relative screen coordinate to a line.
     /// It limits its result to a valid row.
@@ -1603,34 +1633,6 @@ impl TextAreaState {
             screen_x = g.screen_pos().0 + g.screen_width();
         }
         Ok(screen_x)
-    }
-
-    /// Cursor position on the screen.
-    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        if self.is_focused() {
-            let cursor = self.cursor();
-            let (ox, oy) = self.offset();
-            let (ox, oy) = (ox as upos_type, oy as upos_type);
-
-            if cursor.y < oy {
-                None
-            } else if cursor.y >= oy + self.inner.height as upos_type {
-                None
-            } else {
-                let sy = cursor.y - oy;
-                if cursor.x < ox {
-                    None
-                } else if cursor.x > ox + self.inner.width as upos_type {
-                    None
-                } else {
-                    let sx = self.col_to_screen(cursor);
-
-                    Some((self.inner.x + sx, self.inner.y + sy as u16))
-                }
-            }
-        } else {
-            None
-        }
     }
 
     /// Set the cursor position from screen coordinates.

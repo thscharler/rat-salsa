@@ -8,7 +8,7 @@ use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input::TextInputStyle;
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{upos_type, TextError};
+use crate::{upos_type, HasScreenCursor, TextError};
 use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use chrono::NaiveDate;
 use rat_event::{HandleEvent, MouseOnly, Regular};
@@ -627,6 +627,14 @@ impl DateInputState {
     }
 }
 
+impl HasScreenCursor for DateInputState {
+    /// The current text cursor as an absolute screen position.
+    #[inline]
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        self.widget.screen_cursor()
+    }
+}
+
 impl DateInputState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
@@ -648,12 +656,6 @@ impl DateInputState {
     #[inline]
     pub fn set_screen_cursor(&mut self, cursor: i16, extend_selection: bool) -> bool {
         self.widget.set_screen_cursor(cursor, extend_selection)
-    }
-
-    /// The current text cursor as an absolute screen position.
-    #[inline]
-    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        self.widget.screen_cursor()
     }
 }
 

@@ -75,7 +75,7 @@ use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input::{TextInputState, TextInputStyle};
 use crate::text_mask_core::MaskedCore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, TextError};
+use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError};
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
@@ -1126,6 +1126,28 @@ impl MaskedInputState {
     }
 }
 
+impl HasScreenCursor for MaskedInputState {
+    /// The current text cursor as an absolute screen position.
+    #[inline]
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        if self.is_focused() {
+            let cx = self.cursor();
+            let ox = self.offset();
+
+            if cx < ox {
+                None
+            } else if cx > ox + self.inner.width as upos_type {
+                None
+            } else {
+                let sc = self.col_to_screen(cx);
+                Some((self.inner.x + sc, self.inner.y))
+            }
+        } else {
+            None
+        }
+    }
+}
+
 impl MaskedInputState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
@@ -1184,26 +1206,6 @@ impl MaskedInputState {
         let c = self.set_cursor(cx, extend_selection);
         let s = self.scroll_cursor_to_visible();
         c || s
-    }
-
-    /// The current text cursor as an absolute screen position.
-    #[inline]
-    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        if self.is_focused() {
-            let cx = self.cursor();
-            let ox = self.offset();
-
-            if cx < ox {
-                None
-            } else if cx > ox + self.inner.width as upos_type {
-                None
-            } else {
-                let sc = self.col_to_screen(cx);
-                Some((self.inner.x + sc, self.inner.y))
-            }
-        } else {
-            None
-        }
     }
 
     /// Set the cursor position from screen coordinates,
