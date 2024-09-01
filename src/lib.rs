@@ -57,7 +57,8 @@ pub mod text {
     pub use rat_text::core;
     pub use rat_text::undo_buffer;
     pub use rat_text::{
-        ipos_type, upos_type, Cursor, Glyph, Grapheme, TextError, TextPosition, TextRange,
+        ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextPosition,
+        TextRange,
     };
 }
 

@@ -13,15 +13,20 @@ use crate::util::{fill_buf_area, revert_style};
 use directories_next::UserDirs;
 #[allow(unused_imports)]
 use log::debug;
-use rat_event::{ct_event, flow, try_flow, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
+use rat_event::{
+    ct_event, flow, try_flow, ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular,
+};
 use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState, TextInputStyle};
+use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
+use ratatui::style::Stylize;
 use ratatui::widgets::{Block, ListItem};
+use std::cmp::max;
 use std::ffi::OsString;
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
@@ -40,6 +45,7 @@ pub struct FileDialog<'a> {
     list_style: Option<Style>,
     path_style: Option<Style>,
     name_style: Option<Style>,
+    new_style: Option<Style>,
     invalid_style: Option<Style>,
     select_style: Option<Style>,
     focus_style: Option<Style>,
@@ -56,6 +62,7 @@ pub struct FileDialogStyle {
     pub list: Option<Style>,
     pub path: Option<Style>,
     pub name: Option<Style>,
+    pub new: Option<Style>,
     pub invalid: Option<Style>,
     pub select: Option<Style>,
     pub focus: Option<Style>,
@@ -191,6 +198,7 @@ impl Default for FileDialogStyle {
             list: None,
             path: None,
             name: None,
+            new: None,
             invalid: None,
             select: None,
             focus: None,
@@ -237,6 +245,7 @@ impl<'a> FileDialog<'a> {
             list_style: None,
             path_style: None,
             name_style: None,
+            new_style: None,
             invalid_style: None,
             select_style: None,
             focus_style: None,
@@ -288,6 +297,12 @@ impl<'a> FileDialog<'a> {
         self
     }
 
+    /// Style for the new directory name.
+    pub fn new_style(mut self, style: Style) -> Self {
+        self.new_style = Some(style);
+        self
+    }
+
     /// Invalid indicator.
     pub fn invalid_style(mut self, style: Style) -> Self {
         self.invalid_style = Some(style);
@@ -318,6 +333,7 @@ impl<'a> FileDialog<'a> {
         self.list_style = styles.list;
         self.path_style = styles.path;
         self.name_style = styles.name;
+        self.new_style = styles.new;
         self.invalid_style = styles.invalid;
         self.select_style = styles.select;
         self.focus_style = styles.focus;
@@ -377,6 +393,20 @@ impl<'a> FileDialog<'a> {
         }
     }
 
+    fn style_new(&self) -> TextInputStyle {
+        TextInputStyle {
+            style: if let Some(name) = self.new_style {
+                name
+            } else {
+                self.style
+            },
+            focus: self.defaulted_focus(),
+            select: self.defaulted_select(),
+            invalid: self.invalid_style,
+            ..Default::default()
+        }
+    }
+
     fn style_path(&self) -> TextInputStyle {
         TextInputStyle {
             style: if let Some(path) = self.path_style {
@@ -405,22 +435,24 @@ impl<'a> FileDialog<'a> {
 }
 
 #[derive(Debug, Default)]
-struct EditDirName;
+struct EditDirName<'a> {
+    edit_dir: TextInput<'a>,
+}
 
 #[derive(Debug, Default)]
 struct EditDirNameState {
     edit_dir: TextInputState,
 }
 
-impl StatefulWidget for EditDirName {
+impl<'a> StatefulWidget for EditDirName<'a> {
     type State = EditDirNameState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        TextInput::new().render(area, buf, &mut state.edit_dir);
+        self.edit_dir.render(area, buf, &mut state.edit_dir);
     }
 }
 
-impl EditDirNameState {
+impl HasScreenCursor for EditDirNameState {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         self.edit_dir.screen_cursor()
     }
@@ -428,6 +460,17 @@ impl EditDirNameState {
 
 impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditDirNameState {
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: Regular) -> EditOutcome {
+        match self.edit_dir.handle(event, qualifier) {
+            TextOutcome::Continue => EditOutcome::Continue,
+            TextOutcome::Unchanged => EditOutcome::Unchanged,
+            TextOutcome::Changed => EditOutcome::Changed,
+            TextOutcome::TextChanged => EditOutcome::Changed,
+        }
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome> for EditDirNameState {
+    fn handle(&mut self, event: &crossterm::event::Event, qualifier: MouseOnly) -> EditOutcome {
         match self.edit_dir.handle(event, qualifier) {
             TextOutcome::Continue => EditOutcome::Continue,
             TextOutcome::Unchanged => EditOutcome::Unchanged,
@@ -558,7 +601,9 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             }))
             .scroll(Scroll::new())
             .styles(widget.style_lists()),
-        EditDirName,
+        EditDirName {
+            edit_dir: TextInput::new().style(Style::new().white().on_green()),
+        },
     )
     .render(l_grid[1][1], buf, &mut state.dir_state);
 
@@ -614,7 +659,9 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             }))
             .scroll(Scroll::new())
             .styles(widget.style_lists()),
-        EditDirName,
+        EditDirName {
+            edit_dir: TextInput::new().styles(widget.style_new()),
+        },
     )
     .render(l_grid[1][1], buf, &mut state.dir_state);
 
@@ -814,6 +861,7 @@ impl FileDialogState {
                 self.path_state.move_to_line_end(false);
             }
 
+            self.dir_state.cancel_edit();
             if !self.dirs.is_empty() {
                 self.dir_state.list.select(Some(0));
             } else {
@@ -901,31 +949,43 @@ impl FileDialogState {
 
     /// Start creating a directory.
     fn start_edit_dir(&mut self) -> FileOutcome {
-        self.dirs.push(OsString::from(""));
-        self.dir_state.list.items_added(self.dirs.len(), 1);
-        self.dir_state.list.move_to(self.dirs.len() - 1);
-        let edit = EditDirNameState::default();
-        edit.focus().set(true);
-        self.dir_state.edit = Some(edit);
-        FileOutcome::Changed
+        if !self.dir_state.is_editing() {
+            self.focus().focus(&self.dir_state);
+
+            self.dirs.push(OsString::from(""));
+            self.dir_state.start_edit(
+                self.dirs.len() - 1, //
+                EditDirNameState::default(),
+            );
+
+            FileOutcome::Changed
+        } else {
+            FileOutcome::Continue
+        }
     }
 
     fn cancel_edit_dir(&mut self) -> FileOutcome {
-        self.dirs.remove(self.dirs.len() - 1);
-        self.dir_state.edit = None;
-        FileOutcome::Changed
+        if self.dir_state.is_editing() {
+            self.dir_state.cancel_edit();
+            self.dirs.remove(self.dirs.len() - 1);
+            FileOutcome::Changed
+        } else {
+            FileOutcome::Continue
+        }
     }
 
     fn commit_edit_dir(&mut self) -> Result<FileOutcome, io::Error> {
-        if let Some(edit) = &mut self.dir_state.edit {
-            let name = edit.edit_dir.text().trim();
+        if self.dir_state.is_editing() {
+            let name = self.dir_state.editor().edit_dir.text().trim();
             let path = self.path.join(name);
             if fs::create_dir(&path).is_err() {
-                edit.edit_dir.invalid = true;
+                self.dir_state.editor_mut().edit_dir.invalid = true;
                 Ok(FileOutcome::Changed)
             } else {
-                self.dir_state.edit = None;
-                self.focus().focus_no_lost(&self.save_name_state);
+                self.dir_state.stop_edit();
+                if self.mode == Mode::Save {
+                    self.focus().focus_no_lost(&self.save_name_state);
+                }
                 self.set_path(&path)
             }
         } else {
@@ -936,6 +996,7 @@ impl FileDialogState {
     /// Cancel the dialog.
     fn close_cancel(&mut self) -> FileOutcome {
         self.active = false;
+        self.dir_state.stop_edit();
         FileOutcome::Cancel
     }
 
@@ -955,25 +1016,15 @@ impl FileDialogState {
         }
         FileOutcome::Unchanged
     }
+}
 
-    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
+impl HasScreenCursor for FileDialogState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
         if self.active {
-            match_focus!(
-                self.path_state => {
-                    self.path_state.screen_cursor()
-                },
-                self.save_name_state => {
-                    self.save_name_state.screen_cursor()
-                },
-                self.dir_state.list => {
-                    if let Some(edit) = &self.dir_state.edit {
-                          edit.screen_cursor()
-                    } else {
-                        None
-                    }
-                },
-                _ => None
-            )
+            self.path_state
+                .screen_cursor()
+                .or_else(|| self.save_name_state.screen_cursor())
+                .or_else(|| self.dir_state.screen_cursor())
         } else {
             None
         }
@@ -1028,8 +1079,9 @@ impl HandleEvent<crossterm::event::Event, Dialog, Result<FileOutcome, io::Error>
                 .or_else_try(|| handle_new(self, event))?
                 .or_else_try(|| handle_cancel(self, event))?
                 .or_else_try(|| handle_ok(self, event))
-        });
-        f
+        })?;
+
+        Ok(max(f, FileOutcome::Unchanged))
     }
 }
 
@@ -1138,27 +1190,10 @@ fn handle_dirs(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    if state.dir_state.edit.is_none() {
-        if state.dir_state.list.is_focused() {
-            try_flow!(match event {
-                ct_event!(mouse any for m)
-                    if state
-                        .dir_state
-                        .list
-                        .mouse
-                        .doubleclick(state.dir_state.list.inner, m) =>
-                {
-                    state.chdir_selected()?
-                }
-                ct_event!(keycode press Enter) => {
-                    state.chdir_selected()?
-                }
-                _ => FileOutcome::Continue,
-            });
-            try_flow!(handle_nav(&mut state.dir_state.list, &state.dirs, event));
-        }
-    }
     try_flow!(match state.dir_state.handle(event, Regular) {
+        EditOutcome::Edit => {
+            state.chdir_selected()?
+        }
         EditOutcome::Cancel => {
             state.cancel_edit_dir()
         }
@@ -1169,6 +1204,9 @@ fn handle_dirs(
             Outcome::from(r).into()
         }
     });
+    if state.dir_state.list.is_focused() {
+        try_flow!(handle_nav(&mut state.dir_state.list, &state.dirs, event));
+    }
     Ok(FileOutcome::Continue)
 }
 
