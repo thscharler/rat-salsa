@@ -260,8 +260,14 @@ impl DarkTheme {
     /// Complete ButtonStyle
     pub fn button_style(&self) -> ButtonStyle {
         ButtonStyle {
-            style: Style::default().fg(self.s.white[0]).bg(self.s.primary[0]),
-            focus: Some(self.focus()),
+            style: Style::default()
+                .fg(self.s.text_color(self.s.primary[0]))
+                .bg(self.s.primary[0]),
+            focus: Some(
+                Style::default()
+                    .fg(self.s.text_color(self.s.primary[3]))
+                    .bg(self.s.primary[3]),
+            ),
             armed: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[0])),
             ..Default::default()
         }
@@ -334,6 +340,7 @@ impl DarkTheme {
             list: Some(self.data()),
             path: Some(self.text_input()),
             name: Some(self.text_input()),
+            new: Some(self.text_input()),
             invalid: Some(Style::new().fg(self.s.red[3]).bg(self.s.gray[2])),
             select: Some(self.select()),
             focus: Some(self.focus()),
