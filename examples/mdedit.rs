@@ -3,7 +3,6 @@
 #![allow(unreachable_pub)]
 
 use crate::facilities::{Facility, MDFileDialog, MDFileDialogState};
-use crate::markdown::md_format_table;
 use crate::mdedit::{MDEdit, MDEditState};
 use anyhow::Error;
 #[allow(unused_imports)]
@@ -17,7 +16,7 @@ use rat_theme::{dark_themes, Scheme};
 use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Popup, Regular};
 use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
 use rat_widget::layout::layout_middle;
-use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar, StaticMenu};
+use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
 use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::{MenuItem, Placement, Separator};
@@ -1089,7 +1088,7 @@ pub mod markdown {
         }
         let mut width = Vec::new();
         // only use header widths
-        for row in table.first() {
+        if let Some(row) = table.first() {
             for (idx, cell) in row.row.iter().enumerate() {
                 if idx >= width.len() {
                     width.push(str_line_len(cell.txt));
@@ -1312,7 +1311,7 @@ pub mod mdfile {
     use log::{debug, warn};
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{ct_event, try_flow, HandleEvent, Outcome, TextOutcome};
+    use rat_widget::event::{try_flow, HandleEvent, TextOutcome};
     use rat_widget::focus::{FocusFlag, HasFocusFlag, Navigation};
     use rat_widget::line_number::{LineNumberState, LineNumbers};
     use rat_widget::scrolled::Scroll;
@@ -1510,8 +1509,7 @@ pub mod mdfile {
             // call markdown event-handling instead of regular.
             try_flow!(match self.edit.handle(event, MarkDown) {
                 TextOutcome::TextChanged => {
-                    self.text_changed(ctx);
-                    Control::Changed
+                    self.text_changed(ctx)
                 }
                 r => r.into(),
             });
