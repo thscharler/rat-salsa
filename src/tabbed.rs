@@ -769,7 +769,6 @@ pub mod attached {
 
     impl AttachedTabs {
         fn get_join_0(&self) -> Option<&str> {
-            use BorderType::*;
             use TabPlacement::*;
 
             match self.placement {
@@ -805,7 +804,6 @@ pub mod attached {
         }
 
         fn get_join_1(&self) -> Option<&str> {
-            use BorderType::*;
             use TabPlacement::*;
 
             match self.placement {

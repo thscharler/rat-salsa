@@ -4,7 +4,6 @@
 
 use crate::_private::NonExhaustive;
 use crate::util::{fill_buf_area, revert_style};
-use log::debug;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
