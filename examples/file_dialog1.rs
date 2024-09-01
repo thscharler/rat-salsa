@@ -3,6 +3,7 @@ use crate::mini_salsa::MiniSalsaState;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
+use rat_text::HasScreenCursor;
 use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState};
 use rat_widget::layout::layout_middle;
@@ -34,7 +35,7 @@ pub struct State {
 
 static MENU: StaticMenu = StaticMenu {
     menu: &[
-        ("File", &["Open", "Save"]), //
+        ("File", &["Choose Dir", "Open", "Save"]), //
         ("Quit", &[]),
     ],
 };
@@ -102,10 +103,14 @@ fn handle_input(
     try_flow!(
         match menubar::handle_popup_events(&mut state.menu, true, event) {
             MenuOutcome::MenuActivated(0, 0) => {
-                state.file_open.open_dialog(&PathBuf::from("."))?;
+                state.file_open.directory_dialog(&PathBuf::from("."))?;
                 Outcome::Changed
             }
             MenuOutcome::MenuActivated(0, 1) => {
+                state.file_open.open_dialog(&PathBuf::from("."))?;
+                Outcome::Changed
+            }
+            MenuOutcome::MenuActivated(0, 2) => {
                 state.file_open.save_dialog(".", "sample.txt")?;
                 Outcome::Changed
             }

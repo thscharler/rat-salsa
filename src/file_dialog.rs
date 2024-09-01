@@ -535,7 +535,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
                 render_save(&self, layout.content, buf, state);
             }
             Mode::Dir => {
-                todo!()
+                render_open_dir(&self, layout.content, buf, state);
             }
         }
 
@@ -561,6 +561,55 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             .styles(self.style_button())
             .render(l_oc[1], buf, &mut state.ok_state);
     }
+}
+
+fn render_open_dir(
+    widget: &FileDialog<'_>,
+    area: Rect,
+    buf: &mut Buffer,
+    state: &mut FileDialogState,
+) {
+    let l_grid = layout_grid::<2, 2>(
+        area,
+        Layout::horizontal([
+            Constraint::Percentage(20), //
+            Constraint::Percentage(80),
+        ]),
+        Layout::vertical([
+            Constraint::Length(1), //
+            Constraint::Fill(1),
+        ]),
+    );
+
+    //
+    let mut l_path = l_grid[1][0];
+    l_path.width = l_path.width.saturating_sub(1);
+    TextInput::new()
+        .styles(widget.style_path())
+        .render(l_path, buf, &mut state.path_state);
+
+    List::default()
+        .items(state.roots.iter().map(|v| {
+            let s = v.0.to_string_lossy();
+            ListItem::from(format!("{}", s))
+        }))
+        .scroll(Scroll::new())
+        .styles(widget.style_roots())
+        .render(l_grid[0][1], buf, &mut state.root_state);
+
+    EditList::new(
+        List::default()
+            .items(state.dirs.iter().map(|v| {
+                let s = v.to_string_lossy();
+                ListItem::from(s)
+            }))
+            .scroll(Scroll::new())
+            .styles(widget.style_lists()),
+        EditDirName {
+            edit_dir: TextInput::new().styles(widget.style_new()),
+        },
+    )
+    .render(l_grid[1][1], buf, &mut state.dir_state);
 }
 
 fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
@@ -737,6 +786,32 @@ impl FileDialogState {
         }
 
         self.root_state.select(Some(0));
+    }
+
+    /// Show as directory-dialog.
+    pub fn directory_dialog(&mut self, path: impl AsRef<Path>) -> Result<(), io::Error> {
+        let path = path.as_ref();
+        let old_path = self.path.clone();
+
+        self.active = true;
+        self.mode = Mode::Dir;
+        self.save_name = None;
+        self.dirs.clear();
+        self.files.clear();
+        self.path = Default::default();
+        if self.use_default_roots {
+            self.clear_roots();
+            self.default_roots(path, &old_path);
+            if old_path.exists() {
+                self.set_path(&old_path)?;
+            } else {
+                self.set_path(path)?;
+            }
+        } else {
+            self.set_path(path)?;
+        }
+        self.focus().focus(&self.dir_state);
+        Ok(())
     }
 
     /// Show as open-dialog.
@@ -1013,6 +1088,17 @@ impl FileDialogState {
             let path = self.path.join(self.save_name_state.text().trim());
             self.active = false;
             return FileOutcome::Ok(path);
+        } else if self.mode == Mode::Dir {
+            if let Some(select) = self.dir_state.list.selected() {
+                if let Some(dir) = self.dirs.get(select).cloned() {
+                    self.active = false;
+                    if dir != ".." {
+                        return FileOutcome::Ok(self.path.join(dir));
+                    } else {
+                        return FileOutcome::Ok(self.path.clone());
+                    }
+                }
+            }
         }
         FileOutcome::Unchanged
     }
@@ -1035,7 +1121,9 @@ impl FileDialogState {
     fn focus(&self) -> Focus {
         let mut f = Focus::default();
         f.add(&self.dir_state);
-        f.add(&self.file_state);
+        if self.mode == Mode::Save || self.mode == Mode::Open {
+            f.add(&self.file_state);
+        }
         if self.mode == Mode::Save {
             f.add(&self.save_name_state);
         }
