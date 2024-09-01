@@ -367,6 +367,12 @@ pub(crate) mod text_rope {
                     }
                     col += 1;
                 }
+                if bytes.start == self.text.len_bytes() {
+                    start = Some(col);
+                }
+                if bytes.end == self.text.len_bytes() {
+                    end = Some(col);
+                }
 
                 let Some(start) = start else {
                     return Err(TextError::ByteIndexOutOfBounds(
