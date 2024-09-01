@@ -1,5 +1,4 @@
 use iset::IntervalMap;
-use log::debug;
 use std::cell::RefCell;
 use std::ops::Range;
 
@@ -80,7 +79,6 @@ impl RangeMap {
     pub(crate) fn values_at_page(&self, range: Range<usize>, pos: usize, buf: &mut Vec<usize>) {
         let mut page_map = self.page_map.borrow_mut();
         if *self.page.borrow() != range {
-            debug!("invalidate cache {:?}->{:?}", self.page.borrow(), range);
             *self.page.borrow_mut() = range.clone();
             page_map.clear();
             for (r, v) in self.map.iter(range) {
@@ -89,6 +87,13 @@ impl RangeMap {
         }
         for v in page_map.overlap(pos).map(|v| v.1) {
             buf.push(*v);
+        }
+    }
+
+    /// Find everything that touches the given range.
+    pub(crate) fn values_in(&self, range: Range<usize>, buf: &mut Vec<(Range<usize>, usize)>) {
+        for (r, v) in self.map.iter(range) {
+            buf.push((r, *v));
         }
     }
 

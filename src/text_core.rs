@@ -562,6 +562,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
     }
 
+    /// Find all styles that touch the given range.
+    pub fn styles_in(&self, range: Range<usize>, buf: &mut Vec<(Range<usize>, usize)>) {
+        if let Some(sty) = &self.styles {
+            sty.values_in(range, buf);
+        }
+    }
+
     /// Finds all styles for the given position.
     #[inline]
     pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<usize>) {

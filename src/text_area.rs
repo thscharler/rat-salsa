@@ -29,6 +29,7 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::mem;
 use std::ops::Range;
+use unicode_segmentation::UnicodeSegmentation;
 
 /// Text area widget.
 ///
@@ -655,6 +656,11 @@ impl TextAreaState {
         let r = self.value.bytes_at_range(range)?;
         self.value.remove_style(r, style);
         Ok(())
+    }
+
+    /// Find all styles that touch the given range.
+    pub fn styles_in(&self, range: Range<usize>, buf: &mut Vec<(Range<usize>, usize)>) {
+        self.value.styles_in(range, buf)
     }
 
     /// All styles active at the given position.
