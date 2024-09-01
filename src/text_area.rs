@@ -1013,6 +1013,10 @@ impl TextAreaState {
 
     /// Insert a character at the cursor position.
     /// Removes the selection and inserts the char.
+    ///
+    /// This insert makes no special actions when encountering
+    /// a new-line or tab. Use insert_newline and insert_tab for
+    /// this.
     pub fn insert_char(&mut self, c: char) -> bool {
         if self.has_selection() {
             self.value
@@ -1034,16 +1038,66 @@ impl TextAreaState {
         true
     }
 
-    /// Insert a character at the cursor position.
-    /// Removes the selection and inserts the char.
+    /// Inserts tab at the current position. This respects the
+    /// tab-width set.
+    ///
+    /// If there is a text-selection the text-rows will be indented instead.
+    /// This can be deactivated with auto_indent=false.
     pub fn insert_tab(&mut self) -> bool {
         if self.has_selection() {
-            self.value
-                .remove_str_range(self.selection())
-                .expect("valid_selection");
+            if self.auto_indent {
+                let sel = self.selection();
+                let indent = " ".repeat(self.tab_width() as usize);
+
+                self.value.begin_undo_seq();
+                for r in sel.start.y..=sel.end.y {
+                    self.value
+                        .insert_str(TextPosition::new(0, r), &indent)
+                        .expect("valid_row");
+                }
+                self.value.end_undo_seq();
+
+                true
+            } else {
+                false
+            }
+        } else {
+            self.value.insert_tab(self.cursor()).expect("valid_cursor");
+            self.scroll_cursor_to_visible();
+
+            true
         }
-        self.value.insert_tab(self.cursor()).expect("valid_cursor");
-        self.scroll_cursor_to_visible();
+    }
+
+    /// Unindents the selected text by tab-width. If there is no
+    /// selection this does nothing.
+    ///
+    /// This can be deactivated with auto_indent=false.
+    pub fn insert_backtab(&mut self) -> bool {
+        let sel = self.selection();
+        let indent = " ".repeat(self.tab_width() as usize);
+
+        self.value.begin_undo_seq();
+        for r in sel.start.y..=sel.end.y {
+            let mut idx = 0;
+            let g_it = self
+                .value
+                .graphemes(TextRange::new((0, r), (0, r + 1)), TextPosition::new(0, r))
+                .expect("valid_range")
+                .take(self.tab_width() as usize);
+            for g in g_it {
+                if g != " " && g != "\t" {
+                    break;
+                }
+                idx += 1;
+            }
+
+            self.value
+                .remove_str_range(TextRange::new((0, r), (idx, r)))
+                .expect("valid_range");
+        }
+        self.value.end_undo_seq();
+
         true
     }
 
@@ -1064,6 +1118,9 @@ impl TextAreaState {
     }
 
     /// Insert a line break at the cursor position.
+    ///
+    /// If auto_indent is set the new line starts with the same
+    /// indent as the current.
     pub fn insert_newline(&mut self) -> bool {
         if self.has_selection() {
             self.value
@@ -1843,6 +1900,14 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                     // ignore tab from focus
                     tc(if !self.focus.gained() {
                         self.insert_tab()
+                    } else {
+                        false
+                    })
+                }
+                ct_event!(keycode press SHIFT-BackTab) => {
+                    // ignore tab from focus
+                    tc(if !self.focus.gained() {
+                        self.insert_backtab()
                     } else {
                         false
                     })
