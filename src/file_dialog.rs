@@ -602,7 +602,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             .scroll(Scroll::new())
             .styles(widget.style_lists()),
         EditDirName {
-            edit_dir: TextInput::new().style(Style::new().white().on_green()),
+            edit_dir: TextInput::new().styles(widget.style_new()),
         },
     )
     .render(l_grid[1][1], buf, &mut state.dir_state);
