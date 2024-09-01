@@ -14,7 +14,6 @@ use ratatui::text::{Line, Span, Text};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
-use std::mem;
 
 /// Button widget.
 #[derive(Debug, Default, Clone)]
@@ -179,73 +178,76 @@ impl<'a> StatefulWidgetRef for Button<'a> {
     type State = ButtonState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(
-            self,
-            |area, buf| self.block.render_ref(area, buf),
-            |area, buf| self.text.render_ref(area, buf),
-            area,
-            buf,
-            state,
-        );
+        state.area = area;
+        state.inner_area = self.block.inner_if_some(area);
+
+        let focus_style = if let Some(focus_style) = self.focus_style {
+            focus_style
+        } else {
+            revert_style(self.style)
+        };
+        let armed_style = if let Some(armed_style) = self.armed_style {
+            armed_style
+        } else {
+            revert_style(self.style)
+        };
+
+        self.block.render_ref(area, buf);
+
+        if state.armed {
+            buf.set_style(state.inner_area, armed_style);
+        } else {
+            if state.focus.get() {
+                buf.set_style(state.inner_area, focus_style);
+            } else {
+                buf.set_style(state.inner_area, self.style);
+            }
+        }
+
+        let layout = Layout::vertical([Constraint::Length(self.text.height() as u16)])
+            .flex(Flex::Center)
+            .split(state.inner_area);
+
+        self.text.render_ref(layout[0], buf);
     }
 }
 
 impl<'a> StatefulWidget for Button<'a> {
     type State = ButtonState;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let block = mem::take(&mut self.block);
-        let text = mem::take(&mut self.text);
-        render_ref(
-            &self, //
-            |area, buf| block.render(area, buf),
-            |area, buf| text.render(area, buf),
-            area,
-            buf,
-            state,
-        );
-    }
-}
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        state.area = area;
+        state.inner_area = self.block.inner_if_some(area);
 
-fn render_ref(
-    widget: &Button<'_>,
-    block: impl FnOnce(Rect, &mut Buffer),
-    text: impl FnOnce(Rect, &mut Buffer),
-    area: Rect,
-    buf: &mut Buffer,
-    state: &mut ButtonState,
-) {
-    state.area = area;
-    state.inner_area = widget.block.inner_if_some(area);
-
-    block(area, buf);
-
-    let focus_style = if let Some(focus_style) = widget.focus_style {
-        focus_style
-    } else {
-        revert_style(widget.style)
-    };
-    let armed_style = if let Some(armed_style) = widget.armed_style {
-        armed_style
-    } else {
-        revert_style(widget.style)
-    };
-
-    if state.armed {
-        buf.set_style(state.inner_area, armed_style);
-    } else {
-        if state.focus.get() {
-            buf.set_style(state.inner_area, focus_style);
+        let focus_style = if let Some(focus_style) = self.focus_style {
+            focus_style
         } else {
-            buf.set_style(state.inner_area, widget.style);
+            revert_style(self.style)
+        };
+        let armed_style = if let Some(armed_style) = self.armed_style {
+            armed_style
+        } else {
+            revert_style(self.style)
+        };
+
+        self.block.render(area, buf);
+
+        if state.armed {
+            buf.set_style(state.inner_area, armed_style);
+        } else {
+            if state.focus.get() {
+                buf.set_style(state.inner_area, focus_style);
+            } else {
+                buf.set_style(state.inner_area, self.style);
+            }
         }
+
+        let layout = Layout::vertical([Constraint::Length(self.text.height() as u16)])
+            .flex(Flex::Center)
+            .split(state.inner_area);
+
+        self.text.render(layout[0], buf);
     }
-
-    let layout = Layout::vertical([Constraint::Length(widget.text.height() as u16)])
-        .flex(Flex::Center)
-        .split(state.inner_area);
-
-    text(layout[0], buf);
 }
 
 impl Default for ButtonState {
