@@ -308,8 +308,21 @@ impl UndoVec {
             Some(undo)
         };
 
-        // cap undo at capacity
-        if self.buf.len() > self.undo_count as usize {
+        // cap undo at capacity.
+        // uses the sequence count instead of the size.
+        let count_uniq = self
+            .buf
+            .iter()
+            .fold((0, 0), |mut f, v| {
+                if v.0 != f.0 {
+                    f.0 = v.0;
+                    f.1 += 1;
+                }
+                f
+            })
+            .1;
+
+        if count_uniq > self.undo_count as usize {
             // don't drop parts of current sequence at all.
             if self.buf[0].0 != self.sequence {
                 let drop_sequence = self.buf[0].0;
