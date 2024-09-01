@@ -21,6 +21,7 @@ use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::{MenuItem, Placement, Separator};
 use rat_widget::statusline::{StatusLine, StatusLineState};
+use rat_widget::text::HasScreenCursor;
 use rat_widget::util::menu_str;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -301,6 +302,7 @@ pub mod facilities {
     use rat_salsa::Control;
     use rat_widget::event::{Dialog, FileOutcome, HandleEvent};
     use rat_widget::file_dialog::{FileDialog, FileDialogState, FileDialogStyle};
+    use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::prelude::StatefulWidget;
@@ -383,8 +385,8 @@ pub mod facilities {
         }
     }
 
-    impl MDFileDialogState {
-        pub fn screen_cursor(&self) -> Option<(u16, u16)> {
+    impl HasScreenCursor for MDFileDialogState {
+        fn screen_cursor(&self) -> Option<(u16, u16)> {
             self.file_dlg.screen_cursor()
         }
     }
@@ -1316,7 +1318,7 @@ pub mod mdfile {
     use rat_widget::line_number::{LineNumberState, LineNumbers};
     use rat_widget::scrolled::Scroll;
     use rat_widget::text::clipboard::{Clipboard, ClipboardError};
-    use rat_widget::text::upos_type;
+    use rat_widget::text::{upos_type, HasScreenCursor};
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
