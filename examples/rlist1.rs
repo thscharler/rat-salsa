@@ -2,11 +2,12 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, MiniSalsaState};
 #[allow(unused_imports)]
 use log::Log;
-use rat_event::{flow, ConsumedEvent, HandleEvent, Outcome, Popup, Regular};
+use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
 use rat_focus::{Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState};
+use rat_text::HasScreenCursor;
 use rat_widget::list::edit::{EditList, EditListState};
 use rat_widget::list::List;
 use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
@@ -17,6 +18,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::{Line, Text};
 use ratatui::widgets::{Block, ListItem, StatefulWidget, Widget};
 use ratatui::Frame;
+use std::cmp::min;
 
 mod mini_salsa;
 
@@ -93,7 +95,7 @@ struct EditEntry;
 #[derive(Debug)]
 struct EditEntryState {
     insert: bool,
-    edit: TextInputState,
+    text_input: TextInputState,
 }
 
 impl StatefulWidget for EditEntry {
@@ -102,7 +104,7 @@ impl StatefulWidget for EditEntry {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         TextInput::new()
             .styles(THEME.input_style())
-            .render(area, buf, &mut state.edit);
+            .render(area, buf, &mut state.text_input);
     }
 }
 
@@ -110,32 +112,38 @@ impl Default for EditEntryState {
     fn default() -> Self {
         let s = Self {
             insert: false,
-            edit: TextInputState::named("edit"),
+            text_input: TextInputState::named("edit"),
         };
-        s.edit.focus().set(true);
+        s.text_input.focus().set(true);
         s
-    }
-}
-
-impl EditEntryState {
-    fn screen_cursor(&self) -> Option<(u16, u16)> {
-        self.edit.screen_cursor()
     }
 }
 
 impl HasFocusFlag for EditEntryState {
     fn focus(&self) -> FocusFlag {
-        self.edit.focus()
+        self.text_input.focus()
     }
 
     fn area(&self) -> Rect {
-        self.edit.area
+        self.text_input.area
+    }
+}
+
+impl HasScreenCursor for EditEntryState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        self.text_input.screen_cursor()
     }
 }
 
 impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for EditEntryState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> EditOutcome {
-        Outcome::from(self.edit.handle(event, Regular)).into()
+        Outcome::from(self.text_input.handle(event, Regular)).into()
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome> for EditEntryState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> EditOutcome {
+        Outcome::from(self.text_input.handle(event, MouseOnly)).into()
     }
 }
 
@@ -183,10 +191,9 @@ fn repaint_input(
         EditEntry,
     )
     .render(l_grid[1][0], frame.buffer_mut(), &mut state.list1);
-    if let Some(edit) = &state.list1.edit {
-        if let Some(cursor) = edit.screen_cursor() {
-            frame.set_cursor_position((cursor.0, cursor.1))
-        }
+
+    if let Some(cursor) = state.list1.screen_cursor() {
+        frame.set_cursor_position((cursor.0, cursor.1))
     }
 
     menu_popup.render(l1[1], frame.buffer_mut(), &mut state.menu);
@@ -228,72 +235,67 @@ fn handle_input(
                     let mut edit = EditEntryState::default();
                     edit.insert = true;
                     data.data.insert(sel, "".into());
-                    state.list1.list.items_added(sel, 1);
-                    state.list1.list.move_to(sel);
-                    state.list1.edit = Some(edit);
+                    state.list1.start_edit(sel, edit);
                 }
                 Outcome::Changed
             }
+
             fn remove(data: &mut Data, state: &mut State) -> Outcome {
                 if let Some(sel) = state.list1.list.selected() {
                     data.data.remove(sel);
+                    if data.data.len() == 0 {
+                        data.data.push("".into());
+                    }
+                    state.list1.list.select(Some(min(sel, data.data.len() - 1)));
                 }
                 Outcome::Changed
             }
+
             fn append(data: &mut Data, state: &mut State) -> Outcome {
                 let mut edit = EditEntryState::default();
                 edit.insert = true;
                 data.data.push("".into());
-                state.list1.list.items_added(data.data.len(), 1);
-                state.list1.list.move_to(data.data.len() - 1);
-                state.list1.edit = Some(edit);
+                state.list1.start_edit(data.data.len() - 1, edit);
                 Outcome::Changed
             }
+
             fn edit(data: &mut Data, state: &mut State) -> Outcome {
                 if let Some(sel) = state.list1.list.selected() {
                     let mut edit = EditEntryState::default();
-                    edit.edit.set_text(&data.data[sel]);
-                    state.list1.edit = Some(edit);
+                    edit.text_input.set_text(&data.data[sel]);
+                    state.list1.start_edit(sel, edit);
                 }
                 Outcome::Changed
             }
+
             fn commit(data: &mut Data, state: &mut State) -> Outcome {
                 if let Some(sel) = state.list1.list.selected() {
-                    if let Some(edit) = &state.list1.edit {
-                        let s = edit.edit.text().to_string();
+                    if let Some(edit) = state.list1.try_editor() {
+                        let s = edit.text_input.text().to_string();
                         if !s.is_empty() {
                             data.data[sel] = s;
+                            state.list1.stop_edit()
+                        } else if data.data.len() == 1 {
+                            // don't remove last
+                            state.list1.stop_edit()
                         } else {
                             data.data.remove(sel);
-                            state.list1.list.items_removed(sel, 1);
-                            if data.data.is_empty() {
-                                data.data.insert(sel, "".to_string());
-                                state.list1.list.items_added(sel, 1);
-                            }
-                            if sel >= data.data.len() {
-                                state.list1.list.select(Some(data.data.len() - 1));
-                            }
+                            state.list1.cancel_edit()
                         }
-                        state.list1.edit = None;
                     }
                 }
                 Outcome::Changed
             }
+
             fn cancel(data: &mut Data, state: &mut State) -> Outcome {
                 if let Some(sel) = state.list1.list.selected() {
-                    if let Some(edit) = &state.list1.edit {
+                    if let Some(edit) = state.list1.try_editor() {
                         if edit.insert {
                             data.data.remove(sel);
-                            state.list1.list.items_removed(sel, 1);
-                            if data.data.is_empty() {
-                                data.data.insert(sel, "".to_string());
-                                state.list1.list.items_added(sel, 1);
-                            }
-                            if sel >= data.data.len() {
-                                state.list1.list.select(Some(data.data.len() - 1));
-                            }
+                            state.list1.cancel_edit();
+                        } else {
+                            state.list1.stop_edit();
                         }
-                        state.list1.edit = None;
                     }
                 }
                 Outcome::Changed
