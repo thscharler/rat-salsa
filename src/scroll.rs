@@ -620,7 +620,7 @@ impl ScrollState {
     /// Update the state to match removing items.
     #[inline]
     pub fn items_removed(&mut self, pos: usize, n: usize) {
-        if self.offset >= pos {
+        if self.offset >= pos && self.offset >= n {
             self.offset -= n;
         }
         self.max_offset = self.max_offset.saturating_sub(n);
