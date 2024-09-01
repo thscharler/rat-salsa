@@ -3,6 +3,7 @@
 #![allow(unreachable_pub)]
 
 use crate::facilities::{Facility, MDFileDialog, MDFileDialogState};
+use crate::markdown::md_format_table;
 use crate::mdedit::{MDEdit, MDEditState};
 use anyhow::Error;
 #[allow(unused_imports)]
@@ -21,6 +22,7 @@ use rat_widget::menuline::MenuOutcome;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::popup_menu::{MenuItem, Placement, Separator};
 use rat_widget::statusline::{StatusLine, StatusLineState};
+use rat_widget::util::menu_str;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -254,7 +256,6 @@ impl AppState<GlobalState, MDAction, Error> for MDRootState {
 
         let r = self.app.message(event, ctx)?;
 
-        // todo focus
         if ctx.focus().gained_focus().is_some() {
             self.app.focus_changed(ctx)?;
         }
@@ -390,15 +391,6 @@ pub mod facilities {
     }
 }
 
-static MENU: StaticMenu = StaticMenu {
-    menu: &[
-        ("_File", &["_New", "_Open", "_Save", "Save _as"]), //
-        ("_View", &[/*dynamic*/]),
-        ("_Theme", &[/*dynamic*/]),
-        ("_Quit", &[]),
-    ],
-};
-
 #[derive(Debug)]
 struct Menu {
     show_ctrl: bool,
@@ -407,7 +399,13 @@ struct Menu {
 
 impl<'a> MenuStructure<'a> for Menu {
     fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)> {
-        MENU.menus()
+        vec![
+            menu_str("_File"),
+            menu_str("_Edit"),
+            menu_str("_View"),
+            menu_str("_Theme"),
+            menu_str("_Quit"),
+        ]
     }
 
     fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>> {
@@ -421,6 +419,16 @@ impl<'a> MenuStructure<'a> for Menu {
                 ]
             }
             1 => {
+                vec![
+                    MenuItem::Item3("Format table".into(), None, Line::from("Alt-T").italic()),
+                    MenuItem::Item3(
+                        "Format equal".into(),
+                        None,
+                        Line::from("Alt-Shift-T").italic(),
+                    ),
+                ]
+            }
+            2 => {
                 vec![
                     if self.show_ctrl {
                         MenuItem::Item("\u{2611} Control chars".into())
@@ -436,15 +444,15 @@ impl<'a> MenuStructure<'a> for Menu {
                     MenuItem::Item3(
                         "Split view".into(),
                         Some('s'),
-                        Line::from("Ctrl-D").italic(),
+                        Line::from("Ctrl-W D").italic(),
                     ),
                 ]
             }
-            2 => dark_themes()
+            3 => dark_themes()
                 .iter()
                 .map(|v| MenuItem::Item(v.name().to_string().into()))
                 .collect(),
-            _ => MENU.submenu(n),
+            _ => Vec::default(),
         }
     }
 }
@@ -471,7 +479,7 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
         };
         let (menu, menu_popup) = Menubar::new(&menu_struct)
             .title("^^°n°^^")
-            .popup_width(20)
+            .popup_width(25)
             .popup_block(Block::bordered())
             .popup_placement(Placement::Top)
             .styles(ctx.g.theme.menu_style())
@@ -567,10 +575,14 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                 ct_event!(keycode press Esc) => {
                     if !self.menu.is_focused() {
                         ctx.focus().focus(&self.menu);
-                        debug!("*focus* {:?}", ctx.focus().focused_name());
                         Control::Changed
                     } else {
-                        Control::Continue
+                        if let Some((_, last_edit)) = self.editor.split_tab.selected() {
+                            ctx.focus().focus(last_edit);
+                            Control::Changed
+                        } else {
+                            Control::Continue
+                        }
                     }
                 }
                 ct_event!(keycode press F(1)) => {
@@ -610,10 +622,26 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                     )?
                 }
                 MenuOutcome::MenuActivated(1, 0) => {
+                    if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
+                        ctx.focus().focus(sel);
+                        sel.md_format_table(false, ctx)
+                    } else {
+                        Control::Continue
+                    }
+                }
+                MenuOutcome::MenuActivated(1, 1) => {
+                    if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
+                        ctx.focus().focus(sel);
+                        sel.md_format_table(true, ctx)
+                    } else {
+                        Control::Continue
+                    }
+                }
+                MenuOutcome::MenuActivated(2, 0) => {
                     ctx.g.cfg.show_ctrl = !ctx.g.cfg.show_ctrl;
                     Control::Changed
                 }
-                MenuOutcome::MenuActivated(1, 1) => {
+                MenuOutcome::MenuActivated(2, 1) => {
                     if ctx.g.cfg.new_line == "\r\n" {
                         ctx.g.cfg.new_line = "\n".into();
                     } else {
@@ -621,10 +649,10 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                     }
                     Control::Changed
                 }
-                MenuOutcome::MenuActivated(1, 2) => {
+                MenuOutcome::MenuActivated(2, 2) => {
                     Control::Message(MDAction::Split)
                 }
-                MenuOutcome::MenuSelected(2, n) => {
+                MenuOutcome::MenuSelected(3, n) => {
                     ctx.g.theme = dark_themes()[n].clone();
                     Control::Changed
                 }
@@ -669,11 +697,9 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
 // Extended text-editing for markdown.
 pub mod markdown {
     use anyhow::{anyhow, Error};
-    use log::debug;
     use pulldown_cmark::{Event, Options, Parser, Tag};
     use rat_salsa::event::ct_event;
     use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
-    use rat_widget::text::TextError::TextRangeOutOfBounds;
     use rat_widget::text::{upos_type, TextPosition, TextRange};
     use rat_widget::textarea::TextAreaState;
     use std::cmp::max;
@@ -746,6 +772,99 @@ pub mod markdown {
         }
     }
 
+    pub fn md_format_table(state: &mut TextAreaState, eq_width: bool) -> TextOutcome {
+        if let Some(table_range) = md_table(state) {
+            let cursor = state.cursor();
+            let (table, new_cursor) = reformat_md_table(
+                state.str_slice(table_range).as_ref(),
+                table_range,
+                cursor,
+                eq_width,
+                state.newline(),
+            );
+            state.begin_undo_seq();
+            state.delete_range(table_range);
+            state
+                .value
+                .insert_str(table_range.start, &table)
+                .expect("fine");
+            state.set_cursor(new_cursor, false);
+            state.end_undo_seq();
+            TextOutcome::TextChanged
+        } else {
+            TextOutcome::Continue
+        }
+    }
+
+    pub fn md_line_break_table(state: &mut TextAreaState) -> TextOutcome {
+        let cursor = state.cursor();
+        if is_md_table(state) {
+            let line = state.line_at(cursor.y);
+            if cursor.x == state.line_width(cursor.y) {
+                let (x, row) = empty_md_row(line.as_ref(), state.newline());
+                state.insert_str(row);
+                state.set_cursor((x, cursor.y + 1), false);
+                TextOutcome::TextChanged
+            } else {
+                let (x, row) = split_md_row(line.as_ref(), cursor.x, state.newline());
+                state.begin_undo_seq();
+                state.delete_range(TextRange::new((0, cursor.y), (0, cursor.y + 1)));
+                state.insert_str(row);
+                state.set_cursor((x, cursor.y + 1), false);
+                state.end_undo_seq();
+                TextOutcome::TextChanged
+            }
+        } else {
+            let cursor = state.cursor();
+            if cursor.x == state.line_width(cursor.y) {
+                let (maybe_table, maybe_header) = is_md_maybe_table(state);
+                if maybe_header {
+                    let line = state.line_at(cursor.y);
+                    let (x, row) = empty_md_row(line.as_ref(), state.newline());
+                    state.insert_str(row);
+                    state.set_cursor((x, cursor.y + 1), false);
+                    TextOutcome::TextChanged
+                } else if maybe_table {
+                    let line = state.line_at(cursor.y);
+                    let (x, row) = create_md_title(line.as_ref(), state.newline());
+                    state.insert_str(row);
+                    state.set_cursor((x, cursor.y + 1), false);
+                    TextOutcome::TextChanged
+                } else {
+                    TextOutcome::Continue
+                }
+            } else {
+                TextOutcome::Continue
+            }
+        }
+    }
+
+    pub fn md_tab_table(state: &mut TextAreaState) -> TextOutcome {
+        if is_md_table(state) {
+            let cursor = state.cursor();
+            let row = state.line_at(cursor.y);
+            let x = next_tab_md_row(row.as_ref(), cursor.x);
+            state.set_cursor((x, cursor.y), false);
+            state.set_move_col(Some(x));
+            TextOutcome::TextChanged
+        } else {
+            TextOutcome::Continue
+        }
+    }
+
+    pub fn md_backtab_table(state: &mut TextAreaState) -> TextOutcome {
+        if is_md_table(state) {
+            let cursor = state.cursor();
+            let row = state.line_at(cursor.y);
+            let x = prev_tab_md_row(row.as_ref(), cursor.x);
+            state.set_cursor((x, cursor.y), false);
+            state.set_move_col(Some(x));
+            TextOutcome::TextChanged
+        } else {
+            TextOutcome::Continue
+        }
+    }
+
     // qualifier for markdown-editing.
     #[derive(Debug)]
     pub struct MarkDown;
@@ -753,114 +872,11 @@ pub mod markdown {
     impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaState {
         fn handle(&mut self, event: &crossterm::event::Event, qualifier: MarkDown) -> TextOutcome {
             flow!(match event {
-                ct_event!(key press ALT-'t') => {
-                    if let Some(table_range) = md_table(self) {
-                        let cursor = self.cursor();
-                        let (table, new_cursor) = reformat_md_table(
-                            self.str_slice(table_range).as_ref(),
-                            table_range,
-                            cursor,
-                            false,
-                        );
-                        self.begin_undo_seq();
-                        self.delete_range(table_range);
-                        self.value
-                            .insert_str(table_range.start, &table)
-                            .expect("fine");
-                        self.set_cursor(new_cursor, false);
-                        self.end_undo_seq();
-                        TextOutcome::TextChanged
-                    } else {
-                        TextOutcome::Continue
-                    }
-                }
-                ct_event!(key press ALT_SHIFT-'T') => {
-                    if let Some(table_range) = md_table(self) {
-                        let cursor = self.cursor();
-                        let (table, new_cursor) = reformat_md_table(
-                            self.str_slice(table_range).as_ref(),
-                            table_range,
-                            cursor,
-                            true,
-                        );
-                        self.begin_undo_seq();
-                        self.delete_range(table_range);
-                        self.value
-                            .insert_str(table_range.start, &table)
-                            .expect("fine");
-                        self.set_cursor(new_cursor, false);
-                        self.end_undo_seq();
-                        TextOutcome::TextChanged
-                    } else {
-                        TextOutcome::Continue
-                    }
-                }
-                ct_event!(keycode press Enter) => {
-                    let cursor = self.cursor();
-                    if is_md_table(self) {
-                        let line = self.line_at(cursor.y);
-                        if cursor.x == self.line_width(cursor.y) {
-                            let (x, row) = empty_md_row(line.as_ref());
-                            self.insert_str(row);
-                            self.set_cursor((x, cursor.y + 1), false);
-                            TextOutcome::TextChanged
-                        } else {
-                            let (x, row) = split_md_row(line.as_ref(), cursor.x);
-                            self.begin_undo_seq();
-                            self.delete_range(TextRange::new((0, cursor.y), (0, cursor.y + 1)));
-                            self.insert_str(row);
-                            self.set_cursor((x, cursor.y + 1), false);
-                            self.end_undo_seq();
-                            TextOutcome::TextChanged
-                        }
-                    } else {
-                        let cursor = self.cursor();
-                        if cursor.x == self.line_width(cursor.y) {
-                            let (maybe_table, maybe_header) = is_md_maybe_table(self);
-                            if maybe_header {
-                                let line = self.line_at(cursor.y);
-                                let (x, row) = empty_md_row(line.as_ref());
-                                self.insert_str(row);
-                                self.set_cursor((x, cursor.y + 1), false);
-                                TextOutcome::TextChanged
-                            } else if maybe_table {
-                                let line = self.line_at(cursor.y);
-                                let (x, row) = create_md_title(line.as_ref());
-                                self.insert_str(row);
-                                self.set_cursor((x, cursor.y + 1), false);
-                                TextOutcome::TextChanged
-                            } else {
-                                TextOutcome::Continue
-                            }
-                        } else {
-                            TextOutcome::Continue
-                        }
-                    }
-                }
-                ct_event!(keycode press Tab) => {
-                    if is_md_table(self) {
-                        let cursor = self.cursor();
-                        let row = self.line_at(cursor.y);
-                        let x = next_tab_md_row(row.as_ref(), cursor.x);
-                        self.set_cursor((x, cursor.y), false);
-                        self.set_move_col(Some(x));
-                        TextOutcome::TextChanged
-                    } else {
-                        TextOutcome::Continue
-                    }
-                }
-                ct_event!(keycode press SHIFT-BackTab) => {
-                    if is_md_table(self) {
-                        let cursor = self.cursor();
-                        let row = self.line_at(cursor.y);
-                        let x = prev_tab_md_row(row.as_ref(), cursor.x);
-                        self.set_cursor((x, cursor.y), false);
-                        self.set_move_col(Some(x));
-                        TextOutcome::TextChanged
-                    } else {
-                        TextOutcome::Continue
-                    }
-                }
+                ct_event!(key press ALT-'t') => md_format_table(self, false),
+                ct_event!(key press ALT_SHIFT-'T') => md_format_table(self, true),
+                ct_event!(keycode press Enter) => md_line_break_table(self),
+                ct_event!(keycode press Tab) => md_tab_table(self),
+                ct_event!(keycode press SHIFT-BackTab) => md_backtab_table(self),
                 _ => TextOutcome::Continue,
             });
 
@@ -1057,6 +1073,7 @@ pub mod markdown {
         range: TextRange,
         cursor: TextPosition,
         eq_width: bool,
+        new_line: &str,
     ) -> (String, TextPosition) {
         use std::fmt::Write;
 
@@ -1120,18 +1137,18 @@ pub mod markdown {
                     _ = write!(buf, "{}", " ".repeat(len as usize));
                 }
             }
-            buf.push('\n');
+            buf.push_str(new_line);
         }
 
         (buf, TextPosition::new(buf_col, cursor.y))
     }
 
     // create underlines under the header
-    fn create_md_title(txt: &str) -> (upos_type, String) {
+    fn create_md_title(txt: &str, newline: &str) -> (upos_type, String) {
         let row = parse_md_row(txt, 0);
 
         let mut new_row = String::new();
-        new_row.push('\n');
+        new_row.push_str(newline);
         new_row.push_str(row.row[0].txt);
         new_row.push('|');
         for idx in 1..row.row.len() - 1 {
@@ -1147,7 +1164,7 @@ pub mod markdown {
     }
 
     // add a line break
-    fn split_md_row(txt: &str, cursor: upos_type) -> (upos_type, String) {
+    fn split_md_row(txt: &str, cursor: upos_type, newline: &str) -> (upos_type, String) {
         let row = parse_md_row(txt, 0);
 
         let mut tmp0 = String::new();
@@ -1194,18 +1211,18 @@ pub mod markdown {
             tmp0.push('|');
             tmp1.push('|');
         }
-        tmp0.push('\n');
+        tmp0.push_str(newline);
         tmp0.push_str(tmp1.as_str());
-        tmp0.push('\n');
+        tmp0.push_str(newline);
 
         (tmp_pos, tmp0)
     }
 
     // duplicate as empty row
-    fn empty_md_row(txt: &str) -> (upos_type, String) {
+    fn empty_md_row(txt: &str, newline: &str) -> (upos_type, String) {
         let row = parse_md_row(txt, 0);
         let mut new_row = String::new();
-        new_row.push('\n');
+        new_row.push_str(newline);
         new_row.push('|');
         for idx in 1..row.row.len() - 1 {
             for g in row.row[idx].txt.graphemes(true) {
@@ -1283,15 +1300,13 @@ pub mod markdown {
             bytes: byte_start..txt.len(),
         });
 
-        debug!("parse {}:{:?}\n{:#?}", x, txt, tmp);
-
         tmp
     }
 }
 
 // Editor for a single file.
 pub mod mdfile {
-    use crate::markdown::{parse_md_styles, MarkDown};
+    use crate::markdown::{md_format_table, parse_md_styles, MarkDown};
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
     use log::{debug, warn};
@@ -1495,16 +1510,7 @@ pub mod mdfile {
             // call markdown event-handling instead of regular.
             try_flow!(match self.edit.handle(event, MarkDown) {
                 TextOutcome::TextChanged => {
-                    debug!("change detect");
-                    self.changed = true;
-                    // send sync
-                    ctx.queue(Control::Message(MDAction::SyncEdit));
-                    // restart timer
-                    self.parse_timer = Some(ctx.replace_timer(
-                        self.parse_timer,
-                        TimerDef::new().next(Instant::now() + Duration::from_millis(200)),
-                    ));
-
+                    self.text_changed(ctx);
                     Control::Changed
                 }
                 r => r.into(),
@@ -1592,6 +1598,31 @@ pub mod mdfile {
             let styles = parse_md_styles(&self.edit);
             self.edit.set_styles(styles);
         }
+
+        // Format selected table
+        pub fn md_format_table(
+            &mut self,
+            eq_width: bool,
+            ctx: &mut AppContext<'_>,
+        ) -> Control<MDAction> {
+            match md_format_table(&mut self.edit, eq_width) {
+                TextOutcome::TextChanged => self.text_changed(ctx),
+                r => r.into(),
+            }
+        }
+
+        // Flag any text-changes.
+        pub fn text_changed(&mut self, ctx: &mut AppContext<'_>) -> Control<MDAction> {
+            self.changed = true;
+            // send sync
+            ctx.queue(Control::Message(MDAction::SyncEdit));
+            // restart timer
+            self.parse_timer = Some(ctx.replace_timer(
+                self.parse_timer,
+                TimerDef::new().next(Instant::now() + Duration::from_millis(200)),
+            ));
+            Control::Changed
+        }
     }
 }
 
@@ -1601,7 +1632,6 @@ pub mod split_tab {
     use crate::{AppContext, AppFocus, GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
-    use log::debug;
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, Regular, TabbedOutcome};
