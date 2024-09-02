@@ -594,34 +594,10 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
             });
 
             try_flow!(match self.menu.handle(event, Popup) {
-                MenuOutcome::MenuActivated(0, 0) => {
-                    ctx.g.file_dlg.engage(
-                        |w| {
-                            w.save_dialog(".", "")?;
-                            Ok(Control::Changed)
-                        },
-                        |p| Ok(Control::Message(MDAction::New(p))),
-                    )?
-                }
-                MenuOutcome::MenuActivated(0, 1) => {
-                    ctx.g.file_dlg.engage(
-                        |w| {
-                            w.open_dialog(".")?;
-                            Ok(Control::Changed)
-                        },
-                        |p| Ok(Control::Message(MDAction::Open(p))),
-                    )?
-                }
-                MenuOutcome::MenuActivated(0, 2) => Control::Message(MDAction::Save),
-                MenuOutcome::MenuActivated(0, 3) => {
-                    ctx.g.file_dlg.engage(
-                        |w| {
-                            w.save_dialog(".", "")?;
-                            Ok(Control::Changed)
-                        },
-                        |p| Ok(Control::Message(MDAction::SaveAs(p))),
-                    )?
-                }
+                MenuOutcome::MenuActivated(0, 0) => Control::Message(MDAction::MenuNew),
+                MenuOutcome::MenuActivated(0, 1) => Control::Message(MDAction::MenuOpen),
+                MenuOutcome::MenuActivated(0, 2) => Control::Message(MDAction::MenuSave),
+                MenuOutcome::MenuActivated(0, 3) => Control::Message(MDAction::MenuSaveAs),
                 MenuOutcome::MenuActivated(1, 0) => {
                     if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
                         ctx.focus().focus(sel);
@@ -662,7 +638,7 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
 
             try_flow!(self.editor.crossterm(event, ctx)?);
             try_flow!(match self.menu.handle(event, Regular) {
-                MenuOutcome::Activated(3) => Control::Quit,
+                MenuOutcome::Activated(4) => Control::Quit,
                 r => r.into(),
             });
 
@@ -679,6 +655,36 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
             MDAction::Message(s) => {
                 ctx.g.status.status(0, &*s);
                 Control::Changed
+            }
+            MDAction::MenuNew => {
+                ctx.g.file_dlg.engage(
+                    |w| {
+                        w.save_dialog(".", "")?;
+                        Ok(Control::Changed)
+                    },
+                    |p| Ok(Control::Message(MDAction::New(p))),
+                )?
+            }
+            MDAction::MenuOpen => {
+                ctx.g.file_dlg.engage(
+                    |w| {
+                        w.open_dialog(".")?;
+                        Ok(Control::Changed)
+                    },
+                    |p| Ok(Control::Message(MDAction::Open(p))),
+                )?
+            }
+            MDAction::MenuSave => {
+                Control::Message(MDAction::Save)
+            }
+            MDAction::MenuSaveAs => {
+                ctx.g.file_dlg.engage(
+                    |w| {
+                        w.save_dialog(".", "")?;
+                        Ok(Control::Changed)
+                    },
+                    |p| Ok(Control::Message(MDAction::SaveAs(p))),
+                )?
             }
             _ => Control::Continue,
         });
@@ -698,6 +704,7 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
 // Extended text-editing for markdown.
 pub mod markdown {
     use anyhow::{anyhow, Error};
+    use log::debug;
     use pulldown_cmark::{Event, Options, Parser, Tag};
     use rat_salsa::event::ct_event;
     use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
@@ -715,12 +722,13 @@ pub mod markdown {
         CodeBlock,
         FootnoteDefinition,
         FootnoteReference,
+        ItemTag,
         Item,
         Emphasis,
         Strong,
         Strikethrough,
-        Link,
-        Image, // 10
+        Link, // 10
+        Image,
         MetadataBlock,
         CodeInline,
         MathInline,
@@ -728,10 +736,12 @@ pub mod markdown {
         Rule,
         TaskListMarker,
         Html,
-        Table, // 18
-        TableHead,
-        TableRow, // 20
+        Table,
+        TableHead, // 20
+        TableRow,
         TableCell,
+        Paragraph,
+        List,
     }
 
     impl From<MDStyle> for usize {
@@ -751,38 +761,43 @@ pub mod markdown {
                 2 => CodeBlock,
                 3 => FootnoteDefinition,
                 4 => FootnoteReference,
-                5 => Item,
-                6 => Emphasis,
-                7 => Strong,
-                8 => Strikethrough,
-                9 => Link,
-                10 => Image,
-                11 => MetadataBlock,
-                12 => CodeInline,
-                13 => MathInline,
-                14 => MathDisplay,
-                15 => Rule,
-                16 => TaskListMarker,
-                17 => Html,
-                18 => Table,
-                19 => TableHead,
-                20 => TableRow,
-                21 => TableCell,
+                5 => ItemTag,
+                6 => Item,
+                7 => Emphasis,
+                8 => Strong,
+                9 => Strikethrough,
+                10 => Link,
+                11 => Image,
+                12 => MetadataBlock,
+                13 => CodeInline,
+                14 => MathInline,
+                15 => MathDisplay,
+                16 => Rule,
+                17 => TaskListMarker,
+                18 => Html,
+                19 => Table,
+                20 => TableHead,
+                21 => TableRow,
+                22 => TableCell,
+                23 => Paragraph,
+                24 => List,
                 _ => return Err(anyhow!("invalid style {}", value)),
             })
         }
     }
 
-    pub fn md_format_table(state: &mut TextAreaState, eq_width: bool) -> TextOutcome {
-        if let Some(table_range) = md_table(state) {
+    pub fn md_format(state: &mut TextAreaState, equal_width: bool) -> TextOutcome {
+        if let Some((table_byte, table_range)) = md_table(state) {
             let cursor = state.cursor();
+
             let (table, new_cursor) = reformat_md_table(
-                state.str_slice(table_range).as_ref(),
+                state.str_slice_byte(table_byte).as_ref(),
                 table_range,
                 cursor,
-                eq_width,
+                equal_width,
                 state.newline(),
             );
+
             state.begin_undo_seq();
             state.delete_range(table_range);
             state
@@ -792,12 +807,86 @@ pub mod markdown {
             state.set_cursor(new_cursor, false);
             state.end_undo_seq();
             TextOutcome::TextChanged
+        } else if let Some((
+            item_byte, //
+            item_range,
+            para_byte,
+            para_range,
+        )) = md_item_paragraph(state)
+        {
+            let item_str = state.str_slice_byte(item_byte.clone());
+            let item = parse_md_item(item_byte.start, item_str.as_ref());
+            let item_pos = state.byte_pos(item.mark_bytes.start);
+            let item_text_pos = state.byte_pos(item.text_bytes.start);
+
+            let text_indent0 = if item_pos.y == para_range.start.y {
+                "".to_string()
+            } else {
+                " ".repeat((item_text_pos.x - para_range.start.x) as usize)
+            };
+            let text_indent = " ".repeat(item_text_pos.x as usize);
+
+            let para_text = state.str_slice_byte(para_byte);
+            let (para_text, _) = textwrap::unfill(para_text.as_ref());
+            let wrap = textwrap::fill(
+                para_text.as_ref(),
+                textwrap::Options::new(65)
+                    .initial_indent(&text_indent0)
+                    .subsequent_indent(&text_indent),
+            );
+
+            state.begin_undo_seq();
+            state.delete_range(para_range);
+            state
+                .value
+                .insert_str(para_range.start, &wrap)
+                .expect("fine");
+            state.set_cursor(para_range.start, false);
+            state.end_undo_seq();
+            TextOutcome::TextChanged
+        } else if let Some((item_byte, item_range)) = md_item(state) {
+            let item_str = state.str_slice_byte(item_byte.clone());
+            let item = parse_md_item(item_byte.start, item_str.as_ref());
+            let item_text_range = state.byte_range(item.text_bytes.clone());
+            let text_indent = " ".repeat(item_text_range.start.x as usize);
+
+            let item_text = state.str_slice_byte(item.text_bytes);
+            let (item_text, _) = textwrap::unfill(item_text.as_ref());
+            let item_wrap = textwrap::fill(
+                item_text.as_ref(),
+                textwrap::Options::new(65).subsequent_indent(&text_indent),
+            );
+
+            state.begin_undo_seq();
+            state.delete_range(item_text_range);
+            state
+                .value
+                .insert_str(item_text_range.start, &item_wrap)
+                .expect("fine");
+            state.set_cursor(item_text_range.start, false);
+            state.end_undo_seq();
+            TextOutcome::TextChanged
+        } else if let Some((para_byte, para_range)) = md_paragraph(state) {
+            let cursor = state.cursor();
+
+            let txt = state.str_slice_byte(para_byte);
+            let wrap = textwrap::refill(txt.as_ref(), 65);
+
+            state.begin_undo_seq();
+            state.delete_range(para_range);
+            state
+                .value
+                .insert_str(para_range.start, &wrap)
+                .expect("fine");
+            state.set_cursor(para_range.start, false);
+            state.end_undo_seq();
+            TextOutcome::TextChanged
         } else {
             TextOutcome::Continue
         }
     }
 
-    pub fn md_line_break_table(state: &mut TextAreaState) -> TextOutcome {
+    pub fn md_line_break(state: &mut TextAreaState) -> TextOutcome {
         let cursor = state.cursor();
         if is_md_table(state) {
             let line = state.line_at(cursor.y);
@@ -840,11 +929,51 @@ pub mod markdown {
         }
     }
 
-    pub fn md_tab_table(state: &mut TextAreaState) -> TextOutcome {
+    pub fn md_tab(state: &mut TextAreaState) -> TextOutcome {
         if is_md_table(state) {
             let cursor = state.cursor();
             let row = state.line_at(cursor.y);
             let x = next_tab_md_row(row.as_ref(), cursor.x);
+            state.set_cursor((x, cursor.y), false);
+            state.set_move_col(Some(x));
+            TextOutcome::TextChanged
+        } else if is_md_item(state) {
+            let cursor = state.cursor();
+
+            let (item_byte, item_range) = md_item(state).expect("item");
+            let indent_x = if item_range.start.y < cursor.y {
+                let item_str = state.str_slice_byte(item_byte.clone());
+                let item = parse_md_item(item_byte.start, item_str.as_ref());
+                state.byte_pos(item.text_bytes.start).x
+            } else if let Some((prev_byte, prev_range)) = md_prev_item(state) {
+                let prev_str = state.str_slice_byte(prev_byte.clone());
+                let prev_item = parse_md_item(prev_byte.start, prev_str.as_ref());
+                state.byte_pos(prev_item.text_bytes.start).x
+            } else {
+                0
+            };
+
+            if cursor.x < indent_x {
+                state
+                    .value
+                    .insert_str(cursor, &(" ".repeat((indent_x - cursor.x) as usize)))
+                    .expect("fine");
+                TextOutcome::TextChanged
+            } else {
+                TextOutcome::Continue
+            }
+        } else {
+            TextOutcome::Continue
+        }
+    }
+
+    pub fn md_backtab(state: &mut TextAreaState) -> TextOutcome {
+        if is_md_table(state) {
+            let cursor = state.cursor();
+
+            let row_str = state.line_at(cursor.y);
+            let x = prev_tab_md_row(row_str.as_ref(), cursor.x);
+
             state.set_cursor((x, cursor.y), false);
             state.set_move_col(Some(x));
             TextOutcome::TextChanged
@@ -853,17 +982,29 @@ pub mod markdown {
         }
     }
 
-    pub fn md_backtab_table(state: &mut TextAreaState) -> TextOutcome {
-        if is_md_table(state) {
-            let cursor = state.cursor();
-            let row = state.line_at(cursor.y);
-            let x = prev_tab_md_row(row.as_ref(), cursor.x);
-            state.set_cursor((x, cursor.y), false);
-            state.set_move_col(Some(x));
-            TextOutcome::TextChanged
-        } else {
-            TextOutcome::Continue
+    fn md_xxx(state: &TextAreaState) -> TextOutcome {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+
+        let mut sty = Vec::new();
+        state.styles_at(cursor_byte, &mut sty);
+        for (r, s) in sty {
+            debug!("style {:?}: {:?}", cursor, MDStyle::try_from(s));
         }
+
+        if let Some(list_byte) = state.style_match(cursor_byte, MDStyle::List as usize) {
+            let mut sty = Vec::new();
+            state.styles_in(list_byte, &mut sty);
+
+            for (r, s) in sty {
+                if s == MDStyle::Item as usize {
+                    let txt = state.str_slice_byte(r.clone());
+                    let item = parse_md_item(r.start, txt.as_ref());
+                    debug!("{:#?}", item);
+                }
+            }
+        }
+        TextOutcome::Unchanged
     }
 
     // qualifier for markdown-editing.
@@ -873,11 +1014,13 @@ pub mod markdown {
     impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaState {
         fn handle(&mut self, event: &crossterm::event::Event, qualifier: MarkDown) -> TextOutcome {
             flow!(match event {
-                ct_event!(key press ALT-'t') => md_format_table(self, false),
-                ct_event!(key press ALT_SHIFT-'T') => md_format_table(self, true),
-                ct_event!(keycode press Enter) => md_line_break_table(self),
-                ct_event!(keycode press Tab) => md_tab_table(self),
-                ct_event!(keycode press SHIFT-BackTab) => md_backtab_table(self),
+                ct_event!(key press ALT-'p') => md_xxx(self),
+
+                ct_event!(key press ALT-'f') => md_format(self, false),
+                ct_event!(key press ALT_SHIFT-'F') => md_format(self, true),
+                ct_event!(keycode press Enter) => md_line_break(self),
+                ct_event!(keycode press Tab) => md_tab(self),
+                ct_event!(keycode press SHIFT-BackTab) => md_backtab(self),
                 _ => TextOutcome::Continue,
             });
 
@@ -918,18 +1061,12 @@ pub mod markdown {
                 }
                 Event::Start(Tag::Item) => {
                     // only color the marker
-                    let text_range = state.byte_range(r.clone());
-                    let text = state.rope_slice(text_range);
-                    let r = 'f: {
-                        let mut n = 0;
-                        for c in text.bytes() {
-                            if c == b' ' {
-                                break 'f r.start..r.start + n;
-                            }
-                            n += 1;
-                        }
-                        r
-                    };
+                    let text = state.str_slice_byte(r.clone());
+                    let item = parse_md_item(r.start, text.as_ref());
+                    styles.push((
+                        item.mark_bytes.start..item.mark_bytes.end,
+                        MDStyle::ItemTag as usize,
+                    ));
                     styles.push((r, MDStyle::Item as usize));
                 }
                 Event::Start(Tag::Emphasis) => {
@@ -951,13 +1088,13 @@ pub mod markdown {
                     styles.push((r, MDStyle::MetadataBlock as usize));
                 }
                 Event::Start(Tag::Paragraph) => {
-                    // base style
+                    styles.push((r, MDStyle::Paragraph as usize));
                 }
                 Event::Start(Tag::HtmlBlock) => {
                     styles.push((r, MDStyle::Html as usize));
                 }
                 Event::Start(Tag::List(_)) => {
-                    // base style
+                    styles.push((r, MDStyle::List as usize));
                 }
                 Event::Start(Tag::Table(_)) => {
                     styles.push((r, MDStyle::Table as usize));
@@ -971,7 +1108,6 @@ pub mod markdown {
                 Event::Start(Tag::TableCell) => {
                     styles.push((r, MDStyle::TableCell as usize));
                 }
-
                 Event::Code(v) => {
                     styles.push((r, MDStyle::CodeInline as usize));
                 }
@@ -1030,21 +1166,127 @@ pub mod markdown {
     }
 
     fn is_md_table(state: &TextAreaState) -> bool {
-        let pos = state.cursor();
-        let pos_byte = state.byte_at(pos).start;
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
         state
-            .style_match(pos_byte, MDStyle::Table as usize)
+            .style_match(cursor_byte, MDStyle::Table as usize)
             .is_some()
     }
 
-    fn md_table(state: &TextAreaState) -> Option<TextRange> {
-        let pos = state.cursor();
-        let pos_byte = state.byte_at(pos).start;
+    fn md_table(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
 
-        let row_byte = state.style_match(pos_byte, MDStyle::Table as usize);
+        let row_byte = state.style_match(cursor_byte, MDStyle::Table as usize);
 
         if let Some(row_byte) = row_byte {
-            Some(state.byte_range(row_byte))
+            Some((row_byte.clone(), state.byte_range(row_byte)))
+        } else {
+            None
+        }
+    }
+
+    fn is_md_paragraph(state: &TextAreaState) -> bool {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+        state
+            .style_match(cursor_byte, MDStyle::Paragraph as usize)
+            .is_some()
+    }
+
+    fn md_paragraph(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+
+        let row_byte = state.style_match(cursor_byte, MDStyle::Paragraph as usize);
+
+        if let Some(row_byte) = row_byte {
+            Some((row_byte.clone(), state.byte_range(row_byte)))
+        } else {
+            None
+        }
+    }
+
+    fn md_item_paragraph(
+        state: &TextAreaState,
+    ) -> Option<(Range<usize>, TextRange, Range<usize>, TextRange)> {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+
+        let mut sty = Vec::new();
+        state.styles_at(cursor_byte, &mut sty);
+
+        let mut r_list = None;
+        let mut r_para = None;
+        for (r, s) in sty {
+            if s == MDStyle::List as usize {
+                r_list = Some(r.clone());
+            }
+            if s == MDStyle::Paragraph as usize {
+                r_para = Some(r.clone());
+            }
+        }
+
+        if let Some(r_list) = r_list {
+            if let Some(r_para) = r_para {
+                Some((
+                    r_list.clone(),
+                    state.byte_range(r_list),
+                    r_para.clone(),
+                    state.byte_range(r_para),
+                ))
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn is_md_item(state: &TextAreaState) -> bool {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+        state
+            .style_match(cursor_byte, MDStyle::Item as usize)
+            .is_some()
+    }
+
+    fn md_prev_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+
+        let item_byte = state.style_match(cursor_byte, MDStyle::Item as usize);
+        let list_byte = state.style_match(cursor_byte, MDStyle::List as usize);
+
+        if let Some(list_byte) = list_byte {
+            if let Some(item_byte) = item_byte {
+                let mut sty = Vec::new();
+                state.styles_in(list_byte.start..item_byte.start, &mut sty);
+
+                let prev = sty.iter().filter(|v| v.1 == MDStyle::Item as usize).last();
+
+                if let Some((prev_bytes, _)) = prev {
+                    let prev = state.byte_range(prev_bytes.clone());
+                    Some((prev_bytes.clone(), prev))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
+    fn md_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+
+        let item_byte = state.style_match(cursor_byte, MDStyle::Item as usize);
+
+        if let Some(item_byte) = item_byte {
+            Some((item_byte.clone(), state.byte_range(item_byte)))
         } else {
             None
         }
@@ -1129,9 +1371,9 @@ pub mod markdown {
                     } else {
                         _ = write!(
                             buf,
-                            " {:1$}",
+                            " {:1$} ",
                             cell.txt.trim(),
-                            len.saturating_sub(1) as usize
+                            len.saturating_sub(2) as usize
                         );
                     }
                 } else {
@@ -1241,6 +1483,96 @@ pub mod markdown {
         (x, new_row)
     }
 
+    // parse a single list item into marker and text.
+    #[derive(Debug)]
+    struct MDItem<'a> {
+        mark_bytes: Range<usize>,
+        mark: &'a str,
+        mark_suffix: &'a str,
+        mark_nr: Option<usize>,
+        text_bytes: Range<usize>,
+        text: &'a str,
+    }
+
+    fn parse_md_item(start: usize, txt: &str) -> MDItem<'_> {
+        let mut mark_byte_start = 0;
+        let mut mark_byte_end = 0;
+        let mut mark_bullet = None;
+        let mut mark_ordered = None;
+        let mut mark_suffix = None;
+        let mut mark_nr = None;
+        let mut text_byte_start = 0;
+        let mut text_byte_end = 0;
+        let mut text_str = None;
+
+        #[derive(Debug, PartialEq)]
+        enum It {
+            Leading,
+            BulletMark,
+            OrderedMark,
+            OrderedSuffix,
+            TextLeading,
+        }
+
+        let mut state = It::Leading;
+        for (idx, c) in txt.bytes().enumerate() {
+            if state == It::BulletMark {
+                state = It::TextLeading;
+            }
+            if state == It::Leading {
+                if c == b'+' || c == b'-' || c == b'*' {
+                    mark_byte_start = idx;
+                    mark_byte_end = idx + 1;
+                    mark_bullet = Some(&txt[idx..idx + 1]);
+                    state = It::BulletMark;
+                } else if c.is_ascii_digit() {
+                    mark_byte_start = idx;
+                    state = It::OrderedMark;
+                } else if c == b' ' || c == b'\t' {
+                    // ok
+                } else {
+                    // broken??
+                    state = It::TextLeading;
+                }
+            }
+            if state == It::OrderedSuffix {
+                state = It::TextLeading
+            }
+            if state == It::OrderedMark {
+                if c.is_ascii_digit() {
+                    // ok
+                } else if c == b'.' || c == b')' {
+                    mark_byte_end = idx + 1;
+                    mark_ordered = Some(&txt[mark_byte_start..idx]);
+                    mark_nr = Some(txt[mark_byte_start..idx].parse::<usize>().expect("nr"));
+                    mark_suffix = Some(&txt[idx..idx + 1]);
+                    state = It::OrderedSuffix;
+                } else {
+                    state = It::TextLeading;
+                }
+            }
+            if state == It::TextLeading {
+                if c == b' ' || c == b'\t' {
+                    // ok
+                } else {
+                    text_byte_start = idx;
+                    text_byte_end = txt.len();
+                    text_str = Some(&txt[idx..]);
+                    break;
+                }
+            }
+        }
+
+        MDItem {
+            mark_bytes: start + mark_byte_start..start + mark_byte_end,
+            mark: mark_bullet.unwrap_or_else(|| mark_ordered.unwrap_or("")),
+            mark_suffix: mark_suffix.unwrap_or(""),
+            mark_nr,
+            text_bytes: start + text_byte_start..start + text_byte_end,
+            text: text_str.unwrap_or(""),
+        }
+    }
+
     #[derive(Debug)]
     struct MDCell<'a> {
         txt: &'a str,
@@ -1307,7 +1639,7 @@ pub mod markdown {
 
 // Editor for a single file.
 pub mod mdfile {
-    use crate::markdown::{md_format_table, parse_md_styles, MarkDown};
+    use crate::markdown::{md_format, parse_md_styles, MarkDown};
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
     use log::{debug, warn};
@@ -1421,14 +1753,15 @@ pub mod mdfile {
         }
     }
 
-    fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 22] {
+    fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 25] {
         [
             Style::default().fg(ctx.g.scheme().yellow[2]).underlined(), // Heading,
             Style::default().fg(ctx.g.scheme().orange[2]),              // BlockQuote,
             Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeBlock,
             Style::default().fg(ctx.g.scheme().bluegreen[3]),           // FootnodeDefinition
             Style::default().fg(ctx.g.scheme().bluegreen[2]),           // FootnodeReference
-            Style::default().fg(ctx.g.scheme().orange[2]),              // Item
+            Style::default().fg(ctx.g.scheme().orange[2]),              // ItemTag
+            Style::default(),                                           // Item
             Style::default()
                 .fg(ctx.g.scheme().white[3])
                 .add_modifier(Modifier::ITALIC), // Emphasis
@@ -1443,10 +1776,13 @@ pub mod mdfile {
             Style::default().fg(ctx.g.scheme().white[3]),               // Rule
             Style::default().fg(ctx.g.scheme().orange[2]),              // TaskListMarker
             Style::default().fg(ctx.g.scheme().gray[2]),                // Html
-            Style::default().fg(ctx.g.scheme().gray[2]),                // Table-Head
-            Style::default().fg(ctx.g.scheme().yellow[2]),              // Table
-            Style::default().fg(ctx.g.scheme().orange[1]),              // Table-Row
-            Style::default().fg(ctx.g.scheme().orange[3]),              // Table-Cell
+            Style::default().fg(ctx.g.scheme().white[1]),               // Table-Head
+            Style::default(),                                           // Table
+            Style::default().fg(ctx.g.scheme().white[1]),               // Table-Row
+            Style::default().fg(ctx.g.scheme().white[1]),               // Table-Cell
+            Style::default(), /*.bg(ctx.g.scheme().deepblue[0])*/
+            // Paragraph
+            Style::default(), /*.fg(ctx.g.scheme().magenta[3])*/             // List
         ]
     }
 
@@ -1605,7 +1941,7 @@ pub mod mdfile {
             eq_width: bool,
             ctx: &mut AppContext<'_>,
         ) -> Control<MDAction> {
-            match md_format_table(&mut self.edit, eq_width) {
+            match md_format(&mut self.edit, eq_width) {
                 TextOutcome::TextChanged => self.text_changed(ctx),
                 r => r.into(),
             }
@@ -1632,6 +1968,7 @@ pub mod split_tab {
     use crate::{AppContext, AppFocus, GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
+    use log::debug;
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, Regular, TabbedOutcome};
@@ -1768,6 +2105,7 @@ pub mod split_tab {
                     }
                 }
             }
+            debug!("focus_changed {:?} <> {:?}", old_split, self.sel_split);
             if old_split != self.sel_split {
                 if let Some((_, md)) = self.selected() {
                     ctx.queue(Control::Message(MDAction::FocusedFile(md.path.clone())));
@@ -2333,7 +2671,8 @@ pub mod mdedit {
                     }
                     ct_event!(key press CONTROL-'c')
                     | ct_event!(key press 'c')
-                    | ct_event!(key press '-') => {
+                    | ct_event!(key press 'x')
+                    | ct_event!(key press CONTROL-'x') => {
                         Control::Message(MDAction::Close)
                     }
                     ct_event!(key press CONTROL-'d')
@@ -2367,12 +2706,15 @@ pub mod mdedit {
 
             try_flow!(match event {
                 ct_event!(key press CONTROL-'n') => {
+                    debug!("ctrl+n");
                     Control::Message(MDAction::MenuNew)
                 }
                 ct_event!(key press CONTROL-'o') => {
+                    debug!("ctrl+o");
                     Control::Message(MDAction::MenuOpen)
                 }
                 ct_event!(key press CONTROL-'s') => {
+                    debug!("ctrl+s");
                     Control::Message(MDAction::Save)
                 }
                 ct_event!(keycode press F(2)) => {
@@ -2464,6 +2806,7 @@ pub mod mdedit {
                 }
 
                 MDAction::FocusedFile(p) => {
+                    debug!("focused file {:?}", p);
                     if let Some(parent) = p.parent() {
                         self.file_list.load(parent)?;
                     }
