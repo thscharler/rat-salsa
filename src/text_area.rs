@@ -29,7 +29,6 @@ use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::mem;
 use std::ops::Range;
-use unicode_segmentation::UnicodeSegmentation;
 
 /// Text area widget.
 ///
@@ -774,19 +773,16 @@ impl TextAreaState {
         self.value.text().string()
     }
 
-    /// Text slice as RopeSlice
+    /// Text slice as Cow<str>. Uses a byte range.
     #[inline]
-    pub fn rope_slice(&self, range: impl Into<TextRange>) -> RopeSlice<'_> {
-        self.value
-            .text()
-            .rope_slice(range.into())
-            .expect("valid_range")
+    pub fn str_slice_byte(&self, range: Range<usize>) -> Cow<'_, str> {
+        self.value.str_slice_byte(range).expect("valid_range")
     }
 
-    /// Text slice as RopeSlice
+    /// Text slice as Cow<str>. Uses a byte range.
     #[inline]
-    pub fn try_rope_slice(&self, range: impl Into<TextRange>) -> Result<RopeSlice<'_>, TextError> {
-        self.value.text().rope_slice(range.into())
+    pub fn try_str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
+        self.value.str_slice_byte(range)
     }
 
     /// Text slice as Cow<str>

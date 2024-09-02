@@ -42,6 +42,11 @@ pub trait TextStore {
     /// * pos must be inside of range.
     fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError>;
 
+    /// A range of the text as Cow<str>.
+    ///
+    /// * range must be valid
+    fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError>;
+
     /// Return a cursor over the graphemes of the range, start at the given position.
     ///
     /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
@@ -406,7 +411,24 @@ pub(crate) mod text_rope {
             let v = self
                 .text
                 .get_slice(start_char..end_char)
-                .expect("valid_range");
+                .expect("valid_slice");
+            match v.as_str() {
+                Some(v) => Ok(Cow::Borrowed(v)),
+                None => Ok(Cow::Owned(v.to_string())),
+            }
+        }
+
+        /// A range of the text as Cow<str>.
+        ///
+        /// The byte-range must be a valid range.
+        fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
+            let Some(v) = self.text.get_byte_slice(range.clone()) else {
+                return Err(TextError::ByteRangeOutOfBounds(
+                    Some(range.start),
+                    Some(range.end),
+                    self.text.len_bytes(),
+                ));
+            };
             match v.as_str() {
                 Some(v) => Ok(Cow::Borrowed(v)),
                 None => Ok(Cow::Owned(v.to_string())),
@@ -446,7 +468,7 @@ pub(crate) mod text_rope {
         fn line_at(&self, row: upos_type) -> Result<Cow<'_, str>, TextError> {
             let len = self.text.len_lines() as upos_type;
             if row > len {
-                return Err(TextError::LineIndexOutOfBounds(row, len));
+                Err(TextError::LineIndexOutOfBounds(row, len))
             } else if row == len {
                 Ok(Cow::Borrowed(""))
             } else {
@@ -467,7 +489,7 @@ pub(crate) mod text_rope {
         ) -> Result<impl Iterator<Item = Cow<'_, str>>, TextError> {
             let len = self.text.len_lines() as upos_type;
             if row > len {
-                return Err(TextError::LineIndexOutOfBounds(row, len));
+                Err(TextError::LineIndexOutOfBounds(row, len))
             } else {
                 let it = self.text.get_lines_at(row as usize).expect("valid_row");
                 Ok(it.map(|v| match v.as_str() {
@@ -948,6 +970,13 @@ pub(crate) mod text_string {
         /// * pos must be inside of range.
         fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError> {
             let range = self.byte_range(range)?;
+            Ok(Cow::Borrowed(&self.text[range.start..range.end]))
+        }
+
+        /// A range of the text as Cow<str>.
+        ///
+        /// * range must be valid
+        fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
             Ok(Cow::Borrowed(&self.text[range.start..range.end]))
         }
 

@@ -744,6 +744,12 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.text.str_slice(range)
     }
 
+    /// A range of the text as Cow<str>
+    #[inline]
+    pub fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
+        self.text.str_slice_byte(range)
+    }
+
     /// Iterator for the glyphs of the lines in range.
     /// Glyphs here a grapheme + display length.
     #[inline]
