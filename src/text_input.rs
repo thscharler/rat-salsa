@@ -591,6 +591,18 @@ impl TextInputState {
         self.value.text().as_str()
     }
 
+    /// Text slice as Cow<str>. Uses a byte range.
+    #[inline]
+    pub fn str_slice_byte(&self, range: Range<usize>) -> Cow<'_, str> {
+        self.value.str_slice_byte(range).expect("valid_range")
+    }
+
+    /// Text slice as Cow<str>. Uses a byte range.
+    #[inline]
+    pub fn try_str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
+        self.value.str_slice_byte(range)
+    }
+
     /// Text slice as Cow<str>
     #[inline]
     pub fn str_slice(&self, range: Range<upos_type>) -> Cow<'_, str> {

@@ -653,6 +653,12 @@ impl MaskedCore {
         Ok(r.start.x..r.end.x)
     }
 
+    /// Text slice as Cow<str>. Uses a byte range.
+    #[inline]
+    pub fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
+        self.masked.str_slice_byte(range)
+    }
+
     /// A range of the text as Cow<str>
     #[inline]
     pub fn str_slice(&self, range: Range<upos_type>) -> Result<Cow<'_, str>, TextError> {
