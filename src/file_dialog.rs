@@ -16,7 +16,7 @@ use log::debug;
 use rat_event::{
     ct_event, flow, try_flow, ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular,
 };
-use rat_focus::{match_focus, on_lost, Focus, FocusFlag, HasFocusFlag};
+use rat_focus::{on_lost, Focus, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState, TextInputStyle};
@@ -24,7 +24,6 @@ use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
-use ratatui::style::Stylize;
 use ratatui::widgets::{Block, ListItem};
 use std::cmp::max;
 use std::ffi::OsString;
