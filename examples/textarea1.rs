@@ -3,7 +3,7 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
-use rat_text::{text_area, TextRange};
+use rat_text::{text_area, HasScreenCursor, TextRange};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
