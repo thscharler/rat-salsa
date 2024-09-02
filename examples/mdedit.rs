@@ -742,6 +742,9 @@ pub mod markdown {
         TableCell,
         Paragraph,
         List,
+        DefinitionList,
+        DefinitionListTitle,
+        DefinitionListDefinition,
     }
 
     impl From<MDStyle> for usize {
@@ -781,6 +784,9 @@ pub mod markdown {
                 22 => TableCell,
                 23 => Paragraph,
                 24 => List,
+                25 => DefinitionList,
+                26 => DefinitionListTitle,
+                27 => DefinitionListDefinition,
                 _ => return Err(anyhow!("invalid style {}", value)),
             })
         }
@@ -814,25 +820,32 @@ pub mod markdown {
             para_range,
         )) = md_item_paragraph(state)
         {
+            let cursor = state.cursor();
+
             let item_str = state.str_slice_byte(item_byte.clone());
             let item = parse_md_item(item_byte.start, item_str.as_ref());
             let item_pos = state.byte_pos(item.mark_bytes.start);
             let item_text_pos = state.byte_pos(item.text_bytes.start);
-
             let text_indent0 = if item_pos.y == para_range.start.y {
                 "".to_string()
             } else {
                 " ".repeat((item_text_pos.x - para_range.start.x) as usize)
             };
             let text_indent = " ".repeat(item_text_pos.x as usize);
+            let wrap_pos = if cursor.x <= item_text_pos.x {
+                65
+            } else {
+                cursor.x
+            };
 
             let para_text = state.str_slice_byte(para_byte);
             let (para_text, _) = textwrap::unfill(para_text.as_ref());
             let wrap = textwrap::fill(
                 para_text.as_ref(),
-                textwrap::Options::new(65)
+                textwrap::Options::new(wrap_pos as usize)
                     .initial_indent(&text_indent0)
-                    .subsequent_indent(&text_indent),
+                    .subsequent_indent(&text_indent)
+                    .break_words(false),
             );
 
             state.begin_undo_seq();
@@ -845,16 +858,25 @@ pub mod markdown {
             state.end_undo_seq();
             TextOutcome::TextChanged
         } else if let Some((item_byte, item_range)) = md_item(state) {
+            let cursor = state.cursor();
+
             let item_str = state.str_slice_byte(item_byte.clone());
             let item = parse_md_item(item_byte.start, item_str.as_ref());
             let item_text_range = state.byte_range(item.text_bytes.clone());
             let text_indent = " ".repeat(item_text_range.start.x as usize);
+            let wrap_pos = if cursor.x <= item_text_range.start.x {
+                65
+            } else {
+                cursor.x
+            };
 
             let item_text = state.str_slice_byte(item.text_bytes);
             let (item_text, _) = textwrap::unfill(item_text.as_ref());
             let item_wrap = textwrap::fill(
                 item_text.as_ref(),
-                textwrap::Options::new(65).subsequent_indent(&text_indent),
+                textwrap::Options::new(wrap_pos as usize)
+                    .subsequent_indent(&text_indent)
+                    .break_words(false),
             );
 
             state.begin_undo_seq();
@@ -866,11 +888,57 @@ pub mod markdown {
             state.set_cursor(item_text_range.start, false);
             state.end_undo_seq();
             TextOutcome::TextChanged
-        } else if let Some((para_byte, para_range)) = md_paragraph(state) {
+        } else if let Some((block_byte, block_range)) = md_block_quote(state) {
             let cursor = state.cursor();
 
+            let txt = state.str_slice_byte(block_byte.clone());
+            let block = parse_md_block_quote(block_byte.start, txt.as_ref());
+
+            let text_start = state.byte_pos(block.text_start_byte);
+            let mut text_indent0 = " ".repeat(text_start.x as usize - 1);
+            text_indent0.insert(0, '>');
+            let text_indent = " ".repeat(text_start.x as usize);
+            let wrap_pos = if cursor.x <= text_start.x {
+                65
+            } else {
+                cursor.x
+            };
+
+            let mut wrap = textwrap::fill(
+                &block.text,
+                textwrap::Options::new(wrap_pos as usize)
+                    .initial_indent(&text_indent0)
+                    .subsequent_indent(&text_indent)
+                    .break_words(false),
+            );
+            wrap.push_str(state.newline());
+
+            state.begin_undo_seq();
+            state.delete_range(block_range);
+            state
+                .value
+                .insert_str(block_range.start, &wrap)
+                .expect("fine");
+            state.set_cursor(block_range.start, false);
+            state.end_undo_seq();
+            TextOutcome::TextChanged
+        } else if let Some((para_byte, para_range)) = md_paragraph(state) {
+            let cursor = state.cursor();
+            let wrap_pos = if cursor.x == 0 { 65 } else { cursor.x };
+
             let txt = state.str_slice_byte(para_byte);
-            let wrap = textwrap::refill(txt.as_ref(), 65);
+            // unfill does too much.
+            let unfill = txt
+                .as_ref()
+                .bytes()
+                .map(|v| if v == b'\n' || v == b'\r' { b' ' } else { v })
+                .chain(state.newline().bytes())
+                .collect::<Vec<_>>();
+            let unfill = String::from_utf8(unfill).unwrap_or_default();
+            let wrap = textwrap::fill(
+                unfill.as_ref(),
+                textwrap::Options::new(wrap_pos as usize).break_words(false),
+            );
 
             state.begin_undo_seq();
             state.delete_range(para_range);
@@ -992,17 +1060,10 @@ pub mod markdown {
             debug!("style {:?}: {:?}", cursor, MDStyle::try_from(s));
         }
 
-        if let Some(list_byte) = state.style_match(cursor_byte, MDStyle::List as usize) {
-            let mut sty = Vec::new();
-            state.styles_in(list_byte, &mut sty);
-
-            for (r, s) in sty {
-                if s == MDStyle::Item as usize {
-                    let txt = state.str_slice_byte(r.clone());
-                    let item = parse_md_item(r.start, txt.as_ref());
-                    debug!("{:#?}", item);
-                }
-            }
+        if let Some(list_byte) = state.style_match(cursor_byte, MDStyle::BlockQuote as usize) {
+            let str = state.str_slice_byte(list_byte.clone());
+            let q = parse_md_block_quote(list_byte.start, str.as_ref());
+            debug!("{:#?}", q);
         }
         TextOutcome::Unchanged
     }
@@ -1041,7 +1102,8 @@ pub mod markdown {
                 | Options::ENABLE_STRIKETHROUGH
                 | Options::ENABLE_SMART_PUNCTUATION
                 | Options::ENABLE_FOOTNOTES
-                | Options::ENABLE_GFM,
+                | Options::ENABLE_GFM
+                | Options::ENABLE_DEFINITION_LIST,
         )
         .into_offset_iter();
 
@@ -1108,6 +1170,16 @@ pub mod markdown {
                 Event::Start(Tag::TableCell) => {
                     styles.push((r, MDStyle::TableCell as usize));
                 }
+                Event::Start(Tag::DefinitionList) => {
+                    styles.push((r, MDStyle::DefinitionList as usize));
+                }
+                Event::Start(Tag::DefinitionListTitle) => {
+                    styles.push((r, MDStyle::DefinitionListTitle as usize));
+                }
+                Event::Start(Tag::DefinitionListDefinition) => {
+                    styles.push((r, MDStyle::DefinitionListDefinition as usize));
+                }
+
                 Event::Code(v) => {
                     styles.push((r, MDStyle::CodeInline as usize));
                 }
@@ -1130,7 +1202,10 @@ pub mod markdown {
                     styles.push((r, MDStyle::Html as usize));
                 }
 
-                _ => {}
+                Event::End(v) => {}
+                Event::Text(v) => {}
+                Event::SoftBreak => {}
+                Event::HardBreak => {}
             }
         }
 
@@ -1199,6 +1274,27 @@ pub mod markdown {
         let cursor_byte = state.byte_at(cursor).start;
 
         let row_byte = state.style_match(cursor_byte, MDStyle::Paragraph as usize);
+
+        if let Some(row_byte) = row_byte {
+            Some((row_byte.clone(), state.byte_range(row_byte)))
+        } else {
+            None
+        }
+    }
+
+    fn is_md_block_quote(state: &TextAreaState) -> bool {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+        state
+            .style_match(cursor_byte, MDStyle::BlockQuote as usize)
+            .is_some()
+    }
+
+    fn md_block_quote(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+
+        let row_byte = state.style_match(cursor_byte, MDStyle::BlockQuote as usize);
 
         if let Some(row_byte) = row_byte {
             Some((row_byte.clone(), state.byte_range(row_byte)))
@@ -1294,8 +1390,8 @@ pub mod markdown {
 
     fn prev_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
         let row = parse_md_row(txt, pos);
-        if row.cursor_idx > 0 {
-            row.row[row.cursor_idx - 1].graphemes.start
+        if row.cursor_cell > 0 {
+            row.row[row.cursor_cell - 1].txt_graphemes.start
         } else {
             pos
         }
@@ -1303,8 +1399,8 @@ pub mod markdown {
 
     fn next_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
         let row = parse_md_row(txt, pos);
-        if row.cursor_idx + 1 < row.row.len() {
-            row.row[row.cursor_idx + 1].graphemes.start
+        if row.cursor_cell + 1 < row.row.len() {
+            row.row[row.cursor_cell + 1].txt_graphemes.start
         } else {
             pos
         }
@@ -1357,7 +1453,7 @@ pub mod markdown {
             for idx in 1..width.len() {
                 // relocate cursor
                 if range.start.y + row_idx as upos_type == cursor.y {
-                    if idx == row.cursor_idx {
+                    if idx == row.cursor_cell {
                         buf_col = col_pos + 1 + row.cursor_offset;
                     }
                 }
@@ -1416,11 +1512,11 @@ pub mod markdown {
         tmp0.push('|');
         tmp1.push('|');
         for row in &row.row[1..row.row.len() - 1] {
-            if row.graphemes.contains(&cursor) {
-                tmp_pos = row.graphemes.start + 1;
+            if row.txt_graphemes.contains(&cursor) {
+                tmp_pos = row.txt_graphemes.start + 1;
 
-                let mut pos = row.graphemes.start;
-                if cursor > row.graphemes.start {
+                let mut pos = row.txt_graphemes.start;
+                if cursor > row.txt_graphemes.start {
                     tmp1.push(' ');
                 }
                 for g in row.txt.graphemes(true) {
@@ -1431,11 +1527,11 @@ pub mod markdown {
                     }
                     pos += 1;
                 }
-                pos = row.graphemes.start;
+                pos = row.txt_graphemes.start;
                 for g in row.txt.graphemes(true) {
                     if pos < cursor {
                         // omit one blank
-                        if pos != row.graphemes.start || cursor == row.graphemes.start {
+                        if pos != row.txt_graphemes.start || cursor == row.txt_graphemes.start {
                             tmp1.push(' ');
                         }
                     } else {
@@ -1443,11 +1539,11 @@ pub mod markdown {
                     }
                     pos += 1;
                 }
-            } else if row.graphemes.start < cursor {
+            } else if row.txt_graphemes.start < cursor {
                 tmp0.push_str(row.txt);
-                tmp1.push_str(" ".repeat(row.graphemes.len()).as_str());
-            } else if row.graphemes.start >= cursor {
-                tmp0.push_str(" ".repeat(row.graphemes.len()).as_str());
+                tmp1.push_str(" ".repeat(row.txt_graphemes.len()).as_str());
+            } else if row.txt_graphemes.start >= cursor {
+                tmp0.push_str(" ".repeat(row.txt_graphemes.len()).as_str());
                 tmp1.push_str(row.txt);
             }
 
@@ -1483,6 +1579,82 @@ pub mod markdown {
         (x, new_row)
     }
 
+    // parse quoted text
+    #[derive(Debug)]
+    struct MDBlockQuote {
+        text_start_byte: usize,
+        text: String,
+    }
+
+    fn parse_md_block_quote(start: usize, txt: &str) -> MDBlockQuote {
+        let mut text_start_byte = 0;
+        let mut text_line_byte = 0;
+        let mut text = Vec::new();
+
+        #[derive(Debug, PartialEq)]
+        enum It {
+            Leading,
+            Quote,
+            TextLeading,
+            Text,
+            NewLine,
+            QuoteLeading,
+        }
+
+        let mut state = It::Quote;
+        for (idx, c) in txt.bytes().enumerate() {
+            if state == It::Leading {
+                if c == b'>' {
+                    state = It::Quote;
+                } else if c == b' ' || c == b'\t' {
+                    // ok
+                } else {
+                    // next line
+                    text_line_byte = idx;
+                    text.push(c);
+                    state = It::TextLeading;
+                }
+            } else if state == It::Quote {
+                if c == b' ' || c == b'\t' {
+                    state = It::TextLeading;
+                } else {
+                    // broken??
+                    text_line_byte = idx;
+                    state = It::TextLeading;
+                }
+            } else if state == It::TextLeading {
+                if c == b' ' || c == b'\t' {
+                    // ok
+                } else {
+                    text_line_byte = idx;
+                    text.push(c);
+                    state = It::Text;
+                }
+            } else if state == It::Text {
+                if c == b'\n' || c == b'\r' {
+                    if text_start_byte == 0 {
+                        text_start_byte = text_line_byte;
+                    }
+                    text.push(b' ');
+                    state = It::NewLine;
+                } else {
+                    text.push(c);
+                }
+            } else if state == It::NewLine {
+                if c == b'\n' || c == b'\r' {
+                    // ok
+                } else {
+                    state = It::Leading;
+                }
+            }
+        }
+
+        MDBlockQuote {
+            text_start_byte: start + text_start_byte,
+            text: String::from_utf8_lossy(&text).into_owned(),
+        }
+    }
+
     // parse a single list item into marker and text.
     #[derive(Debug)]
     struct MDItem<'a> {
@@ -1508,23 +1680,18 @@ pub mod markdown {
         #[derive(Debug, PartialEq)]
         enum It {
             Leading,
-            BulletMark,
             OrderedMark,
-            OrderedSuffix,
             TextLeading,
         }
 
         let mut state = It::Leading;
         for (idx, c) in txt.bytes().enumerate() {
-            if state == It::BulletMark {
-                state = It::TextLeading;
-            }
             if state == It::Leading {
                 if c == b'+' || c == b'-' || c == b'*' {
                     mark_byte_start = idx;
                     mark_byte_end = idx + 1;
                     mark_bullet = Some(&txt[idx..idx + 1]);
-                    state = It::BulletMark;
+                    state = It::TextLeading;
                 } else if c.is_ascii_digit() {
                     mark_byte_start = idx;
                     state = It::OrderedMark;
@@ -1532,13 +1699,10 @@ pub mod markdown {
                     // ok
                 } else {
                     // broken??
+                    text_byte_start = idx;
                     state = It::TextLeading;
                 }
-            }
-            if state == It::OrderedSuffix {
-                state = It::TextLeading
-            }
-            if state == It::OrderedMark {
+            } else if state == It::OrderedMark {
                 if c.is_ascii_digit() {
                     // ok
                 } else if c == b'.' || c == b')' {
@@ -1546,12 +1710,13 @@ pub mod markdown {
                     mark_ordered = Some(&txt[mark_byte_start..idx]);
                     mark_nr = Some(txt[mark_byte_start..idx].parse::<usize>().expect("nr"));
                     mark_suffix = Some(&txt[idx..idx + 1]);
-                    state = It::OrderedSuffix;
+                    state = It::TextLeading;
                 } else {
+                    // broken??
+                    text_byte_start = idx;
                     state = It::TextLeading;
                 }
-            }
-            if state == It::TextLeading {
+            } else if state == It::TextLeading {
                 if c == b' ' || c == b'\t' {
                     // ok
                 } else {
@@ -1576,14 +1741,16 @@ pub mod markdown {
     #[derive(Debug)]
     struct MDCell<'a> {
         txt: &'a str,
-        graphemes: Range<upos_type>,
-        bytes: Range<usize>,
+        txt_graphemes: Range<upos_type>,
+        txt_bytes: Range<usize>,
     }
 
     #[derive(Debug)]
     struct MDRow<'a> {
         row: Vec<MDCell<'a>>,
-        cursor_idx: usize,
+        // cursor cell-nr
+        cursor_cell: usize,
+        // cursor grapheme offset into the cell
         cursor_offset: upos_type,
     }
 
@@ -1592,7 +1759,7 @@ pub mod markdown {
     fn parse_md_row(txt: &str, x: upos_type) -> MDRow<'_> {
         let mut tmp = MDRow {
             row: Default::default(),
-            cursor_idx: 0,
+            cursor_cell: 0,
             cursor_offset: 0,
         };
 
@@ -1603,7 +1770,7 @@ pub mod markdown {
         let mut cell_offset = 0;
         for (idx, (byte_idx, c)) in txt.grapheme_indices(true).enumerate() {
             if idx == x as usize {
-                tmp.cursor_idx = tmp.row.len();
+                tmp.cursor_cell = tmp.row.len();
                 tmp.cursor_offset = cell_offset;
             }
 
@@ -1614,8 +1781,8 @@ pub mod markdown {
                 cell_offset = 0;
                 tmp.row.push(MDCell {
                     txt: &txt[byte_start..byte_idx],
-                    graphemes: grapheme_start..idx as upos_type,
-                    bytes: byte_start..byte_idx,
+                    txt_graphemes: grapheme_start..idx as upos_type,
+                    txt_bytes: byte_start..byte_idx,
                 });
                 byte_start = byte_idx + 1;
                 grapheme_start = idx as upos_type + 1;
@@ -1629,8 +1796,8 @@ pub mod markdown {
 
         tmp.row.push(MDCell {
             txt: &txt[byte_start..txt.len()],
-            graphemes: grapheme_start..grapheme_last,
-            bytes: byte_start..txt.len(),
+            txt_graphemes: grapheme_start..grapheme_last,
+            txt_bytes: byte_start..txt.len(),
         });
 
         tmp
@@ -1642,7 +1809,7 @@ pub mod mdfile {
     use crate::markdown::{md_format, parse_md_styles, MarkDown};
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
-    use log::{debug, warn};
+    use log::warn;
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, TextOutcome};
@@ -1654,7 +1821,7 @@ pub mod mdfile {
     use rat_widget::textarea::{TextArea, TextAreaState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
-    use ratatui::prelude::{Modifier, StatefulWidget, Style};
+    use ratatui::prelude::{StatefulWidget, Style};
     use ratatui::style::Stylize;
     use ratatui::widgets::{Block, BorderType, Borders};
     use std::fs;
@@ -1753,20 +1920,19 @@ pub mod mdfile {
         }
     }
 
-    fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 25] {
+    fn text_style(ctx: &mut RenderContext<'_, GlobalState>) -> [Style; 28] {
+        // base-style: Style::default().fg(self.s.white[0]).bg(self.s.black[1])
         [
             Style::default().fg(ctx.g.scheme().yellow[2]).underlined(), // Heading,
             Style::default().fg(ctx.g.scheme().orange[2]),              // BlockQuote,
             Style::default().fg(ctx.g.scheme().redpink[2]),             // CodeBlock,
-            Style::default().fg(ctx.g.scheme().bluegreen[3]),           // FootnodeDefinition
-            Style::default().fg(ctx.g.scheme().bluegreen[2]),           // FootnodeReference
+            Style::default().fg(ctx.g.scheme().bluegreen[3]),           // Footnote Definition
+            Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Footnote Reference
             Style::default().fg(ctx.g.scheme().orange[2]),              // ItemTag
             Style::default(),                                           // Item
-            Style::default()
-                .fg(ctx.g.scheme().white[3])
-                .add_modifier(Modifier::ITALIC), // Emphasis
-            Style::default().fg(ctx.g.scheme().white[3]),               // Strong
-            Style::default().fg(ctx.g.scheme().gray[2]),                // Strikethrough
+            Style::default().fg(ctx.g.scheme().white[3]).italic(),      // Emphasis
+            Style::default().fg(ctx.g.scheme().white[3]).bold(),        // Strong
+            Style::default().fg(ctx.g.scheme().gray[3]).crossed_out(),  // Strikethrough
             Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Link
             Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Image
             Style::default().fg(ctx.g.scheme().orange[2]),              // MetadataBlock
@@ -1775,14 +1941,16 @@ pub mod mdfile {
             Style::default().fg(ctx.g.scheme().redpink[2]),             // MathDisplay
             Style::default().fg(ctx.g.scheme().white[3]),               // Rule
             Style::default().fg(ctx.g.scheme().orange[2]),              // TaskListMarker
-            Style::default().fg(ctx.g.scheme().gray[2]),                // Html
-            Style::default().fg(ctx.g.scheme().white[1]),               // Table-Head
+            Style::default().fg(ctx.g.scheme().gray[3]),                // Html
+            Style::default().fg(ctx.g.scheme().gray[3]).bold(),         // Table-Head
             Style::default(),                                           // Table
-            Style::default().fg(ctx.g.scheme().white[1]),               // Table-Row
-            Style::default().fg(ctx.g.scheme().white[1]),               // Table-Cell
-            Style::default(), /*.bg(ctx.g.scheme().deepblue[0])*/
-            // Paragraph
-            Style::default(), /*.fg(ctx.g.scheme().magenta[3])*/             // List
+            Style::default().fg(ctx.g.scheme().gray[3]),                // Table-Row
+            Style::default().fg(ctx.g.scheme().gray[3]),                // Table-Cell
+            Style::default(),                                           // Paragraph
+            Style::default(),                                           // List
+            Style::default(),                                           // DefinitionList
+            Style::default().fg(ctx.g.scheme().orange[3]),              // DefinitionListTitle
+            Style::default().fg(ctx.g.scheme().orange[2]),              // DefinitionListDefinition
         ]
     }
 
@@ -1832,7 +2000,6 @@ pub mod mdfile {
             ctx: &mut AppContext<'_>,
         ) -> Result<Control<MDAction>, Error> {
             if self.parse_timer == Some(event.handle) {
-                debug!("parse markdown!!");
                 self.parse_markdown();
                 return Ok(Control::Changed);
             }
@@ -2706,15 +2873,12 @@ pub mod mdedit {
 
             try_flow!(match event {
                 ct_event!(key press CONTROL-'n') => {
-                    debug!("ctrl+n");
                     Control::Message(MDAction::MenuNew)
                 }
                 ct_event!(key press CONTROL-'o') => {
-                    debug!("ctrl+o");
                     Control::Message(MDAction::MenuOpen)
                 }
                 ct_event!(key press CONTROL-'s') => {
-                    debug!("ctrl+s");
                     Control::Message(MDAction::Save)
                 }
                 ct_event!(keycode press F(2)) => {
@@ -2806,7 +2970,6 @@ pub mod mdedit {
                 }
 
                 MDAction::FocusedFile(p) => {
-                    debug!("focused file {:?}", p);
                     if let Some(parent) = p.parent() {
                         self.file_list.load(parent)?;
                     }
