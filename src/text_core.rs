@@ -571,7 +571,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Finds all styles for the given position.
     #[inline]
-    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<usize>) {
+    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
         if let Some(sty) = &self.styles {
             sty.values_at(byte_pos, buf);
         }

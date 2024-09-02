@@ -98,9 +98,9 @@ impl RangeMap {
     }
 
     /// Find all values that touch the given position.
-    pub(crate) fn values_at(&self, pos: usize, buf: &mut Vec<usize>) {
-        for v in self.map.overlap(pos).map(|v| v.1) {
-            buf.push(*v);
+    pub(crate) fn values_at(&self, pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
+        for (r, v) in self.map.overlap(pos) {
+            buf.push((r, *v));
         }
     }
 

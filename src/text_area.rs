@@ -665,7 +665,7 @@ impl TextAreaState {
 
     /// All styles active at the given position.
     #[inline]
-    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<usize>) {
+    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
         self.value.styles_at(byte_pos, buf)
     }
 
@@ -1075,7 +1075,6 @@ impl TextAreaState {
     /// This can be deactivated with auto_indent=false.
     pub fn insert_backtab(&mut self) -> bool {
         let sel = self.selection();
-        let indent = " ".repeat(self.tab_width() as usize);
 
         self.value.begin_undo_seq();
         for r in sel.start.y..=sel.end.y {

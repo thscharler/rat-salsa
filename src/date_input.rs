@@ -440,9 +440,14 @@ impl DateInputState {
         self.widget.remove_range_style(range, style)
     }
 
+    /// Find all styles that touch the given range.
+    pub fn styles_in(&self, range: Range<usize>, buf: &mut Vec<(Range<usize>, usize)>) {
+        self.widget.styles_in(range, buf)
+    }
+
     /// All styles active at the given position.
     #[inline]
-    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<usize>) {
+    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
         self.widget.styles_at(byte_pos, buf)
     }
 

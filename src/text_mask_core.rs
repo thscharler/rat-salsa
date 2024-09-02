@@ -335,9 +335,14 @@ impl MaskedCore {
         self.masked.styles_at_page(range, pos, buf);
     }
 
+    /// Find all styles that touch the given range.
+    pub fn styles_in(&self, range: Range<usize>, buf: &mut Vec<(Range<usize>, usize)>) {
+        self.masked.styles_in(range, buf)
+    }
+
     /// Finds all styles for the given position.
     #[inline]
-    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<usize>) {
+    pub fn styles_at(&self, byte_pos: usize, buf: &mut Vec<(Range<usize>, usize)>) {
         self.masked.styles_at(byte_pos, buf);
     }
 
