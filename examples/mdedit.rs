@@ -710,7 +710,7 @@ pub mod markdown {
     use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
     use rat_widget::text::{upos_type, TextPosition, TextRange};
     use rat_widget::textarea::TextAreaState;
-    use std::cmp::max;
+    use std::cmp::{max, min};
     use std::ops::Range;
     use unicode_segmentation::UnicodeSegmentation;
 
@@ -792,7 +792,7 @@ pub mod markdown {
         }
     }
 
-    pub fn md_format(state: &mut TextAreaState, equal_width: bool) -> TextOutcome {
+    pub fn md_format(state: &mut TextAreaState, shift: bool) -> TextOutcome {
         if let Some((table_byte, table_range)) = md_table(state) {
             let cursor = state.cursor();
 
@@ -800,7 +800,7 @@ pub mod markdown {
                 state.str_slice_byte(table_byte).as_ref(),
                 table_range,
                 cursor,
-                equal_width,
+                shift,
                 state.newline(),
             );
 
@@ -835,7 +835,11 @@ pub mod markdown {
             let wrap_pos = if cursor.x <= item_text_pos.x {
                 65
             } else {
-                cursor.x
+                if shift {
+                    cursor.x
+                } else {
+                    65
+                }
             };
 
             let para_text = state.str_slice_byte(para_byte);
@@ -867,8 +871,14 @@ pub mod markdown {
             let wrap_pos = if cursor.x <= item_text_range.start.x {
                 65
             } else {
-                cursor.x
+                if shift {
+                    cursor.x
+                } else {
+                    65
+                }
             };
+
+            let last_item = md_next_item(state).is_none();
 
             let item_text = state.str_slice_byte(item.text_bytes);
             let (item_text, _) = textwrap::unfill(item_text.as_ref());
@@ -881,6 +891,14 @@ pub mod markdown {
 
             state.begin_undo_seq();
             state.delete_range(item_text_range);
+            if last_item {
+                // trims newlines after the item. add here.
+                let newline = state.newline().to_string();
+                state
+                    .value
+                    .insert_str(item_text_range.start, &newline)
+                    .expect("fine");
+            }
             state
                 .value
                 .insert_str(item_text_range.start, &item_wrap)
@@ -897,11 +915,16 @@ pub mod markdown {
             let text_start = state.byte_pos(block.text_start_byte);
             let mut text_indent0 = " ".repeat(text_start.x as usize - 1);
             text_indent0.insert(0, '>');
-            let text_indent = " ".repeat(text_start.x as usize);
+            let mut text_indent = " ".repeat(text_start.x as usize - 1);
+            text_indent.insert(0, '>');
             let wrap_pos = if cursor.x <= text_start.x {
                 65
             } else {
-                cursor.x
+                if shift {
+                    cursor.x
+                } else {
+                    65
+                }
             };
 
             let mut wrap = textwrap::fill(
@@ -924,7 +947,15 @@ pub mod markdown {
             TextOutcome::TextChanged
         } else if let Some((para_byte, para_range)) = md_paragraph(state) {
             let cursor = state.cursor();
-            let wrap_pos = if cursor.x == 0 { 65 } else { cursor.x };
+            let wrap_pos = if cursor.x == 0 {
+                65
+            } else {
+                if shift {
+                    cursor.x
+                } else {
+                    65
+                }
+            };
 
             let txt = state.str_slice_byte(para_byte);
             // unfill does too much.
@@ -1375,6 +1406,34 @@ pub mod markdown {
         }
     }
 
+    fn md_next_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
+        let cursor = state.cursor();
+        let cursor_byte = state.byte_at(cursor).start;
+
+        let item_byte = state.style_match(cursor_byte, MDStyle::Item as usize);
+        let list_byte = state.style_match(cursor_byte, MDStyle::List as usize);
+
+        if let Some(list_byte) = list_byte {
+            if let Some(item_byte) = item_byte {
+                let mut sty = Vec::new();
+                state.styles_in(item_byte.end..list_byte.end, &mut sty);
+
+                let next = sty.iter().filter(|v| v.1 == MDStyle::Item as usize).next();
+
+                if let Some((next_bytes, _)) = next {
+                    let next = state.byte_range(next_bytes.clone());
+                    Some((next_bytes.clone(), next))
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     fn md_item(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
         let cursor = state.cursor();
         let cursor_byte = state.byte_at(cursor).start;
@@ -1416,6 +1475,8 @@ pub mod markdown {
     ) -> (String, TextPosition) {
         use std::fmt::Write;
 
+        let table_indent = range.start.x;
+
         let mut table = Vec::new();
         for (row_idx, row) in txt.lines().enumerate() {
             if !row.is_empty() {
@@ -1430,12 +1491,7 @@ pub mod markdown {
         // only use header widths
         if let Some(row) = table.first() {
             for (idx, cell) in row.row.iter().enumerate() {
-                if idx >= width.len() {
-                    width.push(str_line_len(cell.txt));
-                } else {
-                    let len = str_line_len(cell.txt);
-                    width[idx] = max(width[idx], len)
-                }
+                width.push(str_line_len(cell.txt));
             }
         }
         if eq_width {
@@ -1449,33 +1505,83 @@ pub mod markdown {
         let mut buf = String::new();
         let mut buf_col = 0;
         for (row_idx, row) in table.iter().enumerate() {
+            let mut row_pos = range.start.y + row_idx as upos_type;
             let mut col_pos = 0;
-            for idx in 1..width.len() {
-                // relocate cursor
-                if range.start.y + row_idx as upos_type == cursor.y {
-                    if idx == row.cursor_cell {
-                        buf_col = col_pos + 1 + row.cursor_offset;
+
+            if row_idx > 0 && table_indent > 0 {
+                col_pos += table_indent;
+                _ = write!(buf, "{:1$}", " ", table_indent as usize);
+            }
+
+            // cell 0. before the first |
+            if let Some(cell) = row.row.get(0) {
+                let col_idx = 0;
+                let len = width[col_idx];
+                if !cell.txt.trim().is_empty() {
+                    if row_pos == cursor.y && col_idx == row.cursor_cell {
+                        buf_col = 1 + row.cursor_offset;
                     }
+                    col_pos += str_line_len(cell.txt.trim()) + 3;
+                    _ = write!(buf, "| {} ", cell.txt.trim(),);
+                }
+            }
+
+            // main columns
+            for col_idx in 1..width.len() - 1 {
+                let len = width[col_idx];
+
+                if row_pos == cursor.y && col_idx == row.cursor_cell {
+                    buf_col = col_pos + 1 + row.cursor_offset;
                 }
 
-                let len = width[idx];
-                col_pos += len + 1;
-                buf.push('|');
-                if let Some(cell) = row.row.get(idx) {
-                    if cell.txt.starts_with('-') {
-                        _ = write!(buf, "{}", "-".repeat(len as usize));
+                if let Some(cell) = row.row.get(col_idx) {
+                    if row_idx == 1 {
+                        col_pos += len + 1;
+                        _ = write!(buf, "|{}", "-".repeat(len as usize));
                     } else {
+                        col_pos += min(len + 1, str_line_len(cell.txt.trim()) + 3);
                         _ = write!(
                             buf,
-                            " {:1$} ",
+                            "| {:1$} ",
                             cell.txt.trim(),
                             len.saturating_sub(2) as usize
                         );
                     }
                 } else {
-                    _ = write!(buf, "{}", " ".repeat(len as usize));
+                    col_pos += len + 1;
+                    _ = write!(buf, "|{}", " ".repeat(len as usize));
                 }
             }
+
+            // cells after the official last
+            for col_idx in width.len() - 1..row.row.len() - 1 {
+                if let Some(cell) = row.row.get(col_idx) {
+                    if !cell.txt.trim().is_empty() {
+                        if row_pos == cursor.y && col_idx == row.cursor_cell {
+                            buf_col = col_pos + row.cursor_offset;
+                        }
+                        col_pos += str_line_len(cell.txt.trim()) + 3;
+                        _ = write!(buf, "| {} ", cell.txt.trim(),);
+                    }
+                }
+            }
+
+            col_pos += 1;
+            buf.push('|');
+
+            // cell after the last
+            if let Some(cell) = row.row.get(width.len() - 1) {
+                let col_idx = width.len() - 1;
+                let len = width[col_idx];
+                if !cell.txt.trim().is_empty() {
+                    if row_pos == cursor.y && col_idx == row.cursor_cell {
+                        buf_col = col_pos + row.cursor_offset;
+                    }
+                    col_pos += str_line_len(cell.txt.trim()) + 3;
+                    _ = write!(buf, " {} ", cell.txt.trim(),);
+                }
+            }
+
             buf.push_str(new_line);
         }
 
@@ -1594,33 +1700,22 @@ pub mod markdown {
         #[derive(Debug, PartialEq)]
         enum It {
             Leading,
-            Quote,
             TextLeading,
             Text,
             NewLine,
-            QuoteLeading,
         }
 
-        let mut state = It::Quote;
+        let mut state = It::Leading;
         for (idx, c) in txt.bytes().enumerate() {
             if state == It::Leading {
                 if c == b'>' {
-                    state = It::Quote;
+                    state = It::TextLeading;
                 } else if c == b' ' || c == b'\t' {
                     // ok
                 } else {
-                    // next line
                     text_line_byte = idx;
                     text.push(c);
-                    state = It::TextLeading;
-                }
-            } else if state == It::Quote {
-                if c == b' ' || c == b'\t' {
-                    state = It::TextLeading;
-                } else {
-                    // broken??
-                    text_line_byte = idx;
-                    state = It::TextLeading;
+                    state = It::Text;
                 }
             } else if state == It::TextLeading {
                 if c == b' ' || c == b'\t' {
@@ -1643,8 +1738,14 @@ pub mod markdown {
             } else if state == It::NewLine {
                 if c == b'\n' || c == b'\r' {
                     // ok
-                } else {
+                } else if c == b' ' || c == b'\t' {
                     state = It::Leading;
+                } else if c == b'>' {
+                    state = It::TextLeading;
+                } else {
+                    text_line_byte = idx;
+                    text.push(c);
+                    state = It::Text;
                 }
             }
         }
@@ -1894,7 +1995,7 @@ pub mod mdfile {
                 .vscroll(
                     Scroll::new()
                         .start_margin(self.start_margin)
-                        .scroll_by(1)
+                        // .scroll_by(1)
                         .styles(ctx.g.theme.scroll_style()),
                 )
                 .text_style(text_style(ctx))
@@ -1930,7 +2031,7 @@ pub mod mdfile {
             Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Footnote Reference
             Style::default().fg(ctx.g.scheme().orange[2]),              // ItemTag
             Style::default(),                                           // Item
-            Style::default().fg(ctx.g.scheme().white[3]).italic(),      // Emphasis
+            Style::default().fg(ctx.g.scheme().white[0]).italic(),      // Emphasis
             Style::default().fg(ctx.g.scheme().white[3]).bold(),        // Strong
             Style::default().fg(ctx.g.scheme().gray[3]).crossed_out(),  // Strikethrough
             Style::default().fg(ctx.g.scheme().bluegreen[2]),           // Link
@@ -1942,7 +2043,7 @@ pub mod mdfile {
             Style::default().fg(ctx.g.scheme().white[3]),               // Rule
             Style::default().fg(ctx.g.scheme().orange[2]),              // TaskListMarker
             Style::default().fg(ctx.g.scheme().gray[3]),                // Html
-            Style::default().fg(ctx.g.scheme().gray[3]).bold(),         // Table-Head
+            Style::default().fg(ctx.g.scheme().gray[3]),                // Table-Head
             Style::default(),                                           // Table
             Style::default().fg(ctx.g.scheme().gray[3]),                // Table-Row
             Style::default().fg(ctx.g.scheme().gray[3]),                // Table-Cell
@@ -2881,9 +2982,22 @@ pub mod mdedit {
                 ct_event!(key press CONTROL-'s') => {
                     Control::Message(MDAction::Save)
                 }
+                ct_event!(keycode press ALT-F(2)) => {
+                    // TODO: hide/show files
+                    Control::Continue
+                }
                 ct_event!(keycode press F(2)) => {
-                    ctx.focus().focus(&self.file_list);
-                    Control::Changed
+                    if !self.file_list.is_focused() {
+                        ctx.focus().focus(&self.file_list);
+                        Control::Changed
+                    } else {
+                        if let Some((_, last_edit)) = self.split_tab.selected() {
+                            ctx.focus().focus(last_edit);
+                            Control::Changed
+                        } else {
+                            Control::Continue
+                        }
+                    }
                 }
                 ct_event!(key press CONTROL-'w') => {
                     self.window_cmd = true;
