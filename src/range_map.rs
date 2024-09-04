@@ -81,8 +81,10 @@ impl RangeMap {
         if *self.page.borrow() != range {
             *self.page.borrow_mut() = range.clone();
             page_map.clear();
-            for (r, v) in self.map.iter(range) {
-                page_map.force_insert(r, *v);
+            if !range.is_empty() {
+                for (r, v) in self.map.iter(range) {
+                    page_map.force_insert(r, *v);
+                }
             }
         }
         for v in page_map.overlap(pos).map(|v| v.1) {
@@ -92,6 +94,9 @@ impl RangeMap {
 
     /// Find everything that touches the given range.
     pub(crate) fn values_in(&self, range: Range<usize>, buf: &mut Vec<(Range<usize>, usize)>) {
+        if range.is_empty() {
+            return;
+        }
         for (r, v) in self.map.iter(range) {
             buf.push((r, *v));
         }
