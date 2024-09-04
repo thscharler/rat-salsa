@@ -2983,11 +2983,18 @@ pub mod mdedit {
                     Control::Message(MDAction::Save)
                 }
                 ct_event!(keycode press ALT-F(2)) => {
-                    // TODO: hide/show files
-                    Control::Continue
+                    if self.split_files.is_hidden(0) {
+                        self.split_files.show_split(0);
+                    } else {
+                        self.split_files.hide_split(0);
+                    }
+                    Control::Changed
                 }
                 ct_event!(keycode press F(2)) => {
                     if !self.file_list.is_focused() {
+                        if self.split_files.is_hidden(0) {
+                            self.split_files.show_split(0);
+                        }
                         ctx.focus().focus(&self.file_list);
                         Control::Changed
                     } else {
