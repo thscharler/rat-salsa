@@ -28,6 +28,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Padding, StatefulWidget};
+use std::cmp::max;
 use std::fmt::Debug;
 use std::fs;
 use std::path::PathBuf;
@@ -112,8 +113,6 @@ pub enum MDAction {
     MenuSave,
     MenuSaveAs,
 
-    FocusedFile(PathBuf),
-
     SyncEdit,
 
     New(PathBuf),
@@ -126,19 +125,6 @@ pub enum MDAction {
     Close,
     CloseAt(usize, usize),
     SelectAt(usize, usize),
-}
-
-// -----------------------------------------------------------------------
-
-trait AppFocus<Global, Message, Error>
-where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
-{
-    fn focus_changed(
-        &mut self,
-        ctx: &mut rat_salsa::AppContext<'_, Global, Message, Error>,
-    ) -> Result<(), Error>;
 }
 
 // -----------------------------------------------------------------------
@@ -233,10 +219,6 @@ impl AppState<GlobalState, MDAction, Error> for MDRootState {
 
         let r = self.app.crossterm(event, ctx)?;
 
-        if ctx.focus().gained_focus().is_some() {
-            self.app.focus_changed(ctx)?;
-        }
-
         if r == Control::Changed {
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
             ctx.g.status.status(3, format!("H {:.0?}", el).to_string());
@@ -255,10 +237,6 @@ impl AppState<GlobalState, MDAction, Error> for MDRootState {
         ctx.focus = Some(self.app.focus());
 
         let r = self.app.message(event, ctx)?;
-
-        if ctx.focus().gained_focus().is_some() {
-            self.app.focus_changed(ctx)?;
-        }
 
         if r == Control::Changed {
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -534,15 +512,6 @@ impl HasFocus for MDAppState {
     }
 }
 
-impl AppFocus<GlobalState, MDAction, Error> for MDAppState {
-    fn focus_changed(
-        &mut self,
-        ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
-    ) -> Result<(), Error> {
-        self.editor.focus_changed(ctx)
-    }
-}
-
 impl AppState<GlobalState, MDAction, Error> for MDAppState {
     fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         self.menu.bar.select(Some(0));
@@ -636,7 +605,14 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                 r => r.into(),
             });
 
-            try_flow!(self.editor.crossterm(event, ctx)?);
+            try_flow!({
+                let r = self.editor.crossterm(event, ctx)?;
+                if self.editor.set_active_split() {
+                    self.editor.sync_views(ctx)?;
+                }
+                r
+            });
+
             try_flow!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(4) => Control::Quit,
                 r => r.into(),
@@ -689,7 +665,13 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
             _ => Control::Continue,
         });
 
-        try_flow!(self.editor.message(event, ctx)?);
+        try_flow!({
+            let r = self.editor.message(event, ctx)?;
+            if self.editor.set_active_split() {
+                self.editor.sync_views(ctx)?;
+            }
+            r
+        });
 
         Ok(Control::Continue)
     }
@@ -1570,6 +1552,7 @@ pub mod markdown {
             buf.push('|');
 
             // cell after the last
+            #[allow(unused_assignments)]
             if let Some(cell) = row.row.get(width.len() - 1) {
                 let col_idx = width.len() - 1;
                 let len = width[col_idx];
@@ -2233,10 +2216,9 @@ pub mod mdfile {
 // combined split + tab structure
 pub mod split_tab {
     use crate::mdfile::{MDFile, MDFileState};
-    use crate::{AppContext, AppFocus, GlobalState, MDAction};
+    use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
-    use log::debug;
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, Regular, TabbedOutcome};
@@ -2259,6 +2241,7 @@ pub mod split_tab {
         pub focus: ContainerFlag,
         pub splitter: SplitState,
         pub sel_split: Option<usize>,
+        pub sel_tab: Option<usize>,
         pub tabbed: Vec<TabbedState>,
         pub tabs: Vec<Vec<MDFileState>>,
     }
@@ -2269,6 +2252,7 @@ pub mod split_tab {
                 focus: ContainerFlag::named("split_tab"),
                 splitter: SplitState::named("splitter"),
                 sel_split: None,
+                sel_tab: None,
                 tabbed: vec![],
                 tabs: vec![],
             }
@@ -2361,29 +2345,6 @@ pub mod split_tab {
         }
     }
 
-    impl AppFocus<GlobalState, MDAction, Error> for SplitTabState {
-        fn focus_changed(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            // Find which split contains the current focus.
-            let old_split = self.sel_split;
-            for (idx_split, tabbed) in self.tabbed.iter().enumerate() {
-                if let Some(idx_tab) = tabbed.selected() {
-                    if self.tabs[idx_split][idx_tab].gained_focus() {
-                        self.sel_split = Some(idx_split);
-                        break;
-                    }
-                }
-            }
-            debug!("focus_changed {:?} <> {:?}", old_split, self.sel_split);
-            if old_split != self.sel_split {
-                if let Some((_, md)) = self.selected() {
-                    ctx.queue(Control::Message(MDAction::FocusedFile(md.path.clone())));
-                }
-            }
-
-            Ok(())
-        }
-    }
-
     impl AppState<GlobalState, MDAction, Error> for SplitTabState {
         fn timer(
             &mut self,
@@ -2425,6 +2386,23 @@ pub mod split_tab {
     }
 
     impl SplitTabState {
+        // Establish the active split+tab using the currently focused tab.
+        pub fn set_active_split(&mut self) -> bool {
+            // Find which split contains the current focus.
+            let old_split = self.sel_split;
+            let old_tab = self.sel_tab;
+            for (idx_split, tabbed) in self.tabbed.iter().enumerate() {
+                if let Some(idx_tab) = tabbed.selected() {
+                    if self.tabs[idx_split][idx_tab].is_focused() {
+                        self.sel_split = Some(idx_split);
+                        self.sel_tab = Some(idx_tab);
+                        break;
+                    }
+                }
+            }
+            old_split != self.sel_split || old_tab != self.sel_tab
+        }
+
         // Add file at position (split-idx, tab-idx).
         pub fn open(&mut self, pos: (usize, usize), new: MDFileState, ctx: &mut AppContext<'_>) {
             if pos.0 == self.tabs.len() {
@@ -2619,7 +2597,7 @@ pub mod split_tab {
 
 // md files in current directory.
 pub mod file_list {
-    use crate::{AppFocus, GlobalState, MDAction};
+    use crate::{GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
     use rat_salsa::event::{ct_event, try_flow};
@@ -2697,12 +2675,6 @@ pub mod file_list {
         }
     }
 
-    impl AppFocus<GlobalState, MDAction, Error> for FileListState {
-        fn focus_changed(&mut self, ctx: &mut crate::AppContext<'_>) -> Result<(), Error> {
-            Ok(())
-        }
-    }
-
     impl AppState<GlobalState, MDAction, Error> for FileListState {
         fn init(
             &mut self,
@@ -2756,8 +2728,27 @@ pub mod file_list {
     }
 
     impl FileListState {
+        /// Current directory.
+        pub fn current_dir(&self) -> &Path {
+            &self.files_dir
+        }
+
+        /// Current file
+        pub fn current_file(&self) -> Option<&Path> {
+            if let Some(selected) = self.file_list.selected() {
+                if selected < self.files.len() {
+                    Some(&self.files[selected])
+                } else {
+                    None
+                }
+            } else {
+                None
+            }
+        }
+
         /// Read directory.
         pub fn load(&mut self, dir: &Path) -> Result<(), Error> {
+            self.files_dir = dir.into();
             self.files.clear();
             if let Ok(rd) = fs::read_dir(dir) {
                 for f in rd {
@@ -2805,7 +2796,7 @@ pub mod mdedit {
     use crate::file_list::{FileList, FileListState};
     use crate::mdfile::MDFileState;
     use crate::split_tab::{SplitTab, SplitTabState};
-    use crate::{AppContext, AppFocus, GlobalState, MDAction, RenderContext};
+    use crate::{AppContext, GlobalState, MDAction, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
     #[allow(unused_imports)]
@@ -2883,14 +2874,6 @@ pub mod mdedit {
             f.add(&self.file_list);
             f.add_container(&self.split_tab);
             f
-        }
-    }
-
-    impl AppFocus<GlobalState, MDAction, Error> for MDEditState {
-        fn focus_changed(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            self.file_list.focus_changed(ctx)?;
-            self.split_tab.focus_changed(ctx)?;
-            Ok(())
         }
     }
 
@@ -3090,14 +3073,6 @@ pub mod mdedit {
                     Control::Changed
                 }
 
-                MDAction::FocusedFile(p) => {
-                    if let Some(parent) = p.parent() {
-                        self.file_list.load(parent)?;
-                    }
-                    self.file_list.select(p)?;
-                    Control::Changed
-                }
-
                 _ => Control::Continue,
             });
             Ok(Control::Continue)
@@ -3238,6 +3213,44 @@ pub mod mdedit {
             self.split_tab.select(pos, ctx);
 
             Ok(())
+        }
+
+        // Establish the currently focus split+tab as the active split.
+        pub fn set_active_split(&mut self) -> bool {
+            self.split_tab.set_active_split()
+        }
+
+        // Sync views.
+        pub fn sync_views(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+            let path = if let Some((_, md)) = self.split_tab.selected() {
+                Some(md.path.clone())
+            } else {
+                None
+            };
+            if let Some(path) = path {
+                if self.sync_files(&path)? == Control::Changed {
+                    ctx.queue(Control::Changed);
+                }
+            }
+            Ok(())
+        }
+
+        // Sync file-list with the given file.
+        pub fn sync_files(&mut self, file: &Path) -> Result<Control<MDAction>, Error> {
+            if let Some(parent) = file.parent() {
+                if self.file_list.current_dir() != parent {
+                    self.file_list.load(parent)?;
+                    self.file_list.select(file)?;
+                    Ok(Control::Changed)
+                } else if self.file_list.current_file() != Some(file) {
+                    self.file_list.select(file)?;
+                    Ok(Control::Changed)
+                } else {
+                    Ok(Control::Unchanged)
+                }
+            } else {
+                Ok(Control::Unchanged)
+            }
         }
     }
 }
