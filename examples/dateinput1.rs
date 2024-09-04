@@ -1,5 +1,6 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::try_flow;
+use rat_text::HasScreenCursor;
 use rat_widget::date_input;
 use rat_widget::date_input::{DateInput, DateInputState};
 use rat_widget::event::Outcome;
