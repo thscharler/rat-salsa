@@ -6,6 +6,7 @@ use rat_event::{flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, HasFocusFlag};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
+use rat_text::HasScreenCursor;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::Line;
@@ -149,7 +150,7 @@ fn repaint_input(
         let mut styles = Vec::new();
         let cursor_byte = state.masked.byte_at(state.masked.cursor());
         state.masked.styles_at(cursor_byte.start, &mut styles);
-        for s in styles {
+        for (_, s) in styles {
             _ = write!(&mut stats, "{}, ", s);
         }
         _ = writeln!(&mut stats);

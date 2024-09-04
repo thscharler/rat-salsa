@@ -24,7 +24,7 @@ use ratatui::style::{Style, Stylize};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget};
-use ropey::{Rope, RopeSlice};
+use ropey::Rope;
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::mem;

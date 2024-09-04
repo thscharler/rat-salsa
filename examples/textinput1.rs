@@ -2,8 +2,8 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 #[allow(unused_imports)]
 use rat_event::{ct_event, try_flow, Outcome};
-use rat_text::text_input;
 use rat_text::text_input::{TextInput, TextInputState};
+use rat_text::{text_input, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Paragraph, StatefulWidget};
