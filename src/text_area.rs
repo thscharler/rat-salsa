@@ -1912,7 +1912,9 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextAreaStat
                 ct_event!(keycode press Delete) => tc(self.delete_next_char()),
                 ct_event!(keycode press CONTROL-Backspace)
                 | ct_event!(keycode press ALT-Backspace) => tc(self.delete_prev_word()),
-                ct_event!(keycode press CONTROL-Delete) => tc(self.delete_next_word()),
+                ct_event!(keycode press CONTROL-Delete) | ct_event!(keycode press ALT-Delete) => {
+                    tc(self.delete_next_word())
+                }
                 ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
                 ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
                 ct_event!(key press CONTROL-'d') => tc(self.duplicate_text()),
