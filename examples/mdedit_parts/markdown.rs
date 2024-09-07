@@ -450,7 +450,7 @@ fn md_debug(state: &mut TextAreaState) -> TextOutcome {
         TextPosition::new(0, 0)
     };
 
-    let wrapped = reformat(
+    let (wrapped, new_cursor) = reformat(
         state.str_slice(selection).as_ref(),
         cursor,
         cursor_byte,
@@ -458,6 +458,7 @@ fn md_debug(state: &mut TextAreaState) -> TextOutcome {
         false,
         state.newline(),
     );
+    let new_cursor = state.byte_at(selection.start).start + new_cursor;
 
     state.begin_undo_seq();
     state.delete_range(selection);
@@ -465,7 +466,8 @@ fn md_debug(state: &mut TextAreaState) -> TextOutcome {
         .value
         .insert_str(selection.start, &wrapped)
         .expect("fine");
-    state.set_cursor(selection.start, false);
+    let new_cursor = state.byte_pos(new_cursor);
+    state.set_cursor(new_cursor, false);
     state.end_undo_seq();
 
     TextOutcome::TextChanged
@@ -655,7 +657,7 @@ pub fn reformat(
     txt_width: usize,
     table_eq_width: bool,
     newline: &str,
-) -> String {
+) -> (String, usize) {
     let mut p = Parser::new_ext(
         txt,
         Options::ENABLE_MATH
@@ -825,7 +827,7 @@ pub fn reformat(
         out.txt.push_str(newline);
     }
 
-    out.txt
+    (out.txt, out.cursor)
 }
 
 fn reformat_table<'a>(
@@ -876,7 +878,6 @@ fn reformat_table<'a>(
 
     for (n, row) in table.iter().enumerate() {
         let row_pos = n as upos_type;
-        let mut col_pos = 0;
 
         if n == 0 {
             for v in arg.prefix.iter() {
@@ -896,7 +897,6 @@ fn reformat_table<'a>(
                 if row_pos == arg.cursor.y && col_idx == row.cursor_cell {
                     out.cursor = out.txt.len() + 1 + row.cursor_byte_offset;
                 }
-                col_pos += str_line_len(cell.txt.trim()) + 3;
                 _ = write!(out.txt, "| {} ", cell.txt.trim(),);
             }
         }
@@ -911,10 +911,8 @@ fn reformat_table<'a>(
 
             if let Some(cell) = row.row.get(col_idx) {
                 if n == 1 {
-                    col_pos += len + 1;
                     _ = write!(out.txt, "|{}", "-".repeat(len as usize));
                 } else {
-                    col_pos += min(len + 1, str_line_len(cell.txt.trim()) + 3);
                     _ = write!(
                         out.txt,
                         "| {:1$} ",
@@ -923,25 +921,22 @@ fn reformat_table<'a>(
                     );
                 }
             } else {
-                col_pos += len + 1;
                 _ = write!(out.txt, "|{}", " ".repeat(len as usize));
             }
         }
 
         // cells after the official last
-        for col_idx in width.len() - 1..row.row.len() - 1 {
+        for col_idx in width.len() - 1..row.row.len() {
             if let Some(cell) = row.row.get(col_idx) {
                 if !cell.txt.trim().is_empty() {
                     if row_pos == arg.cursor.y && col_idx == row.cursor_cell {
                         out.cursor = out.txt.len() + 1 + row.cursor_byte_offset;
                     }
-                    col_pos += str_line_len(cell.txt.trim()) + 3;
                     _ = write!(out.txt, "| {} ", cell.txt.trim(),);
                 }
             }
         }
 
-        col_pos += 1;
         out.txt.push('|');
 
         out.txt.push_str(arg.newline);
