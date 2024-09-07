@@ -1,12 +1,11 @@
-use std::borrow::Cow;
 use std::convert::TryFrom;
 
 // Extended text-editing for markdown.
 use anyhow::{anyhow, Error};
-use iset::IntervalMap;
 use log::debug;
-use pulldown_cmark::html::write_html_fmt;
-use pulldown_cmark::{CowStr, Event, HeadingLevel, OffsetIter, Options, Parser, Tag, TagEnd};
+use pulldown_cmark::{
+    BlockQuoteKind, CowStr, Event, HeadingLevel, OffsetIter, Options, Parser, Tag, TagEnd,
+};
 use rat_salsa::event::ct_event;
 use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
 use rat_widget::text::{upos_type, TextPosition, TextRange};
@@ -417,10 +416,17 @@ fn md_dump(state: &mut TextAreaState) -> TextOutcome {
         let mut sty = Vec::new();
         state.styles_at(cursor_byte, &mut sty);
 
-        if let Some((r, _)) = sty.iter().find(|(r, s)| *s == MDStyle::Item as usize) {
-            state.byte_range(r.clone())
+        if let Some((r, _)) = sty.iter().find(|(_, s)| {
+            matches!(
+                MDStyle::try_from(*s).expect("fine"),
+                MDStyle::Table | MDStyle::Item | MDStyle::DefinitionList
+            )
+        }) {
+            let r = state.byte_range(r.clone());
+            TextRange::new((0, r.start.y), r.end)
         } else if let Some((r, _)) = sty.first() {
-            state.byte_range(r.clone())
+            let r = state.byte_range(r.clone());
+            TextRange::new((0, r.start.y), r.end)
         } else {
             TextRange::new((0, cursor.y), (0, cursor.y + 1))
         }
@@ -458,10 +464,17 @@ fn md_debug(state: &mut TextAreaState) -> TextOutcome {
         let mut sty = Vec::new();
         state.styles_at(cursor_byte, &mut sty);
 
-        if let Some((r, _)) = sty.iter().find(|(r, s)| *s == MDStyle::Item as usize) {
-            state.byte_range(r.clone())
+        if let Some((r, _)) = sty.iter().find(|(_, s)| {
+            matches!(
+                MDStyle::try_from(*s).expect("fine"),
+                MDStyle::Table | MDStyle::Item | MDStyle::DefinitionList
+            )
+        }) {
+            let r = state.byte_range(r.clone());
+            TextRange::new((0, r.start.y), r.end)
         } else if let Some((r, _)) = sty.first() {
-            state.byte_range(r.clone())
+            let r = state.byte_range(r.clone());
+            TextRange::new((0, r.start.y), r.end)
         } else {
             TextRange::new((0, cursor.y), (0, cursor.y + 1))
         }
@@ -529,36 +542,6 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
     }
 }
 
-pub struct PosIdx {
-    pos: IntervalMap<usize, TextPosition>,
-}
-
-impl PosIdx {
-    pub fn new(txt: &str) -> Self {
-        let mut pos = IntervalMap::new();
-
-        let mut row = 0;
-        let mut col = 0;
-        for (idx, v) in txt.grapheme_indices(true) {
-            //
-            pos.insert(idx..idx + v.len(), TextPosition::new(col, row));
-
-            col += 1;
-            if v == "\n" || v == "\n\r" {
-                row += 1;
-                col = 0;
-            }
-        }
-
-        Self { pos }
-    }
-
-    pub fn pos_at(&self, idx: usize) -> TextPosition {
-        let (r, v) = self.pos.overlap(idx).next().expect("position");
-        *v
-    }
-}
-
 #[derive(Debug, Clone, Copy)]
 enum MDFormat {
     None,
@@ -568,88 +551,12 @@ enum MDFormat {
     DefinitionList,
     ReferenceDefs,
     Table,
-}
-
-impl MDFormat {
-    pub fn insert_newline(self, follow: MDFormat, newline: &str, out: &mut String) {
-        match self {
-            MDFormat::None => {
-                // none
-            }
-            MDFormat::Heading => match follow {
-                MDFormat::None => {}
-                MDFormat::Heading
-                | MDFormat::Paragraph
-                | MDFormat::Footnote
-                | MDFormat::DefinitionList
-                | MDFormat::ReferenceDefs
-                | MDFormat::Table => {
-                    out.push_str(newline);
-                }
-            },
-            MDFormat::Paragraph => match follow {
-                MDFormat::None => {}
-                MDFormat::Heading
-                | MDFormat::Paragraph
-                | MDFormat::Footnote
-                | MDFormat::DefinitionList
-                | MDFormat::ReferenceDefs
-                | MDFormat::Table => {
-                    out.push_str(newline);
-                }
-            },
-            MDFormat::Footnote => match follow {
-                MDFormat::None => {}
-                MDFormat::Footnote => {}
-                MDFormat::Heading
-                | MDFormat::Paragraph
-                | MDFormat::DefinitionList
-                | MDFormat::ReferenceDefs
-                | MDFormat::Table => {
-                    out.push_str(newline);
-                }
-            },
-            MDFormat::DefinitionList => match follow {
-                MDFormat::None => {}
-                MDFormat::Heading
-                | MDFormat::Paragraph
-                | MDFormat::Footnote
-                | MDFormat::DefinitionList
-                | MDFormat::ReferenceDefs
-                | MDFormat::Table => {
-                    out.push_str(newline);
-                }
-            },
-            MDFormat::ReferenceDefs => match follow {
-                MDFormat::None => {}
-                MDFormat::ReferenceDefs => {}
-                MDFormat::Heading
-                | MDFormat::Paragraph
-                | MDFormat::Footnote
-                | MDFormat::DefinitionList
-                | MDFormat::Table => {
-                    out.push_str(newline);
-                }
-            },
-            MDFormat::Table => match follow {
-                MDFormat::None => {}
-                MDFormat::Heading
-                | MDFormat::Paragraph
-                | MDFormat::Footnote
-                | MDFormat::DefinitionList
-                | MDFormat::ReferenceDefs
-                | MDFormat::Table => {
-                    out.push_str(newline);
-                }
-            },
-        }
-    }
+    BlockQuote,
 }
 
 struct Reformat<'a> {
     txt: &'a str,
     txt_width: usize,
-    txt_pos: PosIdx,
     cursor: TextPosition,
     cursor_byte: usize,
     newline: &'a str,
@@ -659,13 +566,57 @@ struct Reformat<'a> {
 }
 
 impl<'a> Reformat<'a> {
+    // set line prefix as indent
+    fn indent_prefix(&mut self, pos_byte: usize) {
+        let mut gr_it = self.txt[..pos_byte].grapheme_indices(true).rev();
+        let mut start_byte = pos_byte;
+        loop {
+            let Some((idx, gr)) = gr_it.next() else {
+                break;
+            };
+            start_byte = idx;
+            if gr == "\n" || gr == "\n\r" {
+                start_byte = idx + gr.len();
+                break;
+            }
+        }
+
+        self.prefix
+            .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+        self.follow
+            .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+    }
+
+    // set blanks before as indent
+    fn indent_blank(&mut self, pos_byte: usize) {
+        let mut gr_it = self.txt[..pos_byte].grapheme_indices(true).rev();
+        let mut start_byte = pos_byte;
+        loop {
+            let Some((idx, gr)) = gr_it.next() else {
+                break;
+            };
+            start_byte = idx;
+            if gr != " " {
+                start_byte = idx + gr.len();
+                break;
+            }
+        }
+
+        self.prefix
+            .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+        self.follow
+            .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+    }
+
     // word-relative cursor position, if any.
+    #[allow(trivial_casts)]
     fn word_cursor(&self, word: &str) -> Option<usize> {
         let txt_ptr = self.txt as *const str as *const u8 as usize;
         let word_ptr = word as *const str as *const u8 as usize;
 
-        let word_range = if txt_ptr >= word_ptr && txt_ptr < word_ptr + self.txt.len() {
-            txt_ptr - word_ptr..txt_ptr - word_ptr + word.len()
+        let word_range = if word_ptr >= txt_ptr && word_ptr < txt_ptr + self.txt.len() {
+            let word_offset = word_ptr - txt_ptr;
+            word_offset..word_offset + word.len()
         } else {
             0..0
         };
@@ -707,7 +658,6 @@ pub fn reformat(
     let mut arg = Reformat {
         txt,
         txt_width,
-        txt_pos: PosIdx::new(txt),
         cursor,
         cursor_byte,
         newline,
@@ -727,15 +677,9 @@ pub fn reformat(
 
         match e {
             Event::Start(Tag::Paragraph) => {
-                md_last.insert_newline(MDFormat::Paragraph, newline, &mut out.txt);
+                insert_empty(&mut arg, md_last, MDFormat::Paragraph, &mut out);
 
-                let start = arg.txt_pos.pos_at(r.start);
-                arg.prefix.push(CowStr::Borrowed(
-                    &arg.txt[(r.start - start.x as usize)..r.start],
-                ));
-                arg.follow.push(CowStr::Borrowed(
-                    &arg.txt[(r.start - start.x as usize)..r.start],
-                ));
+                arg.indent_prefix(r.start);
 
                 reformat_paragraph(&mut arg, &mut p, &mut out);
 
@@ -745,46 +689,46 @@ pub fn reformat(
                 md_last = MDFormat::Paragraph;
             }
             Event::Start(Tag::Heading { level, .. }) => {
-                md_last.insert_newline(MDFormat::Heading, newline, &mut out.txt);
+                insert_empty(&mut arg, md_last, MDFormat::Heading, &mut out);
 
                 reformat_heading(&mut arg, &mut p, level, &mut out);
 
                 md_last = MDFormat::Heading;
             }
-            Event::Start(Tag::BlockQuote(_)) => {}
+            Event::Start(Tag::BlockQuote(kind)) => {
+                insert_empty(&mut arg, md_last, MDFormat::BlockQuote, &mut out);
+
+                arg.indent_prefix(r.start);
+
+                reformat_blockquote(&mut arg, &mut p, kind, &mut out);
+
+                arg.prefix.pop();
+                arg.follow.pop();
+
+                md_last = MDFormat::BlockQuote;
+            }
             Event::Start(Tag::CodeBlock(_)) => {}
             Event::Start(Tag::HtmlBlock) => {}
             Event::Start(Tag::List(_)) => {}
             Event::Start(Tag::Item) => {}
 
             Event::Start(Tag::FootnoteDefinition(v)) => {
-                md_last.insert_newline(MDFormat::Footnote, newline, &mut out.txt);
+                insert_empty(&mut arg, md_last, MDFormat::Footnote, &mut out);
 
-                let start = arg.txt_pos.pos_at(r.start);
-                arg.prefix.push(CowStr::Borrowed(
-                    &txt[(r.start - start.x as usize)..r.start],
-                ));
-                arg.follow.push(CowStr::Borrowed(
-                    &txt[(r.start - start.x as usize)..r.start],
-                ));
+                arg.indent_prefix(r.start);
 
                 reformat_footnote(&mut arg, &mut p, v, &mut out);
 
                 arg.prefix.pop();
                 arg.follow.pop();
+
                 md_last = MDFormat::Footnote;
             }
 
             Event::Start(Tag::DefinitionList) => {
-                md_last.insert_newline(MDFormat::DefinitionList, newline, &mut out.txt);
+                insert_empty(&mut arg, md_last, MDFormat::DefinitionList, &mut out);
 
-                let start = arg.txt_pos.pos_at(r.start);
-                arg.prefix.push(CowStr::Borrowed(
-                    &txt[(r.start - start.x as usize)..r.start],
-                ));
-                arg.follow.push(CowStr::Borrowed(
-                    &txt[(r.start - start.x as usize)..r.start],
-                ));
+                arg.indent_prefix(r.start);
 
                 reformat_definition(&mut arg, &mut p, &mut out);
 
@@ -799,15 +743,9 @@ pub fn reformat(
             }
 
             Event::Start(Tag::Table(_)) => {
-                md_last.insert_newline(MDFormat::Table, newline, &mut out.txt);
+                insert_empty(&mut arg, md_last, MDFormat::Table, &mut out);
 
-                let start = arg.txt_pos.pos_at(r.start);
-                arg.prefix.push(CowStr::Borrowed(
-                    &txt[(r.start - start.x as usize)..r.start],
-                ));
-                arg.follow.push(CowStr::Borrowed(
-                    &txt[(r.start - start.x as usize)..r.start],
-                ));
+                arg.indent_prefix(r.start);
 
                 reformat_table(&mut arg, &mut p, r, &mut out);
 
@@ -847,7 +785,7 @@ pub fn reformat(
     }
 
     for (link_name, linkdef) in p.reference_definitions().iter() {
-        md_last.insert_newline(MDFormat::ReferenceDefs, newline, &mut out.txt);
+        insert_empty(&mut arg, md_last, MDFormat::ReferenceDefs, &mut out);
 
         out.txt.push_str("[");
         out.txt.push_str(link_name);
@@ -861,6 +799,76 @@ pub fn reformat(
     }
 
     (out.txt, out.cursor)
+}
+
+fn reformat_blockquote<'a>(
+    arg: &mut Reformat<'a>,
+    it: &mut OffsetIter<'a>,
+    kind: Option<BlockQuoteKind>,
+    out: &mut ReformatOut,
+) {
+    use std::fmt::Write;
+
+    if let Some(kind) = kind {
+        for v in arg.prefix.iter() {
+            out.txt.push_str(v);
+        }
+        _ = write!(out.txt, "> ");
+        match kind {
+            BlockQuoteKind::Note => _ = write!(out.txt, "[!NOTE] "),
+            BlockQuoteKind::Tip => _ = write!(out.txt, "[!TIP] "),
+            BlockQuoteKind::Important => _ = write!(out.txt, "[!IMPORTANT] "),
+            BlockQuoteKind::Warning => _ = write!(out.txt, "[!WARNING] "),
+            BlockQuoteKind::Caution => _ = write!(out.txt, "[!CAUTION] "),
+        }
+        _ = write!(out.txt, "{}", arg.newline);
+
+        // replace prefix with follow
+        arg.prefix.clear();
+        arg.prefix.extend_from_slice(&arg.follow);
+    }
+
+    arg.prefix.push(CowStr::Borrowed(">"));
+    arg.follow.push(CowStr::Borrowed(">"));
+
+    let mut md_last = MDFormat::None;
+    loop {
+        let Some((e, r)) = it.next() else { break };
+        match e {
+            Event::End(TagEnd::BlockQuote(_)) => {
+                break;
+            }
+            Event::Start(Tag::Paragraph) => {
+                insert_empty(arg, md_last, MDFormat::Paragraph, out);
+
+                arg.indent_blank(r.start);
+
+                reformat_paragraph(arg, it, out);
+
+                arg.prefix.pop();
+                arg.follow.pop();
+
+                md_last = MDFormat::Paragraph;
+            }
+            Event::Start(Tag::BlockQuote(kind)) => {
+                insert_empty(arg, md_last, MDFormat::BlockQuote, out);
+
+                arg.indent_blank(r.start);
+
+                reformat_blockquote(arg, it, kind, out);
+
+                arg.prefix.pop();
+                arg.follow.pop();
+
+                md_last = MDFormat::BlockQuote;
+            }
+
+            _ => unreachable!("{:?} {:?}", e, r),
+        }
+    }
+
+    arg.prefix.pop();
+    arg.follow.pop();
 }
 
 fn reformat_table<'a>(
@@ -997,7 +1005,7 @@ fn reformat_footnote<'a>(
         arg.follow.push(CowStr::Borrowed(" "));
     }
 
-    let mut md = MDFormat::None;
+    let mut md_last = MDFormat::None;
     loop {
         let Some((e, r)) = it.next() else { break };
         match e {
@@ -1005,11 +1013,11 @@ fn reformat_footnote<'a>(
                 break;
             }
             Event::Start(Tag::Paragraph) => {
-                md.insert_newline(MDFormat::Paragraph, arg.newline, &mut out.txt);
+                insert_empty(arg, md_last, MDFormat::Paragraph, out);
 
                 reformat_paragraph(arg, it, out);
 
-                md = MDFormat::Paragraph;
+                md_last = MDFormat::Paragraph;
             }
             _ => unreachable!("{:?} {:?}", e, r),
         }
@@ -1244,6 +1252,47 @@ fn reformat_paragraph<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: 
     wrap_words(arg, &mut words, NewLine::Soft, out);
 }
 
+fn insert_empty<'a>(
+    arg: &mut Reformat<'a>,
+    last: MDFormat,
+    current: MDFormat,
+    out: &mut ReformatOut,
+) {
+    let b = match last {
+        MDFormat::None => false,
+        MDFormat::BlockQuote
+        | MDFormat::Heading
+        | MDFormat::Paragraph
+        | MDFormat::DefinitionList
+        | MDFormat::Table => match current {
+            MDFormat::None => false,
+            _ => true,
+        },
+        MDFormat::Footnote => match current {
+            MDFormat::None => false,
+            MDFormat::Footnote => false,
+            _ => true,
+        },
+        MDFormat::ReferenceDefs => match current {
+            MDFormat::None => false,
+            MDFormat::ReferenceDefs => false,
+            _ => true,
+        },
+    };
+
+    if b {
+        for v in arg.prefix.iter() {
+            out.txt.push_str(v);
+        }
+
+        out.txt.push_str(arg.newline);
+
+        // replace prefix with follow
+        arg.prefix.clear();
+        arg.prefix.extend_from_slice(&arg.follow);
+    }
+}
+
 // wrap words into out.
 // use prefix+follow.
 // cleanup afterwards.
@@ -1328,19 +1377,6 @@ fn append_wrapped<'a>(
     // replace prefix with follow
     arg.prefix.clear();
     arg.prefix.extend_from_slice(&arg.follow);
-}
-
-fn words_to_string(words: &Vec<Vec<&'_ str>>, newline: &str) -> String {
-    let mut tmp = String::new();
-
-    for line in words {
-        for word in line {
-            tmp.push_str(word);
-        }
-        tmp.push_str(newline);
-    }
-
-    tmp
 }
 
 pub fn dump_md(txt: &str) {

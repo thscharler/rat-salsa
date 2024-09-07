@@ -689,7 +689,7 @@ pub mod mdfile {
     use crate::mdedit_parts::markdown::{md_format, parse_md_styles, MarkDown};
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
-    use log::warn;
+    use log::{debug, warn};
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, TextOutcome};
@@ -984,6 +984,8 @@ pub mod mdfile {
         // Save
         pub fn save(&mut self) -> Result<(), Error> {
             if self.changed {
+                debug!("save {:?}", self.path);
+
                 let mut f = BufWriter::new(File::create(&self.path)?);
                 let mut buf = Vec::new();
                 for line in self.edit.lines_at(0) {
@@ -1848,6 +1850,7 @@ pub mod mdedit {
                     Control::Changed
                 }
                 MDAction::Save => {
+                    debug!("Save");
                     self.save()?;
                     Control::Changed
                 }
