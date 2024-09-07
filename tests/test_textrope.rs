@@ -255,3 +255,61 @@ fn test_string6() {
     );
     assert_eq!(s.string(), "");
 }
+
+#[test]
+fn test_cr() {
+    let mut s = TextRope::new_text("asdf");
+
+    assert_eq!(
+        s.insert_char(TextPosition::new(2, 0), '\r'),
+        Ok((TextRange::new((2, 0), (0, 1)), 2..3))
+    );
+    assert_eq!(
+        s.insert_char(TextPosition::new(3, 0), '\n'),
+        Ok((TextRange::new((3, 0), (3, 0)), 3..4))
+    );
+
+    let mut s = TextRope::new_text("asdf");
+
+    assert_eq!(
+        s.insert_char(TextPosition::new(2, 0), '\n'),
+        Ok((TextRange::new((2, 0), (0, 1)), 2..3))
+    );
+    assert_eq!(
+        s.insert_char(TextPosition::new(2, 0), '\r'),
+        Ok((TextRange::new((2, 0), (2, 0)), 2..3))
+    );
+
+    let mut s = TextRope::new_text("X🙍♀X");
+    assert_eq!(
+        s.insert_char(TextPosition::new(2, 0), '‍'),
+        Ok((TextRange::new((2, 0), (2, 0)), 5..8))
+    );
+    let mut s = TextRope::new_text("X🙍♀X");
+    assert_eq!(
+        s.insert_char(TextPosition::new(2, 0), '🏿'),
+        Ok((TextRange::new((2, 0), (2, 0)), 5..9))
+    );
+    let mut s = TextRope::new_text("X🙍♀X");
+    assert_eq!(
+        s.insert_char(TextPosition::new(2, 0), 'A'),
+        Ok((TextRange::new((2, 0), (3, 0)), 5..6))
+    );
+
+    let mut s = TextRope::new_text("asdf");
+    let mut pos = TextPosition::new(2, 0);
+    for c in "\r\n".chars() {
+        let (r, _) = s.insert_char(pos, c).expect("fine");
+        pos = r.end;
+    }
+}
+
+#[test]
+fn test_cr2() {
+    let mut s = TextRope::new_text("asdf");
+
+    assert_eq!(
+        s.insert_str(TextPosition::new(2, 0), "\r\n"),
+        Ok((TextRange::new((2, 0), (0, 1)), 2..4))
+    );
+}

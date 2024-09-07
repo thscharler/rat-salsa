@@ -554,28 +554,64 @@ pub(crate) mod text_rope {
                 .try_byte_to_char(pos_byte.start)
                 .expect("valid_bytes");
 
-            let mut line_count = 0;
-            if ch == '\n' {
-                line_count = 1;
-            }
+            let mut it_gr = RopeGraphemes::new_offset(0, self.text.slice(..), pos_byte.start)
+                .expect("valid_bytes");
 
-            let insert_range = if line_count > 0 {
-                self.text
-                    .try_insert_char(pos_char, ch)
-                    .expect("valid_chars");
+            let prev = it_gr.prev();
+            it_gr.next();
+            let next = it_gr.next();
 
-                TextRange::new(pos, (0, pos.y + line_count))
+            let insert_range = if ch == '\n' {
+                if let Some(prev) = prev {
+                    if prev == "\r" {
+                        TextRange::new(pos, pos)
+                    } else {
+                        TextRange::new(pos, (0, pos.y + 1))
+                    }
+                } else {
+                    TextRange::new(pos, (0, pos.y + 1))
+                }
+            } else if ch == '\r' {
+                if let Some(next) = next {
+                    if next == "\n" {
+                        TextRange::new(pos, pos)
+                    } else {
+                        TextRange::new(pos, (0, pos.y + 1))
+                    }
+                } else {
+                    TextRange::new(pos, (0, pos.y + 1))
+                }
             } else {
-                // no way to know if the new char combines with a surrounding char.
-                // the difference of the graphem len seems safe though.
-                let old_len = self.line_width(pos.y).expect("valid_line");
-                self.text
-                    .try_insert_char(pos_char, ch)
-                    .expect("valid_chars");
-                let new_len = self.line_width(pos.y).expect("valid_line");
+                let mut len = 0;
+                self.buf.clear();
+                if let Some(prev) = prev {
+                    len += 1;
+                    self.buf.push_str(prev.grapheme());
+                }
+                len += 1;
+                self.buf.push(ch);
+                if let Some(next) = next {
+                    len += 1;
+                    self.buf.push_str(next.grapheme());
+                }
 
-                TextRange::new(pos, (pos.x + new_len - old_len, pos.y))
+                let n = len - self.buf.graphemes(true).count();
+                if n == 0 {
+                    TextRange::new(pos, (pos.x + 1, pos.y))
+                } else if n == 1 {
+                    // combined some
+                    TextRange::new(pos, pos)
+                } else if n == 2 {
+                    // combined some
+                    TextRange::new(pos, pos)
+                } else {
+                    unreachable!("insert_char {:?}", self.buf);
+                }
             };
+
+            self.text
+                .try_insert_char(pos_char, ch)
+                .expect("valid_chars");
 
             Ok((insert_range, pos_byte.start..pos_byte.start + ch.len_utf8()))
         }
