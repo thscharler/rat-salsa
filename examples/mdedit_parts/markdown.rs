@@ -4,7 +4,8 @@ use std::convert::TryFrom;
 use anyhow::{anyhow, Error};
 use log::debug;
 use pulldown_cmark::{
-    BlockQuoteKind, CowStr, Event, HeadingLevel, OffsetIter, Options, Parser, Tag, TagEnd,
+    BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, OffsetIter, Options, Parser, Tag,
+    TagEnd,
 };
 use rat_salsa::event::ct_event;
 use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
@@ -552,6 +553,7 @@ enum MDFormat {
     ReferenceDefs,
     Table,
     BlockQuote,
+    CodeBlock,
 }
 
 struct Reformat<'a> {
@@ -707,7 +709,24 @@ pub fn reformat(
 
                 md_last = MDFormat::BlockQuote;
             }
-            Event::Start(Tag::CodeBlock(_)) => {}
+            Event::Start(Tag::CodeBlock(kind)) => {
+                insert_empty(&mut arg, md_last, MDFormat::CodeBlock, &mut out);
+
+                let tag = if matches!(kind, CodeBlockKind::Fenced(_)) {
+                    &arg.txt[r.start..r.start + 1]
+                } else {
+                    ""
+                };
+
+                arg.indent_prefix(r.start);
+
+                reformat_codeblock(&mut arg, &mut p, kind, tag, &mut out);
+
+                arg.prefix.pop();
+                arg.follow.pop();
+
+                md_last = MDFormat::CodeBlock;
+            }
             Event::Start(Tag::HtmlBlock) => {}
             Event::Start(Tag::List(_)) => {}
             Event::Start(Tag::Item) => {}
@@ -799,6 +818,76 @@ pub fn reformat(
     }
 
     (out.txt, out.cursor)
+}
+
+fn reformat_codeblock<'a>(
+    arg: &mut Reformat<'a>,
+    it: &mut OffsetIter<'a>,
+    kind: CodeBlockKind<'a>,
+    tag: &'_ str,
+    out: &mut ReformatOut,
+) {
+    use std::fmt::Write;
+
+    let mut first = true;
+    let mut any_content = false;
+
+    match &kind {
+        CodeBlockKind::Indented => {}
+        CodeBlockKind::Fenced(lang) => {
+            for v in arg.prefix.iter() {
+                out.txt.push_str(v);
+            }
+            _ = write!(out.txt, "{}{}{}{}{}", tag, tag, tag, lang, arg.newline);
+            // replace prefix with follow
+            arg.prefix.clear();
+            arg.prefix.extend_from_slice(&arg.follow);
+            first = false;
+        }
+    }
+
+    for (e, r) in it {
+        match e {
+            Event::End(TagEnd::CodeBlock) => {
+                break;
+            }
+            Event::Text(v) => {
+                if first {
+                    for v in arg.prefix.iter() {
+                        out.txt.push_str(v);
+                    }
+                } else {
+                    for v in arg.follow.iter() {
+                        out.txt.push_str(v);
+                    }
+                }
+                if let Some(cur) = arg.word_cursor(v.as_ref()) {
+                    out.cursor = out.txt.len() + cur;
+                }
+                _ = write!(out.txt, "{}", v.as_ref());
+                if first {
+                    // replace prefix with follow
+                    arg.prefix.clear();
+                    arg.prefix.extend_from_slice(&arg.follow);
+                    first = false;
+                }
+                any_content = true;
+            }
+            _ => unreachable!("{:?} {:?}", e, r),
+        }
+    }
+
+    if any_content {
+        match &kind {
+            CodeBlockKind::Indented => {}
+            CodeBlockKind::Fenced(lang) => {
+                for v in arg.follow.iter() {
+                    out.txt.push_str(v);
+                }
+                _ = write!(out.txt, "{}{}{}", tag, tag, tag);
+            }
+        }
+    }
 }
 
 fn reformat_blockquote<'a>(
@@ -1264,7 +1353,8 @@ fn insert_empty<'a>(
         | MDFormat::Heading
         | MDFormat::Paragraph
         | MDFormat::DefinitionList
-        | MDFormat::Table => match current {
+        | MDFormat::Table
+        | MDFormat::CodeBlock => match current {
             MDFormat::None => false,
             _ => true,
         },
