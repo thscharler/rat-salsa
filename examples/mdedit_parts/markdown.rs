@@ -413,7 +413,26 @@ fn md_dump(state: &mut TextAreaState) -> TextOutcome {
     let cursor = state.cursor();
     let cursor_byte = state.byte_at(cursor).start;
 
-    dump_md(state.selected_text().as_ref());
+    let selection = if state.selection().is_empty() {
+        let mut sty = Vec::new();
+        state.styles_at(cursor_byte, &mut sty);
+
+        if let Some((r, _)) = sty.iter().find(|(r, s)| *s == MDStyle::Item as usize) {
+            state.byte_range(r.clone())
+        } else if let Some((r, _)) = sty.first() {
+            state.byte_range(r.clone())
+        } else {
+            TextRange::new((0, cursor.y), (0, cursor.y + 1))
+        }
+    } else {
+        TextRange::new(
+            (0, state.selection().start.y),
+            (0, state.selection().end.y + 1),
+        )
+    };
+    let selection_byte = state.bytes_at_range(selection);
+
+    dump_md(state.str_slice(selection).as_ref());
 
     TextOutcome::Unchanged
 }
@@ -432,33 +451,47 @@ fn md_dump_styles(state: &mut TextAreaState) -> TextOutcome {
 }
 
 fn md_debug(state: &mut TextAreaState) -> TextOutcome {
-    let selection = TextRange::new(
-        (0, state.selection().start.y),
-        (0, state.selection().end.y + 1),
-    );
     let cursor = state.cursor();
+    let cursor_byte = state.byte_at(cursor).start;
+
+    let selection = if state.selection().is_empty() {
+        let mut sty = Vec::new();
+        state.styles_at(cursor_byte, &mut sty);
+
+        if let Some((r, _)) = sty.iter().find(|(r, s)| *s == MDStyle::Item as usize) {
+            state.byte_range(r.clone())
+        } else if let Some((r, _)) = sty.first() {
+            state.byte_range(r.clone())
+        } else {
+            TextRange::new((0, cursor.y), (0, cursor.y + 1))
+        }
+    } else {
+        TextRange::new(
+            (0, state.selection().start.y),
+            (0, state.selection().end.y + 1),
+        )
+    };
+    let selection_byte = state.bytes_at_range(selection);
 
     // relative cursor
-    let cursor_byte = if selection.contains_pos(cursor) {
-        state.byte_at(cursor).start - state.byte_at(selection.start).start
+    let (txt_cursor, txt_cursor_byte) = if selection.contains_pos(cursor) {
+        (
+            TextPosition::new(cursor.x, cursor.y - selection.start.y),
+            cursor_byte - selection_byte.start,
+        )
     } else {
-        0
-    };
-    let cursor = if selection.contains_pos(cursor) {
-        TextPosition::new(cursor.x, cursor.y - selection.start.y)
-    } else {
-        TextPosition::new(0, 0)
+        (TextPosition::new(0, 0), 0)
     };
 
     let (wrapped, new_cursor) = reformat(
         state.str_slice(selection).as_ref(),
-        cursor,
-        cursor_byte,
+        txt_cursor,
+        txt_cursor_byte,
         65,
         false,
         state.newline(),
     );
-    let new_cursor = state.byte_at(selection.start).start + new_cursor;
+    let new_cursor = selection_byte.start + new_cursor;
 
     state.begin_undo_seq();
     state.delete_range(selection);
@@ -932,7 +965,11 @@ fn reformat_table<'a>(
                     if row_pos == arg.cursor.y && col_idx == row.cursor_cell {
                         out.cursor = out.txt.len() + 1 + row.cursor_byte_offset;
                     }
-                    _ = write!(out.txt, "| {} ", cell.txt.trim(),);
+                    if cell.txt.trim().is_empty() {
+                        _ = write!(out.txt, "| ",);
+                    } else {
+                        _ = write!(out.txt, "| {} ", cell.txt.trim());
+                    }
                 }
             }
         }
