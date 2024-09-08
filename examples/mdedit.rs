@@ -886,16 +886,6 @@ pub mod mdfile {
     }
 
     impl AppState<GlobalState, MDAction, Error> for MDFileState {
-        fn init(
-            &mut self,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
-        ) -> Result<(), Error> {
-            self.edit.set_newline(&ctx.g.cfg.new_line);
-            self.edit.set_show_ctrl(ctx.g.cfg.show_ctrl);
-            self.edit.set_tab_width(4);
-            Ok(())
-        }
-
         fn timer(
             &mut self,
             event: &TimeOut,
@@ -927,7 +917,7 @@ pub mod mdfile {
 
     impl MDFileState {
         // New editor with fresh file.
-        pub fn new_file(path: &Path) -> Self {
+        pub fn new_file(path: &Path, ctx: &mut AppContext<'_>) -> Self {
             let mut path = path.to_path_buf();
             if path.extension().is_none() {
                 path.set_extension("md");
@@ -940,6 +930,9 @@ pub mod mdfile {
                     .as_ref(),
             );
             text_area.set_clipboard(Some(CliClipboard));
+            text_area.set_newline(&ctx.g.cfg.new_line);
+            text_area.set_show_ctrl(ctx.g.cfg.show_ctrl);
+            text_area.set_tab_width(4);
 
             Self {
                 path: path.clone(),
@@ -963,6 +956,9 @@ pub mod mdfile {
             text_area.set_clipboard(Some(CliClipboard));
             let t = fs::read_to_string(&path)?;
             text_area.set_text(t.as_str());
+            text_area.set_newline(&ctx.g.cfg.new_line);
+            text_area.set_show_ctrl(ctx.g.cfg.show_ctrl);
+            text_area.set_tab_width(4);
 
             Ok(Self {
                 path: path.clone(),
@@ -1909,7 +1905,7 @@ pub mod mdedit {
                 (0, 0)
             };
 
-            let new = MDFileState::new_file(&path);
+            let new = MDFileState::new_file(&path, ctx);
             self.split_tab.open(pos, new, ctx);
             self.split_tab.select(pos, ctx);
 
