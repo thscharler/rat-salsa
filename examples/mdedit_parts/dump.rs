@@ -53,14 +53,11 @@ pub fn md_dump(state: &mut TextAreaState) -> TextOutcome {
 
         if let Some((r, _)) = first {
             let r = state.byte_range(r.clone());
-            debug!("RAGE0 {:?}", r);
-            TextRange::new(r.start, r.end)
+            TextRange::new((0, r.start.y), r.end)
         } else {
-            debug!("RAGE1 {:?}", cursor);
             TextRange::new((0, cursor.y), (0, cursor.y + 1))
         }
     } else {
-        debug!("RAGE2 {:?}", state.selection());
         TextRange::new(
             (0, state.selection().start.y),
             (0, state.selection().end.y + 1),
@@ -68,7 +65,7 @@ pub fn md_dump(state: &mut TextAreaState) -> TextOutcome {
     };
     let selection_byte = state.bytes_at_range(selection);
 
-    debug!("DUMP SELECTION {:?}", selection);
+    debug!("SELECTION {:?}", selection_byte);
 
     dump_md(state.str_slice(selection).as_ref());
 

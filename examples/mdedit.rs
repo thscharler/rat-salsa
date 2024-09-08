@@ -990,8 +990,8 @@ pub mod mdfile {
                     buf.clear();
                     buf.extend(line.bytes().filter(|v| *v != b'\n' && *v != b'\r'));
                     buf.extend_from_slice(self.edit.newline().as_bytes());
-                    f.write_all(&buf)?;
                 }
+                f.write_all(&buf)?;
 
                 self.changed = false;
             }

@@ -51,20 +51,18 @@ pub fn md_format(state: &mut TextAreaState, table_eq_width: bool) -> TextOutcome
 
         if let Some((r, _)) = first {
             let r = state.byte_range(r.clone());
-            debug!("RAGE0 {:?}", r);
-            TextRange::new(r.start, r.end)
+            TextRange::new((0, r.start.y), r.end)
         } else {
-            debug!("RAGE1 {:?}", cursor);
             TextRange::new((0, cursor.y), (0, cursor.y + 1))
         }
     } else {
-        debug!("RAGE2 {:?}", state.selection());
         TextRange::new(
             (0, state.selection().start.y),
             (0, state.selection().end.y + 1),
         )
     };
     let selection_byte = state.bytes_at_range(selection);
+    debug!("SELECTION {:?}", selection_byte);
 
     // relative cursor
     let (txt_cursor, txt_cursor_byte) = if selection.contains_pos(cursor) {
@@ -114,6 +112,7 @@ enum MDFormat {
     Item,
 }
 
+#[derive(Debug)]
 struct Reformat<'a> {
     txt: &'a str,
     txt_width: usize,
@@ -173,7 +172,7 @@ impl<'a> Reformat<'a> {
                 break;
             };
             start_byte = idx;
-            if gr == "\n" || gr == "\n\r" {
+            if gr == "\n" || gr == "\r\n" {
                 start_byte = idx + gr.len();
                 break;
             }
@@ -187,7 +186,12 @@ impl<'a> Reformat<'a> {
 
     // add indent
     fn indent(&mut self, first: CowStr<'a>, follow: CowStr<'a>) {
-        self.first.push(first);
+        if self.first.is_empty() {
+            self.first.extend_from_slice(&self.follow);
+            self.first.push(first);
+        } else {
+            self.first.push(first);
+        }
         self.follow.push(follow);
     }
 
@@ -230,6 +234,7 @@ impl<'a> Reformat<'a> {
     }
 }
 
+#[derive(Debug)]
 struct ReformatOut {
     txt: String,
     cursor: usize,
@@ -272,10 +277,16 @@ pub fn reformat(
         cursor: 0,
     };
 
+    let mut last_r = 0..0;
     loop {
         let Some((e, r)) = it.next() else {
             break;
         };
+
+        // copy the gaps.
+        if last_r.end != r.start {
+            out.txt.push_str(&arg.txt[last_r.end..r.start]);
+        }
 
         match e {
             Event::Start(Tag::Paragraph) => {
@@ -290,21 +301,25 @@ pub fn reformat(
             }
             Event::Start(Tag::BlockQuote(kind)) => {
                 arg.indent_prefix(r.start, &mut out);
-                reformat_blockquote(&mut arg, &mut it, r, kind, &mut out);
+                reformat_blockquote(&mut arg, &mut it, r.clone(), kind, &mut out);
                 arg.dedent();
             }
             Event::Start(Tag::CodeBlock(kind)) => {
                 arg.indent_prefix(r.start, &mut out);
-                reformat_codeblock(&mut arg, &mut it, r, kind, &mut out);
+                reformat_codeblock(&mut arg, &mut it, r.clone(), kind, &mut out);
                 arg.dedent();
             }
             Event::Start(Tag::List(v)) => {
+                let mut out_extended = false;
                 arg.indent_prefix(r.start, &mut out);
-                reformat_list(&mut arg, &mut it, r, &mut out);
+                reformat_list(&mut arg, &mut it, r.clone(), &mut out, &mut out_extended);
+                if !out_extended {
+                    arg.empty_out(&mut out);
+                }
                 arg.dedent();
             }
             Event::Start(Tag::Item) => {
-                unreachable!("list {:?} {:?}", e, r);
+                unreachable!("list {:?} {:?}", e, r.clone());
             }
             Event::Start(Tag::HtmlBlock) => {}
 
@@ -321,18 +336,18 @@ pub fn reformat(
             }
             Event::Start(Tag::DefinitionListTitle)
             | Event::Start(Tag::DefinitionListDefinition) => {
-                unreachable!("def-list {:?} {:?}", e, r);
+                unreachable!("def-list {:?} {:?}", e, r.clone());
             }
 
             Event::Start(Tag::Table(_)) => {
                 arg.indent_prefix(r.start, &mut out);
-                reformat_table(&mut arg, &mut it, r, &mut out);
+                reformat_table(&mut arg, &mut it, r.clone(), &mut out);
                 arg.dedent();
             }
             Event::Start(Tag::TableHead)
             | Event::Start(Tag::TableRow)
             | Event::Start(Tag::TableCell) => {
-                unreachable!("table {:?} {:?}", e, r);
+                unreachable!("table {:?} {:?}", e, r.clone());
             }
 
             Event::Start(Tag::Emphasis)
@@ -348,7 +363,7 @@ pub fn reformat(
             | Event::FootnoteReference(_)
             | Event::SoftBreak
             | Event::HardBreak => {
-                unreachable!("inline {:?} {:?}", e, r);
+                unreachable!("inline {:?} {:?}", e, r.clone());
             }
 
             Event::Start(Tag::MetadataBlock(_)) => {}
@@ -357,8 +372,9 @@ pub fn reformat(
             Event::Rule => {}
             Event::TaskListMarker(_) => {}
         }
-    }
 
+        last_r = r;
+    }
     for (link_name, linkdef) in it.reference_definitions().iter() {
         out.txt.push_str("[");
         out.txt.push_str(link_name);
@@ -370,7 +386,10 @@ pub fn reformat(
         }
         out.txt.push_str(newline);
     }
-
+    // copy the gaps.
+    if last_r.end != txt.len() {
+        out.txt.push_str(&arg.txt[last_r.end..txt.len()]);
+    }
     (out.txt, out.cursor)
 }
 
@@ -379,6 +398,7 @@ fn reformat_list<'a>(
     it: &mut OffsetIter<'a>,
     range: Range<usize>,
     out: &mut ReformatOut,
+    out_extended: &mut bool,
 ) {
     arg.enter_frame();
 
@@ -386,7 +406,6 @@ fn reformat_list<'a>(
     let first_item = parse_md_item(range.start, &arg.txt[range]);
 
     let mut nr = first_item.mark_nr;
-    let mut out_extended = false;
     loop {
         let Some((e, r)) = it.next() else {
             break;
@@ -394,9 +413,9 @@ fn reformat_list<'a>(
 
         match e {
             Event::End(TagEnd::List(_)) => {
-                if !out_extended {
-                    arg.empty_out(out);
-                }
+                // if !*out_extended {
+                //     arg.empty_out(out);
+                // }
                 break;
             }
             Event::Start(Tag::Item) => {
@@ -408,7 +427,7 @@ fn reformat_list<'a>(
                     CowStr::Borrowed(first_item.prefix),
                 );
 
-                reformat_list_item(arg, it, &item, out, &mut out_extended);
+                reformat_list_item(arg, it, &item, out, out_extended);
 
                 arg.dedent();
 
@@ -442,8 +461,6 @@ fn reformat_list_item<'a>(
             CowStr::Borrowed("  "),
         );
     }
-    debug!("list indent {:?}", arg.first);
-    debug!("list indent {:?}", arg.follow);
 
     let mut words = Vec::new();
     let mut skip_txt = false;
@@ -554,8 +571,7 @@ fn reformat_list_item<'a>(
                 if !words.is_empty() {
                     wrap_words(arg, &mut words, NewLine::Soft, out);
                 }
-                reformat_list(arg, it, r, out);
-                *out_extended = false;
+                reformat_list(arg, it, r, out, out_extended);
             }
             Event::Start(Tag::FootnoteDefinition(v)) => {
                 if !words.is_empty() {
@@ -630,11 +646,6 @@ fn reformat_codeblock<'a>(
                 // text segments come in strange order.
                 // collect first, line-break later.
                 buf.push_str(v.as_ref());
-
-                // do cursor work here, later we lost the slice
-                if let Some(cur) = arg.word_cursor(v.as_ref()) {
-                    out.cursor = out.txt.len() + cur;
-                }
             }
             _ => unreachable!("{:?} {:?}", e, r),
         }
@@ -652,7 +663,7 @@ fn reformat_codeblock<'a>(
             CodeBlockKind::Fenced(lang) => {
                 arg.first_out(out);
                 out.txt.push_str(fence);
-                out.txt.push_str(arg.newline);
+                // out.txt.push_str(arg.newline);
             }
         }
     }
@@ -849,6 +860,7 @@ fn reformat_footnote<'a>(
             }
             Event::Start(Tag::Paragraph) => {
                 reformat_paragraph(arg, it, out);
+                arg.empty_out(out);
             }
             _ => unreachable!("{:?} {:?}", e, r),
         }
@@ -1164,6 +1176,7 @@ fn append_wrapped<'a>(
                 out.cursor = out.txt.len() + cur;
             }
             out.txt.push_str(line[i].word);
+
             if let Some(cur) = arg.word_cursor(line[i].whitespace) {
                 out.cursor = out.txt.len() + cur;
             }
@@ -1175,6 +1188,7 @@ fn append_wrapped<'a>(
                 out.cursor = out.txt.len() + cur;
             }
             out.txt.push_str(line[last_idx].word);
+
             if let Some(cur) = arg.word_cursor(line[last_idx].whitespace) {
                 out.cursor = out.txt.len();
             }
