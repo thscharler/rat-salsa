@@ -686,7 +686,9 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
 
 // Editor for a single file.
 pub mod mdfile {
-    use crate::mdedit_parts::markdown::{md_format, parse_md_styles, MarkDown};
+    use crate::mdedit_parts::format::md_format;
+    use crate::mdedit_parts::styles::parse_md_styles;
+    use crate::mdedit_parts::MarkDown;
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
     use log::{debug, warn};
