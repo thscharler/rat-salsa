@@ -2,10 +2,10 @@ use std::convert::TryFrom;
 
 // Extended text-editing for markdown.
 use anyhow::{anyhow, Error};
-use log::debug;
+use log::{debug, info};
 use pulldown_cmark::{
-    BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, OffsetIter, Options, Parser, Tag,
-    TagEnd,
+    BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, InlineStr, OffsetIter, Options,
+    Parser, Tag, TagEnd,
 };
 use rat_salsa::event::ct_event;
 use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
@@ -420,7 +420,7 @@ fn md_dump(state: &mut TextAreaState) -> TextOutcome {
         if let Some((r, _)) = sty.iter().find(|(_, s)| {
             matches!(
                 MDStyle::try_from(*s).expect("fine"),
-                MDStyle::Table | MDStyle::Item | MDStyle::DefinitionList
+                MDStyle::Table | MDStyle::DefinitionList | MDStyle::List
             )
         }) {
             let r = state.byte_range(r.clone());
@@ -468,7 +468,7 @@ fn md_debug(state: &mut TextAreaState) -> TextOutcome {
         if let Some((r, _)) = sty.iter().find(|(_, s)| {
             matches!(
                 MDStyle::try_from(*s).expect("fine"),
-                MDStyle::Table | MDStyle::Item | MDStyle::DefinitionList
+                MDStyle::Table | MDStyle::DefinitionList | MDStyle::List
             )
         }) {
             let r = state.byte_range(r.clone());
@@ -543,7 +543,7 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 enum MDFormat {
     None,
     Heading,
@@ -554,6 +554,8 @@ enum MDFormat {
     Table,
     BlockQuote,
     CodeBlock,
+    List,
+    Item,
 }
 
 struct Reformat<'a> {
@@ -563,15 +565,37 @@ struct Reformat<'a> {
     cursor_byte: usize,
     newline: &'a str,
     table_eq_width: bool,
-    prefix: Vec<CowStr<'a>>,
+
+    prefix: Vec<usize>,
     follow: Vec<CowStr<'a>>,
 }
 
 impl<'a> Reformat<'a> {
+    fn assert_indent_empty(&self) {
+        assert!(self.prefix.is_empty());
+        assert!(self.follow.is_empty());
+    }
+
+    fn indent_val(&self) -> (usize, usize) {
+        (self.prefix.len(), self.follow.len())
+    }
+
+    fn assert_indent(&self, before: (usize, usize)) {
+        assert_eq!(before, self.indent_val());
+    }
+
+    // write follow indent
+    fn indent_follow(&mut self, out: &mut ReformatOut) {
+        for v in self.follow.iter() {
+            out.txt.push_str(v);
+        }
+    }
+
     // set line prefix as indent
-    fn indent_prefix(&mut self, pos_byte: usize) {
+    fn indent_from_prefix(&mut self, pos_byte: usize, out: &mut ReformatOut) {
         let mut gr_it = self.txt[..pos_byte].grapheme_indices(true).rev();
         let mut start_byte = pos_byte;
+        let mut prefix_len = 0;
         loop {
             let Some((idx, gr)) = gr_it.next() else {
                 break;
@@ -581,18 +605,24 @@ impl<'a> Reformat<'a> {
                 start_byte = idx + gr.len();
                 break;
             }
+            prefix_len += 1;
         }
 
-        self.prefix
-            .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+        self.assert_indent_empty();
+        self.prefix.push(prefix_len);
         self.follow
             .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+
+        for v in self.follow.iter() {
+            out.txt.push_str(v);
+        }
     }
 
     // set blanks before as indent
-    fn indent_blank(&mut self, pos_byte: usize) {
+    fn indent_extend_from_blank(&mut self, pos_byte: usize, out: &mut ReformatOut) {
         let mut gr_it = self.txt[..pos_byte].grapheme_indices(true).rev();
         let mut start_byte = pos_byte;
+        let mut prefix_len = 0;
         loop {
             let Some((idx, gr)) = gr_it.next() else {
                 break;
@@ -602,12 +632,28 @@ impl<'a> Reformat<'a> {
                 start_byte = idx + gr.len();
                 break;
             }
+            prefix_len += 1;
         }
 
-        self.prefix
-            .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+        out.txt.push_str(&self.txt[start_byte..pos_byte]);
+
+        self.prefix.push(prefix_len);
         self.follow
             .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+    }
+
+    fn indent(&mut self, prefix: usize, follow: CowStr<'a>) {
+        self.prefix.push(prefix);
+        self.follow.push(follow);
+    }
+
+    fn dedent(&mut self) {
+        self.prefix.pop();
+        self.follow.pop();
+    }
+
+    fn total_prefix(&self) -> usize {
+        self.prefix.iter().sum()
     }
 
     // word-relative cursor position, if any.
@@ -664,8 +710,8 @@ pub fn reformat(
         cursor_byte,
         newline,
         table_eq_width,
-        prefix: Vec::new(),
         follow: Vec::new(),
+        prefix: Vec::new(),
     };
     let mut out = ReformatOut {
         txt: String::new(),
@@ -681,65 +727,77 @@ pub fn reformat(
             Event::Start(Tag::Paragraph) => {
                 insert_empty(&mut arg, md_last, MDFormat::Paragraph, &mut out);
 
-                arg.indent_prefix(r.start);
-
+                arg.assert_indent_empty();
+                let ind = arg.indent_val();
+                arg.indent_from_prefix(r.start, &mut out);
                 reformat_paragraph(&mut arg, &mut p, &mut out);
-
-                arg.prefix.pop();
-                arg.follow.pop();
+                arg.dedent();
+                arg.assert_indent(ind);
 
                 md_last = MDFormat::Paragraph;
             }
             Event::Start(Tag::Heading { level, .. }) => {
                 insert_empty(&mut arg, md_last, MDFormat::Heading, &mut out);
 
+                arg.assert_indent_empty();
+                let ind = arg.indent_val();
                 reformat_heading(&mut arg, &mut p, level, &mut out);
+                arg.assert_indent(ind);
 
                 md_last = MDFormat::Heading;
             }
             Event::Start(Tag::BlockQuote(kind)) => {
                 insert_empty(&mut arg, md_last, MDFormat::BlockQuote, &mut out);
 
-                arg.indent_prefix(r.start);
-
-                reformat_blockquote(&mut arg, &mut p, kind, &mut out);
-
-                arg.prefix.pop();
-                arg.follow.pop();
+                arg.assert_indent_empty();
+                let ind = arg.indent_val();
+                arg.indent_from_prefix(r.start, &mut out);
+                reformat_blockquote(&mut arg, &mut p, r, kind, &mut out);
+                arg.dedent();
+                arg.assert_indent(ind);
 
                 md_last = MDFormat::BlockQuote;
             }
             Event::Start(Tag::CodeBlock(kind)) => {
                 insert_empty(&mut arg, md_last, MDFormat::CodeBlock, &mut out);
 
-                let tag = if matches!(kind, CodeBlockKind::Fenced(_)) {
-                    &arg.txt[r.start..r.start + 1]
-                } else {
-                    ""
-                };
-
-                arg.indent_prefix(r.start);
-
-                reformat_codeblock(&mut arg, &mut p, kind, tag, &mut out);
-
-                arg.prefix.pop();
-                arg.follow.pop();
+                arg.assert_indent_empty();
+                let ind = arg.indent_val();
+                arg.indent_from_prefix(r.start, &mut out);
+                reformat_codeblock(&mut arg, &mut p, r, kind, &mut out);
+                arg.dedent();
+                arg.assert_indent(ind);
 
                 md_last = MDFormat::CodeBlock;
             }
+            Event::Start(Tag::List(v)) => {
+                insert_empty(&mut arg, md_last, MDFormat::List, &mut out);
+
+                arg.assert_indent_empty();
+                let ind = arg.indent_val();
+                arg.indent_from_prefix(r.start, &mut out);
+                reformat_list(&mut arg, &mut p, r, &mut out);
+                arg.dedent();
+                arg.assert_indent(ind);
+
+                insert_empty(&mut arg, MDFormat::List, MDFormat::Paragraph, &mut out);
+
+                md_last = MDFormat::List;
+            }
+            Event::Start(Tag::Item) => {
+                unreachable!("list {:?} {:?}", e, r);
+            }
             Event::Start(Tag::HtmlBlock) => {}
-            Event::Start(Tag::List(_)) => {}
-            Event::Start(Tag::Item) => {}
 
             Event::Start(Tag::FootnoteDefinition(v)) => {
                 insert_empty(&mut arg, md_last, MDFormat::Footnote, &mut out);
 
-                arg.indent_prefix(r.start);
-
+                arg.assert_indent_empty();
+                let ind = arg.indent_val();
+                arg.indent_from_prefix(r.start, &mut out);
                 reformat_footnote(&mut arg, &mut p, v, &mut out);
-
-                arg.prefix.pop();
-                arg.follow.pop();
+                arg.dedent();
+                arg.assert_indent(ind);
 
                 md_last = MDFormat::Footnote;
             }
@@ -747,36 +805,36 @@ pub fn reformat(
             Event::Start(Tag::DefinitionList) => {
                 insert_empty(&mut arg, md_last, MDFormat::DefinitionList, &mut out);
 
-                arg.indent_prefix(r.start);
-
+                arg.assert_indent_empty();
+                let ind = arg.indent_val();
+                arg.indent_from_prefix(r.start, &mut out);
                 reformat_definition(&mut arg, &mut p, &mut out);
-
-                arg.prefix.pop();
-                arg.follow.pop();
+                arg.dedent();
+                arg.assert_indent(ind);
 
                 md_last = MDFormat::DefinitionList;
             }
             Event::Start(Tag::DefinitionListTitle)
             | Event::Start(Tag::DefinitionListDefinition) => {
-                unreachable!("{:?} {:?}", e, r);
+                unreachable!("def-list {:?} {:?}", e, r);
             }
 
             Event::Start(Tag::Table(_)) => {
                 insert_empty(&mut arg, md_last, MDFormat::Table, &mut out);
 
-                arg.indent_prefix(r.start);
-
+                arg.assert_indent_empty();
+                let ind = arg.indent_val();
+                arg.indent_from_prefix(r.start, &mut out);
                 reformat_table(&mut arg, &mut p, r, &mut out);
-
-                arg.prefix.pop();
-                arg.follow.pop();
+                arg.dedent();
+                arg.assert_indent(ind);
 
                 md_last = MDFormat::Table;
             }
             Event::Start(Tag::TableHead)
             | Event::Start(Tag::TableRow)
             | Event::Start(Tag::TableCell) => {
-                unreachable!("{:?} {:?}", e, r);
+                unreachable!("table {:?} {:?}", e, r);
             }
 
             Event::Start(Tag::Emphasis)
@@ -792,7 +850,7 @@ pub fn reformat(
             | Event::FootnoteReference(_)
             | Event::SoftBreak
             | Event::HardBreak => {
-                unreachable!("{:?} {:?}", e, r);
+                unreachable!("inline {:?} {:?}", e, r);
             }
 
             Event::Start(Tag::MetadataBlock(_)) => {}
@@ -820,105 +878,347 @@ pub fn reformat(
     (out.txt, out.cursor)
 }
 
-fn reformat_codeblock<'a>(
+fn reformat_list<'a>(
     arg: &mut Reformat<'a>,
     it: &mut OffsetIter<'a>,
-    kind: CodeBlockKind<'a>,
-    tag: &'_ str,
+    range: Range<usize>,
     out: &mut ReformatOut,
+) {
+    let ind = arg.indent_val();
+
+    let item = parse_md_item(range.start, &arg.txt[range]);
+    out.txt.push_str(item.prefix);
+    arg.prefix.push(str_line_len(item.prefix) as usize);
+    arg.follow.push(CowStr::Borrowed(item.prefix));
+    let mut nr = item.mark_nr;
+
+    let mut md_last = MDFormat::None;
+    let mut was_complex = false;
+    loop {
+        let Some((e, r)) = it.next() else {
+            break;
+        };
+
+        match e {
+            Event::End(TagEnd::List(_)) => {
+                break;
+            }
+            Event::Start(Tag::Item) => {
+                // multi paragraph items get an extra separator
+                if was_complex {
+                    was_complex = false;
+                    arg.indent_follow(out);
+                    out.txt.push_str(arg.newline);
+                }
+                if md_last != MDFormat::None {
+                    arg.indent_follow(out);
+                }
+
+                let mut item = parse_md_item(r.start, &arg.txt[r]);
+                item.mark_nr = nr;
+
+                let ind = arg.indent_val();
+                reformat_list_item(arg, it, &item, out, &mut was_complex);
+                arg.assert_indent(ind);
+
+                nr = nr.map(|v| v + 1);
+                md_last = MDFormat::Item;
+            }
+            _ => unreachable!("{:?} {:?}", e, r),
+        }
+    }
+
+    if md_last != MDFormat::None {
+        arg.dedent();
+    }
+
+    arg.assert_indent(ind);
+}
+
+fn reformat_list_item<'a>(
+    arg: &mut Reformat<'a>,
+    it: &mut OffsetIter<'a>,
+    item: &MDItem<'a>,
+    out: &mut ReformatOut,
+    out_was_complex: &mut bool,
 ) {
     use std::fmt::Write;
 
-    let mut first = true;
-    let mut any_content = false;
+    let ind = arg.indent_val();
+
+    if let Some(nr) = item.mark_nr {
+        _ = write!(out.txt, "{}{}", nr, item.mark_suffix);
+        let len = (nr.ilog10() + 1) as usize + 1;
+        arg.prefix.push(len);
+        arg.follow
+            .push(CowStr::Boxed(" ".repeat(len).into_boxed_str()));
+    } else {
+        out.txt.push_str(item.mark);
+        arg.prefix.push(1);
+        arg.follow.push(CowStr::Borrowed(" "));
+    }
+
+    let txt_prefix_len = str_line_len(item.text_prefix) as usize;
+    out.txt.push_str(item.text_prefix);
+    arg.prefix.push(txt_prefix_len);
+    arg.follow
+        .push(CowStr::Boxed(" ".repeat(txt_prefix_len).into_boxed_str()));
+
+    let mut words = Vec::new();
+    let mut skip_txt = false;
+    let mut md_last = MDFormat::None;
+
+    loop {
+        let Some((e, r)) = it.next() else {
+            break;
+        };
+
+        match e {
+            Event::End(TagEnd::Item) => {
+                break;
+            }
+
+            Event::Start(Tag::Emphasis) | Event::End(TagEnd::Emphasis) => {
+                let word = Word::from(&arg.txt[r.start..r.start + 1]);
+                words.push(word);
+            }
+            Event::Start(Tag::Strong)
+            | Event::End(TagEnd::Strong)
+            | Event::Start(Tag::Strikethrough)
+            | Event::End(TagEnd::Strikethrough) => {
+                let word = Word::from(&arg.txt[r.start..r.start + 2]);
+                words.push(word);
+            }
+
+            Event::Start(Tag::Link { .. }) | Event::Start(Tag::Image { .. }) => {
+                skip_txt = true;
+                let word = Word::from(&arg.txt[r]);
+                words.push(word);
+            }
+            Event::End(TagEnd::Link) | Event::End(TagEnd::Image) => {
+                skip_txt = false;
+            }
+
+            Event::Code(_)
+            | Event::InlineMath(_)
+            | Event::DisplayMath(_)
+            | Event::Html(_)
+            | Event::InlineHtml(_)
+            | Event::FootnoteReference(_) => {
+                let word = Word::from(&arg.txt[r]);
+                words.push(word);
+            }
+            Event::TaskListMarker(_) => {
+                let mut word = Word::from(&arg.txt[r]);
+                word.whitespace = " ";
+                words.push(word);
+            }
+
+            Event::SoftBreak => {
+                if skip_txt {
+                    continue;
+                }
+                if let Some(mut word) = words.pop() {
+                    word.whitespace = " ";
+                    words.push(word);
+                }
+            }
+            Event::HardBreak => {
+                if skip_txt {
+                    continue;
+                }
+                if md_last != MDFormat::None {
+                    arg.indent_follow(out);
+                }
+                wrap_words(arg, &mut words, NewLine::Hard, out);
+
+                md_last = MDFormat::Item;
+            }
+
+            Event::Text(_) => {
+                if skip_txt {
+                    continue;
+                }
+                for w in WordSeparator::UnicodeBreakProperties.find_words(&arg.txt[r]) {
+                    words.push(w);
+                }
+            }
+
+            Event::Start(Tag::Paragraph) => {
+                let ind = arg.indent_val();
+                if !words.is_empty() {
+                    if md_last != MDFormat::None {
+                        arg.indent_follow(out);
+                    }
+                    wrap_words(arg, &mut words, NewLine::Soft, out);
+                }
+                // recurse
+                if insert_empty(arg, md_last, MDFormat::Paragraph, out) {
+                    arg.indent_follow(out);
+                }
+                reformat_paragraph(arg, it, out);
+                arg.assert_indent(ind);
+
+                *out_was_complex = true;
+                md_last = MDFormat::Paragraph;
+            }
+            Event::Start(Tag::List(_)) => {
+                let ind = arg.indent_val();
+                if !words.is_empty() {
+                    if md_last != MDFormat::None {
+                        arg.indent_follow(out);
+                    }
+                    wrap_words(arg, &mut words, NewLine::Soft, out);
+                    arg.indent_follow(out);
+                }
+                reformat_list(arg, it, r, out);
+                arg.assert_indent(ind);
+
+                // lists per se are not complex :-)
+                // *out_was_complex = true;
+                md_last = MDFormat::List;
+            }
+            Event::Start(Tag::CodeBlock(kind)) => {
+                let ind = arg.indent_val();
+                if !words.is_empty() {
+                    if md_last != MDFormat::None {
+                        arg.indent_follow(out);
+                    }
+                    wrap_words(arg, &mut words, NewLine::Soft, out);
+                }
+
+                if insert_empty(arg, md_last, MDFormat::CodeBlock, out) {
+                    arg.indent_follow(out);
+                }
+                out.txt.push_str("    ");
+                arg.prefix.push(4);
+                arg.follow
+                    .push(CowStr::Boxed(" ".repeat(4).into_boxed_str()));
+                reformat_codeblock(arg, it, r, kind, out);
+                arg.dedent();
+                arg.assert_indent(ind);
+
+                *out_was_complex = true;
+                md_last = MDFormat::CodeBlock;
+            }
+
+            _ => unreachable!("{:?} {:?}", e, r),
+        }
+    }
+
+    if !words.is_empty() {
+        if md_last != MDFormat::None {
+            debug!("last_words {:?}", arg.follow);
+            arg.indent_follow(out);
+        }
+        wrap_words(arg, &mut words, NewLine::Soft, out);
+    }
+
+    arg.dedent();
+    arg.dedent();
+
+    arg.assert_indent(ind);
+}
+
+fn reformat_codeblock<'a>(
+    arg: &mut Reformat<'a>,
+    it: &mut OffsetIter<'a>,
+    range: Range<usize>,
+    kind: CodeBlockKind<'a>,
+    out: &mut ReformatOut,
+) {
+    let ind = arg.indent_val();
+
+    let fence = if matches!(kind, CodeBlockKind::Fenced(_)) {
+        &arg.txt[range.start..range.start + 3]
+    } else {
+        ""
+    };
+
+    let mut md_last = MDFormat::None;
 
     match &kind {
         CodeBlockKind::Indented => {}
         CodeBlockKind::Fenced(lang) => {
-            for v in arg.prefix.iter() {
-                out.txt.push_str(v);
-            }
-            _ = write!(out.txt, "{}{}{}{}{}", tag, tag, tag, lang, arg.newline);
-            // replace prefix with follow
-            arg.prefix.clear();
-            arg.prefix.extend_from_slice(&arg.follow);
-            first = false;
+            out.txt.push_str(fence);
+            out.txt.push_str(lang);
+            out.txt.push_str(arg.newline);
+            md_last = MDFormat::CodeBlock;
         }
     }
 
+    let mut buf = String::new();
     for (e, r) in it {
         match e {
             Event::End(TagEnd::CodeBlock) => {
                 break;
             }
             Event::Text(v) => {
-                if first {
-                    for v in arg.prefix.iter() {
-                        out.txt.push_str(v);
-                    }
-                } else {
-                    for v in arg.follow.iter() {
-                        out.txt.push_str(v);
-                    }
-                }
+                // text segments come in strange order.
+                // collect first, line-break later.
+                buf.push_str(v.as_ref());
+
+                // do cursor work here, later we lost the slice
                 if let Some(cur) = arg.word_cursor(v.as_ref()) {
                     out.cursor = out.txt.len() + cur;
                 }
-                _ = write!(out.txt, "{}", v.as_ref());
-                if first {
-                    // replace prefix with follow
-                    arg.prefix.clear();
-                    arg.prefix.extend_from_slice(&arg.follow);
-                    first = false;
-                }
-                any_content = true;
             }
             _ => unreachable!("{:?} {:?}", e, r),
         }
     }
 
-    if any_content {
+    if buf.len() > 0 {
+        for line in buf.lines() {
+            if md_last != MDFormat::None {
+                arg.indent_follow(out);
+            }
+            out.txt.push_str(line);
+            out.txt.push_str(arg.newline);
+
+            md_last = MDFormat::CodeBlock;
+        }
+
         match &kind {
             CodeBlockKind::Indented => {}
             CodeBlockKind::Fenced(lang) => {
-                for v in arg.follow.iter() {
-                    out.txt.push_str(v);
-                }
-                _ = write!(out.txt, "{}{}{}", tag, tag, tag);
+                arg.indent_follow(out);
+                out.txt.push_str(fence);
             }
         }
     }
+
+    arg.assert_indent(ind);
 }
 
 fn reformat_blockquote<'a>(
     arg: &mut Reformat<'a>,
     it: &mut OffsetIter<'a>,
+    range: Range<usize>,
     kind: Option<BlockQuoteKind>,
     out: &mut ReformatOut,
 ) {
-    use std::fmt::Write;
+    let ind = arg.indent_val();
 
     if let Some(kind) = kind {
-        for v in arg.prefix.iter() {
-            out.txt.push_str(v);
-        }
-        _ = write!(out.txt, "> ");
+        out.txt.push_str("> ");
         match kind {
-            BlockQuoteKind::Note => _ = write!(out.txt, "[!NOTE] "),
-            BlockQuoteKind::Tip => _ = write!(out.txt, "[!TIP] "),
-            BlockQuoteKind::Important => _ = write!(out.txt, "[!IMPORTANT] "),
-            BlockQuoteKind::Warning => _ = write!(out.txt, "[!WARNING] "),
-            BlockQuoteKind::Caution => _ = write!(out.txt, "[!CAUTION] "),
+            BlockQuoteKind::Note => _ = out.txt.push_str("[!NOTE] "),
+            BlockQuoteKind::Tip => _ = out.txt.push_str("[!TIP] "),
+            BlockQuoteKind::Important => _ = out.txt.push_str("[!IMPORTANT] "),
+            BlockQuoteKind::Warning => _ = out.txt.push_str("[!WARNING] "),
+            BlockQuoteKind::Caution => _ = out.txt.push_str("[!CAUTION] "),
         }
-        _ = write!(out.txt, "{}", arg.newline);
-
-        // replace prefix with follow
-        arg.prefix.clear();
-        arg.prefix.extend_from_slice(&arg.follow);
+        out.txt.push_str(arg.newline);
     }
 
-    arg.prefix.push(CowStr::Borrowed(">"));
+    let block_quote = parse_md_block_quote2(range.start, &arg.txt[range.clone()]);
+
+    out.txt.push_str(block_quote.quote);
+    out.txt.push_str(block_quote.text_prefix);
+    arg.prefix.push(1);
+    arg.prefix.push(block_quote.text_prefix.len());
     arg.follow.push(CowStr::Borrowed(">"));
+    arg.follow.push(CowStr::Borrowed(block_quote.text_prefix));
 
     let mut md_last = MDFormat::None;
     loop {
@@ -928,26 +1228,18 @@ fn reformat_blockquote<'a>(
                 break;
             }
             Event::Start(Tag::Paragraph) => {
-                insert_empty(arg, md_last, MDFormat::Paragraph, out);
-
-                arg.indent_blank(r.start);
-
+                if insert_empty(arg, md_last, MDFormat::Paragraph, out) {
+                    arg.indent_follow(out);
+                }
                 reformat_paragraph(arg, it, out);
-
-                arg.prefix.pop();
-                arg.follow.pop();
 
                 md_last = MDFormat::Paragraph;
             }
             Event::Start(Tag::BlockQuote(kind)) => {
-                insert_empty(arg, md_last, MDFormat::BlockQuote, out);
-
-                arg.indent_blank(r.start);
-
-                reformat_blockquote(arg, it, kind, out);
-
-                arg.prefix.pop();
-                arg.follow.pop();
+                if insert_empty(arg, md_last, MDFormat::BlockQuote, out) {
+                    arg.indent_follow(out);
+                }
+                reformat_blockquote(arg, it, r, kind, out);
 
                 md_last = MDFormat::BlockQuote;
             }
@@ -956,8 +1248,10 @@ fn reformat_blockquote<'a>(
         }
     }
 
-    arg.prefix.pop();
-    arg.follow.pop();
+    arg.dedent();
+    arg.dedent();
+
+    arg.assert_indent(ind);
 }
 
 fn reformat_table<'a>(
@@ -1009,14 +1303,8 @@ fn reformat_table<'a>(
     for (n, row) in table.iter().enumerate() {
         let row_pos = n as upos_type;
 
-        if n == 0 {
-            for v in arg.prefix.iter() {
-                out.txt.push_str(v);
-            }
-        } else {
-            for v in arg.follow.iter() {
-                out.txt.push_str(v);
-            }
+        if n > 0 {
+            arg.indent_follow(out);
         }
 
         // cell 0. before the first |
@@ -1083,16 +1371,15 @@ fn reformat_footnote<'a>(
     footnote: CowStr<'a>,
     out: &mut ReformatOut,
 ) {
-    let footnote_len = footnote.len();
+    let footnote_len = str_line_len(footnote.as_ref()) as usize;
 
-    arg.prefix.push(CowStr::Borrowed("[^"));
-    arg.prefix.push(footnote);
-    arg.prefix.push(CowStr::Borrowed("]: "));
+    out.txt.push_str("[^");
+    out.txt.push_str(footnote.as_ref());
+    out.txt.push_str("]: ");
 
-    arg.follow.push(CowStr::Borrowed("     "));
-    for _ in 0..footnote_len {
-        arg.follow.push(CowStr::Borrowed(" "));
-    }
+    arg.prefix.push(footnote_len + 5);
+    arg.follow
+        .push(CowStr::Boxed(" ".repeat(footnote_len + 5).into_boxed_str()));
 
     let mut md_last = MDFormat::None;
     loop {
@@ -1104,6 +1391,9 @@ fn reformat_footnote<'a>(
             Event::Start(Tag::Paragraph) => {
                 insert_empty(arg, md_last, MDFormat::Paragraph, out);
 
+                if md_last != MDFormat::None {
+                    arg.indent_follow(out);
+                }
                 reformat_paragraph(arg, it, out);
 
                 md_last = MDFormat::Paragraph;
@@ -1112,15 +1402,14 @@ fn reformat_footnote<'a>(
         }
     }
 
-    for _ in 0..footnote_len + 1 {
-        arg.prefix.pop();
-        arg.follow.pop();
-    }
+    arg.dedent();
 }
 
 fn reformat_definition<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: &mut ReformatOut) {
     let mut words = Vec::new();
     let mut skip_txt = false;
+    let mut md_last = MDFormat::None;
+
     for (e, r) in it {
         match e {
             Event::End(TagEnd::DefinitionList) => {
@@ -1157,6 +1446,11 @@ fn reformat_definition<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out:
                 let word = Word::from(&arg.txt[r]);
                 words.push(word);
             }
+            Event::TaskListMarker(_) => {
+                let mut word = Word::from(&arg.txt[r]);
+                word.whitespace = " ";
+                words.push(word);
+            }
 
             Event::SoftBreak => {
                 if skip_txt {
@@ -1171,20 +1465,36 @@ fn reformat_definition<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out:
                 if skip_txt {
                     continue;
                 }
+                if md_last != MDFormat::None {
+                    arg.indent_follow(out);
+                }
                 wrap_words(arg, &mut words, NewLine::Hard, out);
+
+                md_last = MDFormat::DefinitionList;
             }
 
             Event::Start(Tag::DefinitionListTitle) => {}
             Event::End(TagEnd::DefinitionListTitle) => {
+                insert_empty(arg, md_last, MDFormat::DefinitionList, out);
+
+                if md_last != MDFormat::None {
+                    arg.indent_follow(out);
+                }
                 wrap_words(arg, &mut words, NewLine::Soft, out);
+
+                md_last = MDFormat::DefinitionList;
             }
             Event::Start(Tag::DefinitionListDefinition) => {}
             Event::End(TagEnd::DefinitionListDefinition) => {
-                arg.prefix.push(CowStr::Borrowed(": "));
+                out.txt.push_str(": ");
+                arg.prefix.push(2);
                 arg.follow.push(CowStr::Borrowed("  "));
+
                 wrap_words(arg, &mut words, NewLine::Soft, out);
-                arg.follow.pop();
-                arg.prefix.pop();
+
+                arg.dedent();
+
+                md_last = MDFormat::DefinitionList;
             }
 
             Event::Text(_) => {
@@ -1210,9 +1520,9 @@ fn reformat_heading<'a>(
     out: &mut ReformatOut,
 ) {
     for _ in 0..level as usize {
-        arg.prefix.push(CowStr::Borrowed("#"));
+        out.txt.push('#');
     }
-    arg.prefix.push(CowStr::Borrowed(" "));
+    out.txt.push(' ');
 
     let mut words = Vec::new();
     let mut skip_txt = false;
@@ -1252,6 +1562,11 @@ fn reformat_heading<'a>(
                 let word = Word::from(&arg.txt[r]);
                 words.push(word);
             }
+            Event::TaskListMarker(_) => {
+                let mut word = Word::from(&arg.txt[r]);
+                word.whitespace = " ";
+                words.push(word);
+            }
 
             Event::Text(_) => {
                 if skip_txt {
@@ -1272,6 +1587,10 @@ fn reformat_heading<'a>(
 fn reformat_paragraph<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: &mut ReformatOut) {
     let mut words = Vec::new();
     let mut skip_txt = false;
+    let mut md_last = MDFormat::None;
+
+    let ind = arg.indent_val();
+
     for (e, r) in it {
         match e {
             Event::End(TagEnd::Paragraph) => {
@@ -1308,6 +1627,11 @@ fn reformat_paragraph<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: 
                 let word = Word::from(&arg.txt[r]);
                 words.push(word);
             }
+            Event::TaskListMarker(_) => {
+                let mut word = Word::from(&arg.txt[r]);
+                word.whitespace = " ";
+                words.push(word);
+            }
 
             Event::SoftBreak => {
                 if skip_txt {
@@ -1322,7 +1646,12 @@ fn reformat_paragraph<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: 
                 if skip_txt {
                     continue;
                 }
+                if md_last != MDFormat::None {
+                    arg.indent_follow(out);
+                }
                 wrap_words(arg, &mut words, NewLine::Hard, out);
+
+                md_last = MDFormat::Paragraph;
             }
 
             Event::Text(_) => {
@@ -1338,7 +1667,12 @@ fn reformat_paragraph<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: 
         }
     }
 
+    if md_last != MDFormat::None {
+        arg.indent_follow(out);
+    }
     wrap_words(arg, &mut words, NewLine::Soft, out);
+
+    arg.assert_indent(ind);
 }
 
 fn insert_empty<'a>(
@@ -1346,40 +1680,43 @@ fn insert_empty<'a>(
     last: MDFormat,
     current: MDFormat,
     out: &mut ReformatOut,
-) {
+) -> bool {
     let b = match last {
         MDFormat::None => false,
+
         MDFormat::BlockQuote
         | MDFormat::Heading
         | MDFormat::Paragraph
         | MDFormat::DefinitionList
         | MDFormat::Table
         | MDFormat::CodeBlock => match current {
-            MDFormat::None => false,
+            _ => true,
+        },
+        MDFormat::Item => match current {
+            MDFormat::List => false,
+            MDFormat::Item => false,
+            _ => true,
+        },
+        MDFormat::List => match current {
+            MDFormat::List => false,
             _ => true,
         },
         MDFormat::Footnote => match current {
-            MDFormat::None => false,
             MDFormat::Footnote => false,
             _ => true,
         },
         MDFormat::ReferenceDefs => match current {
-            MDFormat::None => false,
             MDFormat::ReferenceDefs => false,
             _ => true,
         },
     };
 
     if b {
-        for v in arg.prefix.iter() {
-            out.txt.push_str(v);
-        }
-
+        arg.indent_follow(out);
         out.txt.push_str(arg.newline);
-
-        // replace prefix with follow
-        arg.prefix.clear();
-        arg.prefix.extend_from_slice(&arg.follow);
+        true
+    } else {
+        false
     }
 }
 
@@ -1392,10 +1729,11 @@ fn wrap_words<'a>(
     newline: NewLine,
     out: &mut ReformatOut,
 ) {
-    let prefix_len = arg.prefix.iter().map(|v| v.len()).sum::<usize>();
     let follow_len = arg.follow.iter().map(|v| v.len()).sum::<usize>();
-
-    let widths = [arg.txt_width - prefix_len, arg.txt_width - follow_len];
+    let widths = [
+        arg.txt_width.saturating_sub(arg.total_prefix()), //
+        arg.txt_width.saturating_sub(follow_len),
+    ];
 
     let wrapped = WrapAlgorithm::OptimalFit(Penalties::default()).wrap(&words, widths.as_slice());
     // let wrapped = WrapAlgorithm::FirstFit.wrap(&words, widths.as_slice());
@@ -1423,15 +1761,12 @@ fn append_wrapped<'a>(
     out: &mut ReformatOut,
 ) {
     for n in 0..wrapped.len() {
-        if n == 0 {
-            for v in arg.prefix.iter() {
-                out.txt.push_str(v);
-            }
-        } else {
+        if n > 0 {
             for v in arg.follow.iter() {
                 out.txt.push_str(v);
             }
         }
+
         let line = wrapped[n];
 
         for i in 0..line.len().saturating_sub(1) {
@@ -1463,10 +1798,6 @@ fn append_wrapped<'a>(
             out.txt.push_str(arg.newline);
         }
     }
-
-    // replace prefix with follow
-    arg.prefix.clear();
-    arg.prefix.extend_from_slice(&arg.follow);
 }
 
 pub fn dump_md(txt: &str) {
@@ -1483,11 +1814,11 @@ pub fn dump_md(txt: &str) {
     )
     .into_offset_iter();
 
-    debug!("*** DUMP ***");
+    info!("*** DUMP ***");
 
     let rdef = p.reference_definitions();
     for (rstr, rdef) in rdef.iter() {
-        debug!(
+        info!(
             "ReferenceDefinition {:?} {:?} = {:?} {:?}",
             rdef.span,
             rstr,
@@ -1502,7 +1833,7 @@ pub fn dump_md(txt: &str) {
             Event::Start(v) => {
                 match v {
                     Tag::Paragraph => {
-                        debug!("{}Paragraph {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}Paragraph {:?}", " ".repeat(ind), r.clone(),);
                     }
                     Tag::Heading {
                         level,
@@ -1510,7 +1841,7 @@ pub fn dump_md(txt: &str) {
                         classes,
                         attrs,
                     } => {
-                        debug!(
+                        info!(
                             "{}Heading Level={:?} Id={:?} {:?}",
                             " ".repeat(ind),
                             level,
@@ -1519,7 +1850,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     Tag::BlockQuote(kind) => {
-                        debug!(
+                        info!(
                             "{}BlockQuote Kind={:?} {:?}",
                             " ".repeat(ind),
                             kind,
@@ -1527,7 +1858,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     Tag::CodeBlock(kind) => {
-                        debug!(
+                        info!(
                             "{}CodeBlock Kind={:?} {:?}",
                             " ".repeat(ind),
                             kind,
@@ -1535,16 +1866,16 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     Tag::HtmlBlock => {
-                        debug!("{}HtmlBlock {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}HtmlBlock {:?}", " ".repeat(ind), r.clone(),);
                     }
                     Tag::List(first) => {
-                        debug!("{}List First={:?} {:?}", " ".repeat(ind), first, r.clone(),);
+                        info!("{}List First={:?} {:?}", " ".repeat(ind), first, r.clone(),);
                     }
                     Tag::Item => {
-                        debug!("{}Item {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}Item {:?}", " ".repeat(ind), r.clone(),);
                     }
                     Tag::FootnoteDefinition(label) => {
-                        debug!(
+                        info!(
                             "{}FootnoteDefinition Label={:?} {:?}",
                             " ".repeat(ind),
                             label,
@@ -1552,20 +1883,20 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     Tag::DefinitionList => {
-                        debug!("{}DefinitionList {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}DefinitionList {:?}", " ".repeat(ind), r.clone(),);
                     }
                     Tag::DefinitionListTitle => {
-                        debug!("{}DefinitionListTitle {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}DefinitionListTitle {:?}", " ".repeat(ind), r.clone(),);
                     }
                     Tag::DefinitionListDefinition => {
-                        debug!(
+                        info!(
                             "{}DefinitionListDefinition {:?}",
                             " ".repeat(ind),
                             r.clone(),
                         );
                     }
                     Tag::Table(align) => {
-                        debug!(
+                        info!(
                             "{}Table Alignment={:?} {:?}",
                             " ".repeat(ind),
                             align,
@@ -1573,16 +1904,16 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     Tag::TableHead => {
-                        debug!("{}TableHead {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}TableHead {:?}", " ".repeat(ind), r.clone(),);
                     }
                     Tag::TableRow => {
-                        debug!("{}TableRow {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}TableRow {:?}", " ".repeat(ind), r.clone(),);
                     }
                     Tag::TableCell => {
-                        debug!("{}TableCell {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}TableCell {:?}", " ".repeat(ind), r.clone(),);
                     }
                     Tag::Emphasis => {
-                        debug!(
+                        info!(
                             "{}Emphasis {:?} {:?}",
                             " ".repeat(ind),
                             r.clone(),
@@ -1590,7 +1921,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     Tag::Strong => {
-                        debug!(
+                        info!(
                             "{}Strong {:?} {:?}",
                             " ".repeat(ind),
                             r.clone(),
@@ -1598,7 +1929,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     Tag::Strikethrough => {
-                        debug!(
+                        info!(
                             "{}Strikethrough {:?} {:?}",
                             " ".repeat(ind),
                             r.clone(),
@@ -1611,7 +1942,7 @@ pub fn dump_md(txt: &str) {
                         title,
                         id,
                     } => {
-                        debug!(
+                        info!(
                             "{}Link LinkType={:?} DestUrl={:?} Title={:?} Id={:?} {:?} {:?}",
                             " ".repeat(ind),
                             link_type,
@@ -1628,7 +1959,7 @@ pub fn dump_md(txt: &str) {
                         title,
                         id,
                     } => {
-                        debug!(
+                        info!(
                             "{}Image LinkType={:?} DestUrl={:?} Title={:?} Id={:?} {:?} {:?}",
                             " ".repeat(ind),
                             link_type,
@@ -1640,7 +1971,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     Tag::MetadataBlock(kind) => {
-                        debug!(
+                        info!(
                             "{}MetadataBlock Kind={:?} {:?} {:?}",
                             " ".repeat(ind),
                             kind,
@@ -1655,10 +1986,10 @@ pub fn dump_md(txt: &str) {
                 ind -= 4;
                 match v {
                     TagEnd::Paragraph => {
-                        debug!("{}/Paragraph {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}/Paragraph {:?}", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::Heading(level) => {
-                        debug!(
+                        info!(
                             "{}/Heading Level={:?} {:?} ",
                             " ".repeat(ind),
                             level,
@@ -1666,7 +1997,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     TagEnd::BlockQuote(kind) => {
-                        debug!(
+                        info!(
                             "{}/BlockQuote Kind={:?} {:?}",
                             " ".repeat(ind),
                             kind,
@@ -1674,13 +2005,13 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     TagEnd::CodeBlock => {
-                        debug!("{}/CodeBlock {:?} ", " ".repeat(ind), r.clone(),);
+                        info!("{}/CodeBlock {:?} ", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::HtmlBlock => {
-                        debug!("{}/HtmlBlock {:?} ", " ".repeat(ind), r.clone(),);
+                        info!("{}/HtmlBlock {:?} ", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::List(ordered) => {
-                        debug!(
+                        info!(
                             "{}/List Ordered={:?} {:?}",
                             " ".repeat(ind),
                             ordered,
@@ -1688,38 +2019,38 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     TagEnd::Item => {
-                        debug!("{}/Item {:?} ", " ".repeat(ind), r.clone(),);
+                        info!("{}/Item {:?} ", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::FootnoteDefinition => {
-                        debug!("{}/FootnoteDefinition {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}/FootnoteDefinition {:?}", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::DefinitionList => {
-                        debug!("{}/DefinitionList {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}/DefinitionList {:?}", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::DefinitionListTitle => {
-                        debug!("{}/DefinitionListTitle {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}/DefinitionListTitle {:?}", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::DefinitionListDefinition => {
-                        debug!(
+                        info!(
                             "{}/DefinitionListDefinition {:?}",
                             " ".repeat(ind),
                             r.clone(),
                         );
                     }
                     TagEnd::Table => {
-                        debug!("{}/Table {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}/Table {:?}", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::TableHead => {
-                        debug!("{}/TableHead {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}/TableHead {:?}", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::TableRow => {
-                        debug!("{}/TableRow {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}/TableRow {:?}", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::TableCell => {
-                        debug!("{}/TableCell {:?}", " ".repeat(ind), r.clone(),);
+                        info!("{}/TableCell {:?}", " ".repeat(ind), r.clone(),);
                     }
                     TagEnd::Emphasis => {
-                        debug!(
+                        info!(
                             "{}/Emphasis {:?} {:?}",
                             " ".repeat(ind),
                             r.clone(),
@@ -1727,7 +2058,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     TagEnd::Strong => {
-                        debug!(
+                        info!(
                             "{}/Strong {:?} {:?}",
                             " ".repeat(ind),
                             r.clone(),
@@ -1735,7 +2066,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     TagEnd::Strikethrough => {
-                        debug!(
+                        info!(
                             "{}/Strikethrough {:?} {:?}",
                             " ".repeat(ind),
                             r.clone(),
@@ -1743,7 +2074,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     TagEnd::Link => {
-                        debug!(
+                        info!(
                             "{}/Link {:?} {:?}",
                             " ".repeat(ind),
                             r.clone(),
@@ -1751,7 +2082,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     TagEnd::Image => {
-                        debug!(
+                        info!(
                             "{}/Image {:?} {:?}",
                             " ".repeat(ind),
                             r.clone(),
@@ -1759,7 +2090,7 @@ pub fn dump_md(txt: &str) {
                         );
                     }
                     TagEnd::MetadataBlock(kind) => {
-                        debug!(
+                        info!(
                             "{}/MetadataBlock Kind={:?} {:?} {:?}",
                             " ".repeat(ind),
                             kind,
@@ -1770,7 +2101,7 @@ pub fn dump_md(txt: &str) {
                 }
             }
             Event::Text(v) => {
-                debug!(
+                info!(
                     "{}Text {:?} {:?}",
                     " ".repeat(ind),
                     r.clone(),
@@ -1778,7 +2109,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::Code(v) => {
-                debug!(
+                info!(
                     "{}Code V={:?} {:?} {:?}",
                     " ".repeat(ind),
                     v.as_ref(),
@@ -1787,7 +2118,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::InlineMath(v) => {
-                debug!(
+                info!(
                     "{}InlineMath V={:?} {:?} {:?}",
                     " ".repeat(ind),
                     v.as_ref(),
@@ -1796,7 +2127,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::DisplayMath(v) => {
-                debug!(
+                info!(
                     "{}DisplayMath V={:?} {:?} {:?}",
                     " ".repeat(ind),
                     v.as_ref(),
@@ -1805,7 +2136,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::Html(v) => {
-                debug!(
+                info!(
                     "{}Html V={:?} {:?} {:?}",
                     " ".repeat(ind),
                     v.as_ref(),
@@ -1814,7 +2145,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::InlineHtml(v) => {
-                debug!(
+                info!(
                     "{}InlineHtml V={:?} {:?} {:?}",
                     " ".repeat(ind),
                     v.as_ref(),
@@ -1823,7 +2154,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::FootnoteReference(v) => {
-                debug!(
+                info!(
                     "{}FootnoteReference V={:?} {:?} {:?}",
                     " ".repeat(ind),
                     v.as_ref(),
@@ -1832,7 +2163,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::SoftBreak => {
-                debug!(
+                info!(
                     "{}SoftBreak {:?} {:?}",
                     " ".repeat(ind),
                     r.clone(),
@@ -1840,7 +2171,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::HardBreak => {
-                debug!(
+                info!(
                     "{}HardBreak {:?} {:?}",
                     " ".repeat(ind),
                     r.clone(),
@@ -1848,7 +2179,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::Rule => {
-                debug!(
+                info!(
                     "{}Rule {:?} {:?}",
                     " ".repeat(ind),
                     r.clone(),
@@ -1856,7 +2187,7 @@ pub fn dump_md(txt: &str) {
                 );
             }
             Event::TaskListMarker(checked) => {
-                debug!(
+                info!(
                     "{}TaskListMarker Checked={:?} {:?} {:?}",
                     " ".repeat(ind),
                     checked,
@@ -2445,6 +2776,61 @@ fn empty_md_row(txt: &str, newline: &str) -> (upos_type, String) {
 
 // parse quoted text
 #[derive(Debug)]
+struct MDBlockQuote2<'a> {
+    quote: &'a str,
+    text_prefix: &'a str,
+    text_bytes: Range<usize>,
+    text: &'a str,
+}
+
+fn parse_md_block_quote2(start: usize, txt: &str) -> MDBlockQuote2<'_> {
+    let mut quote_byte = 0;
+    let mut text_prefix_byte = 0;
+    let mut text_byte = 0;
+
+    #[derive(Debug, PartialEq)]
+    enum It {
+        Leading,
+        TextLeading,
+        Text,
+        NewLine,
+    }
+
+    let mut state = It::Leading;
+    for (idx, c) in txt.bytes().enumerate() {
+        if state == It::Leading {
+            if c == b'>' {
+                quote_byte = idx;
+                state = It::TextLeading;
+            } else if c == b' ' || c == b'\t' {
+                // ok
+            } else {
+                text_prefix_byte = idx;
+                text_byte = idx;
+                state = It::Text;
+            }
+        } else if state == It::TextLeading {
+            if c == b' ' || c == b'\t' {
+                // ok
+            } else {
+                text_byte = idx;
+                state = It::Text;
+            }
+        } else if state == It::Text {
+            break;
+        }
+    }
+
+    MDBlockQuote2 {
+        quote: &txt[quote_byte..quote_byte + 1],
+        text_prefix: &txt[text_prefix_byte..text_byte],
+        text_bytes: start + text_byte..start + txt.len(),
+        text: &txt[text_byte..txt.len()],
+    }
+}
+
+// parse quoted text
+#[derive(Debug)]
 struct MDBlockQuote {
     text_start_byte: usize,
     text: String,
@@ -2517,24 +2903,23 @@ fn parse_md_block_quote(start: usize, txt: &str) -> MDBlockQuote {
 // parse a single list item into marker and text.
 #[derive(Debug)]
 struct MDItem<'a> {
+    prefix: &'a str,
     mark_bytes: Range<usize>,
     mark: &'a str,
     mark_suffix: &'a str,
     mark_nr: Option<usize>,
+    text_prefix: &'a str,
     text_bytes: Range<usize>,
     text: &'a str,
 }
 
 fn parse_md_item(start: usize, txt: &str) -> MDItem<'_> {
-    let mut mark_byte_start = 0;
-    let mut mark_byte_end = 0;
-    let mut mark_bullet = None;
-    let mut mark_ordered = None;
-    let mut mark_suffix = None;
+    let mut mark_byte = 0;
+    let mut mark_suffix_byte = 0;
+    let mut text_prefix_byte = 0;
+    let mut text_byte = 0;
+
     let mut mark_nr = None;
-    let mut text_byte_start = 0;
-    let mut text_byte_end = 0;
-    let mut text_str = None;
 
     #[derive(Debug, PartialEq)]
     enum It {
@@ -2547,53 +2932,60 @@ fn parse_md_item(start: usize, txt: &str) -> MDItem<'_> {
     for (idx, c) in txt.bytes().enumerate() {
         if state == It::Leading {
             if c == b'+' || c == b'-' || c == b'*' {
-                mark_byte_start = idx;
-                mark_byte_end = idx + 1;
-                mark_bullet = Some(&txt[idx..idx + 1]);
+                mark_byte = idx;
+                mark_suffix_byte = idx + 1;
+                text_prefix_byte = idx + 1;
+                text_byte = idx + 1;
                 state = It::TextLeading;
             } else if c.is_ascii_digit() {
-                mark_byte_start = idx;
+                mark_byte = idx;
                 state = It::OrderedMark;
             } else if c == b' ' || c == b'\t' {
                 // ok
             } else {
                 // broken??
-                text_byte_start = idx;
+                text_prefix_byte = idx;
+                text_byte = idx;
                 state = It::TextLeading;
             }
         } else if state == It::OrderedMark {
             if c.is_ascii_digit() {
                 // ok
             } else if c == b'.' || c == b')' {
-                mark_byte_end = idx + 1;
-                mark_ordered = Some(&txt[mark_byte_start..idx]);
-                mark_nr = Some(txt[mark_byte_start..idx].parse::<usize>().expect("nr"));
-                mark_suffix = Some(&txt[idx..idx + 1]);
+                mark_suffix_byte = idx;
+                text_prefix_byte = idx + 1;
+                text_byte = idx + 1;
+                mark_nr = Some(
+                    txt[mark_byte..mark_suffix_byte]
+                        .parse::<usize>()
+                        .expect("nr"),
+                );
                 state = It::TextLeading;
             } else {
                 // broken??
-                text_byte_start = idx;
+                text_prefix_byte = idx;
+                text_byte = idx;
                 state = It::TextLeading;
             }
         } else if state == It::TextLeading {
             if c == b' ' || c == b'\t' {
                 // ok
             } else {
-                text_byte_start = idx;
-                text_byte_end = txt.len();
-                text_str = Some(&txt[idx..]);
+                text_byte = idx;
                 break;
             }
         }
     }
 
     MDItem {
-        mark_bytes: start + mark_byte_start..start + mark_byte_end,
-        mark: mark_bullet.unwrap_or_else(|| mark_ordered.unwrap_or("")),
-        mark_suffix: mark_suffix.unwrap_or(""),
+        prefix: &txt[0..mark_byte],
+        mark_bytes: start + mark_byte..start + text_prefix_byte,
+        mark: &txt[mark_byte..mark_suffix_byte],
+        mark_suffix: &txt[mark_suffix_byte..text_prefix_byte],
         mark_nr,
-        text_bytes: start + text_byte_start..start + text_byte_end,
-        text: text_str.unwrap_or(""),
+        text_prefix: &txt[text_prefix_byte..text_byte],
+        text_bytes: start + text_byte..start + txt.len(),
+        text: &txt[text_byte..],
     }
 }
 
