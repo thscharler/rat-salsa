@@ -1,3 +1,8 @@
+# 0.12.1
+
+* fix: changes in rat-scroll
+* fix: styles for buttons and file-dialog
+
 # 0.12.0
 
 * update ratatui 0.28
