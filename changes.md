@@ -1,3 +1,10 @@
+# 0.24.1
+
+* extensive work at the mdedit example. might even publish this
+  separately sometime. 
+
+* cleanup minimal example. make it more minimal.  
+
 # 0.24.0
 
 * update ratatui to 0.28
