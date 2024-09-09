@@ -57,7 +57,7 @@ impl<'a> Grapheme<'a> {
 /// Data for rendering/mapping graphemes to screen coordinates.
 #[derive(Debug)]
 pub struct Glyph<'a> {
-    /// First char.
+    /// Display glyph.
     glyph: Cow<'a, str>,
     /// byte-range of the glyph in the given slice.
     text_bytes: Range<usize>,
