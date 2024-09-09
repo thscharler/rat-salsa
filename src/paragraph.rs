@@ -1,6 +1,7 @@
 //!
 //! Extensions for ratatui Paragraph.
 //!
+
 use crate::_private::NonExhaustive;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -142,11 +143,9 @@ impl<'a> Paragraph<'a> {
         state.hscroll.set_max_offset(if self.is_wrap {
             0
         } else {
-            let b = self
-                .w
-                .line_width()
-                .saturating_sub(state.inner.width as usize);
-            b
+            let w = self.w.line_width();
+            let d = state.inner.width as usize;
+            w.saturating_sub(d)
         });
         state.hscroll.set_page_len(state.inner.width as usize);
 
@@ -165,13 +164,19 @@ impl<'a> StatefulWidget for Paragraph<'a> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.layout(area, state);
 
-        self.block.render(area, buf);
-        if let Some(vscroll) = self.vscroll {
-            vscroll.render(state.vscroll.area, buf, &mut state.vscroll);
-        }
-        if let Some(hscroll) = self.hscroll {
-            hscroll.render(state.hscroll.area, buf, &mut state.hscroll);
-        }
+        let scroll = ScrollArea::new()
+            .block(self.block)
+            .h_scroll(self.hscroll)
+            .v_scroll(self.vscroll);
+        scroll.render(
+            area,
+            buf,
+            &mut ScrollAreaState {
+                area,
+                h_scroll: Some(&mut state.hscroll),
+                v_scroll: Some(&mut state.vscroll),
+            },
+        );
 
         self.w
             .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16))
@@ -282,7 +287,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
         flow!(if self.is_focused() {
             match event {
                 ct_event!(keycode press Up) => self.scroll_up(1).into(),
-                ct_event!(keycode press Down) => self.scroll_up(1).into(),
+                ct_event!(keycode press Down) => self.scroll_down(1).into(),
                 ct_event!(keycode press Left) => self.scroll_left(1).into(),
                 ct_event!(keycode press Right) => self.scroll_right(1).into(),
                 ct_event!(keycode press PageUp) => self.scroll_up(self.vscroll.page_len()).into(),
