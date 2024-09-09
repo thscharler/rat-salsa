@@ -1,5 +1,5 @@
 use crate::mdedit_parts::styles::MDStyle;
-use log::{debug, info};
+use log::info;
 use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use rat_widget::event::TextOutcome;
 use rat_widget::text::TextRange;
@@ -12,7 +12,7 @@ pub fn md_dump_styles(state: &mut TextAreaState) -> TextOutcome {
     let mut sty = Vec::new();
     state.styles_at(cursor_byte, &mut sty);
     for (r, s) in sty {
-        debug!("style {:?}: {:?}", cursor, MDStyle::try_from(s));
+        info!("style {:?}: {:?}", cursor, MDStyle::try_from(s));
     }
 
     TextOutcome::Unchanged
@@ -65,8 +65,6 @@ pub fn md_dump(state: &mut TextAreaState) -> TextOutcome {
     };
     let selection_byte = state.bytes_at_range(selection);
 
-    debug!("SELECTION {:?}", selection_byte);
-
     dump_md(state.str_slice(selection).as_ref());
 
     TextOutcome::Unchanged
@@ -76,7 +74,7 @@ fn dump_md(txt: &str) {
     info!("*** DUMP ***");
     info!("{:?}", txt);
 
-    let p = Parser::new_ext(
+    let mut it = Parser::new_ext(
         txt,
         Options::ENABLE_MATH
             | Options::ENABLE_TASKLISTS
@@ -89,19 +87,12 @@ fn dump_md(txt: &str) {
     )
     .into_offset_iter();
 
-    let rdef = p.reference_definitions();
-    for (rstr, rdef) in rdef.iter() {
-        info!(
-            "ReferenceDefinition {:?} {:?} = {:?} {:?}",
-            rdef.span,
-            rstr,
-            rdef.dest.as_ref(),
-            rdef.title.as_ref().map(|v| v.as_ref())
-        )
-    }
-
     let mut ind = 0;
-    for (e, r) in p {
+    loop {
+        let Some((e, r)) = it.next() else {
+            break;
+        };
+
         match e {
             Event::Start(v) => {
                 match v {
@@ -469,5 +460,16 @@ fn dump_md(txt: &str) {
                 );
             }
         }
+    }
+
+    let rdef = it.reference_definitions();
+    for (rstr, rdef) in rdef.iter() {
+        info!(
+            "ReferenceDefinition {:?} {:?} = {:?} {:?}",
+            rdef.span,
+            rstr,
+            rdef.dest.as_ref(),
+            rdef.title.as_ref().map(|v| v.as_ref())
+        )
     }
 }

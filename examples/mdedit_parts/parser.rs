@@ -2,6 +2,217 @@ use rat_widget::text::upos_type;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
+#[derive(Debug)]
+pub struct MDLinkRef<'a> {
+    pub prefix: &'a str,
+    pub tag: &'a str,
+    pub link: &'a str,
+    pub title: &'a str,
+    pub suffix: &'a str,
+}
+
+pub fn parse_md_link_ref(relocate: usize, txt: &str) -> Option<MDLinkRef<'_>> {
+    let mut mark_prefix_end = 0;
+    let mut mark_tag_start = 0;
+    let mut mark_tag_end = 0;
+    let mut mark_link_start = 0;
+    let mut mark_link_end = 0;
+    let mut mark_title_start = 0;
+    let mut mark_title_end = 0;
+
+    #[derive(Debug, PartialEq)]
+    enum It {
+        Leading,
+        Tag,
+        AfterTag,
+        LeadingLink,
+        BracketLink,
+        Link,
+        LinkEsc,
+        LeadingTitle,
+        TitleSingle,
+        TitleSingleEsc,
+        TitleDouble,
+        TitleDoubleEsc,
+        End,
+        Fail,
+    }
+
+    let mut state = It::Leading;
+    for (idx, c) in txt.bytes().enumerate() {
+        if state == It::Leading {
+            if c == b'[' {
+                mark_prefix_end = idx;
+                mark_tag_start = idx + 1;
+                mark_tag_end = idx + 1;
+                mark_link_start = idx + 1;
+                mark_link_end = idx + 1;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::Tag;
+            } else if c == b' ' || c == b'\t' || c == b'\n' || c == b'\r' {
+                mark_prefix_end = idx + 1;
+                mark_tag_start = idx + 1;
+                mark_tag_end = idx + 1;
+                mark_link_start = idx + 1;
+                mark_link_end = idx + 1;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+            } else {
+                state = It::Fail;
+                break;
+            }
+        } else if state == It::Tag {
+            if c == b']' {
+                mark_tag_end = idx;
+                mark_link_start = idx + 1;
+                mark_link_end = idx + 1;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::AfterTag;
+            } else {
+                mark_tag_end = idx;
+                mark_link_start = idx + 1;
+                mark_link_end = idx + 1;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+            }
+        } else if state == It::AfterTag {
+            if c == b':' {
+                mark_link_start = idx + 1;
+                mark_link_end = idx + 1;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::LeadingLink;
+            } else {
+                state = It::Fail;
+                break;
+            }
+        } else if state == It::LeadingLink {
+            if c == b' ' || c == b'\t' || c == b'\n' || c == b'\r' {
+                mark_link_start = idx + 1;
+                mark_link_end = idx + 1;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                // ok
+            } else if c == b'<' {
+                mark_link_start = idx + 1;
+                mark_link_end = idx + 1;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::BracketLink;
+            } else {
+                mark_link_start = idx;
+                mark_link_end = idx;
+                mark_title_start = idx;
+                mark_title_end = idx;
+                state = It::Link;
+            }
+        } else if state == It::BracketLink {
+            if c == b'>' {
+                mark_link_end = idx;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::LeadingTitle;
+            } else {
+                mark_link_end = idx;
+                mark_title_start = idx;
+                mark_title_end = idx;
+            }
+        } else if state == It::Link {
+            if c == b'\\' {
+                mark_link_end = idx;
+                mark_title_start = idx;
+                mark_title_end = idx;
+                state = It::LinkEsc;
+            } else if c == b'\n' || c == b'\r' {
+                mark_link_end = idx;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::LeadingTitle;
+            } else if c == b'\'' {
+                mark_link_end = idx;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::TitleSingle;
+            } else if c == b'"' {
+                mark_link_end = idx;
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::TitleDouble;
+            } else {
+                mark_link_end = idx;
+                mark_title_start = idx;
+                mark_title_end = idx;
+            }
+        } else if state == It::LinkEsc {
+            mark_link_end = idx;
+            mark_title_start = idx;
+            mark_title_end = idx;
+            state = It::Link;
+        } else if state == It::LeadingTitle {
+            if c == b' ' || c == b'\t' || c == b'\n' || c == b'\r' {
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+            } else if c == b'\'' {
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::TitleSingle;
+            } else if c == b'"' {
+                mark_title_start = idx + 1;
+                mark_title_end = idx + 1;
+                state = It::TitleDouble;
+            } else {
+                // no title, just suffix
+                mark_title_start = idx;
+                mark_title_end = idx;
+                state = It::End;
+                break;
+            }
+        } else if state == It::TitleSingle {
+            if c == b'\'' {
+                mark_title_end = idx;
+                state = It::End;
+                break;
+            } else if c == b'\\' {
+                mark_title_end = idx;
+                state = It::TitleSingleEsc;
+            } else {
+                mark_title_end = idx;
+            }
+        } else if state == It::TitleSingleEsc {
+            mark_title_end = idx;
+            state = It::TitleSingle;
+        } else if state == It::TitleDouble {
+            if c == b'"' {
+                mark_title_end = idx;
+                state = It::End;
+                break;
+            } else if c == b'\\' {
+                mark_title_end = idx;
+                state = It::TitleDoubleEsc;
+            } else {
+                mark_title_end = idx;
+            }
+        } else if state == It::TitleDoubleEsc {
+            mark_title_end = idx;
+            state = It::TitleDouble;
+        }
+    }
+
+    if state == It::Fail {
+        return None;
+    }
+
+    Some(MDLinkRef {
+        prefix: &txt[..mark_prefix_end],
+        tag: &txt[mark_tag_start..mark_tag_end],
+        link: &txt[mark_link_start..mark_link_end],
+        title: &txt[mark_title_start..mark_title_end],
+        suffix: &txt[mark_title_end..],
+    })
+}
+
 // parse a single list item into marker and text.
 #[derive(Debug)]
 pub struct MDItem<'a> {
@@ -15,7 +226,7 @@ pub struct MDItem<'a> {
     pub text: &'a str,
 }
 
-pub fn parse_md_item(start: usize, txt: &str) -> MDItem<'_> {
+pub fn parse_md_item(relocate: usize, txt: &str) -> MDItem<'_> {
     let mut mark_byte = 0;
     let mut mark_suffix_byte = 0;
     let mut text_prefix_byte = 0;
@@ -81,12 +292,12 @@ pub fn parse_md_item(start: usize, txt: &str) -> MDItem<'_> {
 
     MDItem {
         prefix: &txt[0..mark_byte],
-        mark_bytes: start + mark_byte..start + text_prefix_byte,
+        mark_bytes: relocate + mark_byte..relocate + text_prefix_byte,
         mark: &txt[mark_byte..mark_suffix_byte],
         mark_suffix: &txt[mark_suffix_byte..text_prefix_byte],
         mark_nr,
         text_prefix: &txt[text_prefix_byte..text_byte],
-        text_bytes: start + text_byte..start + txt.len(),
+        text_bytes: relocate + text_byte..relocate + txt.len(),
         text: &txt[text_byte..],
     }
 }
@@ -111,7 +322,7 @@ pub struct MDRow<'a> {
 
 // split single row. translate x-position to cell+cell_offset.
 // __info__: returns the string before the first | and the string after the last | too!!
-pub fn parse_md_row(txt: &str, x: upos_type) -> MDRow<'_> {
+pub fn parse_md_row(relocate: usize, txt: &str, x: upos_type) -> MDRow<'_> {
     let mut tmp = MDRow {
         row: Default::default(),
         cursor_cell: 0,
@@ -139,7 +350,7 @@ pub fn parse_md_row(txt: &str, x: upos_type) -> MDRow<'_> {
             tmp.row.push(MDCell {
                 txt: &txt[cell_byte_start..byte_idx],
                 txt_graphemes: grapheme_start..idx as upos_type,
-                txt_bytes: cell_byte_start..byte_idx,
+                txt_bytes: relocate + cell_byte_start..relocate + byte_idx,
             });
             cell_byte_start = byte_idx + 1;
             grapheme_start = idx as upos_type + 1;
@@ -154,7 +365,7 @@ pub fn parse_md_row(txt: &str, x: upos_type) -> MDRow<'_> {
     tmp.row.push(MDCell {
         txt: &txt[cell_byte_start..txt.len()],
         txt_graphemes: grapheme_start..grapheme_last,
-        txt_bytes: cell_byte_start..txt.len(),
+        txt_bytes: relocate + cell_byte_start..relocate + txt.len(),
     });
 
     tmp
@@ -162,14 +373,14 @@ pub fn parse_md_row(txt: &str, x: upos_type) -> MDRow<'_> {
 
 // parse quoted text
 #[derive(Debug)]
-pub struct MDBlockQuote2<'a> {
+pub struct MDBlockQuote<'a> {
     pub quote: &'a str,
     pub text_prefix: &'a str,
     pub text_bytes: Range<usize>,
     pub text: &'a str,
 }
 
-pub fn parse_md_block_quote2(start: usize, txt: &str) -> MDBlockQuote2<'_> {
+pub fn parse_md_block_quote(relocate: usize, txt: &str) -> MDBlockQuote<'_> {
     let mut quote_byte = 0;
     let mut text_prefix_byte = 0;
     let mut text_byte = 0;
@@ -208,10 +419,10 @@ pub fn parse_md_block_quote2(start: usize, txt: &str) -> MDBlockQuote2<'_> {
         }
     }
 
-    MDBlockQuote2 {
+    MDBlockQuote {
         quote: &txt[quote_byte..quote_byte + 1],
         text_prefix: &txt[text_prefix_byte..text_byte],
-        text_bytes: start + text_byte..start + txt.len(),
+        text_bytes: relocate + text_byte..relocate + txt.len(),
         text: &txt[text_byte..txt.len()],
     }
 }

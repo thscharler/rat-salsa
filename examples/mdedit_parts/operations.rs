@@ -105,7 +105,7 @@ pub fn md_line_break(state: &mut TextAreaState) -> TextOutcome {
 
 // duplicate as empty row
 fn empty_md_row(txt: &str, newline: &str) -> (upos_type, String) {
-    let row = parse_md_row(txt, 0);
+    let row = parse_md_row(0, txt, 0);
     let mut new_row = String::new();
     new_row.push_str(newline);
     new_row.push('|');
@@ -127,7 +127,7 @@ fn empty_md_row(txt: &str, newline: &str) -> (upos_type, String) {
 
 // add a line break
 fn split_md_row(txt: &str, cursor: upos_type, newline: &str) -> (upos_type, String) {
-    let row = parse_md_row(txt, 0);
+    let row = parse_md_row(0, txt, 0);
 
     let mut tmp0 = String::new();
     let mut tmp1 = String::new();
@@ -182,7 +182,7 @@ fn split_md_row(txt: &str, cursor: upos_type, newline: &str) -> (upos_type, Stri
 
 // create underlines under the header
 fn create_md_title(txt: &str, newline: &str) -> (upos_type, String) {
-    let row = parse_md_row(txt, 0);
+    let row = parse_md_row(0, txt, 0);
 
     let mut new_row = String::new();
     new_row.push_str(newline);
@@ -239,7 +239,7 @@ fn is_md_item(state: &TextAreaState) -> bool {
 }
 
 fn next_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
-    let row = parse_md_row(txt, pos);
+    let row = parse_md_row(0, txt, pos);
     if row.cursor_cell + 1 < row.row.len() {
         row.row[row.cursor_cell + 1].txt_graphemes.start
     } else {
@@ -248,7 +248,7 @@ fn next_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
 }
 
 fn prev_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
-    let row = parse_md_row(txt, pos);
+    let row = parse_md_row(0, txt, pos);
     if row.cursor_cell > 0 {
         row.row[row.cursor_cell - 1].txt_graphemes.start
     } else {

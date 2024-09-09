@@ -7,8 +7,6 @@ mod mdedit_parts;
 use crate::facilities::{Facility, MDFileDialog, MDFileDialogState};
 use crate::mdedit::{MDEdit, MDEditState};
 use anyhow::Error;
-#[allow(unused_imports)]
-use log::debug;
 use rat_salsa::event::try_flow;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RenderContext, RunConfig};
@@ -691,7 +689,7 @@ pub mod mdfile {
     use crate::mdedit_parts::MarkDown;
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
-    use log::{debug, warn};
+    use log::warn;
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, TextOutcome};
@@ -982,13 +980,10 @@ pub mod mdfile {
         // Save
         pub fn save(&mut self) -> Result<(), Error> {
             if self.changed {
-                debug!("save {:?}", self.path);
-
                 let mut f = BufWriter::new(File::create(&self.path)?);
                 let mut buf = Vec::new();
-                for line in self.edit.lines_at(0) {
-                    buf.clear();
-                    buf.extend(line.bytes().filter(|v| *v != b'\n' && *v != b'\r'));
+                for line in self.edit.text().lines() {
+                    buf.extend(line.bytes());
                     buf.extend_from_slice(self.edit.newline().as_bytes());
                 }
                 f.write_all(&buf)?;
@@ -1617,8 +1612,6 @@ pub mod mdedit {
     use crate::{AppContext, GlobalState, MDAction, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
-    #[allow(unused_imports)]
-    use log::debug;
     use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
@@ -1848,7 +1841,6 @@ pub mod mdedit {
                     Control::Changed
                 }
                 MDAction::Save => {
-                    debug!("Save");
                     self.save()?;
                     Control::Changed
                 }

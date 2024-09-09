@@ -1,7 +1,8 @@
-use crate::mdedit_parts::parser::{parse_md_block_quote2, parse_md_item, parse_md_row, MDItem};
+use crate::mdedit_parts::parser::{
+    parse_md_block_quote, parse_md_item, parse_md_link_ref, parse_md_row, MDItem,
+};
 use crate::mdedit_parts::str_line_len;
 use crate::mdedit_parts::styles::MDStyle;
-use log::debug;
 use pulldown_cmark::{
     BlockQuoteKind, CodeBlockKind, CowStr, Event, HeadingLevel, OffsetIter, Options, Parser, Tag,
     TagEnd,
@@ -10,6 +11,7 @@ use rat_widget::event::TextOutcome;
 use rat_widget::text::{upos_type, TextPosition, TextRange};
 use rat_widget::textarea::TextAreaState;
 use std::convert::TryFrom;
+use std::mem;
 use std::ops::Range;
 use textwrap::core::Word;
 use textwrap::wrap_algorithms::Penalties;
@@ -53,7 +55,8 @@ pub fn md_format(state: &mut TextAreaState, table_eq_width: bool) -> TextOutcome
             let r = state.byte_range(r.clone());
             TextRange::new((0, r.start.y), r.end)
         } else {
-            TextRange::new((0, cursor.y), (0, cursor.y + 1))
+            // no style found??
+            return TextOutcome::Unchanged;
         }
     } else {
         TextRange::new(
@@ -62,7 +65,6 @@ pub fn md_format(state: &mut TextAreaState, table_eq_width: bool) -> TextOutcome
         )
     };
     let selection_byte = state.bytes_at_range(selection);
-    debug!("SELECTION {:?}", selection_byte);
 
     // relative cursor
     let (txt_cursor, txt_cursor_byte) = if selection.contains_pos(cursor) {
@@ -121,8 +123,13 @@ struct Reformat<'a> {
     newline: &'a str,
     table_eq_width: bool,
 
+    // indent
     first: Vec<CowStr<'a>>,
     follow: Vec<CowStr<'a>>,
+
+    // collect words/tags for wrap.
+    words: Vec<Word<'a>>,
+    skip_txt: bool,
 
     stack: Vec<Vec<CowStr<'a>>>,
 }
@@ -138,6 +145,7 @@ impl<'a> Reformat<'a> {
         };
         assert!(self.first.is_empty());
         assert_eq!(self.follow, follow);
+        assert!(self.words.is_empty());
     }
 
     // write indent + linebreak
@@ -160,8 +168,9 @@ impl<'a> Reformat<'a> {
         }
     }
 
-    // set line prefix as indent
-    fn indent_prefix(&mut self, pos_byte: usize, out: &mut ReformatOut) {
+    // set line prefix as indent.
+    // add gap text to the output.
+    fn indent_prefix(&mut self, last_end: usize, pos_byte: usize, out: &mut ReformatOut) {
         assert!(self.first.is_empty());
         assert!(self.follow.is_empty());
 
@@ -178,10 +187,50 @@ impl<'a> Reformat<'a> {
             }
         }
 
+        if last_end < start_byte {
+            // link refs are parsed irregularly.
+            if let Some(link_ref) = parse_md_link_ref(last_end, &self.txt[last_end..start_byte]) {
+                // here we only recover the prefix + suffix.
+                out.txt.push_str(link_ref.prefix);
+                out.txt.push_str(link_ref.suffix);
+            } else {
+                out.txt.push_str(&self.txt[last_end..start_byte]);
+            }
+        }
+
         self.first
             .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
         self.follow
             .push(CowStr::Borrowed(&self.txt[start_byte..pos_byte]));
+    }
+
+    // add some indent by backparsing whitespace.
+    fn indent_blanks(&mut self, pos_byte: usize) {
+        let mut gr_it = self.txt[..pos_byte].grapheme_indices(true).rev();
+        let mut start_byte = pos_byte;
+        loop {
+            let Some((idx, gr)) = gr_it.next() else {
+                break;
+            };
+            start_byte = idx;
+            if gr == "\n" || gr == "\r\n" {
+                start_byte = idx + gr.len();
+                break;
+            }
+        }
+
+        // reduce indent by current indent.
+        let follow_len = self.follow_len();
+        if start_byte + follow_len <= pos_byte {
+            start_byte = start_byte + follow_len;
+        } else {
+            // whatever
+        }
+
+        self.indent(
+            CowStr::Borrowed(&self.txt[start_byte..pos_byte]),
+            CowStr::Borrowed(&self.txt[start_byte..pos_byte]),
+        );
     }
 
     // add indent
@@ -238,6 +287,8 @@ impl<'a> Reformat<'a> {
 struct ReformatOut {
     txt: String,
     cursor: usize,
+    // trailing empty line already output
+    trailing: bool,
 }
 
 pub fn reformat(
@@ -270,11 +321,14 @@ pub fn reformat(
         table_eq_width,
         first: Vec::new(),
         follow: Vec::new(),
+        words: Vec::new(),
+        skip_txt: false,
         stack: Vec::new(),
     };
     let mut out = ReformatOut {
         txt: String::new(),
         cursor: 0,
+        trailing: false,
     };
 
     let mut last_r = 0..0;
@@ -283,37 +337,31 @@ pub fn reformat(
             break;
         };
 
-        // copy the gaps.
-        if last_r.end != r.start {
-            out.txt.push_str(&arg.txt[last_r.end..r.start]);
-        }
-
         match e {
             Event::Start(Tag::Paragraph) => {
-                arg.indent_prefix(r.start, &mut out);
+                arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_paragraph(&mut arg, &mut it, &mut out);
                 arg.dedent();
             }
             Event::Start(Tag::Heading { level, .. }) => {
-                arg.indent_prefix(r.start, &mut out);
+                arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_heading(&mut arg, &mut it, level, &mut out);
                 arg.dedent();
             }
             Event::Start(Tag::BlockQuote(kind)) => {
-                arg.indent_prefix(r.start, &mut out);
+                arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_blockquote(&mut arg, &mut it, r.clone(), kind, &mut out);
                 arg.dedent();
             }
             Event::Start(Tag::CodeBlock(kind)) => {
-                arg.indent_prefix(r.start, &mut out);
+                arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_codeblock(&mut arg, &mut it, r.clone(), kind, &mut out);
                 arg.dedent();
             }
             Event::Start(Tag::List(v)) => {
-                let mut out_extended = false;
-                arg.indent_prefix(r.start, &mut out);
-                reformat_list(&mut arg, &mut it, r.clone(), &mut out, &mut out_extended);
-                if !out_extended {
+                arg.indent_prefix(last_r.end, r.start, &mut out);
+                reformat_list(&mut arg, &mut it, r.clone(), &mut out);
+                if !out.trailing {
                     arg.empty_out(&mut out);
                 }
                 arg.dedent();
@@ -324,14 +372,17 @@ pub fn reformat(
             Event::Start(Tag::HtmlBlock) => {}
 
             Event::Start(Tag::FootnoteDefinition(v)) => {
-                arg.indent_prefix(r.start, &mut out);
+                arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_footnote(&mut arg, &mut it, v, &mut out);
                 arg.dedent();
             }
 
             Event::Start(Tag::DefinitionList) => {
-                arg.indent_prefix(r.start, &mut out);
+                arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_definition(&mut arg, &mut it, &mut out);
+                if !out.trailing {
+                    arg.empty_out(&mut out);
+                }
                 arg.dedent();
             }
             Event::Start(Tag::DefinitionListTitle)
@@ -340,7 +391,7 @@ pub fn reformat(
             }
 
             Event::Start(Tag::Table(_)) => {
-                arg.indent_prefix(r.start, &mut out);
+                arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_table(&mut arg, &mut it, r.clone(), &mut out);
                 arg.dedent();
             }
@@ -362,19 +413,25 @@ pub fn reformat(
             | Event::InlineHtml(_)
             | Event::FootnoteReference(_)
             | Event::SoftBreak
-            | Event::HardBreak => {
+            | Event::HardBreak
+            | Event::TaskListMarker(_) => {
                 unreachable!("inline {:?} {:?}", e, r.clone());
             }
 
             Event::Start(Tag::MetadataBlock(_)) => {}
-            Event::End(_) => {}
+
             Event::Html(_) => {}
             Event::Rule => {}
-            Event::TaskListMarker(_) => {}
+
+            Event::End(_) => {
+                // don't care here
+            }
         }
 
+        out.trailing = false;
         last_r = r;
     }
+
     for (link_name, linkdef) in it.reference_definitions().iter() {
         out.txt.push_str("[");
         out.txt.push_str(link_name);
@@ -386,40 +443,47 @@ pub fn reformat(
         }
         out.txt.push_str(newline);
     }
-    // copy the gaps.
-    if last_r.end != txt.len() {
-        out.txt.push_str(&arg.txt[last_r.end..txt.len()]);
+
+    // copy the closing gap.
+    if last_r.end < txt.len() {
+        // link refs are parsed irregularly.
+        if let Some(link_ref) = parse_md_link_ref(last_r.end, &arg.txt[last_r.end..txt.len()]) {
+            // here we only recover the suffix.
+            out.txt.push_str(link_ref.suffix);
+        } else {
+            out.txt.push_str(&arg.txt[last_r.end..txt.len()]);
+        }
     }
+
     (out.txt, out.cursor)
 }
 
 fn reformat_list<'a>(
     arg: &mut Reformat<'a>,
     it: &mut OffsetIter<'a>,
-    range: Range<usize>,
+    list_range: Range<usize>,
     out: &mut ReformatOut,
-    out_extended: &mut bool,
 ) {
     arg.enter_frame();
 
     // list prefix
-    let first_item = parse_md_item(range.start, &arg.txt[range]);
+    let first_item = parse_md_item(list_range.start, &arg.txt[list_range]);
 
     let mut nr = first_item.mark_nr;
     loop {
-        let Some((e, r)) = it.next() else {
+        let Some((event, range)) = it.next() else {
             break;
         };
-
-        match e {
+        match event {
             Event::End(TagEnd::List(_)) => {
                 // if !*out_extended {
                 //     arg.empty_out(out);
                 // }
                 break;
             }
+
             Event::Start(Tag::Item) => {
-                let mut item = parse_md_item(r.start, &arg.txt[r]);
+                let mut item = parse_md_item(range.start, &arg.txt[range.clone()]);
                 item.mark_nr = nr;
 
                 arg.indent(
@@ -427,14 +491,16 @@ fn reformat_list<'a>(
                     CowStr::Borrowed(first_item.prefix),
                 );
 
-                reformat_list_item(arg, it, &item, out, out_extended);
+                reformat_list_item(arg, it, &item, out);
 
                 arg.dedent();
 
                 nr = nr.map(|v| v + 1);
+                continue;
             }
-            _ => unreachable!("{:?} {:?}", e, r),
+            _ => {}
         }
+        unreachable!("{:?} {:?}", event, range);
     }
 
     arg.leave_frame();
@@ -445,7 +511,6 @@ fn reformat_list_item<'a>(
     it: &mut OffsetIter<'a>,
     item: &MDItem<'a>,
     out: &mut ReformatOut,
-    out_extended: &mut bool,
 ) {
     arg.enter_frame();
 
@@ -462,148 +527,28 @@ fn reformat_list_item<'a>(
         );
     }
 
-    let mut words = Vec::new();
-    let mut skip_txt = false;
     loop {
-        let Some((e, r)) = it.next() else {
+        let Some((event, range)) = it.next() else {
             break;
         };
-
-        match e {
+        if collect_inline(arg, &event, range.clone(), out) {
+            continue;
+        }
+        match event {
             Event::End(TagEnd::Item) => {
                 break;
             }
-
-            Event::Start(Tag::Emphasis) | Event::End(TagEnd::Emphasis) => {
-                let word = Word::from(&arg.txt[r.start..r.start + 1]);
-                words.push(word);
-            }
-            Event::Start(Tag::Strong)
-            | Event::End(TagEnd::Strong)
-            | Event::Start(Tag::Strikethrough)
-            | Event::End(TagEnd::Strikethrough) => {
-                let word = Word::from(&arg.txt[r.start..r.start + 2]);
-                words.push(word);
-            }
-
-            Event::Start(Tag::Link { .. }) | Event::Start(Tag::Image { .. }) => {
-                skip_txt = true;
-                let word = Word::from(&arg.txt[r]);
-                words.push(word);
-            }
-            Event::End(TagEnd::Link) | Event::End(TagEnd::Image) => {
-                skip_txt = false;
-            }
-
-            Event::Code(_)
-            | Event::InlineMath(_)
-            | Event::DisplayMath(_)
-            | Event::Html(_)
-            | Event::InlineHtml(_)
-            | Event::FootnoteReference(_) => {
-                let word = Word::from(&arg.txt[r]);
-                words.push(word);
-            }
-            Event::TaskListMarker(_) => {
-                let mut word = Word::from(&arg.txt[r]);
-                word.whitespace = " ";
-                words.push(word);
-            }
-
-            Event::SoftBreak => {
-                if skip_txt {
-                    continue;
-                }
-                if let Some(mut word) = words.pop() {
-                    word.whitespace = " ";
-                    words.push(word);
-                }
-            }
-            Event::HardBreak => {
-                if skip_txt {
-                    continue;
-                }
-                wrap_words(arg, &mut words, NewLine::Hard, out);
-            }
-
-            Event::Text(_) => {
-                if skip_txt {
-                    continue;
-                }
-                for w in WordSeparator::UnicodeBreakProperties.find_words(&arg.txt[r]) {
-                    words.push(w);
-                }
-            }
-
-            Event::Start(Tag::Paragraph) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Soft, out);
-                }
-                reformat_paragraph(arg, it, out);
-                arg.empty_out(out);
-                *out_extended = true;
-            }
-            Event::Start(Tag::Heading { level, .. }) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Soft, out);
-                }
-                reformat_heading(arg, it, level, out);
-                arg.empty_out(out);
-                *out_extended = true;
-            }
-            Event::Start(Tag::BlockQuote(kind)) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Soft, out);
-                }
-                reformat_blockquote(arg, it, r, kind, out);
-                arg.empty_out(out);
-                *out_extended = true;
-            }
-            Event::Start(Tag::CodeBlock(kind)) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Soft, out);
-                }
-                reformat_codeblock(arg, it, r, kind, out);
-                arg.empty_out(out);
-                *out_extended = true;
-            }
-            Event::Start(Tag::List(_)) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Soft, out);
-                }
-                reformat_list(arg, it, r, out, out_extended);
-            }
-            Event::Start(Tag::FootnoteDefinition(v)) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Soft, out);
-                }
-                reformat_footnote(arg, it, v, out);
-                arg.empty_out(out);
-                *out_extended = true;
-            }
-            Event::Start(Tag::DefinitionList) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Soft, out);
-                }
-                reformat_definition(arg, it, out);
-                arg.empty_out(out);
-                *out_extended = true;
-            }
-            Event::Start(Tag::Table(_)) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Soft, out);
-                }
-                arg.empty_out(out);
-                *out_extended = true;
-            }
-
-            _ => unreachable!("{:?} {:?}", e, r),
+            _ => {}
         }
+        if recurse_container(arg, &event, range.clone(), it, out) {
+            continue;
+        }
+        unreachable!("{:?} {:?}", event, range);
     }
 
-    if !words.is_empty() {
-        wrap_words(arg, &mut words, NewLine::Soft, out);
-        *out_extended = false;
+    if !arg.words.is_empty() {
+        wrap_words(arg, NewLine::Soft, out);
+        out.trailing = false;
     }
 
     arg.dedent();
@@ -614,14 +559,14 @@ fn reformat_list_item<'a>(
 fn reformat_codeblock<'a>(
     arg: &mut Reformat<'a>,
     it: &mut OffsetIter<'a>,
-    range: Range<usize>,
+    code_range: Range<usize>,
     kind: CodeBlockKind<'a>,
     out: &mut ReformatOut,
 ) {
     arg.enter_frame();
 
     let fence = if matches!(kind, CodeBlockKind::Fenced(_)) {
-        &arg.txt[range.start..range.start + 3]
+        &arg.txt[code_range.start..code_range.start + 3]
     } else {
         ""
     };
@@ -637,8 +582,11 @@ fn reformat_codeblock<'a>(
     }
 
     let mut buf = String::new();
-    for (e, r) in it {
-        match e {
+    loop {
+        let Some((event, range)) = it.next() else {
+            break;
+        };
+        match &event {
             Event::End(TagEnd::CodeBlock) => {
                 break;
             }
@@ -646,9 +594,11 @@ fn reformat_codeblock<'a>(
                 // text segments come in strange order.
                 // collect first, line-break later.
                 buf.push_str(v.as_ref());
+                continue;
             }
-            _ => unreachable!("{:?} {:?}", e, r),
+            _ => {}
         }
+        unreachable!("{:?} {:?}", event, range);
     }
 
     if buf.len() > 0 {
@@ -663,6 +613,7 @@ fn reformat_codeblock<'a>(
             CodeBlockKind::Fenced(lang) => {
                 arg.first_out(out);
                 out.txt.push_str(fence);
+                // todo: last line-break not included in the reformat text ?!
                 // out.txt.push_str(arg.newline);
             }
         }
@@ -674,7 +625,7 @@ fn reformat_codeblock<'a>(
 fn reformat_blockquote<'a>(
     arg: &mut Reformat<'a>,
     it: &mut OffsetIter<'a>,
-    range: Range<usize>,
+    block_range: Range<usize>,
     kind: Option<BlockQuoteKind>,
     out: &mut ReformatOut,
 ) {
@@ -693,7 +644,7 @@ fn reformat_blockquote<'a>(
         out.txt.push_str(arg.newline);
     }
 
-    let block_quote = parse_md_block_quote2(range.start, &arg.txt[range.clone()]);
+    let block_quote = parse_md_block_quote(block_range.start, &arg.txt[block_range.clone()]);
 
     arg.indent(
         CowStr::Borrowed(block_quote.quote),
@@ -704,20 +655,36 @@ fn reformat_blockquote<'a>(
         CowStr::Borrowed(block_quote.text_prefix),
     );
 
+    let mut first = true;
     loop {
-        let Some((e, r)) = it.next() else { break };
-        match e {
+        let Some((event, range)) = it.next() else {
+            break;
+        };
+        match event {
             Event::End(TagEnd::BlockQuote(_)) => {
                 break;
             }
             Event::Start(Tag::Paragraph) => {
+                if !first {
+                    arg.empty_out(out);
+                }
                 reformat_paragraph(arg, it, out);
+                out.trailing = false;
+                first = false;
+                continue;
             }
             Event::Start(Tag::BlockQuote(kind)) => {
-                reformat_blockquote(arg, it, r, kind, out);
+                if !first {
+                    arg.empty_out(out);
+                }
+                reformat_blockquote(arg, it, range.clone(), kind, out);
+                out.trailing = false;
+                first = false;
+                continue;
             }
-            _ => unreachable!("{:?} {:?}", e, r),
+            _ => {}
         }
+        unreachable!("{:?} {:?}", event, range);
     }
 
     arg.dedent();
@@ -729,9 +696,11 @@ fn reformat_blockquote<'a>(
 fn reformat_table<'a>(
     arg: &mut Reformat<'a>,
     it: &mut OffsetIter<'a>,
-    range: Range<usize>,
+    table_range: Range<usize>,
     out: &mut ReformatOut,
 ) {
+    arg.enter_frame();
+
     // eat events. don't use them for the table.
     loop {
         let Some((e, r)) = it.next() else { break };
@@ -745,15 +714,15 @@ fn reformat_table<'a>(
 
     use std::fmt::Write;
 
-    let table_txt = &arg.txt[range];
+    let table_txt = &arg.txt[table_range];
 
     let mut table = Vec::new();
     for (n, row) in table_txt.lines().enumerate() {
         if !row.is_empty() {
             if arg.cursor.y == n as upos_type {
-                table.push(parse_md_row(row, arg.cursor.x));
+                table.push(parse_md_row(0, row, arg.cursor.x));
             } else {
-                table.push(parse_md_row(row, 0));
+                table.push(parse_md_row(0, row, 0));
             }
         }
     }
@@ -832,6 +801,8 @@ fn reformat_table<'a>(
         out.txt.push('|');
         out.txt.push_str(arg.newline);
     }
+
+    arg.leave_frame();
 }
 
 fn reformat_footnote<'a>(
@@ -850,20 +821,19 @@ fn reformat_footnote<'a>(
     );
 
     loop {
-        let Some((e, r)) = it.next() else {
+        let Some((event, range)) = it.next() else {
             break;
         };
-
-        match e {
+        match event {
             Event::End(TagEnd::FootnoteDefinition) => {
                 break;
             }
-            Event::Start(Tag::Paragraph) => {
-                reformat_paragraph(arg, it, out);
-                arg.empty_out(out);
-            }
-            _ => unreachable!("{:?} {:?}", e, r),
+            _ => {}
         }
+        if recurse_container(arg, &event, range.clone(), it, out) {
+            continue;
+        }
+        unreachable!("{:?} {:?}", event, range);
     }
 
     arg.dedent();
@@ -872,102 +842,49 @@ fn reformat_footnote<'a>(
 }
 
 fn reformat_definition<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: &mut ReformatOut) {
-    let mut words = Vec::new();
-    let mut skip_txt = false;
+    arg.enter_frame();
 
     loop {
-        let Some((e, r)) = it.next() else {
+        let Some((event, range)) = it.next() else {
             break;
         };
-
-        match e {
+        if collect_inline(arg, &event, range.clone(), out) {
+            continue;
+        }
+        match event {
             Event::End(TagEnd::DefinitionList) => {
                 break;
             }
-
-            Event::Start(Tag::Emphasis) | Event::End(TagEnd::Emphasis) => {
-                let word = Word::from(&arg.txt[r.start..r.start + 1]);
-                words.push(word);
+            Event::Start(Tag::DefinitionListTitle) => {
+                continue;
             }
-            Event::Start(Tag::Strong)
-            | Event::End(TagEnd::Strong)
-            | Event::Start(Tag::Strikethrough)
-            | Event::End(TagEnd::Strikethrough) => {
-                let word = Word::from(&arg.txt[r.start..r.start + 2]);
-                words.push(word);
-            }
-
-            Event::Start(Tag::Link { .. }) | Event::Start(Tag::Image { .. }) => {
-                skip_txt = true;
-                let word = Word::from(&arg.txt[r]);
-                words.push(word);
-            }
-            Event::End(TagEnd::Link) | Event::End(TagEnd::Image) => {
-                skip_txt = false;
-            }
-
-            Event::Code(_)
-            | Event::InlineMath(_)
-            | Event::DisplayMath(_)
-            | Event::Html(_)
-            | Event::InlineHtml(_)
-            | Event::FootnoteReference(_) => {
-                let word = Word::from(&arg.txt[r]);
-                words.push(word);
-            }
-            Event::TaskListMarker(_) => {
-                let mut word = Word::from(&arg.txt[r]);
-                word.whitespace = " ";
-                words.push(word);
-            }
-
-            Event::SoftBreak => {
-                if skip_txt {
-                    continue;
-                }
-                if let Some(mut word) = words.pop() {
-                    word.whitespace = " ";
-                    words.push(word);
-                }
-            }
-            Event::HardBreak => {
-                if skip_txt {
-                    continue;
-                }
-                wrap_words(arg, &mut words, NewLine::Hard, out);
-            }
-
-            Event::Start(Tag::DefinitionListTitle) => {}
             Event::End(TagEnd::DefinitionListTitle) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Hard, out);
+                if !arg.words.is_empty() {
+                    wrap_words(arg, NewLine::Hard, out);
                 }
+                continue;
             }
             Event::Start(Tag::DefinitionListDefinition) => {
                 arg.indent(CowStr::Borrowed(": "), CowStr::Borrowed("  "));
+                continue;
             }
             Event::End(TagEnd::DefinitionListDefinition) => {
-                if !words.is_empty() {
-                    wrap_words(arg, &mut words, NewLine::Hard, out);
+                if !arg.words.is_empty() {
+                    wrap_words(arg, NewLine::Hard, out);
                 }
 
                 arg.dedent();
+                continue;
             }
-
-            Event::Text(_) => {
-                if skip_txt {
-                    continue;
-                }
-                for w in WordSeparator::UnicodeBreakProperties.find_words(&arg.txt[r]) {
-                    words.push(w);
-                }
-            }
-
-            _ => unreachable!("{:?} {:?}", e, r),
+            _ => {}
         }
+        if recurse_container(arg, &event, range.clone(), it, out) {
+            continue;
+        }
+        unreachable!("{:?} {:?}", event, range);
     }
 
-    assert!(words.is_empty());
+    arg.leave_frame();
 }
 
 fn reformat_heading<'a>(
@@ -983,171 +900,240 @@ fn reformat_heading<'a>(
     }
     arg.first.push(CowStr::Borrowed(" "));
 
-    let mut words = Vec::new();
-    let mut skip_txt = false;
-    for (e, r) in it {
-        match e {
+    loop {
+        let Some((event, range)) = it.next() else {
+            break;
+        };
+        if collect_inline(arg, &event, range.clone(), out) {
+            continue;
+        }
+        match event {
             Event::End(TagEnd::Heading(_)) => {
                 break;
             }
-
-            Event::Start(Tag::Emphasis) | Event::End(TagEnd::Emphasis) => {
-                let word = Word::from(&arg.txt[r.start..r.start + 1]);
-                words.push(word);
-            }
-            Event::Start(Tag::Strong)
-            | Event::End(TagEnd::Strong)
-            | Event::Start(Tag::Strikethrough)
-            | Event::End(TagEnd::Strikethrough) => {
-                let word = Word::from(&arg.txt[r.start..r.start + 2]);
-                words.push(word);
-            }
-
-            Event::Start(Tag::Link { .. }) | Event::Start(Tag::Image { .. }) => {
-                skip_txt = true;
-                let word = Word::from(&arg.txt[r]);
-                words.push(word);
-            }
-            Event::End(TagEnd::Link) | Event::End(TagEnd::Image) => {
-                skip_txt = false;
-            }
-
-            Event::Code(_)
-            | Event::InlineMath(_)
-            | Event::DisplayMath(_)
-            | Event::Html(_)
-            | Event::InlineHtml(_)
-            | Event::FootnoteReference(_) => {
-                let word = Word::from(&arg.txt[r]);
-                words.push(word);
-            }
-            Event::TaskListMarker(_) => {
-                let mut word = Word::from(&arg.txt[r]);
-                word.whitespace = " ";
-                words.push(word);
-            }
-
-            Event::Text(_) => {
-                if skip_txt {
-                    continue;
-                }
-                for w in WordSeparator::UnicodeBreakProperties.find_words(&arg.txt[r]) {
-                    words.push(w);
-                }
-            }
-
-            _ => unreachable!("{:?} {:?}", e, r),
+            _ => {}
         }
+        unreachable!("{:?} {:?}", event, range);
     }
 
+    let words = mem::take(&mut arg.words);
     append_wrapped(arg, vec![&words], NewLine::Soft, out);
 
     arg.leave_frame();
 }
 
 fn reformat_paragraph<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: &mut ReformatOut) {
-    let mut words = Vec::new();
-    let mut skip_txt = false;
-
     arg.enter_frame();
 
-    for (e, r) in it {
-        match e {
+    loop {
+        let Some((event, range)) = it.next() else {
+            break;
+        };
+        if collect_inline(arg, &event, range.clone(), out) {
+            continue;
+        }
+        match event {
             Event::End(TagEnd::Paragraph) => {
                 break;
             }
-
-            Event::Start(Tag::Emphasis) | Event::End(TagEnd::Emphasis) => {
-                let word = Word::from(&arg.txt[r.start..r.start + 1]);
-                words.push(word);
-            }
-            Event::Start(Tag::Strong)
-            | Event::End(TagEnd::Strong)
-            | Event::Start(Tag::Strikethrough)
-            | Event::End(TagEnd::Strikethrough) => {
-                let word = Word::from(&arg.txt[r.start..r.start + 2]);
-                words.push(word);
-            }
-
-            Event::Start(Tag::Link { .. }) | Event::Start(Tag::Image { .. }) => {
-                skip_txt = true;
-                let word = Word::from(&arg.txt[r]);
-                words.push(word);
-            }
-            Event::End(TagEnd::Link) | Event::End(TagEnd::Image) => {
-                skip_txt = false;
-            }
-
-            Event::Code(_)
-            | Event::InlineMath(_)
-            | Event::DisplayMath(_)
-            | Event::Html(_)
-            | Event::InlineHtml(_)
-            | Event::FootnoteReference(_) => {
-                let word = Word::from(&arg.txt[r]);
-                words.push(word);
-            }
-            Event::TaskListMarker(_) => {
-                let mut word = Word::from(&arg.txt[r]);
-                word.whitespace = " ";
-                words.push(word);
-            }
-
-            Event::SoftBreak => {
-                if skip_txt {
-                    continue;
-                }
-                if let Some(mut word) = words.pop() {
-                    word.whitespace = " ";
-                    words.push(word);
-                }
-            }
-            Event::HardBreak => {
-                if skip_txt {
-                    continue;
-                }
-                wrap_words(arg, &mut words, NewLine::Hard, out);
-            }
-
-            Event::Text(_) => {
-                if skip_txt {
-                    continue;
-                }
-                for w in WordSeparator::UnicodeBreakProperties.find_words(&arg.txt[r]) {
-                    words.push(w);
-                }
-            }
-
-            _ => unreachable!("{:?} {:?}", e, r),
+            _ => {}
         }
+        unreachable!("{:?} {:?}", event, range);
     }
 
-    wrap_words(arg, &mut words, NewLine::Soft, out);
+    wrap_words(arg, NewLine::Soft, out);
 
     arg.leave_frame();
+}
+
+fn recurse_container<'a>(
+    arg: &mut Reformat<'a>,
+    event: &'_ Event<'a>,
+    range: Range<usize>,
+    it: &mut OffsetIter<'a>,
+    out: &mut ReformatOut,
+) -> bool {
+    match event {
+        Event::Start(Tag::Paragraph) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+
+            reformat_paragraph(arg, it, out);
+            arg.empty_out(out);
+            out.trailing = true;
+            true
+        }
+        Event::Start(Tag::Heading { level, .. }) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+
+            reformat_heading(arg, it, *level, out);
+            arg.empty_out(out);
+            out.trailing = true;
+            true
+        }
+        Event::Start(Tag::BlockQuote(kind)) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+
+            reformat_blockquote(arg, it, range, *kind, out);
+            if !out.trailing {
+                arg.empty_out(out);
+            }
+            out.trailing = true;
+            true
+        }
+        Event::Start(Tag::CodeBlock(kind)) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+            arg.indent_blanks(range.start);
+            reformat_codeblock(arg, it, range, kind.clone(), out);
+            arg.empty_out(out);
+            arg.dedent();
+            out.trailing = true;
+            true
+        }
+        Event::Start(Tag::List(_)) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+            reformat_list(arg, it, range, out);
+            true
+        }
+        Event::Start(Tag::FootnoteDefinition(v)) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+            reformat_footnote(arg, it, v.clone(), out);
+            arg.empty_out(out);
+            out.trailing = true;
+            true
+        }
+        Event::Start(Tag::DefinitionList) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+            reformat_definition(arg, it, out);
+            if !out.trailing {
+                arg.empty_out(out);
+            }
+            out.trailing = true;
+            true
+        }
+        Event::Start(Tag::Table(_)) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+            reformat_table(arg, it, range.clone(), out);
+            arg.empty_out(out);
+            out.trailing = true;
+            true
+        }
+        _ => false,
+    }
+}
+
+// Inline events.
+fn collect_inline<'a>(
+    arg: &mut Reformat<'a>,
+    event: &'_ Event<'a>,
+    range: Range<usize>,
+    out: &mut ReformatOut,
+) -> bool {
+    match event {
+        Event::Start(Tag::Emphasis) | Event::End(TagEnd::Emphasis) => {
+            let word = Word::from(&arg.txt[range.start..range.start + 1]);
+            arg.words.push(word);
+            true
+        }
+        Event::Start(Tag::Strong)
+        | Event::End(TagEnd::Strong)
+        | Event::Start(Tag::Strikethrough)
+        | Event::End(TagEnd::Strikethrough) => {
+            let word = Word::from(&arg.txt[range.start..range.start + 2]);
+            arg.words.push(word);
+            true
+        }
+
+        Event::Start(Tag::Link { .. }) | Event::Start(Tag::Image { .. }) => {
+            arg.skip_txt = true;
+            let word = Word::from(&arg.txt[range]);
+            arg.words.push(word);
+            true
+        }
+        Event::End(TagEnd::Link) | Event::End(TagEnd::Image) => {
+            arg.skip_txt = false;
+            true
+        }
+
+        Event::Code(_)
+        | Event::InlineMath(_)
+        | Event::DisplayMath(_)
+        | Event::Html(_)
+        | Event::InlineHtml(_)
+        | Event::FootnoteReference(_) => {
+            let word = Word::from(&arg.txt[range]);
+            arg.words.push(word);
+            true
+        }
+        Event::TaskListMarker(_) => {
+            let mut word = Word::from(&arg.txt[range]);
+            word.whitespace = " ";
+            arg.words.push(word);
+            true
+        }
+
+        Event::SoftBreak => {
+            if arg.skip_txt {
+                return true;
+            }
+            if let Some(mut word) = arg.words.pop() {
+                word.whitespace = " ";
+                arg.words.push(word);
+            }
+            true
+        }
+        Event::HardBreak => {
+            if arg.skip_txt {
+                return true;
+            }
+            wrap_words(arg, NewLine::Hard, out);
+            out.trailing = false;
+            true
+        }
+
+        Event::Text(_) => {
+            if arg.skip_txt {
+                return true;
+            }
+            for w in WordSeparator::UnicodeBreakProperties.find_words(&arg.txt[range]) {
+                arg.words.push(w);
+            }
+            true
+        }
+
+        _ => false,
+    }
 }
 
 // wrap words into out.
 // use prefix+follow.
 // cleanup afterwards.
-fn wrap_words<'a>(
-    arg: &mut Reformat<'a>,
-    words: &mut Vec<Word<'a>>,
-    newline: NewLine,
-    out: &mut ReformatOut,
-) {
+fn wrap_words<'a>(arg: &mut Reformat<'a>, newline: NewLine, out: &mut ReformatOut) {
     let widths = [
         arg.txt_width.saturating_sub(arg.first_len()), //
         arg.txt_width.saturating_sub(arg.follow_len()),
     ];
 
+    let words = mem::take(&mut arg.words);
     let wrapped = WrapAlgorithm::OptimalFit(Penalties::default()).wrap(&words, widths.as_slice());
     // let wrapped = WrapAlgorithm::FirstFit.wrap(&words, widths.as_slice());
 
     append_wrapped(arg, wrapped, newline, out);
-
-    // words are consumed
-    words.clear();
 }
 
 #[derive(Debug, PartialEq)]
