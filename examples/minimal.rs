@@ -1,24 +1,15 @@
-#![allow(unused_variables)]
+use crate::app::{Scenery, SceneryState};
+use crate::config::MinimalConfig;
+use crate::global::GlobalState;
+use crate::message::MinimalMsg;
 
-use crate::mask0::{Mask0, Mask0State};
 use anyhow::Error;
-use crossterm::event::Event;
-#[allow(unused_imports)]
-use log::debug;
-use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
+use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
-use rat_widget::event::{ct_event, try_flow, Dialog, HandleEvent};
-use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::statusline::{StatusLine, StatusLineState};
-use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Direction, Layout, Rect};
-use ratatui::widgets::StatefulWidget;
-use std::fs;
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MinimalAction, Error>;
+type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MinimalMsg, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
@@ -28,8 +19,8 @@ fn main() -> Result<(), Error> {
     let theme = DarkTheme::new("Imperial".into(), IMPERIAL);
     let mut global = GlobalState::new(config, theme);
 
-    let app = MinimalApp;
-    let mut state = MinimalState::default();
+    let app = Scenery;
+    let mut state = SceneryState::default();
 
     run_tui(
         app,
@@ -41,198 +32,236 @@ fn main() -> Result<(), Error> {
     Ok(())
 }
 
-// -----------------------------------------------------------------------
+/// Globally accessible data/state.
+pub mod global {
+    use crate::config::MinimalConfig;
+    use rat_theme::dark_theme::DarkTheme;
+    use rat_widget::msgdialog::MsgDialogState;
+    use rat_widget::statusline::StatusLineState;
 
-#[derive(Debug)]
-pub struct GlobalState {
-    pub cfg: MinimalConfig,
-    pub theme: DarkTheme,
-    pub status: StatusLineState,
-    pub error_dlg: MsgDialogState,
-}
+    #[derive(Debug)]
+    pub struct GlobalState {
+        pub cfg: MinimalConfig,
+        pub theme: DarkTheme,
+        pub status: StatusLineState,
+        pub error_dlg: MsgDialogState,
+    }
 
-impl GlobalState {
-    fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
-        Self {
-            cfg,
-            theme,
-            status: Default::default(),
-            error_dlg: Default::default(),
+    impl GlobalState {
+        pub fn new(cfg: MinimalConfig, theme: DarkTheme) -> Self {
+            Self {
+                cfg,
+                theme,
+                status: Default::default(),
+                error_dlg: Default::default(),
+            }
         }
     }
 }
 
-// -----------------------------------------------------------------------
-
-#[derive(Debug, Default)]
-pub struct MinimalConfig {}
-
-#[derive(Debug)]
-pub enum MinimalAction {
-    Message(String),
+/// Configuration.
+pub mod config {
+    #[derive(Debug, Default)]
+    pub struct MinimalConfig {}
 }
 
-// -----------------------------------------------------------------------
-
-#[derive(Debug)]
-pub struct MinimalApp;
-
-#[derive(Debug, Default)]
-pub struct MinimalState {
-    pub mask0: Mask0State,
-}
-
-impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
-    type State = MinimalState;
-
-    fn render(
-        &self,
-        area: Rect,
-        buf: &mut Buffer,
-        state: &mut Self::State,
-        ctx: &mut RenderContext<'_>,
-    ) -> Result<(), Error> {
-        let t0 = SystemTime::now();
-
-        let r = Layout::new(
-            Direction::Vertical,
-            [Constraint::Fill(1), Constraint::Length(1)],
-        )
-        .split(area);
-
-        Mask0.render(r[0], buf, &mut state.mask0, ctx)?;
-
-        if ctx.g.error_dlg.active() {
-            let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(r[0], buf, &mut ctx.g.error_dlg);
-        }
-
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(1, format!("R {:.3?}", el).to_string());
-
-        let status = StatusLine::new()
-            .layout([
-                Constraint::Fill(1),
-                Constraint::Length(12),
-                Constraint::Length(12),
-                Constraint::Length(12),
-            ])
-            .styles(ctx.g.theme.statusline_style());
-        status.render(r[1], buf, &mut ctx.g.status);
-
-        Ok(())
+/// Application wide messages.
+pub mod message {
+    #[derive(Debug)]
+    pub enum MinimalMsg {
+        Message(String),
     }
 }
 
-impl AppState<GlobalState, MinimalAction, Error> for MinimalState {
-    fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-        Ok(())
-    }
-
-    fn timer(
-        &mut self,
-        event: &TimeOut,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalAction>, Error> {
-        Ok(Control::Continue)
-    }
-
-    fn crossterm(
-        &mut self,
-        event: &Event,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalAction>, Error> {
-        use crossterm::event::*;
-
-        let t0 = SystemTime::now();
-
-        try_flow!(match &event {
-            Event::Resize(_, _) => Control::Changed,
-            ct_event!(key press CONTROL-'q') => Control::Quit,
-            _ => Control::Continue,
-        });
-
-        try_flow!({
-            if ctx.g.error_dlg.active() {
-                ctx.g.error_dlg.handle(&event, Dialog).into()
-            } else {
-                Control::Continue
-            }
-        });
-
-        try_flow!(self.mask0.crossterm(&event, ctx)?);
-
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
-
-        Ok(Control::Continue)
-    }
-
-    fn message(
-        &mut self,
-        event: &mut MinimalAction,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalAction>, Error> {
-        let t0 = SystemTime::now();
-
-        // TODO: actions
-        try_flow!(match event {
-            MinimalAction::Message(s) => {
-                ctx.g.status.status(0, &*s);
-                Control::Changed
-            }
-        });
-
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(3, format!("A {:.3?}", el).to_string());
-
-        Ok(Control::Continue)
-    }
-
-    fn error(
-        &self,
-        event: Error,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalAction>, Error> {
-        ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Changed)
-    }
-}
-
-mod mask0 {
-    use crate::{AppContext, GlobalState, MinimalAction, RenderContext};
+pub mod app {
+    use crate::global::GlobalState;
+    use crate::message::MinimalMsg;
+    use crate::minimal::{Minimal, MinimalState};
+    use crate::{AppContext, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
-    #[allow(unused_imports)]
-    use log::debug;
+    use rat_salsa::event::ct_event;
+    use rat_salsa::timer::TimeOut;
+    use rat_salsa::{AppState, AppWidget, Control};
+    use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent};
+    use rat_widget::focus::HasFocus;
+    use rat_widget::msgdialog::MsgDialog;
+    use rat_widget::statusline::StatusLine;
+    use ratatui::buffer::Buffer;
+    use ratatui::layout::{Constraint, Layout, Rect};
+    use ratatui::widgets::StatefulWidget;
+    use std::time::{Duration, SystemTime};
+
+    #[derive(Debug)]
+    pub struct Scenery;
+
+    #[derive(Debug, Default)]
+    pub struct SceneryState {
+        pub minimal: MinimalState,
+    }
+
+    impl AppWidget<GlobalState, MinimalMsg, Error> for Scenery {
+        type State = SceneryState;
+
+        fn render(
+            &self,
+            area: Rect,
+            buf: &mut Buffer,
+            state: &mut Self::State,
+            ctx: &mut RenderContext<'_>,
+        ) -> Result<(), Error> {
+            let t0 = SystemTime::now();
+
+            let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+
+            Minimal.render(area, buf, &mut state.minimal, ctx)?;
+
+            if ctx.g.error_dlg.active() {
+                let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
+                err.render(layout[0], buf, &mut ctx.g.error_dlg);
+            }
+
+            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            ctx.g.status.status(1, format!("R {:.0?}", el).to_string());
+
+            let status_layout =
+                Layout::horizontal([Constraint::Fill(61), Constraint::Fill(39)]).split(layout[1]);
+            let status = StatusLine::new()
+                .layout([
+                    Constraint::Fill(1),
+                    Constraint::Length(8),
+                    Constraint::Length(8),
+                ])
+                .styles(ctx.g.theme.statusline_style());
+            status.render(status_layout[1], buf, &mut ctx.g.status);
+
+            Ok(())
+        }
+    }
+
+    impl AppState<GlobalState, MinimalMsg, Error> for SceneryState {
+        fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
+            ctx.focus = Some(self.minimal.focus());
+            self.minimal.init(ctx)?;
+            Ok(())
+        }
+
+        fn timer(
+            &mut self,
+            event: &TimeOut,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MinimalMsg>, Error> {
+            let t0 = SystemTime::now();
+
+            ctx.focus = Some(self.minimal.focus());
+            let r = self.minimal.timer(event, ctx)?;
+
+            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            ctx.g.status.status(2, format!("T {:.0?}", el).to_string());
+
+            Ok(r)
+        }
+
+        fn crossterm(
+            &mut self,
+            event: &Event,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MinimalMsg>, Error> {
+            let t0 = SystemTime::now();
+
+            let mut r = match &event {
+                ct_event!(resized) => Control::Changed,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                _ => Control::Continue,
+            };
+
+            r = r.or_else(|| {
+                if ctx.g.error_dlg.active() {
+                    ctx.g.error_dlg.handle(&event, Dialog).into()
+                } else {
+                    Control::Continue
+                }
+            });
+
+            r = r.or_else_try(|| {
+                ctx.focus = Some(self.minimal.focus());
+                self.minimal.crossterm(&event, ctx)
+            })?;
+
+            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            ctx.g.status.status(2, format!("H {:.0?}", el).to_string());
+
+            Ok(r)
+        }
+
+        fn message(
+            &mut self,
+            event: &mut MinimalMsg,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MinimalMsg>, Error> {
+            let t0 = SystemTime::now();
+
+            #[allow(unreachable_patterns)]
+            let r = match event {
+                MinimalMsg::Message(s) => {
+                    ctx.g.status.status(0, &*s);
+                    Control::Changed
+                }
+                _ => {
+                    ctx.focus = Some(self.minimal.focus());
+                    self.minimal.message(event, ctx)?
+                }
+            };
+
+            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            ctx.g.status.status(2, format!("A {:.0?}", el).to_string());
+
+            Ok(r)
+        }
+
+        fn error(
+            &self,
+            event: Error,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MinimalMsg>, Error> {
+            ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+            Ok(Control::Changed)
+        }
+    }
+}
+
+pub mod minimal {
+    use crate::{AppContext, GlobalState, MinimalMsg, RenderContext};
+    use anyhow::Error;
+    use crossterm::event::Event;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{try_flow, HandleEvent, Regular};
-    use rat_widget::focus::HasFocusFlag;
+    use rat_widget::focus::{Focus, HasFocus};
     use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::widgets::StatefulWidget;
 
     #[derive(Debug)]
-    pub(crate) struct Mask0;
+    pub(crate) struct Minimal;
 
     #[derive(Debug)]
-    pub struct Mask0State {
+    pub struct MinimalState {
         pub menu: MenuLineState,
     }
 
-    impl Default for Mask0State {
+    impl Default for MinimalState {
         fn default() -> Self {
-            let s = Self {
+            let mut s = Self {
                 menu: Default::default(),
             };
-            s.menu.focus().set(true);
+            s.menu.select(Some(0));
             s
         }
     }
 
-    impl AppWidget<GlobalState, MinimalAction, Error> for Mask0 {
-        type State = Mask0State;
+    impl AppWidget<GlobalState, MinimalMsg, Error> for Minimal {
+        type State = MinimalState;
 
         fn render(
             &self,
@@ -245,15 +274,15 @@ mod mask0 {
 
             let r = Layout::new(
                 Direction::Vertical,
-                [Constraint::Fill(1), Constraint::Length(1)],
+                [
+                    Constraint::Fill(1), //
+                    Constraint::Length(1),
+                ],
             )
             .split(area);
 
             let menu = MenuLine::new()
                 .styles(ctx.g.theme.menu_style())
-                .add_str("One")
-                .add_str("Two")
-                .add_str("Three")
                 .add_str("_Quit");
             menu.render(r[1], buf, &mut state.menu);
 
@@ -261,40 +290,39 @@ mod mask0 {
         }
     }
 
-    impl AppState<GlobalState, MinimalAction, Error> for Mask0State {
+    impl HasFocus for MinimalState {
+        fn focus(&self) -> Focus {
+            let mut f = Focus::new();
+            f.add(&self.menu);
+            f
+        }
+    }
+
+    impl AppState<GlobalState, MinimalMsg, Error> for MinimalState {
+        fn init(
+            &mut self,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalMsg, Error>,
+        ) -> Result<(), Error> {
+            ctx.focus().first();
+            Ok(())
+        }
+
+        #[allow(unused_variables)]
         fn crossterm(
             &mut self,
             event: &Event,
             ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MinimalAction>, Error> {
+        ) -> Result<Control<MinimalMsg>, Error> {
             // TODO: handle_mask
+
+            let f = ctx.focus_mut().handle(event, Regular);
+            ctx.queue(f);
+
             try_flow!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(0) => {
-                    _ = ctx.spawn(|cancel, send| {
-                        Ok(Control::Message(MinimalAction::Message(
-                            "hello from the other side".into(),
-                        )))
-                    });
-                    Control::Unchanged
-                }
-                MenuOutcome::Activated(1) => {
-                    _ = ctx.spawn(|cancel, send| {
-                        Ok(Control::Message(MinimalAction::Message(
-                            "another background task finished ...".into(),
-                        )))
-                    });
-                    Control::Unchanged
-                }
-                MenuOutcome::Activated(2) => {
-                    Control::Continue
-                }
-                MenuOutcome::Activated(3) => {
                     Control::Quit
                 }
-                v => {
-                    let w = v.into();
-                    w
-                }
+                v => v.into(),
             });
 
             Ok(Control::Continue)
@@ -303,7 +331,7 @@ mod mask0 {
 }
 
 fn setup_logging() -> Result<(), Error> {
-    _ = fs::remove_file("log.log");
+    // _ = fs::remove_file("log.log");
     fern::Dispatch::new()
         .format(|out, message, record| {
             out.finish(format_args!(
