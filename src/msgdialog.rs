@@ -7,7 +7,8 @@ use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::layout::layout_dialog;
 use crate::paragraph::{Paragraph, ParagraphState};
 use crate::util::fill_buf_area;
-use rat_event::{ct_event, flow, Dialog, HandleEvent, Outcome, Regular};
+use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
+use rat_focus::Focus;
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
@@ -17,6 +18,7 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, StatefulWidget, Widget};
 use std::cell::{Cell, RefCell};
+use std::cmp::max;
 use std::fmt::Debug;
 
 /// Basic status dialog for longer messages.
@@ -53,9 +55,9 @@ pub struct MsgDialogState {
     pub message: RefCell<String>,
 
     /// Ok button
-    pub button: ButtonState,
+    pub button: RefCell<ButtonState>,
     /// message-text
-    pub paragraph: ParagraphState,
+    pub paragraph: RefCell<ParagraphState>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -119,6 +121,8 @@ impl MsgDialogState {
     /// Show the dialog.
     pub fn set_active(&self, active: bool) {
         self.active.set(active);
+        self.paragraph.borrow_mut().set_line_offset(0);
+        self.paragraph.borrow_mut().set_col_offset(0);
     }
 
     /// Dialog is active.
@@ -139,7 +143,7 @@ impl MsgDialogState {
 
     /// *Append* to the message.
     pub fn append(&self, msg: &str) {
-        self.active.set(true);
+        self.set_active(true);
         let mut message = self.message.borrow_mut();
         if !message.is_empty() {
             message.push('\n');
@@ -160,8 +164,17 @@ impl Default for MsgDialogState {
             non_exhaustive: NonExhaustive,
             message_title: Default::default(),
         };
-        s.button.focus.set(true);
+        s.paragraph.borrow().focus.set(true);
         s
+    }
+}
+
+impl MsgDialogState {
+    fn focus(&self) -> Focus {
+        let mut f = Focus::new();
+        f.add(&*self.paragraph.borrow());
+        f.add(&*self.button.borrow());
+        f
     }
 }
 
@@ -229,30 +242,35 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                 lines.push(Line::from(t));
             }
             let text = Text::from(lines).alignment(Alignment::Center);
-            Paragraph::new(text)
-                .scroll(scroll)
-                .render(l_dlg.content, buf, &mut state.paragraph);
+            Paragraph::new(text).scroll(scroll).render(
+                l_dlg.content,
+                buf,
+                &mut state.paragraph.borrow_mut(),
+            );
         }
 
         Button::from("Ok")
             .styles(widget.button_style.clone())
-            .render(l_dlg.buttons[0], buf, &mut state.button);
+            .render(l_dlg.buttons[0], buf, &mut state.button.borrow_mut());
     }
 }
 
 impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
     fn handle(&mut self, event: &crossterm::event::Event, _: Dialog) -> Outcome {
         if self.active.get() {
-            flow!(match self.button.handle(event, Regular) {
+            let mut focus = self.focus();
+            let f = focus.handle(event, Regular);
+
+            let mut r = match self.button.borrow_mut().handle(event, Regular) {
                 ButtonOutcome::Pressed => {
                     self.clear();
                     self.active.set(false);
                     Outcome::Changed
                 }
                 v => v.into(),
-            });
-            flow!(self.paragraph.handle(event, Regular));
-            flow!(match event {
+            };
+            r = r.or_else(|| self.paragraph.borrow_mut().handle(event, Regular));
+            r = r.or_else(|| match event {
                 ct_event!(keycode press Esc) => {
                     self.clear();
                     self.active.set(false);
@@ -261,7 +279,7 @@ impl HandleEvent<crossterm::event::Event, Dialog, Outcome> for MsgDialogState {
                 _ => Outcome::Continue,
             });
             // mandatory consume everything else.
-            Outcome::Unchanged
+            max(max(Outcome::Unchanged, f), r)
         } else {
             Outcome::Continue
         }
