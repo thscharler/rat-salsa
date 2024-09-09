@@ -903,6 +903,72 @@ impl<Store: TextStore + Default> TextCore<Store> {
         true
     }
 
+    /// Auto-quote the selected text.
+    pub fn insert_quotes(&mut self, mut sel: TextRange, c: char) -> Result<bool, TextError> {
+        self.begin_undo_seq();
+
+        // remove matching quotes/brackets
+        if sel.end.x > 0 {
+            let first = TextRange::new(sel.start, (sel.start.x + 1, sel.start.y));
+            let last = TextRange::new((sel.end.x - 1, sel.end.y), sel.end);
+            let c0 = self.str_slice(first).expect("valid_slice");
+            let c1 = self.str_slice(last).expect("valid_slice");
+            let remove_quote = if c == '\'' || c == '`' || c == '"' {
+                if c0 == "'" && c1 == "'" {
+                    true
+                } else if c0 == "\"" && c1 == "\"" {
+                    true
+                } else if c0 == "`" && c1 == "`" {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                if c0 == "<" && c1 == ">" {
+                    true
+                } else if c0 == "(" && c1 == ")" {
+                    true
+                } else if c0 == "[" && c1 == "]" {
+                    true
+                } else if c0 == "{" && c1 == "}" {
+                    true
+                } else {
+                    false
+                }
+            };
+            if remove_quote {
+                self.remove_char_range(last)?;
+                self.remove_char_range(first)?;
+                if sel.start.y == sel.end.y {
+                    sel = TextRange::new(sel.start, TextPosition::new(sel.end.x - 2, sel.end.y));
+                } else {
+                    sel = TextRange::new(sel.start, TextPosition::new(sel.end.x - 1, sel.end.y));
+                }
+            }
+        }
+
+        let cc = match c {
+            '\'' => '\'',
+            '`' => '`',
+            '"' => '"',
+            '<' => '>',
+            '(' => ')',
+            '[' => ']',
+            '{' => '}',
+            _ => unreachable!("invalid quotes"),
+        };
+        self.insert_char(sel.end, cc)?;
+        self.insert_char(sel.start, c)?;
+        if sel.start.y == sel.end.y {
+            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x + 2, sel.end.y));
+        } else {
+            sel = TextRange::new(sel.start, TextPosition::new(sel.end.x + 1, sel.end.y));
+        }
+        self.set_selection(sel.start, sel.end);
+        self.end_undo_seq();
+        Ok(true)
+    }
+
     /// Insert a tab, either expanded or literally.
     pub fn insert_tab(&mut self, mut pos: TextPosition) -> Result<bool, TextError> {
         if self.expand_tabs {

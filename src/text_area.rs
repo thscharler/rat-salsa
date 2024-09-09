@@ -107,6 +107,7 @@ pub struct TextAreaState {
     /// movement column
     pub move_col: Option<upos_type>,
     pub auto_indent: bool,
+    pub auto_quote: bool,
 
     /// Helper for mouse.
     pub mouse: MouseFlags,
@@ -125,6 +126,7 @@ impl Clone for TextAreaState {
             vscroll: self.vscroll.clone(),
             move_col: None,
             auto_indent: self.auto_indent,
+            auto_quote: self.auto_quote,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -404,6 +406,7 @@ impl Default for TextAreaState {
             vscroll: Default::default(),
             move_col: None,
             auto_indent: true,
+            auto_quote: true,
         };
         s.hscroll.set_max_offset(255);
         s.hscroll.set_overscroll_by(Some(16384));
@@ -461,6 +464,12 @@ impl TextAreaState {
     #[inline]
     pub fn set_auto_indent(&mut self, indent: bool) {
         self.auto_indent = indent;
+    }
+
+    /// Activates 'add quotes to selection'.
+    #[inline]
+    pub fn set_auto_quote(&mut self, quote: bool) {
+        self.auto_quote = quote;
     }
 
     /// Set tab-width.
@@ -1014,23 +1023,44 @@ impl TextAreaState {
     /// a new-line or tab. Use insert_newline and insert_tab for
     /// this.
     pub fn insert_char(&mut self, c: char) -> bool {
+        let mut insert = true;
         if self.has_selection() {
-            self.value
-                .remove_str_range(self.selection())
-                .expect("valid_selection");
+            if self.auto_quote
+                && (c == '\''
+                    || c == '"'
+                    || c == '`'
+                    || c == '<'
+                    || c == '['
+                    || c == '('
+                    || c == '{')
+            {
+                self.value
+                    .insert_quotes(self.selection(), c)
+                    .expect("valid_selection");
+                insert = false;
+            } else {
+                self.value
+                    .remove_str_range(self.selection())
+                    .expect("valid_selection");
+            }
         }
-        if c == '\n' {
-            self.value
-                .insert_newline(self.cursor())
-                .expect("valid_cursor");
-        } else if c == '\t' {
-            self.value.insert_tab(self.cursor()).expect("valid_cursor");
-        } else {
-            self.value
-                .insert_char(self.cursor(), c)
-                .expect("valid_cursor");
+
+        if insert {
+            if c == '\n' {
+                self.value
+                    .insert_newline(self.cursor())
+                    .expect("valid_cursor");
+            } else if c == '\t' {
+                self.value.insert_tab(self.cursor()).expect("valid_cursor");
+            } else {
+                self.value
+                    .insert_char(self.cursor(), c)
+                    .expect("valid_cursor");
+            }
         }
+
         self.scroll_cursor_to_visible();
+
         true
     }
 
