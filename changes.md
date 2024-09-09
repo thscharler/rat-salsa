@@ -1,3 +1,10 @@
+# 0.14.1
+
+* Add new utility ScrollArea+ScrollAreaState that can be used
+  for adding scroll functionality to another widget. It's a 
+  bit like block as it can calculate the inner area and renders
+  the outer parts.
+
 # 0.14.0
 
 * update ratatui to 0.28
