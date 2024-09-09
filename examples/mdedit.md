@@ -3,6 +3,10 @@
 ## Keyboard navigation
 
 * ESC - Jump to menu and back.
+* F5 - Jump to file-list and back.
+* Alt-F5 - Hide file-list.
+* F2 - Quickinfo
+* F1 - This document.
 
 ### Ctrl-W - Window navigation
 
@@ -10,7 +14,7 @@
 * Ctrl-W Tab/Backtab - Change focus.
 
 * Ctrl-W t - Jump to tabs. Use Left/Right to select a tab.
-* Ctrl-W t - The second time jumps back to the edit. Or use Tab.
+* Ctrl-W t - The second time jumps back to the edit. Or just use Tab.
 
 * Ctrl-W s - Jump to the split. Use Left/Right to resize the split.
   Use Ctrl-Left/Right to move between multiple splits.
@@ -34,6 +38,8 @@
 * Ctrl+D - Duplicate line.
 * Ctrl+Y - Remove line.
 * Ctrl+Backspace, Ctrl+Delete - Remove word
+* Alt+Backspace, Alt+Delete - Remove word
+* Tab/BackTab - Indent/Dedent selection. Insert tab otherwise.
 
 ### Table
 
@@ -41,9 +47,8 @@
   duplicate of the last row. If you have just the header enter will
   create the necessary underlines.
 * Tab/Backtab - Navigate between cells.
-* Alt+F - Format table according to header widths.
-* Alt+Shift+L - Format table according to max header width.
-* Alt+F - Reflow paragraph.
-* Alt+F - Reformat and reflow list item.
- 
 
+* Alt-F - Formats the item at the cursor position, or everything
+  selected.
+* Alt+Shift+F - Alternate format. Currently, formats a table to equal
+  column widths.

@@ -73,6 +73,7 @@ pub struct GlobalState {
     // pub mdfocus: Option<MDFocus>,
     pub status: StatusLineState,
     pub error_dlg: MsgDialogState,
+    pub message_dlg: MsgDialogState,
     pub file_dlg: MDFileDialogState,
 }
 
@@ -83,6 +84,7 @@ impl GlobalState {
             theme,
             status: Default::default(),
             error_dlg: Default::default(),
+            message_dlg: Default::default(),
             file_dlg: Default::default(),
         }
     }
@@ -498,6 +500,30 @@ impl AppWidget<GlobalState, MDAction, Error> for MDApp {
             err.render(l_msg, buf, &mut ctx.g.error_dlg);
         }
 
+        if ctx.g.message_dlg.active() {
+            let l_msg = layout_middle(
+                r[0],
+                Constraint::Percentage(4),
+                Constraint::Percentage(4),
+                Constraint::Percentage(4),
+                Constraint::Percentage(4),
+            );
+            let err = MsgDialog::new()
+                .block(
+                    Block::bordered()
+                        .style(
+                            Style::default() //
+                                .fg(ctx.g.theme.scheme().white[2])
+                                .bg(ctx.g.theme.scheme().deepblue[0]),
+                        )
+                        .border_type(BorderType::Rounded)
+                        .title_style(Style::new().fg(ctx.g.scheme().bluegreen[0]))
+                        .padding(Padding::new(1, 1, 1, 1)),
+                )
+                .styles(ctx.g.theme.msg_dialog_style());
+            err.render(l_msg, buf, &mut ctx.g.message_dlg);
+        }
+
         Ok(())
     }
 }
@@ -534,6 +560,7 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<MDAction>, Error> {
         try_flow!(ctx.g.error_dlg.handle(event, Dialog));
+        try_flow!(ctx.g.message_dlg.handle(event, Dialog));
         try_flow!(ctx.g.file_dlg.handle(event)?);
 
         let f = Control::from(ctx.focus_mut().handle(event, Regular));
@@ -555,7 +582,11 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                     }
                 }
                 ct_event!(keycode press F(1)) => {
-                    ctx.g.error_dlg.append(from_utf8(HELP)?);
+                    ctx.g.message_dlg.append(from_utf8(HELP)?);
+                    Control::Changed
+                }
+                ct_event!(keycode press F(2)) => {
+                    ctx.g.message_dlg.append(from_utf8(CHEAT)?);
                     Control::Changed
                 }
                 _ => Control::Continue,
@@ -2077,3 +2108,4 @@ fn setup_logging() -> Result<(), Error> {
 }
 
 static HELP: &[u8] = include_bytes!("mdedit.md");
+static CHEAT: &[u8] = include_bytes!("cheat.md");
