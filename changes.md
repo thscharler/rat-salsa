@@ -1,3 +1,5 @@
+# 0.17.0
+
 # 0.16.0
 
 * upgrade ratatui to 0.28
