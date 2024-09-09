@@ -1,3 +1,7 @@
+# 0.18.1
+
+* Internal updates to rat-scroll changes. No external API change.
+
 # 0.18.0
 
 * update ratatui to 0.28
