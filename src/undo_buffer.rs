@@ -36,7 +36,7 @@ pub trait UndoBuffer: DynClone + Debug {
     /// This call tries merge InsertChar/RemoveChar operations,
     /// if they lie next to each other. InsertStr/RemoveStr
     /// will never be merged.
-    fn append(&mut self, undo: UndoEntry);
+    fn append(&mut self, undo: UndoOp);
 
     /// Appends a new operation but doesn't fill the replay-log.
     ///
@@ -48,10 +48,10 @@ pub trait UndoBuffer: DynClone + Debug {
     fn clear(&mut self);
 
     /// Get the list of the next undo operations.
-    fn undo(&mut self) -> Vec<UndoEntry>;
+    fn undo(&mut self) -> Vec<&UndoOp>;
 
     /// Get the list of the next redo operations.
-    fn redo(&mut self) -> Vec<UndoEntry>;
+    fn redo(&mut self) -> Vec<&UndoOp>;
 
     /// Enable/disable replay recording.
     ///
@@ -98,7 +98,15 @@ pub struct TextPositionChange {
 /// Storage for undo.
 #[non_exhaustive]
 #[derive(Debug, Clone)]
-pub enum UndoEntry {
+pub struct UndoEntry {
+    pub sequence: u32,
+    pub operation: UndoOp,
+}
+
+/// Storage for undo.
+#[non_exhaustive]
+#[derive(Debug, Clone)]
+pub enum UndoOp {
     /// Insert a single char/grapheme.
     ///
     /// This can contain a longer text, if consecutive InsertChar have
@@ -215,7 +223,7 @@ pub struct UndoVec {
 
     begin: u8,
     sequence: u32,
-    buf: Vec<(u32, UndoEntry)>,
+    buf: Vec<UndoEntry>,
     replay: Vec<UndoEntry>,
 
     // undo/redo split
@@ -266,106 +274,15 @@ impl UndoVec {
         self.undo_styles
     }
 
-    /// Append to undo buffer.
-    fn _append(&mut self, undo: UndoEntry, replay: bool) {
-        // tracking?
-        if replay && self.track_replay {
-            self.replay.push(undo.clone());
-        }
-
-        // only useful for tracking
-        if matches!(
-            undo,
-            UndoEntry::Undo | UndoEntry::Redo | UndoEntry::SetText { .. }
-        ) {
-            return;
-        }
-
-        // style changes may/may not be undone
-        if !self.undo_styles {
-            match &undo {
-                UndoEntry::SetStyles { .. }
-                | UndoEntry::AddStyle { .. }
-                | UndoEntry::RemoveStyle { .. } => return,
-                _ => {}
-            }
-        }
-
-        // remove redo
-        while self.idx < self.buf.len() {
-            self.buf.pop();
-        }
-
-        // try merge
-        let undo = if let Some((last_sequence, last)) = self.buf.pop() {
-            let (last, undo) = self.merge_undo(last_sequence, last, undo);
-            // re-add last if it survived merge
-            if let Some(last) = last {
-                self.buf.push(last);
-            }
-            undo
-        } else {
-            Some(undo)
-        };
-
-        // cap undo at capacity.
-        // uses the sequence count instead of the size.
-        let count_uniq = self
-            .buf
-            .iter()
-            .fold((0, 0), |mut f, v| {
-                if v.0 != f.0 {
-                    f.0 = v.0;
-                    f.1 += 1;
-                }
-                f
-            })
-            .1;
-
-        if count_uniq > self.undo_count as usize {
-            // don't drop parts of current sequence at all.
-            if self.buf[0].0 != self.sequence {
-                let drop_sequence = self.buf[0].0;
-                loop {
-                    if self.buf[0].0 == drop_sequence {
-                        self.buf.remove(0);
-                    } else {
-                        break;
-                    }
-                }
-            }
-        }
-
-        // add new undo if it survived merge
-        if let Some(undo) = undo {
-            self.buf.push((self.sequence, undo));
-            // auto begin+end
-            if self.begin == 0 {
-                self.sequence += 1;
-            }
-        }
-
-        self.idx = self.buf.len();
-    }
-
-    fn merge_undo(
-        &self,
-        last_sequence: u32,
-        mut last: UndoEntry,
-        mut curr: UndoEntry,
-    ) -> (Option<(u32, UndoEntry)>, Option<UndoEntry>) {
-        if self.begin > 0 && last_sequence != self.sequence {
-            return (Some((last_sequence, last)), Some(curr));
-        }
-
+    fn merge_undo(mut last: UndoOp, mut curr: UndoOp) -> (Option<UndoOp>, Option<UndoOp>) {
         match &mut curr {
-            UndoEntry::InsertChar {
+            UndoOp::InsertChar {
                 bytes: curr_bytes,
                 cursor: curr_cursor,
                 anchor: curr_anchor,
                 txt: curr_txt,
             } => match &mut last {
-                UndoEntry::InsertChar {
+                UndoOp::InsertChar {
                     bytes: last_bytes,
                     cursor: last_cursor,
                     anchor: last_anchor,
@@ -375,37 +292,34 @@ impl UndoVec {
                         let mut last_txt = mem::take(last_txt);
                         last_txt.push_str(curr_txt);
                         (
-                            Some((
-                                last_sequence,
-                                UndoEntry::InsertChar {
-                                    bytes: last_bytes.start..curr_bytes.end,
-                                    cursor: TextPositionChange {
-                                        before: last_cursor.before,
-                                        after: curr_cursor.after,
-                                    },
-                                    anchor: TextPositionChange {
-                                        before: last_anchor.before,
-                                        after: curr_anchor.after,
-                                    },
-                                    txt: last_txt,
+                            Some(UndoOp::InsertChar {
+                                bytes: last_bytes.start..curr_bytes.end,
+                                cursor: TextPositionChange {
+                                    before: last_cursor.before,
+                                    after: curr_cursor.after,
                                 },
-                            )),
+                                anchor: TextPositionChange {
+                                    before: last_anchor.before,
+                                    after: curr_anchor.after,
+                                },
+                                txt: last_txt,
+                            }),
                             None,
                         )
                     } else {
-                        (Some((last_sequence, last)), Some(curr))
+                        (Some(last), Some(curr))
                     }
                 }
-                _ => (Some((last_sequence, last)), Some(curr)),
+                _ => (Some(last), Some(curr)),
             },
-            UndoEntry::RemoveChar {
+            UndoOp::RemoveChar {
                 bytes: curr_bytes,
                 cursor: curr_cursor,
                 anchor: curr_anchor,
                 txt: curr_txt,
                 styles: curr_styles,
             } => match &mut last {
-                UndoEntry::RemoveChar {
+                UndoOp::RemoveChar {
                     bytes: last_bytes,
                     cursor: last_cursor,
                     anchor: last_anchor,
@@ -419,25 +333,22 @@ impl UndoVec {
 
                         // merge into last_styles
                         let mut styles = mem::take(last_styles);
-                        self.merge_remove_style(last_bytes.clone(), &mut styles, curr_styles);
+                        Self::merge_remove_style(last_bytes.clone(), &mut styles, curr_styles);
 
                         (
-                            Some((
-                                last_sequence,
-                                UndoEntry::RemoveChar {
-                                    bytes: curr_bytes.start..last_bytes.end,
-                                    cursor: TextPositionChange {
-                                        before: last_cursor.before,
-                                        after: curr_cursor.after,
-                                    },
-                                    anchor: TextPositionChange {
-                                        before: last_anchor.before,
-                                        after: curr_anchor.after,
-                                    },
-                                    txt,
-                                    styles,
+                            Some(UndoOp::RemoveChar {
+                                bytes: curr_bytes.start..last_bytes.end,
+                                cursor: TextPositionChange {
+                                    before: last_cursor.before,
+                                    after: curr_cursor.after,
                                 },
-                            )),
+                                anchor: TextPositionChange {
+                                    before: last_anchor.before,
+                                    after: curr_anchor.after,
+                                },
+                                txt,
+                                styles,
+                            }),
                             None,
                         )
                     } else if curr_bytes.start == last_bytes.start {
@@ -449,162 +360,143 @@ impl UndoVec {
 
                         // merge into last_styles
                         let mut styles = mem::take(last_styles);
-                        self.merge_remove_style(last_bytes.clone(), &mut styles, curr_styles);
+                        Self::merge_remove_style(last_bytes.clone(), &mut styles, curr_styles);
 
                         (
-                            Some((
-                                last_sequence,
-                                UndoEntry::RemoveChar {
-                                    bytes: last_bytes.start..last_bytes.end + curr_byte_len,
-                                    cursor: TextPositionChange {
-                                        before: last_cursor.before,
-                                        after: curr_cursor.after,
-                                    },
-                                    anchor: TextPositionChange {
-                                        before: last_anchor.before,
-                                        after: curr_anchor.after,
-                                    },
-                                    txt,
-                                    styles,
+                            Some(UndoOp::RemoveChar {
+                                bytes: last_bytes.start..last_bytes.end + curr_byte_len,
+                                cursor: TextPositionChange {
+                                    before: last_cursor.before,
+                                    after: curr_cursor.after,
                                 },
-                            )),
+                                anchor: TextPositionChange {
+                                    before: last_anchor.before,
+                                    after: curr_anchor.after,
+                                },
+                                txt,
+                                styles,
+                            }),
                             None,
                         )
                     } else {
-                        (Some((last_sequence, last)), Some(curr))
+                        (Some(last), Some(curr))
                     }
                 }
-                _ => (Some((last_sequence, last)), Some(curr)),
+                _ => (Some(last), Some(curr)),
             },
 
-            UndoEntry::Cursor {
+            UndoOp::Cursor {
                 cursor: curr_cursor,
                 anchor: curr_anchor,
             } => match &mut last {
-                UndoEntry::InsertChar {
+                UndoOp::InsertChar {
                     bytes: last_bytes,
                     cursor: last_cursor,
                     anchor: last_anchor,
                     txt: last_txt,
                 } => (
-                    Some((
-                        last_sequence,
-                        UndoEntry::InsertChar {
-                            bytes: mem::take(last_bytes),
-                            cursor: TextPositionChange {
-                                before: last_cursor.before,
-                                after: curr_cursor.after,
-                            },
-                            anchor: TextPositionChange {
-                                before: last_anchor.before,
-                                after: curr_anchor.after,
-                            },
-                            txt: mem::take(last_txt),
+                    Some(UndoOp::InsertChar {
+                        bytes: mem::take(last_bytes),
+                        cursor: TextPositionChange {
+                            before: last_cursor.before,
+                            after: curr_cursor.after,
                         },
-                    )),
+                        anchor: TextPositionChange {
+                            before: last_anchor.before,
+                            after: curr_anchor.after,
+                        },
+                        txt: mem::take(last_txt),
+                    }),
                     None,
                 ),
-                UndoEntry::InsertStr {
+                UndoOp::InsertStr {
                     bytes: last_bytes,
                     cursor: last_cursor,
                     anchor: last_anchor,
                     txt: last_txt,
                 } => (
-                    Some((
-                        last_sequence,
-                        UndoEntry::InsertStr {
-                            bytes: mem::take(last_bytes),
-                            cursor: TextPositionChange {
-                                before: last_cursor.before,
-                                after: curr_cursor.after,
-                            },
-                            anchor: TextPositionChange {
-                                before: last_anchor.before,
-                                after: curr_anchor.after,
-                            },
-                            txt: mem::take(last_txt),
+                    Some(UndoOp::InsertStr {
+                        bytes: mem::take(last_bytes),
+                        cursor: TextPositionChange {
+                            before: last_cursor.before,
+                            after: curr_cursor.after,
                         },
-                    )),
+                        anchor: TextPositionChange {
+                            before: last_anchor.before,
+                            after: curr_anchor.after,
+                        },
+                        txt: mem::take(last_txt),
+                    }),
                     None,
                 ),
-                UndoEntry::RemoveChar {
+                UndoOp::RemoveChar {
                     bytes: last_bytes,
                     cursor: last_cursor,
                     anchor: last_anchor,
                     txt: last_txt,
                     styles: last_styles,
                 } => (
-                    Some((
-                        last_sequence,
-                        UndoEntry::RemoveChar {
-                            bytes: mem::take(last_bytes),
-                            cursor: TextPositionChange {
-                                before: last_cursor.before,
-                                after: curr_cursor.after,
-                            },
-                            anchor: TextPositionChange {
-                                before: last_anchor.before,
-                                after: curr_anchor.after,
-                            },
-                            txt: mem::take(last_txt),
-                            styles: mem::take(last_styles),
+                    Some(UndoOp::RemoveChar {
+                        bytes: mem::take(last_bytes),
+                        cursor: TextPositionChange {
+                            before: last_cursor.before,
+                            after: curr_cursor.after,
                         },
-                    )),
+                        anchor: TextPositionChange {
+                            before: last_anchor.before,
+                            after: curr_anchor.after,
+                        },
+                        txt: mem::take(last_txt),
+                        styles: mem::take(last_styles),
+                    }),
                     None,
                 ),
-                UndoEntry::RemoveStr {
+                UndoOp::RemoveStr {
                     bytes: last_bytes,
                     cursor: last_cursor,
                     anchor: last_anchor,
                     txt: last_txt,
                     styles: last_styles,
                 } => (
-                    Some((
-                        last_sequence,
-                        UndoEntry::RemoveChar {
-                            bytes: mem::take(last_bytes),
-                            cursor: TextPositionChange {
-                                before: last_cursor.before,
-                                after: curr_cursor.after,
-                            },
-                            anchor: TextPositionChange {
-                                before: last_anchor.before,
-                                after: curr_anchor.after,
-                            },
-                            txt: mem::take(last_txt),
-                            styles: mem::take(last_styles),
+                    Some(UndoOp::RemoveChar {
+                        bytes: mem::take(last_bytes),
+                        cursor: TextPositionChange {
+                            before: last_cursor.before,
+                            after: curr_cursor.after,
                         },
-                    )),
+                        anchor: TextPositionChange {
+                            before: last_anchor.before,
+                            after: curr_anchor.after,
+                        },
+                        txt: mem::take(last_txt),
+                        styles: mem::take(last_styles),
+                    }),
                     None,
                 ),
-                UndoEntry::Cursor {
+                UndoOp::Cursor {
                     cursor: last_cursor,
                     anchor: last_anchor,
                 } => (
-                    Some((
-                        last_sequence,
-                        UndoEntry::Cursor {
-                            cursor: TextPositionChange {
-                                before: last_cursor.before,
-                                after: curr_cursor.after,
-                            },
-                            anchor: TextPositionChange {
-                                before: last_anchor.before,
-                                after: curr_anchor.after,
-                            },
+                    Some(UndoOp::Cursor {
+                        cursor: TextPositionChange {
+                            before: last_cursor.before,
+                            after: curr_cursor.after,
                         },
-                    )),
+                        anchor: TextPositionChange {
+                            before: last_anchor.before,
+                            after: curr_anchor.after,
+                        },
+                    }),
                     None,
                 ),
-                _ => (Some((last_sequence, last)), Some(curr)),
+                _ => (Some(last), Some(curr)),
             },
-            _ => (Some((last_sequence, last)), Some(curr)),
+            _ => (Some(last), Some(curr)),
         }
     }
 
     /// Merge styles from two deletes.
     fn merge_remove_style(
-        &self,
         last_range: Range<usize>,
         last: &mut Vec<StyleChange>,
         curr: &mut Vec<StyleChange>,
@@ -628,6 +520,82 @@ impl UndoVec {
     }
 }
 
+impl UndoVec {
+    fn filter(&self, undo: &UndoOp) -> bool {
+        // only useful for tracking
+        if matches!(undo, UndoOp::Undo | UndoOp::Redo | UndoOp::SetText { .. }) {
+            return true;
+        }
+
+        // style changes may/may not be undone
+        if !self.undo_styles {
+            match &undo {
+                UndoOp::SetStyles { .. } | UndoOp::AddStyle { .. } | UndoOp::RemoveStyle { .. } => {
+                    return true;
+                }
+                _ => {}
+            }
+        }
+
+        false
+    }
+
+    fn try_merge(&mut self, undo: UndoOp) -> Option<UndoOp> {
+        if let Some(UndoEntry {
+            sequence,
+            operation: last,
+        }) = self.buf.pop()
+        {
+            let (last, undo) = Self::merge_undo(last, undo);
+            // re-add last if it survived merge
+            if let Some(last) = last {
+                self.buf.push(UndoEntry {
+                    sequence,
+                    operation: last,
+                });
+            }
+            undo
+        } else {
+            Some(undo)
+        }
+    }
+
+    fn trim_undo(&mut self) {
+        // Dump redo.
+        while self.idx < self.buf.len() {
+            self.buf.pop();
+        }
+
+        // cap undo at capacity.
+        // uses the sequence count instead of the size.
+        let count_uniq = self
+            .buf
+            .iter()
+            .fold((0, 0), |mut f, v| {
+                if v.sequence != f.0 {
+                    f.0 = v.sequence;
+                    f.1 += 1;
+                }
+                f
+            })
+            .1;
+
+        if count_uniq > self.undo_count as usize {
+            // don't drop parts of current sequence at all.
+            if self.buf[0].sequence != self.sequence {
+                let drop_sequence = self.buf[0].sequence;
+                loop {
+                    if self.buf[0].sequence == drop_sequence {
+                        self.buf.remove(0);
+                    } else {
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
 impl UndoBuffer for UndoVec {
     fn undo_count(&self) -> u32 {
         self.undo_count
@@ -635,10 +603,6 @@ impl UndoBuffer for UndoVec {
 
     fn set_undo_count(&mut self, n: u32) {
         self.undo_count = n;
-    }
-
-    fn undo_styles_enabled(&self) -> bool {
-        self.undo_styles
     }
 
     /// Begin a sequence of changes that should be undone at once.
@@ -649,16 +613,108 @@ impl UndoBuffer for UndoVec {
         }
     }
 
+    /// End a sequence of changes.
+    /// Unbalanced end_seq calls panic.
     fn end_seq(&mut self) {
         self.begin -= 1;
     }
 
-    fn append(&mut self, undo: UndoEntry) {
-        self._append(undo, true);
+    fn append(&mut self, undo: UndoOp) {
+        let track_undo = if self.track_replay {
+            Some(undo.clone())
+        } else {
+            None
+        };
+
+        // try merge
+        let add_undo = if let Some(last) = self.buf.last() {
+            // first begin starts a new sequence.
+            // so this shouldn't cross that boundary.
+            if last.sequence == self.sequence {
+                self.try_merge(undo)
+            } else {
+                Some(undo)
+            }
+        } else {
+            Some(undo)
+        };
+
+        // New separate undo.
+        if add_undo.is_some() {
+            // auto begin+end
+            if self.begin == 0 {
+                self.sequence += 1;
+            }
+        }
+
+        // Store in tracking.
+        // Sequence number is new if the merge failed, otherwise the
+        // same as the last. This fact will be used when replaying.
+        if let Some(track_undo) = track_undo {
+            self.replay.push(UndoEntry {
+                sequence: self.sequence,
+                operation: track_undo,
+            });
+        }
+
+        // Add if not merged.
+        if let Some(add_undo) = add_undo {
+            // Not everything is undo.
+            if self.filter(&add_undo) {
+                return;
+            }
+            // Drop redo and trim undo.
+            self.trim_undo();
+
+            // add new undo if it survived merge
+            self.buf.push(UndoEntry {
+                sequence: self.sequence,
+                operation: add_undo,
+            });
+
+            self.idx = self.buf.len();
+        }
     }
 
     fn append_from_replay(&mut self, undo: UndoEntry) {
-        self._append(undo, false);
+        let UndoEntry {
+            sequence,
+            operation: undo,
+        } = undo;
+
+        // try merge
+        let add_undo = if let Some(last) = self.buf.last() {
+            // merges act just like sequences, so this
+            // works out for both.
+            if last.sequence == sequence {
+                self.try_merge(undo)
+            } else {
+                Some(undo)
+            }
+        } else {
+            Some(undo)
+        };
+
+        // sync sequence
+        self.sequence = sequence;
+
+        // Add if not merged.
+        if let Some(add_undo) = add_undo {
+            // Not everything is undo.
+            if self.filter(&add_undo) {
+                return;
+            }
+            // Drop redo and trim undo.
+            self.trim_undo();
+
+            // add new undo if it survived merge
+            self.buf.push(UndoEntry {
+                sequence,
+                operation: add_undo,
+            });
+
+            self.idx = self.buf.len();
+        }
     }
 
     fn clear(&mut self) {
@@ -670,13 +726,13 @@ impl UndoBuffer for UndoVec {
     }
 
     /// Get next undo
-    fn undo(&mut self) -> Vec<UndoEntry> {
+    fn undo(&mut self) -> Vec<&UndoOp> {
         if self.idx > 0 {
-            let sequence = self.buf[self.idx - 1].0;
+            let sequence = self.buf[self.idx - 1].sequence;
             let mut undo = Vec::new();
             loop {
-                if self.buf[self.idx - 1].0 == sequence {
-                    undo.push(self.buf[self.idx - 1].1.clone());
+                if self.buf[self.idx - 1].sequence == sequence {
+                    undo.push(&self.buf[self.idx - 1].operation);
                     self.idx -= 1;
                 } else {
                     break;
@@ -692,13 +748,13 @@ impl UndoBuffer for UndoVec {
     }
 
     /// Get next redo
-    fn redo(&mut self) -> Vec<UndoEntry> {
+    fn redo(&mut self) -> Vec<&UndoOp> {
         if self.idx < self.buf.len() {
-            let sequence = self.buf[self.idx].0;
+            let sequence = self.buf[self.idx].sequence;
             let mut redo = Vec::new();
             loop {
-                if self.buf[self.idx].0 == sequence {
-                    redo.push(self.buf[self.idx].1.clone());
+                if self.buf[self.idx].sequence == sequence {
+                    redo.push(&self.buf[self.idx].operation);
                     self.idx += 1;
                 } else {
                     break;
@@ -732,5 +788,9 @@ impl UndoBuffer for UndoVec {
     /// Get all new replay entries.
     fn recent_replay_log(&mut self) -> Vec<UndoEntry> {
         mem::take(&mut self.replay)
+    }
+
+    fn undo_styles_enabled(&self) -> bool {
+        self.undo_styles
     }
 }

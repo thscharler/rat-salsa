@@ -2,7 +2,7 @@ use crate::clipboard::Clipboard;
 use crate::grapheme::{Glyph, GlyphIter, Grapheme};
 use crate::range_map::{expand_range_by, ranges_intersect, shrink_range_by, RangeMap};
 use crate::text_store::TextStore;
-use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry};
+use crate::undo_buffer::{StyleChange, TextPositionChange, UndoBuffer, UndoEntry, UndoOp};
 use crate::{upos_type, Cursor, TextError, TextPosition, TextRange};
 use dyn_clone::clone_box;
 use std::borrow::Cow;
@@ -209,7 +209,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             return false;
         };
 
-        undo.append(UndoEntry::Undo);
+        undo.append(UndoOp::Undo);
 
         self._undo()
     }
@@ -223,13 +223,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let changed = !undo_op.is_empty();
         for op in undo_op {
             match op {
-                UndoEntry::InsertChar {
+                UndoOp::InsertChar {
                     bytes,
                     cursor,
                     anchor,
                     ..
                 }
-                | UndoEntry::InsertStr {
+                | UndoOp::InsertStr {
                     bytes,
                     cursor,
                     anchor,
@@ -243,14 +243,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.anchor = anchor.before;
                     self.cursor = cursor.before;
                 }
-                UndoEntry::RemoveStr {
+                UndoOp::RemoveStr {
                     bytes,
                     cursor,
                     anchor,
                     txt,
                     styles,
                 }
-                | UndoEntry::RemoveChar {
+                | UndoOp::RemoveChar {
                     bytes,
                     cursor,
                     anchor,
@@ -260,10 +260,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
 
                     if let Some(sty) = &mut self.styles {
-                        for s in &styles {
+                        for s in styles {
                             sty.remove(s.after.clone(), s.style);
                         }
-                        for s in &styles {
+                        for s in styles {
                             sty.add(s.before.clone(), s.style);
                         }
                         sty.remap(|r, _| {
@@ -277,26 +277,26 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.anchor = anchor.before;
                     self.cursor = cursor.before;
                 }
-                UndoEntry::Cursor { cursor, anchor } => {
+                UndoOp::Cursor { cursor, anchor } => {
                     self.anchor = anchor.before;
                     self.cursor = cursor.before;
                 }
-                UndoEntry::SetStyles { styles_before, .. } => {
+                UndoOp::SetStyles { styles_before, .. } => {
                     if let Some(sty) = &mut self.styles {
                         sty.set(styles_before.iter().cloned());
                     }
                 }
-                UndoEntry::AddStyle { range, style } => {
+                UndoOp::AddStyle { range, style } => {
                     if let Some(sty) = &mut self.styles {
-                        sty.remove(range, style);
+                        sty.remove(range.clone(), *style);
                     }
                 }
-                UndoEntry::RemoveStyle { range, style } => {
+                UndoOp::RemoveStyle { range, style } => {
                     if let Some(sty) = &mut self.styles {
-                        sty.add(range, style);
+                        sty.add(range.clone(), *style);
                     }
                 }
-                UndoEntry::SetText { .. } | UndoEntry::Undo | UndoEntry::Redo => {
+                UndoOp::SetText { .. } | UndoOp::Undo | UndoOp::Redo => {
                     unreachable!()
                 }
             }
@@ -310,7 +310,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             return false;
         };
 
-        undo.append(UndoEntry::Redo);
+        undo.append(UndoOp::Redo);
 
         self._redo()
     }
@@ -323,13 +323,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let changed = !redo_op.is_empty();
         for op in redo_op {
             match op {
-                UndoEntry::InsertChar {
+                UndoOp::InsertChar {
                     bytes,
                     cursor,
                     anchor,
                     txt,
                 }
-                | UndoEntry::InsertStr {
+                | UndoOp::InsertStr {
                     bytes,
                     cursor,
                     anchor,
@@ -342,14 +342,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.anchor = anchor.after;
                     self.cursor = cursor.after;
                 }
-                UndoEntry::RemoveChar {
+                UndoOp::RemoveChar {
                     bytes,
                     cursor,
                     anchor,
                     styles,
                     ..
                 }
-                | UndoEntry::RemoveStr {
+                | UndoOp::RemoveStr {
                     bytes,
                     cursor,
                     anchor,
@@ -366,10 +366,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
                                 Some(shrink_range_by(bytes.clone(), r))
                             }
                         });
-                        for s in &styles {
+                        for s in styles {
                             sty.remove(s.before.clone(), s.style);
                         }
-                        for s in &styles {
+                        for s in styles {
                             sty.add(s.after.clone(), s.style);
                         }
                     }
@@ -377,27 +377,27 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     self.anchor = anchor.after;
                     self.cursor = cursor.after;
                 }
-                UndoEntry::Cursor { cursor, anchor } => {
+                UndoOp::Cursor { cursor, anchor } => {
                     self.anchor = anchor.after;
                     self.cursor = cursor.after;
                 }
 
-                UndoEntry::SetStyles { styles_after, .. } => {
+                UndoOp::SetStyles { styles_after, .. } => {
                     if let Some(sty) = &mut self.styles {
                         sty.set(styles_after.iter().cloned());
                     }
                 }
-                UndoEntry::AddStyle { range, style } => {
+                UndoOp::AddStyle { range, style } => {
                     if let Some(sty) = &mut self.styles {
-                        sty.add(range, style);
+                        sty.add(range.clone(), *style);
                     }
                 }
-                UndoEntry::RemoveStyle { range, style } => {
+                UndoOp::RemoveStyle { range, style } => {
                     if let Some(sty) = &mut self.styles {
-                        sty.remove(range, style);
+                        sty.remove(range.clone(), *style);
                     }
                 }
-                UndoEntry::SetText { .. } | UndoEntry::Undo | UndoEntry::Redo => {
+                UndoOp::SetText { .. } | UndoOp::Undo | UndoOp::Redo => {
                     unreachable!()
                 }
             }
@@ -417,8 +417,8 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Replay a recording of changes.
     pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         for replay_entry in replay {
-            match replay_entry {
-                UndoEntry::SetText { txt } => {
+            match &replay_entry.operation {
+                UndoOp::SetText { txt } => {
                     self.text.set_string(txt);
                     if let Some(sty) = &mut self.styles {
                         sty.clear();
@@ -427,15 +427,14 @@ impl<Store: TextStore + Default> TextCore<Store> {
                         undo.clear();
                     };
                 }
-                UndoEntry::InsertChar { bytes, txt, .. }
-                | UndoEntry::InsertStr { bytes, txt, .. } => {
+                UndoOp::InsertChar { bytes, txt, .. } | UndoOp::InsertStr { bytes, txt, .. } => {
                     self.text.insert_b(bytes.start, txt).expect("valid_range");
                     if let Some(sty) = &mut self.styles {
                         sty.remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
                     }
                 }
-                UndoEntry::RemoveChar { bytes, styles, .. }
-                | UndoEntry::RemoveStr { bytes, styles, .. } => {
+                UndoOp::RemoveChar { bytes, styles, .. }
+                | UndoOp::RemoveStr { bytes, styles, .. } => {
                     self.text.remove_b(bytes.clone()).expect("valid_range");
                     if let Some(sty) = &mut self.styles {
                         sty.remap(|r, _| {
@@ -453,32 +452,32 @@ impl<Store: TextStore + Default> TextCore<Store> {
                         }
                     }
                 }
-                UndoEntry::Cursor { .. } => {
+                UndoOp::Cursor { .. } => {
                     // don't do cursor
                 }
 
-                UndoEntry::SetStyles { styles_after, .. } => {
+                UndoOp::SetStyles { styles_after, .. } => {
                     self.init_styles();
                     if let Some(sty) = &mut self.styles {
                         sty.set(styles_after.iter().cloned());
                     }
                 }
-                UndoEntry::AddStyle { range, style } => {
+                UndoOp::AddStyle { range, style } => {
                     self.init_styles();
                     if let Some(sty) = &mut self.styles {
                         sty.add(range.clone(), *style);
                     }
                 }
-                UndoEntry::RemoveStyle { range, style } => {
+                UndoOp::RemoveStyle { range, style } => {
                     self.init_styles();
                     if let Some(sty) = &mut self.styles {
                         sty.remove(range.clone(), *style);
                     }
                 }
-                UndoEntry::Undo => {
+                UndoOp::Undo => {
                     self._undo();
                 }
-                UndoEntry::Redo => {
+                UndoOp::Redo => {
                     self._redo();
                 }
             }
@@ -510,7 +509,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         };
         if let Some(undo) = &mut self.undo {
             if undo.undo_styles_enabled() || undo.has_replay_log() {
-                undo.append(UndoEntry::SetStyles {
+                undo.append(UndoOp::SetStyles {
                     styles_before: sty.values().collect::<Vec<_>>(),
                     styles_after: new_styles.clone(),
                 });
@@ -532,7 +531,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
         if let Some(undo) = &mut self.undo {
             if undo.undo_styles_enabled() || undo.has_replay_log() {
-                undo.append(UndoEntry::AddStyle { range, style });
+                undo.append(UndoOp::AddStyle { range, style });
             }
         }
     }
@@ -547,7 +546,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
         if let Some(undo) = &mut self.undo {
             if undo.undo_styles_enabled() || undo.has_replay_log() {
-                undo.append(UndoEntry::RemoveStyle { range, style });
+                undo.append(UndoOp::RemoveStyle { range, style });
             }
         }
     }
@@ -618,7 +617,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         }
 
         if let Some(undo) = self.undo.as_mut() {
-            undo.append(UndoEntry::Cursor {
+            undo.append(UndoOp::Cursor {
                 cursor: TextPositionChange {
                     before: old_cursor,
                     after: self.cursor,
@@ -858,7 +857,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             undo.clear();
 
             if undo.has_replay_log() {
-                undo.append(UndoEntry::SetText {
+                undo.append(UndoOp::SetText {
                     txt: self.text.string(),
                 });
             }
@@ -894,7 +893,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
             undo.clear();
 
             if undo.has_replay_log() {
-                undo.append(UndoEntry::SetText {
+                undo.append(UndoOp::SetText {
                     txt: self.text.string(),
                 });
             }
@@ -1010,7 +1009,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.anchor = inserted_range.expand_pos(self.anchor);
 
         if let Some(undo) = self.undo.as_mut() {
-            undo.append(UndoEntry::InsertChar {
+            undo.append(UndoOp::InsertChar {
                 bytes: inserted_bytes.clone(),
                 cursor: TextPositionChange {
                     before: old_cursor,
@@ -1041,7 +1040,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.cursor = inserted_range.expand_pos(self.cursor);
 
         if let Some(undo) = self.undo.as_mut() {
-            undo.append(UndoEntry::InsertStr {
+            undo.append(UndoOp::InsertStr {
                 bytes: inserted_bytes.clone(),
                 cursor: TextPositionChange {
                     before: old_cursor,
@@ -1138,7 +1137,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
         if let Some(undo) = &mut self.undo {
             if char_range {
-                undo.append(UndoEntry::RemoveChar {
+                undo.append(UndoOp::RemoveChar {
                     bytes: removed_bytes.clone(),
                     cursor: TextPositionChange {
                         before: old_cursor,
@@ -1152,7 +1151,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     styles: changed_style,
                 });
             } else {
-                undo.append(UndoEntry::RemoveStr {
+                undo.append(UndoOp::RemoveStr {
                     bytes: removed_bytes.clone(),
                     cursor: TextPositionChange {
                         before: old_cursor,
