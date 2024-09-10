@@ -1,5 +1,3 @@
-!! this is out of date !!
-
 [![crates.io](https://img.shields.io/crates/v/rat-widget.svg)](https://crates.io/crates/rat-widget)
 [![Documentation](https://docs.rs/rat-widget/badge.svg)](https://docs.rs/rat-widget)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -92,3 +90,4 @@ and some adapters for ratatui widgets
 
 * [List](https://docs.rs/rat-widget/latest/rat_widget/list/index.html)
 * [Paragraph](https://docs.rs/rat-widget/latest/rat_widget/paragraph/index.html)
+
