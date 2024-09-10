@@ -3,6 +3,85 @@ use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
 #[derive(Debug)]
+pub struct MDHeader<'a> {
+    pub header: u8,
+    pub prefix: &'a str,
+    pub tag: &'a str,
+    pub text: &'a str,
+    pub text_byte: Range<usize>,
+}
+
+pub fn parse_md_header(relocate: usize, txt: &str) -> Option<MDHeader<'_>> {
+    let mut mark_prefix_end = 0;
+    let mut mark_tag_start = 0;
+    let mut mark_tag_end = 0;
+    let mut mark_text_start = 0;
+
+    #[derive(Debug, PartialEq)]
+    enum It {
+        Leading,
+        Tag,
+        LeadingText,
+        Text,
+        End,
+        Fail,
+    }
+
+    let mut state = It::Leading;
+    for (idx, c) in txt.bytes().enumerate() {
+        if state == It::Leading {
+            if c == b' ' || c == b'\t' {
+                mark_prefix_end = idx + 1;
+                mark_tag_start = idx + 1;
+                mark_tag_end = idx + 1;
+                mark_text_start = idx + 1;
+            } else if c == b'#' {
+                mark_prefix_end = idx;
+                mark_tag_start = idx;
+                mark_tag_end = idx + 1;
+                mark_text_start = idx + 1;
+                state = It::Tag;
+            } else {
+                state = It::Fail;
+                break;
+            }
+        } else if state == It::Tag {
+            if c == b'#' {
+                mark_tag_end = idx;
+                mark_text_start = idx + 1;
+            } else {
+                mark_tag_end = idx;
+                mark_text_start = idx + 1;
+                state = It::LeadingText;
+            }
+        } else if state == It::LeadingText {
+            if c == b' ' || c == b'\t' {
+                mark_text_start = idx + 1;
+                // ok
+            } else {
+                mark_text_start = idx;
+                state = It::Text;
+            }
+        } else if state == It::Text {
+            state = It::End;
+            break;
+        }
+    }
+
+    if state == It::Fail {
+        return None;
+    }
+
+    Some(MDHeader {
+        header: (mark_tag_end - mark_tag_start) as u8,
+        prefix: &txt[..mark_prefix_end],
+        tag: &txt[mark_tag_start..mark_tag_end],
+        text: &txt[mark_text_start..],
+        text_byte: relocate + mark_text_start..relocate + txt.len(),
+    })
+}
+
+#[derive(Debug)]
 pub struct MDLinkRef<'a> {
     pub prefix: &'a str,
     pub tag: &'a str,
@@ -226,7 +305,7 @@ pub struct MDItem<'a> {
     pub text: &'a str,
 }
 
-pub fn parse_md_item(relocate: usize, txt: &str) -> MDItem<'_> {
+pub fn parse_md_item(relocate: usize, txt: &str) -> Option<MDItem<'_>> {
     let mut mark_byte = 0;
     let mut mark_suffix_byte = 0;
     let mut text_prefix_byte = 0;
@@ -239,6 +318,8 @@ pub fn parse_md_item(relocate: usize, txt: &str) -> MDItem<'_> {
         Leading,
         OrderedMark,
         TextLeading,
+        Fail,
+        End,
     }
 
     let mut state = It::Leading;
@@ -256,10 +337,8 @@ pub fn parse_md_item(relocate: usize, txt: &str) -> MDItem<'_> {
             } else if c == b' ' || c == b'\t' {
                 // ok
             } else {
-                // broken??
-                text_prefix_byte = idx;
-                text_byte = idx;
-                state = It::TextLeading;
+                state = It::Fail;
+                break;
             }
         } else if state == It::OrderedMark {
             if c.is_ascii_digit() {
@@ -275,22 +354,25 @@ pub fn parse_md_item(relocate: usize, txt: &str) -> MDItem<'_> {
                 );
                 state = It::TextLeading;
             } else {
-                // broken??
-                text_prefix_byte = idx;
-                text_byte = idx;
-                state = It::TextLeading;
+                state = It::Fail;
+                break;
             }
         } else if state == It::TextLeading {
             if c == b' ' || c == b'\t' {
                 // ok
             } else {
                 text_byte = idx;
+                state = It::End;
                 break;
             }
         }
     }
 
-    MDItem {
+    if state == It::Fail {
+        return None;
+    }
+
+    Some(MDItem {
         prefix: &txt[0..mark_byte],
         mark_bytes: relocate + mark_byte..relocate + text_prefix_byte,
         mark: &txt[mark_byte..mark_suffix_byte],
@@ -299,7 +381,7 @@ pub fn parse_md_item(relocate: usize, txt: &str) -> MDItem<'_> {
         text_prefix: &txt[text_prefix_byte..text_byte],
         text_bytes: relocate + text_byte..relocate + txt.len(),
         text: &txt[text_byte..],
-    }
+    })
 }
 
 #[derive(Debug)]
@@ -380,7 +462,7 @@ pub struct MDBlockQuote<'a> {
     pub text: &'a str,
 }
 
-pub fn parse_md_block_quote(relocate: usize, txt: &str) -> MDBlockQuote<'_> {
+pub fn parse_md_block_quote(relocate: usize, txt: &str) -> Option<MDBlockQuote<'_>> {
     let mut quote_byte = 0;
     let mut text_prefix_byte = 0;
     let mut text_byte = 0;
@@ -391,6 +473,8 @@ pub fn parse_md_block_quote(relocate: usize, txt: &str) -> MDBlockQuote<'_> {
         TextLeading,
         Text,
         NewLine,
+        End,
+        Fail,
     }
 
     let mut state = It::Leading;
@@ -403,9 +487,8 @@ pub fn parse_md_block_quote(relocate: usize, txt: &str) -> MDBlockQuote<'_> {
             } else if c == b' ' || c == b'\t' {
                 // ok
             } else {
-                text_prefix_byte = idx;
-                text_byte = idx;
-                state = It::Text;
+                state = It::Fail;
+                break;
             }
         } else if state == It::TextLeading {
             if c == b' ' || c == b'\t' {
@@ -415,14 +498,19 @@ pub fn parse_md_block_quote(relocate: usize, txt: &str) -> MDBlockQuote<'_> {
                 state = It::Text;
             }
         } else if state == It::Text {
+            state = It::End;
             break;
         }
     }
 
-    MDBlockQuote {
+    if state == It::Fail {
+        return None;
+    }
+
+    Some(MDBlockQuote {
         quote: &txt[quote_byte..quote_byte + 1],
         text_prefix: &txt[text_prefix_byte..text_byte],
         text_bytes: relocate + text_byte..relocate + txt.len(),
         text: &txt[text_byte..txt.len()],
-    }
+    })
 }

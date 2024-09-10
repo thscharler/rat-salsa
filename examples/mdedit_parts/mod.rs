@@ -1,6 +1,6 @@
 use crate::mdedit_parts::dump::{md_dump, md_dump_styles};
 use crate::mdedit_parts::format::md_format;
-use crate::mdedit_parts::operations::{md_backtab, md_line_break, md_tab};
+use crate::mdedit_parts::operations::{md_backtab, md_line_break, md_make_header, md_tab};
 use rat_salsa::event::ct_event;
 use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
 use rat_widget::text::upos_type;
@@ -24,6 +24,13 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
             ct_event!(key press ALT-'p') => md_format(self, false),
             ct_event!(key press ALT-'d') => md_dump(self),
             ct_event!(key press ALT-'s') => md_dump_styles(self),
+
+            ct_event!(key press ALT-'1') => md_make_header(self, 1),
+            ct_event!(key press ALT-'2') => md_make_header(self, 2),
+            ct_event!(key press ALT-'3') => md_make_header(self, 3),
+            ct_event!(key press ALT-'4') => md_make_header(self, 4),
+            ct_event!(key press ALT-'5') => md_make_header(self, 5),
+            ct_event!(key press ALT-'6') => md_make_header(self, 6),
 
             ct_event!(keycode press Enter) => md_line_break(self),
             ct_event!(keycode press Tab) => md_tab(self),

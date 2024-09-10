@@ -369,14 +369,14 @@ pub fn reformat(
             Event::Start(Tag::Item) => {
                 unreachable!("list {:?} {:?}", e, r.clone());
             }
-            Event::Start(Tag::HtmlBlock) => {}
-
+            Event::Start(Tag::HtmlBlock) => {
+                reformat_html(&mut arg, &mut it, &mut out);
+            }
             Event::Start(Tag::FootnoteDefinition(v)) => {
                 arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_footnote(&mut arg, &mut it, v, &mut out);
                 arg.dedent();
             }
-
             Event::Start(Tag::DefinitionList) => {
                 arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_definition(&mut arg, &mut it, &mut out);
@@ -389,7 +389,6 @@ pub fn reformat(
             | Event::Start(Tag::DefinitionListDefinition) => {
                 unreachable!("def-list {:?} {:?}", e, r.clone());
             }
-
             Event::Start(Tag::Table(_)) => {
                 arg.indent_prefix(last_r.end, r.start, &mut out);
                 reformat_table(&mut arg, &mut it, r.clone(), &mut out);
@@ -400,6 +399,12 @@ pub fn reformat(
             | Event::Start(Tag::TableCell) => {
                 unreachable!("table {:?} {:?}", e, r.clone());
             }
+
+            Event::Rule => {
+                reformat_rule(&mut arg, &mut it, r.clone(), &mut out);
+            }
+
+            Event::Start(Tag::MetadataBlock(_)) => {}
 
             Event::Start(Tag::Emphasis)
             | Event::Start(Tag::Strong)
@@ -414,14 +419,10 @@ pub fn reformat(
             | Event::FootnoteReference(_)
             | Event::SoftBreak
             | Event::HardBreak
-            | Event::TaskListMarker(_) => {
+            | Event::TaskListMarker(_)
+            | Event::Html(_) => {
                 unreachable!("inline {:?} {:?}", e, r.clone());
             }
-
-            Event::Start(Tag::MetadataBlock(_)) => {}
-
-            Event::Html(_) => {}
-            Event::Rule => {}
 
             Event::End(_) => {
                 // don't care here
@@ -458,6 +459,47 @@ pub fn reformat(
     (out.txt, out.cursor)
 }
 
+fn reformat_rule<'a>(
+    arg: &mut Reformat<'a>,
+    it: &mut OffsetIter<'a>,
+    rule_range: Range<usize>,
+    out: &mut ReformatOut,
+) {
+    arg.enter_frame();
+
+    out.txt.push_str(&arg.txt[rule_range]);
+
+    arg.leave_frame();
+}
+
+fn reformat_html<'a>(arg: &mut Reformat<'a>, it: &mut OffsetIter<'a>, out: &mut ReformatOut) {
+    arg.enter_frame();
+
+    loop {
+        let Some((event, range)) = it.next() else {
+            break;
+        };
+        match event {
+            Event::End(TagEnd::HtmlBlock) => {
+                break;
+            }
+            Event::Html(v) => {
+                arg.first_out(out);
+                out.txt.push_str(v.as_ref());
+                continue;
+            }
+            Event::Text(v) => {
+                out.txt.push_str(v.as_ref());
+                continue;
+            }
+            _ => {}
+        }
+        unreachable!("{:?} {:?}", event, range);
+    }
+
+    arg.leave_frame();
+}
+
 fn reformat_list<'a>(
     arg: &mut Reformat<'a>,
     it: &mut OffsetIter<'a>,
@@ -467,7 +509,7 @@ fn reformat_list<'a>(
     arg.enter_frame();
 
     // list prefix
-    let first_item = parse_md_item(list_range.start, &arg.txt[list_range]);
+    let first_item = parse_md_item(list_range.start, &arg.txt[list_range]).expect("md item");
 
     let mut nr = first_item.mark_nr;
     loop {
@@ -483,7 +525,8 @@ fn reformat_list<'a>(
             }
 
             Event::Start(Tag::Item) => {
-                let mut item = parse_md_item(range.start, &arg.txt[range.clone()]);
+                let mut item =
+                    parse_md_item(range.start, &arg.txt[range.clone()]).expect("md item");
                 item.mark_nr = nr;
 
                 arg.indent(
@@ -644,7 +687,8 @@ fn reformat_blockquote<'a>(
         out.txt.push_str(arg.newline);
     }
 
-    let block_quote = parse_md_block_quote(block_range.start, &arg.txt[block_range.clone()]);
+    let block_quote = parse_md_block_quote(block_range.start, &arg.txt[block_range.clone()])
+        .expect("block quote");
 
     arg.indent(
         CowStr::Borrowed(block_quote.quote),
@@ -1029,6 +1073,15 @@ fn recurse_container<'a>(
                 wrap_words(arg, NewLine::Soft, out);
             }
             reformat_table(arg, it, range.clone(), out);
+            arg.empty_out(out);
+            out.trailing = true;
+            true
+        }
+        Event::Start(Tag::HtmlBlock) => {
+            if !arg.words.is_empty() {
+                wrap_words(arg, NewLine::Soft, out);
+            }
+            reformat_html(arg, it, out);
             arg.empty_out(out);
             out.trailing = true;
             true

@@ -1807,7 +1807,7 @@ pub mod mdedit {
                 ct_event!(key press CONTROL-'s') => {
                     Control::Message(MDAction::Save)
                 }
-                ct_event!(keycode press ALT-F(2)) => {
+                ct_event!(keycode press ALT-F(5)) => {
                     if self.split_files.is_hidden(0) {
                         self.split_files.show_split(0);
                     } else {
@@ -1815,7 +1815,7 @@ pub mod mdedit {
                     }
                     Control::Changed
                 }
-                ct_event!(keycode press F(2)) => {
+                ct_event!(keycode press F(5)) => {
                     if !self.file_list.is_focused() {
                         if self.split_files.is_hidden(0) {
                             self.split_files.show_split(0);

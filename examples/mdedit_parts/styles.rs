@@ -150,7 +150,7 @@ pub fn parse_md_styles(state: &TextAreaState) -> Vec<(Range<usize>, usize)> {
             Event::Start(Tag::Item) => {
                 // only color the marker
                 let text = state.str_slice_byte(r.clone());
-                let item = parse_md_item(r.start, text.as_ref());
+                let item = parse_md_item(r.start, text.as_ref()).expect("md item");
                 styles.push((
                     item.mark_bytes.start..item.mark_bytes.end,
                     MDStyle::ItemTag as usize,

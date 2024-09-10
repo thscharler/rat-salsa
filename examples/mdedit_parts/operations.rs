@@ -1,11 +1,60 @@
-use crate::mdedit_parts::parser::{parse_md_item, parse_md_row};
+use crate::mdedit_parts::parser::{parse_md_header, parse_md_item, parse_md_row};
 use crate::mdedit_parts::str_line_len;
 use crate::mdedit_parts::styles::MDStyle;
 use rat_widget::event::TextOutcome;
-use rat_widget::text::{upos_type, TextRange};
+use rat_widget::text::{upos_type, TextPosition, TextRange};
 use rat_widget::textarea::TextAreaState;
 use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
+
+pub fn md_make_header(state: &mut TextAreaState, header: u8) -> TextOutcome {
+    if let Some(_) = md_paragraph(state) {
+        let cursor = state.cursor();
+        let pos = TextPosition::new(0, cursor.y);
+
+        let insert_txt = format!("{} ", "#".repeat(header as usize));
+
+        state.value.insert_str(pos, &insert_txt).expect("valid_pos");
+
+        TextOutcome::TextChanged
+    } else if let Some((header_byte, header_range)) = md_header(state) {
+        let cursor = state.cursor();
+
+        let txt = state.str_slice_byte(header_byte.clone());
+        let md_header = parse_md_header(header_byte.start, txt.as_ref()).expect("md header");
+
+        let (new_txt, new_cursor) = if md_header.header != header {
+            (
+                format!("{} {}", "#".repeat(header as usize), md_header.text),
+                TextPosition::new(
+                    cursor.x - md_header.header as upos_type + header as upos_type,
+                    cursor.y,
+                ),
+            )
+        } else {
+            (
+                format!("{}", md_header.text),
+                TextPosition::new(cursor.x - md_header.header as upos_type, cursor.y),
+            )
+        };
+
+        state.begin_undo_seq();
+        state
+            .value
+            .remove_str_range(header_range)
+            .expect("valid_range");
+        state
+            .value
+            .insert_str(header_range.start, &new_txt)
+            .expect("valid_pos");
+        state.set_cursor(new_cursor, false);
+        state.end_undo_seq();
+
+        TextOutcome::TextChanged
+    } else {
+        TextOutcome::Unchanged
+    }
+}
 
 pub fn md_tab(state: &mut TextAreaState) -> TextOutcome {
     if is_md_table(state) {
@@ -14,18 +63,23 @@ pub fn md_tab(state: &mut TextAreaState) -> TextOutcome {
         let x = next_tab_md_row(row.as_ref(), cursor.x);
         state.set_cursor((x, cursor.y), false);
         state.set_move_col(Some(x));
+
         TextOutcome::TextChanged
     } else if is_md_item(state) {
+        if state.has_selection() {
+            return TextOutcome::Continue;
+        }
+
         let cursor = state.cursor();
 
-        let (item_byte, item_range) = md_item(state).expect("item");
+        let (item_byte, item_range) = md_item(state).expect("md item");
         let indent_x = if item_range.start.y < cursor.y {
             let item_str = state.str_slice_byte(item_byte.clone());
-            let item = parse_md_item(item_byte.start, item_str.as_ref());
+            let item = parse_md_item(item_byte.start, item_str.as_ref()).expect("md item");
             state.byte_pos(item.text_bytes.start).x
         } else if let Some((prev_byte, prev_range)) = md_prev_item(state) {
             let prev_str = state.str_slice_byte(prev_byte.clone());
-            let prev_item = parse_md_item(prev_byte.start, prev_str.as_ref());
+            let prev_item = parse_md_item(prev_byte.start, prev_str.as_ref()).expect("md item");
             state.byte_pos(prev_item.text_bytes.start).x
         } else {
             0
@@ -253,6 +307,50 @@ fn prev_tab_md_row(txt: &str, pos: upos_type) -> upos_type {
         row.row[row.cursor_cell - 1].txt_graphemes.start
     } else {
         pos
+    }
+}
+
+fn md_paragraph(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
+    let cursor = state.cursor();
+    let cursor_byte = state.byte_at(cursor).start;
+
+    let para_byte = state.style_match(cursor_byte, MDStyle::Paragraph as usize);
+
+    if let Some(para_byte) = para_byte {
+        Some((para_byte.clone(), state.byte_range(para_byte)))
+    } else {
+        None
+    }
+}
+
+fn md_header(state: &TextAreaState) -> Option<(Range<usize>, TextRange)> {
+    let cursor = state.cursor();
+    let cursor_byte = state.byte_at(cursor).start;
+
+    let mut styles = Vec::new();
+    state.styles_at(cursor_byte, &mut styles);
+
+    let header_byte = styles.iter().find_map(|(r, s)| {
+        let style = MDStyle::try_from(*s).expect("style");
+        if matches!(
+            style,
+            MDStyle::Heading1
+                | MDStyle::Heading2
+                | MDStyle::Heading3
+                | MDStyle::Heading4
+                | MDStyle::Heading5
+                | MDStyle::Heading6
+        ) {
+            Some(r.clone())
+        } else {
+            None
+        }
+    });
+
+    if let Some(header_byte) = header_byte {
+        Some((header_byte.clone(), state.byte_range(header_byte)))
+    } else {
+        None
     }
 }
 
