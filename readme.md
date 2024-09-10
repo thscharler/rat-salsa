@@ -1,8 +1,9 @@
+
 # Theming support for rat-salsa
 
 This splits themes in two parts,
 
-* `Scheme` - The underlying color-scheme with enough colors to play
+* Scheme - The underlying color-scheme with enough colors to play
   around.
 * A concrete DarkTheme that takes that scheme and produces Styles
   for widgets.
