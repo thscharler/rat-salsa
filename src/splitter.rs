@@ -990,6 +990,8 @@ impl SplitState {
             self.lengths[n + 1] = area2.bottom().saturating_sub(pos_y + 1);
         }
 
+        self.clear_hidden(n);
+
         true
     }
 
@@ -999,6 +1001,7 @@ impl SplitState {
         if self.lengths[n] > delta {
             self.lengths[n] -= delta;
             self.lengths[n + 1] += delta;
+            self.clear_hidden(n);
             true
         } else {
             false
@@ -1011,6 +1014,7 @@ impl SplitState {
         if self.lengths[n + 1] >= delta {
             self.lengths[n] += delta;
             self.lengths[n + 1] -= delta;
+            self.clear_hidden(n);
             true
         } else {
             false
@@ -1065,6 +1069,12 @@ impl SplitState {
             self.hidden[n] > 0
         } else {
             false
+        }
+    }
+
+    fn clear_hidden(&mut self, n: usize) {
+        if n < self.hidden.len() {
+            self.hidden[n] = 0;
         }
     }
 
