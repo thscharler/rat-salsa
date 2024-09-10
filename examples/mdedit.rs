@@ -123,6 +123,8 @@ pub enum MDAction {
     SaveAs(PathBuf),
     Save,
     Split,
+    JumpToFiles,
+    HideFiles,
     Close,
     CloseAt(usize, usize),
     SelectAt(usize, usize),
@@ -400,11 +402,11 @@ impl<'a> MenuStructure<'a> for Menu {
             }
             1 => {
                 vec![
-                    MenuItem::Item3("Format table".into(), None, Line::from("Alt-T").italic()),
+                    MenuItem::Item3("Format Item".into(), None, Line::from("Alt-F").italic()),
                     MenuItem::Item3(
-                        "Format equal".into(),
+                        "Alt-Format Item".into(),
                         None,
-                        Line::from("Alt-Shift-T").italic(),
+                        Line::from("Alt-Shift-F").italic(),
                     ),
                 ]
             }
@@ -425,6 +427,12 @@ impl<'a> MenuStructure<'a> for Menu {
                         "Split view".into(),
                         Some('s'),
                         Line::from("Ctrl-W D").italic(),
+                    ),
+                    MenuItem::Item3("Jump to File".into(), Some('j'), Line::from("F5").italic()),
+                    MenuItem::Item3(
+                        "Hide files".into(),
+                        Some('h'),
+                        Line::from("Alt-F5").italic(),
                     ),
                 ]
             }
@@ -627,6 +635,12 @@ impl AppState<GlobalState, MDAction, Error> for MDAppState {
                 }
                 MenuOutcome::MenuActivated(2, 2) => {
                     Control::Message(MDAction::Split)
+                }
+                MenuOutcome::MenuActivated(2, 3) => {
+                    Control::Message(MDAction::JumpToFiles)
+                }
+                MenuOutcome::MenuActivated(2, 4) => {
+                    Control::Message(MDAction::HideFiles)
                 }
                 MenuOutcome::MenuSelected(3, n) => {
                     ctx.g.theme = dark_themes()[n].clone();
@@ -1235,6 +1249,10 @@ pub mod split_tab {
             // Find which split contains the current focus.
             let old_split = self.sel_split;
             let old_tab = self.sel_tab;
+
+            self.sel_split = None;
+            self.sel_tab = None;
+
             for (idx_split, tabbed) in self.tabbed.iter().enumerate() {
                 if let Some(idx_tab) = tabbed.selected() {
                     if self.tabs[idx_split][idx_tab].is_focused() {
@@ -1244,6 +1262,7 @@ pub mod split_tab {
                     }
                 }
             }
+
             old_split != self.sel_split || old_tab != self.sel_tab
         }
 
@@ -1808,28 +1827,10 @@ pub mod mdedit {
                     Control::Message(MDAction::Save)
                 }
                 ct_event!(keycode press ALT-F(5)) => {
-                    if self.split_files.is_hidden(0) {
-                        self.split_files.show_split(0);
-                    } else {
-                        self.split_files.hide_split(0);
-                    }
-                    Control::Changed
+                    self.hide_files(ctx)?
                 }
                 ct_event!(keycode press F(5)) => {
-                    if !self.file_list.is_focused() {
-                        if self.split_files.is_hidden(0) {
-                            self.split_files.show_split(0);
-                        }
-                        ctx.focus().focus(&self.file_list);
-                        Control::Changed
-                    } else {
-                        if let Some((_, last_edit)) = self.split_tab.selected() {
-                            ctx.focus().focus(last_edit);
-                            Control::Changed
-                        } else {
-                            Control::Continue
-                        }
-                    }
+                    self.jump_to_file(ctx)?
                 }
                 ct_event!(key press CONTROL-'w') => {
                     self.window_cmd = true;
@@ -1899,6 +1900,13 @@ pub mod mdedit {
                 MDAction::Split => {
                     self.split(ctx)?;
                     Control::Changed
+                }
+
+                MDAction::JumpToFiles => {
+                    self.jump_to_file(ctx)?
+                }
+                MDAction::HideFiles => {
+                    self.hide_files(ctx)?
                 }
 
                 MDAction::SyncEdit => {
@@ -2033,6 +2041,40 @@ pub mod mdedit {
                 t.save_as(&path)?;
             }
             Ok(())
+        }
+
+        // Hide files
+        pub fn hide_files(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<MDAction>, Error> {
+            if self.split_files.is_hidden(0) {
+                self.split_files.show_split(0);
+            } else {
+                self.split_files.hide_split(0);
+            }
+            Ok(Control::Changed)
+        }
+
+        // Select Files
+        pub fn jump_to_file(
+            &mut self,
+            ctx: &mut AppContext<'_>,
+        ) -> Result<Control<MDAction>, Error> {
+            let mut r = Control::Continue;
+
+            if self.split_files.is_hidden(0) {
+                self.split_files.show_split(0);
+                r = Control::Changed;
+            }
+            if !self.file_list.is_focused() {
+                ctx.focus().focus(&self.file_list);
+                r = Control::Changed;
+            } else {
+                if let Some((_, last_edit)) = self.split_tab.selected() {
+                    ctx.focus().focus(last_edit);
+                    r = Control::Changed;
+                }
+            }
+
+            Ok(r)
         }
 
         // Split current buffer.

@@ -5,10 +5,10 @@
 * ESC - Jump to menu and back.
 * F5 - Jump to file-list and back.
 * Alt-F5 - Hide file-list.
-* F2 - Quickinfo
+* F2 - Cheat sheet.
 * F1 - This document.
 
-### Ctrl-W - Window navigation
+## Ctrl-W - Window navigation
 
 * Ctrl-W Left/Right - Jump between split windows.
 * Ctrl-W Tab/Backtab - Change focus.
@@ -41,14 +41,19 @@
 * Alt+Backspace, Alt+Delete - Remove word
 * Tab/BackTab - Indent/Dedent selection. Insert tab otherwise.
 
-### Table
+## Table
 
 * Enter - Line break within the table. At the end creates an empty
   duplicate of the last row. If you have just the header enter will
   create the necessary underlines.
-* Tab/Backtab - Navigate between cells.
+* Tab/Backtab - Navigate between cells.  
+
+
+## Formatting
 
 * Alt-F - Formats the item at the cursor position, or everything
   selected.
-* Alt+Shift+F - Alternate format. Currently, formats a table to equal
-  column widths.
+* Alt+Shift+F - Alternate format. Currently, formats a table to
+  equal column widths.
+* Alt+1..=6 - Make header.
+

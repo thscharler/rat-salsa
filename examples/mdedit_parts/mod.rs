@@ -21,7 +21,8 @@ pub struct MarkDown;
 impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaState {
     fn handle(&mut self, event: &crossterm::event::Event, qualifier: MarkDown) -> TextOutcome {
         flow!(match event {
-            ct_event!(key press ALT-'p') => md_format(self, false),
+            ct_event!(key press ALT-'f') => md_format(self, false),
+            ct_event!(key press ALT_SHIFT-'f') => md_format(self, false),
             ct_event!(key press ALT-'d') => md_dump(self),
             ct_event!(key press ALT-'s') => md_dump_styles(self),
 

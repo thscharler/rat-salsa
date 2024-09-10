@@ -97,9 +97,7 @@ and also
 
 * Bullet
 * Bullet
-* Bullet
 
-+ Bullet
 + Bullet
 + Bullet
 
