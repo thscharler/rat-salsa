@@ -2,6 +2,7 @@ use rat_ftable::TableStyle;
 use rat_scrolled::ScrollStyle;
 use rat_text::text_input::TextInputStyle;
 use rat_widget::button::ButtonStyle;
+use rat_widget::calendar::MonthStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menuline::MenuStyle;
@@ -195,6 +196,22 @@ impl Scheme {
     /// Background for dialogs.
     pub fn dialog_style(&self) -> Style {
         Style::default().fg(self.white[2]).bg(self.gray[1])
+    }
+
+    pub fn month_style(&self) -> MonthStyle {
+        MonthStyle {
+            style: Style::default().fg(self.white[3]).bg(self.black[2]),
+            title_style: None,
+            week_style: Some(
+                Style::default()
+                    .fg(self.text_color(self.orange[0]))
+                    .bg(self.orange[0]),
+            ),
+            day_style: None,
+            select_style: Some(self.select()),
+            focus_style: Some(self.focus()),
+            ..Default::default()
+        }
     }
 
     /// Style for the status line.

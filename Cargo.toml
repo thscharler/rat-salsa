@@ -80,3 +80,4 @@ rat-scrolled = { version = "0.14", path = "../rat-scrolled" }
 fern = "0.6"
 anyhow = "1.0.82"
 lorem-rustum = "0.0.5"
+chrono = { version = "0.4", features = ["clock"] }
