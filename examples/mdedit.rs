@@ -1077,7 +1077,7 @@ pub mod split_tab {
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
-    use rat_salsa::timer::TimeOut;
+    use rat_salsa::timer::{TimeOut, TimerDef};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, Regular, TabbedOutcome};
     use rat_widget::focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
@@ -1090,6 +1090,7 @@ pub mod split_tab {
     use ratatui::prelude::{Line, StatefulWidget};
     use ratatui::widgets::BorderType;
     use std::path::Path;
+    use std::time::{Duration, Instant};
 
     #[derive(Debug, Default)]
     pub struct SplitTab;
@@ -1446,11 +1447,22 @@ pub mod split_tab {
         }
 
         // Run the replay for the file at path.
-        pub fn replay(&mut self, id: (usize, usize), path: &Path, replay: &[UndoEntry]) {
+        pub fn replay(
+            &mut self,
+            id: (usize, usize),
+            path: &Path,
+            replay: &[UndoEntry],
+            ctx: &mut AppContext<'_>,
+        ) {
             for (idx_split, tabs) in self.tabs.iter_mut().enumerate() {
                 for (idx_tab, tab) in tabs.iter_mut().enumerate() {
                     if id != (idx_split, idx_tab) && tab.path == path {
                         tab.edit.replay_log(replay);
+                        // restart timer
+                        tab.parse_timer = Some(ctx.replace_timer(
+                            tab.parse_timer,
+                            TimerDef::new().next(Instant::now() + Duration::from_millis(200)),
+                        ));
                     }
                 }
             }
@@ -1918,7 +1930,7 @@ pub mod mdedit {
                             ((0, 0), PathBuf::default(), Vec::default())
                         };
                     if !replay.is_empty() {
-                        self.split_tab.replay(id_sel, &sel_path, &replay);
+                        self.split_tab.replay(id_sel, &sel_path, &replay, ctx);
                     }
                     Control::Changed
                 }

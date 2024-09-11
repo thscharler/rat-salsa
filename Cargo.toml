@@ -9,7 +9,7 @@ repository = "https://github.com/thscharler/rat-salsa"
 readme = "readme.md"
 keywords = ["ratatui", "input", "event-loop"]
 categories = ["command-line-interface"]
-exclude = [".idea/*", ".gitignore"]
+exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
 
 [lints.rust]
 absolute_paths_not_starting_with_crate = "warn"
