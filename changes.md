@@ -1,36 +1,41 @@
+# 0.12.1
+
+* feature: add auto_quote when inserting '"', '(', ...
+* fix: replay didn't work with undo sequences
+
 # 0.12.0
 
 * Update changes in rat-scroll.
-  
+
 * feature: add begin_undo_seq() + end_undo_seq() to combine
   multiple changes into a single undo/redo. Quite useful for
   delete/insert combinations.
-  
+
 * feature: trait `HasScreenCursor` for general cursor display.
-  
+
 * feature: add styles_in(range)
-  
+
 * feature: add str_slice_byte(byte-range)
-  
+
 * feature: selection + tab now indents the selection.
-  
+
 * refactor: styles_at() now returns range+style
-  
+
 * fix: inserting \r \n as single characters panicked. rewrite
   glyph combination code.
-  
+
 * fix: bytes_to_range failed when the position was equal to
   len().
-  
+
 * fix: undo-count limits the number of changes. This counts
   grouped changes as 1 change now.
-  
+
 * fix: When the scrollbar/border don't paint the complete area of
   the widget it looks a bit broken. fill the complete area with
   the default-style.
-  
+
 * fix: invalidation of the style cache sometimes was broken.
-  
+
 # 0.11.0
 
 * feature: add LineNumbers widget
