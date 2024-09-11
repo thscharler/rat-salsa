@@ -15,6 +15,7 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
+use std::collections::HashMap;
 
 mod mini_salsa;
 
@@ -63,13 +64,18 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
+    let mut date_styles = HashMap::new();
+    date_styles.insert(
+        NaiveDate::from_ymd_opt(2024, 9, 1).expect("some"),
+        Style::default().red(),
+    );
+
     let cal = Month::new()
         .date(chrono::offset::Local::now().date_naive())
         .styles(THEME.month_style())
-        .day_styles([(
-            NaiveDate::from_ymd_opt(2024, 9, 1).expect("some"),
-            Style::default().red(),
-        )])
+        .day_styles(&date_styles)
+        .day_selection()
+        .week_selection()
         .block(Block::bordered());
     cal.render(l2[1], frame.buffer_mut(), &mut state.cal);
 
