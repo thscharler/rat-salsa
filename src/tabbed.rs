@@ -258,27 +258,36 @@ impl Default for TabbedStyle {
 #[derive(Debug, Default, Clone)]
 pub struct TabbedState {
     /// Total area.
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Area for drawing the Block inside the tabs.
+    /// __readonly__. renewed for each render.
     pub block_area: Rect,
     /// Area used to render the content of the tab.
     /// Use this area to render the current tab content.
+    /// __readonly__. renewed for each render.
     pub widget_area: Rect,
 
     /// Total area reserved for tabs.
+    /// __readonly__. renewed for each render.
     pub tab_title_area: Rect,
     /// Area of each tab.
+    /// __readonly__. renewed for each render.
     pub tab_title_areas: Vec<Rect>,
     /// Area for 'Close Tab' interaction.
+    /// __readonly__. renewed for each render.
     pub tab_title_close_areas: Vec<Rect>,
 
     /// Selected Tab, only ever is None if there are no tabs.
     /// Otherwise, set to 0 on render.
+    /// __read+write___
     pub selected: Option<usize>,
 
     /// Focus
+    /// __read+write__
     pub focus: FocusFlag,
     /// Mouse flags
+    /// __read+write__
     pub mouse: MouseFlagsN,
 }
 
@@ -442,8 +451,8 @@ pub mod glued {
     use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
     use ratatui::widgets::Widget;
 
-    /// Renders tab at the given placement.
-    /// The block is rendered inside the tabs.
+    /// Renders simple tabs at the given placement and renders
+    /// the block inside the tabs.
     #[derive(Debug)]
     pub struct GluedTabs {
         placement: TabPlacement,
@@ -695,7 +704,7 @@ pub mod attached {
     use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
     use ratatui::widgets::{Block, BorderType, Borders, Widget};
 
-    /// Embeds tabs in the Block.
+    /// Embedded tabs in the Block.
     ///
     /// If no block has been set, this will draw a block at the side
     /// of the tabs.
