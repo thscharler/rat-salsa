@@ -8,7 +8,7 @@ repository = "https://github.com/thscharler/rat-ftable"
 readme = "readme.md"
 keywords = ["ratatui", "table", "large"]
 categories = ["command-line-interface"]
-exclude = [".idea/*", ".gitignore"]
+exclude = [".idea/*", ".gitignore", "ftable.gif"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
