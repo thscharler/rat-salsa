@@ -37,15 +37,20 @@ pub struct ButtonStyle {
 /// State & event-handling.
 #[derive(Debug, Clone)]
 pub struct ButtonState {
-    /// Current focus state.
-    pub focus: FocusFlag,
     /// Complete area
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Area inside the block.
-    pub inner_area: Rect,
+    /// __readonly__. renewed for each render.
+    pub inner: Rect,
 
     /// Button has been clicked but not released yet.
+    /// __used for mouse interaction__
     pub armed: bool,
+
+    /// Current focus state.
+    /// __read+write__
+    pub focus: FocusFlag,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -179,7 +184,7 @@ impl<'a> StatefulWidgetRef for Button<'a> {
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
-        state.inner_area = self.block.inner_if_some(area);
+        state.inner = self.block.inner_if_some(area);
 
         let focus_style = if let Some(focus_style) = self.focus_style {
             focus_style
@@ -195,18 +200,18 @@ impl<'a> StatefulWidgetRef for Button<'a> {
         self.block.render_ref(area, buf);
 
         if state.armed {
-            buf.set_style(state.inner_area, armed_style);
+            buf.set_style(state.inner, armed_style);
         } else {
             if state.focus.get() {
-                buf.set_style(state.inner_area, focus_style);
+                buf.set_style(state.inner, focus_style);
             } else {
-                buf.set_style(state.inner_area, self.style);
+                buf.set_style(state.inner, self.style);
             }
         }
 
         let layout = Layout::vertical([Constraint::Length(self.text.height() as u16)])
             .flex(Flex::Center)
-            .split(state.inner_area);
+            .split(state.inner);
 
         self.text.render_ref(layout[0], buf);
     }
@@ -217,7 +222,7 @@ impl<'a> StatefulWidget for Button<'a> {
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
-        state.inner_area = self.block.inner_if_some(area);
+        state.inner = self.block.inner_if_some(area);
 
         let focus_style = if let Some(focus_style) = self.focus_style {
             focus_style
@@ -233,18 +238,18 @@ impl<'a> StatefulWidget for Button<'a> {
         self.block.render(area, buf);
 
         if state.armed {
-            buf.set_style(state.inner_area, armed_style);
+            buf.set_style(state.inner, armed_style);
         } else {
             if state.focus.get() {
-                buf.set_style(state.inner_area, focus_style);
+                buf.set_style(state.inner, focus_style);
             } else {
-                buf.set_style(state.inner_area, self.style);
+                buf.set_style(state.inner, self.style);
             }
         }
 
         let layout = Layout::vertical([Constraint::Length(self.text.height() as u16)])
             .flex(Flex::Center)
-            .split(state.inner_area);
+            .split(state.inner);
 
         self.text.render(layout[0], buf);
     }
@@ -255,7 +260,7 @@ impl Default for ButtonState {
         Self {
             focus: Default::default(),
             area: Default::default(),
-            inner_area: Default::default(),
+            inner: Default::default(),
             armed: false,
             non_exhaustive: NonExhaustive,
         }
