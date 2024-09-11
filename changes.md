@@ -1,3 +1,7 @@
+# 0.12.1
+
+* fix docs
+
 # 0.12.0
 
 * update ratatui to 0.28
