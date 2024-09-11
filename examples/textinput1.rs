@@ -104,7 +104,7 @@ fn repaint_input(
         let mut styles = Vec::new();
         let cursor_byte = state.textinput.byte_at(state.textinput.cursor());
         state.textinput.styles_at(cursor_byte.start, &mut styles);
-        for (r, s) in styles {
+        for (_r, s) in styles {
             _ = write!(&mut stats, "{}, ", s);
         }
         _ = writeln!(&mut stats);
