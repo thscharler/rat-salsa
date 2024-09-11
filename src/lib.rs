@@ -17,6 +17,7 @@ pub mod event {
         MouseOnly, Outcome, Popup, Regular,
     };
 
+    pub use crate::calendar::event::CalOutcome;
     pub use crate::file_dialog::event::FileOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
     pub use rat_ftable::event::{DoubleClickOutcome, EditKeys, EditOutcome};
