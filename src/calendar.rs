@@ -4,52 +4,105 @@
 //!
 
 use crate::_private::NonExhaustive;
+use crate::calendar::event::CalOutcome;
+use crate::util::revert_style;
 use chrono::{Datelike, NaiveDate, Weekday};
+use rat_event::util::MouseFlagsN;
+use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
-use ratatui::text::{Line, Span, Text};
+use ratatui::text::Span;
+use ratatui::widgets::block::Title;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{StatefulWidget, Widget};
-use std::fmt::{Debug, Formatter};
+use ratatui::widgets::{Block, StatefulWidget, Widget};
+use std::collections::HashMap;
+use std::fmt::Debug;
 
 /// Renders a month.
-pub struct Month {
-    /// Title style.
-    title_style: Style,
-    /// Week number style.
-    week_style: Style,
-    /// Styling for a single date.
-    day_style: Box<dyn Fn(NaiveDate) -> Style>,
+#[derive(Debug, Default, Clone)]
+pub struct Month<'a> {
     /// Start date of the month.
     start_date: NaiveDate,
+
+    /// Base style.
+    style: Style,
+    /// Title style.
+    title_style: Option<Style>,
+    /// Title align.
+    title_align: Alignment,
+    /// Week number style.
+    week_style: Option<Style>,
+    /// Default day style.
+    day_style: Option<Style>,
+    /// Styling for a single date.
+    day_styles: Option<&'a HashMap<NaiveDate, Style>>,
+    /// Selection
+    select_style: Option<Style>,
+    /// Focus
+    focus_style: Option<Style>,
+    /// Selection
+    day_selection: bool,
+    week_selection: bool,
+
+    /// Block
+    block: Option<Block<'a>>,
+
     /// Locale
     loc: chrono::Locale,
 }
 
 /// Composite style for the calendar.
+#[derive(Debug, Clone, Copy)]
 pub struct MonthStyle {
-    pub title_style: Style,
-    pub week_style: Style,
-    pub day_style: Box<dyn Fn(NaiveDate) -> Style>,
+    pub style: Style,
+    pub title_style: Option<Style>,
+    pub week_style: Option<Style>,
+    pub day_style: Option<Style>,
+    pub select_style: Option<Style>,
+    pub focus_style: Option<Style>,
     pub non_exhaustive: NonExhaustive,
 }
 
 /// State & event-handling.
 #[derive(Debug, Clone)]
 pub struct MonthState {
-    /// Current focus state.
-    pub focus: FocusFlag,
     /// Total area.
+    /// __readonly__. renewed for each render.
     pub area: Rect,
-    /// Area for the month name.
-    pub area_month: Rect,
+    /// Area inside the border.
+    /// __readonly__. renewed for each render.
+    pub inner: Rect,
     /// Area for the days of the month.
+    /// __readonly__. renewed for each render.
     pub area_days: [Rect; 31],
     /// Area for the week numbers.
-    pub weeks: [Rect; 6],
+    /// __readonly__. renewed for each render.
+    pub area_weeks: [Rect; 6],
+    /// Startdate
+    /// __readonly__. renewed for each render.
+    pub start_date: NaiveDate,
+
+    /// Day selection enabled
+    /// __readonly__. renewed for each render.
+    day_selection: bool,
+    /// Week selection enabled
+    /// __readonly__. renewed for each render.
+    week_selection: bool,
+
+    /// Selected week
+    pub selected_week: Option<usize>,
+    /// Selected day
+    pub selected_day: Option<usize>,
+
+    /// Focus
+    /// __read+write__
+    pub focus: FocusFlag,
+    /// Mouse flags
+    /// __read+write__
+    pub mouse: MouseFlagsN,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -57,82 +110,27 @@ pub struct MonthState {
 impl Default for MonthStyle {
     fn default() -> Self {
         Self {
+            style: Default::default(),
             title_style: Default::default(),
             week_style: Default::default(),
-            day_style: Box::new(|_| Style::default()),
+            day_style: Default::default(),
+            select_style: Default::default(),
+            focus_style: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
 }
 
-impl Default for MonthState {
-    fn default() -> Self {
-        Self {
-            focus: Default::default(),
-            area: Default::default(),
-            area_month: Default::default(),
-            area_days: [Rect::default(); 31],
-            weeks: [Rect::default(); 6],
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
-impl MonthState {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Self::default()
-        }
-    }
-}
-
-impl Debug for MonthStyle {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("MonthStyle")
-            .field("title_style", &self.title_style)
-            .field("week_style", &self.week_style)
-            .field("day_style", &"... dyn Fn ...")
-            .finish()
-    }
-}
-
-impl Default for Month {
-    fn default() -> Self {
-        Self {
-            title_style: Default::default(),
-            week_style: Default::default(),
-            day_style: Box::new(|_| Style::default()),
-            start_date: Default::default(),
-            loc: Default::default(),
-        }
-    }
-}
-
-impl Debug for Month {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("Month")
-            .field("title_style", &self.title_style)
-            .field("week_style", &self.week_style)
-            .field("day_style", &"dyn Fn()")
-            .field("start_date", &self.start_date)
-            .finish()
-    }
-}
-
-impl Month {
+impl<'a> Month<'a> {
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Sets the starting date.
+    /// This can be any date of the month.
     #[inline]
     pub fn date(mut self, s: NaiveDate) -> Self {
-        self.start_date = s;
+        self.start_date = s.with_day(1).expect("day");
         self
     }
 
@@ -143,45 +141,109 @@ impl Month {
         self
     }
 
-    /// Set the composite style.
+    /// Date selection enabled
     #[inline]
-    pub fn style(mut self, s: MonthStyle) -> Self {
-        self.title_style = s.title_style;
-        self.week_style = s.week_style;
-        self.day_style = s.day_style;
+    pub fn day_selection(mut self) -> Self {
+        self.day_selection = true;
         self
     }
 
-    /// Sets a closure that is called to calculate the day style.
+    /// Week selection enabled
     #[inline]
-    pub fn day_style(mut self, s: Box<dyn Fn(NaiveDate) -> Style>) -> Self {
-        self.day_style = s;
+    pub fn week_selection(mut self) -> Self {
+        self.week_selection = true;
+        self
+    }
+
+    /// Set the composite style.
+    #[inline]
+    pub fn styles(mut self, s: MonthStyle) -> Self {
+        self.style = s.style;
+        if s.title_style.is_some() {
+            self.title_style = s.title_style;
+        }
+        if s.week_style.is_some() {
+            self.week_style = s.week_style;
+        }
+        if s.day_style.is_some() {
+            self.day_style = s.day_style;
+        }
+        if s.select_style.is_some() {
+            self.select_style = s.select_style;
+        }
+        if s.focus_style.is_some() {
+            self.focus_style = s.focus_style;
+        }
+        self
+    }
+
+    /// Style for the selected tab.
+    pub fn select_style(mut self, style: Style) -> Self {
+        self.select_style = Some(style);
+        self
+    }
+
+    /// Style for a focused tab.
+    pub fn focus_style(mut self, style: Style) -> Self {
+        self.focus_style = Some(style);
+        self
+    }
+
+    /// Sets the default day-style.
+    #[inline]
+    pub fn day_style(mut self, s: impl Into<Style>) -> Self {
+        self.day_style = Some(s.into());
+        self
+    }
+
+    /// Sets all the day-styles.
+    #[inline]
+    pub fn day_styles(mut self, styles: &'a HashMap<NaiveDate, Style>) -> Self {
+        self.day_styles = Some(styles);
         self
     }
 
     /// Set the week number style
     #[inline]
     pub fn week_style(mut self, s: impl Into<Style>) -> Self {
-        self.week_style = s.into();
+        self.week_style = Some(s.into());
         self
     }
 
     /// Set the month-name style.
     #[inline]
     pub fn title_style(mut self, s: impl Into<Style>) -> Self {
-        self.title_style = s.into();
+        self.title_style = Some(s.into());
+        self
+    }
+
+    /// Set the mont-name align.
+    #[inline]
+    pub fn title_align(mut self, a: Alignment) -> Self {
+        self.title_align = a;
+        self
+    }
+
+    /// Block
+    #[inline]
+    pub fn block(mut self, b: Block<'a>) -> Self {
+        self.block = Some(b);
         self
     }
 
     /// Required width for the widget.
     #[inline]
-    pub fn width(&self) -> usize {
-        8 * 3
+    pub fn width(&self) -> u16 {
+        if self.block.is_some() {
+            8 * 3 + 2
+        } else {
+            8 * 3
+        }
     }
 
     /// Required height for the widget. Varies.
     #[inline]
-    pub fn height(&self) -> usize {
+    pub fn height(&self) -> u16 {
         let mut r = 0;
         let mut day = self.start_date;
         let month = day.month();
@@ -206,12 +268,16 @@ impl Month {
             r += 1;
         }
 
-        r
+        if self.block.is_some() {
+            r + 1
+        } else {
+            r
+        }
     }
 }
 
 #[cfg(feature = "unstable-widget-ref")]
-impl StatefulWidgetRef for Month {
+impl<'a> StatefulWidgetRef for Month<'a> {
     type State = MonthState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -219,7 +285,7 @@ impl StatefulWidgetRef for Month {
     }
 }
 
-impl StatefulWidget for Month {
+impl<'a> StatefulWidget for Month<'a> {
     type State = MonthState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -227,35 +293,89 @@ impl StatefulWidget for Month {
     }
 }
 
-fn render_ref(widget: &Month, area: Rect, buf: &mut Buffer, state: &mut MonthState) {
-    let mut day = widget.start_date;
-    let month = widget.start_date.month();
-
+fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut MonthState) {
     state.area = area;
+    state.start_date = widget.start_date;
+    state.day_selection = widget.day_selection;
+    state.week_selection = widget.week_selection;
 
+    let mut day = widget.start_date;
+
+    let title_style = if let Some(title_style) = widget.title_style {
+        title_style
+    } else {
+        widget.style
+    };
+
+    let block = if let Some(block) = widget.block.clone() {
+        block
+            .title(Title::from(
+                day.format_localized("%B", widget.loc).to_string(),
+            ))
+            .title_style(title_style)
+            .title_alignment(widget.title_align)
+    } else {
+        Block::new()
+            .title(Title::from(
+                day.format_localized("%B", widget.loc).to_string(),
+            ))
+            .title_style(title_style)
+            .title_alignment(widget.title_align)
+    };
+
+    buf.set_style(area, widget.style);
+    state.inner = block.inner(area);
+    block.render(area, buf);
+
+    let focus_style = if let Some(focus_style) = widget.focus_style {
+        focus_style
+    } else {
+        revert_style(widget.style)
+    };
+    let select_style = if let Some(select_style) = widget.select_style {
+        if state.focus.get() {
+            focus_style
+        } else {
+            select_style
+        }
+    } else {
+        if state.focus.get() {
+            focus_style
+        } else {
+            revert_style(widget.style)
+        }
+    };
+
+    let day_style = if let Some(day_style) = widget.day_style {
+        day_style
+    } else {
+        widget.style
+    };
+    let week_style = if let Some(week_style) = widget.week_style {
+        week_style
+    } else {
+        widget.style
+    };
+
+    let month = widget.start_date.month();
     let mut w = 0;
-    let mut x = area.x;
-    let mut y = area.y;
-
-    let day_style = widget.day_style.as_ref();
-
-    let mut w_month = Text::default();
-
-    let w_title = Line::styled(
-        day.format_localized("%B", widget.loc).to_string(),
-        widget.title_style,
-    );
-    state.area_month = Rect::new(x, y, w_title.width() as u16, 1);
-    w_month.lines.push(w_title);
-    y += 1;
+    let mut x = state.inner.x;
+    let mut y = state.inner.y;
 
     // first line may omit a few days
-    let mut w_week = Line::default();
-    let w_weeknum =
-        Span::from(day.format_localized("%U", widget.loc).to_string()).style(widget.week_style);
-    state.weeks[w] = Rect::new(x, y, w_weeknum.width() as u16, 1);
-    w_week.spans.push(w_weeknum);
-    w_week.spans.push(" ".into());
+    state.area_weeks[w] = Rect::new(x, y, 2, 1);
+    Span::from(day.format_localized("%W", widget.loc).to_string())
+        .style(week_style)
+        .render(state.area_weeks[w], buf);
+
+    let week_sel = if state.selected_week == Some(w) {
+        let week_bg = Rect::new(x + 3, y, 21, 1);
+        buf.set_style(week_bg, select_style);
+        true
+    } else {
+        false
+    };
+
     x += 3;
 
     for wd in [
@@ -268,57 +388,88 @@ fn render_ref(widget: &Month, area: Rect, buf: &mut Buffer, state: &mut MonthSta
         Weekday::Sun,
     ] {
         if day.weekday() != wd {
-            w_week.spans.push("   ".into());
             x += 3;
         } else {
-            let w_date = Span::from(day.format_localized("%e", widget.loc).to_string())
-                .style(day_style(day));
-            state.area_days[day.day0() as usize] = Rect::new(x, y, w_date.width() as u16, 1);
-            w_week.spans.push(w_date);
-            w_week.spans.push(" ".into());
-            x += 3;
+            let day_style = if let Some(day_styles) = widget.day_styles {
+                if let Some(day_style) = day_styles.get(&day) {
+                    *day_style
+                } else {
+                    day_style
+                }
+            } else {
+                day_style
+            };
+            let day_style = if week_sel || state.selected_day == Some(day.day0() as usize) {
+                day_style.patch(select_style)
+            } else {
+                day_style
+            };
 
+            state.area_days[day.day0() as usize] = Rect::new(x, y, 2, 1);
+
+            Span::from(day.format_localized("%e", widget.loc).to_string())
+                .style(day_style)
+                .render(state.area_days[day.day0() as usize], buf);
+
+            x += 3;
             day += chrono::Duration::try_days(1).expect("days");
         }
     }
-    w_month.lines.push(w_week);
 
-    y += 1;
-    x = area.x;
     w += 1;
+    x = state.inner.x;
+    y += 1;
 
     while month == day.month() {
-        let mut w_week = Line::default();
-        let w_weeknum =
-            Span::from(day.format_localized("%U", widget.loc).to_string()).style(widget.week_style);
-        state.weeks[w] = Rect::new(x, y, w_weeknum.width() as u16, 1);
-        w_week.spans.push(w_weeknum);
-        w_week.spans.push(" ".into());
+        state.area_weeks[w] = Rect::new(x, y, 2, 1);
+        Span::from(day.format_localized("%W", widget.loc).to_string())
+            .style(week_style)
+            .render(state.area_weeks[w], buf);
+
+        let week_sel = if state.selected_week == Some(w) {
+            let week_bg = Rect::new(x + 3, y, 21, 1);
+            buf.set_style(week_bg, select_style);
+            true
+        } else {
+            false
+        };
+
         x += 3;
 
         for _ in 0..7 {
             if day.month() == month {
-                let w_date = Span::from(day.format_localized("%e", widget.loc).to_string())
-                    .style(day_style(day));
-                state.area_days[day.day0() as usize] = Rect::new(x, y, w_date.width() as u16, 1);
-                w_week.spans.push(w_date);
-                w_week.spans.push(" ".into());
-                x += 3;
+                let day_style = if let Some(day_styles) = widget.day_styles {
+                    if let Some(day_style) = day_styles.get(&day) {
+                        *day_style
+                    } else {
+                        day_style
+                    }
+                } else {
+                    day_style
+                };
+                let day_style = if week_sel || state.selected_day == Some(day.day0() as usize) {
+                    day_style.patch(select_style)
+                } else {
+                    day_style
+                };
 
+                state.area_days[day.day0() as usize] = Rect::new(x, y, 2, 1);
+
+                Span::from(day.format_localized("%e", widget.loc).to_string())
+                    .style(day_style)
+                    .render(state.area_days[day.day0() as usize], buf);
+
+                x += 3;
                 day += chrono::Duration::try_days(1).expect("days");
             } else {
-                w_week.spans.push("   ".into());
                 x += 3;
             }
         }
-        w_month.lines.push(w_week);
 
-        y += 1;
-        x = area.x;
         w += 1;
+        x = state.inner.x;
+        y += 1;
     }
-
-    w_month.render(area, buf);
 }
 
 impl HasFocusFlag for MonthState {
@@ -330,5 +481,582 @@ impl HasFocusFlag for MonthState {
     #[inline]
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl Default for MonthState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            inner: Default::default(),
+            area_days: [Rect::default(); 31],
+            area_weeks: [Rect::default(); 6],
+            start_date: Default::default(),
+            day_selection: false,
+            week_selection: false,
+            selected_week: Default::default(),
+            selected_day: Default::default(),
+            focus: Default::default(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl MonthState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn named(name: &str) -> Self {
+        Self {
+            focus: FocusFlag::named(name),
+            ..Self::default()
+        }
+    }
+
+    ///
+    pub fn clear_selection(&mut self) {
+        self.selected_week = None;
+        self.selected_day = None;
+    }
+
+    /// Select a week
+    pub fn select_week(&mut self, n: Option<usize>) {
+        self.selected_week = n;
+        self.selected_day = None;
+    }
+
+    /// Select a week by date
+    /// Returns true if the date is valid for this month.
+    /// If false it doesn't change the selection.
+    pub fn select_week_by_date(&mut self, d: Option<NaiveDate>) -> bool {
+        self.selected_day = None;
+        if let Some(d) = d {
+            if d.year() == self.start_date.year() {
+                if let Some(w) = self.date_as_week(d) {
+                    self.selected_week = Some(w);
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            }
+        } else {
+            self.selected_week = None;
+            true
+        }
+    }
+
+    /// Selected week
+    pub fn selected_week(&mut self) -> Option<usize> {
+        self.selected_week
+    }
+
+    /// Selected week
+    pub fn selected_week_as_date(&mut self) -> Option<NaiveDate> {
+        self.selected_week.map(|v| self.week_day(v))
+    }
+
+    /// Select a day
+    pub fn select_day(&mut self, n: Option<usize>) {
+        self.selected_day = n;
+        self.selected_week = None;
+    }
+
+    /// Select by date.
+    /// Returns true if the date is valid for this month.
+    /// If false it doesn't change the selection.
+    pub fn select_date(&mut self, d: Option<NaiveDate>) -> bool {
+        self.selected_week = None;
+        if let Some(d) = d {
+            if d.year() == self.start_date.year() && d.month() == self.start_date.month() {
+                self.selected_day = Some(d.day0() as usize);
+                true
+            } else {
+                false
+            }
+        } else {
+            self.selected_day = None;
+            true
+        }
+    }
+
+    /// Selected day
+    pub fn selected_day(&mut self) -> Option<usize> {
+        self.selected_day
+    }
+
+    /// Selected day
+    pub fn selected_day_as_date(&mut self) -> Option<NaiveDate> {
+        self.selected_day.map(|v| self.month_day(v))
+    }
+
+    /// Select previous day.
+    pub fn prev_day(&mut self, n: usize) -> bool {
+        if let Some(sel) = self.selected_week {
+            let week_day = self.week_day(sel);
+            if week_day < self.start_date {
+                self.selected_day = Some(0);
+            } else {
+                self.selected_day = Some(week_day.day0() as usize);
+            }
+            self.selected_week = None;
+        }
+
+        if let Some(sel) = self.selected_day {
+            if sel >= n {
+                self.selected_day = Some(sel - n);
+                true
+            } else {
+                false
+            }
+        } else {
+            let mut d = 30;
+            loop {
+                if self.start_date.with_day0(d).is_some() {
+                    break;
+                }
+                d -= 1;
+            }
+            self.selected_day = Some(d as usize);
+            true
+        }
+    }
+
+    /// Select next day.
+    pub fn next_day(&mut self, n: usize) -> bool {
+        if let Some(sel) = self.selected_week {
+            let week_day = self.week_day(sel);
+            if week_day < self.start_date {
+                self.selected_day = Some(0);
+            } else {
+                self.selected_day = Some(week_day.day0() as usize);
+            }
+            self.selected_week = None;
+        }
+
+        if let Some(sel) = self.selected_day {
+            if self.start_date.with_day0(sel as u32 + n as u32).is_some() {
+                self.selected_day = Some(sel + n);
+                true
+            } else {
+                false
+            }
+        } else {
+            self.selected_day = Some(0);
+            true
+        }
+    }
+
+    /// Select previous week.
+    pub fn prev_week(&mut self, n: usize) -> bool {
+        if let Some(sel) = self.selected_day {
+            self.selected_week = self.month_day_as_week(sel);
+            self.selected_day = None;
+        }
+        if let Some(sel) = self.selected_week {
+            if sel >= n {
+                self.selected_week = Some(sel - n);
+                true
+            } else {
+                false
+            }
+        } else {
+            let mut d = 30;
+            loop {
+                if self.start_date.with_day0(d).is_some() {
+                    break;
+                }
+                d -= 1;
+            }
+            self.selected_week = self.month_day_as_week(d as usize);
+            true
+        }
+    }
+
+    /// Select next week.
+    pub fn next_week(&mut self, n: usize) -> bool {
+        if let Some(sel) = self.selected_day {
+            self.selected_week = self.month_day_as_week(sel);
+            self.selected_day = None;
+        }
+        if let Some(sel) = self.selected_week {
+            let sel_day = self.week_day(sel);
+            let new_day = sel_day + chrono::Duration::try_days(7 * n as i64).expect("days");
+            if self.start_date.month() == new_day.month() {
+                self.selected_week = self.month_day_as_week(new_day.day0() as usize);
+                true
+            } else {
+                false
+            }
+        } else {
+            self.selected_week = Some(0);
+            true
+        }
+    }
+
+    /// Monday of the nth displayed week
+    pub fn week_day(&self, n: usize) -> NaiveDate {
+        let mut day = self.start_date;
+        while day.weekday() != Weekday::Mon {
+            day -= chrono::Duration::try_days(1).expect("days");
+        }
+        day += chrono::Duration::try_days(7 * n as i64).expect("days");
+        day
+    }
+
+    /// Date of the nth displayed date
+    pub fn month_day(&self, n: usize) -> NaiveDate {
+        let mut day = self.start_date;
+        day += chrono::Duration::try_days(n as i64).expect("days");
+        day
+    }
+
+    /// Week of the nth displayed date
+    pub fn month_day_as_week(&self, n: usize) -> Option<usize> {
+        if let Some(day) = self.start_date.with_day0(n as u32) {
+            self.date_as_week(day)
+        } else {
+            None
+        }
+    }
+
+    /// Week of the given date
+    pub fn date_as_week(&self, d: NaiveDate) -> Option<usize> {
+        let mut day = self.start_date;
+        let month = day.month();
+        let mut w = 0;
+
+        while month == day.month() {
+            if day.week(Weekday::Mon).days().contains(&d) {
+                return Some(w);
+            }
+            day += chrono::Duration::try_days(7).expect("days");
+            w += 1;
+        }
+        // last week might be next month
+        let week = day.week(Weekday::Mon);
+        if week.first_day().month() == month {
+            if week.days().contains(&d) {
+                return Some(w);
+            }
+        }
+        None
+    }
+}
+
+pub(crate) mod event {
+    use chrono::NaiveDate;
+    use rat_event::{ConsumedEvent, Outcome};
+
+    /// Result of event handling.
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+    pub enum CalOutcome {
+        /// The given event has not been used at all.
+        Continue,
+        /// The event has been recognized, but the result was nil.
+        /// Further processing for this event may stop.
+        Unchanged,
+        /// The event has been recognized and there is some change
+        /// due to it.
+        /// Further processing for this event may stop.
+        /// Rendering the ui is advised.
+        Changed,
+        /// Week selected. This is Monday of the selected week.
+        Week(NaiveDate),
+        /// Day selected.
+        /// Selected tab should be closed.
+        Day(NaiveDate),
+        /// Month in a list of months selected.
+        Month(usize),
+    }
+
+    impl ConsumedEvent for CalOutcome {
+        fn is_consumed(&self) -> bool {
+            *self != CalOutcome::Continue
+        }
+    }
+
+    // Useful for converting most navigation/edit results.
+    impl From<bool> for CalOutcome {
+        fn from(value: bool) -> Self {
+            if value {
+                CalOutcome::Changed
+            } else {
+                CalOutcome::Unchanged
+            }
+        }
+    }
+
+    impl From<Outcome> for CalOutcome {
+        fn from(value: Outcome) -> Self {
+            match value {
+                Outcome::Continue => CalOutcome::Continue,
+                Outcome::Unchanged => CalOutcome::Unchanged,
+                Outcome::Changed => CalOutcome::Changed,
+            }
+        }
+    }
+
+    impl From<CalOutcome> for Outcome {
+        fn from(value: CalOutcome) -> Self {
+            match value {
+                CalOutcome::Continue => Outcome::Continue,
+                CalOutcome::Unchanged => Outcome::Unchanged,
+                CalOutcome::Changed => Outcome::Changed,
+                CalOutcome::Week(_) => Outcome::Changed,
+                CalOutcome::Day(_) => Outcome::Changed,
+                CalOutcome::Month(_) => Outcome::Changed,
+            }
+        }
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for MonthState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
+        if self.is_focused() {
+            flow!(match event {
+                ct_event!(keycode press Up) => {
+                    if !self.day_selection {
+                        return CalOutcome::Continue;
+                    }
+                    if self.prev_day(7) {
+                        CalOutcome::Day(self.selected_day_as_date().expect("day"))
+                    } else {
+                        CalOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press Down) => {
+                    if !self.day_selection {
+                        return CalOutcome::Continue;
+                    }
+                    if self.next_day(7) {
+                        CalOutcome::Day(self.selected_day_as_date().expect("day"))
+                    } else {
+                        CalOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press Left) => {
+                    if !self.day_selection {
+                        return CalOutcome::Continue;
+                    }
+                    if self.prev_day(1) {
+                        CalOutcome::Day(self.selected_day_as_date().expect("day"))
+                    } else {
+                        CalOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press Right) => {
+                    if !self.day_selection {
+                        return CalOutcome::Continue;
+                    }
+                    if self.next_day(1) {
+                        CalOutcome::Day(self.selected_day_as_date().expect("day"))
+                    } else {
+                        CalOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press ALT-Up) => {
+                    if !self.week_selection {
+                        return CalOutcome::Continue;
+                    }
+                    if self.prev_week(1) {
+                        CalOutcome::Week(self.selected_week_as_date().expect("week"))
+                    } else {
+                        CalOutcome::Continue
+                    }
+                }
+                ct_event!(keycode press ALT-Down) => {
+                    if !self.week_selection {
+                        return CalOutcome::Continue;
+                    }
+                    if self.next_week(1) {
+                        CalOutcome::Week(self.selected_week_as_date().expect("week"))
+                    } else {
+                        CalOutcome::Continue
+                    }
+                }
+                _ => CalOutcome::Continue,
+            })
+        }
+
+        self.handle(event, MouseOnly)
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> CalOutcome {
+        match event {
+            ct_event!(mouse drag Left for x, y) | ct_event!(mouse down Left for x, y) => {
+                if let Some(sel) = self.mouse.item_at(&self.area_weeks, *x, *y) {
+                    if !self.week_selection {
+                        return CalOutcome::Continue;
+                    }
+                    self.select_week(Some(sel));
+                    CalOutcome::Week(self.week_day(sel))
+                } else if let Some(sel) = self.mouse.item_at(&self.area_days, *x, *y) {
+                    if !self.day_selection {
+                        return CalOutcome::Continue;
+                    }
+                    self.select_day(Some(sel));
+                    CalOutcome::Day(self.month_day(sel))
+                } else {
+                    CalOutcome::Continue
+                }
+            }
+
+            _ => CalOutcome::Continue,
+        }
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthState] {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
+        for i in 0..self.len() {
+            if self[i].gained_focus() {
+                for j in 0..self.len() {
+                    if i != j {
+                        self[j].clear_selection();
+                    }
+                }
+            }
+        }
+
+        for i in 0..self.len() {
+            let month = &mut self[i];
+            if month.is_focused() {
+                let r = match month.handle(event, Regular) {
+                    CalOutcome::Continue => match event {
+                        ct_event!(keycode press Up) => {
+                            if !self[i].day_selection {
+                                return CalOutcome::Continue;
+                            }
+                            if i > 0 {
+                                if let Some(date) = self[i].selected_day_as_date() {
+                                    let new_date =
+                                        date - chrono::Duration::try_days(7).expect("days");
+                                    self[i].select_day(None);
+                                    self[i - 1].select_date(Some(new_date));
+                                    CalOutcome::Month(i - 1)
+                                } else {
+                                    CalOutcome::Continue
+                                }
+                            } else {
+                                CalOutcome::Continue
+                            }
+                        }
+                        ct_event!(keycode press Down) => {
+                            if !self[i].day_selection {
+                                return CalOutcome::Continue;
+                            }
+                            if i + 1 < self.len() {
+                                if let Some(date) = self[i].selected_day_as_date() {
+                                    let new_date =
+                                        date + chrono::Duration::try_days(7).expect("days");
+                                    self[i].select_day(None);
+                                    self[i + 1].select_date(Some(new_date));
+                                    CalOutcome::Month(i + 1)
+                                } else {
+                                    CalOutcome::Continue
+                                }
+                            } else {
+                                CalOutcome::Continue
+                            }
+                        }
+                        ct_event!(keycode press Left) => {
+                            if !self[i].day_selection {
+                                return CalOutcome::Continue;
+                            }
+                            if i > 0 {
+                                self[i].select_day(None);
+                                self[i - 1].select_day(None);
+                                if self[i - 1].prev_day(1) {
+                                    CalOutcome::Month(i - 1)
+                                } else {
+                                    CalOutcome::Continue
+                                }
+                            } else {
+                                CalOutcome::Continue
+                            }
+                        }
+                        ct_event!(keycode press Right) => {
+                            if !self[i].day_selection {
+                                return CalOutcome::Continue;
+                            }
+                            if i + 1 < self.len() {
+                                self[i].select_day(None);
+                                self[i + 1].select_day(None);
+                                if self[i + 1].next_day(1) {
+                                    CalOutcome::Month(i + 1)
+                                } else {
+                                    CalOutcome::Continue
+                                }
+                            } else {
+                                CalOutcome::Continue
+                            }
+                        }
+                        ct_event!(keycode press ALT-Up) => {
+                            if !self[i].week_selection {
+                                return CalOutcome::Continue;
+                            }
+                            if i > 0 {
+                                if let Some(date) = self[i].selected_week_as_date() {
+                                    self[i].select_week(None);
+                                    if self[i - 1].select_week_by_date(Some(date)) {
+                                        CalOutcome::Month(i - 1)
+                                    } else {
+                                        let new_date =
+                                            date - chrono::Duration::try_days(7).expect("days");
+                                        self[i - 1].select_week_by_date(Some(new_date));
+                                        CalOutcome::Month(i - 1)
+                                    }
+                                } else {
+                                    CalOutcome::Continue
+                                }
+                            } else {
+                                CalOutcome::Continue
+                            }
+                        }
+                        ct_event!(keycode press ALT-Down) => {
+                            if !self[i].week_selection {
+                                return CalOutcome::Continue;
+                            }
+                            if i + 1 < self.len() {
+                                if let Some(date) = self[i].selected_week_as_date() {
+                                    self[i].select_week(None);
+                                    if self[i + 1].select_week_by_date(Some(date)) {
+                                        CalOutcome::Month(i + 1)
+                                    } else {
+                                        let new_date =
+                                            date + chrono::Duration::try_days(7).expect("days");
+                                        self[i + 1].select_week_by_date(Some(new_date));
+                                        CalOutcome::Month(i + 1)
+                                    }
+                                } else {
+                                    CalOutcome::Continue
+                                }
+                            } else {
+                                CalOutcome::Continue
+                            }
+                        }
+                        _ => CalOutcome::Continue,
+                    },
+                    r => r,
+                };
+
+                return r;
+            }
+        }
+
+        for i in 0..self.len() {
+            let month = &mut self[i];
+            if !month.is_focused() {
+                flow!(month.handle(event, MouseOnly));
+            }
+        }
+
+        CalOutcome::Continue
     }
 }
