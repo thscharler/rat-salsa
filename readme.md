@@ -2,6 +2,8 @@
 
 An application event-loop with ratatui and crossterm.
 
+![image](https://github.com/thscharler/rat-salsa/blob/master/mdedit.gif?raw=true)
+
 ## companion crates
 
 rat-salsa covers only the event-loop and application building.
@@ -120,5 +122,5 @@ There is no example here, that would be too much.
 The examples directory contains files.rs and mdedit.rs.
 There is minimal.rs for a starter.
 
-
+![image](https://github.com/thscharler/rat-salsa/blob/master/files.gif?raw=true)
 

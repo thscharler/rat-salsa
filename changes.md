@@ -1,9 +1,14 @@
+# 0.24.2
+
+* minor fixes for examples/mdedit
+* add gifs but don't publish them.
+
 # 0.24.1
 
 * extensive work at the mdedit example. might even publish this
-  separately sometime. 
+  separately sometime.
 
-* cleanup minimal example. make it more minimal.  
+* cleanup minimal example. make it more minimal.
 
 # 0.24.0
 
