@@ -1,3 +1,7 @@
+# 0.12.2
+
+* docs fix
+
 # 0.12.1
 
 * fix: changes in rat-scroll
