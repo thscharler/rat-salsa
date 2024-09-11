@@ -1,39 +1,47 @@
+# 0.16.1
+
+* feature: add day and week selection to Month.
+* feature: add multi-month key-handling to Month.
+* refactor: rename inner_area to inner in Button.
+* fix: fix quirks with hide_split()
+* fix: layout + focus in msgdialog.
+* fix: keys with Paragraph
+
 # 0.16.0
 
 Beta preparations started.
 
-* refactor: add lengths to SplitState and disentangle from 
+* refactor: add lengths to SplitState and disentangle from
   split-areas. Add documentation for the state-values which
-  are meant to be changed and which are not. 
-  
-* feature: add hide_split()/show_split() to Splitter. 
+  are meant to be changed and which are not.
 
-* feature: Add better render-parameters for AttachedTab. 
-  It can no fill in as the 4th side of a 3sided border around 
-  the widget. 
+* feature: add hide_split()/show_split() to Splitter.
+
+* feature: Add better render-parameters for AttachedTab.
+  It can no fill in as the 4th side of a 3sided border around
+  the widget.
 
 * refactor: remove text-widgets and move them to rat-text.
-  Rebuild around a common TextStore trait and build the 
-  functionality for all widgets upon that. Implement a 
+  Rebuild around a common TextStore trait and build the
+  functionality for all widgets upon that. Implement a
   single-line String based version and a second Rope based
-  version for multi-line. 
-  
+  version for multi-line.
+
   re-export the result here.
-  
+
 * feature: simplify EditList
 * feature: FileDialog can now work as directory-chooser.
-  
+
 * remove: Fill widget. Replaced with reset_buf_area() and
   fill_buf_area().
-* remove: Remove split_char, join_0_char and join_1_char 
-  from Splitter. Overkill. 
-  
+* remove: Remove split_char, join_0_char and join_1_char
+  from Splitter. Overkill.
+
 * fix: changes in rat-scroll
 * fix: render bug in PopupMenu
-* fix: some more bugs due to making StatefulWidgetRef 
+* fix: some more bugs due to making StatefulWidgetRef
   a feature.
-* fix: Creating a directory in FileDialog didn't work.  
-
+* fix: Creating a directory in FileDialog didn't work.
 
 # 0.15.0
 
