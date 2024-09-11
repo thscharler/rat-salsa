@@ -1,3 +1,8 @@
+# 0.18.2
+
+* fix docs
+* don't publish gifs
+
 # 0.18.1
 
 * Internal updates to rat-scroll changes. No external API change.
