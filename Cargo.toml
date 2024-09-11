@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget"
-version = "0.16.1"
+version = "0.16.2"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -9,7 +9,7 @@ repository = "https://github.com/thscharler/rat-widget"
 readme = "readme.md"
 keywords = ["ratatui", "widget"]
 categories = ["command-line-interface"]
-exclude = [".idea/*", ".gitignore"]
+exclude = [".idea/*", ".gitignore", "textarea.gif"]
 
 
 [lints.rust]

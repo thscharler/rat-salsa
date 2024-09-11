@@ -1,3 +1,7 @@
+# 0.16.2
+
+* dont package gif
+
 # 0.16.1
 
 * feature: add day and week selection to Month.
