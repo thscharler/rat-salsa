@@ -1,0 +1,13 @@
+[package]
+name = "rat-cursor"
+version = "0.1.0"
+edition = "2021"
+description = "ratatui trait to communicate the cursor position across widgets"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/rat-cursor"
+readme = "readme.md"
+keywords = ["ratatui", "input", "cursor"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore"]
+
+[dependencies]
