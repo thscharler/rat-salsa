@@ -19,6 +19,8 @@ mod text_store;
 
 pub use grapheme::{Glyph, Grapheme};
 
+pub use rat_cursor::HasScreenCursor;
+
 pub mod event {
     //!
     //! Event-handler traits and Keybindings.
@@ -408,18 +410,6 @@ pub trait Cursor: Iterator {
 
     /// Offset of the current cursor position into the underlying text.
     fn text_offset(&self) -> usize;
-}
-
-/// Trait for accessing the screen-cursor.
-///
-/// In ratatui the screen-cursor can't be set during rendering, instead
-/// it must be set for the Frame at some point.
-///
-/// This trait provides a method to get the screen cursor (if any)
-/// for a widget.
-pub trait HasScreenCursor {
-    /// Does the widget have a screen cursor?
-    fn screen_cursor(&self) -> Option<(u16, u16)>;
 }
 
 mod _private {

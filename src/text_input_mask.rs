@@ -600,7 +600,7 @@ impl MaskedInputState {
     /// of the styles set with the widget.
     #[inline]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
-        self.value.add_style(range.into(), style);
+        self.value.add_style(range, style);
     }
 
     /// Add a style for a Range<upos_type> to denote the cells.
@@ -619,7 +619,7 @@ impl MaskedInputState {
     /// Remove the exact TextRange and style.
     #[inline]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
-        self.value.remove_style(range.into(), style);
+        self.value.remove_style(range, style);
     }
 
     /// Remove the exact Range<upos_type> and style.
@@ -649,7 +649,7 @@ impl MaskedInputState {
     /// return the complete range for the style.
     #[inline]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.value.style_match(byte_pos, style.into())
+        self.value.style_match(byte_pos, style)
     }
 
     /// List of all styles.
@@ -809,7 +809,7 @@ impl MaskedInputState {
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
-    pub fn text_graphemes(&self, pos: upos_type) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+    pub fn text_graphemes(&self, pos: upos_type) -> impl Cursor<Item = Grapheme<'_>> {
         self.value.text_graphemes(pos).expect("valid_pos")
     }
 
@@ -818,7 +818,7 @@ impl MaskedInputState {
     pub fn try_text_graphemes(
         &self,
         pos: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.value.text_graphemes(pos)
     }
 
@@ -828,7 +828,7 @@ impl MaskedInputState {
         &self,
         range: Range<upos_type>,
         pos: upos_type,
-    ) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+    ) -> impl Cursor<Item = Grapheme<'_>> {
         self.value.graphemes(range, pos).expect("valid_args")
     }
 
@@ -838,7 +838,7 @@ impl MaskedInputState {
         &self,
         range: Range<upos_type>,
         pos: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.value.graphemes(range, pos)
     }
 
@@ -1192,7 +1192,7 @@ impl MaskedInputState {
         let ox = self.offset();
 
         if scx < 0 {
-            ox.saturating_sub((scx as ipos_type).abs() as upos_type)
+            ox.saturating_sub((scx as ipos_type).unsigned_abs())
         } else if scx as u16 >= self.inner.width {
             min(ox + scx as upos_type, self.len())
         } else {

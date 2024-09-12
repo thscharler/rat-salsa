@@ -640,7 +640,7 @@ impl TextAreaState {
     /// of the styles set with the widget.
     #[inline]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
-        self.value.add_style(range.into(), style);
+        self.value.add_style(range, style);
     }
 
     /// Add a style for a [TextRange]. The style-nr refers to one
@@ -655,7 +655,7 @@ impl TextAreaState {
     /// Remove the exact TextRange and style.
     #[inline]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
-        self.value.remove_style(range.into(), style);
+        self.value.remove_style(range, style);
     }
 
     /// Remove the exact TextRange and style.
@@ -681,7 +681,7 @@ impl TextAreaState {
     /// return the complete range for the style.
     #[inline]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.value.style_match(byte_pos, style.into())
+        self.value.style_match(byte_pos, style)
     }
 
     /// List of all styles.
@@ -898,7 +898,7 @@ impl TextAreaState {
 
     /// Get a cursor over all the text with the current position set at pos.
     #[inline]
-    pub fn text_graphemes(&self, pos: TextPosition) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+    pub fn text_graphemes(&self, pos: TextPosition) -> impl Cursor<Item = Grapheme<'_>> {
         self.value.text_graphemes(pos).expect("valid_pos")
     }
 
@@ -907,7 +907,7 @@ impl TextAreaState {
     pub fn try_text_graphemes(
         &self,
         pos: TextPosition,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.value.text_graphemes(pos)
     }
 
@@ -917,7 +917,7 @@ impl TextAreaState {
         &self,
         range: TextRange,
         pos: TextPosition,
-    ) -> impl Iterator<Item = Grapheme<'_>> + Cursor {
+    ) -> impl Cursor<Item = Grapheme<'_>> {
         self.value.graphemes(range, pos).expect("valid_args")
     }
 
@@ -927,7 +927,7 @@ impl TextAreaState {
         &self,
         range: TextRange,
         pos: TextPosition,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.value.graphemes(range, pos)
     }
 
@@ -1168,7 +1168,7 @@ impl TextAreaState {
                         break;
                     }
                 }
-                if blanks.len() > 0 {
+                if !blanks.is_empty() {
                     self.value
                         .insert_str(cursor, &blanks)
                         .expect("valid_cursor");
@@ -1400,8 +1400,7 @@ impl TextAreaState {
             let till_line_start = if cursor.x != 0 {
                 self.graphemes(TextRange::new((0, cursor.y), cursor), cursor)
                     .rev_cursor()
-                    .find(|v| !v.is_whitespace())
-                    .is_none()
+                    .all(|v| v.is_whitespace())
             } else {
                 false
             };
@@ -1642,7 +1641,7 @@ impl TextAreaState {
         let oy = oy as upos_type;
 
         if scy < 0 {
-            oy.saturating_sub((scy as ipos_type).abs() as upos_type)
+            oy.saturating_sub((scy as ipos_type).unsigned_abs())
         } else if scy as u16 >= self.inner.height {
             min(oy + scy as upos_type, self.len_lines().saturating_sub(1))
         } else {
@@ -1677,7 +1676,7 @@ impl TextAreaState {
         let ox = ox as upos_type;
 
         if scx < 0 {
-            Ok(ox.saturating_sub((scx as ipos_type).abs() as upos_type))
+            Ok(ox.saturating_sub((scx as ipos_type).unsigned_abs()))
         } else if scx as u16 >= self.inner.width {
             Ok(min(ox + scx as upos_type, self.line_width(row)))
         } else {

@@ -11,6 +11,11 @@ keywords = ["ratatui", "widget", "text"]
 categories = ["command-line-interface"]
 exclude = [".idea/*", ".gitignore"]
 
+[lints.clippy]
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+if_same_then_else = "allow"
+comparison_chain = "allow"
 
 [lints.rust]
 absolute_paths_not_starting_with_crate = "warn"
@@ -64,6 +69,7 @@ log = "0.4"
 dyn-clone = "1.0.17"
 
 rat-event = { version = "0.16", path = "../rat-event" }
+rat-cursor = { version = "0.1", path = "../rat-cursor" }
 rat-focus = { version = "0.12", path = "../rat-focus" }
 rat-scrolled = { version = "0.14", path = "../rat-scrolled" }
 

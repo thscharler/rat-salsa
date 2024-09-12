@@ -257,7 +257,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     txt,
                     styles,
                 } => {
-                    self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
+                    self.text.insert_b(bytes.start, txt).expect("valid_bytes");
 
                     if let Some(sty) = &mut self.styles {
                         for s in styles {
@@ -335,7 +335,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
                     anchor,
                     txt,
                 } => {
-                    self.text.insert_b(bytes.start, &txt).expect("valid_bytes");
+                    self.text.insert_b(bytes.start, txt).expect("valid_bytes");
                     if let Some(sty) = &mut self.styles {
                         sty.remap(|r, _| Some(expand_range_by(bytes.clone(), r)));
                     }
@@ -590,11 +590,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// List of all styles.
     #[inline]
     pub fn styles(&self) -> Option<impl Iterator<Item = (Range<usize>, usize)> + '_> {
-        if let Some(sty) = &self.styles {
-            Some(sty.values())
-        } else {
-            None
-        }
+        self.styles.as_ref().map(|v| v.values())
     }
 }
 
@@ -786,7 +782,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     pub fn text_graphemes(
         &self,
         pos: TextPosition,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         let rows = self.text.len_lines();
         let cols = self.text.line_width(rows).expect("valid_row");
         self.text
@@ -799,7 +795,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         &self,
         range: TextRange,
         pos: TextPosition,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.text.graphemes(range, pos)
     }
 
@@ -827,7 +823,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     pub fn line_graphemes(
         &self,
         row: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.text.line_graphemes(row)
     }
 
@@ -903,6 +899,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
     }
 
     /// Auto-quote the selected text.
+    #[allow(clippy::needless_bool)]
     pub fn insert_quotes(&mut self, mut sel: TextRange, c: char) -> Result<bool, TextError> {
         self.begin_undo_seq();
 
@@ -1003,7 +1000,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let old_anchor = self.anchor;
 
         if let Some(sty) = &mut self.styles {
-            sty.remap(|r, _| Some(expand_range_by((&inserted_bytes).clone(), r)));
+            sty.remap(|r, _| Some(expand_range_by(inserted_bytes.clone(), r)));
         }
         self.cursor = inserted_range.expand_pos(self.cursor);
         self.anchor = inserted_range.expand_pos(self.anchor);
@@ -1034,7 +1031,7 @@ impl<Store: TextStore + Default> TextCore<Store> {
         let (inserted_range, inserted_bytes) = self.text.insert_str(pos, t)?;
 
         if let Some(sty) = &mut self.styles {
-            sty.remap(|r, _| Some(expand_range_by((&inserted_bytes).clone(), r)));
+            sty.remap(|r, _| Some(expand_range_by(inserted_bytes.clone(), r)));
         }
         self.anchor = inserted_range.expand_pos(self.anchor);
         self.cursor = inserted_range.expand_pos(self.cursor);
@@ -1175,8 +1172,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Find the start of the next word. If the position is at the start
     /// or inside a word, the same position is returned.
     pub fn next_word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
         let mut cursor = self.text_graphemes(pos)?;
         let mut last_pos = cursor.text_offset();
         loop {
@@ -1195,8 +1190,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Find the end of the next word. Skips whitespace first, then goes on
     /// until it finds the next whitespace.
     pub fn next_word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
         let mut cursor = self.text_graphemes(pos)?;
         let mut last_pos = cursor.text_offset();
         let mut init = true;
@@ -1225,8 +1218,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
     pub fn prev_word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
         let mut cursor = self.text_graphemes(pos)?;
         let mut last_pos = cursor.text_offset();
         let mut init = true;
@@ -1253,8 +1244,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Attention: start/end are mirrored here compared to next_word_start/next_word_end,
     /// both return start<=end!
     pub fn prev_word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
         let mut cursor = self.text_graphemes(pos)?;
         let mut last_pos = cursor.text_offset();
         loop {
@@ -1272,8 +1261,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
 
     /// Is the position at a word boundary?
     pub fn is_word_boundary(&self, pos: TextPosition) -> Result<bool, TextError> {
-        let pos = pos.into();
-
         let mut cursor = self.text_graphemes(pos)?;
         if let Some(c0) = cursor.prev() {
             cursor.next();
@@ -1291,8 +1278,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Find the start of the word at pos.
     /// Returns pos if the position is not inside a word.
     pub fn word_start(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
         let mut cursor = self.text_graphemes(pos)?;
         let mut last_pos = cursor.text_offset();
         loop {
@@ -1311,8 +1296,6 @@ impl<Store: TextStore + Default> TextCore<Store> {
     /// Find the end of the word at pos.
     /// Returns pos if the position is not inside a word.
     pub fn word_end(&self, pos: TextPosition) -> Result<TextPosition, TextError> {
-        let pos = pos.into();
-
         let mut cursor = self.text_graphemes(pos)?;
         let mut last_pos = cursor.text_offset();
         loop {

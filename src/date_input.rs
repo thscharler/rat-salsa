@@ -410,7 +410,7 @@ impl DateInputState {
     /// of the styles set with the widget.
     #[inline]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
-        self.widget.add_style(range.into(), style);
+        self.widget.add_style(range, style);
     }
 
     /// Add a style for a Range<upos_type> to denote the cells.
@@ -427,7 +427,7 @@ impl DateInputState {
     /// Remove the exact TextRange and style.
     #[inline]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
-        self.widget.remove_style(range.into(), style);
+        self.widget.remove_style(range, style);
     }
 
     /// Remove the exact Range<upos_type> and style.
@@ -455,7 +455,7 @@ impl DateInputState {
     /// return the complete range for the style.
     #[inline]
     pub fn style_match(&self, byte_pos: usize, style: usize) -> Option<Range<usize>> {
-        self.widget.style_match(byte_pos, style.into())
+        self.widget.style_match(byte_pos, style)
     }
 
     /// List of all styles.

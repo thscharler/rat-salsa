@@ -33,7 +33,7 @@ impl RangeMap {
         self.page_map.borrow_mut().clear();
         for (r, v) in styles {
             if !r.is_empty() {
-                self.map.force_insert(r.into(), v);
+                self.map.force_insert(r, v);
             }
         }
     }
@@ -46,12 +46,7 @@ impl RangeMap {
         if range.is_empty() {
             return;
         }
-        if self
-            .map
-            .values_at(range.clone())
-            .find(|v| **v == value)
-            .is_none()
-        {
+        if !self.map.values_at(range.clone()).any(|v| *v == value) {
             self.map.force_insert(range, value);
         }
         self.page = Default::default();
@@ -72,7 +67,7 @@ impl RangeMap {
 
     /// List of all values.
     pub(crate) fn values(&self) -> impl Iterator<Item = (Range<usize>, usize)> + '_ {
-        self.map.iter(..).map(|(r, v)| (r.into(), *v))
+        self.map.iter(..).map(|(r, v)| (r, *v))
     }
 
     /// Find all values for the page that touch the given position.
@@ -111,9 +106,9 @@ impl RangeMap {
 
     /// Check if a given value exists for the position and return the range.
     pub(crate) fn value_match(&self, pos: usize, value: usize) -> Option<Range<usize>> {
-        for (r, s) in self.map.overlap(pos.into()) {
+        for (r, s) in self.map.overlap(pos) {
             if value == *s {
-                return Some(r.into());
+                return Some(r);
             }
         }
         None
@@ -146,7 +141,7 @@ impl RangeMap {
             self.map.clear();
             for (r, v) in self.buf.drain(..) {
                 if !r.is_empty() {
-                    self.map.force_insert(r.into(), v);
+                    self.map.force_insert(r, v);
                 }
             }
         }

@@ -55,7 +55,7 @@ pub trait TextStore {
         &self,
         range: TextRange,
         pos: TextPosition,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError>;
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError>;
 
     /// Line as str.
     ///
@@ -71,10 +71,8 @@ pub trait TextStore {
     /// This contains the '\n' at the end.
     ///
     /// * row must be <= len_lines
-    fn line_graphemes(
-        &self,
-        row: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError>;
+    fn line_graphemes(&self, row: upos_type)
+        -> Result<impl Cursor<Item = Grapheme<'_>>, TextError>;
 
     /// Line width of row as grapheme count.
     /// Excludes the terminating '\n'.
@@ -253,9 +251,9 @@ pub(crate) mod text_rope {
             }
             // one past the end is ok.
             if col == pos.x {
-                return Ok(byte_end..byte_end);
+                Ok(byte_end..byte_end)
             } else {
-                return Err(TextError::ColumnIndexOutOfBounds(pos.x, col));
+                Err(TextError::ColumnIndexOutOfBounds(pos.x, col))
             }
         }
 
@@ -358,12 +356,12 @@ pub(crate) mod text_rope {
                 let it_line = self.line_graphemes(start_row)?;
                 for grapheme in it_line {
                     if bytes.start < grapheme.text_bytes().end {
-                        if start == None {
+                        if start.is_none() {
                             start = Some(col);
                         }
                     }
                     if bytes.end < grapheme.text_bytes().end {
-                        if end == None {
+                        if end.is_none() {
                             end = Some(col);
                         }
                     }
@@ -443,7 +441,7 @@ pub(crate) mod text_rope {
             &self,
             range: TextRange,
             pos: TextPosition,
-        ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+        ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
             if !range.contains_pos(pos) && range.end != pos {
                 return Err(TextError::TextPositionOutOfBounds(pos));
             }
@@ -507,7 +505,7 @@ pub(crate) mod text_rope {
         fn line_graphemes(
             &self,
             row: upos_type,
-        ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+        ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
             let line_byte = self.text.try_line_to_byte(row as usize)?;
             // try_line_to_byte and get_line don't have the same boundaries.
             // the former accepts one past the end, the latter doesn't.
@@ -527,7 +525,7 @@ pub(crate) mod text_rope {
         fn line_width(&self, row: upos_type) -> Result<upos_type, TextError> {
             let len = self.text.len_lines() as upos_type;
             if row > len {
-                return Err(TextError::LineIndexOutOfBounds(row, len));
+                Err(TextError::LineIndexOutOfBounds(row, len))
             } else if row == len {
                 Ok(0)
             } else {
@@ -1024,7 +1022,7 @@ pub(crate) mod text_string {
             &self,
             range: TextRange,
             pos: TextPosition,
-        ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+        ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
             let range_byte = self.byte_range(range)?;
             let pos_byte = self.byte_range_at(pos)?;
             Ok(StrGraphemes::new_offset(
@@ -1070,7 +1068,7 @@ pub(crate) mod text_string {
         fn line_graphemes(
             &self,
             row: upos_type,
-        ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+        ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
             if row == 0 {
                 Ok(StrGraphemes::new(0, &self.text))
             } else if row == 1 {

@@ -687,26 +687,17 @@ impl MaskedCore {
         let sym_grp = || self.grp_sep().to_string();
         let sym_pos = || self.pos_sym().to_string();
 
-        let iter =
-            grapheme_iter
-                .zip(mask_iter)
-                .filter_map(move |(g, t)| match (&t.right, g.grapheme()) {
-                    (Mask::Numeric(_), "-") => {
-                        Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                    }
-                    (Mask::DecimalSep, ".") => {
-                        Some(Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()))
-                    }
-                    (Mask::GroupingSep, ",") => {
-                        Some(Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()))
-                    }
-                    (Mask::GroupingSep, "-") => {
-                        Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()))
-                    }
-                    (Mask::Sign, "-") => Some(Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes())),
-                    (Mask::Sign, _) => Some(Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes())),
-                    (_, _) => Some(g),
-                });
+        let iter = grapheme_iter
+            .zip(mask_iter)
+            .map(move |(g, t)| match (&t.right, g.grapheme()) {
+                (Mask::Numeric(_), "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
+                (Mask::DecimalSep, ".") => Grapheme::new(Cow::Owned(sym_dec()), g.text_bytes()),
+                (Mask::GroupingSep, ",") => Grapheme::new(Cow::Owned(sym_grp()), g.text_bytes()),
+                (Mask::GroupingSep, "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
+                (Mask::Sign, "-") => Grapheme::new(Cow::Owned(sym_neg()), g.text_bytes()),
+                (Mask::Sign, _) => Grapheme::new(Cow::Owned(sym_pos()), g.text_bytes()),
+                (_, _) => g,
+            });
 
         let mut it = GlyphIter::new(TextPosition::new(0, rows.start), iter);
         it.set_screen_offset(screen_offset);
@@ -796,7 +787,7 @@ impl MaskedCore {
     pub fn text_graphemes(
         &self,
         pos: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.masked.text_graphemes(TextPosition::new(pos, 0))
     }
 
@@ -806,7 +797,7 @@ impl MaskedCore {
         &self,
         range: Range<upos_type>,
         pos: upos_type,
-    ) -> Result<impl Iterator<Item = Grapheme<'_>> + Cursor, TextError> {
+    ) -> Result<impl Cursor<Item = Grapheme<'_>>, TextError> {
         self.masked.graphemes(
             TextRange::new((range.start, 0), (range.end, 0)),
             TextPosition::new(pos, 0),
@@ -866,7 +857,7 @@ impl MaskedCore {
     /// Put the cursor at that position.
     #[allow(clippy::if_same_then_else)]
     pub fn advance_cursor(&mut self, c: char) -> bool {
-        if self.mask.len() == 0 {
+        if self.mask.is_empty() {
             return false;
         }
 
@@ -1146,7 +1137,7 @@ impl MaskedCore {
     ///
     /// Otherwise: your mileage might vary.
     pub fn insert_char(&mut self, c: char) -> bool {
-        if self.mask.len() == 0 {
+        if self.mask.is_empty() {
             return false;
         }
 
@@ -1709,7 +1700,7 @@ impl MaskedCore {
 
     /// Rebuild a section according to number-formatting.
     /// The main purpose is to rebuild the grouping separators.
-    fn reformat(core: &mut TextCore<TextString>, mask: &Vec<MaskToken>, section: Range<upos_type>) {
+    fn reformat(core: &mut TextCore<TextString>, mask: &[MaskToken], section: Range<upos_type>) {
         if mask[section.start as usize].right.is_rtol() {
             let cursor = core.cursor();
             let anchor = core.anchor();

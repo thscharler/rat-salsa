@@ -142,12 +142,11 @@ impl<'a> StrGraphemes<'a> {
     /// * offset - relative offset into the slice
     ///
     pub(crate) fn new_offset(slice_offset: usize, slice: &'a str, offset: usize) -> Self {
-        let s = Self {
+        Self {
             text_offset: slice_offset,
             text: slice,
             cursor: GraphemeCursor::new(offset, slice.len(), true),
-        };
-        s
+        }
     }
 }
 
@@ -516,7 +515,7 @@ where
     type Item = Glyph<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        while let Some(grapheme) = self.iter.next() {
+        for grapheme in self.iter.by_ref() {
             let glyph;
             let len: u16;
             let mut lbrk = false;
@@ -550,7 +549,7 @@ where
                     let c0 = c.bytes().next().expect("byte");
                     len = 1;
                     glyph = Cow::Borrowed(if self.show_ctrl {
-                        &CCHAR[c0 as usize]
+                        CCHAR[c0 as usize]
                     } else {
                         "\u{FFFD}"
                     });

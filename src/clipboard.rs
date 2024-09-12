@@ -51,7 +51,7 @@ impl Clipboard for LocalClipboard {
     fn get_string(&self) -> Result<String, ClipboardError> {
         match self.text.lock() {
             Ok(v) => Ok(v.clone()),
-            Err(_) => return Err(ClipboardError),
+            Err(_) => Err(ClipboardError),
         }
     }
 
@@ -61,7 +61,7 @@ impl Clipboard for LocalClipboard {
                 *v = s.to_string();
                 Ok(())
             }
-            Err(_) => return Err(ClipboardError),
+            Err(_) => Err(ClipboardError),
         }
     }
 }
