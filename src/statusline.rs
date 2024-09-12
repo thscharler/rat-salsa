@@ -23,10 +23,14 @@ pub struct StatusLine {
 #[derive(Debug, Clone)]
 pub struct StatusLineState {
     /// Total area
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Areas for each section.
+    /// __readonly__. renewed for each render.
     pub areas: Vec<Rect>,
+
     /// Statustext for each section.
+    /// __read+write__
     pub status: Vec<String>,
 
     pub non_exhaustive: NonExhaustive,

@@ -70,24 +70,35 @@ pub struct ListStyle {
 /// State & event handling.
 #[derive(Debug, Default, Clone, PartialEq, Eq)]
 pub struct ListState<Selection> {
-    /// Length in items.
-    pub rows: usize,
-    /// Offset
-    pub scroll: ScrollState,
-
     /// Total area
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Area inside the block.
+    /// __readonly__. renewed for each render.
     pub inner: Rect,
     /// Areas for the rendered items.
+    /// __readonly__. renewed for each render.
     pub row_areas: Vec<Rect>,
 
+    /// Length in items.
+    /// __mostly readonly__. renewed for each render.
+    /// Can be manipulated with [items_added] and [items_removed],
+    /// which is useful if you want to call functions that use this
+    /// as a limit.
+    pub rows: usize,
+    /// Offset etc.
+    /// __read+write__
+    pub scroll: ScrollState,
+
     /// Focus
+    /// __read+write__
     pub focus: FocusFlag,
     /// Selection model
+    /// __read+write__
     pub selection: Selection,
 
     /// Helper for mouse events.
+    /// __used for mouse interaction__
     pub mouse: MouseFlags,
 }
 

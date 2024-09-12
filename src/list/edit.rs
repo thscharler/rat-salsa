@@ -32,6 +32,7 @@ pub struct EditListState<EditorState> {
     /// EditorState. Some indicates editing is active.
     editor: Option<EditorState>,
 
+    /// Flags for mouse interaction.
     pub mouse: MouseFlags,
 }
 

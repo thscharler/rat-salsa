@@ -32,17 +32,22 @@ pub struct Paragraph<'a> {
 #[derive(Debug, Clone)]
 pub struct ParagraphState {
     /// Full area of the widget.
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Inner area of the widget.
+    /// __readonly__. renewed for each render.
     pub inner: Rect,
 
-    /// Focus
-    pub focus: FocusFlag,
-
-    /// Vertical scroll
+    /// Vertical scroll.
+    /// __read+write__
     pub vscroll: ScrollState,
-    /// Horizontal scroll
+    /// Horizontal scroll.
+    /// __read+write__
     pub hscroll: ScrollState,
+
+    /// Focus.
+    /// __read+write__
+    pub focus: FocusFlag,
 
     pub non_exhaustive: NonExhaustive,
 }

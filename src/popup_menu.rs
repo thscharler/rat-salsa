@@ -103,23 +103,31 @@ pub struct PopupMenu<'a> {
 /// State & event handling.
 #[derive(Debug, Clone)]
 pub struct PopupMenuState {
-    /// Focusflag is used to decide the visible/not-visible state.
-    pub focus: FocusFlag,
     /// Total area
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Area with z-index for Focus.
+    /// __readonly__. renewed for each render.
     pub z_areas: [ZRect; 1],
     /// Areas for each item.
+    /// __readonly__. renewed for each render.
     pub item_areas: Vec<Rect>,
     /// Area for the separator after each item.
+    /// __readonly__. renewed for each render.
     pub sep_areas: Vec<Rect>,
     /// Letter navigation
+    /// __readonly__. renewed for each render.
     pub navchar: Vec<Option<char>>,
 
     /// Selected item.
+    /// __read+write__
     pub selected: Option<usize>,
 
+    /// Focusflag is used to decide the visible/not-visible state.
+    /// __read+write__
+    pub focus: FocusFlag,
     /// Mouse flags
+    /// __used for mouse interaction__
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,

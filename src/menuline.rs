@@ -52,19 +52,26 @@ pub struct MenuStyle {
 /// State & event handling.
 #[derive(Debug, Clone)]
 pub struct MenuLineState {
-    /// Current focus state.
-    pub focus: FocusFlag,
     /// Area for the whole widget.
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Areas for each item.
+    /// __readonly__. renewed for each render.
     pub item_areas: Vec<Rect>,
     /// Hot keys
+    /// __readonly__. renewed for each render.
     pub navchar: Vec<Option<char>>,
 
     /// Selected item.
+    /// __read+write__
     pub selected: Option<usize>,
 
+    /// Current focus state.
+    /// __read+write__
+    pub focus: FocusFlag,
+
     /// Flags for mouse handling.
+    /// __used for mouse interaction__
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,

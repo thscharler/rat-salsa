@@ -43,23 +43,26 @@ pub struct MsgDialogStyle {
 #[derive(Debug, Clone)]
 pub struct MsgDialogState {
     /// Full area.
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Area inside the borders.
+    /// __readonly__. renewed for each render.
     pub inner: Rect,
 
     /// Dialog is active.
+    /// __read+write__
     pub active: Cell<bool>,
     /// Dialog title
+    /// __read+write__
     pub message_title: RefCell<String>,
     /// Dialog text.
+    /// __read+write__
     pub message: RefCell<String>,
 
     /// Ok button
-    pub button: RefCell<ButtonState>,
+    button: RefCell<ButtonState>,
     /// message-text
-    pub paragraph: RefCell<ParagraphState>,
-
-    pub non_exhaustive: NonExhaustive,
+    paragraph: RefCell<ParagraphState>,
 }
 
 impl<'a> MsgDialog<'a> {
@@ -161,7 +164,6 @@ impl Default for MsgDialogState {
             message: Default::default(),
             button: Default::default(),
             paragraph: Default::default(),
-            non_exhaustive: NonExhaustive,
             message_title: Default::default(),
         };
         s.paragraph.borrow().focus.set(true);

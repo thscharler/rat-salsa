@@ -6,7 +6,6 @@
 //! The difference is that View works for [Widget]s and
 //! Viewport for [StatefulWidget]s.
 //!
-//!
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
 use crate::util::copy_buffer;
@@ -43,17 +42,24 @@ struct ViewportImpl<'a> {
 /// State of the viewport.
 #[derive(Debug, Clone)]
 pub struct ViewportState<S> {
+    /// State of the viewed widget.
     pub widget: S,
 
     /// Complete area of the viewport.
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Inner area of the viewport.
-    pub inner_area: Rect,
+    /// __readonly__. renewed for each render.
+    pub inner: Rect,
     /// The viewport area that the inner widget sees.
-    pub view_area: Rect,
+    /// __readonly__. renewed for each render.
+    pub view: Rect,
+
     /// Horizontal scroll
+    /// __read+write__
     pub hscroll: ScrollState,
     /// Vertical scroll
+    /// __read+write__
     pub vscroll: ScrollState,
 
     /// Only construct with `..Default::default()`.
@@ -172,7 +178,7 @@ fn render_ref<S>(
 ) {
     state.area = area;
 
-    state.inner_area = scroll.inner(
+    state.inner = scroll.inner(
         area,
         ScrollAreaState {
             area,
@@ -181,24 +187,21 @@ fn render_ref<S>(
         },
     );
 
-    state.view_area = Rect::new(
-        state.inner_area.x,
-        state.inner_area.y,
+    state.view = Rect::new(
+        state.inner.x,
+        state.inner.y,
         viewport.view_size.width,
         viewport.view_size.height,
     );
 
     state
         .hscroll
-        .set_max_offset(state.view_area.width.saturating_sub(state.inner_area.width) as usize);
-    state.hscroll.set_page_len(state.inner_area.width as usize);
-    state.vscroll.set_max_offset(
-        state
-            .view_area
-            .height
-            .saturating_sub(state.inner_area.height) as usize,
-    );
-    state.vscroll.set_page_len(state.inner_area.height as usize);
+        .set_max_offset(state.view.width.saturating_sub(state.inner.width) as usize);
+    state.hscroll.set_page_len(state.inner.width as usize);
+    state
+        .vscroll
+        .set_max_offset(state.view.height.saturating_sub(state.inner.height) as usize);
+    state.vscroll.set_page_len(state.inner.height as usize);
 
     scroll.render(
         area,
@@ -210,16 +213,16 @@ fn render_ref<S>(
         },
     );
 
-    let mut tmp = Buffer::empty(state.view_area);
-    render_widget(state.view_area, &mut tmp, &mut state.widget);
+    let mut tmp = Buffer::empty(state.view);
+    render_widget(state.view, &mut tmp, &mut state.widget);
 
     copy_buffer(
-        state.view_area,
+        state.view,
         tmp,
         state.hscroll.offset(),
         state.vscroll.offset(),
         viewport.style,
-        state.inner_area,
+        state.inner,
         buf,
     );
 }
@@ -229,8 +232,8 @@ impl<S: Default> Default for ViewportState<S> {
         Self {
             widget: S::default(),
             area: Default::default(),
-            inner_area: Default::default(),
-            view_area: Default::default(),
+            inner: Default::default(),
+            view: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -334,7 +337,7 @@ where
             .handle(&self.relocate_crossterm(event), qualifier));
 
         let mut sas = ScrollAreaState {
-            area: self.inner_area,
+            area: self.inner,
             h_scroll: Some(&mut self.hscroll),
             v_scroll: Some(&mut self.vscroll),
         };

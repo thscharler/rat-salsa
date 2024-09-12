@@ -120,15 +120,17 @@ pub struct MenubarPopup<'a> {
 /// State & event-handling.
 #[derive(Debug, Default, Clone)]
 pub struct MenuBarState {
+    /// Total area for the menubar and any visible popup.
+    /// __readonly__. renewed for each render.
+    pub area: Rect,
+    /// Areas for the menubar.
+    /// __readonly__. renewed for each render.
+    pub z_areas: [ZRect; 2],
+
     /// State for the menu.
     pub bar: MenuLineState,
     /// State for the last rendered popup menu.
     pub popup: PopupMenuState,
-
-    /// Total area for the menubar and any visible popup.
-    pub area: Rect,
-    /// Areas for the menubar.
-    pub z_areas: [ZRect; 2],
 }
 
 impl<'a> Debug for Menubar<'a> {
