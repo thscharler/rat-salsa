@@ -244,30 +244,7 @@ impl<'a> Month<'a> {
     /// Required height for the widget. Varies.
     #[inline]
     pub fn height(&self) -> u16 {
-        let mut r = 0;
-        let mut day = self.start_date;
-        let month = day.month();
-
-        // i'm sure you can calculate this better.
-        for wd in [
-            Weekday::Mon,
-            Weekday::Tue,
-            Weekday::Wed,
-            Weekday::Thu,
-            Weekday::Fri,
-            Weekday::Sat,
-            Weekday::Sun,
-        ] {
-            if day.weekday() == wd {
-                day += chrono::Duration::try_days(1).expect("days");
-            }
-        }
-        r += 1;
-        while month == day.month() {
-            day += chrono::Duration::try_days(7).expect("days");
-            r += 1;
-        }
-
+        let mut r = MonthState::count_weeks(self.start_date) as u16;
         if self.block.is_some() {
             r + 1
         } else {
@@ -363,13 +340,13 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
     let mut y = state.inner.y;
 
     // first line may omit a few days
-    state.area_weeks[w] = Rect::new(x, y, 2, 1);
+    state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
     Span::from(day.format_localized("%W", widget.loc).to_string())
         .style(week_style)
         .render(state.area_weeks[w], buf);
 
     let week_sel = if state.selected_week == Some(w) {
-        let week_bg = Rect::new(x + 3, y, 21, 1);
+        let week_bg = Rect::new(x + 3, y, 21, 1).intersection(state.inner);
         buf.set_style(week_bg, select_style);
         true
     } else {
@@ -405,7 +382,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
                 day_style
             };
 
-            state.area_days[day.day0() as usize] = Rect::new(x, y, 2, 1);
+            state.area_days[day.day0() as usize] = Rect::new(x, y, 2, 1).intersection(state.inner);
 
             Span::from(day.format_localized("%e", widget.loc).to_string())
                 .style(day_style)
@@ -421,13 +398,13 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
     y += 1;
 
     while month == day.month() {
-        state.area_weeks[w] = Rect::new(x, y, 2, 1);
+        state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
         Span::from(day.format_localized("%W", widget.loc).to_string())
             .style(week_style)
             .render(state.area_weeks[w], buf);
 
         let week_sel = if state.selected_week == Some(w) {
-            let week_bg = Rect::new(x + 3, y, 21, 1);
+            let week_bg = Rect::new(x + 3, y, 21, 1).intersection(state.inner);
             buf.set_style(week_bg, select_style);
             true
         } else {
@@ -453,7 +430,8 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
                     day_style
                 };
 
-                state.area_days[day.day0() as usize] = Rect::new(x, y, 2, 1);
+                state.area_days[day.day0() as usize] =
+                    Rect::new(x, y, 2, 1).intersection(state.inner);
 
                 Span::from(day.format_localized("%e", widget.loc).to_string())
                     .style(day_style)
@@ -538,9 +516,11 @@ impl MonthState {
                     self.selected_week = Some(w);
                     true
                 } else {
+                    self.selected_week = None;
                     false
                 }
             } else {
+                self.selected_week = None;
                 false
             }
         } else {
@@ -575,6 +555,7 @@ impl MonthState {
                 self.selected_day = Some(d.day0() as usize);
                 true
             } else {
+                self.selected_day = None;
                 false
             }
         } else {
@@ -744,6 +725,31 @@ impl MonthState {
             }
         }
         None
+    }
+
+    /// Nr of weeks in this month.
+    pub fn week_len(&self) -> usize {
+        Self::count_weeks(self.start_date)
+    }
+
+    /// Nr of weeks for the given month
+    pub fn count_weeks(day: NaiveDate) -> usize {
+        let mut day = day.with_day0(0).expect("date");
+        let month = day.month();
+
+        let mut w = 0;
+
+        while month == day.month() {
+            day += chrono::Duration::try_days(7).expect("days");
+            w += 1;
+        }
+        // last week might be next month
+        let week = day.week(Weekday::Mon);
+        if week.first_day().month() != month {
+            w -= 1;
+        }
+
+        w
     }
 }
 
@@ -915,19 +921,31 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState 
 impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthState] {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
         for i in 0..self.len() {
-            if self[i].gained_focus() {
-                for j in 0..self.len() {
-                    if i != j {
-                        self[j].clear_selection();
-                    }
-                }
-            }
-        }
-
-        for i in 0..self.len() {
             let month = &mut self[i];
             if month.is_focused() {
                 let r = match month.handle(event, Regular) {
+                    CalOutcome::Week(date) => {
+                        for j in 0..self.len() {
+                            if i != j {
+                                self[j].clear_selection();
+                            }
+                        }
+                        if i > 0 {
+                            self[i - 1].select_week_by_date(Some(date));
+                        }
+                        if i + 1 < self.len() {
+                            self[i + 1].select_week_by_date(Some(date));
+                        }
+                        CalOutcome::Week(date)
+                    }
+                    CalOutcome::Day(date) => {
+                        for j in 0..self.len() {
+                            if i != j {
+                                self[j].clear_selection();
+                            }
+                        }
+                        CalOutcome::Day(date)
+                    }
                     CalOutcome::Continue => match event {
                         ct_event!(keycode press Up) => {
                             if !self[i].day_selection {
@@ -1003,15 +1021,12 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                             }
                             if i > 0 {
                                 if let Some(date) = self[i].selected_week_as_date() {
-                                    self[i].select_week(None);
-                                    if self[i - 1].select_week_by_date(Some(date)) {
-                                        CalOutcome::Month(i - 1)
-                                    } else {
-                                        let new_date =
-                                            date - chrono::Duration::try_days(7).expect("days");
-                                        self[i - 1].select_week_by_date(Some(new_date));
-                                        CalOutcome::Month(i - 1)
-                                    }
+                                    let new_date =
+                                        date - chrono::Duration::try_days(7).expect("days");
+
+                                    self[i].select_week_by_date(Some(new_date));
+                                    self[i - 1].select_week_by_date(Some(new_date));
+                                    CalOutcome::Month(i - 1)
                                 } else {
                                     CalOutcome::Continue
                                 }
@@ -1025,15 +1040,12 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
                             }
                             if i + 1 < self.len() {
                                 if let Some(date) = self[i].selected_week_as_date() {
-                                    self[i].select_week(None);
-                                    if self[i + 1].select_week_by_date(Some(date)) {
-                                        CalOutcome::Month(i + 1)
-                                    } else {
-                                        let new_date =
-                                            date + chrono::Duration::try_days(7).expect("days");
-                                        self[i + 1].select_week_by_date(Some(new_date));
-                                        CalOutcome::Month(i + 1)
-                                    }
+                                    let new_date =
+                                        date + chrono::Duration::try_days(7).expect("days");
+
+                                    self[i].select_week_by_date(Some(new_date));
+                                    self[i + 1].select_week_by_date(Some(new_date));
+                                    CalOutcome::Month(i + 1)
                                 } else {
                                     CalOutcome::Continue
                                 }
@@ -1053,7 +1065,23 @@ impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthSt
         for i in 0..self.len() {
             let month = &mut self[i];
             if !month.is_focused() {
-                flow!(month.handle(event, MouseOnly));
+                flow!(match month.handle(event, MouseOnly) {
+                    CalOutcome::Week(d) => {
+                        if month.selected_week == Some(0) {
+                            if i > 0 {
+                                self[i - 1].select_week_by_date(Some(d));
+                            }
+                        } else if month.selected_week == Some(month.week_len() - 1) {
+                            if i < self.len() {
+                                self[i + 1].select_week_by_date(Some(d));
+                            }
+                        }
+                        CalOutcome::Week(d)
+                    }
+                    r => {
+                        r
+                    }
+                });
             }
         }
 
