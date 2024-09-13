@@ -101,10 +101,7 @@ where
                 self.timeout = Some(t);
                 Ok(Control::Changed)
             }
-            Some(TimerEvent::Application(t)) => {
-                let r = state.timer(&t, ctx);
-                r
-            }
+            Some(TimerEvent::Application(t)) => state.timer(&t, ctx),
         }
     }
 

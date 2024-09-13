@@ -41,6 +41,7 @@ where
     ///
     /// Creates the render-context, fetches the frame and calls render.
     #[allow(clippy::needless_lifetimes)]
+    #[allow(clippy::type_complexity)]
     fn render(
         &mut self,
         f: &mut dyn FnMut(&mut Frame<'_>, Option<TimeOut>) -> Result<(), Error>,
