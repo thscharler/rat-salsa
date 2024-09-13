@@ -194,7 +194,7 @@ impl DarkTheme {
         Style::default().fg(self.s.white[0]).bg(self.s.black[2])
     }
 
-    ///
+    /// Style for LineNumbers.
     pub fn line_nr_style(&self) -> LineNumberStyle {
         LineNumberStyle {
             style: self.data().fg(self.s.gray[0]),
