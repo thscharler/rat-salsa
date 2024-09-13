@@ -127,7 +127,7 @@ pub enum SplitType {
 const SPLIT_WIDTH: u16 = 1;
 
 /// State & event handling.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 #[non_exhaustive]
 pub struct SplitState {
     /// Total area.
@@ -146,7 +146,7 @@ pub struct SplitState {
     pub splitline_areas: Vec<Rect>,
     /// Start position for drawing the mark.
     /// __readonly__ renewed for each render.
-    pub splitline_mark_areas: Vec<Position>,
+    pub splitline_mark_position: Vec<Position>,
     /// Offset of the mark from top/left.
     /// __readonly__ renewed for each render.
     pub mark_offset: u16,
@@ -161,10 +161,9 @@ pub struct SplitState {
     ///
     /// This information is used after the initial render to
     /// lay out the splitter.
-    /// __read+write__
-    pub lengths: Vec<u16>,
+    area_length: Vec<u16>,
     /// Saved lengths for hidden splits.
-    hidden: Vec<u16>,
+    hidden_length: Vec<u16>,
 
     /// Focus.
     /// __read+write__
@@ -364,7 +363,7 @@ impl<'a> Split<'a> {
         // use only the inner from here on
         let inner = state.inner;
 
-        let layout_change = state.lengths.len() != self.constraints.len();
+        let layout_change = state.area_length.len() != self.constraints.len();
         let meta_change = state.direction != self.direction
             || state.split_type != self.split_type
             || state.mark_offset != self.mark_offset;
@@ -393,11 +392,11 @@ impl<'a> Split<'a> {
                 .split(inner);
             Some(new_areas)
         } else {
-            let old_length: u16 = state.lengths.iter().sum();
+            let old_length: u16 = state.area_length.iter().sum();
             if meta_change || old_len(&inner) != old_length {
                 let mut constraints = Vec::new();
-                for i in 0..state.lengths.len() {
-                    constraints.push(Constraint::Fill(state.lengths[i]));
+                for i in 0..state.area_length.len() {
+                    constraints.push(Constraint::Fill(state.area_length[i]));
                 }
                 let new_areas = Layout::new(self.direction, constraints).split(inner);
                 Some(new_areas)
@@ -407,9 +406,15 @@ impl<'a> Split<'a> {
         };
 
         if let Some(new_split_areas) = new_split_areas {
-            state.lengths.clear();
+            state.area_length.clear();
             for v in new_split_areas.iter() {
-                state.lengths.push(new_len(v));
+                state.area_length.push(new_len(v));
+            }
+            while state.hidden_length.len() < state.area_length.len() {
+                state.hidden_length.push(0);
+            }
+            while state.hidden_length.len() > state.area_length.len() {
+                state.hidden_length.pop();
             }
         }
 
@@ -424,15 +429,15 @@ impl<'a> Split<'a> {
         // Areas changed, create areas and splits.
         state.widget_areas.clear();
         state.splitline_areas.clear();
-        state.splitline_mark_areas.clear();
+        state.splitline_mark_position.clear();
 
         let inner = state.inner;
 
         let mut total = 0;
         for length in state
-            .lengths
+            .area_length
             .iter()
-            .take(state.lengths.len().saturating_sub(1))
+            .take(state.area_length.len().saturating_sub(1))
             .copied()
         {
             let mut area = if self.direction == Direction::Horizontal {
@@ -444,7 +449,7 @@ impl<'a> Split<'a> {
                 Rect::new(
                     inner.x + total + length.saturating_sub(SPLIT_WIDTH),
                     inner.y,
-                    1,
+                    min(1, length),
                     inner.height,
                 )
             } else {
@@ -452,7 +457,7 @@ impl<'a> Split<'a> {
                     inner.x,
                     inner.y + total + length.saturating_sub(SPLIT_WIDTH),
                     inner.width,
-                    1,
+                    min(1, length),
                 )
             };
             let mut mark = if self.direction == Direction::Horizontal {
@@ -477,15 +482,15 @@ impl<'a> Split<'a> {
 
             state.widget_areas.push(area);
             state.splitline_areas.push(split);
-            state.splitline_mark_areas.push(mark);
+            state.splitline_mark_position.push(mark);
 
             total += length;
         }
-        if let Some(length) = state.lengths.last().copied() {
+        if let Some(length) = state.area_length.last().copied() {
             let area = if self.direction == Direction::Horizontal {
-                Rect::new(inner.x + total, inner.y, length, inner.height)
+                Rect::new(inner.x + total, inner.y, min(1, length), inner.height)
             } else {
-                Rect::new(inner.x, inner.y + total, inner.width, length)
+                Rect::new(inner.x, inner.y + total, inner.width, min(1, length))
             };
 
             state.widget_areas.push(area);
@@ -662,17 +667,15 @@ impl<'a> Split<'a> {
             None
         };
 
-        if let Some(s) = s {
-            Some((
+        s.map(|s| {
+            (
                 match self.direction {
                     Horizontal => Position::new(split_area.x, state.area.y),
                     Vertical => Position::new(state.area.x, split_area.y),
                 },
                 s,
-            ))
-        } else {
-            None
-        }
+            )
+        })
     }
 
     fn get_join_1(&self, split_area: Rect, state: &SplitState) -> Option<(Position, &str)> {
@@ -737,17 +740,15 @@ impl<'a> Split<'a> {
             None
         };
 
-        if let Some(s) = s {
-            Some((
+        s.map(|s| {
+            (
                 match self.direction {
                     Horizontal => Position::new(split_area.x, state.area.y + state.area.height - 1),
                     Vertical => Position::new(state.area.x + state.area.width - 1, split_area.y),
                 },
                 s,
-            ))
-        } else {
-            None
-        }
+            )
+        })
     }
 }
 
@@ -836,6 +837,17 @@ fn render_widget(
 
 fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
     for (n, split_area) in state.splitline_areas.iter().enumerate() {
+        // skip 0 width/height
+        if split.direction == Direction::Horizontal {
+            if split_area.width == 0 {
+                continue;
+            }
+        } else {
+            if split_area.height == 0 {
+                continue;
+            }
+        }
+
         let arrow_style = if state.mouse.hover.get() == Some(n) {
             if let Some(drag) = split.drag_style {
                 drag
@@ -865,7 +877,7 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
             fill_buf_area(buf, *split_area, fill, style);
         }
 
-        let mark = state.splitline_mark_areas[n];
+        let mark = state.splitline_mark_position[n];
         if split.direction == Direction::Horizontal {
             if buf.area.contains((mark.x, mark.y).into()) {
                 if let Some(cell) = buf.cell_mut((mark.x, mark.y)) {
@@ -903,26 +915,6 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
     }
 }
 
-impl Default for SplitState {
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            inner: Default::default(),
-            focus: Default::default(),
-            focus_marker: Default::default(),
-            widget_areas: Default::default(),
-            splitline_areas: Default::default(),
-            splitline_mark_areas: Default::default(),
-            direction: Default::default(),
-            split_type: Default::default(),
-            mark_offset: 0,
-            mouse: Default::default(),
-            lengths: vec![],
-            hidden: vec![],
-        }
-    }
-}
-
 impl HasFocusFlag for SplitState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
@@ -955,6 +947,9 @@ impl SplitState {
     /// Set the position for the nth splitter.
     ///
     /// The position is limited the combined area of the two adjacent areas.
+    /// The position is further limited to leave space for rendering the
+    /// splitter.
+    ///
     pub fn set_screen_split_pos(&mut self, n: usize, pos: (u16, u16)) -> bool {
         use SplitType::*;
 
@@ -974,8 +969,10 @@ impl SplitState {
 
             let pos_x = min(max(pos.0, min_pos), max_pos);
 
-            self.lengths[n] = pos_x - area1.x + 1;
-            self.lengths[n + 1] = area2.right().saturating_sub(pos_x + 1);
+            self.area_length[n] = pos_x - area1.x + 1;
+            self.hidden_length[n] = 0;
+            self.area_length[n + 1] = area2.right().saturating_sub(pos_x + 1);
+            self.hidden_length[n + 1] = 0;
         } else {
             let min_pos = area1.y;
             let max_pos = if matches!(self.split_type, Scroll | Widget) {
@@ -986,22 +983,23 @@ impl SplitState {
 
             let pos_y = min(max(pos.1, min_pos), max_pos);
 
-            self.lengths[n] = pos_y - area1.y + 1;
-            self.lengths[n + 1] = area2.bottom().saturating_sub(pos_y + 1);
+            self.area_length[n] = pos_y - area1.y + 1;
+            self.hidden_length[n] = 0;
+            self.area_length[n + 1] = area2.bottom().saturating_sub(pos_y + 1);
+            self.hidden_length[n + 1] = 0;
         }
-
-        self.clear_hidden(n);
 
         true
     }
 
     /// Move the nth split position.
-    /// Does nothing if the change is bigger than the length of the split.
+    /// If delta is greater than the area length it sets the
+    /// length to 0.
     pub fn move_split_left(&mut self, n: usize, delta: u16) -> bool {
-        if self.lengths[n] > delta {
-            self.lengths[n] -= delta;
-            self.lengths[n + 1] += delta;
-            self.clear_hidden(n);
+        if self.area_length[n] > delta {
+            self.area_length[n] -= delta;
+            self.area_length[n + 1] += delta;
+            self.hidden_length[n] = 0;
             true
         } else {
             false
@@ -1011,10 +1009,10 @@ impl SplitState {
     /// Move the nth split position.
     /// Does nothing if the change is bigger than the length of the split.
     pub fn move_split_right(&mut self, n: usize, delta: u16) -> bool {
-        if self.lengths[n + 1] >= delta {
-            self.lengths[n] += delta;
-            self.lengths[n + 1] -= delta;
-            self.clear_hidden(n);
+        if self.area_length[n + 1] >= delta {
+            self.area_length[n] += delta;
+            self.area_length[n + 1] -= delta;
+            self.hidden_length[n] = 0;
             true
         } else {
             false
@@ -1037,7 +1035,7 @@ impl SplitState {
     pub fn select_next_split(&mut self) -> bool {
         if self.is_focused() {
             let n = self.focus_marker.unwrap_or_default();
-            if n + 1 >= self.lengths.len() {
+            if n + 1 >= self.area_length.len() {
                 self.focus_marker = Some(0);
             } else {
                 self.focus_marker = Some(n + 1);
@@ -1053,7 +1051,7 @@ impl SplitState {
         if self.is_focused() {
             let n = self.focus_marker.unwrap_or_default();
             if n == 0 {
-                self.focus_marker = Some(self.lengths.len() - 1);
+                self.focus_marker = Some(self.area_length.len() - 1);
             } else {
                 self.focus_marker = Some(n - 1);
             }
@@ -1063,40 +1061,248 @@ impl SplitState {
         }
     }
 
-    /// Is the split hidden?
-    pub fn is_hidden(&self, n: usize) -> bool {
-        if n < self.hidden.len() {
-            self.hidden[n] > 0
-        } else {
-            false
+    /// Number of split-areas
+    pub fn len(&self) -> usize {
+        self.area_length.len()
+    }
+
+    /// Get all area lengths.
+    pub fn area_lengths(&self) -> &[u16] {
+        &self.area_length
+    }
+
+    /// Set all area lengths.
+    ///
+    /// This will adjust the list of the hidden splits too.
+    ///
+    /// __Caution__
+    /// If the sum of the lengths doesn't match the display-width
+    /// this will trigger a layout and will use the given lenghts
+    /// as Constraint::Fill().
+    ///
+    /// __Caution__
+    ///
+    /// If a length is 0 it will not display the split at all.
+    pub fn set_area_lengths(&mut self, lengths: Vec<u16>) {
+        self.area_length = lengths;
+        while self.hidden_length.len() < self.area_length.len() {
+            self.hidden_length.push(0);
+        }
+        while self.hidden_length.len() > self.area_length.len() {
+            self.hidden_length.pop();
         }
     }
 
-    fn clear_hidden(&mut self, n: usize) {
-        if n < self.hidden.len() {
-            self.hidden[n] = 0;
+    /// Get the value of the hidden lengths.
+    pub fn hidden_lengths(&self) -> &[u16] {
+        &self.hidden_length
+    }
+
+    /// Set the value of the hidden lengths.
+    ///
+    /// This will take at most area_length.len() items of this Vec.
+    /// And it will fill missing items as 0.
+    pub fn set_hidden_lengths(&mut self, hidden: Vec<u16>) {
+        for i in 0..self.hidden_length.len() {
+            if let Some(v) = hidden.get(i) {
+                self.hidden_length[i] = *v;
+            } else {
+                self.hidden_length[i] = 0;
+            }
         }
+    }
+
+    /// Length of the nth split.
+    ///
+    /// __Caution__
+    ///
+    /// This length **includes** the width of the split itself.
+    /// Which may or may not take some space. Except for the last.
+    /// So it will be better to use `widget_areas` for anything
+    /// rendering related.
+    ///
+    pub fn area_len(&self, n: usize) -> u16 {
+        self.area_length[n]
+    }
+
+    /// Sum of all area lengths.
+    pub fn total_area_len(&self) -> u16 {
+        self.area_length.iter().sum()
+    }
+
+    /// Set the length of the nth split.
+    ///
+    /// This resets any hidden state of the nth split.
+    ///
+    /// __Caution__
+    /// The sum of all lengths must be equal with the width/height of
+    /// the splitter. If it is not this operation doesn't set the
+    /// absolute width of the nth split. Instead, it triggers a layout
+    /// of the widget, takes all the lengths as Constraint::Fill()
+    /// values and redistributes the size.
+    ///
+    /// You can either ensure to change some other len to accommodate
+    /// for your changes. Or use [set_split](Self::set_split) or
+    /// [set_screen_split_pos](Self::set_screen_split_pos)
+    ///
+    /// __Caution__
+    ///
+    /// This length **includes** the width of the split itself.
+    /// Which may or may not take some space. Except for the last area.
+    /// Which doesn't have a split.
+    ///
+    /// So:
+    /// - If you set the length to 0 the area will be hidden completely
+    ///   and no split will be shown.
+    /// - A value of 1 is fine.
+    /// - The last area can have a length 0 and that's fine too.
+    ///
+    pub fn set_area_len(&mut self, n: usize, len: u16) {
+        self.area_length[n] = len;
+        self.hidden_length[n] = 0;
+    }
+
+    /// Returns the position of the nth split.
+    ///
+    /// __Caution__
+    ///
+    /// The numbering for the splitters goes from `0` to `len-1` __exclusive__.
+    /// Split `n` marks the gap between area `n` and `n+1`.
+    ///
+    /// __Caution__
+    ///
+    /// This returns the position of the gap between two adjacent
+    /// split-areas. Use `splitline_areas` for anything rendering related.
+    ///
+    pub fn split_pos(&self, n: usize) -> u16 {
+        self.area_length[..n + 1].iter().sum()
+    }
+
+    /// Sets the position of the nth split.
+    ///
+    /// This will adjust the sizes of all areas left and right of the
+    /// given split. It will ensure that each area has at least the width
+    /// needed to render the split.
+    ///
+    /// __Caution__
+    ///
+    /// The numbering for the splitters goes from `0` to `len-1` __exclusive__.
+    /// Split `n` marks the gap between area `n` and `n+1`.
+    ///
+    /// __Caution__
+    ///
+    /// This marks the position of the gap between two adjacent
+    /// split-areas. If you start from screen-coordinates it might
+    /// be easier to use [set_screen_split_pos](Self::set_screen_split_pos)
+    pub fn set_split_pos(&mut self, n: usize, pos: u16) {
+        assert!(n + 1 < self.area_length.len());
+
+        let total_len = self.total_area_len();
+
+        // create dual
+        let mut pos_vec = Vec::new();
+        let mut pp = 0;
+        for len in &self.area_length {
+            pp += *len;
+            pos_vec.push(pp);
+        }
+        // last is not a split
+        pos_vec.pop();
+        let pos_count = pos_vec.len();
+
+        let mut min_pos = SPLIT_WIDTH;
+        for i in 0..pos_vec.len() {
+            if i < n {
+                if self.area_length[i] == 0 {
+                    pos_vec[i] = min_pos;
+                } else if self.hidden_length[i] != 0 {
+                    pos_vec[i] = min_pos;
+                    min_pos += SPLIT_WIDTH;
+                } else {
+                    if pos_vec[i] >= pos {
+                        // how many split between here and there
+                        let rest_area_count = n - (i + 1);
+                        let rest_area_width = rest_area_count as u16 * SPLIT_WIDTH;
+                        // min
+                        pos_vec[i] = max(
+                            min_pos,
+                            pos.saturating_sub(SPLIT_WIDTH)
+                                .saturating_sub(rest_area_width),
+                        );
+                        min_pos += SPLIT_WIDTH;
+                    } else {
+                        // unchanged
+                    }
+                }
+            } else if i == n {
+                // remaining area count with a split
+                let rest_area_count = pos_count - (i + 1);
+                let rest_area_width = rest_area_count as u16 * SPLIT_WIDTH;
+                let rest_len = total_len - (min_pos + 1);
+                // min for remaining areas
+                let rest_len = rest_len - rest_area_width;
+                // last can be 0
+                let rest_len = rest_len + SPLIT_WIDTH;
+
+                let max_pos = min_pos + rest_len;
+
+                pos_vec[i] = min(max(min_pos, pos), max_pos);
+
+                min_pos = pos_vec[i] + SPLIT_WIDTH;
+            } else {
+                if self.area_length[i] == 0 {
+                    pos_vec[i] = min_pos;
+                } else if self.hidden_length[i] != 0 {
+                    pos_vec[i] = min_pos;
+                    min_pos += SPLIT_WIDTH;
+                } else {
+                    if pos_vec[i] <= pos {
+                        pos_vec[i] = min_pos;
+                        min_pos += SPLIT_WIDTH;
+                    } else {
+                        // unchanged
+                    }
+                }
+            }
+        }
+
+        // revert dual
+        for i in 0..pos_vec.len() {
+            if i > 0 {
+                self.area_length[i] = pos_vec[i] - pos_vec[i - 1];
+            } else {
+                self.area_length[i] = pos_vec[i];
+            }
+        }
+        self.area_length[pos_count] = total_len - pos_vec[pos_count - 1];
+    }
+
+    /// Is the split hidden?
+    pub fn is_hidden(&self, n: usize) -> bool {
+        self.hidden_length[n] > 0
     }
 
     /// Hide the split and adds its area to the following split.
+    /// If there is no following split it will go left/up.
+    /// Leaves enough space to render the splitter.
     pub fn hide_split(&mut self, n: usize) -> bool {
-        while self.hidden.len() < self.lengths.len() {
-            self.hidden.push(0);
-        }
-
-        if self.hidden[n] == 0 {
-            let mut hide = self.lengths[n].saturating_sub(1);
-            for idx in n + 1..self.lengths.len() {
-                if self.hidden[idx] == 0 {
-                    self.lengths[idx] += hide;
+        if self.hidden_length[n] == 0 {
+            let mut hide = if n + 1 == self.area_length.len() {
+                self.area_length[n]
+            } else {
+                self.area_length[n].saturating_sub(SPLIT_WIDTH)
+            };
+            for idx in n + 1..self.area_length.len() {
+                if self.hidden_length[idx] == 0 {
+                    self.area_length[idx] += hide;
                     hide = 0;
                     break;
                 }
             }
             if hide > 0 {
-                for idx in (n - 1..0).rev() {
-                    if self.hidden[idx] == 0 {
-                        self.lengths[idx] += hide;
+                for idx in (0..n).rev() {
+                    if self.hidden_length[idx] == 0 {
+                        self.area_length[idx] += hide;
                         hide = 0;
                         break;
                     }
@@ -1104,35 +1310,39 @@ impl SplitState {
             }
 
             if hide > 0 {
-                // don't hide last.
-                self.hidden[n] = 0;
+                // don't hide last split.
+                self.hidden_length[n] = 0;
+                false
             } else {
-                self.hidden[n] = self.lengths[n].saturating_sub(1);
-                self.lengths[n] = 1;
+                if n + 1 == self.area_length.len() {
+                    self.hidden_length[n] = self.area_length[n];
+                    self.area_length[n] = 0;
+                } else {
+                    self.hidden_length[n] = self.area_length[n].saturating_sub(SPLIT_WIDTH);
+                    self.area_length[n] = 1;
+                };
+                true
             }
-            true
         } else {
             false
         }
     }
 
-    // Show a hidden split.
+    /// Show a hidden split.
+    /// It will first try to reduce the areas to the right,
+    /// and then the areas to the left to make space.
     pub fn show_split(&mut self, n: usize) -> bool {
-        while self.hidden.len() < self.lengths.len() {
-            self.hidden.push(0);
-        }
-
-        let mut show = self.hidden[n];
+        let mut show = self.hidden_length[n];
         if show > 0 {
-            for idx in n + 1..self.lengths.len() {
-                if self.hidden[idx] == 0 {
+            for idx in n + 1..self.area_length.len() {
+                if self.hidden_length[idx] == 0 {
                     // steal as much as we can
-                    if self.lengths[idx] > show + 1 {
-                        self.lengths[idx] -= show;
+                    if self.area_length[idx] > show + SPLIT_WIDTH {
+                        self.area_length[idx] -= show;
                         show = 0;
-                    } else if self.lengths[idx] > 1 {
-                        show -= self.lengths[idx] - 1;
-                        self.lengths[idx] = 1;
+                    } else if self.area_length[idx] > SPLIT_WIDTH {
+                        show -= self.area_length[idx] - SPLIT_WIDTH;
+                        self.area_length[idx] = SPLIT_WIDTH;
                     }
                     if show == 0 {
                         break;
@@ -1140,14 +1350,14 @@ impl SplitState {
                 }
             }
             if show > 0 {
-                for idx in (n - 1..0).rev() {
-                    if self.hidden[idx] == 0 {
-                        if self.lengths[idx] > show + 1 {
-                            self.lengths[idx] -= show;
+                for idx in (0..n).rev() {
+                    if self.hidden_length[idx] == 0 {
+                        if self.area_length[idx] > show + SPLIT_WIDTH {
+                            self.area_length[idx] -= show;
                             show = 0;
-                        } else if self.lengths[idx] > 1 {
-                            show -= self.lengths[idx] - 1;
-                            self.lengths[idx] = 1;
+                        } else if self.area_length[idx] > SPLIT_WIDTH {
+                            show -= self.area_length[idx] - SPLIT_WIDTH;
+                            self.area_length[idx] = SPLIT_WIDTH;
                         }
                         if show == 0 {
                             break;
@@ -1156,13 +1366,8 @@ impl SplitState {
                 }
             }
 
-            if show > 0 {
-                self.lengths[n] += self.hidden[n] - show;
-                self.hidden[n] = 0;
-            } else {
-                self.lengths[n] += self.hidden[n];
-                self.hidden[n] = 0;
-            }
+            self.area_length[n] += self.hidden_length[n] - show;
+            self.hidden_length[n] = 0;
             true
         } else {
             false
