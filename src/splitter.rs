@@ -15,7 +15,6 @@ use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::{max, min};
-use std::mem;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Splits the area in multiple parts and allows changing the sizes.
@@ -799,7 +798,7 @@ impl<'a> StatefulWidgetRef for SplitWidget<'a> {
 impl<'a> StatefulWidget for SplitWidget<'a> {
     type State = SplitState;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.split.layout_split(area, state);
         if state.is_focused() {
             if state.focus_marker.is_none() {
@@ -938,8 +937,9 @@ impl HasFocusFlag for SplitState {
     }
 }
 
+#[allow(clippy::len_without_is_empty)]
 impl SplitState {
-    ///
+    /// New state.
     pub fn new() -> Self {
         Self::default()
     }
@@ -959,8 +959,6 @@ impl SplitState {
     /// splitter.
     ///
     pub fn set_screen_split_pos(&mut self, n: usize, pos: (u16, u16)) -> bool {
-        use SplitType::*;
-
         if self.direction == Direction::Horizontal {
             let pos = if pos.0 < self.inner.left() {
                 0
@@ -1231,22 +1229,10 @@ impl SplitState {
         }
     }
 
-    /// Sets the position of the nth split.
-    ///
-    /// This will adjust the sizes of all areas left and right of the
-    /// given split. It will ensure that each area has at least the width
-    /// needed to render the split.
-    ///
-    /// __Caution__
-    ///
-    /// The numbering for the splitters goes from `0` to `len-1` __exclusive__.
-    /// Split `n` marks the gap between area `n` and `n+1`.
-    ///
-    /// __Caution__
-    ///
-    /// This marks the position of the gap between two adjacent
-    /// split-areas. If you start from screen-coordinates it might
-    /// be easier to use [set_screen_split_pos](Self::set_screen_split_pos)
+    /// Allows the full range for the split-pos.
+    /// Minus the space needed to render the split itself.
+    #[allow(clippy::needless_range_loop)]
+    #[allow(clippy::comparison_chain)]
     fn set_split_pos_full(&mut self, n: usize, pos: u16) {
         assert!(n + 1 < self.area_length.len());
 

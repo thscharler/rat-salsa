@@ -20,18 +20,18 @@ use std::fmt::Debug;
 /// the general properties and behaviour of tabs.
 pub trait TabType: Debug {
     /// Calculate the layout for the tabs.
-    fn layout<'a>(
+    fn layout(
         &self, //
         area: Rect,
-        tabbed: &Tabbed<'a>,
+        tabbed: &Tabbed<'_>,
         state: &mut TabbedState,
     );
 
     /// Render the tabs.
-    fn render<'a>(
+    fn render(
         &self, //
         buf: &mut Buffer,
-        tabbed: &Tabbed<'a>,
+        tabbed: &Tabbed<'_>,
         state: &mut TabbedState,
     );
 }
@@ -119,8 +119,8 @@ pub(crate) mod event {
     }
 }
 
-impl<'a> Tabbed<'a> {
-    pub fn new() -> Self {
+impl<'a> Default for Tabbed<'a> {
+    fn default() -> Self {
         Self {
             tab_type: Box::new(GluedTabs::new()),
             closeable: false,
@@ -131,6 +131,12 @@ impl<'a> Tabbed<'a> {
             select_style: None,
             focus_style: None,
         }
+    }
+}
+
+impl<'a> Tabbed<'a> {
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Tab-type is a trait that handles layout and rendering for
@@ -453,16 +459,14 @@ pub mod glued {
 
     /// Renders simple tabs at the given placement and renders
     /// the block inside the tabs.
-    #[derive(Debug)]
+    #[derive(Debug, Default)]
     pub struct GluedTabs {
         placement: TabPlacement,
     }
 
     impl GluedTabs {
         pub fn new() -> Self {
-            Self {
-                placement: Default::default(),
-            }
+            Self::default()
         }
 
         /// Where to place the tabs.
@@ -473,7 +477,7 @@ pub mod glued {
     }
 
     impl TabType for GluedTabs {
-        fn layout<'a>(&self, area: Rect, tabbed: &Tabbed<'a>, state: &mut TabbedState) {
+        fn layout(&self, area: Rect, tabbed: &Tabbed<'_>, state: &mut TabbedState) {
             state.area = area;
 
             let margin_offset = 1 + if tabbed.block.is_some() { 1 } else { 0 };
@@ -625,7 +629,7 @@ pub mod glued {
             }
         }
 
-        fn render<'a>(&self, buf: &mut Buffer, tabbed: &Tabbed<'a>, state: &mut TabbedState) {
+        fn render(&self, buf: &mut Buffer, tabbed: &Tabbed<'_>, state: &mut TabbedState) {
             let focus_style = if let Some(focus_style) = tabbed.focus_style {
                 focus_style
             } else {
@@ -711,7 +715,7 @@ pub mod attached {
     ///
     /// On the left/right side this will just draw a link to the tab-text.
     /// On the top/bottom side the tabs will be embedded in the border.
-    #[derive(Debug)]
+    #[derive(Debug, Default)]
     pub struct AttachedTabs {
         placement: TabPlacement,
         border_type: Option<BorderType>,
@@ -722,13 +726,7 @@ pub mod attached {
 
     impl AttachedTabs {
         pub fn new() -> Self {
-            Self {
-                placement: Default::default(),
-                border_type: None,
-                link: None,
-                join_0: None,
-                join_1: None,
-            }
+            Self::default()
         }
 
         /// Placement of the tabs.
@@ -851,36 +849,30 @@ pub mod attached {
             match self.placement {
                 TabPlacement::Top => unreachable!(),
                 TabPlacement::Bottom => unreachable!(),
-                TabPlacement::Left => {
-                    let link = match self.link {
-                        None => "\u{2524}",
-                        Some(BorderType::Plain) => "\u{2524}",
-                        Some(BorderType::Rounded) => "\u{2524}",
-                        Some(BorderType::Double) => "\u{2562}",
-                        Some(BorderType::Thick) => "\u{2528}",
-                        Some(BorderType::QuadrantInside) => "\u{2588}",
-                        Some(BorderType::QuadrantOutside) => "\u{258C}",
-                    };
-                    link
-                }
-                TabPlacement::Right => {
-                    let link = match self.link {
-                        None => "\u{251C}",
-                        Some(BorderType::Plain) => "\u{251C}",
-                        Some(BorderType::Rounded) => "\u{251C}",
-                        Some(BorderType::Double) => "\u{255F}",
-                        Some(BorderType::Thick) => "\u{2520}",
-                        Some(BorderType::QuadrantInside) => "\u{2588}",
-                        Some(BorderType::QuadrantOutside) => "\u{2590}",
-                    };
-                    link
-                }
+                TabPlacement::Left => match self.link {
+                    None => "\u{2524}",
+                    Some(BorderType::Plain) => "\u{2524}",
+                    Some(BorderType::Rounded) => "\u{2524}",
+                    Some(BorderType::Double) => "\u{2562}",
+                    Some(BorderType::Thick) => "\u{2528}",
+                    Some(BorderType::QuadrantInside) => "\u{2588}",
+                    Some(BorderType::QuadrantOutside) => "\u{258C}",
+                },
+                TabPlacement::Right => match self.link {
+                    None => "\u{251C}",
+                    Some(BorderType::Plain) => "\u{251C}",
+                    Some(BorderType::Rounded) => "\u{251C}",
+                    Some(BorderType::Double) => "\u{255F}",
+                    Some(BorderType::Thick) => "\u{2520}",
+                    Some(BorderType::QuadrantInside) => "\u{2588}",
+                    Some(BorderType::QuadrantOutside) => "\u{2590}",
+                },
             }
         }
     }
 
     impl TabType for AttachedTabs {
-        fn layout<'a>(&self, area: Rect, tabbed: &Tabbed<'a>, state: &mut TabbedState) {
+        fn layout(&self, area: Rect, tabbed: &Tabbed<'_>, state: &mut TabbedState) {
             state.area = area;
 
             let mut block;
@@ -1028,7 +1020,7 @@ pub mod attached {
             }
         }
 
-        fn render<'a>(&self, buf: &mut Buffer, tabbed: &Tabbed<'a>, state: &mut TabbedState) {
+        fn render(&self, buf: &mut Buffer, tabbed: &Tabbed<'_>, state: &mut TabbedState) {
             let mut block;
             let (block, join_0, join_1) = if let Some(block) = &tabbed.block {
                 (block, None, None)
