@@ -10,7 +10,7 @@ use rat_widget::event::Outcome;
 use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
 use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
-use rat_widget::splitter::{Split, SplitState, SplitType};
+use rat_widget::splitter::{Split, SplitResize, SplitState, SplitType};
 use rat_widget::statusline::StatusLineState;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
 use ratatui::style::{Style, Stylize};
@@ -30,9 +30,11 @@ fn main() -> Result<(), anyhow::Error> {
         split_type: Default::default(),
         border_type: None,
         inner_border_type: None,
+        resize: Default::default(),
         split: Default::default(),
         left: Default::default(),
         right: Default::default(),
+        rightright: Default::default(),
         menu: Default::default(),
         status: Default::default(),
     };
@@ -48,9 +50,11 @@ struct State {
     pub(crate) split_type: SplitType,
     pub(crate) border_type: Option<BorderType>,
     pub(crate) inner_border_type: Option<BorderType>,
+    pub(crate) resize: SplitResize,
     pub(crate) split: SplitState,
     pub(crate) left: ListState<RowSelection>,
     pub(crate) right: ListState<RowSelection>,
+    pub(crate) rightright: ListState<RowSelection>,
     pub(crate) menu: MenuLineState,
     pub(crate) status: StatusLineState,
 }
@@ -81,8 +85,13 @@ fn repaint_input(
         .styles(THEME.split_style(state.split_type))
         .direction(state.dir)
         .split_type(state.split_type)
+        .resize(state.resize)
         .mark_offset(1)
-        .constraints([Constraint::Fill(1), Constraint::Fill(1)]);
+        .constraints([
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+            Constraint::Fill(1),
+        ]);
     if let Some(blk) = state.border_type {
         split = split.block(
             Block::bordered()
@@ -119,7 +128,7 @@ fn repaint_input(
             }
             let mut scroll_left = Scroll::new().styles(THEME.scrolled_style());
             if state.dir == Direction::Horizontal {
-                scroll_left = scroll_left.start_margin(3);
+                scroll_left = scroll_left.start_margin(2);
             }
             w_left = w_left.scroll(scroll_left);
         }
@@ -152,6 +161,18 @@ fn repaint_input(
         &mut state.right,
     );
 
+    let w_right2 = List::<RowSelection>::new([
+        "W-0", "W-1", "W-2", "W-3", "W-4", "W-5", "W-6", "W-7", "W-8", "W-9", //
+        "W-10", "W-11", "W-12", "W-13", "W-14", "W-15", "W-16", "W-17", "W-18", "W-19", //
+        "W-20", "W-21", "W-22", "W-23", "W-24", "W-25", "W-26", "W-27", "W-28", "W-29", //
+    ])
+    .style(THEME.gray(3));
+    w_right2.render(
+        state.split.widget_areas[2],
+        frame.buffer_mut(),
+        &mut state.rightright,
+    );
+
     // There might be an overlay, if the stars are right.
     split_overlay.render(l2[1], frame.buffer_mut(), &mut state.split);
 
@@ -181,6 +202,10 @@ fn repaint_input(
         .yellow()
         .render(area, frame.buffer_mut());
     area.y += 1;
+    Line::from("F7: resize")
+        .yellow()
+        .render(area, frame.buffer_mut());
+    area.y += 1;
     Line::from("F12: key-nav")
         .yellow()
         .render(area, frame.buffer_mut());
@@ -200,21 +225,33 @@ fn repaint_input(
             .render(area, frame.buffer_mut());
         area.y += 1;
     }
+    // area.y += 1;
+    // Line::from("split").render(area, frame.buffer_mut());
+    // area.y += 1;
+    // for s in &state.split.splitline_areas {
+    //     Line::from(format!("{},{}+{}+{}", s.x, s.y, s.width, s.height))
+    //         .render(area, frame.buffer_mut());
+    //     area.y += 1;
+    // }
+    // Line::from("mark").render(area, frame.buffer_mut());
+    // area.y += 1;
+    // for s in &state.split.splitline_mark_position {
+    //     Line::from(format!("{},{}", s.x, s.y)).render(area, frame.buffer_mut());
+    //     area.y += 1;
+    // }
+
+    use std::fmt::Write;
+    let txt = state
+        .split
+        .area_lengths()
+        .iter()
+        .fold(String::from("Length "), |mut v, w| {
+            _ = write!(v, "{}, ", *w);
+            v
+        });
+    Line::from(txt).render(area, frame.buffer_mut());
     area.y += 1;
-    Line::from("split").render(area, frame.buffer_mut());
-    area.y += 1;
-    for s in &state.split.splitline_areas {
-        Line::from(format!("{},{}+{}+{}", s.x, s.y, s.width, s.height))
-            .render(area, frame.buffer_mut());
-        area.y += 1;
-    }
-    Line::from("mark").render(area, frame.buffer_mut());
-    area.y += 1;
-    for s in &state.split.splitline_mark_areas {
-        Line::from(format!("{},{}", s.x, s.y)).render(area, frame.buffer_mut());
-        area.y += 1;
-    }
-    Line::from(format!("drag {:?}", state.split.mouse.drag.get())).render(area, frame.buffer_mut());
+    Line::from(format!("Drag {:?}", state.split.mouse.drag.get())).render(area, frame.buffer_mut());
     area.y += 1;
     Line::from(format!("{:?}", state.split.split_type)).render(area, frame.buffer_mut());
     area.y += 1;
@@ -230,7 +267,13 @@ fn repaint_input(
 }
 
 fn focus(state: &State) -> Focus {
-    Focus::new_list(&[&state.split, &state.left, &state.right, &state.menu])
+    Focus::new_list(&[
+        &state.split,
+        &state.left,
+        &state.right,
+        &state.rightright,
+        &state.menu,
+    ])
 }
 
 fn handle_input(
@@ -331,6 +374,13 @@ fn handle_input(
             };
             Outcome::Changed
         }
+        ct_event!(keycode press F(7)) => {
+            state.resize = match state.resize {
+                SplitResize::Neighbours => SplitResize::Full,
+                SplitResize::Full => SplitResize::Neighbours,
+            };
+            Outcome::Changed
+        }
         ct_event!(keycode press F(12)) => {
             if state.split.is_focused() {
                 state.split.focus.set(false);
@@ -353,6 +403,7 @@ fn handle_input(
             r => r,
         });
         try_flow!(state.right.handle(event, Regular));
+        try_flow!(state.rightright.handle(event, Regular));
         try_flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => {
                 istate.quit = true;

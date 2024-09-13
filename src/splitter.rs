@@ -34,6 +34,7 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct Split<'a> {
     direction: Direction,
     constraints: Vec<Constraint>,
+    resize: SplitResize,
 
     split_type: SplitType,
     join_0: Option<BorderType>,
@@ -124,6 +125,19 @@ pub enum SplitType {
     Widget,
 }
 
+/// Strategy for resizing the split-areas.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SplitResize {
+    /// When changing a split-position limit resizing to the two
+    /// adjacent neighbours of the split.
+    Neighbours,
+    /// When changing a split-position, allow all positions in the
+    /// widgets area. Minus the minimum space required to draw the
+    /// split itself.
+    #[default]
+    Full,
+}
+
 const SPLIT_WIDTH: u16 = 1;
 
 /// State & event handling.
@@ -156,6 +170,8 @@ pub struct SplitState {
     pub direction: Direction,
     /// __readonly__ renewed for each render.
     pub split_type: SplitType,
+    /// __readonly__ renewed for each render.
+    pub resize: SplitResize,
 
     /// Layout-widths for the split-areas.
     ///
@@ -236,6 +252,12 @@ impl<'a> Split<'a> {
     /// Controls rendering of the splitter.
     pub fn split_type(mut self, split_type: SplitType) -> Self {
         self.split_type = split_type;
+        self
+    }
+
+    /// Controls resizing the split areas.
+    pub fn resize(mut self, resize: SplitResize) -> Self {
+        self.resize = resize;
         self
     }
 
@@ -420,6 +442,7 @@ impl<'a> Split<'a> {
 
         state.direction = self.direction;
         state.split_type = self.split_type;
+        state.resize = self.resize;
         state.mark_offset = self.mark_offset;
 
         self.layout_from_widths(state);
@@ -488,9 +511,9 @@ impl<'a> Split<'a> {
         }
         if let Some(length) = state.area_length.last().copied() {
             let area = if self.direction == Direction::Horizontal {
-                Rect::new(inner.x + total, inner.y, min(1, length), inner.height)
+                Rect::new(inner.x + total, inner.y, length, inner.height)
             } else {
-                Rect::new(inner.x, inner.y + total, inner.width, min(1, length))
+                Rect::new(inner.x, inner.y + total, inner.width, length)
             };
 
             state.widget_areas.push(area);
@@ -538,14 +561,14 @@ fn adjust_for_split_type(
             FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
             | FullQuadrantOutside,
         ) => {
-            area.width = area.width.saturating_sub(1);
+            area.width = area.width.saturating_sub(SPLIT_WIDTH);
         }
         (
             Vertical,
             FullEmpty | FullPlain | FullDouble | FullThick | FullQuadrantInside
             | FullQuadrantOutside,
         ) => {
-            area.height = area.height.saturating_sub(1);
+            area.height = area.height.saturating_sub(SPLIT_WIDTH);
         }
 
         (Horizontal, Scroll) => {
@@ -757,13 +780,16 @@ impl<'a> StatefulWidgetRef for SplitWidget<'a> {
     type State = SplitState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_widget(
-            &self.split,
-            |area, buf| self.split.block.render_ref(area, buf),
-            area,
-            buf,
-            state,
-        );
+        self.split.layout_split(area, state);
+        if state.is_focused() {
+            if state.focus_marker.is_none() {
+                state.focus_marker = Some(0);
+            }
+        } else {
+            state.focus_marker = None;
+        }
+        self.split.block.render_ref(area, buf);
+
         if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
             render_split(&self.split, buf, state);
         }
@@ -774,14 +800,16 @@ impl<'a> StatefulWidget for SplitWidget<'a> {
     type State = SplitState;
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let block = mem::take(&mut self.split.block);
-        render_widget(
-            &self.split,
-            |area, buf| block.render(area, buf),
-            area,
-            buf,
-            state,
-        );
+        self.split.layout_split(area, state);
+        if state.is_focused() {
+            if state.focus_marker.is_none() {
+                state.focus_marker = Some(0);
+            }
+        } else {
+            state.focus_marker = None;
+        }
+        self.split.block.render(area, buf);
+
         if !matches!(self.split.split_type, SplitType::Widget | SplitType::Scroll) {
             render_split(&self.split, buf, state);
         }
@@ -813,26 +841,6 @@ impl<'a> StatefulWidget for SplitOverlay<'a> {
             }
         }
     }
-}
-
-fn render_widget(
-    split: &Split<'_>,
-    block: impl FnOnce(Rect, &mut Buffer),
-    area: Rect,
-    buf: &mut Buffer,
-    state: &mut SplitState,
-) {
-    split.layout_split(area, state);
-
-    if state.is_focused() {
-        if state.focus_marker.is_none() {
-            state.focus_marker = Some(0);
-        }
-    } else {
-        state.focus_marker = None;
-    }
-
-    block(area, buf);
 }
 
 fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
@@ -953,70 +961,52 @@ impl SplitState {
     pub fn set_screen_split_pos(&mut self, n: usize, pos: (u16, u16)) -> bool {
         use SplitType::*;
 
-        let area1 = self.widget_areas[n];
-        let area2 = self.widget_areas[n + 1];
-
         if self.direction == Direction::Horizontal {
-            let min_pos = area1.x;
-            let mut max_pos = if matches!(self.split_type, Scroll | Widget) {
-                area2.right().saturating_sub(2)
+            let pos = if pos.0 < self.inner.left() {
+                0
+            } else if pos.0 < self.inner.right() {
+                pos.0 - self.inner.x
             } else {
-                area2.right().saturating_sub(1)
+                self.inner.width
             };
-            if n + 2 == self.widget_areas.len() {
-                max_pos += 1;
-            }
 
-            let pos_x = min(max(pos.0, min_pos), max_pos);
+            let split_pos = self.split_pos(n);
+            self.set_split_pos(n, pos);
 
-            self.area_length[n] = pos_x - area1.x + 1;
-            self.hidden_length[n] = 0;
-            self.area_length[n + 1] = area2.right().saturating_sub(pos_x + 1);
-            self.hidden_length[n + 1] = 0;
+            split_pos != self.split_pos(n)
         } else {
-            let min_pos = area1.y;
-            let max_pos = if matches!(self.split_type, Scroll | Widget) {
-                area2.bottom().saturating_sub(2)
+            let pos = if pos.1 < self.inner.top() {
+                0
+            } else if pos.1 < self.inner.bottom() {
+                pos.1 - self.inner.y
             } else {
-                area2.bottom().saturating_sub(1)
+                self.inner.height
             };
 
-            let pos_y = min(max(pos.1, min_pos), max_pos);
+            let split_pos = self.split_pos(n);
+            self.set_split_pos(n, pos);
 
-            self.area_length[n] = pos_y - area1.y + 1;
-            self.hidden_length[n] = 0;
-            self.area_length[n + 1] = area2.bottom().saturating_sub(pos_y + 1);
-            self.hidden_length[n + 1] = 0;
+            split_pos != self.split_pos(n)
         }
-
-        true
     }
 
     /// Move the nth split position.
     /// If delta is greater than the area length it sets the
     /// length to 0.
     pub fn move_split_left(&mut self, n: usize, delta: u16) -> bool {
-        if self.area_length[n] > delta {
-            self.area_length[n] -= delta;
-            self.area_length[n + 1] += delta;
-            self.hidden_length[n] = 0;
-            true
-        } else {
-            false
-        }
+        let split_pos = self.split_pos(n);
+        self.set_split_pos(n, split_pos - delta);
+
+        split_pos != self.split_pos(n)
     }
 
     /// Move the nth split position.
     /// Does nothing if the change is bigger than the length of the split.
     pub fn move_split_right(&mut self, n: usize, delta: u16) -> bool {
-        if self.area_length[n + 1] >= delta {
-            self.area_length[n] += delta;
-            self.area_length[n + 1] -= delta;
-            self.hidden_length[n] = 0;
-            true
-        } else {
-            false
-        }
+        let split_pos = self.split_pos(n);
+        self.set_split_pos(n, split_pos + delta);
+
+        split_pos != self.split_pos(n)
     }
 
     /// Move the nth split position.
@@ -1180,6 +1170,69 @@ impl SplitState {
 
     /// Sets the position of the nth split.
     ///
+    /// Depending on the resize strategy this can limit the allowed positions
+    /// for the split.
+    ///
+    /// __Caution__
+    ///
+    /// The numbering for the splitters goes from `0` to `len-1` __exclusive__.
+    /// Split `n` marks the gap between area `n` and `n+1`.
+    ///
+    /// __Caution__
+    ///
+    /// This marks the position of the gap between two adjacent
+    /// split-areas. If you start from screen-coordinates it might
+    /// be easier to use [set_screen_split_pos](Self::set_screen_split_pos)
+    pub fn set_split_pos(&mut self, n: usize, pos: u16) {
+        match self.resize {
+            SplitResize::Neighbours => {
+                self.set_split_pos_neighbour(n, pos);
+            }
+            SplitResize::Full => {
+                self.set_split_pos_full(n, pos);
+            }
+        }
+    }
+
+    /// Limits the possible position of the split to the
+    /// width of the two direct neighbours of the split.
+    fn set_split_pos_neighbour(&mut self, n: usize, pos: u16) {
+        // create dual
+        let mut pos_vec = Vec::new();
+        let mut pp = 0;
+        for len in &self.area_length {
+            pp += *len;
+            pos_vec.push(pp);
+        }
+        // last is not a split
+        let pos_count = pos_vec.len();
+
+        let (min_pos, max_pos) = if n == 0 {
+            if n + 2 >= pos_count {
+                (SPLIT_WIDTH, pos_vec[n + 1])
+            } else {
+                (SPLIT_WIDTH, pos_vec[n + 1] - SPLIT_WIDTH)
+            }
+        } else if n + 2 < pos_count {
+            (pos_vec[n - 1] + 1, pos_vec[n + 1] - SPLIT_WIDTH)
+        } else {
+            (pos_vec[n - 1] + 1, pos_vec[n + 1])
+        };
+
+        pos_vec[n] = min(max(min_pos, pos), max_pos);
+
+        // revert dual
+        for i in 0..pos_vec.len() {
+            if i > 0 {
+                self.area_length[i] = pos_vec[i] - pos_vec[i - 1];
+            } else {
+                self.area_length[i] = pos_vec[i];
+            }
+        }
+    }
+
+    /// Sets the position of the nth split.
+    ///
     /// This will adjust the sizes of all areas left and right of the
     /// given split. It will ensure that each area has at least the width
     /// needed to render the split.
@@ -1194,7 +1247,7 @@ impl SplitState {
     /// This marks the position of the gap between two adjacent
     /// split-areas. If you start from screen-coordinates it might
     /// be easier to use [set_screen_split_pos](Self::set_screen_split_pos)
-    pub fn set_split_pos(&mut self, n: usize, pos: u16) {
+    fn set_split_pos_full(&mut self, n: usize, pos: u16) {
         assert!(n + 1 < self.area_length.len());
 
         let total_len = self.total_area_len();
