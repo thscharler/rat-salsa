@@ -220,7 +220,7 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
         let l_dlg = layout_dialog(
             area, //
-            Some(&block),
+            Some(block),
             [Constraint::Length(10)],
             0,
             Flex::End,
