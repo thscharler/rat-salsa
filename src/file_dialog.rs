@@ -513,7 +513,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
 
         let layout = layout_dialog(
             area,
-            Some(&block),
+            Some(block),
             [
                 Constraint::Percentage(20),
                 Constraint::Percentage(30),
