@@ -244,7 +244,7 @@ impl<'a> Month<'a> {
     /// Required height for the widget. Varies.
     #[inline]
     pub fn height(&self) -> u16 {
-        let mut r = MonthState::count_weeks(self.start_date) as u16;
+        let r = MonthState::count_weeks(self.start_date) as u16;
         if self.block.is_some() {
             r + 1
         } else {
@@ -493,13 +493,13 @@ impl MonthState {
         }
     }
 
-    ///
+    /// Removes all selection.
     pub fn clear_selection(&mut self) {
         self.selected_week = None;
         self.selected_day = None;
     }
 
-    /// Select a week
+    /// Select a week.
     pub fn select_week(&mut self, n: Option<usize>) {
         self.selected_week = n;
         self.selected_day = None;
