@@ -126,10 +126,10 @@ pub trait ConsumedEvent {
     }
 
     /// Or-Else chaining with `is_consumed()` as the split.
-    fn or_else_try<F, E1>(self, f: F) -> Result<Self, E1>
+    fn or_else_try<F, E>(self, f: F) -> Result<Self, E>
     where
         Self: Sized,
-        F: FnOnce() -> Result<Self, E1>,
+        F: FnOnce() -> Result<Self, E>,
     {
         if self.is_consumed() {
             Ok(self)
@@ -148,10 +148,10 @@ pub trait ConsumedEvent {
     }
 
     /// Then-chaining. Returns max(self, f()).
-    fn and_try<F, E1>(self, f: F) -> Result<Self, E1>
+    fn and_try<F, E>(self, f: F) -> Result<Self, E>
     where
         Self: Sized + Ord,
-        F: FnOnce() -> Result<Self, E1>,
+        F: FnOnce() -> Result<Self, E>,
     {
         Ok(max(self, f()?))
     }
