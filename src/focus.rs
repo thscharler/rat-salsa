@@ -404,20 +404,19 @@ impl Focus {
         self.core.reset_lost_gained();
     }
 
-    /// Change the focus.
-    ///
-    /// Sets the focus, gained and lost flags.
-    /// If this ends up with the same widget as
-    /// before gained and lost flags are not set.
-    pub fn focus_idx(&self, idx: usize) {
-        focus_debug!(self.core.log, "focus_idx {}", idx);
-        self.core.focus_idx(idx, true);
-    }
-
     /// Change to focus to the given position.
     pub fn focus_at(&self, col: u16, row: u16) -> bool {
-        focus_debug!(self.core.log, "focus_at {},{}", col, row);
-        self.core.focus_at(col, row)
+        match self.navigation() {
+            Some(Navigation::Lock) => {
+                focus_debug!(self.core.log, "focus_at {},{}", col, row);
+                focus_debug!(self.core.log, "-> locked");
+                false
+            }
+            _ => {
+                focus_debug!(self.core.log, "focus_at {},{}", col, row);
+                self.core.focus_at(col, row)
+            }
+        }
     }
 
     /// Set the initial state for all widgets.
@@ -436,12 +435,21 @@ impl Focus {
     ///
     /// If no field has the focus the first one gets it.
     pub fn next(&self) -> bool {
-        focus_debug!(
-            self.core.log,
-            "next {:?}",
-            self.core.focused().map(|v| v.name().to_string())
-        );
-        self.core.next()
+        match self.navigation() {
+            None => {
+                self.first();
+                true
+            }
+            Some(Navigation::Leave | Navigation::ReachLeaveBack | Navigation::Regular) => {
+                focus_debug!(
+                    self.core.log,
+                    "next {:?}",
+                    self.core.focused().map(|v| v.name().to_string())
+                );
+                self.core.next()
+            }
+            _ => false,
+        }
     }
 
     /// Focus the previous widget in the cycle.
@@ -451,12 +459,21 @@ impl Focus {
     ///
     /// If no field has the focus the first one gets it.
     pub fn prev(&self) -> bool {
-        focus_debug!(
-            self.core.log,
-            "prev {:?}",
-            self.core.focused().map(|v| v.name().to_string())
-        );
-        self.core.prev()
+        match self.navigation() {
+            None => {
+                self.first();
+                true
+            }
+            Some(Navigation::Leave | Navigation::ReachLeaveFront | Navigation::Regular) => {
+                focus_debug!(
+                    self.core.log,
+                    "prev {:?}",
+                    self.core.focused().map(|v| v.name().to_string())
+                );
+                self.core.prev()
+            }
+            _ => false,
+        }
     }
 }
 
@@ -1313,46 +1330,32 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for Focus {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         match event {
             ct_event!(keycode press Tab) => {
-                if matches!(
-                    self.navigation(),
-                    Some(Navigation::Leave | Navigation::ReachLeaveBack | Navigation::Regular)
-                ) {
-                    focus_debug!(
-                        self.core.log,
-                        "Tab {:?}",
-                        self.focused().map(|v| v.name().to_string())
-                    );
-                    let r = self.next().into();
-                    focus_debug!(
-                        self.core.log,
-                        "    -> {:?}",
-                        self.focused().map(|v| v.name().to_string())
-                    );
-                    r
-                } else {
-                    Outcome::Continue
-                }
+                focus_debug!(
+                    self.core.log,
+                    "Tab {:?}",
+                    self.focused().map(|v| v.name().to_string())
+                );
+                let r = self.next().into();
+                focus_debug!(
+                    self.core.log,
+                    "    -> {:?}",
+                    self.focused().map(|v| v.name().to_string())
+                );
+                r
             }
             ct_event!(keycode press SHIFT-Tab) | ct_event!(keycode press SHIFT-BackTab) => {
-                if matches!(
-                    self.navigation(),
-                    Some(Navigation::Leave | Navigation::ReachLeaveFront | Navigation::Regular)
-                ) {
-                    focus_debug!(
-                        self.core.log,
-                        "BackTab {:?}",
-                        self.focused().map(|v| v.name().to_string())
-                    );
-                    let r = self.prev().into();
-                    focus_debug!(
-                        self.core.log,
-                        "    -> {:?}",
-                        self.focused().map(|v| v.name().to_string())
-                    );
-                    r
-                } else {
-                    Outcome::Continue
-                }
+                focus_debug!(
+                    self.core.log,
+                    "BackTab {:?}",
+                    self.focused().map(|v| v.name().to_string())
+                );
+                let r = self.prev().into();
+                focus_debug!(
+                    self.core.log,
+                    "    -> {:?}",
+                    self.focused().map(|v| v.name().to_string())
+                );
+                r
             }
             _ => self.handle(event, MouseOnly),
         }

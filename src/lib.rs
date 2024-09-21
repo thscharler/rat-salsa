@@ -104,10 +104,18 @@ struct FocusFlagCore {
 }
 
 /// Focus navigation for widgets.
+///
+/// The effects that hinder focus-change (`Reach*`, `Lock`) only work
+/// when navigation changes via next()/prev()/focus_at().
+/// Programmatic focus changes are always possible.
+///
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum Navigation {
     /// Widget is not reachable with normal keyboard or mouse navigation.
     None,
+    /// Focus is locked to stay with this widget. No mouse or keyboard navigation
+    /// can change that.
+    Lock,
     /// Widget is not reachable with keyboard navigation, but can be focused with the mouse.
     Mouse,
     /// Widget cannot be reached with normal keyboard navigation, but can be left.
