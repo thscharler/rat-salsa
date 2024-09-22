@@ -119,9 +119,9 @@ impl Default for NumberInputState {
     fn default() -> Self {
         Self {
             widget: Default::default(),
-            pattern: Default::default(),
+            pattern: "#####".to_string(),
             locale: Default::default(),
-            format: Default::default(),
+            format: NumberFormat::new("#####").expect("valid_pattern"),
             non_exhaustive: NonExhaustive,
         }
     }

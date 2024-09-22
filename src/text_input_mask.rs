@@ -1344,10 +1344,6 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
         } else {
             TextOutcome::Continue
         };
-        // remap to TextChanged
-        if r == TextOutcome::Changed {
-            r = TextOutcome::TextChanged;
-        }
 
         if r == TextOutcome::Continue {
             r = self.handle(event, ReadOnly);
