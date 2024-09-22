@@ -87,6 +87,9 @@ impl RowSelection {
     }
 
     /// Update the state to match removing items.
+    ///
+    /// This will leave the selection at 0 after the
+    /// last item has been removed.
     pub fn items_removed(&mut self, pos: usize, n: usize) {
         if let Some(lead_row) = self.lead_row {
             if lead_row >= pos {
