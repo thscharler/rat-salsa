@@ -834,9 +834,9 @@ where
         let iter = self.data.iter();
 
         let scroll = ScrollArea::new()
-            .block_ref(&self.block)
-            .h_scroll_ref(&self.hscroll)
-            .v_scroll_ref(&self.vscroll);
+            .block(self.block.clone())
+            .h_scroll(self.hscroll.clone())
+            .v_scroll(self.vscroll.clone());
 
         self.render_iter(iter, scroll, area, buf, state);
     }
@@ -1595,7 +1595,7 @@ impl<Selection> TableState<Selection> {
 
         let mut areas = Vec::new();
 
-        let r = self.row_areas[row];
+        let r = self.row_areas[row - self.vscroll.offset()];
         for c in &self.column_areas {
             areas.push(Rect::new(c.x, r.y, c.width, r.height));
         }
@@ -1755,7 +1755,17 @@ impl<Selection: TableSelection> TableState<Selection> {
     /// Ensures that the given row is visible.
     /// Caveat: This doesn't work nicely if you have varying row-heights.
     pub fn scroll_to_row(&mut self, pos: usize) -> bool {
-        if pos >= self.row_offset().saturating_add(self.page_len()) {
+        if pos >= self.rows {
+            false
+        } else if pos == self.row_offset().saturating_add(self.page_len()) {
+            // the page might not fill the full area.
+            let heights = self.row_areas.iter().map(|v| v.height).sum::<u16>();
+            if heights < self.table_area.height {
+                false
+            } else {
+                self.set_row_offset(pos.saturating_sub(self.page_len()).saturating_add(1))
+            }
+        } else if pos >= self.row_offset().saturating_add(self.page_len()) {
             self.set_row_offset(pos.saturating_sub(self.page_len()).saturating_add(1))
         } else if pos < self.row_offset() {
             self.set_row_offset(pos)
@@ -1779,7 +1789,7 @@ impl<Selection: TableSelection> TableState<Selection> {
         }
     }
 
-    /// Ensures that the given cell is visible.
+    /// Ensures that the given position is visible.
     pub fn scroll_to_x(&mut self, pos: usize) -> bool {
         if pos >= self.x_offset().saturating_add(self.page_width()) {
             self.set_x_offset(pos.saturating_sub(self.page_width()).saturating_add(1))
