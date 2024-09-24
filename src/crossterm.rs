@@ -71,6 +71,11 @@ pub mod modifiers {
 /// button := <<one of the defined MouseButton's>>
 /// ```
 ///
+/// __Caveat__
+/// `ct_event!(key press SHIFT-'f')` doesn't work. It must be
+/// `ct_event!(key press SHIFT-'F')` with capital F. This holds for
+/// any combination of SHIFT too.
+///
 #[macro_export]
 macro_rules! ct_event {
     (key press $keychar:pat) => {
