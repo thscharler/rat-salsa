@@ -1,7 +1,7 @@
 #![doc = include_str!("../readme.md")]
 
 mod cellselection;
-mod edit_table;
+pub mod edit;
 mod noselection;
 mod rowselection;
 mod rowsetselection;
@@ -94,6 +94,43 @@ pub trait TableData<'a> {
     );
 }
 
+impl<'a> TableData<'a> for Box<dyn TableData<'a> + 'a> {
+    fn rows(&self) -> usize {
+        (**self).rows()
+    }
+
+    fn header(&self) -> Option<Row<'a>> {
+        (**self).header()
+    }
+
+    fn footer(&self) -> Option<Row<'a>> {
+        (**self).footer()
+    }
+
+    fn row_height(&self, row: usize) -> u16 {
+        (**self).row_height(row)
+    }
+
+    fn row_style(&self, row: usize) -> Option<Style> {
+        (**self).row_style(row)
+    }
+
+    fn widths(&self) -> Vec<Constraint> {
+        (**self).widths()
+    }
+
+    fn render_cell(
+        &self,
+        ctx: &TableContext,
+        column: usize,
+        row: usize,
+        area: Rect,
+        buf: &mut Buffer,
+    ) {
+        (**self).render_cell(ctx, column, row, area, buf)
+    }
+}
+
 /// Trait for accessing the table-data by the Table.
 ///
 /// This trait is suitable if the underlying data is an iterator.
@@ -168,11 +205,6 @@ pub trait TableSelection {
 use crate::_private::NonExhaustive;
 
 pub use table::{handle_doubleclick_events, handle_edit_events, Table, TableState, TableStyle};
-
-/// Editing support for Table.
-pub mod edit {
-    pub use crate::edit_table::{handle_edit_events, EditTable, EditTableState, EditorWidget};
-}
 
 /// Different selection models for Table.
 pub mod selection {

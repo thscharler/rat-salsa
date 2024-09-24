@@ -80,7 +80,7 @@ impl RowSelection {
     /// Update the state to match adding items.
     pub fn items_added(&mut self, pos: usize, n: usize) {
         if let Some(lead_row) = self.lead_row {
-            if lead_row >= pos {
+            if lead_row > pos {
                 self.lead_row = Some(lead_row + n);
             }
         }
@@ -90,10 +90,12 @@ impl RowSelection {
     ///
     /// This will leave the selection at 0 after the
     /// last item has been removed.
-    pub fn items_removed(&mut self, pos: usize, n: usize) {
+    pub fn items_removed(&mut self, pos: usize, n: usize, maximum: usize) {
         if let Some(lead_row) = self.lead_row {
-            if lead_row >= pos {
+            if lead_row > pos {
                 self.lead_row = Some(lead_row.saturating_sub(n));
+            } else if lead_row == pos && lead_row == maximum {
+                self.lead_row = Some(lead_row.saturating_sub(1));
             }
         }
     }
