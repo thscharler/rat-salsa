@@ -9,7 +9,9 @@ use rat_widget::event::{
 use rat_widget::menuline::MenuOutcome;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::mem;
 
 pub(crate) mod control_queue;
 mod framework;
@@ -34,7 +36,7 @@ pub use threadpool::Cancel;
 /// The macro
 /// [rat-event::flow!](https://docs.rs/rat-event/latest/rat_event/macro.flow.html)
 /// provides control-flow using this enum.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Debug, Clone, Copy)]
 #[must_use]
 pub enum Control<Message> {
     /// Continue with event-handling.
@@ -54,6 +56,62 @@ pub enum Control<Message> {
     Message(Message),
     /// Quit the application.
     Quit,
+}
+
+impl<Message> Eq for Control<Message> {}
+
+impl<Message> PartialEq for Control<Message> {
+    fn eq(&self, other: &Self) -> bool {
+        mem::discriminant(self) == mem::discriminant(other)
+    }
+}
+
+impl<Message> Ord for Control<Message> {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.partial_cmp(other).expect("cmp")
+    }
+}
+
+impl<Message> PartialOrd for Control<Message> {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        match self {
+            Control::Continue => match other {
+                Control::Continue => Some(Ordering::Equal),
+                Control::Unchanged => Some(Ordering::Less),
+                Control::Changed => Some(Ordering::Less),
+                Control::Message(_) => Some(Ordering::Less),
+                Control::Quit => Some(Ordering::Less),
+            },
+            Control::Unchanged => match other {
+                Control::Continue => Some(Ordering::Greater),
+                Control::Unchanged => Some(Ordering::Equal),
+                Control::Changed => Some(Ordering::Less),
+                Control::Message(_) => Some(Ordering::Less),
+                Control::Quit => Some(Ordering::Less),
+            },
+            Control::Changed => match other {
+                Control::Continue => Some(Ordering::Greater),
+                Control::Unchanged => Some(Ordering::Greater),
+                Control::Changed => Some(Ordering::Equal),
+                Control::Message(_) => Some(Ordering::Less),
+                Control::Quit => Some(Ordering::Less),
+            },
+            Control::Message(_) => match other {
+                Control::Continue => Some(Ordering::Greater),
+                Control::Unchanged => Some(Ordering::Greater),
+                Control::Changed => Some(Ordering::Greater),
+                Control::Message(_) => Some(Ordering::Equal),
+                Control::Quit => Some(Ordering::Less),
+            },
+            Control::Quit => match other {
+                Control::Continue => Some(Ordering::Greater),
+                Control::Unchanged => Some(Ordering::Greater),
+                Control::Changed => Some(Ordering::Greater),
+                Control::Message(_) => Some(Ordering::Greater),
+                Control::Quit => Some(Ordering::Equal),
+            },
+        }
+    }
 }
 
 impl<Message> ConsumedEvent for Control<Message> {
