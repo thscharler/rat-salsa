@@ -28,13 +28,7 @@ pub trait Editor {
     type State: EditorState;
 
     /// Standard render call, but with added areas for each cell.
-    fn render_ref(
-        &self,
-        area: Rect,
-        cell_areas: &[Rect],
-        buf: &mut Buffer,
-        state: &mut Self::State,
-    );
+    fn render(&self, area: Rect, cell_areas: &[Rect], buf: &mut Buffer, state: &mut Self::State);
 }
 
 /// Trait for the editor widget state

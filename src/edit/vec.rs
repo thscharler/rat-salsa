@@ -161,7 +161,7 @@ where
                 // but it might be out of view
                 if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
                     self.editor
-                        .render_ref(row_area, &cell_areas, buf, &mut state.editor);
+                        .render(row_area, &cell_areas, buf, &mut state.editor);
                 }
             } else {
                 if cfg!(debug_assertions) {

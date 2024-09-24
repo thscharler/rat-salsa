@@ -56,11 +56,11 @@ pub struct EditTableState<S> {
     pub mouse: MouseFlags,
 }
 
-impl<'a, ED> EditTable<'a, ED>
+impl<'a, E> EditTable<'a, E>
 where
-    ED: Editor + 'a,
+    E: Editor + 'a,
 {
-    pub fn new(table: Table<'a, RowSelection>, editor: ED) -> Self {
+    pub fn new(table: Table<'a, RowSelection>, editor: E) -> Self {
         Self { table, editor }
     }
 }
@@ -80,7 +80,7 @@ where
                 // but it might be out of view
                 if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
                     self.editor
-                        .render_ref(row_area, &cell_areas, buf, &mut state.editor);
+                        .render(row_area, &cell_areas, buf, &mut state.editor);
                 }
             } else {
                 if cfg!(debug_assertions) {
@@ -91,11 +91,11 @@ where
     }
 }
 
-impl<'a, ED> StatefulWidget for EditTable<'a, ED>
+impl<'a, E> StatefulWidget for EditTable<'a, E>
 where
-    ED: Editor + 'a,
+    E: Editor + 'a,
 {
-    type State = EditTableState<ED::State>;
+    type State = EditTableState<E::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.table.render(area, buf, &mut state.table);
@@ -105,7 +105,7 @@ where
                 // but it might be out of view
                 if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
                     self.editor
-                        .render_ref(row_area, &cell_areas, buf, &mut state.editor);
+                        .render(row_area, &cell_areas, buf, &mut state.editor);
                 }
             } else {
                 if cfg!(debug_assertions) {
