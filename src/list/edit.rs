@@ -7,6 +7,7 @@ use crate::list::selection::RowSelection;
 use crate::list::{List, ListSelection, ListState};
 #[allow(unused_imports)]
 use log::debug;
+use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag};
@@ -15,195 +16,291 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::StatefulWidget;
 
+/// Editing mode.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    View,
+    Edit,
+    Insert,
+}
+
 /// Edit-List widget.
 ///
 /// Contains the base list and the edit-widget.
 #[derive(Debug, Default)]
-pub struct EditList<'a, Editor: StatefulWidget + 'a> {
+pub struct EditList<'a, E>
+where
+    E: StatefulWidget + 'a,
+{
     list: List<'a, RowSelection>,
-    editor: Editor,
+    editor: E,
 }
 
-/// State & even-handling.
-#[derive(Debug, Default)]
-pub struct EditListState<EditorState> {
+/// State & event-handling.
+///
+/// Contains `mode` to differentiate between edit/non-edit.
+/// This will lock the focus to the input line while editing.
+///
+#[derive(Debug)]
+pub struct EditListState<S> {
+    /// Editing mode.
+    pub mode: Mode,
+
     /// List state
     pub list: ListState<RowSelection>,
     /// EditorState. Some indicates editing is active.
-    editor: Option<EditorState>,
+    pub editor: S,
 
     /// Flags for mouse interaction.
     pub mouse: MouseFlags,
 }
 
-impl<'a, Editor> EditList<'a, Editor>
+impl<'a, E> EditList<'a, E>
 where
-    Editor: StatefulWidget + 'a,
+    E: StatefulWidget + 'a,
 {
-    pub fn new(list: List<'a, RowSelection>, edit: Editor) -> Self {
+    pub fn new(list: List<'a, RowSelection>, edit: E) -> Self {
         Self { list, editor: edit }
     }
 }
 
-impl<'a, Editor> StatefulWidget for EditList<'a, Editor>
+impl<'a, E> StatefulWidget for EditList<'a, E>
 where
-    Editor: StatefulWidget + 'a,
+    E: StatefulWidget + 'a,
 {
-    type State = EditListState<Editor::State>;
+    type State = EditListState<E::State>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.list.render(area, buf, &mut state.list);
 
-        if let Some(edit_state) = &mut state.editor {
-            // expect a selected row
+        if state.mode == Mode::Insert || state.mode == Mode::Edit {
             if let Some(row) = state.list.selected() {
                 // but it might be out of view
                 if let Some(row_area) = state.list.row_area(row) {
-                    self.editor.render(row_area, buf, edit_state);
+                    self.editor.render(row_area, buf, &mut state.editor);
                 }
             } else {
-                // todo: warn or something??
+                if cfg!(debug_assertions) {
+                    warn!("no row selection, not rendering editor");
+                }
             }
         }
     }
 }
 
-impl<EditorState> HasFocusFlag for EditListState<EditorState>
+impl<S> Default for EditListState<S>
 where
-    EditorState: HasFocusFlag,
+    S: Default,
+{
+    fn default() -> Self {
+        Self {
+            mode: Mode::View,
+            list: Default::default(),
+            editor: S::default(),
+            mouse: Default::default(),
+        }
+    }
+}
+
+impl<S> HasFocusFlag for EditListState<S>
+where
+    S: HasFocusFlag,
 {
     fn focus(&self) -> FocusFlag {
-        if let Some(edit_state) = self.editor.as_ref() {
-            edit_state.focus()
-        } else {
-            self.list.focus()
+        match self.mode {
+            Mode::View => self.list.focus(),
+            Mode::Edit => self.editor.focus(),
+            Mode::Insert => self.editor.focus(),
         }
     }
 
     fn area(&self) -> Rect {
-        if let Some(edit_state) = self.editor.as_ref() {
-            edit_state.area()
-        } else {
-            self.list.area()
-        }
+        self.list.area()
     }
 }
 
-impl<EditorState> HasScreenCursor for EditListState<EditorState>
+impl<S> HasScreenCursor for EditListState<S>
 where
-    EditorState: HasScreenCursor,
+    S: HasScreenCursor,
 {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
-        if let Some(edit) = self.editor.as_ref() {
-            edit.screen_cursor()
-        } else {
-            None
+        match self.mode {
+            Mode::View => None,
+            Mode::Edit | Mode::Insert => self.editor.screen_cursor(),
         }
     }
 }
 
-impl<EditorState> EditListState<EditorState>
-where
-    EditorState: Default,
-{
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn named(name: &str) -> Self {
+impl<S> EditListState<S> {
+    /// New state.
+    pub fn new(editor: S) -> Self {
         Self {
+            mode: Mode::View,
+            list: Default::default(),
+            editor,
+            mouse: Default::default(),
+        }
+    }
+
+    /// New state with a named focus.
+    pub fn named(name: &str, editor: S) -> Self {
+        Self {
+            mode: Mode::View,
             list: ListState::named(name),
-            ..Self::default()
+            editor,
+            mouse: Default::default(),
         }
     }
 }
 
-impl<EditorState> EditListState<EditorState>
+impl<S> EditListState<S>
 where
-    EditorState: HasFocusFlag,
+    S: HasFocusFlag,
 {
     /// Editing is active?
     pub fn is_editing(&self) -> bool {
-        self.editor.is_some()
+        self.mode == Mode::Edit || self.mode == Mode::Insert
     }
 
-    /// Editor widget.
+    /// Is the current edit an insert?
+    pub fn is_insert(&self) -> bool {
+        self.mode == Mode::Insert
+    }
+
+    /// Remove the item at the selected row.
     ///
-    /// __Panic__
-    /// Panics if not editing.
-    pub fn editor(&self) -> &EditorState {
-        self.editor.as_ref().expect("editing")
+    /// This doesn't change the actual list of items, but does
+    /// all the bookkeeping with the list-state.
+    pub fn remove(&mut self, row: usize) {
+        if self.mode != Mode::View {
+            return;
+        }
+        self.list.items_removed(row, 1);
+        if !self.list.scroll_to(row) {
+            self.list.scroll_to(row.saturating_sub(1));
+        }
     }
 
-    /// Editor widget.
-    pub fn try_editor(&self) -> Option<&EditorState> {
-        self.editor.as_ref()
-    }
-
-    /// Editor widget.
+    /// Edit a new item inserted at the selected row.
     ///
-    /// __Panic__
-    /// Panics if not editing.
-    pub fn editor_mut(&mut self) -> &mut EditorState {
-        self.editor.as_mut().expect("editing")
-    }
-
-    /// Editor widget.
-    pub fn try_editor_mut(&mut self) -> Option<&mut EditorState> {
-        self.editor.as_mut()
-    }
-
-    /// Start editing at the position.
+    /// The editor state must be initialized to an appropriate state
+    /// beforehand.
     ///
-    /// The editor state must be initialized to an appropriate state.
-    pub fn start_edit(&mut self, pos: usize, edit: EditorState) {
+    /// This does all the bookkeeping with the list-state and
+    /// switches the mode to Mode::Insert.
+    pub fn edit_new(&mut self, row: usize) {
+        if self.mode != Mode::View {
+            return;
+        }
+        self._start(row, Mode::Insert);
+    }
+
+    /// Edit the item at the selected row.
+    ///
+    /// The editor state must be initialized to an appropriate state
+    /// beforehand.
+    ///
+    /// This does all the bookkeeping with the list-state and
+    /// switches the mode to Mode::Edit.
+    pub fn edit(&mut self, row: usize) {
+        if self.mode != Mode::View {
+            return;
+        }
+        self._start(row, Mode::Edit);
+    }
+
+    fn _start(&mut self, pos: usize, mode: Mode) {
         if self.list.is_focused() {
             self.list.focus().set(false);
-            edit.focus().set(true);
+            self.editor.focus().set(true);
         }
 
-        self.editor = Some(edit);
-
-        self.list.items_added(pos, 1);
+        self.mode = mode;
+        if self.mode == Mode::Insert {
+            self.list.items_added(pos, 1);
+        }
         self.list.move_to(pos);
     }
 
     /// Cancel editing.
     ///
-    /// Updates the state to remove the edited row.
-    pub fn cancel_edit(&mut self) {
-        let selected = self.list.selected();
-
-        self.stop_edit();
-
-        if let Some(selected) = selected {
-            self.list.items_removed(selected, 1);
-            self.list.move_to(selected);
+    /// This doesn't reset the edit-widget.
+    ///
+    /// But it does all the bookkeeping with the list-state and
+    /// switches the mode back to Mode::View.
+    pub fn cancel(&mut self) {
+        if self.mode == Mode::View {
+            return;
         }
+        let Some(row) = self.list.selected() else {
+            return;
+        };
+        if self.mode == Mode::Insert {
+            self.list.items_removed(row, 1);
+        }
+        self._stop();
     }
 
-    /// Stops editing.
+    /// Commit the changes in the editor.
     ///
-    /// Assumes the edited row will be inserted into the base data.
-    pub fn stop_edit(&mut self) {
-        if let Some(edit) = &mut self.editor {
-            if edit.is_focused() {
-                self.list.focus.set(true);
-            }
+    /// This doesn't copy the data back from the editor to the
+    /// row-item.
+    ///
+    /// But it does all the bookkeeping with the list-state and
+    /// switches the mode back to Mode::View.
+    pub fn commit(&mut self) {
+        if self.mode == Mode::View {
+            return;
         }
-        self.editor = None;
+        self._stop();
+    }
+
+    fn _stop(&mut self) {
+        self.mode = Mode::View;
+        if self.editor.is_focused() {
+            self.list.focus.set(true);
+            self.editor.focus().set(false);
+        }
     }
 }
 
-impl<EditorState, EQualifier> HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>
-    for EditListState<EditorState>
+impl<S, C> HandleEvent<crossterm::event::Event, C, EditOutcome> for EditListState<S>
 where
-    EditorState: HandleEvent<crossterm::event::Event, EQualifier, EditOutcome>,
-    EditorState: HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome>,
-    EditorState: HasFocusFlag,
+    S: HandleEvent<crossterm::event::Event, C, EditOutcome>,
+    S: HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome>,
+    S: HasFocusFlag,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, qualifier: EQualifier) -> EditOutcome {
-        if !self.is_editing() {
+    fn handle(&mut self, event: &crossterm::event::Event, ctx: C) -> EditOutcome {
+        if self.mode == Mode::Edit || self.mode == Mode::Insert {
+            if self.editor.is_focused() {
+                flow!(self.editor.handle(event, ctx));
+
+                flow!(match event {
+                    ct_event!(keycode press Esc) => {
+                        EditOutcome::Cancel
+                    }
+                    ct_event!(keycode press Enter) => {
+                        EditOutcome::Commit
+                    }
+                    ct_event!(keycode press Tab) => {
+                        if self.list.selected() < Some(self.list.rows().saturating_sub(1)) {
+                            EditOutcome::CommitAndEdit
+                        } else {
+                            EditOutcome::CommitAndAppend
+                        }
+                    }
+                    ct_event!(keycode press Up) => {
+                        EditOutcome::Commit
+                    }
+                    ct_event!(keycode press Down) => {
+                        EditOutcome::Commit
+                    }
+                    _ => EditOutcome::Continue,
+                });
+            } else {
+                flow!(self.editor.handle(event, MouseOnly));
+            }
+        } else {
             flow!(match event {
                 ct_event!(mouse any for m) if self.mouse.doubleclick(self.list.inner, m) => {
                     if self.list.row_at_clicked((m.column, m.row)).is_some() {
@@ -226,13 +323,16 @@ where
                     ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
                         EditOutcome::Edit
                     }
-                    ct_event!(keycode press Down) => 'f: {
+                    ct_event!(keycode press Down) => {
                         if let Some(row) = self.list.selection.lead_selection() {
                             if row == self.list.rows().saturating_sub(1) {
-                                break 'f EditOutcome::Append;
+                                EditOutcome::Append
+                            } else {
+                                EditOutcome::Continue
                             }
+                        } else {
+                            EditOutcome::Continue
                         }
-                        EditOutcome::Continue
                     }
                     _ => {
                         EditOutcome::Continue
@@ -246,36 +346,6 @@ where
             }
 
             flow!(self.list.handle(event, MouseOnly));
-        } else {
-            if self.editor().is_focused() {
-                flow!(self.editor_mut().handle(event, qualifier));
-
-                flow!(match event {
-                    ct_event!(keycode press Esc) => {
-                        EditOutcome::Cancel
-                    }
-                    ct_event!(keycode press Enter) | ct_event!(keycode press Up) => {
-                        EditOutcome::Commit
-                    }
-                    ct_event!(keycode press Tab) => {
-                        if self.list.selected() != Some(self.list.rows().saturating_sub(1)) {
-                            EditOutcome::CommitAndEdit
-                        } else {
-                            EditOutcome::CommitAndAppend
-                        }
-                    }
-                    ct_event!(keycode press Down) => {
-                        if self.list.selected() != Some(self.list.rows().saturating_sub(1)) {
-                            EditOutcome::Commit
-                        } else {
-                            EditOutcome::Continue
-                        }
-                    }
-                    _ => EditOutcome::Continue,
-                });
-            } else {
-                flow!(self.editor_mut().handle(event, MouseOnly));
-            }
         }
 
         EditOutcome::Continue
@@ -289,16 +359,16 @@ where
 ///
 /// The qualifier indicates which event-handler for EState will
 /// be called. Or it can be used to pass in some context.
-pub fn handle_edit_events<EditorState, Qualifier>(
-    state: &mut EditListState<EditorState>,
+pub fn handle_edit_events<S, C>(
+    state: &mut EditListState<S>,
     focus: bool,
     event: &crossterm::event::Event,
-    qualifier: Qualifier,
+    qualifier: C,
 ) -> EditOutcome
 where
-    EditorState: HandleEvent<crossterm::event::Event, Qualifier, EditOutcome>,
-    EditorState: HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome>,
-    EditorState: HasFocusFlag,
+    S: HandleEvent<crossterm::event::Event, C, EditOutcome>,
+    S: HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome>,
+    S: HasFocusFlag,
 {
     state.list.focus.set(focus);
     state.handle(event, qualifier)

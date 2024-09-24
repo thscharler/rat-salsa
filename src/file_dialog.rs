@@ -935,7 +935,7 @@ impl FileDialogState {
                 self.path_state.move_to_line_end(false);
             }
 
-            self.dir_state.cancel_edit();
+            self.dir_state.cancel();
             if !self.dirs.is_empty() {
                 self.dir_state.list.select(Some(0));
             } else {
@@ -1027,10 +1027,8 @@ impl FileDialogState {
             self.focus().focus(&self.dir_state);
 
             self.dirs.push(OsString::from(""));
-            self.dir_state.start_edit(
-                self.dirs.len() - 1, //
-                EditDirNameState::default(),
-            );
+            self.dir_state.editor.edit_dir.set_text("");
+            self.dir_state.edit_new(self.dirs.len() - 1);
 
             FileOutcome::Changed
         } else {
@@ -1040,7 +1038,7 @@ impl FileDialogState {
 
     fn cancel_edit_dir(&mut self) -> FileOutcome {
         if self.dir_state.is_editing() {
-            self.dir_state.cancel_edit();
+            self.dir_state.cancel();
             self.dirs.remove(self.dirs.len() - 1);
             FileOutcome::Changed
         } else {
@@ -1050,13 +1048,13 @@ impl FileDialogState {
 
     fn commit_edit_dir(&mut self) -> Result<FileOutcome, io::Error> {
         if self.dir_state.is_editing() {
-            let name = self.dir_state.editor().edit_dir.text().trim();
+            let name = self.dir_state.editor.edit_dir.text().trim();
             let path = self.path.join(name);
             if fs::create_dir(&path).is_err() {
-                self.dir_state.editor_mut().edit_dir.invalid = true;
+                self.dir_state.editor.edit_dir.invalid = true;
                 Ok(FileOutcome::Changed)
             } else {
-                self.dir_state.stop_edit();
+                self.dir_state.commit();
                 if self.mode == Mode::Save {
                     self.focus().focus_no_lost(&self.save_name_state);
                 }
@@ -1070,7 +1068,7 @@ impl FileDialogState {
     /// Cancel the dialog.
     fn close_cancel(&mut self) -> FileOutcome {
         self.active = false;
-        self.dir_state.stop_edit();
+        self.dir_state.cancel();
         FileOutcome::Cancel
     }
 

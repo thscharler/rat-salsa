@@ -494,18 +494,19 @@ impl ListState<RowSelection> {
     ///
     /// This corrects the number of rows, offset and selection.
     pub fn items_added(&mut self, pos: usize, n: usize) {
-        self.rows += n;
         self.scroll.items_added(pos, n);
         self.selection.items_added(pos, n);
+        self.rows += n;
     }
 
     /// Update the state to match removing items.
     ///
     /// This corrects the number of rows, offset and selection.
     pub fn items_removed(&mut self, pos: usize, n: usize) {
-        self.rows -= n;
         self.scroll.items_removed(pos, n);
-        self.selection.items_removed(pos, n);
+        self.selection
+            .items_removed(pos, n, self.rows.saturating_sub(1));
+        self.rows -= n;
     }
 
     /// When scrolling the table, change the selection instead of the offset.
