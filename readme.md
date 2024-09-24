@@ -31,8 +31,9 @@ embedded in the widgets state.
 
 ## Widget implementation
 
-For the implementation use the [ScrollArea]() helper. It combines a Block
-and two Scroll's and can calculate the inner area and render all of them.
+For the implementation use the [ScrollArea]() helper. It combines
+a Block and two Scroll's and can calculate the inner area and
+render all of them.
 
 * Scroll uses ScrollBarOrientation for the positioning of the
   scrollbars. With that there are the possible combinations
