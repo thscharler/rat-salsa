@@ -24,7 +24,7 @@ impl HandleEvent<crossterm::event::Event, MarkDown, TextOutcome> for TextAreaSta
         if self.is_focused() {
             flow!(match event {
                 ct_event!(key press ALT-'f') => md_format(self, false),
-                ct_event!(key press ALT_SHIFT-'f') => md_format(self, false),
+                ct_event!(key press ALT_SHIFT-'F') => md_format(self, true),
                 ct_event!(key press ALT-'d') => md_dump(self),
                 ct_event!(key press ALT-'s') => md_dump_styles(self),
 

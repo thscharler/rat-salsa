@@ -4,7 +4,7 @@
 
 * ESC - Jump to menu and back.
 * F5 - Jump to file-list and back.
-* Alt-F5 - Hide file-list.
+* F6 - Hide file-list.
 * F2 - Cheat sheet.
 * F1 - This document.
 
