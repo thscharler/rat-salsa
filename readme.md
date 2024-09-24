@@ -2,13 +2,12 @@
 
 ## Rationale
 
-This crate defines just the trait [HasScreenCursor] for
-use in other crates. This aims to overcome the shortcomings
-of ratatui to handle cursor positioning by widgets.
+This crate defines just the trait [HasScreenCursor] for use in
+other crates. This aims to overcome the shortcomings of ratatui
+to handle cursor positioning by widgets.
 
-In the long run I hope there will be a solution within
-ratatui which will make this obsolete, but I need some solution
-now.
+In the long run I hope there will be a solution within ratatui
+which will make this obsolete, but I need some solution now.
 
 ```rust
 pub trait HasScreenCursor {
@@ -18,10 +17,10 @@ pub trait HasScreenCursor {
 
 This trait is implemented for the widget-state struct.
 
-> It's implemented for the state struct because the
-> widget might need to run the full layout process to
-> know the cursor position. Which would approximately
-> double the rendering process.
+> It's implemented for the state struct because the widget
+> might need to run the full layout process to know the cursor
+> position. Which would approximately double the rendering
+> process.
 
 Instead of setting the cursor position during rendering somehow,
 the rendering process stores the cursor position in the state
