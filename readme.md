@@ -14,17 +14,18 @@ of rendering all the table-cells and putting them into a Vec.
 This way rendering time only depends on the screen-size not on
 the size of your data.
 
-There is a variant that takes an Iterator of
-[TableRowData](crate::TableData). It has as few traps though.
-If the Iterator doesn't have an efficient skip() or if you can'
-t give the number of rows this will iterate all your data for the
-necessary information. This might slow down everything a bit.
+There is a second trait [TableDataIter](crate::TableDataIter) that
+works better if you only have an Iterator over your data.
+> Caveat: If the Iterator doesn't have an efficient skip() or if you
+> can't give the number of rows this will iterate all your data
+> for the necessary information. This might slow down everything
+> a bit.
 
 ![image](https://github.com/thscharler/rat-ftable/blob/master/ftable.gif?raw=true)
 
 More bullet points:
 
-* Row and Column offset for rendering.
+* Row and Column scrolling.
 * Pluggable selection with [TableSelection](crate::TableSelection)
     * Allows row/column/cell selection.
     * Row/column/cell selection + Header/Footer selection each
