@@ -12,7 +12,6 @@ This splits themes in two parts,
   baselines for each widget type. You can use this as is, or copy it
   and adapt it for your applications needs.
 
-  > In the end I think this will be just some building-blocks for
+  > In the end I think this will be just some building blocks for
   > an application defined theme. I think most applications will need
   > more semantics than just 'some table', 'some list'. 
-
