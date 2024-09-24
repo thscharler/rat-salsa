@@ -1,3 +1,4 @@
+
 # Text-widgets for ratatui
 
 Features for all widgets:
@@ -42,7 +43,7 @@ more than 10,000 style ranges or so (wip).
 * Newline starts at indent.
 * Mouse selection can work word-wise. 
 * Renders this text in ~400µs
-* Quote/Brace/Bracket selection.
+* Add Quotes/Braces/Brackets to selection.
 
 There is an extended example `mdedit.rs` for TextArea in 
 <https://github.com/thscharler/rat-salsa>
