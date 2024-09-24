@@ -9,7 +9,7 @@ use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{match_focus, Focus, HasFocus, HasFocusFlag};
+use rat_focus::{match_focus, Focus, HasFocus};
 use rat_ftable::edit::table::{EditTable, EditTableState};
 use rat_ftable::edit::{Editor, EditorState};
 use rat_ftable::event::EditOutcome;
@@ -250,7 +250,7 @@ fn handle_table(
     state: &mut State,
 ) -> Result<Outcome, Error> {
     let mut r = Outcome::Continue;
-    r = r.or_else_try::<_, Error>(|| match state.table.handle(event, Regular) {
+    r = r.or_else_try::<_, Error>(|| match state.table.handle(event, istate) {
         EditOutcome::Edit => {
             if let Some(sel) = state.table.table.selected() {
                 state
@@ -387,15 +387,15 @@ impl SampleEditorState {
 }
 
 impl EditorState for SampleEditorState {
-    type Context = MiniSalsaState;
+    type Context<'a> = MiniSalsaState;
     type Data = Sample;
     type Err = Error;
 
-    fn new_edit_data(&self, _ctx: &Self::Context) -> Result<Self::Data, Self::Err> {
+    fn new_edit_data(&self, _ctx: &Self::Context<'_>) -> Result<Self::Data, Self::Err> {
         Ok(Sample::default())
     }
 
-    fn set_edit_data(&mut self, data: &Sample, _ctx: &Self::Context) -> Result<(), Error> {
+    fn set_edit_data(&mut self, data: &Sample, _ctx: &Self::Context<'_>) -> Result<(), Error> {
         self.text.set_text(&data.text);
         self.num1.set_value(data.num1)?;
         self.num2.set_value(data.num2)?;
@@ -403,7 +403,7 @@ impl EditorState for SampleEditorState {
         Ok(())
     }
 
-    fn get_edit_data(&mut self, data: &mut Sample, _ctx: &Self::Context) -> Result<(), Error> {
+    fn get_edit_data(&mut self, data: &mut Sample, _ctx: &Self::Context<'_>) -> Result<(), Error> {
         if self.text.text().is_empty() {
             return Err(anyhow!("invalid"));
         }
@@ -451,8 +451,10 @@ impl HasScreenCursor for SampleEditorState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, EditOutcome> for SampleEditorState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> EditOutcome {
+impl<'a> HandleEvent<crossterm::event::Event, &'a MiniSalsaState, EditOutcome>
+    for SampleEditorState
+{
+    fn handle(&mut self, event: &crossterm::event::Event, _ctx: &'a MiniSalsaState) -> EditOutcome {
         let mut focus = self.focus();
         let f = focus.handle(event, Regular);
 

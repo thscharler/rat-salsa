@@ -73,7 +73,7 @@ struct State {
 impl Default for State {
     fn default() -> Self {
         let mut s = Self {
-            list1: EditListState::named("list1"),
+            list1: EditListState::named("list1", EditEntryState::default()),
             menu: MenuBarState::named("menu"),
         };
         s.menu.bar.select(Some(0));
@@ -94,7 +94,6 @@ struct EditEntry;
 
 #[derive(Debug)]
 struct EditEntryState {
-    insert: bool,
     text_input: TextInputState,
 }
 
@@ -111,7 +110,6 @@ impl StatefulWidget for EditEntry {
 impl Default for EditEntryState {
     fn default() -> Self {
         let s = Self {
-            insert: false,
             text_input: TextInputState::named("edit"),
         };
         s.text_input.focus().set(true);
@@ -232,10 +230,9 @@ fn handle_input(
         flow!({
             fn insert(data: &mut Data, state: &mut State) -> Outcome {
                 if let Some(sel) = state.list1.list.selected() {
-                    let mut edit = EditEntryState::default();
-                    edit.insert = true;
                     data.data.insert(sel, "".into());
-                    state.list1.start_edit(sel, edit);
+                    state.list1.editor.text_input.set_text("");
+                    state.list1.edit_new(sel);
                 }
                 Outcome::Changed
             }
@@ -252,36 +249,32 @@ fn handle_input(
             }
 
             fn append(data: &mut Data, state: &mut State) -> Outcome {
-                let mut edit = EditEntryState::default();
-                edit.insert = true;
                 data.data.push("".into());
-                state.list1.start_edit(data.data.len() - 1, edit);
+                state.list1.editor.text_input.set_text("");
+                state.list1.edit_new(data.data.len() - 1);
                 Outcome::Changed
             }
 
             fn edit(data: &mut Data, state: &mut State) -> Outcome {
                 if let Some(sel) = state.list1.list.selected() {
-                    let mut edit = EditEntryState::default();
-                    edit.text_input.set_text(&data.data[sel]);
-                    state.list1.start_edit(sel, edit);
+                    state.list1.editor.text_input.set_text(&data.data[sel]);
+                    state.list1.edit_new(sel);
                 }
                 Outcome::Changed
             }
 
             fn commit(data: &mut Data, state: &mut State) -> Outcome {
                 if let Some(sel) = state.list1.list.selected() {
-                    if let Some(edit) = state.list1.try_editor() {
-                        let s = edit.text_input.text().to_string();
-                        if !s.is_empty() {
-                            data.data[sel] = s;
-                            state.list1.stop_edit()
-                        } else if data.data.len() == 1 {
-                            // don't remove last
-                            state.list1.stop_edit()
-                        } else {
-                            data.data.remove(sel);
-                            state.list1.cancel_edit()
-                        }
+                    let s = state.list1.editor.text_input.text().to_string();
+                    if !s.is_empty() {
+                        data.data[sel] = s;
+                        state.list1.commit();
+                    } else if data.data.len() == 1 {
+                        // don't remove last
+                        state.list1.commit();
+                    } else {
+                        data.data.remove(sel);
+                        state.list1.cancel();
                     }
                 }
                 Outcome::Changed
@@ -289,14 +282,10 @@ fn handle_input(
 
             fn cancel(data: &mut Data, state: &mut State) -> Outcome {
                 if let Some(sel) = state.list1.list.selected() {
-                    if let Some(edit) = state.list1.try_editor() {
-                        if edit.insert {
-                            data.data.remove(sel);
-                            state.list1.cancel_edit();
-                        } else {
-                            state.list1.stop_edit();
-                        }
+                    if state.list1.is_insert() {
+                        data.data.remove(sel);
                     }
+                    state.list1.cancel();
                 }
                 Outcome::Changed
             }
