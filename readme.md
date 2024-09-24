@@ -62,7 +62,7 @@ fn handle_input(event: &Event, state: &mut State) -> Result<Outcome, anyhow::Err
         .or_else(|| state.widget3.handle(event, Regular));
     
     // Combine the two results. This returns max(f,r) which works.
-    Ok(f.and(r))
+    Ok(max(f,r))
 }
 ```
 
@@ -73,7 +73,8 @@ as your application framework, there is a queue for extra results
 from event-handling. You can add the result of `focus().handle()`
 directly to the queue, and everything's well.
 
-If you already have your own framework, you might want something similar.
+If you already have your own framework, you might want something
+similar.
 
 ## Mouse
 
@@ -147,7 +148,18 @@ the end of event-handling and rebuild it anew next time.
 
 In addition to the before-mentioned methods there are
 
-* `navigable()` - The widget can indicate that it is not
-  reachable with key navigation.
+* `navigable()` - The widget can indicate how it wants to
+  interact with Focus. 
+  
+  - None - not focusable
+  - Lock - focus is locked at the widget
+  - Mouse - mouse reachable
+  - Leave - not reachable, but can leave
+  - Reach - reachable, but cannot leave
+  - ReachLeaveFront - reachable, can only leave with BackTab
+  - ReachLeaveBack - reachable, can only leave with Tab
+    - This is useful for widget that have some inner structure.
+  - Regular - reachable, can leave
+  
 * `is_focused()`, `lost_focus()`, `gained_focus()` - These are
   useful when writing the application.
