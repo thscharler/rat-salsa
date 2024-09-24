@@ -1182,6 +1182,10 @@ impl SplitState {
     /// split-areas. If you start from screen-coordinates it might
     /// be easier to use [set_screen_split_pos](Self::set_screen_split_pos)
     pub fn set_split_pos(&mut self, n: usize, pos: u16) {
+        if n + 1 >= self.area_length.len() {
+            return;
+        }
+
         match self.resize {
             SplitResize::Neighbours => {
                 self.set_split_pos_neighbour(n, pos);
@@ -1195,6 +1199,8 @@ impl SplitState {
     /// Limits the possible position of the split to the
     /// width of the two direct neighbours of the split.
     fn set_split_pos_neighbour(&mut self, n: usize, pos: u16) {
+        assert!(n + 1 < self.area_length.len());
+
         // create dual
         let mut pos_vec = Vec::new();
         let mut pp = 0;
