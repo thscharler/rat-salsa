@@ -97,6 +97,7 @@ where
 {
     type State = EditTableState<E::State>;
 
+    #[allow(clippy::collapsible_else_if)]
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.table.render(area, buf, &mut state.table);
 

@@ -150,6 +150,7 @@ where
 {
     type State = EditVecState<E::State>;
 
+    #[allow(clippy::collapsible_else_if)]
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.table_data.set_data(state.editor_data.clone());
         self.table
