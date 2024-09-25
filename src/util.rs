@@ -309,8 +309,8 @@ impl MouseFlags {
                                 if time.elapsed().unwrap_or_default().as_millis() as u32
                                     > double_click_timeout()
                                 {
-                                    self.time.set(None);
-                                    self.click.set(Clicks::None);
+                                    self.time.set(Some(SystemTime::now()));
+                                    self.click.set(Clicks::Down1(0));
                                     break 'f false;
                                 }
                             }
@@ -559,8 +559,8 @@ impl MouseFlagsN {
                                     if time.elapsed().unwrap_or_default().as_millis() as u32
                                         > double_click_timeout()
                                     {
-                                        self.time.set(None);
-                                        self.click.set(Clicks::None);
+                                        self.time.set(Some(SystemTime::now()));
+                                        self.click.set(Clicks::Down1(n));
                                         break 'f false;
                                     }
                                 }
