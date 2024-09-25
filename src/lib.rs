@@ -68,49 +68,49 @@ impl<Message> PartialEq for Control<Message> {
 
 impl<Message> Ord for Control<Message> {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.partial_cmp(other).expect("cmp")
+        match self {
+            Control::Continue => match other {
+                Control::Continue => Ordering::Equal,
+                Control::Unchanged => Ordering::Less,
+                Control::Changed => Ordering::Less,
+                Control::Message(_) => Ordering::Less,
+                Control::Quit => Ordering::Less,
+            },
+            Control::Unchanged => match other {
+                Control::Continue => Ordering::Greater,
+                Control::Unchanged => Ordering::Equal,
+                Control::Changed => Ordering::Less,
+                Control::Message(_) => Ordering::Less,
+                Control::Quit => Ordering::Less,
+            },
+            Control::Changed => match other {
+                Control::Continue => Ordering::Greater,
+                Control::Unchanged => Ordering::Greater,
+                Control::Changed => Ordering::Equal,
+                Control::Message(_) => Ordering::Less,
+                Control::Quit => Ordering::Less,
+            },
+            Control::Message(_) => match other {
+                Control::Continue => Ordering::Greater,
+                Control::Unchanged => Ordering::Greater,
+                Control::Changed => Ordering::Greater,
+                Control::Message(_) => Ordering::Equal,
+                Control::Quit => Ordering::Less,
+            },
+            Control::Quit => match other {
+                Control::Continue => Ordering::Greater,
+                Control::Unchanged => Ordering::Greater,
+                Control::Changed => Ordering::Greater,
+                Control::Message(_) => Ordering::Greater,
+                Control::Quit => Ordering::Equal,
+            },
+        }
     }
 }
 
 impl<Message> PartialOrd for Control<Message> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        match self {
-            Control::Continue => match other {
-                Control::Continue => Some(Ordering::Equal),
-                Control::Unchanged => Some(Ordering::Less),
-                Control::Changed => Some(Ordering::Less),
-                Control::Message(_) => Some(Ordering::Less),
-                Control::Quit => Some(Ordering::Less),
-            },
-            Control::Unchanged => match other {
-                Control::Continue => Some(Ordering::Greater),
-                Control::Unchanged => Some(Ordering::Equal),
-                Control::Changed => Some(Ordering::Less),
-                Control::Message(_) => Some(Ordering::Less),
-                Control::Quit => Some(Ordering::Less),
-            },
-            Control::Changed => match other {
-                Control::Continue => Some(Ordering::Greater),
-                Control::Unchanged => Some(Ordering::Greater),
-                Control::Changed => Some(Ordering::Equal),
-                Control::Message(_) => Some(Ordering::Less),
-                Control::Quit => Some(Ordering::Less),
-            },
-            Control::Message(_) => match other {
-                Control::Continue => Some(Ordering::Greater),
-                Control::Unchanged => Some(Ordering::Greater),
-                Control::Changed => Some(Ordering::Greater),
-                Control::Message(_) => Some(Ordering::Equal),
-                Control::Quit => Some(Ordering::Less),
-            },
-            Control::Quit => match other {
-                Control::Continue => Some(Ordering::Greater),
-                Control::Unchanged => Some(Ordering::Greater),
-                Control::Changed => Some(Ordering::Greater),
-                Control::Message(_) => Some(Ordering::Greater),
-                Control::Quit => Some(Ordering::Equal),
-            },
-        }
+        Some(self.cmp(other))
     }
 }
 
