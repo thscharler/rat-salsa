@@ -2,7 +2,7 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use chrono::{Local, NaiveTime};
 use crossterm::event::{Event, KeyModifiers, MouseEvent, MouseEventKind};
 use format_num_pattern::NumberFormat;
-use rat_event::util::MouseFlags;
+use rat_event::util::{set_double_click_timeout, Clicks, MouseFlags};
 use rat_event::{ct_event, Outcome};
 use rat_widget::layout::layout_grid;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -11,6 +11,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
 use ratatui::Frame;
 use std::cmp::max;
+use std::time::{Duration, SystemTime};
 
 mod mini_salsa;
 
@@ -29,11 +30,18 @@ fn main() -> Result<(), anyhow::Error> {
         drag_pos: None,
     };
 
+    set_double_click_timeout(350);
+
     run_ui(handle_buttons, repaint_buttons, &mut data, &mut state)
 }
 
+enum Journal {
+    Mouse(MouseEvent, Option<SystemTime>, Clicks),
+    DoubleClick(),
+}
+
 struct Data {
-    journal: Vec<(NaiveTime, MouseEvent)>,
+    journal: Vec<(NaiveTime, Journal)>,
 }
 
 struct State {
@@ -57,7 +65,7 @@ fn repaint_buttons(
             Constraint::Length(10),
             Constraint::Length(10),
             Constraint::Fill(1),
-            Constraint::Fill(1),
+            Constraint::Length(5),
         ]),
         Layout::vertical([
             Constraint::Length(1),
@@ -118,16 +126,37 @@ fn repaint_buttons(
 
             let dur = time.signed_duration_since(prev_time);
 
-            let msg = Span::from(
-                format!(
-                    "{:>20} {:02}:{:02} {:25?}",
-                    numf.fmt_u(dur.num_microseconds().expect("duration")),
-                    event.column,
-                    event.row,
-                    event.kind
-                )
-                .to_string(),
-            );
+            let msg = match event {
+                Journal::Mouse(event, sys, click) => {
+                    let delta = match sys {
+                        None => 0,
+                        Some(v) => v
+                            .duration_since(SystemTime::UNIX_EPOCH)
+                            .unwrap_or(Duration::default())
+                            .as_millis(),
+                    };
+
+                    Span::from(
+                        format!(
+                            "{:>20} {:02}:{:02} {:>15} {:9} {:?}",
+                            numf.fmt_u(dur.num_microseconds().expect("duration")),
+                            event.column,
+                            event.row,
+                            format!("{:?}", event.kind),
+                            delta,
+                            click
+                        )
+                        .to_string(),
+                    )
+                }
+                Journal::DoubleClick() => Span::from(
+                    format!(
+                        "{:>20}   :   CLICK CLICK",
+                        numf.fmt_u(dur.num_microseconds().expect("duration")),
+                    )
+                    .to_string(),
+                ),
+            };
             msg.render(row_area, frame.buffer_mut());
 
             prev_time = time.clone();
@@ -145,6 +174,8 @@ fn handle_buttons(
 ) -> Result<Outcome, anyhow::Error> {
     let r1 = match event {
         ct_event!(mouse any for m) if state.mouse.doubleclick(state.area, m) => {
+            data.journal
+                .push((Local::now().time(), Journal::DoubleClick()));
             state.flip = !state.flip;
             Outcome::Changed
         }
@@ -153,6 +184,8 @@ fn handle_buttons(
                 .mouse
                 .doubleclick2(state.area, m, KeyModifiers::CONTROL) =>
         {
+            data.journal
+                .push((Local::now().time(), Journal::DoubleClick()));
             state.flip2 = !state.flip2;
             Outcome::Changed
         }
@@ -171,7 +204,10 @@ fn handle_buttons(
             },
         ) => {
             if state.area.contains((m.column, m.row).into()) {
-                data.journal.push((Local::now().time(), m.clone()));
+                data.journal.push((
+                    Local::now().time(),
+                    Journal::Mouse(m.clone(), state.mouse.time.get(), state.mouse.click.get()),
+                ));
                 Outcome::Changed
             } else {
                 Outcome::Unchanged
