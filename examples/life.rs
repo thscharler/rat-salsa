@@ -1,3 +1,12 @@
+//!
+//! A nice little game of life.
+//!
+//! Aside from the obvious this is to demonstrate additional
+//! event-sources. `PollTick` implements such an event-source
+//! that produces tick-events, and distributes them with its
+//! own trait.
+//!
+
 use crate::app::{Scenery, SceneryState};
 use crate::config::LifeConfig;
 use crate::global::{GlobalState, PollTick};
