@@ -1,0 +1,13 @@
+
+[life]
+    name = block
+    rules = 23/3
+    width = 4
+    height = 4
+    one.color = blue(1)
+
+[data]
+0 = ....
+1 = .XX.
+2 = .XX.
+3 = ....

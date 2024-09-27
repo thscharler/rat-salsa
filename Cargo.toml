@@ -62,3 +62,5 @@ ropey = "1.6.1"
 cli-clipboard = "0.4.0"
 unicode-segmentation = "1.11"
 textwrap = "0.16"
+configparser = { version = "3.1.0", features = ["indexmap"] }
+rand = "0.8.5"
