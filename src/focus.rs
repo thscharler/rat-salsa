@@ -368,13 +368,9 @@ mod core {
         ///
         /// Adds start+end and calls container.build()
         pub fn container(&mut self, container: &dyn HasFocus) -> &mut Self {
-            if let Some(flag) = container.container() {
-                self.start(flag, container.area());
-            }
+            let flag = self.start(container.container(), container.area());
             container.build(self);
-            if let Some(flag) = container.container() {
-                self.end(flag);
-            }
+            self.end(flag);
             self
         }
 
@@ -405,23 +401,41 @@ mod core {
         /// the equivalent [end](Self::end).
         ///
         /// Use of [container](Self::container) is preferred.
-        pub fn start(&mut self, container_flag: ContainerFlag, area: Rect) -> &mut Self {
+        ///
+        /// __Attention__
+        /// If container_flag is None a dummy flag will be created and
+        /// returned. Use the returned value when calling [end](Self::end).
+        pub fn start(
+            &mut self,
+            container_flag: Option<ContainerFlag>,
+            area: Rect,
+        ) -> Option<ContainerFlag> {
+            if container_flag.is_none() && area.is_empty() {
+                return None;
+            }
+            let container_flag = container_flag.unwrap_or_else(ContainerFlag::default);
+
             let len = self.focus_flags.len();
             self.containers.push((
                 Container {
-                    container_flag,
+                    container_flag: container_flag.clone(),
                     area,
                     complete: false,
                 },
                 len..len,
             ));
-            self
+
+            Some(container_flag)
         }
 
         /// Manually end a container widget.
         ///
         /// Use of [container](Self::container) is preferred.
-        pub fn end(&mut self, container_flag: ContainerFlag) -> &mut Self {
+        pub fn end(&mut self, container_flag: Option<ContainerFlag>) {
+            let Some(container_flag) = container_flag else {
+                return;
+            };
+
             for (c, _) in self.containers.iter_mut().rev() {
                 if c.container_flag != container_flag {
                     if !c.complete {
@@ -432,7 +446,6 @@ mod core {
                     break;
                 }
             }
-            self
         }
 
         /// Build the final focus.
@@ -1075,11 +1088,11 @@ mod core {
             let cc = ContainerFlag::named("cc");
             let mut fb = FocusBuilder::new(None);
             fb.widget(&a);
-            fb.start(cc.clone(), Rect::default());
+            let cc_end = fb.start(Some(cc.clone()), Rect::default());
             fb.widget(&d);
             fb.widget(&e);
             fb.widget(&f);
-            fb.end(cc.clone());
+            fb.end(cc_end);
             fb.widget(&b);
             fb.widget(&c);
             let mut ff = fb.build();
@@ -1100,11 +1113,11 @@ mod core {
 
             impl HasFocus for DD {
                 fn build(&self, fb: &mut FocusBuilder) {
-                    fb.start(self.dd.clone(), Rect::default());
+                    let dd_end = fb.start(Some(self.dd.clone()), Rect::default());
                     fb.widget(&self.g);
                     fb.widget(&self.h);
                     fb.widget(&self.i);
-                    fb.end(self.dd.clone());
+                    fb.end(dd_end);
                 }
 
                 fn container(&self) -> Option<ContainerFlag> {

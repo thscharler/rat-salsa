@@ -101,9 +101,8 @@ impl Display for ContainerFlag {
 }
 
 impl HasFocus for ContainerFlag {
-    fn build(&self, builder: &mut FocusBuilder) {
-        builder.start(self.clone(), Rect::default());
-        builder.end(self.clone());
+    fn build(&self, _builder: &mut FocusBuilder) {
+        // no widgets
     }
 
     fn container(&self) -> Option<ContainerFlag> {
@@ -255,13 +254,14 @@ pub trait HasFocus {
     /// Build the focus-structure for the container.
     fn build(&self, builder: &mut FocusBuilder);
 
-    /// Returns the container-flag, if any.
+    /// Returns the container-flag.
+    ///
+    /// Will be used to collect the state of all widgets in the container.
     fn container(&self) -> Option<ContainerFlag> {
         None
     }
 
-    /// Area of the container.
-    /// TODO: make this independent of container?
+    /// Area of the container for mouse-events.
     fn area(&self) -> Rect {
         Rect::default()
     }
