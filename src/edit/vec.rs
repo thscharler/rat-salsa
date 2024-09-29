@@ -16,7 +16,7 @@ use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{build_focus, FocusFlag, HasFocusFlag, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
@@ -332,7 +332,7 @@ where
         if self.table.is_focused() {
             self.table.focus().set(false);
             self.editor_focus.set(true);
-            self.editor.focus().first();
+            build_focus(&self.editor).first();
         }
 
         self.mode = mode;
