@@ -1,5 +1,6 @@
+# 0.25.0-b1
 
-# 0.13.0
+Last big changes for beta. 
 
 * break: Reimagined focus init.
   
@@ -21,6 +22,10 @@
     
   - add free fn build_focus() and rebuild_focus() that
     can work with a &dyn HasFocus.
+    
+        
+* Add Navigation::Lock. Lock the focus with the current
+  widget.
 
 
 # 0.12.1
