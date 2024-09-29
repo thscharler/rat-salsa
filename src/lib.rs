@@ -26,10 +26,7 @@ pub mod event {
     //! Event-handler traits and Keybindings.
     //!
 
-    pub use rat_event::{
-        crossterm, ct_event, flow, try_flow, util, ConsumedEvent, Dialog, DoubleClick, HandleEvent,
-        MouseOnly, Outcome, Popup, Regular,
-    };
+    pub use rat_event::*;
 
     /// Runs only the navigation events, not any editing.
     #[derive(Debug)]
