@@ -14,11 +14,10 @@
 //! and must be called before the [Regular] event-handlers to work correctly.
 //! Event-handling for the menu line is via the [Regular] event-handler.
 //!
-use crate::event::Popup;
 use crate::menuline::{MenuLine, MenuLineState, MenuOutcome, MenuStyle};
 use crate::popup_menu::{MenuItem, Placement, PopupMenu, PopupMenuState, Separator};
 use crate::util::menu_str;
-use rat_event::{flow, HandleEvent, MouseOnly, Regular};
+use rat_event::{flow, HandleEvent, MouseOnly, Popup, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
