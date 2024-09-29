@@ -3,7 +3,7 @@ use log::debug;
 #[allow(unused_imports)]
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_event::{flow, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{Focus, HasFocusFlag};
+use rat_focus::{FocusBuilder, HasFocusFlag};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_text::HasScreenCursor;
@@ -180,7 +180,13 @@ fn handle_input(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let mut f = Focus::new_list(&[&state.sample1, &state.masked, &state.sample2]);
+    let mut f = {
+        let mut fb = FocusBuilder::default();
+        fb.widget(&state.sample1)
+            .widget(&state.masked)
+            .widget(&state.sample2);
+        fb.build()
+    };
 
     let r = f.handle(event, Regular);
     let r = r.and(|| {
