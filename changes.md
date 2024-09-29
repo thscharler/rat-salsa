@@ -1,3 +1,7 @@
+# 0.25.0-b1
+
+* sync versions for beta.
+
 # 0.12.2
 
 * docs fix

@@ -1,3 +1,6 @@
+//!
+//! Implements a dark theme.
+//!
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
 use rat_widget::file_dialog::FileDialogStyle;
