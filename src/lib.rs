@@ -8,7 +8,7 @@ pub use scroll::{Scroll, ScrollState, ScrollStyle};
 pub use scroll_area::{ScrollArea, ScrollAreaState};
 
 pub mod event {
-    use rat_event::{ConsumedEvent, Outcome};
+    use rat_event::*;
 
     /// Result of event-handling for a scroll.
     ///
