@@ -1,5 +1,5 @@
 //!
-//! A text-area with text-styling abilities.
+//! A text-area widget with text-styling abilities.
 //! And undo + clipboard support.
 //!
 
@@ -61,8 +61,8 @@ use std::ops::Range;
 /// The cursor must set externally on the ratatui Frame as usual.
 /// [screen_cursor](TextAreaState::screen_cursor) gives you the correct value.
 /// There is the inverse too [set_screen_cursor](TextAreaState::set_screen_cursor)
-/// For more interactions you can use [from_screen_col](TextAreaState::from_screen_col),
-/// and [to_screen_col](TextAreaState::to_screen_col). They calculate everything,
+/// For more interactions you can use [screen_to_col](TextAreaState::screen_to_col),
+/// and [try_col_to_screen](TextAreaState::try_col_to_screen). They calculate everything,
 /// even in the presence of more complex graphemes and those double-width emojis.
 #[derive(Debug, Default, Clone)]
 pub struct TextArea<'a> {
@@ -782,25 +782,25 @@ impl TextAreaState {
         self.value.text().string()
     }
 
-    /// Text slice as Cow<str>. Uses a byte range.
+    /// Text slice as `Cow<str>`. Uses a byte range.
     #[inline]
     pub fn str_slice_byte(&self, range: Range<usize>) -> Cow<'_, str> {
         self.value.str_slice_byte(range).expect("valid_range")
     }
 
-    /// Text slice as Cow<str>. Uses a byte range.
+    /// Text slice as `Cow<str>`. Uses a byte range.
     #[inline]
     pub fn try_str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
         self.value.str_slice_byte(range)
     }
 
-    /// Text slice as Cow<str>
+    /// Text slice as `Cow<str>`
     #[inline]
     pub fn str_slice(&self, range: impl Into<TextRange>) -> Cow<'_, str> {
         self.value.str_slice(range.into()).expect("valid_range")
     }
 
-    /// Text slice as Cow<str>
+    /// Text slice as `Cow<str>`
     #[inline]
     pub fn try_str_slice(&self, range: impl Into<TextRange>) -> Result<Cow<'_, str>, TextError> {
         self.value.str_slice(range.into())

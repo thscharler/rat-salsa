@@ -1,3 +1,7 @@
+//! Current status: BETA
+//!
+#![doc = include_str!("../readme.md")]
+
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
 use std::ops::Range;
@@ -391,7 +395,7 @@ impl TextRange {
     }
 }
 
-/// Trait for a cursor.
+/// Trait for a cursor (akin to an Iterator, not the blinking thing).
 ///
 /// This is not a [DoubleEndedIterator] which can iterate from both ends of
 /// the iterator, but moves a cursor forward/back over the collection.

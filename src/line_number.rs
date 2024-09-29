@@ -1,5 +1,5 @@
 //!
-//! Line numbers
+//! Line numbers widget.
 //!
 
 use crate::_private::NonExhaustive;

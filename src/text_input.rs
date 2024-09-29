@@ -1,5 +1,5 @@
 //!
-//! Text input.
+//! Text input widget.
 //!
 //! * Can do the usual insert/delete/movement operations.
 //! * Text selection via keyboard and mouse.
@@ -142,7 +142,7 @@ impl<'a> TextInput<'a> {
 
     /// List of text-styles.
     ///
-    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// Use [TextInputState::add_style()] to refer a text range to
     /// one of these styles.
     pub fn text_style<T: IntoIterator<Item = Style>>(mut self, styles: T) -> Self {
         self.text_style = styles.into_iter().collect();
@@ -591,19 +591,19 @@ impl TextInputState {
         self.value.text().as_str()
     }
 
-    /// Text slice as Cow<str>. Uses a byte range.
+    /// Text slice as `Cow<str>`. Uses a byte range.
     #[inline]
     pub fn str_slice_byte(&self, range: Range<usize>) -> Cow<'_, str> {
         self.value.str_slice_byte(range).expect("valid_range")
     }
 
-    /// Text slice as Cow<str>. Uses a byte range.
+    /// Text slice as `Cow<str>`. Uses a byte range.
     #[inline]
     pub fn try_str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
         self.value.str_slice_byte(range)
     }
 
-    /// Text slice as Cow<str>
+    /// Text slice as `Cow<str>`
     #[inline]
     pub fn str_slice(&self, range: Range<upos_type>) -> Cow<'_, str> {
         self.value
@@ -611,7 +611,7 @@ impl TextInputState {
             .expect("valid_range")
     }
 
-    /// Text slice as Cow<str>
+    /// Text slice as `Cow<str>`
     #[inline]
     pub fn try_str_slice(&self, range: Range<upos_type>) -> Result<Cow<'_, str>, TextError> {
         self.value

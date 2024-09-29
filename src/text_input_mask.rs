@@ -1,4 +1,4 @@
-//! Text input with an input mask.
+//! Text input widget with an input mask.
 //!
 //! * Can do the usual insert/delete/move operations.
 //! * Text selection with keyboard + mouse
@@ -184,7 +184,7 @@ impl<'a> MaskedInput<'a> {
 
     /// List of text-styles.
     ///
-    /// Use [TextAreaState::add_style()] to refer a text range to
+    /// Use [MaskedInputState::add_style()] to refer a text range to
     /// one of these styles.
     pub fn text_style<T: IntoIterator<Item = Style>>(mut self, styles: T) -> Self {
         self.text_style = styles.into_iter().collect();
@@ -433,7 +433,7 @@ impl MaskedInputState {
     /// with a default representation of the mask.
     ///
     /// The result value contains all punctuation and
-    /// the value given as 'display' below. See [compact_value()](MaskedInputState::compact_value).
+    /// the value given as 'display' below.
     ///
     /// * `0`: can enter digit, display as 0
     /// * `9`: can enter digit, display as space
@@ -596,14 +596,14 @@ impl MaskedInputState {
         self.value.set_styles(styles);
     }
 
-    /// Add a style for a [TextRange]. The style-nr refers to one
-    /// of the styles set with the widget.
+    /// Add a style for a byte-range. The style-nr refers to
+    /// one of the styles set with the widget.
     #[inline]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
         self.value.add_style(range, style);
     }
 
-    /// Add a style for a Range<upos_type> to denote the cells.
+    /// Add a style for a `Range<upos_type>` to denote the cells.
     /// The style-nr refers to one of the styles set with the widget.
     #[inline]
     pub fn add_range_style(
@@ -616,13 +616,13 @@ impl MaskedInputState {
         Ok(())
     }
 
-    /// Remove the exact TextRange and style.
+    /// Remove the exact byte-range and style.
     #[inline]
     pub fn remove_style(&mut self, range: Range<usize>, style: usize) {
         self.value.remove_style(range, style);
     }
 
-    /// Remove the exact Range<upos_type> and style.
+    /// Remove the exact `Range<upos_type>` and style.
     #[inline]
     pub fn remove_range_style(
         &mut self,
@@ -749,25 +749,25 @@ impl MaskedInputState {
         self.value.text()
     }
 
-    /// Text slice as Cow<str>. Uses a byte range.
+    /// Text slice as `Cow<str>`. Uses a byte range.
     #[inline]
     pub fn str_slice_byte(&self, range: Range<usize>) -> Cow<'_, str> {
         self.value.str_slice_byte(range).expect("valid_range")
     }
 
-    /// Text slice as Cow<str>. Uses a byte range.
+    /// Text slice as `Cow<str>`. Uses a byte range.
     #[inline]
     pub fn try_str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
         self.value.str_slice_byte(range)
     }
 
-    /// Text slice as Cow<str>
+    /// Text slice as `Cow<str>`
     #[inline]
     pub fn str_slice(&self, range: Range<upos_type>) -> Cow<'_, str> {
         self.value.str_slice(range).expect("valid_range")
     }
 
-    /// Text slice as Cow<str>
+    /// Text slice as `Cow<str>`
     #[inline]
     pub fn try_str_slice(&self, range: Range<upos_type>) -> Result<Cow<'_, str>, TextError> {
         self.value.str_slice(range)

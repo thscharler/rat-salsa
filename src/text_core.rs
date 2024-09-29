@@ -733,13 +733,13 @@ impl<Store: TextStore + Default> TextCore<Store> {
         self.text.bytes_to_range(bytes)
     }
 
-    /// A range of the text as Cow<str>
+    /// A range of the text as `Cow<str>`
     #[inline]
     pub fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError> {
         self.text.str_slice(range)
     }
 
-    /// A range of the text as Cow<str>
+    /// A range of the text as `Cow<str>`
     #[inline]
     pub fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
         self.text.str_slice_byte(range)

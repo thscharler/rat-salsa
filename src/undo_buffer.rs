@@ -1,3 +1,5 @@
+//! Undo functionality.
+
 use crate::range_map::expand_range_by;
 use crate::TextPosition;
 use dyn_clone::DynClone;

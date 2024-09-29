@@ -36,13 +36,13 @@ pub trait TextStore {
     /// * byte must <= byte-len.
     fn bytes_to_range(&self, bytes: Range<usize>) -> Result<TextRange, TextError>;
 
-    /// A range of the text as Cow<str>.
+    /// A range of the text as `Cow<str>`.
     ///
     /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
     /// * pos must be inside of range.
     fn str_slice(&self, range: TextRange) -> Result<Cow<'_, str>, TextError>;
 
-    /// A range of the text as Cow<str>.
+    /// A range of the text as `Cow<str>`.
     ///
     /// * range must be valid
     fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError>;
@@ -399,7 +399,7 @@ pub(crate) mod text_rope {
             }
         }
 
-        /// A range of the text as Cow<str>.
+        /// A range of the text as `Cow<str>`.
         ///
         /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
         /// * pos must be inside of range.
@@ -416,7 +416,7 @@ pub(crate) mod text_rope {
             }
         }
 
-        /// A range of the text as Cow<str>.
+        /// A range of the text as `Cow<str>`.
         ///
         /// The byte-range must be a valid range.
         fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {
@@ -998,7 +998,7 @@ pub(crate) mod text_string {
             Ok(TextRange::new((start, 0), (end, 0)))
         }
 
-        /// A range of the text as Cow<str>.
+        /// A range of the text as `Cow<str>`.
         ///
         /// * range must be a valid range. row <= len_lines, col <= line_width of the row.
         /// * pos must be inside of range.
@@ -1007,7 +1007,7 @@ pub(crate) mod text_string {
             Ok(Cow::Borrowed(&self.text[range.start..range.end]))
         }
 
-        /// A range of the text as Cow<str>.
+        /// A range of the text as `Cow<str>`.
         ///
         /// * range must be valid
         fn str_slice_byte(&self, range: Range<usize>) -> Result<Cow<'_, str>, TextError> {

@@ -1,5 +1,5 @@
 //!
-//! Number input
+//! Number input widget
 //!
 
 use crate::_private::NonExhaustive;
@@ -297,14 +297,14 @@ impl NumberInputState {
         self.widget.set_styles(styles);
     }
 
-    /// Add a style for a [TextRange]. The style-nr refers to one
+    /// Add a style for a byter-range. The style-nr refers to one
     /// of the styles set with the widget.
     #[inline]
     pub fn add_style(&mut self, range: Range<usize>, style: usize) {
         self.widget.add_style(range, style);
     }
 
-    /// Add a style for a Range<upos_type> to denote the cells.
+    /// Add a style for a `Range<upos_type>` to denote the cells.
     /// The style-nr refers to one of the styles set with the widget.
     #[inline]
     pub fn add_range_style(
@@ -321,7 +321,7 @@ impl NumberInputState {
         self.widget.remove_style(range, style);
     }
 
-    /// Remove the exact Range<upos_type> and style.
+    /// Remove the exact `Range<upos_type>` and style.
     #[inline]
     pub fn remove_range_style(
         &mut self,
