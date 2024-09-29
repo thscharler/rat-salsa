@@ -413,7 +413,7 @@ mod core {
             if container_flag.is_none() && area.is_empty() {
                 return None;
             }
-            let container_flag = container_flag.unwrap_or_else(ContainerFlag::default);
+            let container_flag = container_flag.unwrap_or_default();
 
             let len = self.focus_flags.len();
             self.containers.push((
