@@ -4,9 +4,9 @@
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ![](https://tokei.rs/b1/github/thscharler/rat-ftable)
 
-## Table widget based on ratatui.
+# Table widget for ratatui
 
-Could be used as a drop-in replacement for the ratatui table. But
+Can be used as a drop-in replacement for the ratatui table. But
 that's not the point of this widget.
 
 This widget uses the [TableData](crate::TableData) trait instead
@@ -16,6 +16,7 @@ the size of your data.
 
 There is a second trait [TableDataIter](crate::TableDataIter) that
 works better if you only have an Iterator over your data.
+
 > Caveat: If the Iterator doesn't have an efficient skip() or if you
 > can't give the number of rows this will iterate all your data
 > for the necessary information. This might slow down everything
@@ -30,9 +31,6 @@ More bullet points:
     * Allows row/column/cell selection.
     * Row/column/cell selection + Header/Footer selection each
       with its own style.
-* Basic key/mouse handling present.
+* Key/mouse handling present.
 
-Eventhandling is currently crossterm only. In practice
-event-handling is calling 1 or 2 functions on the state, so this
-should be easy to map to other systems. (Contributions welcome :)
-
+Eventhandling is currently crossterm only.
