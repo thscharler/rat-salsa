@@ -10,7 +10,7 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 ## Why?
 
-This crate defines just the trait [HasScreenCursor]() for use in
+This crate defines just the trait [HasScreenCursor](HasScreenCursor) for use in
 other crates. This aims to overcome the shortcomings of ratatui
 to handle cursor positioning by widgets.
 
