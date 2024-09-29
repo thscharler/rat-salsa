@@ -1,14 +1,14 @@
 #![allow(clippy::collapsible_if)]
 
 use crate::_private::NonExhaustive;
-use crate::event::{DoubleClick, DoubleClickOutcome, EditKeys, EditOutcome};
+use crate::event::{DoubleClick, DoubleClickOutcome};
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
 use crate::util::{revert_style, transfer_buffer};
 use crate::{TableContext, TableData, TableDataIter, TableSelection};
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_event::{ct_event, HandleEvent};
 use rat_focus::{FocusFlag, HasFocusFlag};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
@@ -2144,49 +2144,4 @@ pub fn handle_doubleclick_events<Selection: TableSelection>(
     event: &crossterm::event::Event,
 ) -> DoubleClickOutcome {
     state.handle(event, DoubleClick)
-}
-
-impl<Selection: TableSelection> HandleEvent<crossterm::event::Event, EditKeys, EditOutcome>
-    for TableState<Selection>
-where
-    Self: HandleEvent<crossterm::event::Event, Regular, Outcome>,
-{
-    fn handle(&mut self, event: &crossterm::event::Event, _keymap: EditKeys) -> EditOutcome {
-        match event {
-            ct_event!(keycode press Insert) => EditOutcome::Insert,
-            ct_event!(keycode press Delete) => EditOutcome::Remove,
-            ct_event!(keycode press Enter) => EditOutcome::Edit,
-            ct_event!(keycode press Down) => {
-                if let Some((_column, row)) = self.selection.lead_selection() {
-                    if row == self.rows().saturating_sub(1) {
-                        return EditOutcome::Append;
-                    }
-                }
-                <Self as HandleEvent<_, Regular, Outcome>>::handle(self, event, Regular).into()
-            }
-
-            ct_event!(keycode release  Insert)
-            | ct_event!(keycode release Delete)
-            | ct_event!(keycode release Enter)
-            | ct_event!(keycode release Down) => EditOutcome::Unchanged,
-
-            _ => <Self as HandleEvent<_, Regular, Outcome>>::handle(self, event, Regular).into(),
-        }
-    }
-}
-
-/// Handle all events.
-/// Text events are only processed if focus is true.
-/// Mouse events are processed if they are in range.
-pub fn handle_edit_events<Selection: TableSelection>(
-    state: &mut TableState<Selection>,
-    focus: bool,
-    event: &crossterm::event::Event,
-) -> EditOutcome
-where
-    TableState<Selection>: HandleEvent<crossterm::event::Event, Regular, Outcome>,
-    TableState<Selection>: HandleEvent<crossterm::event::Event, MouseOnly, Outcome>,
-{
-    state.focus.set(focus);
-    state.handle(event, EditKeys)
 }

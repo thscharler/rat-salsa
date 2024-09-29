@@ -1,17 +1,16 @@
-///
-/// Aids in inline editing a table.
-///
-/// Extra keys while viewing are
-/// * Insert/Delete - Row editing
-/// * Enter - Start editing.
-/// * Double-Click - Start editing.
-/// * Down - Start append at the final row.
-///
-/// Keys while editing are
-/// * Esc - Cancel editing.
-/// * Enter - Commit current edit and start edit next/append a row.
-/// * Up/Down - Commit current edit.
-///
+//! Extra widgets for inline editing in a table.
+//!
+//! Extra keys while viewing are
+//! * Insert - Insert a row and start the editor widget.
+//! * Delete - Delete row.
+//! * Enter - Start editor widget.
+//! * Double-Click - Start editor widget.
+//! * Down - Append after the last row and start the editor widget.
+//!
+//! Keys while editing are
+//! * Esc - Cancel editing.
+//! * Enter - Commit current edit and edit next/append a row.
+//! * Up/Down - Commit current edit.
 use rat_focus::HasFocus;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;

@@ -204,7 +204,7 @@ pub trait TableSelection {
 
 use crate::_private::NonExhaustive;
 
-pub use table::{handle_doubleclick_events, handle_edit_events, Table, TableState, TableStyle};
+pub use table::{handle_doubleclick_events, Table, TableState, TableStyle};
 
 /// Different selection models for Table.
 pub mod selection {
@@ -228,10 +228,7 @@ pub mod selection {
 
 /// Eventhandling.
 pub mod event {
-    pub use rat_event::{
-        crossterm, ct_event, flow, try_flow, util, ConsumedEvent, DoubleClick, HandleEvent,
-        MouseOnly, Outcome, Regular,
-    };
+    pub use rat_event::*;
 
     /// Result type for double-click event-handling.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -277,23 +274,7 @@ pub mod event {
         }
     }
 
-    /// Activates editing behaviour in addition to the normal
-    /// table event handling.
-    ///
-    /// There is an event-handler for this implemented
-    /// for [TableState](crate::TableState), that does nothing but
-    /// recognizing the relevant keys and translating them to an EditOutcome.
-    ///
-    /// Or you can use [EditTableState](crate::edit::EditTableState), which
-    /// manages and editing-widget in addition to the base table.
-    #[derive(Debug, Default)]
-    pub struct EditKeys;
-
-    /// Result of handling EditKeys.
-    ///
-    /// The [TableState](crate::TableState) and [EditTableState](crate::edit::EditTableState)
-    /// don't actually change your data, but this indicates what action
-    /// is requested.
+    /// Result type for the [edit](crate::edit) widgets.
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum EditOutcome {
         /// The given event has not been used at all.

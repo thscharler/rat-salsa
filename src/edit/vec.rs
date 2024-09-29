@@ -30,7 +30,7 @@ use std::rc::Rc;
 /// This is needed to inject the data during rendering, while
 /// leaving the rendering to the caller.
 ///
-/// Due to life-time issues with StatefulWidget the data is handed as Rc<>.
+/// Due to life-time issues the data is given as Rc<>.
 pub trait EditorData<D>: TableData<'static> {
     /// Set the actual table data.
     fn set_data(&mut self, data: Rc<RefCell<Vec<D>>>);
@@ -38,7 +38,7 @@ pub trait EditorData<D>: TableData<'static> {
 
 /// Widget that supports row-wise editing of a table.
 ///
-/// This widget keeps a Vec<RowData> and modifies it.
+/// This widget keeps a `Vec<RowData>` and modifies it.
 ///
 /// It's parameterized with a `Editor` widget, that renders
 /// the input line and handles events.
