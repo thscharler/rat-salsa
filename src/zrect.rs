@@ -1,9 +1,11 @@
 use ratatui::layout::{Columns, Margin, Offset, Position, Positions, Rect, Rows, Size};
 
-/// Extended Rectangle with a z-order added.
+/// Extension of Rect.
 ///
-/// Its sole use is to allow for correct mouse-handling
-/// when processing focus-events.
+/// Adds a z value for stacking overlaying areas.
+///
+/// This is useful when handling mouse events for widgets
+/// with overlays/popups.
 #[derive(Debug, Default, Clone, Copy, Eq, PartialEq, Hash)]
 pub struct ZRect {
     /// Coordinates

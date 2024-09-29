@@ -1,3 +1,28 @@
+
+# 0.13.0
+
+* break: Reimagined focus init.
+  
+  - Focus looses most functions to modify the widget
+    structure. And it's constructors. Only the container
+    rebuild fn update_container(), replace_container() 
+    and remove_container() remain. All construction goes
+    to FocusBuilder.
+    
+  - FocusBuilder. Classic builder for Focus, only
+    a widget() and a container() fn remain for this. 
+    But those are fluent fn's so it's ok.     
+      
+  - HasFocus gained a build() method which takes 
+    a FocusBuilder. This saves a few Vecs, and
+    builder style is quite nice for focus construction.
+    
+    container() and area() have solid fallbacks.
+    
+  - add free fn build_focus() and rebuild_focus() that
+    can work with a &dyn HasFocus.
+
+
 # 0.12.1
 
 * fix docs

@@ -1,7 +1,7 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use crate::substratum1::{Substratum, SubstratumState};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{Focus, HasFocus};
+use rat_focus::{Focus, FocusBuilder};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::Block;
 use ratatui::Frame;
@@ -78,12 +78,12 @@ fn repaint_input(
 }
 
 fn focus_input(state: &mut State) -> Focus {
-    let mut f = Focus::default();
-    f.add_focus(state.sub1.focus());
-    f.add_focus(state.sub2.focus());
-    f.add_focus(state.sub3.focus());
-    f.add_focus(state.sub4.focus());
-    f
+    let mut fb = FocusBuilder::default();
+    fb.container(&state.sub1)
+        .container(&state.sub2)
+        .container(&state.sub3)
+        .container(&state.sub4);
+    fb.build()
 }
 
 fn handle_input(
@@ -107,7 +107,7 @@ pub mod substratum1 {
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-    use rat_focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
+    use rat_focus::{ContainerFlag, FocusBuilder, HasFocus, HasFocusFlag};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
@@ -133,7 +133,7 @@ pub mod substratum1 {
 
     #[derive(Debug, Default)]
     pub struct SubstratumState {
-        pub focus: ContainerFlag,
+        pub container_focus: ContainerFlag,
         pub area: Rect,
         pub input1: TextInputFState,
         pub input2: TextInputFState,
@@ -148,7 +148,7 @@ pub mod substratum1 {
             let inner = self.block.inner_if_some(area);
             state.area = area;
 
-            self.block = if state.focus.get() {
+            self.block = if state.container_focus.get() {
                 if let Some(block) = self.block {
                     Some(block.border_style(Style::default().fg(THEME.secondary[3])))
                 } else {
@@ -214,16 +214,16 @@ pub mod substratum1 {
     }
 
     impl HasFocus for SubstratumState {
-        fn focus(&self) -> Focus {
-            Focus::new_container_list(
-                self.focus.clone(),
-                self.area,
-                &[&self.input1, &self.input2, &self.input3, &self.input4],
-            )
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder
+                .widget(&self.input1)
+                .widget(&self.input2)
+                .widget(&self.input3)
+                .widget(&self.input4);
         }
 
         fn container(&self) -> Option<ContainerFlag> {
-            Some(self.focus.clone())
+            Some(self.container_focus.clone())
         }
 
         fn area(&self) -> Rect {

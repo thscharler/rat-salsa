@@ -1,15 +1,18 @@
 use crate::focus::core::FocusCore;
-use crate::{ContainerFlag, FocusFlag, HasFocus, HasFocusFlag, Navigation};
+use crate::{FocusFlag, HasFocus, HasFocusFlag, Navigation};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
-use ratatui::layout::Rect;
+
+pub use core::FocusBuilder;
 
 /// Focus deals with all focus-related issues.
 ///
 /// It must be constructed at least after each render(), as it holds
 /// copies of the widget-areas for mouse-handling.
+///
 /// In practice, construct it, when you first need it.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct Focus {
+    last: FocusCore,
     core: FocusCore,
 }
 
@@ -23,83 +26,13 @@ macro_rules! focus_debug {
 }
 
 impl Focus {
-    /// Construct a new focus list.
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Construct a new focus list.
-    pub fn new_list(list: &[&'_ dyn HasFocusFlag]) -> Self {
-        let mut ff = Focus::default();
-        ff.add_all(list);
-        ff
-    }
-
-    /// Construct a new focus list for a container widget.
+    /// Dynamic change of the widget structure of a container widget.
     ///
-    /// The focus-flag for the container accumulates all the flags.
-    /// If any widget has focus, the container has the focus too.
-    /// Focus-gained and focus-lost are only set if the focus
-    /// leaves the container.
+    /// This is only necessary if your widget structure changes
+    /// during event-handling, and you need a programmatic
+    /// focus-change for the new structure.
     ///
-    /// The container widget itself interacts with the mouse too.
-    /// If no single widget is hit with the mouse, but the area of
-    /// the container is, the first widget gets the focus.
-    ///
-    /// See `examples/focus_recursive` and `examples/focus_recursive2`
-    pub fn new_container(container: ContainerFlag, area: Rect) -> Self {
-        let mut ff = Focus::default();
-        ff.core.set_container_flag(container, area);
-        ff
-    }
-
-    /// Construct a new focus list for a container widget.
-    ///
-    /// The focus-flag for the container accumulates all the flags.
-    /// If any widget has focus, the container has the focus too.
-    /// Focus-gained and focus-lost are only set if the focus
-    /// leaves the container.
-    ///
-    /// The container widget itself interacts with the mouse too.
-    /// If no single widget is hit with the mouse, but the area of
-    /// the container is, the first widget gets the focus.
-    ///
-    /// See `examples/focus_recursive` and `examples/focus_recursive2`
-    pub fn new_container_list(
-        container: ContainerFlag,
-        area: Rect,
-        list: &[&'_ dyn HasFocusFlag],
-    ) -> Self {
-        let mut ff = Focus::default();
-        ff.core.set_container_flag(container, area);
-        ff.add_all(list);
-        ff
-    }
-
-    /// Container-flag for this Focus.
-    pub fn container_flag(&self) -> Option<ContainerFlag> {
-        self.core.container_flag()
-    }
-
-    /// Container-area for this Focus.
-    pub fn container_area(&self) -> Rect {
-        self.core.container_area()
-    }
-
-    /// Add a container widget.
-    pub fn add_container(&mut self, container: &'_ dyn HasFocus) {
-        focus_debug!(
-            self.core.log,
-            "focus add container {:?} ",
-            container.container().map(|v| v.name().to_string())
-        );
-        let len = self.core.len();
-        let clen = self.core.len_sub_containers();
-        self.core
-            .insert_container(len, clen, container.focus().core);
-    }
-
-    /// Remove a container widget.
+    /// This resets the focus-flags of the removed container.
     pub fn remove_container(&mut self, container: &'_ dyn HasFocus) {
         focus_debug!(
             self.core.log,
@@ -108,8 +41,8 @@ impl Focus {
         );
         if let Some(flag) = container.container() {
             if let Some((cidx, _)) = self.core.container_index_of(flag) {
+                self.core.remove_container(cidx).reset();
                 focus_debug!(self.core.log, "    -> removed");
-                self.core.remove_container(cidx);
             } else {
                 focus_debug!(self.core.log, "    -> container not found");
             }
@@ -118,7 +51,16 @@ impl Focus {
         }
     }
 
-    /// Update the composition of the container.
+    /// Dynamic change of the widget structure of a container.
+    ///
+    /// This is only necessary if your widget structure changes
+    /// during event-handling, and you need a programmatic
+    /// focus-change for the new structure.
+    ///
+    /// If the widget that currently has the focus is still
+    /// part of the widget structure it keeps the focus.
+    /// The focus-flags for all widgets that are no longer part
+    /// of the widget structure are reset.
     pub fn update_container(&mut self, container: &'_ dyn HasFocus) {
         focus_debug!(
             self.core.log,
@@ -127,10 +69,18 @@ impl Focus {
         );
         if let Some(flag) = container.container() {
             if let Some((cidx, range)) = self.core.container_index_of(flag) {
+                let removed = self.core.remove_container(cidx);
+
+                let mut b = FocusBuilder::new(Some(Focus {
+                    last: Default::default(),
+                    core: removed,
+                }));
+                container.build(&mut b);
+                let insert = b.build();
+
+                self.core.insert_container(range.start, cidx, insert.core);
+
                 focus_debug!(self.core.log, "    -> updated");
-                self.core.remove_container(cidx);
-                self.core
-                    .insert_container(range.start, cidx, container.focus().core);
             } else {
                 focus_debug!(self.core.log, "    => container not found");
             }
@@ -139,10 +89,19 @@ impl Focus {
         }
     }
 
-    /// Replace a container widget.
+    /// Dynamic change of the widget structure of a container.
     ///
-    /// # Panic
-    /// Panics if the
+    /// This is only necessary if your widget structure changes
+    /// during event-handling, and you need a programmatic
+    /// focus-change.
+    ///
+    /// This removes the widgets of one container and inserts
+    /// the widgets of the other one in place.
+    ///
+    /// If the widget that currently has the focus is still
+    /// part of the widget structure it keeps the focus.
+    /// The focus-flags for all widgets that are no longer part
+    /// of the widget structure are reset.
     pub fn replace_container(&mut self, container: &'_ dyn HasFocus, new: &'_ dyn HasFocus) {
         focus_debug!(
             self.core.log,
@@ -152,10 +111,18 @@ impl Focus {
         );
         if let Some(flag) = container.container() {
             if let Some((cidx, range)) = self.core.container_index_of(flag) {
+                let removed = self.core.remove_container(cidx);
+
+                let mut b = FocusBuilder::new(Some(Focus {
+                    last: Default::default(),
+                    core: removed,
+                }));
+                new.build(&mut b);
+                let insert = b.build();
+
+                self.core.insert_container(range.start, cidx, insert.core);
+
                 focus_debug!(self.core.log, "    -> replaced");
-                self.core.remove_container(cidx);
-                self.core
-                    .insert_container(range.start, cidx, new.focus().core);
             } else {
                 focus_debug!(self.core.log, "    -> container not found");
             }
@@ -164,138 +131,16 @@ impl Focus {
         }
     }
 
-    /// Add a single widget.
-    pub fn add(&mut self, f: &'_ dyn HasFocusFlag) {
-        focus_debug!(self.core.log, "focus add {:?} ", f.focus().name());
-        self.core.insert(
-            self.core.len(),
-            f.focus(),
-            f.area(),
-            f.z_areas(),
-            f.navigable(),
-        );
-    }
-
-    /// Add a single widget.
-    pub fn insert_before(&mut self, f: &'_ dyn HasFocusFlag, before: &'_ dyn HasFocusFlag) {
-        focus_debug!(
-            self.core.log,
-            "focus insert {:?} before {:?}",
-            f.focus().name(),
-            before.focus().name()
-        );
-        if let Some(idx) = self.core.index_of(before.focus()) {
-            focus_debug!(self.core.log, "    -> inserted");
-            self.core
-                .insert(idx, f.focus(), f.area(), f.z_areas(), f.navigable());
-        } else {
-            focus_debug!(self.core.log, "    -> not found");
-        }
-    }
-
-    /// Add a single widget.
-    pub fn insert_after(&mut self, f: &'_ dyn HasFocusFlag, after: &'_ dyn HasFocusFlag) {
-        focus_debug!(
-            self.core.log,
-            "focus insert {:?} after {:?}",
-            f.focus().name(),
-            after.focus().name()
-        );
-        if let Some(idx) = self.core.index_of(after.focus()) {
-            focus_debug!(self.core.log, "    -> inserted");
-            self.core
-                .insert(idx + 1, f.focus(), f.area(), f.z_areas(), f.navigable());
-        } else {
-            focus_debug!(self.core.log, "    -> not found");
-        }
-    }
-
-    /// Remove a single widget
-    pub fn remove(&mut self, f: &'_ dyn HasFocusFlag) {
-        focus_debug!(self.core.log, "focus remove {:?}", f.focus().name());
-        if let Some(idx) = self.core.index_of(f.focus()) {
-            focus_debug!(self.core.log, "    -> removed");
-            self.core.remove(idx);
-        } else {
-            focus_debug!(self.core.log, "    -> not found");
-        }
-    }
-
-    /// Update the flags of a widget.
-    pub fn update(&mut self, f: &'_ dyn HasFocusFlag) {
-        focus_debug!(self.core.log, "focus update {:?}", f.focus().name());
-        if let Some(idx) = self.core.index_of(f.focus()) {
-            focus_debug!(self.core.log, "    -> updated");
-            self.core
-                .replace(idx, f.focus(), f.area(), f.z_areas(), f.navigable());
-        } else {
-            focus_debug!(self.core.log, "    -> not found");
-        }
-    }
-
-    /// Replace a single widget.
-    pub fn replace(&mut self, f: &'_ dyn HasFocusFlag, new: &'_ dyn HasFocusFlag) {
-        focus_debug!(
-            self.core.log,
-            "focus replace {:?} -> {:?}",
-            f.focus().name(),
-            new.focus().name()
-        );
-        if let Some(idx) = self.core.index_of(f.focus()) {
-            focus_debug!(self.core.log, "    -> replaced");
-            self.core
-                .replace(idx, new.focus(), new.area(), new.z_areas(), new.navigable());
-        } else {
-            focus_debug!(self.core.log, "    -> not found");
-        }
-    }
-
-    /// Append a list of widgets.
-    pub fn add_all(&mut self, list: &[&'_ dyn HasFocusFlag]) {
-        for f in list {
-            focus_debug!(self.core.log, "focus add {:?}", f.focus().name());
-            self.core.insert(
-                self.core.len(),
-                f.focus(),
-                f.area(),
-                f.z_areas(),
-                f.navigable(),
-            );
-        }
-    }
-
-    /// Add a single widget.
-    /// This doesn't add any z_areas and assumes navigable is true.
-    pub fn add_flag(&mut self, flag: FocusFlag, area: Rect) {
-        focus_debug!(self.core.log, "focus add {:?}", flag.name().to_string());
-        self.core
-            .insert(self.core.len(), flag, area, &[], Navigation::Regular);
-    }
-
-    /// Add a sub-focus cycle.
-    ///
-    /// All its widgets are appended to this list. If the sub-cycle
-    /// has an accumulator it's added to the sub-accumulators. All
-    /// sub-sub-accumulators are appended too.
-    pub fn add_focus(&mut self, container: Focus) {
-        focus_debug!(
-            self.core.log,
-            "focus add {:?}",
-            container.container_flag().map(|v| v.name().to_string())
-        );
-        let len = self.core.len();
-        let clen = self.core.len_sub_containers();
-        self.core.insert_container(len, clen, container.core);
-    }
-
     /// Writes a log for each operation.
     pub fn enable_log(&self) {
         self.core.log.set(true);
+        self.last.log.set(true);
     }
 
     /// Writes a log for each operation.
     pub fn disable_log(&self) {
         self.core.log.set(false);
+        self.last.log.set(false);
     }
 
     /// Sets the focus to the widget.
@@ -400,7 +245,7 @@ impl Focus {
     /// Reset lost + gained flags.
     /// This is done automatically in `HandleEvent::handle()` for every event.
     pub fn reset_lost_gained(&self) {
-        focus_debug!(self.core.log, "reset_lost_gained");
+        // focus_debug!(self.core.log, "reset_lost_gained");
         self.core.reset_lost_gained();
     }
 
@@ -478,10 +323,161 @@ impl Focus {
 }
 
 mod core {
-    use crate::{ContainerFlag, FocusFlag, Navigation, ZRect};
+    use crate::{ContainerFlag, Focus, FocusFlag, HasFocus, HasFocusFlag, Navigation, ZRect};
     use ratatui::layout::Rect;
     use std::cell::Cell;
     use std::ops::Range;
+
+    /// Builder for the Focus.
+    #[derive(Debug, Default)]
+    pub struct FocusBuilder {
+        last: FocusCore,
+
+        // new core
+        focus_flags: Vec<FocusFlag>,
+        areas: Vec<Rect>,
+        z_areas: Vec<Vec<ZRect>>,
+        navigable: Vec<Navigation>,
+        containers: Vec<(Container, Range<usize>)>,
+    }
+
+    impl FocusBuilder {
+        pub fn new(last: Option<Focus>) -> FocusBuilder {
+            if let Some(last) = last {
+                Self {
+                    last: last.core,
+                    focus_flags: last.last.focus_flags,
+                    areas: last.last.areas,
+                    z_areas: last.last.z_areas,
+                    navigable: last.last.navigable,
+                    containers: last.last.containers,
+                }
+            } else {
+                Self {
+                    last: FocusCore::default(),
+                    focus_flags: vec![],
+                    areas: vec![],
+                    z_areas: vec![],
+                    navigable: vec![],
+                    containers: vec![],
+                }
+            }
+        }
+
+        /// Add a container widget.
+        ///
+        /// Adds start+end and calls container.build()
+        pub fn container(&mut self, container: &dyn HasFocus) -> &mut Self {
+            if let Some(flag) = container.container() {
+                self.start(flag, container.area());
+            }
+            container.build(self);
+            if let Some(flag) = container.container() {
+                self.end(flag);
+            }
+            self
+        }
+
+        /// Add a widget.
+        ///
+        /// The widget is added to all open containers.
+        pub fn widget(&mut self, widget: &dyn HasFocusFlag) -> &mut Self {
+            for c in &self.focus_flags {
+                assert_ne!(*c, widget.focus());
+            }
+
+            self.focus_flags.push(widget.focus());
+            self.areas.push(widget.area());
+            self.z_areas.push(widget.z_areas().into());
+            self.navigable.push(widget.navigable());
+
+            let len = self.focus_flags.len();
+            for (c, r) in self.containers.iter_mut().rev() {
+                if !c.complete {
+                    r.end = len;
+                }
+            }
+
+            self
+        }
+
+        /// Manually start a container widget. Must be matched with
+        /// the equivalent [end](Self::end).
+        ///
+        /// Use of [container](Self::container) is preferred.
+        pub fn start(&mut self, container_flag: ContainerFlag, area: Rect) -> &mut Self {
+            let len = self.focus_flags.len();
+            self.containers.push((
+                Container {
+                    container_flag,
+                    area,
+                    complete: false,
+                },
+                len..len,
+            ));
+            self
+        }
+
+        /// Manually end a container widget.
+        ///
+        /// Use of [container](Self::container) is preferred.
+        pub fn end(&mut self, container_flag: ContainerFlag) -> &mut Self {
+            for (c, _) in self.containers.iter_mut().rev() {
+                if c.container_flag != container_flag {
+                    if !c.complete {
+                        panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
+                    }
+                } else {
+                    c.complete = true;
+                    break;
+                }
+            }
+            self
+        }
+
+        /// Build the final focus.
+        ///
+        /// If old is given, all widgets/containers no longer in
+        /// the focus list are cleared().
+        pub fn build(mut self) -> Focus {
+            // cleanup outcasts.
+            for v in &self.last.focus_flags {
+                if !self.focus_flags.contains(v) {
+                    v.clear();
+                }
+            }
+            'l: for (v, _) in &self.last.containers {
+                for (w, _) in &self.containers {
+                    if v.container_flag == w.container_flag {
+                        break 'l;
+                    }
+                }
+                v.container_flag.clear();
+            }
+            self.last.clear();
+
+            // check new tree.
+            for (c, _) in self.containers.iter_mut().rev() {
+                if !c.complete {
+                    panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
+                }
+            }
+
+            let log = self.last.log.get();
+
+            Focus {
+                last: self.last,
+                core: FocusCore {
+                    log: Cell::new(log),
+                    focus_flags: self.focus_flags,
+                    areas: self.areas,
+                    z_areas: self.z_areas,
+                    navigable: self.navigable,
+                    containers: self.containers,
+                },
+            }
+        }
+    }
 
     /// Struct for the data of the focus-container itself.
     #[derive(Debug, Clone)]
@@ -492,6 +488,8 @@ mod core {
         container_flag: ContainerFlag,
         /// Area for the whole compound.
         area: Rect,
+        /// Flag for construction.
+        complete: bool,
     }
 
     /// Focus core.
@@ -499,9 +497,6 @@ mod core {
     pub(super) struct FocusCore {
         /// Focus logging
         pub(super) log: Cell<bool>,
-
-        /// Summary of all focus-flags in one container focus flag.
-        container: Option<Container>,
 
         /// List of flags.
         focus_flags: Vec<FocusFlag>,
@@ -511,44 +506,21 @@ mod core {
         z_areas: Vec<Vec<ZRect>>,
         /// Keyboard navigable
         navigable: Vec<Navigation>,
-
-        /// List of sub-containers and their dependencies.
-        ///
-        /// This is filled if you call [crate::Focus::add_focus]. The
-        /// container_focus of the appended Focus and all its focus-flags
-        /// are added. And all the sub_container's of it are appended too.
-        ///
-        /// Range here is a range in the vecs above.
-        sub_containers: Vec<(Container, Range<usize>)>,
+        /// List of containers and their dependencies.
+        /// Range here is a range in the vecs above. The ranges are
+        /// all disjoint or completely contained within one other.
+        /// No criss-cross intersections.
+        containers: Vec<(Container, Range<usize>)>,
     }
 
     impl FocusCore {
-        /// Set the container itself.
-        pub(super) fn set_container_flag(&mut self, container_flag: ContainerFlag, area: Rect) {
-            self.container = Some(Container {
-                area,
-                container_flag,
-            })
-        }
-
-        /// Get the FocusFlag for the container.
-        pub(super) fn container_flag(&self) -> Option<ContainerFlag> {
-            self.container.as_ref().map(|v| v.container_flag.clone())
-        }
-
-        /// Container-area for this Focus.
-        pub(super) fn container_area(&self) -> Rect {
-            self.container.as_ref().map(|v| v.area).unwrap_or_default()
-        }
-
-        /// Count of focus-flags
-        pub(super) fn len(&self) -> usize {
-            self.focus_flags.len()
-        }
-
-        /// Count of sub-containers.
-        pub(super) fn len_sub_containers(&self) -> usize {
-            self.sub_containers.len()
+        /// Clear.
+        pub(super) fn clear(&mut self) {
+            self.focus_flags.clear();
+            self.areas.clear();
+            self.z_areas.clear();
+            self.navigable.clear();
+            self.containers.clear();
         }
 
         /// Find the given focus-flag.
@@ -565,69 +537,11 @@ mod core {
             &self,
             container_flag: ContainerFlag,
         ) -> Option<(usize, Range<usize>)> {
-            self.sub_containers
+            self.containers
                 .iter()
                 .enumerate()
                 .find(|(_, (c, _))| c.container_flag == container_flag)
                 .map(|(idx, (_, range))| (idx, range.clone()))
-        }
-
-        /// Add focus data.
-        pub(super) fn insert(
-            &mut self,
-            idx: usize,
-            focus_flag: FocusFlag,
-            area: Rect,
-            z_areas: &'_ [ZRect],
-            navigable: Navigation,
-        ) {
-            for c in &self.focus_flags {
-                assert_ne!(*c, focus_flag);
-            }
-
-            self.focus_flags.insert(idx, focus_flag);
-            self.areas.insert(idx, area);
-            self.z_areas.insert(idx, Vec::from(z_areas));
-            self.navigable.insert(idx, navigable);
-
-            for (_, r) in &mut self.sub_containers {
-                *r = Self::expand(idx..idx + 1, r.clone());
-            }
-        }
-
-        /// Remove a focus flag.
-        pub(super) fn remove(&mut self, idx: usize) {
-            self.focus_flags.remove(idx);
-            self.areas.remove(idx);
-            self.z_areas.remove(idx);
-            self.navigable.remove(idx);
-
-            for (_, r) in &mut self.sub_containers {
-                *r = Self::shrink(idx..idx + 1, r.clone());
-            }
-        }
-
-        /// Replace a focus flag.
-        pub(super) fn replace(
-            &mut self,
-            idx: usize,
-            new: FocusFlag,
-            area: Rect,
-            z_areas: &'_ [ZRect],
-            navigable: Navigation,
-        ) {
-            for (i, c) in self.focus_flags.iter().enumerate() {
-                if i != idx {
-                    assert_ne!(*c, new);
-                }
-            }
-
-            self.focus_flags[idx] = new;
-            self.areas[idx] = area;
-            self.z_areas[idx] = z_areas.into();
-            self.navigable[idx] = navigable;
-
-            // no range change
         }
 
         /// Append a container.
@@ -648,47 +562,61 @@ mod core {
 
             // range for the data of the added container.
             let start = idx;
-            let end = start + container.focus_flags.len();
+            let end = idx + container.focus_flags.len();
 
-            self.focus_flags.splice(idx..idx, container.focus_flags);
-            self.areas.splice(idx..idx, container.areas);
-            self.z_areas.splice(idx..idx, container.z_areas);
-            self.navigable.splice(idx..idx, container.navigable);
+            self.focus_flags
+                .splice(idx..idx, container.focus_flags.drain(..));
+            self.areas.splice(idx..idx, container.areas.drain(..));
+            self.z_areas.splice(idx..idx, container.z_areas.drain(..));
+            self.navigable
+                .splice(idx..idx, container.navigable.drain(..));
 
             // expand current ranges
-            for (_, r) in &mut self.sub_containers {
+            for (_, r) in &mut self.containers {
                 *r = Self::expand(start..end, r.clone());
             }
             // shift inserted ranges into place
-            for (_, r) in &mut container.sub_containers {
-                *r = Self::shift(start, r.clone());
-            }
-
-            let clen = container.sub_containers.len();
-
-            self.sub_containers
-                .splice(cidx..cidx, container.sub_containers);
-            if let Some(c) = container.container {
-                self.sub_containers.insert(cidx + clen, (c, start..end));
-            }
+            self.containers.splice(
+                cidx..cidx,
+                container
+                    .containers
+                    .drain(..)
+                    .map(|(c, r)| (c, Self::shift(start, r))),
+            );
         }
 
         /// Remove everything for the given container.
-        pub(super) fn remove_container(&mut self, cidx: usize) {
-            let crange = self.sub_containers[cidx].1.clone();
+        /// Return the extracted values as FocusCore.
+        pub(super) fn remove_container(&mut self, cidx: usize) -> FocusCore {
+            let crange = self.containers[cidx].1.clone();
 
+            // remove
+            let focus_flags = self.focus_flags.drain(crange.clone()).collect::<Vec<_>>();
+            let areas = self.areas.drain(crange.clone()).collect::<Vec<_>>();
+            let z_areas = self.z_areas.drain(crange.clone()).collect::<Vec<_>>();
+            let navigable = self.navigable.drain(crange.clone()).collect::<Vec<_>>();
+            let sub_containers = self
+                .containers
+                .iter()
+                .filter(|(_, r)| r.start >= crange.start && r.end <= crange.end)
+                .cloned()
+                .collect::<Vec<_>>();
             // remove the container and all sub-containers in the range.
-            self.sub_containers
-                .retain(|(_, r)| !(crange.start <= r.start && crange.end >= r.end));
-
-            self.focus_flags.drain(crange.clone());
-            self.areas.drain(crange.clone());
-            self.z_areas.drain(crange.clone());
-            self.navigable.drain(crange.clone());
+            self.containers
+                .retain(|(_, r)| !(r.start >= crange.start && r.end <= crange.end));
 
             // adjust the remaining sub-containers
-            for (_, r) in &mut self.sub_containers {
+            for (_, r) in &mut self.containers {
                 *r = Self::shrink(crange.start..crange.end, r.clone());
+            }
+
+            FocusCore {
+                log: Cell::new(false),
+                focus_flags,
+                areas,
+                z_areas,
+                navigable,
+                containers: sub_containers,
             }
         }
 
@@ -768,17 +696,7 @@ mod core {
 
         /// Accumulate all container flags.
         fn __accumulate(&self) {
-            if let Some(container) = &self.container {
-                container.container_flag.set(false);
-                for p in self.focus_flags.iter() {
-                    if p.get() {
-                        container.container_flag.set(true);
-                        break;
-                    }
-                }
-            }
-
-            for (f, r) in &self.sub_containers {
+            for (f, r) in &self.containers {
                 let mut any_gained = false;
                 let mut any_lost = false;
                 let mut any_focused = false;
@@ -795,17 +713,27 @@ mod core {
             }
         }
 
+        /// Reset all lost+gained+focus flags.
+        pub(super) fn reset(&self) {
+            for f in self.focus_flags.iter() {
+                f.set(false);
+                f.set_lost(false);
+                f.set_gained(false);
+            }
+            for (f, _) in self.containers.iter() {
+                f.container_flag.set(false);
+                f.container_flag.set_gained(false);
+                f.container_flag.set_lost(false);
+            }
+        }
+
         /// Reset all lost+gained flags.
         pub(super) fn reset_lost_gained(&self) {
-            if let Some(container) = &self.container {
-                container.container_flag.set_gained(false);
-                container.container_flag.set_lost(false);
-            }
             for f in self.focus_flags.iter() {
                 f.set_lost(false);
                 f.set_gained(false);
             }
-            for (f, _) in self.sub_containers.iter() {
+            for (f, _) in self.containers.iter() {
                 f.container_flag.set_gained(false);
                 f.container_flag.set_lost(false);
             }
@@ -888,40 +816,26 @@ mod core {
             }
 
             // look through the sub-containers
-            for (sub, range) in &self.sub_containers {
+            z_order.clear();
+            for (idx, (sub, _)) in self.containers.iter().enumerate() {
                 if sub.area.contains(pos) {
                     focus_debug!(
                         self.log,
                         "    container area-match {:?}",
                         sub.container_flag.name()
                     );
-
-                    if let Some(n) = self.first_navigable(range.start) {
-                        self.__start_change(true);
-                        self.__focus(n, true);
-                        self.__accumulate();
-                        focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
-                        return true;
-                    }
+                    z_order.push((idx, 0));
                 }
             }
-
-            // main container
-            if let Some(con) = &self.container {
-                if con.area.contains(pos) {
-                    focus_debug!(
-                        self.log,
-                        "    main container area-match {:?}",
-                        con.container_flag.name()
-                    );
-
-                    if let Some(n) = self.first_navigable(0) {
-                        self.__start_change(true);
-                        self.__focus(n, true);
-                        self.__accumulate();
-                        focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
-                        return true;
-                    }
+            // last is on top
+            if let Some((idx, _)) = z_order.last() {
+                let range = &self.containers[*idx].1;
+                if let Some(n) = self.first_navigable(range.start) {
+                    self.__start_change(true);
+                    self.__focus(n, true);
+                    self.__accumulate();
+                    focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                    return true;
                 }
             }
 
@@ -1007,7 +921,7 @@ mod core {
                 "first navigable {:?}",
                 self.focus_flags[start].name()
             );
-            for n in start..self.len() {
+            for n in start..self.focus_flags.len() {
                 if matches!(
                     self.navigable[n],
                     Navigation::Reach
@@ -1033,7 +947,11 @@ mod core {
 
             let mut n = start;
             loop {
-                n = if n + 1 < self.len() { n + 1 } else { 0 };
+                n = if n + 1 < self.focus_flags.len() {
+                    n + 1
+                } else {
+                    0
+                };
                 if matches!(
                     self.navigable[n],
                     Navigation::Reach
@@ -1061,7 +979,11 @@ mod core {
 
             let mut n = start;
             loop {
-                n = if n > 0 { n - 1 } else { self.len() - 1 };
+                n = if n > 0 {
+                    n - 1
+                } else {
+                    self.focus_flags.len() - 1
+                };
                 if matches!(
                     self.navigable[n],
                     Navigation::Reach
@@ -1083,7 +1005,7 @@ mod core {
     #[cfg(test)]
     mod test {
         use crate::focus::core::FocusCore;
-        use crate::{ContainerFlag, Focus, FocusFlag, Navigation};
+        use crate::{ContainerFlag, FocusBuilder, FocusFlag, HasFocus};
         use ratatui::layout::Rect;
 
         #[test]
@@ -1122,28 +1044,11 @@ mod core {
             let a = FocusFlag::named("a");
             let b = FocusFlag::named("b");
 
-            let mut core = FocusCore::default();
-            core.insert(
-                core.len(),
-                a.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert(
-                core.len(),
-                b.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert(
-                core.len(),
-                a.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
+            let mut fb = FocusBuilder::new(None);
+            fb.widget(&a);
+            fb.widget(&b);
+            fb.widget(&a);
+            fb.build();
         }
 
         #[test]
@@ -1158,170 +1063,73 @@ mod core {
             let h = FocusFlag::named("h");
             let i = FocusFlag::named("i");
 
-            let mut core = FocusCore::default();
-            core.insert(
-                core.len(),
-                a.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert(
-                core.len(),
-                b.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert(
-                core.len(),
-                c.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            assert_eq!(core.focus_flags[0], a);
-            assert_eq!(core.focus_flags[1], b);
-            assert_eq!(core.focus_flags[2], c);
-
-            let mut core = FocusCore::default();
-            core.insert(
-                core.len(),
-                a.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert(
-                core.len(),
-                b.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert(1, c.clone(), Rect::default(), &[], Navigation::Regular);
-            assert_eq!(core.focus_flags[0], a);
-            assert_eq!(core.focus_flags[1], c);
-            assert_eq!(core.focus_flags[2], b);
-            core.remove(1);
-            assert_eq!(core.focus_flags[1], b);
+            let mut fb = FocusBuilder::new(None);
+            fb.widget(&a);
+            fb.widget(&b);
+            fb.widget(&c);
+            let ff = fb.build();
+            assert_eq!(ff.core.focus_flags[0], a);
+            assert_eq!(ff.core.focus_flags[1], b);
+            assert_eq!(ff.core.focus_flags[2], c);
 
             let cc = ContainerFlag::named("cc");
-            let mut sub0 = Focus::new_container(cc.clone(), Rect::default());
-            sub0.add_flag(d.clone(), Rect::default());
-            sub0.add_flag(e.clone(), Rect::default());
-            sub0.add_flag(f.clone(), Rect::default());
+            let mut fb = FocusBuilder::new(None);
+            fb.widget(&a);
+            fb.start(cc.clone(), Rect::default());
+            fb.widget(&d);
+            fb.widget(&e);
+            fb.widget(&f);
+            fb.end(cc.clone());
+            fb.widget(&b);
+            fb.widget(&c);
+            let mut ff = fb.build();
+            assert_eq!(ff.core.focus_flags[0], a);
+            assert_eq!(ff.core.focus_flags[1], d);
+            assert_eq!(ff.core.focus_flags[2], e);
+            assert_eq!(ff.core.focus_flags[3], f);
+            assert_eq!(ff.core.focus_flags[4], b);
+            assert_eq!(ff.core.focus_flags[5], c);
+            assert_eq!(ff.core.containers[0].1, 1..4);
 
-            let dd = ContainerFlag::named("dd");
-            let mut sub1 = Focus::new_container(dd.clone(), Rect::default());
-            sub1.add_flag(g.clone(), Rect::default());
-            sub1.add_flag(h.clone(), Rect::default());
-            sub1.add_flag(i.clone(), Rect::default());
+            struct DD {
+                dd: ContainerFlag,
+                g: FocusFlag,
+                h: FocusFlag,
+                i: FocusFlag,
+            }
 
-            let mut core = FocusCore::default();
-            core.insert(
-                core.len(),
-                a.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert_container(core.len(), core.len_sub_containers(), sub0.core.clone());
-            core.insert(
-                core.len(),
-                b.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert(
-                core.len(),
-                c.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            assert_eq!(core.focus_flags[0], a);
-            assert_eq!(core.focus_flags[1], d);
-            assert_eq!(core.focus_flags[2], e);
-            assert_eq!(core.focus_flags[3], f);
-            assert_eq!(core.focus_flags[4], b);
-            assert_eq!(core.focus_flags[5], c);
-            assert_eq!(core.sub_containers[0].1, 1..4);
+            impl HasFocus for DD {
+                fn build(&self, fb: &mut FocusBuilder) {
+                    fb.start(self.dd.clone(), Rect::default());
+                    fb.widget(&self.g);
+                    fb.widget(&self.h);
+                    fb.widget(&self.i);
+                    fb.end(self.dd.clone());
+                }
 
-            let mut core = FocusCore::default();
-            core.insert(
-                core.len(),
-                a.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert_container(core.len(), core.len_sub_containers(), sub0.core.clone());
-            core.insert(1, b.clone(), Rect::default(), &[], Navigation::Regular);
-            core.insert(5, c.clone(), Rect::default(), &[], Navigation::Regular);
-            assert_eq!(core.focus_flags[0], a);
-            assert_eq!(core.focus_flags[1], b);
-            assert_eq!(core.focus_flags[2], d);
-            assert_eq!(core.focus_flags[3], e);
-            assert_eq!(core.focus_flags[4], f);
-            assert_eq!(core.focus_flags[5], c);
-            assert_eq!(core.sub_containers[0].1, 2..5);
-            core.remove(1);
-            assert_eq!(core.focus_flags[1], d);
-            assert_eq!(core.sub_containers[0].1, 1..4);
+                fn container(&self) -> Option<ContainerFlag> {
+                    Some(self.dd.clone())
+                }
 
-            let mut core = FocusCore::default();
-            core.insert(
-                core.len(),
-                a.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            core.insert_container(core.len(), core.len_sub_containers(), sub0.core.clone());
-            core.insert_container(core.len(), core.len_sub_containers(), sub1.core.clone());
-            core.insert(
-                core.len(),
-                b.clone(),
-                Rect::default(),
-                &[],
-                Navigation::Regular,
-            );
-            assert_eq!(core.focus_flags[0], a);
-            assert_eq!(core.focus_flags[1], d);
-            assert_eq!(core.focus_flags[2], e);
-            assert_eq!(core.focus_flags[3], f);
-            assert_eq!(core.focus_flags[4], g);
-            assert_eq!(core.focus_flags[5], h);
-            assert_eq!(core.focus_flags[6], i);
-            assert_eq!(core.focus_flags[7], b);
-            assert_eq!(core.sub_containers[0].1, 1..4);
-            assert_eq!(core.sub_containers[1].1, 4..7);
-            core.remove(0);
-            assert_eq!(core.focus_flags[0], d);
-            assert_eq!(core.focus_flags[6], b);
-            assert_eq!(core.sub_containers[0].1, 0..3);
-            assert_eq!(core.sub_containers[1].1, 3..6);
-            core.insert(0, a.clone(), Rect::default(), &[], Navigation::Regular);
-            assert_eq!(core.focus_flags[1], d);
-            assert_eq!(core.focus_flags[7], b);
-            assert_eq!(core.sub_containers[0].1, 1..4);
-            assert_eq!(core.sub_containers[1].1, 4..7);
-            core.insert(0, c.clone(), Rect::default(), &[], Navigation::Regular);
-            core.remove_container(1);
-            assert_eq!(core.focus_flags[2], d);
-            assert_eq!(core.focus_flags[5], b);
-            assert_eq!(core.sub_containers[0].1, 2..5);
-            assert_eq!(core.sub_containers.len(), 1);
-            core.insert_container(2, 0, sub1.core.clone());
-            assert_eq!(core.focus_flags[2], g);
-            assert_eq!(core.focus_flags[5], d);
-            assert_eq!(core.focus_flags[8], b);
-            assert_eq!(core.sub_containers[0].1, 2..5);
-            assert_eq!(core.sub_containers[1].1, 5..8);
-            assert_eq!(core.sub_containers[0].0.container_flag.name(), "dd");
-            assert_eq!(core.sub_containers[1].0.container_flag.name(), "cc");
+                fn area(&self) -> Rect {
+                    Rect::default()
+                }
+            }
+
+            let dd = DD {
+                dd: ContainerFlag::named("dd"),
+                g: g.clone(),
+                h: h.clone(),
+                i: i.clone(),
+            };
+            ff.replace_container(&cc, &dd);
+            assert_eq!(ff.core.focus_flags[0], a);
+            assert_eq!(ff.core.focus_flags[1], g);
+            assert_eq!(ff.core.focus_flags[2], h);
+            assert_eq!(ff.core.focus_flags[3], i);
+            assert_eq!(ff.core.focus_flags[4], b);
+            assert_eq!(ff.core.focus_flags[5], c);
+            assert_eq!(ff.core.containers[0].1, 1..4);
         }
     }
 }
@@ -1390,9 +1198,4 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for Focus {
 /// Handle all events.
 pub fn handle_focus(focus: &mut Focus, event: &crossterm::event::Event) -> Outcome {
     HandleEvent::handle(focus, event, Regular)
-}
-
-/// Handle only mouse-events.
-pub fn handle_mouse_focus(focus: &mut Focus, event: &crossterm::event::Event) -> Outcome {
-    HandleEvent::handle(focus, event, MouseOnly)
 }

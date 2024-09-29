@@ -2,7 +2,7 @@ use crate::adapter::textinputf::{TextInputF, TextInputFState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{Focus, HasFocusFlag};
+use rat_focus::{Focus, FocusBuilder, HasFocusFlag};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::Frame;
@@ -98,7 +98,12 @@ fn repaint_input(
 }
 
 fn focus_input(state: &mut State) -> Focus {
-    Focus::new_list(&[&state.input1, &state.input2, &state.input3, &state.input4])
+    let mut fb = FocusBuilder::default();
+    fb.widget(&state.input1)
+        .widget(&state.input2)
+        .widget(&state.input3)
+        .widget(&state.input4);
+    fb.build()
 }
 
 fn handle_input(
