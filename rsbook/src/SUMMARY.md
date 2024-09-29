@@ -1,9 +1,12 @@
+
 # Summary
 
 [Introduction]()
 
-- [Chapter 1](./chapter_1.md)
-
+- [minimal](./minimal.md)
 
 - [Widgets]()
     - [Rendering overlays](./render_overlay.md) 
+    
+- [Focus]()
+  - [Combining outcomes](./combining_outcomes.md)

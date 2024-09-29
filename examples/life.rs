@@ -786,14 +786,14 @@ pub mod game {
         /// Random
         pub fn random(&mut self) {
             let n = max(self.live.count_ones(), self.birth.count_ones());
-            let r = n as f64 / 9f64;
+            let r = n as f64 / 18f64;
 
             self.area_0 = self.area.clone();
             self.world_0 = vec![0; self.area_0.width as usize * self.area_0.height as usize];
             for y in 0..self.area_0.height {
                 for x in 0..self.area_0.width {
                     let pos = (y * self.area_0.width + x) as usize;
-                    self.world_0[pos] = if random::<f64>() < 0.05f64 { 1 } else { 0 };
+                    self.world_0[pos] = if random::<f64>() < r { 1 } else { 0 };
                 }
             }
 

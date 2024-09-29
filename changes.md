@@ -1,3 +1,8 @@
+# 0.25.0-b1
+
+* fix: Define Ord for Control without using Message.
+* example: Add life.rs
+
 # 0.24.2
 
 * minor fixes for examples/mdedit

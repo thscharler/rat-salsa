@@ -1,3 +1,5 @@
+//! Current status: BETA
+//!
 #![doc = include_str!("../readme.md")]
 
 use crossbeam::channel::{SendError, Sender};
@@ -33,9 +35,22 @@ pub use threadpool::Cancel;
 
 /// Result of event-handling.
 ///
-/// The macro
-/// [rat-event::flow!](https://docs.rs/rat-event/latest/rat_event/macro.flow.html)
-/// provides control-flow using this enum.
+/// The result of an event is processed immediately after the
+/// function returns, before polling new events. This way an action
+/// can trigger another action which triggers the repaint without
+/// other events intervening.
+///
+/// If you ever need to return more than one result from event-handling,
+/// you can hand it to AppContext/RenderContext::queue(). Events
+/// in the queue are processed in order, and the return value of
+/// the event-handler comes last. If an error is returned, everything
+/// send to the queue will be executed nonetheless.
+///
+/// __See__
+///
+/// - [flow!](rat_widget::event::flow)
+/// - [try_flow!](rat_widget::event::try_flow)
+/// - [ConsumedEvent]
 #[derive(Debug, Clone, Copy)]
 #[must_use]
 pub enum Control<Message> {
@@ -191,11 +206,7 @@ impl<Message> From<CalOutcome> for Control<Message> {
 }
 
 ///
-/// A trait for application level widgets.
-///
-/// This trait is an anlog to ratatui's StatefulWidget, and
-/// does only the rendering part. It's extended with all the
-/// extras needed in an application.
+/// AppWidget mimics StatefulWidget and adds a [RenderContext]
 ///
 #[allow(unused_variables)]
 pub trait AppWidget<Global, Message, Error>
@@ -217,10 +228,7 @@ where
 }
 
 ///
-/// Eventhandling for application level widgets.
-///
-/// This one collects all currently defined events.
-/// Implement this one on the state struct.
+/// AppState packs together the currently supported event-handlers.
 ///
 #[allow(unused_variables)]
 pub trait AppState<Global, Message, Error>
@@ -270,14 +278,16 @@ where
     }
 }
 
-/// A collection of context data used by the application.
+///
+/// Application context data.
+///
 #[derive(Debug)]
 pub struct AppContext<'a, Global, Message, Error>
 where
     Message: 'static + Send + Debug,
     Error: 'static + Send + Debug,
 {
-    /// Some global state for the application.
+    /// Global state for the application.
     pub g: &'a mut Global,
     /// Can be set to hold a Focus, if needed.
     pub focus: Option<Focus>,
@@ -290,7 +300,9 @@ where
     pub(crate) queue: &'a ControlQueue<Message, Error>,
 }
 
-/// A collection of context data used for rendering.
+///
+/// Application context data when rendering.
+///
 #[derive(Debug)]
 pub struct RenderContext<'a, Global> {
     /// Some global state for the application.
