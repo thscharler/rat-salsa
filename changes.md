@@ -1,3 +1,9 @@
+# 0.25.0-b1
+
+
+* fix: set a default format for number-input.
+
+
 # 0.12.1
 
 * feature: add auto_quote when inserting '"', '(', ...
