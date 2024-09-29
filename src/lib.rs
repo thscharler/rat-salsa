@@ -1,3 +1,5 @@
+//! Current status: BETA
+//!
 #![doc = include_str!("../readme.md")]
 
 /// Trait for accessing the screen-cursor.
