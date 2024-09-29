@@ -12,7 +12,7 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 ## Why?
 
-This crate defines the trait [HandleEvent]() to help with
+This crate defines the trait [HandleEvent](HandleEvent) to help with
 composability of event-handling for ratatui widgets. 
 
 Objectives are 
@@ -44,19 +44,19 @@ Can be anything.
 
 There are predefined qualifiers
 
-* [Regular]() - Do what is considered 'normal' behaviour. 
+* [Regular](Regular) - Do what is considered 'normal' behaviour. 
   Can vary depending on the actual state of the widget 
   (e.g. focus)
   
-* [MouseOnly]() - Splitting off mouse interaction helps when
+* [MouseOnly](MouseOnly) - Splitting off mouse interaction helps when
   you only want to redefine the key bindings. And handling
   mouse events is usually more involved/complicated/specific.
 
-* [DoubleClick]() - Double clicks are a bit special for widgets, 
+* [DoubleClick](DoubleClick) - Double clicks are a bit special for widgets, 
   often it requires a distinct return type and it's not 
   as generally needed as other mouse behaviour. 
   
-* [Popup](), [Dialog]() - Specialized event-handlers, but they
+* [Popup](Popup), [Dialog](Dialog) - Specialized event-handlers, but they
   tend to popup again and again. 
   
 
@@ -64,12 +64,12 @@ There are predefined qualifiers
 
 The return type can be anything at all. 
 
-To be useful it is required to implement [ConsumedEvent]() to 
-indicate if the event has been handled by the widget and 
-further event-handling can stop.
+To be useful it is required to implement
+[ConsumedEvent](ConsumedEvent) to indicate if the event has been
+handled by the widget and further event-handling can stop.
 
 To set a baseline for the return type this crate defines the enum
-[Outcome]() which can indicate if a render is necessary or not.
+[Outcome](Outcome) which can indicate if a render is necessary or not.
 
 > For interop all return types in rat-salsa are convertible
 > to/from Outcome.
