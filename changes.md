@@ -1,3 +1,10 @@
+# 0.25.0-b1
+
+* feature: Add movement between different calender::Month. 
+* feature: Add SplitResize strategy for resizing splits.
+* fix: sync+document state structs. 
+* refactor: sync list edit with table edit. add examples.
+
 # 0.16.2
 
 * dont package gif

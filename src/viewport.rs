@@ -3,7 +3,7 @@
 //!
 //! View and Viewport are the same in functionality.
 //!
-//! The difference is that View works for [Widget]s and
+//! The difference is that View works for [Widget](ratatui::widgets::Widget)s and
 //! Viewport for [StatefulWidget]s.
 //!
 use crate::_private::NonExhaustive;

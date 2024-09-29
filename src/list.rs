@@ -38,7 +38,7 @@ pub trait ListSelection {
 /// List widget.
 ///
 /// Fully compatible with ratatui List.
-/// Add Scroll, selection models, and event-handling.
+/// Adds Scroll, selection models, and event-handling.
 #[derive(Debug, Default, Clone)]
 pub struct List<'a, Selection> {
     block: Option<Block<'a>>,
@@ -82,9 +82,6 @@ pub struct ListState<Selection> {
 
     /// Length in items.
     /// __mostly readonly__. renewed for each render.
-    /// Can be manipulated with [items_added] and [items_removed],
-    /// which is useful if you want to call functions that use this
-    /// as a limit.
     pub rows: usize,
     /// Offset etc.
     /// __read+write__

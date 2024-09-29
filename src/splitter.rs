@@ -20,15 +20,17 @@ use unicode_segmentation::UnicodeSegmentation;
 /// Splits the area in multiple parts and allows changing the sizes.
 ///
 /// This widget doesn't hold a reference to the rendered widgets or such,
-/// use [SplitState::areas] to render each part, after rendering the split
-/// widget.
+/// use [SplitState::widget_areas] to render each part, after rendering
+/// the split widget.
 ///
-/// Additionally, [Split] itself can't be rendered but acts as a builder
-/// for the actual widgets. Call `into_widgets` to get the actual
+/// __Special__
+///
+/// [Split] itself can't be rendered but acts as a builder
+/// for the actual widgets. Call [into_widgets](Split::into_widgets) to get the actual
 /// [SplitWidget] and the [SplitOverlay]. SplitWidget must be rendered
-/// first, after that you can access the SplitState::areas to render the
-/// parts, and last render SplitOverlay to render the markers that will
-/// appear overlaid on the widgets.
+/// first, after that you can access the [SplitState::widget_areas] to
+/// render the parts, and last render SplitOverlay to render the
+/// markers that will appear overlaid on the widgets.
 #[derive(Debug, Default, Clone)]
 pub struct Split<'a> {
     direction: Direction,
@@ -1130,7 +1132,7 @@ impl SplitState {
     /// values and redistributes the size.
     ///
     /// You can either ensure to change some other len to accommodate
-    /// for your changes. Or use [set_split](Self::set_split) or
+    /// for your changes. Or use [set_split_pos](Self::set_split_pos) or
     /// [set_screen_split_pos](Self::set_screen_split_pos)
     ///
     /// __Caution__

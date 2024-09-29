@@ -10,8 +10,8 @@ use std::mem;
 ///
 /// View and Viewport are the same in functionality.
 ///
-/// The difference is that View works for [Widget]s and
-/// Viewport for [StatefulWidget]s.
+/// The difference is that View works for [Widget](ratatui::widgets::Widget)s and
+/// Viewport for [StatefulWidget](ratatui::widgets::StatefulWidget)s.
 ///
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};

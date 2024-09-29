@@ -1,6 +1,5 @@
 use crate::_private::NonExhaustive;
 use crate::event::TabbedOutcome;
-use crate::tabbed::glued::GluedTabs;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
@@ -40,7 +39,7 @@ pub trait TabType: Debug {
 ///
 /// This widget draws the tabs and handles events.
 ///
-/// Use [TabbedState::selected] and [TabbedState::inner_area] to render
+/// Use [TabbedState::selected] and [TabbedState::widget_area] to render
 /// the actual content of the tab.
 ///
 #[derive(Debug)]
@@ -122,7 +121,7 @@ pub(crate) mod event {
 impl<'a> Default for Tabbed<'a> {
     fn default() -> Self {
         Self {
-            tab_type: Box::new(GluedTabs::new()),
+            tab_type: Box::new(glued::GluedTabs::new()),
             closeable: false,
             tabs: Default::default(),
             block: None,
@@ -142,7 +141,8 @@ impl<'a> Tabbed<'a> {
     /// Tab-type is a trait that handles layout and rendering for
     /// the tabs.
     ///
-    /// See [GluedTabs] and [AttachedTabs].
+    /// See [GluedTabs](crate::tabbed::glued::GluedTabs) and
+    /// [AttachedTabs](crate::tabbed::attached::AttachedTabs).
     pub fn tab_type(mut self, tab_type: impl TabType + 'a) -> Self {
         self.tab_type = Box::new(tab_type);
         self

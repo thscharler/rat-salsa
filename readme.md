@@ -4,67 +4,51 @@
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ![](https://tokei.rs/b1/github/thscharler/rat-widget)
 
-# Rat-Widget
+This crate is a part of [rat-salsa][refRatSalsa].
+
+# Rat Widgets
 
 This crate tries to provide an extended set of widgets with
 
 - *Event handling*
 - *Focus handling*
-- *Scrolling*
+- *Builtin scrolling*
 - *Speed*
 
 ## Event handling
 
-Uses the trait defined in [rat-event](https://docs.rs/rat-event) to
-implement event-handling for crossterm. All widgets are designed with
-other event-handlers in mind. They provide single entry-functions
-that map 1:1 with events most of the time.
+Uses the trait defined in [rat-event][refRatEvent] to implement
+event-handling for crossterm. All widgets are designed with other
+event-handlers in mind.
 
 ## Focus handling
 
-Uses FocusFlag defined by [rat-focus](https://docs.rs/rat-focus)
-internally, to mark the focused widget.
-
-This is just a passive flag, that probably can be used with other
-focus systems. Or you use rat-focus, it is independent of any
-frameworks and works by collecting references to the FocusFlags
-that are part of the focus and navigating with this information.
+Uses [FocusFlag][refRatFocusFlag] defined by 
+[rat-focus][refRatFocus] internally, to mark the focused widget. 
+This is just a passive flag, that probably can be used with other 
+focus systems. Or you use [rat-focus][refRatFocus].
 
 ## Scrolling
 
-Where it makes sense the widgets implement an internal offset
-for scrolling. They can display the scrollbar themselves by
-using `Scroll` from [rat-scrolled](https://docs.rs/rat-scrolled).
-This is a utility that works much like the ratatui `Block` and
-can be plugged into the widget.
+Where it makes sense the widgets implement internal scrolling.
+They use [Scroll][refScroll] from [rat-scrolled][refRatScrolled].
 
 ## Speed
 
 Rendering all the widgets tries hard not to need allocations and
-extensive copying of the underlying data.
+extensive copying during rendering.
 
-Special mention here are [rat_ftable::Table](https://docs.rs/rat-ftable),
-which uses an adapter for the data instead of creating Row/Cell structs.
-The adapter is only called for the visible cells when rendering.
-This way there is no real limit to the size of your data. Anything
-that can provide a slice look-alike or an iterator is fine.
-
-Second special mention is [rat_widget::TextArea](https://docs.rs/rat-widget/latest/rat_widget/textarea/index.html)
-which uses [Ropey](https://docs.rs/ropey/latest/ropey/) for the underlying
-storage. It also has range based styling builtin.
-
-# Rat-Salsa
-
-This crate is part of [rat-salsa](https://docs.rs/rat-salsa).
+Special mentions:
+- [rat-ftable::Table][refRatTable]: It uses an adapter for the data
+  for rendering instead of creating Row/Cell structs.
 
 # Widgets
 
 All the widgets are plain ratatui widgets, and implement StatefulWidget and
 the (experimental) StatefulWidgetRef traits.
 
-Event handling uses [rat-event::HandleEvent](https://docs.rs/rat-event/latest/rat_event/trait.HandleEvent.html)
-for uniformity, but provide plain functions too. Currently, crossterm events
-are implemented.
+Event handling uses [rat-event::HandleEvent][refRatEvent].
+Currently, crossterm events are implemented.
 
 * [Button](https://docs.rs/rat-widget/latest/rat_widget/button/index.html)
 * [Calendar](https://docs.rs/rat-widget/latest/rat_widget/calendar/index.html)
@@ -90,4 +74,14 @@ and some adapters for ratatui widgets
 
 * [List](https://docs.rs/rat-widget/latest/rat_widget/list/index.html)
 * [Paragraph](https://docs.rs/rat-widget/latest/rat_widget/paragraph/index.html)
+
+
+[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
+[refRatEvent]: https://docs.rs/rat-event
+[refRatFocus]: https://docs.rs/rat-focus
+[refRatFocusFlag]: https://docs.rs/rat-focus/latest/rat_focus/struct.FocusFlag.html
+[refScroll]: https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.Scroll.html
+[refRatScrolled]: https://docs.rs/rat-scrolled
+[refRatTable]: https://docs.rs/rat-ftable
+[refRatTextArea]: https://docs.rs/rat-widget/latest/rat_widget/textarea/index.html
 
