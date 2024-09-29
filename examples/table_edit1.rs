@@ -9,7 +9,7 @@ use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{match_focus, Focus, HasFocus};
+use rat_focus::{build_focus, match_focus, ContainerFlag, FocusBuilder, HasFocus};
 use rat_ftable::edit::table::{EditTable, EditTableState};
 use rat_ftable::edit::{Editor, EditorState};
 use rat_ftable::event::EditOutcome;
@@ -90,12 +90,19 @@ struct State {
 }
 
 impl HasFocus for State {
-    fn focus(&self) -> Focus {
-        let mut f = Focus::new();
-        f.add(&self.text1);
-        f.add(&self.table);
-        f.add(&self.text2);
-        f
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder
+            .widget(&self.text1)
+            .widget(&self.table)
+            .widget(&self.text2);
+    }
+
+    fn container(&self) -> Option<ContainerFlag> {
+        None
+    }
+
+    fn area(&self) -> Rect {
+        Rect::default()
     }
 }
 
@@ -226,9 +233,7 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    let mut focus = state.focus();
-    focus.enable_log();
-    let f = focus.handle(event, Regular);
+    let f = build_focus(state).handle(event, Regular);
 
     let mut r = Outcome::Continue;
     r = r.or_else(|| state.text1.handle(event, Regular).into());
@@ -431,13 +436,12 @@ impl EditorState for SampleEditorState {
 }
 
 impl HasFocus for SampleEditorState {
-    fn focus(&self) -> Focus {
-        let mut f = Focus::new();
-        f.add(&self.text);
-        f.add(&self.num1);
-        f.add(&self.num2);
-        f.add(&self.num3);
-        f
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder
+            .widget(&self.text)
+            .widget(&self.num1)
+            .widget(&self.num2)
+            .widget(&self.num3);
     }
 }
 
@@ -455,8 +459,7 @@ impl<'a> HandleEvent<crossterm::event::Event, &'a MiniSalsaState, EditOutcome>
     for SampleEditorState
 {
     fn handle(&mut self, event: &crossterm::event::Event, _ctx: &'a MiniSalsaState) -> EditOutcome {
-        let mut focus = self.focus();
-        let f = focus.handle(event, Regular);
+        let f = build_focus(self).handle(event, Regular);
 
         let mut r = Outcome::Continue;
         r = r.or_else(|| self.text.handle(event, Regular).into());

@@ -10,7 +10,7 @@ use log::debug;
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{match_focus, Focus, HasFocus};
+use rat_focus::{build_focus, match_focus, FocusBuilder, HasFocus};
 use rat_ftable::edit::vec::{EditVec, EditVecState, EditorData};
 use rat_ftable::edit::{Editor, EditorState};
 use rat_ftable::textdata::{Cell, Row};
@@ -92,12 +92,11 @@ struct State {
 }
 
 impl HasFocus for State {
-    fn focus(&self) -> Focus {
-        let mut f = Focus::new();
-        f.add(&self.text1);
-        f.add(&self.table);
-        f.add(&self.text2);
-        f
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder
+            .widget(&self.text1)
+            .widget(&self.table)
+            .widget(&self.text2);
     }
 }
 
@@ -234,9 +233,7 @@ fn handle_table(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    let mut focus = state.focus();
-    focus.enable_log();
-    let f = focus.handle(event, Regular);
+    let f = build_focus(state).handle(event, Regular);
 
     let mut r = Outcome::Continue;
     r = r.or_else(|| state.text1.handle(event, Regular).into());
@@ -346,13 +343,12 @@ impl EditorState for SampleEditorState {
 }
 
 impl HasFocus for SampleEditorState {
-    fn focus(&self) -> Focus {
-        let mut f = Focus::new();
-        f.add(&self.text);
-        f.add(&self.num1);
-        f.add(&self.num2);
-        f.add(&self.num3);
-        f
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder
+            .widget(&self.text)
+            .widget(&self.num1)
+            .widget(&self.num2)
+            .widget(&self.num3);
     }
 }
 
@@ -368,8 +364,7 @@ impl HasScreenCursor for SampleEditorState {
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SampleEditorState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
-        let mut focus = self.focus();
-        let f = focus.handle(event, Regular);
+        let f = build_focus(self).handle(event, Regular);
 
         let mut r = Outcome::Continue;
         r = r.or_else(|| self.text.handle(event, Regular).into());

@@ -8,7 +8,7 @@ use crate::layout::layout_dialog;
 use crate::paragraph::{Paragraph, ParagraphState};
 use crate::util::fill_buf_area;
 use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
-use rat_focus::Focus;
+use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::{Scroll, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Flex, Rect};
@@ -173,10 +173,10 @@ impl Default for MsgDialogState {
 
 impl MsgDialogState {
     fn focus(&self) -> Focus {
-        let mut f = Focus::new();
-        f.add(&*self.paragraph.borrow());
-        f.add(&*self.button.borrow());
-        f
+        let mut fb = FocusBuilder::default();
+        fb.widget(&*self.paragraph.borrow())
+            .widget(&*self.button.borrow());
+        fb.build()
     }
 }
 

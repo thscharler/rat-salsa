@@ -16,7 +16,7 @@ use log::debug;
 use rat_event::{
     ct_event, flow, try_flow, ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular,
 };
-use rat_focus::{on_lost, Focus, FocusFlag, HasFocusFlag};
+use rat_focus::{on_lost, Focus, FocusBuilder, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState, TextInputStyle};
@@ -1116,20 +1116,20 @@ impl HasScreenCursor for FileDialogState {
 
 impl FileDialogState {
     fn focus(&self) -> Focus {
-        let mut f = Focus::default();
-        f.add(&self.dir_state);
+        let mut fb = FocusBuilder::default();
+        fb.widget(&self.dir_state);
         if self.mode == Mode::Save || self.mode == Mode::Open {
-            f.add(&self.file_state);
+            fb.widget(&self.file_state);
         }
         if self.mode == Mode::Save {
-            f.add(&self.save_name_state);
+            fb.widget(&self.save_name_state);
         }
-        f.add(&self.ok_state);
-        f.add(&self.cancel_state);
-        f.add(&self.new_state);
-        f.add(&self.root_state);
-        f.add(&self.path_state);
-        f
+        fb.widget(&self.ok_state)
+            .widget(&self.cancel_state)
+            .widget(&self.new_state)
+            .widget(&self.root_state)
+            .widget(&self.path_state);
+        fb.build()
     }
 }
 

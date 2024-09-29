@@ -4,7 +4,7 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{Focus, HasFocusFlag};
+use rat_focus::{Focus, FocusBuilder, HasFocusFlag};
 use rat_scrolled::Scroll;
 use rat_widget::event::Outcome;
 use rat_widget::list::selection::RowSelection;
@@ -267,13 +267,13 @@ fn repaint_input(
 }
 
 fn focus(state: &State) -> Focus {
-    Focus::new_list(&[
-        &state.split,
-        &state.left,
-        &state.right,
-        &state.rightright,
-        &state.menu,
-    ])
+    let mut fb = FocusBuilder::default();
+    fb.widget(&state.split)
+        .widget(&state.left)
+        .widget(&state.right)
+        .widget(&state.rightright)
+        .widget(&state.menu);
+    fb.build()
 }
 
 fn handle_input(

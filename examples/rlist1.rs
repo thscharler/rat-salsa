@@ -3,7 +3,7 @@ use crate::mini_salsa::{layout_grid, MiniSalsaState};
 #[allow(unused_imports)]
 use log::Log;
 use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
-use rat_focus::{Focus, FocusFlag, HasFocusFlag};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState};
@@ -200,10 +200,9 @@ fn repaint_input(
 }
 
 fn focus(state: &State) -> Focus {
-    let mut f = Focus::default();
-    f.add(&state.list1);
-    f.add(&state.menu);
-    f
+    let mut fb = FocusBuilder::default();
+    fb.widget(&state.list1).widget(&state.menu);
+    fb.build()
 }
 
 fn handle_input(

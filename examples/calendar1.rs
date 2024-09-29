@@ -6,7 +6,7 @@ use chrono::NaiveDate;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{try_flow, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::Focus;
+use rat_focus::{Focus, FocusBuilder};
 use rat_widget::calendar::{Month, MonthState};
 use rat_widget::event::Outcome;
 use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
@@ -90,7 +90,9 @@ fn repaint_input(
 }
 
 fn focus(state: &State) -> Focus {
-    Focus::new_list(&[&state.cal, &state.menu])
+    let mut fb = FocusBuilder::default();
+    fb.widget(&state.cal).widget(&state.menu);
+    fb.build()
 }
 
 fn handle_input(
