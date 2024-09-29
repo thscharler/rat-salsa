@@ -1,3 +1,8 @@
+# 0.25.0-b1
+
+* fix double-click recognition. reset after timeout lead
+  to needing a triple click quite often.
+
 # 0.16.1
 
 * fix docs

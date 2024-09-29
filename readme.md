@@ -1,80 +1,78 @@
+[![crates.io](https://img.shields.io/crates/v/rat-event.svg)](https://crates.io/crates/rat-event)
+[![Documentation](https://docs.rs/rat-event/badge.svg)](https://docs.rs/rat-event)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+![](https://tokei.rs/b1/github/thscharler/rat-event)
+
+
+This crate is a part of [rat-salsa][refRatSalsa].
+
 
 # Rat-Event
 
-## Rationale
+## Why?
 
-This crate defines a general event-handling trait, that can be
-used along with ratatui widgets.
+This crate defines the trait [HandleEvent]() to help with
+composability of event-handling for ratatui widgets. 
 
-The main idea here is _not_ to try to unify the different event
-sources.
-
-Instead, provide a trait that can be implemented per event-type.
-
-And as there seem to be widely diverging opinions on what the
-right key-bindings should be, add a qualifier type to allow for
-more than one key-binding. The widget should provide functions
-for all the interactions anyway, so this mapping can be a
-one-liner most of the time.
-
-This accomplishes:
-
-* The widget creator can support different event types.
-* The widget creator can supply several key bindings.
-* The application writer can define ves own key bindings, and as
-  the widget is designed this way it's possible to do this.
-
-## Composition
-
-The [HandleEvent::handle]() has a generic return type, so each
-widget can define its own result to convey any state changes.
-
-To allow a minimal level of composition of different return
-types, there is the trait [ConsumedEvent](). This allows for
-early returns, even if the details of the return type are not
-known.
-
-The [Outcome]() enum gives a minimum of information that should
-be provided. It is very helpful if any outcome from a widget
-allows conversion to and from `Outcome`.
-
-## Known qualifiers
-
-These are the predefined qualifiers
-
-* `Regular` - Event-handlers of this kind process all events
-  relevant for a widget. What happens exactly may depend on the
-  internal state of the widget, primarily if it has the input-
-  focus or not.
+Objectives are 
+- work for all event-types.
+- allow for multiple handlers per widget
+  - to override the key-bindings
+  - to have different key-bindings for certain scenarios.
+- have a return type to indicate what state change occured.
   
-  See [rat-focus](https://docs.rs/rat-focus/) for one way to
-  do focus-handling.
+    
+```rust ignore
+    pub trait HandleEvent<Event, Qualifier, Return> 
+    where 
+        Return: ConsumedEvent
+    {
+        fn handle(
+                &mut self, 
+                event: &Event, 
+                qualifier: Qualifier
+        ) -> Return;
+    }
+```
+
+## Event
+
+Can be anything.
+
+## Qualifier
+
+There are predefined qualifiers
+
+* [Regular]() - Do what is considered 'normal' behaviour. 
+  Can vary depending on the actual state of the widget 
+  (e.g. focus)
   
-* `MouseOnly` - Event-handler for all interactions with a widget
-  that doesn't have the input focus. Usually only mouse-events
-  here, but hot-keys are possible too.
+* [MouseOnly]() - Splitting off mouse interaction helps when
+  you only want to redefine the key bindings. And handling
+  mouse events is usually more involved/complicated/specific.
+
+* [DoubleClick]() - Double clicks are a bit special for widgets, 
+  often it requires a distinct return type and it's not 
+  as generally needed as other mouse behaviour. 
   
-* `Popup` - Specialized event-handler for widgets that draw
-  overlays/popups above other widgets.
+* [Popup](), [Dialog]() - Specialized event-handlers, but they
+  tend to popup again and again. 
   
-* `Dialog` - Specialized even-handler for modal widgets. Such
-  an event-handler consumes _all_ events if active, and prevents
-  other widgets from reacting at all.
-  
-## Utilities
 
-# ct_event!
+## Return 
 
-A neat little thing, that generates pattern matches for mouse
-events. Has a much nicer syntax than composing struct patterns.
+The return type can be anything at all. 
 
-# select functions
+To be useful it is required to implement [ConsumedEvent]() to 
+indicate if the event has been handled by the widget and 
+further event-handling can stop.
 
-The functions `row_at_clicked`, `column_at_clicked`, `row_at_drag` and
-`column_at_drag` allow easier identification which of a slice of Rect
-is actually meant.
+To set a baseline for the return type this crate defines the enum
+[Outcome]() which can indicate if a render is necessary or not.
 
-# Mouseflags
+> For interop all return types in rat-salsa are convertible
+> to/from Outcome.
 
-Identifying double-clicks and mouse-drag is not trivial.
-This struct helps, add it to your widget state.
+
+[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
