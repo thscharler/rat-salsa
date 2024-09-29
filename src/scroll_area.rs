@@ -5,12 +5,10 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::widgets::{Block, ScrollbarOrientation, StatefulWidget, Widget};
 
-///
 /// Utility widget for layout/rendering the combined block and scrollbars.
 ///
-/// It layouts the scrollbars on top of the border and leaves
-/// the corners free if necessary.
-///
+/// It can calculate the layout for any combination and layouts the
+/// scrollbars on top of the border if one exists.
 #[derive(Debug, Default, Clone)]
 pub struct ScrollArea<'a> {
     block: Option<Block<'a>>,
@@ -57,11 +55,14 @@ impl<'a> ScrollArea<'a> {
     /// Calculates the inner area for the widget.
     ///
     /// __Panic__
-    /// Panics if the orientation doesn't match,
-    /// h_scroll doesn't accept ScrollBarOrientation::Vertical* and
-    /// v_scroll doesn't accept ScrollBarOrientation::Horizontal*.
     ///
-    /// Panics if the state doesn't contain the necessary scroll-states.
+    /// Panics if the orientation doesn't match,
+    /// - h_scroll doesn't accept ScrollBarOrientation::Vertical* and
+    /// - v_scroll doesn't accept ScrollBarOrientation::Horizontal*.
+    ///
+    /// __Panic__
+    ///
+    /// if the state doesn't contain the necessary scroll-states.
     pub fn inner(&self, area: Rect, state: ScrollAreaState<'_>) -> Rect {
         self.layout(area, &state).0
     }
@@ -75,11 +76,14 @@ impl<'a> ScrollArea<'a> {
     /// Returns (inner, h_area, v_area).
     ///
     /// __Panic__
-    /// Panics if the orientation doesn't match,
-    /// h_scroll doesn't accept ScrollBarOrientation::Vertical* and
-    /// v_scroll doesn't accept ScrollBarOrientation::Horizontal*.
     ///
-    /// Panics if the state doesn't contain the necessary scroll-states.
+    /// Panics if the orientation doesn't match,
+    /// - h_scroll doesn't accept ScrollBarOrientation::Vertical* and
+    /// - v_scroll doesn't accept ScrollBarOrientation::Horizontal*.
+    ///
+    /// __Panic__
+    ///
+    /// if the state doesn't contain the necessary scroll-states.
     fn layout(&self, area: Rect, state: &ScrollAreaState<'_>) -> (Rect, Rect, Rect) {
         let mut inner = area;
 

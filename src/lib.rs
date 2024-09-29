@@ -1,4 +1,7 @@
+//! Current status: BETA
+//!
 #![doc = include_str!("../readme.md")]
+//
 #![allow(clippy::collapsible_else_if)]
 
 mod scroll;

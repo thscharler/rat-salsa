@@ -40,36 +40,56 @@ pub struct Scroll<'a> {
 /// The limit for scrolling is given as max_offset, which is the maximum offset
 /// where a full page can still be displayed.
 ///
-/// __Note__ that the total length of the widgets data is NOT max_offset + page_len.
+/// __Note__
+///
+/// that the total length of the widgets data is NOT max_offset + page_len.
 /// The page_len can be different for every offset selected. Only
 /// if the offset is set to max_offset and after the next round of rendering
 /// len == max_offset + page_len will hold true.
 ///
-/// __Note__ In terms of ScrollbarState, offset is position,
-/// page_len is viewport_content_length and max_offset is content_length.
+/// __Note__
+///
+/// In terms of ScrollbarState,
+/// - offset is position,
+/// - page_len is viewport_content_length and
+/// - max_offset is content_length.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScrollState {
     /// Area of the Scrollbar.
+    /// __readonly__. renewed for each render.
     pub area: Rect,
     /// Vertical/Horizontal scroll?
+    /// __readonly__. renewed for each render.
     pub orientation: ScrollbarOrientation,
 
     /// Current offset.
+    /// __read+write__
     pub offset: usize,
-    /// Page-size at the current offset.
+    /// Length of the current displayed page. This value can be
+    /// used for page-up/page-down handling.
+    /// __read+write__
     pub page_len: usize,
     /// Maximum offset that is accessible with scrolling.
     ///
-    /// This is shorter than the length of the content by whatever fills the last page.
-    /// This is the base for the scrollbar content_length.
+    /// This offset is calculated as `item_count - last_page_items`. Both
+    /// are abstract values and can denote items or columns/rows as
+    /// the widget sees fit.
+    /// __read+write__
     pub max_offset: usize,
 
-    /// Scrolling step-size for mouse-scrolling
+    /// How many items are scrolled per scroll event.
+    /// When not set it defaults to 1/10 of the page_len, which gives a
+    /// decent median between scroll speed and disorientation.
+    /// __read+write__
     pub scroll_by: Option<usize>,
-    /// Allow overscroll by n items.
+    /// By how much can the max_offset be exceeded.
+    /// This allows displaying some empty space at the end of the
+    /// content, which can be more intuitiv for some widgets.
+    /// __read+write__
     pub overscroll_by: Option<usize>,
 
     /// Mouse support.
+    /// __read+write__
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
