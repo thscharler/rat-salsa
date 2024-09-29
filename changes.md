@@ -1,3 +1,7 @@
+# 0.25.0-b1
+
+* Update docs.
+
 # 0.14.1
 
 * Add new utility ScrollArea+ScrollAreaState that can be used

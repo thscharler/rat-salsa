@@ -1,3 +1,10 @@
+[![crates.io](https://img.shields.io/crates/v/rat-scrolled.svg)](https://crates.io/crates/rat-scrolled)
+[![Documentation](https://docs.rs/rat-scrolled/badge.svg)](https://docs.rs/rat-scrolled)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+![](https://tokei.rs/b1/github/thscharler/rat-scrolled)
+
+This crate is a part of [rat-salsa][refRatSalsa].
 
 # Scroll
 
@@ -15,3 +22,6 @@ scrolling it can do, horizontal vertical or both.
   the combination of Block+Scroll+Scroll your widget supports.
 - Add [ScrollState](ScrollState) to the widget state struct. 
 - Create a [ScrollAreaState](ScrollAreaState) for event-handling.
+
+
+[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
