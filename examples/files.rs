@@ -17,7 +17,7 @@ use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, Outcome, Popup,
     ReadOnly, Regular,
 };
-use rat_widget::focus::{match_focus, Focus, HasFocus, HasFocusFlag};
+use rat_widget::focus::{match_focus, rebuild_focus, FocusBuilder, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
 use rat_widget::menuline::MenuOutcome;
@@ -493,14 +493,16 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
             }
         });
 
-        ctx.queue(self.focus().handle(event, Regular));
+        ctx.focus = Some(rebuild_focus(self, ctx.focus.take()));
+        let f = ctx.focus_mut().handle(event, Regular);
+        ctx.queue(f);
 
         try_flow!(match event {
             ct_event!(keycode press F(5)) => {
                 if self.w_split.is_focused() {
-                    self.focus().next();
+                    ctx.focus().next();
                 } else {
-                    self.focus().focus(&self.w_split);
+                    ctx.focus().focus(&self.w_split);
                 }
                 Control::Changed
             }
@@ -884,7 +886,7 @@ impl FilesState {
 
                 let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
                     Ok(data) => {
-                        let str_data = FilesState::to_display_text(can, snd, &file, &data)?;
+                        let str_data = FilesState::display_text(can, snd, &file, &data)?;
                         Ok(Control::Message(UpdateFile(file, str_data)))
                     }
                     Err(e) => Ok(Control::Message(UpdateFile(
@@ -906,7 +908,7 @@ impl FilesState {
         }
     }
 
-    fn to_display_text(
+    fn display_text(
         can: Cancel,
         snd: &Sender<Result<Control<FilesAction>, Error>>,
         file: &Path,
@@ -1012,14 +1014,13 @@ impl FilesState {
 }
 
 impl HasFocus for FilesState {
-    fn focus(&self) -> Focus {
-        let mut f = Focus::default();
-        f.add(&self.w_split);
-        f.add(&self.w_dirs);
-        f.add(&self.w_files);
-        f.add(&self.w_data);
-        f.add(&self.w_menu);
-        f
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder
+            .widget(&self.w_split)
+            .widget(&self.w_dirs)
+            .widget(&self.w_files)
+            .widget(&self.w_data)
+            .widget(&self.w_menu);
     }
 }
 

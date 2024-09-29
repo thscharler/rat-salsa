@@ -194,7 +194,7 @@ pub mod app {
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent};
-    use rat_widget::focus::HasFocus;
+    use rat_widget::focus::{build_focus, rebuild_focus};
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::statusline::StatusLine;
     use ratatui::buffer::Buffer;
@@ -281,7 +281,7 @@ pub mod app {
 
     impl AppState<GlobalState, LifeMsg, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(self.life.focus());
+            ctx.focus = Some(build_focus(&self.life));
             self.life.init(ctx)?;
             Ok(())
         }
@@ -293,7 +293,7 @@ pub mod app {
         ) -> Result<Control<LifeMsg>, Error> {
             let t0 = SystemTime::now();
 
-            ctx.focus = Some(self.life.focus());
+            ctx.focus = Some(rebuild_focus(&self.life, ctx.focus.take()));
             let r = self.life.timer(event, ctx)?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -327,7 +327,7 @@ pub mod app {
             });
 
             r = r.or_else_try(|| {
-                ctx.focus = Some(self.life.focus());
+                ctx.focus = Some(rebuild_focus(&self.life, ctx.focus.take()));
                 self.life.crossterm(&event, ctx)
             })?;
 
@@ -351,7 +351,7 @@ pub mod app {
                     Control::Changed
                 }
                 _ => {
-                    ctx.focus = Some(self.life.focus());
+                    ctx.focus = Some(rebuild_focus(&self.life, ctx.focus.take()));
                     self.life.message(event, ctx)?
                 }
             };
@@ -394,7 +394,7 @@ pub mod life {
     use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{try_flow, HandleEvent, Regular};
-    use rat_widget::focus::{Focus, HasFocus};
+    use rat_widget::focus::{FocusBuilder, HasFocus};
     use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -474,10 +474,8 @@ pub mod life {
     }
 
     impl HasFocus for LifeState {
-        fn focus(&self) -> Focus {
-            let mut f = Focus::new();
-            f.add(&self.menu);
-            f
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.menu);
         }
     }
 
@@ -584,8 +582,6 @@ pub mod game {
     use ratatui::style::{Color, Style, Stylize};
     use std::cmp::max;
     use std::fmt::{Debug, Formatter};
-    use std::fs::File;
-    use std::io::Read;
     use std::mem;
     use std::path::Path;
 
@@ -797,7 +793,7 @@ pub mod game {
             for y in 0..self.area_0.height {
                 for x in 0..self.area_0.width {
                     let pos = (y * self.area_0.width + x) as usize;
-                    self.world_0[pos] = if random::<f64>() < r { 1 } else { 0 };
+                    self.world_0[pos] = if random::<f64>() < 0.05f64 { 1 } else { 0 };
                 }
             }
 

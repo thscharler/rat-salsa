@@ -122,7 +122,7 @@ mod root {
     use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::focus::HasFocus;
+    use rat_widget::focus::build_focus;
     use rat_widget::statusline::StatusLine;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -215,7 +215,7 @@ mod root {
             });
 
             // keyboard + mouse focus
-            ctx.focus = Some(self.app.focus());
+            ctx.focus = Some(build_focus(&self.app));
 
             let r = self.app.crossterm(event, ctx)?;
 
@@ -234,7 +234,7 @@ mod root {
         ) -> Result<Control<MDAction>, Error> {
             let t0 = SystemTime::now();
 
-            ctx.focus = Some(self.app.focus());
+            ctx.focus = Some(build_focus(&self.app));
 
             let r = self.app.message(event, ctx)?;
 
@@ -368,7 +368,7 @@ mod app {
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_theme::dark_themes;
     use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Popup, Regular};
-    use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
+    use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::layout::layout_middle;
     use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
     use rat_widget::menuline::MenuOutcome;
@@ -570,11 +570,8 @@ mod app {
     }
 
     impl HasFocus for MDAppState {
-        fn focus(&self) -> Focus {
-            let mut f = Focus::default();
-            f.add(&self.menu);
-            f.add_container(&self.editor);
-            f
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.menu).container(&self.editor);
         }
     }
 
@@ -1152,7 +1149,7 @@ pub mod split_tab {
     use rat_salsa::timer::{TimeOut, TimerDef};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, Regular, TabbedOutcome};
-    use rat_widget::focus::{ContainerFlag, Focus, HasFocus, HasFocusFlag};
+    use rat_widget::focus::{ContainerFlag, FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::tabbed::attached::AttachedTabs;
     use rat_widget::tabbed::{Tabbed, TabbedState};
@@ -1259,16 +1256,14 @@ pub mod split_tab {
     }
 
     impl HasFocus for SplitTabState {
-        fn focus(&self) -> Focus {
-            let mut f = Focus::new_container(self.focus.clone(), Rect::default());
-            f.add(&self.splitter);
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.splitter);
             for (idx_split, tabbed) in self.tabbed.iter().enumerate() {
-                f.add(&self.tabbed[idx_split]);
+                builder.widget(&self.tabbed[idx_split]);
                 if let Some(idx_tab) = tabbed.selected() {
-                    f.add(&self.tabs[idx_split][idx_tab]);
+                    builder.widget(&self.tabs[idx_split][idx_tab]);
                 }
             }
-            f
         }
 
         fn container(&self) -> Option<ContainerFlag> {
@@ -1767,7 +1762,7 @@ pub mod mdedit {
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{HandleEvent, Regular};
-    use rat_widget::focus::{Focus, HasFocus, HasFocusFlag};
+    use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Rect};
@@ -1831,11 +1826,9 @@ pub mod mdedit {
     }
 
     impl HasFocus for MDEditState {
-        fn focus(&self) -> Focus {
-            let mut f = Focus::default();
-            f.add(&self.file_list);
-            f.add_container(&self.split_tab);
-            f
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.file_list);
+            builder.container(&self.split_tab);
         }
     }
 

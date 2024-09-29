@@ -84,7 +84,7 @@ pub mod app {
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent};
-    use rat_widget::focus::HasFocus;
+    use rat_widget::focus::{build_focus, rebuild_focus};
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::statusline::StatusLine;
     use ratatui::buffer::Buffer;
@@ -141,7 +141,7 @@ pub mod app {
 
     impl AppState<GlobalState, MinimalMsg, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(self.minimal.focus());
+            ctx.focus = Some(build_focus(&self.minimal));
             self.minimal.init(ctx)?;
             Ok(())
         }
@@ -153,7 +153,7 @@ pub mod app {
         ) -> Result<Control<MinimalMsg>, Error> {
             let t0 = SystemTime::now();
 
-            ctx.focus = Some(self.minimal.focus());
+            ctx.focus = Some(rebuild_focus(&self.minimal, ctx.focus.take()));
             let r = self.minimal.timer(event, ctx)?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -184,7 +184,7 @@ pub mod app {
             });
 
             r = r.or_else_try(|| {
-                ctx.focus = Some(self.minimal.focus());
+                ctx.focus = Some(rebuild_focus(&self.minimal, ctx.focus.take()));
                 self.minimal.crossterm(&event, ctx)
             })?;
 
@@ -208,7 +208,7 @@ pub mod app {
                     Control::Changed
                 }
                 _ => {
-                    ctx.focus = Some(self.minimal.focus());
+                    ctx.focus = Some(rebuild_focus(&self.minimal, ctx.focus.take()));
                     self.minimal.message(event, ctx)?
                 }
             };
@@ -236,7 +236,7 @@ pub mod minimal {
     use crossterm::event::Event;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{try_flow, HandleEvent, Regular};
-    use rat_widget::focus::{Focus, HasFocus};
+    use rat_widget::focus::{FocusBuilder, HasFocus};
     use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -291,10 +291,8 @@ pub mod minimal {
     }
 
     impl HasFocus for MinimalState {
-        fn focus(&self) -> Focus {
-            let mut f = Focus::new();
-            f.add(&self.menu);
-            f
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.widget(&self.menu);
         }
     }
 
