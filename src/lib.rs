@@ -107,7 +107,7 @@ impl<E, Q> HandleEvent<E, Q, Outcome> for () {
 /// When calling multiple event-handlers, the minimum information required
 /// from the result is consumed the event/didn't consume the event.
 ///
-/// See also [flow], [try_flow] and [or_else] macros.
+/// See also [flow] and [try_flow] macros.
 pub trait ConsumedEvent {
     /// Is this the 'consumed' result.
     fn is_consumed(&self) -> bool;
