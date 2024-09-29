@@ -8,12 +8,12 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 # Focus handling for ratatui
 
-This crate works by adding a [FocusFlag]() to each widget'
+This crate works by adding a [FocusFlag](FocusFlag) to each widget'
 s state.
 
-[FocusBuilder]() then is used to collect an ordered list of
+[FocusBuilder](FocusBuilder) then is used to collect an ordered list of
 all widgets that should be considered for focus handling.
-It builds up the [Focus]() which has [next](Focus::next),
+It builds up the [Focus](Focus) which has [next](Focus::next),
 [prev](Focus::prev) and [focus_at](Focus::focus_at) which can do
 the navigation.
 
@@ -59,7 +59,7 @@ Event handling is implemented for crossterm. It uses Tab+BackTab
 for navigation and handles mouse clicks on the widget's area.
 
 Focus implements [HandleEvent][refHandleEvent], and there is the
-fn [handle_focus]() to invoke it.
+fn [handle_focus](handle_focus) to invoke it.
 
 ```
     // Handle events for focus.
