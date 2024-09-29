@@ -44,7 +44,7 @@ pub struct Dialog;
 /// Event-handler for double-click on a widget.
 ///
 /// Events for this handler must be processed *before* calling
-/// any other event-handling routines for the same table.
+/// any other event-handling routines for the same widget.
 /// Otherwise, the regular event-handling might interfere with
 /// recognition of double-clicks by consuming the first click.
 ///
@@ -81,20 +81,21 @@ pub struct DoubleClick;
 ///   There should be one value that indicates 'I don't know this event'.
 ///   This is expressed with the ConsumedEvent trait.
 ///
-pub trait HandleEvent<Event, Qualifier, R: ConsumedEvent> {
+pub trait HandleEvent<Event, Qualifier, Return>
+where
+    Return: ConsumedEvent,
+{
     /// Handle an event.
     ///
     /// * self - The widget state.
-    /// * event - Event struct.
+    /// * event - Event type.
     /// * qualifier - Event handling qualifier.
-    ///   This library defines some standard values [Regular], [MouseOnly],
-    ///   [Popup] and [Dialog].
-    ///
-    ///     Further ideas:
+    ///   This library defines some standard values [Regular], [MouseOnly].
+    ///   Further ideas:
     ///     * ReadOnly
     ///     * Special behaviour like DoubleClick, HotKey.
     /// * Returns some result, see [Outcome]
-    fn handle(&mut self, event: &Event, qualifier: Qualifier) -> R;
+    fn handle(&mut self, event: &Event, qualifier: Qualifier) -> Return;
 }
 
 /// Catch all event-handler for the null state `()`.
