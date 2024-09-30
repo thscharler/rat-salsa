@@ -41,6 +41,7 @@ pub struct Menubar<'a> {
     title_style: Option<Style>,
     select_style: Option<Style>,
     focus_style: Option<Style>,
+    highlight_style: Option<Style>,
 
     popup_width: Option<u16>,
     popup_placement: Placement,
@@ -114,6 +115,7 @@ impl<'a> Menubar<'a> {
         self.title_style = styles.title;
         self.select_style = styles.select;
         self.focus_style = styles.focus;
+        self.highlight_style = styles.highlight;
         self
     }
 
@@ -209,6 +211,9 @@ fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mu
     if let Some(focus_style) = widget.focus_style {
         menu = menu.focus_style(focus_style);
     }
+    if let Some(highlight_style) = widget.highlight_style {
+        menu = menu.highlight_style(highlight_style);
+    }
 
     if let Some(structure) = &widget.structure {
         let mut items = Vec::new();
@@ -271,6 +276,9 @@ fn render_menu_popup(
         }
         if let Some(focus_style) = widget.focus_style {
             popup = popup.focus_style(focus_style);
+        }
+        if let Some(highlight_style) = widget.highlight_style {
+            popup = popup.highlight_style(highlight_style);
         }
         let mut items = Vec::new();
         structure.submenu(selected, &mut items);

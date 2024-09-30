@@ -12,9 +12,8 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
-use crate::item::Item;
 use crate::util::{next_opt, prev_opt, revert_style};
-use crate::{menu_str, MenuItem, MenuStyle, Separator};
+use crate::{menu_str, MenuItem, MenuStyle};
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
@@ -33,10 +32,12 @@ use std::fmt::Debug;
 #[derive(Debug, Default, Clone)]
 pub struct MenuLine<'a> {
     title: Line<'a>,
-    items: Vec<Item<'a>>,
+    items: Vec<MenuItem<'a>>,
 
     style: Style,
     highlight_style: Option<Style>,
+    disabled_style: Option<Style>,
+    right_style: Option<Style>,
     title_style: Option<Style>,
     select_style: Option<Style>,
     focus_style: Option<Style>,
@@ -85,41 +86,7 @@ impl<'a> MenuLine<'a> {
 
     /// Add an item.
     pub fn add(mut self, item: MenuItem<'a>) -> Self {
-        match item {
-            MenuItem::Item1(item) => {
-                self.items.push(Item {
-                    item,
-                    highlight: None,
-                    navchar: None,
-                    right: None,
-                    sep: Separator::None,
-                });
-            }
-            MenuItem::Item2(item, highlight, navchar) => {
-                self.items.push(Item {
-                    item,
-                    highlight: Some(highlight),
-                    navchar: Some(navchar),
-                    right: None,
-                    sep: Separator::None,
-                });
-            }
-            MenuItem::Item3(item, highlight, navchar, right) => {
-                self.items.push(Item {
-                    item,
-                    highlight: Some(highlight),
-                    navchar: Some(navchar),
-                    right: Some(right),
-                    sep: Separator::None,
-                });
-            }
-            MenuItem::Sep(sep) => {
-                if let Some(last) = self.items.last_mut() {
-                    last.sep = sep;
-                }
-            }
-        }
-
+        self.items.push(item);
         self
     }
 
@@ -135,6 +102,8 @@ impl<'a> MenuLine<'a> {
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
         self.highlight_style = styles.highlight;
+        self.disabled_style = styles.disabled;
+        self.right_style = styles.right;
         self.title_style = styles.title;
         self.select_style = styles.select;
         self.focus_style = styles.focus;
@@ -152,6 +121,20 @@ impl<'a> MenuLine<'a> {
     #[inline]
     pub fn highlight_style(mut self, style: Style) -> Self {
         self.highlight_style = Some(style);
+        self
+    }
+
+    /// Disabled item style.
+    #[inline]
+    pub fn disabled_style(mut self, style: Style) -> Self {
+        self.disabled_style = Some(style);
+        self
+    }
+
+    /// Style for the hotkey.
+    #[inline]
+    pub fn right_style(mut self, style: Style) -> Self {
+        self.right_style = Some(style);
         self
     }
 
@@ -227,6 +210,16 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     } else {
         Style::new().underlined()
     };
+    let disabled_style = if let Some(disabled_style) = widget.disabled_style {
+        disabled_style
+    } else {
+        widget.style
+    };
+    let right_style = if let Some(right_style) = widget.right_style {
+        right_style
+    } else {
+        widget.style
+    };
 
     buf.set_style(area, widget.style);
 
@@ -242,7 +235,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     }
 
     for (n, item) in widget.items.iter().enumerate() {
-        item_area.width = item.width() + if item.right.is_some() { 3 } else { 0 };
+        item_area.width = item.width() + if item.right.is_empty() { 0 } else { 3 };
         if item_area.right() >= area.right() {
             item_area = item_area.clamp(area);
         }
@@ -252,13 +245,13 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
             buf.set_style(item_area, select_style);
         }
 
-        let item_line = if let Some(highlight) = item.highlight.clone() {
+        let mut item_line = if let Some(highlight) = item.highlight.clone() {
             Line::from_iter([
                 Span::from(&item.item[..highlight.start - 1]), // account for _
                 Span::from(&item.item[highlight.start..highlight.end]).style(highlight_style),
                 Span::from(&item.item[highlight.end..]),
-                if let Some(right) = item.right {
-                    Span::from(format!(" ({})", right))
+                if !item.right.is_empty() {
+                    Span::from(format!(" ({})", item.right)).style(right_style)
                 } else {
                     Span::default()
                 },
@@ -266,13 +259,16 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         } else {
             Line::from_iter([
                 Span::from(item.item),
-                if let Some(right) = item.right {
-                    Span::from(format!(" ({})", right))
+                if !item.right.is_empty() {
+                    Span::from(format!(" ({})", item.right)).style(right_style)
                 } else {
                     Span::default()
                 },
             ])
         };
+        if item.disabled {
+            item_line = item_line.style(disabled_style);
+        }
         item_line.render(item_area, buf);
 
         item_area.x += item_area.width + 1;

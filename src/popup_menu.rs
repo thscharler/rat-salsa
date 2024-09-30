@@ -21,7 +21,6 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{MenuOutcome, Popup};
-use crate::item::Item;
 use crate::util::{fill_buf_area, next_opt, prev_opt, revert_style};
 use crate::{menu_str, MenuItem, MenuStyle, Separator};
 use rat_event::util::MouseFlags;
@@ -62,15 +61,17 @@ pub enum Placement {
 /// Popup menu.
 #[derive(Debug, Default, Clone)]
 pub struct PopupMenu<'a> {
-    items: Vec<Item<'a>>,
+    items: Vec<MenuItem<'a>>,
 
     width: Option<u16>,
     placement: Placement,
     boundary: Option<Rect>,
 
     style: Style,
-    focus_style: Option<Style>,
     highlight_style: Option<Style>,
+    disabled_style: Option<Style>,
+    right_style: Option<Style>,
+    focus_style: Option<Style>,
 
     block: Option<Block<'a>>,
     block_indent: bool,
@@ -133,7 +134,7 @@ impl<'a> PopupMenu<'a> {
             let text_width = self.items.iter().map(|v| v.width()).max();
             (text_width.unwrap_or(10) * 3) / 2
         };
-        let height = self.items.iter().map(Item::height).sum::<u16>();
+        let height = self.items.iter().map(MenuItem::height).sum::<u16>();
 
         let vertical_margin = if self.block_indent { 1 } else { 1 };
         let horizontal_margin = if self.block_indent { 2 } else { 1 };
@@ -167,10 +168,12 @@ impl<'a> PopupMenu<'a> {
         };
 
         if area.right() >= fit_in.right() {
-            area.x -= area.right() - fit_in.right();
+            let corr = area.right().saturating_sub(fit_in.right());
+            area.x = area.x.saturating_sub(corr);
         }
         if area.bottom() >= fit_in.bottom() {
-            area.y -= area.bottom() - fit_in.bottom();
+            let corr = area.bottom().saturating_sub(fit_in.bottom());
+            area.y = area.y.saturating_sub(corr);
         }
 
         state.area = area;
@@ -218,41 +221,7 @@ impl<'a> PopupMenu<'a> {
 
     /// Add an item.
     pub fn add(mut self, item: MenuItem<'a>) -> Self {
-        match item {
-            MenuItem::Item1(item) => {
-                self.items.push(Item {
-                    item,
-                    highlight: None,
-                    navchar: None,
-                    right: None,
-                    sep: Separator::None,
-                });
-            }
-            MenuItem::Item2(item, highlight, navchar) => {
-                self.items.push(Item {
-                    item,
-                    highlight: Some(highlight),
-                    navchar: Some(navchar),
-                    right: None,
-                    sep: Separator::None,
-                });
-            }
-            MenuItem::Item3(item, highlight, navchar, right) => {
-                self.items.push(Item {
-                    item,
-                    highlight: Some(highlight),
-                    navchar: Some(navchar),
-                    right: Some(right),
-                    sep: Separator::None,
-                });
-            }
-            MenuItem::Sep(sep) => {
-                if let Some(last) = self.items.last_mut() {
-                    last.sep = sep;
-                }
-            }
-        }
-
+        self.items.push(item);
         self
     }
 
@@ -295,8 +264,10 @@ impl<'a> PopupMenu<'a> {
     /// Take a style-set.
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
-        self.focus_style = styles.focus;
+        self.disabled_style = styles.disabled;
+        self.right_style = styles.right;
         self.highlight_style = styles.highlight;
+        self.focus_style = styles.focus;
         self
     }
 
@@ -306,15 +277,29 @@ impl<'a> PopupMenu<'a> {
         self
     }
 
-    /// Focus/Selection style.
-    pub fn focus_style(mut self, style: Style) -> Self {
-        self.focus_style = Some(style);
-        self
-    }
-
     /// Highlight style.
     pub fn highlight_style(mut self, style: Style) -> Self {
         self.highlight_style = Some(style);
+        self
+    }
+
+    /// Disabled item style.
+    #[inline]
+    pub fn disabled_style(mut self, style: Style) -> Self {
+        self.disabled_style = Some(style);
+        self
+    }
+
+    /// Style for the hotkey.
+    #[inline]
+    pub fn right_style(mut self, style: Style) -> Self {
+        self.right_style = Some(style);
+        self
+    }
+
+    /// Focus/Selection style.
+    pub fn focus_style(mut self, style: Style) -> Self {
+        self.focus_style = Some(style);
         self
     }
 
@@ -390,6 +375,16 @@ fn render_ref(
     } else {
         revert_style(widget.style)
     };
+    let disabled_style = if let Some(disabled_style) = widget.disabled_style {
+        disabled_style
+    } else {
+        widget.style
+    };
+    let right_style = if let Some(right_style) = widget.right_style {
+        right_style
+    } else {
+        widget.style
+    };
 
     fill_buf_area(buf, state.area, " ", widget.style);
     block(state.area, buf);
@@ -404,7 +399,7 @@ fn render_ref(
         };
         buf.set_style(item_area, style);
 
-        let item_line = if let Some(highlight) = item.highlight.clone() {
+        let mut item_line = if let Some(highlight) = item.highlight.clone() {
             Line::from_iter([
                 Span::from(&item.item[..highlight.start - 1]), // account for _
                 Span::from(&item.item[highlight.start..highlight.end]).style(highlight_style),
@@ -413,16 +408,21 @@ fn render_ref(
         } else {
             Line::from(item.item)
         };
+        if item.disabled {
+            item_line = item_line.style(disabled_style);
+        }
         item_line.render(item_area, buf);
 
-        if let Some(right) = item.right {
-            let right_width = right.graphemes(true).count() as u16;
+        if !item.right.is_empty() {
+            let right_width = item.right.graphemes(true).count() as u16;
             if right_width < item_area.width {
                 let delta = item_area.width.saturating_sub(right_width);
                 item_area.x += delta;
                 item_area.width -= delta;
             }
-            Span::from(right).render(item_area, buf);
+            Span::from(item.right)
+                .style(right_style)
+                .render(item_area, buf);
         }
 
         if item.sep != Separator::None {
