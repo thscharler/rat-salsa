@@ -406,7 +406,7 @@ fn render_ref(
 
         let item_line = if let Some(highlight) = item.highlight.clone() {
             Line::from_iter([
-                Span::from(&item.item[..highlight.start]),
+                Span::from(&item.item[..highlight.start - 1]), // account for _
                 Span::from(&item.item[highlight.start..highlight.end]).style(highlight_style),
                 Span::from(&item.item[highlight.end..]),
             ])

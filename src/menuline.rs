@@ -126,7 +126,8 @@ impl<'a> MenuLine<'a> {
     /// Add item.
     #[inline]
     pub fn add_str(self, txt: &'a str) -> Self {
-        self.add(menu_str(txt))
+        let item = menu_str(txt);
+        self.add(item)
     }
 
     /// Combined style.
@@ -241,7 +242,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     }
 
     for (n, item) in widget.items.iter().enumerate() {
-        item_area.width = item.width() + 3;
+        item_area.width = item.width() + if item.right.is_some() { 3 } else { 0 };
         if item_area.right() >= area.right() {
             item_area = item_area.clamp(area);
         }
@@ -253,7 +254,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
 
         let item_line = if let Some(highlight) = item.highlight.clone() {
             Line::from_iter([
-                Span::from(&item.item[..highlight.start]),
+                Span::from(&item.item[..highlight.start - 1]), // account for _
                 Span::from(&item.item[highlight.start..highlight.end]).style(highlight_style),
                 Span::from(&item.item[highlight.end..]),
                 if let Some(right) = item.right {
