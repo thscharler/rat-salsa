@@ -129,6 +129,7 @@ pub fn menu_str(txt: &str) -> MenuItem<'_> {
     let mut idx_underscore = None;
     let mut idx_navchar_start = None;
     let mut idx_navchar_end = None;
+    let mut idx_pipe = None;
     let cit = txt.char_indices();
     for (idx, c) in cit {
         if idx_underscore.is_none() && c == '_' {
@@ -137,26 +138,46 @@ pub fn menu_str(txt: &str) -> MenuItem<'_> {
             idx_navchar_start = Some(idx);
         } else if idx_navchar_start.is_some() && idx_navchar_end.is_none() {
             idx_navchar_end = Some(idx);
+        } else if c == '|' {
+            idx_pipe = Some(idx);
         }
     }
     if idx_navchar_start.is_some() && idx_navchar_end.is_none() {
         idx_navchar_end = Some(txt.len());
     }
 
+    if let Some(pipe) = idx_pipe {
+        if let Some(navchar_end) = idx_navchar_end {
+            if pipe < navchar_end {
+                idx_pipe = None;
+            }
+        }
+    }
+
+    let (item, right) = if let Some(idx_pipe) = idx_pipe {
+        (&txt[..idx_pipe], &txt[idx_pipe + 1..])
+    } else {
+        (txt, "")
+    };
+
     if let Some(idx_navchar_start) = idx_navchar_start {
         if let Some(idx_navchar_end) = idx_navchar_end {
-            MenuItem::new_nav(
-                txt,
+            let mut item = MenuItem::new_nav(
+                item,
                 idx_navchar_start..idx_navchar_end,
-                txt[idx_navchar_start..idx_navchar_end]
+                item[idx_navchar_start..idx_navchar_end]
                     .chars()
                     .next()
                     .expect("char"),
-            )
+            );
+            item.right = right;
+            item
         } else {
             unreachable!();
         }
     } else {
-        MenuItem::new(txt)
+        let mut item = MenuItem::new(item);
+        item.right = right;
+        item
     }
 }

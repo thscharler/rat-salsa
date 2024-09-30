@@ -380,11 +380,6 @@ fn render_ref(
     } else {
         widget.style
     };
-    let right_style = if let Some(right_style) = widget.right_style {
-        right_style
-    } else {
-        widget.style
-    };
 
     fill_buf_area(buf, state.area, " ", widget.style);
     block(state.area, buf);
@@ -396,6 +391,11 @@ fn render_ref(
             select_style
         } else {
             widget.style
+        };
+        let right_style = if let Some(right_style) = widget.right_style {
+            right_style
+        } else {
+            style
         };
         buf.set_style(item_area, style);
 
