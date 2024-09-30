@@ -67,6 +67,7 @@ impl<'a> MenuItem<'a> {
 
     pub fn width(&self) -> u16 {
         (self.item.graphemes(true).count() + self.right.graphemes(true).count()) as u16
+            - if self.navchar.is_some() { 1 } else { 0 }
     }
 
     pub fn height(&self) -> u16 {
