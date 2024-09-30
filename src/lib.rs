@@ -5,10 +5,9 @@
 use crossbeam::channel::{SendError, Sender};
 use rat_widget::button::ButtonOutcome;
 use rat_widget::event::{
-    CalOutcome, ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, Outcome,
+    CalOutcome, ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, MenuOutcome, Outcome,
     ScrollOutcome, TabbedOutcome, TextOutcome,
 };
-use rat_widget::menuline::MenuOutcome;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::cmp::Ordering;
