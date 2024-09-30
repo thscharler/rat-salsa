@@ -87,6 +87,7 @@ pub mod app {
     use rat_widget::focus::{build_focus, rebuild_focus};
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::statusline::StatusLine;
+    use rat_widget::util::fill_buf_area;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::widgets::StatefulWidget;
@@ -118,6 +119,8 @@ pub mod app {
                 Constraint::Length(1),
             ])
             .split(area);
+
+            fill_buf_area(buf, layout[1], " ", ctx.g.theme.data());
 
             Turbo.render(area, buf, &mut state.minimal, ctx)?;
 
@@ -611,7 +614,7 @@ pub mod theme {
 
         /// Data display style. Used for lists, tables, ...
         pub fn data(&self) -> Style {
-            Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
+            Style::default().fg(self.s.white[0]).bg(self.s.deepblue[0])
         }
 
         /// Background for dialogs.
