@@ -6,7 +6,7 @@ use rat_widget::button::ButtonStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
-use rat_widget::menuline::MenuStyle;
+use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::scrolled::ScrollStyle;
 use rat_widget::splitter::SplitStyle;
