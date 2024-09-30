@@ -49,7 +49,9 @@ pub mod layout {
 /// Scroll attribute and event-handling.
 pub mod scrolled {
     pub use rat_scrolled::{
-        Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle, ScrollbarPolicy,
+        Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle, ScrollSymbols,
+        ScrollbarPolicy, SCROLLBAR_DOUBLE_HORIZONTAL, SCROLLBAR_DOUBLE_VERTICAL,
+        SCROLLBAR_HORIZONTAL, SCROLLBAR_VERTICAL,
     };
 }
 
@@ -82,9 +84,10 @@ pub mod line_number {
 }
 pub mod menu {
     pub use rat_menu::menubar::{MenuBarState, Menubar, MenubarLine, MenubarPopup};
+    pub use rat_menu::menuitem::{MenuItem, Separator};
     pub use rat_menu::menuline::{MenuLine, MenuLineState};
     pub use rat_menu::popup_menu::{Placement, PopupMenu, PopupMenuState};
-    pub use rat_menu::{MenuItem, MenuStructure, MenuStyle, Separator, StaticMenu};
+    pub use rat_menu::{MenuStructure, MenuStyle, StaticMenu};
 
     pub mod menubar {
         pub use rat_menu::menubar::{handle_events, handle_mouse_events, handle_popup_events};
@@ -94,6 +97,9 @@ pub mod menu {
     }
     pub mod popup_menu {
         pub use rat_menu::popup_menu::{handle_mouse_events, handle_popup_events};
+    }
+    pub mod menuitem {
+        pub use rat_menu::menuitem::{is_separator_str, menu_str, separator_str};
     }
 }
 pub mod msgdialog;

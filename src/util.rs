@@ -3,7 +3,6 @@ use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
-use std::cmp::min;
 use std::mem;
 
 /// Returns a new style with fg and bg swapped.
