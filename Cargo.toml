@@ -48,7 +48,8 @@ unstable-widget-ref = [
     "ratatui/unstable-widget-ref",
     "rat-ftable/unstable-widget-ref",
     "rat-scrolled/unstable-widget-ref",
-    "rat-text/unstable-widget-ref"
+    "rat-text/unstable-widget-ref",
+    "rat-menu/unstable-widget-ref"
 ]
 
 [dependencies]
@@ -73,6 +74,7 @@ rat-event = { version = "0.16", path = "../rat-event" }
 rat-focus = { version = "0.12", path = "../rat-focus" }
 rat-ftable = { version = "0.18", path = "../rat-ftable" }
 rat-text = { version = "0.12", path = "../rat-text" }
+rat-menu = { version = "0.10", path = "../rat-menu" }
 rat-scrolled = { version = "0.14", path = "../rat-scrolled" }
 
 [dev-dependencies]

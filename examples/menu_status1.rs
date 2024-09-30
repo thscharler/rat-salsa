@@ -1,12 +1,14 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::try_flow;
+use rat_menu::event::MenuOutcome;
+use rat_menu::menuline;
+use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::button::ButtonStyle;
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_middle;
-use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
+use rat_widget::msgdialog;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::{menuline, msgdialog};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};

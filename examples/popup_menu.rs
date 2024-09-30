@@ -1,14 +1,15 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, ConsumedEvent};
+use rat_menu::event::MenuOutcome;
+use rat_menu::popup_menu::{Placement, PopupMenu, PopupMenuState};
+use rat_menu::{popup_menu, Separator};
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_grid;
-use rat_widget::menuline::MenuOutcome;
-use rat_widget::popup_menu;
-use rat_widget::popup_menu::{Placement, PopupMenu, PopupMenuState, Separator};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
+
 mod mini_salsa;
 
 fn main() -> Result<(), anyhow::Error> {

@@ -3,51 +3,8 @@ use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
-use ratatui::text::{Line, Span};
 use std::cmp::min;
 use std::mem;
-
-/// Create a Line from the given text. The first '_' marks
-/// the navigation-char.
-pub fn menu_str(txt: &str) -> (Line<'_>, Option<char>) {
-    let mut line = Line::default();
-
-    let mut idx_underscore = None;
-    let mut idx_navchar_start = None;
-    let mut navchar = None;
-    let mut idx_navchar_end = None;
-    let cit = txt.char_indices();
-    for (idx, c) in cit {
-        if idx_underscore.is_none() && c == '_' {
-            idx_underscore = Some(idx);
-        } else if idx_underscore.is_some() && idx_navchar_start.is_none() {
-            navchar = Some(c.to_ascii_lowercase());
-            idx_navchar_start = Some(idx);
-        } else if idx_navchar_start.is_some() && idx_navchar_end.is_none() {
-            idx_navchar_end = Some(idx);
-        }
-    }
-    if idx_navchar_start.is_some() && idx_navchar_end.is_none() {
-        idx_navchar_end = Some(txt.len());
-    }
-
-    if let Some(idx_underscore) = idx_underscore {
-        if let Some(idx_navchar_start) = idx_navchar_start {
-            if let Some(idx_navchar_end) = idx_navchar_end {
-                line.spans.push(Span::from(&txt[0..idx_underscore]));
-                line.spans
-                    .push(Span::from(&txt[idx_navchar_start..idx_navchar_end]).underlined());
-                line.spans.push(Span::from(&txt[idx_navchar_end..]));
-
-                return (line, navchar);
-            }
-        }
-    }
-
-    line.spans.push(Span::from(txt));
-
-    (line, None)
-}
 
 /// Returns a new style with fg and bg swapped.
 ///
@@ -89,34 +46,6 @@ pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Int
     }
 }
 
-/// Select previous.
-pub(crate) fn prev_opt(select: Option<usize>, change: usize, len: usize) -> Option<usize> {
-    if let Some(select) = select {
-        Some(prev(select, change))
-    } else {
-        Some(len.saturating_sub(1))
-    }
-}
-
-/// Select next.
-pub(crate) fn next_opt(selected: Option<usize>, change: usize, len: usize) -> Option<usize> {
-    if let Some(select) = selected {
-        Some(next(select, change, len))
-    } else {
-        Some(0)
-    }
-}
-
-/// Select previous.
-pub(crate) fn prev(select: usize, change: usize) -> usize {
-    select.saturating_sub(change)
-}
-
-/// Select next.
-pub(crate) fn next(select: usize, change: usize, len: usize) -> usize {
-    min(select + change, len.saturating_sub(1))
-}
-
 /// Copy a tmp buffer to another buf.
 /// The tmp-buffer is offset by h_offset/v_offset.
 /// Any outside area is cleared and set to empty_style.
@@ -139,8 +68,12 @@ pub(crate) fn copy_buffer(
             let row = area.y + tmp_row - v_offset as u16;
             let col = area.x + tmp_col - h_offset as u16;
 
-            if let Some(buf_cell) = buf.cell_mut((col, row)) {
-                *buf_cell = cell;
+            if row < area.bottom() && col < area.right() {
+                if let Some(buf_cell) = buf.cell_mut((col, row)) {
+                    *buf_cell = cell;
+                }
+            } else {
+                // clip2
             }
         } else {
             // clip2

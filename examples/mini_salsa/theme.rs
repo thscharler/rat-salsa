@@ -1,11 +1,11 @@
 use rat_ftable::TableStyle;
+use rat_menu::MenuStyle;
 use rat_scrolled::ScrollStyle;
 use rat_text::text_input::TextInputStyle;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::MonthStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::list::ListStyle;
-use rat_widget::menuline::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::splitter::{SplitStyle, SplitType};
 use rat_widget::textarea::TextAreaStyle;

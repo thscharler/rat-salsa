@@ -21,6 +21,7 @@ pub mod event {
     pub use crate::file_dialog::event::FileOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
     pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome};
+    pub use rat_menu::event::MenuOutcome;
     pub use rat_scrolled::event::ScrollOutcome;
     pub use rat_text::event::{ReadOnly, TextOutcome};
 }
@@ -79,8 +80,22 @@ pub mod list;
 pub mod line_number {
     pub use rat_text::line_number::{LineNumberState, LineNumberStyle, LineNumbers};
 }
-pub mod menubar;
-pub mod menuline;
+pub mod menu {
+    pub use rat_menu::menubar::{MenuBarState, Menubar, MenubarLine, MenubarPopup};
+    pub use rat_menu::menuline::{MenuLine, MenuLineState};
+    pub use rat_menu::popup_menu::{Placement, PopupMenu, PopupMenuState};
+    pub use rat_menu::{MenuItem, MenuStructure, MenuStyle, Separator, StaticMenu};
+
+    pub mod menubar {
+        pub use rat_menu::menubar::{handle_events, handle_mouse_events, handle_popup_events};
+    }
+    pub mod menuline {
+        pub use rat_menu::menuline::{handle_events, handle_mouse_events};
+    }
+    pub mod popup_menu {
+        pub use rat_menu::popup_menu::{handle_mouse_events, handle_popup_events};
+    }
+}
 pub mod msgdialog;
 pub mod number_input {
     pub use rat_text::number_input::{
@@ -88,7 +103,6 @@ pub mod number_input {
     };
 }
 pub mod paragraph;
-pub mod popup_menu;
 pub mod splitter;
 pub mod statusline;
 /// F-Table

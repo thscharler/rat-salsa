@@ -1,8 +1,8 @@
 use crate::mini_salsa::MiniSalsaState;
 use rat_event::{try_flow, Outcome};
-use rat_widget::menubar;
-use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
-use rat_widget::menuline::MenuOutcome;
+use rat_menu::event::MenuOutcome;
+use rat_menu::menubar::{MenuBarState, Menubar};
+use rat_menu::{menubar, StaticMenu};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
@@ -30,10 +30,10 @@ struct State {
 
 static MENU: StaticMenu = StaticMenu {
     menu: &[
-        ("Alpha", &["One", "Two", "_...", "Three"]),
-        ("Beta", &["Ex", "Why", "_---", "Sed"]),
-        ("Gamma", &["No", "more", "ideas"]),
-        ("Quit", &[]),
+        ("_Alpha", &["_One", "_Two", "_...", "Thr_ee"]),
+        ("_Beta", &["Ex", "Why", "_---", "Sed"]),
+        ("_Gamma", &["N_o", "m_ore", "ideas"]),
+        ("_Quit", &[]),
     ],
 };
 
