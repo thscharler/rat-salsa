@@ -6,11 +6,11 @@ use rat_event::{ct_event, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Style;
-use ratatui::symbols::scrollbar::Set;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
 use std::cmp::{max, min};
+use std::mem;
 
 /// Scroll widget.
 ///
@@ -28,9 +28,10 @@ pub struct Scroll<'a> {
     scroll_by: Option<usize>,
 
     scrollbar: Scrollbar<'a>,
-
-    min_symbol: Option<&'a str>,
     min_style: Option<Style>,
+    min_symbol: Option<&'a str>,
+    hor_symbols: Option<ScrollSymbols>,
+    ver_symbols: Option<ScrollSymbols>,
 }
 
 /// Scroll state.
@@ -99,34 +100,99 @@ pub struct ScrollState {
 #[derive(Debug, Clone)]
 pub struct ScrollStyle {
     pub thumb_style: Option<Style>,
-    pub thumb_symbol: Option<&'static str>,
     pub track_style: Option<Style>,
-    pub track_symbol: Option<&'static str>,
     pub begin_style: Option<Style>,
-    pub begin_symbol: Option<&'static str>,
     pub end_style: Option<Style>,
-    pub end_symbol: Option<&'static str>,
-    /// Style used when the scrollbar is not needed.
     pub min_style: Option<Style>,
-    /// Symbol used instead of the scrollbar when it's not needed.
-    pub min_symbol: Option<&'static str>,
+
+    pub horizontal: Option<ScrollSymbols>,
+    pub vertical: Option<ScrollSymbols>,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+/// Scrollbar Symbol Set
+/// ```text
+/// <--▮------->
+/// ^  ^   ^   ^
+/// │  │   │   └ end
+/// │  │   └──── track
+/// │  └──────── thumb
+/// └─────────── begin
+/// ```
+///
+/// or if there is no scrollbar
+///
+/// ```text
+/// ............
+/// ^
+/// │
+/// └─── min
+/// ```
+///
+///
+#[derive(Debug, Clone)]
+pub struct ScrollSymbols {
+    pub track: &'static str,
+    pub thumb: &'static str,
+    pub begin: &'static str,
+    pub end: &'static str,
+    pub min: &'static str,
+}
+
+pub const SCROLLBAR_DOUBLE_VERTICAL: ScrollSymbols = ScrollSymbols {
+    track: ratatui::symbols::line::DOUBLE_VERTICAL,
+    thumb: ratatui::symbols::block::FULL,
+    begin: "▲",
+    end: "▼",
+    min: ratatui::symbols::line::DOUBLE_VERTICAL,
+};
+
+pub const SCROLLBAR_DOUBLE_HORIZONTAL: ScrollSymbols = ScrollSymbols {
+    track: ratatui::symbols::line::DOUBLE_HORIZONTAL,
+    thumb: ratatui::symbols::block::FULL,
+    begin: "◄",
+    end: "►",
+    min: ratatui::symbols::line::DOUBLE_HORIZONTAL,
+};
+
+pub const SCROLLBAR_VERTICAL: ScrollSymbols = ScrollSymbols {
+    track: ratatui::symbols::line::VERTICAL,
+    thumb: ratatui::symbols::block::FULL,
+    begin: "↑",
+    end: "↓",
+    min: ratatui::symbols::line::VERTICAL,
+};
+
+pub const SCROLLBAR_HORIZONTAL: ScrollSymbols = ScrollSymbols {
+    track: ratatui::symbols::line::HORIZONTAL,
+    thumb: ratatui::symbols::block::FULL,
+    begin: "←",
+    end: "→",
+    min: ratatui::symbols::line::HORIZONTAL,
+};
+
+impl From<&ScrollSymbols> for ratatui::symbols::scrollbar::Set {
+    fn from(value: &ScrollSymbols) -> Self {
+        ratatui::symbols::scrollbar::Set {
+            track: value.track,
+            thumb: value.thumb,
+            begin: value.begin,
+            end: value.end,
+        }
+    }
 }
 
 impl Default for ScrollStyle {
     fn default() -> Self {
         Self {
             thumb_style: None,
-            thumb_symbol: None,
             track_style: None,
-            track_symbol: None,
             begin_style: None,
-            begin_symbol: None,
             end_style: None,
-            end_symbol: None,
             min_style: None,
-            min_symbol: None,
+            horizontal: None,
+            vertical: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -149,8 +215,12 @@ impl<'a> Scroll<'a> {
     }
 
     /// Scrollbar orientation.
-    pub fn orientation(mut self, pos: ScrollbarOrientation) -> Self {
-        self.orientation = pos;
+    pub fn orientation(mut self, orientation: ScrollbarOrientation) -> Self {
+        if self.orientation != orientation {
+            self.orientation = orientation.clone();
+            self.scrollbar = self.scrollbar.orientation(orientation);
+            self.update_symbols();
+        }
         self
     }
 
@@ -163,12 +233,17 @@ impl<'a> Scroll<'a> {
     ///
     /// If the orientation is not vertical it will be set to VerticalRight.
     pub fn override_vertical(mut self) -> Self {
-        self.orientation = match self.orientation {
+        let orientation = match self.orientation {
             ScrollbarOrientation::VerticalRight => ScrollbarOrientation::VerticalRight,
             ScrollbarOrientation::VerticalLeft => ScrollbarOrientation::VerticalLeft,
             ScrollbarOrientation::HorizontalBottom => ScrollbarOrientation::VerticalRight,
             ScrollbarOrientation::HorizontalTop => ScrollbarOrientation::VerticalRight,
         };
+        if self.orientation != orientation {
+            self.orientation = orientation.clone();
+            self.scrollbar = self.scrollbar.orientation(orientation);
+            self.update_symbols();
+        }
         self
     }
 
@@ -176,12 +251,17 @@ impl<'a> Scroll<'a> {
     ///
     /// If the orientation is not horizontal, it will be set to HorizontalBottom.
     pub fn override_horizontal(mut self) -> Self {
-        self.orientation = match self.orientation {
+        let orientation = match self.orientation {
             ScrollbarOrientation::VerticalRight => ScrollbarOrientation::HorizontalBottom,
             ScrollbarOrientation::VerticalLeft => ScrollbarOrientation::HorizontalBottom,
             ScrollbarOrientation::HorizontalBottom => ScrollbarOrientation::HorizontalBottom,
             ScrollbarOrientation::HorizontalTop => ScrollbarOrientation::HorizontalTop,
         };
+        if self.orientation != orientation {
+            self.orientation = orientation.clone();
+            self.scrollbar = self.scrollbar.orientation(orientation);
+            self.update_symbols();
+        }
         self
     }
 
@@ -241,37 +321,44 @@ impl<'a> Scroll<'a> {
 
     /// Set all styles.
     pub fn styles(mut self, styles: ScrollStyle) -> Self {
-        if let Some(thumb_symbol) = styles.thumb_symbol {
-            self.scrollbar = self.scrollbar.thumb_symbol(thumb_symbol);
+        if let Some(horizontal) = styles.horizontal {
+            self.hor_symbols = Some(horizontal);
         }
+        if let Some(vertical) = styles.vertical {
+            self.ver_symbols = Some(vertical);
+        }
+        self.update_symbols();
+
         if let Some(thumb_style) = styles.thumb_style {
             self.scrollbar = self.scrollbar.thumb_style(thumb_style);
-        }
-        if styles.track_symbol.is_some() {
-            self.scrollbar = self.scrollbar.track_symbol(styles.track_symbol);
         }
         if let Some(track_style) = styles.track_style {
             self.scrollbar = self.scrollbar.track_style(track_style);
         }
-        if styles.begin_symbol.is_some() {
-            self.scrollbar = self.scrollbar.begin_symbol(styles.begin_symbol);
-        }
         if let Some(begin_style) = styles.begin_style {
             self.scrollbar = self.scrollbar.begin_style(begin_style);
         }
-        if styles.end_symbol.is_some() {
-            self.scrollbar = self.scrollbar.end_symbol(styles.end_symbol);
-        }
         if let Some(end_style) = styles.end_style {
             self.scrollbar = self.scrollbar.end_style(end_style);
-        }
-        if styles.min_symbol.is_some() {
-            self.min_symbol = styles.min_symbol;
         }
         if styles.min_style.is_some() {
             self.min_style = styles.min_style;
         }
         self
+    }
+
+    fn update_symbols(&mut self) {
+        if self.is_horizontal() {
+            if let Some(horizontal) = &self.hor_symbols {
+                self.min_symbol = Some(horizontal.min);
+                self.scrollbar = mem::take(&mut self.scrollbar).symbols(horizontal.into());
+            }
+        } else {
+            if let Some(vertical) = &self.ver_symbols {
+                self.min_symbol = Some(vertical.min);
+                self.scrollbar = mem::take(&mut self.scrollbar).symbols(vertical.into());
+            }
+        }
     }
 
     /// Symbol for the Scrollbar.
@@ -335,16 +422,17 @@ impl<'a> Scroll<'a> {
     }
 
     /// Set all Scrollbar symbols.
-    pub fn symbols(mut self, symbols: Set) -> Self {
-        self.scrollbar = self.scrollbar.symbols(symbols);
+    pub fn symbols(mut self, symbols: &ScrollSymbols) -> Self {
+        self.min_symbol = Some(symbols.min);
+        self.scrollbar = self.scrollbar.symbols(symbols.into());
         self
     }
 
     /// Set a style for all Scrollbar styles.
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         let style = style.into();
-        self.scrollbar = self.scrollbar.style(style);
         self.min_style = Some(style);
+        self.scrollbar = self.scrollbar.style(style);
         self
     }
 }
@@ -352,7 +440,7 @@ impl<'a> Scroll<'a> {
 impl<'a> Scroll<'a> {
     // create the correct scrollbar widget.
     fn scrollbar(&self) -> Scrollbar<'a> {
-        self.scrollbar.clone().orientation(self.orientation.clone())
+        self.scrollbar.clone()
     }
 }
 
