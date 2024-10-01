@@ -1,8 +1,9 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, ConsumedEvent};
 use rat_menu::event::MenuOutcome;
+use rat_menu::menuitem::Separator;
+use rat_menu::popup_menu;
 use rat_menu::popup_menu::{Placement, PopupMenu, PopupMenuState};
-use rat_menu::{popup_menu, Separator};
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_grid;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -79,11 +80,11 @@ fn repaint_stuff(
             .style(Style::new().black().on_cyan())
             .block(Block::bordered().title("Nice popup"))
             .placement(state.placement)
-            .add_str("Item _1")
-            .add_sep(Separator::Plain)
-            .add_str("Item _2")
-            .add_str("Item _3")
-            .add_str("Item _4")
+            .item_parsed("Item _1")
+            .separator(Separator::Plain)
+            .item_parsed("Item _2")
+            .item_parsed("Item _3")
+            .item_parsed("Item _4")
             .boundary(area)
             .render(state.popup_area, frame.buffer_mut(), &mut state.popup);
     }

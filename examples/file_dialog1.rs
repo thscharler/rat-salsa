@@ -3,14 +3,14 @@ use crate::mini_salsa::MiniSalsaState;
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
+use rat_menu::event::MenuOutcome;
+use rat_menu::menubar::{MenuBarState, Menubar};
+use rat_menu::popup_menu::Placement;
+use rat_menu::{menubar, StaticMenu};
 use rat_text::HasScreenCursor;
 use rat_widget::event::FileOutcome;
 use rat_widget::file_dialog::{FileDialog, FileDialogState};
 use rat_widget::layout::layout_middle;
-use rat_widget::menubar;
-use rat_widget::menubar::{MenuBarState, Menubar, StaticMenu};
-use rat_widget::menuline::MenuOutcome;
-use rat_widget::popup_menu::Placement;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;

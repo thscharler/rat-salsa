@@ -48,11 +48,11 @@ fn repaint_input(
 
     let menu1 = MenuLine::new()
         .title("Sample")
-        .add_str("Choose1")
-        .add_str("Choose2")
-        .add_str("Choose3")
-        .add_str("Message")
-        .add_str("_Quit")
+        .item_parsed("Choose1")
+        .item_parsed("Choose2")
+        .item_parsed("Choose3")
+        .item_parsed("Message")
+        .item_parsed("_Quit")
         .title_style(Style::default().black().on_yellow())
         .style(Style::default().black().on_dark_gray());
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);

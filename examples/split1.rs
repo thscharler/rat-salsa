@@ -5,11 +5,12 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocusFlag};
+use rat_menu::event::MenuOutcome;
+use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
 use rat_widget::event::Outcome;
 use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
-use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
 use rat_widget::splitter::{Split, SplitResize, SplitState, SplitType};
 use rat_widget::statusline::StatusLineState;
 use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -258,7 +259,7 @@ fn repaint_input(
 
     let menu1 = MenuLine::new()
         .title("||||")
-        .add_str("_Quit")
+        .item_parsed("_Quit")
         .title_style(Style::default().black().on_yellow())
         .style(Style::default().black().on_dark_gray());
     frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
