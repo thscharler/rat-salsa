@@ -235,9 +235,9 @@ pub mod minimal {
     use anyhow::Error;
     use crossterm::event::Event;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{try_flow, HandleEvent, Regular};
+    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::{FocusBuilder, HasFocus};
-    use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
+    use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::widgets::StatefulWidget;
@@ -283,7 +283,7 @@ pub mod minimal {
 
             let menu = MenuLine::new()
                 .styles(ctx.g.theme.menu_style())
-                .add_str("_Quit");
+                .item_parsed("_Quit");
             menu.render(r[1], buf, &mut state.menu);
 
             Ok(())

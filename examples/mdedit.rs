@@ -367,19 +367,17 @@ mod app {
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_theme::dark_themes;
-    use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, Popup, Regular};
+    use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::layout::layout_middle;
-    use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
-    use rat_widget::menuline::MenuOutcome;
+    use rat_widget::menu::{
+        MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement, Separator,
+    };
     use rat_widget::msgdialog::MsgDialog;
-    use rat_widget::popup_menu::{MenuItem, Placement, Separator};
     use rat_widget::text::HasScreenCursor;
-    use rat_widget::util::menu_str;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
-    use ratatui::prelude::{StatefulWidget, Style, Stylize};
-    use ratatui::text::Line;
+    use ratatui::prelude::{StatefulWidget, Style};
     use ratatui::widgets::{Block, BorderType, Padding};
     use std::str::from_utf8;
 
@@ -390,71 +388,48 @@ mod app {
     }
 
     impl<'a> MenuStructure<'a> for Menu {
-        fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)> {
-            vec![
-                menu_str("_File"),
-                menu_str("_Edit"),
-                menu_str("_View"),
-                menu_str("_Theme"),
-                menu_str("_Quit"),
-            ]
+        fn menus(&'a self, menu: &mut MenuBuilder<'a>) {
+            menu.item_parsed("_File")
+                .item_parsed("_Edit")
+                .item_parsed("_View")
+                .item_parsed("_Theme")
+                .item_parsed("_Quit");
         }
 
-        fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>> {
+        fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>) {
             match n {
                 0 => {
-                    vec![
-                        MenuItem::Item3("New..".into(), Some('n'), Line::from("Ctrl-N").italic()),
-                        MenuItem::Item3("Open..".into(), Some('o'), Line::from("Ctrl-O").italic()),
-                        MenuItem::Item3("Save..".into(), Some('s'), Line::from("Ctrl-S").italic()),
-                        MenuItem::Item2(Line::from("Save as.."), Some('a')),
-                    ]
+                    submenu.item_parsed("_New..|Ctrl-N");
+                    submenu.item_parsed("_Open..|Ctrl-O");
+                    submenu.item_parsed("_Save..|Ctrl-S");
+                    submenu.item_parsed("Save _as..");
                 }
                 1 => {
-                    vec![
-                        MenuItem::Item3("Format Item".into(), None, Line::from("Alt-F").italic()),
-                        MenuItem::Item3(
-                            "Alt-Format Item".into(),
-                            None,
-                            Line::from("Alt-Shift-F").italic(),
-                        ),
-                    ]
+                    submenu.item_parsed("Format Item|Alt-F");
+                    submenu.item_parsed("Alt-Format Item|Alt-Shift-F");
                 }
                 2 => {
-                    vec![
-                        if self.show_ctrl {
-                            MenuItem::Item("\u{2611} Control chars".into())
-                        } else {
-                            MenuItem::Item("\u{2610} Control chars".into())
-                        },
-                        if self.use_crlf {
-                            MenuItem::Item("\u{2611} Use CR+LF".into())
-                        } else {
-                            MenuItem::Item("\u{2610} Use CR+LF".into())
-                        },
-                        MenuItem::Sep(Separator::Dotted),
-                        MenuItem::Item3(
-                            "Split view".into(),
-                            Some('s'),
-                            Line::from("Ctrl-W D").italic(),
-                        ),
-                        MenuItem::Item3(
-                            "Jump to File".into(),
-                            Some('j'),
-                            Line::from("F5").italic(),
-                        ),
-                        MenuItem::Item3(
-                            "Hide files".into(),
-                            Some('h'),
-                            Line::from("Alt-F5").italic(),
-                        ),
-                    ]
+                    if self.show_ctrl {
+                        submenu.item_parsed("\u{2611} Control chars");
+                    } else {
+                        submenu.item_parsed("\u{2610} Control chars");
+                    }
+                    if self.use_crlf {
+                        submenu.item_parsed("\u{2611} Use CR+LF");
+                    } else {
+                        submenu.item_parsed("\u{2610} Use CR+LF");
+                    }
+                    submenu.separator(Separator::Dotted);
+                    submenu.item_parsed("_Split view|Ctrl-W D");
+                    submenu.item_parsed("_Jump to File|F5");
+                    submenu.item_parsed("_Hide files|F6");
                 }
-                3 => dark_themes()
-                    .iter()
-                    .map(|v| MenuItem::Item(v.name().to_string().into()))
-                    .collect(),
-                _ => Vec::default(),
+                3 => {
+                    for t in dark_themes() {
+                        submenu.item_string(t.name().into());
+                    }
+                }
+                _ => {}
             }
         }
     }

@@ -393,9 +393,9 @@ pub mod life {
     use crossterm::event::Event;
     use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{try_flow, HandleEvent, Regular};
+    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::{FocusBuilder, HasFocus};
-    use rat_widget::menuline::{MenuLine, MenuLineState, MenuOutcome};
+    use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::style::Style;
@@ -460,13 +460,13 @@ pub mod life {
             let menu = MenuLine::new()
                 .styles(ctx.g.theme.menu_style())
                 .title(format!("--({})>", state.game.name))
-                .add_str(if ctx.g.running { "Pau_se" } else { "_Start" })
-                .add_str("_Next")
-                .add_str("_Faster")
-                .add_str("Slowe_r")
-                .add_str("Rest_art")
-                .add_str("Ran_dom")
-                .add_str("_Quit");
+                .item_parsed(if ctx.g.running { "Pau_se" } else { "_Start" })
+                .item_parsed("_Next")
+                .item_parsed("_Faster")
+                .item_parsed("Slowe_r")
+                .item_parsed("Rest_art")
+                .item_parsed("Ran_dom")
+                .item_parsed("_Quit");
             menu.render(r[1], buf, &mut state.menu);
 
             Ok(())

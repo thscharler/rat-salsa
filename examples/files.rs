@@ -14,15 +14,13 @@ use rat_theme::dark_theme::DarkTheme;
 use rat_theme::dark_themes;
 use rat_theme::scheme::IMPERIAL;
 use rat_widget::event::{
-    ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, Outcome, Popup,
-    ReadOnly, Regular,
+    ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Outcome,
+    Popup, ReadOnly, Regular,
 };
 use rat_widget::focus::{match_focus, rebuild_focus, FocusBuilder, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
-use rat_widget::menuline::MenuOutcome;
+use rat_widget::menu::{MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
-use rat_widget::popup_menu::{MenuItem, Placement};
 use rat_widget::scrolled::Scroll;
 use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -260,25 +258,25 @@ impl<'a> TableData<'a> for DirData<'a> {
 struct Menu;
 
 impl<'a> MenuStructure<'a> for Menu {
-    fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)> {
-        vec![
-            (Line::from("Roots"), None), //
-            (Line::from("Theme"), None), //
-            (Line::from("Quit"), None),
-        ]
+    fn menus(&'a self, menu: &mut MenuBuilder<'a>) {
+        menu.item_str("Roots") //
+            .item_str("Theme")
+            .item_str("Quit");
     }
 
-    fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>> {
+    fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>) {
         match n {
-            0 => fs_roots()
-                .iter()
-                .map(|v| MenuItem::Item(v.0.to_string().into()))
-                .collect(),
-            1 => dark_themes()
-                .iter()
-                .map(|v| MenuItem::Item(v.name().to_string().into()))
-                .collect(),
-            _ => vec![],
+            0 => {
+                for (s, _) in fs_roots() {
+                    submenu.item_string(s);
+                }
+            }
+            1 => {
+                for t in dark_themes() {
+                    submenu.item_string(t.name().into());
+                }
+            }
+            _ => {}
         }
     }
 }

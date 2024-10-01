@@ -95,22 +95,25 @@ impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
     ) -> Result<(), Error> {
         let t0 = SystemTime::now();
 
-        let r = Layout::new(
+        let layout = Layout::new(
             Direction::Vertical,
             [Constraint::Fill(1), Constraint::Length(1)],
         )
         .split(area);
 
-        Mask0.render(r[0], buf, &mut state.mask0, ctx)?;
+        Mask0.render(area, buf, &mut state.mask0, ctx)?;
 
         if ctx.g.error_dlg.active() {
             let err = MsgDialog::new().styles(ctx.g.theme.msg_dialog_style());
-            err.render(r[0], buf, &mut ctx.g.error_dlg);
+            err.render(layout[0], buf, &mut ctx.g.error_dlg);
         }
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
         ctx.g.status.status(1, format!("R {:.3?}", el).to_string());
 
+        let layout_status =
+            Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
+                .split(layout[1]);
         let status = StatusLine::new()
             .layout([
                 Constraint::Fill(1),
@@ -119,7 +122,7 @@ impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
                 Constraint::Length(12),
             ])
             .styles(ctx.g.theme.statusline_style());
-        status.render(r[1], buf, &mut ctx.g.status);
+        status.render(layout_status[1], buf, &mut ctx.g.status);
 
         Ok(())
     }
@@ -209,15 +212,12 @@ pub mod mask0 {
     use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_theme::dark_themes;
-    use rat_widget::event::{try_flow, HandleEvent, Popup, Regular};
-    use rat_widget::menubar::{MenuBarState, MenuStructure, Menubar};
-    use rat_widget::menuline::MenuOutcome;
-    use rat_widget::popup_menu::{MenuItem, Placement};
+    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
+    use rat_widget::menu::{MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement};
     use rat_widget::scrolled::Scroll;
     use rat_widget::viewport::{Viewport, ViewportState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
-    use ratatui::prelude::Line;
     use ratatui::widgets::StatefulWidget;
 
     #[derive(Debug)]
@@ -245,20 +245,18 @@ pub mod mask0 {
     struct Menu;
 
     impl<'a> MenuStructure<'a> for Menu {
-        fn menus(&'a self) -> Vec<(Line<'a>, Option<char>)> {
-            vec![
-                (Line::from("Theme"), None), //
-                (Line::from("Quit"), None),
-            ]
+        fn menus(&'a self, menu: &mut MenuBuilder<'a>) {
+            menu.item_str("Theme").item_str("Quit");
         }
 
-        fn submenu(&'a self, n: usize) -> Vec<MenuItem<'a>> {
+        fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>) {
             match n {
-                0 => dark_themes()
-                    .iter()
-                    .map(|v| MenuItem::Item(v.name().to_string().into()))
-                    .collect(),
-                _ => vec![],
+                0 => {
+                    for t in dark_themes().iter() {
+                        submenu.item_string(t.name().into());
+                    }
+                }
+                _ => {}
             }
         }
     }
@@ -275,7 +273,7 @@ pub mod mask0 {
         ) -> Result<(), Error> {
             // TODO: repaint_mask
 
-            let r = Layout::new(
+            let layout = Layout::new(
                 Direction::Vertical,
                 [Constraint::Fill(1), Constraint::Length(1)],
             )
@@ -284,14 +282,17 @@ pub mod mask0 {
             Viewport::new(ShowScheme::new(ctx.g.theme.name(), ctx.g.theme.scheme()))
                 .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
                 .view_size(Size::new(area.width - 4, 40))
-                .render(r[0], buf, &mut state.scroll);
+                .render(layout[0], buf, &mut state.scroll);
 
+            let layout_menu =
+                Layout::horizontal([Constraint::Percentage(61), Constraint::Percentage(39)])
+                    .split(layout[1]);
             let menu = Menubar::new(&Menu)
                 .styles(ctx.g.theme.menu_style())
                 .popup_placement(Placement::Top)
                 .into_widgets();
-            menu.0.render(r[1], buf, &mut state.menu);
-            menu.1.render(r[1], buf, &mut state.menu);
+            menu.0.render(layout_menu[0], buf, &mut state.menu);
+            menu.1.render(layout_menu[0], buf, &mut state.menu);
 
             Ok(())
         }
