@@ -209,6 +209,7 @@ pub mod app {
             let mut r = match &event {
                 ct_event!(resized) => Control::Changed,
                 ct_event!(key press CONTROL-'q') => Control::Quit,
+                ct_event!(key press ALT-'x') => Control::Quit,
                 _ => Control::Continue,
             };
 
@@ -272,9 +273,11 @@ pub mod turbo {
     use anyhow::Error;
     use crossterm::event::Event;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
+    use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::focus::{FocusBuilder, HasFocus};
-    use rat_widget::menu::{MenuBarState, Menubar, Placement, StaticMenu};
+    use rat_widget::menu::{
+        MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement, PopupMenu, PopupMenuState,
+    };
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::widgets::{Block, StatefulWidget};
@@ -285,48 +288,168 @@ pub mod turbo {
     #[derive(Debug)]
     pub struct TurboState {
         pub menu: MenuBarState,
+        pub menu_environment: PopupMenuState,
     }
 
-    static MENU: StaticMenu = StaticMenu {
-        menu: &[
-            ("_File", &["_Exit"]),
-            ("_Edit", &[]),
-            ("_Search", &[]),
-            (
-                "_Run",
-                &[
-                    "_Run",
-                    "_Step over",
-                    "_Trace into",
-                    "_Goto cursor",
-                    "_Program reset",
-                    "P_arameters...",
-                ],
-            ),
-            ("_Compile", &[]),
-            ("_Debug", &[]),
-            (
-                "_Tools",
-                &[
-                    "_Messages",
-                    "Go to _next|Alt+F8",
-                    "Go to _previous|Alt+F7",
-                    "____",
-                    "_Grep",
-                    "Clear/Refresh screen DOS",
-                    "About TPWDB",
-                ],
-            ),
-            ("_Options", &[]),
-            ("_Window", &[]),
-            ("_Help", &[]),
-        ],
-    };
+    struct Menu;
+
+    impl<'a> MenuStructure<'a> for Menu {
+        fn menus(&'a self, menu: &mut MenuBuilder<'a>) {
+            menu.item_parsed("_File")
+                .item_parsed("_Edit")
+                .item_parsed("_Search")
+                .item_parsed("_Run")
+                .item_parsed("_Compile")
+                .item_parsed("_Debug")
+                .item_parsed("_Tools")
+                .item_parsed("_Options")
+                .item_parsed("_Window")
+                .item_parsed("_Help")
+                .disabled(true);
+        }
+
+        fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>) {
+            match n {
+                0 => {
+                    submenu
+                        .item_parsed("_New")
+                        .item_parsed("_Open...|F3")
+                        .item_parsed("_Save|F2")
+                        .item_parsed("Save _as...")
+                        .item_parsed("Save a_ll")
+                        .item_parsed("____")
+                        .item_parsed("_Change dir...")
+                        .item_parsed("_Print")
+                        .item_parsed("P_rinter setup...")
+                        .item_parsed("_DOS shell")
+                        .item_parsed("E_xit|ALt+X");
+                }
+                1 => {
+                    submenu
+                        .item_parsed("Undo|Alt+BkSp")
+                        .item_parsed("Redo")
+                        .disabled(true)
+                        .item_parsed("____")
+                        .item_parsed("Cu_t|Shift+Del")
+                        .item_parsed("_Copy|Ctrl+Ins")
+                        .item_parsed("_Paste|Shift+Ins")
+                        .item_parsed("C_lear|Ctrl+Del")
+                        .item_parsed("____")
+                        .item_parsed("_Show clipboard");
+                }
+                2 => {
+                    submenu
+                        .item_parsed("_Find...")
+                        .item_parsed("_Replace...")
+                        .item_parsed("_Search again")
+                        .item_parsed("____")
+                        .item_parsed("_Go to line number...")
+                        .item_parsed("Show last compiler error")
+                        .item_parsed("Find _error...")
+                        .item_parsed("Find _procedure");
+                }
+                3 => {
+                    submenu
+                        .item_parsed("_Run")
+                        .item_parsed("_Step over")
+                        .item_parsed("_Trace into")
+                        .item_parsed("_Goto cursor")
+                        .item_parsed("_Program reset")
+                        .item_parsed("P_arameters...");
+                }
+                4 => {
+                    submenu
+                        .item_parsed("_Compile|Alt+F9")
+                        .item_parsed("_Make|F9")
+                        .item_parsed("_Build")
+                        .item_parsed("____")
+                        .item_parsed("_Destination|Disk")
+                        .item_parsed("_Primary file...")
+                        .item_parsed("C_lear primary file")
+                        .item_parsed("____")
+                        .item_parsed("_Information...");
+                }
+                5 => {
+                    submenu
+                        .item_parsed("_Breakpoints...")
+                        .item_parsed("_Call stack|Ctrl+F3")
+                        .item_parsed("_Register")
+                        .item_parsed("_Watch")
+                        .item_parsed("_Output")
+                        .item_parsed("_User screen|Alt+F5")
+                        .item_parsed("____")
+                        .item_parsed("_Evaluate/modify...|Ctrl+F4")
+                        .item_parsed("_Add watch...|Ctrl+F7")
+                        .item_parsed("Add break_point");
+                }
+                6 => {
+                    submenu
+                        .item_parsed("_Messages")
+                        .item_parsed("Go to _next|Alt+F8")
+                        .disabled(true)
+                        .item_parsed("Go to _previous|Alt+F7")
+                        .disabled(true)
+                        .item_parsed("____")
+                        .item_parsed("_Grep")
+                        .item_parsed("Clear/Refresh screen DOS")
+                        .item_parsed("About TPWDB");
+                }
+                7 => {
+                    submenu
+                        .item_parsed("_Compiler...")
+                        .item_parsed("_Memory sizes...")
+                        .item_parsed("_Linker...")
+                        .item_parsed("De_bugger...")
+                        .item_parsed("_Directories...")
+                        .item_parsed("_Tools...")
+                        .item_parsed("____")
+                        .item_parsed("_Environment|⏵")
+                        .item_parsed("_Open...")
+                        .item_parsed("_Save|")
+                        .item_parsed("Save _as...");
+                }
+                8 => {
+                    submenu
+                        .item_parsed("_Tile")
+                        .item_parsed("C_ascade")
+                        .item_parsed("Cl_ose all")
+                        .item_parsed("_Refresh display")
+                        .item_parsed("____")
+                        .item_parsed("_Size/Move|Ctrl+F5")
+                        .item_parsed("_Zoom|F5")
+                        .item_parsed("_Next|F6")
+                        .item_parsed("_Previous|Shift+F6")
+                        .item_parsed("_Close|Alt+F3")
+                        .item_parsed("____")
+                        .item_parsed("_List...|Alt+0");
+                }
+                9 => {
+                    submenu
+                        .item_parsed("_Contents")
+                        .item_parsed("_Index|Shift+F1")
+                        .item_parsed("_Topic search|Ctrl+F1")
+                        .item_parsed("_Previous topic|Alt+F1")
+                        .item_parsed("Using _help")
+                        .item_parsed("_Files...")
+                        .item_parsed("____")
+                        .item_parsed("Compiler _directives")
+                        .item_parsed("_Reserved words")
+                        .item_parsed("Standard _units")
+                        .item_parsed("Turbo Pascal _Language")
+                        .item_parsed("_Error messages")
+                        .item_parsed("____")
+                        .item_parsed("_About...");
+                }
+                _ => {}
+            }
+        }
+    }
 
     impl Default for TurboState {
         fn default() -> Self {
             let mut s = Self {
                 menu: Default::default(),
+                menu_environment: Default::default(),
             };
             s.menu.bar.select(Some(0));
             s
@@ -355,7 +478,7 @@ pub mod turbo {
             )
             .split(area);
 
-            let (menubar, popup) = Menubar::new(&MENU)
+            let (menubar, popup) = Menubar::new(&Menu)
                 .styles(ctx.g.theme.menu_style())
                 .title("  ")
                 .popup_placement(Placement::Bottom)
@@ -364,13 +487,36 @@ pub mod turbo {
             menubar.render(r[0], buf, &mut state.menu);
             popup.render(r[0], buf, &mut state.menu);
 
+            if state.menu_environment.active() {
+                let area = state
+                    .menu
+                    .popup
+                    .item_areas
+                    .get(7)
+                    .copied()
+                    .unwrap_or_default();
+
+                PopupMenu::new()
+                    .styles(ctx.g.theme.menu_style())
+                    .item_parsed("_Preferences...")
+                    .item_parsed("_Editor...")
+                    .item_parsed("_Mouse...")
+                    .item_parsed("_Startup...")
+                    .item_parsed("_Colors...")
+                    .placement(Placement::Right)
+                    .block(Block::bordered())
+                    .render(area, buf, &mut state.menu_environment);
+            }
+
             Ok(())
         }
     }
 
     impl HasFocus for TurboState {
         fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(&self.menu);
+            builder
+                .widget(&self.menu) //
+                .widget(&self.menu_environment);
         }
     }
 
@@ -394,19 +540,52 @@ pub mod turbo {
             let f = ctx.focus_mut().handle(event, Regular);
             ctx.queue(f);
 
-            try_flow!(match self.menu.handle(event, Popup) {
-                MenuOutcome::MenuActivated(0, 0) => {
-                    Control::Quit
-                }
-                MenuOutcome::MenuActivated(6, 0) => {
-                    for i in 0..50 {
-                        ctx.g.error_dlg.append("Hello!");
+            if self.menu.selected() == (Some(7), Some(6)) {
+                try_flow!(match event {
+                    ct_event!(keycode press Right) => {
+                        self.menu_environment.set_active(true);
+                        Control::Changed
                     }
+                    _ => Control::Continue,
+                });
+            }
+            if self.menu_environment.active() {
+                try_flow!(match self.menu_environment.handle(event, Popup) {
+                    MenuOutcome::Activated(_) => {
+                        self.menu.popup.set_active(false);
+                        Control::Changed
+                    }
+                    r => r.into(),
+                });
+            } else {
+                try_flow!({
+                    let rr = self.menu.handle(event, Popup);
+                    match rr {
+                        MenuOutcome::MenuActivated(0, 9) => Control::Quit,
+                        MenuOutcome::MenuActivated(7, 6) => {
+                            // reactivate menu
+                            self.menu.popup.set_active(true);
+                            self.menu_environment.set_active(true);
+                            Control::Changed
+                        }
+                        MenuOutcome::MenuActivated(6, 0) => {
+                            for i in 0..50 {
+                                ctx.g.error_dlg.append("Hello!");
+                            }
+                            Control::Changed
+                        }
+
+                        v => v.into(),
+                    }
+                });
+            }
+            try_flow!(match self.menu.handle(event, Regular) {
+                MenuOutcome::Selected(_) => {
+                    self.menu_environment.set_active(false);
                     Control::Changed
                 }
-                v => v.into(),
+                r => r.into(),
             });
-            try_flow!(self.menu.handle(event, Regular));
 
             Ok(Control::Continue)
         }
