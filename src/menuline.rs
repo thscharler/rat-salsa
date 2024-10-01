@@ -13,7 +13,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
 use crate::util::{next_opt, prev_opt, revert_style};
-use crate::{menu_str, MenuItem, MenuStyle};
+use crate::{MenuBuilder, MenuItem, MenuStyle};
 #[allow(unused_imports)]
 use log::debug;
 use rat_event::util::MouseFlags;
@@ -32,7 +32,7 @@ use std::fmt::Debug;
 #[derive(Debug, Default, Clone)]
 pub struct MenuLine<'a> {
     title: Line<'a>,
-    items: Vec<MenuItem<'a>>,
+    pub(crate) menu: MenuBuilder<'a>,
 
     style: Style,
     highlight_style: Option<Style>,
@@ -85,16 +85,31 @@ impl<'a> MenuLine<'a> {
     }
 
     /// Add an item.
-    pub fn add(mut self, item: MenuItem<'a>) -> Self {
-        self.items.push(item);
+    pub fn item(mut self, item: MenuItem<'a>) -> Self {
+        self.menu.item(item);
         self
     }
 
-    /// Add item.
-    #[inline]
-    pub fn add_str(self, txt: &'a str) -> Self {
-        let item = menu_str(txt);
-        self.add(item)
+    /// Parse the text.
+    ///
+    /// __See__
+    ///
+    /// [MenuItem::new_parsed]
+    pub fn item_parsed(mut self, text: &'a str) -> Self {
+        self.menu.item_parsed(text);
+        self
+    }
+
+    /// Add a text-item.
+    pub fn item_str(mut self, txt: &'a str) -> Self {
+        self.menu.item_str(txt);
+        self
+    }
+
+    /// Add an owned text as item.
+    pub fn item_string(mut self, txt: String) -> Self {
+        self.menu.item_string(txt);
+        self
     }
 
     /// Combined style.
@@ -182,6 +197,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     state.item_areas.clear();
 
     state.navchar = widget
+        .menu
         .items
         .iter()
         .map(|v| v.navchar.map(|w| w.to_ascii_lowercase()))
@@ -234,7 +250,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         item_area.x += item_area.width + 1;
     }
 
-    for (n, item) in widget.items.iter().enumerate() {
+    for (n, item) in widget.menu.items.iter().enumerate() {
         item_area.width = item.width() + if item.right.is_empty() { 0 } else { 3 };
         if item_area.right() >= area.right() {
             item_area = item_area.clamp(area);
@@ -258,7 +274,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
             ])
         } else {
             Line::from_iter([
-                Span::from(item.item),
+                Span::from(item.item.as_ref()),
                 if !item.right.is_empty() {
                     Span::from(format!(" ({})", item.right)).style(right_style)
                 } else {

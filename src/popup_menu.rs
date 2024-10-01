@@ -22,7 +22,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::{MenuOutcome, Popup};
 use crate::util::{fill_buf_area, next_opt, prev_opt, revert_style};
-use crate::{menu_str, MenuItem, MenuStyle, Separator};
+use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation, ZRect};
@@ -61,7 +61,7 @@ pub enum Placement {
 /// Popup menu.
 #[derive(Debug, Default, Clone)]
 pub struct PopupMenu<'a> {
-    items: Vec<MenuItem<'a>>,
+    pub(crate) menu: MenuBuilder<'a>,
 
     width: Option<u16>,
     placement: Placement,
@@ -131,10 +131,10 @@ impl<'a> PopupMenu<'a> {
         let width = if let Some(width) = self.width {
             width
         } else {
-            let text_width = self.items.iter().map(|v| v.width()).max();
+            let text_width = self.menu.items.iter().map(|v| v.width()).max();
             (text_width.unwrap_or(10) * 3) / 2
         };
-        let height = self.items.iter().map(MenuItem::height).sum::<u16>();
+        let height = self.menu.items.iter().map(MenuItem::height).sum::<u16>();
 
         let vertical_margin = if self.block_indent { 1 } else { 1 };
         let horizontal_margin = if self.block_indent { 2 } else { 1 };
@@ -184,7 +184,7 @@ impl<'a> PopupMenu<'a> {
 
         let mut row = 0;
 
-        for item in &self.items {
+        for item in &self.menu.items {
             state.item_areas.push(Rect::new(
                 area.x + horizontal_margin,
                 row + area.y + vertical_margin,
@@ -192,7 +192,7 @@ impl<'a> PopupMenu<'a> {
                 1,
             ));
 
-            if item.sep == Separator::None {
+            if item.separator.is_none() {
                 state.sep_areas.push(Rect::new(
                     area.x + horizontal_offset_sep,
                     row + 1 + area.y + vertical_margin,
@@ -220,25 +220,38 @@ impl<'a> PopupMenu<'a> {
     }
 
     /// Add an item.
-    pub fn add(mut self, item: MenuItem<'a>) -> Self {
-        self.items.push(item);
+    pub fn item(mut self, item: MenuItem<'a>) -> Self {
+        self.menu.item(item);
         self
     }
 
-    /// Add a separator item. This is added to the item before, so
-    /// it is not possible to start the menu with a separator, or
-    /// to add more than one separator.
-    pub fn add_sep(mut self, ty: Separator) -> Self {
-        if let Some(last) = self.items.last_mut() {
-            last.sep = ty;
-        }
+    /// Parse the text.
+    ///
+    /// __See__
+    ///
+    /// [MenuItem::new_parsed]
+    pub fn item_parsed(mut self, text: &'a str) -> Self {
+        self.menu.item_parsed(text);
         self
     }
 
     /// Add a text-item.
-    /// The first underscore is used to denote the navchar.
-    pub fn add_str(self, txt: &'a str) -> Self {
-        self.add(menu_str(txt))
+    pub fn item_str(mut self, txt: &'a str) -> Self {
+        self.menu.item_str(txt);
+        self
+    }
+
+    /// Add an owned text as item.
+    pub fn item_string(mut self, txt: String) -> Self {
+        self.menu.item_string(txt);
+        self
+    }
+
+    /// Sets the separator for the last item added.
+    /// If there is none adds this as an empty menu-item.
+    pub fn separator(mut self, separator: Separator) -> Self {
+        self.menu.separator(separator);
+        self
     }
 
     /// Fixed width for the menu.
@@ -353,6 +366,7 @@ fn render_ref(
         return;
     }
     state.navchar = widget
+        .menu
         .items
         .iter()
         .map(|v| v.navchar.map(|w| w.to_ascii_lowercase()))
@@ -384,7 +398,7 @@ fn render_ref(
     fill_buf_area(buf, state.area, " ", widget.style);
     block(state.area, buf);
 
-    for (n, item) in widget.items.iter().enumerate() {
+    for (n, item) in widget.menu.items.iter().enumerate() {
         let mut item_area = state.item_areas[n];
 
         let style = if state.selected == Some(n) {
@@ -406,7 +420,7 @@ fn render_ref(
                 Span::from(&item.item[highlight.end..]),
             ])
         } else {
-            Line::from(item.item)
+            Line::from(item.item.as_ref())
         };
         if item.disabled {
             item_line = item_line.style(disabled_style);
@@ -420,24 +434,21 @@ fn render_ref(
                 item_area.x += delta;
                 item_area.width -= delta;
             }
-            Span::from(item.right)
+            Span::from(item.right.as_ref())
                 .style(right_style)
                 .render(item_area, buf);
         }
 
-        if item.sep != Separator::None {
+        if let Some(separator) = item.separator {
             let sep_area = state.sep_areas[n];
             buf.set_style(sep_area, widget.style);
-            let sym = match item.sep {
+            let sym = match separator {
                 Separator::Empty => " ",
                 Separator::Plain => "\u{2500}",
                 Separator::Thick => "\u{2501}",
                 Separator::Double => "\u{2550}",
                 Separator::Dashed => "\u{2212}",
                 Separator::Dotted => "\u{2508}",
-                Separator::None => {
-                    unreachable!()
-                }
             };
             for x in 0..sep_area.width {
                 if let Some(cell) = buf.cell_mut((sep_area.x + x, sep_area.y)) {

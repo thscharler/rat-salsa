@@ -216,11 +216,7 @@ fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mu
     }
 
     if let Some(structure) = &widget.structure {
-        let mut items = Vec::new();
-        structure.menus(&mut items);
-        for m in items {
-            menu = menu.add(m);
-        }
+        structure.menus(&mut menu.menu);
     }
     menu.render(area, buf, &mut state.bar);
 
@@ -264,7 +260,6 @@ fn render_menu_popup(
     };
 
     if state.popup.is_focused() {
-        let mut len = 0;
         let mut popup = PopupMenu::new()
             .placement(widget.popup_placement)
             .style(widget.style);
@@ -280,14 +275,9 @@ fn render_menu_popup(
         if let Some(highlight_style) = widget.highlight_style {
             popup = popup.highlight_style(highlight_style);
         }
-        let mut items = Vec::new();
-        structure.submenu(selected, &mut items);
-        for item in items {
-            popup = popup.add(item);
-            len += 1;
-        }
+        structure.submenu(selected, &mut popup.menu);
 
-        if len > 0 {
+        if popup.menu.items.len() > 0 {
             let area = state.bar.item_areas[selected];
             popup.render(area, buf, &mut state.popup);
 
