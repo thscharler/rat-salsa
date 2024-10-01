@@ -1,14 +1,5 @@
 //!
-//! A simple line menu.
-//!
-//! If the render area has more than one line, this will
-//! linebreak if needed.
-//!
-//! ## Navigation keys
-//! If you give plain-text strings as items, the underscore
-//! designates a navigation key. If you hit the key, the matching
-//! item is selected. On the second hit, the matching item is
-//! activated.
+//! A main menu widget.
 //!
 use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
@@ -28,7 +19,7 @@ use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::fmt::Debug;
 
-/// One line menu widget.
+/// Main menu widget.
 #[derive(Debug, Default, Clone)]
 pub struct MenuLine<'a> {
     title: Line<'a>,
@@ -572,7 +563,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuLineSt
 }
 
 /// Handle all events.
-/// Text events are only processed if focus is true.
+/// Key events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
 pub fn handle_events(
     state: &mut MenuLineState,

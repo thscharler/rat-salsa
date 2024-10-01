@@ -1,3 +1,7 @@
+//!
+//! MenuItem for both MenuLine and PopupMenu.
+//!
+
 use crate::_private::NonExhaustive;
 use std::borrow::Cow;
 use std::ops::Range;
@@ -16,18 +20,19 @@ pub enum Separator {
     Dotted,
 }
 
-/// Menu item
+/// A menu item.
 #[derive(Debug, Clone)]
 pub struct MenuItem<'a> {
     /// Menuitem text
     pub item: Cow<'a, str>,
-    /// Text range to highlight
+    /// Text range to highlight. This is a byte-range into `item`.
     pub highlight: Option<Range<usize>>,
-    /// Navigation key char
+    /// Navigation key char.
     pub navchar: Option<char>,
-    /// Right aligned text
+    /// Right aligned text. To show the hotkey, or whatever.
+    /// Hotkey handling is not included in this crate.
     pub right: Cow<'a, str>,
-    /// Disabled style
+    /// Disabled item.
     pub disabled: bool,
 
     /// Separator after the item.

@@ -1,3 +1,7 @@
+//! Current status: BETA
+//!
+#![doc = include_str!("../readme.md")]
+
 use crate::_private::NonExhaustive;
 use crate::menuitem::{MenuItem, Separator};
 use ratatui::prelude::Style;
@@ -25,12 +29,16 @@ pub mod event {
         /// The event was handled, repaint necessary.
         Changed,
         /// The menuitem was selected.
+        /// Works for MenuLine and PopupMenu.
         Selected(usize),
         /// The menuitem was selected and activated.
+        /// Works for MenuLine and PopupMenu.
         Activated(usize),
         /// Selected popup-menu.
+        /// Works for Menubar.
         MenuSelected(usize, usize),
         /// Activated popup-menu.
+        /// Works for Menubar.
         MenuActivated(usize, usize),
     }
 
@@ -91,6 +99,7 @@ pub trait MenuStructure<'a> {
     fn submenu(&'a self, n: usize, submenu: &mut MenuBuilder<'a>);
 }
 
+/// Builder to fill a menu with items.
 #[derive(Debug, Default, Clone)]
 pub struct MenuBuilder<'a> {
     pub(crate) items: Vec<MenuItem<'a>>,

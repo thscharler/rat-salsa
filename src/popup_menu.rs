@@ -1,7 +1,7 @@
 //!
 //! A popup-menu.
 //!
-//! It diverges from other widgets as this widget doesn't draw
+//! It diverges from other widgets as it doesn't draw
 //! *inside* the given area but aims to stay *outside* of it.
 //!
 //! You can give a [Placement] where the popup-menu should appear
@@ -12,12 +12,8 @@
 //! If you want it to appear next to a given widget, use
 //! the widgets drawing area.
 //!
-//! ## Navigation keys
-//! If you give plain-text strings as items, the underscore
-//! designates a navigation key. If you hit the key, the matching
-//! item is selected. On the second hit, the matching item is
-//! activated.
-//!
+//! If no special boundary is set, the widget tries to stay
+//! inside the `buffer.area`.
 
 use crate::_private::NonExhaustive;
 use crate::event::{MenuOutcome, Popup};
