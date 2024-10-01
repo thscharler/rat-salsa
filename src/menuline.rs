@@ -12,7 +12,7 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
-use crate::util::{next_opt, prev_opt, revert_style};
+use crate::util::revert_style;
 use crate::{MenuBuilder, MenuItem, MenuStyle};
 #[allow(unused_imports)]
 use log::debug;
@@ -55,6 +55,8 @@ pub struct MenuLineState {
     /// Hot keys
     /// __readonly__. renewed for each render.
     pub navchar: Vec<Option<char>>,
+    /// Disable menu-items.
+    pub disabled: Vec<bool>,
 
     /// Selected item.
     /// __read+write__
@@ -202,8 +204,9 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         .iter()
         .map(|v| v.navchar.map(|w| w.to_ascii_lowercase()))
         .collect();
+    state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
 
-    let select_style = if state.is_focused() {
+    let focus_style = if state.is_focused() {
         if let Some(focus_style) = widget.focus_style {
             focus_style
         } else {
@@ -226,13 +229,13 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     } else {
         Style::new().underlined()
     };
-    let disabled_style = if let Some(disabled_style) = widget.disabled_style {
-        disabled_style
+    let right_style = if let Some(right_style) = widget.right_style {
+        right_style
     } else {
         widget.style
     };
-    let right_style = if let Some(right_style) = widget.right_style {
-        right_style
+    let disabled_style = if let Some(disabled_style) = widget.disabled_style {
+        disabled_style
     } else {
         widget.style
     };
@@ -257,11 +260,21 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         }
         state.item_areas.push(item_area);
 
-        if state.selected == Some(n) {
-            buf.set_style(item_area, select_style);
-        }
+        let (style, right_style) = if state.selected == Some(n) {
+            if item.disabled {
+                (disabled_style, disabled_style.patch(right_style))
+            } else {
+                (focus_style, focus_style.patch(right_style))
+            }
+        } else {
+            if item.disabled {
+                (disabled_style, disabled_style.patch(right_style))
+            } else {
+                (widget.style, widget.style.patch(right_style))
+            }
+        };
 
-        let mut item_line = if let Some(highlight) = item.highlight.clone() {
+        let item_line = if let Some(highlight) = item.highlight.clone() {
             Line::from_iter([
                 Span::from(&item.item[..highlight.start - 1]), // account for _
                 Span::from(&item.item[highlight.start..highlight.end]).style(highlight_style),
@@ -282,10 +295,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
                 },
             ])
         };
-        if item.disabled {
-            item_line = item_line.style(disabled_style);
-        }
-        item_line.render(item_area, buf);
+        item_line.style(style).render(item_area, buf);
 
         item_area.x += item_area.width + 1;
     }
@@ -332,6 +342,11 @@ impl MenuLineState {
     #[inline]
     pub fn select(&mut self, select: Option<usize>) -> bool {
         let old = self.selected;
+        if let Some(select) = select {
+            if self.disabled.get(select) == Some(&true) {
+                return false;
+            }
+        }
         self.selected = select;
         old != self.selected
     }
@@ -346,7 +361,26 @@ impl MenuLineState {
     #[inline]
     pub fn prev_item(&mut self) -> bool {
         let old = self.selected;
-        self.selected = prev_opt(self.selected, 1, self.len());
+
+        let idx = if let Some(start) = old {
+            let mut idx = start;
+            loop {
+                if idx == 0 {
+                    idx = start;
+                    break;
+                }
+                idx -= 1;
+
+                if !self.disabled[idx] {
+                    break;
+                }
+            }
+            idx
+        } else {
+            self.len().saturating_sub(1)
+        };
+
+        self.selected = Some(idx);
         old != self.selected
     }
 
@@ -354,7 +388,26 @@ impl MenuLineState {
     #[inline]
     pub fn next_item(&mut self) -> bool {
         let old = self.selected;
-        self.selected = next_opt(self.selected, 1, self.len());
+
+        let idx = if let Some(start) = old {
+            let mut idx = start;
+            loop {
+                if idx + 1 == self.len() {
+                    idx = start;
+                    break;
+                }
+                idx += 1;
+
+                if !self.disabled[idx] {
+                    break;
+                }
+            }
+            idx
+        } else {
+            0
+        };
+
+        self.selected = Some(idx);
         old != self.selected
     }
 
@@ -364,11 +417,13 @@ impl MenuLineState {
         let c = c.to_ascii_lowercase();
         for (i, cc) in self.navchar.iter().enumerate() {
             if *cc == Some(c) {
-                if self.selected == Some(i) {
-                    return MenuOutcome::Activated(i);
-                } else {
-                    self.selected = Some(i);
-                    return MenuOutcome::Selected(i);
+                if !self.disabled[i] {
+                    if self.selected == Some(i) {
+                        return MenuOutcome::Activated(i);
+                    } else {
+                        self.selected = Some(i);
+                        return MenuOutcome::Selected(i);
+                    }
                 }
             }
         }
@@ -379,8 +434,12 @@ impl MenuLineState {
     #[inline]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
         if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
-            self.selected = Some(idx);
-            true
+            if !self.disabled[idx] {
+                self.selected = Some(idx);
+                true
+            } else {
+                false
+            }
         } else {
             false
         }
@@ -396,12 +455,13 @@ impl MenuLineState {
 impl Default for MenuLineState {
     fn default() -> Self {
         Self {
-            focus: Default::default(),
-            navchar: Default::default(),
-            mouse: Default::default(),
-            selected: Default::default(),
-            item_areas: Default::default(),
             area: Default::default(),
+            item_areas: vec![],
+            navchar: vec![],
+            disabled: vec![],
+            selected: None,
+            focus: Default::default(),
+            mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }

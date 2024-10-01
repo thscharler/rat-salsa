@@ -3,7 +3,6 @@ use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
-use std::cmp::min;
 use std::mem;
 
 /// Returns a new style with fg and bg swapped.
@@ -33,32 +32,4 @@ pub(crate) fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: i
             }
         }
     }
-}
-
-/// Select previous.
-pub(crate) fn prev_opt(select: Option<usize>, change: usize, len: usize) -> Option<usize> {
-    if let Some(select) = select {
-        Some(prev(select, change))
-    } else {
-        Some(len.saturating_sub(1))
-    }
-}
-
-/// Select next.
-pub(crate) fn next_opt(selected: Option<usize>, change: usize, len: usize) -> Option<usize> {
-    if let Some(select) = selected {
-        Some(next(select, change, len))
-    } else {
-        Some(0)
-    }
-}
-
-/// Select previous.
-pub(crate) fn prev(select: usize, change: usize) -> usize {
-    select.saturating_sub(change)
-}
-
-/// Select next.
-pub(crate) fn next(select: usize, change: usize, len: usize) -> usize {
-    min(select + change, len.saturating_sub(1))
 }

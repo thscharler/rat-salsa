@@ -173,6 +173,15 @@ impl<'a> MenuBuilder<'a> {
         self
     }
 
+    /// Sets the last item to disabled.
+    /// If there is no last item does nothing.
+    pub fn disabled(&mut self, disable: bool) -> &mut Self {
+        if let Some(last) = self.items.last_mut() {
+            last.disabled = disable;
+        }
+        self
+    }
+
     /// Build and deconstruct.
     pub fn items(self) -> Vec<MenuItem<'a>> {
         self.items

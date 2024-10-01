@@ -42,6 +42,7 @@ pub struct Menubar<'a> {
     select_style: Option<Style>,
     focus_style: Option<Style>,
     highlight_style: Option<Style>,
+    disabled_style: Option<Style>,
 
     popup_width: Option<u16>,
     popup_placement: Placement,
@@ -116,6 +117,7 @@ impl<'a> Menubar<'a> {
         self.select_style = styles.select;
         self.focus_style = styles.focus;
         self.highlight_style = styles.highlight;
+        self.disabled_style = styles.disabled;
         self
     }
 
@@ -214,6 +216,9 @@ fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mu
     if let Some(highlight_style) = widget.highlight_style {
         menu = menu.highlight_style(highlight_style);
     }
+    if let Some(disabled_style) = widget.disabled_style {
+        menu = menu.disabled_style(disabled_style);
+    }
 
     if let Some(structure) = &widget.structure {
         structure.menus(&mut menu.menu);
@@ -275,6 +280,9 @@ fn render_menu_popup(
         if let Some(highlight_style) = widget.highlight_style {
             popup = popup.highlight_style(highlight_style);
         }
+        if let Some(disabled_style) = widget.disabled_style {
+            popup = popup.disabled_style(disabled_style);
+        }
         structure.submenu(selected, &mut popup.menu);
 
         if popup.menu.items.len() > 0 {
@@ -314,6 +322,11 @@ impl MenuBarState {
     /// Submenu visible/active.
     pub fn set_popup_active(&mut self, active: bool) {
         self.popup.focus.set(active);
+    }
+
+    /// Selected as menu/submenu
+    pub fn selected(&self) -> (Option<usize>, Option<usize>) {
+        (self.bar.selected, self.popup.selected)
     }
 }
 
@@ -366,6 +379,7 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuBarState
                     if self.bar.selected == old_selected {
                         self.popup.flip_active();
                     } else {
+                        self.popup.select(None);
                         self.popup.set_active(true);
                     }
                     r

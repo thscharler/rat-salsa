@@ -21,7 +21,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::event::{MenuOutcome, Popup};
-use crate::util::{fill_buf_area, next_opt, prev_opt, revert_style};
+use crate::util::{fill_buf_area, revert_style};
 use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly};
@@ -95,6 +95,8 @@ pub struct PopupMenuState {
     /// Letter navigation
     /// __readonly__. renewed for each render.
     pub navchar: Vec<Option<char>>,
+    /// Disable menu-items.
+    pub disabled: Vec<bool>,
 
     /// Selected item.
     /// __read+write__
@@ -119,6 +121,7 @@ impl Default for PopupMenuState {
             item_areas: vec![],
             sep_areas: vec![],
             navchar: vec![],
+            disabled: vec![],
             selected: None,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -365,12 +368,14 @@ fn render_ref(
         state.clear();
         return;
     }
+
     state.navchar = widget
         .menu
         .items
         .iter()
         .map(|v| v.navchar.map(|w| w.to_ascii_lowercase()))
         .collect();
+    state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
 
     let fit_in = if let Some(boundary) = widget.boundary {
         boundary
@@ -379,15 +384,20 @@ fn render_ref(
     };
     widget.layout(area, fit_in, state);
 
+    let focus_style = if let Some(focus) = widget.focus_style {
+        focus
+    } else {
+        revert_style(widget.style)
+    };
     let highlight_style = if let Some(highlight_style) = widget.highlight_style {
         highlight_style
     } else {
         Style::new().underlined()
     };
-    let select_style = if let Some(focus) = widget.focus_style {
-        focus
+    let right_style = if let Some(right_style) = widget.right_style {
+        right_style
     } else {
-        revert_style(widget.style)
+        Style::default().italic()
     };
     let disabled_style = if let Some(disabled_style) = widget.disabled_style {
         disabled_style
@@ -401,19 +411,21 @@ fn render_ref(
     for (n, item) in widget.menu.items.iter().enumerate() {
         let mut item_area = state.item_areas[n];
 
-        let style = if state.selected == Some(n) {
-            select_style
+        let (style, right_style) = if state.selected == Some(n) {
+            if item.disabled {
+                (disabled_style, disabled_style.patch(right_style))
+            } else {
+                (focus_style, focus_style.patch(right_style))
+            }
         } else {
-            widget.style
+            if item.disabled {
+                (disabled_style, disabled_style.patch(right_style))
+            } else {
+                (widget.style, widget.style.patch(right_style))
+            }
         };
-        let right_style = if let Some(right_style) = widget.right_style {
-            right_style
-        } else {
-            style
-        };
-        buf.set_style(item_area, style);
 
-        let mut item_line = if let Some(highlight) = item.highlight.clone() {
+        let item_line = if let Some(highlight) = item.highlight.clone() {
             Line::from_iter([
                 Span::from(&item.item[..highlight.start - 1]), // account for _
                 Span::from(&item.item[highlight.start..highlight.end]).style(highlight_style),
@@ -422,10 +434,7 @@ fn render_ref(
         } else {
             Line::from(item.item.as_ref())
         };
-        if item.disabled {
-            item_line = item_line.style(disabled_style);
-        }
-        item_line.render(item_area, buf);
+        item_line.style(style).render(item_area, buf);
 
         if !item.right.is_empty() {
             let right_width = item.right.graphemes(true).count() as u16;
@@ -531,6 +540,11 @@ impl PopupMenuState {
     #[inline]
     pub fn select(&mut self, select: Option<usize>) -> bool {
         let old = self.selected;
+        if let Some(select) = select {
+            if self.disabled.get(select) == Some(&true) {
+                return false;
+            }
+        }
         self.selected = select;
         old != self.selected
     }
@@ -545,7 +559,26 @@ impl PopupMenuState {
     #[inline]
     pub fn prev_item(&mut self) -> bool {
         let old = self.selected;
-        self.selected = prev_opt(self.selected, 1, self.len());
+
+        let idx = if let Some(start) = old {
+            let mut idx = start;
+            loop {
+                if idx == 0 {
+                    idx = start;
+                    break;
+                }
+                idx -= 1;
+
+                if !self.disabled[idx] {
+                    break;
+                }
+            }
+            idx
+        } else {
+            self.len().saturating_sub(1)
+        };
+
+        self.selected = Some(idx);
         old != self.selected
     }
 
@@ -553,7 +586,26 @@ impl PopupMenuState {
     #[inline]
     pub fn next_item(&mut self) -> bool {
         let old = self.selected;
-        self.selected = next_opt(self.selected, 1, self.len());
+
+        let idx = if let Some(start) = old {
+            let mut idx = start;
+            loop {
+                if idx + 1 == self.len() {
+                    idx = start;
+                    break;
+                }
+                idx += 1;
+
+                if !self.disabled[idx] {
+                    break;
+                }
+            }
+            idx
+        } else {
+            0
+        };
+
+        self.selected = Some(idx);
         old != self.selected
     }
 
@@ -563,11 +615,13 @@ impl PopupMenuState {
         let c = c.to_ascii_lowercase();
         for (i, cc) in self.navchar.iter().enumerate() {
             if *cc == Some(c) {
-                if self.selected == Some(i) {
-                    return MenuOutcome::Activated(i);
-                } else {
-                    self.selected = Some(i);
-                    return MenuOutcome::Selected(i);
+                if !self.disabled[i] {
+                    if self.selected == Some(i) {
+                        return MenuOutcome::Activated(i);
+                    } else {
+                        self.selected = Some(i);
+                        return MenuOutcome::Selected(i);
+                    }
                 }
             }
         }
@@ -578,8 +632,12 @@ impl PopupMenuState {
     #[inline]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
         if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
-            self.selected = Some(idx);
-            true
+            if !self.disabled[idx] {
+                self.selected = Some(idx);
+                true
+            } else {
+                false
+            }
         } else {
             false
         }
