@@ -1,5 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::TabbedOutcome;
+use crate::tabbed::attached::AttachedTabs;
+use crate::tabbed::glued::GluedTabs;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
@@ -13,26 +15,43 @@ use ratatui::widgets::{Block, StatefulWidget};
 use std::cmp::min;
 use std::fmt::Debug;
 
-/// The design space for tabs is too big to capture with a handful of parameters.
+/// Placement relative to the Rect given to render.
 ///
-/// This trait splits off the layout and rendering of the actual tabs from
-/// the general properties and behaviour of tabs.
-pub trait TabType: Debug {
-    /// Calculate the layout for the tabs.
-    fn layout(
-        &self, //
-        area: Rect,
-        tabbed: &Tabbed<'_>,
-        state: &mut TabbedState,
-    );
+/// The popup-menu is always rendered outside the box,
+/// and this gives the relative placement.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum TabPlacement {
+    /// On top of the given area. Placed slightly left, so that
+    /// the menu text aligns with the left border.
+    #[default]
+    Top,
+    /// Placed left-top of the given area.
+    /// For a submenu opening to the left.
+    Left,
+    /// Placed right-top of the given area.
+    /// For a submenu opening to the right.
+    Right,
+    /// Below the bottom of the given area. Placed slightly left,
+    /// so that the menu text aligns with the left border.
+    Bottom,
+}
 
-    /// Render the tabs.
-    fn render(
-        &self, //
-        buf: &mut Buffer,
-        tabbed: &Tabbed<'_>,
-        state: &mut TabbedState,
-    );
+/// Rendering style for the tabs.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum TabType {
+    /// Basic tabs glued to the outside of the widget.
+    Glued,
+
+    /// Embedded tabs in the Block.
+    ///
+    /// If no block has been set, this will draw a block at the side
+    /// of the tabs.
+    ///
+    /// On the left/right side this will just draw a link to the tab-text.
+    /// On the top/bottom side the tabs will be embedded in the border.
+    #[default]
+    Attached,
 }
 
 /// A tabbed widget.
@@ -44,8 +63,8 @@ pub trait TabType: Debug {
 ///
 #[derive(Debug)]
 pub struct Tabbed<'a> {
-    tab_type: Box<dyn TabType + 'a>,
-
+    tab_type: TabType,
+    placement: TabPlacement,
     closeable: bool,
     tabs: Vec<Line<'a>>,
     block: Option<Block<'a>>,
@@ -121,11 +140,12 @@ pub(crate) mod event {
 impl<'a> Default for Tabbed<'a> {
     fn default() -> Self {
         Self {
-            tab_type: Box::new(glued::GluedTabs::new()),
+            tab_type: TabType::default(),
+            placement: TabPlacement::default(),
             closeable: false,
-            tabs: Default::default(),
+            tabs: Vec::default(),
             block: None,
-            style: Default::default(),
+            style: Style::default(),
             tab_style: None,
             select_style: None,
             focus_style: None,
@@ -138,13 +158,15 @@ impl<'a> Tabbed<'a> {
         Self::default()
     }
 
-    /// Tab-type is a trait that handles layout and rendering for
-    /// the tabs.
-    ///
-    /// See [GluedTabs](crate::tabbed::glued::GluedTabs) and
-    /// [AttachedTabs](crate::tabbed::attached::AttachedTabs).
-    pub fn tab_type(mut self, tab_type: impl TabType + 'a) -> Self {
-        self.tab_type = Box::new(tab_type);
+    /// Tab type.
+    pub fn tab_type(mut self, tab_type: TabType) -> Self {
+        self.tab_type = tab_type;
+        self
+    }
+
+    /// Tab placement.
+    pub fn placement(mut self, placement: TabPlacement) -> Self {
+        self.placement = placement;
         self
     }
 
@@ -152,11 +174,6 @@ impl<'a> Tabbed<'a> {
     pub fn tabs(mut self, tabs: impl IntoIterator<Item = impl Into<Line<'a>>>) -> Self {
         self.tabs = tabs.into_iter().map(|v| v.into()).collect::<Vec<_>>();
         self
-    }
-
-    /// Tab-text.
-    pub fn get_tabs(&self) -> &[Line<'a>] {
-        &self.tabs
     }
 
     /// Closeable tabs?
@@ -167,20 +184,10 @@ impl<'a> Tabbed<'a> {
         self
     }
 
-    /// Closeable tabs?
-    pub fn is_closeable(&self) -> bool {
-        self.closeable
-    }
-
     /// Block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
-    }
-
-    /// Block
-    pub fn get_block(&self) -> Option<&Block<'a>> {
-        self.block.as_ref()
     }
 
     /// Set combined styles.
@@ -198,20 +205,10 @@ impl<'a> Tabbed<'a> {
         self
     }
 
-    /// Base style.
-    pub fn get_style(&self) -> Style {
-        self.style
-    }
-
     /// Style for the tab-text.
     pub fn tab_style(mut self, style: Style) -> Self {
         self.tab_style = Some(style);
         self
-    }
-
-    /// Style for the tab-text.
-    pub fn get_tab_style(&self) -> Option<Style> {
-        self.tab_style
     }
 
     /// Style for the selected tab.
@@ -220,20 +217,10 @@ impl<'a> Tabbed<'a> {
         self
     }
 
-    /// Style for the selected tab.
-    pub fn get_select_style(&self) -> Option<Style> {
-        self.select_style
-    }
-
     /// Style for a focused tab.
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
         self
-    }
-
-    /// Style for a focused tab.
-    pub fn get_focus_style(&self) -> Option<Style> {
-        self.focus_style
     }
 }
 
@@ -323,8 +310,16 @@ fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut Tab
         }
     }
 
-    tabbed.tab_type.layout(area, tabbed, state);
-    tabbed.tab_type.render(buf, tabbed, state);
+    match tabbed.tab_type {
+        TabType::Glued => {
+            GluedTabs.layout(area, tabbed, state);
+            GluedTabs.render(buf, tabbed, state);
+        }
+        TabType::Attached => {
+            AttachedTabs.layout(area, tabbed, state);
+            AttachedTabs.render(buf, tabbed, state);
+        }
+    }
 }
 
 impl HasFocusFlag for TabbedState {
@@ -428,30 +423,31 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TabbedOutcome> for TabbedSt
     }
 }
 
-/// Placement relative to the Rect given to render.
+/// The design space for tabs is too big to capture with a handful of parameters.
 ///
-/// The popup-menu is always rendered outside the box,
-/// and this gives the relative placement.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum TabPlacement {
-    /// On top of the given area. Placed slightly left, so that
-    /// the menu text aligns with the left border.
-    #[default]
-    Top,
-    /// Placed left-top of the given area.
-    /// For a submenu opening to the left.
-    Left,
-    /// Placed right-top of the given area.
-    /// For a submenu opening to the right.
-    Right,
-    /// Below the bottom of the given area. Placed slightly left,
-    /// so that the menu text aligns with the left border.
-    Bottom,
+/// This trait splits off the layout and rendering of the actual tabs from
+/// the general properties and behaviour of tabs.
+trait TabWidget: Debug {
+    /// Calculate the layout for the tabs.
+    fn layout(
+        &self, //
+        area: Rect,
+        tabbed: &Tabbed<'_>,
+        state: &mut TabbedState,
+    );
+
+    /// Render the tabs.
+    fn render(
+        &self, //
+        buf: &mut Buffer,
+        tabbed: &Tabbed<'_>,
+        state: &mut TabbedState,
+    );
 }
 
 /// Simple glued on the side tabs.
-pub mod glued {
-    use crate::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
+mod glued {
+    use crate::tabbed::{TabPlacement, TabWidget, Tabbed, TabbedState};
     use crate::util::revert_style;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
@@ -460,41 +456,27 @@ pub mod glued {
     /// Renders simple tabs at the given placement and renders
     /// the block inside the tabs.
     #[derive(Debug, Default)]
-    pub struct GluedTabs {
-        placement: TabPlacement,
-    }
+    pub(super) struct GluedTabs;
 
-    impl GluedTabs {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
-        /// Where to place the tabs.
-        pub fn placement(mut self, placement: TabPlacement) -> Self {
-            self.placement = placement;
-            self
-        }
-    }
-
-    impl TabType for GluedTabs {
+    impl TabWidget for GluedTabs {
         fn layout(&self, area: Rect, tabbed: &Tabbed<'_>, state: &mut TabbedState) {
             state.area = area;
 
             let margin_offset = 1 + if tabbed.block.is_some() { 1 } else { 0 };
-            let close_width = if tabbed.is_closeable() { 2 } else { 0 };
+            let close_width = if tabbed.closeable { 2 } else { 0 };
 
             let max_width = tabbed
-                .get_tabs()
+                .tabs
                 .iter()
                 .map(|v| v.width())
                 .max()
                 .unwrap_or_default() as u16;
 
-            match self.placement {
+            match tabbed.placement {
                 TabPlacement::Top => {
                     state.block_area = Rect::new(area.x, area.y + 1, area.width, area.height - 1);
                     state.tab_title_area = Rect::new(area.x, area.y, area.width, 1);
-                    if let Some(block) = tabbed.get_block() {
+                    if let Some(block) = &tabbed.block {
                         state.widget_area = block.inner(state.block_area);
                     } else {
                         state.widget_area = state.block_area;
@@ -509,7 +491,7 @@ pub mod glued {
                         area.width,
                         1,
                     );
-                    if let Some(block) = tabbed.get_block() {
+                    if let Some(block) = &tabbed.block {
                         state.widget_area = block.inner(state.block_area);
                     } else {
                         state.widget_area = state.block_area;
@@ -524,7 +506,7 @@ pub mod glued {
                     );
                     state.tab_title_area =
                         Rect::new(area.x, area.y, max_width + 2 + close_width, area.height);
-                    if let Some(block) = tabbed.get_block() {
+                    if let Some(block) = &tabbed.block {
                         state.widget_area = block.inner(state.block_area);
                     } else {
                         state.widget_area = state.block_area;
@@ -543,7 +525,7 @@ pub mod glued {
                         max_width + 2 + close_width,
                         area.height,
                     );
-                    if let Some(block) = tabbed.get_block() {
+                    if let Some(block) = &tabbed.block {
                         state.widget_area = block.inner(state.block_area);
                     } else {
                         state.widget_area = state.block_area;
@@ -551,10 +533,10 @@ pub mod glued {
                 }
             }
 
-            match self.placement {
+            match tabbed.placement {
                 TabPlacement::Top | TabPlacement::Bottom => {
                     let mut constraints = Vec::new();
-                    for tab in tabbed.get_tabs() {
+                    for tab in tabbed.tabs.iter() {
                         constraints.push(Constraint::Length(tab.width() as u16 + 2 + close_width));
                     }
 
@@ -569,7 +551,7 @@ pub mod glued {
                 }
                 TabPlacement::Left | TabPlacement::Right => {
                     let mut constraints = Vec::new();
-                    for _tab in tabbed.get_tabs() {
+                    for _tab in tabbed.tabs.iter() {
                         constraints.push(Constraint::Length(1));
                     }
 
@@ -583,7 +565,7 @@ pub mod glued {
                 }
             }
 
-            match self.placement {
+            match tabbed.placement {
                 TabPlacement::Top | TabPlacement::Bottom => {
                     state.tab_title_close_areas = state
                         .tab_title_areas
@@ -592,7 +574,7 @@ pub mod glued {
                             Rect::new(
                                 (v.x + v.width).saturating_sub(close_width),
                                 v.y,
-                                if tabbed.is_closeable() { 1 } else { 0 },
+                                if tabbed.closeable { 1 } else { 0 },
                                 1,
                             )
                         })
@@ -606,7 +588,7 @@ pub mod glued {
                             Rect::new(
                                 v.x + 1, //
                                 v.y,
-                                if tabbed.is_closeable() { 1 } else { 0 },
+                                if tabbed.closeable { 1 } else { 0 },
                                 1,
                             )
                         })
@@ -620,7 +602,7 @@ pub mod glued {
                             Rect::new(
                                 (v.x + v.width).saturating_sub(close_width),
                                 v.y,
-                                if tabbed.is_closeable() { 1 } else { 0 },
+                                if tabbed.closeable { 1 } else { 0 },
                                 1,
                             )
                         })
@@ -664,12 +646,12 @@ pub mod glued {
                     buf.set_style(tab_area, tab_style);
                 }
 
-                let txt_area = match self.placement {
+                let txt_area = match tabbed.placement {
                     TabPlacement::Top | TabPlacement::Right | TabPlacement::Bottom => {
                         tab_area.inner(Margin::new(1, 0))
                     }
                     TabPlacement::Left => {
-                        if tabbed.is_closeable() {
+                        if tabbed.closeable {
                             Rect::new(
                                 tab_area.x + 3,
                                 tab_area.y,
@@ -681,9 +663,9 @@ pub mod glued {
                         }
                     }
                 };
-                tabbed.get_tabs()[idx].clone().render(txt_area, buf);
+                tabbed.tabs[idx].clone().render(txt_area, buf);
             }
-            if tabbed.is_closeable() {
+            if tabbed.closeable {
                 for i in 0..state.tab_title_close_areas.len() {
                     if state.mouse.hover.get() == Some(i) {
                         buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
@@ -701,11 +683,13 @@ pub mod glued {
 ///
 /// If no block has been set, this will draw a block at the side
 /// of the tabs.
-pub mod attached {
-    use crate::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
-    use crate::util::{fill_buf_area, revert_style};
+mod attached {
+    use crate::tabbed::{TabPlacement, TabWidget, Tabbed, TabbedState};
+    use crate::util;
+    use crate::util::{block_left, block_right, fill_buf_area, revert_style};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Flex, Layout, Margin, Rect};
+    use ratatui::symbols::line;
     use ratatui::widgets::{Block, BorderType, Borders, Widget};
 
     /// Embedded tabs in the Block.
@@ -715,163 +699,32 @@ pub mod attached {
     ///
     /// On the left/right side this will just draw a link to the tab-text.
     /// On the top/bottom side the tabs will be embedded in the border.
-    #[derive(Debug, Default)]
-    pub struct AttachedTabs {
-        placement: TabPlacement,
-        border_type: Option<BorderType>,
-        link: Option<BorderType>,
-        join_0: Option<BorderType>,
-        join_1: Option<BorderType>,
-    }
+    #[derive(Debug)]
+    pub(super) struct AttachedTabs;
 
     impl AttachedTabs {
-        pub fn new() -> Self {
-            Self::default()
-        }
-
-        /// Placement of the tabs.
-        pub fn placement(mut self, placement: TabPlacement) -> Self {
-            self.placement = placement;
-            self
-        }
-
-        /// Border type used as background for the tabs.
-        ///
-        /// This is only used if the Tabbed itself has no Block set.
-        pub fn border_type(mut self, border_type: BorderType) -> Self {
-            self.border_type = Some(border_type);
-            self
-        }
-
-        /// Link a left/right placed tab to the given BorderType.
-        pub fn link(mut self, border_type: BorderType) -> Self {
-            self.link = Some(border_type);
-            self
-        }
-
-        /// Draws a join between the tabbed and the given border type.
-        /// This is only used if the Tabbed itself has no Block set.
-        pub fn join(mut self, border: BorderType) -> Self {
-            self.join_0 = Some(border);
-            self.join_1 = Some(border);
-            self
-        }
-
-        /// Draws a join between the tabbed and the given border type.
-        /// This is used for the top/left side of the tab.
-        /// This is only used if the Tabbed itself has no Block set.
-        pub fn join_0(mut self, border: BorderType) -> Self {
-            self.join_0 = Some(border);
-            self
-        }
-
-        /// Draws a join between the tabbed and the given border type.
-        /// This is used for the bottom/right side of the tab.
-        /// This is only used if the Tabbed itself has no Block set.
-        pub fn join_1(mut self, border: BorderType) -> Self {
-            self.join_1 = Some(border);
-            self
-        }
-    }
-
-    impl AttachedTabs {
-        fn get_join_0(&self) -> Option<&str> {
-            use TabPlacement::*;
-
-            match self.placement {
-                Top => {
-                    if let Some(join_0) = self.join_0 {
-                        Some(join_0.to_border_set().top_left)
-                    } else {
-                        None
-                    }
-                }
-                Left => {
-                    if let Some(join_0) = self.join_0 {
-                        Some(join_0.to_border_set().top_left)
-                    } else {
-                        None
-                    }
-                }
-                Right => {
-                    if let Some(join_0) = self.join_0 {
-                        Some(join_0.to_border_set().top_right)
-                    } else {
-                        None
-                    }
-                }
-                Bottom => {
-                    if let Some(join_0) = self.join_0 {
-                        Some(join_0.to_border_set().bottom_left)
-                    } else {
-                        None
-                    }
-                }
-            }
-        }
-
-        fn get_join_1(&self) -> Option<&str> {
-            use TabPlacement::*;
-
-            match self.placement {
-                Top => {
-                    if let Some(join_1) = self.join_1 {
-                        Some(join_1.to_border_set().top_right)
-                    } else {
-                        None
-                    }
-                }
-                Left => {
-                    if let Some(join_1) = self.join_1 {
-                        Some(join_1.to_border_set().bottom_left)
-                    } else {
-                        None
-                    }
-                }
-                Right => {
-                    if let Some(join_1) = self.join_1 {
-                        Some(join_1.to_border_set().bottom_right)
-                    } else {
-                        None
-                    }
-                }
-                Bottom => {
-                    if let Some(join_1) = self.join_1 {
-                        Some(join_1.to_border_set().bottom_right)
-                    } else {
-                        None
-                    }
-                }
-            }
-        }
-
-        fn get_link(&self) -> &str {
-            match self.placement {
+        fn get_link(&self, placement: TabPlacement, block: &Block<'_>) -> Option<&str> {
+            match placement {
                 TabPlacement::Top => unreachable!(),
                 TabPlacement::Bottom => unreachable!(),
-                TabPlacement::Left => match self.link {
-                    None => "\u{2524}",
-                    Some(BorderType::Plain) => "\u{2524}",
-                    Some(BorderType::Rounded) => "\u{2524}",
-                    Some(BorderType::Double) => "\u{2562}",
-                    Some(BorderType::Thick) => "\u{2528}",
-                    Some(BorderType::QuadrantInside) => "\u{2588}",
-                    Some(BorderType::QuadrantOutside) => "\u{258C}",
+                TabPlacement::Left => match block_left(block).as_str() {
+                    line::VERTICAL => Some(line::VERTICAL_LEFT),
+                    line::DOUBLE_VERTICAL => Some(util::DOUBLE_VERTICAL_SINGLE_LEFT),
+                    line::THICK_VERTICAL => Some(util::THICK_VERTICAL_SINGLE_LEFT),
+
+                    _ => None,
                 },
-                TabPlacement::Right => match self.link {
-                    None => "\u{251C}",
-                    Some(BorderType::Plain) => "\u{251C}",
-                    Some(BorderType::Rounded) => "\u{251C}",
-                    Some(BorderType::Double) => "\u{255F}",
-                    Some(BorderType::Thick) => "\u{2520}",
-                    Some(BorderType::QuadrantInside) => "\u{2588}",
-                    Some(BorderType::QuadrantOutside) => "\u{2590}",
+                TabPlacement::Right => match block_right(block).as_str() {
+                    line::VERTICAL => Some(line::VERTICAL_RIGHT),
+                    line::DOUBLE_VERTICAL => Some(util::DOUBLE_VERTICAL_SINGLE_RIGHT),
+                    line::THICK_VERTICAL => Some(util::THICK_VERTICAL_SINGLE_RIGHT),
+                    _ => None,
                 },
             }
         }
     }
 
-    impl TabType for AttachedTabs {
+    impl TabWidget for AttachedTabs {
         fn layout(&self, area: Rect, tabbed: &Tabbed<'_>, state: &mut TabbedState) {
             state.area = area;
 
@@ -880,7 +733,7 @@ pub mod attached {
                 (block, 1)
             } else {
                 block = Block::new();
-                block = match self.placement {
+                block = match tabbed.placement {
                     TabPlacement::Top => block.borders(Borders::TOP),
                     TabPlacement::Left => block.borders(Borders::LEFT),
                     TabPlacement::Right => block.borders(Borders::RIGHT),
@@ -889,16 +742,16 @@ pub mod attached {
                 (&block, 0)
             };
 
-            let close_width = if tabbed.is_closeable() { 2 } else { 0 };
+            let close_width = if tabbed.closeable { 2 } else { 0 };
 
             let max_width = tabbed
-                .get_tabs()
+                .tabs
                 .iter()
                 .map(|v| v.width())
                 .max()
                 .unwrap_or_default() as u16;
 
-            match self.placement {
+            match tabbed.placement {
                 TabPlacement::Top => {
                     state.block_area = Rect::new(area.x, area.y, area.width, area.height);
                     state.tab_title_area = Rect::new(area.x, area.y, area.width, 1);
@@ -942,10 +795,10 @@ pub mod attached {
                 }
             }
 
-            match self.placement {
+            match tabbed.placement {
                 TabPlacement::Top | TabPlacement::Bottom => {
                     let mut constraints = Vec::new();
-                    for tab in tabbed.get_tabs() {
+                    for tab in tabbed.tabs.iter() {
                         constraints.push(Constraint::Length(tab.width() as u16 + 2 + close_width));
                     }
 
@@ -960,7 +813,7 @@ pub mod attached {
                 }
                 TabPlacement::Left | TabPlacement::Right => {
                     let mut constraints = Vec::new();
-                    for _tab in tabbed.get_tabs() {
+                    for _tab in tabbed.tabs.iter() {
                         constraints.push(Constraint::Length(1));
                     }
 
@@ -974,7 +827,7 @@ pub mod attached {
                 }
             }
 
-            match self.placement {
+            match tabbed.placement {
                 TabPlacement::Top | TabPlacement::Bottom => {
                     state.tab_title_close_areas = state
                         .tab_title_areas
@@ -983,7 +836,7 @@ pub mod attached {
                             Rect::new(
                                 (v.x + v.width).saturating_sub(close_width),
                                 v.y,
-                                if tabbed.is_closeable() { 1 } else { 0 },
+                                if tabbed.closeable { 1 } else { 0 },
                                 1,
                             )
                         })
@@ -997,7 +850,7 @@ pub mod attached {
                             Rect::new(
                                 v.x + 1, //
                                 v.y,
-                                if tabbed.is_closeable() { 1 } else { 0 },
+                                if tabbed.closeable { 1 } else { 0 },
                                 1,
                             )
                         })
@@ -1011,7 +864,7 @@ pub mod attached {
                             Rect::new(
                                 (v.x + v.width).saturating_sub(close_width),
                                 v.y,
-                                if tabbed.is_closeable() { 1 } else { 0 },
+                                if tabbed.closeable { 1 } else { 0 },
                                 1,
                             )
                         })
@@ -1022,23 +875,19 @@ pub mod attached {
 
         fn render(&self, buf: &mut Buffer, tabbed: &Tabbed<'_>, state: &mut TabbedState) {
             let mut block;
-            let (block, join_0, join_1) = if let Some(block) = &tabbed.block {
-                (block, None, None)
+            let block = if let Some(block) = &tabbed.block {
+                block
             } else {
-                let border_type = self.border_type.unwrap_or(BorderType::Plain);
-                block = Block::new();
-                block = match self.placement {
-                    TabPlacement::Top => block.borders(Borders::TOP).border_type(border_type),
-                    TabPlacement::Bottom => block.borders(Borders::BOTTOM).border_type(border_type),
-                    TabPlacement::Left => block.borders(Borders::LEFT).border_type(border_type),
-                    TabPlacement::Right => block.borders(Borders::RIGHT).border_type(border_type),
+                block = Block::new()
+                    .border_type(BorderType::Plain)
+                    .style(tabbed.style);
+                block = match tabbed.placement {
+                    TabPlacement::Top => block.borders(Borders::TOP),
+                    TabPlacement::Bottom => block.borders(Borders::BOTTOM),
+                    TabPlacement::Left => block.borders(Borders::LEFT),
+                    TabPlacement::Right => block.borders(Borders::RIGHT),
                 };
-                block = block.style(tabbed.style);
-
-                let join_0 = self.get_join_0();
-                let join_1 = self.get_join_1();
-
-                (&block, join_0, join_1)
+                &block
             };
 
             let focus_style = if let Some(focus_style) = tabbed.focus_style {
@@ -1065,11 +914,9 @@ pub mod attached {
                 tabbed.style
             };
 
-            match self.placement {
-                TabPlacement::Left | TabPlacement::Right => {
-                    buf.set_style(state.tab_title_area, tabbed.style);
-                }
-                TabPlacement::Top | TabPlacement::Bottom => {}
+            // area for the left/right tabs.
+            if matches!(tabbed.placement, TabPlacement::Left | TabPlacement::Right) {
+                buf.set_style(state.tab_title_area, tabbed.style);
             }
             block.clone().render(state.block_area, buf);
 
@@ -1080,12 +927,12 @@ pub mod attached {
                     fill_buf_area(buf, tab_area, " ", tab_style);
                 }
 
-                let txt_area = match self.placement {
+                let txt_area = match tabbed.placement {
                     TabPlacement::Top | TabPlacement::Right | TabPlacement::Bottom => {
                         tab_area.inner(Margin::new(1, 0))
                     }
                     TabPlacement::Left => {
-                        if tabbed.is_closeable() {
+                        if tabbed.closeable {
                             Rect::new(
                                 tab_area.x + 3,
                                 tab_area.y,
@@ -1097,26 +944,31 @@ pub mod attached {
                         }
                     }
                 };
-                tabbed.get_tabs()[idx].clone().render(txt_area, buf);
+                tabbed.tabs[idx].clone().render(txt_area, buf);
 
-                match self.placement {
+                // join left/right
+                match tabbed.placement {
                     TabPlacement::Top => {}
                     TabPlacement::Bottom => {}
                     TabPlacement::Left => {
                         if let Some(cell) = buf.cell_mut((tab_area.x + tab_area.width, tab_area.y))
                         {
-                            cell.set_symbol(self.get_link());
+                            if let Some(sym) = self.get_link(tabbed.placement, &block) {
+                                cell.set_symbol(sym);
+                            }
                         }
                     }
                     TabPlacement::Right => {
                         if let Some(cell) = buf.cell_mut((tab_area.x - 1, tab_area.y)) {
-                            cell.set_symbol(self.get_link());
+                            if let Some(sym) = self.get_link(tabbed.placement, &block) {
+                                cell.set_symbol(sym);
+                            }
                         }
                     }
                 }
             }
 
-            if tabbed.is_closeable() {
+            if tabbed.closeable {
                 for i in 0..state.tab_title_close_areas.len() {
                     if state.mouse.hover.get() == Some(i) {
                         buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
@@ -1124,46 +976,6 @@ pub mod attached {
                     if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
                         cell.set_symbol("\u{2A2F}");
                     }
-                }
-            }
-
-            if let Some(join_0) = join_0 {
-                let pos = match self.placement {
-                    TabPlacement::Top => (state.tab_title_area.left(), state.tab_title_area.top()),
-                    TabPlacement::Left => (state.tab_title_area.left(), state.tab_title_area.top()),
-                    TabPlacement::Right => (
-                        state.tab_title_area.right().saturating_sub(1),
-                        state.tab_title_area.top(),
-                    ),
-                    TabPlacement::Bottom => {
-                        (state.tab_title_area.left(), state.tab_title_area.top())
-                    }
-                };
-                if let Some(cell) = buf.cell_mut(pos) {
-                    cell.set_symbol(join_0);
-                }
-            }
-            if let Some(join_1) = join_1 {
-                let pos = match self.placement {
-                    TabPlacement::Top => (
-                        state.tab_title_area.right().saturating_sub(1),
-                        state.tab_title_area.top(),
-                    ),
-                    TabPlacement::Left => (
-                        state.tab_title_area.left(),
-                        state.tab_title_area.bottom().saturating_sub(1),
-                    ),
-                    TabPlacement::Right => (
-                        state.tab_title_area.right().saturating_sub(1),
-                        state.tab_title_area.bottom().saturating_sub(1),
-                    ),
-                    TabPlacement::Bottom => (
-                        state.tab_title_area.right().saturating_sub(1),
-                        state.tab_title_area.top(),
-                    ),
-                };
-                if let Some(cell) = buf.cell_mut(pos) {
-                    cell.set_symbol(join_1);
                 }
             }
         }

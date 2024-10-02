@@ -2,7 +2,9 @@
 use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
+use ratatui::prelude::Widget;
 use ratatui::style::{Style, Stylize};
+use ratatui::widgets::Block;
 use std::mem;
 
 /// Returns a new style with fg and bg swapped.
@@ -93,4 +95,39 @@ pub(crate) fn copy_buffer(
             }
         }
     }
+}
+
+pub(crate) const DOUBLE_VERTICAL_SINGLE_LEFT: &str = "\u{2562}";
+pub(crate) const DOUBLE_VERTICAL_SINGLE_RIGHT: &str = "\u{255F}";
+pub(crate) const THICK_VERTICAL_SINGLE_LEFT: &str = "\u{2528}";
+pub(crate) const THICK_VERTICAL_SINGLE_RIGHT: &str = "\u{2520}";
+
+pub(crate) fn block_left(block: &Block<'_>) -> String {
+    let area = Rect::new(0, 0, 3, 3);
+    let mut buf = Buffer::empty(area);
+    block.clone().render(area, &mut buf);
+    buf.cell((0, 1)).expect("cell").symbol().into()
+}
+
+pub(crate) fn block_right(block: &Block<'_>) -> String {
+    let area = Rect::new(0, 0, 3, 3);
+    let mut buf = Buffer::empty(area);
+    block.clone().render(area, &mut buf);
+    buf.cell((2, 1)).expect("cell").symbol().into()
+}
+
+#[allow(dead_code)]
+pub(crate) fn block_top(block: &Block<'_>) -> String {
+    let area = Rect::new(0, 0, 3, 3);
+    let mut buf = Buffer::empty(area);
+    block.clone().render(area, &mut buf);
+    buf.cell((1, 0)).expect("cell").symbol().into()
+}
+
+#[allow(dead_code)]
+pub(crate) fn block_bottom(block: &Block<'_>) -> String {
+    let area = Rect::new(0, 0, 3, 3);
+    let mut buf = Buffer::empty(area);
+    block.clone().render(area, &mut buf);
+    buf.cell((1, 2)).expect("cell").symbol().into()
 }

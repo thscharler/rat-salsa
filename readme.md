@@ -23,9 +23,9 @@ event-handlers in mind.
 
 ## Focus handling
 
-Uses [FocusFlag][refRatFocusFlag] defined by 
-[rat-focus][refRatFocus] internally, to mark the focused widget. 
-This is just a passive flag, that probably can be used with other 
+Uses [FocusFlag][refRatFocusFlag] defined by
+[rat-focus][refRatFocus] internally, to mark the focused widget.
+This is just a passive flag, that probably can be used with other
 focus systems. Or you use [rat-focus][refRatFocus].
 
 ## Scrolling
@@ -39,6 +39,7 @@ Rendering all the widgets tries hard not to need allocations and
 extensive copying during rendering.
 
 Special mentions:
+
 - [rat-ftable::Table][refRatTable]: It uses an adapter for the data
   for rendering instead of creating Row/Cell structs.
 
@@ -50,38 +51,45 @@ the (experimental) StatefulWidgetRef traits.
 Event handling uses [rat-event::HandleEvent][refRatEvent].
 Currently, crossterm events are implemented.
 
-* [Button](https://docs.rs/rat-widget/latest/rat_widget/button/index.html)
-* [Calendar](https://docs.rs/rat-widget/latest/rat_widget/calendar/index.html)
-* [DateInput](https://docs.rs/rat-widget/latest/rat_widget/date_input/index.html) (using chrono)
-* [EditList](https://docs.rs/rat-widget/latest/rat_widget/list/edit/index.html)
-* [EditTable](https://docs.rs/rat-widget/latest/rat_widget/table/edit/index.html)
-* [FileDialog](https://docs.rs/biosys/rat-widget/latest/rat_widget/file_dialog/index.html)
-* [TextInput](https://docs.rs/rat-widget/latest/rat_widget/input/index.html)
-* [MaskedInput](https://docs.rs/rat-widget/latest/rat_widget/masked_input/index.html)
-* [Menubar](https://docs.rs/rat-widget/latest/rat_widget/menubar/index.html)
-* [MenuLine](https://docs.rs/rat-widget/latest/rat_widget/menuline/index.html)
-* [MsgDialog](https://docs.rs/rat-widget/latest/rat_widget/msgdialog/index.html)
-* [NumberInput](https://docs.rs/rat-widget/latest/rat_widget/number_input/index.html) (using format_num_pattern)
-* [PopupMenu](https://docs.rs/rat-widget/latest/rat_widget/popup_menu/index.html)
-* [Split](https://docs.rs/rat-widget/latest/rat_widget/splitter/index.html)
-* [StatusLine](https://docs.rs/rat-widget/latest/rat_widget/statusline/index.html)
-* [Table](https://docs.rs/rat-widget/latest/rat_widget/table/index.html)
-* [TextArea](https://docs.rs/rat-widget/latest/rat_widget/textarea/index.html)
-* [View](https://docs.rs/rat-widget/latest/rat_widget/view/index.html)
-* [Viewport](https://docs.rs/rat-widget/latest/rat_widget/viewport/index.html)
+* [Button](button/index.html)
+* [Calendar](calendar/index.html)
+* [DateInput](date_input/index.html) (using chrono)
+* [EditList](list/edit/index.html)
+* [EditTable](table/edit/index.html)
+* [FileDialog](file_dialog/index.html)
+* [TextInput](input/index.html)
+* [MaskedInput](masked_input/index.html)
+* [Menubar](menubar/index.html)
+* [MenuLine](menuline/index.html)
+* [MsgDialog](msgdialog/index.html)
+* [NumberInput](number_input/index.html) (using format_num_pattern)
+* [PopupMenu](popup_menu/index.html)
+* [Split](splitter/index.html)
+* [StatusLine](statusline/index.html)
+* [Tabbed](tabbed/index.html)
+* [Table](table/index.html)
+* [TextArea](textarea/index.html)
+* [View](view/index.html)
+* [Viewport](viewport/index.html)
 
 and some adapters for ratatui widgets
 
-* [List](https://docs.rs/rat-widget/latest/rat_widget/list/index.html)
-* [Paragraph](https://docs.rs/rat-widget/latest/rat_widget/paragraph/index.html)
-
+* [List](list/index.html)
+* [Paragraph](paragraph/index.html)
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
+
 [refRatEvent]: https://docs.rs/rat-event
+
 [refRatFocus]: https://docs.rs/rat-focus
+
 [refRatFocusFlag]: https://docs.rs/rat-focus/latest/rat_focus/struct.FocusFlag.html
+
 [refScroll]: https://docs.rs/rat-scrolled/latest/rat_scrolled/struct.Scroll.html
+
 [refRatScrolled]: https://docs.rs/rat-scrolled
+
 [refRatTable]: https://docs.rs/rat-ftable
-[refRatTextArea]: https://docs.rs/rat-widget/latest/rat_widget/textarea/index.html
+
+[refRatTextArea]: textarea/index.html
 

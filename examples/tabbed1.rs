@@ -12,12 +12,11 @@ use rat_widget::event::Outcome;
 use rat_widget::list::selection::RowSelection;
 use rat_widget::list::{List, ListState};
 use rat_widget::statusline::StatusLineState;
-use rat_widget::tabbed::attached::AttachedTabs;
-use rat_widget::tabbed::glued::GluedTabs;
-use rat_widget::tabbed::{TabPlacement, Tabbed, TabbedState};
+use rat_widget::tabbed::{TabPlacement, TabType, Tabbed, TabbedState};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::Line;
 use ratatui::style::{Style, Stylize};
+use ratatui::symbols::border;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use ratatui::Frame;
 
@@ -30,13 +29,13 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         border_type: None,
-        placement: Default::default(),
-        style: 0,
+        placement: TabPlacement::default(),
+        style: TabType::default(),
         close: false,
-        tabbed: Default::default(),
+        tabbed: TabbedState::default(),
         tabs: Default::default(),
-        menu: Default::default(),
-        status: Default::default(),
+        menu: MenuLineState::default(),
+        status: StatusLineState::default(),
     };
     state.menu.focus.set(true);
 
@@ -46,9 +45,9 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    border_type: Option<BorderType>,
+    border_type: Option<(BorderType, border::Set)>,
     placement: TabPlacement,
-    style: usize,
+    style: TabType,
     close: bool,
 
     tabbed: TabbedState,
@@ -80,17 +79,9 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
-    let mut tab = Tabbed::new();
-    tab = match state.style {
-        0 => tab.tab_type(GluedTabs::new().placement(state.placement)),
-        1 => tab.tab_type(
-            AttachedTabs::new()
-                .placement(state.placement)
-                .link(state.border_type.unwrap_or_default()),
-        ),
-        _ => unreachable!(),
-    };
-    tab = tab
+    let mut tab = Tabbed::new()
+        .tab_type(state.style)
+        .placement(state.placement)
         .style(THEME.black(2))
         .select_style(THEME.orange(2))
         .tab_style(THEME.limegreen(0));
@@ -98,7 +89,11 @@ fn repaint_input(
         tab = tab.closeable(true);
     }
     if let Some(border_type) = state.border_type {
-        tab = tab.block(Block::bordered().border_type(border_type));
+        tab = tab.block(
+            Block::bordered()
+                .border_type(border_type.0)
+                .border_set(border_type.1),
+        );
     }
     tab = tab.tabs(["Tabbed 1", "Tabbed 2", "Tabbed 3"]);
     tab.render(l2[1], frame.buffer_mut(), &mut state.tabbed);
@@ -198,17 +193,17 @@ fn handle_input(
             }
             ct_event!(keycode press F(2)) => {
                 state.style = match state.style {
-                    0 => 1,
-                    1 => 0,
-                    _ => 0,
+                    TabType::Glued => TabType::Attached,
+                    TabType::Attached => TabType::Glued,
+                    _ => TabType::Glued,
                 };
                 Outcome::Changed
             }
             ct_event!(keycode press SHIFT-F(2)) => {
                 state.style = match state.style {
-                    0 => 1,
-                    1 => 0,
-                    _ => 0,
+                    TabType::Glued => TabType::Attached,
+                    TabType::Attached => TabType::Glued,
+                    _ => TabType::Glued,
                 };
                 Outcome::Changed
             }
@@ -232,25 +227,71 @@ fn handle_input(
             }
             ct_event!(keycode press F(5)) => {
                 state.border_type = match state.border_type {
-                    None => Some(BorderType::Plain),
-                    Some(BorderType::Plain) => Some(BorderType::Double),
-                    Some(BorderType::Double) => Some(BorderType::Rounded),
-                    Some(BorderType::Rounded) => Some(BorderType::Thick),
-                    Some(BorderType::Thick) => Some(BorderType::QuadrantInside),
-                    Some(BorderType::QuadrantInside) => Some(BorderType::QuadrantOutside),
-                    Some(BorderType::QuadrantOutside) => None,
+                    None => Some((BorderType::Plain, border::PLAIN)),
+                    Some((BorderType::Plain, border::PLAIN)) => {
+                        Some((BorderType::Plain, border::ONE_EIGHTH_TALL))
+                    }
+                    Some((BorderType::Plain, border::ONE_EIGHTH_TALL)) => {
+                        Some((BorderType::Plain, border::ONE_EIGHTH_WIDE))
+                    }
+                    Some((BorderType::Plain, border::ONE_EIGHTH_WIDE)) => {
+                        Some((BorderType::Plain, border::PROPORTIONAL_WIDE))
+                    }
+                    Some((BorderType::Plain, border::PROPORTIONAL_WIDE)) => {
+                        Some((BorderType::Plain, border::PROPORTIONAL_TALL))
+                    }
+                    Some((BorderType::Plain, border::PROPORTIONAL_TALL)) => {
+                        Some((BorderType::Double, border::DOUBLE))
+                    }
+                    Some((BorderType::Double, border::DOUBLE)) => {
+                        Some((BorderType::Rounded, border::ROUNDED))
+                    }
+                    Some((BorderType::Rounded, border::ROUNDED)) => {
+                        Some((BorderType::Thick, border::THICK))
+                    }
+                    Some((BorderType::Thick, border::THICK)) => {
+                        Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE))
+                    }
+                    Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE)) => {
+                        Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE))
+                    }
+                    Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)) => None,
+                    _ => Some((BorderType::Plain, border::PLAIN)),
                 };
                 Outcome::Changed
             }
             ct_event!(keycode press SHIFT-F(5)) => {
                 state.border_type = match state.border_type {
-                    None => Some(BorderType::QuadrantOutside),
-                    Some(BorderType::Plain) => None,
-                    Some(BorderType::Double) => Some(BorderType::Plain),
-                    Some(BorderType::Rounded) => Some(BorderType::Double),
-                    Some(BorderType::Thick) => Some(BorderType::Rounded),
-                    Some(BorderType::QuadrantInside) => Some(BorderType::Thick),
-                    Some(BorderType::QuadrantOutside) => Some(BorderType::QuadrantInside),
+                    None => Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)),
+                    Some((BorderType::Plain, border::PLAIN)) => None,
+                    Some((BorderType::Plain, border::ONE_EIGHTH_TALL)) => {
+                        Some((BorderType::Plain, border::PLAIN))
+                    }
+                    Some((BorderType::Plain, border::ONE_EIGHTH_WIDE)) => {
+                        Some((BorderType::Plain, border::ONE_EIGHTH_TALL))
+                    }
+                    Some((BorderType::Plain, border::PROPORTIONAL_WIDE)) => {
+                        Some((BorderType::Plain, border::ONE_EIGHTH_WIDE))
+                    }
+                    Some((BorderType::Plain, border::PROPORTIONAL_TALL)) => {
+                        Some((BorderType::Plain, border::PROPORTIONAL_WIDE))
+                    }
+                    Some((BorderType::Double, border::DOUBLE)) => {
+                        Some((BorderType::Plain, border::PROPORTIONAL_TALL))
+                    }
+                    Some((BorderType::Rounded, border::ROUNDED)) => {
+                        Some((BorderType::Double, border::DOUBLE))
+                    }
+                    Some((BorderType::Thick, border::THICK)) => {
+                        Some((BorderType::Rounded, border::ROUNDED))
+                    }
+                    Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE)) => {
+                        Some((BorderType::Thick, border::THICK))
+                    }
+                    Some((BorderType::QuadrantOutside, border::QUADRANT_OUTSIDE)) => {
+                        Some((BorderType::QuadrantInside, border::QUADRANT_INSIDE))
+                    }
+                    _ => Some((BorderType::Plain, border::PLAIN)),
                 };
                 Outcome::Changed
             }
