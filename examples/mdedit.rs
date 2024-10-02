@@ -837,13 +837,12 @@ pub mod mdfile {
                 .styles(ctx.g.theme.textarea_style())
                 .block(
                     Block::new()
-                        .border_type(BorderType::Plain)
+                        .border_type(BorderType::Rounded)
                         .borders(Borders::RIGHT),
                 )
                 .vscroll(
                     Scroll::new()
                         .start_margin(self.start_margin)
-                        // .scroll_by(1)
                         .styles(ctx.g.theme.scroll_style()),
                 )
                 .text_style(text_style(ctx))
@@ -1126,13 +1125,12 @@ pub mod split_tab {
     use rat_widget::event::{try_flow, HandleEvent, Regular, TabbedOutcome};
     use rat_widget::focus::{ContainerFlag, FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::splitter::{Split, SplitState, SplitType};
-    use rat_widget::tabbed::attached::AttachedTabs;
-    use rat_widget::tabbed::{Tabbed, TabbedState};
+    use rat_widget::tabbed::{TabType, Tabbed, TabbedState};
     use rat_widget::text::undo_buffer::UndoEntry;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Rect};
     use ratatui::prelude::{Line, StatefulWidget};
-    use ratatui::widgets::BorderType;
+    use ratatui::symbols;
     use std::path::Path;
     use std::time::{Duration, Instant};
 
@@ -1201,7 +1199,7 @@ pub mod split_tab {
                 };
 
                 Tabbed::new()
-                    .tab_type(AttachedTabs::new().join_1(BorderType::Rounded))
+                    .tab_type(TabType::Attached)
                     .closeable(true)
                     .styles(ctx.g.theme.tabbed_style())
                     .select_style(select_style)
@@ -1210,6 +1208,12 @@ pub mod split_tab {
                         Line::from(title.to_string())
                     }))
                     .render(*edit_area, buf, &mut state.tabbed[idx_split]);
+
+                // fix block rendering
+                let fix_area = state.tabbed[idx_split].block_area;
+                if let Some(cell) = buf.cell_mut((fix_area.right() - 1, fix_area.y)) {
+                    cell.set_symbol(symbols::line::ROUNDED_TOP_RIGHT);
+                }
 
                 if let Some(idx_tab) = state.tabbed[idx_split].selected() {
                     MDFile {
