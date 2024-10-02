@@ -6,14 +6,15 @@
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
+For examples see [rat-widget GitHub][refGitHubWidget]
+(menu_status1.rs, menubar1.rs, popup_menu.rs)
+
 # Menu widgets for ratatui
 
 * [MenuLine](crate::menuline::MenuLine)
 * [PopupMenu](crate::popup_menu::PopupMenu)
 * [Menubar](crate::menubar::Menubar)
 
-For examples see [rat-widget][refRatWidget]
-
-[refRatWidget]: https://github.com/thscharler/rat-widget/tree/master/examples
+[refGitHubWidget]: https://github.com/thscharler/rat-widget/tree/master/examples
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
