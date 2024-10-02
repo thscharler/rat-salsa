@@ -30,10 +30,36 @@ struct State {
 
 static MENU: StaticMenu = StaticMenu {
     menu: &[
-        ("_Alpha", &["_One", "_Two", "_...", "Thr_ee"]),
-        ("_Beta", &["Ex", "Why", "_---", "Sed"]),
-        ("_Gamma", &["N_o", "m_ore", "ideas"]),
-        ("_Quit", &[]),
+        (
+            "_File",
+            &[
+                "_New", //
+                "_Open...|F3",
+                "_Save|F2",
+                "_...",
+                "_Quit|Ctrl+Q",
+            ],
+        ),
+        (
+            "_Edit",
+            &[
+                "Undo|Ctrl+Z", //
+                "Redo|Ctrl+Shift+Z",
+                "____",
+                "Cu_t|Ctrl+X",
+                "_Copy|Ctrl+C",
+                "_Paste|Ctrl+V",
+            ],
+        ),
+        (
+            "_Help",
+            &[
+                "_Help", //
+                "_Web Help",
+                "_---",
+                "_About",
+            ],
+        ),
     ],
 };
 
@@ -48,7 +74,6 @@ fn repaint_input(
 
     let (menu, menu_popup) = Menubar::new(&MENU)
         .popup_block(Block::bordered().border_type(BorderType::Rounded))
-        .popup_width(17)
         .title("⋱⋰⋱⋰⋱")
         .title_style(Style::default().black().on_yellow())
         .style(Style::default().black().on_dark_gray())
@@ -75,6 +100,10 @@ fn handle_input(
                 istate.status[0] = format!("Selected {}-{}", v, w);
                 Outcome::Changed
             }
+            MenuOutcome::MenuActivated(0, 3) => {
+                istate.quit = true;
+                Outcome::Changed
+            }
             MenuOutcome::MenuActivated(v, w) => {
                 istate.status[0] = format!("Activated {}-{}", v, w);
                 state.menu.set_popup_active(false);
@@ -91,12 +120,6 @@ fn handle_input(
         }
         MenuOutcome::Activated(v) => {
             istate.status[0] = format!("Activated {}", v);
-            match v {
-                3 => {
-                    istate.quit = true;
-                }
-                _ => {}
-            }
             Outcome::Changed
         }
         r => {
