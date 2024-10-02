@@ -6,6 +6,8 @@
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
+For examples see [rat-focus GitHub][refGithubFocus].
+
 # Focus handling for ratatui
 
 This crate works by adding a [FocusFlag](FocusFlag) to each widget'
@@ -18,38 +20,39 @@ It builds up the [Focus](Focus) which has [next](Focus::next),
 the navigation.
 
 > from <focus_input1.rs>
+
 ```rust
     fn focus_input(state: &mut State) -> Focus {
-        let mut fb = FocusBuilder::default();
-        fb.widget(&state.input1)
-            .widget(&state.input2)
-            .widget(&state.input3)
-            .widget(&state.input4);
-        fb.build()
-    }
-    
-    fn handle_input(
-        event: &crossterm::event::Event,
-        _data: &mut Data,
-        _istate: &mut MiniSalsaState,
-        state: &mut State,
-    ) -> Result<Outcome, anyhow::Error> {
-    
-        // Handle events for focus.
-        let f = focus_input(state).handle(event, Regular);
-        
-        // ...
-        
-        Ok(f)
-    }
+    let mut fb = FocusBuilder::default();
+    fb.widget(&state.input1)
+        .widget(&state.input2)
+        .widget(&state.input3)
+        .widget(&state.input4);
+    fb.build()
+}
+
+fn handle_input(
+    event: &crossterm::event::Event,
+    _data: &mut Data,
+    _istate: &mut MiniSalsaState,
+    state: &mut State,
+) -> Result<Outcome, anyhow::Error> {
+
+    // Handle events for focus.
+    let f = focus_input(state).handle(event, Regular);
+
+    // ...
+
+    Ok(f)
+}
 ```
 
 - Keeps the focus-state close to the widgets code.
 - Rebuilt for each event.
-  - No need to update the widget list when the application state
-    changes.
-  - FocusBuilder can be passed on all over the application to
-    build the current widget list.
+    - No need to update the widget list when the application state
+      changes.
+    - FocusBuilder can be passed on all over the application to
+      build the current widget list.
 
 ## Event handling
 
@@ -79,7 +82,6 @@ If it doesn't you can use a [FocusAdapter] to keep track of the
 focus. Use that state to call the appropriate functions defined
 by the widget.
 
-
 ## Traits and Widgets
 
 # HasFocusFlag
@@ -97,7 +99,6 @@ to
 The widget can then use the FocusFlag for rendering and
 event-handling as it sees fit.
 
-
 # HasFocus
 
 [HasFocus] is the interface for container widgets.
@@ -112,4 +113,7 @@ This is used to recursively add widgets for focus handling.
   events too.
 
 [refHandleEvent]: https://docs.rs/rat-event/latest/rat_event/trait.HandleEvent.html
+
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
+
+[refGithubFocus]: https://github.com/thscharler/rat-focus/tree/master/examples 
