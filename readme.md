@@ -4,6 +4,10 @@
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
 ![](https://tokei.rs/b1/github/thscharler/rat-ftable)
 
+This crate is a part of [rat-salsa][refRatSalsa].
+
+For examples see [rat-ftable GitHub][refGitHubFTable].
+
 # Table widget for ratatui
 
 Can be used as a drop-in replacement for the ratatui table. But
@@ -34,3 +38,7 @@ More bullet points:
 * Key/mouse handling present.
 
 Eventhandling is currently crossterm only.
+
+[refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
+
+[refGitHubFTable]:  https://github.com/thscharler/rat-ftable/tree/master/examples

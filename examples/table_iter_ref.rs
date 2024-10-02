@@ -71,12 +71,12 @@ fn repaint_table(
         .split(area);
 
     #[derive(Clone)]
-    struct RowIter1<'a> {
+    struct DataIter<'a> {
         iter: Enumerate<Iter<'a, Sample>>,
         item: Option<(usize, &'a Sample)>,
     }
 
-    impl<'a> TableDataIter<'a> for RowIter1<'a> {
+    impl<'a> TableDataIter<'a> for DataIter<'a> {
         /// StatefulWidgetRef needs a clone of the iterator for every render.
         /// For StatefulWidget this is not needed at all. So this defaults to
         /// None and warns at runtime.
@@ -128,7 +128,7 @@ fn repaint_table(
     }
 
     Table::default()
-        .iter(RowIter1 {
+        .iter(DataIter {
             iter: data.table_data.iter().enumerate(),
             item: None,
         })

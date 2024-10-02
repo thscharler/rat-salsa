@@ -52,6 +52,7 @@ fn repaint_table(
         .split(area);
 
     struct Count(u128);
+
     impl Iterator for Count {
         type Item = u128;
 
@@ -67,12 +68,12 @@ fn repaint_table(
         }
     }
 
-    struct RowIter {
+    struct DataIter {
         iter: Count,
         item: u128,
     }
 
-    impl<'a> TableDataIter<'a> for RowIter {
+    impl<'a> TableDataIter<'a> for DataIter {
         fn rows(&self) -> Option<usize> {
             // unknown number of rows
             None
@@ -98,7 +99,7 @@ fn repaint_table(
     }
 
     Table::default()
-        .iter(RowIter {
+        .iter(DataIter {
             iter: Count(0),
             item: 0,
         })

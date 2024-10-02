@@ -70,9 +70,9 @@ fn repaint_table(
         .flex(Flex::Center)
         .split(area);
 
-    struct Data1<'a>(&'a [Sample]);
+    struct DataSlice<'a>(&'a [Sample]);
 
-    impl<'a> TableData<'a> for Data1<'a> {
+    impl<'a> TableData<'a> for DataSlice<'a> {
         fn rows(&self) -> usize {
             self.0.len()
         }
@@ -118,7 +118,7 @@ fn repaint_table(
     }
 
     Table::default()
-        .data(Data1(&data.table_data))
+        .data(DataSlice(&data.table_data))
         .widths([
             Constraint::Length(6),
             Constraint::Length(20),

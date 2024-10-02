@@ -75,7 +75,7 @@ fn repaint_table(
         .flex(Flex::Center)
         .split(area);
 
-    struct RowIter1<'a> {
+    struct DataIter<'a> {
         rows: usize,
         iter: Enumerate<Iter<'a, Sample>>,
         item: Option<(usize, &'a Sample)>,
@@ -85,7 +85,7 @@ fn repaint_table(
         txt: RefCell<String>,
     }
 
-    impl<'a> TableDataIter<'a> for RowIter1<'a> {
+    impl<'a> TableDataIter<'a> for DataIter<'a> {
         fn rows(&self) -> Option<usize> {
             Some(self.rows)
         }
@@ -147,7 +147,7 @@ fn repaint_table(
     }
 
     Table::default()
-        .iter(RowIter1 {
+        .iter(DataIter {
             rows: data.table_data.len(),
             iter: data.table_data.iter().enumerate(),
             item: None,
