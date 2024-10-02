@@ -223,7 +223,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     let right_style = if let Some(right_style) = widget.right_style {
         right_style
     } else {
-        widget.style
+        Style::new().italic()
     };
     let disabled_style = if let Some(disabled_style) = widget.disabled_style {
         disabled_style
@@ -246,7 +246,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
 
     for (n, item) in widget.menu.items.iter().enumerate() {
         item_area.width =
-            item.item_width() + item.right_width() + if item.right.is_empty() { 0 } else { 3 };
+            item.item_width() + item.right_width() + if item.right.is_empty() { 0 } else { 2 };
         if item_area.right() >= area.right() {
             item_area = item_area.clamp(area);
         }
@@ -272,7 +272,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
                 Span::from(&item.item[highlight.start..highlight.end]).style(highlight_style),
                 Span::from(&item.item[highlight.end..]),
                 if !item.right.is_empty() {
-                    Span::from(format!(" ({})", item.right)).style(right_style)
+                    Span::from(format!("({})", item.right)).style(right_style)
                 } else {
                     Span::default()
                 },
