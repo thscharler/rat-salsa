@@ -25,38 +25,10 @@ fn main() -> Result<(), anyhow::Error> {
         })
         .take(2000)
         .collect::<Vec<i32>>(),
-        sample2: vec![
-            "Lorem",
-            "ipsum",
-            "dolor",
-            "sit",
-            "amet,",
-            "consetetur",
-            "sadipscing",
-            "elitr,",
-            "sed",
-            "diam",
-            "nonumy",
-            "eirmod",
-            "tempor",
-            "invidunt",
-            "ut",
-            "labore",
-            "et",
-            "dolore",
-            "magna",
-            "aliquyam",
-            "erat,",
-            "sed",
-            "diam",
-            "voluptua.",
-            "At",
-            "vero",
-            "eos",
-            "et",
-            "accusam",
-            "et",
-        ],
+        sample2:
+            "Lorem ipsum dolor sit amet, consetetur sadipscing elitr, sed diam nonumy eirmod tempor invidunt ut labore et dolore magna aliquyam erat, sed diam voluptua. At vero eos et accusam et"
+                .split(" ").collect()
+        ,
     };
 
     let mut state = State {
@@ -97,27 +69,27 @@ fn repaint_lists(
     .split(area);
 
     ListS::new(data.sample1.iter().map(|v| v.to_string()))
-        .highlight_style(THEME.secondary(2))
         .scroll(Scroll::new().style(THEME.block()))
+        .highlight_style(THEME.secondary(2))
         .render(l[0], frame.buffer_mut(), &mut state.list1);
 
     ListS::new(data.sample2.iter().map(|v| v.to_string()))
-        .highlight_style(THEME.secondary(2))
         .scroll(Scroll::new().style(THEME.block()))
+        .highlight_style(THEME.secondary(2))
         .render(l[1], frame.buffer_mut(), &mut state.list2);
 
     ListS::new(data.sample1.iter().map(|v| v.to_string()))
-        .highlight_symbol("&")
-        .highlight_style(THEME.secondary(2))
         .scroll(Scroll::new().style(THEME.block()))
         .scroll_selection()
         .scroll_padding(2)
+        .highlight_symbol("&")
+        .highlight_style(THEME.secondary(2))
         .render(l[2], frame.buffer_mut(), &mut state.list3);
 
     ListS::new(data.sample2.iter().map(|v| v.to_string()))
+        .scroll(Scroll::new().style(THEME.block()))
         .highlight_style(THEME.secondary(2))
         .direction(ListDirection::BottomToTop)
-        .scroll(Scroll::new().style(THEME.block()))
         .render(l[3], frame.buffer_mut(), &mut state.list4);
 
     Ok(())
