@@ -68,9 +68,12 @@ fn repaint_stuff(
     state.left = l[0][0].union(l[2][2]);
     state.right = l[3][0].union(l[3][2]);
 
+    // two test regions:
+    // for placement relative to a rect.
     frame
         .buffer_mut()
         .set_style(l[1][1], Style::new().on_blue());
+    // for placement near the mouse cursor.
     frame
         .buffer_mut()
         .set_style(l[3][0].union(l[3][2]), Style::new().on_dark_gray());
@@ -111,6 +114,7 @@ fn handle_stuff(
 
     let r2 = match event {
         ct_event!(mouse down Left for x,y) if state.left.contains((*x, *y).into()) => {
+            // placement relative to rect
             state.popup_area = state.area;
             state.popup.set_active(true);
 
@@ -126,6 +130,7 @@ fn handle_stuff(
             Outcome::Changed
         }
         ct_event!(mouse down Left for x,y) if state.right.contains((*x, *y).into()) => {
+            // placement relative to cursor
             state.popup_area = Rect::new(*x, *y, 0, 0);
             state.popup.set_active(true);
             state.placement = Placement::Right;

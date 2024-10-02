@@ -1,6 +1,6 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::try_flow;
+use rat_event::{ct_event, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline;
 use rat_menu::menuline::{MenuLine, MenuLineState};
@@ -48,10 +48,10 @@ fn repaint_input(
 
     let menu1 = MenuLine::new()
         .title("Sample")
-        .item_parsed("Choose1")
-        .item_parsed("Choose2")
-        .item_parsed("Choose3")
-        .item_parsed("Message")
+        .item_parsed("Choose _1")
+        .item_parsed("Choose _2")
+        .item_parsed("Choose _3")
+        .item_parsed("_Message|F1")
         .item_parsed("_Quit")
         .title_style(Style::default().black().on_yellow())
         .style(Style::default().black().on_dark_gray());
@@ -87,6 +87,19 @@ fn handle_input(
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
     try_flow!(msgdialog::handle_dialog_events(&mut state.msg, event));
+
+    try_flow!(match event {
+        ct_event!(keycode press F(1)) => {
+            state.msg.append(
+                &repeat_with(|| "Hello world!\n------------\n")
+                    .take(20)
+                    .collect::<String>(),
+            );
+            state.msg.set_active(true);
+            Outcome::Changed
+        }
+        _ => Outcome::Continue,
+    });
 
     try_flow!(
         match menuline::handle_events(&mut state.menu, true, event) {

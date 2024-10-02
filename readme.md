@@ -6,6 +6,8 @@
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
+For examples see [rat-widget GitHub][refGitHubWidget]
+
 # Rat Widgets
 
 This crate tries to provide an extended set of widgets with
@@ -92,4 +94,6 @@ and some adapters for ratatui widgets
 [refRatTable]: https://docs.rs/rat-ftable
 
 [refRatTextArea]: textarea/index.html
+
+[refGitHubWidget]: https://github.com/thscharler/rat-widget/tree/master/examples
 
