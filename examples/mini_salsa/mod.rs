@@ -83,7 +83,10 @@ pub fn run_ui<Data, State>(
                 }
             }
             Ok(false) => continue,
-            Err(e) => break 'l Err(anyhow!(e)),
+            Err(e) => {
+                istate.status[0] = format!("{}", e);
+                Outcome::Changed
+            }
         };
 
         if istate.quit {
