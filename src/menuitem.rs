@@ -183,10 +183,14 @@ impl<'a> MenuItem<'a> {
         self
     }
 
-    /// Text-width in graphemes for item + right.
-    pub fn width(&self) -> u16 {
-        (self.item.graphemes(true).count() + self.right.graphemes(true).count()) as u16
-            - if self.navchar.is_some() { 1 } else { 0 }
+    /// Text-width in graphemes for item.
+    pub fn item_width(&self) -> u16 {
+        self.item.graphemes(true).count() as u16 - if self.navchar.is_some() { 1 } else { 0 }
+    }
+
+    /// Text-width in graphemes for right.
+    pub fn right_width(&self) -> u16 {
+        self.right.graphemes(true).count() as u16
     }
 
     /// Text-height.
@@ -260,7 +264,8 @@ fn item_str(txt: &str) -> MenuItem<'_> {
             idx_navchar_start = Some(idx);
         } else if idx_navchar_start.is_some() && idx_navchar_end.is_none() {
             idx_navchar_end = Some(idx);
-        } else if c == '|' {
+        }
+        if c == '|' {
             idx_pipe = Some(idx);
         }
     }
@@ -270,7 +275,7 @@ fn item_str(txt: &str) -> MenuItem<'_> {
 
     if let Some(pipe) = idx_pipe {
         if let Some(navchar_end) = idx_navchar_end {
-            if pipe < navchar_end {
+            if navchar_end > pipe {
                 idx_pipe = None;
             }
         }

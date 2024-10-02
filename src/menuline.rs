@@ -245,7 +245,8 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     }
 
     for (n, item) in widget.menu.items.iter().enumerate() {
-        item_area.width = item.width() + if item.right.is_empty() { 0 } else { 3 };
+        item_area.width =
+            item.item_width() + item.right_width() + if item.right.is_empty() { 0 } else { 3 };
         if item_area.right() >= area.right() {
             item_area = item_area.clamp(area);
         }

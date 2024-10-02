@@ -130,8 +130,13 @@ impl<'a> PopupMenu<'a> {
         let width = if let Some(width) = self.width {
             width
         } else {
-            let text_width = self.menu.items.iter().map(|v| v.width()).max();
-            (text_width.unwrap_or(10) * 3) / 2
+            let text_width = self
+                .menu
+                .items
+                .iter()
+                .map(|v| (v.item_width() * 3) / 2 + v.right_width())
+                .max();
+            text_width.unwrap_or(10)
         };
         let height = self.menu.items.iter().map(MenuItem::height).sum::<u16>();
 
