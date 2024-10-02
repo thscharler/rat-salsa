@@ -6,6 +6,9 @@
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
+For examples see [rat-text GitHub][refGitHubText] or an extended example `mdedit.rs` in
+[rat-salsa GitHub][refGitHubSalsa].
+
 # Text widgets for ratatui
 
 Features for all widgets:
@@ -91,3 +94,7 @@ Line numbers widget that can be combined with TextArea.
 [refChrono]: https://docs.rs/chrono
 
 [refFormatNumPattern]: https://docs.rs/format_num_pattern
+
+[refGitHubText]: https://github.com/thscharler/rat-text/tree/master/examples
+
+[refGitHubSalsa]: https://github.com/thscharler/rat-salsa/tree/master/examples
