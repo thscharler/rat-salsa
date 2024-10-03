@@ -1205,7 +1205,12 @@ pub mod split_tab {
                     .select_style(select_style)
                     .tabs(state.tabs[idx_split].iter().map(|v| {
                         let title = v.path.file_name().unwrap_or_default().to_string_lossy();
-                        Line::from(title.to_string())
+                        let title = format!(
+                            "{}{}",
+                            v.path.file_name().unwrap_or_default().to_string_lossy(),
+                            if v.changed { " \u{1F5AB}" } else { "" }
+                        );
+                        Line::from(title)
                     }))
                     .render(*edit_area, buf, &mut state.tabbed[idx_split]);
 
@@ -1309,9 +1314,6 @@ pub mod split_tab {
             // Find which split contains the current focus.
             let old_split = self.sel_split;
             let old_tab = self.sel_tab;
-
-            self.sel_split = None;
-            self.sel_tab = None;
 
             for (idx_split, tabbed) in self.tabbed.iter().enumerate() {
                 if let Some(idx_tab) = tabbed.selected() {
@@ -1499,7 +1501,7 @@ pub mod split_tab {
         pub fn save(&mut self) -> Result<(), Error> {
             for (idx_split, tabs) in self.tabs.iter_mut().enumerate() {
                 for (idx_tab, tab) in tabs.iter_mut().enumerate() {
-                    return tab.save();
+                    tab.save()?
                 }
             }
             Ok(())
