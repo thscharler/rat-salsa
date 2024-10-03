@@ -366,7 +366,6 @@ fn render_ref(
     state: &mut PopupMenuState,
 ) {
     if !state.active() {
-        state.clear();
         return;
     }
 
@@ -477,12 +476,20 @@ impl HasFocusFlag for PopupMenuState {
 
     /// Focus area.
     fn area(&self) -> Rect {
-        self.area
+        if self.active() {
+            self.area
+        } else {
+            Rect::default()
+        }
     }
 
     /// Widget area with z index.
     fn z_areas(&self) -> &[ZRect] {
-        &self.z_areas
+        if self.active() {
+            &self.z_areas
+        } else {
+            &[]
+        }
     }
 
     fn navigable(&self) -> Navigation {
@@ -503,11 +510,6 @@ impl PopupMenuState {
             focus: FocusFlag::named(name),
             ..Default::default()
         }
-    }
-
-    /// Reset the state to defaults.
-    pub fn clear(&mut self) {
-        *self = Default::default();
     }
 
     /// Show the popup.
