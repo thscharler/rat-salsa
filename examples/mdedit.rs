@@ -52,7 +52,6 @@ pub struct GlobalState {
     pub cfg: MDConfig,
     pub theme: DarkTheme,
 
-    // pub mdfocus: Option<MDFocus>,
     pub status: StatusLineState,
     pub error_dlg: MsgDialogState,
     pub message_dlg: MsgDialogState,
@@ -1540,15 +1539,16 @@ pub mod file_list {
     use crossterm::event::Event;
     use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{HandleEvent, Regular};
-    use rat_widget::focus::{FocusFlag, HasFocusFlag};
+    use rat_widget::event::{HandleEvent, MenuOutcome, Popup, Regular};
+    use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::list::selection::RowSelection;
     use rat_widget::list::{List, ListState};
+    use rat_widget::menu::{Placement, PopupMenu, PopupMenuState};
     use rat_widget::scrolled::Scroll;
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Layout, Rect};
+    use ratatui::layout::{Constraint, Layout, Position, Rect};
     use ratatui::prelude::Line;
-    use ratatui::widgets::StatefulWidget;
+    use ratatui::widgets::{Block, StatefulWidget};
     use std::fs;
     use std::path::{Path, PathBuf};
 
@@ -1560,6 +1560,9 @@ pub mod file_list {
         pub files_dir: PathBuf,
         pub files: Vec<PathBuf>,
         pub file_list: ListState<RowSelection>,
+
+        pub popup_pos: (u16, u16),
+        pub popup: PopupMenuState,
     }
 
     impl Default for FileListState {
@@ -1568,6 +1571,8 @@ pub mod file_list {
                 files_dir: Default::default(),
                 files: vec![],
                 file_list: ListState::named("file_list"),
+                popup_pos: (0, 0),
+                popup: Default::default(),
             }
         }
     }
@@ -1599,13 +1604,31 @@ pub mod file_list {
                 }))
                 .render(l_file_list[1], buf, &mut state.file_list);
 
+            if state.popup.active() {
+                PopupMenu::new()
+                    .styles(ctx.g.theme.menu_style())
+                    .block(Block::bordered())
+                    .placement(Placement::Right)
+                    .item_parsed("_New")
+                    .item_parsed("_Open")
+                    .item_parsed("_Delete")
+                    .boundary(state.file_list.area)
+                    .render(
+                        Rect::new(state.popup_pos.0, state.popup_pos.1, 0, 0),
+                        buf,
+                        &mut state.popup,
+                    );
+            }
+
             Ok(())
         }
     }
 
-    impl HasFocusFlag for FileListState {
-        fn focus(&self) -> FocusFlag {
-            self.file_list.focus()
+    impl HasFocus for FileListState {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder
+                .widget(&self.popup) //
+                .widget(&self.file_list);
         }
 
         fn area(&self) -> Rect {
@@ -1627,6 +1650,23 @@ pub mod file_list {
             event: &Event,
             ctx: &mut AppContext<'_, GlobalState, MDAction, Error>,
         ) -> Result<Control<MDAction>, Error> {
+            try_flow!(match self.popup.handle(event, Popup) {
+                MenuOutcome::Activated(0) => {
+                    Control::Message(MDAction::MenuNew)
+                }
+                MenuOutcome::Activated(1) => {
+                    if let Some(pos) = self.file_list.row_at_clicked(self.popup_pos) {
+                        Control::Message(MDAction::Open(self.files[pos].clone()))
+                    } else {
+                        Control::Changed
+                    }
+                }
+                MenuOutcome::Activated(2) => {
+                    Control::Message(MDAction::Message("buh".into()))
+                }
+                r => r.into(),
+            });
+
             if self.file_list.is_focused() {
                 try_flow!(match event {
                     ct_event!(keycode press Enter) => {
@@ -1647,6 +1687,13 @@ pub mod file_list {
                 });
             }
             try_flow!(match event {
+                ct_event!(mouse down Right for x,y)
+                    if self.file_list.area.contains(Position::new(*x, *y)) =>
+                {
+                    self.popup_pos = (*x, *y);
+                    self.popup.set_active(true);
+                    Control::Changed
+                }
                 ct_event!(mouse any for m)
                     if self.file_list.mouse.doubleclick(self.file_list.area, m) =>
                 {
@@ -1808,7 +1855,7 @@ pub mod mdedit {
 
     impl HasFocus for MDEditState {
         fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(&self.file_list);
+            builder.container(&self.file_list);
             builder.container(&self.split_tab);
         }
     }
@@ -2111,6 +2158,12 @@ pub mod mdedit {
         // Save all.
         pub fn save(&mut self) -> Result<(), Error> {
             self.split_tab.save()?;
+
+            self.file_list.load(&self.file_list.files_dir.clone())?;
+            if let Some((_, mdfile)) = self.split_tab.selected() {
+                self.file_list.select(&mdfile.path)?;
+            }
+
             Ok(())
         }
 
@@ -2149,7 +2202,7 @@ pub mod mdedit {
                 r = Control::Changed;
             }
             if !self.file_list.is_focused() {
-                ctx.focus().focus(&self.file_list);
+                ctx.focus().focus(&self.file_list.file_list);
                 r = Control::Changed;
             } else {
                 if let Some((_, last_edit)) = self.split_tab.selected() {
