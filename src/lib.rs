@@ -3,11 +3,7 @@
 #![doc = include_str!("../readme.md")]
 
 use crossbeam::channel::{SendError, Sender};
-use rat_widget::button::ButtonOutcome;
-use rat_widget::event::{
-    CalOutcome, ConsumedEvent, DoubleClickOutcome, EditOutcome, FileOutcome, MenuOutcome, Outcome,
-    ScrollOutcome, TabbedOutcome, TextOutcome,
-};
+use rat_widget::event::{ConsumedEvent, Outcome};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::cmp::Ordering;
@@ -134,73 +130,14 @@ impl<Message> ConsumedEvent for Control<Message> {
     }
 }
 
-impl<Message> From<Outcome> for Control<Message> {
-    fn from(value: Outcome) -> Self {
-        match value {
+impl<Message, T: Into<Outcome>> From<T> for Control<Message> {
+    fn from(value: T) -> Self {
+        let r = value.into();
+        match r {
             Outcome::Continue => Control::Continue,
             Outcome::Unchanged => Control::Unchanged,
             Outcome::Changed => Control::Changed,
         }
-    }
-}
-
-impl<Message> From<bool> for Control<Message> {
-    fn from(value: bool) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<MenuOutcome> for Control<Message> {
-    fn from(value: MenuOutcome) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<ButtonOutcome> for Control<Message> {
-    fn from(value: ButtonOutcome) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<TextOutcome> for Control<Message> {
-    fn from(value: TextOutcome) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<ScrollOutcome> for Control<Message> {
-    fn from(value: ScrollOutcome) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<DoubleClickOutcome> for Control<Message> {
-    fn from(value: DoubleClickOutcome) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<EditOutcome> for Control<Message> {
-    fn from(value: EditOutcome) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<FileOutcome> for Control<Message> {
-    fn from(value: FileOutcome) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<TabbedOutcome> for Control<Message> {
-    fn from(value: TabbedOutcome) -> Self {
-        Outcome::from(value).into()
-    }
-}
-
-impl<Message> From<CalOutcome> for Control<Message> {
-    fn from(value: CalOutcome) -> Self {
-        Outcome::from(value).into()
     }
 }
 
