@@ -121,7 +121,7 @@ mod root {
     use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::focus::build_focus;
+    use rat_widget::focus::FocusBuilder;
     use rat_widget::statusline::StatusLine;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -214,7 +214,7 @@ mod root {
             });
 
             // keyboard + mouse focus
-            ctx.focus = Some(build_focus(&self.app));
+            ctx.focus = Some(FocusBuilder::for_container(&self.app));
 
             let r = self.app.crossterm(event, ctx)?;
 
@@ -233,7 +233,7 @@ mod root {
         ) -> Result<Control<MDAction>, Error> {
             let t0 = SystemTime::now();
 
-            ctx.focus = Some(build_focus(&self.app));
+            ctx.focus = Some(FocusBuilder::for_container(&self.app));
 
             let r = self.app.message(event, ctx)?;
 
@@ -2123,6 +2123,11 @@ pub mod mdedit {
             };
             self.split_tab.open(pos, new, ctx);
             self.split_tab.select(pos, ctx);
+
+            if let Some(parent) = path.parent() {
+                self.file_list.load(parent)?;
+            }
+            self.file_list.select(path)?;
 
             Ok(())
         }

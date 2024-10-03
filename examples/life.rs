@@ -194,7 +194,7 @@ pub mod app {
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent};
-    use rat_widget::focus::{build_focus, rebuild_focus};
+    use rat_widget::focus::FocusBuilder;
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::statusline::StatusLine;
     use ratatui::buffer::Buffer;
@@ -281,7 +281,7 @@ pub mod app {
 
     impl AppState<GlobalState, LifeMsg, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(build_focus(&self.life));
+            ctx.focus = Some(FocusBuilder::for_container(&self.life));
             self.life.init(ctx)?;
             Ok(())
         }
@@ -293,7 +293,7 @@ pub mod app {
         ) -> Result<Control<LifeMsg>, Error> {
             let t0 = SystemTime::now();
 
-            ctx.focus = Some(rebuild_focus(&self.life, ctx.focus.take()));
+            ctx.focus = Some(FocusBuilder::rebuild(&self.life, ctx.focus.take()));
             let r = self.life.timer(event, ctx)?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -327,7 +327,7 @@ pub mod app {
             });
 
             r = r.or_else_try(|| {
-                ctx.focus = Some(rebuild_focus(&self.life, ctx.focus.take()));
+                ctx.focus = Some(FocusBuilder::rebuild(&self.life, ctx.focus.take()));
                 self.life.crossterm(&event, ctx)
             })?;
 
@@ -351,7 +351,7 @@ pub mod app {
                     Control::Changed
                 }
                 _ => {
-                    ctx.focus = Some(rebuild_focus(&self.life, ctx.focus.take()));
+                    ctx.focus = Some(FocusBuilder::rebuild(&self.life, ctx.focus.take()));
                     self.life.message(event, ctx)?
                 }
             };

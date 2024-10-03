@@ -1,7 +1,7 @@
-use crate::app::{Scenery, SceneryState};
 use crate::config::MinimalConfig;
 use crate::global::GlobalState;
 use crate::message::MinimalMsg;
+use crate::scenery::{Scenery, SceneryState};
 
 use anyhow::Error;
 use rat_salsa::{run_tui, RunConfig};
@@ -73,7 +73,7 @@ pub mod message {
     }
 }
 
-pub mod app {
+pub mod scenery {
     use crate::global::GlobalState;
     use crate::message::MinimalMsg;
     use crate::minimal::{Minimal, MinimalState};
@@ -84,7 +84,7 @@ pub mod app {
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent};
-    use rat_widget::focus::{build_focus, rebuild_focus};
+    use rat_widget::focus::FocusBuilder;
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::statusline::StatusLine;
     use ratatui::buffer::Buffer;
@@ -141,7 +141,7 @@ pub mod app {
 
     impl AppState<GlobalState, MinimalMsg, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(build_focus(&self.minimal));
+            ctx.focus = Some(FocusBuilder::for_container(&self.minimal));
             self.minimal.init(ctx)?;
             Ok(())
         }
@@ -153,7 +153,7 @@ pub mod app {
         ) -> Result<Control<MinimalMsg>, Error> {
             let t0 = SystemTime::now();
 
-            ctx.focus = Some(rebuild_focus(&self.minimal, ctx.focus.take()));
+            ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
             let r = self.minimal.timer(event, ctx)?;
 
             let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -184,7 +184,7 @@ pub mod app {
             });
 
             r = r.or_else_try(|| {
-                ctx.focus = Some(rebuild_focus(&self.minimal, ctx.focus.take()));
+                ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
                 self.minimal.crossterm(&event, ctx)
             })?;
 
@@ -208,7 +208,7 @@ pub mod app {
                     Control::Changed
                 }
                 _ => {
-                    ctx.focus = Some(rebuild_focus(&self.minimal, ctx.focus.take()));
+                    ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
                     self.minimal.message(event, ctx)?
                 }
             };

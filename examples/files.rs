@@ -17,7 +17,7 @@ use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Outcome,
     Popup, ReadOnly, Regular,
 };
-use rat_widget::focus::{match_focus, rebuild_focus, FocusBuilder, HasFocus, HasFocusFlag};
+use rat_widget::focus::{match_focus, FocusBuilder, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menu::{MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -491,7 +491,7 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
             }
         });
 
-        ctx.focus = Some(rebuild_focus(self, ctx.focus.take()));
+        ctx.focus = Some(FocusBuilder::rebuild(self, ctx.focus.take()));
         let f = ctx.focus_mut().handle(event, Regular);
         ctx.queue(f);
 
