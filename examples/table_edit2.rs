@@ -10,7 +10,7 @@ use log::debug;
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{build_focus, match_focus, FocusBuilder, HasFocus};
+use rat_focus::{match_focus, FocusBuilder, HasFocus};
 use rat_ftable::edit::vec::{EditVec, EditVecState, EditorData};
 use rat_ftable::edit::{Editor, EditorState};
 use rat_ftable::textdata::{Cell, Row};
@@ -233,7 +233,7 @@ fn handle_table(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    let f = build_focus(state).handle(event, Regular);
+    let f = FocusBuilder::for_container(state).handle(event, Regular);
 
     let mut r = Outcome::Continue;
     r = r.or_else(|| state.text1.handle(event, Regular).into());
@@ -364,7 +364,7 @@ impl HasScreenCursor for SampleEditorState {
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SampleEditorState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
-        let f = build_focus(self).handle(event, Regular);
+        let f = FocusBuilder::for_container(self).handle(event, Regular);
 
         let mut r = Outcome::Continue;
         r = r.or_else(|| self.text.handle(event, Regular).into());

@@ -9,7 +9,7 @@ use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{build_focus, match_focus, ContainerFlag, FocusBuilder, HasFocus};
+use rat_focus::{match_focus, ContainerFlag, FocusBuilder, HasFocus};
 use rat_ftable::edit::table::{EditTable, EditTableState};
 use rat_ftable::edit::{Editor, EditorState};
 use rat_ftable::event::EditOutcome;
@@ -233,7 +233,7 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    let f = build_focus(state).handle(event, Regular);
+    let f = FocusBuilder::for_container(state).handle(event, Regular);
 
     let mut r = Outcome::Continue;
     r = r.or_else(|| state.text1.handle(event, Regular).into());
@@ -459,7 +459,7 @@ impl<'a> HandleEvent<crossterm::event::Event, &'a MiniSalsaState, EditOutcome>
     for SampleEditorState
 {
     fn handle(&mut self, event: &crossterm::event::Event, _ctx: &'a MiniSalsaState) -> EditOutcome {
-        let f = build_focus(self).handle(event, Regular);
+        let f = FocusBuilder::for_container(self).handle(event, Regular);
 
         let mut r = Outcome::Continue;
         r = r.or_else(|| self.text.handle(event, Regular).into());

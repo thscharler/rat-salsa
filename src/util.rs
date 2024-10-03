@@ -1,6 +1,6 @@
 #[allow(unused_imports)]
 use log::debug;
-use ratatui::buffer::Buffer;
+use ratatui::buffer::{Buffer, Cell};
 use ratatui::layout::Rect;
 use ratatui::prelude::Widget;
 use ratatui::style::{Style, Stylize};
@@ -43,6 +43,19 @@ pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Int
                 cell.set_symbol(symbol);
                 cell.set_style(style);
             }
+        }
+    }
+}
+
+/// Copy a tmp buffer to another buffer.
+///
+/// Both buffers must be the same size.
+/// Only cells that are not empty are copied.
+pub fn view_buffer(buffer: &Buffer, to_buffer: &mut Buffer) {
+    assert_eq!(buffer.area, to_buffer.area);
+    for (idx, cell) in buffer.content.iter().enumerate() {
+        if cell != &Cell::EMPTY {
+            to_buffer.content[idx] = cell.clone();
         }
     }
 }
