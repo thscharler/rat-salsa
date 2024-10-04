@@ -9,9 +9,20 @@
    
 3. [Events](./events.md)
    
+   1. [Widgets](./events_widget.md)
+      
+   2. [Widgets 2](./events_widget2.md)
+      
+   3. [match Event](./events_match.md)
+      
+   4. [Event control flow](./events_control_flow.md)
+      
+   5. [Event control flow 2](./events_control_flow2.md)
+      
 4. [Focus](./focus.md)
    
    1. [Combining outcomes](./combining_outcomes.md)
+   
 5. [Widgets](./widgets)
    
    1. [Extensions](./widget-extensions)
