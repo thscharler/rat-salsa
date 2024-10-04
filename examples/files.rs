@@ -473,12 +473,10 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
         event: &crossterm::event::Event,
         ctx: &mut AppContext<'_>,
     ) -> Result<Control<FilesAction>, Error> {
-        use crossterm::event::*;
-
         let t0 = SystemTime::now();
 
         try_flow!(match &event {
-            Event::Resize(_, _) => Control::Changed,
+            ct_event!(resized) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
             _ => Control::Continue,
         });
@@ -775,14 +773,7 @@ impl FilesState {
                     }
                     let mut fff = Vec::new();
                     for f in r {
-                        let cancel = {
-                            if let Ok(guard) = can.lock() {
-                                *guard
-                            } else {
-                                true
-                            }
-                        };
-                        if cancel {
+                        if can.is_canceled() {
                             return Ok(Control::Continue);
                         }
 
@@ -877,9 +868,7 @@ impl FilesState {
         if let Some(file) = file {
             if file.is_file() {
                 if let Some(cancel_show) = &self.cancel_show {
-                    if let Ok(mut cancel_guard) = cancel_show.lock() {
-                        *cancel_guard = true;
-                    }
+                    cancel_show.cancel();
                 }
 
                 let cancel_show = ctx.spawn(move |can, snd| match fs::read(&file) {
@@ -969,10 +958,8 @@ impl FilesState {
                 }
 
                 if v.len() / 1_000_000 > mega {
-                    if let Ok(can_guard) = can.lock() {
-                        if *can_guard {
-                            return Ok("!Canceled!".to_string());
-                        }
+                    if can.is_canceled() {
+                        return Ok("!Canceled!".to_string());
                     }
 
                     mega = v.len() / 1_000_000;
