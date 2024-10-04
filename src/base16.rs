@@ -1,16 +1,33 @@
 use crate::Scheme;
+use ratatui::prelude::Color;
 
 /// Base 16
 ///
-///
+/// Uses the classic 16 vga colors.
+/// No gradients.
 ///
 pub const BASE16: Scheme = Scheme {
     primary: Scheme::linear4(0x00aa00, 0x00aa00),
     secondary: Scheme::linear4(0x00aaaa, 0x00aaaa),
 
-    white: Scheme::linear4(0xaaaaaa, 0xffffff),
-    gray: Scheme::linear4(0x555555, 0xaaaaaa),
-    black: Scheme::linear4(0x000000, 0x555555),
+    white: [
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xff, 0xff, 0xff),
+        Color::Rgb(0xff, 0xff, 0xff),
+    ],
+    gray: [
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+        Color::Rgb(0xaa, 0xaa, 0xaa),
+    ],
+    black: [
+        Color::Rgb(0x00, 0x00, 0x00),
+        Color::Rgb(0x00, 0x00, 0x00),
+        Color::Rgb(0x55, 0x55, 0x55),
+        Color::Rgb(0x55, 0x55, 0x55),
+    ],
 
     red: Scheme::linear4(0xaa0000, 0xaa0000),
     orange: Scheme::linear4(0xaa5500, 0xaa5500),

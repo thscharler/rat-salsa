@@ -1,7 +1,9 @@
 use crate::Scheme;
 
 /// Base 16 colors as a Scheme.
-/// A bit relaxed though.
+///
+/// A bit relaxed though, providing a gradient for each color.
+///
 pub const BASE16_RELAXED: Scheme = Scheme {
     primary: Scheme::linear4(0x00aa00, 0x57ff57),
     secondary: Scheme::linear4(0x00aaaa, 0x57ffff),
