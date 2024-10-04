@@ -1,3 +1,11 @@
+//!
+//! Copies the menu-structure of Turbo Pascal 7.0.
+//!
+//! and mimics the style. Turns out the base16 theme doesn't
+//! look too bad.
+//!
+//!
+
 use crate::app::{Scenery, SceneryState};
 use crate::config::TurboConfig;
 use crate::global::GlobalState;
