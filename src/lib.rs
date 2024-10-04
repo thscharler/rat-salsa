@@ -23,6 +23,7 @@ mod text_store;
 
 pub use grapheme::{Glyph, Grapheme};
 
+pub use pure_rust_locales::Locale;
 pub use rat_cursor::HasScreenCursor;
 
 pub mod event {
