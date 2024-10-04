@@ -6,6 +6,7 @@ use crate::Control;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
 use log::debug;
 use std::fmt::Debug;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
 use std::thread::JoinHandle;
 use std::{mem, thread};
@@ -17,7 +18,22 @@ type BoxTask<Message, Error> = Box<
 >;
 
 /// Type for cancellation.
-pub type Cancel = Arc<Mutex<bool>>;
+#[derive(Debug, Default, Clone)]
+pub struct Cancel(Arc<AtomicBool>);
+
+impl Cancel {
+    pub fn new() -> Self {
+        Self(Arc::new(AtomicBool::new(false)))
+    }
+
+    pub fn is_canceled(&self) -> bool {
+        self.0.load(Ordering::Acquire)
+    }
+
+    pub fn cancel(&self) {
+        self.0.store(true, Ordering::Release);
+    }
+}
 
 /// Basic thread-pool.
 ///
@@ -94,8 +110,8 @@ where
             return Err(SendError(()));
         }
 
-        let cancel = Arc::new(Mutex::new(false));
-        match self.send.send((Arc::clone(&cancel), task)) {
+        let cancel = Cancel::new();
+        match self.send.send((cancel.clone(), task)) {
             Ok(_) => Ok(cancel),
             Err(_) => Err(SendError(())),
         }
