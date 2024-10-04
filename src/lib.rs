@@ -243,15 +243,10 @@ where
 pub struct RenderContext<'a, Global> {
     /// Some global state for the application.
     pub g: &'a mut Global,
-    /// Current timeout that triggered the repaint.
-    pub timeout: Option<TimeOut>,
     /// Frame counter.
     pub count: usize,
     /// Output cursor position. Set after rendering is complete.
     pub cursor: Option<(u16, u16)>,
-
-    /// Application timers.
-    pub(crate) timers: &'a Timers,
 }
 
 impl<'a, Global, Message, Error> AppContext<'a, Global, Message, Error>
@@ -310,13 +305,13 @@ where
     /// Queue additional results.
     #[inline]
     pub fn queue(&self, ctrl: impl Into<Control<Message>>) {
-        self.queue.push(Ok(ctrl.into()), None);
+        self.queue.push(Ok(ctrl.into()));
     }
 
     /// Queue an error.
     #[inline]
     pub fn queue_err(&self, err: Error) {
-        self.queue.push(Err(err), None);
+        self.queue.push(Err(err));
     }
 
     /// Access the focus-field.
@@ -339,27 +334,6 @@ where
 }
 
 impl<'a, Global> RenderContext<'a, Global> {
-    /// Add a timer.
-    #[inline]
-    pub fn add_timer(&self, t: TimerDef) -> TimerHandle {
-        self.timers.add(t)
-    }
-
-    /// Remove a timer.
-    #[inline]
-    pub fn remove_timer(&self, tag: TimerHandle) {
-        self.timers.remove(tag)
-    }
-
-    /// Replace a timer.
-    #[inline]
-    pub fn replace_timer(&self, h: Option<TimerHandle>, t: TimerDef) -> TimerHandle {
-        if let Some(h) = h {
-            self.remove_timer(h);
-        }
-        self.add_timer(t)
-    }
-
     /// Set the cursor, if the given value is Some.
     pub fn set_screen_cursor(&mut self, cursor: Option<(u16, u16)>) {
         if let Some(c) = cursor {

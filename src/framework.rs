@@ -44,24 +44,19 @@ where
     state.init(&mut appctx)?;
 
     // initial render
-    term.render(
-        &mut |frame, timeout| {
-            let mut ctx = RenderContext {
-                g: appctx.g,
-                timeout,
-                timers: appctx.timers,
-                count: frame.count(),
-                cursor: None,
-            };
-            let frame_area = frame.area();
-            app.render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
-            if let Some((cursor_x, cursor_y)) = ctx.cursor {
-                frame.set_cursor_position((cursor_x, cursor_y));
-            }
-            Ok(())
-        },
-        None,
-    )?;
+    term.render(&mut |frame| {
+        let mut ctx = RenderContext {
+            g: appctx.g,
+            count: frame.count(),
+            cursor: None,
+        };
+        let frame_area = frame.area();
+        app.render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
+        if let Some((cursor_x, cursor_y)) = ctx.cursor {
+            frame.set_cursor_position((cursor_x, cursor_y));
+        }
+        Ok(())
+    })?;
 
     'ui: loop {
         // panic on worker panic
@@ -82,7 +77,7 @@ where
                         }
                         Ok(false) => {}
                         Err(e) => {
-                            appctx.queue.push(Err(e), None);
+                            queue.push(Err(e));
                         }
                     }
                 }
@@ -111,54 +106,45 @@ where
         if queue.is_empty() {
             if let Some(h) = poll_queue.take() {
                 let r = poll[h].read_exec(state, &mut appctx);
-                let t = poll[h].timeout();
-                appctx.queue.push(r, t);
+                queue.push(r);
             }
         }
 
         // Result of event-handling.
-        if let Some(n) = queue.take() {
-            match n.ctrl {
+        if let Some(ctrl) = queue.take() {
+            match ctrl {
                 Err(e) => {
                     let r = state.error(e, &mut appctx);
-                    appctx.queue.push(r, None);
+                    queue.push(r);
                 }
                 Ok(Control::Continue) => {}
                 Ok(Control::Unchanged) => {}
                 Ok(Control::Changed) => {
-                    if let Err(e) = term.render(
-                        &mut |frame, timeout| {
-                            let mut ctx = RenderContext {
-                                g: appctx.g,
-                                timeout,
-                                timers: appctx.timers,
-                                count: frame.count(),
-                                cursor: None,
-                            };
-                            let frame_area = frame.area();
-                            app.render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
-                            if let Some((cursor_x, cursor_y)) = ctx.cursor {
-                                frame.set_cursor_position((cursor_x, cursor_y));
-                            }
-                            Ok(())
-                        },
-                        n.timeout,
-                    ) {
-                        appctx.queue.push(Err(e), None);
+                    if let Err(e) = term.render(&mut |frame| {
+                        let mut ctx = RenderContext {
+                            g: appctx.g,
+                            count: frame.count(),
+                            cursor: None,
+                        };
+                        let frame_area = frame.area();
+                        app.render(frame_area, frame.buffer_mut(), state, &mut ctx)?;
+                        if let Some((cursor_x, cursor_y)) = ctx.cursor {
+                            frame.set_cursor_position((cursor_x, cursor_y));
+                        }
+                        Ok(())
+                    }) {
+                        queue.push(Err(e));
                     }
                 }
                 Ok(Control::Message(mut a)) => {
                     let r = state.message(&mut a, &mut appctx);
-                    appctx.queue.push(r, None);
+                    queue.push(r);
                 }
                 Ok(Control::Quit) => {
                     break 'ui;
                 }
             }
         }
-
-        // reset some appctx data
-        appctx.focus = None;
     }
 
     Ok(())

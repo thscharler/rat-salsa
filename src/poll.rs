@@ -2,7 +2,7 @@
 //! Defines the trait for event-sources.
 //!
 
-use crate::timer::{TimeOut, TimerEvent};
+use crate::timer::TimerEvent;
 use crate::{AppContext, AppState, Control};
 use crossbeam::channel::TryRecvError;
 use std::fmt::Debug;
@@ -43,12 +43,6 @@ where
         state: &mut State,
         ctx: &mut AppContext<'_, Global, Message, Error>,
     ) -> Result<Control<Message>, Error>;
-
-    /// The timer needs a side-channel for the repaint-Timeout.
-    /// This is it.
-    fn timeout(&mut self) -> Option<TimeOut> {
-        None
-    }
 }
 
 /// Processes results from background tasks.
@@ -76,9 +70,7 @@ where
 
 /// Processes timers.
 #[derive(Debug, Default)]
-pub struct PollTimers {
-    timeout: Option<TimeOut>,
-}
+pub struct PollTimers;
 
 impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollTimers
 where
@@ -97,16 +89,8 @@ where
     ) -> Result<Control<Message>, Error> {
         match ctx.timers.read() {
             None => Ok(Control::Continue),
-            Some(TimerEvent::Repaint(t)) => {
-                self.timeout = Some(t);
-                Ok(Control::Changed)
-            }
-            Some(TimerEvent::Application(t)) => state.timer(&t, ctx),
+            Some(TimerEvent(t)) => state.timer(&t, ctx),
         }
-    }
-
-    fn timeout(&mut self) -> Option<TimeOut> {
-        self.timeout.take()
     }
 }
 

@@ -7,7 +7,7 @@ use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRec
 use log::debug;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex};
+use std::sync::Arc;
 use std::thread::JoinHandle;
 use std::{mem, thread};
 

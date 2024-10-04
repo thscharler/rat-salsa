@@ -1,5 +1,5 @@
 //!
-//! Support for application and repaint timers.
+//! Support for timers.
 //!
 
 #[allow(unused_imports)]
@@ -21,7 +21,6 @@ pub struct TimerHandle(usize);
 #[derive(Debug)]
 struct TimerImpl {
     tag: usize,
-    repaint: bool,
     count: usize,
     repeat: Option<usize>,
     next: Instant,
@@ -57,27 +56,22 @@ impl Timers {
     /// Polls for the next timer event.
     /// Removes/recalculates the event and reorders the queue.
     pub(crate) fn read(&self) -> Option<TimerEvent> {
-        let timer = self.timers.borrow_mut().pop();
+        let mut timers = self.timers.borrow_mut();
+
+        let timer = timers.pop();
         if let Some(mut timer) = timer {
             if Instant::now() >= timer.next {
-                let evt = if timer.repaint {
-                    TimerEvent::Repaint(TimeOut {
-                        handle: TimerHandle(timer.tag),
-                        counter: timer.count,
-                    })
-                } else {
-                    TimerEvent::Application(TimeOut {
-                        handle: TimerHandle(timer.tag),
-                        counter: timer.count,
-                    })
-                };
+                let evt = TimerEvent(TimeOut {
+                    handle: TimerHandle(timer.tag),
+                    counter: timer.count,
+                });
 
                 // reschedule
                 if let Some(repeat) = timer.repeat {
                     timer.count += 1;
                     if timer.count < repeat {
                         timer.next += timer.timer;
-                        self.add_impl(timer);
+                        Self::add_impl(timers.as_mut(), timer);
                     }
                 }
 
@@ -91,8 +85,7 @@ impl Timers {
         }
     }
 
-    fn add_impl(&self, t: TimerImpl) {
-        let mut timers = self.timers.borrow_mut();
+    fn add_impl(timers: &mut Vec<TimerImpl>, t: TimerImpl) {
         'f: {
             for i in 0..timers.len() {
                 if timers[i].next <= t.next {
@@ -113,7 +106,6 @@ impl Timers {
         let t = TimerImpl {
             tag,
             count: 0,
-            repaint: t.repaint,
             repeat: t.repeat,
             next: if let Some(next) = t.next {
                 next
@@ -122,7 +114,9 @@ impl Timers {
             },
             timer: t.timer,
         };
-        self.add_impl(t);
+
+        let mut timers = self.timers.borrow_mut();
+        Self::add_impl(timers.as_mut(), t);
 
         TimerHandle(tag)
     }
@@ -148,17 +142,11 @@ pub struct TimeOut {
 
 /// Timer event.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum TimerEvent {
-    /// Repaint timer.
-    Repaint(TimeOut),
-    Application(TimeOut),
-}
+pub struct TimerEvent(pub TimeOut);
 
 /// Holds the information to start a timer.
 #[derive(Debug, Default)]
 pub struct TimerDef {
-    /// Triggers a RepaintEvent.
-    repaint: bool,
     /// Optional repeat.
     repeat: Option<usize>,
     /// Duration
@@ -172,9 +160,9 @@ impl TimerDef {
         Default::default()
     }
 
-    /// Does this timer trigger a repaint or is it an application timer.
-    pub fn repaint(mut self, repaint: bool) -> Self {
-        self.repaint = repaint;
+    /// Repeat forever.
+    pub fn repeat_forever(mut self) -> Self {
+        self.repeat = Some(usize::MAX);
         self
     }
 

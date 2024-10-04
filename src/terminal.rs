@@ -2,7 +2,6 @@
 //! Defines the trait RenderUI to hide the different rendering backends.
 //!
 
-use crate::timer::TimeOut;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
@@ -44,8 +43,7 @@ where
     #[allow(clippy::type_complexity)]
     fn render(
         &mut self,
-        f: &mut dyn FnMut(&mut Frame<'_>, Option<TimeOut>) -> Result<(), Error>,
-        timeout: Option<TimeOut>,
+        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<(), Error>,
     ) -> Result<(), Error>
     where
         Error: From<io::Error>;
@@ -100,15 +98,14 @@ where
     #[allow(clippy::needless_lifetimes)]
     fn render(
         &mut self,
-        f: &mut dyn FnMut(&mut Frame<'_>, Option<TimeOut>) -> Result<(), Error>,
-        timeout: Option<TimeOut>,
+        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<(), Error>,
     ) -> Result<(), Error>
     where
         Error: From<io::Error>,
     {
         let mut res = Ok(());
         _ = self.term.hide_cursor();
-        self.term.draw(|frame| res = f(frame, timeout))?;
+        self.term.draw(|frame| res = f(frame))?;
         res
     }
 }
