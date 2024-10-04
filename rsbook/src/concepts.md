@@ -48,7 +48,11 @@ All of this is orchestrated with the [Control enum][refControl].
 
 [refRenderContext]: https://docs.rs/rat-salsa/latest/rat_salsa/struct.RenderContext.html
 
+[refAppContext]: https://docs.rs/rat-salsa/latest/rat_salsa/struct.AppContext.html
+
 [refAppWidget]: https://docs.rs/rat-salsa/latest/rat_salsa/trait.AppWidget.html
+
+[refAppState]: https://docs.rs/rat-salsa/latest/rat_salsa/trait.AppState.html 
 
 [refRunTui]: https://docs.rs/rat-salsa/latest/rat_salsa/fn.run_tui.html
 
@@ -56,14 +60,4 @@ All of this is orchestrated with the [Control enum][refControl].
 
 [refRatWidget]: https://docs.rs/rat-widget/latest/rat_widget/
 
-[refAppState]: https://docs.rs/rat-salsa/latest/rat_salsa/trait.AppState.html 
 
-[refAppWidget]: https://docs.rs/rat-salsa/latest/rat_salsa/trait.AppWidget.html
-
-[refAppState]: https://docs.rs/rat-salsa/latest/rat_salsa/trait.AppState.html
-
-[refRenderContext]: https://docs.rs/rat-salsa/latest/rat_salsa/struct.RenderContext.html
-
-[refRunTui]: https://docs.rs/rat-salsa/latest/rat_salsa/fn.run_tui.html
-
-[refControl]: https://docs.rs/rat-salsa/latest/rat_salsa/enum.Control.html

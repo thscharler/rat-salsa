@@ -6,13 +6,13 @@
 1. [Concepts](./concepts.md)
    
 2. [minimal.rs](./minimal.md)
-
-1. [Events](./events)
    
-3. [Focus](./focus)
+3. [Events](./events.md)
+   
+4. [Focus](./focus.md)
    
    1. [Combining outcomes](./combining_outcomes.md)
-4. [Widgets](./widgets)
+5. [Widgets](./widgets)
    
    1. [Extensions](./widget-extensions)
       
