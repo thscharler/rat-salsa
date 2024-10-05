@@ -285,7 +285,7 @@ fn render_menu_popup(
         }
         structure.submenu(selected, &mut popup.menu);
 
-        if popup.menu.items.len() > 0 {
+        if !popup.menu.items.is_empty() {
             let area = state.bar.item_areas[selected];
             popup.render(area, buf, &mut state.popup);
 

@@ -140,6 +140,7 @@ impl<'a> PopupMenu<'a> {
         };
         let height = self.menu.items.iter().map(MenuItem::height).sum::<u16>();
 
+        #[allow(clippy::if_same_then_else)]
         let vertical_margin = if self.block_indent { 1 } else { 1 };
         let horizontal_margin = if self.block_indent { 2 } else { 1 };
         let horizontal_offset_sep = if self.block_indent { 1 } else { 0 };
@@ -411,6 +412,7 @@ fn render_ref(
     for (n, item) in widget.menu.items.iter().enumerate() {
         let mut item_area = state.item_areas[n];
 
+        #[allow(clippy::collapsible_else_if)]
         let (style, right_style) = if state.selected == Some(n) {
             if item.disabled {
                 (disabled_style, disabled_style.patch(right_style))
@@ -617,6 +619,7 @@ impl PopupMenuState {
     pub fn navigate(&mut self, c: char) -> MenuOutcome {
         let c = c.to_ascii_lowercase();
         for (i, cc) in self.navchar.iter().enumerate() {
+            #[allow(clippy::collapsible_if)]
             if *cc == Some(c) {
                 if !self.disabled[i] {
                     if self.selected == Some(i) {

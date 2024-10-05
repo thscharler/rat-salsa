@@ -197,6 +197,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         .collect();
     state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
 
+    #[allow(clippy::collapsible_else_if)]
     let focus_style = if state.is_focused() {
         if let Some(focus_style) = widget.focus_style {
             focus_style
@@ -252,6 +253,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         }
         state.item_areas.push(item_area);
 
+        #[allow(clippy::collapsible_else_if)]
         let (style, right_style) = if state.selected == Some(n) {
             if item.disabled {
                 (disabled_style, disabled_style.patch(right_style))
@@ -408,6 +410,7 @@ impl MenuLineState {
     pub fn navigate(&mut self, c: char) -> MenuOutcome {
         let c = c.to_ascii_lowercase();
         for (i, cc) in self.navchar.iter().enumerate() {
+            #[allow(clippy::collapsible_if)]
             if *cc == Some(c) {
                 if !self.disabled[i] {
                     if self.selected == Some(i) {

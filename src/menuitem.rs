@@ -111,7 +111,7 @@ impl<'a> MenuItem<'a> {
     /// New with owned string as item text.
     pub fn new_string(text: String) -> Self {
         Self {
-            item: Cow::Owned(text.into()),
+            item: Cow::Owned(text),
             highlight: None,
             navchar: None,
             right: Default::default(),
@@ -203,6 +203,8 @@ impl<'a> MenuItem<'a> {
     }
 }
 
+#[allow(clippy::needless_bool)]
+#[allow(clippy::if_same_then_else)]
 fn is_separator_str(s: &str) -> bool {
     if s == "_   " {
         true

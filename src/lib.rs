@@ -224,13 +224,13 @@ pub struct StaticMenu {
 impl MenuStructure<'static> for StaticMenu {
     fn menus(&'static self, menu: &mut MenuBuilder<'static>) {
         for (s, _) in self.menu.iter() {
-            menu.item_parsed(*s);
+            menu.item_parsed(s);
         }
     }
 
     fn submenu(&'static self, n: usize, submenu: &mut MenuBuilder<'static>) {
         for s in self.menu[n].1 {
-            submenu.item_parsed(*s);
+            submenu.item_parsed(s);
         }
     }
 }
