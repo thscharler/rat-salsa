@@ -378,6 +378,7 @@ mod app {
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{StatefulWidget, Style};
     use ratatui::widgets::{Block, BorderType, Padding};
+    use std::cmp::max;
     use std::str::from_utf8;
 
     #[derive(Debug)]
@@ -577,7 +578,7 @@ mod app {
 
             let f = Control::from(ctx.focus_mut().handle(event, Regular));
 
-            f.and_try(|| {
+            let r = {
                 // regular global
                 try_flow!(match &event {
                     ct_event!(keycode press Esc) => {
@@ -679,7 +680,9 @@ mod app {
                 });
 
                 Ok(Control::Continue)
-            })
+            }?;
+
+            Ok(max(f, r))
         }
 
         fn message(
@@ -695,7 +698,7 @@ mod app {
                 MDAction::MenuNew => {
                     ctx.g.file_dlg.engage(
                         |w| {
-                            w.save_dialog(".", "")?;
+                            w.save_dialog_ext(".", "", "md")?;
                             Ok(Control::Changed)
                         },
                         |p| Ok(Control::Message(MDAction::New(p))),
@@ -1690,7 +1693,7 @@ pub mod file_list {
                 ct_event!(mouse down Right for x,y)
                     if self.file_list.area.contains(Position::new(*x, *y)) =>
                 {
-                    self.popup_pos = (*x, *y);
+                    self.popup_pos = (*x, *y + 1);
                     self.popup.set_active(true);
                     Control::Changed
                 }
