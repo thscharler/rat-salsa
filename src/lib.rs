@@ -8,8 +8,6 @@
 #![allow(clippy::clone_on_copy)]
 #![allow(clippy::assigning_clones)]
 
-pub use pure_rust_locales::Locale;
-
 pub mod event {
     //!
     //! Event-handler traits and Keybindings.
@@ -61,8 +59,8 @@ pub mod text {
     pub use rat_text::core;
     pub use rat_text::undo_buffer;
     pub use rat_text::{
-        ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextPosition,
-        TextRange,
+        ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, Locale, TextError,
+        TextPosition, TextRange,
     };
 }
 

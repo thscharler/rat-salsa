@@ -1,5 +1,3 @@
-#[allow(unused_imports)]
-use log::debug;
 use ratatui::buffer::{Buffer, Cell};
 use ratatui::layout::Rect;
 use ratatui::prelude::Widget;

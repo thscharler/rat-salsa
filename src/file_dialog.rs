@@ -10,9 +10,8 @@ use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
 use crate::util::{fill_buf_area, revert_style};
+#[cfg(feature = "user_directories")]
 use directories_next::UserDirs;
-#[allow(unused_imports)]
-use log::debug;
 use rat_event::{
     ct_event, flow, try_flow, ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular,
 };
@@ -30,6 +29,7 @@ use std::ffi::OsString;
 use std::fmt::{Debug, Formatter};
 use std::path::{Path, PathBuf};
 use std::{fs, io};
+#[cfg(feature = "user_directories")]
 use sysinfo::Disks;
 
 /// Shows a file dialog.
@@ -757,17 +757,19 @@ impl FileDialogState {
 
     /// Append the default roots.
     pub fn default_roots(&mut self, start: &Path, last: &Path) {
-        if let Some(user) = UserDirs::new() {
-            if last.exists() {
-                self.roots.push((
-                    OsString::from("Last"), //
-                    last.into(),
-                ));
-            }
+        if last.exists() {
             self.roots.push((
-                OsString::from("Start"), //
-                start.into(),
+                OsString::from("Last"), //
+                last.into(),
             ));
+        }
+        self.roots.push((
+            OsString::from("Start"), //
+            start.into(),
+        ));
+
+        #[cfg(feature = "user_directories")]
+        if let Some(user) = UserDirs::new() {
             self.roots.push((
                 OsString::from("Home"), //
                 user.home_dir().to_path_buf(),
@@ -778,10 +780,13 @@ impl FileDialogState {
             }
         }
 
-        let disks = Disks::new_with_refreshed_list();
-        for d in disks.list() {
-            self.roots
-                .push((d.name().to_os_string(), d.mount_point().to_path_buf()));
+        #[cfg(feature = "user_directories")]
+        {
+            let disks = Disks::new_with_refreshed_list();
+            for d in disks.list() {
+                self.roots
+                    .push((d.name().to_os_string(), d.mount_point().to_path_buf()));
+            }
         }
 
         self.root_state.select(Some(0));
@@ -1262,7 +1267,7 @@ fn handle_roots(
     state: &mut FileDialogState,
     event: &crossterm::event::Event,
 ) -> Result<FileOutcome, io::Error> {
-    try_flow!(log root_state: match state.root_state.handle(event, Regular) {
+    try_flow!(match state.root_state.handle(event, Regular) {
         Outcome::Changed => {
             state.chroot_selected()?
         }

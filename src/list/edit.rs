@@ -5,8 +5,6 @@
 use crate::event::EditOutcome;
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListSelection, ListState};
-#[allow(unused_imports)]
-use log::debug;
 use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
