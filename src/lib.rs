@@ -297,12 +297,6 @@ impl FocusFlag {
 
     /// Has the focus.
     #[inline]
-    pub fn is_focused(&self) -> bool {
-        self.0.focus.get()
-    }
-
-    /// Has the focus.
-    #[inline]
     pub fn get(&self) -> bool {
         self.0.focus.get()
     }
