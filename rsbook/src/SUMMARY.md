@@ -21,8 +21,10 @@
       
 4. [Focus](./focus.md)
    
-   1. [Combining outcomes](./combining_outcomes.md)
-   
+   1. [Deeper](./focus_deeper.md)
+      
+   2. [Combining outcomes](./combining_outcomes.md)
+      
 5. [Widgets](./widgets)
    
    1. [Extensions](./widget-extensions)
