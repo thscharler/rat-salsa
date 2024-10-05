@@ -89,6 +89,7 @@ pub struct FileDialogState {
 
     path: PathBuf,
     save_name: Option<OsString>,
+    save_ext: Option<OsString>,
     dirs: Vec<OsString>,
     filter: Option<Box<dyn Fn(&Path) -> bool + 'static>>,
     files: Vec<OsString>,
@@ -214,6 +215,7 @@ impl Default for FileDialogState {
             mode: Mode::Open,
             path: Default::default(),
             save_name: None,
+            save_ext: None,
             dirs: vec![],
             filter: None,
             files: vec![],
@@ -800,6 +802,7 @@ impl FileDialogState {
         self.active = true;
         self.mode = Mode::Dir;
         self.save_name = None;
+        self.save_ext = None;
         self.dirs.clear();
         self.files.clear();
         self.path = Default::default();
@@ -826,6 +829,7 @@ impl FileDialogState {
         self.active = true;
         self.mode = Mode::Open;
         self.save_name = None;
+        self.save_ext = None;
         self.dirs.clear();
         self.files.clear();
         self.path = Default::default();
@@ -850,12 +854,23 @@ impl FileDialogState {
         path: impl AsRef<Path>,
         name: impl AsRef<str>,
     ) -> Result<(), io::Error> {
+        self.save_dialog_ext(path, name, "")
+    }
+
+    /// Show as save-dialog.
+    pub fn save_dialog_ext(
+        &mut self,
+        path: impl AsRef<Path>,
+        name: impl AsRef<str>,
+        ext: impl AsRef<str>,
+    ) -> Result<(), io::Error> {
         let path = path.as_ref();
         let old_path = self.path.clone();
 
         self.active = true;
         self.mode = Mode::Save;
         self.save_name = Some(OsString::from(name.as_ref()));
+        self.save_ext = Some(OsString::from(ext.as_ref()));
         self.dirs.clear();
         self.files.clear();
         self.path = Default::default();
@@ -1015,6 +1030,7 @@ impl FileDialogState {
         Ok(FileOutcome::Unchanged)
     }
 
+    /// Set the selected file to the new name field.
     fn name_selected(&mut self) -> Result<FileOutcome, io::Error> {
         if let Some(select) = self.file_state.selected() {
             if let Some(file) = self.files.get(select).cloned() {
@@ -1087,7 +1103,12 @@ impl FileDialogState {
                 }
             }
         } else if self.mode == Mode::Save {
-            let path = self.path.join(self.save_name_state.text().trim());
+            let mut path = self.path.join(self.save_name_state.text().trim());
+            if let Some(ext) = &self.save_ext {
+                if !ext.is_empty() {
+                    path.set_extension(ext);
+                }
+            }
             self.active = false;
             return FileOutcome::Ok(path);
         } else if self.mode == Mode::Dir {
