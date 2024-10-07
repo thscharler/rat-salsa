@@ -1,5 +1,5 @@
 use crate::focus::core::FocusCore;
-use crate::{ContainerFlag, FocusFlag, HasFocus, HasFocusFlag, Navigation};
+use crate::{FocusFlag, HasFocus, HasFocusFlag, Navigation};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 
 pub use core::FocusBuilder;
@@ -336,13 +336,14 @@ mod core {
     use crate::{ContainerFlag, Focus, FocusFlag, HasFocus, HasFocusFlag, Navigation, ZRect};
     use ratatui::layout::Rect;
     use std::cell::Cell;
-    use std::cmp::PartialEq;
     use std::ops::Range;
 
     /// Builder for the Focus.
     #[derive(Debug, Default)]
     pub struct FocusBuilder {
         last: FocusCore,
+
+        log: Cell<bool>,
 
         // new core
         focus_flags: Vec<FocusFlag>,
@@ -357,6 +358,7 @@ mod core {
             if let Some(last) = last {
                 Self {
                     last: last.core,
+                    log: Default::default(),
                     focus_flags: last.last.focus_flags,
                     areas: last.last.areas,
                     z_areas: last.last.z_areas,
@@ -366,6 +368,7 @@ mod core {
             } else {
                 Self {
                     last: FocusCore::default(),
+                    log: Default::default(),
                     focus_flags: vec![],
                     areas: vec![],
                     z_areas: vec![],
@@ -373,6 +376,11 @@ mod core {
                     containers: vec![],
                 }
             }
+        }
+
+        pub fn enable_log(self) -> Self {
+            self.log.set(true);
+            self
         }
 
         /// Add a container widget.
@@ -392,6 +400,8 @@ mod core {
             for c in &self.focus_flags {
                 assert_ne!(*c, widget.focus());
             }
+
+            focus_debug!(self.log, "widget {:?}", widget.focus());
 
             self.focus_flags.push(widget.focus());
             self.areas.push(widget.area());
@@ -426,6 +436,8 @@ mod core {
             }
             let container_flag = container_flag.unwrap_or_default();
 
+            focus_debug!(self.log, "start container {:?}", container_flag);
+
             let len = self.focus_flags.len();
             self.containers.push((
                 Container {
@@ -447,13 +459,16 @@ mod core {
                 return;
             };
 
-            for (c, _) in self.containers.iter_mut().rev() {
+            focus_debug!(self.log, "end container {:?}", container_flag);
+
+            for (c, r) in self.containers.iter_mut().rev() {
                 if c.container_flag != container_flag {
                     if !c.complete {
                         panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
                     }
                 } else {
                     c.complete = true;
+                    focus_debug!(self.log, "container range {:?}", r);
                     break;
                 }
             }
@@ -515,7 +530,7 @@ mod core {
         /// this function is probably fine.
         pub fn for_container(container: &dyn HasFocus) -> Focus {
             let mut b = FocusBuilder::new(None);
-            container.build(&mut b);
+            b.container(container);
             b.build()
         }
 
@@ -527,7 +542,7 @@ mod core {
         /// have their focus-flags reset.
         pub fn rebuild(container: &dyn HasFocus, old: Option<Focus>) -> Focus {
             let mut b = FocusBuilder::new(old);
-            container.build(&mut b);
+            b.container(container);
             b.build()
         }
     }
@@ -990,7 +1005,11 @@ mod core {
             focus_debug!(
                 self.log,
                 "first navigable {:?}",
-                self.focus_flags[start].name()
+                if start < self.focus_flags.len() {
+                    self.focus_flags[start].name()
+                } else {
+                    "nothing"
+                }
             );
             for n in start..self.focus_flags.len() {
                 if matches!(
