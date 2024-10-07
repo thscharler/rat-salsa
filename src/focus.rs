@@ -1,5 +1,5 @@
 use crate::focus::core::FocusCore;
-use crate::{FocusFlag, HasFocus, HasFocusFlag, Navigation};
+use crate::{ContainerFlag, FocusFlag, HasFocus, HasFocusFlag, Navigation};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 
 pub use core::FocusBuilder;
@@ -175,6 +175,16 @@ impl Focus {
         }
     }
 
+    /// Focus the first widget of a given container.
+    pub fn focus_container(&self, container: &'_ dyn HasFocus) {
+        focus_debug!(self.core.log, "container focus");
+        if let Some(flag) = container.container() {
+            self.core.first_container(flag);
+        } else {
+            focus_debug!(self.core.log, "no container id");
+        }
+    }
+
     /// Sets the focus to the widget with the given flag.
     ///
     /// Sets focus and gained but not lost.
@@ -326,6 +336,7 @@ mod core {
     use crate::{ContainerFlag, Focus, FocusFlag, HasFocus, HasFocusFlag, Navigation, ZRect};
     use ratatui::layout::Rect;
     use std::cell::Cell;
+    use std::cmp::PartialEq;
     use std::ops::Range;
 
     /// Builder for the Focus.
@@ -789,6 +800,24 @@ mod core {
                 self.__focus(n, true);
             } else {
                 focus_debug!(self.log, "    -> no navigable widget");
+            }
+            self.__accumulate();
+        }
+
+        /// Set the initial focus.
+        pub(super) fn first_container(&self, container: ContainerFlag) {
+            self.__start_change(true);
+            for (c, r) in self.containers.iter() {
+                if c.container_flag == container {
+                    if let Some(n) = self.first_navigable(r.start) {
+                        if n < r.end {
+                            focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                            self.__focus(n, true);
+                        }
+                    } else {
+                        focus_debug!(self.log, "    -> no navigable widget");
+                    }
+                }
             }
             self.__accumulate();
         }

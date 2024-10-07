@@ -262,6 +262,10 @@ pub trait HasFocus {
     }
 }
 
+impl HasFocus for () {
+    fn build(&self, _: &mut FocusBuilder) {}
+}
+
 impl Debug for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FocusFlag")
