@@ -63,46 +63,55 @@ impl<'a> LineNumbers<'a> {
         Self::default()
     }
 
+    /// Start position.
     pub fn start(mut self, start: upos_type) -> Self {
         self.start = start;
         self
     }
 
+    /// End position.
     pub fn end(mut self, end: upos_type) -> Self {
         self.end = Some(end);
         self
     }
 
+    /// Current line for highlighting.
     pub fn cursor(mut self, cursor: upos_type) -> Self {
         self.cursor = cursor;
         self
     }
 
+    /// Numbering relative to cursor
     pub fn relative(mut self, relative: bool) -> Self {
         self.relative = relative;
         self
     }
 
+    /// Extra info.
     pub fn flags(mut self, flags: Vec<Line<'a>>) -> Self {
         self.flags = flags;
         self
     }
 
+    /// Required width for the flags.
     pub fn flag_width(mut self, width: u16) -> Self {
         self.flag_width = Some(width);
         self
     }
 
+    /// Extra margin.
     pub fn margin(mut self, margin: (u16, u16)) -> Self {
         self.margin = margin;
         self
     }
 
+    /// Line number format.
     pub fn format(mut self, format: NumberFormat) -> Self {
         self.format = Some(format);
         self
     }
 
+    /// Complete set of styles.
     pub fn styles(mut self, styles: LineNumberStyle) -> Self {
         if let Some(flag_width) = styles.flag_width {
             self.flag_width = Some(flag_width);
@@ -123,21 +132,25 @@ impl<'a> LineNumbers<'a> {
         self
     }
 
+    /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
+    /// Style for current line.
     pub fn cursor_style(mut self, style: Style) -> Self {
         self.cursor_style = Some(style);
         self
     }
 
+    /// Block.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
 
+    /// Calculates the necessary width for the configuration.
     pub fn width(&self) -> u16 {
         let nr_width = if let Some(end) = self.end {
             end.ilog10() as u16 + 1
