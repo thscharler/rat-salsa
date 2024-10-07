@@ -70,6 +70,10 @@ pub mod util;
 
 pub mod button;
 pub mod calendar;
+/// Number input with patterns from chrono.
+///
+/// * Undo/redo
+/// * Clipboard trait to link to some clipboard implementation.
 pub mod date_input {
     pub use rat_text::date_input::{
         handle_events, handle_mouse_events, handle_readonly_events, DateInput, DateInputState,
@@ -77,9 +81,12 @@ pub mod date_input {
 }
 pub mod file_dialog;
 pub mod list;
+/// Line numbers widget.
+/// For use with TextArea mostly.
 pub mod line_number {
     pub use rat_text::line_number::{LineNumberState, LineNumberStyle, LineNumbers};
 }
+/// Menu widgets.
 pub mod menu {
     pub use rat_menu::menubar::{MenuBarState, Menubar, MenubarLine, MenubarPopup};
     pub use rat_menu::menuitem::{MenuItem, Separator};
@@ -98,6 +105,10 @@ pub mod menu {
     }
 }
 pub mod msgdialog;
+/// Number input with pattern.
+///
+/// * Undo/redo
+/// * Clipboard trait to link to some clipboard implementation.
 pub mod number_input {
     pub use rat_text::number_input::{
         handle_events, handle_mouse_events, handle_readonly_events, NumberInput, NumberInputState,
@@ -106,7 +117,18 @@ pub mod number_input {
 pub mod paragraph;
 pub mod splitter;
 pub mod statusline;
-/// F-Table
+/// Table widget.
+///
+/// Can be used as a drop-in replacement for the ratatui table. But
+/// that's not the point of this widget.
+///
+/// This widget uses the [TableData](crate::TableData) trait instead
+/// of rendering all the table-cells and putting them into a Vec.
+/// This way rendering time only depends on the screen-size not on
+/// the size of your data.
+///
+/// There is a second trait [TableDataIter](crate::TableDataIter) that
+/// works better if you only have an Iterator over your data.
 pub mod table {
     pub use rat_ftable::{
         edit, selection, textdata, Table, TableContext, TableData, TableDataIter, TableSelection,
@@ -114,20 +136,38 @@ pub mod table {
     };
 }
 pub mod tabbed;
-/// Text-Input
+/// Text-Input widget
+///
+/// * Undo/redo
+/// * Sync another widget
+/// * Support double-width characters
+/// * Range based text styling
+/// * Clipboard trait to link to some clipboard implementation.
 pub mod text_input {
     pub use rat_text::text_input::{
         handle_events, handle_mouse_events, handle_readonly_events, TextInput, TextInputState,
         TextInputStyle,
     };
 }
-/// Text-Input with mask.
+/// Text-Input with pattern/mask.
+///
+/// * Undo/redo
+/// * Sync another widget
+/// * Support double-width characters
+/// * Range based text styling
+/// * Clipboard trait to link to some clipboard implementation.
 pub mod text_input_mask {
     pub use rat_text::text_input_mask::{
         handle_events, handle_mouse_events, handle_readonly_events, MaskedInput, MaskedInputState,
     };
 }
 /// Text-Area.
+///
+/// * Undo/redo
+/// * Sync another widget
+/// * Support double-width characters
+/// * Range based text styling
+/// * Clipboard trait to link to some clipboard implementation.
 pub mod textarea {
     pub use rat_text::text_area::{
         handle_events, handle_mouse_events, handle_readonly_events, TextArea, TextAreaState,

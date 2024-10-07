@@ -1,18 +1,16 @@
+//! A view allows scrolling of a `Widget` without builtin
+//! support for scrolling.
+//!
+//! View and Viewport are the same in functionality.
+//!
+//! The difference is that View works for [Widget](ratatui::widgets::Widget)s and
+//! Viewport for [StatefulWidget](ratatui::widgets::StatefulWidget)s.
+//!
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
 use crate::util::copy_buffer;
 use rat_event::{HandleEvent, MouseOnly, Outcome};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
-use std::mem;
-
-/// A view allows scrolling of a `Widget` without builtin
-/// support for scrolling.
-///
-/// View and Viewport are the same in functionality.
-///
-/// The difference is that View works for [Widget](ratatui::widgets::Widget)s and
-/// Viewport for [StatefulWidget](ratatui::widgets::StatefulWidget)s.
-///
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
@@ -20,6 +18,7 @@ use ratatui::style::Style;
 use ratatui::widgets::{Block, Widget};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use std::mem;
 
 /// View has its own size, and can contain a stateless widget
 /// that will be rendered to a view sized buffer.
