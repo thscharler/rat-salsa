@@ -3,20 +3,20 @@
 
 ## Focus
 
-__Navigation__
+### Navigation
 
 * first(): Focus the first widget.
 * next()/prev(): Change the focus. 
 * focus(): Focus a specific widget. 
 * focus_at(): Focus the widget at a position.
 
-__Debugging__
+### Debugging
 
 * You can construct the FocusFlag with a name. 
 * Call Focus::enable_log()
 * You might find something useful in your log-file.
 
-__Dynamic changes__
+### Dynamic changes
 
 You might come to a situation where
 

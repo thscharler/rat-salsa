@@ -23,11 +23,13 @@
    
    1. [Deeper](./focus_deeper.md)
       
-   2. [Combining outcomes](./combining_outcomes.md)
+   2. [Widget](./focus_widget.md)
       
-5. [Widgets](./widgets)
+   3. [Container widget](./focus_container.md)
+      
+   4. [Builder](./focus_builder.md)
+      
+5. [Widgets](./widgets.md)
    
-   1. [Extensions](./widget-extensions)
-      
    2. [Rendering overlays](./render_overlay.md)
-      
+
