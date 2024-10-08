@@ -1,11 +1,16 @@
-# 0.25.0-b1
+# 0.25.0
+
+Sync version for beta.
 
 * Update docs.
+
+* Add ScrollSymbols and add them to ScrollStyle.
+  The scroll symbols are themeable with this.
 
 # 0.14.1
 
 * Add new utility ScrollArea+ScrollAreaState that can be used
-  for adding scroll functionality to another widget. It's a 
+  for adding scroll functionality to another widget. It's a
   bit like block as it can calculate the inner area and renders
   the outer parts.
 
