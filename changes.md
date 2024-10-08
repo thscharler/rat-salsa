@@ -1,8 +1,8 @@
-# 0.25.0-b1
+# 0.25.0
 
+Sync version for beta.
 
 * fix: set a default format for number-input.
-
 
 # 0.12.1
 

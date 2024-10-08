@@ -61,14 +61,10 @@ impl MaskedCore {
 
     fn grp_sep(&self) -> char {
         if let Some(sym) = &self.sym {
-            if let Some(grp) = sym.decimal_grp {
-                grp
-            } else {
-                // fallback for empty grp-char.
-                // it would be really ugly, if we couldn't keep
-                //   mask-idx == grapheme-idx
-                ' '
-            }
+            // fallback for empty grp-char.
+            // it would be really ugly, if we couldn't keep
+            //   mask-idx == grapheme-idx
+            sym.decimal_grp.unwrap_or(' ')
         } else {
             ','
         }
