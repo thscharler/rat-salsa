@@ -1,3 +1,9 @@
+# 0.25.0
+
+Sync version for beta.
+
+* fix: popup stays reactive event when not displayed.
+
 # 0.10.0
 
 Move from rat-widget.

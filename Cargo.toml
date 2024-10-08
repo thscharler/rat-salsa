@@ -1,6 +1,6 @@
 [package]
 name = "rat-menu"
-version = "0.10.0"
+version = "0.25.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "menu widgets for ratatui"
@@ -56,8 +56,8 @@ unicode-segmentation = "1.11"
 unicode-width = "0.1.12"
 unicode-display-width = "0.3.0"
 
-rat-event = { version = "0.16", path = "../rat-event" }
-rat-focus = { version = "0.12", path = "../rat-focus" }
+rat-event = { version = "0.25", path = "../rat-event" }
+rat-focus = { version = "0.25", path = "../rat-focus" }
 
 [dev-dependencies]
 fern = "0.6"
