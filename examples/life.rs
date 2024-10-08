@@ -668,12 +668,30 @@ pub mod game {
 
             for y in 0..area.height {
                 for x in 0..area.width {
-                    let pos = (y * area.width + x) as usize;
                     if let Some(cell) = buf.cell_mut((x + area.x, y + area.y)) {
-                        if state.world[pos] == 1 {
-                            cell.set_style(state.style1);
-                        } else {
-                            cell.set_style(state.style0);
+                        // U+2580
+                        cell.set_symbol("\u{2580}");
+
+                        let pos_0 = (2 * y * area.width + x) as usize;
+                        let pos_1 = ((2 * y + 1) * area.width + x) as usize;
+                        match (state.world[pos_0], state.world[pos_1]) {
+                            (0, 0) => {
+                                cell.fg = state.style0.bg.expect("bg");
+                                cell.bg = state.style0.bg.expect("bg");
+                            }
+                            (0, 1) => {
+                                cell.fg = state.style0.bg.expect("bg");
+                                cell.bg = state.style1.bg.expect("bg");
+                            }
+                            (1, 0) => {
+                                cell.fg = state.style1.bg.expect("bg");
+                                cell.bg = state.style0.bg.expect("bg");
+                            }
+                            (1, 1) => {
+                                cell.fg = state.style1.bg.expect("bg");
+                                cell.bg = state.style1.bg.expect("bg");
+                            }
+                            _ => unreachable!(),
                         }
                     }
                 }
@@ -725,6 +743,9 @@ pub mod game {
         /// Centers the current area if it's smaller.
         /// Clips otherwise.
         pub fn adjust_area(&mut self, area: Rect) {
+            // adjust for half-blocks.
+            let area = Rect::new(0, 0, area.width, area.height * 2);
+
             if self.area != area {
                 let shift_x = area.width.saturating_sub(self.area.width) / 2;
                 let shift_y = area.height.saturating_sub(self.area.height) / 2;
