@@ -1,4 +1,4 @@
-# 0.25.0-b1
+# 0.25.0
 
 Sync version for beta.
 
