@@ -523,7 +523,7 @@ mod core {
         /// This creates a fresh Focus.
         ///
         /// __See__
-        /// Use [rebuild_focus()] if you want to ensure that widgets
+        /// Use [rebuild](FocusBuilder::rebuild) if you want to ensure that widgets
         /// that are no longer in the widget structure have their
         /// focus flag reset properly. If you don't have
         /// some logic to conditionally add widgets to the focus,

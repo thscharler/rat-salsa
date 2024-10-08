@@ -1,32 +1,35 @@
-# 0.25.0-b1
+# 0.25.0
 
-Last big changes for beta. 
+Sync version for beta.
+
+Last big changes ...
 
 * break: Reimagined focus init.
-  
-  - Focus looses most functions to modify the widget
-    structure. And it's constructors. Only the container
-    rebuild fn update_container(), replace_container() 
-    and remove_container() remain. All construction goes
-    to FocusBuilder.
-    
-  - FocusBuilder. Classic builder for Focus, only
-    a widget() and a container() fn remain for this. 
-    But those are fluent fn's so it's ok.     
-      
-  - HasFocus gained a build() method which takes 
-    a FocusBuilder. This saves a few Vecs, and
-    builder style is quite nice for focus construction.
-    
-    container() and area() have solid fallbacks.
-    
-  - add free fn build_focus() and rebuild_focus() that
-    can work with a &dyn HasFocus.
-    
-        
+
+    - Focus looses most functions to modify the widget
+      structure. And it's constructors. Only the container
+      rebuild fn update_container(), replace_container()
+      and remove_container() remain. All construction goes
+      to FocusBuilder.
+
+    - FocusBuilder. Classic builder for Focus, only
+      a widget() and a container() fn remain for this.
+      But those are fluent fn's so it's ok.
+
+    - HasFocus gained a build() method which takes
+      a FocusBuilder. This saves a few Vecs, and
+      builder style is quite nice for focus construction.
+
+      container() and area() have solid fallbacks.
+
+    - add FocusBuilder::for_container() and FocusBuilder::rebuild() that
+      can work with a &dyn HasFocus.
+
+* Add Focus::focus_container() to focus the first widget.
 * Add Navigation::Lock. Lock the focus with the current
   widget.
-
+* FocusFlag now implements HasFocusFlag.
+* HasFocus::area() now works without HasFocus::container() existing.
 
 # 0.12.1
 
