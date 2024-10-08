@@ -1,6 +1,8 @@
-# 0.25.0-b1
+# 0.25.0
 
-* sync versions for beta.
+Sync version for beta.
+
+* Add Base16 and Base16Relaxed
 
 # 0.12.2
 
