@@ -578,109 +578,99 @@ mod app {
 
             let f = Control::from(ctx.focus_mut().handle(event, Regular));
 
-            let r = {
-                // regular global
-                try_flow!(match &event {
-                    ct_event!(keycode press Esc) => {
-                        if !self.menu.is_focused() {
-                            ctx.focus().focus(&self.menu);
+            // regular global
+            let mut r = match &event {
+                ct_event!(keycode press Esc) => {
+                    if !self.menu.is_focused() {
+                        ctx.focus().focus(&self.menu);
+                        Control::Changed
+                    } else {
+                        if let Some((_, last_edit)) = self.editor.split_tab.selected() {
+                            ctx.focus().focus(last_edit);
                             Control::Changed
                         } else {
-                            if let Some((_, last_edit)) = self.editor.split_tab.selected() {
-                                ctx.focus().focus(last_edit);
-                                Control::Changed
-                            } else {
-                                Control::Continue
-                            }
-                        }
-                    }
-                    ct_event!(keycode press F(1)) => {
-                        let txt = from_utf8(HELP)?;
-                        let mut txt2 = String::new();
-                        for l in txt.lines() {
-                            txt2.push_str(l);
-                            txt2.push('\n');
-                        }
-                        ctx.g.message_dlg.append(&txt2);
-                        Control::Changed
-                    }
-                    ct_event!(keycode press F(2)) => {
-                        let txt = from_utf8(CHEAT)?;
-                        let mut txt2 = String::new();
-                        for l in txt.lines() {
-                            txt2.push_str(l);
-                            txt2.push('\n');
-                        }
-                        ctx.g.message_dlg.append(&txt2);
-                        Control::Changed
-                    }
-                    _ => Control::Continue,
-                });
-
-                try_flow!(match self.menu.handle(event, Popup) {
-                    MenuOutcome::MenuActivated(0, 0) => Control::Message(MDAction::MenuNew),
-                    MenuOutcome::MenuActivated(0, 1) => Control::Message(MDAction::MenuOpen),
-                    MenuOutcome::MenuActivated(0, 2) => Control::Message(MDAction::MenuSave),
-                    MenuOutcome::MenuActivated(0, 3) => Control::Message(MDAction::MenuSaveAs),
-                    MenuOutcome::MenuActivated(1, 0) => {
-                        if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
-                            ctx.focus().focus(sel);
-                            sel.md_format_table(false, ctx)
-                        } else {
                             Control::Continue
                         }
                     }
-                    MenuOutcome::MenuActivated(1, 1) => {
-                        if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
-                            ctx.focus().focus(sel);
-                            sel.md_format_table(true, ctx)
-                        } else {
-                            Control::Continue
-                        }
+                }
+                ct_event!(keycode press F(1)) => {
+                    let txt = from_utf8(HELP)?;
+                    let mut txt2 = String::new();
+                    for l in txt.lines() {
+                        txt2.push_str(l);
+                        txt2.push('\n');
                     }
-                    MenuOutcome::MenuActivated(2, 0) => {
-                        ctx.g.cfg.show_ctrl = !ctx.g.cfg.show_ctrl;
-                        Control::Message(MDAction::CfgShowCtrl)
+                    ctx.g.message_dlg.append(&txt2);
+                    Control::Changed
+                }
+                ct_event!(keycode press F(2)) => {
+                    let txt = from_utf8(CHEAT)?;
+                    let mut txt2 = String::new();
+                    for l in txt.lines() {
+                        txt2.push_str(l);
+                        txt2.push('\n');
                     }
-                    MenuOutcome::MenuActivated(2, 1) => {
-                        if ctx.g.cfg.new_line == "\r\n" {
-                            ctx.g.cfg.new_line = "\n".into();
-                        } else {
-                            ctx.g.cfg.new_line = "\r\n".into();
-                        }
-                        Control::Message(MDAction::CfgNewline)
-                    }
-                    MenuOutcome::MenuActivated(2, 2) => {
-                        Control::Message(MDAction::Split)
-                    }
-                    MenuOutcome::MenuActivated(2, 3) => {
-                        Control::Message(MDAction::JumpToFiles)
-                    }
-                    MenuOutcome::MenuActivated(2, 4) => {
-                        Control::Message(MDAction::HideFiles)
-                    }
-                    MenuOutcome::MenuSelected(3, n) => {
-                        ctx.g.theme = dark_themes()[n].clone();
-                        Control::Changed
-                    }
-                    r => r.into(),
-                });
+                    ctx.g.message_dlg.append(&txt2);
+                    Control::Changed
+                }
+                _ => Control::Continue,
+            };
 
-                try_flow!({
-                    let r = self.editor.crossterm(event, ctx)?;
-                    if self.editor.set_active_split() {
-                        self.editor.sync_views(ctx)?;
+            r = r.or_else(|| match self.menu.handle(event, Popup) {
+                MenuOutcome::MenuActivated(0, 0) => Control::Message(MDAction::MenuNew),
+                MenuOutcome::MenuActivated(0, 1) => Control::Message(MDAction::MenuOpen),
+                MenuOutcome::MenuActivated(0, 2) => Control::Message(MDAction::MenuSave),
+                MenuOutcome::MenuActivated(0, 3) => Control::Message(MDAction::MenuSaveAs),
+                MenuOutcome::MenuActivated(1, 0) => {
+                    if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
+                        ctx.focus().focus(sel);
+                        sel.md_format_table(false, ctx)
+                    } else {
+                        Control::Continue
                     }
-                    r
-                });
+                }
+                MenuOutcome::MenuActivated(1, 1) => {
+                    if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
+                        ctx.focus().focus(sel);
+                        sel.md_format_table(true, ctx)
+                    } else {
+                        Control::Continue
+                    }
+                }
+                MenuOutcome::MenuActivated(2, 0) => {
+                    ctx.g.cfg.show_ctrl = !ctx.g.cfg.show_ctrl;
+                    Control::Message(MDAction::CfgShowCtrl)
+                }
+                MenuOutcome::MenuActivated(2, 1) => {
+                    if ctx.g.cfg.new_line == "\r\n" {
+                        ctx.g.cfg.new_line = "\n".into();
+                    } else {
+                        ctx.g.cfg.new_line = "\r\n".into();
+                    }
+                    Control::Message(MDAction::CfgNewline)
+                }
+                MenuOutcome::MenuActivated(2, 2) => Control::Message(MDAction::Split),
+                MenuOutcome::MenuActivated(2, 3) => Control::Message(MDAction::JumpToFiles),
+                MenuOutcome::MenuActivated(2, 4) => Control::Message(MDAction::HideFiles),
+                MenuOutcome::MenuSelected(3, n) => {
+                    ctx.g.theme = dark_themes()[n].clone();
+                    Control::Changed
+                }
+                r => r.into(),
+            });
 
-                try_flow!(match self.menu.handle(event, Regular) {
-                    MenuOutcome::Activated(4) => Control::Quit,
-                    r => r.into(),
-                });
+            r = r.or_else_try(|| -> Result<Control<MDAction>, Error> {
+                let r = self.editor.crossterm(event, ctx)?;
+                if self.editor.set_active_split() {
+                    self.editor.sync_views(ctx)?;
+                }
+                Ok(r)
+            })?;
 
-                Ok(Control::Continue)
-            }?;
+            r = r.or_else(|| match self.menu.handle(event, Regular) {
+                MenuOutcome::Activated(4) => Control::Quit,
+                r => r.into(),
+            });
 
             Ok(max(f, r))
         }
