@@ -4,8 +4,6 @@ An application event-loop with ratatui and crossterm.
 
 ![image][refMDEditGif]
 
-## Companion Crates
-
 rat-salsa provides
 
 - application event loop [run_tui]
@@ -19,9 +17,11 @@ rat-salsa provides
     - [AppWidget]
     - [AppState]
 
+## Book
+
 For a start you can have a look at the [book][refRSBook].
 
-There is more:
+## Companion Crates
 
 * [rat-widget](https://docs.rs/rat-widget)
   widget library
