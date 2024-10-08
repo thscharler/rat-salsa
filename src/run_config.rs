@@ -54,7 +54,7 @@ where
             n_threats: 1,
             term: Box::new(CrosstermTerminal::new()?),
             poll: vec![
-                Box::new(PollTimers::default()),
+                Box::new(PollTimers),
                 Box::new(PollCrossterm),
                 Box::new(PollTasks),
             ],

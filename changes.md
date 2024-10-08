@@ -1,7 +1,15 @@
-# 0.25.0-b1
+# 0.25.0
 
+Sync version for beta.
+
+* feat: write rsbook.
+* feat: Replace all conversions OutcomeXX to Control with
+  one `From<Into<Outcome>>`. All OutcomeXX should be convertible to
+  base Outcome anyway.
+* refactor: Cancel is now an Arc<AtomicBool>.
 * fix: Define Ord for Control without using Message.
 * example: Add life.rs
+* example: Add turbo.rs
 
 # 0.24.2
 
