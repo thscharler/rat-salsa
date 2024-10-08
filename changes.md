@@ -1,4 +1,6 @@
-# 0.25.0-b1
+# 0.25
+
+Sync version for beta.
 
 * fix double-click recognition. reset after timeout lead
   to needing a triple click quite often.
