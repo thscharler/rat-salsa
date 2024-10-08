@@ -1,9 +1,14 @@
-# 0.25.0-b1
+# 0.25.0
 
-* feature: Add movement between different calender::Month. 
+Sync version for beta.
+
+* feature: Add movement between different calender::Month.
 * feature: Add SplitResize strategy for resizing splits.
-* fix: sync+document state structs. 
+* fix: sync+document state structs.
 * refactor: sync list edit with table edit. add examples.
+* refactor: moved menu widgets to separate crate rat-menu.
+* refactor: simplified Tabbed. The internal widgets for the frame
+  are no longer exposed. Just an enum left.
 
 # 0.16.2
 

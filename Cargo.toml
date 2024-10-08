@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget"
-version = "0.16.2"
+version = "0.25.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -63,12 +63,12 @@ chrono = { version = "0.4", features = ["unstable-locales"] }
 directories-next = { version = "2.0.0", optional = true }
 sysinfo = { version = "0.31", optional = true }
 
-rat-event = { version = "0.16", path = "../rat-event" }
-rat-focus = { version = "0.12", path = "../rat-focus" }
-rat-ftable = { version = "0.18", path = "../rat-ftable" }
-rat-text = { version = "0.12", path = "../rat-text" }
-rat-menu = { version = "0.10", path = "../rat-menu" }
-rat-scrolled = { version = "0.14", path = "../rat-scrolled" }
+rat-event = { version = "0.25", path = "../rat-event" }
+rat-focus = { version = "0.25", path = "../rat-focus" }
+rat-ftable = { version = "0.25", path = "../rat-ftable" }
+rat-text = { version = "0.25", path = "../rat-text" }
+rat-menu = { version = "0.25", path = "../rat-menu" }
+rat-scrolled = { version = "0.25", path = "../rat-scrolled" }
 
 [dev-dependencies]
 fern = "0.6"

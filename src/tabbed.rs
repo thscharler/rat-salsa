@@ -61,7 +61,7 @@ pub enum TabType {
 /// Use [TabbedState::selected] and [TabbedState::widget_area] to render
 /// the actual content of the tab.
 ///
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct Tabbed<'a> {
     tab_type: TabType,
     placement: TabPlacement,
@@ -133,22 +133,6 @@ pub(crate) mod event {
                 TabbedOutcome::Select(_) => Outcome::Changed,
                 TabbedOutcome::Close(_) => Outcome::Changed,
             }
-        }
-    }
-}
-
-impl<'a> Default for Tabbed<'a> {
-    fn default() -> Self {
-        Self {
-            tab_type: TabType::default(),
-            placement: TabPlacement::default(),
-            closeable: false,
-            tabs: Vec::default(),
-            block: None,
-            style: Style::default(),
-            tab_style: None,
-            select_style: None,
-            focus_style: None,
         }
     }
 }
@@ -953,14 +937,14 @@ mod attached {
                     TabPlacement::Left => {
                         if let Some(cell) = buf.cell_mut((tab_area.x + tab_area.width, tab_area.y))
                         {
-                            if let Some(sym) = self.get_link(tabbed.placement, &block) {
+                            if let Some(sym) = self.get_link(tabbed.placement, block) {
                                 cell.set_symbol(sym);
                             }
                         }
                     }
                     TabPlacement::Right => {
                         if let Some(cell) = buf.cell_mut((tab_area.x - 1, tab_area.y)) {
-                            if let Some(sym) = self.get_link(tabbed.placement, &block) {
+                            if let Some(sym) = self.get_link(tabbed.placement, block) {
                                 cell.set_symbol(sym);
                             }
                         }
