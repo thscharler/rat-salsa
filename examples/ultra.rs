@@ -1,7 +1,8 @@
 use anyhow::Error;
 use crossterm::event::Event;
-use rat_salsa::{event::ct_event, run_tui, AppState, AppWidget, Control, RunConfig};
+use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::{dark_theme::DarkTheme, scheme::IMPERIAL};
+use rat_widget::event::ct_event;
 use ratatui::prelude::{Buffer, Rect, Widget};
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, UltraMsg, Error>;

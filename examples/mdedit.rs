@@ -118,9 +118,9 @@ mod root {
     use crate::app::{MDApp, MDAppState};
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
-    use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
+    use rat_widget::event::{ct_event, try_flow};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::statusline::StatusLine;
     use ratatui::buffer::Buffer;
@@ -261,9 +261,8 @@ pub mod facilities {
     use crate::MDAction;
     use anyhow::Error;
     use crossterm::event::Event;
-    use rat_salsa::event::try_flow;
     use rat_salsa::Control;
-    use rat_widget::event::{Dialog, FileOutcome, HandleEvent};
+    use rat_widget::event::{try_flow, Dialog, FileOutcome, HandleEvent};
     use rat_widget::file_dialog::{FileDialog, FileDialogState, FileDialogStyle};
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
@@ -362,11 +361,12 @@ mod app {
     use crate::mdedit::{MDEdit, MDEditState};
     use crate::{AppContext, GlobalState, MDAction, CHEAT, HELP};
     use anyhow::Error;
-    use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_theme::dark_themes;
-    use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Popup, Regular};
+    use rat_widget::event::{
+        ct_event, try_flow, ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Popup, Regular,
+    };
     use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{
@@ -1530,9 +1530,8 @@ pub mod file_list {
     use crate::{GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
-    use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{HandleEvent, MenuOutcome, Popup, Regular};
+    use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::list::selection::RowSelection;
     use rat_widget::list::{List, ListState};
@@ -1779,10 +1778,9 @@ pub mod mdedit {
     use crate::{AppContext, GlobalState, MDAction};
     use anyhow::Error;
     use crossterm::event::Event;
-    use rat_salsa::event::{ct_event, try_flow};
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{HandleEvent, Regular};
+    use rat_widget::event::{ct_event, try_flow, HandleEvent, Regular};
     use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;

@@ -341,10 +341,3 @@ impl<'a, Global> RenderContext<'a, Global> {
         }
     }
 }
-
-///
-/// Event-handler traits and Keybindings.
-///
-pub mod event {
-    pub use rat_widget::event::{ct_event, try_flow};
-}

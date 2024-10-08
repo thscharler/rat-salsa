@@ -190,10 +190,9 @@ pub mod app {
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
-    use rat_salsa::event::ct_event;
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{ConsumedEvent, Dialog, HandleEvent};
+    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::statusline::StatusLine;

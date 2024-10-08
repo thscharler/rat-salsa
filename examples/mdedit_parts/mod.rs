@@ -1,8 +1,7 @@
 use crate::mdedit_parts::dump::{md_dump, md_dump_styles};
 use crate::mdedit_parts::format::md_format;
 use crate::mdedit_parts::operations::{md_backtab, md_line_break, md_make_header, md_tab};
-use rat_salsa::event::ct_event;
-use rat_widget::event::{flow, HandleEvent, Regular, TextOutcome};
+use rat_widget::event::{ct_event, flow, HandleEvent, Regular, TextOutcome};
 use rat_widget::focus::HasFocusFlag;
 use rat_widget::text::upos_type;
 use rat_widget::textarea::TextAreaState;
