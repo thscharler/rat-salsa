@@ -122,12 +122,12 @@ pub mod statusline;
 /// Can be used as a drop-in replacement for the ratatui table. But
 /// that's not the point of this widget.
 ///
-/// This widget uses the [TableData](crate::TableData) trait instead
+/// This widget uses the [TableData](crate::table::TableData) trait instead
 /// of rendering all the table-cells and putting them into a Vec.
 /// This way rendering time only depends on the screen-size not on
 /// the size of your data.
 ///
-/// There is a second trait [TableDataIter](crate::TableDataIter) that
+/// There is a second trait [TableDataIter](crate::table::TableDataIter) that
 /// works better if you only have an Iterator over your data.
 pub mod table {
     pub use rat_ftable::{
