@@ -1,3 +1,7 @@
+# 0.25.1
+
+* mention the book.
+
 # 0.25.0
 
 Sync version for beta.

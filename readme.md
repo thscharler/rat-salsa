@@ -19,6 +19,8 @@ rat-salsa provides
     - [AppWidget]
     - [AppState]
 
+For a start you can have a look at the [book][refRSBook].
+
 There is more:
 
 * [rat-widget](https://docs.rs/rat-widget)
@@ -65,3 +67,5 @@ There are some starters too
 [refMinimal]: https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs
 
 [refUltra]: https://github.com/thscharler/rat-salsa/blob/master/examples/ultra.rs
+
+[refRSBook]: https://thscharler.github.io/rat-salsa/
