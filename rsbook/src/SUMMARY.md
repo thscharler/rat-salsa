@@ -28,6 +28,8 @@
    3. [Container widget](./focus_container.md)
       
    4. [Builder](./focus_builder.md)
+   
+1. [Examples](./examples.md)
       
 5. [Widgets](./widgets.md)
    
