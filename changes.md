@@ -1,3 +1,14 @@
+# 0.25.0
+
+Sync version for beta.
+
+* Reimagine table editing.
+    * Adds EditTable for free form.
+    * Adds EditVec which keeps the elements while editing.
+
+* fix: scroll_to_row did some scrolling even if the row is visible.
+* fix: row_cells didn't correct for offset.
+
 # 0.18.2
 
 * fix docs
