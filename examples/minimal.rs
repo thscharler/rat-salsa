@@ -26,7 +26,7 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig::default()?.threads(1),
+        RunConfig::default()?,
     )?;
 
     Ok(())

@@ -20,7 +20,7 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig::default()?.threads(1),
+        RunConfig::default()?,
     )?;
 
     Ok(())
@@ -171,7 +171,7 @@ back that number any further ...
 
 ```rust
     fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-        ctx.focus = Some(build_focus(&self.minimal));
+        ctx.focus = Some(FocusBuilder::for_container(&self.minimal));
         self.minimal.init(ctx)?;
         Ok(())
     }        
@@ -277,6 +277,17 @@ with event handling'.
 > by some part of the application. ConsumedEvent::is_consumed
 > for Control returns false for Control::Continue and true for
 > everything else. And that's what these combinators work with.
+
+```rust
+    r = r.or_else(|| {
+        if ctx.g.error_dlg.active() {
+            ctx.g.error_dlg.handle(&event, Dialog).into()
+        } else {
+            Control::Continue
+        }
+    });
+
+```
 
 `or_else(..)` is only executed if r is Control::Continue. If the
 error dialog is active, which is just some flag, it calls it's
@@ -487,12 +498,16 @@ Handling events for Focus is a bit special.
 Focus implements an event handler for `Regular` events. Regular is similar
 to `Dialog` seen before, and means bog-standard event handling whatever the
 widget does. The speciality is that focus handling shouldn't consume the
-recognized events. This is important for mouse events where the widget might
+recognized events. This is important for mouse events, where the widget might
 do something useful with the same click event that focused it.
 
-Here `ctx.queue()` comes into play and adds an extra result. This way 
-the focus change can initiate a render while the event handling function 
-can still return whatever it wants.
+Here `ctx.queue()` comes into play and provides a second path to return
+results from event-handling. The primary return value from the function
+call is just added to the same queue. Then everything in that queue is 
+worked off, before polling new events. 
+
+This way the focus change can initiate a render while the event handling 
+function can still return whatever it wants.
 
 ```rust
     try_flow!(match self.menu.handle(event, Regular) {
