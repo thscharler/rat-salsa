@@ -141,34 +141,34 @@ impl<'a> PopupMenu<'a> {
         let height = self.menu.items.iter().map(MenuItem::height).sum::<u16>();
 
         #[allow(clippy::if_same_then_else)]
-        let vertical_margin = if self.block_indent { 1 } else { 1 };
-        let horizontal_margin = if self.block_indent { 2 } else { 1 };
-        let horizontal_offset_sep = if self.block_indent { 1 } else { 0 };
+        let vertical_padding = if self.block_indent { 1 } else { 1 };
+        let horizontal_padding = if self.block_indent { 2 } else { 1 };
+        let horizontal_padding_separator = if self.block_indent { 1 } else { 0 };
 
         let mut area = match self.placement {
             Placement::Top => Rect::new(
-                area.x.saturating_sub(horizontal_margin),
-                area.y.saturating_sub(height + vertical_margin * 2),
-                width + horizontal_margin * 2,
-                height + vertical_margin * 2,
+                area.x.saturating_sub(horizontal_padding),
+                area.y.saturating_sub(height + vertical_padding * 2),
+                width + horizontal_padding * 2,
+                height + vertical_padding * 2,
             ),
             Placement::Left => Rect::new(
-                area.x.saturating_sub(width + horizontal_margin * 2),
+                area.x.saturating_sub(width + horizontal_padding * 2),
                 area.y,
-                width + horizontal_margin * 2,
-                height + vertical_margin * 2,
+                width + horizontal_padding * 2,
+                height + vertical_padding * 2,
             ),
             Placement::Right => Rect::new(
                 area.x + area.width,
                 area.y,
-                width + horizontal_margin * 2,
-                height + vertical_margin * 2,
+                width + horizontal_padding * 2,
+                height + vertical_padding * 2,
             ),
             Placement::Bottom => Rect::new(
-                area.x.saturating_sub(horizontal_margin),
+                area.x.saturating_sub(horizontal_padding),
                 area.y + area.height,
-                width + horizontal_margin * 2,
-                height + vertical_margin * 2,
+                width + horizontal_padding * 2,
+                height + vertical_padding * 2,
             ),
         };
 
@@ -191,23 +191,23 @@ impl<'a> PopupMenu<'a> {
 
         for item in &self.menu.items {
             state.item_areas.push(Rect::new(
-                area.x + horizontal_margin,
-                row + area.y + vertical_margin,
+                area.x + horizontal_padding,
+                row + area.y + vertical_padding,
                 width,
                 1,
             ));
 
             if item.separator.is_none() {
                 state.sep_areas.push(Rect::new(
-                    area.x + horizontal_offset_sep,
-                    row + 1 + area.y + vertical_margin,
+                    area.x + horizontal_padding_separator,
+                    row + 1 + area.y + vertical_padding,
                     width + 2,
                     0,
                 ));
             } else {
                 state.sep_areas.push(Rect::new(
-                    area.x + horizontal_offset_sep,
-                    row + 1 + area.y + vertical_margin,
+                    area.x + horizontal_padding_separator,
+                    row + 1 + area.y + vertical_padding,
                     width + 2,
                     1,
                 ));

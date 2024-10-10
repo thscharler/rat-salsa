@@ -283,7 +283,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
             Line::from_iter([
                 Span::from(item.item.as_ref()),
                 if !item.right.is_empty() {
-                    Span::from(format!(" ({})", item.right)).style(right_style)
+                    Span::from(format!("({})", item.right)).style(right_style)
                 } else {
                     Span::default()
                 },

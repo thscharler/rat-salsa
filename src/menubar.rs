@@ -65,7 +65,7 @@ pub struct MenubarPopup<'a> {
 
 /// State & event-handling.
 #[derive(Debug, Default, Clone)]
-pub struct MenuBarState {
+pub struct MenubarState {
     /// Total area for the menubar and any visible popup.
     /// __readonly__. renewed for each render.
     pub area: Rect,
@@ -185,7 +185,7 @@ impl<'a> Menubar<'a> {
 
 #[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for MenubarLine<'a> {
-    type State = MenuBarState;
+    type State = MenubarState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_menubar(&self.menubar, area, buf, state);
@@ -193,14 +193,14 @@ impl<'a> StatefulWidgetRef for MenubarLine<'a> {
 }
 
 impl<'a> StatefulWidget for MenubarLine<'a> {
-    type State = MenuBarState;
+    type State = MenubarState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_menubar(&self.menubar, area, buf, state);
     }
 }
 
-fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mut MenuBarState) {
+fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mut MenubarState) {
     let mut menu = MenuLine::new()
         .title(widget.title.clone())
         .style(widget.style);
@@ -232,7 +232,7 @@ fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mu
 
 #[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for MenubarPopup<'a> {
-    type State = MenuBarState;
+    type State = MenubarState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_menu_popup(&self.menubar, area, buf, state);
@@ -240,7 +240,7 @@ impl<'a> StatefulWidgetRef for MenubarPopup<'a> {
 }
 
 impl<'a> StatefulWidget for MenubarPopup<'a> {
-    type State = MenuBarState;
+    type State = MenubarState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_menu_popup(&self.menubar, area, buf, state);
@@ -251,7 +251,7 @@ fn render_menu_popup(
     widget: &Menubar<'_>,
     _area: Rect,
     buf: &mut Buffer,
-    state: &mut MenuBarState,
+    state: &mut MenubarState,
 ) {
     // Combined area + each part with a z-index.
     state.area = state.bar.area;
@@ -298,7 +298,7 @@ fn render_menu_popup(
     }
 }
 
-impl MenuBarState {
+impl MenubarState {
     /// State.
     /// For the specifics use the public fields `menu` and `popup`.
     pub fn new() -> Self {
@@ -330,7 +330,7 @@ impl MenuBarState {
     }
 }
 
-impl HasFocusFlag for MenuBarState {
+impl HasFocusFlag for MenubarState {
     fn focus(&self) -> FocusFlag {
         self.bar.focus.clone()
     }
@@ -344,7 +344,7 @@ impl HasFocusFlag for MenuBarState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenuBarState {
+impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenubarState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
         if !self.is_focused() {
             self.set_popup_active(false);
@@ -366,7 +366,7 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenuBarState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuBarState {
+impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenubarState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> MenuOutcome {
         if !self.is_focused() {
             self.set_popup_active(false);
@@ -392,7 +392,7 @@ impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenuBarState
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuBarState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenubarState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> MenuOutcome {
         if !self.is_focused() {
             self.set_popup_active(false);
@@ -435,7 +435,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenuBarSta
 /// Attention:
 /// For the event-handling of the popup-menus you need to call handle_popup_events().
 pub fn handle_events(
-    state: &mut MenuBarState,
+    state: &mut MenubarState,
     focus: bool,
     event: &crossterm::event::Event,
 ) -> MenuOutcome {
@@ -450,7 +450,7 @@ pub fn handle_events(
 ///
 /// focus - is the menubar focused?
 pub fn handle_popup_events(
-    state: &mut MenuBarState,
+    state: &mut MenubarState,
     focus: bool,
     event: &crossterm::event::Event,
 ) -> MenuOutcome {
