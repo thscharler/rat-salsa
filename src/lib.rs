@@ -88,7 +88,7 @@ pub mod line_number {
 }
 /// Menu widgets.
 pub mod menu {
-    pub use rat_menu::menubar::{MenuBarState, Menubar, MenubarLine, MenubarPopup};
+    pub use rat_menu::menubar::{Menubar, MenubarLine, MenubarPopup, MenubarState};
     pub use rat_menu::menuitem::{MenuItem, Separator};
     pub use rat_menu::menuline::{MenuLine, MenuLineState};
     pub use rat_menu::popup_menu::{Placement, PopupMenu, PopupMenuState};
@@ -174,6 +174,7 @@ pub mod textarea {
         TextAreaStyle,
     };
 }
+mod popup;
 pub mod view;
 pub mod viewport;
 

@@ -6,7 +6,7 @@ use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Reg
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocusFlag};
 use rat_ftable::event::EditOutcome;
 use rat_menu::event::MenuOutcome;
-use rat_menu::menubar::{MenuBarState, Menubar};
+use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::popup_menu::Placement;
 use rat_menu::StaticMenu;
 use rat_scrolled::Scroll;
@@ -68,14 +68,14 @@ struct Data {
 
 struct State {
     pub(crate) list1: EditListState<EditEntryState>,
-    pub(crate) menu: MenuBarState,
+    pub(crate) menu: MenubarState,
 }
 
 impl Default for State {
     fn default() -> Self {
         let mut s = Self {
             list1: EditListState::named("list1", EditEntryState::default()),
-            menu: MenuBarState::named("menu"),
+            menu: MenubarState::named("menu"),
         };
         s.menu.bar.select(Some(0));
         s.list1.list.select(Some(0));

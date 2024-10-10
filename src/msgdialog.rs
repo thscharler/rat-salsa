@@ -124,6 +124,7 @@ impl MsgDialogState {
     /// Show the dialog.
     pub fn set_active(&self, active: bool) {
         self.active.set(active);
+        self.focus().focus(&*self.button.borrow());
         self.paragraph.borrow_mut().set_line_offset(0);
         self.paragraph.borrow_mut().set_col_offset(0);
     }

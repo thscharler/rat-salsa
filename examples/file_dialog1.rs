@@ -4,7 +4,7 @@ use crate::mini_salsa::MiniSalsaState;
 use log::debug;
 use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
 use rat_menu::event::MenuOutcome;
-use rat_menu::menubar::{MenuBarState, Menubar};
+use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::popup_menu::Placement;
 use rat_menu::{menubar, StaticMenu};
 use rat_text::HasScreenCursor;
@@ -30,7 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
 #[derive(Debug, Default)]
 pub struct State {
     pub(crate) file_open: FileDialogState,
-    pub(crate) menu: MenuBarState,
+    pub(crate) menu: MenubarState,
 }
 
 static MENU: StaticMenu = StaticMenu {
