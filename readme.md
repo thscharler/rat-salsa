@@ -21,7 +21,7 @@ the navigation.
 
 > from <focus_input1.rs>
 
-```rust
+```rust ignore
     fn focus_input(state: &mut State) -> Focus {
     let mut fb = FocusBuilder::default();
     fb.widget(&state.input1)
@@ -64,9 +64,9 @@ for navigation and handles mouse clicks on the widget's area.
 Focus implements [HandleEvent][refHandleEvent], and there is the
 fn [handle_focus](handle_focus) to invoke it.
 
-```
+```rust ignore
     // Handle events for focus.
-    let f = focus_input(state).handle(event, Regular);
+let f = focus_input(state).handle(event, Regular);
 ```
 
 It returns `Outcome::Changed` whenever something interesting
