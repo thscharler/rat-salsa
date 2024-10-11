@@ -235,7 +235,7 @@ pub trait HasFocus {
     }
 
     /// Focused?
-    fn is_focused(&self) -> bool {
+    fn is_container_focused(&self) -> bool {
         if let Some(flag) = self.container() {
             flag.get()
         } else {
@@ -244,7 +244,7 @@ pub trait HasFocus {
     }
 
     /// Just lost focus.
-    fn lost_focus(&self) -> bool {
+    fn container_lost_focus(&self) -> bool {
         if let Some(flag) = self.container() {
             flag.lost()
         } else {
@@ -253,7 +253,7 @@ pub trait HasFocus {
     }
 
     /// Just gained focus.
-    fn gained_focus(&self) -> bool {
+    fn container_gained_focus(&self) -> bool {
         if let Some(flag) = self.container() {
             flag.gained()
         } else {
