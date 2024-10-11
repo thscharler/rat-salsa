@@ -1,0 +1,60 @@
+[package]
+name = "rat-popup"
+version = "0.1.0"
+edition = "2021"
+authors = ["thscharler <thscharler@gmail.com>"]
+description = "ratatui popup semi-window widget"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/rat-popup"
+readme = "readme.md"
+keywords = ["ratatui", "popup"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore"]
+
+
+[lints.rust]
+absolute_paths_not_starting_with_crate = "warn"
+# box_pointers = "warn"
+elided_lifetimes_in_paths = "warn"
+explicit_outlives_requirements = "warn"
+keyword_idents = "warn"
+macro_use_extern_crate = "warn"
+meta_variable_misuse = "warn"
+missing_abi = "warn"
+# NOT_ACCURATE: missing_copy_implementations = "warn"
+missing_debug_implementations = "warn"
+missing_docs = "allow"
+non_ascii_idents = "warn"
+noop_method_call = "warn"
+# NO: or_patterns_back_compat = "warn"
+semicolon_in_expressions_from_macros = "warn"
+# NOT_ACCURATE: single_use_lifetimes = "warn"
+trivial_casts = "warn"
+trivial_numeric_casts = "warn"
+unreachable_pub = "warn"
+# unsafe_code: = "warn"
+unsafe_op_in_unsafe_fn = "warn"
+unstable_features = "warn"
+# NO: unused_crate_dependencies = "warn"
+# NO: unused_extern_crates = "warn"
+unused_import_braces = "warn"
+unused_lifetimes = "warn"
+unused_qualifications = "warn"
+# NO: unused_results = "warn"
+variant_size_differences = "warn"
+
+[features]
+unstable-widget-ref = ["ratatui/unstable-widget-ref"]
+
+
+[dependencies]
+ratatui = { version = "0.28", features = ["unstable-rendered-line-info"] }
+crossterm = "0.28"
+log = "0.4"
+
+rat-event = { version = "0.25", path = "../rat-event" }
+rat-focus = { version = "0.25", path = "../rat-focus" }
+
+[dev-dependencies]
+fern = "0.6"
+anyhow = "1.0.82"
