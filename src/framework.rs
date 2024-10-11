@@ -155,13 +155,13 @@ where
 /// The shortest version I can come up with:
 /// ```rust no_run
 /// use crossterm::event::Event;
-/// use rat_salsa::event::{ct_event, try_flow};
 /// use rat_salsa::{run_tui, AppContext, AppState, AppWidget, Control, RenderContext, RunConfig};
 /// use ratatui::buffer::Buffer;
 /// use ratatui::layout::Rect;
 /// use ratatui::style::Stylize;
 /// use ratatui::text::Span;
 /// use ratatui::widgets::Widget;
+/// use rat_widget::event::{try_flow, ct_event};
 ///
 /// #[derive(Debug)]
 /// struct MainApp;
@@ -193,6 +193,7 @@ where
 ///         event: &Event,
 ///         _ctx: &mut AppContext<'_, (), (), anyhow::Error>,
 ///     ) -> Result<Control<()>, anyhow::Error> {
+///
 ///         try_flow!(match event {
 ///             ct_event!(key press 'q') => Control::Quit,
 ///             _ => Control::Continue,
