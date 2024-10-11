@@ -169,9 +169,9 @@ pub mod substratum2 {
 
     impl Substratum2State {
         pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-            if self.stratum1.is_focused() {
+            if self.stratum1.is_container_focused() {
                 self.stratum1.screen_cursor()
-            } else if self.stratum2.is_focused() {
+            } else if self.stratum2.is_container_focused() {
                 self.stratum2.screen_cursor()
             } else {
                 None
