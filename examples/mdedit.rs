@@ -370,7 +370,7 @@ mod app {
     use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{
-        MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement, Separator,
+        MenuBuilder, MenuStructure, Menubar, MenubarState, Placement, Separator,
     };
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::text::HasScreenCursor;
@@ -440,14 +440,14 @@ mod app {
     #[derive(Debug)]
     pub struct MDAppState {
         pub editor: MDEditState,
-        pub menu: MenuBarState,
+        pub menu: MenubarState,
     }
 
     impl Default for MDAppState {
         fn default() -> Self {
             let s = Self {
                 editor: MDEditState::default(),
-                menu: MenuBarState::named("menu"),
+                menu: MenubarState::named("menu"),
             };
             s
         }
@@ -2197,7 +2197,7 @@ pub mod mdedit {
                 self.split_files.show_split(0);
                 r = Control::Changed;
             }
-            if !self.file_list.is_focused() {
+            if !self.file_list.is_container_focused() {
                 ctx.focus().focus(&self.file_list.file_list);
                 r = Control::Changed;
             } else {

@@ -283,7 +283,7 @@ pub mod turbo {
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::focus::{FocusBuilder, HasFocus};
     use rat_widget::menu::{
-        MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement, PopupMenu, PopupMenuState,
+        MenuBuilder, MenuStructure, Menubar, MenubarState, Placement, PopupMenu, PopupMenuState,
     };
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -294,7 +294,7 @@ pub mod turbo {
 
     #[derive(Debug)]
     pub struct TurboState {
-        pub menu: MenuBarState,
+        pub menu: MenubarState,
         pub menu_environment: PopupMenuState,
     }
 

@@ -19,7 +19,7 @@ use rat_widget::event::{
 };
 use rat_widget::focus::{match_focus, FocusBuilder, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menu::{MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement};
+use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState, Placement};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::scrolled::Scroll;
 use rat_widget::splitter::{Split, SplitState, SplitType};
@@ -133,7 +133,7 @@ pub struct FilesState {
     pub w_files: TableState<RowSelection>,
     pub w_data: TextAreaState,
 
-    pub w_menu: MenuBarState,
+    pub w_menu: MenubarState,
 }
 
 #[allow(dead_code)]

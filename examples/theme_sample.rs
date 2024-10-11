@@ -213,7 +213,7 @@ pub mod mask0 {
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_theme::dark_themes;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
-    use rat_widget::menu::{MenuBarState, MenuBuilder, MenuStructure, Menubar, Placement};
+    use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState, Placement};
     use rat_widget::scrolled::Scroll;
     use rat_widget::viewport::{Viewport, ViewportState};
     use ratatui::buffer::Buffer;
@@ -225,7 +225,7 @@ pub mod mask0 {
 
     #[derive(Debug)]
     pub struct Mask0State {
-        pub menu: MenuBarState,
+        pub menu: MenubarState,
         pub scroll: ViewportState<ShowSchemeState>,
         pub theme: usize,
     }
