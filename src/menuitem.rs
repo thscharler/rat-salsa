@@ -127,7 +127,7 @@ impl<'a> MenuItem<'a> {
         Self {
             item: Cow::Borrowed(text),
             highlight: Some(highlight),
-            navchar: Some(navchar),
+            navchar: Some(navchar.to_ascii_lowercase()),
             right: Cow::Borrowed(""),
             disabled: false,
             separator: Default::default(),
@@ -141,7 +141,7 @@ impl<'a> MenuItem<'a> {
         Self {
             item: Cow::Owned(text),
             highlight: Some(highlight),
-            navchar: Some(navchar),
+            navchar: Some(navchar.to_ascii_lowercase()),
             right: Cow::Borrowed(""),
             disabled: false,
             separator: Default::default(),
@@ -298,7 +298,8 @@ fn item_str(txt: &str) -> MenuItem<'_> {
                     text[idx_navchar_start..idx_navchar_end]
                         .chars()
                         .next()
-                        .expect("char"),
+                        .expect("char")
+                        .to_ascii_lowercase(),
                 ),
                 right: Cow::Borrowed(right),
                 ..Default::default()

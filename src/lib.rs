@@ -18,9 +18,10 @@ pub mod event {
     //! Event-handler traits and Keybindings.
     //!
     pub use rat_event::*;
+    use rat_popup::event::PopupOutcome;
 
     /// Outcome for menuline.
-    #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+    #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
     pub enum MenuOutcome {
         /// The given event was not handled at all.
         Continue,
@@ -28,17 +29,32 @@ pub mod event {
         Unchanged,
         /// The event was handled, repaint necessary.
         Changed,
-        /// The menuitem was selected.
-        /// Works for MenuLine and PopupMenu.
+
+        /// Popup should be hidden.
+        ///
+        /// Used by PopupMenu.
+        Hide,
+
+        /// A menuitem was select.
+        ///
+        /// Used by MenuLine and PopupMenu.
+        /// Used by Menubar for results from the main menu.
         Selected(usize),
-        /// The menuitem was selected and activated.
-        /// Works for MenuLine and PopupMenu.
+
+        /// A menuitem was activated.
+        ///
+        /// Used by MenuLine and PopupMenu.
+        /// Used by Menubar for results from the main menu.
         Activated(usize),
-        /// Selected popup-menu.
-        /// Works for Menubar.
+
+        /// A popup-menuitem was selected.
+        ///
+        /// Used by Menubar for results from a popup-menu. Is (main-idx, popup-idx).
         MenuSelected(usize, usize),
-        /// Activated popup-menu.
-        /// Works for Menubar.
+
+        /// A popup-menuitem was activated.
+        ///
+        /// Used by Menubar for results from a popup-menu. Is (main-idx, popup-idx);
         MenuActivated(usize, usize),
     }
 
@@ -58,6 +74,19 @@ pub mod event {
                 MenuOutcome::Activated(_) => Outcome::Changed,
                 MenuOutcome::MenuSelected(_, _) => Outcome::Changed,
                 MenuOutcome::MenuActivated(_, _) => Outcome::Changed,
+                MenuOutcome::Hide => Outcome::Changed,
+            }
+        }
+    }
+
+    impl From<PopupOutcome> for MenuOutcome {
+        fn from(value: PopupOutcome) -> Self {
+            match value {
+                PopupOutcome::Continue => MenuOutcome::Continue,
+                PopupOutcome::Unchanged => MenuOutcome::Unchanged,
+                PopupOutcome::Changed => MenuOutcome::Changed,
+                PopupOutcome::HideFocus => MenuOutcome::Continue,
+                PopupOutcome::Hide => MenuOutcome::Hide,
             }
         }
     }

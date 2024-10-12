@@ -58,6 +58,7 @@ unicode-display-width = "0.3.0"
 
 rat-event = { version = "0.25", path = "../rat-event" }
 rat-focus = { version = "0.25", path = "../rat-focus" }
+rat-popup = { version = "0.1", path = "../rat-popup" }
 
 [dev-dependencies]
 fern = "0.6"

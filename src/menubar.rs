@@ -29,6 +29,16 @@ use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt::{Debug, Formatter};
 
+/// Placement of the submenus.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum SubmenuPlacement {
+    /// Above the menuline.
+    #[default]
+    Above,
+    /// Below the menuline.
+    Below,
+}
+
 /// Menubar widget.
 /// This handles the configuration only, to get the widgets for rendering
 /// call [Menubar::into_widgets] and use both results for rendering.
@@ -45,7 +55,7 @@ pub struct Menubar<'a> {
     disabled_style: Option<Style>,
 
     popup_width: Option<u16>,
-    popup_placement: Placement,
+    popup_placement: SubmenuPlacement,
     popup_block: Option<Block<'a>>,
 }
 
@@ -157,7 +167,7 @@ impl<'a> Menubar<'a> {
     }
 
     /// Placement relative to the render-area.
-    pub fn popup_placement(mut self, placement: Placement) -> Self {
+    pub fn popup_placement(mut self, placement: SubmenuPlacement) -> Self {
         self.popup_placement = placement;
         self
     }
@@ -264,9 +274,21 @@ fn render_menu_popup(
         return;
     };
 
-    if state.popup.is_focused() {
+    if state.popup.is_active() {
+        let item = state.bar.item_areas[selected];
+        let sub_place = match widget.popup_placement {
+            SubmenuPlacement::Above => Placement::AboveLeft(item),
+            SubmenuPlacement::Below => Placement::BelowLeft(item),
+        };
+        let sub_offset = if widget.popup_block.is_some() {
+            (-2, 0)
+        } else {
+            (-1, 0)
+        };
+
         let mut popup = PopupMenu::new()
-            .placement(widget.popup_placement)
+            .placement(sub_place)
+            .offset(sub_offset)
             .style(widget.style);
         if let Some(width) = widget.popup_width {
             popup = popup.width(width);
@@ -290,8 +312,8 @@ fn render_menu_popup(
             popup.render(area, buf, &mut state.popup);
 
             // Combined area + each part with a z-index.
-            state.area = state.bar.area.union(state.popup.area);
-            state.z_areas[1] = ZRect::from((1, state.popup.area));
+            state.area = state.bar.area.union(state.popup.popup.area);
+            state.z_areas[1] = ZRect::from((1, state.popup.popup.area));
         }
     } else {
         state.popup = Default::default();
@@ -309,19 +331,19 @@ impl MenubarState {
     pub fn named(name: &'static str) -> Self {
         Self {
             bar: MenuLineState::named(format!("{}.bar", name).to_string().leak()),
-            popup: PopupMenuState::named(format!("{}.popup", name).to_string().leak()),
+            popup: PopupMenuState::new(),
             ..Default::default()
         }
     }
 
     /// Submenu visible/active.
     pub fn popup_active(&self) -> bool {
-        self.popup.is_focused()
+        self.popup.is_active()
     }
 
     /// Submenu visible/active.
     pub fn set_popup_active(&mut self, active: bool) {
-        self.popup.focus.set(active);
+        self.popup.set_active(active);
     }
 
     /// Selected as menu/submenu
@@ -353,6 +375,10 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenubarState {
         if let Some(selected) = self.bar.selected() {
             if self.popup_active() {
                 match self.popup.handle(event, Popup) {
+                    MenuOutcome::Hide => {
+                        // only hide on focus lost. ignore this one.
+                        MenuOutcome::Continue
+                    }
                     MenuOutcome::Selected(n) => MenuOutcome::MenuSelected(selected, n),
                     MenuOutcome::Activated(n) => MenuOutcome::MenuActivated(selected, n),
                     r => r,

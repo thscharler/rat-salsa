@@ -16,43 +16,25 @@
 //! inside the `buffer.area`.
 
 use crate::_private::NonExhaustive;
-use crate::event::{MenuOutcome, Popup};
-use crate::util::{fill_buf_area, revert_style};
+use crate::event::MenuOutcome;
+use crate::util::revert_style;
 use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
 use rat_event::util::MouseFlags;
-use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly};
-use rat_focus::{FocusFlag, HasFocusFlag, Navigation, ZRect};
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Popup};
+use rat_popup::event::PopupOutcome;
+pub use rat_popup::Placement;
+use rat_popup::{PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, Widget};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use std::cmp::max;
 use std::mem;
 use unicode_segmentation::UnicodeSegmentation;
-
-/// Placement relative to the Rect given to render.
-///
-/// The popup-menu is always rendered outside the box,
-/// and this gives the relative placement.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum Placement {
-    /// On top of the given area. Placed slightly left, so that
-    /// the menu text aligns with the left border.
-    #[default]
-    Top,
-    /// Placed left-top of the given area.
-    /// For a submenu opening to the left.
-    Left,
-    /// Placed right-top of the given area.
-    /// For a submenu opening to the right.
-    Right,
-    /// Below the bottom of the given area. Placed slightly left,
-    /// so that the menu text aligns with the left border.
-    Bottom,
-}
 
 /// Popup menu.
 #[derive(Debug, Default, Clone)]
@@ -60,47 +42,37 @@ pub struct PopupMenu<'a> {
     pub(crate) menu: MenuBuilder<'a>,
 
     width: Option<u16>,
-    placement: Placement,
-    boundary: Option<Rect>,
+    popup: PopupCore<'a>,
 
     style: Style,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
     right_style: Option<Style>,
     focus_style: Option<Style>,
-
-    block: Option<Block<'a>>,
-    block_indent: bool,
 }
 
 /// State & event handling.
 #[derive(Debug, Clone)]
 pub struct PopupMenuState {
-    /// Total area
-    /// __readonly__. renewed for each render.
-    pub area: Rect,
-    /// Area with z-index for Focus.
-    /// __readonly__. renewed for each render.
-    pub z_areas: [ZRect; 1],
+    /// Popup data.
+    pub popup: PopupCoreState,
     /// Areas for each item.
     /// __readonly__. renewed for each render.
     pub item_areas: Vec<Rect>,
     /// Area for the separator after each item.
+    /// The area has height 0 if there is no separator.
     /// __readonly__. renewed for each render.
     pub sep_areas: Vec<Rect>,
     /// Letter navigation
     /// __readonly__. renewed for each render.
     pub navchar: Vec<Option<char>>,
-    /// Disable menu-items.
+    /// Disabled menu-items.
     pub disabled: Vec<bool>,
 
     /// Selected item.
     /// __read+write__
     pub selected: Option<usize>,
 
-    /// Focusflag is used to decide the visible/not-visible state.
-    /// __read+write__
-    pub focus: FocusFlag,
     /// Mouse flags
     /// __used for mouse interaction__
     pub mouse: MouseFlags,
@@ -111,9 +83,7 @@ pub struct PopupMenuState {
 impl Default for PopupMenuState {
     fn default() -> Self {
         Self {
-            focus: Default::default(),
-            area: Default::default(),
-            z_areas: [Default::default()],
+            popup: Default::default(),
             item_areas: vec![],
             sep_areas: vec![],
             navchar: vec![],
@@ -126,7 +96,7 @@ impl Default for PopupMenuState {
 }
 
 impl<'a> PopupMenu<'a> {
-    fn layout(&self, area: Rect, fit_in: Rect, state: &mut PopupMenuState) {
+    fn size(&self) -> Size {
         let width = if let Some(width) = self.width {
             width
         } else {
@@ -140,49 +110,26 @@ impl<'a> PopupMenu<'a> {
         };
         let height = self.menu.items.iter().map(MenuItem::height).sum::<u16>();
 
+        let block = self.popup.get_block_size();
+
         #[allow(clippy::if_same_then_else)]
-        let vertical_padding = if self.block_indent { 1 } else { 1 };
-        let horizontal_padding = if self.block_indent { 2 } else { 1 };
-        let horizontal_padding_separator = if self.block_indent { 1 } else { 0 };
+        let vertical_padding = if block.height == 0 { 2 } else { 0 };
+        let horizontal_padding = 2;
 
-        let mut area = match self.placement {
-            Placement::Top => Rect::new(
-                area.x.saturating_sub(horizontal_padding),
-                area.y.saturating_sub(height + vertical_padding * 2),
-                width + horizontal_padding * 2,
-                height + vertical_padding * 2,
-            ),
-            Placement::Left => Rect::new(
-                area.x.saturating_sub(width + horizontal_padding * 2),
-                area.y,
-                width + horizontal_padding * 2,
-                height + vertical_padding * 2,
-            ),
-            Placement::Right => Rect::new(
-                area.x + area.width,
-                area.y,
-                width + horizontal_padding * 2,
-                height + vertical_padding * 2,
-            ),
-            Placement::Bottom => Rect::new(
-                area.x.saturating_sub(horizontal_padding),
-                area.y + area.height,
-                width + horizontal_padding * 2,
-                height + vertical_padding * 2,
-            ),
-        };
+        Size::new(
+            width + horizontal_padding + block.width,
+            height + vertical_padding + block.height,
+        )
+    }
 
-        if area.right() >= fit_in.right() {
-            let corr = area.right().saturating_sub(fit_in.right());
-            area.x = area.x.saturating_sub(corr);
-        }
-        if area.bottom() >= fit_in.bottom() {
-            let corr = area.bottom().saturating_sub(fit_in.bottom());
-            area.y = area.y.saturating_sub(corr);
-        }
+    fn layout(&self, area: Rect, inner: Rect, state: &mut PopupMenuState) {
+        let block = Size::new(area.width - inner.width, area.height - inner.height);
 
-        state.area = area;
-        state.z_areas[0] = ZRect::from((1, area));
+        // add text padding.
+        #[allow(clippy::if_same_then_else)]
+        let vert_offset = if block.height == 0 { 1 } else { 0 };
+        let horiz_offset = 1;
+        let horiz_offset_sep = 0;
 
         state.item_areas.clear();
         state.sep_areas.clear();
@@ -191,27 +138,17 @@ impl<'a> PopupMenu<'a> {
 
         for item in &self.menu.items {
             state.item_areas.push(Rect::new(
-                area.x + horizontal_padding,
-                row + area.y + vertical_padding,
-                width,
+                inner.x + horiz_offset,
+                inner.y + row + vert_offset,
+                inner.width.saturating_sub(2 * horiz_offset),
                 1,
             ));
-
-            if item.separator.is_none() {
-                state.sep_areas.push(Rect::new(
-                    area.x + horizontal_padding_separator,
-                    row + 1 + area.y + vertical_padding,
-                    width + 2,
-                    0,
-                ));
-            } else {
-                state.sep_areas.push(Rect::new(
-                    area.x + horizontal_padding_separator,
-                    row + 1 + area.y + vertical_padding,
-                    width + 2,
-                    1,
-                ));
-            }
+            state.sep_areas.push(Rect::new(
+                inner.x + horiz_offset_sep,
+                inner.y + row + 1 + vert_offset,
+                inner.width.saturating_sub(2 * horiz_offset_sep),
+                if item.separator.is_some() { 1 } else { 0 },
+            ));
 
             row += item.height();
         }
@@ -266,20 +203,38 @@ impl<'a> PopupMenu<'a> {
         self
     }
 
-    /// Placement relative to the render-area.
+    /// Set relative placement.
     pub fn placement(mut self, placement: Placement) -> Self {
-        self.placement = placement;
+        self.popup = self.popup.placement(placement);
+        self
+    }
+
+    /// Adds an extra offset.
+    pub fn offset(mut self, offset: (i16, i16)) -> Self {
+        self.popup = self.popup.offset(offset);
+        self
+    }
+
+    /// Adds an extra x offset.
+    pub fn x_offset(mut self, offset: i16) -> Self {
+        self.popup = self.popup.x_offset(offset);
+        self
+    }
+
+    /// Adds an extra y offset.
+    pub fn y_offset(mut self, offset: i16) -> Self {
+        self.popup = self.popup.y_offset(offset);
         self
     }
 
     /// Set outer bounds for the popup-menu.
-    /// If not used, the buffer-area is used as outer bounds.
+    /// If not set, the [Buffer::area] is used as outer bounds.
     pub fn boundary(mut self, boundary: Rect) -> Self {
-        self.boundary = Some(boundary);
+        self.popup = self.popup.boundary(boundary);
         self
     }
 
-    /// Take a style-set.
+    /// Set a style-set.
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
         self.disabled_style = styles.disabled;
@@ -323,8 +278,7 @@ impl<'a> PopupMenu<'a> {
 
     /// Block for borders.
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = Some(block);
-        self.block_indent = true;
+        self.popup = self.popup.block(block);
         self
     }
 }
@@ -333,58 +287,50 @@ impl<'a> PopupMenu<'a> {
 impl<'a> StatefulWidgetRef for PopupMenu<'a> {
     type State = PopupMenuState;
 
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_ref(
-            self,
-            |area, buf| self.block.render_ref(area, buf),
-            area,
-            buf,
-            state,
-        );
+    fn render_ref(&self, mut area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        if !state.is_active() {
+            state.clear_areas();
+            return;
+        }
+
+        state.navchar = self.menu.items.iter().map(|v| v.navchar).collect();
+        state.disabled = self.menu.items.iter().map(|v| v.disabled).collect();
+
+        let size = self.size();
+        area.width = size.width;
+        area.height = size.height;
+
+        self.popup.render_ref(area, buf, &mut state.popup);
+        buf.set_style(state.popup.widget_area, self.style);
+        self.layout(state.popup.area, state.popup.widget_area, state);
+        render_items(&self, buf, state)
     }
 }
 
 impl<'a> StatefulWidget for PopupMenu<'a> {
     type State = PopupMenuState;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let block = mem::take(&mut self.block);
-        render_ref(
-            &self, //
-            |area, buf| block.render(area, buf),
-            area,
-            buf,
-            state,
-        );
+    fn render(mut self, mut area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        if !state.is_active() {
+            state.clear_areas();
+            return;
+        }
+
+        state.navchar = self.menu.items.iter().map(|v| v.navchar).collect();
+        state.disabled = self.menu.items.iter().map(|v| v.disabled).collect();
+
+        let size = self.size();
+        area.width = size.width;
+        area.height = size.height;
+
+        mem::take(&mut self.popup).render(area, buf, &mut state.popup);
+        buf.set_style(state.popup.widget_area, self.style);
+        self.layout(state.popup.area, state.popup.widget_area, state);
+        render_items(&self, buf, state)
     }
 }
 
-fn render_ref(
-    widget: &PopupMenu<'_>,
-    block: impl FnOnce(Rect, &mut Buffer),
-    area: Rect,
-    buf: &mut Buffer,
-    state: &mut PopupMenuState,
-) {
-    if !state.active() {
-        return;
-    }
-
-    state.navchar = widget
-        .menu
-        .items
-        .iter()
-        .map(|v| v.navchar.map(|w| w.to_ascii_lowercase()))
-        .collect();
-    state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
-
-    let fit_in = if let Some(boundary) = widget.boundary {
-        boundary
-    } else {
-        buf.area
-    };
-    widget.layout(area, fit_in, state);
-
+fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuState) {
     let focus_style = if let Some(focus) = widget.focus_style {
         focus
     } else {
@@ -405,9 +351,6 @@ fn render_ref(
     } else {
         widget.style
     };
-
-    fill_buf_area(buf, state.area, " ", widget.style);
-    block(state.area, buf);
 
     for (n, item) in widget.menu.items.iter().enumerate() {
         let mut item_area = state.item_areas[n];
@@ -452,7 +395,6 @@ fn render_ref(
 
         if let Some(separator) = item.separator {
             let sep_area = state.sep_areas[n];
-            buf.set_style(sep_area, widget.style);
             let sym = match separator {
                 Separator::Empty => " ",
                 Separator::Plain => "\u{2500}",
@@ -470,35 +412,6 @@ fn render_ref(
     }
 }
 
-impl HasFocusFlag for PopupMenuState {
-    /// Focus flag.
-    fn focus(&self) -> FocusFlag {
-        self.focus.clone()
-    }
-
-    /// Focus area.
-    fn area(&self) -> Rect {
-        if self.active() {
-            self.area
-        } else {
-            Rect::default()
-        }
-    }
-
-    /// Widget area with z index.
-    fn z_areas(&self) -> &[ZRect] {
-        if self.active() {
-            &self.z_areas
-        } else {
-            &[]
-        }
-    }
-
-    fn navigable(&self) -> Navigation {
-        Navigation::Leave
-    }
-}
-
 impl PopupMenuState {
     /// New
     #[inline]
@@ -506,27 +419,31 @@ impl PopupMenuState {
         Default::default()
     }
 
-    /// New with a focus name.
-    pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
+    /// Show the popup.
+    pub fn flip_active(&mut self) {
+        self.popup.flip_active();
+    }
+
+    /// Show the popup.
+    pub fn is_active(&self) -> bool {
+        self.popup.is_active()
+    }
+
+    /// Show the popup.
+    pub fn set_active(&mut self, active: bool) {
+        self.popup.set_active(active);
+        if !active {
+            self.clear_areas();
         }
     }
 
-    /// Show the popup.
-    pub fn flip_active(&mut self) {
-        self.focus.set(!self.focus.get());
-    }
-
-    /// Show the popup.
-    pub fn active(&self) -> bool {
-        self.is_focused()
-    }
-
-    /// Show the popup.
-    pub fn set_active(&self, active: bool) {
-        self.focus.set(active);
+    /// Clear the areas.
+    pub fn clear_areas(&mut self) {
+        self.popup.clear_areas();
+        self.sep_areas.clear();
+        self.navchar.clear();
+        self.item_areas.clear();
+        self.disabled.clear();
     }
 
     /// Number of items.
@@ -658,7 +575,9 @@ impl PopupMenuState {
 
 impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
-        let res = if self.active() {
+        let r0 = self.popup.handle(event, Popup).into();
+
+        let r1 = if self.is_active() {
             match event {
                 ct_event!(key press ANY-c) => {
                     let r = self.navigate(*c);
@@ -722,19 +641,35 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
             MenuOutcome::Continue
         };
 
-        if !res.is_consumed() {
+        let r = max(r0, r1);
+
+        if !r.is_consumed() {
             self.handle(event, MouseOnly)
         } else {
-            res
+            r
         }
     }
 }
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> MenuOutcome {
-        if self.active() {
+        let r0 = match self.popup.handle(event, Popup) {
+            PopupOutcome::HideFocus => {
+                self.set_active(false);
+                MenuOutcome::Changed
+            }
+            PopupOutcome::Hide => {
+                self.set_active(false);
+                MenuOutcome::Changed
+            }
+            r => r.into(),
+        };
+
+        let r1 = if self.is_active() {
             match event {
-                ct_event!(mouse moved for col, row) if self.area.contains((*col, *row).into()) => {
+                ct_event!(mouse moved for col, row)
+                    if self.popup.widget_area.contains((*col, *row).into()) =>
+                {
                     if self.select_at((*col, *row)) {
                         MenuOutcome::Selected(self.selected().expect("selection"))
                     } else {
@@ -742,7 +677,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
                     }
                 }
                 ct_event!(mouse down Left for col, row)
-                    if self.area.contains((*col, *row).into()) =>
+                    if self.popup.widget_area.contains((*col, *row).into()) =>
                 {
                     if self.select_at((*col, *row)) {
                         self.set_active(false);
@@ -755,7 +690,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
             }
         } else {
             MenuOutcome::Continue
-        }
+        };
+
+        max(r0, r1)
     }
 }
 
