@@ -73,7 +73,11 @@ fn repaint_input(
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
     let (menu, menu_popup) = Menubar::new(&MENU)
-        .popup_block(Block::bordered().border_type(BorderType::Rounded))
+        .popup_block(
+            Block::bordered()
+                .style(Style::default().black().on_dark_gray())
+                .border_type(BorderType::Rounded),
+        )
         .title("⋱⋰⋱⋰⋱")
         .title_style(Style::default().black().on_yellow())
         .style(Style::default().black().on_dark_gray())

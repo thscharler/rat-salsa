@@ -216,9 +216,7 @@ fn handle_event<Data, State>(
             _ => {}
         }
 
-        let r = handle(&event, data, istate, state)?;
-
-        r
+        handle(&event, data, istate, state)?
     };
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));

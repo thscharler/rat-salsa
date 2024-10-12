@@ -174,7 +174,6 @@ pub mod textarea {
         TextAreaStyle,
     };
 }
-mod popup;
 pub mod view;
 pub mod viewport;
 
