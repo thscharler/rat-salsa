@@ -150,7 +150,7 @@ fn handle_stuff(
     let f = focus.handle(event, Regular);
 
     let r0 = match state.popfoc.handle(event, Regular) {
-        PopupOutcome::Hidden => {
+        PopupOutcome::Hide => {
             focus.next();
             Outcome::Changed
         }
@@ -297,7 +297,7 @@ mod popup_focus {
     use rat_event::{ct_event, HandleEvent, Regular};
     use rat_focus::{ContainerFlag, FocusBuilder, FocusFlag, HasFocus, HasFocusFlag, Navigation};
     use rat_popup::event::PopupOutcome;
-    use rat_popup::{Placement, Popup, PopupState};
+    use rat_popup::{Placement, PopupCore, PopupCoreState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::{Style, Stylize};
@@ -313,7 +313,7 @@ mod popup_focus {
 
         fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
             if state.popup.is_active() {
-                Popup::new()
+                PopupCore::new()
                     .placement(state.placement)
                     .block(Block::bordered())
                     .render(area, buf, &mut state.popup);
@@ -335,7 +335,7 @@ mod popup_focus {
 
         /// Where to place the popup
         pub placement: Placement,
-        pub popup: PopupState,
+        pub popup: PopupCoreState,
 
         pub focus: FocusFlag,
     }
@@ -345,7 +345,7 @@ mod popup_focus {
             Self {
                 area: Default::default(),
                 placement: Default::default(),
-                popup: PopupState::named("foc-popup"),
+                popup: PopupCoreState::named("foc-popup"),
                 focus: FocusFlag::named("foc"),
             }
         }
@@ -375,11 +375,11 @@ mod popup_focus {
         }
 
         fn container(&self) -> Option<ContainerFlag> {
-            Some(self.popup.container.clone())
+            Some(self.popup.active.clone())
         }
 
         fn area(&self) -> Rect {
-            self.popup.container.area()
+            self.popup.active.area()
         }
     }
 
@@ -435,7 +435,7 @@ mod popup_focus {
 mod popup_nonfocus {
     use rat_event::{ct_event, HandleEvent, Regular};
     use rat_popup::event::PopupOutcome;
-    use rat_popup::{Placement, Popup, PopupState};
+    use rat_popup::{Placement, PopupCore, PopupCoreState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::{Style, Stylize};
@@ -471,7 +471,7 @@ mod popup_nonfocus {
                     }
                 };
 
-                Popup::new()
+                PopupCore::new()
                     .placement(state.placement)
                     .offset((dx, dy))
                     .block(Block::bordered().border_type(BorderType::Rounded))
@@ -488,14 +488,14 @@ mod popup_nonfocus {
         /// Where to place the popup
         pub placement: Placement,
         /// Internalized popup state.
-        pub popup: PopupState,
+        pub popup: PopupCoreState,
     }
 
     impl PopActState {
         pub fn new() -> Self {
             Self {
                 placement: Default::default(),
-                popup: PopupState::named("act-popup"),
+                popup: PopupCoreState::named("act-popup"),
             }
         }
 

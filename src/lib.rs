@@ -25,12 +25,11 @@ pub mod event {
         /// Further processing for this event may stop.
         /// Rendering the ui is advised.
         Changed,
-        /// Popup has been hidden after a focus change was detected.
+        /// Popup should be hidden due to a focus change.
         ///
-        HiddenFocus,
-        /// Popup has been hidden.
-        /// There is the need to transfer the focus elsewhere.
-        Hidden,
+        HideFocus,
+        /// Popup should be hidden.
+        Hide,
     }
 
     impl ConsumedEvent for PopupOutcome {
@@ -45,8 +44,8 @@ pub mod event {
                 PopupOutcome::Continue => Outcome::Continue,
                 PopupOutcome::Unchanged => Outcome::Unchanged,
                 PopupOutcome::Changed => Outcome::Changed,
-                PopupOutcome::Hidden => Outcome::Changed,
-                PopupOutcome::HiddenFocus => Outcome::Changed,
+                PopupOutcome::Hide => Outcome::Changed,
+                PopupOutcome::HideFocus => Outcome::Changed,
             }
         }
     }
@@ -56,47 +55,34 @@ pub mod event {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Placement {
-    /// Use the render-area for the popup.
+    /// Use the render-area for the popup as is.
     #[default]
     None,
-    /// Place the popup above the given area.
-    /// Set an extra offset for the x-position.
+    /// Place the popup above the given area. Aligned left.
     AboveLeft(Rect),
-    /// Place the popup above the given area.
-    /// Set an extra offset for the x-position.
+    /// Place the popup above the given area. Aligned centered.
     AboveCenter(Rect),
-    /// Place the popup above the given area.
-    /// Set an extra offset for the x-position.
+    /// Place the popup above the given area. Aligned right.
     AboveRight(Rect),
-    /// Place the popup to the left of the given area.
-    /// Set an extra offset for the y-position.
+    /// Place the popup to the left of the given area. Aligned to the top.
     LeftTop(Rect),
-    /// Place the popup to the left of the given area.
-    /// Set an extra offset for the y-position.
+    /// Place the popup to the left of the given area. Aligned in the middle.
     LeftMiddle(Rect),
-    /// Place the popup to the left of the given area.
-    /// Set an extra offset for the y-position.
+    /// Place the popup to the left of the given area. Aligned to the bottom.
     LeftBottom(Rect),
-    /// Place the popup to the right of the given area.
-    /// Set an extra offset for the y-position.
+    /// Place the popup to the right of the given area. Aligned to the top.
     RightTop(Rect),
-    /// Place the popup to the right of the given area.
-    /// Set an extra offset for the y-position.
+    /// Place the popup to the right of the given area. Aligned in the middle.
     RightMiddle(Rect),
-    /// Place the popup to the right of the given area.
-    /// Set an extra offset for the y-position.
+    /// Place the popup to the right of the given area. Aligned to the bottom.
     RightBottom(Rect),
-    /// Place the popup below the given area.
-    /// Set an extra offset for the x-position.
+    /// Place the popup below the given area. Aligned left.
     BelowLeft(Rect),
-    /// Place the popup below the given area.
-    /// Set an extra offset for the x-position.
+    /// Place the popup below the given area. Aligned centered.
     BelowCenter(Rect),
-    /// Place the popup below the given area.
-    /// Set an extra offset for the x-position.
+    /// Place the popup below the given area. Aligned right.
     BelowRight(Rect),
-    /// Use the render-area for the popup.
-    /// But for the x,y use this position, shifted.
+    /// Use the render-area for the popup, but place it at position (x,y).
     Position(u16, u16),
 }
 
