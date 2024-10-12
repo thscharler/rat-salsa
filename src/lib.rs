@@ -422,11 +422,23 @@ impl FocusFlagCore {
 /// Adapter for widgets that don't use this library.
 /// Keep this adapter struct somewhere and use it to
 /// manually control the widgets rendering/event handling.
-#[derive(Debug, Default)]
-pub struct FocusAdapter {
+#[derive(Debug)]
+pub struct FocusAdapter<const N: usize = 0> {
     pub focus: FocusFlag,
     pub area: Rect,
+    pub z_areas: [ZRect; N],
     pub navigation: Navigation,
+}
+
+impl<const N: usize> Default for FocusAdapter<N> {
+    fn default() -> Self {
+        Self {
+            focus: Default::default(),
+            area: Default::default(),
+            z_areas: [Default::default(); N],
+            navigation: Default::default(),
+        }
+    }
 }
 
 impl FocusAdapter {

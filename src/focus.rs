@@ -175,11 +175,16 @@ impl Focus {
         }
     }
 
-    /// Focus the first widget of a given container.
+    /// Sets the focus to the given container.
+    ///
+    /// This sets the focus to the first widget that can be found
+    /// for this container.
     pub fn focus_container(&self, container: &'_ dyn HasFocus) {
         focus_debug!(self.core.log, "container focus");
         if let Some(flag) = container.container() {
-            self.core.first_container(flag);
+            if let Some((_idx, range)) = self.core.container_index_of(flag) {
+                self.core.focus_idx(range.start, true);
+            }
         } else {
             focus_debug!(self.core.log, "no container id");
         }
@@ -281,6 +286,18 @@ impl Focus {
     pub fn first(&self) {
         focus_debug!(self.core.log, "first focus");
         self.core.first();
+    }
+
+    /// Focus the first widget of a given container.
+    ///
+    /// The first navigable widget in the container gets the focus.
+    pub fn first_container(&self, container: &'_ dyn HasFocus) {
+        focus_debug!(self.core.log, "container focus");
+        if let Some(flag) = container.container() {
+            self.core.first_container(flag);
+        } else {
+            focus_debug!(self.core.log, "no container id");
+        }
     }
 
     /// Focus the next widget in the cycle.
