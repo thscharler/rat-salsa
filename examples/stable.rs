@@ -33,7 +33,7 @@ fn main() -> Result<(), anyhow::Error> {
         table2: Default::default(),
     };
 
-    run_ui(handle_lists, repaint_lists, &mut data, &mut state)
+    run_ui("stable", handle_lists, repaint_lists, &mut data, &mut state)
 }
 
 struct Data {

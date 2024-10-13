@@ -59,4 +59,4 @@ features = []
 [dev-dependencies]
 fern = "0.6"
 anyhow = "1.0.82"
-
+unicode-segmentation = "1.11"

@@ -25,7 +25,13 @@ fn main() -> Result<(), anyhow::Error> {
         text2: Default::default(),
     };
 
-    run_ui(handle_text, repaint_text, &mut data, &mut state)
+    run_ui(
+        "sparagraph",
+        handle_text,
+        repaint_text,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {

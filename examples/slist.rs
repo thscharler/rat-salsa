@@ -38,7 +38,7 @@ fn main() -> Result<(), anyhow::Error> {
         list4: Default::default(),
     };
 
-    run_ui(handle_lists, repaint_lists, &mut data, &mut state)
+    run_ui("slist", handle_lists, repaint_lists, &mut data, &mut state)
 }
 
 struct Data {
