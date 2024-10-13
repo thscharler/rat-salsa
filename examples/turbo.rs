@@ -286,7 +286,7 @@ pub mod turbo {
         MenuBuilder, MenuStructure, Menubar, MenubarState, Placement, PopupMenu, PopupMenuState,
         SubmenuPlacement,
     };
-    use rat_widget::shadow::Shadow;
+    use rat_widget::shadow::{Shadow, ShadowDirection};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::style::{Style, Stylize};
@@ -498,11 +498,10 @@ pub mod turbo {
             popup.render(r[0], buf, &mut state.menu);
 
             if state.menu.popup.is_active() {
-                Shadow::new().style(Style::new().on_black()).render(
-                    state.menu.popup.popup.area,
-                    buf,
-                    &mut (),
-                );
+                Shadow::new()
+                    .direction(ShadowDirection::BottomRight)
+                    .style(Style::new().dark_gray().on_black())
+                    .render(state.menu.popup.popup.area, buf, &mut ());
             }
 
             if state.menu_environment.is_active() {
