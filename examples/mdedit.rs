@@ -370,7 +370,7 @@ mod app {
     use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{
-        MenuBuilder, MenuStructure, Menubar, MenubarState, Placement, Separator,
+        MenuBuilder, MenuStructure, Menubar, MenubarState, Separator, SubmenuPlacement,
     };
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::text::HasScreenCursor;
@@ -477,7 +477,7 @@ mod app {
                 .title("^^°n°^^")
                 .popup_width(25)
                 .popup_block(Block::bordered())
-                .popup_placement(Placement::Top)
+                .popup_placement(SubmenuPlacement::Above)
                 .styles(ctx.g.theme.menu_style())
                 .into_widgets();
             menu.render(s[0], buf, &mut state.menu);
@@ -1596,20 +1596,21 @@ pub mod file_list {
                 }))
                 .render(l_file_list[1], buf, &mut state.file_list);
 
-            if state.popup.active() {
+            if state.popup.is_active() {
                 PopupMenu::new()
                     .styles(ctx.g.theme.menu_style())
                     .block(Block::bordered())
-                    .placement(Placement::Right)
+                    .placement(Placement::RightTop(Rect::new(
+                        state.popup_pos.0,
+                        state.popup_pos.1,
+                        0,
+                        0,
+                    )))
                     .item_parsed("_New")
                     .item_parsed("_Open")
                     .item_parsed("_Delete")
                     .boundary(state.file_list.area)
-                    .render(
-                        Rect::new(state.popup_pos.0, state.popup_pos.1, 0, 0),
-                        buf,
-                        &mut state.popup,
-                    );
+                    .render(Rect::default(), buf, &mut state.popup);
             }
 
             Ok(())

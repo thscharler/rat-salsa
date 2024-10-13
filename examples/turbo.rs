@@ -284,9 +284,12 @@ pub mod turbo {
     use rat_widget::focus::{FocusBuilder, HasFocus};
     use rat_widget::menu::{
         MenuBuilder, MenuStructure, Menubar, MenubarState, Placement, PopupMenu, PopupMenuState,
+        SubmenuPlacement,
     };
+    use rat_widget::shadow::Shadow;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::style::{Style, Stylize};
     use ratatui::widgets::{Block, StatefulWidget};
 
     #[derive(Debug)]
@@ -488,18 +491,26 @@ pub mod turbo {
             let (menubar, popup) = Menubar::new(&Menu)
                 .styles(ctx.g.theme.menu_style())
                 .title("  ")
-                .popup_placement(Placement::Bottom)
-                .popup_block(Block::bordered())
+                .popup_placement(SubmenuPlacement::Below)
+                .popup_block(Block::bordered().style(ctx.g.theme.menu_style().style))
                 .into_widgets();
             menubar.render(r[0], buf, &mut state.menu);
             popup.render(r[0], buf, &mut state.menu);
 
-            if state.menu_environment.active() {
+            if state.menu.popup.is_active() {
+                Shadow::new().style(Style::new().on_black()).render(
+                    state.menu.popup.popup.area,
+                    buf,
+                    &mut (),
+                );
+            }
+
+            if state.menu_environment.is_active() {
                 let area = state
                     .menu
                     .popup
                     .item_areas
-                    .get(7)
+                    .get(6)
                     .copied()
                     .unwrap_or_default();
 
@@ -510,9 +521,16 @@ pub mod turbo {
                     .item_parsed("_Mouse...")
                     .item_parsed("_Startup...")
                     .item_parsed("_Colors...")
-                    .placement(Placement::Right)
-                    .block(Block::bordered())
-                    .render(area, buf, &mut state.menu_environment);
+                    .placement(Placement::RightTop(area))
+                    .y_offset(-1)
+                    .block(Block::bordered().style(ctx.g.theme.menu_style().style))
+                    .render(Rect::default(), buf, &mut state.menu_environment);
+
+                Shadow::new().style(Style::new().on_black()).render(
+                    state.menu_environment.popup.area,
+                    buf,
+                    &mut (),
+                );
             }
 
             Ok(())
@@ -521,9 +539,7 @@ pub mod turbo {
 
     impl HasFocus for TurboState {
         fn build(&self, builder: &mut FocusBuilder) {
-            builder
-                .widget(&self.menu) //
-                .widget(&self.menu_environment);
+            builder.widget(&self.menu);
         }
     }
 
@@ -556,7 +572,7 @@ pub mod turbo {
                     _ => Control::Continue,
                 });
             }
-            if self.menu_environment.active() {
+            if self.menu_environment.is_active() {
                 try_flow!(match self.menu_environment.handle(event, Popup) {
                     MenuOutcome::Activated(_) => {
                         self.menu.popup.set_active(false);
