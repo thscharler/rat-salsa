@@ -45,7 +45,13 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
     };
 
-    run_ui(handle_table, repaint_table, &mut data, &mut state)
+    run_ui(
+        "0_height",
+        handle_table,
+        repaint_table,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Sample {

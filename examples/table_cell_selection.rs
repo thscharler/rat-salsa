@@ -38,7 +38,13 @@ fn main() -> Result<(), anyhow::Error> {
         table: Default::default(),
     };
 
-    run_ui(handle_table, repaint_table, &mut data, &mut state)
+    run_ui(
+        "cell_selection",
+        handle_table,
+        repaint_table,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Sample {

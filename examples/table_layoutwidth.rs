@@ -40,7 +40,13 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.table.hscroll.set_scroll_by(Some(1));
 
-    run_ui(handle_table, repaint_table, &mut data, &mut state)
+    run_ui(
+        "layoutwidth",
+        handle_table,
+        repaint_table,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Sample {
