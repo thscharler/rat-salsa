@@ -154,7 +154,7 @@ fn handle_stuff(
             }
         }
         MenuOutcome::Activated(n) => {
-            istate.status[0] = format!("Selected {}", n);
+            istate.status[0] = format!("Activated {}", n);
             Outcome::Changed
         }
         r => r.into(),

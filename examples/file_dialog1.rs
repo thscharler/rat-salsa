@@ -2,8 +2,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::MiniSalsaState;
 use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
 use rat_menu::event::MenuOutcome;
-use rat_menu::menubar::{Menubar, MenubarState};
-use rat_menu::popup_menu::Placement;
+use rat_menu::menubar::{Menubar, MenubarState, SubmenuPlacement};
 use rat_menu::{menubar, StaticMenu};
 use rat_text::HasScreenCursor;
 use rat_widget::event::FileOutcome;
@@ -56,7 +55,7 @@ fn repaint_input(
     let (menu, menu_popup) = Menubar::new(&MENU)
         .title("Wha!")
         .popup_block(Block::bordered())
-        .popup_placement(Placement::Top)
+        .popup_placement(SubmenuPlacement::Above)
         .styles(THEME.menu_style())
         .into_widgets();
     menu.render(l1[1], frame.buffer_mut(), &mut state.menu);
