@@ -1,3 +1,11 @@
+# 0.25.4
+
+* fix: changes in rat-menu affect the examples.
+
+# 0.25.2 and 0.25.3
+
+fixed some docs
+
 # 0.25.1
 
 * mention the book.
