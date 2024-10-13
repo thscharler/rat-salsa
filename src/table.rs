@@ -364,6 +364,11 @@ impl<'a, Selection> Table<'a, Selection> {
     /// use rat_ftable::{Table, TableContext, TableState, TableData};
     ///
     /// # struct SampleRow;
+    /// # impl Clone for SampleRow {
+    /// #     fn clone(&self) -> Self {
+    /// #        SampleRow
+    /// #     }
+    /// # }
     /// # let area = Rect::default();
     /// # let mut buf = Buffer::empty(area);
     /// # let buf = &mut buf;
@@ -380,9 +385,9 @@ impl<'a, Selection> Table<'a, Selection> {
     ///         1
     ///     }
     ///
-    ///     fn row_style(&self, row: usize) -> Style {
+    ///     fn row_style(&self, row: usize) -> Option<Style> {
     ///         // to some calculations ...
-    ///         Style::default()
+    ///         None
     ///     }
     ///
     ///     fn render_cell(&self, ctx: &TableContext, column: usize, row: usize, area: Rect, buf: &mut Buffer) {
