@@ -1301,11 +1301,9 @@ mod core {
 
             impl HasFocus for DD {
                 fn build(&self, fb: &mut FocusBuilder) {
-                    let dd_end = fb.start(Some(self.dd.clone()), Rect::default());
                     fb.widget(&self.g);
                     fb.widget(&self.h);
                     fb.widget(&self.i);
-                    fb.end(dd_end);
                 }
 
                 fn container(&self) -> Option<ContainerFlag> {

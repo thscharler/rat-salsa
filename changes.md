@@ -1,3 +1,23 @@
+# 0.26.0
+
+Missed a few things:
+
+break: The functions is_focused(), lost_focus() and gained_focus() of HasFocus
+can clash with the same in HasFocusFlag. Renamed the HasFocus functions to
+is_container_focused(), container_lost_focus() and container_gained_focus().
+break: FocusAdapter gets a const type param and adds z_areas. Can now emulate
+a full widget.
+
+feature: add Focus::none() to reset all focus flags.
+feature: add ContainerAdapter analogous to FocusAdapter.
+feature: add Focus::expel_focus() and Focus::expel_focus_container().
+The expel the focus from the given widget/container and place it elsewhere.
+
+fix: focus_container() should always focus regardless of navigation flags.
+add first_container() that respects navigations-flags.
+fix: update_container and replace_container used an outdated method to
+build a container.
+
 # 0.25.0
 
 Sync version for beta.
