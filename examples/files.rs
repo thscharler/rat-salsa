@@ -19,9 +19,7 @@ use rat_widget::event::{
 };
 use rat_widget::focus::{match_focus, FocusBuilder, HasFocus, HasFocusFlag};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menu::{
-    MenuBuilder, MenuStructure, Menubar, MenubarState, Placement, SubmenuPlacement,
-};
+use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState, SubmenuPlacement};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use rat_widget::scrolled::Scroll;
 use rat_widget::splitter::{Split, SplitState, SplitType};

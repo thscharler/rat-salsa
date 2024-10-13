@@ -5,6 +5,7 @@
 use crate::facilities::MDFileDialogState;
 use crate::root::{MDRoot, MDRootState};
 use anyhow::Error;
+use crossterm::event::{Event, KeyEvent, KeyModifiers, MouseEvent};
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
@@ -1606,10 +1607,11 @@ pub mod file_list {
                         0,
                         0,
                     )))
+                    .offset((-1, -1))
+                    .boundary(state.file_list.area)
                     .item_parsed("_New")
                     .item_parsed("_Open")
                     .item_parsed("_Delete")
-                    .boundary(state.file_list.area)
                     .render(Rect::default(), buf, &mut state.popup);
             }
 
@@ -1619,9 +1621,7 @@ pub mod file_list {
 
     impl HasFocus for FileListState {
         fn build(&self, builder: &mut FocusBuilder) {
-            builder
-                .widget(&self.popup) //
-                .widget(&self.file_list);
+            builder.widget(&self.file_list);
         }
 
         fn area(&self) -> Rect {
@@ -1683,7 +1683,7 @@ pub mod file_list {
                 ct_event!(mouse down Right for x,y)
                     if self.file_list.area.contains(Position::new(*x, *y)) =>
                 {
-                    self.popup_pos = (*x, *y + 1);
+                    self.popup_pos = (*x, *y);
                     self.popup.set_active(true);
                     Control::Changed
                 }
@@ -2285,3 +2285,46 @@ fn setup_logging() -> Result<(), Error> {
 
 static HELP: &[u8] = include_bytes!("mdedit.md");
 static CHEAT: &[u8] = include_bytes!("cheat.md");
+
+fn event_str(event: &crossterm::event::Event) -> String {
+    match event {
+        Event::FocusGained => "focus-gained".into(),
+        Event::FocusLost => "focus-lost".into(),
+        Event::Key(KeyEvent {
+            code,
+            modifiers,
+            kind,
+            state,
+        }) => {
+            format!("key {:?} {} {:?}", code, mods(modifiers), kind)
+        }
+        Event::Mouse(MouseEvent {
+            kind,
+            column,
+            row,
+            modifiers,
+        }) => {
+            format!("mouse {:?} {:?} {}", kind, (*column, *row), mods(modifiers))
+        }
+        Event::Paste(v) => {
+            format!("paste {:?}", v)
+        }
+        Event::Resize(x, y) => {
+            format!("resize {:?}", (*x, *y))
+        }
+    }
+}
+
+fn mods(modifiers: &KeyModifiers) -> String {
+    let mut s = String::new();
+    if modifiers.contains(KeyModifiers::CONTROL) {
+        s.push_str("CTRL ");
+    }
+    if modifiers.contains(KeyModifiers::ALT) {
+        s.push_str("ALT ");
+    }
+    if modifiers.contains(KeyModifiers::SHIFT) {
+        s.push_str("SHIFT ");
+    }
+    s
+}
