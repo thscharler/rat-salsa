@@ -554,10 +554,11 @@ impl PopupMenuState {
     /// Select item at position.
     #[inline]
     pub fn select_at(&mut self, pos: (u16, u16)) -> bool {
+        let old_selected = self.selected;
         if let Some(idx) = self.mouse.item_at(&self.item_areas, pos.0, pos.1) {
             if !self.disabled[idx] {
                 self.selected = Some(idx);
-                true
+                self.selected != old_selected
             } else {
                 false
             }
