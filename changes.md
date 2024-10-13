@@ -1,3 +1,18 @@
+# 0.26.0
+
+break: split-off crate rat-popup from PopupMenu and
+reimplemented it from there. This break Placement, which is
+now considerable larger. And it breaks PopupMenu::render()
+as that now expects the Rect of the popup instead of the
+related widget.
+As that was a major strangeness factor, I'm happy to accept the break.
+break: renamed `Menu_B_arState` to `Menu_b_arState` to fit in.
+
+fix: select_at reported changes even if there were none. Lead to
+a lot of unnecessary renders.
+
+fix: update dependencies
+
 # 0.25.0
 
 Sync version for beta.
