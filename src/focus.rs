@@ -313,16 +313,44 @@ impl Focus {
         self.core.first();
     }
 
+    /// Sets the focus to the last widget.
+    ///
+    /// This ensures that there is only one focused widget.
+    /// The first widget in the list gets the focus.
+    pub fn last(&self) {
+        focus_debug!(self.core.log, "last focus");
+        self.core.last();
+    }
+
     /// Focus the first widget of a given container.
     ///
     /// The first navigable widget in the container gets the focus.
     pub fn first_container(&self, container: &'_ dyn HasFocus) {
-        focus_debug!(self.core.log, "container focus");
+        focus_debug!(self.core.log, "container focus first");
         if let Some(flag) = container.container() {
             self.core.first_container(flag);
         } else {
             focus_debug!(self.core.log, "no container id");
         }
+    }
+
+    /// Focus the last widget of a given container.
+    ///
+    /// The first navigable widget in the container gets the focus.
+    pub fn last_container(&self, container: &'_ dyn HasFocus) {
+        focus_debug!(self.core.log, "container focus last");
+        if let Some(flag) = container.container() {
+            self.core.last_container(flag);
+        } else {
+            focus_debug!(self.core.log, "no container id");
+        }
+    }
+
+    /// Clear the focus for all widgets.
+    ///
+    pub fn none(&self) {
+        focus_debug!(self.core.log, "none focus");
+        self.core.none();
     }
 
     /// Focus the next widget in the cycle.
@@ -874,12 +902,48 @@ mod core {
             self.__accumulate();
         }
 
+        /// Set the last focus.
+        pub(super) fn last(&self) {
+            self.__start_change(true);
+            if let Some(n) = self.last_navigable(self.focus_flags.len()) {
+                focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                self.__focus(n, true);
+            } else {
+                focus_debug!(self.log, "    -> no navigable widget");
+            }
+            self.__accumulate();
+        }
+
+        /// Clear the focus.
+        pub(super) fn none(&self) {
+            self.__start_change(true);
+            self.__accumulate();
+        }
+
         /// Set the initial focus.
         pub(super) fn first_container(&self, container: ContainerFlag) {
             self.__start_change(true);
             for (c, r) in self.containers.iter() {
                 if c.container_flag == container {
                     if let Some(n) = self.first_navigable(r.start) {
+                        if n < r.end {
+                            focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                            self.__focus(n, true);
+                        }
+                    } else {
+                        focus_debug!(self.log, "    -> no navigable widget");
+                    }
+                }
+            }
+            self.__accumulate();
+        }
+
+        /// Set the initial focus.
+        pub(super) fn last_container(&self, container: ContainerFlag) {
+            self.__start_change(true);
+            for (c, r) in self.containers.iter() {
+                if c.container_flag == container {
+                    if let Some(n) = self.last_navigable(r.end) {
                         if n < r.end {
                             focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
                             self.__focus(n, true);
@@ -1059,11 +1123,11 @@ mod core {
         fn first_navigable(&self, start: usize) -> Option<usize> {
             focus_debug!(
                 self.log,
-                "first navigable {:?}",
+                "first navigable {:?} after ",
                 if start < self.focus_flags.len() {
                     self.focus_flags[start].name()
                 } else {
-                    "nothing"
+                    "beginning"
                 }
             );
             for n in start..self.focus_flags.len() {
@@ -1079,6 +1143,33 @@ mod core {
                 }
             }
             focus_debug!(self.log, "    -> no first");
+            None
+        }
+
+        /// First navigable flag __before__ n.
+        fn last_navigable(&self, end: usize) -> Option<usize> {
+            focus_debug!(
+                self.log,
+                "first navigable {:?} __before__ ",
+                if end < self.focus_flags.len() {
+                    self.focus_flags[end].name()
+                } else {
+                    "end"
+                }
+            );
+            for n in (end.saturating_sub(1)..0).rev() {
+                if matches!(
+                    self.navigable[n],
+                    Navigation::Reach
+                        | Navigation::ReachLeaveBack
+                        | Navigation::ReachLeaveFront
+                        | Navigation::Regular
+                ) {
+                    focus_debug!(self.log, "    -> {:?}", self.focus_flags[n].name());
+                    return Some(n);
+                }
+            }
+            focus_debug!(self.log, "    -> no last");
             None
         }
 
