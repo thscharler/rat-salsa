@@ -23,7 +23,13 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.input1.focus.set(true);
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "focus_input1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}

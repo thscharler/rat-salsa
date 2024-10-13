@@ -52,3 +52,4 @@ rat-event = { version = "0.25", path = "../rat-event" }
 [dev-dependencies]
 fern = "0.6"
 anyhow = "1.0.82"
+unicode-segmentation = "1.11"

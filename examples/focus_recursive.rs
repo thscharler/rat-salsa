@@ -22,7 +22,13 @@ fn main() -> Result<(), anyhow::Error> {
     };
     focus_input(&mut state).next();
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "focus_recursive",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
