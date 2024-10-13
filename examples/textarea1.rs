@@ -25,7 +25,13 @@ fn main() -> Result<(), anyhow::Error> {
     state.textarea.set_auto_indent(false);
     insert_text_1(&mut state);
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "textarea1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}

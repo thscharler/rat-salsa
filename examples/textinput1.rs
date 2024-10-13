@@ -23,7 +23,13 @@ fn main() -> Result<(), anyhow::Error> {
     };
     insert_text_1(&mut state);
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "textinput1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}

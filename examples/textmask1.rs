@@ -29,7 +29,13 @@ fn main() -> Result<(), anyhow::Error> {
         mask_idx: 0,
     };
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "textmask1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
