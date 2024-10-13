@@ -131,6 +131,31 @@ impl Focus {
         }
     }
 
+    /// Dynamic change of widget flags.
+    ///
+    /// This is only necessary if your widget flags change
+    /// during event-handling, and you need a programmatic
+    /// focus-change for the new flags.
+    pub fn update_widget(&mut self, widget: &'_ dyn HasFocusFlag) {
+        focus_debug!(
+            self.core.log,
+            "focus update widget {:?} ",
+            widget.focus().name()
+        );
+
+        if let Some(idx) = self.core.index_of(widget.focus()) {
+            self.core.update_flags(
+                idx,
+                widget.area(),
+                widget.z_areas().into(),
+                widget.navigable(),
+            );
+            focus_debug!(self.core.log, "    -> updated");
+        } else {
+            focus_debug!(self.core.log, "    => not my widget");
+        }
+    }
+
     /// Writes a log for each operation.
     pub fn enable_log(&self) {
         self.core.log.set(true);
@@ -627,6 +652,19 @@ mod core {
                 .enumerate()
                 .find(|(_, (c, _))| c.container_flag == container_flag)
                 .map(|(idx, (_, range))| (idx, range.clone()))
+        }
+
+        /// Update the widget flags.
+        pub(super) fn update_flags(
+            &mut self,
+            idx: usize,
+            area: Rect,
+            z_areas: Vec<ZRect>,
+            navigable: Navigation,
+        ) {
+            self.areas[idx] = area;
+            self.z_areas[idx] = z_areas;
+            self.navigable[idx] = navigable;
         }
 
         /// Append a container.
