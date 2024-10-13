@@ -6,6 +6,7 @@ use rat_event::{ct_event, HandleEvent, Popup};
 use rat_focus::{ContainerFlag, HasFocus, ZRect};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
+use ratatui::style::Style;
 use ratatui::widgets::{block::BlockExt, Block, StatefulWidget, Widget};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
@@ -33,6 +34,8 @@ use std::cmp::max;
 ///
 #[derive(Debug, Clone)]
 pub struct PopupCore<'a> {
+    style: Style,
+
     placement: Placement,
     offset: (i16, i16),
     boundary_area: Option<Rect>,
@@ -77,6 +80,7 @@ pub struct PopupCoreState {
 impl<'a> Default for PopupCore<'a> {
     fn default() -> Self {
         Self {
+            style: Default::default(),
             placement: Placement::None,
             offset: (0, 0),
             boundary_area: None,
@@ -134,6 +138,12 @@ impl<'a> PopupCore<'a> {
         self
     }
 
+    /// Base style for the popup.
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
+    }
+
     /// Block for borders.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
@@ -164,11 +174,14 @@ impl<'a> StatefulWidgetRef for PopupCore<'a> {
             for x in state.area.left()..state.area.right() {
                 if let Some(cell) = buf.cell_mut((x, y)) {
                     cell.reset();
+                    cell.set_style(self.style);
                 }
             }
         }
 
-        self.block.render_ref(state.area, buf);
+        if let Some(block) = self.block.as_ref() {
+            block.clone().style(self.style).render_ref(state.area, buf);
+        }
     }
 }
 
@@ -191,7 +204,9 @@ impl<'a> StatefulWidget for PopupCore<'a> {
             }
         }
 
-        self.block.render(state.area, buf);
+        if let Some(block) = self.block {
+            block.style(self.style).render(state.area, buf);
+        }
     }
 }
 

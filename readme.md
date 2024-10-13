@@ -20,4 +20,4 @@ actual widget can then render its content in PopupCoreState::widget_area.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
-[refGitHubScrolled]: https://github.com/thscharler/rat-popup/tree/master/examples
+[refGitHubPopup]: https://github.com/thscharler/rat-popup/tree/master/examples
