@@ -85,7 +85,6 @@ pub mod event {
                 PopupOutcome::Continue => MenuOutcome::Continue,
                 PopupOutcome::Unchanged => MenuOutcome::Unchanged,
                 PopupOutcome::Changed => MenuOutcome::Changed,
-                PopupOutcome::HideFocus => MenuOutcome::Continue,
                 PopupOutcome::Hide => MenuOutcome::Hide,
             }
         }

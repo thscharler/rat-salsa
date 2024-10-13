@@ -236,6 +236,7 @@ impl<'a> PopupMenu<'a> {
 
     /// Set a style-set.
     pub fn styles(mut self, styles: MenuStyle) -> Self {
+        self.popup = self.popup.style(styles.style);
         self.style = styles.style;
         self.disabled_style = styles.disabled;
         self.right_style = styles.right;
@@ -246,6 +247,7 @@ impl<'a> PopupMenu<'a> {
 
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
+        self.popup = self.popup.style(style);
         self.style = style;
         self
     }
@@ -301,7 +303,6 @@ impl<'a> StatefulWidgetRef for PopupMenu<'a> {
         area.height = size.height;
 
         self.popup.render_ref(area, buf, &mut state.popup);
-        buf.set_style(state.popup.widget_area, self.style);
         self.layout(state.popup.area, state.popup.widget_area, state);
         render_items(&self, buf, state)
     }
@@ -324,9 +325,8 @@ impl<'a> StatefulWidget for PopupMenu<'a> {
         area.height = size.height;
 
         mem::take(&mut self.popup).render(area, buf, &mut state.popup);
-        buf.set_style(state.popup.widget_area, self.style);
         self.layout(state.popup.area, state.popup.widget_area, state);
-        render_items(&self, buf, state)
+        render_items(&self, buf, state);
     }
 }
 
@@ -576,7 +576,13 @@ impl PopupMenuState {
 
 impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
-        let r0 = self.popup.handle(event, Popup).into();
+        let r0 = match self.popup.handle(event, Popup) {
+            PopupOutcome::Hide => {
+                self.set_active(false);
+                MenuOutcome::Changed
+            }
+            r => r.into(),
+        };
 
         let r1 = if self.is_active() {
             match event {
@@ -654,18 +660,6 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> MenuOutcome {
-        let r0 = match self.popup.handle(event, Popup) {
-            PopupOutcome::HideFocus => {
-                self.set_active(false);
-                MenuOutcome::Changed
-            }
-            PopupOutcome::Hide => {
-                self.set_active(false);
-                MenuOutcome::Changed
-            }
-            r => r.into(),
-        };
-
         let r1 = if self.is_active() {
             match event {
                 ct_event!(mouse moved for col, row)
@@ -680,7 +674,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
                 ct_event!(mouse down Left for col, row)
                     if self.popup.widget_area.contains((*col, *row).into()) =>
                 {
-                    if self.select_at((*col, *row)) {
+                    if self.item_at((*col, *row)).is_some() {
                         self.set_active(false);
                         MenuOutcome::Activated(self.selected().expect("selection"))
                     } else {
@@ -693,7 +687,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
             MenuOutcome::Continue
         };
 
-        max(r0, r1)
+        r1
     }
 }
 

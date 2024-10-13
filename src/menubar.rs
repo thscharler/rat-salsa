@@ -427,6 +427,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for MenubarSta
         flow!(if let Some(selected) = self.bar.selected() {
             if self.popup_active() {
                 match self.popup.handle(event, MouseOnly) {
+                    MenuOutcome::Hide => {
+                        self.set_popup_active(false);
+                        MenuOutcome::Changed
+                    }
                     MenuOutcome::Selected(n) => MenuOutcome::MenuSelected(selected, n),
                     MenuOutcome::Activated(n) => {
                         self.set_popup_active(false);
