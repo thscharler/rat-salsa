@@ -25,9 +25,6 @@ pub mod event {
         /// Further processing for this event may stop.
         /// Rendering the ui is advised.
         Changed,
-        /// Popup should be hidden due to a focus change.
-        ///
-        HideFocus,
         /// Popup should be hidden.
         Hide,
     }
@@ -45,7 +42,6 @@ pub mod event {
                 PopupOutcome::Unchanged => Outcome::Unchanged,
                 PopupOutcome::Changed => Outcome::Changed,
                 PopupOutcome::Hide => Outcome::Changed,
-                PopupOutcome::HideFocus => Outcome::Changed,
             }
         }
     }

@@ -25,11 +25,11 @@ use std::cmp::max;
 /// The widget will detect any suspicious mouse activity outside its bounds
 /// and returns [PopupOutcome::Hide] if it finds such.
 ///
-/// If the popup is used with [Focus] it will detect focus lost and
-/// report as [PopupOutcome::HideFocus].
-///
 /// The widget doesn't change its active/visible state by itself,
 /// it's up to the caller to do this.
+///
+/// __See__
+/// See the examples some variants.
 ///
 #[derive(Debug, Clone)]
 pub struct PopupCore<'a> {
@@ -374,9 +374,10 @@ impl PopupCoreState {
 
 impl HandleEvent<crossterm::event::Event, Popup, PopupOutcome> for PopupCoreState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> PopupOutcome {
+        // this only works out if the active flag is actually used
+        // as a container flag. but that's fine.
         let r0 = if self.active.container_lost_focus() {
-            self.active.clear();
-            PopupOutcome::HideFocus
+            PopupOutcome::Hide
         } else {
             PopupOutcome::Continue
         };

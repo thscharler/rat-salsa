@@ -1,10 +1,13 @@
 #![allow(dead_code)]
 #![allow(unreachable_pub)]
 
-use crate::blue::{Blue, BlueState};
+use crate::adapter::blue::{Blue, BlueState};
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use crate::popup_focus::{PopFoc, PopFocState};
-use crate::popup_nonfocus::{PopAct, PopActState};
+use crate::variants::popup_edit::{PopEditGreen, PopEditGreenState};
+use crate::variants::popup_focus::{PopFocusBlue, PopFocusBlueState};
+use crate::variants::popup_lock_edit::{PopLockMagenta, PopLockMagentaState};
+use crate::variants::popup_nonfocus::{PopNonFocusRed, PopNonFocusRedState};
+use rat_cursor::HasScreenCursor;
 use rat_event::{ct_event, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_popup::event::PopupOutcome;
@@ -13,9 +16,10 @@ use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::StatefulWidget;
 use ratatui::Frame;
-use std::cmp::max;
 
+mod adapter;
 mod mini_salsa;
+mod variants;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -31,8 +35,10 @@ fn main() -> Result<(), anyhow::Error> {
         blue: BlueState::named("blue"),
         not_blue: BlueState::named("not_blue"),
 
-        popfoc: PopFocState::new(),
-        popact: PopActState::new(),
+        popfoc: PopFocusBlueState::new(),
+        popact: PopNonFocusRedState::new(),
+        popedit: PopEditGreenState::default(),
+        poplock: PopLockMagentaState::default(),
     };
 
     run_ui("popup1", handle_stuff, repaint_stuff, &mut data, &mut state)
@@ -45,8 +51,10 @@ struct State {
     left: Rect,
     right: Rect,
 
-    popfoc: PopFocState,
-    popact: PopActState,
+    popfoc: PopFocusBlueState,
+    popact: PopNonFocusRedState,
+    popedit: PopEditGreenState,
+    poplock: PopLockMagentaState,
 
     which_blue: u8,
     blue: BlueState,
@@ -84,10 +92,28 @@ fn repaint_stuff(
     // two test regions:
     // for placement relative to a rect.
     let mut blue = Blue::new();
-    if state.which_blue == 1 {
-        blue = blue
-            .style(Style::new().on_red())
-            .focus_style(Style::new().on_light_red());
+    match state.which_blue {
+        0 => {
+            blue = blue
+                .style(Style::new().on_blue())
+                .focus_style(Style::new().on_light_blue());
+        }
+        1 => {
+            blue = blue
+                .style(Style::new().on_red())
+                .focus_style(Style::new().on_light_red());
+        }
+        2 => {
+            blue = blue
+                .style(Style::new().on_green())
+                .focus_style(Style::new().on_light_green());
+        }
+        3 => {
+            blue = blue
+                .style(Style::new().on_magenta())
+                .focus_style(Style::new().on_light_magenta());
+        }
+        _ => {}
     }
     blue.render(l[1][1], frame.buffer_mut(), &mut state.blue);
 
@@ -102,18 +128,37 @@ fn repaint_stuff(
         .set_style(l[3][0].union(l[3][2]), Style::new().on_dark_gray());
 
     match state.which_blue {
-        0 => PopFoc.render(
+        0 => PopFocusBlue.render(
             Rect::new(0, 0, 13, 5),
             frame.buffer_mut(),
             &mut state.popfoc,
         ),
-        1 => PopAct.render(
+        1 => PopNonFocusRed.render(
             Rect::new(0, 0, 11, 5),
             frame.buffer_mut(),
             &mut state.popact,
         ),
+        2 => PopEditGreen.render(
+            Rect::new(0, 0, 11, 5),
+            frame.buffer_mut(),
+            &mut state.popedit,
+        ),
+        3 => PopLockMagenta.render(
+            Rect::new(0, 0, 11, 5),
+            frame.buffer_mut(),
+            &mut state.poplock,
+        ),
         _ => {}
     }
+
+    match state.which_blue {
+        0 => None,
+        1 => None,
+        2 => state.popedit.screen_cursor(),
+        3 => state.poplock.screen_cursor(),
+        _ => None,
+    }
+    .map(|p| frame.set_cursor_position(p));
 
     Ok(())
 }
@@ -124,12 +169,13 @@ impl HasFocus for State {
         builder.widget(&self.not_blue);
         builder.widget(&self.blue);
 
-        match self.which_blue {
-            0 => {
-                builder.container(&self.popfoc);
-            }
-            _ => {}
-        }
+        _ = match self.which_blue {
+            0 => builder.container(&self.popfoc),
+            1 => builder,
+            2 => builder.container(&self.popedit),
+            3 => builder.widget(&self.poplock),
+            _ => builder,
+        };
     }
 }
 
@@ -156,11 +202,96 @@ fn handle_stuff(
         }
         r => r.into(),
     };
-    let r1 = Outcome::from(state.popact.handle(event, Regular));
+    let r1 = match state.popact.handle(event, Regular) {
+        PopupOutcome::Hide => {
+            state.popact.hide();
+            Outcome::Changed
+        }
+        r => r.into(),
+    };
+    let r2 = match state.popedit.handle(event, Regular) {
+        PopupOutcome::Hide => {
+            state.popedit.hide(&mut focus);
+            Outcome::Changed
+        }
+        r => r.into(),
+    };
+    let r3 = match state.poplock.handle(event, Regular) {
+        PopupOutcome::Hide => {
+            state.poplock.hide(&mut focus);
+            Outcome::Changed
+        }
+        r => r.into(),
+    };
 
-    let r2 = match event {
+    let r4 = match event {
         ct_event!(keycode press F(1)) => {
-            state.which_blue = (state.which_blue + 1) % 2;
+            state.which_blue = (state.which_blue + 1) % 4;
+            match state.which_blue {
+                0 => state.popfoc.hide(&mut focus),
+                1 => state.popact.hide(),
+                2 => state.popedit.hide(&mut focus),
+                3 => state.poplock.hide(&mut focus),
+                _ => {}
+            }
+            Outcome::Changed
+        }
+        ct_event!(keycode press F(2)) => {
+            let mut placement;
+            let placement = match state.which_blue {
+                0 => &mut state.popfoc.placement,
+                1 => &mut state.popact.placement,
+                2 => &mut state.popedit.placement,
+                3 => &mut state.poplock.placement,
+                _ => {
+                    placement = Placement::None;
+                    &mut placement
+                }
+            };
+            *placement = match *placement {
+                Placement::AboveLeft(r) => Placement::AboveCenter(r),
+                Placement::AboveCenter(r) => Placement::AboveRight(r),
+                Placement::AboveRight(r) => Placement::RightTop(r),
+                Placement::RightTop(r) => Placement::RightMiddle(r),
+                Placement::RightMiddle(r) => Placement::RightBottom(r),
+                Placement::RightBottom(r) => Placement::BelowRight(r),
+                Placement::BelowRight(r) => Placement::BelowCenter(r),
+                Placement::BelowCenter(r) => Placement::BelowLeft(r),
+                Placement::BelowLeft(r) => Placement::LeftBottom(r),
+                Placement::LeftBottom(r) => Placement::LeftMiddle(r),
+                Placement::LeftMiddle(r) => Placement::LeftTop(r),
+                Placement::LeftTop(r) => Placement::AboveLeft(r),
+                v => v,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press SHIFT-F(2)) => {
+            let mut placement;
+            let placement = match state.which_blue {
+                0 => &mut state.popfoc.placement,
+                1 => &mut state.popact.placement,
+                2 => &mut state.popedit.placement,
+                3 => &mut state.poplock.placement,
+                _ => {
+                    placement = Placement::None;
+                    &mut placement
+                }
+            };
+            *placement = match *placement {
+                Placement::AboveLeft(r) => Placement::LeftTop(r),
+                Placement::AboveCenter(r) => Placement::AboveLeft(r),
+                Placement::AboveRight(r) => Placement::AboveCenter(r),
+                Placement::RightTop(r) => Placement::AboveRight(r),
+                Placement::RightMiddle(r) => Placement::RightTop(r),
+                Placement::RightBottom(r) => Placement::RightMiddle(r),
+                Placement::BelowRight(r) => Placement::RightBottom(r),
+                Placement::BelowCenter(r) => Placement::BelowRight(r),
+                Placement::BelowLeft(r) => Placement::BelowCenter(r),
+                Placement::LeftBottom(r) => Placement::BelowLeft(r),
+                Placement::LeftMiddle(r) => Placement::LeftBottom(r),
+                Placement::LeftTop(r) => Placement::LeftMiddle(r),
+                v => v,
+            };
             Outcome::Changed
         }
         ct_event!(mouse down Right for x,y)
@@ -181,12 +312,19 @@ fn handle_stuff(
             };
             match state.which_blue {
                 0 => {
-                    state.popfoc.placement = placement;
-                    focus.focus(&state.popfoc);
+                    state.popfoc.show(placement, &mut focus);
                     Outcome::Changed
                 }
                 1 => {
                     state.popact.show(placement);
+                    Outcome::Changed
+                }
+                2 => {
+                    state.popedit.show(placement, &mut focus);
+                    Outcome::Changed
+                }
+                3 => {
+                    state.poplock.show(placement, &mut focus);
                     Outcome::Changed
                 }
                 _ => Outcome::Continue,
@@ -195,15 +333,21 @@ fn handle_stuff(
         ct_event!(mouse down Right for x,y) if state.right.contains((*x, *y).into()) => {
             // relative to mouse
             let placement = Placement::Position(*x, *y);
-            focus.focus(&state.popfoc);
             match state.which_blue {
                 0 => {
-                    state.popfoc.placement = placement;
-                    focus.focus(&state.popfoc);
+                    state.popfoc.show(placement, &mut focus);
                     Outcome::Changed
                 }
                 1 => {
                     state.popact.show(placement);
+                    Outcome::Changed
+                }
+                2 => {
+                    state.popedit.show(placement, &mut focus);
+                    Outcome::Changed
+                }
+                3 => {
+                    state.poplock.show(placement, &mut focus);
                     Outcome::Changed
                 }
                 _ => Outcome::Continue,
@@ -212,352 +356,5 @@ fn handle_stuff(
         _ => Outcome::Continue,
     };
 
-    Ok(max(f, max(r0, max(r1, r2))))
-}
-
-mod blue {
-    use rat_focus::{FocusFlag, HasFocusFlag};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
-    use ratatui::widgets::StatefulWidget;
-
-    #[derive(Debug)]
-    pub struct Blue {
-        style: Style,
-        focus_style: Style,
-    }
-
-    impl Blue {
-        pub fn new() -> Self {
-            Self {
-                style: Style::new().on_blue(),
-                focus_style: Style::new().on_light_blue(),
-            }
-        }
-
-        pub fn style(mut self, style: Style) -> Self {
-            self.style = style;
-            self
-        }
-
-        pub fn focus_style(mut self, style: Style) -> Self {
-            self.focus_style = style;
-            self
-        }
-    }
-
-    impl StatefulWidget for Blue {
-        type State = BlueState;
-
-        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-            state.area = area;
-            if state.focus.is_focused() {
-                buf.set_style(area, self.focus_style);
-            } else {
-                buf.set_style(area, self.style);
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct BlueState {
-        pub area: Rect,
-        pub focus: FocusFlag,
-    }
-
-    impl BlueState {
-        pub fn new() -> Self {
-            Self {
-                area: Default::default(),
-                focus: FocusFlag::named("blue"),
-            }
-        }
-
-        pub fn named(name: &str) -> Self {
-            Self {
-                area: Default::default(),
-                focus: FocusFlag::named(name),
-            }
-        }
-    }
-
-    impl HasFocusFlag for BlueState {
-        fn focus(&self) -> FocusFlag {
-            self.focus.clone()
-        }
-
-        fn area(&self) -> Rect {
-            self.area
-        }
-    }
-}
-
-mod popup_focus {
-    use rat_event::{ct_event, HandleEvent, Popup, Regular};
-    use rat_focus::{ContainerFlag, FocusBuilder, FocusFlag, HasFocus, HasFocusFlag, Navigation};
-    use rat_popup::event::PopupOutcome;
-    use rat_popup::{Placement, PopupCore, PopupCoreState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
-    use ratatui::text::Span;
-    use ratatui::widgets::{Block, StatefulWidget, Widget};
-    use std::cmp::max;
-
-    #[derive(Debug)]
-    pub struct PopFoc;
-
-    impl StatefulWidget for PopFoc {
-        type State = PopFocState;
-
-        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-            if state.popup.is_active() {
-                PopupCore::new()
-                    .placement(state.placement)
-                    .block(Block::bordered())
-                    .render(area, buf, &mut state.popup);
-
-                state.area = state.popup.area;
-
-                buf.set_style(state.popup.widget_area, Style::new().on_yellow());
-                Span::from(" p-o-p-u-p ").render(state.popup.widget_area, buf);
-            } else {
-                state.popup.clear_areas();
-                state.area = Rect::default();
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct PopFocState {
-        pub area: Rect,
-
-        /// Where to place the popup
-        pub placement: Placement,
-        pub popup: PopupCoreState,
-
-        pub focus: FocusFlag,
-    }
-
-    impl PopFocState {
-        pub fn new() -> Self {
-            Self {
-                area: Default::default(),
-                placement: Default::default(),
-                popup: PopupCoreState::named("foc-popup"),
-                focus: FocusFlag::named("foc"),
-            }
-        }
-
-        pub fn is_active(&self) -> bool {
-            self.is_focused()
-        }
-    }
-
-    impl HasFocusFlag for PopFocState {
-        fn focus(&self) -> FocusFlag {
-            self.focus.clone()
-        }
-
-        fn area(&self) -> Rect {
-            self.area
-        }
-
-        fn navigable(&self) -> Navigation {
-            Navigation::Leave
-        }
-    }
-
-    impl HasFocus for PopFocState {
-        fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(self);
-        }
-
-        fn container(&self) -> Option<ContainerFlag> {
-            Some(self.popup.active.clone())
-        }
-
-        fn area(&self) -> Rect {
-            self.popup.active.area()
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopFocState {
-        fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
-            let r0 = self.popup.handle(event, Popup);
-
-            let r1 = match event {
-                ct_event!(keycode press F(2)) => {
-                    self.placement = match self.placement {
-                        Placement::AboveLeft(r) => Placement::AboveCenter(r),
-                        Placement::AboveCenter(r) => Placement::AboveRight(r),
-                        Placement::AboveRight(r) => Placement::RightTop(r),
-                        Placement::RightTop(r) => Placement::RightMiddle(r),
-                        Placement::RightMiddle(r) => Placement::RightBottom(r),
-                        Placement::RightBottom(r) => Placement::BelowRight(r),
-                        Placement::BelowRight(r) => Placement::BelowCenter(r),
-                        Placement::BelowCenter(r) => Placement::BelowLeft(r),
-                        Placement::BelowLeft(r) => Placement::LeftBottom(r),
-                        Placement::LeftBottom(r) => Placement::LeftMiddle(r),
-                        Placement::LeftMiddle(r) => Placement::LeftTop(r),
-                        Placement::LeftTop(r) => Placement::AboveLeft(r),
-                        v => v,
-                    };
-                    PopupOutcome::Changed
-                }
-                ct_event!(keycode press SHIFT-F(2)) => {
-                    self.placement = match self.placement {
-                        Placement::AboveLeft(r) => Placement::LeftTop(r),
-                        Placement::AboveCenter(r) => Placement::AboveLeft(r),
-                        Placement::AboveRight(r) => Placement::AboveCenter(r),
-                        Placement::RightTop(r) => Placement::AboveRight(r),
-                        Placement::RightMiddle(r) => Placement::RightTop(r),
-                        Placement::RightBottom(r) => Placement::RightMiddle(r),
-                        Placement::BelowRight(r) => Placement::RightBottom(r),
-                        Placement::BelowCenter(r) => Placement::BelowRight(r),
-                        Placement::BelowLeft(r) => Placement::BelowCenter(r),
-                        Placement::LeftBottom(r) => Placement::BelowLeft(r),
-                        Placement::LeftMiddle(r) => Placement::LeftBottom(r),
-                        Placement::LeftTop(r) => Placement::LeftMiddle(r),
-                        v => v,
-                    };
-                    PopupOutcome::Changed
-                }
-                _ => PopupOutcome::Continue,
-            };
-
-            max(r0, r1)
-        }
-    }
-}
-
-mod popup_nonfocus {
-    use rat_event::{ct_event, HandleEvent, Popup, Regular};
-    use rat_popup::event::PopupOutcome;
-    use rat_popup::{Placement, PopupCore, PopupCoreState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::Rect;
-    use ratatui::style::{Style, Stylize};
-    use ratatui::text::Span;
-    use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
-    use std::cmp::max;
-
-    #[derive(Debug, Default)]
-    pub struct PopAct;
-
-    impl StatefulWidget for PopAct {
-        type State = PopActState;
-
-        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-            if state.popup.is_active() {
-                let (dx, dy) = match state.placement {
-                    Placement::None => (0, 0),
-                    Placement::AboveLeft(_) => (-1, 0),
-                    Placement::AboveCenter(_) => (0, 0),
-                    Placement::AboveRight(_) => (1, 0),
-                    Placement::LeftTop(_) => (0, -1),
-                    Placement::LeftMiddle(_) => (0, 0),
-                    Placement::LeftBottom(_) => (0, 1),
-                    Placement::RightTop(_) => (0, -1),
-                    Placement::RightMiddle(_) => (0, 0),
-                    Placement::RightBottom(_) => (0, 1),
-                    Placement::BelowLeft(_) => (-1, 0),
-                    Placement::BelowCenter(_) => (0, 0),
-                    Placement::BelowRight(_) => (1, 0),
-                    Placement::Position(_, _) => (-1, -1),
-                    _ => {
-                        unimplemented!()
-                    }
-                };
-
-                PopupCore::new()
-                    .placement(state.placement)
-                    .offset((dx, dy))
-                    .block(Block::bordered().border_type(BorderType::Rounded))
-                    .render(area, buf, &mut state.popup);
-
-                buf.set_style(state.popup.widget_area, Style::new().on_cyan());
-                Span::from("***").render(state.popup.widget_area, buf);
-            }
-        }
-    }
-
-    #[derive(Debug, Default)]
-    pub struct PopActState {
-        /// Where to place the popup
-        pub placement: Placement,
-        /// Internalized popup state.
-        pub popup: PopupCoreState,
-    }
-
-    impl PopActState {
-        pub fn new() -> Self {
-            Self {
-                placement: Default::default(),
-                popup: PopupCoreState::named("act-popup"),
-            }
-        }
-
-        pub fn is_active(&self) -> bool {
-            self.popup.is_active()
-        }
-
-        pub fn show(&mut self, placement: Placement) {
-            self.placement = placement;
-            self.popup.set_active(true);
-        }
-
-        pub fn hide(&mut self) {
-            self.popup.set_active(false);
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopActState {
-        fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
-            let r0 = self.popup.handle(event, Popup);
-
-            let r1 = match event {
-                ct_event!(keycode press F(2)) => {
-                    self.placement = match self.placement {
-                        Placement::AboveLeft(r) => Placement::AboveCenter(r),
-                        Placement::AboveCenter(r) => Placement::AboveRight(r),
-                        Placement::AboveRight(r) => Placement::RightTop(r),
-                        Placement::RightTop(r) => Placement::RightMiddle(r),
-                        Placement::RightMiddle(r) => Placement::RightBottom(r),
-                        Placement::RightBottom(r) => Placement::BelowRight(r),
-                        Placement::BelowRight(r) => Placement::BelowCenter(r),
-                        Placement::BelowCenter(r) => Placement::BelowLeft(r),
-                        Placement::BelowLeft(r) => Placement::LeftBottom(r),
-                        Placement::LeftBottom(r) => Placement::LeftMiddle(r),
-                        Placement::LeftMiddle(r) => Placement::LeftTop(r),
-                        Placement::LeftTop(r) => Placement::AboveLeft(r),
-                        v => v,
-                    };
-                    PopupOutcome::Changed
-                }
-                ct_event!(keycode press SHIFT-F(2)) => {
-                    self.placement = match self.placement {
-                        Placement::AboveLeft(r) => Placement::LeftTop(r),
-                        Placement::AboveCenter(r) => Placement::AboveLeft(r),
-                        Placement::AboveRight(r) => Placement::AboveCenter(r),
-                        Placement::RightTop(r) => Placement::AboveRight(r),
-                        Placement::RightMiddle(r) => Placement::RightTop(r),
-                        Placement::RightBottom(r) => Placement::RightMiddle(r),
-                        Placement::BelowRight(r) => Placement::RightBottom(r),
-                        Placement::BelowCenter(r) => Placement::BelowRight(r),
-                        Placement::BelowLeft(r) => Placement::BelowCenter(r),
-                        Placement::LeftBottom(r) => Placement::BelowLeft(r),
-                        Placement::LeftMiddle(r) => Placement::LeftBottom(r),
-                        Placement::LeftTop(r) => Placement::LeftMiddle(r),
-                        v => v,
-                    };
-                    PopupOutcome::Changed
-                }
-                _ => PopupOutcome::Continue,
-            };
-
-            max(r0, r1)
-        }
-    }
+    Ok([f, r0, r1, r2, r3, r4].iter().max().copied().expect("r"))
 }
