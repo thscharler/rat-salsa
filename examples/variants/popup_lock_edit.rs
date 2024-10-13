@@ -4,9 +4,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
 use rat_event::{ct_event, HandleEvent, Outcome, Popup, Regular};
-use rat_focus::{
-    ContainerAdapter, Focus, FocusBuilder, FocusFlag, HasFocus, HasFocusFlag, Navigation,
-};
+use rat_focus::{ContainerAdapter, Focus, FocusBuilder, FocusFlag, HasFocusFlag, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
