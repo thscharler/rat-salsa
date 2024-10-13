@@ -420,8 +420,9 @@ impl FocusFlagCore {
 }
 
 /// Adapter for widgets that don't use this library.
-/// Keep this adapter struct somewhere and use it to
-/// manually control the widgets rendering/event handling.
+///
+/// This can be constructed on the fly, if you have the necessary parts.
+/// You will at least need a FocusFlag stored parallel to the widget state.
 #[derive(Debug)]
 pub struct FocusAdapter<const N: usize = 0> {
     pub focus: FocusFlag,
@@ -441,12 +442,6 @@ impl<const N: usize> Default for FocusAdapter<N> {
     }
 }
 
-impl FocusAdapter {
-    pub fn new() -> Self {
-        Self::default()
-    }
-}
-
 impl HasFocusFlag for FocusAdapter {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
@@ -458,6 +453,50 @@ impl HasFocusFlag for FocusAdapter {
 
     fn navigable(&self) -> Navigation {
         self.navigation
+    }
+}
+
+/// Adapter for widgets that don't use this library.
+///
+/// This can be constructed on the fly, if you have the necessary parts.
+/// You will at least need a ContainerFlag stored parallel to the widget state.
+pub struct ContainerAdapter<'a> {
+    pub container: ContainerFlag,
+    pub build_fn: &'a dyn Fn(&mut FocusBuilder),
+    pub area: Rect,
+}
+
+impl<'a> Debug for ContainerAdapter<'a> {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ContainerAdapter")
+            .field("container", &self.container)
+            .field("build_fn", &"..dyn..")
+            .field("area", &self.area)
+            .finish()
+    }
+}
+
+impl<'a> Default for ContainerAdapter<'a> {
+    fn default() -> Self {
+        Self {
+            build_fn: &|_builder| {},
+            container: Default::default(),
+            area: Default::default(),
+        }
+    }
+}
+
+impl<'a> HasFocus for ContainerAdapter<'a> {
+    fn build(&self, builder: &mut FocusBuilder) {
+        (self.build_fn)(builder);
+    }
+
+    fn container(&self) -> Option<ContainerFlag> {
+        Some(self.container.clone())
+    }
+
+    fn area(&self) -> Rect {
+        self.area
     }
 }
 
