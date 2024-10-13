@@ -1,7 +1,7 @@
 #![allow(unreachable_pub)]
 #![allow(dead_code)]
 
-use crate::mini_salsa::theme::THEME;
+use crate::mini_salsa::theme::{Scheme, THEME};
 use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
@@ -22,15 +22,22 @@ use ratatui::{Frame, Terminal};
 use std::fs;
 use std::io::{stdout, Stdout};
 use std::time::{Duration, SystemTime};
+use unicode_segmentation::UnicodeSegmentation;
 
 pub struct MiniSalsaState {
+    pub name: String,
+    pub theme: Scheme,
+    pub frame: usize,
     pub status: [String; 3],
     pub quit: bool,
 }
 
-impl Default for MiniSalsaState {
-    fn default() -> Self {
+impl MiniSalsaState {
+    fn new(name: &str) -> Self {
         let mut s = Self {
+            name: name.to_string(),
+            theme: THEME,
+            frame: 0,
             status: Default::default(),
             quit: false,
         };
@@ -40,6 +47,7 @@ impl Default for MiniSalsaState {
 }
 
 pub fn run_ui<Data, State>(
+    name: &str,
     handle: fn(
         &crossterm::event::Event,
         data: &mut Data,
@@ -66,9 +74,9 @@ pub fn run_ui<Data, State>(
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
 
-    let mut istate = MiniSalsaState::default();
+    let mut istate = MiniSalsaState::new(name);
 
-    repaint_ui(&mut terminal, repaint, data, &mut istate, state)?;
+    istate.frame = repaint_ui(&mut terminal, repaint, data, &mut istate, state)?;
 
     let r = 'l: loop {
         let o = match crossterm::event::poll(Duration::from_millis(10)) {
@@ -96,7 +104,7 @@ pub fn run_ui<Data, State>(
         match o {
             Outcome::Changed => {
                 match repaint_ui(&mut terminal, repaint, data, &mut istate, state) {
-                    Ok(_) => {}
+                    Ok(f) => istate.frame = f,
                     Err(e) => break 'l Err(e),
                 };
             }
@@ -128,19 +136,19 @@ fn repaint_ui<Data, State>(
     data: &mut Data,
     istate: &mut MiniSalsaState,
     state: &mut State,
-) -> Result<(), anyhow::Error> {
+) -> Result<usize, anyhow::Error> {
     terminal.hide_cursor()?;
 
-    _ = terminal.draw(|frame| {
+    let completed = terminal.draw(|frame| {
         match repaint_tui(frame, repaint, data, istate, state) {
             Ok(_) => {}
             Err(e) => {
                 error!("{:?}", e)
             }
         };
-    });
+    })?;
 
-    Ok(())
+    Ok(completed.count)
 }
 
 fn repaint_tui<Data, State>(
@@ -159,29 +167,38 @@ fn repaint_tui<Data, State>(
     let t0 = SystemTime::now();
     let area = frame.area();
 
-    let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+    let l1 = Layout::vertical([
+        Constraint::Fill(1), //
+        Constraint::Length(1),
+    ])
+    .split(area);
 
     repaint(frame, l1[0], data, istate, state)?;
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    istate.status[1] = format!("Render {:?}", el).to_string();
+    istate.status[1] = format!("Render {}:{:?}", frame.count(), el).to_string();
 
     let l_status = Layout::horizontal([
+        Constraint::Length(1 + istate.name.graphemes(true).count() as u16),
+        Constraint::Length(1),
         Constraint::Fill(1),
         Constraint::Length(17),
         Constraint::Length(17),
     ])
     .split(l1[1]);
 
+    Line::from(istate.name.as_str())
+        .style(THEME.yellow(2))
+        .render(l_status[0], frame.buffer_mut());
     Line::from(istate.status[0].as_str())
         .style(THEME.black(2))
-        .render(l_status[0], frame.buffer_mut());
+        .render(l_status[2], frame.buffer_mut());
     Line::from(istate.status[1].as_str())
         .style(THEME.deepblue(0))
-        .render(l_status[1], frame.buffer_mut());
+        .render(l_status[3], frame.buffer_mut());
     Line::from(istate.status[2].as_str())
         .style(THEME.deepblue(1))
-        .render(l_status[2], frame.buffer_mut());
+        .render(l_status[4], frame.buffer_mut());
 
     Ok(())
 }

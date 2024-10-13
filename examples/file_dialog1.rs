@@ -1,7 +1,5 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::MiniSalsaState;
-#[allow(unused_imports)]
-use log::debug;
 use rat_event::{try_flow, Dialog, HandleEvent, Outcome};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
@@ -24,7 +22,13 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::default();
     state.menu.bar.focus.set(true);
 
-    mini_salsa::run_ui(handle_input, repaint_input, &mut (), &mut state)
+    mini_salsa::run_ui(
+        "filedialog1",
+        handle_input,
+        repaint_input,
+        &mut (),
+        &mut state,
+    )
 }
 
 #[derive(Debug, Default)]

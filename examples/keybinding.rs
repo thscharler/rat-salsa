@@ -19,7 +19,13 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {};
 
-    run_ui(handle_buttons, repaint_buttons, &mut data, &mut state)
+    run_ui(
+        "keybinding",
+        handle_buttons,
+        repaint_buttons,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {

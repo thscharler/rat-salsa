@@ -35,7 +35,13 @@ fn main() -> Result<(), anyhow::Error> {
         popup: PopupMenuState::default(),
     };
 
-    run_ui(handle_stuff, repaint_stuff, &mut data, &mut state)
+    run_ui(
+        "popup_menu1",
+        handle_stuff,
+        repaint_stuff,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
@@ -106,7 +112,7 @@ fn repaint_stuff(
             .block(
                 Block::bordered()
                     .style(Style::new().black().on_cyan())
-                    .title("Nice popup"),
+                    .title(frame.count().to_string()),
             )
             .placement(state.placement)
             .offset(state.offset)

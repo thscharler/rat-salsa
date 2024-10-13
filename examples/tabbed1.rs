@@ -1,8 +1,6 @@
 #![allow(dead_code)]
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-#[allow(unused_imports)]
-use log::debug;
 use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
@@ -39,7 +37,13 @@ fn main() -> Result<(), anyhow::Error> {
     };
     state.menu.focus.set(true);
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "tabbed1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}

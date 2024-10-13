@@ -27,7 +27,13 @@ fn main() -> Result<(), anyhow::Error> {
         msg: Default::default(),
     };
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "menu_status1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}

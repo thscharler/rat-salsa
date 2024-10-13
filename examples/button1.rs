@@ -27,7 +27,13 @@ fn main() -> Result<(), anyhow::Error> {
         button3: Default::default(),
     };
 
-    run_ui(handle_buttons, repaint_buttons, &mut data, &mut state)
+    run_ui(
+        "button1",
+        handle_buttons,
+        repaint_buttons,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {

@@ -17,7 +17,13 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State::default();
     state.menu.bar.focus.set(true);
 
-    mini_salsa::run_ui(handle_input, repaint_input, &mut data, &mut state)
+    mini_salsa::run_ui(
+        "menubar1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 #[derive(Default)]

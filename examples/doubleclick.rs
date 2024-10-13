@@ -32,7 +32,13 @@ fn main() -> Result<(), anyhow::Error> {
 
     set_double_click_timeout(350);
 
-    run_ui(handle_buttons, repaint_buttons, &mut data, &mut state)
+    run_ui(
+        "doubleclick",
+        handle_buttons,
+        repaint_buttons,
+        &mut data,
+        &mut state,
+    )
 }
 
 enum Journal {

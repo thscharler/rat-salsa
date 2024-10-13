@@ -6,7 +6,6 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use anyhow::{anyhow, Error};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
-use log::debug;
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
@@ -70,7 +69,13 @@ fn main() -> Result<(), Error> {
     ));
     state.table.table.select(Some(0));
 
-    run_ui(handle_table, repaint_table, &mut data, &mut state)
+    run_ui(
+        "table_edit2",
+        handle_table,
+        repaint_table,
+        &mut data,
+        &mut state,
+    )
 }
 
 #[derive(Debug, Default, Clone)]
@@ -243,9 +248,7 @@ fn handle_table(
             Outcome::Changed
         })
     });
-    r = r.or_else(|| state.text1.handle(event, Regular).into());
-
-    debug!("data: {:#?}", state.table.editor_data.borrow());
+    r = r.or_else(|| state.text2.handle(event, Regular).into());
 
     Ok(max(Outcome::from(r), f))
 }

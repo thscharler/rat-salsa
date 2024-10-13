@@ -66,7 +66,13 @@ fn main() -> Result<(), Error> {
     };
     state.table.table.select(Some(0));
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "table_edit1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 #[derive(Debug, Default)]
@@ -243,7 +249,7 @@ fn handle_input(
             Outcome::Changed
         })
     });
-    r = r.or_else(|| state.text1.handle(event, Regular).into());
+    r = r.or_else(|| state.text2.handle(event, Regular).into());
 
     Ok(max(Outcome::from(r), f))
 }

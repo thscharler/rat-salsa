@@ -105,7 +105,13 @@ Total average precipitation in the Craters of the Moon area is between 15–20 i
         double: Default::default(),
     };
 
-    run_ui(handle_text, repaint_text, &mut data, &mut state)
+    run_ui(
+        "sdoublescroll1",
+        handle_text,
+        repaint_text,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {

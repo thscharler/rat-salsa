@@ -1,4 +1,3 @@
-use log::debug;
 use rat_widget::splitter::SplitState;
 
 #[test]

@@ -20,7 +20,13 @@ fn main() -> Result<(), anyhow::Error> {
         input: DateInputState::new().with_pattern("%x")?,
     };
 
-    run_ui(handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "dateinput1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}
