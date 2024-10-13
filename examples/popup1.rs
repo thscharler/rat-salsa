@@ -35,7 +35,7 @@ fn main() -> Result<(), anyhow::Error> {
         popact: PopActState::new(),
     };
 
-    run_ui(handle_stuff, repaint_stuff, &mut data, &mut state)
+    run_ui("popup1", handle_stuff, repaint_stuff, &mut data, &mut state)
 }
 
 struct Data {}
