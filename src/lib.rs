@@ -20,6 +20,7 @@ pub mod event {
     pub use crate::tabbed::event::TabbedOutcome;
     pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome};
     pub use rat_menu::event::MenuOutcome;
+    pub use rat_popup::event::PopupOutcome;
     pub use rat_scrolled::event::ScrollOutcome;
     pub use rat_text::event::{ReadOnly, TextOutcome};
 }
@@ -115,6 +116,9 @@ pub mod number_input {
     pub use rat_text::number_input::{
         handle_events, handle_mouse_events, handle_readonly_events, NumberInput, NumberInputState,
     };
+}
+pub mod popup {
+    pub use rat_popup::{Placement, PopupCore, PopupCoreState};
 }
 pub mod paragraph;
 pub mod shadow;

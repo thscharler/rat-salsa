@@ -1,3 +1,10 @@
+# 0.26.0
+
+* break: renamed MenuBarState to MenubarState.
+* break: PopupMenu uses rat-popup as base. Changes the API.
+
+* feature: add Shadow widget, that draws a drop shadow.
+
 # 0.25.0
 
 Sync version for beta.
