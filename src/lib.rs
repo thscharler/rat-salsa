@@ -88,7 +88,9 @@ pub mod line_number {
 }
 /// Menu widgets.
 pub mod menu {
-    pub use rat_menu::menubar::{Menubar, MenubarLine, MenubarPopup, MenubarState};
+    pub use rat_menu::menubar::{
+        Menubar, MenubarLine, MenubarPopup, MenubarState, SubmenuPlacement,
+    };
     pub use rat_menu::menuitem::{MenuItem, Separator};
     pub use rat_menu::menuline::{MenuLine, MenuLineState};
     pub use rat_menu::popup_menu::{Placement, PopupMenu, PopupMenuState};
@@ -115,6 +117,7 @@ pub mod number_input {
     };
 }
 pub mod paragraph;
+pub mod shadow;
 pub mod splitter;
 pub mod statusline;
 /// Table widget.
