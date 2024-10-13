@@ -75,7 +75,7 @@ impl Focus {
                     last: Default::default(),
                     core: removed,
                 }));
-                container.build(&mut b);
+                b.container(container);
                 let insert = b.build();
 
                 self.core.insert_container(range.start, cidx, insert.core);
@@ -117,7 +117,7 @@ impl Focus {
                     last: Default::default(),
                     core: removed,
                 }));
-                new.build(&mut b);
+                b.container(new);
                 let insert = b.build();
 
                 self.core.insert_container(range.start, cidx, insert.core);
