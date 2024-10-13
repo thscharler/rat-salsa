@@ -294,7 +294,7 @@ mod blue {
 }
 
 mod popup_focus {
-    use rat_event::{ct_event, HandleEvent, Regular};
+    use rat_event::{ct_event, HandleEvent, Popup, Regular};
     use rat_focus::{ContainerFlag, FocusBuilder, FocusFlag, HasFocus, HasFocusFlag, Navigation};
     use rat_popup::event::PopupOutcome;
     use rat_popup::{Placement, PopupCore, PopupCoreState};
@@ -385,7 +385,7 @@ mod popup_focus {
 
     impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopFocState {
         fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
-            let r0 = self.popup.handle(event, Regular);
+            let r0 = self.popup.handle(event, Popup);
 
             let r1 = match event {
                 ct_event!(keycode press F(2)) => {
@@ -433,7 +433,7 @@ mod popup_focus {
 }
 
 mod popup_nonfocus {
-    use rat_event::{ct_event, HandleEvent, Regular};
+    use rat_event::{ct_event, HandleEvent, Popup, Regular};
     use rat_popup::event::PopupOutcome;
     use rat_popup::{Placement, PopupCore, PopupCoreState};
     use ratatui::buffer::Buffer;
@@ -515,7 +515,7 @@ mod popup_nonfocus {
 
     impl HandleEvent<crossterm::event::Event, Regular, PopupOutcome> for PopActState {
         fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PopupOutcome {
-            let r0 = self.popup.handle(event, Regular);
+            let r0 = self.popup.handle(event, Popup);
 
             let r1 = match event {
                 ct_event!(keycode press F(2)) => {
