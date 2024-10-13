@@ -40,7 +40,7 @@ impl Focus {
             container.container().map(|v| v.name().to_string())
         );
         if let Some(flag) = container.container() {
-            if let Some((cidx, _)) = self.core.container_index_of(flag) {
+            if let Some((cidx, _)) = self.core.container_index_of(&flag) {
                 self.core.remove_container(cidx).reset();
                 focus_debug!(self.core.log, "    -> removed");
             } else {
@@ -68,7 +68,7 @@ impl Focus {
             container.container().map(|v| v.name().to_string())
         );
         if let Some(flag) = container.container() {
-            if let Some((cidx, range)) = self.core.container_index_of(flag) {
+            if let Some((cidx, range)) = self.core.container_index_of(&flag) {
                 let removed = self.core.remove_container(cidx);
 
                 let mut b = FocusBuilder::new(Some(Focus {
@@ -110,7 +110,7 @@ impl Focus {
             new.container().map(|v| v.name().to_string())
         );
         if let Some(flag) = container.container() {
-            if let Some((cidx, range)) = self.core.container_index_of(flag) {
+            if let Some((cidx, range)) = self.core.container_index_of(&flag) {
                 let removed = self.core.remove_container(cidx);
 
                 let mut b = FocusBuilder::new(Some(Focus {
@@ -128,31 +128,6 @@ impl Focus {
             }
         } else {
             focus_debug!(self.core.log, "    -> no container flag");
-        }
-    }
-
-    /// Dynamic change of widget flags.
-    ///
-    /// This is only necessary if your widget flags change
-    /// during event-handling, and you need a programmatic
-    /// focus-change for the new flags.
-    pub fn update_widget(&mut self, widget: &'_ dyn HasFocusFlag) {
-        focus_debug!(
-            self.core.log,
-            "focus update widget {:?} ",
-            widget.focus().name()
-        );
-
-        if let Some(idx) = self.core.index_of(widget.focus()) {
-            self.core.update_flags(
-                idx,
-                widget.area(),
-                widget.z_areas().into(),
-                widget.navigable(),
-            );
-            focus_debug!(self.core.log, "    -> updated");
-        } else {
-            focus_debug!(self.core.log, "    => not my widget");
         }
     }
 
@@ -200,6 +175,26 @@ impl Focus {
         }
     }
 
+    /// Expels the focus from the given widget regardless of
+    /// the current state.
+    pub fn expel_focus(&self, widget_state: &'_ dyn HasFocusFlag) {
+        focus_debug!(self.core.log, "expel {:?}", widget_state.focus().name());
+        if self.core.index_of(widget_state.focus()).is_some() {
+            if widget_state.is_focused() {
+                self.core.next();
+                if widget_state.is_focused() {
+                    focus_debug!(self.core.log, "    -> no other focus, cleared");
+                    widget_state.focus().clear();
+                }
+                focus_debug!(self.core.log, "    -> expelled");
+            } else {
+                focus_debug!(self.core.log, "    -> not focused");
+            }
+        } else {
+            focus_debug!(self.core.log, "    -> not found");
+        }
+    }
+
     /// Sets the focus to the given container.
     ///
     /// This sets the focus to the first widget that can be found
@@ -207,11 +202,29 @@ impl Focus {
     pub fn focus_container(&self, container: &'_ dyn HasFocus) {
         focus_debug!(self.core.log, "container focus");
         if let Some(flag) = container.container() {
-            if let Some((_idx, range)) = self.core.container_index_of(flag) {
+            if let Some((_idx, range)) = self.core.container_index_of(&flag) {
                 self.core.focus_idx(range.start, true);
+            } else {
+                focus_debug!(self.core.log, "    -> not a valid container");
             }
         } else {
-            focus_debug!(self.core.log, "no container id");
+            focus_debug!(self.core.log, "    -> no container id");
+        }
+    }
+
+    /// Expels the focus from the given container regardless of
+    /// the current state.
+    pub fn expel_focus_container(&self, container: &'_ dyn HasFocus) {
+        focus_debug!(self.core.log, "container expel");
+        if let Some(flag) = container.container() {
+            if flag.is_container_focused() {
+                self.core.expel_container(flag);
+                focus_debug!(self.core.log, "    -> expelled");
+            } else {
+                focus_debug!(self.core.log, "    -> not focused");
+            }
+        } else {
+            focus_debug!(self.core.log, "    -> no container id");
         }
     }
 
@@ -313,15 +326,6 @@ impl Focus {
         self.core.first();
     }
 
-    /// Sets the focus to the last widget.
-    ///
-    /// This ensures that there is only one focused widget.
-    /// The first widget in the list gets the focus.
-    pub fn last(&self) {
-        focus_debug!(self.core.log, "last focus");
-        self.core.last();
-    }
-
     /// Focus the first widget of a given container.
     ///
     /// The first navigable widget in the container gets the focus.
@@ -329,18 +333,6 @@ impl Focus {
         focus_debug!(self.core.log, "container focus first");
         if let Some(flag) = container.container() {
             self.core.first_container(flag);
-        } else {
-            focus_debug!(self.core.log, "no container id");
-        }
-    }
-
-    /// Focus the last widget of a given container.
-    ///
-    /// The first navigable widget in the container gets the focus.
-    pub fn last_container(&self, container: &'_ dyn HasFocus) {
-        focus_debug!(self.core.log, "container focus last");
-        if let Some(flag) = container.container() {
-            self.core.last_container(flag);
         } else {
             focus_debug!(self.core.log, "no container id");
         }
@@ -673,26 +665,13 @@ mod core {
         /// Find the given container-flag in the list of sub-containers.
         pub(super) fn container_index_of(
             &self,
-            container_flag: ContainerFlag,
+            container_flag: &ContainerFlag,
         ) -> Option<(usize, Range<usize>)> {
             self.containers
                 .iter()
                 .enumerate()
-                .find(|(_, (c, _))| c.container_flag == container_flag)
+                .find(|(_, (c, _))| &c.container_flag == container_flag)
                 .map(|(idx, (_, range))| (idx, range.clone()))
-        }
-
-        /// Update the widget flags.
-        pub(super) fn update_flags(
-            &mut self,
-            idx: usize,
-            area: Rect,
-            z_areas: Vec<ZRect>,
-            navigable: Navigation,
-        ) {
-            self.areas[idx] = area;
-            self.z_areas[idx] = z_areas;
-            self.navigable[idx] = navigable;
         }
 
         /// Append a container.
@@ -902,18 +881,6 @@ mod core {
             self.__accumulate();
         }
 
-        /// Set the last focus.
-        pub(super) fn last(&self) {
-            self.__start_change(true);
-            if let Some(n) = self.last_navigable(self.focus_flags.len()) {
-                focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
-                self.__focus(n, true);
-            } else {
-                focus_debug!(self.log, "    -> no navigable widget");
-            }
-            self.__accumulate();
-        }
-
         /// Clear the focus.
         pub(super) fn none(&self) {
             self.__start_change(true);
@@ -926,24 +893,6 @@ mod core {
             for (c, r) in self.containers.iter() {
                 if c.container_flag == container {
                     if let Some(n) = self.first_navigable(r.start) {
-                        if n < r.end {
-                            focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
-                            self.__focus(n, true);
-                        }
-                    } else {
-                        focus_debug!(self.log, "    -> no navigable widget");
-                    }
-                }
-            }
-            self.__accumulate();
-        }
-
-        /// Set the initial focus.
-        pub(super) fn last_container(&self, container: ContainerFlag) {
-            self.__start_change(true);
-            for (c, r) in self.containers.iter() {
-                if c.container_flag == container {
-                    if let Some(n) = self.last_navigable(r.end) {
                         if n < r.end {
                             focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
                             self.__focus(n, true);
@@ -1049,6 +998,28 @@ mod core {
             false
         }
 
+        /// Expel focus from the given container.
+        pub(super) fn expel_container(&self, flag: ContainerFlag) -> bool {
+            if let Some((_idx, range)) = self.container_index_of(&flag) {
+                self.__start_change(true);
+                let n = self.next_navigable(range.end);
+                focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                self.__focus(n, true);
+                self.__accumulate();
+
+                // still focused?
+                if flag.is_container_focused() {
+                    self.none();
+                } else {
+                    focus_debug!(self.log, "    -> no focus outside container. cleared.");
+                }
+                true
+            } else {
+                focus_debug!(self.log, "    -> not a valid container");
+                false
+            }
+        }
+
         /// Focus next.
         pub(super) fn next(&self) -> bool {
             self.__start_change(true);
@@ -1143,33 +1114,6 @@ mod core {
                 }
             }
             focus_debug!(self.log, "    -> no first");
-            None
-        }
-
-        /// First navigable flag __before__ n.
-        fn last_navigable(&self, end: usize) -> Option<usize> {
-            focus_debug!(
-                self.log,
-                "first navigable {:?} __before__ ",
-                if end < self.focus_flags.len() {
-                    self.focus_flags[end].name()
-                } else {
-                    "end"
-                }
-            );
-            for n in (end.saturating_sub(1)..0).rev() {
-                if matches!(
-                    self.navigable[n],
-                    Navigation::Reach
-                        | Navigation::ReachLeaveBack
-                        | Navigation::ReachLeaveFront
-                        | Navigation::Regular
-                ) {
-                    focus_debug!(self.log, "    -> {:?}", self.focus_flags[n].name());
-                    return Some(n);
-                }
-            }
-            focus_debug!(self.log, "    -> no last");
             None
         }
 
