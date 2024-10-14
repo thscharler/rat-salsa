@@ -1,3 +1,7 @@
+# 0.25.6
+
+* update some docs.
+
 # 0.25.5
 
 * fix: docs
