@@ -1,5 +1,8 @@
 //!
-//! Defines the trait RenderUI to hide the different rendering backends.
+//! rat-salsa's own Terminal trait to hide some details.
+//!
+//! This hides the actual implementation for init/shutdown
+//! and can be used as dyn Terminal to avoid adding more T's.
 //!
 
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};

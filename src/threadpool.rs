@@ -17,7 +17,7 @@ type BoxTask<Message, Error> = Box<
         + Send,
 >;
 
-/// Type for cancellation.
+/// Cancel background tasks.
 #[derive(Debug, Default, Clone)]
 pub struct Cancel(Arc<AtomicBool>);
 

@@ -28,7 +28,7 @@ pub use framework::*;
 pub use run_config::*;
 pub use threadpool::Cancel;
 
-/// Result of event-handling.
+/// Result enum for event handling.
 ///
 /// The result of an event is processed immediately after the
 /// function returns, before polling new events. This way an action
@@ -215,7 +215,7 @@ where
 }
 
 ///
-/// Application context data.
+/// Application context for event handling.
 ///
 #[derive(Debug)]
 pub struct AppContext<'a, Global, Message, Error>
@@ -237,7 +237,7 @@ where
 }
 
 ///
-/// Application context data when rendering.
+/// Application context for rendering.
 ///
 #[derive(Debug)]
 pub struct RenderContext<'a, Global> {

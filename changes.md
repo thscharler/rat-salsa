@@ -1,3 +1,7 @@
+# 0.25.5
+
+* fix: docs
+
 # 0.25.4
 
 * fix: changes in rat-menu affect the examples.
