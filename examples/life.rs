@@ -393,7 +393,7 @@ pub mod life {
     use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
-    use rat_widget::focus::{FocusBuilder, IsFocusContainer};
+    use rat_widget::focus::{FocusBuilder, FocusContainer};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -472,7 +472,7 @@ pub mod life {
         }
     }
 
-    impl IsFocusContainer for LifeState {
+    impl FocusContainer for LifeState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.menu);
         }
