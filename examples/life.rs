@@ -390,7 +390,6 @@ pub mod life {
     use crate::{AppContext, GlobalState, LifeMsg, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
-    use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::{FocusBuilder, FocusContainer};
@@ -484,7 +483,6 @@ pub mod life {
             ctx: &mut rat_salsa::AppContext<'_, GlobalState, LifeMsg, Error>,
         ) -> Result<(), Error> {
             ctx.focus().first();
-            debug!("{:?}", self.game);
             Ok(())
         }
 

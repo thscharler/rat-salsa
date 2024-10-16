@@ -2,8 +2,6 @@
 //! Support for timers.
 //!
 
-#[allow(unused_imports)]
-use log::debug;
 use std::cell::{Cell, RefCell};
 use std::time::{Duration, Instant};
 

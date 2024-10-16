@@ -4,7 +4,7 @@
 
 use crate::Control;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
-use log::debug;
+use log::warn;
 use std::fmt::Debug;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -74,12 +74,12 @@ where
                         Ok((cancel, task)) => {
                             let flow = task(cancel, &t_send);
                             if let Err(err) = t_send.send(flow) {
-                                debug!("{:?}", err);
+                                warn!("{:?}", err);
                                 break 'l;
                             }
                         }
                         Err(err) => {
-                            debug!("{:?}", err);
+                            warn!("{:?}", err);
                             break 'l;
                         }
                     }

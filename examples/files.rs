@@ -6,8 +6,6 @@ use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
 use directories_next::UserDirs;
-#[allow(unused_imports)]
-use log::debug;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Cancel, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;

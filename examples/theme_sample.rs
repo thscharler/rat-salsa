@@ -3,8 +3,6 @@
 use crate::mask0::{Mask0, Mask0State};
 use anyhow::Error;
 use crossterm::event::Event;
-#[allow(unused_imports)]
-use log::debug;
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
@@ -208,8 +206,6 @@ pub mod mask0 {
     use crate::{AppContext, GlobalState, MinimalAction, RenderContext};
     use anyhow::Error;
     use crossterm::event::Event;
-    #[allow(unused_imports)]
-    use log::debug;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_theme::dark_themes;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
