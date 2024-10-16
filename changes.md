@@ -1,3 +1,7 @@
+# 0.27.0
+
+final renames in rat-focus.
+
 # 0.26.0
 
 break: split-off crate rat-popup from PopupMenu and
