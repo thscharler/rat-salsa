@@ -33,7 +33,7 @@ pub use single_pager::*;
 ///
 /// It then splits the list in pages in a way that there are
 /// no broken areas.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct PageLayout {
     core: Rc<RefCell<PageLayoutCore>>,
 }
@@ -42,7 +42,7 @@ pub struct PageLayout {
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AreaHandle(usize);
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 struct PageLayoutCore {
     // just for checks on re-layout
     page: Rect,
@@ -52,25 +52,6 @@ struct PageLayoutCore {
     man_breaks: Vec<u16>,
     // calculated breaks
     breaks: Vec<u16>,
-}
-
-impl Default for PageLayout {
-    fn default() -> Self {
-        Self {
-            core: Default::default(),
-        }
-    }
-}
-
-impl Default for PageLayoutCore {
-    fn default() -> Self {
-        Self {
-            page: Default::default(),
-            areas: vec![Rect::default()],
-            man_breaks: vec![],
-            breaks: vec![0],
-        }
-    }
 }
 
 impl PageLayout {
@@ -146,6 +127,11 @@ impl PageLayout {
         self.core.borrow().breaks.len()
     }
 
+    /// Any pages
+    pub fn is_empty(&self) -> bool {
+        self.core.borrow().breaks.is_empty()
+    }
+
     /// Locate an area by handle.
     ///
     /// This will return a Rect with a y-value relative to the
@@ -212,7 +198,7 @@ impl PageLayoutCore {
         }
 
         self.areas.sort_by(|a, b| a.y.cmp(&b.y));
-        self.man_breaks.sort_by(|a, b| b.cmp(&a));
+        self.man_breaks.sort_by(|a, b| b.cmp(a));
         self.breaks.clear();
 
         self.breaks.push(0);
@@ -305,7 +291,7 @@ pub(crate) mod event {
 
 #[cfg(test)]
 mod test {
-    use crate::pager::PageLayoutCore;
+    use crate::pager::PageLayout;
     use ratatui::layout::Rect;
     use std::ops::Deref;
 
@@ -315,7 +301,7 @@ mod test {
 
     #[test]
     fn test_layout() {
-        let mut p0 = PageLayoutCore::new();
+        let mut p0 = PageLayout::new();
 
         p0.add(hr(5, 1));
         p0.add(hr(5, 2));
@@ -332,6 +318,6 @@ mod test {
 
         p0.layout(hr(0, 10));
 
-        assert_eq!(p0.breaks.borrow().deref(), &vec![9, 18]);
+        assert_eq!(p0.core.borrow().breaks.deref(), &vec![0, 9, 19]);
     }
 }
