@@ -5,8 +5,6 @@ use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
 use crate::util::revert_style;
 use crate::{MenuBuilder, MenuItem, MenuStyle};
-#[allow(unused_imports)]
-use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus};

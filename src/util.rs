@@ -1,5 +1,3 @@
-#[allow(unused_imports)]
-use log::debug;
 use ratatui::style::{Style, Stylize};
 use std::mem;
 
