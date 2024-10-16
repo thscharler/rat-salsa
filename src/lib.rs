@@ -97,7 +97,7 @@ impl Display for ContainerFlag {
     }
 }
 
-impl IsFocusContainer for ContainerFlag {
+impl FocusContainer for ContainerFlag {
     fn build(&self, _builder: &mut FocusBuilder) {
         // no widgets
     }
@@ -223,7 +223,7 @@ pub trait HasFocus {
 }
 
 /// Is this a container widget.
-pub trait IsFocusContainer {
+pub trait FocusContainer {
     /// Build the focus-structure for the container.
     fn build(&self, builder: &mut FocusBuilder);
 
@@ -267,7 +267,7 @@ pub trait IsFocusContainer {
     }
 }
 
-impl IsFocusContainer for () {
+impl FocusContainer for () {
     fn build(&self, _: &mut FocusBuilder) {}
 }
 
@@ -491,7 +491,7 @@ impl<'a> Default for ContainerAdapter<'a> {
     }
 }
 
-impl<'a> IsFocusContainer for ContainerAdapter<'a> {
+impl<'a> FocusContainer for ContainerAdapter<'a> {
     fn build(&self, builder: &mut FocusBuilder) {
         (self.build_fn)(builder);
     }

@@ -113,7 +113,7 @@ pub mod substratum1 {
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-    use rat_focus::{ContainerFlag, FocusBuilder, HasFocus, IsFocusContainer};
+    use rat_focus::{ContainerFlag, FocusBuilder, FocusContainer, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
@@ -219,7 +219,7 @@ pub mod substratum1 {
         }
     }
 
-    impl IsFocusContainer for SubstratumState {
+    impl FocusContainer for SubstratumState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder
                 .widget(&self.input1)

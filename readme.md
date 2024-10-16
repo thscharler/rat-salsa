@@ -84,9 +84,9 @@ by the widget.
 
 ## Traits and Widgets
 
-# HasFocusFlag
+# HasFocus
 
-[HasFocusFlag] is the interface for single widgets.
+[HasFocus] is the interface for single widgets.
 
 It is implemented for the widget state struct and provides access
 to
@@ -99,9 +99,9 @@ to
 The widget can then use the FocusFlag for rendering and
 event-handling as it sees fit.
 
-# HasFocus
+# FocusContainer
 
-[HasFocus] is the interface for container widgets.
+[FocusContainer] is the interface for container widgets.
 
 This is used to recursively add widgets for focus handling.
 
