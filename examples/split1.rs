@@ -3,7 +3,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 #[allow(unused_imports)]
 use rat_event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{Focus, FocusBuilder, HasFocusFlag};
+use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;

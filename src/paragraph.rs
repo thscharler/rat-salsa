@@ -4,7 +4,7 @@
 
 use crate::_private::NonExhaustive;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
@@ -211,7 +211,7 @@ impl<'a> StatefulWidgetRef for Paragraph<'a> {
     }
 }
 
-impl HasFocusFlag for ParagraphState {
+impl HasFocus for ParagraphState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

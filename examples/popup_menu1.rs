@@ -200,7 +200,7 @@ fn handle_stuff(
 }
 
 mod blue {
-    use rat_focus::{FocusFlag, HasFocusFlag};
+    use rat_focus::{FocusFlag, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
     use ratatui::style::{Style, Stylize};
@@ -266,7 +266,7 @@ mod blue {
         }
     }
 
-    impl HasFocusFlag for BlueState {
+    impl HasFocus for BlueState {
         fn focus(&self) -> FocusFlag {
             self.focus.clone()
         }

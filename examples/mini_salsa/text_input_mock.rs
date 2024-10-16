@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -75,7 +75,7 @@ impl HasScreenCursor for TextInputMockState {
     }
 }
 
-impl HasFocusFlag for TextInputMockState {
+impl HasFocus for TextInputMockState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

@@ -5,7 +5,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{Focus, FocusBuilder, HasFocus, HasFocusFlag};
+use rat_focus::{Focus, FocusBuilder, HasFocus, IsFocusContainer};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;

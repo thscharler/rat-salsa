@@ -6,7 +6,7 @@ use crate::_private::NonExhaustive;
 use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
 use crate::util::revert_style;
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -355,7 +355,7 @@ fn render_list<'a, Selection: ListSelection>(
     );
 }
 
-impl<Selection> HasFocusFlag for ListState<Selection> {
+impl<Selection> HasFocus for ListState<Selection> {
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
@@ -684,7 +684,7 @@ pub mod selection {
     use crate::event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
     use crate::list::{ListSelection, ListState};
     use crossterm::event::KeyModifiers;
-    use rat_focus::HasFocusFlag;
+    use rat_focus::HasFocus;
     use rat_ftable::TableSelection;
     use rat_scrolled::event::ScrollOutcome;
     use rat_scrolled::ScrollAreaState;

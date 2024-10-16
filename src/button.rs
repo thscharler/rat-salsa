@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::util::revert_style;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::BlockExt;
@@ -280,7 +280,7 @@ impl ButtonState {
     }
 }
 
-impl HasFocusFlag for ButtonState {
+impl HasFocus for ButtonState {
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.focus.clone()

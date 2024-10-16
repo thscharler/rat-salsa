@@ -15,7 +15,7 @@ use directories_next::UserDirs;
 use rat_event::{
     ct_event, flow, try_flow, ConsumedEvent, Dialog, HandleEvent, MouseOnly, Outcome, Regular,
 };
-use rat_focus::{on_lost, Focus, FocusBuilder, FocusFlag, HasFocusFlag};
+use rat_focus::{on_lost, Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState, TextInputStyle};
@@ -481,7 +481,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome> for EditDirNam
     }
 }
 
-impl HasFocusFlag for EditDirNameState {
+impl HasFocus for EditDirNameState {
     fn focus(&self) -> FocusFlag {
         self.edit_dir.focus()
     }

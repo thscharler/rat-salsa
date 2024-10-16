@@ -8,7 +8,7 @@ use crate::list::{List, ListSelection, ListState};
 use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -100,9 +100,9 @@ where
     }
 }
 
-impl<S> HasFocusFlag for EditListState<S>
+impl<S> HasFocus for EditListState<S>
 where
-    S: HasFocusFlag,
+    S: HasFocus,
 {
     fn focus(&self) -> FocusFlag {
         match self.mode {
@@ -153,7 +153,7 @@ impl<S> EditListState<S> {
 
 impl<S> EditListState<S>
 where
-    S: HasFocusFlag,
+    S: HasFocus,
 {
     /// Editing is active?
     pub fn is_editing(&self) -> bool {
@@ -266,7 +266,7 @@ impl<S, C> HandleEvent<crossterm::event::Event, C, EditOutcome> for EditListStat
 where
     S: HandleEvent<crossterm::event::Event, C, EditOutcome>,
     S: HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome>,
-    S: HasFocusFlag,
+    S: HasFocus,
 {
     fn handle(&mut self, event: &crossterm::event::Event, ctx: C) -> EditOutcome {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
@@ -366,7 +366,7 @@ pub fn handle_edit_events<S, C>(
 where
     S: HandleEvent<crossterm::event::Event, C, EditOutcome>,
     S: HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome>,
-    S: HasFocusFlag,
+    S: HasFocus,
 {
     state.list.focus.set(focus);
     state.handle(event, qualifier)

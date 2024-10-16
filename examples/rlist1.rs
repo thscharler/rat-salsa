@@ -3,7 +3,7 @@ use crate::mini_salsa::{layout_grid, MiniSalsaState};
 #[allow(unused_imports)]
 use log::Log;
 use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocusFlag};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState, SubmenuPlacement};
@@ -117,7 +117,7 @@ impl Default for EditEntryState {
     }
 }
 
-impl HasFocusFlag for EditEntryState {
+impl HasFocus for EditEntryState {
     fn focus(&self) -> FocusFlag {
         self.text_input.focus()
     }

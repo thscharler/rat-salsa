@@ -9,7 +9,7 @@ use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{match_focus, ContainerFlag, FocusBuilder, HasFocus};
+use rat_focus::{match_focus, ContainerFlag, FocusBuilder, IsFocusContainer};
 use rat_ftable::edit::table::{EditTable, EditTableState};
 use rat_ftable::edit::{Editor, EditorState};
 use rat_ftable::event::EditOutcome;
@@ -95,7 +95,7 @@ struct State {
     text2: TextInputState,
 }
 
-impl HasFocus for State {
+impl IsFocusContainer for State {
     fn build(&self, builder: &mut FocusBuilder) {
         builder
             .widget(&self.text1)
@@ -441,7 +441,7 @@ impl EditorState for SampleEditorState {
     }
 }
 
-impl HasFocus for SampleEditorState {
+impl IsFocusContainer for SampleEditorState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder
             .widget(&self.text)

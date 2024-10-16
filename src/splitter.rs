@@ -6,7 +6,7 @@ use crate::_private::NonExhaustive;
 use crate::util::{fill_buf_area, revert_style};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
@@ -924,7 +924,7 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
     }
 }
 
-impl HasFocusFlag for SplitState {
+impl HasFocus for SplitState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

@@ -31,7 +31,7 @@ pub mod event {
 pub mod focus {
     pub use rat_focus::{
         handle_focus, match_focus, on_gained, on_lost, ContainerFlag, Focus, FocusBuilder,
-        FocusFlag, HasFocus, HasFocusFlag, Navigation, ZRect,
+        FocusFlag, HasFocus, IsFocusContainer, Navigation, ZRect,
     };
 }
 

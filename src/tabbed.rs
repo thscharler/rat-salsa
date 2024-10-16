@@ -7,7 +7,7 @@ use crate::tabbed::attached::AttachedTabs;
 use crate::tabbed::glued::GluedTabs;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -309,7 +309,7 @@ fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut Tab
     }
 }
 
-impl HasFocusFlag for TabbedState {
+impl HasFocus for TabbedState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }
