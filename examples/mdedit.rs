@@ -5,7 +5,6 @@
 use crate::facilities::MDFileDialogState;
 use crate::root::{MDRoot, MDRootState};
 use anyhow::Error;
-use crossterm::event::{Event, KeyEvent, KeyModifiers, MouseEvent};
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
@@ -2287,6 +2286,8 @@ static HELP: &[u8] = include_bytes!("mdedit.md");
 static CHEAT: &[u8] = include_bytes!("cheat.md");
 
 fn event_str(event: &crossterm::event::Event) -> String {
+    use crossterm::event::*;
+
     match event {
         Event::FocusGained => "focus-gained".into(),
         Event::FocusLost => "focus-lost".into(),
@@ -2315,7 +2316,9 @@ fn event_str(event: &crossterm::event::Event) -> String {
     }
 }
 
-fn mods(modifiers: &KeyModifiers) -> String {
+fn mods(modifiers: &crossterm::event::KeyModifiers) -> String {
+    use crossterm::event::*;
+
     let mut s = String::new();
     if modifiers.contains(KeyModifiers::CONTROL) {
         s.push_str("CTRL ");
