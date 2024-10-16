@@ -25,7 +25,7 @@ use crate::{
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
@@ -306,7 +306,7 @@ impl Default for TextInputState {
     }
 }
 
-impl HasFocusFlag for TextInputState {
+impl HasFocus for TextInputState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

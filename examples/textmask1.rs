@@ -3,7 +3,7 @@ use log::debug;
 #[allow(unused_imports)]
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_event::{flow, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{FocusBuilder, HasFocusFlag};
+use rat_focus::{FocusBuilder, HasFocus};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_text::HasScreenCursor;

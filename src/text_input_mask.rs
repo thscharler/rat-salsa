@@ -80,7 +80,7 @@ use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
@@ -356,7 +356,7 @@ impl Default for MaskedInputState {
     }
 }
 
-impl HasFocusFlag for MaskedInputState {
+impl HasFocus for MaskedInputState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

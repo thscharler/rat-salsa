@@ -12,7 +12,7 @@ use crate::{upos_type, HasScreenCursor, TextError};
 use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use chrono::NaiveDate;
 use rat_event::{HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
@@ -126,7 +126,7 @@ impl Default for DateInputState {
     }
 }
 
-impl HasFocusFlag for DateInputState {
+impl HasFocus for DateInputState {
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.widget.focus.clone()

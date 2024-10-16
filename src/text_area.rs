@@ -15,7 +15,7 @@ use crate::{ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPositi
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{FocusFlag, HasFocus, Navigation};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
@@ -414,7 +414,7 @@ impl Default for TextAreaState {
     }
 }
 
-impl HasFocusFlag for TextAreaState {
+impl HasFocus for TextAreaState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

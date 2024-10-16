@@ -11,7 +11,7 @@ use crate::undo_buffer::{UndoBuffer, UndoEntry};
 use crate::{upos_type, HasScreenCursor, TextError};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use rat_event::{HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
@@ -127,7 +127,7 @@ impl Default for NumberInputState {
     }
 }
 
-impl HasFocusFlag for NumberInputState {
+impl HasFocus for NumberInputState {
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.widget.focus.clone()
