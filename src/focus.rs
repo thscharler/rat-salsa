@@ -1,5 +1,5 @@
 use crate::focus::core::FocusCore;
-use crate::{FocusFlag, HasFocus, HasFocusFlag, Navigation};
+use crate::{FocusFlag, HasFocus, IsFocusContainer, Navigation};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 
 pub use core::FocusBuilder;
@@ -33,7 +33,7 @@ impl Focus {
     /// focus-change for the new structure.
     ///
     /// This resets the focus-flags of the removed container.
-    pub fn remove_container(&mut self, container: &'_ dyn HasFocus) {
+    pub fn remove_container(&mut self, container: &'_ dyn IsFocusContainer) {
         focus_debug!(
             self.core.log,
             "focus remove container {:?} ",
@@ -61,7 +61,7 @@ impl Focus {
     /// part of the widget structure it keeps the focus.
     /// The focus-flags for all widgets that are no longer part
     /// of the widget structure are reset.
-    pub fn update_container(&mut self, container: &'_ dyn HasFocus) {
+    pub fn update_container(&mut self, container: &'_ dyn IsFocusContainer) {
         focus_debug!(
             self.core.log,
             "focus update container {:?} ",
@@ -102,7 +102,11 @@ impl Focus {
     /// part of the widget structure it keeps the focus.
     /// The focus-flags for all widgets that are no longer part
     /// of the widget structure are reset.
-    pub fn replace_container(&mut self, container: &'_ dyn HasFocus, new: &'_ dyn HasFocus) {
+    pub fn replace_container(
+        &mut self,
+        container: &'_ dyn IsFocusContainer,
+        new: &'_ dyn IsFocusContainer,
+    ) {
         focus_debug!(
             self.core.log,
             "focus replace container {:?} with {:?} ",
@@ -147,7 +151,7 @@ impl Focus {
     ///
     /// Sets the focus, but doesn't set lost or gained.
     /// This can be used to prevent validation of the field.
-    pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocusFlag) {
+    pub fn focus_no_lost(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
             self.core.log,
             "focus no_lost {:?}",
@@ -166,7 +170,7 @@ impl Focus {
     ///
     /// If this ends up with the same widget as
     /// before gained and lost flags are not set.
-    pub fn focus(&self, widget_state: &'_ dyn HasFocusFlag) {
+    pub fn focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(self.core.log, "focus {:?}", widget_state.focus().name());
         if let Some(n) = self.core.index_of(widget_state.focus()) {
             self.core.focus_idx(n, true);
@@ -177,7 +181,7 @@ impl Focus {
 
     /// Expels the focus from the given widget regardless of
     /// the current state.
-    pub fn expel_focus(&self, widget_state: &'_ dyn HasFocusFlag) {
+    pub fn expel_focus(&self, widget_state: &'_ dyn HasFocus) {
         focus_debug!(
             self.core.log,
             "expel from widget {:?}",
@@ -204,7 +208,7 @@ impl Focus {
     ///
     /// This sets the focus to the first widget that can be found
     /// for this container.
-    pub fn focus_container(&self, container: &'_ dyn HasFocus) {
+    pub fn focus_container(&self, container: &'_ dyn IsFocusContainer) {
         focus_debug!(
             self.core.log,
             "focus container {:?} ",
@@ -224,7 +228,7 @@ impl Focus {
 
     /// Expels the focus from the given container regardless of
     /// the current state.
-    pub fn expel_focus_container(&self, container: &'_ dyn HasFocus) {
+    pub fn expel_focus_container(&self, container: &'_ dyn IsFocusContainer) {
         focus_debug!(
             self.core.log,
             "focus expel from container {:?} ",
@@ -340,7 +344,7 @@ impl Focus {
     /// Focus the first widget of a given container.
     ///
     /// The first navigable widget in the container gets the focus.
-    pub fn first_container(&self, container: &'_ dyn HasFocus) {
+    pub fn first_container(&self, container: &'_ dyn IsFocusContainer) {
         focus_debug!(
             self.core.log,
             "focus first in container {:?} ",
@@ -411,7 +415,7 @@ impl Focus {
 }
 
 mod core {
-    use crate::{ContainerFlag, Focus, FocusFlag, HasFocus, HasFocusFlag, Navigation, ZRect};
+    use crate::{ContainerFlag, Focus, FocusFlag, HasFocus, IsFocusContainer, Navigation, ZRect};
     use ratatui::layout::Rect;
     use std::cell::Cell;
     use std::ops::Range;
@@ -464,7 +468,7 @@ mod core {
         /// Add a container widget.
         ///
         /// Adds start+end and calls container.build()
-        pub fn container(&mut self, container: &dyn HasFocus) -> &mut Self {
+        pub fn container(&mut self, container: &dyn IsFocusContainer) -> &mut Self {
             let flag = self.start(container.container(), container.area());
             container.build(self);
             self.end(flag);
@@ -474,17 +478,30 @@ mod core {
         /// Add a widget.
         ///
         /// The widget is added to all open containers.
-        pub fn widget(&mut self, widget: &dyn HasFocusFlag) -> &mut Self {
+        pub fn widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
+            widget.build(self);
+            self
+        }
+
+        /// Add a widget by setting all the attributes.
+        /// The widget is added to all open containers.
+        pub fn add_widget(
+            &mut self,
+            focus: FocusFlag,
+            area: Rect,
+            z_areas: &[ZRect],
+            navigable: Navigation,
+        ) {
             for c in &self.focus_flags {
-                assert_ne!(*c, widget.focus());
+                assert_ne!(*c, focus);
             }
 
-            focus_debug!(self.log, "widget {:?}", widget.focus());
+            focus_debug!(self.log, "widget {:?}", focus);
 
-            self.focus_flags.push(widget.focus());
-            self.areas.push(widget.area());
-            self.z_areas.push(widget.z_areas().into());
-            self.navigable.push(widget.navigable());
+            self.focus_flags.push(focus);
+            self.areas.push(area);
+            self.z_areas.push(z_areas.into());
+            self.navigable.push(navigable);
 
             let len = self.focus_flags.len();
             for (c, r) in self.containers.iter_mut().rev() {
@@ -492,8 +509,6 @@ mod core {
                     r.end = len;
                 }
             }
-
-            self
         }
 
         /// Manually start a container widget. Must be matched with
@@ -606,7 +621,7 @@ mod core {
         /// focus flag reset properly. If you don't have
         /// some logic to conditionally add widgets to the focus,
         /// this function is probably fine.
-        pub fn for_container(container: &dyn HasFocus) -> Focus {
+        pub fn for_container(container: &dyn IsFocusContainer) -> Focus {
             let mut b = FocusBuilder::new(None);
             b.container(container);
             b.build()
@@ -618,7 +633,7 @@ mod core {
         /// This takes the old Focus and reuses most of its allocations.
         /// It also ensures that any widgets no longer in the widget structure
         /// have their focus-flags reset.
-        pub fn rebuild(container: &dyn HasFocus, old: Option<Focus>) -> Focus {
+        pub fn rebuild(container: &dyn IsFocusContainer, old: Option<Focus>) -> Focus {
             let mut b = FocusBuilder::new(old);
             b.container(container);
             b.build()
@@ -1206,7 +1221,7 @@ mod core {
     #[cfg(test)]
     mod test {
         use crate::focus::core::FocusCore;
-        use crate::{ContainerFlag, FocusBuilder, FocusFlag, HasFocus};
+        use crate::{ContainerFlag, FocusBuilder, FocusFlag, IsFocusContainer};
         use ratatui::layout::Rect;
 
         #[test]
@@ -1299,7 +1314,7 @@ mod core {
                 i: FocusFlag,
             }
 
-            impl HasFocus for DD {
+            impl IsFocusContainer for DD {
                 fn build(&self, fb: &mut FocusBuilder) {
                     fb.widget(&self.g);
                     fb.widget(&self.h);

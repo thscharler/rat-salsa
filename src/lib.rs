@@ -34,7 +34,7 @@ pub mod event {
 /// Rc using Rc::ptr_eq.
 ///
 /// __See__
-/// [HasFocusFlag], [on_gained!](crate::on_gained!) and
+/// [HasFocus], [on_gained!](crate::on_gained!) and
 /// [on_lost!](crate::on_lost!).
 ///
 /// __See__
@@ -71,7 +71,7 @@ impl Display for FocusFlag {
     }
 }
 
-impl HasFocusFlag for FocusFlag {
+impl HasFocus for FocusFlag {
     fn focus(&self) -> FocusFlag {
         self.clone()
     }
@@ -97,7 +97,7 @@ impl Display for ContainerFlag {
     }
 }
 
-impl HasFocus for ContainerFlag {
+impl IsFocusContainer for ContainerFlag {
     fn build(&self, _builder: &mut FocusBuilder) {
         // no widgets
     }
@@ -167,7 +167,12 @@ pub enum Navigation {
 }
 
 /// Trait for a widget that has a focus flag.
-pub trait HasFocusFlag {
+pub trait HasFocus {
+    /// Build the focus-structure for the container.
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.add_widget(self.focus(), self.area(), self.z_areas(), self.navigable())
+    }
+
     /// Access to the flag for the rest.
     fn focus(&self) -> FocusFlag;
 
@@ -218,7 +223,7 @@ pub trait HasFocusFlag {
 }
 
 /// Is this a container widget.
-pub trait HasFocus {
+pub trait IsFocusContainer {
     /// Build the focus-structure for the container.
     fn build(&self, builder: &mut FocusBuilder);
 
@@ -262,7 +267,7 @@ pub trait HasFocus {
     }
 }
 
-impl HasFocus for () {
+impl IsFocusContainer for () {
     fn build(&self, _: &mut FocusBuilder) {}
 }
 
@@ -442,7 +447,7 @@ impl<const N: usize> Default for FocusAdapter<N> {
     }
 }
 
-impl HasFocusFlag for FocusAdapter {
+impl HasFocus for FocusAdapter {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }
@@ -486,7 +491,7 @@ impl<'a> Default for ContainerAdapter<'a> {
     }
 }
 
-impl<'a> HasFocus for ContainerAdapter<'a> {
+impl<'a> IsFocusContainer for ContainerAdapter<'a> {
     fn build(&self, builder: &mut FocusBuilder) {
         (self.build_fn)(builder);
     }
@@ -501,7 +506,7 @@ impl<'a> HasFocus for ContainerAdapter<'a> {
 }
 
 /// Does a match on the state struct of a widget. If `widget_state.lost_focus()` is true
-/// the block is executed. This requires that `widget_state` implements [HasFocusFlag],
+/// the block is executed. This requires that `widget_state` implements [HasFocus],
 /// but that's the basic requirement for this whole crate.
 ///
 /// ```rust ignore
@@ -519,13 +524,13 @@ impl<'a> HasFocus for ContainerAdapter<'a> {
 #[macro_export]
 macro_rules! on_lost {
     ($($field:expr => $validate:expr),*) => {{
-        use $crate::HasFocusFlag;
+        use $crate::HasFocus;
         $(if $field.lost_focus() { _ = $validate })*
     }};
 }
 
 /// Does a match on the state struct of a widget. If `widget_state.gained_focus()` is true
-/// the block is executed. This requires that `widget_state` implements [HasFocusFlag],
+/// the block is executed. This requires that `widget_state` implements [HasFocus],
 /// but that's the basic requirement for this whole crate.
 ///
 /// ```rust ignore
@@ -543,7 +548,7 @@ macro_rules! on_lost {
 #[macro_export]
 macro_rules! on_gained {
     ($($field:expr => $validate:expr),*) => {{
-        use $crate::HasFocusFlag;
+        use $crate::HasFocus;
         $(if $field.gained_focus() { _ = $validate })*
     }};
 }
@@ -553,7 +558,7 @@ macro_rules! on_gained {
 /// There is a `_` branch too, that is evaluated if none of the
 /// given widget-states has the focus.
 ///
-/// This requires that `widget_state` implements [HasFocusFlag],
+/// This requires that `widget_state` implements [HasFocus],
 /// but that's the basic requirement for this whole crate.
 ///
 /// ```rust ignore
@@ -581,7 +586,7 @@ macro_rules! on_gained {
 #[macro_export]
 macro_rules! match_focus {
     ($($field:expr => $block:expr),* $(, _ => $final:expr)?) => {{
-        use $crate::HasFocusFlag;
+        use $crate::HasFocus;
         if false {
             unreachable!();
         }

@@ -2,7 +2,7 @@ use crate::adapter::textinputf::{TextInputF, TextInputFState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{Focus, FocusBuilder, HasFocusFlag};
+use rat_focus::{Focus, FocusBuilder, HasFocus};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::Frame;
