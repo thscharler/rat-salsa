@@ -361,9 +361,11 @@ impl<'a, Selection> Table<'a, Selection> {
     /// use ratatui::prelude::Style;
     /// use ratatui::text::Span;
     /// use ratatui::widgets::{StatefulWidget, Widget};
-    /// use rat_ftable::{Table, TableContext, TableState, TableData};
+    /// use rat_ftable::{Table, TableContext, TableState, TableData};    ///
+    /// #
+    /// use rat_ftable::selection::RowSelection;
     ///
-    /// # struct SampleRow;
+    /// struct SampleRow;
     /// # impl Clone for SampleRow {
     /// #     fn clone(&self) -> Self {
     /// #        SampleRow
@@ -407,7 +409,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// // to the facade struct.
     ///
     /// let my_data_somewhere_else = vec![SampleRow;999999];
-    /// let mut table_state_somewhere_else = TableState::default();
+    /// let mut table_state_somewhere_else = TableState::<RowSelection>::default();
     ///
     /// // ...
     ///
@@ -485,8 +487,8 @@ impl<'a, Selection> Table<'a, Selection> {
     ///     }
     ///
     ///     /// Row style.
-    ///     fn row_style(&self) -> Style {
-    ///         Style::default()
+    ///     fn row_style(&self) -> Option<Style> {
+    ///         Some(Style::default())
     ///     }
     ///
     ///     /// Render one cell.
@@ -519,7 +521,7 @@ impl<'a, Selection> Table<'a, Selection> {
     /// };
     ///
     /// let table1 = Table::default()
-    ///     .iter(&mut rit)
+    ///     .iter(rit)
     ///     .widths([
     ///         Constraint::Length(6),
     ///         Constraint::Length(20)
