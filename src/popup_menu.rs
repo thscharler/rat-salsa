@@ -660,7 +660,7 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> MenuOutcome {
-        let r1 = if self.is_active() {
+        if self.is_active() {
             match event {
                 ct_event!(mouse moved for col, row)
                     if self.popup.widget_area.contains((*col, *row).into()) =>
@@ -685,9 +685,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
             }
         } else {
             MenuOutcome::Continue
-        };
-
-        r1
+        }
     }
 }
 
