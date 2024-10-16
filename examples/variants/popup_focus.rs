@@ -2,7 +2,8 @@
 
 use rat_event::{ct_event, HandleEvent, Popup, Regular};
 use rat_focus::{
-    ContainerFlag, Focus, FocusAdapter, FocusBuilder, FocusFlag, HasFocus, HasFocusFlag, Navigation,
+    ContainerFlag, Focus, FocusAdapter, FocusBuilder, FocusFlag, HasFocus, IsFocusContainer,
+    Navigation,
 };
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState};
@@ -88,7 +89,7 @@ impl PopFocusBlueState {
     }
 }
 
-impl HasFocus for PopFocusBlueState {
+impl IsFocusContainer for PopFocusBlueState {
     fn build(&self, builder: &mut FocusBuilder) {
         // build the focus on the fly.
         // don't want to expose HasFocusFlag, as using

@@ -2,7 +2,7 @@
 
 use crate::adapter::_private::NonExhaustive;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
@@ -86,7 +86,7 @@ impl TextInputFState {
     }
 }
 
-impl HasFocusFlag for TextInputFState {
+impl HasFocus for TextInputFState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

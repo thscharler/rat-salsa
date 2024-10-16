@@ -3,7 +3,7 @@ use crate::_private::NonExhaustive;
 use crate::event::PopupOutcome;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Popup};
-use rat_focus::{ContainerFlag, HasFocus, ZRect};
+use rat_focus::{ContainerFlag, IsFocusContainer, ZRect};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::style::Style;

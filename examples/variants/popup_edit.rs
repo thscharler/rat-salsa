@@ -6,7 +6,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, Popup, Regular};
-use rat_focus::{ContainerFlag, Focus, FocusBuilder, HasFocus};
+use rat_focus::{ContainerFlag, Focus, FocusBuilder, IsFocusContainer};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
@@ -91,7 +91,7 @@ impl HasScreenCursor for PopEditGreenState {
     }
 }
 
-impl HasFocus for PopEditGreenState {
+impl IsFocusContainer for PopEditGreenState {
     fn build(&self, builder: &mut FocusBuilder) {
         // only has widgets when active.
         if self.popup.is_active() {
