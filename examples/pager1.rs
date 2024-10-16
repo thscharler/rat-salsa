@@ -3,7 +3,6 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use log::debug;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusContainer, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -102,7 +101,6 @@ fn repaint_input(
     for i in 0..100 {
         // map an additional ad hoc area.
         if let Some(area) = state.pager.relocate(Rect::new(5, 2 * i, 15, 1)) {
-            debug!("{}", format!("{:?}:", i));
             Span::from(format!("{:?}:", i)).render(area, frame.buffer_mut());
         }
         // map our widget area.
