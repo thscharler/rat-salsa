@@ -1,3 +1,10 @@
+# 0.27.0
+
+Final renames.
+
+* HasFocusFlag changes to HasFocus.
+* current HasFocus changes to FocusContainer.
+
 # 0.26.0
 
 Missed a few things:
