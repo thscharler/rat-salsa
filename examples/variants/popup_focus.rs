@@ -92,7 +92,7 @@ impl PopFocusBlueState {
 impl IsFocusContainer for PopFocusBlueState {
     fn build(&self, builder: &mut FocusBuilder) {
         // build the focus on the fly.
-        // don't want to expose HasFocusFlag, as using
+        // don't want to expose HasFocus, as using
         // it would be wrong. This is not a simple widget.
         builder.widget(&FocusAdapter {
             focus: self.focus.clone(),
