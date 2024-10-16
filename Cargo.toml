@@ -1,6 +1,6 @@
 [package]
 name = "rat-ftable"
-version = "0.25.1"
+version = "0.26.0"
 edition = "2021"
 description = "ratatui table widget for large data"
 license = "MIT/Apache-2.0"
@@ -53,7 +53,7 @@ log = "0.4"
 
 rat-event = { version = "0.25", path = "../rat-event" }
 rat-cursor = { version = "0.25", path = "../rat-cursor" }
-rat-focus = { version = "0.26", path = "../rat-focus" }
+rat-focus = { version = "0.27", path = "../rat-focus" }
 rat-scrolled = { version = "0.25", path = "../rat-scrolled" }
 
 [dev-dependencies]
