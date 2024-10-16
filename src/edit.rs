@@ -11,7 +11,7 @@
 //! * Esc - Cancel editing.
 //! * Enter - Commit current edit and edit next/append a row.
 //! * Up/Down - Commit current edit.
-use rat_focus::HasFocus;
+use rat_focus::IsFocusContainer;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 
@@ -31,7 +31,7 @@ pub trait Editor {
 }
 
 /// Trait for the editor widget state
-pub trait EditorState: HasFocus {
+pub trait EditorState: IsFocusContainer {
     type Context<'a>;
     type Data;
     type Err;

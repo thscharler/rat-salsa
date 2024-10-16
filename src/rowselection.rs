@@ -1,7 +1,7 @@
 use crate::event::Outcome;
 use crate::{TableSelection, TableState};
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
-use rat_focus::HasFocusFlag;
+use rat_focus::HasFocus;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::ScrollAreaState;
 use std::cmp::{max, min};

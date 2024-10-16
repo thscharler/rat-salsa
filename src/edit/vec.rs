@@ -16,7 +16,7 @@ use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
@@ -190,7 +190,7 @@ where
     }
 }
 
-impl<S> HasFocusFlag for EditVecState<S>
+impl<S> HasFocus for EditVecState<S>
 where
     S: EditorState,
 {

@@ -15,7 +15,7 @@ use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, Outcome, Regular};
-use rat_focus::{FocusBuilder, FocusFlag, HasFocusFlag, Navigation};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
@@ -132,7 +132,7 @@ where
     }
 }
 
-impl<S> HasFocusFlag for EditTableState<S> {
+impl<S> HasFocus for EditTableState<S> {
     fn focus(&self) -> FocusFlag {
         match self.mode {
             Mode::View => self.table.focus(),

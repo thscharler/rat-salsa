@@ -9,7 +9,7 @@ use crate::util::{revert_style, transfer_buffer};
 use crate::{TableContext, TableData, TableDataIter, TableSelection};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -1530,7 +1530,7 @@ impl<Selection: Default> Default for TableState<Selection> {
     }
 }
 
-impl<Selection> HasFocusFlag for TableState<Selection> {
+impl<Selection> HasFocus for TableState<Selection> {
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
