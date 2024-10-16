@@ -9,7 +9,7 @@ use crate::variants::popup_lock_edit::{PopLockMagenta, PopLockMagentaState};
 use crate::variants::popup_nonfocus::{PopNonFocusRed, PopNonFocusRedState};
 use rat_cursor::HasScreenCursor;
 use rat_event::{ct_event, HandleEvent, Outcome, Regular};
-use rat_focus::{Focus, FocusBuilder, IsFocusContainer};
+use rat_focus::{Focus, FocusBuilder, FocusContainer};
 use rat_popup::event::PopupOutcome;
 use rat_popup::Placement;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -163,7 +163,7 @@ fn repaint_stuff(
     Ok(())
 }
 
-impl IsFocusContainer for State {
+impl FocusContainer for State {
     #[allow(clippy::single_match)]
     fn build(&self, builder: &mut FocusBuilder) {
         builder.widget(&self.not_blue);
