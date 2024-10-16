@@ -5,8 +5,6 @@
 mod focus;
 mod zrect;
 
-#[allow(unused_imports)]
-use log::debug;
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
