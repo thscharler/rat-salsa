@@ -1,31 +1,27 @@
 #![allow(dead_code)]
 
-use crate::adapter::_private::NonExhaustive;
+use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
-use ratatui::text::Line;
-use ratatui::widgets::Widget;
 use std::marker::PhantomData;
 
 #[derive(Debug, Default)]
-pub struct TextInputF<'a> {
+pub struct TextInputMock<'a> {
     style: Style,
     focus_style: Style,
     phantom_data: PhantomData<&'a ()>,
 }
 
 #[derive(Debug, Clone)]
-pub struct TextInputFState {
+pub struct TextInputMockState {
     pub focus: FocusFlag,
     pub area: Rect,
-
-    pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> TextInputF<'a> {
+impl<'a> TextInputMock<'a> {
     /// Base text style.
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
@@ -39,46 +35,39 @@ impl<'a> TextInputF<'a> {
     }
 }
 
-impl<'a> StatefulWidget for TextInputF<'a> {
-    type State = TextInputFState;
+impl<'a> StatefulWidget for TextInputMock<'a> {
+    type State = TextInputMockState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
 
-        let mut text = Line::from("                    ");
         if state.is_focused() {
-            text = text.style(self.focus_style);
+            buf.set_style(area, self.focus_style);
         } else {
-            text = text.style(self.style);
+            buf.set_style(area, self.style);
         }
-        text.render(area, buf);
+        for y in area.top()..area.bottom() {
+            for x in area.top()..area.bottom() {
+                if let Some(cell) = buf.cell_mut((x, y)) {
+                    cell.set_symbol(" ");
+                }
+            }
+        }
     }
 }
 
-impl Default for TextInputFState {
+impl Default for TextInputMockState {
     fn default() -> Self {
         Self {
             focus: Default::default(),
             area: Default::default(),
-            non_exhaustive: NonExhaustive,
         }
     }
 }
 
-impl TextInputFState {
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    pub fn named(name: &str) -> Self {
-        Self {
-            focus: FocusFlag::named(name),
-            ..Default::default()
-        }
-    }
-
-    pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-        if self.is_focused() {
+impl HasScreenCursor for TextInputMockState {
+    fn screen_cursor(&self) -> Option<(u16, u16)> {
+        if self.is_focused() && !self.area.is_empty() {
             Some((self.area.x, self.area.y))
         } else {
             None
@@ -86,7 +75,7 @@ impl TextInputFState {
     }
 }
 
-impl HasFocus for TextInputFState {
+impl HasFocus for TextInputMockState {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }
@@ -96,13 +85,23 @@ impl HasFocus for TextInputFState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TextInputFState {
+impl TextInputMockState {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn clear_areas(&mut self) {
+        self.area = Default::default()
+    }
+}
+
+impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TextInputMockState {
     fn handle(&mut self, _event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         Outcome::Continue
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TextInputFState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TextInputMockState {
     fn handle(&mut self, _event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         Outcome::Continue
     }

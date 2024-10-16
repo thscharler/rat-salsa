@@ -1,5 +1,5 @@
+use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 /// Popup acts as a container. Has its own focus cycle.
-use crate::adapter::textinputf::{TextInputF, TextInputFState};
 use crate::mini_salsa::theme::THEME;
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
@@ -26,9 +26,9 @@ pub struct PopLockMagentaState {
     /// Internalized popup state.
     pub popup: PopupCoreState,
 
-    pub edit1: TextInputFState,
-    pub edit2: TextInputFState,
-    pub edit3: TextInputFState,
+    pub edit1: TextInputMockState,
+    pub edit2: TextInputMockState,
+    pub edit3: TextInputMockState,
 }
 
 impl StatefulWidget for PopLockMagenta {
@@ -48,7 +48,7 @@ impl StatefulWidget for PopLockMagenta {
 
             let mut a1 = state.popup.widget_area;
             a1.height = 1;
-            TextInputF::default()
+            TextInputMock::default()
                 .style(THEME.text_input())
                 .focus_style(THEME.text_input_focus())
                 .render(a1, buf, &mut state.edit1);
@@ -56,7 +56,7 @@ impl StatefulWidget for PopLockMagenta {
             let mut a2 = state.popup.widget_area;
             a2.y += 1;
             a2.height = 1;
-            TextInputF::default()
+            TextInputMock::default()
                 .style(THEME.text_input())
                 .focus_style(THEME.text_input_focus())
                 .render(a2, buf, &mut state.edit2);
@@ -64,7 +64,7 @@ impl StatefulWidget for PopLockMagenta {
             let mut a3 = state.popup.widget_area;
             a3.y += 2;
             a3.height = 1;
-            TextInputF::default()
+            TextInputMock::default()
                 .style(THEME.text_input())
                 .focus_style(THEME.text_input_focus())
                 .render(a3, buf, &mut state.edit3);
@@ -78,9 +78,9 @@ impl Default for PopLockMagentaState {
             outer_focus: Default::default(),
             placement: Default::default(),
             popup: Default::default(),
-            edit1: TextInputFState::named("edit1"),
-            edit2: TextInputFState::named("edit2"),
-            edit3: TextInputFState::named("edit3"),
+            edit1: TextInputMockState::new(),
+            edit2: TextInputMockState::new(),
+            edit3: TextInputMockState::new(),
         }
     }
 }
