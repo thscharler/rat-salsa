@@ -2,7 +2,6 @@
 
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
-use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
@@ -61,16 +60,6 @@ impl Default for TextInputMockState {
         Self {
             focus: Default::default(),
             area: Default::default(),
-        }
-    }
-}
-
-impl HasScreenCursor for TextInputMockState {
-    fn screen_cursor(&self) -> Option<(u16, u16)> {
-        if self.is_focused() && !self.area.is_empty() {
-            Some((self.area.x, self.area.y))
-        } else {
-            None
         }
     }
 }
