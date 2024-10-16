@@ -3,8 +3,6 @@
 //!
 
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-#[allow(unused_imports)]
-use log::debug;
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU32, Ordering};
