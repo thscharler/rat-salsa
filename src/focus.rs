@@ -1,5 +1,5 @@
 use crate::focus::core::FocusCore;
-use crate::{FocusFlag, HasFocus, FocusContainer, Navigation};
+use crate::{FocusContainer, FocusFlag, HasFocus, Navigation};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 
 pub use core::FocusBuilder;
@@ -415,7 +415,7 @@ impl Focus {
 }
 
 mod core {
-    use crate::{ContainerFlag, Focus, FocusFlag, HasFocus, FocusContainer, Navigation, ZRect};
+    use crate::{ContainerFlag, Focus, FocusContainer, FocusFlag, HasFocus, Navigation, ZRect};
     use ratatui::layout::Rect;
     use std::cell::Cell;
     use std::ops::Range;
@@ -1221,7 +1221,7 @@ mod core {
     #[cfg(test)]
     mod test {
         use crate::focus::core::FocusCore;
-        use crate::{ContainerFlag, FocusBuilder, FocusFlag, FocusContainer};
+        use crate::{ContainerFlag, FocusBuilder, FocusContainer, FocusFlag};
         use ratatui::layout::Rect;
 
         #[test]
