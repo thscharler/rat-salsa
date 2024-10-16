@@ -446,8 +446,9 @@ impl<'a, Selection> Table<'a, Selection> {
     /// use ratatui::text::Span;
     /// use ratatui::widgets::{Widget, StatefulWidget};
     /// use rat_ftable::{Table, TableContext, TableState, TableDataIter};
+    /// use rat_ftable::selection::RowSelection;
     ///
-    /// # struct Data {
+    /// struct Data {
     /// #     table_data: Vec<Sample>
     /// # }
     /// #
@@ -527,7 +528,7 @@ impl<'a, Selection> Table<'a, Selection> {
     ///         Constraint::Length(20)
     ///     ]);
     ///
-    /// let mut table_state_somewhere_else = TableState::default();
+    /// let mut table_state_somewhere_else = TableState::<RowSelection>::default();
     ///
     /// table1.render(area, buf, &mut table_state_somewhere_else);
     /// ```
