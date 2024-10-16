@@ -1,3 +1,6 @@
+//!
+//! Small helpers.
+//!
 use ratatui::buffer::{Buffer, Cell};
 use ratatui::layout::Rect;
 use ratatui::prelude::Widget;

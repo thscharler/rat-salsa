@@ -1,3 +1,6 @@
+//!
+//! Tabs.
+//!
 use crate::_private::NonExhaustive;
 use crate::event::TabbedOutcome;
 use crate::tabbed::attached::AttachedTabs;

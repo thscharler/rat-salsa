@@ -17,6 +17,7 @@ pub mod event {
 
     pub use crate::calendar::event::CalOutcome;
     pub use crate::file_dialog::event::FileOutcome;
+    pub use crate::pager::event::PagerOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
     pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome};
     pub use rat_menu::event::MenuOutcome;
@@ -64,8 +65,6 @@ pub mod text {
         TextPosition, TextRange,
     };
 }
-
-pub mod util;
 
 // --- widget modules here --- (alphabetical)
 
@@ -117,6 +116,7 @@ pub mod number_input {
         handle_events, handle_mouse_events, handle_readonly_events, NumberInput, NumberInputState,
     };
 }
+/// PopupCore helps with managing popup widgets.
 pub mod popup {
     pub use rat_popup::{Placement, PopupCore, PopupCoreState};
 }
@@ -181,6 +181,8 @@ pub mod textarea {
         TextAreaStyle,
     };
 }
+pub mod pager;
+pub mod util;
 pub mod view;
 pub mod viewport;
 

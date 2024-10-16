@@ -1,5 +1,5 @@
 //!
-//! A Button widget.
+//! Button widget.
 //!
 
 use crate::_private::NonExhaustive;
