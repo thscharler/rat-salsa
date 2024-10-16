@@ -1,3 +1,9 @@
+# 0.27.0
+
+final renames in rat-focus.
+
+* add widgets SinglePager and DualPager.
+
 # 0.26.0
 
 * break: renamed MenuBarState to MenubarState.
