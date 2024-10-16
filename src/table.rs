@@ -81,9 +81,6 @@ pub struct Table<'a, Selection> {
 mod data {
     use crate::textdata::TextTableData;
     use crate::{TableContext, TableData, TableDataIter};
-    #[allow(unused_imports)]
-    use log::debug;
-    #[allow(unused_imports)]
     use log::warn;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
