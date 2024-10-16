@@ -176,20 +176,23 @@ fn repaint_tui<Data, State>(
     repaint(frame, l1[0], data, istate, state)?;
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    istate.status[1] = format!("Render {}:{:?}", frame.count(), el).to_string();
+    istate.status[1] = format!("Render #{} | {:.0?}", frame.count(), el).to_string();
 
     let l_status = Layout::horizontal([
-        Constraint::Length(1 + istate.name.graphemes(true).count() as u16),
+        Constraint::Length(2 + istate.name.graphemes(true).count() as u16),
         Constraint::Length(1),
         Constraint::Fill(1),
-        Constraint::Length(17),
-        Constraint::Length(17),
+        Constraint::Length(18),
+        Constraint::Length(18),
     ])
     .split(l1[1]);
 
-    Line::from(istate.name.as_str())
-        .style(THEME.yellow(2))
+    Line::from_iter(["[", istate.name.as_str(), "]"])
+        .style(THEME.black(2))
         .render(l_status[0], frame.buffer_mut());
+    Line::from(" ")
+        .style(THEME.black(2))
+        .render(l_status[1], frame.buffer_mut());
     Line::from(istate.status[0].as_str())
         .style(THEME.black(2))
         .render(l_status[2], frame.buffer_mut());
@@ -237,7 +240,7 @@ fn handle_event<Data, State>(
     };
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    istate.status[2] = format!("Handle {:?}", el).to_string();
+    istate.status[2] = format!("Handle {:.0?}", el).to_string();
 
     Ok(r)
 }
