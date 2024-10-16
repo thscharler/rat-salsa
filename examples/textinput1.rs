@@ -1,6 +1,4 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use log::debug;
-#[allow(unused_imports)]
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{text_input, HasScreenCursor};
@@ -90,8 +88,6 @@ fn repaint_input(
             _ = writeln!(&mut stats, "screen: None",);
         }
         _ = writeln!(&mut stats, "width: {:?} ", state.textinput.line_width());
-        debug!("render: cursor {:?}", state.textinput.cursor());
-        debug!("render: {:?}", state.textinput);
 
         _ = writeln!(
             &mut stats,

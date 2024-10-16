@@ -1,7 +1,6 @@
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use log::debug;
-#[allow(unused_imports)]
-use rat_event::{ct_event, try_flow, Outcome};
+use log::warn;
+use rat_event::{ct_event, Outcome};
 use rat_event::{flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{FocusBuilder, HasFocus};
 use rat_text::text_input::{TextInput, TextInputState};
@@ -262,7 +261,7 @@ fn next_mask(state: &mut State) -> Outcome {
     match state.masked.set_mask(MASKS[state.mask_idx]) {
         Ok(_) => {}
         Err(e) => {
-            debug!("{:?}", e)
+            warn!("{:?}", e)
         }
     };
     Outcome::Changed
@@ -278,7 +277,7 @@ fn prev_mask(state: &mut State) -> Outcome {
     match state.masked.set_mask(MASKS[state.mask_idx]) {
         Ok(_) => {}
         Err(e) => {
-            debug!("{:?}", e)
+            warn!("{:?}", e)
         }
     };
     Outcome::Changed

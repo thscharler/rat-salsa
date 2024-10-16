@@ -1,5 +1,4 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-#[allow(unused_imports)]
 use rat_event::{ct_event, try_flow, Outcome};
 use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
