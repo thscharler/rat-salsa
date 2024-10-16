@@ -1,3 +1,7 @@
+# 0.26.0
+
+final renames in rat-focus.
+
 # 0.25.6
 
 * update some docs.
