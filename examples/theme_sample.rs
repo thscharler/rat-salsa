@@ -337,7 +337,7 @@ pub mod mask0 {
 pub mod show_scheme {
     use rat_theme::Scheme;
     use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
-    use rat_widget::focus::{FocusFlag, HasFocusFlag};
+    use rat_widget::focus::{FocusFlag, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
     use ratatui::prelude::{Line, Span, StatefulWidget};
@@ -356,7 +356,7 @@ pub mod show_scheme {
         pub area: Rect,
     }
 
-    impl HasFocusFlag for ShowSchemeState {
+    impl HasFocus for ShowSchemeState {
         fn focus(&self) -> FocusFlag {
             self.focus.clone()
         }

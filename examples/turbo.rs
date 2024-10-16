@@ -281,7 +281,7 @@ pub mod turbo {
     use crossterm::event::Event;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
-    use rat_widget::focus::{FocusBuilder, HasFocus};
+    use rat_widget::focus::{FocusBuilder, IsFocusContainer};
     use rat_widget::menu::{
         MenuBuilder, MenuStructure, Menubar, MenubarState, Placement, PopupMenu, PopupMenuState,
         SubmenuPlacement,
@@ -536,7 +536,7 @@ pub mod turbo {
         }
     }
 
-    impl HasFocus for TurboState {
+    impl IsFocusContainer for TurboState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.menu);
         }

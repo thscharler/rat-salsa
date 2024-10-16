@@ -368,7 +368,7 @@ mod app {
     use rat_widget::event::{
         ct_event, try_flow, ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Popup, Regular,
     };
-    use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
+    use rat_widget::focus::{FocusBuilder, HasFocus, IsFocusContainer};
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{
         MenuBuilder, MenuStructure, Menubar, MenubarState, Separator, SubmenuPlacement,
@@ -545,7 +545,7 @@ mod app {
         }
     }
 
-    impl HasFocus for MDAppState {
+    impl IsFocusContainer for MDAppState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.menu).container(&self.editor);
         }
@@ -755,7 +755,7 @@ pub mod mdfile {
     use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, TextOutcome};
-    use rat_widget::focus::{FocusFlag, HasFocusFlag, Navigation};
+    use rat_widget::focus::{FocusFlag, HasFocus, Navigation};
     use rat_widget::line_number::{LineNumberState, LineNumbers};
     use rat_widget::scrolled::Scroll;
     use rat_widget::text::clipboard::{Clipboard, ClipboardError};
@@ -907,7 +907,7 @@ pub mod mdfile {
         ]
     }
 
-    impl HasFocusFlag for MDFileState {
+    impl HasFocus for MDFileState {
         fn focus(&self) -> FocusFlag {
             self.edit.focus()
         }
@@ -1116,7 +1116,7 @@ pub mod split_tab {
     use rat_salsa::timer::{TimeOut, TimerDef};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, HandleEvent, Regular, TabbedOutcome};
-    use rat_widget::focus::{ContainerFlag, FocusBuilder, HasFocus, HasFocusFlag};
+    use rat_widget::focus::{ContainerFlag, FocusBuilder, HasFocus, IsFocusContainer};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::tabbed::{TabType, Tabbed, TabbedState};
     use rat_widget::text::undo_buffer::UndoEntry;
@@ -1232,7 +1232,7 @@ pub mod split_tab {
         }
     }
 
-    impl HasFocus for SplitTabState {
+    impl IsFocusContainer for SplitTabState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.splitter);
             for (idx_split, tabbed) in self.tabbed.iter().enumerate() {
@@ -1533,7 +1533,7 @@ pub mod file_list {
     use crossterm::event::Event;
     use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
-    use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
+    use rat_widget::focus::{FocusBuilder, HasFocus, IsFocusContainer};
     use rat_widget::list::selection::RowSelection;
     use rat_widget::list::{List, ListState};
     use rat_widget::menu::{Placement, PopupMenu, PopupMenuState};
@@ -1619,7 +1619,7 @@ pub mod file_list {
         }
     }
 
-    impl HasFocus for FileListState {
+    impl IsFocusContainer for FileListState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.file_list);
         }
@@ -1782,7 +1782,7 @@ pub mod mdedit {
     use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, Regular};
-    use rat_widget::focus::{FocusBuilder, HasFocus, HasFocusFlag};
+    use rat_widget::focus::{FocusBuilder, HasFocus, IsFocusContainer};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Rect};
@@ -1845,7 +1845,7 @@ pub mod mdedit {
         }
     }
 
-    impl HasFocus for MDEditState {
+    impl IsFocusContainer for MDEditState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.container(&self.file_list);
             builder.container(&self.split_tab);
