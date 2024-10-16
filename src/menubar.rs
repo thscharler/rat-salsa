@@ -19,7 +19,7 @@ use crate::menuline::{MenuLine, MenuLineState};
 use crate::popup_menu::{Placement, PopupMenu, PopupMenuState};
 use crate::{MenuStructure, MenuStyle};
 use rat_event::{flow, HandleEvent, MouseOnly, Popup, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag, ZRect};
+use rat_focus::{FocusFlag, HasFocus, ZRect};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -352,7 +352,7 @@ impl MenubarState {
     }
 }
 
-impl HasFocusFlag for MenubarState {
+impl HasFocus for MenubarState {
     fn focus(&self) -> FocusFlag {
         self.bar.focus.clone()
     }

@@ -9,7 +9,7 @@ use crate::{MenuBuilder, MenuItem, MenuStyle};
 use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocusFlag};
+use rat_focus::{FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
@@ -295,7 +295,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
     }
 }
 
-impl HasFocusFlag for MenuLineState {
+impl HasFocus for MenuLineState {
     /// Focus flag.
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
