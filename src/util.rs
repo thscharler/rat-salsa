@@ -2,10 +2,10 @@
 //! Small helpers.
 //!
 use ratatui::buffer::{Buffer, Cell};
-use ratatui::layout::Rect;
-use ratatui::prelude::Widget;
+use ratatui::layout::{Rect, Size};
+use ratatui::prelude::{BlockExt, Widget};
 use ratatui::style::{Style, Stylize};
-use ratatui::widgets::Block;
+use ratatui::widgets::{Block, Padding};
 use std::mem;
 
 /// Returns a new style with fg and bg swapped.
@@ -115,6 +115,28 @@ pub(crate) const DOUBLE_VERTICAL_SINGLE_LEFT: &str = "\u{2562}";
 pub(crate) const DOUBLE_VERTICAL_SINGLE_RIGHT: &str = "\u{255F}";
 pub(crate) const THICK_VERTICAL_SINGLE_LEFT: &str = "\u{2528}";
 pub(crate) const THICK_VERTICAL_SINGLE_RIGHT: &str = "\u{2520}";
+
+/// Get the padding the block imposes as Padding.
+pub fn block_padding(block: &Option<Block<'_>>) -> Padding {
+    let area = Rect::new(0, 0, 20, 20);
+    let inner = block.inner_if_some(area);
+    Padding {
+        left: inner.left() - area.left(),
+        right: area.right() - inner.right(),
+        top: inner.top() - area.top(),
+        bottom: area.bottom() - inner.bottom(),
+    }
+}
+
+/// Get the padding the block imposes as a Size.
+pub fn block_size(block: &Option<Block<'_>>) -> Size {
+    let area = Rect::new(0, 0, 20, 20);
+    let inner = block.inner_if_some(area);
+    Size {
+        width: (inner.left() - area.left()) + (area.right() - inner.right()),
+        height: (inner.top() - area.top()) + (area.bottom() - inner.bottom()),
+    }
+}
 
 pub(crate) fn block_left(block: &Block<'_>) -> String {
     let area = Rect::new(0, 0, 3, 3);

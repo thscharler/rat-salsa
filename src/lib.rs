@@ -88,12 +88,10 @@ pub mod line_number {
 }
 /// Menu widgets.
 pub mod menu {
-    pub use rat_menu::menubar::{
-        Menubar, MenubarLine, MenubarPopup, MenubarState, SubmenuPlacement,
-    };
+    pub use rat_menu::menubar::{Menubar, MenubarLine, MenubarPopup, MenubarState};
     pub use rat_menu::menuitem::{MenuItem, Separator};
     pub use rat_menu::menuline::{MenuLine, MenuLineState};
-    pub use rat_menu::popup_menu::{Placement, PopupMenu, PopupMenuState};
+    pub use rat_menu::popup_menu::{PopupConstraint, PopupMenu, PopupMenuState};
     pub use rat_menu::{MenuBuilder, MenuStructure, MenuStyle, StaticMenu};
 
     pub mod menubar {
@@ -118,7 +116,7 @@ pub mod number_input {
 }
 /// PopupCore helps with managing popup widgets.
 pub mod popup {
-    pub use rat_popup::{Placement, PopupCore, PopupCoreState};
+    pub use rat_popup::{Placement, PopupConstraint, PopupCore, PopupCoreState};
 }
 pub mod paragraph;
 pub mod shadow;

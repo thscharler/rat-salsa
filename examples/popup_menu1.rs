@@ -8,7 +8,7 @@ use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuitem::Separator;
 use rat_menu::popup_menu;
-use rat_menu::popup_menu::{Placement, PopupMenu, PopupMenuState};
+use rat_menu::popup_menu::{PopupConstraint, PopupMenu, PopupMenuState};
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_grid;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -29,7 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
         right: Default::default(),
         blue: BlueState::named("blue"),
         not_blue: BlueState::named("not_blue"),
-        placement: Placement::None,
+        placement: PopupConstraint::None,
         offset: (0, 0),
         popup_area: Default::default(),
         popup: PopupMenuState::default(),
@@ -53,7 +53,7 @@ struct State {
     blue: BlueState,
     not_blue: BlueState,
 
-    placement: Placement,
+    placement: PopupConstraint,
     offset: (i16, i16),
     popup_area: Rect,
     popup: PopupMenuState,
@@ -114,7 +114,7 @@ fn repaint_stuff(
                     .style(Style::new().black().on_cyan())
                     .title(frame.count().to_string()),
             )
-            .placement(state.placement)
+            .constraint(state.placement)
             .offset(state.offset)
             .render(state.popup_area, frame.buffer_mut(), &mut state.popup);
     }
@@ -163,7 +163,7 @@ fn handle_stuff(
     let r = r.or_else(|| match event {
         ct_event!(key press CONTROL-' ') => {
             // placement relative to cursor
-            state.placement = Placement::AboveLeft(state.blue.area);
+            state.placement = PopupConstraint::AboveLeft(state.blue.area);
             state.offset = (-2, 0);
             state.popup.set_active(true);
             Outcome::Changed
@@ -171,16 +171,16 @@ fn handle_stuff(
         ct_event!(mouse down Left for x,y) if state.left.contains((*x, *y).into()) => {
             // placement relative to rect
             if *x < state.blue.area.left() {
-                state.placement = Placement::LeftTop(state.blue.area);
+                state.placement = PopupConstraint::LeftTop(state.blue.area);
                 state.offset = (0, -1);
             } else if *x >= state.blue.area.right() {
-                state.placement = Placement::RightTop(state.blue.area);
+                state.placement = PopupConstraint::RightTop(state.blue.area);
                 state.offset = (0, -1);
             } else if *y < state.blue.area.top() {
-                state.placement = Placement::AboveLeft(state.blue.area);
+                state.placement = PopupConstraint::AboveLeft(state.blue.area);
                 state.offset = (-2, 0);
             } else if *y >= state.blue.area.bottom() {
-                state.placement = Placement::BelowLeft(state.blue.area);
+                state.placement = PopupConstraint::BelowLeft(state.blue.area);
                 state.offset = (-2, 0);
             }
             state.popup.set_active(true);
@@ -188,7 +188,7 @@ fn handle_stuff(
         }
         ct_event!(mouse down Left for x,y) if state.right.contains((*x, *y).into()) => {
             // placement relative to cursor
-            state.placement = Placement::Position(*x, *y);
+            state.placement = PopupConstraint::Position(*x, *y);
             state.offset = (-1, -1);
             state.popup.set_active(true);
             Outcome::Changed

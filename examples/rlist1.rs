@@ -4,8 +4,9 @@ use rat_event::{flow, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Reg
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
 use rat_menu::event::MenuOutcome;
-use rat_menu::menubar::{Menubar, MenubarState, SubmenuPlacement};
+use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::StaticMenu;
+use rat_popup::Placement;
 use rat_scrolled::Scroll;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::HasScreenCursor;
@@ -156,7 +157,7 @@ fn repaint_input(
         .title("Sample")
         .popup_block(Block::bordered())
         .popup_width(15)
-        .popup_placement(SubmenuPlacement::Above)
+        .popup_placement(Placement::Above)
         .styles(THEME.menu_style())
         .into_widgets();
     menu.render(l1[1], frame.buffer_mut(), &mut state.menu);
