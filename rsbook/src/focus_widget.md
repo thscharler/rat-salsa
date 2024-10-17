@@ -1,7 +1,7 @@
 
 # Widget focus
 
-For a widget to work with Focus it must implement HasFocusFlag.
+For a widget to work with Focus it must implement HasFocus.
 
 ```rust
 pub trait HasFocusFlag {
@@ -15,6 +15,9 @@ pub trait HasFocusFlag {
     fn is_focused(&self) -> bool { ... }
     fn lost_focus(&self) -> bool { ... }
     fn gained_focus(&self) -> bool { ... }
+    
+    // 
+    fn build(&self, builder: &mut FocusBuilder) { ... }
 }
 ```
 
@@ -50,6 +53,14 @@ If one area is not enough there is z_areas().
 * is_focused(), lost_focus(), gained_focus()
   
   These are for application code.
+  
+* build()
+
+  Like FocusContainer there is a build method. For most widgets
+  the default implementation will suffice. 
+  
+  But if you have a complex widget with inner structures, 
+  you can implement this to set up your focus requirements.     
   
     
 [refNavigation]: https://docs.rs/rat-focus/latest/rat_focus/enum.Navigation.html

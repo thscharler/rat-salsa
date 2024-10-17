@@ -25,7 +25,7 @@ focus to the same widget.
 
 or two.
 
-* [HasFocusFlag][refHasFocusFlag]:
+* [HasFocus][refHasFocus]:
   
   This trait is for single widgets.
   
@@ -42,7 +42,7 @@ or two.
   area() returns the widgets current screen area. Which is used
   for mouse focus.
   
-* [HasFocus][refHasFocus]
+* [FocusContainer][refFocusContainer]
   
   The second trait is for container widgets.
   
@@ -123,7 +123,7 @@ instead of Control, thus the conversion.
 > And this is the only tricky part of Focus. --x
 
 
-[refHasFocusFlag]: https://docs.rs/rat-focus/latest/rat_focus/trait.HasFocusFlag.html
+[refFocusContainer]: https://docs.rs/rat-focus/latest/rat_focus/trait.FocusContainer.html
 
 [refHasFocus]: https://docs.rs/rat-focus/latest/rat_focus/trait.HasFocus.html
 
@@ -132,3 +132,7 @@ instead of Control, thus the conversion.
 [refFocusBuilder]: https://docs.rs/rat-focus/latest/rat_focus/struct.FocusBuilder.html
 
 [refFocus]: https://docs.rs/rat-focus/latest/rat_focus/struct.Focus.html
+
+
+
+
