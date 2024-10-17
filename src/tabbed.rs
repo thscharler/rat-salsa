@@ -78,6 +78,54 @@ pub struct Tabbed<'a> {
     focus_style: Option<Style>,
 }
 
+/// Combined Styles
+#[derive(Debug, Clone)]
+pub struct TabbedStyle {
+    pub style: Style,
+    pub tab_style: Option<Style>,
+    pub select_style: Option<Style>,
+    pub focus_style: Option<Style>,
+
+    pub non_exhaustive: NonExhaustive,
+}
+
+/// State & event-handling.
+#[derive(Debug, Default, Clone)]
+pub struct TabbedState {
+    /// Total area.
+    /// __readonly__. renewed for each render.
+    pub area: Rect,
+    /// Area for drawing the Block inside the tabs.
+    /// __readonly__. renewed for each render.
+    pub block_area: Rect,
+    /// Area used to render the content of the tab.
+    /// Use this area to render the current tab content.
+    /// __readonly__. renewed for each render.
+    pub widget_area: Rect,
+
+    /// Total area reserved for tabs.
+    /// __readonly__. renewed for each render.
+    pub tab_title_area: Rect,
+    /// Area of each tab.
+    /// __readonly__. renewed for each render.
+    pub tab_title_areas: Vec<Rect>,
+    /// Area for 'Close Tab' interaction.
+    /// __readonly__. renewed for each render.
+    pub tab_title_close_areas: Vec<Rect>,
+
+    /// Selected Tab, only ever is None if there are no tabs.
+    /// Otherwise, set to 0 on render.
+    /// __read+write___
+    pub selected: Option<usize>,
+
+    /// Focus
+    /// __read+write__
+    pub focus: FocusFlag,
+    /// Mouse flags
+    /// __read+write__
+    pub mouse: MouseFlagsN,
+}
+
 pub(crate) mod event {
     use rat_event::{ConsumedEvent, Outcome};
 
@@ -211,17 +259,6 @@ impl<'a> Tabbed<'a> {
     }
 }
 
-/// Combined Styles
-#[derive(Debug, Clone)]
-pub struct TabbedStyle {
-    pub style: Style,
-    pub tab_style: Option<Style>,
-    pub select_style: Option<Style>,
-    pub focus_style: Option<Style>,
-
-    pub non_exhaustive: NonExhaustive,
-}
-
 impl Default for TabbedStyle {
     fn default() -> Self {
         Self {
@@ -232,43 +269,6 @@ impl Default for TabbedStyle {
             non_exhaustive: NonExhaustive,
         }
     }
-}
-
-/// State & event-handling.
-#[derive(Debug, Default, Clone)]
-pub struct TabbedState {
-    /// Total area.
-    /// __readonly__. renewed for each render.
-    pub area: Rect,
-    /// Area for drawing the Block inside the tabs.
-    /// __readonly__. renewed for each render.
-    pub block_area: Rect,
-    /// Area used to render the content of the tab.
-    /// Use this area to render the current tab content.
-    /// __readonly__. renewed for each render.
-    pub widget_area: Rect,
-
-    /// Total area reserved for tabs.
-    /// __readonly__. renewed for each render.
-    pub tab_title_area: Rect,
-    /// Area of each tab.
-    /// __readonly__. renewed for each render.
-    pub tab_title_areas: Vec<Rect>,
-    /// Area for 'Close Tab' interaction.
-    /// __readonly__. renewed for each render.
-    pub tab_title_close_areas: Vec<Rect>,
-
-    /// Selected Tab, only ever is None if there are no tabs.
-    /// Otherwise, set to 0 on render.
-    /// __read+write___
-    pub selected: Option<usize>,
-
-    /// Focus
-    /// __read+write__
-    pub focus: FocusFlag,
-    /// Mouse flags
-    /// __read+write__
-    pub mouse: MouseFlagsN,
 }
 
 impl<'a> StatefulWidget for Tabbed<'a> {
@@ -559,9 +559,11 @@ mod glued {
                         .iter()
                         .map(|v| {
                             Rect::new(
-                                (v.x + v.width).saturating_sub(close_width),
+                                (v.x + v.width)
+                                    .saturating_sub(close_width)
+                                    .saturating_sub(1),
                                 v.y,
-                                if tabbed.closeable { 1 } else { 0 },
+                                if tabbed.closeable { 3 } else { 0 },
                                 1,
                             )
                         })
@@ -573,9 +575,9 @@ mod glued {
                         .iter()
                         .map(|v| {
                             Rect::new(
-                                v.x + 1, //
+                                v.x, //
                                 v.y,
-                                if tabbed.closeable { 1 } else { 0 },
+                                if tabbed.closeable { 3 } else { 0 },
                                 1,
                             )
                         })
@@ -587,9 +589,11 @@ mod glued {
                         .iter()
                         .map(|v| {
                             Rect::new(
-                                (v.x + v.width).saturating_sub(close_width),
+                                (v.x + v.width)
+                                    .saturating_sub(close_width)
+                                    .saturating_sub(1),
                                 v.y,
-                                if tabbed.closeable { 1 } else { 0 },
+                                if tabbed.closeable { 3 } else { 0 },
                                 1,
                             )
                         })
@@ -658,7 +662,7 @@ mod glued {
                         buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
                     }
                     if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
-                        cell.set_symbol("\u{2A2F}");
+                        cell.set_symbol(" \u{2A2F} ");
                     }
                 }
             }
@@ -821,9 +825,11 @@ mod attached {
                         .iter()
                         .map(|v| {
                             Rect::new(
-                                (v.x + v.width).saturating_sub(close_width),
+                                (v.x + v.width)
+                                    .saturating_sub(close_width)
+                                    .saturating_sub(1),
                                 v.y,
-                                if tabbed.closeable { 1 } else { 0 },
+                                if tabbed.closeable { 3 } else { 0 },
                                 1,
                             )
                         })
@@ -835,9 +841,9 @@ mod attached {
                         .iter()
                         .map(|v| {
                             Rect::new(
-                                v.x + 1, //
+                                v.x, //
                                 v.y,
-                                if tabbed.closeable { 1 } else { 0 },
+                                if tabbed.closeable { 3 } else { 0 },
                                 1,
                             )
                         })
@@ -849,9 +855,11 @@ mod attached {
                         .iter()
                         .map(|v| {
                             Rect::new(
-                                (v.x + v.width).saturating_sub(close_width),
+                                (v.x + v.width)
+                                    .saturating_sub(close_width)
+                                    .saturating_sub(1),
                                 v.y,
-                                if tabbed.closeable { 1 } else { 0 },
+                                if tabbed.closeable { 3 } else { 0 },
                                 1,
                             )
                         })
@@ -961,7 +969,7 @@ mod attached {
                         buf.set_style(state.tab_title_close_areas[i], revert_style(tab_style));
                     }
                     if let Some(cell) = buf.cell_mut(state.tab_title_close_areas[i].as_position()) {
-                        cell.set_symbol("\u{2A2F}");
+                        cell.set_symbol(" \u{2A2F} ");
                     }
                 }
             }
