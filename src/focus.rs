@@ -483,8 +483,12 @@ mod core {
             self
         }
 
-        /// Add a widget by setting all the attributes.
-        /// The widget is added to all open containers.
+        /// Manually add a widget.
+        ///
+        /// This is intended to be used when __implementing__
+        /// HasFocus::build() for a widget.
+        ///
+        /// In all other situations it's better to use [widget].
         pub fn add_widget(
             &mut self,
             focus: FocusFlag,
@@ -1034,7 +1038,6 @@ mod core {
             if let Some((_idx, range)) = self.container_index_of(&flag) {
                 self.__start_change(true);
                 let n = self.next_navigable(range.end);
-                focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
                 self.__focus(n, true);
                 self.__accumulate();
 
@@ -1059,7 +1062,6 @@ mod core {
                 if p.lost() {
                     focus_debug!(self.log, "    current {:?}", p.name());
                     let n = self.next_navigable(n);
-                    focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
                     self.__focus(n, true);
                     self.__accumulate();
                     return true;
@@ -1082,7 +1084,6 @@ mod core {
                 if p.lost() {
                     focus_debug!(self.log, "    current {:?}", p.name());
                     let n = self.prev_navigable(i);
-                    focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
                     self.__focus(n, true);
                     self.__accumulate();
                     return true;
@@ -1175,11 +1176,11 @@ mod core {
                         | Navigation::ReachLeaveFront
                         | Navigation::Regular
                 ) {
-                    focus_debug!(self.log, "    -> {:?}", self.focus_flags[n].name());
+                    focus_debug!(self.log, "    -> {}:{:?}", n, self.focus_flags[n].name());
                     return n;
                 }
                 if n == start {
-                    focus_debug!(self.log, "    -> end at start");
+                    focus_debug!(self.log, "    -> {}:end at start", n);
                     return n;
                 }
             }
@@ -1207,11 +1208,11 @@ mod core {
                         | Navigation::ReachLeaveFront
                         | Navigation::Regular
                 ) {
-                    focus_debug!(self.log, "    -> {:?}", self.focus_flags[n].name());
+                    focus_debug!(self.log, "    -> {}:{:?}", n, self.focus_flags[n].name());
                     return n;
                 }
                 if n == start {
-                    focus_debug!(self.log, "    -> end at start");
+                    focus_debug!(self.log, "    -> {}:end at start", n);
                     return n;
                 }
             }
