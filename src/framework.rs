@@ -5,11 +5,16 @@ use crate::threadpool::ThreadPool;
 use crate::timer::Timers;
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
 use crossbeam::channel::{SendError, TryRecvError};
+use log::debug;
 use std::cmp::min;
 use std::fmt::Debug;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::time::Duration;
 use std::{io, thread};
+
+const SLEEP: u64 = 250_000; // µs
+const BACKOFF: u64 = 10_000; // µs
+const FAST_SLEEP: u64 = 100; // µs
 
 fn _run_tui<App, Global, Message, Error>(
     app: App,
@@ -38,7 +43,7 @@ where
     };
 
     let poll_queue = PollQueue::default();
-    let mut poll_sleep = Duration::from_millis(10);
+    let mut poll_sleep = Duration::from_micros(SLEEP);
 
     // init state
     state.init(&mut appctx)?;
@@ -90,14 +95,15 @@ where
                 } else {
                     poll_sleep
                 };
+                debug!("sleep {:?}", t);
                 thread::sleep(t);
-                if poll_sleep < Duration::from_millis(10) {
+                if poll_sleep < Duration::from_micros(SLEEP) {
                     // Back off slowly.
-                    poll_sleep += Duration::from_micros(100);
+                    poll_sleep += Duration::from_micros(BACKOFF);
                 }
             } else {
                 // Shorter sleep immediately after an event.
-                poll_sleep = Duration::from_micros(100);
+                poll_sleep = Duration::from_micros(FAST_SLEEP);
             }
         }
 

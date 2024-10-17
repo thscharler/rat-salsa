@@ -618,15 +618,7 @@ pub mod turbo {
 fn setup_logging() -> Result<(), Error> {
     // _ = fs::remove_file("log.log");
     fern::Dispatch::new()
-        .format(|out, message, record| {
-            out.finish(format_args!(
-                "[{} {} {}]\n        {}",
-                humantime::format_rfc3339_seconds(SystemTime::now()),
-                record.level(),
-                record.target(),
-                message
-            ))
-        })
+        .format(|out, message, _record| out.finish(format_args!("{}", message)))
         .level(log::LevelFilter::Debug)
         .chain(fern::log_file("log.log")?)
         .apply()?;
