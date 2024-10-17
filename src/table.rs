@@ -236,14 +236,14 @@ mod data {
 #[derive(Debug)]
 pub struct TableStyle {
     pub style: Style,
-    pub header_style: Option<Style>,
-    pub footer_style: Option<Style>,
+    pub header: Option<Style>,
+    pub footer: Option<Style>,
 
-    pub select_row_style: Option<Style>,
-    pub select_column_style: Option<Style>,
-    pub select_cell_style: Option<Style>,
-    pub select_header_style: Option<Style>,
-    pub select_footer_style: Option<Style>,
+    pub select_row: Option<Style>,
+    pub select_column: Option<Style>,
+    pub select_cell: Option<Style>,
+    pub select_header: Option<Style>,
+    pub select_footer: Option<Style>,
 
     pub show_row_focus: bool,
     pub show_column_focus: bool,
@@ -655,18 +655,32 @@ impl<'a, Selection> Table<'a, Selection> {
     #[inline]
     pub fn styles(mut self, styles: TableStyle) -> Self {
         self.style = styles.style;
-        self.header_style = styles.header_style;
-        self.footer_style = styles.footer_style;
+        if styles.header.is_some() {
+            self.header_style = styles.header;
+        }
+        if styles.footer.is_some() {
+            self.footer_style = styles.footer;
+        }
 
-        self.select_row_style = styles.select_row_style;
+        if styles.select_row.is_some() {
+            self.select_row_style = styles.select_row;
+        }
         self.show_row_focus = styles.show_row_focus;
-        self.select_column_style = styles.select_column_style;
+        if styles.select_column.is_some() {
+            self.select_column_style = styles.select_column;
+        }
         self.show_column_focus = styles.show_column_focus;
-        self.select_cell_style = styles.select_cell_style;
+        if styles.select_cell.is_some() {
+            self.select_cell_style = styles.select_cell;
+        }
         self.show_cell_focus = styles.show_cell_focus;
-        self.select_header_style = styles.select_header_style;
+        if styles.select_header.is_some() {
+            self.select_header_style = styles.select_header;
+        }
         self.show_header_focus = styles.show_header_focus;
-        self.select_footer_style = styles.select_footer_style;
+        if styles.select_footer.is_some() {
+            self.select_footer_style = styles.select_footer;
+        }
         self.show_footer_focus = styles.show_footer_focus;
 
         self.focus_style = styles.focus_style;
@@ -1488,13 +1502,13 @@ impl Default for TableStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            header_style: None,
-            footer_style: None,
-            select_row_style: None,
-            select_column_style: None,
-            select_cell_style: None,
-            select_header_style: None,
-            select_footer_style: None,
+            header: None,
+            footer: None,
+            select_row: None,
+            select_column: None,
+            select_cell: None,
+            select_header: None,
+            select_footer: None,
             show_row_focus: false,
             show_column_focus: false,
             show_cell_focus: false,

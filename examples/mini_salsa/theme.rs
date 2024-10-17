@@ -198,7 +198,7 @@ impl Scheme {
     pub fn table_style(&self) -> TableStyle {
         TableStyle {
             style: self.data(),
-            select_row_style: Some(self.select()),
+            select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
             ..Default::default()
