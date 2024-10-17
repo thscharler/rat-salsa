@@ -1,4 +1,5 @@
 use ratatui::layout::{Columns, Margin, Offset, Position, Positions, Rect, Rows, Size};
+use std::cmp::max;
 
 /// Extension of Rect.
 ///
@@ -142,14 +143,21 @@ impl ZRect {
         ZRect::from((self.z, self.as_rect().offset(offset)))
     }
 
+    /// Apply union to all rects.
+    pub fn union_all(areas: &[ZRect]) -> Option<ZRect> {
+        areas.iter().copied().reduce(|v, w| v.union(w))
+    }
+
     // TODO: unclear what this means for different z.
 
-    //
-    // /// Returns a new `Rect` that contains both the current one and the given one.
-    // #[must_use = "method returns the modified value"]
-    // pub fn union(self, other: Self) -> Self {
-    //     ZRect::from((self.z, self.as_rect().union(other.as_rect())))
-    // }
+    /// Returns a new `Rect` that contains both the current one and the given one.
+    /// The z-value is set to max(self.z, other.z).
+    ///
+    #[must_use = "method returns the modified value"]
+    pub fn union(self, other: Self) -> Self {
+        ZRect::from((max(self.z, other.z), self.as_rect().union(other.as_rect())))
+    }
+
     //
     // /// Returns a new `Rect` that is the intersection of the current one and the given one.
     // ///
