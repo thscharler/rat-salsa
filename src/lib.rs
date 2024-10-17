@@ -48,6 +48,7 @@ pub use threadpool::Cancel;
 /// - [ConsumedEvent]
 #[derive(Debug, Clone, Copy)]
 #[must_use]
+#[non_exhaustive]
 pub enum Control<Message> {
     /// Continue with event-handling.
     /// In the event-loop this waits for the next event.
