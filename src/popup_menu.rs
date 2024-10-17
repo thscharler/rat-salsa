@@ -243,12 +243,22 @@ impl<'a> PopupMenu<'a> {
 
     /// Set a style-set.
     pub fn styles(mut self, styles: MenuStyle) -> Self {
-        self.popup = self.popup.style(styles.style);
+        if let Some(styles) = styles.popup {
+            self.popup = self.popup.styles(styles);
+        }
         self.style = styles.style;
-        self.disabled_style = styles.disabled;
-        self.right_style = styles.right;
-        self.highlight_style = styles.highlight;
-        self.focus_style = styles.focus;
+        if let Some(style) = styles.highlight {
+            self.highlight_style = Some(style);
+        }
+        if let Some(style) = styles.disabled {
+            self.disabled_style = Some(style);
+        }
+        if let Some(style) = styles.right {
+            self.right_style = Some(style);
+        }
+        if let Some(style) = styles.focus {
+            self.focus_style = Some(style);
+        }
         self
     }
 
@@ -289,6 +299,13 @@ impl<'a> PopupMenu<'a> {
     #[inline]
     pub fn right_style(mut self, style: Style) -> Self {
         self.right_style = Some(style);
+        self
+    }
+
+    /// Style for the hotkey.
+    #[inline]
+    pub fn right_style_opt(mut self, style: Option<Style>) -> Self {
+        self.right_style = style;
         self
     }
 

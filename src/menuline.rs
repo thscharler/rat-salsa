@@ -107,12 +107,27 @@ impl<'a> MenuLine<'a> {
     #[inline]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
-        self.highlight_style = styles.highlight;
-        self.disabled_style = styles.disabled;
-        self.right_style = styles.right;
-        self.title_style = styles.title;
-        self.select_style = styles.select;
-        self.focus_style = styles.focus;
+        if let Some(style) = styles.highlight {
+            self.highlight_style = Some(style);
+        }
+        if let Some(style) = styles.disabled {
+            self.disabled_style = Some(style);
+        }
+        if let Some(style) = styles.right {
+            self.right_style = Some(style);
+        }
+        if let Some(style) = styles.focus {
+            self.focus_style = Some(style);
+        }
+        if let Some(style) = styles.title {
+            self.title_style = Some(style);
+        }
+        if let Some(style) = styles.select {
+            self.select_style = Some(style);
+        }
+        if let Some(style) = styles.focus {
+            self.focus_style = Some(style);
+        }
         self
     }
 
@@ -130,10 +145,24 @@ impl<'a> MenuLine<'a> {
         self
     }
 
+    /// Shortcut highlight style.
+    #[inline]
+    pub fn highlight_style_opt(mut self, style: Option<Style>) -> Self {
+        self.highlight_style = style;
+        self
+    }
+
     /// Disabled item style.
     #[inline]
     pub fn disabled_style(mut self, style: Style) -> Self {
         self.disabled_style = Some(style);
+        self
+    }
+
+    /// Disabled item style.
+    #[inline]
+    pub fn disabled_style_opt(mut self, style: Option<Style>) -> Self {
+        self.disabled_style = style;
         self
     }
 
@@ -144,10 +173,24 @@ impl<'a> MenuLine<'a> {
         self
     }
 
+    /// Style for the hotkey.
+    #[inline]
+    pub fn right_style_opt(mut self, style: Option<Style>) -> Self {
+        self.right_style = style;
+        self
+    }
+
     /// Menu-title style.
     #[inline]
     pub fn title_style(mut self, style: Style) -> Self {
         self.title_style = Some(style);
+        self
+    }
+
+    /// Menu-title style.
+    #[inline]
+    pub fn title_style_opt(mut self, style: Option<Style>) -> Self {
+        self.title_style = style;
         self
     }
 
@@ -158,10 +201,24 @@ impl<'a> MenuLine<'a> {
         self
     }
 
+    /// Selection
+    #[inline]
+    pub fn select_style_opt(mut self, style: Option<Style>) -> Self {
+        self.select_style = style;
+        self
+    }
+
     /// Selection + Focus
     #[inline]
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
+        self
+    }
+
+    /// Selection + Focus
+    #[inline]
+    pub fn focus_style_opt(mut self, style: Option<Style>) -> Self {
+        self.focus_style = style;
         self
     }
 }

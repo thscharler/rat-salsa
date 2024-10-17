@@ -44,6 +44,7 @@ pub struct Menubar<'a> {
     focus_style: Option<Style>,
     highlight_style: Option<Style>,
     disabled_style: Option<Style>,
+    right_style: Option<Style>,
 
     popup_width: Option<u16>,
     popup_placement: Placement,
@@ -106,6 +107,7 @@ impl<'a> Default for Menubar<'a> {
             focus_style: None,
             highlight_style: None,
             disabled_style: None,
+            right_style: None,
             popup_width: None,
             popup_placement: Placement::AboveOrBelow,
             popup_block: None,
@@ -132,11 +134,33 @@ impl<'a> Menubar<'a> {
     #[inline]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
-        self.title_style = styles.title;
-        self.select_style = styles.select;
-        self.focus_style = styles.focus;
-        self.highlight_style = styles.highlight;
-        self.disabled_style = styles.disabled;
+        if let Some(style) = styles.highlight {
+            self.highlight_style = Some(style);
+        }
+        if let Some(style) = styles.disabled {
+            self.disabled_style = Some(style);
+        }
+        if let Some(style) = styles.focus {
+            self.focus_style = Some(style);
+        }
+        if let Some(style) = styles.title {
+            self.title_style = Some(style);
+        }
+        if let Some(style) = styles.select {
+            self.select_style = Some(style);
+        }
+        if let Some(style) = styles.focus {
+            self.focus_style = Some(style);
+        }
+        if let Some(style) = styles.right {
+            self.right_style = Some(style);
+        }
+        if let Some(style) = styles.popup {
+            if let Some(block) = style.block {
+                self.popup_block = Some(block);
+            }
+        }
+
         self
     }
 
@@ -165,6 +189,13 @@ impl<'a> Menubar<'a> {
     #[inline]
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
+        self
+    }
+
+    /// Selection + Focus
+    #[inline]
+    pub fn right_style(mut self, style: Style) -> Self {
+        self.right_style = Some(style);
         self
     }
 
@@ -222,22 +253,13 @@ impl<'a> StatefulWidget for MenubarLine<'a> {
 fn render_menubar(widget: &Menubar<'_>, area: Rect, buf: &mut Buffer, state: &mut MenubarState) {
     let mut menu = MenuLine::new()
         .title(widget.title.clone())
-        .style(widget.style);
-    if let Some(title_style) = widget.title_style {
-        menu = menu.title_style(title_style);
-    }
-    if let Some(select_style) = widget.select_style {
-        menu = menu.select_style(select_style);
-    }
-    if let Some(focus_style) = widget.focus_style {
-        menu = menu.focus_style(focus_style);
-    }
-    if let Some(highlight_style) = widget.highlight_style {
-        menu = menu.highlight_style(highlight_style);
-    }
-    if let Some(disabled_style) = widget.disabled_style {
-        menu = menu.disabled_style(disabled_style);
-    }
+        .style(widget.style)
+        .title_style_opt(widget.title_style)
+        .select_style_opt(widget.select_style)
+        .focus_style_opt(widget.focus_style)
+        .highlight_style_opt(widget.highlight_style)
+        .disabled_style_opt(widget.disabled_style)
+        .right_style_opt(widget.right_style);
 
     if let Some(structure) = &widget.structure {
         structure.menus(&mut menu.menu);
@@ -300,7 +322,8 @@ fn render_menu_popup(
             .block_opt(widget.popup_block.clone())
             .focus_style_opt(widget.focus_style)
             .highlight_style_opt(widget.highlight_style)
-            .disabled_style_opt(widget.disabled_style);
+            .disabled_style_opt(widget.disabled_style)
+            .right_style_opt(widget.right_style);
 
         structure.submenu(selected, &mut popup.menu);
 
