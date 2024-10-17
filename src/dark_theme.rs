@@ -241,7 +241,7 @@ impl DarkTheme {
             disabled: Some(Style::default().fg(self.s.gray[0])),
             highlight: Some(Style::default().underlined()),
             popup: Some(PopupStyle {
-                block: Some(Block::bordered().border_type(BorderType::Double)),
+                block: Some(Block::bordered()),
                 ..Default::default()
             }),
             ..Default::default()
