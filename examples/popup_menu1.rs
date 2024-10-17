@@ -143,7 +143,7 @@ fn handle_stuff(
     let r = match popup_menu::handle_popup_events(&mut state.popup, event) {
         MenuOutcome::Hide => {
             match event {
-                ct_event!(mouse down Left for _x, _y) => {
+                ct_event!(mouse down Right for _x, _y) => {
                     // reposition. later.
                     Outcome::Continue
                 }
@@ -168,7 +168,7 @@ fn handle_stuff(
             state.popup.set_active(true);
             Outcome::Changed
         }
-        ct_event!(mouse down Left for x,y) if state.left.contains((*x, *y).into()) => {
+        ct_event!(mouse down Right for x,y) if state.left.contains((*x, *y).into()) => {
             // placement relative to rect
             if *x < state.blue.area.left() {
                 state.placement = PopupConstraint::LeftTop(state.blue.area);
@@ -186,7 +186,7 @@ fn handle_stuff(
             state.popup.set_active(true);
             Outcome::Changed
         }
-        ct_event!(mouse down Left for x,y) if state.right.contains((*x, *y).into()) => {
+        ct_event!(mouse down Right for x,y) if state.right.contains((*x, *y).into()) => {
             // placement relative to cursor
             state.placement = PopupConstraint::Position(*x, *y);
             state.offset = (-1, -1);
