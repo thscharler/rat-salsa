@@ -116,7 +116,7 @@ pub mod number_input {
 }
 /// PopupCore helps with managing popup widgets.
 pub mod popup {
-    pub use rat_popup::{Placement, PopupConstraint, PopupCore, PopupCoreState};
+    pub use rat_popup::{Placement, PopupConstraint, PopupCore, PopupCoreState, PopupStyle};
 }
 pub mod paragraph;
 pub mod shadow;
