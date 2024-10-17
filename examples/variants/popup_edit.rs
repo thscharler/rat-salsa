@@ -8,7 +8,7 @@ use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, Popup, Regular};
 use rat_focus::{ContainerFlag, Focus, FocusBuilder, FocusContainer};
 use rat_popup::event::PopupOutcome;
-use rat_popup::{Placement, PopupCore, PopupCoreState};
+use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
@@ -20,7 +20,7 @@ pub struct PopEditGreen;
 #[derive(Debug)]
 pub struct PopEditGreenState {
     /// Where to place the popup
-    pub placement: Placement,
+    pub placement: PopupConstraint,
     /// Internalized popup state.
     pub popup: PopupCoreState,
 
@@ -35,7 +35,7 @@ impl StatefulWidget for PopEditGreen {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if state.popup.is_active() {
             PopupCore::new()
-                .placement(state.placement)
+                .constraint(state.placement)
                 .offset(calc_dxy(state.placement, 1))
                 .block(
                     Block::bordered()
@@ -123,7 +123,7 @@ impl PopEditGreenState {
         self.popup.is_active()
     }
 
-    pub fn show(&mut self, placement: Placement, focus: &mut Focus) {
+    pub fn show(&mut self, placement: PopupConstraint, focus: &mut Focus) {
         self.placement = placement;
         // set active, update Focus and focus first widget.
         self.popup.set_active(true);

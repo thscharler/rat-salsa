@@ -3,7 +3,7 @@
 use crate::variants::calc_dxy;
 use rat_event::{HandleEvent, Popup, Regular};
 use rat_popup::event::PopupOutcome;
-use rat_popup::{Placement, PopupCore, PopupCoreState};
+use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
@@ -19,7 +19,7 @@ impl StatefulWidget for PopNonFocusRed {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if state.popup.is_active() {
             PopupCore::new()
-                .placement(state.placement)
+                .constraint(state.placement)
                 .offset(calc_dxy(state.placement, 1))
                 .block(
                     Block::bordered()
@@ -37,7 +37,7 @@ impl StatefulWidget for PopNonFocusRed {
 #[derive(Debug, Default)]
 pub struct PopNonFocusRedState {
     /// Where to place the popup
-    pub placement: Placement,
+    pub placement: PopupConstraint,
     /// Internalized popup state.
     pub popup: PopupCoreState,
 }
@@ -54,7 +54,7 @@ impl PopNonFocusRedState {
         self.popup.is_active()
     }
 
-    pub fn show(&mut self, placement: Placement) {
+    pub fn show(&mut self, placement: PopupConstraint) {
         self.placement = placement;
         // only use the active flag.
         self.popup.set_active(true);

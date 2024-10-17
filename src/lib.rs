@@ -55,6 +55,80 @@ pub enum Placement {
     #[default]
     None,
     /// Place the popup above the given area. Aligned left.
+    AboveLeft,
+    /// Place the popup above the given area. Aligned centered.
+    AboveCenter,
+    /// Place the popup above the given area. Aligned right.
+    AboveRight,
+    /// Place the popup to the left of the given area. Aligned to the top.
+    LeftTop,
+    /// Place the popup to the left of the given area. Aligned in the middle.
+    LeftMiddle,
+    /// Place the popup to the left of the given area. Aligned to the bottom.
+    LeftBottom,
+    /// Place the popup to the right of the given area. Aligned to the top.
+    RightTop,
+    /// Place the popup to the right of the given area. Aligned in the middle.
+    RightMiddle,
+    /// Place the popup to the right of the given area. Aligned to the bottom.
+    RightBottom,
+    /// Place the popup below the given area. Aligned left.
+    BelowLeft,
+    /// Place the popup below the given area. Aligned centered.
+    BelowCenter,
+    /// Place the popup below the given area. Aligned right.
+    BelowRight,
+    /// Place above. Aligned left.
+    Above,
+    /// Place below: Aligned right.
+    Below,
+    /// Place left. Aligned top.
+    Left,
+    /// Place right. Aligned top.
+    Right,
+    /// Above or below dependent on available space. Aligned left.
+    AboveOrBelow,
+    /// Below or above dependent on available space. Aligned left.
+    BelowOrAbove,
+    /// Use the render-area for the popup, but place it at position (x,y).
+    Position(u16, u16),
+}
+
+impl Placement {
+    pub fn into_constraint(self, rel_area: Rect) -> PopupConstraint {
+        match self {
+            Placement::None => PopupConstraint::None,
+            Placement::AboveLeft => PopupConstraint::AboveLeft(rel_area),
+            Placement::AboveCenter => PopupConstraint::AboveCenter(rel_area),
+            Placement::AboveRight => PopupConstraint::AboveRight(rel_area),
+            Placement::LeftTop => PopupConstraint::LeftTop(rel_area),
+            Placement::LeftMiddle => PopupConstraint::LeftMiddle(rel_area),
+            Placement::LeftBottom => PopupConstraint::LeftBottom(rel_area),
+            Placement::RightTop => PopupConstraint::RightTop(rel_area),
+            Placement::RightMiddle => PopupConstraint::RightMiddle(rel_area),
+            Placement::RightBottom => PopupConstraint::RightBottom(rel_area),
+            Placement::BelowLeft => PopupConstraint::BelowLeft(rel_area),
+            Placement::BelowCenter => PopupConstraint::BelowCenter(rel_area),
+            Placement::BelowRight => PopupConstraint::BelowRight(rel_area),
+            Placement::Above => PopupConstraint::Above(rel_area),
+            Placement::Below => PopupConstraint::Below(rel_area),
+            Placement::Left => PopupConstraint::Left(rel_area),
+            Placement::Right => PopupConstraint::Right(rel_area),
+            Placement::AboveOrBelow => PopupConstraint::AboveOrBelow(rel_area),
+            Placement::BelowOrAbove => PopupConstraint::BelowOrAbove(rel_area),
+            Placement::Position(x, y) => PopupConstraint::Position(x, y),
+        }
+    }
+}
+
+/// Placement relative a target rect.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+#[non_exhaustive]
+pub enum PopupConstraint {
+    /// Use the render-area for the popup as is.
+    #[default]
+    None,
+    /// Place the popup above the given area. Aligned left.
     AboveLeft(Rect),
     /// Place the popup above the given area. Aligned centered.
     AboveCenter(Rect),
@@ -78,6 +152,18 @@ pub enum Placement {
     BelowCenter(Rect),
     /// Place the popup below the given area. Aligned right.
     BelowRight(Rect),
+    /// Place above. Aligned left.
+    Above(Rect),
+    /// Place below: Aligned right.
+    Below(Rect),
+    /// Place left. Aligned top.
+    Left(Rect),
+    /// Place right. Aligned top.
+    Right(Rect),
+    /// Above or below dependent on available space. Aligned left.
+    AboveOrBelow(Rect),
+    /// Below or above dependent on available space. Aligned left.
+    BelowOrAbove(Rect),
     /// Use the render-area for the popup, but place it at position (x,y).
     Position(u16, u16),
 }

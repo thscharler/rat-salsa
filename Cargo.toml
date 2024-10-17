@@ -54,6 +54,7 @@ log = "0.4"
 
 rat-event = { version = "0.25", path = "../rat-event" }
 rat-focus = { version = "0.27", path = "../rat-focus" }
+rat-scrolled = { version = "0.25.0", path = "../rat-scrolled" }
 rat-cursor = { version = "0.25", path = "../rat-cursor" }
 
 [dev-dependencies]

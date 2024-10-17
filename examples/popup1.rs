@@ -11,7 +11,7 @@ use rat_cursor::HasScreenCursor;
 use rat_event::{ct_event, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusContainer};
 use rat_popup::event::PopupOutcome;
-use rat_popup::Placement;
+use rat_popup::PopupConstraint;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::StatefulWidget;
@@ -244,23 +244,23 @@ fn handle_stuff(
                 2 => &mut state.popedit.placement,
                 3 => &mut state.poplock.placement,
                 _ => {
-                    placement = Placement::None;
+                    placement = PopupConstraint::None;
                     &mut placement
                 }
             };
             *placement = match *placement {
-                Placement::AboveLeft(r) => Placement::AboveCenter(r),
-                Placement::AboveCenter(r) => Placement::AboveRight(r),
-                Placement::AboveRight(r) => Placement::RightTop(r),
-                Placement::RightTop(r) => Placement::RightMiddle(r),
-                Placement::RightMiddle(r) => Placement::RightBottom(r),
-                Placement::RightBottom(r) => Placement::BelowRight(r),
-                Placement::BelowRight(r) => Placement::BelowCenter(r),
-                Placement::BelowCenter(r) => Placement::BelowLeft(r),
-                Placement::BelowLeft(r) => Placement::LeftBottom(r),
-                Placement::LeftBottom(r) => Placement::LeftMiddle(r),
-                Placement::LeftMiddle(r) => Placement::LeftTop(r),
-                Placement::LeftTop(r) => Placement::AboveLeft(r),
+                PopupConstraint::AboveLeft(r) => PopupConstraint::AboveCenter(r),
+                PopupConstraint::AboveCenter(r) => PopupConstraint::AboveRight(r),
+                PopupConstraint::AboveRight(r) => PopupConstraint::RightTop(r),
+                PopupConstraint::RightTop(r) => PopupConstraint::RightMiddle(r),
+                PopupConstraint::RightMiddle(r) => PopupConstraint::RightBottom(r),
+                PopupConstraint::RightBottom(r) => PopupConstraint::BelowRight(r),
+                PopupConstraint::BelowRight(r) => PopupConstraint::BelowCenter(r),
+                PopupConstraint::BelowCenter(r) => PopupConstraint::BelowLeft(r),
+                PopupConstraint::BelowLeft(r) => PopupConstraint::LeftBottom(r),
+                PopupConstraint::LeftBottom(r) => PopupConstraint::LeftMiddle(r),
+                PopupConstraint::LeftMiddle(r) => PopupConstraint::LeftTop(r),
+                PopupConstraint::LeftTop(r) => PopupConstraint::AboveLeft(r),
                 v => v,
             };
             Outcome::Changed
@@ -273,23 +273,23 @@ fn handle_stuff(
                 2 => &mut state.popedit.placement,
                 3 => &mut state.poplock.placement,
                 _ => {
-                    placement = Placement::None;
+                    placement = PopupConstraint::None;
                     &mut placement
                 }
             };
             *placement = match *placement {
-                Placement::AboveLeft(r) => Placement::LeftTop(r),
-                Placement::AboveCenter(r) => Placement::AboveLeft(r),
-                Placement::AboveRight(r) => Placement::AboveCenter(r),
-                Placement::RightTop(r) => Placement::AboveRight(r),
-                Placement::RightMiddle(r) => Placement::RightTop(r),
-                Placement::RightBottom(r) => Placement::RightMiddle(r),
-                Placement::BelowRight(r) => Placement::RightBottom(r),
-                Placement::BelowCenter(r) => Placement::BelowRight(r),
-                Placement::BelowLeft(r) => Placement::BelowCenter(r),
-                Placement::LeftBottom(r) => Placement::BelowLeft(r),
-                Placement::LeftMiddle(r) => Placement::LeftBottom(r),
-                Placement::LeftTop(r) => Placement::LeftMiddle(r),
+                PopupConstraint::AboveLeft(r) => PopupConstraint::LeftTop(r),
+                PopupConstraint::AboveCenter(r) => PopupConstraint::AboveLeft(r),
+                PopupConstraint::AboveRight(r) => PopupConstraint::AboveCenter(r),
+                PopupConstraint::RightTop(r) => PopupConstraint::AboveRight(r),
+                PopupConstraint::RightMiddle(r) => PopupConstraint::RightTop(r),
+                PopupConstraint::RightBottom(r) => PopupConstraint::RightMiddle(r),
+                PopupConstraint::BelowRight(r) => PopupConstraint::RightBottom(r),
+                PopupConstraint::BelowCenter(r) => PopupConstraint::BelowRight(r),
+                PopupConstraint::BelowLeft(r) => PopupConstraint::BelowCenter(r),
+                PopupConstraint::LeftBottom(r) => PopupConstraint::BelowLeft(r),
+                PopupConstraint::LeftMiddle(r) => PopupConstraint::LeftBottom(r),
+                PopupConstraint::LeftTop(r) => PopupConstraint::LeftMiddle(r),
                 v => v,
             };
             Outcome::Changed
@@ -300,13 +300,13 @@ fn handle_stuff(
         {
             // placement relative to rect
             let placement = if *x < state.blue.area.left() {
-                Placement::LeftTop(state.blue.area)
+                PopupConstraint::LeftTop(state.blue.area)
             } else if *x >= state.blue.area.right() {
-                Placement::RightTop(state.blue.area)
+                PopupConstraint::RightTop(state.blue.area)
             } else if *y < state.blue.area.top() {
-                Placement::AboveLeft(state.blue.area)
+                PopupConstraint::AboveLeft(state.blue.area)
             } else if *y >= state.blue.area.bottom() {
-                Placement::BelowLeft(state.blue.area)
+                PopupConstraint::BelowLeft(state.blue.area)
             } else {
                 unreachable!()
             };
@@ -332,7 +332,7 @@ fn handle_stuff(
         }
         ct_event!(mouse down Right for x,y) if state.right.contains((*x, *y).into()) => {
             // relative to mouse
-            let placement = Placement::Position(*x, *y);
+            let placement = PopupConstraint::Position(*x, *y);
             match state.which_blue {
                 0 => {
                     state.popfoc.show(placement, &mut focus);

@@ -6,7 +6,7 @@ use rat_focus::{
     Navigation,
 };
 use rat_popup::event::PopupOutcome;
-use rat_popup::{Placement, PopupCore, PopupCoreState};
+use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
@@ -23,7 +23,7 @@ impl StatefulWidget for PopFocusBlue {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if state.popup.is_active() {
             PopupCore::new()
-                .placement(state.placement)
+                .constraint(state.placement)
                 .block(Block::bordered().style(Style::new().black().on_yellow()))
                 .render(area, buf, &mut state.popup);
 
@@ -53,7 +53,7 @@ pub struct PopFocusBlueState {
     pub cc: char,
 
     /// Where to place the popup
-    pub placement: Placement,
+    pub placement: PopupConstraint,
     pub popup: PopupCoreState,
 
     pub focus: FocusFlag,
@@ -74,7 +74,7 @@ impl PopFocusBlueState {
         self.popup.is_active()
     }
 
-    pub fn show(&mut self, placement: Placement, focus: &mut Focus) {
+    pub fn show(&mut self, placement: PopupConstraint, focus: &mut Focus) {
         self.placement = placement;
         focus.focus(&FocusAdapter {
             focus: self.focus.clone(),

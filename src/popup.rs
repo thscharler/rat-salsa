@@ -1,21 +1,22 @@
-use crate::Placement;
+use crate::PopupConstraint;
 use crate::_private::NonExhaustive;
 use crate::event::PopupOutcome;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Popup};
-use rat_focus::{ContainerFlag, FocusContainer, ZRect};
+use rat_focus::{ContainerFlag, FocusContainer};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
+use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
-use ratatui::widgets::{block::BlockExt, Block, StatefulWidget, Widget};
 #[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
-use std::cmp::max;
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidget};
 
 /// Provides the core for popup widgets.
 ///
 /// This does widget can calculate the placement of a popup widget
-/// using the [placement](PopupCore::placement), [offset](PopupCore::offset)
+/// using the [placement](PopupCore::constraint), [offset](PopupCore::offset)
 /// and the outer [boundary](PopupCore::boundary).
 ///
 /// It provides the widget area as [widget_area](PopupCoreState::widget_area).
@@ -36,27 +37,30 @@ use std::cmp::max;
 pub struct PopupCore<'a> {
     style: Style,
 
-    placement: Placement,
+    constraint: PopupConstraint,
     offset: (i16, i16),
     boundary_area: Option<Rect>,
 
     block: Option<Block<'a>>,
+    h_scroll: Option<Scroll<'a>>,
+    v_scroll: Option<Scroll<'a>>,
 }
 
 #[derive(Debug, Clone)]
 pub struct PopupCoreState {
-    /// Total area for the widget.
-    /// This is the area given to render().
+    /// Area for the widget.
+    /// This is the area given to render(), corrected by the
+    /// given constraints.
+    ///
     /// __read only__. renewed for each render.
     pub area: Rect,
-    /// Total area with a z-index of 1 for Focus.
-    /// This is necessary for Focus to handle overlapping regions.
-    /// __read only__. renewed for each render.
-    pub z_areas: [ZRect; 1],
-    /// Inner area for the popup content.
-    /// Use this to render the content.
-    /// __read only. renewed for each render.
+    ///
     pub widget_area: Rect,
+
+    ///
+    pub h_scroll: ScrollState,
+    ///
+    pub v_scroll: ScrollState,
 
     /// Active flag for the popup.
     ///
@@ -81,10 +85,12 @@ impl<'a> Default for PopupCore<'a> {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            placement: Placement::None,
+            constraint: PopupConstraint::None,
             offset: (0, 0),
             boundary_area: None,
             block: None,
+            h_scroll: None,
+            v_scroll: None,
         }
     }
 }
@@ -97,8 +103,8 @@ impl<'a> PopupCore<'a> {
 
     /// Placement of the popup widget.
     /// See placement for the options.
-    pub fn placement(mut self, placement: Placement) -> Self {
-        self.placement = placement;
+    pub fn constraint(mut self, constraint: PopupConstraint) -> Self {
+        self.constraint = constraint;
         self
     }
 
@@ -138,23 +144,67 @@ impl<'a> PopupCore<'a> {
         self
     }
 
+    /// Sets outer boundaries for the resulting widget.
+    ///
+    /// This will be used to ensure that the widget is fully visible,
+    /// after calculation its position using the other parameters.
+    ///
+    /// If not set it will use [Buffer::area] for this.
+    pub fn boundary_opt(mut self, boundary: Option<Rect>) -> Self {
+        self.boundary_area = boundary;
+        self
+    }
+
     /// Base style for the popup.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
-    /// Block for borders.
+    /// Block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
 
-    /// Return the size required for the block.
+    /// Block
+    pub fn block_opt(mut self, block: Option<Block<'a>>) -> Self {
+        self.block = block;
+        self
+    }
+
+    /// Horizontal scroll
+    pub fn h_scroll(mut self, h_scroll: Scroll<'a>) -> Self {
+        self.h_scroll = Some(h_scroll);
+        self
+    }
+
+    /// Horizontal scroll
+    pub fn h_scroll_opt(mut self, h_scroll: Option<Scroll<'a>>) -> Self {
+        self.h_scroll = h_scroll;
+        self
+    }
+
+    /// Vertical scroll
+    pub fn v_scroll(mut self, v_scroll: Scroll<'a>) -> Self {
+        self.v_scroll = Some(v_scroll);
+        self
+    }
+
+    /// Vertical scroll
+    pub fn v_scroll_opt(mut self, v_scroll: Option<Scroll<'a>>) -> Self {
+        self.v_scroll = v_scroll;
+        self
+    }
+
+    /// Get the padding the block imposes as a Size.
     pub fn get_block_size(&self) -> Size {
-        let area = Rect::new(0, 0, 100, 100);
-        let inner = self.block.as_ref().map_or(area, |v| v.inner(area));
-        Size::new(area.width - inner.width, area.height - inner.height)
+        let area = Rect::new(0, 0, 20, 20);
+        let inner = self.block.inner_if_some(area);
+        Size {
+            width: (inner.left() - area.left()) + (area.right() - inner.right()),
+            height: (inner.top() - area.top()) + (area.bottom() - inner.bottom()),
+        }
     }
 }
 
@@ -167,21 +217,28 @@ impl<'a> StatefulWidgetRef for PopupCore<'a> {
             state.clear_areas();
             return;
         }
-
         self.layout(area, self.boundary_area.unwrap_or(buf.area), state);
+        clear_area(area, self.style, buf);
 
-        for y in state.area.top()..state.area.bottom() {
-            for x in state.area.left()..state.area.right() {
-                if let Some(cell) = buf.cell_mut((x, y)) {
-                    cell.reset();
-                    cell.set_style(self.style);
-                }
-            }
-        }
+        let mut scroll_area_state = ScrollAreaState {
+            area,
+            h_scroll: Some(&mut state.h_scroll),
+            v_scroll: Some(&mut state.v_scroll),
+        };
 
-        if let Some(block) = self.block.as_ref() {
-            block.clone().style(self.style).render_ref(state.area, buf);
-        }
+        let scroll_area = ScrollArea::new()
+            .block(self.block.clone()) // todo: clones?
+            .h_scroll(self.h_scroll.clone())
+            .v_scroll(self.v_scroll.clone());
+
+        state.widget_area = scroll_area.inner(
+            area,
+            ScrollAreaState::new()
+                .h_scroll(&mut state.h_scroll)
+                .v_scroll(&mut state.v_scroll),
+        );
+
+        scroll_area.render(area, buf, &mut scroll_area_state);
     }
 }
 
@@ -193,19 +250,43 @@ impl<'a> StatefulWidget for PopupCore<'a> {
             state.clear_areas();
             return;
         }
-
         self.layout(area, self.boundary_area.unwrap_or(buf.area), state);
 
-        for y in state.area.top()..state.area.bottom() {
-            for x in state.area.left()..state.area.right() {
-                if let Some(cell) = buf.cell_mut((x, y)) {
-                    cell.reset();
-                }
-            }
-        }
+        clear_area(state.area, self.style, buf);
 
-        if let Some(block) = self.block {
-            block.style(self.style).render(state.area, buf);
+        let scroll_area = ScrollArea::new()
+            .block(self.block)
+            .h_scroll(self.h_scroll)
+            .v_scroll(self.v_scroll);
+
+        state.widget_area = scroll_area.inner(
+            state.area,
+            ScrollAreaState {
+                area: Default::default(),
+                h_scroll: Some(&mut state.h_scroll),
+                v_scroll: Some(&mut state.v_scroll),
+            },
+        );
+
+        scroll_area.render(
+            state.area,
+            buf,
+            &mut ScrollAreaState {
+                area: Default::default(),
+                h_scroll: Some(&mut state.h_scroll),
+                v_scroll: Some(&mut state.v_scroll),
+            },
+        );
+    }
+}
+
+fn clear_area(area: Rect, style: Style, buf: &mut Buffer) {
+    for y in area.top()..area.bottom() {
+        for x in area.left()..area.right() {
+            if let Some(cell) = buf.cell_mut((x, y)) {
+                cell.reset();
+                cell.set_style(style);
+            }
         }
     }
 }
@@ -222,73 +303,125 @@ impl<'a> PopupCore<'a> {
         }
         let bottom = right;
 
-        let mut area = match self.placement {
-            Placement::None => area,
-            Placement::AboveLeft(rel) => Rect::new(
+        let mut area = match self.constraint {
+            PopupConstraint::None => area,
+            PopupConstraint::Above(rel) | PopupConstraint::AboveLeft(rel) => Rect::new(
                 rel.x,
                 rel.y.saturating_sub(area.height),
                 area.width,
                 area.height,
             ),
-            Placement::AboveCenter(rel) => Rect::new(
+            PopupConstraint::AboveCenter(rel) => Rect::new(
                 rel.x + center(area.width, rel.width),
                 rel.y.saturating_sub(area.height),
                 area.width,
                 area.height,
             ),
-            Placement::AboveRight(rel) => Rect::new(
+            PopupConstraint::AboveRight(rel) => Rect::new(
                 rel.x + right(area.width, rel.width),
                 rel.y.saturating_sub(area.height),
                 area.width,
                 area.height,
             ),
-            Placement::BelowLeft(rel) => Rect::new(rel.x, rel.bottom(), area.width, area.height),
-            Placement::BelowCenter(rel) => Rect::new(
+            PopupConstraint::Below(rel) | PopupConstraint::BelowLeft(rel) => Rect::new(
+                rel.x, //
+                rel.bottom(),
+                area.width,
+                area.height,
+            ),
+            PopupConstraint::BelowCenter(rel) => Rect::new(
                 rel.x + center(area.width, rel.width),
                 rel.bottom(),
                 area.width,
                 area.height,
             ),
-            Placement::BelowRight(rel) => Rect::new(
+            PopupConstraint::BelowRight(rel) => Rect::new(
                 rel.x + right(area.width, rel.width),
                 rel.bottom(),
                 area.width,
                 area.height,
             ),
 
-            Placement::LeftTop(rel) => Rect::new(
+            PopupConstraint::Left(rel) | PopupConstraint::LeftTop(rel) => Rect::new(
                 rel.x.saturating_sub(area.width),
                 rel.y,
                 area.width,
                 area.height,
             ),
-            Placement::LeftMiddle(rel) => Rect::new(
+            PopupConstraint::LeftMiddle(rel) => Rect::new(
                 rel.x.saturating_sub(area.width),
                 rel.y + middle(area.height, rel.height),
                 area.width,
                 area.height,
             ),
-            Placement::LeftBottom(rel) => Rect::new(
+            PopupConstraint::LeftBottom(rel) => Rect::new(
                 rel.x.saturating_sub(area.width),
                 rel.y + bottom(area.height, rel.height),
                 area.width,
                 area.height,
             ),
-            Placement::RightTop(rel) => Rect::new(rel.right(), rel.y, area.width, area.height),
-            Placement::RightMiddle(rel) => Rect::new(
+            PopupConstraint::Right(rel) | PopupConstraint::RightTop(rel) => Rect::new(
+                rel.right(), //
+                rel.y,
+                area.width,
+                area.height,
+            ),
+            PopupConstraint::RightMiddle(rel) => Rect::new(
                 rel.right(),
                 rel.y + middle(area.height, rel.height),
                 area.width,
                 area.height,
             ),
-            Placement::RightBottom(rel) => Rect::new(
+            PopupConstraint::RightBottom(rel) => Rect::new(
                 rel.right(),
                 rel.y + bottom(area.height, rel.height),
                 area.width,
                 area.height,
             ),
 
-            Placement::Position(x, y) => Rect::new(x, y, area.width, area.height),
+            PopupConstraint::Position(x, y) => Rect::new(
+                x, //
+                y,
+                area.width,
+                area.height,
+            ),
+
+            PopupConstraint::AboveOrBelow(rel) => {
+                if area.height.saturating_add_signed(-self.offset.1) < rel.y {
+                    Rect::new(
+                        rel.x,
+                        rel.y.saturating_sub(area.height),
+                        area.width,
+                        area.height,
+                    )
+                } else {
+                    Rect::new(
+                        rel.x, //
+                        rel.bottom(),
+                        area.width,
+                        area.height,
+                    )
+                }
+            }
+            PopupConstraint::BelowOrAbove(rel) => {
+                if (rel.bottom() + area.height).saturating_add_signed(self.offset.1)
+                    <= boundary_area.height
+                {
+                    Rect::new(
+                        rel.x, //
+                        rel.bottom(),
+                        area.width,
+                        area.height,
+                    )
+                } else {
+                    Rect::new(
+                        rel.x,
+                        rel.y.saturating_sub(area.height),
+                        area.width,
+                        area.height,
+                    )
+                }
+            }
         };
 
         // offset
@@ -324,8 +457,6 @@ impl<'a> PopupCore<'a> {
         }
 
         state.area = area;
-        state.widget_area = self.block.inner_if_some(area);
-        state.z_areas[0] = ZRect::from((1, area));
     }
 }
 
@@ -333,8 +464,9 @@ impl Default for PopupCoreState {
     fn default() -> Self {
         Self {
             area: Default::default(),
-            z_areas: [Default::default()],
             widget_area: Default::default(),
+            h_scroll: Default::default(),
+            v_scroll: Default::default(),
             active: ContainerFlag::named("popup"),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -383,7 +515,8 @@ impl PopupCoreState {
     pub fn clear_areas(&mut self) {
         self.area = Default::default();
         self.widget_area = Default::default();
-        self.z_areas = Default::default();
+        self.v_scroll.area = Default::default();
+        self.h_scroll.area = Default::default();
     }
 }
 
@@ -391,13 +524,15 @@ impl HandleEvent<crossterm::event::Event, Popup, PopupOutcome> for PopupCoreStat
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> PopupOutcome {
         // this only works out if the active flag is actually used
         // as a container flag. but that's fine.
-        let r0 = if self.active.container_lost_focus() {
-            PopupOutcome::Hide
-        } else {
-            PopupOutcome::Continue
-        };
 
-        let r1 = if self.is_active() {
+        // TODO: this is too spooky ...
+        // let r0 = if self.active.container_lost_focus() {
+        //     PopupOutcome::Hide
+        // } else {
+        //     PopupOutcome::Continue
+        // };
+
+        if self.is_active() {
             match event {
                 ct_event!(mouse down Left for x,y)
                 | ct_event!(mouse down Right for x,y)
@@ -410,8 +545,6 @@ impl HandleEvent<crossterm::event::Event, Popup, PopupOutcome> for PopupCoreStat
             }
         } else {
             PopupOutcome::Continue
-        };
-
-        max(r0, r1)
+        }
     }
 }

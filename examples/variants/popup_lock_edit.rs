@@ -6,7 +6,7 @@ use rat_cursor::HasScreenCursor;
 use rat_event::{ct_event, HandleEvent, Outcome, Popup, Regular};
 use rat_focus::{ContainerAdapter, Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
-use rat_popup::{Placement, PopupCore, PopupCoreState};
+use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
@@ -22,7 +22,7 @@ pub struct PopLockMagentaState {
     pub outer_focus: FocusFlag,
 
     /// Where to place the popup
-    pub placement: Placement,
+    pub placement: PopupConstraint,
     /// Internalized popup state.
     pub popup: PopupCoreState,
 
@@ -37,7 +37,7 @@ impl StatefulWidget for PopLockMagenta {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if state.popup.is_active() {
             PopupCore::new()
-                .placement(state.placement)
+                .constraint(state.placement)
                 .offset(calc_dxy(state.placement, 1))
                 .block(
                     Block::bordered()
@@ -129,7 +129,7 @@ impl PopLockMagentaState {
         self.popup.is_active()
     }
 
-    pub fn show(&mut self, placement: Placement, focus: &mut Focus) {
+    pub fn show(&mut self, placement: PopupConstraint, focus: &mut Focus) {
         self.placement = placement;
         // set outer focus and active
         self.popup.set_active(true);
