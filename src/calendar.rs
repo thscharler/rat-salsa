@@ -117,6 +117,7 @@ impl Default for MonthStyle {
             day: Default::default(),
             select: Default::default(),
             focus: Default::default(),
+            block: None,
             non_exhaustive: NonExhaustive,
         }
     }
