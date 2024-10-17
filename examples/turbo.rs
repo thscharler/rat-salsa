@@ -825,7 +825,7 @@ pub mod theme {
         pub fn line_nr_style(&self) -> LineNumberStyle {
             LineNumberStyle {
                 style: self.data().fg(self.s.gray[0]),
-                cursor_style: Some(self.text_select()),
+                cursor: Some(self.text_select()),
                 ..LineNumberStyle::default()
             }
         }
@@ -870,7 +870,7 @@ pub mod theme {
         pub fn table_style(&self) -> TableStyle {
             TableStyle {
                 style: self.data(),
-                select_row_style: Some(self.select()),
+                select_row: Some(self.select()),
                 show_row_focus: true,
                 focus_style: Some(self.focus()),
                 ..Default::default()
@@ -881,8 +881,8 @@ pub mod theme {
         pub fn list_style(&self) -> ListStyle {
             ListStyle {
                 style: self.data(),
-                select_style: Some(self.select()),
-                focus_style: Some(self.focus()),
+                select: Some(self.select()),
+                focus: Some(self.focus()),
                 ..Default::default()
             }
         }
@@ -948,9 +948,9 @@ pub mod theme {
             let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
             TabbedStyle {
                 style,
-                tab_style: Some(self.gray(1)),
-                select_style: Some(self.gray(3)),
-                focus_style: Some(self.focus()),
+                tab: Some(self.gray(1)),
+                select: Some(self.gray(3)),
+                focus: Some(self.focus()),
                 ..Default::default()
             }
         }

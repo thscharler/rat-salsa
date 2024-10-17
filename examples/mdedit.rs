@@ -1176,17 +1176,17 @@ pub mod split_tab {
                 let select_style = if let Some((sel_pos, md)) = state.selected() {
                     if sel_pos.0 == idx_split {
                         if state.tabbed[idx_split].is_focused() {
-                            ctx.g.theme.tabbed_style().focus_style.expect("style")
+                            ctx.g.theme.tabbed_style().focus.expect("style")
                         } else if md.is_focused() {
                             ctx.g.theme.primary(1)
                         } else {
-                            ctx.g.theme.tabbed_style().select_style.expect("style")
+                            ctx.g.theme.tabbed_style().select.expect("style")
                         }
                     } else {
-                        ctx.g.theme.tabbed_style().select_style.expect("style")
+                        ctx.g.theme.tabbed_style().select.expect("style")
                     }
                 } else {
-                    ctx.g.theme.tabbed_style().select_style.expect("style")
+                    ctx.g.theme.tabbed_style().select.expect("style")
                 };
 
                 Tabbed::new()
