@@ -105,9 +105,15 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn styles(mut self, style: TextInputStyle) -> Self {
         self.style = style.style;
-        self.focus_style = style.focus;
-        self.select_style = style.select;
-        self.invalid_style = style.invalid;
+        if style.focus.is_some() {
+            self.focus_style = style.focus;
+        }
+        if style.select.is_some() {
+            self.select_style = style.select;
+        }
+        if style.invalid.is_some() {
+            self.invalid_style = style.invalid;
+        }
         self
     }
 

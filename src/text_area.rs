@@ -154,8 +154,12 @@ impl<'a> TextArea<'a> {
     #[inline]
     pub fn styles(mut self, style: TextAreaStyle) -> Self {
         self.style = style.style;
-        self.focus_style = style.focus;
-        self.select_style = style.select;
+        if style.focus.is_some() {
+            self.focus_style = style.focus;
+        }
+        if style.select.is_some() {
+            self.select_style = style.select;
+        }
         self
     }
 

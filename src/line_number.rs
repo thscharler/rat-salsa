@@ -38,7 +38,7 @@ pub struct LineNumberStyle {
     pub margin: Option<(u16, u16)>,
     pub format: Option<NumberFormat>,
     pub style: Style,
-    pub cursor_style: Option<Style>,
+    pub cursor: Option<Style>,
     pub block: Option<Block<'static>>,
 
     pub non_exhaustive: NonExhaustive,
@@ -123,7 +123,7 @@ impl<'a> LineNumbers<'a> {
             self.format = Some(format);
         }
         self.style = styles.style;
-        if let Some(cursor_style) = styles.cursor_style {
+        if let Some(cursor_style) = styles.cursor {
             self.cursor_style = Some(cursor_style);
         }
         if let Some(block) = styles.block {
@@ -182,7 +182,7 @@ impl Default for LineNumberStyle {
             margin: None,
             format: None,
             style: Default::default(),
-            cursor_style: None,
+            cursor: None,
             block: None,
             non_exhaustive: NonExhaustive,
         }
