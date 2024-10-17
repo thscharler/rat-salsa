@@ -55,14 +55,15 @@ pub struct Month<'a> {
 }
 
 /// Composite style for the calendar.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct MonthStyle {
     pub style: Style,
-    pub title_style: Option<Style>,
-    pub week_style: Option<Style>,
-    pub day_style: Option<Style>,
-    pub select_style: Option<Style>,
-    pub focus_style: Option<Style>,
+    pub title: Option<Style>,
+    pub week: Option<Style>,
+    pub day: Option<Style>,
+    pub select: Option<Style>,
+    pub focus: Option<Style>,
+    pub block: Option<Block<'static>>,
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -111,11 +112,11 @@ impl Default for MonthStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            title_style: Default::default(),
-            week_style: Default::default(),
-            day_style: Default::default(),
-            select_style: Default::default(),
-            focus_style: Default::default(),
+            title: Default::default(),
+            week: Default::default(),
+            day: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -159,20 +160,23 @@ impl<'a> Month<'a> {
     #[inline]
     pub fn styles(mut self, s: MonthStyle) -> Self {
         self.style = s.style;
-        if s.title_style.is_some() {
-            self.title_style = s.title_style;
+        if s.title.is_some() {
+            self.title_style = s.title;
         }
-        if s.week_style.is_some() {
-            self.week_style = s.week_style;
+        if s.week.is_some() {
+            self.week_style = s.week;
         }
-        if s.day_style.is_some() {
-            self.day_style = s.day_style;
+        if s.day.is_some() {
+            self.day_style = s.day;
         }
-        if s.select_style.is_some() {
-            self.select_style = s.select_style;
+        if s.select.is_some() {
+            self.select_style = s.select;
         }
-        if s.focus_style.is_some() {
-            self.focus_style = s.focus_style;
+        if s.focus.is_some() {
+            self.focus_style = s.focus;
+        }
+        if s.block.is_some() {
+            self.block = s.block;
         }
         self
     }

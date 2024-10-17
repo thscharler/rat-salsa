@@ -1,5 +1,6 @@
 use rat_ftable::TableStyle;
 use rat_menu::MenuStyle;
+use rat_popup::PopupStyle;
 use rat_scrolled::ScrollStyle;
 use rat_text::text_input::TextInputStyle;
 use rat_widget::button::ButtonStyle;
@@ -10,6 +11,7 @@ use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::splitter::{SplitStyle, SplitType};
 use rat_widget::textarea::TextAreaStyle;
 use ratatui::style::{Color, Style, Stylize};
+use ratatui::widgets::{Block, BorderType};
 
 #[derive(Debug, Default, Clone)]
 pub struct Scheme {
@@ -201,15 +203,15 @@ impl Scheme {
     pub fn month_style(&self) -> MonthStyle {
         MonthStyle {
             style: Style::default().fg(self.white[3]).bg(self.black[2]),
-            title_style: None,
-            week_style: Some(
+            title: None,
+            week: Some(
                 Style::default()
                     .fg(self.text_color(self.orange[0]))
                     .bg(self.orange[0]),
             ),
-            day_style: None,
-            select_style: Some(self.select()),
-            focus_style: Some(self.focus()),
+            day: None,
+            select: Some(self.select()),
+            focus: Some(self.focus()),
             ..Default::default()
         }
     }
@@ -248,6 +250,13 @@ impl Scheme {
             title: Some(Style::default().fg(self.black[0]).bg(self.yellow[2])),
             select: Some(self.select()),
             focus: Some(self.focus()),
+            right: Some(Style::default().fg(self.bluegreen[0])),
+            disabled: Some(Style::default().fg(self.gray[0])),
+            highlight: Some(Style::default().underlined()),
+            popup: Some(PopupStyle {
+                block: Some(Block::bordered().border_type(BorderType::Double)),
+                ..Default::default()
+            }),
             ..Default::default()
         }
     }
@@ -256,7 +265,7 @@ impl Scheme {
     pub fn table_style(&self) -> TableStyle {
         TableStyle {
             style: self.data(),
-            select_row_style: Some(self.select()),
+            select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
             ..Default::default()
@@ -280,8 +289,8 @@ impl Scheme {
     pub fn list_styles(&self) -> ListStyle {
         ListStyle {
             style: self.list_style(),
-            select_style: Some(self.select()),
-            focus_style: Some(self.focus()),
+            select: Some(self.select()),
+            focus: Some(self.focus()),
             ..Default::default()
         }
     }

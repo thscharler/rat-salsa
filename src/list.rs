@@ -60,9 +60,9 @@ pub struct ListStyle {
     /// Style
     pub style: Style,
     /// Style for selection
-    pub select_style: Option<Style>,
+    pub select: Option<Style>,
     /// Style for selection when focused.
-    pub focus_style: Option<Style>,
+    pub focus: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -103,8 +103,8 @@ impl Default for ListStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            select_style: Default::default(),
-            focus_style: Default::default(),
+            select: Default::default(),
+            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -160,8 +160,12 @@ impl<'a, Selection> List<'a, Selection> {
     #[inline]
     pub fn styles(mut self, styles: ListStyle) -> Self {
         self.style = styles.style;
-        self.select_style = styles.select_style;
-        self.focus_style = styles.focus_style;
+        if styles.select.is_some() {
+            self.select_style = styles.select;
+        }
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
+        }
         self
     }
 

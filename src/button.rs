@@ -26,11 +26,12 @@ pub struct Button<'a> {
 }
 
 /// Composite style.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 pub struct ButtonStyle {
     pub style: Style,
     pub focus: Option<Style>,
     pub armed: Option<Style>,
+    pub block: Option<Block<'static>>,
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -59,8 +60,9 @@ impl Default for ButtonStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            focus: Default::default(),
-            armed: Default::default(),
+            focus: None,
+            armed: None,
+            block: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -75,8 +77,15 @@ impl<'a> Button<'a> {
     #[inline]
     pub fn styles(mut self, styles: ButtonStyle) -> Self {
         self.style = styles.style;
-        self.focus_style = styles.focus;
-        self.armed_style = styles.armed;
+        if let Some(style) = styles.focus {
+            self.focus_style = Some(style);
+        }
+        if let Some(style) = styles.armed {
+            self.armed_style = Some(style);
+        }
+        if let Some(block) = styles.block {
+            self.block = Some(block);
+        }
         self
     }
 

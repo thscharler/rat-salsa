@@ -85,7 +85,9 @@ impl<'a> MsgDialog<'a> {
     /// Combined style
     pub fn styles(mut self, styles: MsgDialogStyle) -> Self {
         self.style = styles.style;
-        self.scroll_style = styles.scroll;
+        if styles.scroll.is_some() {
+            self.scroll_style = styles.scroll;
+        }
         self.button_style = styles.button;
         self
     }

@@ -331,14 +331,30 @@ impl<'a> FileDialog<'a> {
     /// All styles.
     pub fn styles(mut self, styles: FileDialogStyle) -> Self {
         self.style = styles.style;
-        self.list_style = styles.list;
-        self.path_style = styles.path;
-        self.name_style = styles.name;
-        self.new_style = styles.new;
-        self.invalid_style = styles.invalid;
-        self.select_style = styles.select;
-        self.focus_style = styles.focus;
-        self.button_style = styles.button;
+        if styles.list.is_some() {
+            self.list_style = styles.list;
+        }
+        if styles.path.is_some() {
+            self.path_style = styles.path;
+        }
+        if styles.name.is_some() {
+            self.name_style = styles.name;
+        }
+        if styles.new.is_some() {
+            self.new_style = styles.new;
+        }
+        if styles.invalid.is_some() {
+            self.invalid_style = styles.invalid;
+        }
+        if styles.select.is_some() {
+            self.select_style = styles.select;
+        }
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
+        }
+        if styles.button.is_some() {
+            self.button_style = styles.button;
+        }
         self
     }
 
@@ -361,8 +377,8 @@ impl<'a> FileDialog<'a> {
     fn style_roots(&self) -> ListStyle {
         ListStyle {
             style: self.style,
-            select_style: self.defaulted_select(),
-            focus_style: self.defaulted_focus(),
+            select: self.defaulted_select(),
+            focus: self.defaulted_focus(),
             ..Default::default()
         }
     }
@@ -374,8 +390,8 @@ impl<'a> FileDialog<'a> {
             } else {
                 self.style
             },
-            select_style: self.defaulted_select(),
-            focus_style: self.defaulted_focus(),
+            select: self.defaulted_select(),
+            focus: self.defaulted_focus(),
             ..Default::default()
         }
     }
@@ -423,7 +439,7 @@ impl<'a> FileDialog<'a> {
     }
 
     fn style_button(&self) -> ButtonStyle {
-        if let Some(button) = self.button_style {
+        if let Some(button) = self.button_style.clone() {
             button
         } else {
             ButtonStyle {

@@ -70,6 +70,7 @@ pub mod text {
 
 pub mod button;
 pub mod calendar;
+pub mod choice;
 /// Number input with patterns from chrono.
 ///
 /// * Undo/redo

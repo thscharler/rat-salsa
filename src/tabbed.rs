@@ -82,9 +82,9 @@ pub struct Tabbed<'a> {
 #[derive(Debug, Clone)]
 pub struct TabbedStyle {
     pub style: Style,
-    pub tab_style: Option<Style>,
-    pub select_style: Option<Style>,
-    pub focus_style: Option<Style>,
+    pub tab: Option<Style>,
+    pub select: Option<Style>,
+    pub focus: Option<Style>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -228,9 +228,15 @@ impl<'a> Tabbed<'a> {
     /// Set combined styles.
     pub fn styles(mut self, styles: TabbedStyle) -> Self {
         self.style = styles.style;
-        self.tab_style = styles.tab_style;
-        self.select_style = styles.select_style;
-        self.focus_style = styles.focus_style;
+        if styles.tab.is_some() {
+            self.tab_style = styles.tab;
+        }
+        if styles.select.is_some() {
+            self.select_style = styles.select;
+        }
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
+        }
         self
     }
 
@@ -263,9 +269,9 @@ impl Default for TabbedStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            tab_style: None,
-            select_style: None,
-            focus_style: None,
+            tab: None,
+            select: None,
+            focus: None,
             non_exhaustive: NonExhaustive,
         }
     }
