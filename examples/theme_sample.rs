@@ -209,7 +209,8 @@ pub mod mask0 {
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_theme::dark_themes;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
-    use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState, SubmenuPlacement};
+    use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
+    use rat_widget::popup::Placement;
     use rat_widget::scrolled::Scroll;
     use rat_widget::viewport::{Viewport, ViewportState};
     use ratatui::buffer::Buffer;
@@ -285,7 +286,7 @@ pub mod mask0 {
                     .split(layout[1]);
             let menu = Menubar::new(&Menu)
                 .styles(ctx.g.theme.menu_style())
-                .popup_placement(SubmenuPlacement::Above)
+                .popup_placement(Placement::Above)
                 .into_widgets();
             menu.0.render(layout_menu[0], buf, &mut state.menu);
             menu.1.render(layout_menu[0], buf, &mut state.menu);

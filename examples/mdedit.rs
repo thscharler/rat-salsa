@@ -369,10 +369,9 @@ mod app {
     };
     use rat_widget::focus::{FocusBuilder, FocusContainer, HasFocus};
     use rat_widget::layout::layout_middle;
-    use rat_widget::menu::{
-        MenuBuilder, MenuStructure, Menubar, MenubarState, Separator, SubmenuPlacement,
-    };
+    use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState, Separator};
     use rat_widget::msgdialog::MsgDialog;
+    use rat_widget::popup::Placement;
     use rat_widget::text::HasScreenCursor;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
@@ -477,7 +476,7 @@ mod app {
                 .title("^^°n°^^")
                 .popup_width(25)
                 .popup_block(Block::bordered())
-                .popup_placement(SubmenuPlacement::Above)
+                .popup_placement(Placement::Above)
                 .styles(ctx.g.theme.menu_style())
                 .into_widgets();
             menu.render(s[0], buf, &mut state.menu);
@@ -1535,7 +1534,7 @@ pub mod file_list {
     use rat_widget::focus::{FocusBuilder, FocusContainer, HasFocus};
     use rat_widget::list::selection::RowSelection;
     use rat_widget::list::{List, ListState};
-    use rat_widget::menu::{Placement, PopupMenu, PopupMenuState};
+    use rat_widget::menu::{PopupConstraint, PopupMenu, PopupMenuState};
     use rat_widget::scrolled::Scroll;
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Position, Rect};
@@ -1600,7 +1599,7 @@ pub mod file_list {
                 PopupMenu::new()
                     .styles(ctx.g.theme.menu_style())
                     .block(Block::bordered())
-                    .placement(Placement::RightTop(Rect::new(
+                    .constraint(PopupConstraint::RightTop(Rect::new(
                         state.popup_pos.0,
                         state.popup_pos.1,
                         0,

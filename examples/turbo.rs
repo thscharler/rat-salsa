@@ -283,9 +283,10 @@ pub mod turbo {
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::focus::{FocusBuilder, FocusContainer};
     use rat_widget::menu::{
-        MenuBuilder, MenuStructure, Menubar, MenubarState, Placement, PopupMenu, PopupMenuState,
-        SubmenuPlacement,
+        MenuBuilder, MenuStructure, Menubar, MenubarState, PopupConstraint, PopupMenu,
+        PopupMenuState,
     };
+    use rat_widget::popup::Placement;
     use rat_widget::shadow::{Shadow, ShadowDirection};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -491,7 +492,7 @@ pub mod turbo {
             let (menubar, popup) = Menubar::new(&Menu)
                 .styles(ctx.g.theme.menu_style())
                 .title("  ")
-                .popup_placement(SubmenuPlacement::Below)
+                .popup_placement(Placement::Below)
                 .popup_block(Block::bordered().style(ctx.g.theme.menu_style().style))
                 .into_widgets();
             menubar.render(r[0], buf, &mut state.menu);
@@ -520,7 +521,7 @@ pub mod turbo {
                     .item_parsed("_Mouse...")
                     .item_parsed("_Startup...")
                     .item_parsed("_Colors...")
-                    .placement(Placement::RightTop(area))
+                    .constraint(PopupConstraint::RightTop(area))
                     .y_offset(-1)
                     .block(Block::bordered().style(ctx.g.theme.menu_style().style))
                     .render(Rect::default(), buf, &mut state.menu_environment);

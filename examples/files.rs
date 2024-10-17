@@ -17,8 +17,9 @@ use rat_widget::event::{
 };
 use rat_widget::focus::{match_focus, FocusBuilder, FocusContainer, HasFocus};
 use rat_widget::list::selection::RowSelection;
-use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState, SubmenuPlacement};
+use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
+use rat_widget::popup::Placement;
 use rat_widget::scrolled::Scroll;
 use rat_widget::splitter::{Split, SplitState, SplitType};
 use rat_widget::statusline::{StatusLine, StatusLineState};
@@ -412,7 +413,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
         let (menu, menu_popup) = Menubar::new(&Menu)
             .title("[-.-]")
             .popup_block(Block::bordered())
-            .popup_placement(SubmenuPlacement::Above)
+            .popup_placement(Placement::Above)
             .styles(ctx.g.theme.menu_style())
             .into_widgets();
         menu.render(m[0], buf, &mut state.w_menu);
