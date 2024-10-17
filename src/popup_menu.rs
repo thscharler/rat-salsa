@@ -4,7 +4,7 @@
 //! It diverges from other widgets as it doesn't draw
 //! *inside* the given area but aims to stay *outside* of it.
 //!
-//! You can give a [Placement] where the popup-menu should appear
+//! You can give a [PopupConstraint] where the popup-menu should appear
 //! relative to the given area.
 //!
 //! If you want it to appear at a mouse-click position, use a
@@ -22,7 +22,7 @@ use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Popup};
 use rat_popup::event::PopupOutcome;
-pub use rat_popup::Placement;
+pub use rat_popup::PopupConstraint;
 use rat_popup::{PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
@@ -204,8 +204,8 @@ impl<'a> PopupMenu<'a> {
     }
 
     /// Set relative placement.
-    pub fn placement(mut self, placement: Placement) -> Self {
-        self.popup = self.popup.placement(placement);
+    pub fn constraint(mut self, placement: PopupConstraint) -> Self {
+        self.popup = self.popup.constraint(placement);
         self
     }
 

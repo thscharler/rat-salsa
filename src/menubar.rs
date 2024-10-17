@@ -16,10 +16,11 @@
 //!
 use crate::event::MenuOutcome;
 use crate::menuline::{MenuLine, MenuLineState};
-use crate::popup_menu::{Placement, PopupMenu, PopupMenuState};
+use crate::popup_menu::{PopupMenu, PopupMenuState};
 use crate::{MenuStructure, MenuStyle};
 use rat_event::{flow, HandleEvent, MouseOnly, Popup, Regular};
 use rat_focus::{FocusFlag, HasFocus, ZRect};
+use rat_popup::Placement;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -28,16 +29,6 @@ use ratatui::text::Line;
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt::{Debug, Formatter};
-
-/// Placement of the submenus.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum SubmenuPlacement {
-    /// Above the menuline.
-    #[default]
-    Above,
-    /// Below the menuline.
-    Below,
-}
 
 /// Menubar widget.
 /// This handles the configuration only, to get the widgets for rendering
@@ -55,7 +46,7 @@ pub struct Menubar<'a> {
     disabled_style: Option<Style>,
 
     popup_width: Option<u16>,
-    popup_placement: SubmenuPlacement,
+    popup_placement: Placement,
     popup_block: Option<Block<'a>>,
 }
 
@@ -167,7 +158,7 @@ impl<'a> Menubar<'a> {
     }
 
     /// Placement relative to the render-area.
-    pub fn popup_placement(mut self, placement: SubmenuPlacement) -> Self {
+    pub fn popup_placement(mut self, placement: Placement) -> Self {
         self.popup_placement = placement;
         self
     }
@@ -276,10 +267,7 @@ fn render_menu_popup(
 
     if state.popup.is_active() {
         let item = state.bar.item_areas[selected];
-        let sub_place = match widget.popup_placement {
-            SubmenuPlacement::Above => Placement::AboveLeft(item),
-            SubmenuPlacement::Below => Placement::BelowLeft(item),
-        };
+        let sub_place = widget.popup_placement.into_constraint(item);
         let sub_offset = if widget.popup_block.is_some() {
             (-2, 0)
         } else {
@@ -287,7 +275,7 @@ fn render_menu_popup(
         };
 
         let mut popup = PopupMenu::new()
-            .placement(sub_place)
+            .constraint(sub_place)
             .offset(sub_offset)
             .style(widget.style);
         if let Some(width) = widget.popup_width {
