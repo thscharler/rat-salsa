@@ -33,7 +33,7 @@ use std::fmt::{Debug, Formatter};
 /// Menubar widget.
 /// This handles the configuration only, to get the widgets for rendering
 /// call [Menubar::into_widgets] and use both results for rendering.
-#[derive(Default, Clone)]
+#[derive(Clone)]
 pub struct Menubar<'a> {
     structure: Option<&'a dyn MenuStructure<'a>>,
 
@@ -92,6 +92,24 @@ impl<'a> Debug for Menubar<'a> {
             .field("popup_placement", &self.popup_placement)
             .field("popup_block", &self.popup_block)
             .finish()
+    }
+}
+
+impl<'a> Default for Menubar<'a> {
+    fn default() -> Self {
+        Self {
+            structure: None,
+            title: Default::default(),
+            style: Default::default(),
+            title_style: None,
+            select_style: None,
+            focus_style: None,
+            highlight_style: None,
+            disabled_style: None,
+            popup_width: None,
+            popup_placement: Placement::AboveOrBelow,
+            popup_block: None,
+        }
     }
 }
 
@@ -267,7 +285,7 @@ fn render_menu_popup(
 
     if state.popup.is_active() {
         let item = state.bar.item_areas[selected];
-        let sub_place = widget.popup_placement.into_constraint(item);
+
         let sub_offset = if widget.popup_block.is_some() {
             (-2, 0)
         } else {
@@ -275,24 +293,15 @@ fn render_menu_popup(
         };
 
         let mut popup = PopupMenu::new()
-            .constraint(sub_place)
+            .constraint(widget.popup_placement.into_constraint(item))
             .offset(sub_offset)
-            .style(widget.style);
-        if let Some(width) = widget.popup_width {
-            popup = popup.width(width);
-        }
-        if let Some(block) = widget.popup_block.clone() {
-            popup = popup.block(block);
-        }
-        if let Some(focus_style) = widget.focus_style {
-            popup = popup.focus_style(focus_style);
-        }
-        if let Some(highlight_style) = widget.highlight_style {
-            popup = popup.highlight_style(highlight_style);
-        }
-        if let Some(disabled_style) = widget.disabled_style {
-            popup = popup.disabled_style(disabled_style);
-        }
+            .style(widget.style)
+            .width_opt(widget.popup_width)
+            .block_opt(widget.popup_block.clone())
+            .focus_style_opt(widget.focus_style)
+            .highlight_style_opt(widget.highlight_style)
+            .disabled_style_opt(widget.disabled_style);
+
         structure.submenu(selected, &mut popup.menu);
 
         if !popup.menu.items.is_empty() {
@@ -382,6 +391,7 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for MenubarState {
 
 impl HandleEvent<crossterm::event::Event, Regular, MenuOutcome> for MenubarState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> MenuOutcome {
+        // todo: too spooky?
         if !self.is_focused() {
             self.set_popup_active(false);
         }

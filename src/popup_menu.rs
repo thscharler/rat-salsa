@@ -203,6 +203,13 @@ impl<'a> PopupMenu<'a> {
         self
     }
 
+    /// Fixed width for the menu.
+    /// If not set it uses 1.5 times the length of the longest item.
+    pub fn width_opt(mut self, width: Option<u16>) -> Self {
+        self.width = width;
+        self
+    }
+
     /// Set relative placement.
     pub fn constraint(mut self, placement: PopupConstraint) -> Self {
         self.popup = self.popup.constraint(placement);
@@ -258,10 +265,23 @@ impl<'a> PopupMenu<'a> {
         self
     }
 
+    /// Highlight style.
+    pub fn highlight_style_opt(mut self, style: Option<Style>) -> Self {
+        self.highlight_style = style;
+        self
+    }
+
     /// Disabled item style.
     #[inline]
     pub fn disabled_style(mut self, style: Style) -> Self {
         self.disabled_style = Some(style);
+        self
+    }
+
+    /// Disabled item style.
+    #[inline]
+    pub fn disabled_style_opt(mut self, style: Option<Style>) -> Self {
+        self.disabled_style = style;
         self
     }
 
@@ -278,10 +298,27 @@ impl<'a> PopupMenu<'a> {
         self
     }
 
+    /// Focus/Selection style.
+    pub fn focus_style_opt(mut self, style: Option<Style>) -> Self {
+        self.focus_style = style;
+        self
+    }
+
     /// Block for borders.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.popup = self.popup.block(block);
         self
+    }
+
+    /// Block for borders.
+    pub fn block_opt(mut self, block: Option<Block<'a>>) -> Self {
+        self.popup = self.popup.block_opt(block);
+        self
+    }
+
+    /// Get the padding the block imposes as a Size.
+    pub fn get_block_size(&self) -> Size {
+        self.popup.get_block_size()
     }
 }
 
@@ -311,7 +348,7 @@ impl<'a> StatefulWidgetRef for PopupMenu<'a> {
 impl<'a> StatefulWidget for PopupMenu<'a> {
     type State = PopupMenuState;
 
-    fn render(mut self, mut area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(mut self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if !state.is_active() {
             state.clear_areas();
             return;
@@ -321,8 +358,7 @@ impl<'a> StatefulWidget for PopupMenu<'a> {
         state.disabled = self.menu.items.iter().map(|v| v.disabled).collect();
 
         let size = self.size();
-        area.width = size.width;
-        area.height = size.height;
+        let area = Rect::new(0, 0, size.width, size.height);
 
         mem::take(&mut self.popup).render(area, buf, &mut state.popup);
         self.layout(state.popup.area, state.popup.widget_area, state);
@@ -577,10 +613,7 @@ impl PopupMenuState {
 impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> MenuOutcome {
         let r0 = match self.popup.handle(event, Popup) {
-            PopupOutcome::Hide => {
-                self.set_active(false);
-                MenuOutcome::Changed
-            }
+            PopupOutcome::Hide => MenuOutcome::Hide,
             r => r.into(),
         };
 
