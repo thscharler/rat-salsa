@@ -1,10 +1,11 @@
 use crate::PopupConstraint;
 use crate::_private::NonExhaustive;
 use crate::event::PopupOutcome;
+use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Popup};
 use rat_focus::{ContainerFlag, FocusContainer};
-use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;
@@ -44,6 +45,15 @@ pub struct PopupCore<'a> {
     block: Option<Block<'a>>,
     h_scroll: Option<Scroll<'a>>,
     v_scroll: Option<Scroll<'a>>,
+}
+
+#[derive(Debug, Clone)]
+pub struct PopupStyle {
+    pub style: Style,
+    pub offset: Option<(i16, i16)>,
+    pub block: Option<Block<'static>>,
+    pub scroll: Option<ScrollStyle>,
+    pub non_exhaustive: NonExhaustive,
 }
 
 #[derive(Debug, Clone)]
@@ -155,6 +165,26 @@ impl<'a> PopupCore<'a> {
         self
     }
 
+    /// Set styles
+    pub fn styles(mut self, styles: PopupStyle) -> Self {
+        self.style = styles.style;
+        if let Some(offset) = styles.offset {
+            self.offset = offset;
+        }
+        if let Some(block) = styles.block {
+            self.block = Some(block);
+        }
+        if let Some(styles) = styles.scroll {
+            if let Some(h_scroll) = self.h_scroll {
+                self.h_scroll = Some(h_scroll.styles(styles.clone()));
+            }
+            if let Some(v_scroll) = self.v_scroll {
+                self.v_scroll = Some(v_scroll.styles(styles));
+            }
+        }
+        self
+    }
+
     /// Base style for the popup.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
@@ -250,7 +280,9 @@ impl<'a> StatefulWidget for PopupCore<'a> {
             state.clear_areas();
             return;
         }
+        debug!("popu {:?}", area);
         self.layout(area, self.boundary_area.unwrap_or(buf.area), state);
+        debug!("popu {:?}", state.area);
 
         clear_area(state.area, self.style, buf);
 
@@ -457,6 +489,18 @@ impl<'a> PopupCore<'a> {
         }
 
         state.area = area;
+    }
+}
+
+impl Default for PopupStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            offset: None,
+            block: None,
+            scroll: None,
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 
