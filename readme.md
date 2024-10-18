@@ -8,6 +8,8 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-popup GitHub][refGitHubPopup]
 
+* [Changes](https://github.com/thscharler/rat-popup/blob/master/changes.md)
+
 # Rat-Popup
 
 This is not a full widget, rather it supports popup widgets.

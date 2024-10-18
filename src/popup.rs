@@ -1,7 +1,6 @@
 use crate::PopupConstraint;
 use crate::_private::NonExhaustive;
 use crate::event::PopupOutcome;
-use log::debug;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Popup};
 use rat_focus::{ContainerFlag, FocusContainer};
@@ -47,12 +46,19 @@ pub struct PopupCore<'a> {
     v_scroll: Option<Scroll<'a>>,
 }
 
+/// Complete styles for the popup.
 #[derive(Debug, Clone)]
 pub struct PopupStyle {
+    /// Baseline style.
     pub style: Style,
+    /// Extra offset added after applying the constraints.
     pub offset: Option<(i16, i16)>,
+    /// Block for the popup.
     pub block: Option<Block<'static>>,
+    /// Style for scroll bars.
     pub scroll: Option<ScrollStyle>,
+
+    /// non-exhaustive struct.
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -61,15 +67,17 @@ pub struct PopupCoreState {
     /// Area for the widget.
     /// This is the area given to render(), corrected by the
     /// given constraints.
-    ///
     /// __read only__. renewed for each render.
     pub area: Rect,
-    ///
+    /// Area where the widget can render it's content.
+    /// __read only__. renewed for each render.
     pub widget_area: Rect,
 
-    ///
+    /// Horizontal scroll state if active.
+    /// __read+write__
     pub h_scroll: ScrollState,
-    ///
+    /// Vertical scroll state if active.
+    /// __read+write__
     pub v_scroll: ScrollState,
 
     /// Active flag for the popup.
@@ -83,11 +91,14 @@ pub struct PopupCoreState {
     ///
     /// __See__
     /// See the examples how to use for both cases.
+    /// __read+write__
     pub active: ContainerFlag,
 
     /// Mouse flags.
+    /// __read+write__
     pub mouse: MouseFlags,
 
+    /// non-exhaustive struct.
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -280,9 +291,7 @@ impl<'a> StatefulWidget for PopupCore<'a> {
             state.clear_areas();
             return;
         }
-        debug!("popu {:?}", area);
         self.layout(area, self.boundary_area.unwrap_or(buf.area), state);
-        debug!("popu {:?}", state.area);
 
         clear_area(state.area, self.style, buf);
 
