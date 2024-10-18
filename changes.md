@@ -1,6 +1,15 @@
+# 0.28.0
+
+* break: change name in xxxStyle
+
+* feature: Choice widget started, wip.
+
+* fix: changes in rat-popup
+* fix: bigger close area for tabs
+
 # 0.27.0
 
-final renames in rat-focus.
+* break: final renames in rat-focus.
 
 * add widgets SinglePager and DualPager.
 

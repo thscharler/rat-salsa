@@ -1,6 +1,5 @@
 use rat_ftable::TableStyle;
 use rat_menu::MenuStyle;
-use rat_popup::PopupStyle;
 use rat_scrolled::ScrollStyle;
 use rat_text::text_input::TextInputStyle;
 use rat_widget::button::ButtonStyle;
@@ -253,10 +252,7 @@ impl Scheme {
             right: Some(Style::default().fg(self.bluegreen[0])),
             disabled: Some(Style::default().fg(self.gray[0])),
             highlight: Some(Style::default().underlined()),
-            popup: Some(PopupStyle {
-                block: Some(Block::bordered().border_type(BorderType::Double)),
-                ..Default::default()
-            }),
+            popup_block: Some(Block::bordered().border_type(BorderType::Double)),
             ..Default::default()
         }
     }

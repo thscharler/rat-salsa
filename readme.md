@@ -8,6 +8,8 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-widget GitHub][refGitHubWidget]
 
+* [Changes](https://github.com/thscharler/rat-widget/blob/master/changes.md)
+
 # Rat Widgets
 
 This crate tries to provide an extended set of widgets with

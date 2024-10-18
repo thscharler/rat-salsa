@@ -1,6 +1,11 @@
+//!
+//! Simple choice widget.
+//!
+//! Status: ALPHA/UNSTABLE
+//!
+
 use crate::_private::NonExhaustive;
 use crate::util::{block_size, revert_style};
-use crossterm::event::Event;
 use log::debug;
 use rat_event::{ct_event, HandleEvent, Outcome, Popup, Regular};
 use rat_focus::{FocusFlag, HasFocus, ZRect};
@@ -18,6 +23,10 @@ use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::rc::Rc;
 
+/// Choice widget.
+///
+/// Select one of a list. No editable mode for this one.
+///
 #[derive(Debug, Clone)]
 pub struct Choice<'a> {
     items: Rc<RefCell<Vec<Cow<'a, str>>>>,
@@ -36,6 +45,7 @@ pub struct Choice<'a> {
     popup_len: Option<u16>,
 }
 
+/// Renders the main widget.
 #[derive(Debug)]
 pub struct RenderChoice<'a> {
     items: Rc<RefCell<Vec<Cow<'a, str>>>>,
@@ -46,6 +56,7 @@ pub struct RenderChoice<'a> {
     block: Option<Block<'a>>,
 }
 
+/// Renders the popup.
 #[derive(Debug)]
 pub struct RenderChoicePopup<'a> {
     items: Rc<RefCell<Vec<Cow<'a, str>>>>,
@@ -60,6 +71,9 @@ pub struct RenderChoicePopup<'a> {
     len: Option<u16>,
 }
 
+// todo: style
+
+/// State.
 #[derive(Debug, Clone)]
 pub struct ChoiceState {
     /// Total area.
@@ -80,6 +94,7 @@ pub struct ChoiceState {
     /// Popup state
     pub popup: PopupCoreState,
 
+    /// Focus flag.
     pub focus: FocusFlag,
 
     pub non_exhaustive: NonExhaustive,
@@ -109,62 +124,81 @@ impl<'a> Choice<'a> {
         Self::default()
     }
 
+    /// Add an item.
     pub fn item(self, item: impl Into<Cow<'a, str>>) -> Self {
         self.items.borrow_mut().push(item.into());
         self
     }
 
+    /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
     }
 
+    /// Style for the down button.
     pub fn button_style(mut self, style: Style) -> Self {
         self.button_style = Some(style);
         self
     }
 
+    /// Selection in the list.
     pub fn select_style(mut self, style: Style) -> Self {
         self.select_style = Some(style);
         self
     }
 
+    /// Focused style.
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
         self
     }
 
+    /// Block for the main widget.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
     }
 
+    /// Placement of the popup.
+    ///
+    /// __Default__
+    /// Default is BelowOrAbove.
     pub fn popup_placement(mut self, placement: Placement) -> Self {
         self.popup_placement = placement;
         self
     }
 
+    /// Outer boundary for the popup.
     pub fn popup_boundary(mut self, boundary: Rect) -> Self {
         self.popup_boundary = Some(boundary);
         self
     }
 
+    /// Override the popup length.
+    ///
+    /// __Default__
+    /// Defaults to the number of items or 5.
     pub fn popup_len(mut self, len: u16) -> Self {
         self.popup_len = Some(len);
         self
     }
 
+    /// Base style for the popup.
     pub fn popup_style(mut self, style: Style) -> Self {
         self.popup_style = Some(style);
         self
     }
 
+    /// Block for the popup.
     pub fn popup_block(mut self, block: Block<'a>) -> Self {
         self.popup_block = Some(block);
         self
     }
 
-    /// Create the widgets for the Choice.
+    /// Choice itself doesn't render.
+    ///
+    /// This builds the widgets from the parameters set for Choice.
     pub fn into_widgets(self) -> (RenderChoice<'a>, RenderChoicePopup<'a>) {
         (
             RenderChoice {
@@ -211,17 +245,18 @@ impl<'a> StatefulWidget for RenderChoice<'a> {
         buf.set_style(area, self.style);
         self.block.render(area, buf);
 
+        if state.is_focused() {
+            buf.set_style(state.item_area, focus_style);
+        } else {
+            buf.set_style(state.item_area, self.style);
+        }
         if let Some(selected) = state.selected {
             if let Some(item) = self.items.borrow().get(selected) {
                 Span::from(item.as_ref()).render(state.item_area, buf);
             }
         }
 
-        if state.is_focused() {
-            buf.set_style(state.button_area, focus_style);
-        } else {
-            buf.set_style(state.button_area, button_style);
-        }
+        buf.set_style(state.button_area, button_style);
         let dy = state.button_area.height / 2;
         Span::from(" ▼ ").render(
             Rect::new(state.button_area.x, state.button_area.y + dy, 3, 1),
@@ -337,10 +372,12 @@ impl ChoiceState {
             ..Default::default()
         }
     }
+
+    // todo:
 }
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ChoiceState {
-    fn handle(&mut self, event: &Event, qualifier: Regular) -> Outcome {
+    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
         let r0 = if self.lost_focus() {
             self.popup.set_active(false);
             Outcome::Changed
@@ -358,6 +395,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ChoiceState {
 
         let r2 = if self.is_focused() {
             match event {
+                // todo:
                 ct_event!(key press ' ') => {
                     debug!("flip!");
                     self.popup.flip_active();

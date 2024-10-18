@@ -4,10 +4,8 @@ use rat_event::{try_flow, Outcome};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menubar::{Menubar, MenubarState};
 use rat_menu::{menubar, StaticMenu};
-use rat_popup::Placement;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, BorderType, StatefulWidget};
+use ratatui::widgets::StatefulWidget;
 use ratatui::Frame;
 
 mod mini_salsa;

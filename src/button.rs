@@ -77,11 +77,11 @@ impl<'a> Button<'a> {
     #[inline]
     pub fn styles(mut self, styles: ButtonStyle) -> Self {
         self.style = styles.style;
-        if let Some(style) = styles.focus {
-            self.focus_style = Some(style);
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
         }
-        if let Some(style) = styles.armed {
-            self.armed_style = Some(style);
+        if styles.armed.is_some() {
+            self.armed_style = styles.armed;
         }
         if let Some(block) = styles.block {
             self.block = Some(block);
