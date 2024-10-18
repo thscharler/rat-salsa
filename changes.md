@@ -1,3 +1,7 @@
+# 0.25.1
+
+* docs
+
 # 0.25
 
 Sync version for beta.
