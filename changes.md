@@ -1,6 +1,10 @@
+# 0.27.0
+
+break: rename fields in TableStyle
+
 # 0.26.0
 
-final renames in rat-focus.
+break: final renames in rat-focus.
 
 # 0.25.1
 

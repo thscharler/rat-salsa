@@ -8,6 +8,8 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-ftable GitHub][refGitHubFTable].
 
+* [Changes](https://github.com/thscharler/rat-ftable/blob/master/changes.md)
+
 # Table widget for ratatui
 
 Can be used as a drop-in replacement for the ratatui table. But
