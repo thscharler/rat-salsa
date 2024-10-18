@@ -15,7 +15,6 @@ use crate::theme::TurboTheme;
 use anyhow::Error;
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::scheme::BASE16;
-use std::time::SystemTime;
 
 type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, TurboMsg, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;

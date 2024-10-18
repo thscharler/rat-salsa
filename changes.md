@@ -1,10 +1,17 @@
+# 0.27.0
+
+* break: Make Control non_exhaustive.
+
+* feature: Change the sleep strategy. Longer idle sleeps and separate
+  and faster backoff after changing to fast sleeps.
+
 # 0.26.0
 
-final renames in rat-focus.
+* break: final renames in rat-focus.
 
 # 0.25.6
 
-* update some docs.
+* fix: update some docs.
 
 # 0.25.5
 

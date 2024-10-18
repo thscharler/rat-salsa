@@ -17,6 +17,10 @@ rat-salsa provides
     - [AppWidget]
     - [AppState]
 
+## Changes
+
+[Changes](https://github.com/thscharler/rat-salsa/blob/master/changes.md)
+
 ## Book
 
 For a start you can have a look at the [book][refRSBook].
