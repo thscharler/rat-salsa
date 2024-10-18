@@ -1,3 +1,7 @@
+# 0.27.1
+
+* docs: small fixes
+
 # 0.27.0
 
 * break: Make Control non_exhaustive.

@@ -35,7 +35,7 @@ For a start you can have a look at the [book][refRSBook].
 
     * [rat-event](https://docs.rs/rat-event)
       Defines the primitives for event-handling.
-    * [rat-cursor](https:/docs.rs/rat-cursor)
+    * [rat-cursor](https://docs.rs/rat-cursor)
       Defines just one trait to propagate the required screen cursor position.
     * [rat-focus](https://docs.rs/rat-focus)
       Primitives for focus-handling.
@@ -53,15 +53,16 @@ For a start you can have a look at the [book][refRSBook].
       Menu widgets.
     * [rat-text](https://docs.rs/rat-text)
       Text/Value input widgets.
-    * [rat-window](https://docs.rs/rat-window)
-      __Stopped__ for now. Implement windows in the tui.
-      Can work with dyn StatefulWidgets too. The groundwork is done,
-      but it's missing a lot of implementation.
 
   And my 10ct on theming.
 
     * [rat-theme](https://docs.rs/rat-theme)
       Color-palettes and widget styles.
+
+* [rat-window](https://github.com/thscharler/rat-window)
+  __Stopped__ for now. Implement windows in the tui.
+  Can work with dyn StatefulWidgets too. The groundwork is done,
+  but it's missing a lot of implementation.
 
 ## Example
 
