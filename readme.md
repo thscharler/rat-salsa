@@ -56,6 +56,7 @@ Event handling uses [rat-event::HandleEvent][refRatEvent].
 Currently, crossterm events are implemented.
 
 * [Button](button/index.html)
+* [Choice](choice/index.html)
 * [Calendar](calendar/index.html)
 * [DateInput](date_input/index.html) (using chrono)
 * [EditList](list/edit/index.html)
@@ -67,6 +68,7 @@ Currently, crossterm events are implemented.
 * [MenuLine](menuline/index.html)
 * [MsgDialog](msgdialog/index.html)
 * [NumberInput](number_input/index.html) (using format_num_pattern)
+* [SinglePager and DualPager](pager/index.html)
 * [PopupMenu](popup_menu/index.html)
 * [Split](splitter/index.html)
 * [StatusLine](statusline/index.html)

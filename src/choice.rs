@@ -86,7 +86,7 @@ pub struct ChoiceState {
     pub z_areas: [ZRect; 2],
     /// First char of each item for navigation.
     /// __read only__. renewed with each render.
-    pub nav_char: Vec<Option<char>>,
+    pub nav_char: Vec<Vec<char>>,
     /// Item area in the main widget.
     /// __read only__. renewed with each render.
     pub item_area: Rect,
@@ -266,9 +266,11 @@ impl<'a> StatefulWidget for RenderChoice<'a> {
         }
 
         state.nav_char.clear();
-        state
-            .nav_char
-            .extend(self.items.borrow().iter().map(|v| v.chars().next()));
+        state.nav_char.extend(self.items.borrow().iter().map(|v| {
+            v.chars()
+                .next()
+                .map_or(Vec::default(), |c| c.to_lowercase().collect::<Vec<_>>())
+        }));
 
         let inner = self.block.inner_if_some(area);
 
@@ -298,7 +300,11 @@ impl<'a> StatefulWidget for RenderChoice<'a> {
         }
 
         buf.set_style(state.button_area, button_style);
-        let dy = state.button_area.height / 2;
+        let dy = if (state.button_area.height & 1) == 1 {
+            state.button_area.height / 2
+        } else {
+            state.button_area.height.saturating_sub(1) / 2
+        };
         Span::from(" ▼ ").render(
             Rect::new(state.button_area.x, state.button_area.y + dy, 3, 1),
             buf,
@@ -479,6 +485,34 @@ impl ChoiceState {
 }
 
 impl ChoiceState {
+    /// Select by first character.
+    pub fn select_by_char(&mut self, c: char) -> bool {
+        if self.nav_char.is_empty() {
+            return false;
+        }
+
+        let selected = self.selected.unwrap_or_default();
+
+        let c = c.to_lowercase().collect::<Vec<_>>();
+        let mut idx = selected + 1;
+        loop {
+            if idx >= self.nav_char.len() {
+                idx = 0;
+            }
+            if idx == selected {
+                break;
+            }
+
+            if self.nav_char[idx] == c {
+                self.selected = Some(idx);
+                return true;
+            }
+
+            idx += 1;
+        }
+        false
+    }
+
     /// Select at position
     pub fn move_to(&mut self, n: usize) -> bool {
         let r1 = self.select(Some(n));
@@ -523,6 +557,7 @@ impl ChoiceState {
 
 impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ChoiceState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+        // todo: here???
         let r0 = if self.lost_focus() {
             self.set_popup_active(false);
             Outcome::Changed
@@ -535,6 +570,14 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ChoiceState {
                 ct_event!(key press ' ') => {
                     self.flip_popup_active();
                     Outcome::Changed
+                }
+                ct_event!(key press c) => {
+                    if self.select_by_char(*c) {
+                        self.scroll_to_selected();
+                        Outcome::Changed
+                    } else {
+                        Outcome::Unchanged
+                    }
                 }
                 ct_event!(keycode press Enter) | ct_event!(keycode press Esc) => {
                     self.set_popup_active(false).into()
