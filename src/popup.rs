@@ -344,6 +344,9 @@ impl<'a> PopupCore<'a> {
         }
         let bottom = right;
 
+        // offsets may change
+        let mut offset = self.offset;
+
         let mut area = match self.constraint {
             PopupConstraint::None => area,
             PopupConstraint::Above(rel) | PopupConstraint::AboveLeft(rel) => Rect::new(
@@ -436,6 +439,7 @@ impl<'a> PopupCore<'a> {
                         area.height,
                     )
                 } else {
+                    offset = (offset.0, -offset.1);
                     Rect::new(
                         rel.x, //
                         rel.bottom(),
@@ -455,6 +459,7 @@ impl<'a> PopupCore<'a> {
                         area.height,
                     )
                 } else {
+                    offset = (offset.0, -offset.1);
                     Rect::new(
                         rel.x,
                         rel.y.saturating_sub(area.height),
@@ -466,8 +471,8 @@ impl<'a> PopupCore<'a> {
         };
 
         // offset
-        area.x = area.x.saturating_add_signed(self.offset.0);
-        area.y = area.y.saturating_add_signed(self.offset.1);
+        area.x = area.x.saturating_add_signed(offset.0);
+        area.y = area.y.saturating_add_signed(offset.1);
 
         // keep in sight
         if area.left() < boundary_area.left() {
@@ -549,18 +554,31 @@ impl PopupCoreState {
 
     /// Flip visibility of the popup.
     pub fn flip_active(&mut self) {
-        self.set_active(!self.active.get());
+        self.set_active(!self.is_active());
     }
 
     /// Show the popup.
-    ///
+    /// This will set gained/lost flags according to the change.
     /// If the popup is hidden this will clear all the areas.
     pub fn set_active(&mut self, active: bool) {
-        self.active.set(active);
-        if !active {
-            // reset all extra flags too.
-            self.active.clear();
-            self.clear_areas();
+        if active {
+            if !self.is_active() {
+                self.active.set(true);
+                self.active.set_gained(true);
+                self.active.set_lost(false);
+            } else {
+                self.active.set_gained(false);
+                self.active.set_lost(false);
+            }
+        } else {
+            if self.is_active() {
+                self.active.set(false);
+                self.active.set_gained(false);
+                self.active.set_lost(true);
+            } else {
+                self.active.set_gained(false);
+                self.active.set_lost(false);
+            }
         }
     }
 
