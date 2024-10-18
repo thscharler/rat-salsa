@@ -1,3 +1,7 @@
+# 0.27.1
+
+* feature: add ZRect::union_all(), ZRect::union()
+
 # 0.27.0
 
 Final renames.

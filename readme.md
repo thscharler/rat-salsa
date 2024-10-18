@@ -8,6 +8,8 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-focus GitHub][refGithubFocus].
 
+* [Changes](https://github.com/thscharler/rat-focus/blob/master/changes.md)
+
 # Focus handling for ratatui
 
 This crate works by adding a [FocusFlag](FocusFlag) to each widget'
