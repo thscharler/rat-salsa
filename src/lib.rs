@@ -4,8 +4,8 @@
 
 use crate::_private::NonExhaustive;
 use crate::menuitem::{MenuItem, Separator};
-use rat_popup::PopupStyle;
 use ratatui::prelude::Style;
+use ratatui::widgets::Block;
 use std::ops::Range;
 
 pub mod menubar;
@@ -102,7 +102,7 @@ pub struct MenuStyle {
     pub right: Option<Style>,
     pub select: Option<Style>,
     pub focus: Option<Style>,
-    pub popup: Option<PopupStyle>,
+    pub popup_block: Option<Block<'static>>,
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -116,7 +116,7 @@ impl Default for MenuStyle {
             right: None,
             select: None,
             focus: None,
-            popup: None,
+            popup_block: None,
             non_exhaustive: NonExhaustive,
         }
     }

@@ -243,21 +243,21 @@ impl<'a> PopupMenu<'a> {
 
     /// Set a style-set.
     pub fn styles(mut self, styles: MenuStyle) -> Self {
-        if let Some(styles) = styles.popup {
-            self.popup = self.popup.styles(styles);
+        if styles.popup_block.is_some() {
+            self.popup = self.popup.block_opt(styles.popup_block);
         }
         self.style = styles.style;
-        if let Some(style) = styles.highlight {
-            self.highlight_style = Some(style);
+        if styles.highlight.is_some() {
+            self.highlight_style = styles.highlight;
         }
-        if let Some(style) = styles.disabled {
-            self.disabled_style = Some(style);
+        if styles.disabled.is_some() {
+            self.disabled_style = styles.disabled;
         }
-        if let Some(style) = styles.right {
-            self.right_style = Some(style);
+        if styles.right.is_some() {
+            self.right_style = styles.right;
         }
-        if let Some(style) = styles.focus {
-            self.focus_style = Some(style);
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
         }
         self
     }

@@ -9,6 +9,8 @@ This crate is a part of [rat-salsa][refRatSalsa].
 For examples see [rat-widget GitHub][refGitHubWidget]
 (menu_status1.rs, menubar1.rs, popup_menu.rs)
 
+* [Changes](https://github.com/thscharler/rat-menu/blob/master/changes.md)
+
 # Menu widgets for ratatui
 
 * [MenuLine](crate::menuline::MenuLine)

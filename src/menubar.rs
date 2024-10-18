@@ -134,31 +134,29 @@ impl<'a> Menubar<'a> {
     #[inline]
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
-        if let Some(style) = styles.highlight {
-            self.highlight_style = Some(style);
+        if styles.highlight.is_some() {
+            self.highlight_style = styles.highlight;
         }
-        if let Some(style) = styles.disabled {
-            self.disabled_style = Some(style);
+        if styles.disabled.is_some() {
+            self.disabled_style = styles.disabled;
         }
-        if let Some(style) = styles.focus {
-            self.focus_style = Some(style);
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
         }
-        if let Some(style) = styles.title {
-            self.title_style = Some(style);
+        if styles.title.is_some() {
+            self.title_style = styles.title;
         }
-        if let Some(style) = styles.select {
-            self.select_style = Some(style);
+        if styles.select.is_some() {
+            self.select_style = styles.select;
         }
-        if let Some(style) = styles.focus {
-            self.focus_style = Some(style);
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
         }
-        if let Some(style) = styles.right {
-            self.right_style = Some(style);
+        if styles.right.is_some() {
+            self.right_style = styles.right;
         }
-        if let Some(style) = styles.popup {
-            if let Some(block) = style.block {
-                self.popup_block = Some(block);
-            }
+        if styles.popup_block.is_some() {
+            self.popup_block = styles.popup_block;
         }
 
         self
