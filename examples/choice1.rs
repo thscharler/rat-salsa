@@ -1,13 +1,14 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ConsumedEvent, HandleEvent, Regular};
+use rat_event::{ConsumedEvent, HandleEvent, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::Outcome;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::widgets::{Block, BorderType, StatefulWidget};
 use ratatui::Frame;
 use std::cmp::max;
 
@@ -24,7 +25,6 @@ fn main() -> Result<(), anyhow::Error> {
         c3: ChoiceState::named("c3"),
         menu: MenuLineState::named("menu"),
     };
-    state.c1.popup.set_active(true);
 
     run_ui(
         "choice1",
@@ -73,12 +73,23 @@ fn repaint_input(
         .item("Carrots")
         .item("Potatoes")
         .item("Onions")
+        .item("Peas")
+        .item("Beans")
+        .item("Tomatoes")
+        .item("Aubergine")
+        .item("Chili")
+        .item("...")
+        .popup_boundary(l1[0])
         .style(THEME.text_input())
         .focus_style(THEME.focus())
-        .button_style(THEME.gray(0))
+        // .button_style(THEME.gray(0))
         .popup_style(THEME.gray(3))
-        .popup_boundary(l1[0])
         .popup_block(Block::bordered())
+        .popup_scroll(
+            Scroll::new()
+                .styles(THEME.scrolled_style())
+                .policy(ScrollbarPolicy::Collapse),
+        )
         .into_widgets();
     w.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
@@ -88,7 +99,7 @@ fn repaint_input(
         .item("water")
         .style(THEME.text_input())
         .focus_style(THEME.focus())
-        .button_style(THEME.gray(0))
+        // .button_style(THEME.gray(0))
         .popup_style(THEME.gray(3))
         .popup_boundary(l1[0])
         .popup_block(Block::bordered())
@@ -101,8 +112,9 @@ fn repaint_input(
         .item("green")
         .style(THEME.text_input())
         .focus_style(THEME.focus())
-        .button_style(THEME.gray(0))
+        // .button_style(THEME.gray(0))
         .popup_style(THEME.gray(3))
+        .block(Block::bordered().border_type(BorderType::Rounded))
         .popup_boundary(l1[0])
         .popup_block(Block::bordered())
         .into_widgets();
@@ -141,7 +153,13 @@ fn handle_input(
     let mut focus = focus(state);
     let f = focus.handle(event, Regular);
 
-    let r = state.c1.handle(event, Regular);
+    // popup handling first
+    let r = state.c1.handle(event, Popup);
+    let r = r.or_else(|| state.c2.handle(event, Popup));
+    let r = r.or_else(|| state.c3.handle(event, Popup));
+
+    // regular later...
+    let r = r.or_else(|| state.c1.handle(event, Regular));
     let r = r.or_else(|| state.c2.handle(event, Regular));
     let r = r.or_else(|| state.c3.handle(event, Regular));
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
