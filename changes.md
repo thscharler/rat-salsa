@@ -1,10 +1,14 @@
+# 0.27.0
+
+* break: names in xxStyle changed
+
 # 0.26.0
 
-final renames in rat-focus.
+break: final renames in rat-focus.
 
 # 0.25.1
 
-update dependencies
+fix: update dependencies
 
 # 0.25.0
 

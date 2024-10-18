@@ -9,6 +9,8 @@ This crate is a part of [rat-salsa][refRatSalsa].
 For examples see [rat-text GitHub][refGitHubText] or an extended example `mdedit.rs` in
 [rat-salsa GitHub][refGitHubSalsa].
 
+* [Changes](https://github.com/thscharler/rat-text/blob/master/changes.md)
+
 # Text widgets for ratatui
 
 Features for all widgets:
