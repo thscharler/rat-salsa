@@ -8,6 +8,8 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-scrolled GitHub][refGitHubScrolled]
 
+* [Changes](https://github.com/thscharler/rat-scrolled/blob/master/changes.md)
+
 # Scroll
 
 [Scroll](Scroll) adds support for widgets that want to scroll their
