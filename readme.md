@@ -6,6 +6,8 @@
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
+* [Changes](https://github.com/thscharler/rat-cursor/blob/master/changes.md)
+
 # Rat-Cursor
 
 ## Why?
