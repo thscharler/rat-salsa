@@ -1,6 +1,10 @@
+# 0.26.1
+
+* fix: name changes in styles.
+
 # 0.26.0
 
-final renames in rat-focus.
+* break: final renames in rat-focus.
 
 # 0.25.1
 

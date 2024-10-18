@@ -8,7 +8,6 @@ use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
-use rat_widget::popup::PopupStyle;
 use rat_widget::scrolled::ScrollStyle;
 use rat_widget::splitter::SplitStyle;
 use rat_widget::tabbed::TabbedStyle;
@@ -16,7 +15,7 @@ use rat_widget::table::TableStyle;
 use rat_widget::text_input::TextInputStyle;
 use rat_widget::textarea::TextAreaStyle;
 use ratatui::prelude::{Style, Stylize};
-use ratatui::widgets::{Block, BorderType};
+use ratatui::widgets::Block;
 
 /// One sample theme which prefers dark colors from the color-scheme
 /// and generates styles for widgets.
@@ -240,10 +239,7 @@ impl DarkTheme {
             right: Some(Style::default().fg(self.s.bluegreen[0])),
             disabled: Some(Style::default().fg(self.s.gray[0])),
             highlight: Some(Style::default().underlined()),
-            popup: Some(PopupStyle {
-                block: Some(Block::bordered()),
-                ..Default::default()
-            }),
+            popup_block: Some(Block::bordered()),
             ..Default::default()
         }
     }

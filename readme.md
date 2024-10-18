@@ -6,6 +6,8 @@
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
+* [Changes](https://github.com/thscharler/rat-theme/blob/master/changes.md)
+
 # Theming support for rat-salsa
 
 This splits themes in two parts,
@@ -21,7 +23,7 @@ This splits themes in two parts,
 
   > In the end I think this will be just some building blocks for
   > an application defined theme. I think most applications will need
-  > more semantics than just 'some table', 'some list'. 
+  > more semantics than just 'some table', 'some list'.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
