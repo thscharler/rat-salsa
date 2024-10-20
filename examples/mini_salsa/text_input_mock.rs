@@ -47,7 +47,7 @@ impl<'a> StatefulWidget for TextInputMock<'a> {
             buf.set_style(area, self.style);
         }
         for y in area.top()..area.bottom() {
-            for x in area.top()..area.bottom() {
+            for x in area.left()..area.right() {
                 if let Some(cell) = buf.cell_mut((x, y)) {
                     cell.set_symbol(" ");
                 }

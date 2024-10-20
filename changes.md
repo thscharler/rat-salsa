@@ -1,3 +1,7 @@
+# 0.28.2
+
+* feature/fix: some api refinement with SinglePager and DualPager.
+
 # 0.28.1
 
 * feature: Choice widget looks quite complete now.

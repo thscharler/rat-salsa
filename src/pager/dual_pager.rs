@@ -21,6 +21,7 @@ pub struct DualPager<'a> {
     layout: PageLayout,
     style: Style,
     nav_style: Option<Style>,
+    divider_style: Option<Style>,
     title_style: Option<Style>,
     block: Option<Block<'a>>,
 }
@@ -33,6 +34,7 @@ pub struct DualPagerRender {
     page: usize,
     layout: PageLayout,
     style: Style,
+    divider_style: Option<Style>,
     nav_style: Option<Style>,
 }
 
@@ -42,8 +44,13 @@ pub struct DualPagerState {
     /// __read only__ renewed with each render.
     pub area: Rect,
     /// Area for widgets to render.
-    // __read only__ renewed with each render.
+    /// __read only__ renewed with each render.
     pub widget_area1: Rect,
+    /// Divider area.
+    /// __read only__ renewed with each render.
+    pub divider_area: Rect,
+    /// Area for widgets to render.
+    /// __read only__ renewed with each render.
     pub widget_area2: Rect,
     /// Title area except the page indicators.
     /// __read only__ renewed with each render
@@ -90,6 +97,9 @@ impl<'a> DualPager<'a> {
         if let Some(nav) = styles.nav {
             self.nav_style = Some(nav);
         }
+        if let Some(divider) = styles.divider {
+            self.divider_style = Some(divider);
+        }
         if let Some(title) = styles.title {
             self.title_style = Some(title);
         }
@@ -111,6 +121,12 @@ impl<'a> DualPager<'a> {
         self
     }
 
+    /// Style for the divider.
+    pub fn divider_style(mut self, divider_style: Style) -> Self {
+        self.divider_style = Some(divider_style);
+        self
+    }
+
     /// Style for the title.
     pub fn title_style(mut self, title_style: Style) -> Self {
         self.title_style = Some(title_style);
@@ -123,6 +139,22 @@ impl<'a> DualPager<'a> {
         self
     }
 
+    /// Returns the available width.
+    pub fn get_width(&self, area: Rect) -> u16 {
+        let inner = if let Some(block) = &self.block {
+            block.inner(area)
+        } else {
+            Rect::new(
+                area.x,
+                area.y + 1,
+                area.width,
+                area.height.saturating_sub(1),
+            )
+        };
+
+        inner.width.saturating_sub(1) / 2
+    }
+
     /// Run the layout and create the final Pager widget.
     pub fn into_widget(
         self,
@@ -131,6 +163,38 @@ impl<'a> DualPager<'a> {
         state: &mut DualPagerState,
     ) -> DualPagerRender {
         state.area = area;
+
+        let inner = if let Some(block) = &self.block {
+            block.inner(area)
+        } else {
+            Rect::new(
+                area.x,
+                area.y + 1,
+                area.width,
+                area.height.saturating_sub(1),
+            )
+        };
+
+        let p1 = 5;
+        let p4 = inner.width - p1;
+        state.prev_area = Rect::new(inner.x, area.y, p1, 1);
+        state.next_area = Rect::new(inner.x + p4, area.y, p1, 1);
+        state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
+
+        let p1 = inner.width.saturating_sub(1) / 2;
+        let p2 = inner.width.saturating_sub(1).saturating_sub(p1);
+        state.widget_area1 = Rect::new(inner.x, inner.y, p1, inner.height);
+        state.divider_area = Rect::new(inner.x + p1, inner.y, 1, inner.height);
+        state.widget_area2 = Rect::new(inner.x + p1 + 1, inner.y, p2, inner.height);
+
+        // run page layout
+        state.layout = self.layout;
+        state.layout.layout(state.widget_area1);
+        // clip page nr
+        state.set_page(state.page);
+
+        // render
+        buf.set_style(area, self.style);
 
         let title = format!(" {}/{} ", state.page + 1, state.layout.len());
         let block = self
@@ -143,38 +207,16 @@ impl<'a> DualPager<'a> {
         } else {
             block
         };
-
-        let inner = block.inner(area);
-
-        let p1 = 5;
-        let p4 = inner.width - p1;
-        state.prev_area = Rect::new(inner.x, area.y, p1, 1);
-        state.next_area = Rect::new(inner.x + p4, area.y, p1, 1);
-        state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
-
-        let p1 = inner.width.saturating_sub(1) / 2;
-        let p2 = inner.width.saturating_sub(1).saturating_sub(p1);
-        state.widget_area1 = Rect::new(inner.x, inner.y, p1, inner.height);
-        let divider_area = Rect::new(inner.x + p1, inner.y, 1, inner.height);
-        state.widget_area2 = Rect::new(inner.x + p1 + 1, inner.y, p2, inner.height);
-
-        // run page layout
-        state.layout = self.layout;
-        state.layout.layout(state.widget_area1);
-        // clip pages
-        state.set_page(state.page);
-
-        // render
-        buf.set_style(area, self.style);
         block.render(area, buf);
 
         DualPagerRender {
             inner1: state.widget_area1,
-            divider: divider_area,
+            divider: state.divider_area,
             inner2: state.widget_area2,
             page: state.page,
             layout: state.layout.clone(),
             style: self.style,
+            divider_style: self.divider_style,
             nav_style: self.nav_style,
         }
     }
@@ -223,12 +265,19 @@ impl StatefulWidget for DualPagerRender {
         assert_eq!(area, state.area);
 
         // divider
+        let divider_style = self.divider_style.unwrap_or(self.style);
+        if let Some(cell) = buf.cell_mut((self.divider.x, area.top())) {
+            cell.set_style(divider_style);
+            cell.set_symbol("\u{239E}");
+        }
         for y in self.divider.top()..area.bottom().saturating_sub(1) {
             if let Some(cell) = buf.cell_mut((self.divider.x, y)) {
+                cell.set_style(divider_style);
                 cell.set_symbol("\u{239C}");
             }
         }
         if let Some(cell) = buf.cell_mut((self.divider.x, area.bottom().saturating_sub(1))) {
+            cell.set_style(divider_style);
             cell.set_symbol("\u{239D}");
         }
 
@@ -262,6 +311,7 @@ impl Default for DualPagerState {
         Self {
             area: Default::default(),
             widget_area1: Default::default(),
+            divider_area: Default::default(),
             widget_area2: Default::default(),
             scroll_area: Default::default(),
             prev_area: Default::default(),

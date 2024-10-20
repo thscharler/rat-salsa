@@ -94,14 +94,15 @@ fn repaint_input(
         .layout(pl)
         .nav_style(Style::new().fg(THEME.orange[2]))
         .style(THEME.gray(0))
-        .block(Block::bordered())
+        // .block(Block::bordered())
         .into_widget(l2[1], frame.buffer_mut(), &mut state.pager);
 
     // render the input fields
     for i in 0..100 {
         // map an additional ad hoc area.
-        if let Some(area) = render.relocate(Rect::new(5, 2 * i, 15, 1)) {
-            Span::from(format!("{:?}:", i)).render(area, frame.buffer_mut());
+        if let Some(area) = render.relocate(Rect::new(5, 2 * i, 5, 1)) {
+            let nr = format!("{:?}:", i);
+            Span::from(nr).render(area, frame.buffer_mut());
         }
         // map our widget area.
         if let Some(area) = render.relocate_handle(state.hundred_areas[i as usize]) {

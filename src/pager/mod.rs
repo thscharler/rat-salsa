@@ -60,6 +60,16 @@ impl PageLayout {
         Self::default()
     }
 
+    /// Is the layout still valid for the given area.
+    pub fn is_valid(&self, area: Rect) -> bool {
+        self.core.borrow().page == area
+    }
+
+    /// Is the layout still valid for the given area.
+    pub fn is_valid_width(&self, width: u16) -> bool {
+        self.core.borrow().page.width == width
+    }
+
     /// Add a rect.
     pub fn add(&mut self, area: Rect) -> AreaHandle {
         let mut core = self.core.borrow_mut();
@@ -179,7 +189,7 @@ impl PageLayout {
         let core = self.core.borrow();
 
         let brk = core.breaks[page];
-        core.areas.iter().skip(1).find(|v| v.y >= brk).cloned()
+        core.areas.iter().find(|v| v.y >= brk).cloned()
     }
 
     /// First area-handle on the given page.
@@ -187,7 +197,7 @@ impl PageLayout {
         let core = self.core.borrow();
 
         let brk = core.breaks[page];
-        core.areas.iter().enumerate().skip(1).find_map(|(i, v)| {
+        core.areas.iter().enumerate().find_map(|(i, v)| {
             if v.y >= brk {
                 Some(AreaHandle(i))
             } else {
@@ -233,6 +243,7 @@ impl PageLayoutCore {
 pub struct PagerStyle {
     pub style: Style,
     pub nav: Option<Style>,
+    pub divider: Option<Style>,
     pub title: Option<Style>,
     pub block: Option<Block<'static>>,
     pub non_exhaustive: NonExhaustive,
@@ -243,6 +254,7 @@ impl Default for PagerStyle {
         Self {
             style: Default::default(),
             nav: None,
+            divider: None,
             title: None,
             block: None,
             non_exhaustive: NonExhaustive,

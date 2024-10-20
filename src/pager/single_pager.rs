@@ -120,6 +120,22 @@ impl<'a> SinglePager<'a> {
         self
     }
 
+    /// Returns the available width.
+    pub fn get_width(&self, area: Rect) -> u16 {
+        let inner = if let Some(block) = &self.block {
+            block.inner(area)
+        } else {
+            Rect::new(
+                area.x,
+                area.y + 1,
+                area.width,
+                area.height.saturating_sub(1),
+            )
+        };
+
+        inner.width
+    }
+
     /// Run the layout and create the final Pager widget.
     pub fn into_widget(
         self,
@@ -129,19 +145,16 @@ impl<'a> SinglePager<'a> {
     ) -> SinglePagerRender {
         state.area = area;
 
-        let title = format!(" {}/{} ", state.page + 1, state.layout.len());
-        let block = self
-            .block
-            .unwrap_or_else(|| Block::new().borders(Borders::TOP))
-            .title_bottom(title)
-            .title_alignment(Alignment::Right);
-        let block = if let Some(title_style) = self.title_style {
-            block.title_style(title_style)
+        let inner = if let Some(block) = &self.block {
+            block.inner(area)
         } else {
-            block
+            Rect::new(
+                area.x,
+                area.y + 1,
+                area.width,
+                area.height.saturating_sub(1),
+            )
         };
-
-        let inner = block.inner(area);
 
         let p1 = 5;
         let p4 = inner.width - p1;
@@ -154,11 +167,23 @@ impl<'a> SinglePager<'a> {
         // run page layout
         state.layout = self.layout;
         state.layout.layout(state.widget_area);
-        // clip pages
+        // clip page nr
         state.set_page(state.page);
 
         // render
         buf.set_style(area, self.style);
+
+        let title = format!(" {}/{} ", state.page + 1, state.layout.len());
+        let block = self
+            .block
+            .unwrap_or_else(|| Block::new().borders(Borders::TOP))
+            .title_bottom(title)
+            .title_alignment(Alignment::Right);
+        let block = if let Some(title_style) = self.title_style {
+            block.title_style(title_style)
+        } else {
+            block
+        };
         block.render(area, buf);
 
         SinglePagerRender {

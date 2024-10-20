@@ -3,6 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use log::debug;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -10,10 +11,10 @@ use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::pager::{AreaHandle, DualPager, DualPagerState, PageLayout};
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
@@ -26,7 +27,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        layout: None,
+        layout: Default::default(),
         pager: DualPagerState::default(),
         hundred: array::from_fn(|_| Default::default()),
         hundred_areas: [Default::default(); 100],
@@ -41,7 +42,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    layout: Option<PageLayout>,
+    layout: PageLayout,
     pager: DualPagerState,
 
     hundred: [TextInputMockState; 100],
@@ -76,35 +77,61 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
-    let pl = state.layout.clone().unwrap_or_else(|| {
-        // only need to init this once, the inner layout is fixed.
-        let mut pl = PageLayout::new();
-        for i in 0..100 {
-            let area = Rect::new(10, 2 * i as u16, 15, 1);
-            state.hundred_areas[i] = pl.add(area);
-            if i == 17 {
-                pl.break_after(2 * i as u16 + 1);
-            }
-        }
-        state.layout = Some(pl.clone());
-        pl
-    });
-
-    let render = DualPager::new()
-        .layout(pl)
+    let pager = DualPager::new()
         .nav_style(Style::new().fg(THEME.orange[2]))
         .style(THEME.gray(0))
-        .block(Block::bordered())
-        .into_widget(l2[1], frame.buffer_mut(), &mut state.pager);
+        .divider_style(Style::new().bg(THEME.gray[0]).fg(THEME.gray[2]))
+        .block(
+            Block::new()
+                .border_type(BorderType::Plain)
+                .borders(Borders::TOP)
+                .padding(Padding::new(1, 1, 0, 1)),
+        );
+
+    // maybe rebuild our layout
+    let width = pager.get_width(l2[1]);
+    let lpage = Layout::horizontal([
+        Constraint::Min(4), //
+        Constraint::Length(15),
+        Constraint::Fill(1),
+    ])
+    .split(Rect::new(0, 0, width, 1));
+
+    if !state.layout.is_valid_width(width) {
+        let mut pl = PageLayout::new();
+        let mut row = 0;
+        for i in 0..100 {
+            let mut area = Rect::new(lpage[1].x, row, lpage[1].width, 1);
+            if i % 9 == 0 {
+                area.height = 2;
+            }
+            state.hundred_areas[i] = pl.add(area);
+            if i == 17 {
+                pl.break_after(row + 1);
+            }
+            row += area.height + 1;
+        }
+        state.layout = pl;
+    }
+
+    // set current layout and prepare rendering.
+    let render =
+        pager
+            .layout(state.layout.clone())
+            .into_widget(l2[1], frame.buffer_mut(), &mut state.pager);
 
     // render the input fields
     for i in 0..100 {
-        // map an additional ad hoc area.
-        if let Some(area) = render.relocate(Rect::new(5, 2 * i, 15, 1)) {
-            Span::from(format!("{:?}:", i)).render(area, frame.buffer_mut());
-        }
         // map our widget area.
         if let Some(area) = render.relocate_handle(state.hundred_areas[i as usize]) {
+            let label_area = Rect::new(
+                area.x.saturating_sub(5), //
+                area.y,
+                lpage[0].width,
+                1,
+            );
+            Span::from(format!("{:?}:", i)).render(label_area, frame.buffer_mut());
+
             TextInputMock::default()
                 .style(THEME.limegreen(0))
                 .focus_style(THEME.limegreen(2))
