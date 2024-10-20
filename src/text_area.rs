@@ -27,7 +27,6 @@ use ratatui::widgets::{Block, StatefulWidget};
 use ropey::Rope;
 use std::borrow::Cow;
 use std::cmp::{max, min};
-use std::mem;
 use std::ops::Range;
 
 /// Text area widget.
@@ -243,49 +242,32 @@ impl<'a> StatefulWidgetRef for TextArea<'a> {
     type State = TextAreaState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let scroll = ScrollArea::new()
-            .block(self.block.clone())
-            .h_scroll(self.hscroll.clone())
-            .v_scroll(self.vscroll.clone());
-
-        render_ref(self, scroll, area, buf, state);
+        render_text_area(self, area, buf, state);
     }
 }
 
 impl<'a> StatefulWidget for TextArea<'a> {
     type State = TextAreaState;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let block = mem::take(&mut self.block);
-        let h_scroll = mem::take(&mut self.hscroll);
-        let v_scroll = mem::take(&mut self.vscroll);
-
-        let scroll = ScrollArea::new()
-            .block(block)
-            .h_scroll(h_scroll)
-            .v_scroll(v_scroll);
-
-        render_ref(&self, scroll, area, buf, state);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_text_area(&self, area, buf, state);
     }
 }
 
-fn render_ref(
+fn render_text_area(
     widget: &TextArea<'_>,
-    scroll: ScrollArea<'_>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut TextAreaState,
 ) {
     state.area = area;
 
-    state.inner = scroll.inner(
-        area,
-        ScrollAreaState {
-            area,
-            h_scroll: Some(&mut state.hscroll),
-            v_scroll: Some(&mut state.vscroll),
-        },
-    );
+    let sa = ScrollArea::new()
+        .block(widget.block.as_ref())
+        .h_scroll(widget.hscroll.as_ref())
+        .v_scroll(widget.vscroll.as_ref());
+    state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
+
     if let Some(h_max_offset) = widget.h_max_offset {
         state.hscroll.set_max_offset(h_max_offset);
     }
@@ -324,14 +306,12 @@ fn render_ref(
         }
     }
 
-    scroll.render(
+    sa.render(
         area,
         buf,
-        &mut ScrollAreaState {
-            area,
-            h_scroll: Some(&mut state.hscroll),
-            v_scroll: Some(&mut state.vscroll),
-        },
+        &mut ScrollAreaState::new()
+            .h_scroll(&mut state.hscroll)
+            .v_scroll(&mut state.vscroll),
     );
 
     if state.vscroll.offset() > state.value.len_lines() as usize {
@@ -2146,11 +2126,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextAreaSt
             _ => TextOutcome::Continue,
         });
 
-        let mut sas = ScrollAreaState {
-            area: self.inner,
-            h_scroll: Some(&mut self.hscroll),
-            v_scroll: Some(&mut self.vscroll),
-        };
+        let mut sas = ScrollAreaState::new()
+            .area(self.inner)
+            .h_scroll(&mut self.hscroll)
+            .v_scroll(&mut self.vscroll);
         let r = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),
