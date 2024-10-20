@@ -1,3 +1,7 @@
+# 0.25.2
+
+* fix: inline some trait fn.
+
 # 0.25.1
 
 * docs
