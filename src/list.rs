@@ -251,8 +251,8 @@ impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
     }
 }
 
-fn render_list<'a, Selection: ListSelection>(
-    widget: List<'a, Selection>,
+fn render_list<Selection: ListSelection>(
+    widget: List<'_, Selection>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut ListState<Selection>,

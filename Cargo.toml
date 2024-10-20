@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget"
-version = "0.28.0"
+version = "0.28.1"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -69,7 +69,7 @@ rat-focus = { version = "0.27", path = "../rat-focus" }
 rat-ftable = { version = "0.27", path = "../rat-ftable" }
 rat-text = { version = "0.27", path = "../rat-text" }
 rat-menu = { version = "0.28", path = "../rat-menu" }
-rat-scrolled = { version = "0.25", path = "../rat-scrolled" }
+rat-scrolled = { version = "0.26", path = "../rat-scrolled" }
 rat-popup = { version = "0.27", path = "../rat-popup" }
 
 [dev-dependencies]

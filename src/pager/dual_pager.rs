@@ -1,6 +1,6 @@
 use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
-use crate::pager::{AreaHandle, PageLayout, PagerStyle, SinglePagerRender, SinglePagerState};
+use crate::pager::{AreaHandle, PageLayout, PagerStyle};
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};

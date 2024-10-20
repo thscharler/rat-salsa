@@ -1,3 +1,12 @@
+# 0.28.1
+
+* feature: Choice widget looks quite complete now.
+* update: rat-scrolled
+* feature: add widget Clipper, similar to xxPager but does scroll.
+* break: sync api for Clipper, SinglePager and DualPager.
+  xxPager now uses into_widget() style and has a second stage
+  that does all the area mapping.
+
 # 0.28.0
 
 * break: change name in xxxStyle

@@ -441,30 +441,26 @@ impl<'a> Clipper<'a> {
 impl<'a> ClipperRender<'a> {
     /// Relocate a view area to a screen area if it is visible.
     pub fn relocate(&self, area: impl Into<Rect>) -> Option<Rect> {
-        if let Some(area) = self.layout.locate(area.into()) {
-            Some(Rect::new(
+        self.layout.locate(area.into()).map(|area| {
+            Rect::new(
                 area.x + self.inner.x,
                 area.y + self.inner.y,
                 area.width,
                 area.height,
-            ))
-        } else {
-            None
-        }
+            )
+        })
     }
 
     /// Relocate a view area to a screen area if it is visible.
     pub fn relocate_handle(&self, handle: AreaHandle) -> Option<Rect> {
-        if let Some(area) = self.layout.locate_handle(handle) {
-            Some(Rect::new(
+        self.layout.locate_handle(handle).map(|area| {
+            Rect::new(
                 area.x + self.inner.x,
                 area.y + self.inner.y,
                 area.width,
                 area.height,
-            ))
-        } else {
-            None
-        }
+            )
+        })
     }
 
     /// Access the temporary buffer.
