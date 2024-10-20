@@ -1,3 +1,7 @@
+# 0.27.1
+
+* fix: use new ScrollArea. no visible api change.
+
 # 0.27.0
 
 break: rename fields in TableStyle
