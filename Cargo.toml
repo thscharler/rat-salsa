@@ -44,7 +44,10 @@ unused_qualifications = "warn"
 variant_size_differences = "warn"
 
 [features]
-unstable-widget-ref = ["ratatui/unstable-widget-ref"]
+unstable-widget-ref = [
+    "ratatui/unstable-widget-ref",
+    "rat-scrolled/unstable-widget-ref",
+]
 
 [dependencies]
 crossterm = "0.28"

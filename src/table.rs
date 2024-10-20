@@ -81,6 +81,7 @@ pub struct Table<'a, Selection> {
 mod data {
     use crate::textdata::TextTableData;
     use crate::{TableContext, TableData, TableDataIter};
+    #[cfg(debug_assertions)]
     use log::warn;
     use ratatui::buffer::Buffer;
     use ratatui::layout::Rect;
@@ -859,13 +860,7 @@ where
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let iter = self.data.iter();
-
-        let scroll = ScrollArea::new()
-            .block(self.block.clone())
-            .h_scroll(self.hscroll.clone())
-            .v_scroll(self.vscroll.clone());
-
-        self.render_iter(iter, scroll, area, buf, state);
+        self.render_iter(iter, area, buf, state);
     }
 }
 
@@ -877,20 +872,7 @@ where
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         let iter = mem::take(&mut self.data).into_iter();
-
-        let block = mem::take(&mut self.block);
-        let hscroll = mem::take(&mut self.hscroll);
-        let vscroll = mem::take(&mut self.vscroll);
-
-        let scroll = ScrollArea::new()
-            .block(block)
-            .h_scroll(hscroll)
-            .v_scroll(vscroll);
-
-        self.render_iter(
-            iter, //
-            scroll, area, buf, state,
-        );
+        self.render_iter(iter, area, buf, state);
     }
 }
 
@@ -905,7 +887,6 @@ where
     fn render_iter<'b>(
         &self,
         mut data: DataReprIter<'a, 'b>,
-        scroll: ScrollArea<'a>,
         area: Rect,
         buf: &mut Buffer,
         state: &mut TableState<Selection>,
@@ -916,14 +897,11 @@ where
         state.columns = self.widths.len();
         state.area = area;
 
-        state.inner = scroll.inner(
-            area,
-            ScrollAreaState {
-                area,
-                h_scroll: Some(&mut state.hscroll),
-                v_scroll: Some(&mut state.vscroll),
-            },
-        );
+        let sa = ScrollArea::new()
+            .block(self.block.as_ref())
+            .h_scroll(self.hscroll.as_ref())
+            .v_scroll(self.vscroll.as_ref());
+        state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
         let l_rows = self.layout_areas(state.inner);
         state.header_area = l_rows[0];
@@ -1259,12 +1237,13 @@ where
         }
 
         // render block+scroll
-        let mut sas = ScrollAreaState {
+        sa.render(
             area,
-            h_scroll: Some(&mut state.hscroll),
-            v_scroll: Some(&mut state.vscroll),
-        };
-        scroll.render(area, buf, &mut sas);
+            buf,
+            &mut ScrollAreaState::new()
+                .h_scroll(&mut state.hscroll)
+                .v_scroll(&mut state.vscroll),
+        );
 
         #[cfg(debug_assertions)]
         {
@@ -1688,7 +1667,8 @@ impl<Selection> TableState<Selection> {
             .column_at_drag(self.table_area, &self.column_areas, pos.0)
         {
             Ok(v) => v,
-            Err(_) => todo!(),
+            Err(v) if v <= 0 => self.hscroll.offset().saturating_sub((-v) as usize),
+            Err(v) => self.hscroll.offset() + self.hscroll.page_len() + v as usize,
         }
     }
 }

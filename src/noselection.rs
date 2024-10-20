@@ -74,11 +74,10 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for TableState<NoSel
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<NoSelection> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        let mut sas = ScrollAreaState {
-            area: self.inner,
-            h_scroll: Some(&mut self.hscroll),
-            v_scroll: Some(&mut self.vscroll),
-        };
+        let mut sas = ScrollAreaState::new()
+            .area(self.inner)
+            .h_scroll(&mut self.hscroll)
+            .v_scroll(&mut self.vscroll);
         let r = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),

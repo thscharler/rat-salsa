@@ -183,11 +183,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableState<Row
             _ => Outcome::Continue,
         });
 
-        let mut sas = ScrollAreaState {
-            area: self.inner,
-            h_scroll: Some(&mut self.hscroll),
-            v_scroll: Some(&mut self.vscroll),
-        };
+        let mut sas = ScrollAreaState::new()
+            .area(self.inner)
+            .h_scroll(&mut self.hscroll)
+            .v_scroll(&mut self.vscroll);
         let r = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => {
                 if self.selection.scroll_selected() {
