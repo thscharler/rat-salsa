@@ -102,17 +102,10 @@ impl<'a> StatefulWidget for ParagraphS<'a> {
         state.area = area;
 
         let scroll = ScrollArea::new()
-            .block(self.block)
-            .h_scroll(self.hscroll)
-            .v_scroll(self.vscroll);
-        state.inner = scroll.inner(
-            area,
-            ScrollAreaState {
-                area,
-                h_scroll: Some(&mut state.hscroll),
-                v_scroll: Some(&mut state.vscroll),
-            },
-        );
+            .block(self.block.as_ref())
+            .h_scroll(self.hscroll.as_ref())
+            .v_scroll(self.vscroll.as_ref());
+        state.inner = scroll.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
         state.hscroll.set_max_offset(if self.is_wrap {
             0
@@ -132,11 +125,9 @@ impl<'a> StatefulWidget for ParagraphS<'a> {
         scroll.render(
             area,
             buf,
-            &mut ScrollAreaState {
-                area,
-                h_scroll: Some(&mut state.hscroll),
-                v_scroll: Some(&mut state.vscroll),
-            },
+            &mut ScrollAreaState::new()
+                .h_scroll(&mut state.hscroll)
+                .v_scroll(&mut state.vscroll),
         );
 
         self.widget
@@ -207,11 +198,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphSStat
             r => Outcome::from(r),
         });
         flow!({
-            let mut sas = ScrollAreaState {
-                area: self.inner,
-                h_scroll: Some(&mut self.hscroll),
-                v_scroll: Some(&mut self.vscroll),
-            };
+            let mut sas = ScrollAreaState::new()
+                .area(self.inner)
+                .h_scroll(&mut self.hscroll)
+                .v_scroll(&mut self.vscroll);
             match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => {
                     if self.vscroll(-(v as isize)) {

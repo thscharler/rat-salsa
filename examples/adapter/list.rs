@@ -141,15 +141,10 @@ impl<'a> StatefulWidget for ListS<'a> {
         state.scroll_selection = self.scroll_selection;
         state.len = self.len();
 
-        let scroll = ScrollArea::new().block(self.block).v_scroll(self.scroll);
-        state.inner = scroll.inner(
-            area,
-            ScrollAreaState {
-                area,
-                h_scroll: None,
-                v_scroll: Some(&mut state.scroll),
-            },
-        );
+        let scroll = ScrollArea::new()
+            .block(self.block.as_ref())
+            .v_scroll(self.scroll.as_ref());
+        state.inner = scroll.inner(area, None, Some(&state.scroll));
 
         // area for each item
         state.item_areas.clear();
@@ -202,11 +197,7 @@ impl<'a> StatefulWidget for ListS<'a> {
         scroll.render(
             area,
             buf,
-            &mut ScrollAreaState {
-                area,
-                h_scroll: None,
-                v_scroll: Some(&mut state.scroll),
-            },
+            &mut ScrollAreaState::new().v_scroll(&mut state.scroll),
         );
 
         StatefulWidget::render(
@@ -448,11 +439,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListSState {
         });
 
         flow!({
-            let mut sas = ScrollAreaState {
-                area: self.inner,
-                h_scroll: None,
-                v_scroll: Some(&mut self.scroll),
-            };
+            let mut sas = ScrollAreaState::new()
+                .area(self.inner)
+                .v_scroll(&mut self.scroll);
             match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => Outcome::from(self.scroll(-(v as isize))),
                 ScrollOutcome::Down(v) => Outcome::from(self.scroll(v as isize)),

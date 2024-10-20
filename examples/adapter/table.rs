@@ -172,15 +172,10 @@ impl<'a> StatefulWidget for TableS<'a> {
         state.scroll_selection = self.scroll_selection;
         state.len = self.rows.len();
 
-        let scroll = ScrollArea::new().block(self.block).v_scroll(self.scroll);
-        state.area = scroll.inner(
-            area,
-            ScrollAreaState {
-                area,
-                h_scroll: None,
-                v_scroll: Some(&mut state.scroll),
-            },
-        );
+        let scroll = ScrollArea::new()
+            .block(self.block.as_ref())
+            .v_scroll(self.scroll.as_ref());
+        state.area = scroll.inner(area, None, Some(&state.scroll));
 
         // row layout
         // TODO: as long as height_with_margin() is not accessible we are limited
@@ -238,11 +233,7 @@ impl<'a> StatefulWidget for TableS<'a> {
         scroll.render(
             area,
             buf,
-            &mut ScrollAreaState {
-                area,
-                h_scroll: None,
-                v_scroll: Some(&mut state.scroll),
-            },
+            &mut ScrollAreaState::new().v_scroll(&mut state.scroll),
         );
 
         *state.widget.offset_mut() = state.scroll.offset();
@@ -556,11 +547,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for TableSState {
         });
 
         flow!({
-            let mut sas = ScrollAreaState {
-                area: self.area,
-                h_scroll: None,
-                v_scroll: Some(&mut self.scroll),
-            };
+            let mut sas = ScrollAreaState::new()
+                .area(self.area)
+                .v_scroll(&mut self.scroll);
             match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => Outcome::from(self.scroll(-(v as isize))),
                 ScrollOutcome::Down(v) => Outcome::from(self.scroll(v as isize)),

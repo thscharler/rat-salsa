@@ -444,11 +444,19 @@ impl<'a> Scroll<'a> {
     }
 }
 
+impl<'a> StatefulWidget for &Scroll<'a> {
+    type State = ScrollState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_scroll(self, area, buf, state);
+    }
+}
+
 impl<'a> StatefulWidget for Scroll<'a> {
     type State = ScrollState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_scroll(&self, area, buf, state)
+        render_scroll(&self, area, buf, state);
     }
 }
 
