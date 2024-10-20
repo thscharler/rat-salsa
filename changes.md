@@ -1,3 +1,7 @@
+# 0.27.1
+
+* update rat-scrolled
+
 # 0.27.0
 
 * break: names in xxStyle changed
