@@ -1,6 +1,6 @@
-use crate::PopupConstraint;
 use crate::_private::NonExhaustive;
 use crate::event::PopupOutcome;
+use crate::{Placement, PopupConstraint};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Popup};
 use rat_focus::{ContainerFlag, FocusContainer};
@@ -11,7 +11,7 @@ use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::widgets::{Block, Padding, StatefulWidget};
 
 /// Provides the core for popup widgets.
 ///
@@ -57,6 +57,8 @@ pub struct PopupStyle {
     pub block: Option<Block<'static>>,
     /// Style for scroll bars.
     pub scroll: Option<ScrollStyle>,
+    /// Placement
+    pub placement: Option<Placement>,
 
     /// non-exhaustive struct.
     pub non_exhaustive: NonExhaustive,
@@ -238,7 +240,7 @@ impl<'a> PopupCore<'a> {
         self
     }
 
-    /// Get the padding the block imposes as a Size.
+    /// Get the padding the block imposes as  Size.
     pub fn get_block_size(&self) -> Size {
         let area = Rect::new(0, 0, 20, 20);
         let inner = self.block.inner_if_some(area);
@@ -246,6 +248,23 @@ impl<'a> PopupCore<'a> {
             width: (inner.left() - area.left()) + (area.right() - inner.right()),
             height: (inner.top() - area.top()) + (area.bottom() - inner.bottom()),
         }
+    }
+
+    /// Get the padding the block imposes as Padding.
+    pub fn get_block_padding(&self) -> Padding {
+        let area = Rect::new(0, 0, 20, 20);
+        let inner = self.block.inner_if_some(area);
+        Padding {
+            left: inner.left() - area.left(),
+            right: area.right() - inner.right(),
+            top: inner.top() - area.top(),
+            bottom: area.bottom() - inner.bottom(),
+        }
+    }
+
+    /// Calculate the inner area.
+    pub fn inner(&self, area: Rect) -> Rect {
+        self.block.inner_if_some(area)
     }
 
     /// Run the layout to calculate the popup area before rendering.
@@ -489,6 +508,7 @@ impl Default for PopupStyle {
             offset: None,
             block: None,
             scroll: None,
+            placement: None,
             non_exhaustive: NonExhaustive,
         }
     }

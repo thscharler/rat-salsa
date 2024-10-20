@@ -1,3 +1,8 @@
+# 0.27.2
+
+* feature: add Placement to styles.
+* feature: add get_block_padding() and inner()
+
 # 0.27.1
 
 * fix: when using AboveOrBelow/BelowOrAbove the offset must be mirrored.
