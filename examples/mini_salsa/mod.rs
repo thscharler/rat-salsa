@@ -240,7 +240,7 @@ fn handle_event<Data, State>(
     };
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    istate.status[2] = format!("Handle {:.0?}", el).to_string();
+    istate.status[2] = format!(" Handle {:.0?}", el).to_string();
 
     Ok(r)
 }

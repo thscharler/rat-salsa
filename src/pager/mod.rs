@@ -23,6 +23,7 @@ use std::rc::Rc;
 mod dual_pager;
 mod single_pager;
 
+use crate::_private::NonExhaustive;
 pub use dual_pager::*;
 pub use single_pager::*;
 
@@ -133,6 +134,11 @@ impl PageLayout {
         self.core.borrow().breaks.is_empty()
     }
 
+    /// Get the original area for the handle.
+    pub fn area_by_handle(&self, handle: AreaHandle) -> Rect {
+        self.core.borrow().areas[handle.0]
+    }
+
     /// Locate an area by handle.
     ///
     /// This will return a Rect with a y-value relative to the
@@ -223,12 +229,25 @@ impl PageLayoutCore {
 }
 
 /// All styles for a pager.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct PagerStyle {
     pub style: Style,
     pub nav: Option<Style>,
     pub title: Option<Style>,
     pub block: Option<Block<'static>>,
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for PagerStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            nav: None,
+            title: None,
+            block: None,
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 pub(crate) mod event {
