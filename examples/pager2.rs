@@ -90,21 +90,21 @@ fn repaint_input(
         pl
     });
 
-    DualPager::new()
+    let render = DualPager::new()
         .layout(pl)
         .nav_style(Style::new().fg(THEME.orange[2]))
         .style(THEME.gray(0))
         .block(Block::bordered())
-        .render(l2[1], frame.buffer_mut(), &mut state.pager);
+        .into_widget(l2[1], frame.buffer_mut(), &mut state.pager);
 
     // render the input fields
     for i in 0..100 {
         // map an additional ad hoc area.
-        if let Some(area) = state.pager.relocate(Rect::new(5, 2 * i, 15, 1)) {
+        if let Some(area) = render.relocate(Rect::new(5, 2 * i, 15, 1)) {
             Span::from(format!("{:?}:", i)).render(area, frame.buffer_mut());
         }
         // map our widget area.
-        if let Some(area) = state.pager.relocate_handle(state.hundred_areas[i as usize]) {
+        if let Some(area) = render.relocate_handle(state.hundred_areas[i as usize]) {
             TextInputMock::default()
                 .style(THEME.limegreen(0))
                 .focus_style(THEME.limegreen(2))
@@ -117,6 +117,8 @@ fn repaint_input(
             state.hundred[i as usize].clear_areas();
         }
     }
+
+    render.render(l2[1], frame.buffer_mut(), &mut state.pager);
 
     let menu1 = MenuLine::new()
         .title("#.#")

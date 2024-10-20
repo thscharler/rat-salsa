@@ -45,9 +45,9 @@ pub struct AreaHandle(usize);
 
 #[derive(Debug, Default, Clone)]
 struct PageLayoutCore {
-    // just for checks on re-layout
+    // just for checks on re-layout.
     page: Rect,
-    // buffer
+    // actual view size and position, internal coordinates.
     wide_page: Rect,
     // collected areas
     areas: Vec<Rect>,
@@ -291,7 +291,7 @@ pub struct ClipperState {
     pub area: Rect,
     /// Area for widgets to render.
     /// __read only__ renewed with each render.
-    pub inner: Rect,
+    pub widget_area: Rect,
 
     /// Page layout.
     /// __read only__ renewed with each render.
@@ -385,15 +385,15 @@ impl<'a> Clipper<'a> {
             .v_scroll(self.vscroll.as_ref());
 
         state.area = area;
-        state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
+        state.widget_area = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
         state.layout = self.layout;
 
         // run the layout
         let corrected = state.layout.layout(Rect::new(
             state.hscroll.offset as u16,
             state.vscroll.offset as u16,
-            state.inner.width,
-            state.inner.height,
+            state.widget_area.width,
+            state.widget_area.height,
         ));
 
         // adjust scroll
@@ -401,20 +401,22 @@ impl<'a> Clipper<'a> {
         state.hscroll.offset = corrected.x as usize;
         state.vscroll.offset = corrected.y as usize;
         let max = state.layout.max_position();
-        state.vscroll.set_page_len(state.inner.height as usize);
         state
             .vscroll
-            .set_max_offset(max.1.saturating_sub(state.inner.height) as usize);
+            .set_page_len(state.widget_area.height as usize);
+        state
+            .vscroll
+            .set_max_offset(max.1.saturating_sub(state.widget_area.height) as usize);
 
-        state.hscroll.set_page_len(state.inner.width as usize);
+        state.hscroll.set_page_len(state.widget_area.width as usize);
         state
             .hscroll
-            .set_max_offset(max.0.saturating_sub(state.inner.width) as usize);
+            .set_max_offset(max.0.saturating_sub(state.widget_area.width) as usize);
 
         // resize buffer to fit all visible widgets.
         let buf_area = Rect::new(
-            state.inner.x,
-            state.inner.y,
+            state.widget_area.x,
+            state.widget_area.y,
             corrected.width,
             corrected.height,
         );
@@ -426,7 +428,7 @@ impl<'a> Clipper<'a> {
         }
 
         ClipperRender {
-            inner: state.inner,
+            inner: state.widget_area,
             layout: state.layout.clone(),
             buffer: state.buffer.take().expect("valid buffer"),
             block: self.block,
@@ -487,8 +489,8 @@ impl<'a> StatefulWidget for ClipperRender<'a> {
                 .v_scroll(&mut state.vscroll),
         );
 
-        for y in state.inner.top()..state.inner.bottom() {
-            for x in state.inner.left()..state.inner.right() {
+        for y in state.widget_area.top()..state.widget_area.bottom() {
+            for x in state.widget_area.left()..state.widget_area.right() {
                 let cell = self.buffer.cell(Position::new(x, y)).expect("cell");
                 if let Some(scr_cell) = buf.cell_mut(Position::new(x, y)) {
                     *scr_cell = cell.clone();
@@ -519,11 +521,6 @@ impl ClipperState {
         self.vscroll.scroll_to_pos(area.y as usize);
     }
 
-    /// First currently visible area.
-    pub fn first_area(&self) -> Option<Rect> {
-        self.layout.first_area()
-    }
-
     /// First handle for the page.
     /// This returns the first handle for the page.
     /// Does not check whether the connected area is visible.
@@ -541,7 +538,7 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ClipperState {
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ClipperState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         let mut sas = ScrollAreaState::new()
-            .area(self.inner)
+            .area(self.widget_area)
             .h_scroll(&mut self.hscroll)
             .v_scroll(&mut self.vscroll);
         match sas.handle(event, MouseOnly) {

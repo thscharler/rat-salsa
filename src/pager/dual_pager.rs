@@ -1,6 +1,6 @@
 use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
-use crate::pager::{AreaHandle, PageLayout, PagerStyle};
+use crate::pager::{AreaHandle, PageLayout, PagerStyle, SinglePagerRender, SinglePagerState};
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
@@ -23,6 +23,17 @@ pub struct DualPager<'a> {
     nav_style: Option<Style>,
     title_style: Option<Style>,
     block: Option<Block<'a>>,
+}
+
+#[derive(Debug)]
+pub struct DualPagerRender {
+    inner1: Rect,
+    divider: Rect,
+    inner2: Rect,
+    page: usize,
+    layout: PageLayout,
+    style: Style,
+    nav_style: Option<Style>,
 }
 
 #[derive(Debug, Clone)]
@@ -60,84 +71,6 @@ pub struct DualPagerState {
 
     /// Only construct with `..Default::default()`.
     pub non_exhaustive: NonExhaustive,
-}
-
-impl<'a> StatefulWidget for DualPager<'a> {
-    type State = DualPagerState;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-
-        let nav_style = self.nav_style.unwrap_or(self.style);
-
-        let title = format!(" {}/{} ", state.page + 1, state.layout.len());
-        let block = self
-            .block
-            .unwrap_or_else(|| Block::new().borders(Borders::TOP))
-            .title_bottom(title)
-            .title_alignment(Alignment::Right);
-        let block = if let Some(title_style) = self.title_style {
-            block.title_style(title_style)
-        } else {
-            block
-        };
-
-        let inner = block.inner(area);
-
-        let p1 = 5;
-        let p4 = inner.width - p1;
-        state.prev_area = Rect::new(inner.x, area.y, p1, 1);
-        state.next_area = Rect::new(inner.x + p4, area.y, p1, 1);
-        state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
-
-        let p1 = inner.width.saturating_sub(1) / 2;
-        let p2 = inner.width.saturating_sub(1).saturating_sub(p1);
-        state.widget_area1 = Rect::new(inner.x, inner.y, p1, inner.height);
-        let divider_area = Rect::new(inner.x + p1, inner.y, 1, inner.height);
-        state.widget_area2 = Rect::new(inner.x + p1 + 1, inner.y, p2, inner.height);
-
-        // run page layout
-        state.layout = self.layout;
-        state.layout.layout(state.widget_area1);
-        // clip pages
-        state.set_page(state.page);
-
-        // render
-        buf.set_style(area, self.style);
-        block.render(area, buf);
-
-        // divider
-        for y in inner.top()..area.bottom().saturating_sub(1) {
-            if let Some(cell) = buf.cell_mut((divider_area.x, y)) {
-                cell.set_symbol("\u{239C}");
-            }
-        }
-        if let Some(cell) = buf.cell_mut((divider_area.x, area.bottom().saturating_sub(1))) {
-            cell.set_symbol("\u{239D}");
-        }
-
-        // active areas
-        if matches!(state.mouse.hover.get(), Some(0)) {
-            buf.set_style(state.prev_area, revert_style(nav_style));
-        } else {
-            buf.set_style(state.prev_area, nav_style);
-        }
-        if state.page > 0 {
-            Span::from(" <<< ").render(state.prev_area, buf);
-        } else {
-            Span::from(" [·] ").render(state.prev_area, buf);
-        }
-        if matches!(state.mouse.hover.get(), Some(1)) {
-            buf.set_style(state.next_area, revert_style(nav_style));
-        } else {
-            buf.set_style(state.next_area, nav_style);
-        }
-        if state.page + 2 < state.layout.len() {
-            Span::from(" >>> ").render(state.next_area, buf);
-        } else {
-            Span::from(" [·] ").render(state.next_area, buf);
-        }
-    }
 }
 
 impl<'a> DualPager<'a> {
@@ -189,6 +122,139 @@ impl<'a> DualPager<'a> {
         self.block = Some(block);
         self
     }
+
+    /// Run the layout and create the final Pager widget.
+    pub fn into_widget(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut DualPagerState,
+    ) -> DualPagerRender {
+        state.area = area;
+
+        let title = format!(" {}/{} ", state.page + 1, state.layout.len());
+        let block = self
+            .block
+            .unwrap_or_else(|| Block::new().borders(Borders::TOP))
+            .title_bottom(title)
+            .title_alignment(Alignment::Right);
+        let block = if let Some(title_style) = self.title_style {
+            block.title_style(title_style)
+        } else {
+            block
+        };
+
+        let inner = block.inner(area);
+
+        let p1 = 5;
+        let p4 = inner.width - p1;
+        state.prev_area = Rect::new(inner.x, area.y, p1, 1);
+        state.next_area = Rect::new(inner.x + p4, area.y, p1, 1);
+        state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
+
+        let p1 = inner.width.saturating_sub(1) / 2;
+        let p2 = inner.width.saturating_sub(1).saturating_sub(p1);
+        state.widget_area1 = Rect::new(inner.x, inner.y, p1, inner.height);
+        let divider_area = Rect::new(inner.x + p1, inner.y, 1, inner.height);
+        state.widget_area2 = Rect::new(inner.x + p1 + 1, inner.y, p2, inner.height);
+
+        // run page layout
+        state.layout = self.layout;
+        state.layout.layout(state.widget_area1);
+        // clip pages
+        state.set_page(state.page);
+
+        // render
+        buf.set_style(area, self.style);
+        block.render(area, buf);
+
+        DualPagerRender {
+            inner1: state.widget_area1,
+            divider: divider_area,
+            inner2: state.widget_area2,
+            page: state.page,
+            layout: state.layout.clone(),
+            style: self.style,
+            nav_style: self.nav_style,
+        }
+    }
+}
+
+impl DualPagerRender {
+    /// Relocate an area by handle from Layout coordinates to
+    /// screen coordinates.
+    ///
+    /// A result None indicates that the area is
+    /// out of view.
+    pub fn relocate_handle(&self, handle: AreaHandle) -> Option<Rect> {
+        let (page, target) = self.layout.locate_handle(handle);
+        self._relocate(page, target)
+    }
+
+    /// Relocate a rect from Layout coordinates to
+    /// screen coordinates.
+    ///
+    /// A result None indicates that the area is
+    /// out of view.
+    pub fn relocate(&self, area: Rect) -> Option<Rect> {
+        let (page, target) = self.layout.locate(area);
+        self._relocate(page, target)
+    }
+
+    fn _relocate(&self, page: usize, mut target_area: Rect) -> Option<Rect> {
+        if self.page == page {
+            target_area.x += self.inner1.x;
+            target_area.y += self.inner1.y;
+            Some(target_area)
+        } else if self.page + 1 == page {
+            target_area.x += self.inner2.x;
+            target_area.y += self.inner2.y;
+            Some(target_area)
+        } else {
+            None
+        }
+    }
+}
+
+impl StatefulWidget for DualPagerRender {
+    type State = DualPagerState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        assert_eq!(area, state.area);
+
+        // divider
+        for y in self.divider.top()..area.bottom().saturating_sub(1) {
+            if let Some(cell) = buf.cell_mut((self.divider.x, y)) {
+                cell.set_symbol("\u{239C}");
+            }
+        }
+        if let Some(cell) = buf.cell_mut((self.divider.x, area.bottom().saturating_sub(1))) {
+            cell.set_symbol("\u{239D}");
+        }
+
+        // active areas
+        let nav_style = self.nav_style.unwrap_or(self.style);
+        if matches!(state.mouse.hover.get(), Some(0)) {
+            buf.set_style(state.prev_area, revert_style(nav_style));
+        } else {
+            buf.set_style(state.prev_area, nav_style);
+        }
+        if state.page > 0 {
+            Span::from(" <<< ").render(state.prev_area, buf);
+        } else {
+            Span::from(" [·] ").render(state.prev_area, buf);
+        }
+        if matches!(state.mouse.hover.get(), Some(1)) {
+            buf.set_style(state.next_area, revert_style(nav_style));
+        } else {
+            buf.set_style(state.next_area, nav_style);
+        }
+        if state.page + 2 < state.layout.len() {
+            Span::from(" >>> ").render(state.next_area, buf);
+        } else {
+            Span::from(" [·] ").render(state.next_area, buf);
+        }
+    }
 }
 
 impl Default for DualPagerState {
@@ -214,40 +280,6 @@ impl DualPagerState {
         Self::default()
     }
 
-    /// Relocate an area by handle from Layout coordinates to
-    /// screen coordinates.
-    ///
-    /// A result None indicates that the area is
-    /// out of view.
-    pub fn relocate_handle(&self, handle: AreaHandle) -> Option<Rect> {
-        let (page, target) = self.layout.locate_handle(handle);
-        self._relocate(page, target)
-    }
-
-    /// Relocate a rect from Layout coordinates to
-    /// screen coordinates.
-    ///
-    /// A result None indicates that the area is
-    /// out of view.
-    pub fn relocate(&self, area: Rect) -> Option<Rect> {
-        let (page, target) = self.layout.locate(area);
-        self._relocate(page, target)
-    }
-
-    fn _relocate(&self, page: usize, mut target_area: Rect) -> Option<Rect> {
-        if self.page == page {
-            target_area.x += self.widget_area1.x;
-            target_area.y += self.widget_area1.y;
-            Some(target_area)
-        } else if self.page + 1 == page {
-            target_area.x += self.widget_area2.x;
-            target_area.y += self.widget_area2.y;
-            Some(target_area)
-        } else {
-            None
-        }
-    }
-
     /// Show the page for this rect.
     pub fn show_handle(&mut self, handle: AreaHandle) {
         let (page, _) = self.layout.locate_handle(handle);
@@ -258,15 +290,6 @@ impl DualPagerState {
     pub fn show_area(&mut self, area: Rect) {
         let (page, _) = self.layout.locate(area);
         self.page = page & !1;
-    }
-
-    /// First area for the page.
-    /// This only returns a value if the page is visible.
-    /// Use [PageLayout::first_area] if you want something else.
-    pub fn first_area(&self, page: usize) -> Option<Rect> {
-        self.layout
-            .first_area(page)
-            .map(|v| self._relocate(page, v).expect("valid area"))
     }
 
     /// First handle for the page.

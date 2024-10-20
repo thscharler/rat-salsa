@@ -25,6 +25,15 @@ pub struct SinglePager<'a> {
     block: Option<Block<'a>>,
 }
 
+#[derive(Debug)]
+pub struct SinglePagerRender {
+    inner: Rect,
+    page: usize,
+    layout: PageLayout,
+    style: Style,
+    nav_style: Option<Style>,
+}
+
 #[derive(Debug, Clone)]
 pub struct SinglePagerState {
     /// Full area.
@@ -59,70 +68,6 @@ pub struct SinglePagerState {
 
     /// Only construct with `..Default::default()`.
     pub non_exhaustive: NonExhaustive,
-}
-
-impl<'a> StatefulWidget for SinglePager<'a> {
-    type State = SinglePagerState;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-
-        let nav_style = self.nav_style.unwrap_or(self.style);
-
-        let title = format!(" {}/{} ", state.page + 1, state.layout.len());
-        let block = self
-            .block
-            .unwrap_or_else(|| Block::new().borders(Borders::TOP))
-            .title_bottom(title)
-            .title_alignment(Alignment::Right);
-        let block = if let Some(title_style) = self.title_style {
-            block.title_style(title_style)
-        } else {
-            block
-        };
-
-        let inner = block.inner(area);
-
-        let p1 = 5;
-        let p4 = inner.width - p1;
-        state.prev_area = Rect::new(inner.x, area.y, p1, 1);
-        state.next_area = Rect::new(inner.x + p4, area.y, p1, 1);
-        state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
-
-        state.widget_area = Rect::new(inner.x, inner.y, inner.width, inner.height);
-
-        // run page layout
-        state.layout = self.layout;
-        state.layout.layout(state.widget_area);
-        // clip pages
-        state.set_page(state.page);
-
-        // render
-        buf.set_style(area, self.style);
-        block.render(area, buf);
-
-        // active areas
-        if matches!(state.mouse.hover.get(), Some(0)) {
-            buf.set_style(state.prev_area, revert_style(nav_style));
-        } else {
-            buf.set_style(state.prev_area, nav_style);
-        }
-        if state.page > 0 {
-            Span::from(" <<< ").render(state.prev_area, buf);
-        } else {
-            Span::from(" [·] ").render(state.prev_area, buf);
-        }
-        if matches!(state.mouse.hover.get(), Some(1)) {
-            buf.set_style(state.next_area, revert_style(nav_style));
-        } else {
-            buf.set_style(state.next_area, nav_style);
-        }
-        if state.page + 1 < state.layout.len() {
-            Span::from(" >>> ").render(state.next_area, buf);
-        } else {
-            Span::from(" [·] ").render(state.next_area, buf);
-        }
-    }
 }
 
 impl<'a> SinglePager<'a> {
@@ -174,6 +119,119 @@ impl<'a> SinglePager<'a> {
         self.block = Some(block);
         self
     }
+
+    /// Run the layout and create the final Pager widget.
+    pub fn into_widget(
+        self,
+        area: Rect,
+        buf: &mut Buffer,
+        state: &mut SinglePagerState,
+    ) -> SinglePagerRender {
+        state.area = area;
+
+        let title = format!(" {}/{} ", state.page + 1, state.layout.len());
+        let block = self
+            .block
+            .unwrap_or_else(|| Block::new().borders(Borders::TOP))
+            .title_bottom(title)
+            .title_alignment(Alignment::Right);
+        let block = if let Some(title_style) = self.title_style {
+            block.title_style(title_style)
+        } else {
+            block
+        };
+
+        let inner = block.inner(area);
+
+        let p1 = 5;
+        let p4 = inner.width - p1;
+        state.prev_area = Rect::new(inner.x, area.y, p1, 1);
+        state.next_area = Rect::new(inner.x + p4, area.y, p1, 1);
+        state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
+
+        state.widget_area = Rect::new(inner.x, inner.y, inner.width, inner.height);
+
+        // run page layout
+        state.layout = self.layout;
+        state.layout.layout(state.widget_area);
+        // clip pages
+        state.set_page(state.page);
+
+        // render
+        buf.set_style(area, self.style);
+        block.render(area, buf);
+
+        SinglePagerRender {
+            inner: state.widget_area,
+            page: state.page,
+            layout: state.layout.clone(),
+            style: self.style,
+            nav_style: self.nav_style,
+        }
+    }
+}
+
+impl SinglePagerRender {
+    /// Relocate an area by handle from Layout coordinates to
+    /// screen coordinates.
+    ///
+    /// A result None indicates that the area is
+    /// out of view.
+    pub fn relocate_handle(&self, handle: AreaHandle) -> Option<Rect> {
+        let (page, target) = self.layout.locate_handle(handle);
+        self._relocate(page, target)
+    }
+
+    /// Relocate a rect from Layout coordinates to
+    /// screen coordinates.
+    ///
+    /// A result None indicates that the area is
+    /// out of view.
+    pub fn relocate(&self, area: Rect) -> Option<Rect> {
+        let (page, target) = self.layout.locate(area);
+        self._relocate(page, target)
+    }
+
+    fn _relocate(&self, page: usize, mut target_area: Rect) -> Option<Rect> {
+        if self.page == page {
+            target_area.x += self.inner.x;
+            target_area.y += self.inner.y;
+            Some(target_area)
+        } else {
+            None
+        }
+    }
+}
+
+impl StatefulWidget for SinglePagerRender {
+    type State = SinglePagerState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        assert_eq!(area, state.area);
+
+        // active areas
+        let nav_style = self.nav_style.unwrap_or(self.style);
+        if matches!(state.mouse.hover.get(), Some(0)) {
+            buf.set_style(state.prev_area, revert_style(nav_style));
+        } else {
+            buf.set_style(state.prev_area, nav_style);
+        }
+        if state.page > 0 {
+            Span::from(" <<< ").render(state.prev_area, buf);
+        } else {
+            Span::from(" [·] ").render(state.prev_area, buf);
+        }
+        if matches!(state.mouse.hover.get(), Some(1)) {
+            buf.set_style(state.next_area, revert_style(nav_style));
+        } else {
+            buf.set_style(state.next_area, nav_style);
+        }
+        if state.page + 1 < state.layout.len() {
+            Span::from(" >>> ").render(state.next_area, buf);
+        } else {
+            Span::from(" [·] ").render(state.next_area, buf);
+        }
+    }
 }
 
 impl Default for SinglePagerState {
@@ -198,36 +256,6 @@ impl SinglePagerState {
         Self::default()
     }
 
-    /// Relocate an area by handle from Layout coordinates to
-    /// screen coordinates.
-    ///
-    /// A result None indicates that the area is
-    /// out of view.
-    pub fn relocate_handle(&self, handle: AreaHandle) -> Option<Rect> {
-        let (page, target) = self.layout.locate_handle(handle);
-        self._relocate(page, target)
-    }
-
-    /// Relocate a rect from Layout coordinates to
-    /// screen coordinates.
-    ///
-    /// A result None indicates that the area is
-    /// out of view.
-    pub fn relocate(&self, area: Rect) -> Option<Rect> {
-        let (page, target) = self.layout.locate(area);
-        self._relocate(page, target)
-    }
-
-    fn _relocate(&self, page: usize, mut target_area: Rect) -> Option<Rect> {
-        if self.page == page {
-            target_area.x += self.widget_area.x;
-            target_area.y += self.widget_area.y;
-            Some(target_area)
-        } else {
-            None
-        }
-    }
-
     /// Show the page for this rect.
     pub fn show_handle(&mut self, handle: AreaHandle) {
         let (page, _) = self.layout.locate_handle(handle);
@@ -238,15 +266,6 @@ impl SinglePagerState {
     pub fn show_area(&mut self, area: Rect) {
         let (page, _) = self.layout.locate(area);
         self.page = page;
-    }
-
-    /// First area for the page.
-    /// This only returns a value if the page is visible.
-    /// Use [PageLayout::first_area] if you want something else.
-    pub fn first_area(&self, page: usize) -> Option<Rect> {
-        self.layout
-            .first_area(page)
-            .map(|v| self._relocate(page, v).expect("valid area"))
     }
 
     /// First handle for the page.
