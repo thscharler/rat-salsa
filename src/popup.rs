@@ -247,6 +247,11 @@ impl<'a> PopupCore<'a> {
             height: (inner.top() - area.top()) + (area.bottom() - inner.bottom()),
         }
     }
+
+    /// Run the layout to calculate the popup area before rendering.
+    pub fn layout(&self, area: Rect, buf: &Buffer) -> Rect {
+        self._layout(area, self.boundary_area.unwrap_or(buf.area))
+    }
 }
 
 #[cfg(feature = "unstable-widget-ref")]
@@ -254,32 +259,7 @@ impl<'a> StatefulWidgetRef for PopupCore<'a> {
     type State = PopupCoreState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if !state.active.is_container_focused() {
-            state.clear_areas();
-            return;
-        }
-        self.layout(area, self.boundary_area.unwrap_or(buf.area), state);
-        clear_area(area, self.style, buf);
-
-        let mut scroll_area_state = ScrollAreaState {
-            area,
-            h_scroll: Some(&mut state.h_scroll),
-            v_scroll: Some(&mut state.v_scroll),
-        };
-
-        let scroll_area = ScrollArea::new()
-            .block(self.block.clone()) // todo: clones?
-            .h_scroll(self.h_scroll.clone())
-            .v_scroll(self.v_scroll.clone());
-
-        state.widget_area = scroll_area.inner(
-            area,
-            ScrollAreaState::new()
-                .h_scroll(&mut state.h_scroll)
-                .v_scroll(&mut state.v_scroll),
-        );
-
-        scroll_area.render(area, buf, &mut scroll_area_state);
+        render_popup(self, area, buf, state);
     }
 }
 
@@ -287,38 +267,34 @@ impl<'a> StatefulWidget for PopupCore<'a> {
     type State = PopupCoreState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if !state.active.is_container_focused() {
-            state.clear_areas();
-            return;
-        }
-        self.layout(area, self.boundary_area.unwrap_or(buf.area), state);
-
-        clear_area(state.area, self.style, buf);
-
-        let scroll_area = ScrollArea::new()
-            .block(self.block)
-            .h_scroll(self.h_scroll)
-            .v_scroll(self.v_scroll);
-
-        state.widget_area = scroll_area.inner(
-            state.area,
-            ScrollAreaState {
-                area: Default::default(),
-                h_scroll: Some(&mut state.h_scroll),
-                v_scroll: Some(&mut state.v_scroll),
-            },
-        );
-
-        scroll_area.render(
-            state.area,
-            buf,
-            &mut ScrollAreaState {
-                area: Default::default(),
-                h_scroll: Some(&mut state.h_scroll),
-                v_scroll: Some(&mut state.v_scroll),
-            },
-        );
+        render_popup(&self, area, buf, state);
     }
+}
+
+fn render_popup(widget: &PopupCore<'_>, area: Rect, buf: &mut Buffer, state: &mut PopupCoreState) {
+    if !state.active.is_container_focused() {
+        state.clear_areas();
+        return;
+    }
+
+    state.area = widget._layout(area, widget.boundary_area.unwrap_or(buf.area));
+
+    clear_area(state.area, widget.style, buf);
+
+    let sa = ScrollArea::new()
+        .block(widget.block.as_ref())
+        .h_scroll(widget.h_scroll.as_ref())
+        .v_scroll(widget.v_scroll.as_ref());
+
+    state.widget_area = sa.inner(state.area, Some(&state.h_scroll), Some(&state.v_scroll));
+
+    sa.render(
+        state.area,
+        buf,
+        &mut ScrollAreaState::new()
+            .h_scroll(&mut state.h_scroll)
+            .v_scroll(&mut state.v_scroll),
+    );
 }
 
 fn clear_area(area: Rect, style: Style, buf: &mut Buffer) {
@@ -333,7 +309,7 @@ fn clear_area(area: Rect, style: Style, buf: &mut Buffer) {
 }
 
 impl<'a> PopupCore<'a> {
-    fn layout(&self, area: Rect, boundary_area: Rect, state: &mut PopupCoreState) {
+    fn _layout(&self, area: Rect, boundary_area: Rect) -> Rect {
         // helper fn
         fn center(len: u16, within: u16) -> u16 {
             ((within as i32 - len as i32) / 2).clamp(0, i16::MAX as i32) as u16
@@ -502,7 +478,7 @@ impl<'a> PopupCore<'a> {
             area.height = area.height.saturating_sub(corr);
         }
 
-        state.area = area;
+        area
     }
 }
 
