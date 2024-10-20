@@ -22,7 +22,7 @@ pub struct ScrollArea<'a> {
 ///
 /// This state is not meant to keep, it just packages the widgets state
 /// for use by ScrollArea.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct ScrollAreaState<'a> {
     /// This area is only used for event-handling.
     /// Populate before calling the event-handler.
@@ -306,16 +306,6 @@ fn layout<'a>(
     };
 
     (inner, h_area, v_area)
-}
-
-impl<'a> Default for ScrollAreaState<'a> {
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            h_scroll: None,
-            v_scroll: None,
-        }
-    }
 }
 
 impl<'a> ScrollAreaState<'a> {

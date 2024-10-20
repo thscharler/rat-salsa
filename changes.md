@@ -1,3 +1,15 @@
+# 0.26.0
+
+* break: ScrollArea no only uses references to Block/Scroll. This is a
+  major improvement. Before moving those out of the widget lead to errors.
+  Cloning them for StatefulWidgetRef is not so nice too.
+* break: ScrollArea::inner() provides a nicer api now.
+* feature: ScrollAreaState now acts more like a builder. Better fit.
+* feature: ScrollArea now works as StatefulWidget and StatefulWidgetRef
+  without cloning stuff.
+
+* feature: add StatefulWidget for &Scroll.
+
 # 0.25.1
 
 * docs
