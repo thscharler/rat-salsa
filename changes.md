@@ -1,3 +1,8 @@
+# 0.27.1
+
+* fix: when using AboveOrBelow/BelowOrAbove the offset must be mirrored.
+* upgrade: rat-scrolled
+
 # 0.27.0
 
 * break: split current Placement into Placement and PopupConstraint.  
