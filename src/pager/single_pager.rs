@@ -1,3 +1,4 @@
+use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
 use crate::pager::{AreaHandle, PageLayout, PagerStyle};
 use crate::util::revert_style;
@@ -24,7 +25,7 @@ pub struct SinglePager<'a> {
     block: Option<Block<'a>>,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SinglePagerState {
     /// Full area.
     /// __read only__ renewed with each render.
@@ -55,6 +56,9 @@ pub struct SinglePagerState {
 
     /// Mouse
     pub mouse: MouseFlagsN,
+
+    /// Only construct with `..Default::default()`.
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a> StatefulWidget for SinglePager<'a> {
@@ -169,6 +173,23 @@ impl<'a> SinglePager<'a> {
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
+    }
+}
+
+impl Default for SinglePagerState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            widget_area: Default::default(),
+            scroll_area: Default::default(),
+            prev_area: Default::default(),
+            next_area: Default::default(),
+            layout: Default::default(),
+            page: 0,
+            c_focus: Default::default(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

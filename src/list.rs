@@ -17,7 +17,6 @@ use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 use std::cmp::min;
 use std::collections::HashSet;
 use std::marker::PhantomData;
-use std::mem;
 
 pub mod edit;
 
@@ -235,58 +234,42 @@ where
     }
 }
 
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a, Selection: ListSelection> StatefulWidgetRef for List<'a, Selection> {
-    type State = ListState<Selection>;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let scroll = ScrollArea::new()
-            .block(self.block.clone())
-            .v_scroll(self.scroll.clone());
-
-        render_list(self, scroll, self.items.clone(), area, buf, state)
-    }
-}
+// #[cfg(feature = "unstable-widget-ref")]
+// impl<'a, Selection: ListSelection> StatefulWidgetRef for List<'a, Selection> {
+//     type State = ListState<Selection>;
+//
+//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+//         render_list(self, self.items.clone(), area, buf, state)
+//     }
+// }
 
 impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
     type State = ListState<Selection>;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        let items = mem::take(&mut self.items);
-        let block = mem::take(&mut self.block);
-        let scroll = mem::take(&mut self.scroll);
-
-        let scroll = ScrollArea::new().block(block).v_scroll(scroll);
-
-        render_list(&self, scroll, items, area, buf, state)
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_list(self, area, buf, state)
     }
 }
 
 fn render_list<'a, Selection: ListSelection>(
-    widget: &List<'a, Selection>,
-    scroll: ScrollArea<'_>,
-    items: Vec<ListItem<'a>>,
+    widget: List<'a, Selection>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut ListState<Selection>,
 ) {
     state.area = area;
-    state.rows = items.len();
+    state.rows = widget.items.len();
 
-    state.inner = scroll.inner(
-        area,
-        ScrollAreaState {
-            area,
-            h_scroll: None,
-            v_scroll: Some(&mut state.scroll),
-        },
-    );
+    let sa = ScrollArea::new()
+        .block(widget.block.as_ref())
+        .v_scroll(widget.scroll.as_ref());
+    state.inner = sa.inner(area, None, Some(&state.scroll));
 
     // area for each item
     state.row_areas.clear();
     let mut item_area = Rect::new(state.inner.x, state.inner.y, state.inner.width, 1);
     let mut total_height = 0;
-    for item in items.iter().skip(state.offset()) {
+    for item in widget.items.iter().skip(state.offset()) {
         item_area.height = item.height() as u16;
 
         state.row_areas.push(item_area);
@@ -308,7 +291,7 @@ fn render_list<'a, Selection: ListSelection>(
     // max_v_offset
     let mut n = 0;
     let mut height = 0;
-    for item in items.iter().rev() {
+    for item in widget.items.iter().rev() {
         height += item.height();
         if height > state.inner.height as usize {
             break;
@@ -323,18 +306,15 @@ fn render_list<'a, Selection: ListSelection>(
         (widget.style, widget.defaulted_select())
     };
 
-    scroll.render(
+    sa.render(
         area,
         buf,
-        &mut ScrollAreaState {
-            area,
-            h_scroll: None,
-            v_scroll: Some(&mut state.scroll),
-        },
+        &mut ScrollAreaState::new().v_scroll(&mut state.scroll),
     );
 
     // rendering
-    let items = items
+    let items = widget
+        .items
         .into_iter()
         .enumerate()
         .map(|(i, v)| {
@@ -743,11 +723,9 @@ pub mod selection {
 
     impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ListState<NoSelection> {
         fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-            let mut sas = ScrollAreaState {
-                area: self.inner,
-                h_scroll: None,
-                v_scroll: Some(&mut self.scroll),
-            };
+            let mut sas = ScrollAreaState::new()
+                .area(self.inner)
+                .v_scroll(&mut self.scroll);
             let r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => self.scroll_up(v),
                 ScrollOutcome::Down(v) => self.scroll_down(v),
@@ -840,11 +818,9 @@ pub mod selection {
                 _ => Outcome::Continue,
             });
 
-            let mut sas = ScrollAreaState {
-                area: self.inner,
-                h_scroll: None,
-                v_scroll: Some(&mut self.scroll),
-            };
+            let mut sas = ScrollAreaState::new()
+                .area(self.inner)
+                .v_scroll(&mut self.scroll);
             let r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => {
                     if ListSelection::scroll_selected(&self.selection) {
@@ -1013,11 +989,9 @@ pub mod selection {
                 _ => Outcome::Continue,
             });
 
-            let mut sas = ScrollAreaState {
-                area: self.inner,
-                h_scroll: None,
-                v_scroll: Some(&mut self.scroll),
-            };
+            let mut sas = ScrollAreaState::new()
+                .area(self.inner)
+                .v_scroll(&mut self.scroll);
             let r = match sas.handle(event, MouseOnly) {
                 ScrollOutcome::Up(v) => self.scroll_up(v),
                 ScrollOutcome::Down(v) => self.scroll_down(v),

@@ -180,6 +180,7 @@ pub mod textarea {
         TextAreaStyle,
     };
 }
+// mod clipper;
 pub mod pager;
 pub mod util;
 pub mod view;

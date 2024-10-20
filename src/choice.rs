@@ -654,13 +654,10 @@ impl HandleEvent<crossterm::event::Event, Popup, Outcome> for ChoiceState {
             r => r,
         };
 
-        let r2 = match (ScrollAreaState {
-            area: self.popup.area,
-            h_scroll: None,
-            v_scroll: Some(&mut self.popup.v_scroll),
-        })
-        .handle(event, MouseOnly)
-        {
+        let mut sas = ScrollAreaState::new()
+            .area(self.popup.area)
+            .v_scroll(&mut self.popup.v_scroll);
+        let r2 = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(n) => self.move_up(n).into(),
             ScrollOutcome::Down(n) => self.move_down(n).into(),
             ScrollOutcome::VPos(n) => self.move_to(n).into(),

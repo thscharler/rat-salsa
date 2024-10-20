@@ -18,7 +18,6 @@ use ratatui::style::Style;
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget};
 use std::fmt::Debug;
-use std::mem;
 
 /// Viewport has its own size, and can contain a stateful widget
 /// that will be rendered to a view sized buffer.
@@ -118,15 +117,9 @@ where
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if let Some(w) = &self.widget {
-            let scroll = ScrollArea::new()
-                .block(self.viewport.block.clone())
-                .h_scroll(self.viewport.hscroll.clone())
-                .v_scroll(self.viewport.vscroll.clone());
-
             render_ref(
                 &self.viewport,
                 |area, buf, state| w.render_ref(area, buf, state),
-                scroll,
                 area,
                 buf,
                 state,
@@ -145,19 +138,9 @@ where
 
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if let Some(w) = self.widget.take() {
-            let block = mem::take(&mut self.viewport.block);
-            let hscroll = mem::take(&mut self.viewport.hscroll);
-            let vscroll = mem::take(&mut self.viewport.vscroll);
-
-            let scroll = ScrollArea::new()
-                .block(block)
-                .h_scroll(hscroll)
-                .v_scroll(vscroll);
-
             render_ref(
                 &self.viewport,
                 |area, buf, state| w.render(area, buf, state),
-                scroll,
                 area,
                 buf,
                 state,
@@ -171,21 +154,17 @@ where
 fn render_ref<S>(
     viewport: &ViewportImpl<'_>,
     render_widget: impl FnOnce(Rect, &mut Buffer, &mut S),
-    scroll: ScrollArea<'_>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut ViewportState<S>,
 ) {
     state.area = area;
 
-    state.inner = scroll.inner(
-        area,
-        ScrollAreaState {
-            area,
-            h_scroll: Some(&mut state.hscroll),
-            v_scroll: Some(&mut state.vscroll),
-        },
-    );
+    let sa = ScrollArea::new()
+        .block(viewport.block.as_ref())
+        .h_scroll(viewport.hscroll.as_ref())
+        .v_scroll(viewport.vscroll.as_ref());
+    state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
     state.view = Rect::new(
         state.inner.x,
@@ -203,14 +182,12 @@ fn render_ref<S>(
         .set_max_offset(state.view.height.saturating_sub(state.inner.height) as usize);
     state.vscroll.set_page_len(state.inner.height as usize);
 
-    scroll.render(
+    sa.render(
         area,
         buf,
-        &mut ScrollAreaState {
-            area,
-            h_scroll: Some(&mut state.hscroll),
-            v_scroll: Some(&mut state.vscroll),
-        },
+        &mut ScrollAreaState::new()
+            .h_scroll(&mut state.hscroll)
+            .v_scroll(&mut state.vscroll),
     );
 
     let mut tmp = Buffer::empty(state.view);
@@ -336,12 +313,10 @@ where
             .widget
             .handle(&self.relocate_crossterm(event), qualifier));
 
-        let mut sas = ScrollAreaState {
-            area: self.inner,
-            h_scroll: Some(&mut self.hscroll),
-            v_scroll: Some(&mut self.vscroll),
-        };
-
+        let mut sas = ScrollAreaState::new()
+            .area(self.inner)
+            .h_scroll(&mut self.hscroll)
+            .v_scroll(&mut self.vscroll);
         let r = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => self.scroll_up(v),
             ScrollOutcome::Down(v) => self.scroll_down(v),

@@ -9,11 +9,10 @@ use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
+use ratatui::prelude::Line;
 use ratatui::style::Style;
 use ratatui::text::Text;
 use ratatui::widgets::{Block, StatefulWidget, Widget, Wrap};
-#[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 
 /// List widget.
 ///
@@ -21,8 +20,10 @@ use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
 /// Add Scroll and event-handling.
 #[derive(Debug, Default)]
 pub struct Paragraph<'a> {
-    w: ratatui::widgets::Paragraph<'a>,
-    is_wrap: bool,
+    text: Text<'a>,
+    style: Style,
+    wrap: Option<Wrap>,
+    alignment: Option<Alignment>,
     block: Option<Block<'a>>,
     vscroll: Option<Scroll<'a>>,
     hscroll: Option<Scroll<'a>>,
@@ -57,10 +58,9 @@ impl<'a> Paragraph<'a> {
     where
         T: Into<Text<'a>>,
     {
-        let t = text.into();
         Self {
-            w: ratatui::widgets::Paragraph::new(t),
-            ..Self::default()
+            text: text.into(),
+            ..Default::default()
         }
     }
 
@@ -91,75 +91,38 @@ impl<'a> Paragraph<'a> {
 
     /// Base style.
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.w = self.w.style(style);
+        self.style = style.into();
         self
     }
 
     /// Word wrap.
     pub fn wrap(mut self, wrap: Wrap) -> Self {
-        self.is_wrap = true;
-        self.w = self.w.wrap(wrap);
+        self.wrap = Some(wrap);
         self
     }
 
     /// Text alignment.
     pub fn alignment(mut self, alignment: Alignment) -> Self {
-        self.w = self.w.alignment(alignment);
+        self.alignment = Some(alignment);
         self
     }
 
     /// Text alignment.
     pub fn left_aligned(mut self) -> Self {
-        self.w = self.w.left_aligned();
+        self.alignment = Some(Alignment::Left);
         self
     }
 
     /// Text alignment.
     pub fn centered(mut self) -> Self {
-        self.w = self.w.centered();
+        self.alignment = Some(Alignment::Center);
         self
     }
 
     /// Text alignment.
     pub fn right_aligned(mut self) -> Self {
-        self.w = self.w.right_aligned();
+        self.alignment = Some(Alignment::Right);
         self
-    }
-}
-
-impl<'a> Paragraph<'a> {
-    fn layout(&self, area: Rect, state: &mut ParagraphState) {
-        state.area = area;
-
-        let scroll = ScrollArea::new()
-            .block(self.block.clone())
-            .h_scroll(self.hscroll.clone())
-            .v_scroll(self.vscroll.clone());
-
-        state.inner = scroll.inner(
-            area,
-            ScrollAreaState {
-                area,
-                h_scroll: Some(&mut state.hscroll),
-                v_scroll: Some(&mut state.vscroll),
-            },
-        );
-
-        state.hscroll.set_max_offset(if self.is_wrap {
-            0
-        } else {
-            let w = self.w.line_width();
-            let d = state.inner.width as usize;
-            w.saturating_sub(d)
-        });
-        state.hscroll.set_page_len(state.inner.width as usize);
-
-        // 4 is an estimate. line_count seems not very accurate.
-        let lines = self.w.line_count(area.width) + 4;
-        state
-            .vscroll
-            .set_max_offset(lines.saturating_sub(state.inner.height as usize));
-        state.vscroll.set_page_len(state.inner.height as usize);
     }
 }
 
@@ -167,47 +130,49 @@ impl<'a> StatefulWidget for Paragraph<'a> {
     type State = ParagraphState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.layout(area, state);
+        state.area = area;
 
-        let scroll = ScrollArea::new()
-            .block(self.block)
-            .h_scroll(self.hscroll)
-            .v_scroll(self.vscroll);
-        scroll.render(
+        let sa = ScrollArea::new()
+            .block(self.block.as_ref())
+            .h_scroll(self.hscroll.as_ref())
+            .v_scroll(self.vscroll.as_ref());
+
+        state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
+
+        state.hscroll.set_max_offset(if self.wrap.is_some() {
+            0
+        } else {
+            let max = self.text.iter().map(Line::width).max().unwrap_or_default();
+            max.saturating_sub(state.inner.width as usize)
+        });
+        state.hscroll.set_page_len(state.inner.width as usize);
+
+        // paragraph
+        let mut para = ratatui::widgets::Paragraph::new(self.text)
+            .style(self.style)
+            .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16));
+        if let Some(alignment) = self.alignment {
+            para = para.alignment(alignment);
+        }
+        if let Some(wrap) = self.wrap {
+            para = para.wrap(wrap);
+        }
+        let lines = para.line_count(state.inner.width) + 4;
+        para.render(state.inner, buf);
+
+        state
+            .vscroll
+            .set_max_offset(lines.saturating_sub(state.inner.height as usize));
+        state.vscroll.set_page_len(state.inner.height as usize);
+
+        sa.render(
             area,
             buf,
-            &mut ScrollAreaState {
-                area,
-                h_scroll: Some(&mut state.hscroll),
-                v_scroll: Some(&mut state.vscroll),
-            },
+            &mut ScrollAreaState::new()
+                .area(area)
+                .h_scroll(&mut state.hscroll)
+                .v_scroll(&mut state.vscroll),
         );
-
-        self.w
-            .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16))
-            .render(state.inner, buf);
-    }
-}
-
-#[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Paragraph<'a> {
-    type State = ParagraphState;
-
-    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        self.layout(area, state);
-
-        self.block.render_ref(area, buf);
-        if let Some(vscroll) = &self.vscroll {
-            vscroll.render_ref(state.vscroll.area, buf, &mut state.vscroll);
-        }
-        if let Some(hscroll) = &self.hscroll {
-            hscroll.render_ref(state.hscroll.area, buf, &mut state.hscroll);
-        }
-
-        self.w
-            .clone()
-            .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16))
-            .render(state.inner, buf);
     }
 }
 
@@ -311,11 +276,10 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ParagraphState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-        let mut sas = ScrollAreaState {
-            area: self.inner,
-            h_scroll: Some(&mut self.hscroll),
-            v_scroll: Some(&mut self.vscroll),
-        };
+        let mut sas = ScrollAreaState::new()
+            .area(self.inner)
+            .h_scroll(&mut self.hscroll)
+            .v_scroll(&mut self.vscroll);
         match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => {
                 if self.scroll_up(v) {

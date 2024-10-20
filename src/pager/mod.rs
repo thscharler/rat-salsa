@@ -64,9 +64,7 @@ impl PageLayout {
         let mut core = self.core.borrow_mut();
         // reset page to re-layout
         core.page = Default::default();
-
         core.areas.push(area);
-
         AreaHandle(core.areas.len() - 1)
     }
 
@@ -75,12 +73,15 @@ impl PageLayout {
         let mut core = self.core.borrow_mut();
         // reset page to re-layout
         core.page = Default::default();
-
         core.areas.extend(areas)
     }
 
     /// Add rects. Appends the resulting handles.
-    pub fn extend(&mut self, areas: impl IntoIterator<Item = Rect>, handles: &mut Vec<AreaHandle>) {
+    pub fn add_all_out(
+        &mut self,
+        areas: impl IntoIterator<Item = Rect>,
+        handles: &mut Vec<AreaHandle>,
+    ) {
         let mut core = self.core.borrow_mut();
 
         // reset page to re-layout
@@ -118,7 +119,7 @@ impl PageLayout {
     /// Run the layout algorithm.
     pub fn layout(&mut self, page: Rect) {
         let mut core = self.core.borrow_mut();
-        core._layout(page);
+        core.layout(page);
     }
 
     /// Number of pages.
@@ -192,7 +193,7 @@ impl PageLayout {
 
 impl PageLayoutCore {
     /// Run the layout algorithm.
-    fn _layout(&mut self, page: Rect) {
+    fn layout(&mut self, page: Rect) {
         if self.page == page {
             return;
         }
