@@ -212,10 +212,11 @@ pub mod mask0 {
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
     use rat_widget::popup::Placement;
     use rat_widget::scrolled::Scroll;
-    use rat_widget::viewport::{Viewport, ViewportState};
+    use rat_widget::view::{Viewport, ViewportState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
     use ratatui::widgets::StatefulWidget;
+    use std::fmt::Debug;
 
     #[derive(Debug)]
     pub struct Mask0;
@@ -239,6 +240,7 @@ pub mod mask0 {
         }
     }
 
+    #[derive(Debug)]
     struct Menu;
 
     impl<'a> MenuStructure<'a> for Menu {

@@ -301,6 +301,7 @@ pub mod turbo {
         pub menu_environment: PopupMenuState,
     }
 
+    #[derive(Debug)]
     struct Menu;
 
     impl<'a> MenuStructure<'a> for Menu {
@@ -637,8 +638,7 @@ pub mod theme {
     use rat_widget::splitter::SplitStyle;
     use rat_widget::tabbed::TabbedStyle;
     use rat_widget::table::TableStyle;
-    use rat_widget::text_input::TextInputStyle;
-    use rat_widget::textarea::TextAreaStyle;
+    use rat_widget::text::TextStyle;
     use ratatui::prelude::Style;
     use ratatui::style::Stylize;
 
@@ -830,23 +830,23 @@ pub mod theme {
         }
 
         /// Complete TextAreaStyle
-        pub fn textarea_style(&self) -> TextAreaStyle {
-            TextAreaStyle {
+        pub fn textarea_style(&self) -> TextStyle {
+            TextStyle {
                 style: self.data(),
                 focus: Some(self.focus()),
                 select: Some(self.text_select()),
-                ..TextAreaStyle::default()
+                ..Default::default()
             }
         }
 
         /// Complete TextInputStyle
-        pub fn input_style(&self) -> TextInputStyle {
-            TextInputStyle {
+        pub fn input_style(&self) -> TextStyle {
+            TextStyle {
                 style: self.text_input(),
                 focus: Some(self.text_focus()),
                 select: Some(self.text_select()),
                 invalid: Some(Style::default().bg(self.s.red[3])),
-                ..TextInputStyle::default()
+                ..Default::default()
             }
         }
 

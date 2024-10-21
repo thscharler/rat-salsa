@@ -254,6 +254,7 @@ impl<'a> TableData<'a> for DirData<'a> {
     }
 }
 
+#[derive(Debug)]
 struct Menu;
 
 impl<'a> MenuStructure<'a> for Menu {

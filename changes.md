@@ -1,3 +1,7 @@
+# 0.27.2
+
+* fix: upstream changes
+
 # 0.27.1
 
 * docs: small fixes
