@@ -10,7 +10,7 @@ use crate::{TableContext, TableData, TableDataIter, TableSelection};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent};
 use rat_focus::{FocusFlag, HasFocus};
-use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
@@ -253,6 +253,9 @@ pub struct TableStyle {
     pub show_footer_focus: bool,
 
     pub focus_style: Option<Style>,
+
+    pub block: Option<Block<'static>>,
+    pub scroll: Option<ScrollStyle>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -685,6 +688,14 @@ impl<'a, Selection> Table<'a, Selection> {
         self.show_footer_focus = styles.show_footer_focus;
 
         self.focus_style = styles.focus_style;
+
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(styles) = styles.scroll {
+            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
+            self.vscroll = self.vscroll.map(|v| v.styles(styles));
+        }
         self
     }
 
@@ -1494,6 +1505,8 @@ impl Default for TableStyle {
             show_header_focus: false,
             show_footer_focus: false,
             focus_style: None,
+            block: None,
+            scroll: None,
             non_exhaustive: NonExhaustive,
         }
     }

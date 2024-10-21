@@ -1,3 +1,7 @@
+# 0.27.2
+
+* feature: enable styles for Block and Scroll
+
 # 0.27.1
 
 * fix: use new ScrollArea. no visible api change.
