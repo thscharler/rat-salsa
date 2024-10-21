@@ -29,9 +29,9 @@ use ratatui::layout::{Rect, Size};
 use ratatui::prelude::StatefulWidget;
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Line, Span};
-use ratatui::widgets::{Block, Widget};
 #[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, Padding, Widget};
 use std::cmp::max;
 use std::mem;
 use unicode_segmentation::UnicodeSegmentation;
@@ -243,10 +243,8 @@ impl<'a> PopupMenu<'a> {
 
     /// Set a style-set.
     pub fn styles(mut self, styles: MenuStyle) -> Self {
-        if styles.popup_block.is_some() {
-            self.popup = self.popup.block_opt(styles.popup_block);
-        }
         self.style = styles.style;
+        self.popup = self.popup.styles(styles.popup);
         if styles.highlight.is_some() {
             self.highlight_style = styles.highlight;
         }
@@ -336,6 +334,11 @@ impl<'a> PopupMenu<'a> {
     /// Get the padding the block imposes as a Size.
     pub fn get_block_size(&self) -> Size {
         self.popup.get_block_size()
+    }
+
+    /// Get the padding the block imposes as a Size.
+    pub fn get_block_padding(&self) -> Padding {
+        self.popup.get_block_padding()
     }
 }
 

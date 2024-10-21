@@ -1,3 +1,8 @@
+# 0.29.0
+
+* break: MenuStructure requires Debug
+* break: MenuStyle uses PopupStyle
+
 # 0.28.0
 
 * break: replace SubmenuPlacement with Placement
