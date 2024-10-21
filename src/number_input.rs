@@ -5,10 +5,9 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
-use crate::text_input::TextInputStyle;
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{upos_type, HasScreenCursor, TextError};
+use crate::{upos_type, HasScreenCursor, TextError, TextStyle};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
@@ -58,7 +57,7 @@ impl<'a> NumberInput<'a> {
 
     /// Set the combined style.
     #[inline]
-    pub fn styles(mut self, style: TextInputStyle) -> Self {
+    pub fn styles(mut self, style: TextStyle) -> Self {
         self.widget = self.widget.styles(style);
         self
     }

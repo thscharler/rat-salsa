@@ -1,5 +1,5 @@
 use rat_scrolled::ScrollStyle;
-use rat_text::text_area::TextAreaStyle;
+use rat_text::TextStyle;
 use ratatui::style::{Color, Style, Stylize};
 
 #[derive(Debug, Default, Clone)]
@@ -195,25 +195,25 @@ impl Scheme {
     }
 
     /// Complete TextAreaStyle
-    pub fn textarea_style(&self) -> TextAreaStyle {
-        TextAreaStyle {
+    pub fn textarea_style(&self) -> TextStyle {
+        TextStyle {
             style: self.data(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
-            ..TextAreaStyle::default()
+            ..Default::default()
         }
     }
 
-    // /// Complete TextInputStyle
-    // pub fn input_style(&self) -> TextInputStyle {
-    //     TextInputStyle {
-    //         style: self.text_input(),
-    //         focus: Some(self.text_focus()),
-    //         select: Some(self.text_select()),
-    //         invalid: Some(Style::default().bg(self.red[3])),
-    //         ..TextInputStyle::default()
-    //     }
-    // }
+    /// Complete TextInputStyle
+    pub fn input_style(&self) -> TextStyle {
+        TextStyle {
+            style: self.text_input(),
+            focus: Some(self.text_focus()),
+            select: Some(self.text_select()),
+            invalid: Some(Style::default().bg(self.red[3])),
+            ..Default::default()
+        }
+    }
 
     /// Complete ListStyle
     pub fn list_style(&self) -> Style {

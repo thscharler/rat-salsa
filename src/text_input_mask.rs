@@ -72,10 +72,10 @@
 use crate::_private::NonExhaustive;
 use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
-use crate::text_input::{TextInputState, TextInputStyle};
+use crate::text_input::TextInputState;
 use crate::text_mask_core::MaskedCore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError};
+use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextStyle};
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
@@ -145,16 +145,19 @@ impl<'a> MaskedInput<'a> {
 
     /// Set the combined style.
     #[inline]
-    pub fn styles(mut self, style: TextInputStyle) -> Self {
-        self.style = style.style;
-        if style.focus.is_some() {
-            self.focus_style = style.focus;
+    pub fn styles(mut self, styles: TextStyle) -> Self {
+        self.style = styles.style;
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
         }
-        if style.select.is_some() {
-            self.select_style = style.select;
+        if styles.select.is_some() {
+            self.select_style = styles.select;
         }
-        if style.invalid.is_some() {
-            self.invalid_style = style.invalid;
+        if styles.invalid.is_some() {
+            self.invalid_style = styles.invalid;
+        }
+        if styles.block.is_some() {
+            self.block = styles.block;
         }
         self
     }

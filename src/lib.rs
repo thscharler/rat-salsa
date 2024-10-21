@@ -23,8 +23,12 @@ mod text_store;
 
 pub use grapheme::{Glyph, Grapheme};
 
+use crate::_private::NonExhaustive;
 pub use pure_rust_locales::Locale;
 pub use rat_cursor::HasScreenCursor;
+use rat_scrolled::ScrollStyle;
+use ratatui::prelude::Style;
+use ratatui::widgets::Block;
 
 pub mod event {
     //!
@@ -89,6 +93,34 @@ pub mod event {
                 TextOutcome::Changed => Outcome::Changed,
                 TextOutcome::TextChanged => Outcome::Changed,
             }
+        }
+    }
+}
+
+/// Combined style for the widget.
+#[derive(Debug, Clone)]
+pub struct TextStyle {
+    pub style: Style,
+    pub focus: Option<Style>,
+    pub select: Option<Style>,
+    pub invalid: Option<Style>,
+
+    pub scroll: Option<ScrollStyle>,
+    pub block: Option<Block<'static>>,
+
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for TextStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            focus: None,
+            select: None,
+            invalid: None,
+            scroll: None,
+            block: None,
+            non_exhaustive: NonExhaustive,
         }
     }
 }

@@ -11,7 +11,9 @@ use crate::text_core::TextCore;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
-use crate::{ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange};
+use crate::{
+    ipos_type, upos_type, Cursor, HasScreenCursor, TextError, TextPosition, TextRange, TextStyle,
+};
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
@@ -77,15 +79,6 @@ pub struct TextArea<'a> {
     text_style: Vec<Style>,
 }
 
-/// Combined style for the widget.
-#[derive(Debug, Clone)]
-pub struct TextAreaStyle {
-    pub style: Style,
-    pub focus: Option<Style>,
-    pub select: Option<Style>,
-    pub non_exhaustive: NonExhaustive,
-}
-
 /// State & event handling.
 #[derive(Debug)]
 pub struct TextAreaState {
@@ -132,17 +125,6 @@ impl Clone for TextAreaState {
     }
 }
 
-impl Default for TextAreaStyle {
-    fn default() -> Self {
-        Self {
-            style: Default::default(),
-            focus: None,
-            select: None,
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
 impl<'a> TextArea<'a> {
     /// New widget.
     pub fn new() -> Self {
@@ -151,13 +133,20 @@ impl<'a> TextArea<'a> {
 
     /// Set the combined style.
     #[inline]
-    pub fn styles(mut self, style: TextAreaStyle) -> Self {
+    pub fn styles(mut self, style: TextStyle) -> Self {
         self.style = style.style;
         if style.focus.is_some() {
             self.focus_style = style.focus;
         }
         if style.select.is_some() {
             self.select_style = style.select;
+        }
+        if style.block.is_some() {
+            self.block = style.block;
+        }
+        if let Some(styles) = style.scroll {
+            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
+            self.vscroll = self.vscroll.map(|v| v.styles(styles));
         }
         self
     }

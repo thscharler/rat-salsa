@@ -1,3 +1,7 @@
+# 0.28.0
+
+* refactor: merge TextInputStyle and TextAreaStyle to TextStyle.
+
 # 0.27.1
 
 * update rat-scrolled
