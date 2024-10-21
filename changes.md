@@ -1,3 +1,7 @@
+# 0.26.2
+
+* fix: add missing styles.
+
 # 0.26.1
 
 * fix: name changes in styles.

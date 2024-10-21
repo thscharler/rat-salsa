@@ -3,17 +3,23 @@
 //!
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
+use rat_widget::choice::ChoiceStyle;
+use rat_widget::clipper::ClipperStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
+use rat_widget::pager::PagerStyle;
+use rat_widget::paragraph::ParagraphStyle;
+use rat_widget::popup::PopupStyle;
 use rat_widget::scrolled::ScrollStyle;
+use rat_widget::shadow::{ShadowDirection, ShadowStyle};
 use rat_widget::splitter::SplitStyle;
 use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
-use rat_widget::text_input::TextInputStyle;
-use rat_widget::textarea::TextAreaStyle;
+use rat_widget::text::TextStyle;
+use rat_widget::view::ViewStyle;
 use ratatui::prelude::{Style, Stylize};
 use ratatui::widgets::Block;
 
@@ -183,6 +189,11 @@ impl DarkTheme {
         Style::default().fg(self.s.text_color(bg)).bg(bg)
     }
 
+    /// Container base
+    pub fn container(&self) -> Style {
+        Style::default().fg(self.s.gray[0]).bg(self.s.black[1])
+    }
+
     /// Data display style. Used for lists, tables, ...
     pub fn data(&self) -> Style {
         Style::default().fg(self.s.white[0]).bg(self.s.black[1])
@@ -198,6 +209,15 @@ impl DarkTheme {
         Style::default().fg(self.s.white[0]).bg(self.s.black[2])
     }
 
+    /// Style for shadows.
+    pub fn shadow_style(&self) -> ShadowStyle {
+        ShadowStyle {
+            style: Style::new().bg(self.s.black[0]),
+            dir: ShadowDirection::BottomRight,
+            ..Default::default()
+        }
+    }
+
     /// Style for LineNumbers.
     pub fn line_nr_style(&self) -> LineNumberStyle {
         LineNumberStyle {
@@ -208,23 +228,24 @@ impl DarkTheme {
     }
 
     /// Complete TextAreaStyle
-    pub fn textarea_style(&self) -> TextAreaStyle {
-        TextAreaStyle {
+    pub fn textarea_style(&self) -> TextStyle {
+        TextStyle {
             style: self.data(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
-            ..TextAreaStyle::default()
+            scroll: Some(self.scroll_style()),
+            ..TextStyle::default()
         }
     }
 
     /// Complete TextInputStyle
-    pub fn input_style(&self) -> TextInputStyle {
-        TextInputStyle {
+    pub fn input_style(&self) -> TextStyle {
+        TextStyle {
             style: self.text_input(),
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.s.red[3])),
-            ..TextInputStyle::default()
+            ..TextStyle::default()
         }
     }
 
@@ -239,33 +260,48 @@ impl DarkTheme {
             right: Some(Style::default().fg(self.s.bluegreen[0])),
             disabled: Some(Style::default().fg(self.s.gray[0])),
             highlight: Some(Style::default().underlined()),
-            popup_block: Some(Block::bordered()),
+            popup: PopupStyle {
+                style: menu,
+                block: Some(Block::bordered()),
+                ..Default::default()
+            },
             ..Default::default()
         }
     }
 
-    /// Complete FTableStyle
+    /// Paragraph style
+    pub fn paragraph_style(&self) -> ParagraphStyle {
+        ParagraphStyle {
+            style: self.data(),
+            scroll: Some(self.scroll_style()),
+            ..Default::default()
+        }
+    }
+
+    /// Table style
     pub fn table_style(&self) -> TableStyle {
         TableStyle {
             style: self.data(),
             select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
+            scroll: Some(self.scroll_style()),
             ..Default::default()
         }
     }
 
-    /// Complete ListStyle
+    /// List style
     pub fn list_style(&self) -> ListStyle {
         ListStyle {
             style: self.data(),
             select: Some(self.select()),
             focus: Some(self.focus()),
+            scroll: Some(self.scroll_style()),
             ..Default::default()
         }
     }
 
-    /// Complete ButtonStyle
+    /// Button style
     pub fn button_style(&self) -> ButtonStyle {
         ButtonStyle {
             style: Style::default()
@@ -281,9 +317,9 @@ impl DarkTheme {
         }
     }
 
-    /// Complete ScrolledStyle
+    /// Scroll style
     pub fn scroll_style(&self) -> ScrollStyle {
-        let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
+        let style = self.container();
         let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
         ScrollStyle {
             thumb_style: Some(style),
@@ -295,9 +331,9 @@ impl DarkTheme {
         }
     }
 
-    /// Complete Split style
+    /// Split style
     pub fn split_style(&self) -> SplitStyle {
-        let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
+        let style = self.container();
         let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
         SplitStyle {
             style,
@@ -307,9 +343,18 @@ impl DarkTheme {
         }
     }
 
-    /// Complete Tabbed style
+    /// View style
+    pub fn view_style(&self) -> ViewStyle {
+        ViewStyle {
+            style: self.container(),
+            scroll: Some(self.scroll_style()),
+            ..Default::default()
+        }
+    }
+
+    /// Tabbed style
     pub fn tabbed_style(&self) -> TabbedStyle {
-        let style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
+        let style = self.container();
         TabbedStyle {
             style,
             tab: Some(self.gray(1)),
@@ -319,7 +364,7 @@ impl DarkTheme {
         }
     }
 
-    /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
+    /// StatusLineStyle for a StatusLine with 3 indicator fields.
     /// This is what I need for the
     /// [minimal](https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs)
     /// example, which shows timings for Render/Event/Action.
@@ -333,7 +378,7 @@ impl DarkTheme {
         ]
     }
 
-    /// Complete MsgDialogStyle.
+    /// MsgDialog style.
     pub fn msg_dialog_style(&self) -> MsgDialogStyle {
         MsgDialogStyle {
             style: self.dialog_style(),
@@ -342,6 +387,7 @@ impl DarkTheme {
         }
     }
 
+    /// FileDialog style.
     pub fn file_dialog_style(&self) -> FileDialogStyle {
         FileDialogStyle {
             style: self.dialog_style(),
@@ -353,6 +399,41 @@ impl DarkTheme {
             select: Some(self.select()),
             focus: Some(self.focus()),
             button: Some(self.button_style()),
+            ..Default::default()
+        }
+    }
+
+    /// Choice style.
+    pub fn choice_style(&self) -> ChoiceStyle {
+        ChoiceStyle {
+            style: self.text_input(),
+            button: Some(self.text_input()),
+            select: Some(self.select()),
+            focus: Some(self.focus()),
+            popup: PopupStyle {
+                style: self.text_input(),
+                block: Some(Block::bordered()),
+                scroll: Some(self.scroll_style()),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    /// Pager style.
+    pub fn pager_style(&self) -> PagerStyle {
+        PagerStyle {
+            style: self.container(),
+            nav: Some(self.select()),
+            divider: Some(self.container()),
+            ..Default::default()
+        }
+    }
+
+    /// Clipper style.
+    pub fn clipper_style(&self) -> ClipperStyle {
+        ClipperStyle {
+            scroll: Some(self.scroll_style()),
             ..Default::default()
         }
     }
