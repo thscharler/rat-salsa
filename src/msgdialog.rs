@@ -35,6 +35,7 @@ pub struct MsgDialog<'a> {
 pub struct MsgDialogStyle {
     pub style: Style,
     pub scroll: Option<ScrollStyle>,
+    pub block: Option<Block<'static>>,
     pub button: ButtonStyle,
     pub non_exhaustive: NonExhaustive,
 }
@@ -88,6 +89,9 @@ impl<'a> MsgDialog<'a> {
         if styles.scroll.is_some() {
             self.scroll_style = styles.scroll;
         }
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
         self.button_style = styles.button;
         self
     }
@@ -115,7 +119,8 @@ impl Default for MsgDialogStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            scroll: Default::default(),
+            scroll: None,
+            block: None,
             button: Default::default(),
             non_exhaustive: NonExhaustive,
         }

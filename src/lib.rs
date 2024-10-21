@@ -62,7 +62,7 @@ pub mod text {
     pub use rat_text::undo_buffer;
     pub use rat_text::{
         ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, Locale, TextError,
-        TextPosition, TextRange,
+        TextPosition, TextRange, TextStyle,
     };
 }
 
@@ -152,7 +152,6 @@ pub mod tabbed;
 pub mod text_input {
     pub use rat_text::text_input::{
         handle_events, handle_mouse_events, handle_readonly_events, TextInput, TextInputState,
-        TextInputStyle,
     };
 }
 /// Text-Input with pattern/mask.
@@ -177,14 +176,13 @@ pub mod text_input_mask {
 pub mod textarea {
     pub use rat_text::text_area::{
         handle_events, handle_mouse_events, handle_readonly_events, TextArea, TextAreaState,
-        TextAreaStyle,
     };
 }
 pub mod clipper;
+// mod date_combo;
 pub mod pager;
 pub mod util;
 pub mod view;
-pub mod viewport;
 
 mod _private {
     #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]

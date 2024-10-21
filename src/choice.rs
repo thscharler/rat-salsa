@@ -5,12 +5,12 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::util::{block_size, revert_style};
+use crate::util::revert_style;
 use rat_event::util::{item_at, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
 use rat_focus::{FocusFlag, HasFocus, ZRect};
 use rat_popup::event::PopupOutcome;
-use rat_popup::{Placement, PopupCore, PopupCoreState};
+use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollAreaState};
 use ratatui::buffer::Buffer;
@@ -39,11 +39,8 @@ pub struct Choice<'a> {
     block: Option<Block<'a>>,
 
     popup_placement: Placement,
-    popup_boundary: Option<Rect>,
-    popup_block: Option<Block<'a>>,
-    popup_scroll: Option<Scroll<'a>>,
-    popup_style: Option<Style>,
     popup_len: Option<u16>,
+    popup: PopupCore<'a>,
 }
 
 /// Renders the main widget.
@@ -66,14 +63,24 @@ pub struct RenderChoicePopup<'a> {
     style: Style,
     select_style: Option<Style>,
 
-    placement: Placement,
-    boundary: Option<Rect>,
-    block: Option<Block<'a>>,
-    scroll: Option<Scroll<'a>>,
-    len: Option<u16>,
+    popup_placement: Placement,
+    popup_len: Option<u16>,
+    popup: PopupCore<'a>,
 }
 
-// todo: style
+#[derive(Debug, Clone)]
+pub struct ChoiceStyle {
+    pub style: Style,
+    pub button: Option<Style>,
+    pub select: Option<Style>,
+    pub focus: Option<Style>,
+    pub block: Option<Block<'static>>,
+
+    pub popup: PopupStyle,
+    pub popup_len: Option<u16>,
+
+    pub non_exhaustive: NonExhaustive,
+}
 
 /// State.
 #[derive(Debug, Clone)]
@@ -115,6 +122,21 @@ pub struct ChoiceState {
     pub non_exhaustive: NonExhaustive,
 }
 
+impl Default for ChoiceStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            button: None,
+            select: None,
+            focus: None,
+            block: None,
+            popup: Default::default(),
+            popup_len: None,
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
 impl<'a> Default for Choice<'a> {
     fn default() -> Self {
         Self {
@@ -125,11 +147,8 @@ impl<'a> Default for Choice<'a> {
             focus_style: None,
             block: None,
             popup_len: None,
-            popup_block: None,
             popup_placement: Placement::BelowOrAbove,
-            popup_boundary: None,
-            popup_style: None,
-            popup_scroll: None,
+            popup: Default::default(),
         }
     }
 }
@@ -142,6 +161,31 @@ impl<'a> Choice<'a> {
     /// Add an item.
     pub fn item(self, item: impl Into<Cow<'a, str>>) -> Self {
         self.items.borrow_mut().push(item.into());
+        self
+    }
+
+    /// Combined styles.
+    pub fn styles(mut self, styles: ChoiceStyle) -> Self {
+        self.style = styles.style;
+        if styles.button.is_some() {
+            self.button_style = styles.button;
+        }
+        if styles.select.is_some() {
+            self.select_style = styles.select;
+        }
+        if styles.focus.is_some() {
+            self.focus_style = styles.focus;
+        }
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(placement) = styles.popup.placement {
+            self.popup_placement = placement;
+        }
+        if styles.popup_len.is_some() {
+            self.popup_len = styles.popup_len;
+        }
+        self.popup = self.popup.styles(styles.popup);
         self
     }
 
@@ -186,7 +230,7 @@ impl<'a> Choice<'a> {
 
     /// Outer boundary for the popup.
     pub fn popup_boundary(mut self, boundary: Rect) -> Self {
-        self.popup_boundary = Some(boundary);
+        self.popup = self.popup.boundary(boundary);
         self
     }
 
@@ -201,19 +245,19 @@ impl<'a> Choice<'a> {
 
     /// Base style for the popup.
     pub fn popup_style(mut self, style: Style) -> Self {
-        self.popup_style = Some(style);
+        self.popup = self.popup.style(style);
         self
     }
 
     /// Block for the popup.
     pub fn popup_block(mut self, block: Block<'a>) -> Self {
-        self.popup_block = Some(block);
+        self.popup = self.popup.block(block);
         self
     }
 
     /// Scroll for the popup.
     pub fn popup_scroll(mut self, scroll: Scroll<'a>) -> Self {
-        self.popup_scroll = Some(scroll);
+        self.popup = self.popup.v_scroll(scroll);
         self
     }
 
@@ -232,13 +276,11 @@ impl<'a> Choice<'a> {
             },
             RenderChoicePopup {
                 items: self.items.clone(),
-                placement: self.popup_placement,
-                boundary: self.popup_boundary,
-                block: self.popup_block,
-                scroll: self.popup_scroll,
-                style: self.popup_style.unwrap_or(self.style),
-                len: self.popup_len,
+                style: self.style,
                 select_style: self.select_style,
+                popup: self.popup,
+                popup_placement: self.popup_placement,
+                popup_len: self.popup_len,
             },
         )
     }
@@ -318,18 +360,14 @@ impl<'a> StatefulWidget for RenderChoicePopup<'a> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         if state.popup.is_active() {
             let len = self
-                .len
+                .popup_len
                 .unwrap_or_else(|| min(5, self.items.borrow().len()) as u16);
 
-            let popup_len = len + block_size(&self.block).height;
+            let popup_len = len + self.popup.get_block_size().height;
             let pop_area = Rect::new(0, 0, area.width, popup_len);
 
-            PopupCore::new()
-                .constraint(self.placement.into_constraint(area))
-                .boundary_opt(self.boundary)
-                .style(self.style)
-                .block_opt(self.block)
-                .v_scroll_opt(self.scroll)
+            self.popup
+                .constraint(self.popup_placement.into_constraint(area))
                 .render(pop_area, buf, &mut state.popup);
 
             let inner = state.popup.widget_area;

@@ -13,7 +13,7 @@ use rat_widget::pager::{AreaHandle, PageLayout, SinglePager, SinglePagerState};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui::widgets::{StatefulWidget, Widget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;

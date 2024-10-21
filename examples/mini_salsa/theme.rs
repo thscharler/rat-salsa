@@ -1,14 +1,14 @@
 use rat_ftable::TableStyle;
 use rat_menu::MenuStyle;
+use rat_popup::PopupStyle;
 use rat_scrolled::ScrollStyle;
-use rat_text::text_input::TextInputStyle;
+use rat_text::TextStyle;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::MonthStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::splitter::{SplitStyle, SplitType};
-use rat_widget::textarea::TextAreaStyle;
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::widgets::{Block, BorderType};
 
@@ -221,23 +221,23 @@ impl Scheme {
     }
 
     /// Complete TextAreaStyle
-    pub fn textarea_style(&self) -> TextAreaStyle {
-        TextAreaStyle {
+    pub fn textarea_style(&self) -> TextStyle {
+        TextStyle {
             style: self.data(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
-            ..TextAreaStyle::default()
+            ..Default::default()
         }
     }
 
     /// Complete TextInputStyle
-    pub fn input_style(&self) -> TextInputStyle {
-        TextInputStyle {
+    pub fn input_style(&self) -> TextStyle {
+        TextStyle {
             style: self.text_input(),
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.red[3])),
-            ..TextInputStyle::default()
+            ..Default::default()
         }
     }
 
@@ -252,7 +252,11 @@ impl Scheme {
             right: Some(Style::default().fg(self.bluegreen[0])),
             disabled: Some(Style::default().fg(self.gray[0])),
             highlight: Some(Style::default().underlined()),
-            popup_block: Some(Block::bordered().border_type(BorderType::Double)),
+            popup: PopupStyle {
+                style: menu,
+                block: Some(Block::bordered().border_type(BorderType::Rounded)),
+                ..Default::default()
+            },
             ..Default::default()
         }
     }

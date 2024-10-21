@@ -26,7 +26,7 @@ pub struct SinglePager<'a> {
 }
 
 #[derive(Debug)]
-pub struct SinglePagerRender {
+pub struct RenderSinglePager {
     inner: Rect,
     page: usize,
     layout: PageLayout,
@@ -142,7 +142,7 @@ impl<'a> SinglePager<'a> {
         area: Rect,
         buf: &mut Buffer,
         state: &mut SinglePagerState,
-    ) -> SinglePagerRender {
+    ) -> RenderSinglePager {
         state.area = area;
 
         let inner = if let Some(block) = &self.block {
@@ -186,7 +186,7 @@ impl<'a> SinglePager<'a> {
         };
         block.render(area, buf);
 
-        SinglePagerRender {
+        RenderSinglePager {
             inner: state.widget_area,
             page: state.page,
             layout: state.layout.clone(),
@@ -196,7 +196,7 @@ impl<'a> SinglePager<'a> {
     }
 }
 
-impl SinglePagerRender {
+impl RenderSinglePager {
     /// Relocate an area by handle from Layout coordinates to
     /// screen coordinates.
     ///
@@ -228,7 +228,7 @@ impl SinglePagerRender {
     }
 }
 
-impl StatefulWidget for SinglePagerRender {
+impl StatefulWidget for RenderSinglePager {
     type State = SinglePagerState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

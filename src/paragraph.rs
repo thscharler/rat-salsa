@@ -6,7 +6,7 @@ use crate::_private::NonExhaustive;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::Line;
@@ -27,6 +27,14 @@ pub struct Paragraph<'a> {
     block: Option<Block<'a>>,
     vscroll: Option<Scroll<'a>>,
     hscroll: Option<Scroll<'a>>,
+}
+
+#[derive(Debug)]
+pub struct ParagraphStyle {
+    pub style: Style,
+    pub block: Option<Block<'static>>,
+    pub scroll: Option<ScrollStyle>,
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// State & event handling.
@@ -51,6 +59,17 @@ pub struct ParagraphState {
     pub focus: FocusFlag,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for ParagraphStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            block: None,
+            scroll: None,
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl<'a> Paragraph<'a> {
@@ -89,9 +108,22 @@ impl<'a> Paragraph<'a> {
         self
     }
 
+    /// Styles.
+    pub fn styles(mut self, styles: ParagraphStyle) -> Self {
+        self.style = styles.style;
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        if let Some(styles) = styles.scroll {
+            self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
+            self.vscroll = self.vscroll.map(|v| v.styles(styles));
+        }
+        self
+    }
+
     /// Base style.
-    pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.style = style.into();
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
         self
     }
 

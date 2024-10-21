@@ -257,7 +257,7 @@ pub struct Clipper<'a> {
 
 /// Render the buffer.
 #[derive(Debug)]
-pub struct ClipperRender<'a> {
+pub struct RenderClipper<'a> {
     inner: Rect,
     layout: PageLayout,
     buffer: Buffer,
@@ -378,7 +378,7 @@ impl<'a> Clipper<'a> {
     }
 
     /// Run the layout and create the final ClipperRender widget.
-    pub fn into_widget(self, area: Rect, state: &mut ClipperState) -> ClipperRender<'a> {
+    pub fn into_widget(self, area: Rect, state: &mut ClipperState) -> RenderClipper<'a> {
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
@@ -427,7 +427,7 @@ impl<'a> Clipper<'a> {
             state.buffer = Some(Buffer::empty(buf_area));
         }
 
-        ClipperRender {
+        RenderClipper {
             inner: state.widget_area,
             layout: state.layout.clone(),
             buffer: state.buffer.take().expect("valid buffer"),
@@ -438,7 +438,7 @@ impl<'a> Clipper<'a> {
     }
 }
 
-impl<'a> ClipperRender<'a> {
+impl<'a> RenderClipper<'a> {
     /// Relocate a view area to a screen area if it is visible.
     pub fn relocate(&self, area: impl Into<Rect>) -> Option<Rect> {
         self.layout.locate(area.into()).map(|area| {
@@ -469,7 +469,7 @@ impl<'a> ClipperRender<'a> {
     }
 }
 
-impl<'a> StatefulWidget for ClipperRender<'a> {
+impl<'a> StatefulWidget for RenderClipper<'a> {
     type State = ClipperState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

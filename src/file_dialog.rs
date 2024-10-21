@@ -18,8 +18,8 @@ use rat_event::{
 use rat_focus::{on_lost, Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::event::EditOutcome;
 use rat_scrolled::Scroll;
-use rat_text::text_input::{TextInput, TextInputState, TextInputStyle};
-use rat_text::HasScreenCursor;
+use rat_text::text_input::{TextInput, TextInputState};
+use rat_text::{HasScreenCursor, TextStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
 use ratatui::prelude::{StatefulWidget, Style, Text, Widget};
@@ -396,8 +396,8 @@ impl<'a> FileDialog<'a> {
         }
     }
 
-    fn style_name(&self) -> TextInputStyle {
-        TextInputStyle {
+    fn style_name(&self) -> TextStyle {
+        TextStyle {
             style: if let Some(name) = self.name_style {
                 name
             } else {
@@ -410,8 +410,8 @@ impl<'a> FileDialog<'a> {
         }
     }
 
-    fn style_new(&self) -> TextInputStyle {
-        TextInputStyle {
+    fn style_new(&self) -> TextStyle {
+        TextStyle {
             style: if let Some(name) = self.new_style {
                 name
             } else {
@@ -424,8 +424,8 @@ impl<'a> FileDialog<'a> {
         }
     }
 
-    fn style_path(&self) -> TextInputStyle {
-        TextInputStyle {
+    fn style_path(&self) -> TextStyle {
+        TextStyle {
             style: if let Some(path) = self.path_style {
                 path
             } else {

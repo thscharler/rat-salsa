@@ -1,6 +1,7 @@
 //!
 //! Draw a shadow around a widget.
 //!
+use crate::_private::NonExhaustive;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -36,6 +37,12 @@ impl Shadow {
         Self::default()
     }
 
+    pub fn styles(mut self, styles: ShadowStyle) -> Self {
+        self.style = styles.style;
+        self.dir = styles.dir;
+        self
+    }
+
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self
@@ -47,7 +54,22 @@ impl Shadow {
     }
 }
 
-// todo: style
+#[derive(Debug)]
+pub struct ShadowStyle {
+    pub style: Style,
+    pub dir: ShadowDirection,
+    pub non_exhaustive: NonExhaustive,
+}
+
+impl Default for ShadowStyle {
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            dir: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
 
 #[cfg(feature = "unstable-widget-ref")]
 impl StatefulWidgetRef for Shadow {

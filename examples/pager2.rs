@@ -3,7 +3,6 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use log::debug;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -11,7 +10,7 @@ use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::pager::{AreaHandle, DualPager, DualPagerState, PageLayout};
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget, Widget};

@@ -27,7 +27,7 @@ pub struct DualPager<'a> {
 }
 
 #[derive(Debug)]
-pub struct DualPagerRender {
+pub struct RenderDualPager {
     inner1: Rect,
     divider: Rect,
     inner2: Rect,
@@ -161,7 +161,7 @@ impl<'a> DualPager<'a> {
         area: Rect,
         buf: &mut Buffer,
         state: &mut DualPagerState,
-    ) -> DualPagerRender {
+    ) -> RenderDualPager {
         state.area = area;
 
         let inner = if let Some(block) = &self.block {
@@ -209,7 +209,7 @@ impl<'a> DualPager<'a> {
         };
         block.render(area, buf);
 
-        DualPagerRender {
+        RenderDualPager {
             inner1: state.widget_area1,
             divider: state.divider_area,
             inner2: state.widget_area2,
@@ -222,7 +222,7 @@ impl<'a> DualPager<'a> {
     }
 }
 
-impl DualPagerRender {
+impl RenderDualPager {
     /// Relocate an area by handle from Layout coordinates to
     /// screen coordinates.
     ///
@@ -258,7 +258,7 @@ impl DualPagerRender {
     }
 }
 
-impl StatefulWidget for DualPagerRender {
+impl StatefulWidget for RenderDualPager {
     type State = DualPagerState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

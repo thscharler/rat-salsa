@@ -1,3 +1,21 @@
+# 0.29.0
+
+* break: rename DualPagerRender to RenderDualPager
+* break: rename SinglePagerRender to RenderSinglePager
+* break: rename ClipperRender to RenderClipper
+* break: move View and Viewport to separate module view.
+* break:
+
+* feature: add ViewStyle
+* feature: add ChoiceStyle
+* feature: add block and scroll styling to ListStyle
+* feature: add block to MsgDialogStyle
+* feature: add ParagraphStyle
+* feature: add ShadowStyle
+* feature: add block to SplitStyle
+* feature: add tab_type, placement and block to TabbedStyle
+*
+
 # 0.28.2
 
 * feature/fix: some api refinement with SinglePager and DualPager.

@@ -79,6 +79,9 @@ pub struct SplitStyle {
     /// Only the first 2 chars are used.
     pub vertical_mark: Option<&'static str>,
 
+    /// Block
+    pub block: Option<Block<'static>>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -219,6 +222,7 @@ impl Default for SplitStyle {
             drag_style: None,
             horizontal_mark: None,
             vertical_mark: None,
+            block: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -325,6 +329,9 @@ impl<'a> Split<'a> {
                     }
                 }
             }
+        }
+        if styles.block.is_some() {
+            self.block = styles.block;
         }
         self
     }

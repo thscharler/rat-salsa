@@ -7,7 +7,7 @@ use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
 use crate::util::revert_style;
 use rat_focus::{FocusFlag, HasFocus};
-use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -63,6 +63,9 @@ pub struct ListStyle {
     /// Style for selection when focused.
     pub focus: Option<Style>,
 
+    pub block: Option<Block<'static>>,
+    pub scroll: Option<ScrollStyle>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -102,8 +105,10 @@ impl Default for ListStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            select: Default::default(),
-            focus: Default::default(),
+            select: None,
+            focus: None,
+            block: None,
+            scroll: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -164,6 +169,12 @@ impl<'a, Selection> List<'a, Selection> {
         }
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
+        }
+        if let Some(styles) = styles.scroll {
+            self.scroll = self.scroll.map(|v| v.styles(styles));
+        }
+        if let Some(block) = styles.block {
+            self.block = Some(block);
         }
         self
     }
@@ -233,15 +244,6 @@ where
         Self::new(iter)
     }
 }
-
-// #[cfg(feature = "unstable-widget-ref")]
-// impl<'a, Selection: ListSelection> StatefulWidgetRef for List<'a, Selection> {
-//     type State = ListState<Selection>;
-//
-//     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-//         render_list(self, self.items.clone(), area, buf, state)
-//     }
-// }
 
 impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
     type State = ListState<Selection>;

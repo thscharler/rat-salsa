@@ -86,6 +86,10 @@ pub struct TabbedStyle {
     pub select: Option<Style>,
     pub focus: Option<Style>,
 
+    pub tab_type: Option<TabType>,
+    pub placement: Option<TabPlacement>,
+    pub block: Option<Block<'static>>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -237,6 +241,15 @@ impl<'a> Tabbed<'a> {
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
+        if let Some(tab_type) = styles.tab_type {
+            self.tab_type = tab_type;
+        }
+        if let Some(placement) = styles.placement {
+            self.placement = placement
+        }
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
         self
     }
 
@@ -272,6 +285,9 @@ impl Default for TabbedStyle {
             tab: None,
             select: None,
             focus: None,
+            tab_type: None,
+            placement: None,
+            block: None,
             non_exhaustive: NonExhaustive,
         }
     }
