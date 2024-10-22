@@ -181,6 +181,7 @@ pub mod textarea {
 pub mod clipper;
 // mod date_combo;
 pub mod pager;
+pub mod relocate;
 pub mod util;
 pub mod view;
 

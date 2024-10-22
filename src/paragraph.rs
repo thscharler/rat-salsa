@@ -3,6 +3,7 @@
 //!
 
 use crate::_private::NonExhaustive;
+use crate::relocate::{relocate_area, RelocatableState};
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_scrolled::event::ScrollOutcome;
@@ -168,7 +169,6 @@ impl<'a> StatefulWidget for Paragraph<'a> {
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
             .v_scroll(self.vscroll.as_ref());
-
         state.inner = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
         state.hscroll.set_max_offset(if self.wrap.is_some() {
@@ -180,18 +180,15 @@ impl<'a> StatefulWidget for Paragraph<'a> {
         state.hscroll.set_page_len(state.inner.width as usize);
 
         // paragraph
-        let mut para = ratatui::widgets::Paragraph::new(self.text)
-            .style(self.style)
-            .scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16));
+        let mut para = ratatui::widgets::Paragraph::new(self.text).style(self.style);
         if let Some(alignment) = self.alignment {
             para = para.alignment(alignment);
         }
         if let Some(wrap) = self.wrap {
             para = para.wrap(wrap);
         }
-        let lines = para.line_count(state.inner.width) + 4;
-        para.render(state.inner, buf);
 
+        let lines = para.line_count(state.inner.width) + 4;
         state
             .vscroll
             .set_max_offset(lines.saturating_sub(state.inner.height as usize));
@@ -201,10 +198,12 @@ impl<'a> StatefulWidget for Paragraph<'a> {
             area,
             buf,
             &mut ScrollAreaState::new()
-                .area(area)
                 .h_scroll(&mut state.hscroll)
                 .v_scroll(&mut state.vscroll),
         );
+
+        para = para.scroll((state.vscroll.offset() as u16, state.hscroll.offset() as u16));
+        para.render(state.inner, buf);
     }
 }
 
@@ -215,6 +214,15 @@ impl HasFocus for ParagraphState {
 
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl RelocatableState for ParagraphState {
+    fn relocate(&mut self, offset: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, offset, clip);
+        self.inner = relocate_area(self.inner, offset, clip);
+        self.hscroll.area = relocate_area(self.hscroll.area, offset, clip);
+        self.vscroll.area = relocate_area(self.vscroll.area, offset, clip);
     }
 }
 

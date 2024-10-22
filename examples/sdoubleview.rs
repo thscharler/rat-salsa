@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 
-use crate::double_widget::{DoubleView, DoubleViewState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use rat_event::{try_flow, HandleEvent, MouseOnly, Outcome};
+use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
+use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::Scroll;
-use rat_widget::paragraph::Paragraph;
-use rat_widget::view::{Viewport, ViewportState};
-use ratatui::layout::{Constraint, Layout, Rect, Size};
-use ratatui::widgets::{Block, StatefulWidget, Wrap};
+use rat_widget::paragraph::{Paragraph, ParagraphState};
+use rat_widget::view::{View, ViewState};
+use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::widgets::{Block, BorderType, StatefulWidget, Wrap};
 use ratatui::Frame;
 
 mod mini_salsa;
@@ -102,7 +102,9 @@ Total average precipitation in the Craters of the Moon area is between 15–20 i
     };
 
     let mut state = State {
-        double: Default::default(),
+        view_state: Default::default(),
+        first: Default::default(),
+        second: Default::default(),
     };
 
     run_ui(
@@ -120,7 +122,10 @@ struct Data {
 }
 
 struct State {
-    pub(crate) double: ViewportState<DoubleViewState>,
+    view_state: ViewState,
+
+    first: ParagraphState,
+    second: ParagraphState,
 }
 
 fn repaint_text(
@@ -130,25 +135,57 @@ fn repaint_text(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let l = Layout::horizontal([Constraint::Fill(1), Constraint::Fill(1)]).split(area);
+    let l = Layout::horizontal([
+        Constraint::Length(1),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+        Constraint::Fill(1),
+        Constraint::Length(1),
+    ])
+    .split(area);
 
-    Viewport::new(DoubleView::new(
+    // Define the view and create the Render struct.
+    let mut view_buf = View::new()
+        .view(Rect::new(0, 0, 400, 400))
+        .vscroll(Scroll::new().style(THEME.block()))
+        .hscroll(Scroll::new().style(THEME.block()))
+        .block(Block::bordered().border_type(BorderType::Rounded))
+        .into_buffer(l[1], &mut state.view_state);
+
+    // render a widget using View coordinates.
+    view_buf.render_stateful(
         Paragraph::new(data.sample1.clone())
             .wrap(Wrap::default())
             .style(THEME.limegreen(0))
             .block(Block::bordered().style(THEME.block()))
             .scroll(Scroll::new().style(THEME.block())),
+        Rect::new(0, 0, 40, 15),
+        &mut state.first,
+    );
+    view_buf.render_stateful(
         Paragraph::new(data.sample2.clone())
             .wrap(Wrap::default())
             .style(THEME.bluegreen(0))
             .block(Block::bordered().style(THEME.block()))
             .scroll(Scroll::new().style(THEME.block())),
-    ))
-    .view_size(Size::new(40, 40))
-    .vscroll(Scroll::new().style(THEME.block()))
-    .render(l[0], frame.buffer_mut(), &mut state.double);
+        Rect::new(4, 17, 40, 15),
+        &mut state.second,
+    );
+
+    // view content is done, now convert to the output widget and
+    // render it.
+    view_buf
+        .into_widget()
+        .render(l[1], frame.buffer_mut(), &mut state.view_state);
 
     Ok(())
+}
+
+fn focus(state: &mut State) -> Focus {
+    let mut fb = FocusBuilder::new(None);
+    fb.widget(&state.first);
+    fb.widget(&state.second);
+    fb.build()
 }
 
 fn handle_text(
@@ -157,59 +194,13 @@ fn handle_text(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    try_flow!(state.double.handle(event, MouseOnly));
-    Ok(Outcome::Continue)
-}
+    let f = focus(state).handle(event, Regular);
 
-mod double_widget {
-    use rat_event::{flow, HandleEvent, MouseOnly, Outcome};
-    use rat_widget::paragraph::{Paragraph, ParagraphState};
-    use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
-    use ratatui::prelude::StatefulWidget;
+    // handle inner first.
+    let r = Outcome::Continue;
+    let r = r.or_else(|| state.first.handle(event, Regular));
+    let r = r.or_else(|| state.second.handle(event, Regular));
+    let r = r.or_else(|| state.view_state.handle(event, Regular));
 
-    #[derive(Debug, Default)]
-    pub(crate) struct DoubleView<'a> {
-        pub(crate) first: Paragraph<'a>,
-        pub(crate) second: Paragraph<'a>,
-    }
-
-    #[derive(Debug, Default)]
-    pub(crate) struct DoubleViewState {
-        pub(crate) first: ParagraphState,
-        pub(crate) second: ParagraphState,
-    }
-
-    impl<'a> DoubleView<'a> {
-        pub(crate) fn new(first: Paragraph<'a>, second: Paragraph<'a>) -> Self {
-            Self { first, second }
-        }
-    }
-
-    impl<'a> StatefulWidget for DoubleView<'a> {
-        type State = DoubleViewState;
-
-        fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-            let l0 = Layout::new(
-                Direction::Vertical,
-                [
-                    Constraint::Fill(1),
-                    Constraint::Length(1),
-                    Constraint::Fill(1),
-                ],
-            )
-            .split(area);
-
-            self.first.render(l0[0], buf, &mut state.first);
-            self.second.render(l0[2], buf, &mut state.second);
-        }
-    }
-
-    impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for DoubleViewState {
-        fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
-            flow!(self.first.handle(event, MouseOnly));
-            flow!(self.second.handle(event, MouseOnly));
-            Outcome::Continue
-        }
-    }
+    Ok(f.max(r))
 }
