@@ -346,7 +346,6 @@ impl DarkTheme {
     /// View style
     pub fn view_style(&self) -> ViewStyle {
         ViewStyle {
-            style: self.container(),
             scroll: Some(self.scroll_style()),
             ..Default::default()
         }
