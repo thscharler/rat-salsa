@@ -17,8 +17,8 @@ pub mod event {
 
     pub use crate::calendar::event::CalOutcome;
     pub use crate::file_dialog::event::FileOutcome;
-    pub use crate::pager::event::PagerOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
+    pub use crate::view::event::PagerOutcome;
     pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome};
     pub use rat_menu::event::MenuOutcome;
     pub use rat_popup::event::PopupOutcome;
@@ -178,9 +178,7 @@ pub mod textarea {
         handle_events, handle_mouse_events, handle_readonly_events, TextArea, TextAreaState,
     };
 }
-pub mod clipper;
 // mod date_combo;
-pub mod pager;
 pub mod relocate;
 pub mod util;
 pub mod view;

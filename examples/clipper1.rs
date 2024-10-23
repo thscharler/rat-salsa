@@ -9,8 +9,8 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
-use rat_widget::clipper::{AreaHandle, Clipper, ClipperState, PageLayout};
 use rat_widget::event::Outcome;
+use rat_widget::view::clipper::{AreaHandle, Clipper, ClipperLayout, ClipperState};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget};
@@ -43,7 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    layout: Option<PageLayout>,
+    layout: Option<ClipperLayout>,
     clipper: ClipperState,
 
     hundred: [TextInputMockState; HUN],
@@ -80,7 +80,7 @@ fn repaint_input(
 
     if state.layout.is_none() {
         // the inner layout is fixed, need to init only once.
-        let mut pl = PageLayout::new();
+        let mut pl = ClipperLayout::new();
         let mut row = 0;
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
