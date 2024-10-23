@@ -191,21 +191,34 @@ impl PageLayoutCore {
         if self.area == page {
             return;
         }
+        self.area = page;
 
-        self.areas.sort_by(|a, b| a.y.cmp(&b.y));
+        // must not change the order of the areas.
+        // gave away handles ...
+        let mut areas = self.areas.clone();
+        areas.sort_by(|a, b| a.y.cmp(&b.y));
+
         self.man_breaks.sort_by(|a, b| b.cmp(a));
+        self.man_breaks.dedup();
+
         self.breaks.clear();
 
         self.breaks.push(0);
         let mut last_break = 0;
         let mut man_breaks = self.man_breaks.clone();
 
-        for v in self.areas.iter() {
-            if Some(&v.y) == man_breaks.last() {
-                self.breaks.push(v.y);
-                last_break = v.y;
-                man_breaks.pop();
-            } else if v.y >= last_break {
+        for v in areas.iter() {
+            if let Some(brk_y) = man_breaks.last() {
+                if v.y >= *brk_y {
+                    // don't break at the breaks.
+                    // start the new page with a fresh widget :)
+                    self.breaks.push(v.y);
+                    last_break = v.y;
+                    man_breaks.pop();
+                }
+            }
+
+            if v.y > last_break {
                 let ry = v.y - last_break;
                 if ry + v.height > page.height {
                     self.breaks.push(v.y);
