@@ -4,13 +4,11 @@
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
 use rat_widget::choice::ChoiceStyle;
-use rat_widget::clipper::ClipperStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::line_number::LineNumberStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::menu::MenuStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
-use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::popup::PopupStyle;
 use rat_widget::scrolled::ScrollStyle;
@@ -19,7 +17,7 @@ use rat_widget::splitter::SplitStyle;
 use rat_widget::tabbed::TabbedStyle;
 use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
-use rat_widget::view::ViewStyle;
+use rat_widget::view::{ClipperStyle, PagerStyle, ViewStyle};
 use ratatui::prelude::{Style, Stylize};
 use ratatui::widgets::Block;
 
