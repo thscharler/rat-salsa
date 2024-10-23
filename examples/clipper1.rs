@@ -9,8 +9,8 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
+use rat_widget::clipper::{AreaHandle, Clipper, ClipperLayout, ClipperState};
 use rat_widget::event::Outcome;
-use rat_widget::view::clipper::{AreaHandle, Clipper, ClipperLayout, ClipperState};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget};
@@ -28,7 +28,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        layout: None,
+        layout: Default::default(),
         clipper: ClipperState::default(),
         hundred: array::from_fn(|_| Default::default()),
         hundred_areas: [Default::default(); HUN],
@@ -43,7 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    layout: Option<ClipperLayout>,
+    layout: ClipperLayout,
     clipper: ClipperState,
 
     hundred: [TextInputMockState; HUN],
@@ -78,7 +78,12 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
-    if state.layout.is_none() {
+    let clipper = Clipper::new()
+        .block(Block::bordered())
+        .hscroll(Scroll::new().scroll_by(1))
+        .vscroll(Scroll::new().scroll_by(1));
+
+    if state.layout.is_empty() {
         // the inner layout is fixed, need to init only once.
         let mut pl = ClipperLayout::new();
         let mut row = 0;
@@ -97,14 +102,11 @@ fn repaint_input(
             row += h + 1;
         }
         pl.add(Rect::new(90, 0, 10, 1));
-        state.layout = Some(pl.clone());
-    };
+        state.layout = pl;
+    }
 
-    let mut clip_buf = Clipper::new()
-        .layout(state.layout.clone().expect("layout"))
-        .block(Block::bordered())
-        .hscroll(Scroll::new().scroll_by(1))
-        .vscroll(Scroll::new().scroll_by(1))
+    let mut clip_buf = clipper
+        .layout(state.layout.clone())
         .into_buffer(l2[1], &mut state.clipper);
 
     // render the input fields.

@@ -3,13 +3,14 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use log::debug;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::pager::{AreaHandle, DualPage, DualPageState, PageLayout};
+use rat_widget::pager::{AreaHandle, DualPager, DualPagerState, PagerLayout};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
@@ -29,7 +30,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         layout: Default::default(),
-        pager: DualPageState::default(),
+        pager: DualPagerState::default(),
         hundred: array::from_fn(|_| Default::default()),
         hundred_areas: [Default::default(); HUN],
         menu: Default::default(),
@@ -43,8 +44,8 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    layout: PageLayout,
-    pager: DualPageState,
+    layout: PagerLayout,
+    pager: DualPagerState,
 
     hundred: [TextInputMockState; HUN],
     hundred_areas: [AreaHandle; HUN],
@@ -79,7 +80,7 @@ fn repaint_input(
     .split(l1[1]);
 
     // set up pager
-    let pager = DualPage::new()
+    let pager = DualPager::new()
         .nav_style(Style::new().fg(THEME.orange[2]))
         .style(THEME.gray(0))
         .divider_style(Style::new().bg(THEME.gray[0]).fg(THEME.gray[2]))
@@ -93,13 +94,17 @@ fn repaint_input(
     // maybe rebuild layout
     let width = pager.layout_width(l2[1]);
     if state.layout.width_changed(width) {
-        let mut pl = PageLayout::new();
+        let mut pl = PagerLayout::new();
         let mut row = 0;
         for i in 0..state.hundred.len() {
-            let h = if i % 3 == 0 {
+            let h = if i == 0 {
+                1
+            } else if i % 3 == 0 {
                 2
             } else if i % 5 == 0 {
                 5
+            } else if i % 11 == 0 {
+                22
             } else {
                 1
             };

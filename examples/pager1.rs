@@ -9,7 +9,7 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::pager::{AreaHandle, PageLayout, SinglePage, SinglePageState};
+use rat_widget::pager::{AreaHandle, PagerLayout, SinglePager, SinglePagerState};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
@@ -29,7 +29,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         layout: Default::default(),
-        pager: SinglePageState::default(),
+        pager: SinglePagerState::default(),
         hundred: array::from_fn(|_| Default::default()),
         hundred_areas: [Default::default(); HUN],
         menu: Default::default(),
@@ -43,8 +43,8 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    layout: PageLayout,
-    pager: SinglePageState,
+    layout: PagerLayout,
+    pager: SinglePagerState,
 
     hundred: [TextInputMockState; HUN],
     hundred_areas: [AreaHandle; HUN],
@@ -79,7 +79,7 @@ fn repaint_input(
     .split(l1[1]);
 
     // set up pager
-    let pager = SinglePage::new()
+    let pager = SinglePager::new()
         .nav_style(Style::new().fg(THEME.orange[2]))
         .style(THEME.gray(0))
         .block(
@@ -92,7 +92,7 @@ fn repaint_input(
     // maybe rebuild layout
     let width = pager.layout_width(l2[1]);
     if state.layout.width_changed(width) {
-        let mut pl = PageLayout::new();
+        let mut pl = PagerLayout::new();
         let mut row = 0;
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
