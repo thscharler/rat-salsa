@@ -44,7 +44,10 @@
 //!         .render(layout[1], frame.buffer_mut(), &mut state.view_state);
 //! ```
 //!
-use crate::_private::NonExhaustive;
+
+mod view_style;
+pub use view_style::*;
+
 use crate::event::ScrollOutcome;
 use crate::relocate::RelocatableState;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
@@ -54,17 +57,22 @@ use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::widgets::Block;
 
-/// View builder.
+/// Configure the view.
 #[derive(Debug, Default, Clone)]
 pub struct View<'a> {
-    view: Rect,
+    layout: Rect,
 
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
 }
 
-/// Rendering widget for View.
+/// Render to the temp buffer.
+///
+/// * It maps your widget area from layout coordinates
+///   to screen coordinates before rendering.
+/// * It helps with cleanup of the widget state if your
+///   widget is currently invisible.
 #[derive(Debug, Clone)]
 pub struct ViewBuffer<'a> {
     // Scroll offset into the xview.
@@ -91,25 +99,6 @@ pub struct ViewWidget<'a> {
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
-}
-
-/// All styles for a xview.
-#[derive(Debug)]
-pub struct ViewStyle {
-    pub block: Option<Block<'static>>,
-    pub scroll: Option<ScrollStyle>,
-
-    pub non_exhaustive: NonExhaustive,
-}
-
-impl Default for ViewStyle {
-    fn default() -> Self {
-        Self {
-            block: None,
-            scroll: None,
-            non_exhaustive: NonExhaustive,
-        }
-    }
 }
 
 /// View state.
@@ -145,7 +134,7 @@ impl<'a> View<'a> {
 
     /// Area for the temp buffer.
     pub fn view(mut self, area: Rect) -> Self {
-        self.view = area;
+        self.layout = area;
         self
     }
 
@@ -186,7 +175,7 @@ impl<'a> View<'a> {
         self
     }
 
-    /// Calculate the xview area.
+    /// Calculate the view area.
     pub fn inner(&self, area: Rect, state: &ViewState) -> Rect {
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -195,11 +184,10 @@ impl<'a> View<'a> {
         sa.inner(area, Some(&state.hscroll), Some(&state.vscroll))
     }
 
-    /// View to ViewBuffer.
-    /// The ViewBuffer is used to actually render the contents.
+    /// Create the temporary buffer.
     pub fn into_buffer(self, area: Rect, state: &mut ViewState) -> ViewBuffer<'a> {
         state.area = area;
-        state.view = self.view;
+        state.view = self.layout;
 
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -219,8 +207,8 @@ impl<'a> View<'a> {
             .set_page_len(state.widget_area.height as usize);
 
         // internal buffer starts at (xview.x,xview.y)
-        let buf_offset_x = state.hscroll.offset as u16 + self.view.x;
-        let buf_offset_y = state.vscroll.offset as u16 + self.view.y;
+        let buf_offset_x = state.hscroll.offset as u16 + self.layout.x;
+        let buf_offset_y = state.vscroll.offset as u16 + self.layout.y;
 
         // resize buffer to fit all visible widgets.
         let buffer_area = state.view;

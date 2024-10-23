@@ -82,7 +82,9 @@
 #[allow(clippy::module_inception)]
 mod clipper;
 mod clipper_layout;
+mod clipper_style;
 
 pub use crate::commons::AreaHandle;
 pub use clipper::*;
 pub use clipper_layout::*;
+pub use clipper_style::*;

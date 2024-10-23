@@ -96,7 +96,7 @@ impl ClipperLayout {
         self.core.borrow().area
     }
 
-    /// Extended xview/buffer area in layout coordinates.
+    /// Extended view/buffer area in layout coordinates.
     pub fn ext_buffer_area(&self) -> Rect {
         self.core.borrow().ext_area
     }
@@ -208,6 +208,7 @@ impl ClipperLayout {
 }
 
 impl PageLayoutCore {
+    /// Run the layout algorithm.
     fn layout(&mut self, page: Rect) -> Rect {
         if self.area == page {
             return self.ext_area;

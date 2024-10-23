@@ -1,5 +1,4 @@
 use crate::pager::AreaHandle;
-use log::debug;
 use ratatui::layout::Rect;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -98,16 +97,6 @@ impl PagerLayout {
         core.man_breaks.push(y);
     }
 
-    /// View/buffer area in layout coordinates
-    pub fn buffer_area(&self) -> Rect {
-        self.core.borrow().area
-    }
-
-    /// Get the original area for the handle.
-    pub fn layout_area_by_handle(&self, handle: AreaHandle) -> Rect {
-        self.core.borrow().areas[handle.0]
-    }
-
     /// Number of areas.
     pub fn len(&self) -> usize {
         self.core.borrow().areas.len()
@@ -116,6 +105,16 @@ impl PagerLayout {
     /// Contains areas?
     pub fn is_empty(&self) -> bool {
         self.core.borrow().areas.is_empty()
+    }
+
+    /// View/buffer area in layout coordinates
+    pub fn buffer_area(&self) -> Rect {
+        self.core.borrow().area
+    }
+
+    /// Get the original area for the handle.
+    pub fn layout_area_by_handle(&self, handle: AreaHandle) -> Rect {
+        self.core.borrow().areas[handle.0]
     }
 
     /// Run the layout algorithm.

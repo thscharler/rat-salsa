@@ -1,5 +1,5 @@
 use crate::_private::NonExhaustive;
-use crate::clipper::{AreaHandle, ClipperLayout};
+use crate::clipper::{AreaHandle, ClipperLayout, ClipperStyle};
 use crate::relocate::RelocatableState;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
@@ -9,7 +9,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 
-/// Clipper builder.
+/// Configure the Clipper.
 #[derive(Debug, Default, Clone)]
 pub struct Clipper<'a> {
     layout: ClipperLayout,
@@ -19,7 +19,12 @@ pub struct Clipper<'a> {
     vscroll: Option<Scroll<'a>>,
 }
 
-/// Render to the buffer.
+/// Render to the temp buffer.
+///
+/// * It maps your widget area from layout coordinates
+///   to screen coordinates before rendering.
+/// * It helps with cleanup of the widget state if your
+///   widget is currently invisible.
 #[derive(Debug)]
 pub struct ClipperBuffer<'a> {
     // page layout
@@ -38,7 +43,7 @@ pub struct ClipperBuffer<'a> {
     vscroll: Option<Scroll<'a>>,
 }
 
-/// Rendering widget for View.
+/// Clips and copies the temp buffer to the frame buffer.
 #[derive(Debug, Clone)]
 pub struct ClipperWidget<'a> {
     // Scroll offset into the xview.
@@ -49,25 +54,6 @@ pub struct ClipperWidget<'a> {
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
-}
-
-/// All styles for a clipper.
-#[derive(Debug, Clone)]
-pub struct ClipperStyle {
-    pub block: Option<Block<'static>>,
-    pub scroll: Option<ScrollStyle>,
-
-    pub non_exhaustive: NonExhaustive,
-}
-
-impl Default for ClipperStyle {
-    fn default() -> Self {
-        Self {
-            block: None,
-            scroll: None,
-            non_exhaustive: NonExhaustive,
-        }
-    }
 }
 
 /// Clipper state.
@@ -153,7 +139,7 @@ impl<'a> Clipper<'a> {
         self.inner(area, state).width
     }
 
-    /// Calculate the xview area.
+    /// Calculate the view area.
     pub fn inner(&self, area: Rect, state: &ClipperState) -> Rect {
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -162,7 +148,7 @@ impl<'a> Clipper<'a> {
         sa.inner(area, Some(&state.hscroll), Some(&state.vscroll))
     }
 
-    /// Calculates the layout and a temporary buffer.
+    /// Calculates the layout and creates a temporary buffer.
     pub fn into_buffer(self, area: Rect, state: &mut ClipperState) -> ClipperBuffer<'a> {
         state.area = area;
         state.layout = self.layout;
@@ -236,7 +222,8 @@ impl<'a> ClipperBuffer<'a> {
     }
 
     /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState.
+    /// This expects that the state is a RelocatableState,
+    /// so it can reset the areas for hidden widgets.
     #[inline(always)]
     pub fn render_stateful<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
     where
@@ -266,7 +253,8 @@ impl<'a> ClipperBuffer<'a> {
     }
 
     /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState.
+    /// This expects that the state is a RelocatableState,
+    /// so it can reset the areas for hidden widgets.
     #[inline(always)]
     pub fn render_stateful_handle<W, S>(&mut self, widget: W, area: AreaHandle, state: &mut S)
     where
@@ -284,13 +272,20 @@ impl<'a> ClipperBuffer<'a> {
     }
 
     /// Get the layout area for the handle.
+    /// This uses layout coordinates.
     pub fn layout_area(&self, handle: AreaHandle) -> Rect {
         self.layout.layout_area_by_handle(handle)
     }
 
     /// Get the buffer area for the handle.
+    /// This uses coordinates that fit the temp buffer.
     pub fn buf_area(&self, handle: AreaHandle) -> Option<Rect> {
         self.layout.buf_area_by_handle(handle)
+    }
+
+    /// Convert the layout coordinates to buffer coordinates.
+    pub fn layout_area_to_buf_area(&self, area: Rect) -> Option<Rect> {
+        self.layout.buf_area(area)
     }
 
     /// Is the given area visible?
