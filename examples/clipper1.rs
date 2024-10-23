@@ -60,7 +60,7 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     if istate.status[0] == "Ctrl-Q to quit." {
-        istate.status[0] = "Ctrl-Q to quit. bla bla bla".into();
+        istate.status[0] = "Ctrl-Q to quit.".into();
     }
 
     let l1 = Layout::vertical([
@@ -107,7 +107,7 @@ fn repaint_input(
         .vscroll(Scroll::new().scroll_by(1))
         .into_buffer(l2[1], &mut state.clipper);
 
-    // render the input fields. relocate and render to tmp buffer.
+    // render the input fields.
     for i in 0..state.hundred.len() {
         // map an additional ad hoc area.
         let v_area = clip_buf.layout_area(state.hundred_areas[i]);

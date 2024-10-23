@@ -195,8 +195,8 @@ impl<'a> View<'a> {
         sa.inner(area, Some(&state.hscroll), Some(&state.vscroll))
     }
 
-    /// Morph the View to a ViewBuffer.
-    /// The ViewBuffer is used to actually render the content of the view.
+    /// View to ViewBuffer.
+    /// The ViewBuffer is used to actually render the contents.
     pub fn into_buffer(self, area: Rect, state: &mut ViewState) -> ViewBuffer<'a> {
         state.area = area;
         state.view = self.view;

@@ -229,7 +229,7 @@ impl RenderDualPager {
     /// A result None indicates that the area is
     /// out of view.
     pub fn relocate_handle(&self, handle: AreaHandle) -> Option<Rect> {
-        let (page, target) = self.layout.locate_handle(handle);
+        let (page, target) = self.layout.buf_area_by_handle(handle);
         self._relocate(page, target)
     }
 
@@ -239,7 +239,7 @@ impl RenderDualPager {
     /// A result None indicates that the area is
     /// out of view.
     pub fn relocate(&self, area: Rect) -> Option<Rect> {
-        let (page, target) = self.layout.locate(area);
+        let (page, target) = self.layout.buf_area(area);
         self._relocate(page, target)
     }
 
@@ -332,13 +332,13 @@ impl DualPagerState {
 
     /// Show the page for this rect.
     pub fn show_handle(&mut self, handle: AreaHandle) {
-        let (page, _) = self.layout.locate_handle(handle);
+        let (page, _) = self.layout.buf_area_by_handle(handle);
         self.page = page & !1;
     }
 
     /// Show the page for this rect.
     pub fn show_area(&mut self, area: Rect) {
-        let (page, _) = self.layout.locate(area);
+        let (page, _) = self.layout.buf_area(area);
         self.page = page & !1;
     }
 
@@ -346,7 +346,7 @@ impl DualPagerState {
     /// This returns the first handle for the page.
     /// Does not check whether the connected area is visible.
     pub fn first_handle(&self, page: usize) -> Option<AreaHandle> {
-        self.layout.first_handle(page)
+        self.layout.first_layout_handle(page)
     }
 
     /// Set the visible page.

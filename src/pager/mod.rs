@@ -5,12 +5,12 @@
 //! them into pages is an alternative to scrolling.
 //!
 //! [PageLayout] helps with the dynamic page-breaks.
-//! [SinglePager] and [DualPager] are the widgets that display
+//! [SinglePage] and [DualPager] are the widgets that display
 //! everything as one or two columns.
 //!
 //! Same as the other containers in this crate they leave the
 //! actual rendering of the widgets to the caller.
-//! [relocate](SinglePagerState::relocate) tells you
+//! [relocate](SinglePageState::relocate) tells you
 //! if a widget is visible and where it should be rendered.
 //!
 
@@ -46,7 +46,7 @@ pub struct AreaHandle(usize);
 #[derive(Debug, Default, Clone)]
 struct PageLayoutCore {
     // just for checks on re-layout
-    page: Rect,
+    area: Rect,
     // collected areas
     areas: Vec<Rect>,
     // manual breaks
@@ -60,21 +60,11 @@ impl PageLayout {
         Self::default()
     }
 
-    /// Is the layout still valid for the given area.
-    pub fn is_valid(&self, area: Rect) -> bool {
-        self.core.borrow().page == area
-    }
-
-    /// Is the layout still valid for the given area.
-    pub fn is_valid_width(&self, width: u16) -> bool {
-        self.core.borrow().page.width == width
-    }
-
     /// Add a rect.
     pub fn add(&mut self, area: Rect) -> AreaHandle {
         let mut core = self.core.borrow_mut();
         // reset page to re-layout
-        core.page = Default::default();
+        core.area = Default::default();
         core.areas.push(area);
         AreaHandle(core.areas.len() - 1)
     }
@@ -83,7 +73,7 @@ impl PageLayout {
     pub fn add_all(&mut self, areas: impl IntoIterator<Item = Rect>) {
         let mut core = self.core.borrow_mut();
         // reset page to re-layout
-        core.page = Default::default();
+        core.area = Default::default();
         core.areas.extend(areas)
     }
 
@@ -96,7 +86,7 @@ impl PageLayout {
         let mut core = self.core.borrow_mut();
 
         // reset page to re-layout
-        core.page = Default::default();
+        core.area = Default::default();
 
         let start = core.areas.len();
         core.areas.extend(areas);
@@ -112,7 +102,7 @@ impl PageLayout {
         let mut core = self.core.borrow_mut();
 
         // reset page to re-layout
-        core.page = Default::default();
+        core.area = Default::default();
 
         core.man_breaks.push(y + 1);
     }
@@ -122,9 +112,19 @@ impl PageLayout {
         let mut core = self.core.borrow_mut();
 
         // reset page to re-layout
-        core.page = Default::default();
+        core.area = Default::default();
 
         core.man_breaks.push(y);
+    }
+
+    /// View/buffer area in layout coordinates
+    pub fn buffer_area(&self) -> Rect {
+        self.core.borrow().area
+    }
+
+    /// Get the original area for the handle.
+    pub fn layout_area_by_handle(&self, handle: AreaHandle) -> Rect {
+        self.core.borrow().areas[handle.0]
     }
 
     /// Run the layout algorithm.
@@ -144,9 +144,26 @@ impl PageLayout {
         self.core.borrow().breaks.is_empty()
     }
 
-    /// Get the original area for the handle.
-    pub fn area_by_handle(&self, handle: AreaHandle) -> Rect {
-        self.core.borrow().areas[handle.0]
+    /// First area on the given page.
+    pub fn first_layout_area(&self, page: usize) -> Option<Rect> {
+        let core = self.core.borrow();
+
+        let brk = core.breaks[page];
+        core.areas.iter().find(|v| v.y >= brk).cloned()
+    }
+
+    /// First area-handle on the given page.
+    pub fn first_layout_handle(&self, page: usize) -> Option<AreaHandle> {
+        let core = self.core.borrow();
+
+        let brk = core.breaks[page];
+        core.areas.iter().enumerate().find_map(|(i, v)| {
+            if v.y >= brk {
+                Some(AreaHandle(i))
+            } else {
+                None
+            }
+        })
     }
 
     /// Locate an area by handle.
@@ -155,9 +172,9 @@ impl PageLayout {
     /// page it is in. But still in layout-coords.
     ///
     /// And it returns the page the Rect is on.
-    pub fn locate_handle(&self, handle: AreaHandle) -> (usize, Rect) {
+    pub fn buf_area_by_handle(&self, handle: AreaHandle) -> (usize, Rect) {
         let area = self.core.borrow().areas[handle.0];
-        self.locate(area)
+        self.buf_area(area)
     }
 
     /// Locate an area.
@@ -166,7 +183,7 @@ impl PageLayout {
     /// page it is in. But still in layout-coords.
     ///
     /// And it returns the page the Rect is on.
-    pub fn locate(&self, area: Rect) -> (usize, Rect) {
+    pub fn buf_area(&self, area: Rect) -> (usize, Rect) {
         let core = self.core.borrow();
 
         // find page
@@ -183,34 +200,12 @@ impl PageLayout {
             Rect::new(area.x, area.y - *brk, area.width, area.height),
         )
     }
-
-    /// First area on the given page.
-    pub fn first_area(&self, page: usize) -> Option<Rect> {
-        let core = self.core.borrow();
-
-        let brk = core.breaks[page];
-        core.areas.iter().find(|v| v.y >= brk).cloned()
-    }
-
-    /// First area-handle on the given page.
-    pub fn first_handle(&self, page: usize) -> Option<AreaHandle> {
-        let core = self.core.borrow();
-
-        let brk = core.breaks[page];
-        core.areas.iter().enumerate().find_map(|(i, v)| {
-            if v.y >= brk {
-                Some(AreaHandle(i))
-            } else {
-                None
-            }
-        })
-    }
 }
 
 impl PageLayoutCore {
     /// Run the layout algorithm.
     fn layout(&mut self, page: Rect) {
-        if self.page == page {
+        if self.area == page {
             return;
         }
 

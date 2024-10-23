@@ -9,16 +9,18 @@ use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::pager::{AreaHandle, PageLayout, SinglePager, SinglePagerState};
+use rat_widget::pager::{AreaHandle, PageLayout, SinglePage, SinglePageState};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
 
 mod mini_salsa;
+
+const HUN: usize = 100;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -27,9 +29,9 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         layout: None,
-        pager: SinglePagerState::default(),
+        pager: SinglePageState::default(),
         hundred: array::from_fn(|_| Default::default()),
-        hundred_areas: [Default::default(); 100],
+        hundred_areas: [Default::default(); HUN],
         menu: Default::default(),
     };
     state.menu.focus.set(true);
@@ -42,10 +44,10 @@ struct Data {}
 
 struct State {
     layout: Option<PageLayout>,
-    pager: SinglePagerState,
+    pager: SinglePageState,
 
-    hundred: [TextInputMockState; 100],
-    hundred_areas: [AreaHandle; 100],
+    hundred: [TextInputMockState; HUN],
+    hundred_areas: [AreaHandle; HUN],
 
     menu: MenuLineState,
 }
@@ -76,50 +78,69 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
-    let pl = state.layout.clone().unwrap_or_else(|| {
-        // only need to init this once, the inner layout is fixed.
+    if state.layout.is_none() {
+        // the inner layout is fixed, need to init only once.
         let mut pl = PageLayout::new();
-        for i in 0..100 {
-            let area = Rect::new(10, 2 * i as u16, 15, 1);
-            state.hundred_areas[i] = pl.add(area);
-            if i == 17 {
-                pl.break_after(2 * i as u16 + 1);
-            }
-        }
-        state.layout = Some(pl.clone());
-        pl
-    });
+        let mut row = 0;
+        for i in 0..state.hundred.len() {
+            let h = if i % 3 == 0 {
+                2
+            } else if i % 5 == 0 {
+                5
+            } else {
+                1
+            };
 
-    let render = SinglePager::new()
-        .layout(pl)
+            let area = Rect::new(10, row, 15, h);
+            state.hundred_areas[i] = pl.add(area);
+
+            if i > 0 && i % 17 == 0 {
+                pl.break_before(row);
+            }
+
+            row += h + 1;
+        }
+        pl.add(Rect::new(90, 0, 10, 1));
+        state.layout = Some(pl.clone());
+    };
+
+    let mut pg_buf = SinglePage::new()
+        .layout(state.layout.clone().expect("layout"))
+        .block(Block::bordered())
         .nav_style(Style::new().fg(THEME.orange[2]))
         .style(THEME.gray(0))
-        // .block(Block::bordered())
-        .into_widget(l2[1], frame.buffer_mut(), &mut state.pager);
+        .into_buffer(l2[1], frame.buffer_mut(), &mut state.pager);
 
-    // render the input fields
-    for i in 0..100 {
+    // render the input fields.
+    for i in 0..state.hundred.len() {
         // map an additional ad hoc area.
-        if let Some(area) = render.relocate(Rect::new(5, 2 * i, 5, 1)) {
-            let nr = format!("{:?}:", i);
-            Span::from(nr).render(area, frame.buffer_mut());
-        }
+        let v_area = pg_buf.layout_area(state.hundred_areas[i]);
+        let w_area = Rect::new(5, v_area.y, 5, 1);
+        pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
+
         // map our widget area.
-        if let Some(area) = render.relocate_handle(state.hundred_areas[i as usize]) {
+        pg_buf.render_stateful_handle(
             TextInputMock::default()
+                .sample(format!("{:?}", state.hundred_areas[i]))
                 .style(THEME.limegreen(0))
-                .focus_style(THEME.limegreen(2))
-                .render(area, frame.buffer_mut(), &mut state.hundred[i as usize]);
-        } else {
-            // __Fallacy 1__
-            // If the area is not reset here, it will be used by focus.
-            // Can't do this inside the widget though.
-            // I'm sure that's a nice little trap ... :(
-            state.hundred[i as usize].clear_areas();
-        }
+                .focus_style(THEME.limegreen(2)),
+            state.hundred_areas[i],
+            &mut state.hundred[i],
+        );
     }
 
-    render.render(l2[1], frame.buffer_mut(), &mut state.pager);
+    pg_buf.render_stateful(
+        TextInputMock::default()
+            .sample("__outlier__")
+            .style(THEME.orange(0))
+            .focus_style(THEME.orange(2)),
+        Rect::new(90, 0, 10, 1),
+        &mut TextInputMockState::default(),
+    );
+
+    pg_buf
+        .into_widget()
+        .render(l2[1], frame.buffer_mut(), &mut state.pager);
 
     let menu1 = MenuLine::new()
         .title("#.#")
@@ -127,7 +148,7 @@ fn repaint_input(
         .styles(THEME.menu_style());
     frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
 
-    for i in 0..100 {
+    for i in 0..state.hundred.len() {
         if let Some(cursor) = state.hundred[i].screen_cursor() {
             frame.set_cursor_position(cursor);
         }
@@ -140,7 +161,7 @@ fn focus(state: &State) -> Focus {
     let mut fb = FocusBuilder::default();
     fb.widget(&state.menu);
     fb.start(Some(state.pager.c_focus.clone()), Default::default());
-    for i in 0..100 {
+    for i in 0..state.hundred.len() {
         // Focus wants __all__ areas.
         fb.widget(&state.hundred[i]);
     }
@@ -150,7 +171,7 @@ fn focus(state: &State) -> Focus {
 
 fn focus_by_handle(state: &State, handle: Option<AreaHandle>) {
     if let Some(handle) = handle {
-        for i in 0..100 {
+        for i in 0..state.hundred.len() {
             if state.hundred_areas[i] == handle {
                 focus(state).focus(&state.hundred[i]);
             }
@@ -168,7 +189,7 @@ fn handle_input(
     let f = focus.handle(event, Regular);
 
     // set the page from focus.
-    for i in 0..100 {
+    for i in 0..state.hundred.len() {
         if state.hundred[i].gained_focus() {
             state.pager.show_handle(state.hundred_areas[i])
         }

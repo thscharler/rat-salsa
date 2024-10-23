@@ -13,9 +13,9 @@
 //! ```
 //!
 //! * With the scroll offset the visible area for this layout is
-//! calculated. Starting from that an extended visible area
-//! is computed, that contains the bounds for all
-//! visible/partially visible widgets.
+//!   calculated. Starting from that an extended visible area
+//!   is computed, that contains the bounds for all
+//!   visible/partially visible widgets.
 //!
 //! ```
 //! ```
@@ -73,9 +73,9 @@ pub struct AreaHandle(usize);
 #[derive(Debug, Default, Clone)]
 struct PageLayoutCore {
     // view area in layout coordinates
-    page: Rect,
+    area: Rect,
     // extended view area in layout coordinates
-    wide_page: Rect,
+    ext_area: Rect,
     // collected areas
     areas: Vec<Rect>,
     // vertical ranges
@@ -94,7 +94,7 @@ impl PageLayout {
     pub fn add(&mut self, area: Rect) -> AreaHandle {
         let mut core = self.core.borrow_mut();
         // reset page to re-layout
-        core.page = Default::default();
+        core.area = Default::default();
         core.areas.push(area);
         AreaHandle(core.areas.len() - 1)
     }
@@ -103,7 +103,7 @@ impl PageLayout {
     pub fn add_all(&mut self, areas: impl IntoIterator<Item = Rect>) {
         let mut core = self.core.borrow_mut();
         // reset page to re-layout
-        core.page = Default::default();
+        core.area = Default::default();
         core.areas.extend(areas)
     }
 
@@ -116,7 +116,7 @@ impl PageLayout {
         let mut core = self.core.borrow_mut();
 
         // reset page to re-layout
-        core.page = Default::default();
+        core.area = Default::default();
 
         let start = core.areas.len();
         core.areas.extend(areas);
@@ -128,13 +128,13 @@ impl PageLayout {
     }
 
     /// View/buffer area in layout coordinates
-    pub fn page(&self) -> Rect {
-        self.core.borrow().page
+    pub fn buffer_area(&self) -> Rect {
+        self.core.borrow().area
     }
 
     /// Extended view/buffer area in layout coordinates.
-    pub fn wide_page(&self) -> Rect {
-        self.core.borrow().wide_page
+    pub fn ext_buffer_area(&self) -> Rect {
+        self.core.borrow().ext_area
     }
 
     /// Get the original area for the handle.
@@ -161,8 +161,8 @@ impl PageLayout {
         let x = core.x_ranges.largest().map(|v| v.end);
         let y = core.y_ranges.largest().map(|v| v.end);
 
-        let x = x.unwrap_or(core.wide_page.right());
-        let y = y.unwrap_or(core.wide_page.bottom());
+        let x = x.unwrap_or(core.ext_area.right());
+        let y = y.unwrap_or(core.ext_area.bottom());
 
         (x, y)
     }
@@ -176,10 +176,10 @@ impl PageLayout {
         core.areas
             .iter()
             .find(|v| {
-                core.wide_page.top() <= v.top()
-                    && core.wide_page.bottom() >= v.bottom()
-                    && core.wide_page.left() <= v.left()
-                    && core.wide_page.right() >= v.right()
+                core.ext_area.top() <= v.top()
+                    && core.ext_area.bottom() >= v.bottom()
+                    && core.ext_area.left() <= v.left()
+                    && core.ext_area.right() >= v.right()
             })
             .cloned()
     }
@@ -195,10 +195,10 @@ impl PageLayout {
             .iter()
             .enumerate()
             .find(|(_, v)| {
-                core.wide_page.top() <= v.top()
-                    && core.wide_page.bottom() >= v.bottom()
-                    && core.wide_page.left() <= v.left()
-                    && core.wide_page.right() >= v.right()
+                core.ext_area.top() <= v.top()
+                    && core.ext_area.bottom() >= v.bottom()
+                    && core.ext_area.left() <= v.left()
+                    && core.ext_area.right() >= v.right()
             })
             .map(|(idx, _)| AreaHandle(idx))
     }
@@ -217,12 +217,12 @@ impl PageLayout {
     pub fn buf_area(&self, area: Rect) -> Option<Rect> {
         let core = self.core.borrow();
 
-        let wide = core.wide_page;
+        let wide = core.ext_area;
 
-        if core.wide_page.top() <= area.top()
-            && core.wide_page.bottom() >= area.bottom()
-            && core.wide_page.left() <= area.left()
-            && core.wide_page.right() >= area.right()
+        if core.ext_area.top() <= area.top()
+            && core.ext_area.bottom() >= area.bottom()
+            && core.ext_area.left() <= area.left()
+            && core.ext_area.right() >= area.right()
         {
             Some(Rect::new(
                 area.x - wide.x,
@@ -238,8 +238,8 @@ impl PageLayout {
 
 impl PageLayoutCore {
     fn layout(&mut self, page: Rect) -> Rect {
-        if self.page == page {
-            return self.wide_page;
+        if self.area == page {
+            return self.ext_area;
         }
 
         self.y_ranges.clear();
@@ -253,7 +253,7 @@ impl PageLayoutCore {
             }
         }
 
-        self.page = page;
+        self.area = page;
 
         // range that contains all widgets that are visible on the page.
         let y_range = self
@@ -275,9 +275,9 @@ impl PageLayoutCore {
         let max_x = max(x_range.end, page.right());
         let max_y = max(y_range.end, page.bottom());
 
-        self.wide_page = Rect::new(min_x, min_y, max_x - min_x, max_y - min_y);
+        self.ext_area = Rect::new(min_x, min_y, max_x - min_x, max_y - min_y);
 
-        self.wide_page
+        self.ext_area
     }
 }
 
@@ -293,7 +293,7 @@ pub struct Clipper<'a> {
     vscroll: Option<Scroll<'a>>,
 }
 
-/// Render the buffer.
+/// Render to the buffer.
 #[derive(Debug)]
 pub struct ClipperBuffer<'a> {
     // page layout
