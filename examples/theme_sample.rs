@@ -212,10 +212,10 @@ pub mod mask0 {
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
     use rat_widget::popup::Placement;
     use rat_widget::scrolled::Scroll;
-    use rat_widget::view::{Viewport, ViewportState};
+    use rat_widget::view::{View, ViewState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect, Size};
-    use ratatui::widgets::StatefulWidget;
+    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::widgets::{Block, StatefulWidget};
     use std::fmt::Debug;
 
     #[derive(Debug)]
@@ -224,7 +224,8 @@ pub mod mask0 {
     #[derive(Debug)]
     pub struct Mask0State {
         pub menu: MenubarState,
-        pub scroll: ViewportState<ShowSchemeState>,
+        pub scroll: ViewState,
+        pub scheme: ShowSchemeState,
         pub theme: usize,
     }
 
@@ -233,6 +234,7 @@ pub mod mask0 {
             let s = Self {
                 menu: Default::default(),
                 scroll: Default::default(),
+                scheme: Default::default(),
                 theme: 0,
             };
             s.menu.bar.focus.set(true);
@@ -278,9 +280,23 @@ pub mod mask0 {
             )
             .split(area);
 
-            Viewport::new(ShowScheme::new(ctx.g.theme.name(), ctx.g.theme.scheme()))
-                .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()))
-                .view_size(Size::new(area.width - 4, 40))
+            let view = View::new()
+                .block(Block::bordered())
+                .vscroll(Scroll::new().styles(ctx.g.theme.scroll_style()));
+            let view_area = view.inner(layout[0], &mut state.scroll);
+
+            let mut v_buf = view
+                .view(Rect::new(0, 0, view_area.width, 38))
+                .into_buffer(layout[0], &mut state.scroll);
+
+            v_buf.render_stateful(
+                ShowScheme::new(ctx.g.theme.name(), ctx.g.theme.scheme()),
+                Rect::new(0, 0, view_area.width, 38),
+                &mut state.scheme,
+            );
+
+            v_buf
+                .into_widget()
                 .render(layout[0], buf, &mut state.scroll);
 
             let layout_menu =
@@ -337,10 +353,11 @@ pub mod show_scheme {
     use rat_theme::Scheme;
     use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
     use rat_widget::focus::{FocusFlag, HasFocus};
+    use rat_widget::relocate::{relocate_area, RelocatableState};
     use ratatui::buffer::Buffer;
-    use ratatui::layout::{Constraint, Direction, Layout, Rect};
+    use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
     use ratatui::prelude::{Line, Span, StatefulWidget};
-    use ratatui::style::Stylize;
+    use ratatui::style::{Style, Stylize};
     use ratatui::widgets::Widget;
 
     #[derive(Debug)]
@@ -353,6 +370,12 @@ pub mod show_scheme {
     pub struct ShowSchemeState {
         pub focus: FocusFlag,
         pub area: Rect,
+    }
+
+    impl RelocatableState for ShowSchemeState {
+        fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+            self.area = relocate_area(self.area, shift, clip);
+        }
     }
 
     impl HasFocus for ShowSchemeState {
@@ -390,7 +413,6 @@ pub mod show_scheme {
             let l1 = Layout::new(
                 Direction::Vertical,
                 [
-                    Constraint::Fill(1),
                     Constraint::Length(2),
                     Constraint::Length(2),
                     Constraint::Length(2),
@@ -408,12 +430,15 @@ pub mod show_scheme {
                     Constraint::Length(2),
                     Constraint::Length(2),
                     Constraint::Length(2),
-                    Constraint::Fill(1),
+                    Constraint::Length(2),
                 ],
             )
+            .flex(Flex::Center)
             .split(l0[1]);
 
-            self.name.render(l1[0], buf);
+            Span::from(format!("{:10}{}", "", self.name))
+                .style(Style::new().fg(self.scheme.secondary[3]))
+                .render(l1[0], buf);
 
             let sc = self.scheme;
             for (i, (n, c)) in [
