@@ -10,7 +10,6 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Span, StatefulWidget, Style};
 use ratatui::widgets::{Block, Borders, Widget};
-use std::marker::PhantomData;
 
 /// Widget that displays one page of the PageLayout.
 ///
@@ -46,11 +45,9 @@ pub struct SinglePageBuffer<'a> {
 
 /// Rendering widget for SinglePage.
 #[derive(Debug)]
-pub struct SinglePageWidget<'a> {
+pub struct SinglePageWidget {
     style: Style,
     nav_style: Option<Style>,
-
-    _phantom: PhantomData<&'a ()>,
 }
 
 /// View state.
@@ -141,6 +138,11 @@ impl<'a> SinglePage<'a> {
         }
         self.block = self.block.map(|v| v.style(styles.style));
         self
+    }
+
+    /// Calculate the layout width.
+    pub fn layout_width(&self, area: Rect) -> u16 {
+        self.inner(area).width
     }
 
     /// Calculate the view area.
@@ -339,19 +341,26 @@ impl<'a> SinglePageBuffer<'a> {
         state.relocate((0, 0), Rect::default())
     }
 
+    /// Access the temporary buffer.
+    ///
+    /// __Note__
+    /// Use of render_widget is preferred.
+    pub fn buffer_mut(&mut self) -> &mut Buffer {
+        &mut self.buffer
+    }
+
     /// Rendering the content is finished.
     ///
     /// Convert to the output widget that can be rendered in the target area.
-    pub fn into_widget<'b>(self) -> SinglePageWidget<'b> {
+    pub fn into_widget(self) -> SinglePageWidget {
         SinglePageWidget {
             style: self.style,
             nav_style: self.nav_style,
-            _phantom: Default::default(),
         }
     }
 }
 
-impl<'a> StatefulWidget for SinglePageWidget<'a> {
+impl StatefulWidget for SinglePageWidget {
     type State = SinglePageState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

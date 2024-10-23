@@ -1,6 +1,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
 use crate::pager::{AreaHandle, PageLayout, PagerStyle};
+use crate::relocate::RelocatableState;
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
@@ -9,6 +10,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Span, StatefulWidget, Style};
 use ratatui::widgets::{Block, Borders, Widget};
+use std::cmp::min;
 
 /// Widget that displays one page of the PageLayout.
 ///
@@ -17,40 +19,55 @@ use ratatui::widgets::{Block, Borders, Widget};
 /// for your widget. If this call returns None, your widget shall
 /// not be displayed.
 #[derive(Debug, Default, Clone)]
-pub struct DualPager<'a> {
+pub struct DualPage<'a> {
     layout: PageLayout,
+
+    block: Option<Block<'a>>,
     style: Style,
     nav_style: Option<Style>,
     divider_style: Option<Style>,
     title_style: Option<Style>,
-    block: Option<Block<'a>>,
+}
+
+/// Render to the buffer.
+#[derive(Debug)]
+pub struct DualPageBuffer<'a> {
+    layout: PageLayout,
+
+    // current page.
+    page: usize,
+    buffer: &'a mut Buffer,
+
+    // inner areas
+    widget_area1: Rect,
+    divider: Rect,
+    widget_area2: Rect,
+
+    style: Style,
+    divider_style: Option<Style>,
+    nav_style: Option<Style>,
 }
 
 #[derive(Debug)]
-pub struct RenderDualPager {
-    inner1: Rect,
-    divider: Rect,
-    inner2: Rect,
-    page: usize,
-    layout: PageLayout,
+pub struct DualPageWidget {
     style: Style,
     divider_style: Option<Style>,
     nav_style: Option<Style>,
 }
 
 #[derive(Debug, Clone)]
-pub struct DualPagerState {
-    /// Full area.
-    /// __read only__ renewed with each render.
+pub struct DualPageState {
+    /// Full area for the widget.
+    /// __read only__ renewed for each render.
     pub area: Rect,
-    /// Area for widgets to render.
-    /// __read only__ renewed with each render.
+    /// Left area inside the border.
+    /// __read only__ renewed for each render.
     pub widget_area1: Rect,
     /// Divider area.
-    /// __read only__ renewed with each render.
+    /// __read only__ renewed for each render.
     pub divider_area: Rect,
-    /// Area for widgets to render.
-    /// __read only__ renewed with each render.
+    /// Right area inside the border.
+    /// __read only__ renewed for each render.
     pub widget_area2: Rect,
     /// Title area except the page indicators.
     /// __read only__ renewed with each render
@@ -80,7 +97,8 @@ pub struct DualPagerState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> DualPager<'a> {
+impl<'a> DualPage<'a> {
+    /// New DualPage
     pub fn new() -> Self {
         Self::default()
     }
@@ -91,27 +109,10 @@ impl<'a> DualPager<'a> {
         self
     }
 
-    /// Set all styles.
-    pub fn styles(mut self, styles: PagerStyle) -> Self {
-        self.style = styles.style;
-        if let Some(nav) = styles.nav {
-            self.nav_style = Some(nav);
-        }
-        if let Some(divider) = styles.divider {
-            self.divider_style = Some(divider);
-        }
-        if let Some(title) = styles.title {
-            self.title_style = Some(title);
-        }
-        if let Some(block) = styles.block {
-            self.block = Some(block);
-        }
-        self
-    }
-
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 
@@ -135,13 +136,37 @@ impl<'a> DualPager<'a> {
 
     /// Block for border
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = Some(block);
+        self.block = Some(block.style(self.style));
         self
     }
 
-    /// Returns the available width.
-    pub fn get_width(&self, area: Rect) -> u16 {
-        let inner = if let Some(block) = &self.block {
+    /// Set all styles.
+    pub fn styles(mut self, styles: PagerStyle) -> Self {
+        self.style = styles.style;
+        if let Some(nav) = styles.nav {
+            self.nav_style = Some(nav);
+        }
+        if let Some(divider) = styles.divider {
+            self.divider_style = Some(divider);
+        }
+        if let Some(title) = styles.title {
+            self.title_style = Some(title);
+        }
+        if let Some(block) = styles.block {
+            self.block = Some(block);
+        }
+        self.block = self.block.map(|v| v.style(styles.style));
+        self
+    }
+
+    /// Calculate the layout width.
+    pub fn layout_width(&self, area: Rect) -> u16 {
+        min(self.inner_left(area).width, self.inner_right(area).width)
+    }
+
+    /// Calculate the left view area.
+    pub fn inner_left(&self, area: Rect) -> Rect {
+        let mut inner = if let Some(block) = &self.block {
             block.inner(area)
         } else {
             Rect::new(
@@ -152,16 +177,36 @@ impl<'a> DualPager<'a> {
             )
         };
 
-        inner.width.saturating_sub(1) / 2
+        inner.width = inner.width.saturating_sub(1) / 2;
+        inner
+    }
+
+    /// Calculate the right view area.
+    pub fn inner_right(&self, area: Rect) -> Rect {
+        let mut inner = if let Some(block) = &self.block {
+            block.inner(area)
+        } else {
+            Rect::new(
+                area.x,
+                area.y + 1,
+                area.width,
+                area.height.saturating_sub(1),
+            )
+        };
+
+        inner.width = inner
+            .width
+            .saturating_sub(1 + inner.width.saturating_sub(1) / 2);
+        inner
     }
 
     /// Run the layout and create the final Pager widget.
-    pub fn into_widget(
+    pub fn into_buffer<'b>(
         self,
         area: Rect,
-        buf: &mut Buffer,
-        state: &mut DualPagerState,
-    ) -> RenderDualPager {
+        buf: &'b mut Buffer,
+        state: &mut DualPageState,
+    ) -> DualPageBuffer<'b> {
         state.area = area;
 
         let inner = if let Some(block) = &self.block {
@@ -193,13 +238,10 @@ impl<'a> DualPager<'a> {
         // clip page nr
         state.set_page(state.page);
 
-        // render
-        buf.set_style(area, self.style);
-
         let title = format!(" {}/{} ", state.page + 1, state.layout.len());
         let block = self
             .block
-            .unwrap_or_else(|| Block::new().borders(Borders::TOP))
+            .unwrap_or_else(|| Block::new().borders(Borders::TOP).style(self.style))
             .title_bottom(title)
             .title_alignment(Alignment::Right);
         let block = if let Some(title_style) = self.title_style {
@@ -209,12 +251,13 @@ impl<'a> DualPager<'a> {
         };
         block.render(area, buf);
 
-        RenderDualPager {
-            inner1: state.widget_area1,
-            divider: state.divider_area,
-            inner2: state.widget_area2,
-            page: state.page,
+        DualPageBuffer {
             layout: state.layout.clone(),
+            page: state.page,
+            buffer: buf,
+            widget_area1: state.widget_area1,
+            divider: state.divider_area,
+            widget_area2: state.widget_area2,
             style: self.style,
             divider_style: self.divider_style,
             nav_style: self.nav_style,
@@ -222,15 +265,96 @@ impl<'a> DualPager<'a> {
     }
 }
 
-impl RenderDualPager {
+impl<'a> DualPageBuffer<'a> {
+    /// Render a widget to the temp buffer.
+    #[inline(always)]
+    pub fn render_widget<W>(&mut self, widget: W, area: Rect)
+    where
+        W: Widget,
+    {
+        if let Some(buffer_area) = self.locate(area) {
+            // render the actual widget.
+            widget.render(buffer_area, self.buffer);
+        } else {
+            // noop
+        }
+    }
+
+    /// Render a widget to the temp buffer.
+    /// This expects that the state is a RelocatableState.
+    #[inline(always)]
+    pub fn render_stateful<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
+    where
+        W: StatefulWidget<State = S>,
+        S: RelocatableState,
+    {
+        if let Some(buffer_area) = self.locate(area) {
+            // render the actual widget.
+            widget.render(buffer_area, self.buffer, state);
+        } else {
+            self.relocate_clear(state);
+        }
+    }
+
+    /// Render a widget to the temp buffer.
+    #[inline(always)]
+    pub fn render_widget_handle<W>(&mut self, widget: W, area: AreaHandle)
+    where
+        W: Widget,
+    {
+        if let Some(buffer_area) = self.locate_handle(area) {
+            // render the actual widget.
+            widget.render(buffer_area, self.buffer);
+        } else {
+            // noop
+        }
+    }
+
+    /// Render a widget to the temp buffer.
+    /// This expects that the state is a RelocatableState.
+    #[inline(always)]
+    pub fn render_stateful_handle<W, S>(&mut self, widget: W, area: AreaHandle, state: &mut S)
+    where
+        W: StatefulWidget<State = S>,
+        S: RelocatableState,
+    {
+        if let Some(buffer_area) = self.locate_handle(area) {
+            // render the actual widget.
+            widget.render(buffer_area, self.buffer, state);
+        } else {
+            self.relocate_clear(state);
+        }
+    }
+
+    /// Get the layout area for the handle.
+    pub fn layout_area(&self, handle: AreaHandle) -> Rect {
+        self.layout.layout_area_by_handle(handle)
+    }
+
+    /// Get the buffer area for the handle.
+    /// Returns the tuple (page-nr, area)
+    pub fn buf_area(&self, handle: AreaHandle) -> (usize, Rect) {
+        self.layout.buf_area_by_handle(handle)
+    }
+
+    /// Is the given area visible?
+    pub fn is_visible(&self, area: Rect) -> bool {
+        self.layout.buf_area(area).0 == self.page
+    }
+
+    /// Is the given area visible?
+    pub fn is_visible_handle(&self, handle: AreaHandle) -> bool {
+        self.layout.buf_area_by_handle(handle).0 == self.page
+    }
+
     /// Relocate an area by handle from Layout coordinates to
     /// screen coordinates.
     ///
     /// A result None indicates that the area is
     /// out of view.
-    pub fn relocate_handle(&self, handle: AreaHandle) -> Option<Rect> {
+    pub fn locate_handle(&self, handle: AreaHandle) -> Option<Rect> {
         let (page, target) = self.layout.buf_area_by_handle(handle);
-        self._relocate(page, target)
+        self._locate(page, target)
     }
 
     /// Relocate a rect from Layout coordinates to
@@ -238,45 +362,79 @@ impl RenderDualPager {
     ///
     /// A result None indicates that the area is
     /// out of view.
-    pub fn relocate(&self, area: Rect) -> Option<Rect> {
+    pub fn locate(&self, area: Rect) -> Option<Rect> {
         let (page, target) = self.layout.buf_area(area);
-        self._relocate(page, target)
+        self._locate(page, target)
     }
 
-    fn _relocate(&self, page: usize, mut target_area: Rect) -> Option<Rect> {
+    fn _locate(&self, page: usize, mut layout_area: Rect) -> Option<Rect> {
         if self.page == page {
-            target_area.x += self.inner1.x;
-            target_area.y += self.inner1.y;
-            Some(target_area)
+            Some(Rect::new(
+                layout_area.x + self.widget_area1.x,
+                layout_area.y + self.widget_area1.y,
+                layout_area.width,
+                layout_area.height,
+            ))
         } else if self.page + 1 == page {
-            target_area.x += self.inner2.x;
-            target_area.y += self.inner2.y;
-            Some(target_area)
+            Some(Rect::new(
+                layout_area.x + self.widget_area2.x,
+                layout_area.y + self.widget_area2.y,
+                layout_area.width,
+                layout_area.height,
+            ))
         } else {
             None
         }
     }
+
+    /// Relocate in a way that clears the areas.
+    /// This effectively hides any out of bounds widgets.
+    pub fn relocate_clear<S>(&self, state: &mut S)
+    where
+        S: RelocatableState,
+    {
+        state.relocate((0, 0), Rect::default())
+    }
+
+    /// Access the temporary buffer.
+    ///
+    /// __Note__
+    /// Use of render_widget is preferred.
+    pub fn buffer_mut(&mut self) -> &mut Buffer {
+        &mut self.buffer
+    }
+
+    /// Rendering the content is finished.
+    ///
+    /// Convert to the output widget that can be rendered in the target area.
+    pub fn into_widget(self) -> DualPageWidget {
+        DualPageWidget {
+            style: self.style,
+            divider_style: self.divider_style,
+            nav_style: self.nav_style,
+        }
+    }
 }
 
-impl StatefulWidget for RenderDualPager {
-    type State = DualPagerState;
+impl StatefulWidget for DualPageWidget {
+    type State = DualPageState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         assert_eq!(area, state.area);
 
         // divider
         let divider_style = self.divider_style.unwrap_or(self.style);
-        if let Some(cell) = buf.cell_mut((self.divider.x, area.top())) {
+        if let Some(cell) = buf.cell_mut((state.divider_area.x, area.top())) {
             cell.set_style(divider_style);
             cell.set_symbol("\u{239E}");
         }
-        for y in self.divider.top()..area.bottom().saturating_sub(1) {
-            if let Some(cell) = buf.cell_mut((self.divider.x, y)) {
+        for y in state.divider_area.top()..area.bottom().saturating_sub(1) {
+            if let Some(cell) = buf.cell_mut((state.divider_area.x, y)) {
                 cell.set_style(divider_style);
                 cell.set_symbol("\u{239C}");
             }
         }
-        if let Some(cell) = buf.cell_mut((self.divider.x, area.bottom().saturating_sub(1))) {
+        if let Some(cell) = buf.cell_mut((state.divider_area.x, area.bottom().saturating_sub(1))) {
             cell.set_style(divider_style);
             cell.set_symbol("\u{239D}");
         }
@@ -306,7 +464,7 @@ impl StatefulWidget for RenderDualPager {
     }
 }
 
-impl Default for DualPagerState {
+impl Default for DualPageState {
     fn default() -> Self {
         Self {
             area: Default::default(),
@@ -325,7 +483,7 @@ impl Default for DualPagerState {
     }
 }
 
-impl DualPagerState {
+impl DualPageState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -384,13 +542,13 @@ impl DualPagerState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for DualPagerState {
+impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for DualPageState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
         self.handle(event, MouseOnly)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for DualPagerState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for DualPageState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> PagerOutcome {
         match event {
             ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {

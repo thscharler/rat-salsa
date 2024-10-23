@@ -5,7 +5,7 @@
 //! them into pages is an alternative to scrolling.
 //!
 //! [PageLayout] helps with the dynamic page-breaks.
-//! [SinglePage] and [DualPager] are the widgets that display
+//! [SinglePage] and [DualPage] are the widgets that display
 //! everything as one or two columns.
 //!
 //! Same as the other containers in this crate they leave the
@@ -58,6 +58,11 @@ struct PageLayoutCore {
 impl PageLayout {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Has the target width of the layout changed.
+    pub fn width_changed(&self, width: u16) -> bool {
+        self.core.borrow().area.width != width
     }
 
     /// Add a rect.

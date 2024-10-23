@@ -4,7 +4,7 @@ use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{Focus, FocusBuilder, FocusContainer, HasFocus};
+use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
@@ -13,7 +13,7 @@ use rat_widget::pager::{AreaHandle, PageLayout, SinglePage, SinglePageState};
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
@@ -28,7 +28,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        layout: None,
+        layout: Default::default(),
         pager: SinglePageState::default(),
         hundred: array::from_fn(|_| Default::default()),
         hundred_areas: [Default::default(); HUN],
@@ -43,7 +43,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    layout: Option<PageLayout>,
+    layout: PageLayout,
     pager: SinglePageState,
 
     hundred: [TextInputMockState; HUN],
@@ -78,8 +78,20 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
-    if state.layout.is_none() {
-        // the inner layout is fixed, need to init only once.
+    // set up pager
+    let pager = SinglePage::new()
+        .nav_style(Style::new().fg(THEME.orange[2]))
+        .style(THEME.gray(0))
+        .block(
+            Block::new()
+                .border_type(BorderType::Plain)
+                .borders(Borders::TOP)
+                .padding(Padding::new(1, 1, 0, 1)),
+        );
+
+    // maybe rebuild layout
+    let width = pager.layout_width(l2[1]);
+    if state.layout.width_changed(width) {
         let mut pl = PageLayout::new();
         let mut row = 0;
         for i in 0..state.hundred.len() {
@@ -101,15 +113,14 @@ fn repaint_input(
             row += h + 1;
         }
         pl.add(Rect::new(90, 0, 10, 1));
-        state.layout = Some(pl.clone());
-    };
+        state.layout = pl;
+    }
 
-    let mut pg_buf = SinglePage::new()
-        .layout(state.layout.clone().expect("layout"))
-        .block(Block::bordered())
-        .nav_style(Style::new().fg(THEME.orange[2]))
-        .style(THEME.gray(0))
-        .into_buffer(l2[1], frame.buffer_mut(), &mut state.pager);
+    // set current layout and prepare rendering.
+    let mut pg_buf =
+        pager
+            .layout(state.layout.clone())
+            .into_buffer(l2[1], frame.buffer_mut(), &mut state.pager);
 
     // render the input fields.
     for i in 0..state.hundred.len() {
@@ -160,12 +171,10 @@ fn repaint_input(
 fn focus(state: &State) -> Focus {
     let mut fb = FocusBuilder::default();
     fb.widget(&state.menu);
-    fb.start(Some(state.pager.c_focus.clone()), Default::default());
     for i in 0..state.hundred.len() {
         // Focus wants __all__ areas.
         fb.widget(&state.hundred[i]);
     }
-    fb.end(Some(state.pager.c_focus.clone()));
     fb.build()
 }
 
@@ -204,32 +213,26 @@ fn handle_input(
         r => r.into(),
     };
 
-    let r = r.or_else(|| {
-        if state.pager.c_focus.is_container_focused() {
-            match event {
-                ct_event!(keycode press F(4)) => {
-                    if state.pager.prev_page() {
-                        let h = state.pager.first_handle(state.pager.page);
-                        focus_by_handle(state, h);
-                        Outcome::Changed
-                    } else {
-                        Outcome::Unchanged
-                    }
-                }
-                ct_event!(keycode press F(5)) => {
-                    if state.pager.next_page() {
-                        let h = state.pager.first_handle(state.pager.page);
-                        focus_by_handle(state, h);
-                        Outcome::Changed
-                    } else {
-                        Outcome::Unchanged
-                    }
-                }
-                _ => Outcome::Continue,
+    let r = r.or_else(|| match event {
+        ct_event!(keycode press F(4)) => {
+            if state.pager.prev_page() {
+                let h = state.pager.first_handle(state.pager.page);
+                focus_by_handle(state, h);
+                Outcome::Changed
+            } else {
+                Outcome::Unchanged
             }
-        } else {
-            Outcome::Continue
         }
+        ct_event!(keycode press F(5)) => {
+            if state.pager.next_page() {
+                let h = state.pager.first_handle(state.pager.page);
+                focus_by_handle(state, h);
+                Outcome::Changed
+            } else {
+                Outcome::Unchanged
+            }
+        }
+        _ => Outcome::Continue,
     });
 
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
