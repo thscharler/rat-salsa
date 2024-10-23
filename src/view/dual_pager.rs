@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::relocate::RelocatableState;
 use crate::util::revert_style;
 use crate::view::event::PagerOutcome;
-use crate::view::{AreaHandle, PageLayout, PagerStyle};
+use crate::view::{AreaHandle, PagerLayout, PagerStyle};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::ContainerFlag;
@@ -19,8 +19,8 @@ use std::cmp::min;
 /// for your widget. If this call returns None, your widget shall
 /// not be displayed.
 #[derive(Debug, Default, Clone)]
-pub struct DualPage<'a> {
-    layout: PageLayout,
+pub struct DualPager<'a> {
+    layout: PagerLayout,
 
     block: Option<Block<'a>>,
     style: Style,
@@ -31,8 +31,8 @@ pub struct DualPage<'a> {
 
 /// Render to the buffer.
 #[derive(Debug)]
-pub struct DualPageBuffer<'a> {
-    layout: PageLayout,
+pub struct DualPagerBuffer<'a> {
+    layout: PagerLayout,
 
     // current page.
     page: usize,
@@ -49,14 +49,14 @@ pub struct DualPageBuffer<'a> {
 }
 
 #[derive(Debug)]
-pub struct DualPageWidget {
+pub struct DualPagerWidget {
     style: Style,
     divider_style: Option<Style>,
     nav_style: Option<Style>,
 }
 
 #[derive(Debug, Clone)]
-pub struct DualPageState {
+pub struct DualPagerState {
     /// Full area for the widget.
     /// __read only__ renewed for each render.
     pub area: Rect,
@@ -81,7 +81,7 @@ pub struct DualPageState {
 
     /// Page layout
     /// __read only__ renewed with each render.
-    pub layout: PageLayout,
+    pub layout: PagerLayout,
     /// Current page.
     /// __read+write__
     pub page: usize,
@@ -97,14 +97,14 @@ pub struct DualPageState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> DualPage<'a> {
-    /// New DualPage
+impl<'a> DualPager<'a> {
+    /// New DualPager
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Page layout.
-    pub fn layout(mut self, page_layout: PageLayout) -> Self {
+    pub fn layout(mut self, page_layout: PagerLayout) -> Self {
         self.layout = page_layout;
         self
     }
@@ -205,8 +205,8 @@ impl<'a> DualPage<'a> {
         self,
         area: Rect,
         buf: &'b mut Buffer,
-        state: &mut DualPageState,
-    ) -> DualPageBuffer<'b> {
+        state: &mut DualPagerState,
+    ) -> DualPagerBuffer<'b> {
         state.area = area;
 
         let inner = if let Some(block) = &self.block {
@@ -251,7 +251,7 @@ impl<'a> DualPage<'a> {
         };
         block.render(area, buf);
 
-        DualPageBuffer {
+        DualPagerBuffer {
             layout: state.layout.clone(),
             page: state.page,
             buffer: buf,
@@ -265,7 +265,7 @@ impl<'a> DualPage<'a> {
     }
 }
 
-impl<'a> DualPageBuffer<'a> {
+impl<'a> DualPagerBuffer<'a> {
     /// Render a widget to the temp buffer.
     #[inline(always)]
     pub fn render_widget<W>(&mut self, widget: W, area: Rect)
@@ -407,8 +407,8 @@ impl<'a> DualPageBuffer<'a> {
     /// Rendering the content is finished.
     ///
     /// Convert to the output widget that can be rendered in the target area.
-    pub fn into_widget(self) -> DualPageWidget {
-        DualPageWidget {
+    pub fn into_widget(self) -> DualPagerWidget {
+        DualPagerWidget {
             style: self.style,
             divider_style: self.divider_style,
             nav_style: self.nav_style,
@@ -416,8 +416,8 @@ impl<'a> DualPageBuffer<'a> {
     }
 }
 
-impl StatefulWidget for DualPageWidget {
-    type State = DualPageState;
+impl StatefulWidget for DualPagerWidget {
+    type State = DualPagerState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         assert_eq!(area, state.area);
@@ -464,7 +464,7 @@ impl StatefulWidget for DualPageWidget {
     }
 }
 
-impl Default for DualPageState {
+impl Default for DualPagerState {
     fn default() -> Self {
         Self {
             area: Default::default(),
@@ -483,7 +483,7 @@ impl Default for DualPageState {
     }
 }
 
-impl DualPageState {
+impl DualPagerState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -542,13 +542,13 @@ impl DualPageState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for DualPageState {
+impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for DualPagerState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
         self.handle(event, MouseOnly)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for DualPageState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for DualPagerState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> PagerOutcome {
         match event {
             ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {

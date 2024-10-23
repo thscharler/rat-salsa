@@ -11,7 +11,7 @@ use std::rc::Rc;
 /// It then splits the list in pages in a way that there are
 /// no broken areas.
 #[derive(Debug, Default, Clone)]
-pub struct PageLayout {
+pub struct PagerLayout {
     core: Rc<RefCell<PageLayoutCore>>,
 }
 
@@ -27,7 +27,7 @@ struct PageLayoutCore {
     breaks: Vec<u16>,
 }
 
-impl PageLayout {
+impl PagerLayout {
     pub fn new() -> Self {
         Self::default()
     }
@@ -212,7 +212,7 @@ impl PageLayoutCore {
 
 #[cfg(test)]
 mod test {
-    use crate::view::PageLayout;
+    use crate::view::PagerLayout;
     use ratatui::layout::Rect;
     use std::ops::Deref;
 
@@ -222,7 +222,7 @@ mod test {
 
     #[test]
     fn test_layout() {
-        let mut p0 = PageLayout::new();
+        let mut p0 = PagerLayout::new();
 
         p0.add(hr(5, 1));
         p0.add(hr(5, 2));

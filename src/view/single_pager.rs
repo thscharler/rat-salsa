@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::relocate::RelocatableState;
 use crate::util::revert_style;
 use crate::view::event::PagerOutcome;
-use crate::view::{AreaHandle, PageLayout, PagerStyle};
+use crate::view::{AreaHandle, PagerLayout, PagerStyle};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::ContainerFlag;
@@ -18,8 +18,8 @@ use ratatui::widgets::{Block, Borders, Widget};
 /// for your widget. If this call returns None, your widget shall
 /// not be displayed.
 #[derive(Debug, Default, Clone)]
-pub struct SinglePage<'a> {
-    layout: PageLayout,
+pub struct SinglePager<'a> {
+    layout: PagerLayout,
 
     block: Option<Block<'a>>,
     style: Style,
@@ -29,8 +29,8 @@ pub struct SinglePage<'a> {
 
 /// Render to the buffer.
 #[derive(Debug)]
-pub struct SinglePageBuffer<'a> {
-    layout: PageLayout,
+pub struct SinglePagerBuffer<'a> {
+    layout: PagerLayout,
 
     // current page.
     page: usize,
@@ -45,14 +45,14 @@ pub struct SinglePageBuffer<'a> {
 
 /// Rendering widget for SinglePage.
 #[derive(Debug)]
-pub struct SinglePageWidget {
+pub struct SinglePagerWidget {
     style: Style,
     nav_style: Option<Style>,
 }
 
 /// View state.
 #[derive(Debug, Clone)]
-pub struct SinglePageState {
+pub struct SinglePagerState {
     /// Full area for the widget.
     /// __read only__ renewed for each render.
     pub area: Rect,
@@ -71,7 +71,7 @@ pub struct SinglePageState {
 
     /// Page layout
     /// __read only__ renewed with each render.
-    pub layout: PageLayout,
+    pub layout: PagerLayout,
     /// Current page.
     /// __read+write__
     pub page: usize,
@@ -87,14 +87,14 @@ pub struct SinglePageState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> SinglePage<'a> {
+impl<'a> SinglePager<'a> {
     /// New SinglePage.
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Page layout.
-    pub fn layout(mut self, page_layout: PageLayout) -> Self {
+    pub fn layout(mut self, page_layout: PagerLayout) -> Self {
         self.layout = page_layout;
         self
     }
@@ -165,8 +165,8 @@ impl<'a> SinglePage<'a> {
         self,
         area: Rect,
         buf: &'b mut Buffer,
-        state: &mut SinglePageState,
-    ) -> SinglePageBuffer<'b> {
+        state: &mut SinglePagerState,
+    ) -> SinglePagerBuffer<'b> {
         state.area = area;
 
         state.widget_area = if let Some(block) = &self.block {
@@ -206,7 +206,7 @@ impl<'a> SinglePage<'a> {
         };
         block.render(area, buf);
 
-        SinglePageBuffer {
+        SinglePagerBuffer {
             layout: state.layout.clone(),
             page: state.page,
             buffer: buf,
@@ -217,7 +217,7 @@ impl<'a> SinglePage<'a> {
     }
 }
 
-impl<'a> SinglePageBuffer<'a> {
+impl<'a> SinglePagerBuffer<'a> {
     /// Render a widget to the temp buffer.
     #[inline(always)]
     pub fn render_widget<W>(&mut self, widget: W, area: Rect)
@@ -352,16 +352,16 @@ impl<'a> SinglePageBuffer<'a> {
     /// Rendering the content is finished.
     ///
     /// Convert to the output widget that can be rendered in the target area.
-    pub fn into_widget(self) -> SinglePageWidget {
-        SinglePageWidget {
+    pub fn into_widget(self) -> SinglePagerWidget {
+        SinglePagerWidget {
             style: self.style,
             nav_style: self.nav_style,
         }
     }
 }
 
-impl StatefulWidget for SinglePageWidget {
-    type State = SinglePageState;
+impl StatefulWidget for SinglePagerWidget {
+    type State = SinglePagerState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         assert_eq!(area, state.area);
@@ -391,7 +391,7 @@ impl StatefulWidget for SinglePageWidget {
     }
 }
 
-impl Default for SinglePageState {
+impl Default for SinglePagerState {
     fn default() -> Self {
         Self {
             area: Default::default(),
@@ -408,7 +408,7 @@ impl Default for SinglePageState {
     }
 }
 
-impl SinglePageState {
+impl SinglePagerState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -467,13 +467,13 @@ impl SinglePageState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for SinglePageState {
+impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for SinglePagerState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
         self.handle(event, MouseOnly)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for SinglePageState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for SinglePagerState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> PagerOutcome {
         match event {
             ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {
