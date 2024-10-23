@@ -148,6 +148,11 @@ impl<'a> Clipper<'a> {
         self
     }
 
+    /// Calculate the layout width.
+    pub fn layout_width(&self, area: Rect, state: &ClipperState) -> u16 {
+        self.inner(area, state).width
+    }
+
     /// Calculate the xview area.
     pub fn inner(&self, area: Rect, state: &ClipperState) -> Rect {
         let sa = ScrollArea::new()

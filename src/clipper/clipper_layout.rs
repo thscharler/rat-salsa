@@ -36,6 +36,14 @@ impl ClipperLayout {
         Self::default()
     }
 
+    /// Has the target width of the layout changed.
+    ///
+    /// This is helpful if you only want vertical scrolling, and
+    /// build your layout to fit.
+    pub fn width_changed(&self, width: u16) -> bool {
+        self.core.borrow().area.width != width
+    }
+
     /// Add a layout area.
     pub fn add(&mut self, area: Rect) -> AreaHandle {
         let mut core = self.core.borrow_mut();
@@ -71,6 +79,16 @@ impl ClipperLayout {
         for i in start..end {
             handles.push(AreaHandle(i));
         }
+    }
+
+    /// Number of areas.
+    pub fn len(&self) -> usize {
+        self.core.borrow().areas.len()
+    }
+
+    /// Contains areas?
+    pub fn is_empty(&self) -> bool {
+        self.core.borrow().areas.is_empty()
     }
 
     /// View/buffer area in layout coordinates

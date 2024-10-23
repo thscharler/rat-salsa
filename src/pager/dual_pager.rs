@@ -237,7 +237,7 @@ impl<'a> DualPager<'a> {
         // clip page nr
         state.set_page(state.page);
 
-        let title = format!(" {}/{} ", state.page + 1, state.layout.len());
+        let title = format!(" {}/{} ", state.page + 1, state.layout.num_pages());
         let block = self
             .block
             .unwrap_or_else(|| Block::new().borders(Borders::TOP).style(self.style))
@@ -454,7 +454,7 @@ impl StatefulWidget for DualPagerWidget {
         } else {
             buf.set_style(state.next_area, nav_style);
         }
-        if state.page + 2 < state.layout.len() {
+        if state.page + 2 < state.layout.num_pages() {
             Span::from(" >>> ").render(state.next_area, buf);
         } else {
             Span::from(" [·] ").render(state.next_area, buf);
@@ -508,8 +508,8 @@ impl DualPagerState {
     /// Set the visible page.
     pub fn set_page(&mut self, page: usize) -> bool {
         let old_page = self.page;
-        if page >= self.layout.len() {
-            self.page = (self.layout.len() - 1) & !1;
+        if page >= self.layout.num_pages() {
+            self.page = (self.layout.num_pages() - 1) & !1;
         } else {
             self.page = page & !1;
         }
@@ -520,8 +520,8 @@ impl DualPagerState {
     pub fn next_page(&mut self) -> bool {
         let old_page = self.page;
 
-        if self.page + 2 >= self.layout.len() {
-            self.page = (self.layout.len() - 1) & !1;
+        if self.page + 2 >= self.layout.num_pages() {
+            self.page = (self.layout.num_pages() - 1) & !1;
         } else {
             self.page = (self.page + 2) & !1;
         }

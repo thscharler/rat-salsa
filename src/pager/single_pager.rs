@@ -193,7 +193,7 @@ impl<'a> SinglePager<'a> {
         state.set_page(state.page);
 
         // render
-        let title = format!(" {}/{} ", state.page + 1, state.layout.len());
+        let title = format!(" {}/{} ", state.page + 1, state.layout.num_pages());
         let block = self
             .block
             .unwrap_or_else(|| Block::new().borders(Borders::TOP).style(self.style))
@@ -383,7 +383,7 @@ impl StatefulWidget for SinglePagerWidget {
         } else {
             buf.set_style(state.next_area, nav_style);
         }
-        if state.page + 1 < state.layout.len() {
+        if state.page + 1 < state.layout.num_pages() {
             Span::from(" >>> ").render(state.next_area, buf);
         } else {
             Span::from(" [·] ").render(state.next_area, buf);
@@ -435,8 +435,8 @@ impl SinglePagerState {
     /// Set the visible page.
     pub fn set_page(&mut self, page: usize) -> bool {
         let old_page = self.page;
-        if page >= self.layout.len() {
-            self.page = self.layout.len() - 1;
+        if page >= self.layout.num_pages() {
+            self.page = self.layout.num_pages() - 1;
         } else {
             self.page = page;
         }
@@ -447,8 +447,8 @@ impl SinglePagerState {
     pub fn next_page(&mut self) -> bool {
         let old_page = self.page;
 
-        if self.page + 1 >= self.layout.len() {
-            self.page = self.layout.len() - 1;
+        if self.page + 1 >= self.layout.num_pages() {
+            self.page = self.layout.num_pages() - 1;
         } else {
             self.page += 1;
         }

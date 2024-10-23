@@ -104,6 +104,16 @@ impl PagerLayout {
         self.core.borrow().areas[handle.0]
     }
 
+    /// Number of areas.
+    pub fn len(&self) -> usize {
+        self.core.borrow().areas.len()
+    }
+
+    /// Contains areas?
+    pub fn is_empty(&self) -> bool {
+        self.core.borrow().areas.is_empty()
+    }
+
     /// Run the layout algorithm.
     pub fn layout(&mut self, page: Rect) {
         let mut core = self.core.borrow_mut();
@@ -112,13 +122,8 @@ impl PagerLayout {
 
     /// Number of pages.
     ///
-    pub fn len(&self) -> usize {
+    pub fn num_pages(&self) -> usize {
         self.core.borrow().breaks.len()
-    }
-
-    /// Any pages
-    pub fn is_empty(&self) -> bool {
-        self.core.borrow().breaks.is_empty()
     }
 
     /// First area on the given page.
@@ -164,18 +169,19 @@ impl PagerLayout {
         let core = self.core.borrow();
 
         // find page
-        let (page, brk) = core
+        let (page_nr, brk) = core
             .breaks
             .iter()
             .enumerate()
             .rev()
             .find(|(_i, v)| **v <= area.y)
             .expect("valid breaks");
+        let relocated = Rect::new(area.x, area.y - *brk, area.width, area.height);
 
-        (
-            page,
-            Rect::new(area.x, area.y - *brk, area.width, area.height),
-        )
+        // clip to fit
+        let clip_area = Rect::new(0, 0, core.area.width, core.area.height);
+
+        (page_nr, relocated.intersection(clip_area))
     }
 }
 
