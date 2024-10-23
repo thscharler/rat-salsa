@@ -71,8 +71,9 @@ pub struct ViewBuffer<'a> {
     // View area of the buffer.
     view: Rect,
     // Scroll offset into the view.
-    offset: (usize, usize),
-    // Inner area that will finally be rendered.
+    x_offset: usize,
+    y_offset: usize,
+    // inner area that will finally be rendered.
     widget_area: Rect,
 
     block: Option<Block<'a>>,
@@ -110,7 +111,7 @@ impl Default for ViewStyle {
 }
 
 /// State of the viewport.
-#[derive(Debug, Clone)]
+#[derive(Debug, Default, Clone)]
 pub struct ViewState {
     /// Complete area of the viewport.
     /// __readonly__. renewed for each render.
@@ -140,41 +141,45 @@ impl<'a> View<'a> {
         Self::default()
     }
 
-    pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = Some(block);
-        self
-    }
-
-    pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
-        self.hscroll = Some(scroll.clone().override_horizontal());
-        self.vscroll = Some(scroll.override_vertical());
-        self
-    }
-
-    pub fn hscroll(mut self, scroll: Scroll<'a>) -> Self {
-        self.hscroll = Some(scroll.override_horizontal());
-        self
-    }
-
-    pub fn vscroll(mut self, scroll: Scroll<'a>) -> Self {
-        self.vscroll = Some(scroll.override_vertical());
-        self
-    }
-
     /// Area for the temp buffer.
     pub fn view(mut self, area: Rect) -> Self {
         self.view = area;
         self
     }
 
+    /// Block for border
+    pub fn block(mut self, block: Block<'a>) -> Self {
+        self.block = Some(block);
+        self
+    }
+
+    /// Scroll support.
+    pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.hscroll = Some(scroll.clone().override_horizontal());
+        self.vscroll = Some(scroll.override_vertical());
+        self
+    }
+
+    /// Horizontal scroll support.
+    pub fn hscroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.hscroll = Some(scroll.override_horizontal());
+        self
+    }
+
+    /// Vertical scroll support.
+    pub fn vscroll(mut self, scroll: Scroll<'a>) -> Self {
+        self.vscroll = Some(scroll.override_vertical());
+        self
+    }
+
     /// Combined style.
     pub fn styles(mut self, styles: ViewStyle) -> Self {
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
         if let Some(styles) = styles.scroll {
             self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
             self.vscroll = self.vscroll.map(|v| v.styles(styles.clone()));
-        }
-        if styles.block.is_some() {
-            self.block = styles.block;
         }
         self
     }
@@ -216,7 +221,8 @@ impl<'a> View<'a> {
 
         ViewBuffer {
             view: state.view,
-            offset: (state.hscroll.offset, state.vscroll.offset),
+            x_offset: state.hscroll.offset,
+            y_offset: state.vscroll.offset,
             widget_area: state.widget_area,
             block: self.block,
             hscroll: self.hscroll,
@@ -257,8 +263,8 @@ impl<'a> ViewBuffer<'a> {
 
     /// Calculate the necessary shift from view to screen.
     pub fn shift(&self) -> (i16, i16) {
-        let shift_view_x = self.view.x + self.offset.0 as u16;
-        let shift_view_y = self.view.y + self.offset.1 as u16;
+        let shift_view_x = self.view.x + self.x_offset as u16;
+        let shift_view_y = self.view.y + self.y_offset as u16;
 
         let shift_x = self.widget_area.x as i16 - shift_view_x as i16;
         let shift_y = self.widget_area.y as i16 - shift_view_y as i16;
@@ -357,19 +363,6 @@ impl<'a> StatefulWidget for ViewWidget<'a> {
     }
 }
 
-impl Default for ViewState {
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            widget_area: Default::default(),
-            view: Default::default(),
-            hscroll: Default::default(),
-            vscroll: Default::default(),
-            buffer: None,
-        }
-    }
-}
-
 impl ViewState {
     pub fn new() -> Self {
         Self::default()
@@ -440,21 +433,14 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
             .area(self.widget_area)
             .h_scroll(&mut self.hscroll)
             .v_scroll(&mut self.vscroll);
-        let r = match sas.handle(event, MouseOnly) {
-            ScrollOutcome::Up(v) => self.scroll_up(v),
-            ScrollOutcome::Down(v) => self.scroll_down(v),
-            ScrollOutcome::Left(v) => self.scroll_left(v),
-            ScrollOutcome::Right(v) => self.scroll_right(v),
-            ScrollOutcome::VPos(v) => self.set_vertical_offset(v),
-            ScrollOutcome::HPos(v) => self.set_horizontal_offset(v),
-            ScrollOutcome::Continue => false,
-            ScrollOutcome::Unchanged => false,
-            ScrollOutcome::Changed => true,
-        };
-        if r {
-            return Outcome::Changed;
+        match sas.handle(event, MouseOnly) {
+            ScrollOutcome::Up(v) => self.scroll_up(v).into(),
+            ScrollOutcome::Down(v) => self.scroll_down(v).into(),
+            ScrollOutcome::Left(v) => self.scroll_left(v).into(),
+            ScrollOutcome::Right(v) => self.scroll_right(v).into(),
+            ScrollOutcome::VPos(v) => self.set_vertical_offset(v).into(),
+            ScrollOutcome::HPos(v) => self.set_horizontal_offset(v).into(),
+            r => r.into(),
         }
-
-        Outcome::Continue
     }
 }

@@ -56,8 +56,13 @@ pub fn relocate_area(area: Rect, shift: (i16, i16), clip: Rect) -> Rect {
     let y1 = area.bottom().saturating_add_signed(shift.1);
 
     let tgt = Rect::new(x0, y0, x1 - x0, y1 - y0);
-
-    tgt.intersection(clip)
+    let tgt = tgt.intersection(clip);
+    if !tgt.is_empty() {
+        tgt
+    } else {
+        // default on empty
+        Rect::default()
+    }
 }
 
 /// Shift the position by offset and clip it.

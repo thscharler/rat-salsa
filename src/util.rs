@@ -6,6 +6,7 @@ use ratatui::layout::{Rect, Size};
 use ratatui::prelude::{BlockExt, Widget};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Padding};
+use std::fmt::{Debug, Formatter};
 use std::mem;
 
 /// Returns a new style with fg and bg swapped.
@@ -48,17 +49,20 @@ pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Int
     }
 }
 
-/// Copy a tmp buffer to another buffer.
-///
-/// Both buffers must be the same size.
-/// Only cells that are not empty are copied.
-pub fn view_buffer(buffer: &Buffer, to_buffer: &mut Buffer) {
-    assert_eq!(buffer.area, to_buffer.area);
-    for (idx, cell) in buffer.content.iter().enumerate() {
-        if cell != &Cell::EMPTY {
-            to_buffer.content[idx] = cell.clone();
-        }
+pub struct RectDbg(Rect);
+
+impl Debug for RectDbg {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "{}:{}+{}+{}",
+            self.0.x, self.0.y, self.0.width, self.0.height
+        )
     }
+}
+
+pub fn rect_dbg(area: Rect) -> RectDbg {
+    RectDbg(area)
 }
 
 pub(crate) const DOUBLE_VERTICAL_SINGLE_LEFT: &str = "\u{2562}";
