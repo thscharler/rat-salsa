@@ -1,10 +1,9 @@
-use crate::_private::NonExhaustive;
 use crate::clipper::{AreaHandle, ClipperLayout, ClipperStyle};
 use crate::relocate::RelocatableState;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
 use rat_scrolled::event::ScrollOutcome;
-use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::widgets::{Block, StatefulWidget, Widget};

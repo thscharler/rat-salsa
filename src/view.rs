@@ -51,7 +51,7 @@ pub use view_style::*;
 use crate::event::ScrollOutcome;
 use crate::relocate::RelocatableState;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
-use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
+use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{StatefulWidget, Widget};
