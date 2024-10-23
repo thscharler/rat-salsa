@@ -178,6 +178,13 @@ impl ClipperLayout {
     /// Converts the area behind the handle to buffer coordinates.
     /// This will return coordinates relative to the extended page.
     /// Or None.
+    ///
+    /// __Caution__
+    ///
+    /// This _will_ return None, even if the area is only partially
+    /// outside the bounds. If you want to render a partial widget,
+    /// register the area with add or stay inside the bounds given
+    /// by the registered widgets.
     pub fn buf_area(&self, area: Rect) -> Option<Rect> {
         let core = self.core.borrow();
 

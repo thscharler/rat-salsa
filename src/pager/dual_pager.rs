@@ -12,12 +12,11 @@ use ratatui::prelude::{Span, StatefulWidget, Style};
 use ratatui::widgets::{Block, Borders, Widget};
 use std::cmp::min;
 
-/// Widget that displays one page of the PageLayout.
+/// Prepare the page-layout for your widgets.
 ///
-/// This only renders the navigation, you must render each widget
-/// yourself. Call relocate(area) to get the actual screen-area
-/// for your widget. If this call returns None, your widget shall
-/// not be displayed.
+/// This widget page-breaks the areas for your widgets
+/// and allows to render them in a two-column arrangement.
+///
 #[derive(Debug, Default, Clone)]
 pub struct DualPager<'a> {
     layout: PagerLayout,
@@ -29,7 +28,12 @@ pub struct DualPager<'a> {
     title_style: Option<Style>,
 }
 
-/// Render to the buffer.
+/// Renders directly to the frame buffer.
+///
+/// * It maps your widget area from layout coordinates
+///   to screen coordinates before rendering.
+/// * It helps with cleanup of the widget state if your
+///   widget is currently invisible.
 #[derive(Debug)]
 pub struct DualPagerBuffer<'a> {
     layout: PagerLayout,
@@ -47,6 +51,7 @@ pub struct DualPagerBuffer<'a> {
     nav_style: Option<Style>,
 }
 
+/// Renders the finishings for the DualPager.
 #[derive(Debug)]
 pub struct DualPagerWidget {
     style: Style,
@@ -54,6 +59,7 @@ pub struct DualPagerWidget {
     nav_style: Option<Style>,
 }
 
+/// Widget state.
 #[derive(Debug, Clone)]
 pub struct DualPagerState {
     /// Full area for the widget.
@@ -102,7 +108,7 @@ impl<'a> DualPager<'a> {
         Self::default()
     }
 
-    /// Page layout.
+    /// Set page layout.
     pub fn layout(mut self, page_layout: PagerLayout) -> Self {
         self.layout = page_layout;
         self
@@ -163,7 +169,7 @@ impl<'a> DualPager<'a> {
         min(self.inner_left(area).width, self.inner_right(area).width)
     }
 
-    /// Calculate the left xview area.
+    /// Calculate the left view area.
     pub fn inner_left(&self, area: Rect) -> Rect {
         let mut inner = if let Some(block) = &self.block {
             block.inner(area)
@@ -180,7 +186,7 @@ impl<'a> DualPager<'a> {
         inner
     }
 
-    /// Calculate the right xview area.
+    /// Calculate the right view area.
     pub fn inner_right(&self, area: Rect) -> Rect {
         let mut inner = if let Some(block) = &self.block {
             block.inner(area)
@@ -199,7 +205,7 @@ impl<'a> DualPager<'a> {
         inner
     }
 
-    /// Run the layout and create the final Pager widget.
+    /// Run the layout and create the second stage.
     pub fn into_buffer<'b>(
         self,
         area: Rect,
@@ -264,7 +270,7 @@ impl<'a> DualPager<'a> {
 }
 
 impl<'a> DualPagerBuffer<'a> {
-    /// Render a widget to the temp buffer.
+    /// Render a widget to the buffer.
     #[inline(always)]
     pub fn render_widget<W>(&mut self, widget: W, area: Rect)
     where
@@ -278,8 +284,9 @@ impl<'a> DualPagerBuffer<'a> {
         }
     }
 
-    /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState.
+    /// Render a widget to the buffer.
+    /// This expects that the state is a RelocatableState,
+    /// so it can reset the areas for hidden widgets.
     #[inline(always)]
     pub fn render_stateful<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
     where
@@ -294,7 +301,7 @@ impl<'a> DualPagerBuffer<'a> {
         }
     }
 
-    /// Render a widget to the temp buffer.
+    /// Render a widget to the buffer.
     #[inline(always)]
     pub fn render_widget_handle<W>(&mut self, widget: W, area: AreaHandle)
     where
@@ -308,8 +315,9 @@ impl<'a> DualPagerBuffer<'a> {
         }
     }
 
-    /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState.
+    /// Render a widget to the buffer.
+    /// This expects that the state is a RelocatableState,
+    /// so it can reset the areas for hidden widgets.
     #[inline(always)]
     pub fn render_stateful_handle<W, S>(&mut self, widget: W, area: AreaHandle, state: &mut S)
     where
@@ -330,7 +338,10 @@ impl<'a> DualPagerBuffer<'a> {
     }
 
     /// Get the buffer area for the handle.
-    /// Returns the tuple (page-nr, area)
+    /// Returns the tuple (page-nr, area).
+    ///
+    /// This still uses layout-coordinates, not
+    /// corrected for the widget's position.
     pub fn buf_area(&self, handle: AreaHandle) -> (usize, Rect) {
         self.layout.buf_area_by_handle(handle)
     }
@@ -345,21 +356,15 @@ impl<'a> DualPagerBuffer<'a> {
         self.layout.buf_area_by_handle(handle).0 == self.page
     }
 
-    /// Relocate an area by handle from Layout coordinates to
-    /// screen coordinates.
-    ///
-    /// A result None indicates that the area is
-    /// out of xview.
+    /// Relocate an area from layout coordinates to screen coordinates.
+    /// A result None indicates that the area is invisible.
     pub fn locate_handle(&self, handle: AreaHandle) -> Option<Rect> {
         let (page, target) = self.layout.buf_area_by_handle(handle);
         self._locate(page, target)
     }
 
-    /// Relocate a rect from Layout coordinates to
-    /// screen coordinates.
-    ///
-    /// A result None indicates that the area is
-    /// out of xview.
+    /// Relocate an area from layout coordinates to screen coordinates.
+    /// A result None indicates that the area is invisible.
     pub fn locate(&self, area: Rect) -> Option<Rect> {
         let (page, target) = self.layout.buf_area(area);
         self._locate(page, target)
@@ -385,8 +390,8 @@ impl<'a> DualPagerBuffer<'a> {
         }
     }
 
-    /// Relocate in a way that clears the areas.
-    /// This effectively hides any out of bounds widgets.
+    /// Clear the areas in the widget-state.
+    /// This is called by render_xx whenever a widget is invisible.
     pub fn relocate_clear<S>(&self, state: &mut S)
     where
         S: RelocatableState,
@@ -394,17 +399,16 @@ impl<'a> DualPagerBuffer<'a> {
         state.relocate((0, 0), Rect::default())
     }
 
-    /// Access the temporary buffer.
-    ///
+    /// Access the buffer.
     /// __Note__
-    /// Use of render_widget is preferred.
+    /// Use of render_xxx is preferred.
     pub fn buffer_mut(&mut self) -> &mut Buffer {
         self.buffer
     }
 
     /// Rendering the content is finished.
     ///
-    /// Convert to the output widget that can be rendered in the target area.
+    /// Convert to the final widget to render the finishings.
     pub fn into_widget(self) -> DualPagerWidget {
         DualPagerWidget {
             style: self.style,
@@ -482,6 +486,7 @@ impl Default for DualPagerState {
 }
 
 impl DualPagerState {
+    /// State
     pub fn new() -> Self {
         Self::default()
     }

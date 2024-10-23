@@ -11,12 +11,11 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Span, StatefulWidget, Style};
 use ratatui::widgets::{Block, Borders, Widget};
 
-/// Widget that displays one page of the PageLayout.
+/// Prepare the page-layout for your widgets.
 ///
-/// This only renders the navigation, you must render each widget
-/// yourself. Call relocate(area) to get the actual screen-area
-/// for your widget. If this call returns None, your widget shall
-/// not be displayed.
+/// This widget page-breaks the areas for your widgets
+/// and allows to render them in a single column.
+///
 #[derive(Debug, Default, Clone)]
 pub struct SinglePager<'a> {
     layout: PagerLayout,
@@ -27,7 +26,12 @@ pub struct SinglePager<'a> {
     title_style: Option<Style>,
 }
 
-/// Render to the buffer.
+/// Renders directly to the frame buffer.
+///
+/// * It maps your widget area from layout coordinates
+///   to screen coordinates before rendering.
+/// * It helps with cleanup of the widget state if your
+///   widget is currently invisible.
 #[derive(Debug)]
 pub struct SinglePagerBuffer<'a> {
     layout: PagerLayout,
@@ -43,14 +47,14 @@ pub struct SinglePagerBuffer<'a> {
     nav_style: Option<Style>,
 }
 
-/// Rendering widget for SinglePage.
+/// Renders the finishings for the DualPager.
 #[derive(Debug)]
 pub struct SinglePagerWidget {
     style: Style,
     nav_style: Option<Style>,
 }
 
-/// View state.
+/// Widget state.
 #[derive(Debug, Clone)]
 pub struct SinglePagerState {
     /// Full area for the widget.
@@ -93,7 +97,7 @@ impl<'a> SinglePager<'a> {
         Self::default()
     }
 
-    /// Page layout.
+    /// Set page layout.
     pub fn layout(mut self, page_layout: PagerLayout) -> Self {
         self.layout = page_layout;
         self
@@ -145,7 +149,7 @@ impl<'a> SinglePager<'a> {
         self.inner(area).width
     }
 
-    /// Calculate the xview area.
+    /// Calculate the view area.
     pub fn inner(&self, area: Rect) -> Rect {
         if let Some(block) = &self.block {
             block.inner(area)
@@ -159,8 +163,7 @@ impl<'a> SinglePager<'a> {
         }
     }
 
-    /// Run the layout and return a SinglePageBuffer.
-    /// The SinglePageBuffer is used to actually render the contents.
+    /// Run the layout and create the second stage.
     pub fn into_buffer<'b>(
         self,
         area: Rect,
@@ -218,7 +221,7 @@ impl<'a> SinglePager<'a> {
 }
 
 impl<'a> SinglePagerBuffer<'a> {
-    /// Render a widget to the temp buffer.
+    /// Render a widget to the buffer.
     #[inline(always)]
     pub fn render_widget<W>(&mut self, widget: W, area: Rect)
     where
@@ -232,8 +235,9 @@ impl<'a> SinglePagerBuffer<'a> {
         }
     }
 
-    /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState.
+    /// Render a widget to the buffer.
+    /// This expects that the state is a RelocatableState,
+    /// so it can reset the areas for hidden widgets.
     #[inline(always)]
     pub fn render_stateful<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
     where
@@ -248,7 +252,7 @@ impl<'a> SinglePagerBuffer<'a> {
         }
     }
 
-    /// Render a widget to the temp buffer.
+    /// Render a widget to the buffer.
     #[inline(always)]
     pub fn render_widget_handle<W>(&mut self, widget: W, area: AreaHandle)
     where
@@ -262,8 +266,9 @@ impl<'a> SinglePagerBuffer<'a> {
         }
     }
 
-    /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState.
+    /// Render a widget to the buffer.
+    /// This expects that the state is a RelocatableState,
+    /// so it can reset the areas for hidden widgets.
     #[inline(always)]
     pub fn render_stateful_handle<W, S>(&mut self, widget: W, area: AreaHandle, state: &mut S)
     where
@@ -284,7 +289,10 @@ impl<'a> SinglePagerBuffer<'a> {
     }
 
     /// Get the buffer area for the handle.
-    /// Returns the tuple (page-nr, area)
+    /// Returns the tuple (page-nr, area).
+    ///
+    /// This still uses layout-coordinates, not
+    /// corrected for the widget's position.
     pub fn buf_area(&self, handle: AreaHandle) -> (usize, Rect) {
         self.layout.buf_area_by_handle(handle)
     }
@@ -299,21 +307,15 @@ impl<'a> SinglePagerBuffer<'a> {
         self.layout.buf_area_by_handle(handle).0 == self.page
     }
 
-    /// Relocate an area by handle from Layout coordinates to
-    /// screen coordinates.
-    ///
-    /// A result None indicates that the area is
-    /// out of xview.
+    /// Relocate an area from layout coordinates to screen coordinates.
+    /// A result None indicates that the area is invisible.
     pub fn locate_handle(&self, handle: AreaHandle) -> Option<Rect> {
         let (page, target) = self.layout.buf_area_by_handle(handle);
         self._locate(page, target)
     }
 
-    /// Relocate a rect from Layout coordinates to
-    /// screen coordinates.
-    ///
-    /// A result None indicates that the area is
-    /// out of xview.
+    /// Relocate an area from layout coordinates to screen coordinates.
+    /// A result None indicates that the area is invisible.
     pub fn locate(&self, area: Rect) -> Option<Rect> {
         let (page, target) = self.layout.buf_area(area);
         self._locate(page, target)
@@ -332,8 +334,8 @@ impl<'a> SinglePagerBuffer<'a> {
         }
     }
 
-    /// Relocate in a way that clears the areas.
-    /// This effectively hides any out of bounds widgets.
+    /// Clear the areas in the widget-state.
+    /// This is called by render_xx whenever a widget is invisible.
     pub fn relocate_clear<S>(&self, state: &mut S)
     where
         S: RelocatableState,
@@ -341,17 +343,16 @@ impl<'a> SinglePagerBuffer<'a> {
         state.relocate((0, 0), Rect::default())
     }
 
-    /// Access the temporary buffer.
-    ///
+    /// Access the buffer.
     /// __Note__
-    /// Use of render_widget is preferred.
+    /// Use of render_xxx is preferred.
     pub fn buffer_mut(&mut self) -> &mut Buffer {
         self.buffer
     }
 
     /// Rendering the content is finished.
     ///
-    /// Convert to the output widget that can be rendered in the target area.
+    /// Convert to the final widget to render the finishings.
     pub fn into_widget(self) -> SinglePagerWidget {
         SinglePagerWidget {
             style: self.style,

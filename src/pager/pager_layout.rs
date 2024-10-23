@@ -1,15 +1,18 @@
 use crate::pager::AreaHandle;
+use log::debug;
 use ratatui::layout::Rect;
 use std::cell::RefCell;
 use std::rc::Rc;
 
-/// PageLayout is fed with the areas that should be displayed.
+/// PagerLayout holds all areas for the widgets that want to be
+/// displayed.
 ///
-/// The areas must use widget relative coordinates not screen
-/// coordinates.
+/// It uses its own layout coordinates.
 ///
-/// It then splits the list in pages in a way that there are
-/// no broken areas.
+/// The layout step breaks this list into pages that can fit the
+/// widgets. If your widget is too big to fit in the page area it
+/// will be placed at a new page and will be clipped into shape.
+///
 #[derive(Debug, Default, Clone)]
 pub struct PagerLayout {
     core: Rc<RefCell<PageLayoutCore>>,
@@ -28,6 +31,7 @@ struct PageLayoutCore {
 }
 
 impl PagerLayout {
+    /// New layout.
     pub fn new() -> Self {
         Self::default()
     }
@@ -163,6 +167,8 @@ impl PagerLayout {
     ///
     /// This will return a Rect with a y-value relative to the
     /// page it is in. But still in layout-coords.
+    ///
+    /// This will clip the bounds to the page area.
     ///
     /// And it returns the page the Rect is on.
     pub fn buf_area(&self, area: Rect) -> (usize, Rect) {

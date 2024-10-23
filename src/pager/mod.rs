@@ -4,13 +4,70 @@
 //! If you have a lot of widgets to display, splitting
 //! them into pages is an alternative to scrolling.
 //!
-//! [PagerLayout] helps with the dynamic page-breaks.
-//! [SinglePager] and [DualPager] are the widgets that display
-//! everything as one or two columns.
+//! * Prepare the work with [SinglePager] or [DualPager].
 //!
-//! Same as the other containers in this crate they leave the
-//! actual rendering of the widgets to the caller.
+//!     ```rust ignore
+//!     let pager = SinglePager::new()
+//!         .nav_style(Style::new().fg(THEME.orange[2]))
+//!         .style(THEME.gray(0))
+//!         .block(Block::new());
 //!
+//!     let width = pager.layout_width(l2[1]);
+//!     ```
+//!
+//! * [PagerLayout] collects the bounds for all widgets that
+//!   will be rendered.
+//!
+//!     ```rust ignore
+//!       if state.layout.width_changed(width) {
+//!           let mut pl = PagerLayout::new();
+//!           for i in 0..100 {
+//!               let handle = cl.add(Rect::new(10, i*11, 15, 10));
+//!               state.handles[i] = handle;
+//!
+//!               if i > 0 && i % 17 == 0 {
+//!                   pl.break_before(row);
+//!               }
+//!           }
+//!           state.layout = pl;
+//!       }
+//!     ```
+//!
+//! * Use [SinglePager] or [DualPager] to calculate the page breaks.
+//!
+//!     ```rust ignore
+//!       let mut pg_buf = pager
+//!             .layout(state.layout.clone())
+//!             .into_buffer(l2[1], frame.buffer_mut(), &mut state.pager);
+//!     ```
+//!
+//! * Render your widgets with the help of [SinglePagerBuffer]/[DualPagerBuffer]
+//!
+//!   Either ad hoc
+//!     ```rust ignore
+//!         let v_area = pg_buf.layout_area(state.handles[i]);
+//!         let w_area = Rect::new(5, v_area.y, 5, 1);
+//!         pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
+//!     ```
+//!   or by referring to a handle
+//!     ```rust ignore
+//!         pg_buf.render_stateful_handle(
+//!             TextInputMock::default()
+//!                 .sample(format!("{:?}", state.hundred_areas[i]))
+//!                 .style(THEME.limegreen(0))
+//!                 .focus_style(THEME.limegreen(2)),
+//!             state.handles[i],
+//!             &mut state.widget_states[i],
+//!         );
+//!     ```
+//!
+//! * Render the finishings.
+//!
+//!     ```rust ignore
+//!       pg_buf
+//!           .into_widget()
+//!           .render(l2[1], frame.buffer_mut(), &mut state.pager);
+//!     ```
 
 mod dual_pager;
 mod pager_layout;
