@@ -1,8 +1,8 @@
 use crate::_private::NonExhaustive;
+use crate::event::PagerOutcome;
+use crate::pager::{AreaHandle, PagerLayout, PagerStyle};
 use crate::relocate::RelocatableState;
 use crate::util::revert_style;
-use crate::view::event::PagerOutcome;
-use crate::view::{AreaHandle, PagerLayout, PagerStyle};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::ContainerFlag;
@@ -10,6 +10,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Span, StatefulWidget, Style};
 use ratatui::widgets::{Block, Borders, Widget};
+use std::cmp::min;
 
 /// Widget that displays one page of the PageLayout.
 ///
@@ -18,47 +19,55 @@ use ratatui::widgets::{Block, Borders, Widget};
 /// for your widget. If this call returns None, your widget shall
 /// not be displayed.
 #[derive(Debug, Default, Clone)]
-pub struct SinglePager<'a> {
+pub struct DualPager<'a> {
     layout: PagerLayout,
 
     block: Option<Block<'a>>,
     style: Style,
     nav_style: Option<Style>,
+    divider_style: Option<Style>,
     title_style: Option<Style>,
 }
 
 /// Render to the buffer.
 #[derive(Debug)]
-pub struct SinglePagerBuffer<'a> {
+pub struct DualPagerBuffer<'a> {
     layout: PagerLayout,
 
     // current page.
     page: usize,
     buffer: &'a mut Buffer,
 
-    // inner area that will be rendered.
-    widget_area: Rect,
+    // inner areas
+    widget_area1: Rect,
+    widget_area2: Rect,
 
     style: Style,
+    divider_style: Option<Style>,
     nav_style: Option<Style>,
 }
 
-/// Rendering widget for SinglePage.
 #[derive(Debug)]
-pub struct SinglePagerWidget {
+pub struct DualPagerWidget {
     style: Style,
+    divider_style: Option<Style>,
     nav_style: Option<Style>,
 }
 
-/// View state.
 #[derive(Debug, Clone)]
-pub struct SinglePagerState {
+pub struct DualPagerState {
     /// Full area for the widget.
     /// __read only__ renewed for each render.
     pub area: Rect,
-    /// Area inside the border.
+    /// Left area inside the border.
     /// __read only__ renewed for each render.
-    pub widget_area: Rect,
+    pub widget_area1: Rect,
+    /// Divider area.
+    /// __read only__ renewed for each render.
+    pub divider_area: Rect,
+    /// Right area inside the border.
+    /// __read only__ renewed for each render.
+    pub widget_area2: Rect,
     /// Title area except the page indicators.
     /// __read only__ renewed with each render
     pub scroll_area: Rect,
@@ -87,8 +96,8 @@ pub struct SinglePagerState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> SinglePager<'a> {
-    /// New SinglePage.
+impl<'a> DualPager<'a> {
+    /// New DualPager
     pub fn new() -> Self {
         Self::default()
     }
@@ -112,6 +121,12 @@ impl<'a> SinglePager<'a> {
         self
     }
 
+    /// Style for the divider.
+    pub fn divider_style(mut self, divider_style: Style) -> Self {
+        self.divider_style = Some(divider_style);
+        self
+    }
+
     /// Style for the title.
     pub fn title_style(mut self, title_style: Style) -> Self {
         self.title_style = Some(title_style);
@@ -130,6 +145,9 @@ impl<'a> SinglePager<'a> {
         if let Some(nav) = styles.nav {
             self.nav_style = Some(nav);
         }
+        if let Some(divider) = styles.divider {
+            self.divider_style = Some(divider);
+        }
         if let Some(title) = styles.title {
             self.title_style = Some(title);
         }
@@ -142,12 +160,12 @@ impl<'a> SinglePager<'a> {
 
     /// Calculate the layout width.
     pub fn layout_width(&self, area: Rect) -> u16 {
-        self.inner(area).width
+        min(self.inner_left(area).width, self.inner_right(area).width)
     }
 
-    /// Calculate the view area.
-    pub fn inner(&self, area: Rect) -> Rect {
-        if let Some(block) = &self.block {
+    /// Calculate the left xview area.
+    pub fn inner_left(&self, area: Rect) -> Rect {
+        let mut inner = if let Some(block) = &self.block {
             block.inner(area)
         } else {
             Rect::new(
@@ -156,20 +174,41 @@ impl<'a> SinglePager<'a> {
                 area.width,
                 area.height.saturating_sub(1),
             )
-        }
+        };
+
+        inner.width = inner.width.saturating_sub(1) / 2;
+        inner
     }
 
-    /// Run the layout and return a SinglePageBuffer.
-    /// The SinglePageBuffer is used to actually render the contents.
+    /// Calculate the right xview area.
+    pub fn inner_right(&self, area: Rect) -> Rect {
+        let mut inner = if let Some(block) = &self.block {
+            block.inner(area)
+        } else {
+            Rect::new(
+                area.x,
+                area.y + 1,
+                area.width,
+                area.height.saturating_sub(1),
+            )
+        };
+
+        inner.width = inner
+            .width
+            .saturating_sub(1 + inner.width.saturating_sub(1) / 2);
+        inner
+    }
+
+    /// Run the layout and create the final Pager widget.
     pub fn into_buffer<'b>(
         self,
         area: Rect,
         buf: &'b mut Buffer,
-        state: &mut SinglePagerState,
-    ) -> SinglePagerBuffer<'b> {
+        state: &mut DualPagerState,
+    ) -> DualPagerBuffer<'b> {
         state.area = area;
 
-        state.widget_area = if let Some(block) = &self.block {
+        let inner = if let Some(block) = &self.block {
             block.inner(area)
         } else {
             Rect::new(
@@ -181,18 +220,23 @@ impl<'a> SinglePager<'a> {
         };
 
         let p1 = 5;
-        let p4 = state.widget_area.width - p1;
-        state.prev_area = Rect::new(state.widget_area.x, area.y, p1, 1);
-        state.next_area = Rect::new(state.widget_area.x + p4, area.y, p1, 1);
+        let p4 = inner.width - p1;
+        state.prev_area = Rect::new(inner.x, area.y, p1, 1);
+        state.next_area = Rect::new(inner.x + p4, area.y, p1, 1);
         state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
+
+        let p1 = inner.width.saturating_sub(1) / 2;
+        let p2 = inner.width.saturating_sub(1).saturating_sub(p1);
+        state.widget_area1 = Rect::new(inner.x, inner.y, p1, inner.height);
+        state.divider_area = Rect::new(inner.x + p1, inner.y, 1, inner.height);
+        state.widget_area2 = Rect::new(inner.x + p1 + 1, inner.y, p2, inner.height);
 
         // run page layout
         state.layout = self.layout;
-        state.layout.layout(state.widget_area);
+        state.layout.layout(state.widget_area1);
         // clip page nr
         state.set_page(state.page);
 
-        // render
         let title = format!(" {}/{} ", state.page + 1, state.layout.len());
         let block = self
             .block
@@ -206,18 +250,20 @@ impl<'a> SinglePager<'a> {
         };
         block.render(area, buf);
 
-        SinglePagerBuffer {
+        DualPagerBuffer {
             layout: state.layout.clone(),
             page: state.page,
             buffer: buf,
-            widget_area: state.widget_area,
+            widget_area1: state.widget_area1,
+            widget_area2: state.widget_area2,
             style: self.style,
+            divider_style: self.divider_style,
             nav_style: self.nav_style,
         }
     }
 }
 
-impl<'a> SinglePagerBuffer<'a> {
+impl<'a> DualPagerBuffer<'a> {
     /// Render a widget to the temp buffer.
     #[inline(always)]
     pub fn render_widget<W>(&mut self, widget: W, area: Rect)
@@ -303,7 +349,7 @@ impl<'a> SinglePagerBuffer<'a> {
     /// screen coordinates.
     ///
     /// A result None indicates that the area is
-    /// out of view.
+    /// out of xview.
     pub fn locate_handle(&self, handle: AreaHandle) -> Option<Rect> {
         let (page, target) = self.layout.buf_area_by_handle(handle);
         self._locate(page, target)
@@ -313,7 +359,7 @@ impl<'a> SinglePagerBuffer<'a> {
     /// screen coordinates.
     ///
     /// A result None indicates that the area is
-    /// out of view.
+    /// out of xview.
     pub fn locate(&self, area: Rect) -> Option<Rect> {
         let (page, target) = self.layout.buf_area(area);
         self._locate(page, target)
@@ -322,8 +368,15 @@ impl<'a> SinglePagerBuffer<'a> {
     fn _locate(&self, page: usize, layout_area: Rect) -> Option<Rect> {
         if self.page == page {
             Some(Rect::new(
-                layout_area.x + self.widget_area.x,
-                layout_area.y + self.widget_area.y,
+                layout_area.x + self.widget_area1.x,
+                layout_area.y + self.widget_area1.y,
+                layout_area.width,
+                layout_area.height,
+            ))
+        } else if self.page + 1 == page {
+            Some(Rect::new(
+                layout_area.x + self.widget_area2.x,
+                layout_area.y + self.widget_area2.y,
                 layout_area.width,
                 layout_area.height,
             ))
@@ -346,25 +399,43 @@ impl<'a> SinglePagerBuffer<'a> {
     /// __Note__
     /// Use of render_widget is preferred.
     pub fn buffer_mut(&mut self) -> &mut Buffer {
-        &mut self.buffer
+        self.buffer
     }
 
     /// Rendering the content is finished.
     ///
     /// Convert to the output widget that can be rendered in the target area.
-    pub fn into_widget(self) -> SinglePagerWidget {
-        SinglePagerWidget {
+    pub fn into_widget(self) -> DualPagerWidget {
+        DualPagerWidget {
             style: self.style,
+            divider_style: self.divider_style,
             nav_style: self.nav_style,
         }
     }
 }
 
-impl StatefulWidget for SinglePagerWidget {
-    type State = SinglePagerState;
+impl StatefulWidget for DualPagerWidget {
+    type State = DualPagerState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         assert_eq!(area, state.area);
+
+        // divider
+        let divider_style = self.divider_style.unwrap_or(self.style);
+        if let Some(cell) = buf.cell_mut((state.divider_area.x, area.top())) {
+            cell.set_style(divider_style);
+            cell.set_symbol("\u{239E}");
+        }
+        for y in state.divider_area.top()..area.bottom().saturating_sub(1) {
+            if let Some(cell) = buf.cell_mut((state.divider_area.x, y)) {
+                cell.set_style(divider_style);
+                cell.set_symbol("\u{239C}");
+            }
+        }
+        if let Some(cell) = buf.cell_mut((state.divider_area.x, area.bottom().saturating_sub(1))) {
+            cell.set_style(divider_style);
+            cell.set_symbol("\u{239D}");
+        }
 
         // active areas
         let nav_style = self.nav_style.unwrap_or(self.style);
@@ -383,7 +454,7 @@ impl StatefulWidget for SinglePagerWidget {
         } else {
             buf.set_style(state.next_area, nav_style);
         }
-        if state.page + 1 < state.layout.len() {
+        if state.page + 2 < state.layout.len() {
             Span::from(" >>> ").render(state.next_area, buf);
         } else {
             Span::from(" [·] ").render(state.next_area, buf);
@@ -391,11 +462,13 @@ impl StatefulWidget for SinglePagerWidget {
     }
 }
 
-impl Default for SinglePagerState {
+impl Default for DualPagerState {
     fn default() -> Self {
         Self {
             area: Default::default(),
-            widget_area: Default::default(),
+            widget_area1: Default::default(),
+            divider_area: Default::default(),
+            widget_area2: Default::default(),
             scroll_area: Default::default(),
             prev_area: Default::default(),
             next_area: Default::default(),
@@ -408,7 +481,7 @@ impl Default for SinglePagerState {
     }
 }
 
-impl SinglePagerState {
+impl DualPagerState {
     pub fn new() -> Self {
         Self::default()
     }
@@ -416,13 +489,13 @@ impl SinglePagerState {
     /// Show the page for this rect.
     pub fn show_handle(&mut self, handle: AreaHandle) {
         let (page, _) = self.layout.buf_area_by_handle(handle);
-        self.page = page;
+        self.page = page & !1;
     }
 
     /// Show the page for this rect.
     pub fn show_area(&mut self, area: Rect) {
         let (page, _) = self.layout.buf_area(area);
-        self.page = page;
+        self.page = page & !1;
     }
 
     /// First handle for the page.
@@ -436,9 +509,9 @@ impl SinglePagerState {
     pub fn set_page(&mut self, page: usize) -> bool {
         let old_page = self.page;
         if page >= self.layout.len() {
-            self.page = self.layout.len() - 1;
+            self.page = (self.layout.len() - 1) & !1;
         } else {
-            self.page = page;
+            self.page = page & !1;
         }
         old_page != self.page
     }
@@ -447,10 +520,10 @@ impl SinglePagerState {
     pub fn next_page(&mut self) -> bool {
         let old_page = self.page;
 
-        if self.page + 1 >= self.layout.len() {
-            self.page = self.layout.len() - 1;
+        if self.page + 2 >= self.layout.len() {
+            self.page = (self.layout.len() - 1) & !1;
         } else {
-            self.page += 1;
+            self.page = (self.page + 2) & !1;
         }
 
         old_page != self.page
@@ -458,8 +531,8 @@ impl SinglePagerState {
 
     /// Select prev page.
     pub fn prev_page(&mut self) -> bool {
-        if self.page > 0 {
-            self.page -= 1;
+        if self.page >= 2 {
+            self.page = (self.page - 2) & !1;
             true
         } else {
             false
@@ -467,13 +540,13 @@ impl SinglePagerState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for SinglePagerState {
+impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for DualPagerState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
         self.handle(event, MouseOnly)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for SinglePagerState {
+impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for DualPagerState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> PagerOutcome {
         match event {
             ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {

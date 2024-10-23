@@ -8,6 +8,12 @@
 #![allow(clippy::clone_on_copy)]
 #![allow(clippy::assigning_clones)]
 
+// types common to multiple modules.
+// reexported per module.
+mod commons;
+
+pub mod relocate;
+
 pub mod event {
     //!
     //! Event-handler traits and Keybindings.
@@ -17,8 +23,8 @@ pub mod event {
 
     pub use crate::calendar::event::CalOutcome;
     pub use crate::file_dialog::event::FileOutcome;
+    pub use crate::pager::event::PagerOutcome;
     pub use crate::tabbed::event::TabbedOutcome;
-    pub use crate::view::event::PagerOutcome;
     pub use rat_ftable::event::{DoubleClickOutcome, EditOutcome};
     pub use rat_menu::event::MenuOutcome;
     pub use rat_popup::event::PopupOutcome;
@@ -71,6 +77,7 @@ pub mod text {
 pub mod button;
 pub mod calendar;
 pub mod choice;
+pub mod clipper;
 /// Number input with patterns from chrono.
 ///
 /// * Undo/redo
@@ -81,12 +88,12 @@ pub mod date_input {
     };
 }
 pub mod file_dialog;
-pub mod list;
 /// Line numbers widget.
 /// For use with TextArea mostly.
 pub mod line_number {
     pub use rat_text::line_number::{LineNumberState, LineNumberStyle, LineNumbers};
 }
+pub mod list;
 /// Menu widgets.
 pub mod menu {
     pub use rat_menu::menubar::{Menubar, MenubarLine, MenubarPopup, MenubarState};
@@ -115,11 +122,12 @@ pub mod number_input {
         handle_events, handle_mouse_events, handle_readonly_events, NumberInput, NumberInputState,
     };
 }
+pub mod pager;
+pub mod paragraph;
 /// PopupCore helps with managing popup widgets.
 pub mod popup {
     pub use rat_popup::{Placement, PopupConstraint, PopupCore, PopupCoreState, PopupStyle};
 }
-pub mod paragraph;
 pub mod shadow;
 pub mod splitter;
 pub mod statusline;
@@ -179,7 +187,6 @@ pub mod textarea {
     };
 }
 // mod date_combo;
-pub mod relocate;
 pub mod util;
 pub mod view;
 

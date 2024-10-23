@@ -1,4 +1,4 @@
-use crate::view::AreaHandle;
+use crate::clipper::AreaHandle;
 use iset::IntervalSet;
 use ratatui::layout::Rect;
 use std::cell::RefCell;
@@ -18,9 +18,9 @@ pub struct ClipperLayout {
 
 #[derive(Debug, Default, Clone)]
 struct PageLayoutCore {
-    // view area in layout coordinates
+    // xview area in layout coordinates
     area: Rect,
-    // extended view area in layout coordinates
+    // extended xview area in layout coordinates
     ext_area: Rect,
     // collected areas
     areas: Vec<Rect>,
@@ -78,7 +78,7 @@ impl ClipperLayout {
         self.core.borrow().area
     }
 
-    /// Extended view/buffer area in layout coordinates.
+    /// Extended xview/buffer area in layout coordinates.
     pub fn ext_buffer_area(&self) -> Rect {
         self.core.borrow().ext_area
     }

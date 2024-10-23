@@ -1,4 +1,4 @@
-//! A view allows scrolling of on or more widgets without builtin
+//! A xview allows scrolling of on or more widgets without builtin
 //! support for scrolling.
 //!
 //! View works in 3 phases:
@@ -7,7 +7,7 @@
 //!
 //! ```rust ignore
 //!     let mut view_buf = View::new()
-//!         .view(Rect::new(0, 0, 400, 400))
+//!         .xview(Rect::new(0, 0, 400, 400))
 //!         .vscroll(Scroll::new())
 //!         .hscroll(Scroll::new())
 //!         .into_buffer(layout[1], &mut state.view_state);
@@ -67,7 +67,7 @@ pub struct View<'a> {
 /// Rendering widget for View.
 #[derive(Debug, Clone)]
 pub struct ViewBuffer<'a> {
-    // Scroll offset into the view.
+    // Scroll offset into the xview.
     buf_offset_x: u16,
     buf_offset_y: u16,
     buffer: Buffer,
@@ -83,7 +83,7 @@ pub struct ViewBuffer<'a> {
 /// Rendering widget for View.
 #[derive(Debug, Clone)]
 pub struct ViewWidget<'a> {
-    // Scroll offset into the view.
+    // Scroll offset into the xview.
     buf_offset_x: u16,
     buf_offset_y: u16,
     buffer: Buffer,
@@ -93,7 +93,7 @@ pub struct ViewWidget<'a> {
     vscroll: Option<Scroll<'a>>,
 }
 
-/// All styles for a view.
+/// All styles for a xview.
 #[derive(Debug)]
 pub struct ViewStyle {
     pub block: Option<Block<'static>>,
@@ -186,7 +186,7 @@ impl<'a> View<'a> {
         self
     }
 
-    /// Calculate the view area.
+    /// Calculate the xview area.
     pub fn inner(&self, area: Rect, state: &ViewState) -> Rect {
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -218,7 +218,7 @@ impl<'a> View<'a> {
             .vscroll
             .set_page_len(state.widget_area.height as usize);
 
-        // internal buffer starts at (view.x,view.y)
+        // internal buffer starts at (xview.x,xview.y)
         let buf_offset_x = state.hscroll.offset as u16 + self.view.x;
         let buf_offset_y = state.vscroll.offset as u16 + self.view.y;
 
@@ -280,7 +280,7 @@ impl<'a> ViewBuffer<'a> {
         area.intersects(self.buffer.area)
     }
 
-    /// Calculate the necessary shift from view to screen.
+    /// Calculate the necessary shift from xview to screen.
     pub fn shift(&self) -> (i16, i16) {
         (
             self.widget_area.x as i16 - self.buf_offset_x as i16,

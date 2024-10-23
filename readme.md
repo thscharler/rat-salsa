@@ -57,6 +57,7 @@ Currently, crossterm events are implemented.
 
 * [Button](button/index.html)
 * [Choice](choice/index.html)
+* [Clipper](clipper/index.html)
 * [Calendar](calendar/index.html)
 * [DateInput](date_input/index.html) (using chrono)
 * [EditList](list/edit/index.html)
@@ -76,7 +77,6 @@ Currently, crossterm events are implemented.
 * [Table](table/index.html)
 * [TextArea](textarea/index.html)
 * [View](view/index.html)
-* [Viewport](viewport/index.html)
 
 and some adapters for ratatui widgets
 

@@ -73,7 +73,7 @@ where
 
         if state.mode == Mode::Insert || state.mode == Mode::Edit {
             if let Some(row) = state.list.selected() {
-                // but it might be out of view
+                // but it might be out of xview
                 if let Some(row_area) = state.list.row_area(row) {
                     self.editor.render(row_area, buf, &mut state.editor);
                 }

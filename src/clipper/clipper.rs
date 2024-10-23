@@ -1,48 +1,6 @@
-//!
-//! An alternative view widget.
-//!
-//! The extra requirement is that you can create a Layout that
-//! contains the bounds of all widgets that can be rendered.
-//!
-//! It works in 4 phases:
-//!
-//! * Create the layout. The layout can be stored long-term
-//!   and needs to be rebuilt only if your widget layout changes.
-//!
-//! ```
-//! ```
-//!
-//! * With the scroll offset the visible area for this layout is
-//!   calculated. Starting from that an extended visible area
-//!   is computed, that contains the bounds for all
-//!   visible/partially visible widgets.
-//!
-//! ```
-//! ```
-//!
-//! * The widgets are rendered to that buffer.
-//!
-//! ```
-//! ```
-//!
-//! * The last step clips and copies the buffer to the frame buffer.
-//!
-//! ```
-//! ```
-//!
-//! __StatefulWidget__
-//!
-//! For this to work with StatefulWidgets they must cooperate
-//! by implementing the [RelocatableState] trait. With this trait
-//! the widget can clip/hide all areas that it stores in its state.
-//!
-//! __See__
-//!
-//! [example](https://github.com/thscharler/rat-widget/blob/master/examples/clipper1.rs)
-//!
 use crate::_private::NonExhaustive;
+use crate::clipper::{AreaHandle, ClipperLayout};
 use crate::relocate::RelocatableState;
-use crate::view::{AreaHandle, ClipperLayout};
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
 use rat_scrolled::event::ScrollOutcome;
@@ -67,7 +25,7 @@ pub struct ClipperBuffer<'a> {
     // page layout
     layout: ClipperLayout,
 
-    // Scroll offset into the view.
+    // Scroll offset into the xview.
     buf_offset_x: u16,
     buf_offset_y: u16,
     buffer: Buffer,
@@ -83,7 +41,7 @@ pub struct ClipperBuffer<'a> {
 /// Rendering widget for View.
 #[derive(Debug, Clone)]
 pub struct ClipperWidget<'a> {
-    // Scroll offset into the view.
+    // Scroll offset into the xview.
     buf_offset_x: u16,
     buf_offset_y: u16,
     buffer: Buffer,
@@ -190,7 +148,7 @@ impl<'a> Clipper<'a> {
         self
     }
 
-    /// Calculate the view area.
+    /// Calculate the xview area.
     pub fn inner(&self, area: Rect, state: &ClipperState) -> Rect {
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -340,7 +298,7 @@ impl<'a> ClipperBuffer<'a> {
         self.layout.buf_area_by_handle(handle).is_some()
     }
 
-    /// Calculate the necessary shift from view to screen.
+    /// Calculate the necessary shift from xview to screen.
     pub fn shift(&self) -> (i16, i16) {
         (
             self.widget_area.x as i16 - self.buf_offset_x as i16,

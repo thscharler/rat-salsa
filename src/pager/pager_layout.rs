@@ -1,4 +1,4 @@
-use crate::view::AreaHandle;
+use crate::pager::AreaHandle;
 use ratatui::layout::Rect;
 use std::cell::RefCell;
 use std::rc::Rc;
@@ -212,7 +212,7 @@ impl PageLayoutCore {
 
 #[cfg(test)]
 mod test {
-    use crate::view::PagerLayout;
+    use crate::pager::PagerLayout;
     use ratatui::layout::Rect;
     use std::ops::Deref;
 
