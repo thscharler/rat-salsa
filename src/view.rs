@@ -46,7 +46,7 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::event::ScrollOutcome;
-use crate::relocate::{relocate_area, relocate_pos, RelocatableState};
+use crate::relocate::RelocatableState;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -54,8 +54,7 @@ use ratatui::layout::{Position, Rect};
 use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::widgets::Block;
 
-/// View uses an internal buffer to render the widgets
-/// and then renders part of that buffer.
+/// View builder.
 #[derive(Debug, Default, Clone)]
 pub struct View<'a> {
     view: Rect,
@@ -68,30 +67,33 @@ pub struct View<'a> {
 /// Rendering widget for View.
 #[derive(Debug, Clone)]
 pub struct ViewBuffer<'a> {
-    // View area of the buffer.
-    view: Rect,
     // Scroll offset into the view.
-    x_offset: usize,
-    y_offset: usize,
+    buf_offset_x: u16,
+    buf_offset_y: u16,
+    buffer: Buffer,
+
     // inner area that will finally be rendered.
     widget_area: Rect,
 
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
-
-    buffer: Buffer,
 }
 
 /// Rendering widget for View.
 #[derive(Debug, Clone)]
 pub struct ViewWidget<'a> {
+    // Scroll offset into the view.
+    buf_offset_x: u16,
+    buf_offset_y: u16,
+    buffer: Buffer,
+
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
-    buffer: Buffer,
 }
 
+/// All styles for a view.
 #[derive(Debug)]
 pub struct ViewStyle {
     pub block: Option<Block<'static>>,
@@ -110,18 +112,18 @@ impl Default for ViewStyle {
     }
 }
 
-/// State of the viewport.
+/// View state.
 #[derive(Debug, Default, Clone)]
 pub struct ViewState {
-    /// Complete area of the viewport.
-    /// __readonly__. renewed for each render.
+    /// Full area for the widget.
+    /// __read only__ renewed for each render.
     pub area: Rect,
-    /// Inner area without the border.
-    /// __readonly__. renewed for each render.
+    /// Area inside the border.
+    /// __read only__ renewed for each render.
     pub widget_area: Rect,
 
     /// The viewport area that the inner widget uses.
-    /// __readonly__. renewed for each render.
+    /// __read only__ renewed for each render.
     pub view: Rect,
 
     /// Horizontal scroll
@@ -136,7 +138,7 @@ pub struct ViewState {
 }
 
 impl<'a> View<'a> {
-    /// New viewport.
+    /// New View.
     pub fn new() -> Self {
         Self::default()
     }
@@ -204,6 +206,7 @@ impl<'a> View<'a> {
             .h_scroll(self.hscroll.as_ref())
             .v_scroll(self.vscroll.as_ref());
         state.widget_area = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
+
         state
             .hscroll
             .set_max_offset(state.view.width.saturating_sub(state.widget_area.width) as usize);
@@ -215,73 +218,74 @@ impl<'a> View<'a> {
             .vscroll
             .set_page_len(state.widget_area.height as usize);
 
-        let mut buffer = state.buffer.take().unwrap_or_default();
-        buffer.reset();
-        buffer.resize(state.view);
+        // internal buffer starts at (view.x,view.y)
+        let buf_offset_x = state.hscroll.offset as u16 + self.view.x;
+        let buf_offset_y = state.vscroll.offset as u16 + self.view.y;
+
+        // resize buffer to fit all visible widgets.
+        let buffer_area = state.view;
+        let buffer = if let Some(mut buffer) = state.buffer.take() {
+            buffer.reset();
+            buffer.resize(buffer_area);
+            buffer
+        } else {
+            Buffer::empty(buffer_area)
+        };
 
         ViewBuffer {
-            view: state.view,
-            x_offset: state.hscroll.offset,
-            y_offset: state.vscroll.offset,
+            buf_offset_x,
+            buf_offset_y,
+            buffer,
             widget_area: state.widget_area,
             block: self.block,
             hscroll: self.hscroll,
             vscroll: self.vscroll,
-            buffer,
         }
     }
 }
 
 impl<'a> ViewBuffer<'a> {
     /// Render a widget to the temp buffer.
-    pub fn render<W>(&mut self, widget: W, area: Rect)
+    #[inline(always)]
+    pub fn render_widget<W>(&mut self, widget: W, area: Rect)
     where
         W: Widget,
     {
-        // render the actual widget.
-        widget.render(area, self.buffer_mut());
+        if area.intersects(self.buffer.area) {
+            // render the actual widget.
+            widget.render(area, self.buffer_mut());
+        }
     }
 
     /// Render a widget to the temp buffer.
     /// This expects that the state is a RelocatableState.
+    #[inline(always)]
     pub fn render_stateful<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
     where
         W: StatefulWidget<State = S>,
         S: RelocatableState,
     {
-        // render the actual widget.
-        widget.render(area, self.buffer_mut(), state);
-        // shift and clip the output areas.
-        self.relocate(state);
+        if area.intersects(self.buffer.area) {
+            // render the actual widget.
+            widget.render(area, self.buffer_mut(), state);
+            // shift and clip the output areas.
+            self.relocate(state);
+        } else {
+            self.relocate_clear(state);
+        }
     }
 
     /// Is the given area visible?
     pub fn is_visible(&self, area: Rect) -> bool {
-        let shifted = relocate_area(area, self.shift(), self.widget_area);
-        shifted.is_empty()
+        area.intersects(self.buffer.area)
     }
 
     /// Calculate the necessary shift from view to screen.
     pub fn shift(&self) -> (i16, i16) {
-        let shift_view_x = self.view.x + self.x_offset as u16;
-        let shift_view_y = self.view.y + self.y_offset as u16;
-
-        let shift_x = self.widget_area.x as i16 - shift_view_x as i16;
-        let shift_y = self.widget_area.y as i16 - shift_view_y as i16;
-
-        (shift_x, shift_y)
-    }
-
-    /// Relocate an area from view coordinates to screen coordinates.
-    /// Out of bounds areas result in an empty area.
-    pub fn relocate_area(&self, area: Rect) -> Rect {
-        relocate_area(area, self.shift(), self.widget_area)
-    }
-
-    /// Relocate an area from view coordinates to screen coordinates.
-    /// Out of bounds areas result in an empty area.
-    pub fn relocate_pos(&self, pos: Position) -> Option<Position> {
-        relocate_pos(pos, self.shift(), self.widget_area)
+        (
+            self.widget_area.x as i16 - self.buf_offset_x as i16,
+            self.widget_area.y as i16 - self.buf_offset_y as i16,
+        )
     }
 
     /// Relocate all the widget state that refers to an area to
@@ -291,6 +295,15 @@ impl<'a> ViewBuffer<'a> {
         S: RelocatableState,
     {
         state.relocate(self.shift(), self.widget_area);
+    }
+
+    /// Relocate in a way that clears the areas.
+    /// This effectively hides any out of bounds widgets.
+    pub fn relocate_clear<S>(&self, state: &mut S)
+    where
+        S: RelocatableState,
+    {
+        state.relocate((0, 0), Rect::default())
     }
 
     /// Access the temporary buffer.
@@ -306,6 +319,8 @@ impl<'a> ViewBuffer<'a> {
     /// Convert to the output widget that can be rendered in the target area.
     pub fn into_widget(self) -> ViewWidget<'a> {
         ViewWidget {
+            buf_offset_x: self.buf_offset_x,
+            buf_offset_y: self.buf_offset_y,
             block: self.block,
             hscroll: self.hscroll,
             vscroll: self.vscroll,
@@ -332,26 +347,25 @@ impl<'a> StatefulWidget for ViewWidget<'a> {
                     .v_scroll(&mut state.vscroll),
             );
 
-        let buf_area = self.buffer.area;
         let inner_area = state.widget_area;
 
         'y_loop: for y in 0..inner_area.height {
             'x_loop: for x in 0..inner_area.width {
-                let tgt_x = inner_area.x + x;
-                let tgt_y = inner_area.y + y;
+                let xx = inner_area.x + x;
+                let yy = inner_area.y + y;
 
-                if tgt_x >= inner_area.right() {
+                if xx >= inner_area.right() {
                     break 'x_loop;
                 }
-                if tgt_y >= inner_area.bottom() {
+                if yy >= inner_area.bottom() {
                     break 'y_loop;
                 }
 
-                let tmp_x = buf_area.x + x + state.hscroll.offset as u16;
-                let tmp_y = buf_area.y + y + state.vscroll.offset as u16;
+                let buffer_x = x + self.buf_offset_x;
+                let buffer_y = y + self.buf_offset_y;
 
-                if let Some(cell) = self.buffer.cell(Position::new(tmp_x, tmp_y)) {
-                    if let Some(tgt_cell) = buf.cell_mut(Position::new(tgt_x, tgt_y)) {
+                if let Some(cell) = self.buffer.cell(Position::new(buffer_x, buffer_y)) {
+                    if let Some(tgt_cell) = buf.cell_mut(Position::new(xx, yy)) {
                         *tgt_cell = cell.clone();
                     }
                 }
@@ -368,6 +382,14 @@ impl ViewState {
         Self::default()
     }
 
+    /// Show this rect.
+    pub fn show_area(&mut self, area: Rect) {
+        self.hscroll.scroll_to_pos(area.x as usize);
+        self.vscroll.scroll_to_pos(area.y as usize);
+    }
+}
+
+impl ViewState {
     pub fn vertical_offset(&self) -> usize {
         self.vscroll.offset()
     }
@@ -436,9 +458,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ViewState {
         match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(v) => self.scroll_up(v).into(),
             ScrollOutcome::Down(v) => self.scroll_down(v).into(),
+            ScrollOutcome::VPos(v) => self.set_vertical_offset(v).into(),
             ScrollOutcome::Left(v) => self.scroll_left(v).into(),
             ScrollOutcome::Right(v) => self.scroll_right(v).into(),
-            ScrollOutcome::VPos(v) => self.set_vertical_offset(v).into(),
             ScrollOutcome::HPos(v) => self.set_horizontal_offset(v).into(),
             r => r.into(),
         }

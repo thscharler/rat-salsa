@@ -1,7 +1,7 @@
 //!
 //! Small helpers.
 //!
-use ratatui::buffer::{Buffer, Cell};
+use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::{BlockExt, Widget};
 use ratatui::style::{Style, Stylize};

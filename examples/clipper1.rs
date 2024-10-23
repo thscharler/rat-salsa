@@ -3,7 +3,6 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use log::debug;
 use rat_event::{ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -12,14 +11,12 @@ use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
 use rat_widget::clipper::{AreaHandle, Clipper, ClipperState, PageLayout};
 use rat_widget::event::Outcome;
-use rat_widget::util::rect_dbg;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
-use std::time::SystemTime;
 
 mod mini_salsa;
 
@@ -110,44 +107,22 @@ fn repaint_input(
         .vscroll(Scroll::new().scroll_by(1))
         .into_buffer(l2[1], &mut state.clipper);
 
-    debug!(
-        "wide {:?}",
-        rect_dbg(state.layout.as_ref().expect("").wide_page())
-    );
-    debug!(
-        "page {:?}",
-        rect_dbg(state.layout.as_ref().expect("").page())
-    );
-    debug!(
-        "max pos {:?}",
-        state.layout.as_ref().expect("").max_position()
-    );
-    debug!("layout {:#?}", state.layout);
-
     // render the input fields. relocate and render to tmp buffer.
     for i in 0..state.hundred.len() {
         // map an additional ad hoc area.
-        if let Some(v_area) = clip_buf.view_area(state.hundred_areas[i as usize]) {
-            let w_area = Rect::new(5, v_area.y, 5, 1);
-            clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
-        }
+        let v_area = clip_buf.layout_area(state.hundred_areas[i]);
+        let w_area = Rect::new(5, v_area.y, 5, 1);
+        clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
 
+        // render widget
         clip_buf.render_stateful_handle(
             TextInputMock::default()
                 .sample(format!("{:?}", state.hundred_areas[i]))
                 .style(THEME.limegreen(0))
                 .focus_style(THEME.limegreen(2)),
-            state.hundred_areas[i as usize],
-            &mut state.hundred[i as usize],
+            state.hundred_areas[i],
+            &mut state.hundred[i],
         );
-
-        // } else {
-        //     // __Fallacy 1__
-        //     // If the area is not reset here, it will be used by focus.
-        //     // Can't do this inside the widget though.
-        //     // I'm sure that's a nice little trap ... :(
-        //     clip_buf.relocate_clear(&mut state.hundred[i as usize]);
-        // }
     }
 
     clip_buf.render_stateful(

@@ -1,57 +1,80 @@
+//!
+//! An alternative view widget.
+//!
+//! The extra requirement is that you can create a Layout that
+//! contains the bounds of all widgets that can be rendered.
+//!
+//! It works in 4 phases:
+//!
+//! * Create the layout. The layout can be stored long-term
+//!   and needs to be rebuilt only if your widget layout changes.
+//!
+//! ```
+//! ```
+//!
+//! * With the scroll offset the visible area for this layout is
+//! calculated. Starting from that an extended visible area
+//! is computed, that contains the bounds for all
+//! visible/partially visible widgets.
+//!
+//! ```
+//! ```
+//!
+//! * The widgets are rendered to that buffer.
+//!
+//! ```
+//! ```
+//!
+//! * The last step clips and copies the buffer to the frame buffer.
+//!
+//! ```
+//! ```
+//!
+//! __StatefulWidget__
+//!
+//! For this to work with StatefulWidgets they must cooperate
+//! by implementing the [RelocatableState] trait. With this trait
+//! the widget can clip/hide all areas that it stores in its state.
+//!
+//! __See__
+//!
+//! [example](https://github.com/thscharler/rat-widget/blob/master/examples/clipper1.rs)
+//!
 use crate::_private::NonExhaustive;
-use crate::relocate::{relocate_area, RelocatableState};
-use crate::util::rect_dbg;
-///
-/// An alternative view widget.
-///
-/// This works similar to [SinglePager], as it depends on a Layout
-/// that contains all areas that can be rendered.
-///
-/// Dependent on the scroll offset a relocated area will be produced
-/// by the widget where the actual inner widget can be drawn.
-/// If the inner widget is off-screen a relocated area of `None`
-/// indicates that a widget need not be drawn.
-///
-/// __Info__
-/// Due to limitations in ratatui widgets cannot be displayed partially
-/// off-screen to the left and top. Right and bottom work fine.
-///
-/// __See__
-/// [example](https://github.com/thscharler/rat-widget/blob/master/examples/clipper1.rs)
-///
+use crate::relocate::RelocatableState;
 use iset::IntervalSet;
-use log::debug;
-use rat_event::util::MouseFlagsN;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect, Size};
+use ratatui::layout::{Position, Rect};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::rc::Rc;
-use std::time::SystemTime;
 
-/// PageLayout is fed with the areas that should be displayed.
+/// PageLayout holds all areas for the widgets that want
+/// to be displayed.
 ///
-/// The areas used here are widget relative, not screen coordinates.
-/// It will keep track of the currently displayed view.
+/// It uses its own layout coordinates. The scroll offset is
+/// in layout coordinates too.
+///
 #[derive(Debug, Default, Clone)]
 pub struct PageLayout {
     core: Rc<RefCell<PageLayoutCore>>,
 }
 
-/// Handle for an added area. Can be used to get the displayed area.
+/// Handle for an area.
+/// Can be used to get a stored area.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub struct AreaHandle(usize);
 
 #[derive(Debug, Default, Clone)]
 struct PageLayoutCore {
-    // just for checks on re-layout.
+    // view area in layout coordinates
     page: Rect,
-    // actual view size and position, internal coordinates.
+    // extended view area in layout coordinates
     wide_page: Rect,
     // collected areas
     areas: Vec<Rect>,
@@ -62,11 +85,12 @@ struct PageLayoutCore {
 }
 
 impl PageLayout {
+    /// New layout.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Add a rect.
+    /// Add a layout area.
     pub fn add(&mut self, area: Rect) -> AreaHandle {
         let mut core = self.core.borrow_mut();
         // reset page to re-layout
@@ -75,7 +99,7 @@ impl PageLayout {
         AreaHandle(core.areas.len() - 1)
     }
 
-    /// Add rects. Doesn't give you a rect-handle.
+    /// Add layout area. Doesn't give you a handle.
     pub fn add_all(&mut self, areas: impl IntoIterator<Item = Rect>) {
         let mut core = self.core.borrow_mut();
         // reset page to re-layout
@@ -83,7 +107,7 @@ impl PageLayout {
         core.areas.extend(areas)
     }
 
-    /// Add rects. Appends the resulting handles.
+    /// Add layout area. Appends the resulting handles.
     pub fn add_all_out(
         &mut self,
         areas: impl IntoIterator<Item = Rect>,
@@ -103,30 +127,35 @@ impl PageLayout {
         }
     }
 
-    /// page rect in layout coordinates
+    /// View/buffer area in layout coordinates
     pub fn page(&self) -> Rect {
         self.core.borrow().page
     }
 
-    /// extended page rect in layout coordinates.
+    /// Extended view/buffer area in layout coordinates.
     pub fn wide_page(&self) -> Rect {
         self.core.borrow().wide_page
     }
 
+    /// Get the original area for the handle.
+    pub fn layout_area_by_handle(&self, handle: AreaHandle) -> Rect {
+        self.core.borrow().areas[handle.0]
+    }
+
     /// Run the layout algorithm.
     ///
-    /// Returns the required area to render all visible widgets.
-    /// This can lead to a corrected render offset, and the size
-    /// is used for the temp buffer.
+    /// Returns the extended area to render all visible widgets.
+    /// The size of this area is the required size of the buffer.
     ///
-    /// page: in layout coordinates
+    /// - page: in layout coordinates
+    /// - ->: extended area in layout coordinates.
     pub fn layout(&mut self, page: Rect) -> Rect {
         let mut core = self.core.borrow_mut();
         core.layout(page)
     }
 
-    /// Returns the bottom-right most coordinates.
-    pub fn max_position(&self) -> (u16, u16) {
+    /// Returns the bottom-right corner for the Layout.
+    pub fn max_layout_pos(&self) -> (u16, u16) {
         let core = self.core.borrow();
 
         let x = core.x_ranges.largest().map(|v| v.end);
@@ -138,24 +167,54 @@ impl PageLayout {
         (x, y)
     }
 
-    /// Get the original area for the handle.
-    pub fn area_by_handle(&self, handle: AreaHandle) -> Rect {
-        self.core.borrow().areas[handle.0]
+    /// First visible area in buffer in layout coordinates.
+    ///
+    /// __Caution__
+    /// Order is the order of addition, not necessarily the top-left area.
+    pub fn first_layout_area(&self) -> Option<Rect> {
+        let core = self.core.borrow();
+        core.areas
+            .iter()
+            .find(|v| {
+                core.wide_page.top() <= v.top()
+                    && core.wide_page.bottom() >= v.bottom()
+                    && core.wide_page.left() <= v.left()
+                    && core.wide_page.right() >= v.right()
+            })
+            .cloned()
     }
 
-    /// Locate an area by handle.
+    /// First visible area-handle.
     ///
-    /// This will return a Rect if it is displayed or None if not.
-    pub fn locate_handle(&self, handle: AreaHandle) -> Option<Rect> {
+    /// __Caution__
+    /// Order is the order of addition, not necessarily the top-left area.
+    pub fn first_layout_handle(&self) -> Option<AreaHandle> {
+        let core = self.core.borrow();
+
+        core.areas
+            .iter()
+            .enumerate()
+            .find(|(_, v)| {
+                core.wide_page.top() <= v.top()
+                    && core.wide_page.bottom() >= v.bottom()
+                    && core.wide_page.left() <= v.left()
+                    && core.wide_page.right() >= v.right()
+            })
+            .map(|(idx, _)| AreaHandle(idx))
+    }
+
+    /// Converts the area behind the handle to buffer coordinates.
+    /// This will return coordinates relative to the extended page.
+    /// Or None.
+    pub fn buf_area_by_handle(&self, handle: AreaHandle) -> Option<Rect> {
         let area = self.core.borrow().areas[handle.0];
-        self.locate(area)
+        self.buf_area(area)
     }
 
-    /// Locate an area.
-    ///
-    /// This will return a Rect relative to the current visible
-    /// area, or None if it's outside.
-    pub fn locate(&self, area: Rect) -> Option<Rect> {
+    /// Converts the area behind the handle to buffer coordinates.
+    /// This will return coordinates relative to the extended page.
+    /// Or None.
+    pub fn buf_area(&self, area: Rect) -> Option<Rect> {
         let core = self.core.borrow();
 
         let wide = core.wide_page;
@@ -174,41 +233,6 @@ impl PageLayout {
         } else {
             None
         }
-    }
-
-    /// First visible area.
-    ///
-    /// __Caution__
-    /// Order is the order of addition, not necessarily the top-left area.
-    pub fn first_area(&self) -> Option<Rect> {
-        let core = self.core.borrow();
-        core.areas
-            .iter()
-            .find(|v| {
-                core.wide_page.top() <= v.top()
-                    && core.wide_page.bottom() >= v.bottom()
-                    && core.wide_page.left() <= v.left()
-                    && core.wide_page.right() >= v.right()
-            })
-            .cloned()
-    }
-
-    /// First visible area-handle.
-    ///
-    /// Order is the order of addition, not necessarily the top-left area.
-    pub fn first_handle(&self) -> Option<AreaHandle> {
-        let core = self.core.borrow();
-
-        core.areas
-            .iter()
-            .enumerate()
-            .find(|(_, v)| {
-                core.wide_page.top() <= v.top()
-                    && core.wide_page.bottom() >= v.bottom()
-                    && core.wide_page.left() <= v.left()
-                    && core.wide_page.right() >= v.right()
-            })
-            .map(|(idx, _)| AreaHandle(idx))
     }
 }
 
@@ -259,10 +283,7 @@ impl PageLayoutCore {
 
 // -------------------------------------------------------------
 
-/// Construct a Clipper.
-///
-/// This
-///
+/// Clipper builder.
 #[derive(Debug, Default, Clone)]
 pub struct Clipper<'a> {
     layout: PageLayout,
@@ -281,7 +302,6 @@ pub struct ClipperBuffer<'a> {
     // Scroll offset into the view.
     buf_offset_x: u16,
     buf_offset_y: u16,
-    // buffer for rendering a single widget.
     buffer: Buffer,
 
     // inner area that will finally be rendered.
@@ -310,6 +330,7 @@ pub struct ClipperWidget<'a> {
 pub struct ClipperStyle {
     pub block: Option<Block<'static>>,
     pub scroll: Option<ScrollStyle>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -323,17 +344,18 @@ impl Default for ClipperStyle {
     }
 }
 
+/// Clipper state.
 #[derive(Debug, Default, Clone)]
 pub struct ClipperState {
-    /// Full area.
-    /// __read only__ renewed with each render.
+    /// Full area for the widget.
+    /// __read only__ renewed for each render.
     pub area: Rect,
-    /// Area for widgets to render.
-    /// __read only__ renewed with each render.
+    /// Area inside the border.
+    /// __read only__ renewed for each render.
     pub widget_area: Rect,
 
     /// Page layout.
-    /// __read only__ renewed with each render.
+    /// __read only__ renewed for each render.
     pub layout: PageLayout,
 
     /// Horizontal scroll
@@ -347,11 +369,12 @@ pub struct ClipperState {
     /// can be used to set a container state.
     pub c_focus: ContainerFlag,
 
-    // only for reuse with the next render.
+    /// For the buffer to survive render()
     buffer: Option<Buffer>,
 }
 
 impl<'a> Clipper<'a> {
+    /// New Clipper.
     pub fn new() -> Self {
         Self::default()
     }
@@ -427,19 +450,8 @@ impl<'a> Clipper<'a> {
             state.widget_area.height,
         ));
 
-        let dd_page = state.layout.page();
-        let dd_wide = state.layout.wide_page();
-        debug!(
-            "layout page {:?} -> wide {:?}",
-            rect_dbg(dd_page),
-            rect_dbg(dd_wide)
-        );
-
-        let buf_offset_x = state.hscroll.offset as u16 - ext_area.x;
-        let buf_offset_y = state.vscroll.offset as u16 - ext_area.y;
-
         // adjust scroll
-        let (max_x, max_y) = state.layout.max_position();
+        let (max_x, max_y) = state.layout.max_layout_pos();
         state
             .vscroll
             .set_page_len(state.widget_area.height as usize);
@@ -450,6 +462,11 @@ impl<'a> Clipper<'a> {
         state
             .hscroll
             .set_max_offset(max_x.saturating_sub(state.widget_area.width) as usize);
+
+        // offset is in layout coordinates.
+        // internal buffer starts at (0,0).
+        let buf_offset_x = state.hscroll.offset as u16 - ext_area.x;
+        let buf_offset_y = state.vscroll.offset as u16 - ext_area.y;
 
         // resize buffer to fit all visible widgets.
         let buffer_area = Rect::new(0, 0, ext_area.width, ext_area.height);
@@ -481,32 +498,9 @@ impl<'a> ClipperBuffer<'a> {
     where
         W: Widget,
     {
-        if let Some(buffer_area) = self.layout.locate(area) {
-            debug!("tr {:?}->{:?}", rect_dbg(area), rect_dbg(buffer_area));
+        if let Some(buffer_area) = self.layout.buf_area(area) {
             // render the actual widget.
             widget.render(buffer_area, self.buffer_mut());
-        } else {
-            debug!("tr {:?}->hidden", rect_dbg(area));
-        }
-    }
-
-    /// Render a widget to the temp buffer.
-    #[inline(always)]
-    pub fn render_widget_handle<W>(&mut self, widget: W, area: AreaHandle)
-    where
-        W: Widget,
-    {
-        if let Some(buffer_area) = self.layout.locate_handle(area) {
-            debug!(
-                "tr {:?}:{:?}->{:?}",
-                area,
-                self.view_area(area),
-                rect_dbg(buffer_area)
-            );
-            // render the actual widget.
-            widget.render(buffer_area, self.buffer_mut());
-        } else {
-            debug!("tr {:?}:{:?}->hidden", area, self.view_area(area),);
         }
     }
 
@@ -518,15 +512,25 @@ impl<'a> ClipperBuffer<'a> {
         W: StatefulWidget<State = S>,
         S: RelocatableState,
     {
-        if let Some(buffer_area) = self.layout.locate(area) {
-            debug!("tr {:?}->{:?}", rect_dbg(area), rect_dbg(buffer_area));
+        if let Some(buffer_area) = self.layout.buf_area(area) {
             // render the actual widget.
             widget.render(buffer_area, self.buffer_mut(), state);
             // shift and clip the output areas.
             self.relocate(state);
         } else {
-            debug!("tr {:?}->hidden", rect_dbg(area));
             self.relocate_clear(state);
+        }
+    }
+
+    /// Render a widget to the temp buffer.
+    #[inline(always)]
+    pub fn render_widget_handle<W>(&mut self, widget: W, area: AreaHandle)
+    where
+        W: Widget,
+    {
+        if let Some(buffer_area) = self.layout.buf_area_by_handle(area) {
+            // render the actual widget.
+            widget.render(buffer_area, self.buffer_mut());
         }
     }
 
@@ -538,36 +542,34 @@ impl<'a> ClipperBuffer<'a> {
         W: StatefulWidget<State = S>,
         S: RelocatableState,
     {
-        if let Some(buffer_area) = self.layout.locate_handle(area) {
-            debug!(
-                "tr {:?}:{:?}->{:?}",
-                area,
-                self.view_area(area),
-                rect_dbg(buffer_area)
-            );
+        if let Some(buffer_area) = self.layout.buf_area_by_handle(area) {
             // render the actual widget.
             widget.render(buffer_area, self.buffer_mut(), state);
             // shift and clip the output areas.
             self.relocate(state);
         } else {
-            debug!("tr {:?}:{:?}->hidden", area, self.view_area(area),);
             self.relocate_clear(state);
         }
     }
 
-    /// Get the view area for the handle.
-    pub fn view_area(&self, handle: AreaHandle) -> Option<Rect> {
-        self.layout.locate_handle(handle)
+    /// Get the layout area for the handle.
+    pub fn layout_area(&self, handle: AreaHandle) -> Rect {
+        self.layout.layout_area_by_handle(handle)
+    }
+
+    /// Get the buffer area for the handle.
+    pub fn buf_area(&self, handle: AreaHandle) -> Option<Rect> {
+        self.layout.buf_area_by_handle(handle)
     }
 
     /// Is the given area visible?
     pub fn is_visible(&self, area: Rect) -> bool {
-        self.layout.locate(area).is_some()
+        self.layout.buf_area(area).is_some()
     }
 
     /// Is the given area visible?
     pub fn is_visible_handle(&self, handle: AreaHandle) -> bool {
-        self.layout.locate_handle(handle).is_some()
+        self.layout.buf_area_by_handle(handle).is_some()
     }
 
     /// Calculate the necessary shift from view to screen.
@@ -665,14 +667,14 @@ impl ClipperState {
         Self::default()
     }
 
-    /// Show the page for this rect.
+    /// Show the area for the given handle.
     pub fn show_handle(&mut self, handle: AreaHandle) {
-        let area = self.layout.area_by_handle(handle);
+        let area = self.layout.layout_area_by_handle(handle);
         self.hscroll.scroll_to_pos(area.x as usize);
         self.vscroll.scroll_to_pos(area.y as usize);
     }
 
-    /// Show this rect.
+    /// Show this rect in layout coordinates.
     pub fn show_area(&mut self, area: Rect) {
         self.hscroll.scroll_to_pos(area.x as usize);
         self.vscroll.scroll_to_pos(area.y as usize);
@@ -682,7 +684,68 @@ impl ClipperState {
     /// This returns the first handle for the page.
     /// Does not check whether the connected area is visible.
     pub fn first_handle(&self) -> Option<AreaHandle> {
-        self.layout.first_handle()
+        self.layout.first_layout_handle()
+    }
+
+    /// First handle for the page.
+    /// This returns the first handle for the page.
+    /// Does not check whether the connected area is visible.
+    pub fn first_area(&self) -> Option<Rect> {
+        self.layout.first_layout_area()
+    }
+}
+
+impl ClipperState {
+    pub fn vertical_offset(&self) -> usize {
+        self.vscroll.offset()
+    }
+
+    pub fn set_vertical_offset(&mut self, offset: usize) -> bool {
+        let old = self.vscroll.offset();
+        self.vscroll.set_offset(offset);
+        old != self.vscroll.offset()
+    }
+
+    pub fn vertical_page_len(&self) -> usize {
+        self.vscroll.page_len()
+    }
+
+    pub fn horizontal_offset(&self) -> usize {
+        self.hscroll.offset()
+    }
+
+    pub fn set_horizontal_offset(&mut self, offset: usize) -> bool {
+        let old = self.hscroll.offset();
+        self.hscroll.set_offset(offset);
+        old != self.hscroll.offset()
+    }
+
+    pub fn horizontal_page_len(&self) -> usize {
+        self.hscroll.page_len()
+    }
+
+    pub fn horizontal_scroll_to(&mut self, pos: usize) -> bool {
+        self.hscroll.scroll_to_pos(pos)
+    }
+
+    pub fn vertical_scroll_to(&mut self, pos: usize) -> bool {
+        self.vscroll.scroll_to_pos(pos)
+    }
+
+    pub fn scroll_up(&mut self, delta: usize) -> bool {
+        self.vscroll.scroll_up(delta)
+    }
+
+    pub fn scroll_down(&mut self, delta: usize) -> bool {
+        self.vscroll.scroll_down(delta)
+    }
+
+    pub fn scroll_left(&mut self, delta: usize) -> bool {
+        self.hscroll.scroll_left(delta)
+    }
+
+    pub fn scroll_right(&mut self, delta: usize) -> bool {
+        self.hscroll.scroll_right(delta)
     }
 }
 
@@ -699,12 +762,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ClipperState {
             .h_scroll(&mut self.hscroll)
             .v_scroll(&mut self.vscroll);
         match sas.handle(event, MouseOnly) {
-            ScrollOutcome::Up(v) => self.vscroll.scroll_up(v).into(),
-            ScrollOutcome::Down(v) => self.vscroll.scroll_down(v).into(),
-            ScrollOutcome::VPos(v) => self.vscroll.scroll_to_pos(v).into(),
-            ScrollOutcome::Left(v) => self.hscroll.scroll_left(v).into(),
-            ScrollOutcome::Right(v) => self.hscroll.scroll_right(v).into(),
-            ScrollOutcome::HPos(v) => self.hscroll.scroll_to_pos(v).into(),
+            ScrollOutcome::Up(v) => self.scroll_up(v).into(),
+            ScrollOutcome::Down(v) => self.scroll_down(v).into(),
+            ScrollOutcome::VPos(v) => self.set_vertical_offset(v).into(),
+            ScrollOutcome::Left(v) => self.scroll_left(v).into(),
+            ScrollOutcome::Right(v) => self.scroll_right(v).into(),
+            ScrollOutcome::HPos(v) => self.set_horizontal_offset(v).into(),
             r => r.into(),
         }
     }
