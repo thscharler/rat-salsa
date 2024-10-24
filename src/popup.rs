@@ -35,15 +35,17 @@ use ratatui::widgets::{Block, Padding, StatefulWidget};
 ///
 #[derive(Debug, Clone)]
 pub struct PopupCore<'a> {
-    style: Style,
+    pub style: Style,
 
-    constraint: PopupConstraint,
-    offset: (i16, i16),
-    boundary_area: Option<Rect>,
+    pub constraint: PopupConstraint,
+    pub offset: (i16, i16),
+    pub boundary_area: Option<Rect>,
 
-    block: Option<Block<'a>>,
-    h_scroll: Option<Scroll<'a>>,
-    v_scroll: Option<Scroll<'a>>,
+    pub block: Option<Block<'a>>,
+    pub h_scroll: Option<Scroll<'a>>,
+    pub v_scroll: Option<Scroll<'a>>,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// Complete styles for the popup.
@@ -114,6 +116,7 @@ impl<'a> Default for PopupCore<'a> {
             block: None,
             h_scroll: None,
             v_scroll: None,
+            non_exhaustive: NonExhaustive,
         }
     }
 }
