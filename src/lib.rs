@@ -91,6 +91,16 @@ pub mod event {
             }
         }
     }
+
+    impl From<Outcome> for MenuOutcome {
+        fn from(value: Outcome) -> Self {
+            match value {
+                Outcome::Continue => MenuOutcome::Continue,
+                Outcome::Unchanged => MenuOutcome::Unchanged,
+                Outcome::Changed => MenuOutcome::Changed,
+            }
+        }
+    }
 }
 
 /// Combined styles.

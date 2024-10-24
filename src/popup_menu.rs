@@ -19,6 +19,7 @@ use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
 use crate::util::revert_style;
 use crate::{MenuBuilder, MenuItem, MenuStyle, Separator};
+use rat_event::crossterm::mouse_trap;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Popup};
 use rat_popup::event::PopupOutcome;
@@ -714,7 +715,7 @@ impl HandleEvent<crossterm::event::Event, Popup, MenuOutcome> for PopupMenuState
 impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuState {
     fn handle(&mut self, event: &crossterm::event::Event, _: MouseOnly) -> MenuOutcome {
         if self.is_active() {
-            match event {
+            let r = match event {
                 ct_event!(mouse moved for col, row)
                     if self.popup.widget_area.contains((*col, *row).into()) =>
                 {
@@ -735,7 +736,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, MenuOutcome> for PopupMenuS
                     }
                 }
                 _ => MenuOutcome::Continue,
-            }
+            };
+
+            r.or_else(|| mouse_trap(event, self.popup.area).into())
         } else {
             MenuOutcome::Continue
         }
