@@ -3,7 +3,7 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::util::revert_style;
+use crate::util::{block_size, revert_style};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
@@ -122,6 +122,16 @@ impl<'a> Button<'a> {
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self
+    }
+
+    /// Inherent width.
+    pub fn width(&self) -> u16 {
+        self.text.width() as u16 + block_size(&self.block).width
+    }
+
+    /// Inherent height.
+    pub fn height(&self) -> u16 {
+        self.text.height() as u16 + block_size(&self.block).height
     }
 }
 

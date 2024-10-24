@@ -8,6 +8,8 @@ use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::Outcome;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::style::Stylize;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
 use ratatui::Frame;
 use std::cmp::max;
@@ -70,15 +72,21 @@ fn repaint_input(
     );
 
     let (w, p1) = Choice::new()
-        .item("Carrots")
-        .item("Potatoes")
-        .item("Onions")
+        .item("Carrots 🥕")
+        .item("Potatoes 🥔")
+        .item("Onions 🧅")
         .item("Peas")
         .item("Beans")
-        .item("Tomatoes")
-        .item("Aubergines")
+        .item(Line::from_iter([
+            Span::from("T").red(),
+            Span::from("omatoes 🍅"),
+        ]))
+        .item(Line::from_iter([
+            Span::from("Aubergines "),
+            Span::from("🍆"),
+        ]))
         .item("Chili")
-        .item("Äpfel")
+        .item("Äpfel 🍎")
         .item("...")
         .popup_boundary(l1[0])
         .style(THEME.text_input())

@@ -5,7 +5,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::calendar::event::CalOutcome;
-use crate::util::revert_style;
+use crate::util::{block_size, revert_style};
 use chrono::{Datelike, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
@@ -236,25 +236,18 @@ impl<'a> Month<'a> {
         self
     }
 
-    /// Required width for the widget.
+    /// Inherent width of the widget.
     #[inline]
     pub fn width(&self) -> u16 {
-        if self.block.is_some() {
-            8 * 3 + 2
-        } else {
-            8 * 3
-        }
+        8 * 3 + block_size(&self.block).width
     }
 
-    /// Required height for the widget. Varies.
+    /// Inherent height for the widget.
+    /// Can vary with the number of months.
     #[inline]
     pub fn height(&self) -> u16 {
         let r = MonthState::count_weeks(self.start_date) as u16;
-        if self.block.is_some() {
-            r + 1
-        } else {
-            r
-        }
+        r + block_size(&self.block).height
     }
 }
 

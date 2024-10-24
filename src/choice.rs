@@ -1,11 +1,39 @@
 //!
-//! Simple choice widget.
+//! Choice/Select widget.
 //!
-//! Status: ALPHA/UNSTABLE
+//! ```
+//! use rat_popup::Placement;
+//! use rat_scrolled::Scroll;
+//! use rat_widget::choice::{Choice, ChoiceState};
+//! # use ratatui::Frame;
+//! # use ratatui::layout::Rect;
+//! # use ratatui::widgets::{Block, StatefulWidget};
+//! # let mut frame: Frame;
+//! # let mut cstate: ChoiceState;
+//! # let mut max_bounds: Rect = Rect::default();
 //!
-
+//! let (widget, popup) = Choice::new()
+//!         .item("Carrots")
+//!         .item("Potatoes")
+//!         .item("Onions")
+//!         .item("Peas")
+//!         .item("Beans")
+//!         .item("Tomatoes")
+//!         .popup_block(Block::bordered())
+//!         .popup_placement(Placement::AboveOrBelow)
+//!         .popup_boundary(max_bounds)
+//!         .into_widgets();
+//!  widget.render(Rect::new(3,3,15,1), frame.buffer_mut(), &mut cstate);
+//!
+//!  // ... render other widgets
+//!
+//!  popup.render(Rect::new(3,3,15,1), frame.buffer_mut(), &mut cstate);
+//!
+//! ```
+//!
 use crate::_private::NonExhaustive;
-use crate::util::revert_style;
+use crate::util::{block_size, revert_style};
+use rat_event::crossterm::mouse_trap;
 use rat_event::util::{item_at, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
 use rat_focus::{FocusFlag, HasFocus, ZRect};
@@ -17,20 +45,23 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
-use ratatui::text::Span;
+use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
-use std::borrow::Cow;
 use std::cell::RefCell;
 use std::cmp::{max, min};
 use std::rc::Rc;
 
-/// Choice widget.
+/// Choice.
 ///
-/// Select one of a list. No editable mode for this one.
+/// Select one of a list. No editable mode for this widget.
+///
+/// This doesn't render itself. [into_widgets](Choice::into_widgets)
+/// creates the base part and the popup part, which are rendered
+/// separately.
 ///
 #[derive(Debug, Clone)]
 pub struct Choice<'a> {
-    items: Rc<RefCell<Vec<Cow<'a, str>>>>,
+    items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
     button_style: Option<Style>,
@@ -46,7 +77,7 @@ pub struct Choice<'a> {
 /// Renders the main widget.
 #[derive(Debug)]
 pub struct RenderChoice<'a> {
-    items: Rc<RefCell<Vec<Cow<'a, str>>>>,
+    items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
     button_style: Option<Style>,
@@ -55,10 +86,11 @@ pub struct RenderChoice<'a> {
     len: Option<u16>,
 }
 
-/// Renders the popup.
+/// Renders the popup. This is called after the rest
+/// of the area is rendered and overwrites to display itself.
 #[derive(Debug)]
 pub struct RenderChoicePopup<'a> {
-    items: Rc<RefCell<Vec<Cow<'a, str>>>>,
+    items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
     select_style: Option<Style>,
@@ -68,6 +100,7 @@ pub struct RenderChoicePopup<'a> {
     popup: PopupCore<'a>,
 }
 
+/// Combined style.
 #[derive(Debug, Clone)]
 pub struct ChoiceStyle {
     pub style: Style,
@@ -159,7 +192,7 @@ impl<'a> Choice<'a> {
     }
 
     /// Add an item.
-    pub fn item(self, item: impl Into<Cow<'a, str>>) -> Self {
+    pub fn item(self, item: impl Into<Line<'a>>) -> Self {
         self.items.borrow_mut().push(item.into());
         self
     }
@@ -179,6 +212,7 @@ impl<'a> Choice<'a> {
         if styles.block.is_some() {
             self.block = styles.block;
         }
+        self.block = self.block.map(|v| v.style(self.style));
         if let Some(placement) = styles.popup.placement {
             self.popup_placement = placement;
         }
@@ -192,6 +226,7 @@ impl<'a> Choice<'a> {
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -216,6 +251,7 @@ impl<'a> Choice<'a> {
     /// Block for the main widget.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -259,6 +295,24 @@ impl<'a> Choice<'a> {
     pub fn popup_scroll(mut self, scroll: Scroll<'a>) -> Self {
         self.popup = self.popup.v_scroll(scroll);
         self
+    }
+
+    /// Inherent width.
+    pub fn width(&self) -> u16 {
+        let w = self
+            .items
+            .borrow()
+            .iter()
+            .map(|v| v.width())
+            .max()
+            .unwrap_or_default();
+
+        w as u16 + block_size(&self.block).width
+    }
+
+    /// Inherent height.
+    pub fn height(&self) -> u16 {
+        1 + block_size(&self.block).height
     }
 
     /// Choice itself doesn't render.
@@ -309,8 +363,10 @@ impl<'a> StatefulWidget for RenderChoice<'a> {
 
         state.nav_char.clear();
         state.nav_char.extend(self.items.borrow().iter().map(|v| {
-            v.chars()
-                .next()
+            v.spans
+                .first()
+                .map(|v| v.content.as_ref().chars().next())
+                .flatten()
                 .map_or(Vec::default(), |c| c.to_lowercase().collect::<Vec<_>>())
         }));
 
@@ -327,7 +383,6 @@ impl<'a> StatefulWidget for RenderChoice<'a> {
         let button_style = self.button_style.unwrap_or(self.style);
         let focus_style = self.focus_style.unwrap_or(self.style);
 
-        buf.set_style(area, self.style);
         self.block.render(area, buf);
 
         if state.is_focused() {
@@ -337,7 +392,7 @@ impl<'a> StatefulWidget for RenderChoice<'a> {
         }
         if let Some(selected) = state.selected {
             if let Some(item) = self.items.borrow().get(selected) {
-                Span::from(item.as_ref()).render(state.item_area, buf);
+                item.render(state.item_area, buf);
             }
         }
 
@@ -347,7 +402,12 @@ impl<'a> StatefulWidget for RenderChoice<'a> {
         } else {
             state.button_area.height.saturating_sub(1) / 2
         };
-        Span::from(" ▼ ").render(
+        let bc = if state.is_popup_active() {
+            " ◆ "
+        } else {
+            " ▼ "
+        };
+        Span::from(bc).render(
             Rect::new(state.button_area.x, state.button_area.y + dy, 3, 1),
             buf,
         );
@@ -364,6 +424,7 @@ impl<'a> StatefulWidget for RenderChoicePopup<'a> {
                 .unwrap_or_else(|| min(5, self.items.borrow().len()) as u16);
 
             let popup_len = len + self.popup.get_block_size().height;
+            let popup_style = self.popup.style;
             let pop_area = Rect::new(0, 0, area.width, popup_len);
 
             self.popup
@@ -394,11 +455,11 @@ impl<'a> StatefulWidget for RenderChoicePopup<'a> {
                     let style = if state.selected == Some(idx) {
                         self.select_style.unwrap_or(revert_style(self.style))
                     } else {
-                        self.style
+                        popup_style
                     };
 
                     buf.set_style(item_area, style);
-                    Span::from(item.as_ref()).render(item_area, buf);
+                    item.render(item_area, buf);
                 } else {
                     // noop?
                 }
@@ -687,22 +748,22 @@ impl HandleEvent<crossterm::event::Event, Popup, Outcome> for ChoiceState {
         let r1 = match self.popup.handle(event, Popup) {
             PopupOutcome::Hide => {
                 self.set_popup_active(false);
-                PopupOutcome::Hide
+                Outcome::Changed
             }
-            r => r,
+            r => r.into(),
         };
 
         let mut sas = ScrollAreaState::new()
             .area(self.popup.area)
             .v_scroll(&mut self.popup.v_scroll);
-        let r2 = match sas.handle(event, MouseOnly) {
+        let mut r2 = match sas.handle(event, MouseOnly) {
             ScrollOutcome::Up(n) => self.move_up(n).into(),
             ScrollOutcome::Down(n) => self.move_down(n).into(),
             ScrollOutcome::VPos(n) => self.move_to(n).into(),
             _ => Outcome::Continue,
         };
 
-        let r2 = r2.or_else(|| match event {
+        r2 = r2.or_else(|| match event {
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.popup.widget_area, m) => {
                 if let Some(n) = item_at(&self.item_areas, m.column, m.row) {
                     let r = self.move_to(self.offset() + n).into();
@@ -733,6 +794,37 @@ impl HandleEvent<crossterm::event::Event, Popup, Outcome> for ChoiceState {
             _ => Outcome::Continue,
         });
 
-        max(Outcome::from(r1), r2)
+        r2 = r2.or_else(|| mouse_trap(event, self.popup.area));
+
+        max(r1, r2)
     }
+}
+
+/// Handle events for the popup.
+/// Call before other handlers to deal with intersections
+/// with other widgets.
+pub fn handle_popup(
+    state: &mut ChoiceState,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    state.focus.set(focus);
+    HandleEvent::handle(state, event, Popup)
+}
+
+/// Handle all events.
+/// Text events are only processed if focus is true.
+/// Mouse events are processed if they are in range.
+pub fn handle_events(
+    state: &mut ChoiceState,
+    focus: bool,
+    event: &crossterm::event::Event,
+) -> Outcome {
+    state.focus.set(focus);
+    HandleEvent::handle(state, event, Regular)
+}
+
+/// Handle only mouse-events.
+pub fn handle_mouse_events(state: &mut ChoiceState, event: &crossterm::event::Event) -> Outcome {
+    HandleEvent::handle(state, event, MouseOnly)
 }
