@@ -205,9 +205,19 @@ pub mod app {
     #[derive(Debug)]
     pub struct Scenery;
 
-    #[derive(Debug, Default)]
+    #[derive(Debug)]
     pub struct SceneryState {
         pub life: LifeState,
+        pub rt: SystemTime,
+    }
+
+    impl Default for SceneryState {
+        fn default() -> Self {
+            Self {
+                life: Default::default(),
+                rt: SystemTime::now(),
+            }
+        }
     }
 
     impl SceneryState {
@@ -231,8 +241,6 @@ pub mod app {
             state: &mut Self::State,
             ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
-            let t0 = SystemTime::now();
-
             let layout = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
             Life::new()
@@ -244,7 +252,7 @@ pub mod app {
                 err.render(layout[0], buf, &mut ctx.g.error_dlg);
             }
 
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+            let el = state.rt.elapsed().unwrap_or(Duration::from_nanos(0));
             ctx.g.status.status(2, format!("R {:.0?}", el).to_string());
 
             let status_layout =
@@ -273,6 +281,8 @@ pub mod app {
                         .bg(scheme.blue[1]),
                 ]);
             status.render(status_layout[1], buf, &mut ctx.g.status);
+
+            state.rt = SystemTime::now();
 
             Ok(())
         }
@@ -804,7 +814,7 @@ pub mod game {
         /// Random
         pub fn random(&mut self) {
             let n = max(self.live.count_ones(), self.birth.count_ones());
-            let r = n as f64 / 18f64;
+            let r = n as f64 / 36f64;
 
             self.area_0 = self.area.clone();
             self.world_0 = vec![0; self.area_0.width as usize * self.area_0.height as usize];
