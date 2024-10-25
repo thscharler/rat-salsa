@@ -4,6 +4,7 @@ use crate::{Placement, PopupConstraint};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Popup};
 use rat_focus::{ContainerFlag, FocusContainer};
+use rat_reloc::{relocate_area, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
@@ -528,6 +529,13 @@ impl Default for PopupCoreState {
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
+    }
+}
+
+impl RelocatableState for PopupCoreState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        self.widget_area = relocate_area(self.widget_area, shift, clip);
     }
 }
 
