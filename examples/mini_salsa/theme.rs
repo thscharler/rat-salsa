@@ -208,6 +208,7 @@ impl Scheme {
                     .fg(self.text_color(self.orange[0]))
                     .bg(self.orange[0]),
             ),
+            weekday: Some(Style::new().fg(self.limegreen[2])),
             day: None,
             select: Some(self.select()),
             focus: Some(self.focus()),

@@ -3,6 +3,7 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use chrono::NaiveDate;
+use pure_rust_locales::Locale;
 use rat_event::{try_flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
@@ -77,10 +78,12 @@ fn repaint_input(
 
     let cal = Month::new()
         .date(chrono::offset::Local::now().date_naive())
+        .locale(Locale::de_AT_euro)
         .styles(THEME.month_style())
         .day_styles(&date_styles)
         .day_selection()
         .week_selection()
+        .show_weekdays()
         .block(Block::bordered());
     cal.render(l2[1], frame.buffer_mut(), &mut state.cal);
 

@@ -35,6 +35,8 @@ pub struct Month<'a> {
     title_align: Alignment,
     /// Week number style.
     week_style: Option<Style>,
+    /// Week day style.
+    weekday_style: Option<Style>,
     /// Default day style.
     day_style: Option<Style>,
     /// Styling for a single date.
@@ -46,6 +48,7 @@ pub struct Month<'a> {
     /// Selection
     day_selection: bool,
     week_selection: bool,
+    show_weekdays: bool,
 
     /// Block
     block: Option<Block<'a>>,
@@ -60,6 +63,7 @@ pub struct MonthStyle {
     pub style: Style,
     pub title: Option<Style>,
     pub week: Option<Style>,
+    pub weekday: Option<Style>,
     pub day: Option<Style>,
     pub select: Option<Style>,
     pub focus: Option<Style>,
@@ -112,11 +116,12 @@ impl Default for MonthStyle {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            title: Default::default(),
-            week: Default::default(),
-            day: Default::default(),
-            select: Default::default(),
-            focus: Default::default(),
+            title: None,
+            week: None,
+            weekday: None,
+            day: None,
+            select: None,
+            focus: None,
             block: None,
             non_exhaustive: NonExhaustive,
         }
@@ -157,6 +162,13 @@ impl<'a> Month<'a> {
         self
     }
 
+    /// Show weekday titles
+    #[inline]
+    pub fn show_weekdays(mut self) -> Self {
+        self.show_weekdays = true;
+        self
+    }
+
     /// Set the composite style.
     #[inline]
     pub fn styles(mut self, s: MonthStyle) -> Self {
@@ -166,6 +178,9 @@ impl<'a> Month<'a> {
         }
         if s.week.is_some() {
             self.week_style = s.week;
+        }
+        if s.weekday.is_some() {
+            self.weekday_style = s.weekday;
         }
         if s.day.is_some() {
             self.day_style = s.day;
@@ -179,6 +194,7 @@ impl<'a> Month<'a> {
         if s.block.is_some() {
             self.block = s.block;
         }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -215,6 +231,13 @@ impl<'a> Month<'a> {
         self
     }
 
+    /// Set the week day style
+    #[inline]
+    pub fn weekday_style(mut self, s: impl Into<Style>) -> Self {
+        self.weekday_style = Some(s.into());
+        self
+    }
+
     /// Set the month-name style.
     #[inline]
     pub fn title_style(mut self, s: impl Into<Style>) -> Self {
@@ -233,6 +256,7 @@ impl<'a> Month<'a> {
     #[inline]
     pub fn block(mut self, b: Block<'a>) -> Self {
         self.block = Some(b);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -247,7 +271,8 @@ impl<'a> Month<'a> {
     #[inline]
     pub fn height(&self) -> u16 {
         let r = MonthState::count_weeks(self.start_date) as u16;
-        r + block_size(&self.block).height
+        let w = if self.show_weekdays { 1 } else { 0 };
+        r + w + block_size(&self.block).height
     }
 }
 
@@ -291,6 +316,7 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
             .title_alignment(widget.title_align)
     } else {
         Block::new()
+            .style(widget.style)
             .title(Title::from(
                 day.format_localized("%B", widget.loc).to_string(),
             ))
@@ -298,15 +324,10 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
             .title_alignment(widget.title_align)
     };
 
-    buf.set_style(area, widget.style);
     state.inner = block.inner(area);
     block.render(area, buf);
 
-    let focus_style = if let Some(focus_style) = widget.focus_style {
-        focus_style
-    } else {
-        revert_style(widget.style)
-    };
+    let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
     let select_style = if let Some(select_style) = widget.select_style {
         if state.focus.get() {
             focus_style
@@ -321,21 +342,39 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
         }
     };
 
-    let day_style = if let Some(day_style) = widget.day_style {
-        day_style
-    } else {
-        widget.style
-    };
-    let week_style = if let Some(week_style) = widget.week_style {
-        week_style
-    } else {
-        widget.style
-    };
+    let day_style = widget.day_style.unwrap_or(widget.style);
+    let week_style = widget.week_style.unwrap_or(widget.style);
+    let weekday_style = widget.weekday_style.unwrap_or(widget.style);
 
     let month = widget.start_date.month();
     let mut w = 0;
     let mut x = state.inner.x;
     let mut y = state.inner.y;
+
+    // week days
+    if widget.show_weekdays {
+        x += 3;
+        buf.set_style(Rect::new(x, y, 3 * 7, 1), weekday_style);
+        for wd in [
+            Weekday::Mon,
+            Weekday::Tue,
+            Weekday::Wed,
+            Weekday::Thu,
+            Weekday::Fri,
+            Weekday::Sat,
+            Weekday::Sun,
+        ] {
+            let area = Rect::new(x, y, 2, 1).intersection(state.inner);
+
+            let day = NaiveDate::from_weekday_of_month_opt(2024, 1, wd, 1).expect("date");
+            let day_name = day.format_localized("%a", widget.loc).to_string();
+            Span::from(format!("{:2} ", day_name)).render(area, buf);
+
+            x += 3;
+        }
+        x = state.inner.x;
+        y += 1;
+    }
 
     // first line may omit a few days
     state.area_weeks[w] = Rect::new(x, y, 2, 1).intersection(state.inner);
