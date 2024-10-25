@@ -86,6 +86,7 @@ impl<'a> Button<'a> {
         if let Some(block) = styles.block {
             self.block = Some(block);
         }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -121,6 +122,7 @@ impl<'a> Button<'a> {
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
