@@ -353,7 +353,7 @@ pub mod show_scheme {
     use rat_theme::Scheme;
     use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
     use rat_widget::focus::{FocusFlag, HasFocus};
-    use rat_widget::relocate::{relocate_area, RelocatableState};
+    use rat_widget::reloc::{relocate_area, RelocatableState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
     use ratatui::prelude::{Line, Span, StatefulWidget};
