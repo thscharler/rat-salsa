@@ -10,7 +10,6 @@ use chrono::{Datelike, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus};
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
@@ -21,6 +20,7 @@ use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::collections::HashMap;
 use std::fmt::Debug;
+use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 
 /// Renders a month.
 #[derive(Debug, Default, Clone)]
