@@ -65,6 +65,7 @@ directories-next = { version = "2.0.0", optional = true }
 sysinfo = { version = "0.32.0", optional = true }
 
 rat-event = { version = "0.25", path = "../rat-event" }
+rat-reloc = { version = "0.1", path = "../rat-reloc" }
 rat-focus = { version = "0.27", path = "../rat-focus" }
 rat-ftable = { version = "0.27", path = "../rat-ftable" }
 rat-text = { version = "0.28", path = "../rat-text" }

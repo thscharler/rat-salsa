@@ -3,6 +3,7 @@
 //!
 
 use crate::_private::NonExhaustive;
+use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::style::Style;
@@ -73,6 +74,13 @@ impl Default for StatusLineState {
             status: Default::default(),
             non_exhaustive: NonExhaustive,
         }
+    }
+}
+
+impl RelocatableState for StatusLineState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        relocate_areas(self.areas.as_mut(), shift, clip);
     }
 }
 

@@ -36,9 +36,10 @@ use crate::util::{block_size, revert_style};
 use rat_event::crossterm::mouse_trap;
 use rat_event::util::{item_at, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
-use rat_focus::{FocusFlag, HasFocus, ZRect};
+use rat_focus::{relocate_z_areas, FocusFlag, HasFocus, ZRect};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle};
+use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollAreaState};
 use ratatui::buffer::Buffer;
@@ -506,6 +507,17 @@ impl HasFocus for ChoiceState {
 
     fn z_areas(&self) -> &[ZRect] {
         &self.z_areas
+    }
+}
+
+impl RelocatableState for ChoiceState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        relocate_z_areas(&mut self.z_areas, shift, clip);
+        self.item_area = relocate_area(self.item_area, shift, clip);
+        self.button_area = relocate_area(self.button_area, shift, clip);
+        relocate_areas(&mut self.item_areas, shift, clip);
+        self.popup.relocate(shift, clip);
     }
 }
 

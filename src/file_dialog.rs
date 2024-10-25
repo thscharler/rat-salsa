@@ -558,8 +558,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
 
         let mut l_n = layout.buttons[1];
         l_n.width = 10;
-        Button::new()
-            .text(Text::from("New").alignment(Alignment::Center))
+        Button::new(Text::from("New").alignment(Alignment::Center))
             .styles(self.style_button())
             .render(l_n, buf, &mut state.new_state);
 
@@ -568,13 +567,11 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             .flex(Flex::End)
             .split(layout.buttons[2]);
 
-        Button::new()
-            .text(Text::from(self.cancel_text).alignment(Alignment::Center))
+        Button::new(Text::from(self.cancel_text).alignment(Alignment::Center))
             .styles(self.style_button())
             .render(l_oc[0], buf, &mut state.cancel_state);
 
-        Button::new()
-            .text(Text::from(self.ok_text).alignment(Alignment::Center))
+        Button::new(Text::from(self.ok_text).alignment(Alignment::Center))
             .styles(self.style_button())
             .render(l_oc[1], buf, &mut state.ok_state);
     }

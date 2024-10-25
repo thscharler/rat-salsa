@@ -6,14 +6,15 @@ use crate::_private::NonExhaustive;
 use crate::util::{block_size, revert_style};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::{relocate_area, RelocatableState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
-use ratatui::text::{Line, Span, Text};
-use ratatui::widgets::{Block, StatefulWidget, Widget};
+use ratatui::text::Text;
 #[cfg(feature = "unstable-widget-ref")]
-use ratatui::widgets::{StatefulWidgetRef, WidgetRef};
+use ratatui::widgets::StatefulWidgetRef;
+use ratatui::widgets::{Block, StatefulWidget, Widget};
 
 /// Button widget.
 #[derive(Debug, Default, Clone)]
@@ -69,8 +70,8 @@ impl Default for ButtonStyle {
 }
 
 impl<'a> Button<'a> {
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(text: impl Into<Text<'a>>) -> Self {
+        Self::default().text(text)
     }
 
     /// Set all styles.
@@ -114,7 +115,19 @@ impl<'a> Button<'a> {
     /// Button text.
     #[inline]
     pub fn text(mut self, text: impl Into<Text<'a>>) -> Self {
-        self.text = text.into();
+        self.text = text.into().centered();
+        self
+    }
+
+    /// Left align button text.
+    pub fn left_aligned(mut self) -> Self {
+        self.text = self.text.left_aligned();
+        self
+    }
+
+    /// Right align button text.
+    pub fn right_aligned(mut self) -> Self {
+        self.text = self.text.right_aligned();
         self
     }
 
@@ -137,104 +150,12 @@ impl<'a> Button<'a> {
     }
 }
 
-impl<'a> From<&'a str> for Button<'a> {
-    fn from(value: &'a str) -> Self {
-        Self {
-            text: Text::from(value).centered(),
-            ..Default::default()
-        }
-    }
-}
-
-impl<'a> From<String> for Button<'a> {
-    fn from(value: String) -> Self {
-        Self {
-            text: Text::from(value).centered(),
-            ..Default::default()
-        }
-    }
-}
-
-impl<'a> From<Span<'a>> for Button<'a> {
-    fn from(value: Span<'a>) -> Self {
-        Self {
-            text: Text::from(value).centered(),
-            ..Default::default()
-        }
-    }
-}
-
-impl<'a, const N: usize> From<[Span<'a>; N]> for Button<'a> {
-    fn from(value: [Span<'a>; N]) -> Self {
-        let mut text = Text::default();
-        for value in value {
-            text.push_span(value);
-        }
-        Self {
-            text: text.centered(),
-            ..Default::default()
-        }
-    }
-}
-
-impl<'a> From<Vec<Span<'a>>> for Button<'a> {
-    fn from(value: Vec<Span<'a>>) -> Self {
-        let mut text = Text::default();
-        for value in value {
-            text.push_span(value);
-        }
-        Self {
-            text: text.centered(),
-            ..Default::default()
-        }
-    }
-}
-
-impl<'a> From<Line<'a>> for Button<'a> {
-    fn from(value: Line<'a>) -> Self {
-        Self {
-            text: Text::from(value).centered(),
-            ..Default::default()
-        }
-    }
-}
-
 #[cfg(feature = "unstable-widget-ref")]
 impl<'a> StatefulWidgetRef for Button<'a> {
     type State = ButtonState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-        state.inner = self.block.inner_if_some(area);
-
-        let focus_style = if let Some(focus_style) = self.focus_style {
-            focus_style
-        } else {
-            revert_style(self.style)
-        };
-        let armed_style = if let Some(armed_style) = self.armed_style {
-            armed_style
-        } else {
-            revert_style(self.style)
-        };
-
-        self.block.render_ref(area, buf);
-
-        if state.armed {
-            buf.set_style(state.inner, armed_style);
-        } else {
-            if state.focus.get() {
-                buf.set_style(state.inner, focus_style);
-            } else {
-                buf.set_style(state.inner, self.style);
-            }
-        }
-
-        let layout = Layout::vertical([Constraint::Length(self.text.height() as u16)])
-            .flex(Flex::Center)
-            .split(state.inner);
-
-        self.text.render_ref(layout[0], buf);
+        render_ref(self, area, buf, state);
     }
 }
 
@@ -242,38 +163,38 @@ impl<'a> StatefulWidget for Button<'a> {
     type State = ButtonState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-        state.inner = self.block.inner_if_some(area);
-
-        let focus_style = if let Some(focus_style) = self.focus_style {
-            focus_style
-        } else {
-            revert_style(self.style)
-        };
-        let armed_style = if let Some(armed_style) = self.armed_style {
-            armed_style
-        } else {
-            revert_style(self.style)
-        };
-
-        self.block.render(area, buf);
-
-        if state.armed {
-            buf.set_style(state.inner, armed_style);
-        } else {
-            if state.focus.get() {
-                buf.set_style(state.inner, focus_style);
-            } else {
-                buf.set_style(state.inner, self.style);
-            }
-        }
-
-        let layout = Layout::vertical([Constraint::Length(self.text.height() as u16)])
-            .flex(Flex::Center)
-            .split(state.inner);
-
-        self.text.render(layout[0], buf);
+        render_ref(&self, area, buf, state);
     }
+}
+
+fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut ButtonState) {
+    state.area = area;
+    state.inner = widget.block.inner_if_some(area);
+
+    let focus_style = if let Some(focus_style) = widget.focus_style {
+        focus_style
+    } else {
+        revert_style(widget.style)
+    };
+    let armed_style = if let Some(armed_style) = widget.armed_style {
+        armed_style
+    } else {
+        revert_style(widget.style)
+    };
+
+    widget.block.render(area, buf);
+
+    if state.armed {
+        buf.set_style(state.inner, armed_style);
+    } else if state.focus.get() {
+        buf.set_style(state.inner, focus_style);
+    }
+
+    let h = widget.text.height() as u16;
+    let r = state.inner.height.saturating_sub(h) / 2;
+    let area = Rect::new(state.inner.x, state.inner.y + r, state.inner.width, h);
+
+    (&widget.text).render(area, buf);
 }
 
 impl Default for ButtonState {
@@ -296,7 +217,7 @@ impl ButtonState {
     pub fn named(name: &str) -> Self {
         Self {
             focus: FocusFlag::named(name),
-            ..ButtonState::default()
+            ..Default::default()
         }
     }
 }
@@ -310,6 +231,13 @@ impl HasFocus for ButtonState {
     #[inline]
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl RelocatableState for ButtonState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        self.inner = relocate_area(self.inner, shift, clip);
     }
 }
 

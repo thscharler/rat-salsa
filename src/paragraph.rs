@@ -3,9 +3,9 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::relocate::{relocate_area, RelocatableState};
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::{relocate_area, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -221,8 +221,8 @@ impl RelocatableState for ParagraphState {
     fn relocate(&mut self, offset: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, offset, clip);
         self.inner = relocate_area(self.inner, offset, clip);
-        self.hscroll.area = relocate_area(self.hscroll.area, offset, clip);
-        self.vscroll.area = relocate_area(self.vscroll.area, offset, clip);
+        self.hscroll.relocate(offset, clip);
+        self.vscroll.relocate(offset, clip);
     }
 }
 

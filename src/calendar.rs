@@ -10,6 +10,7 @@ use chrono::{Datelike, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
@@ -496,6 +497,15 @@ impl HasFocus for MonthState {
     #[inline]
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl RelocatableState for MonthState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        self.inner = relocate_area(self.inner, shift, clip);
+        relocate_areas(&mut self.area_days, shift, clip);
+        relocate_areas(&mut self.area_weeks, shift, clip);
     }
 }
 

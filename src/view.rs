@@ -49,8 +49,8 @@ mod view_style;
 pub use view_style::*;
 
 use crate::event::ScrollOutcome;
-use crate::relocate::RelocatableState;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
+use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};

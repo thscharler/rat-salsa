@@ -73,17 +73,17 @@ fn repaint_buttons(
     ])
     .split(l0[0]);
 
-    let mut button1 = Button::from("Button");
+    let mut button1 = Button::new("Button");
     button1 = button1.block(Block::bordered().border_type(BorderType::Rounded));
     button1 = button1.style(Style::new().on_black().green());
     button1.render(l1[1], frame.buffer_mut(), &mut state.button1);
 
-    let mut button2 = Button::from("Button\nnottuB");
+    let mut button2 = Button::new("Button\nnottuB");
     button2 = button2.block(Block::bordered().border_type(BorderType::Plain));
     button2 = button2.style(Style::new().on_black().blue());
     button2.render(l1[3], frame.buffer_mut(), &mut state.button2);
 
-    let mut button3 = Button::from("Button").style(Style::new().white().on_red());
+    let mut button3 = Button::new("Button").style(Style::new().white().on_red());
     button3 = button3.block(Block::bordered().border_type(BorderType::QuadrantInside));
     button3 = button3.style(Style::new().white().on_red());
     button3.render(l1[5], frame.buffer_mut(), &mut state.button3);

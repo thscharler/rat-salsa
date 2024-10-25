@@ -9,6 +9,7 @@ use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -114,6 +115,16 @@ where
 
     fn area(&self) -> Rect {
         self.list.area()
+    }
+}
+
+impl<S> RelocatableState for EditListState<S>
+where
+    S: RelocatableState,
+{
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.editor.relocate(shift, clip);
+        self.list.relocate(shift, clip);
     }
 }
 

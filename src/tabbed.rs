@@ -8,6 +8,7 @@ use crate::tabbed::glued::GluedTabs;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::Style;
@@ -342,6 +343,16 @@ impl HasFocus for TabbedState {
 
     fn navigable(&self) -> Navigation {
         Navigation::Leave
+    }
+}
+
+impl RelocatableState for TabbedState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        self.block_area = relocate_area(self.block_area, shift, clip);
+        self.widget_area = relocate_area(self.widget_area, shift, clip);
+        self.tab_title_area = relocate_area(self.tab_title_area, shift, clip);
+        relocate_areas(self.tab_title_areas.as_mut(), shift, clip);
     }
 }
 

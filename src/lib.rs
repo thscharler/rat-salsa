@@ -12,8 +12,6 @@
 // reexported per module.
 mod commons;
 
-pub mod relocate;
-
 pub mod event {
     //!
     //! Event-handler traits and Keybindings.
@@ -52,6 +50,14 @@ pub mod layout {
     pub use layout_grid::{layout_grid, layout_middle};
 }
 
+/// Relocatable widgets.
+pub mod reloc {
+    pub use rat_focus::{relocate_z_area, relocate_z_areas};
+    pub use rat_reloc::{
+        relocate_area, relocate_areas, relocate_position, relocate_positions, RelocatableState,
+    };
+}
+
 /// Scroll attribute and event-handling.
 pub mod scrolled {
     pub use rat_scrolled::{
@@ -76,6 +82,7 @@ pub mod text {
 
 pub mod button;
 pub mod calendar;
+pub mod checkbox;
 pub mod choice;
 pub mod clipper;
 /// Number input with patterns from chrono.

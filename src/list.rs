@@ -7,6 +7,7 @@ use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
 use crate::util::revert_style;
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -350,6 +351,15 @@ impl<Selection> HasFocus for ListState<Selection> {
     #[inline]
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl<Selection> RelocatableState for ListState<Selection> {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        self.inner = relocate_area(self.inner, shift, clip);
+        relocate_areas(self.row_areas.as_mut_slice(), shift, clip);
+        self.scroll.relocate(shift, clip);
     }
 }
 

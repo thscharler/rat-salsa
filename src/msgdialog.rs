@@ -259,7 +259,7 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             );
         }
 
-        Button::from("Ok")
+        Button::new("Ok")
             .styles(widget.button_style.clone())
             .render(l_dlg.buttons[0], buf, &mut state.button.borrow_mut());
     }

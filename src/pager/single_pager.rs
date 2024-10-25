@@ -1,11 +1,11 @@
 use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
 use crate::pager::{AreaHandle, PagerLayout, PagerStyle};
-use crate::relocate::RelocatableState;
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::ContainerFlag;
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Span, StatefulWidget, Style};

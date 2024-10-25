@@ -1,7 +1,7 @@
 use crate::clipper::{AreaHandle, ClipperLayout, ClipperStyle};
-use crate::relocate::RelocatableState;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
+use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;

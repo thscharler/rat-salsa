@@ -7,6 +7,7 @@ use crate::util::{fill_buf_area, revert_style};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_reloc::{relocate_area, relocate_areas, relocate_positions, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
 use ratatui::prelude::BlockExt;
@@ -947,6 +948,16 @@ impl HasFocus for SplitState {
 
     fn navigable(&self) -> Navigation {
         Navigation::Leave
+    }
+}
+
+impl RelocatableState for SplitState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        self.inner = relocate_area(self.inner, shift, clip);
+        relocate_areas(self.widget_areas.as_mut_slice(), shift, clip);
+        relocate_areas(self.splitline_areas.as_mut_slice(), shift, clip);
+        relocate_positions(self.splitline_mark_position.as_mut_slice(), shift, clip);
     }
 }
 
