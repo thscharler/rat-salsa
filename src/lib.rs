@@ -11,7 +11,7 @@ use std::fmt::{Debug, Display, Formatter};
 use std::rc::Rc;
 
 pub use crate::focus::{handle_focus, Focus, FocusBuilder};
-pub use crate::zrect::ZRect;
+pub use crate::zrect::{relocate_z_area, relocate_z_areas, ZRect};
 
 pub mod event {
     //! Rexported eventhandling traits.

@@ -1,3 +1,4 @@
+use rat_reloc::relocate_area;
 use ratatui::layout::{Columns, Margin, Offset, Position, Positions, Rect, Rows, Size};
 use std::cmp::max;
 
@@ -285,4 +286,17 @@ impl ZRect {
     pub const fn as_size(self) -> Size {
         self.as_rect().as_size()
     }
+}
+
+/// Shift the area by offset and clip it.
+pub fn relocate_z_areas(area: &mut [ZRect], shift: (i16, i16), clip: Rect) {
+    for a in area {
+        *a = relocate_z_area(*a, shift, clip)
+    }
+}
+
+/// Shift the area by offset and clip it.
+pub fn relocate_z_area(area: ZRect, shift: (i16, i16), clip: Rect) -> ZRect {
+    let reloc = relocate_area(area.as_rect(), shift, clip);
+    ZRect::from((area.z, reloc))
 }

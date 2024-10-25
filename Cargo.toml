@@ -48,6 +48,7 @@ crossterm = "0.28"
 log = "0.4"
 
 rat-event = { version = "0.25", path = "../rat-event" }
+rat-reloc = { version = "0.1", path = "../rat-reloc" }
 
 [dev-dependencies]
 fern = "0.6"
