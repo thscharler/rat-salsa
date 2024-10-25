@@ -3,6 +3,7 @@ use crate::event::ScrollOutcome;
 use crate::ScrollbarPolicy;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly};
+use rat_reloc::{relocate_area, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::Style;
@@ -564,6 +565,12 @@ impl Default for ScrollState {
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
+    }
+}
+
+impl RelocatableState for ScrollState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
     }
 }
 

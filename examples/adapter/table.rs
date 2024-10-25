@@ -136,7 +136,7 @@ impl<'a> TableS<'a> {
 
     /// Style for selection
     pub fn highlight_style<S: Into<Style>>(mut self, style: S) -> Self {
-        self.table = self.table.highlight_style(style);
+        self.table = self.table.row_highlight_style(style);
         self
     }
 
