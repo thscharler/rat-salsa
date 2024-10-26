@@ -3,7 +3,7 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::event::MenuOutcome;
-use crate::util::revert_style;
+use crate::util::{fallback_select_style, revert_style};
 use crate::{MenuBuilder, MenuItem, MenuStyle};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
@@ -263,7 +263,7 @@ fn render_ref(widget: &MenuLine<'_>, area: Rect, buf: &mut Buffer, state: &mut M
         if let Some(select_style) = widget.select_style {
             select_style
         } else {
-            revert_style(widget.style)
+            fallback_select_style(widget.style)
         }
     };
     let title_style = if let Some(title_style) = widget.title_style {

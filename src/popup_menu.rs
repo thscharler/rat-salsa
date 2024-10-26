@@ -245,6 +245,7 @@ impl<'a> PopupMenu<'a> {
     /// Set a style-set.
     pub fn styles(mut self, styles: MenuStyle) -> Self {
         self.style = styles.style;
+
         self.popup = self.popup.styles(styles.popup);
         if styles.highlight.is_some() {
             self.highlight_style = styles.highlight;
@@ -347,44 +348,39 @@ impl<'a> PopupMenu<'a> {
 impl<'a> StatefulWidgetRef for PopupMenu<'a> {
     type State = PopupMenuState;
 
-    fn render_ref(&self, mut area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if !state.is_active() {
-            state.clear_areas();
-            return;
-        }
-
-        state.navchar = self.menu.items.iter().map(|v| v.navchar).collect();
-        state.disabled = self.menu.items.iter().map(|v| v.disabled).collect();
-
-        let size = self.size();
-        area.width = size.width;
-        area.height = size.height;
-
-        self.popup.render_ref(area, buf, &mut state.popup);
-        self.layout(state.popup.area, state.popup.widget_area, state);
-        render_items(&self, buf, state)
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_popup_menu(self, area, buf, state);
     }
 }
 
 impl<'a> StatefulWidget for PopupMenu<'a> {
     type State = PopupMenuState;
 
-    fn render(mut self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if !state.is_active() {
-            state.clear_areas();
-            return;
-        }
-
-        state.navchar = self.menu.items.iter().map(|v| v.navchar).collect();
-        state.disabled = self.menu.items.iter().map(|v| v.disabled).collect();
-
-        let size = self.size();
-        let area = Rect::new(0, 0, size.width, size.height);
-
-        mem::take(&mut self.popup).render(area, buf, &mut state.popup);
-        self.layout(state.popup.area, state.popup.widget_area, state);
-        render_items(&self, buf, state);
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_popup_menu(&self, area, buf, state);
     }
+}
+
+fn render_popup_menu(
+    widget: &PopupMenu,
+    _area: Rect,
+    buf: &mut Buffer,
+    state: &mut PopupMenuState,
+) {
+    if !state.is_active() {
+        state.clear_areas();
+        return;
+    }
+
+    state.navchar = widget.menu.items.iter().map(|v| v.navchar).collect();
+    state.disabled = widget.menu.items.iter().map(|v| v.disabled).collect();
+
+    let size = widget.size();
+    let area = Rect::new(0, 0, size.width, size.height);
+
+    (&widget.popup).render(area, buf, &mut state.popup);
+    widget.layout(state.popup.area, state.popup.widget_area, state);
+    render_items(widget, buf, state);
 }
 
 fn render_items(widget: &PopupMenu<'_>, buf: &mut Buffer, state: &mut PopupMenuState) {

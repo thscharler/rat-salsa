@@ -14,3 +14,12 @@ pub(crate) fn revert_style(mut style: Style) -> Style {
         style.black().on_white()
     }
 }
+
+/// Fallback for select style.
+pub(crate) fn fallback_select_style(style: Style) -> Style {
+    if style.fg.is_some() || style.bg.is_some() {
+        style
+    } else {
+        style.underlined()
+    }
+}
