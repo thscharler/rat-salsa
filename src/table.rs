@@ -721,9 +721,6 @@ impl<'a, Selection> Table<'a, Selection> {
             self.select_footer_style = styles.select_footer;
         }
         self.show_footer_focus = styles.show_footer_focus;
-
-        self.focus_style = styles.focus_style;
-
         if styles.focus_style.is_some() {
             self.focus_style = styles.focus_style;
         }
@@ -963,8 +960,6 @@ where
         let (width, l_columns, l_spacers) = self.layout_columns(state.table_area.width);
         self.calculate_column_areas(state.columns, l_columns.as_ref(), l_spacers.as_ref(), state);
 
-        // set everything, so I don't have to care about unpainted areas later.
-        buf.set_style(state.area, self.style);
         // render block+scroll
         if self.block.is_none() {
             buf.set_style(state.area, self.style);
