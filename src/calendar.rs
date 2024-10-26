@@ -10,6 +10,7 @@ use chrono::{Datelike, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
@@ -20,7 +21,6 @@ use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::collections::HashMap;
 use std::fmt::Debug;
-use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 
 /// Renders a month.
 #[derive(Debug, Default, Clone)]
@@ -302,10 +302,33 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
 
     let mut day = widget.start_date;
 
+    let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
+    let select_style = if let Some(select_style) = widget.select_style {
+        if state.focus.get() {
+            focus_style
+        } else {
+            select_style
+        }
+    } else {
+        if state.focus.get() {
+            focus_style
+        } else {
+            revert_style(widget.style)
+        }
+    };
+    let day_style = widget.day_style.unwrap_or(widget.style);
+    let week_style = widget.week_style.unwrap_or(widget.style);
+    let weekday_style = widget.weekday_style.unwrap_or(widget.style);
+
     let title_style = if let Some(title_style) = widget.title_style {
         title_style
     } else {
         widget.style
+    };
+    let title_style = if state.is_focused() {
+        title_style.patch(focus_style)
+    } else {
+        title_style
     };
 
     let block = if let Some(block) = widget.block.clone() {
@@ -327,25 +350,6 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
 
     state.inner = block.inner(area);
     block.render(area, buf);
-
-    let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
-    let select_style = if let Some(select_style) = widget.select_style {
-        if state.focus.get() {
-            focus_style
-        } else {
-            select_style
-        }
-    } else {
-        if state.focus.get() {
-            focus_style
-        } else {
-            revert_style(widget.style)
-        }
-    };
-
-    let day_style = widget.day_style.unwrap_or(widget.style);
-    let week_style = widget.week_style.unwrap_or(widget.style);
-    let weekday_style = widget.weekday_style.unwrap_or(widget.style);
 
     let month = widget.start_date.month();
     let mut w = 0;
@@ -965,7 +969,9 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState 
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthState] {
+impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
+    for [&mut MonthState; N]
+{
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
         for i in 0..self.len() {
             let month = &mut self[i];
