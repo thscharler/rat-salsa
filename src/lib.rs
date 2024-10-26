@@ -135,6 +135,7 @@ pub mod paragraph;
 pub mod popup {
     pub use rat_popup::{Placement, PopupConstraint, PopupCore, PopupCoreState, PopupStyle};
 }
+pub mod radio;
 pub mod shadow;
 pub mod splitter;
 pub mod statusline;

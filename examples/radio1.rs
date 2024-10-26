@@ -1,15 +1,13 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{layout_grid, run_ui, setup_logging, MiniSalsaState};
-use rat_event::{ConsumedEvent, HandleEvent, Popup, Regular};
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_scrolled::{Scroll, ScrollbarPolicy};
-use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::Outcome;
+use rat_widget::radio::{Radio, RadioAlignment, RadioLayout, RadioState};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Stylize;
-use ratatui::text::{Line, Span};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
 use ratatui::Frame;
 use std::cmp::max;
@@ -22,9 +20,11 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        c1: ChoiceState::named("c1"),
-        c2: ChoiceState::named("c2"),
-        c3: ChoiceState::named("c3"),
+        layout: Default::default(),
+        align: Default::default(),
+        c1: RadioState::named("c1"),
+        c2: RadioState::named("c2"),
+        c3: RadioState::named("c3"),
         menu: MenuLineState::named("menu"),
     };
 
@@ -40,9 +40,12 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    c1: ChoiceState,
-    c2: ChoiceState,
-    c3: ChoiceState,
+    layout: RadioLayout,
+    align: RadioAlignment,
+
+    c1: RadioState,
+    c2: RadioState,
+    c3: RadioState,
     menu: MenuLineState,
 }
 
@@ -50,10 +53,20 @@ fn repaint_input(
     frame: &mut Frame<'_>,
     area: Rect,
     _data: &mut Data,
-    _istate: &mut MiniSalsaState,
+    istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
+    if istate.status[0] == "Ctrl-Q to quit." {
+        istate.status[0] = "Ctrl-Q to quit. F2/F3 change style/align.".into();
+    }
+
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
+
+    let vc = if state.align == RadioAlignment::Vertical {
+        Constraint::Fill(4)
+    } else {
+        Constraint::Length(4)
+    };
 
     let lg = layout_grid::<2, 4>(
         l1[0],
@@ -64,78 +77,52 @@ fn repaint_input(
         ])
         .flex(Flex::Start),
         Layout::vertical([
+            Constraint::Fill(1), //
+            vc,
+            vc,
+            vc,
             Constraint::Fill(1),
-            Constraint::Length(1),
-            Constraint::Length(2),
-            Constraint::Length(3),
         ])
         .spacing(1),
     );
 
-    let (w, p1) = Choice::new()
-        .item("Carrots 🥕")
-        .item("Potatoes 🥔")
-        .item("Onions 🧅")
-        .item("Peas")
-        .item("Beans")
-        .item(Line::from_iter([
-            Span::from("T").red(),
-            Span::from("omatoes 🍅"),
-        ]))
-        .item(Line::from_iter([
-            Span::from("Aubergines "),
-            Span::from("🍆"),
-        ]))
-        .item("Chili")
-        .item("Äpfel 🍎")
-        .item("...")
-        .popup_boundary(l1[0])
+    Radio::new()
+        .alignment(state.align)
+        .layout(state.layout)
+        .item("🥕Carrots")
+        .item("🥔Potatoes")
+        .item("🧅Onions")
+        .item("Peas\n&\nLentils")
+        .default_settable()
         .style(THEME.text_input())
+        .select_style(THEME.text_select())
         .focus_style(THEME.focus())
-        // .button_style(THEME.gray(0))
-        .popup_style(THEME.gray(3))
-        .popup_block(Block::bordered())
-        .popup_scroll(
-            Scroll::new()
-                .styles(THEME.scrolled_style())
-                .policy(ScrollbarPolicy::Collapse),
-        )
-        .into_widgets();
-    w.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
+        .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
-    let (w, p2) = Choice::new()
+    Radio::new()
+        .alignment(state.align)
+        .layout(state.layout)
         .item("wine")
         .item("beer")
         .item("water")
         .style(THEME.text_input())
         .focus_style(THEME.focus())
-        // .button_style(THEME.gray(0))
-        .popup_style(THEME.gray(3))
-        .popup_boundary(l1[0])
-        .popup_block(Block::bordered())
-        .into_widgets();
-    w.render(lg[1][2], frame.buffer_mut(), &mut state.c2);
+        .render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
-    let (w, p3) = Choice::new()
+    Radio::new()
+        .alignment(state.align)
+        .layout(state.layout)
         .item("red")
         .item("blue")
         .item("green")
+        .item("pink")
         .style(THEME.text_input())
         .focus_style(THEME.focus())
-        // .button_style(THEME.gray(0))
-        .popup_style(THEME.gray(3))
         .block(Block::bordered().border_type(BorderType::Rounded))
-        .popup_boundary(l1[0])
-        .popup_block(Block::bordered())
-        .into_widgets();
-    w.render(lg[1][3], frame.buffer_mut(), &mut state.c3);
-
-    p1.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
-    p2.render(lg[1][2], frame.buffer_mut(), &mut state.c2);
-    p3.render(lg[1][3], frame.buffer_mut(), &mut state.c3);
+        .render(lg[1][3], frame.buffer_mut(), &mut state.c3);
 
     let menu1 = MenuLine::new()
-        .title("a|b|c")
+        .title(":-0")
         .item_parsed("_Quit")
         .styles(THEME.menu_style());
     frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
@@ -163,12 +150,24 @@ fn handle_input(
     let mut focus = focus(state);
     let f = focus.handle(event, Regular);
 
-    // popup handling first
-    let r = state.c1.handle(event, Popup);
-    let r = r.or_else(|| state.c2.handle(event, Popup));
-    let r = r.or_else(|| state.c3.handle(event, Popup));
+    let r = match event {
+        ct_event!(keycode press SHIFT-F(2)) | ct_event!(keycode press F(2)) => {
+            state.layout = match state.layout {
+                RadioLayout::Stacked => RadioLayout::Spaced,
+                RadioLayout::Spaced => RadioLayout::Stacked,
+            };
+            Outcome::Changed
+        }
+        ct_event!(keycode press SHIFT- F(3)) | ct_event!(keycode press F(3)) => {
+            state.align = match state.align {
+                RadioAlignment::Horizontal => RadioAlignment::Vertical,
+                RadioAlignment::Vertical => RadioAlignment::Horizontal,
+            };
+            Outcome::Changed
+        }
+        _ => Outcome::Continue,
+    };
 
-    // regular later...
     let r = r.or_else(|| state.c1.handle(event, Regular));
     let r = r.or_else(|| state.c2.handle(event, Regular));
     let r = r.or_else(|| state.c3.handle(event, Regular));

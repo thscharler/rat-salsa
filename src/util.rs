@@ -9,6 +9,21 @@ use ratatui::widgets::{Block, Padding};
 use std::fmt::{Debug, Formatter};
 use std::mem;
 
+/// Union the areas, but regard only non-empty ones.
+///
+/// This can help if you want to union two non-adjacent areas.
+pub fn union_non_empty(area1: Rect, area2: Rect) -> Rect {
+    if area1.is_empty() && area2.is_empty() {
+        Rect::new(area1.x, area1.y, 0, 0)
+    } else if area1.is_empty() {
+        area2
+    } else if area2.is_empty() {
+        area1
+    } else {
+        area1.union(area2)
+    }
+}
+
 /// Returns a new style with fg and bg swapped.
 ///
 /// This is not the same as setting Style::reversed().
