@@ -79,15 +79,8 @@ fn repaint_input(
     .split(l1[1]);
 
     // set up pager
-    let pager = SinglePager::new()
-        .nav_style(Style::new().fg(THEME.orange[2]))
-        .style(THEME.gray(0))
-        .block(
-            Block::new()
-                .border_type(BorderType::Plain)
-                .borders(Borders::TOP)
-                .padding(Padding::new(1, 1, 0, 1)),
-        );
+    let pager = SinglePager::new() //
+        .styles(THEME.pager_style());
 
     // maybe rebuild layout
     let width = pager.layout_width(l2[1]);

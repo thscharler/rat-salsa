@@ -5,9 +5,9 @@ use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::event::Outcome;
-use rat_widget::radio::{Radio, RadioAlignment, RadioLayout, RadioState};
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::style::Stylize;
+use rat_widget::radio::{Radio, RadioLayout, RadioState};
+use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
+use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
 use ratatui::Frame;
 use std::cmp::max;
@@ -21,7 +21,7 @@ fn main() -> Result<(), anyhow::Error> {
 
     let mut state = State {
         layout: Default::default(),
-        align: Default::default(),
+        direction: Default::default(),
         c1: RadioState::named("c1"),
         c2: RadioState::named("c2"),
         c3: RadioState::named("c3"),
@@ -41,7 +41,7 @@ struct Data {}
 
 struct State {
     layout: RadioLayout,
-    align: RadioAlignment,
+    direction: Direction,
 
     c1: RadioState,
     c2: RadioState,
@@ -62,7 +62,7 @@ fn repaint_input(
 
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
-    let vc = if state.align == RadioAlignment::Vertical {
+    let vc = if state.direction == Direction::Vertical {
         Constraint::Fill(4)
     } else {
         Constraint::Length(4)
@@ -86,38 +86,40 @@ fn repaint_input(
         .spacing(1),
     );
 
+    frame.buffer_mut().set_style(area, Style::new().on_blue());
+
     Radio::new()
-        .alignment(state.align)
+        .direction(state.direction)
         .layout(state.layout)
         .item("🥕Carrots")
         .item("🥔Potatoes")
         .item("🧅Onions")
         .item("Peas\n&\nLentils")
         .default_settable()
-        .style(THEME.text_input())
-        .select_style(THEME.text_select())
-        .focus_style(THEME.focus())
+        // .style(THEME.text_input())
+        // .select_style(THEME.text_select())
+        // .focus_style(THEME.focus())
         .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     Radio::new()
-        .alignment(state.align)
+        .direction(state.direction)
         .layout(state.layout)
         .item("wine")
         .item("beer")
         .item("water")
-        .style(THEME.text_input())
-        .focus_style(THEME.focus())
+        // .style(THEME.text_input())
+        // .focus_style(THEME.focus())
         .render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
     Radio::new()
-        .alignment(state.align)
+        .direction(state.direction)
         .layout(state.layout)
         .item("red")
         .item("blue")
         .item("green")
         .item("pink")
-        .style(THEME.text_input())
-        .focus_style(THEME.focus())
+        // .style(THEME.text_input())
+        // .focus_style(THEME.focus())
         .block(Block::bordered().border_type(BorderType::Rounded))
         .render(lg[1][3], frame.buffer_mut(), &mut state.c3);
 
@@ -159,9 +161,9 @@ fn handle_input(
             Outcome::Changed
         }
         ct_event!(keycode press SHIFT- F(3)) | ct_event!(keycode press F(3)) => {
-            state.align = match state.align {
-                RadioAlignment::Horizontal => RadioAlignment::Vertical,
-                RadioAlignment::Vertical => RadioAlignment::Horizontal,
+            state.direction = match state.direction {
+                Direction::Horizontal => Direction::Vertical,
+                Direction::Vertical => Direction::Horizontal,
             };
             Outcome::Changed
         }

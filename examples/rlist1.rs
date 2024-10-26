@@ -183,7 +183,7 @@ fn repaint_input(
     EditList::new(
         List::default()
             .items(data.data.iter().map(|v| ListItem::from(v.as_str())))
-            .styles(THEME.list_styles())
+            .styles(THEME.list_style())
             .scroll(Scroll::new()),
         EditEntry,
     )

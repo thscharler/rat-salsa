@@ -79,8 +79,16 @@ fn repaint_input(
     .split(l1[1]);
 
     // set up pager
-    let pager = DualPager::new() //
-        .styles(THEME.pager_style());
+    let pager = DualPager::new()
+        .nav_style(Style::new().fg(THEME.orange[2]))
+        .style(THEME.gray(0))
+        .divider_style(Style::new().bg(THEME.gray[0]).fg(THEME.gray[2]))
+        .block(
+            Block::new()
+                .border_type(BorderType::Plain)
+                .borders(Borders::TOP)
+                .padding(Padding::new(1, 1, 0, 1)),
+        );
 
     // maybe rebuild layout
     let width = pager.layout_width(l2[1]);

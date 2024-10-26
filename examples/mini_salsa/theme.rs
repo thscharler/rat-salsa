@@ -6,12 +6,15 @@ use rat_text::TextStyle;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::MonthStyle;
 use rat_widget::checkbox::CheckboxStyle;
+use rat_widget::choice::ChoiceStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
+use rat_widget::pager::PagerStyle;
 use rat_widget::splitter::{SplitStyle, SplitType};
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::widgets::{Block, BorderType};
+use std::time::Duration;
 
 #[derive(Debug, Default, Clone)]
 pub struct Scheme {
@@ -166,7 +169,7 @@ impl Scheme {
         Style::default().fg(self.gray[1]).bg(self.black[1])
     }
 
-    pub fn table(&self) -> Style {
+    pub fn table_base(&self) -> Style {
         Style::default().fg(self.white[1]).bg(self.black[0])
     }
 
@@ -191,24 +194,41 @@ impl Scheme {
     }
 
     /// Data display style. Used for lists, tables, ...
-    pub fn data(&self) -> Style {
+    pub fn data_base(&self) -> Style {
         Style::default().fg(self.white[0]).bg(self.black[1])
     }
 
     /// Background for dialogs.
-    pub fn dialog_style(&self) -> Style {
+    pub fn dialog_base(&self) -> Style {
         Style::default().fg(self.white[2]).bg(self.gray[1])
     }
 
+    /// Style for the status line.
+    pub fn status_base(&self) -> Style {
+        Style::default().fg(self.white[0]).bg(self.black[2])
+    }
+
+    /// Base style for lists.
+    pub fn list_base(&self) -> Style {
+        self.data_base()
+    }
+
+    /// Base style for buttons.
+    pub fn button_base(&self) -> Style {
+        self.style(self.gray[2])
+    }
+
+    /// Armed style for buttons.
+    pub fn button_armed(&self) -> Style {
+        Style::default().fg(self.black[0]).bg(self.secondary[0])
+    }
+
+    /// Complete MonthStyle.
     pub fn month_style(&self) -> MonthStyle {
         MonthStyle {
-            style: Style::default().fg(self.white[3]).bg(self.black[2]),
+            style: self.style(self.black[2]),
             title: None,
-            week: Some(
-                Style::default()
-                    .fg(self.text_color(self.orange[0]))
-                    .bg(self.orange[0]),
-            ),
+            week: Some(Style::new().fg(self.limegreen[2])),
             weekday: Some(Style::new().fg(self.limegreen[2])),
             day: None,
             select: Some(self.select()),
@@ -217,15 +237,10 @@ impl Scheme {
         }
     }
 
-    /// Style for the status line.
-    pub fn status_style(&self) -> Style {
-        Style::default().fg(self.white[0]).bg(self.black[2])
-    }
-
     /// Complete TextAreaStyle
     pub fn textarea_style(&self) -> TextStyle {
         TextStyle {
-            style: self.data(),
+            style: self.data_base(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
             ..Default::default()
@@ -243,7 +258,21 @@ impl Scheme {
         }
     }
 
-    /// Checkbox
+    pub fn choice_style(&self) -> ChoiceStyle {
+        ChoiceStyle {
+            style: self.text_input(),
+            select: Some(self.select()),
+            focus: Some(self.text_focus()),
+            popup: PopupStyle {
+                style: self.dialog_base(),
+                scroll: Some(self.scrolled_style()),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    /// Complete CheckboxStyle
     pub fn checkbox_style(&self) -> CheckboxStyle {
         CheckboxStyle {
             style: self.text_input(),
@@ -272,10 +301,34 @@ impl Scheme {
         }
     }
 
-    /// Complete FTableStyle
+    /// Complete ButtonStyle
+    pub fn button_style_no_border(&self) -> ButtonStyle {
+        ButtonStyle {
+            style: self.button_base(),
+            focus: Some(self.focus()),
+            armed: Some(self.select()),
+            armed_delay: Some(Duration::from_millis(50)),
+            block: None,
+            ..Default::default()
+        }
+    }
+
+    /// Complete ButtonStyle
+    pub fn button_style(&self) -> ButtonStyle {
+        ButtonStyle {
+            style: self.button_base(),
+            focus: Some(self.focus()),
+            armed: Some(self.select()),
+            armed_delay: Some(Duration::from_millis(50)),
+            block: Some(Block::bordered().border_type(BorderType::Rounded)),
+            ..Default::default()
+        }
+    }
+
+    /// Complete TableStyle
     pub fn table_style(&self) -> TableStyle {
         TableStyle {
-            style: self.data(),
+            style: self.data_base(),
             select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
@@ -284,22 +337,9 @@ impl Scheme {
     }
 
     /// Complete ListStyle
-    pub fn list_style(&self) -> Style {
-        self.data()
-    }
-
-    /// Complete ButtonStyle
-    pub fn button_style(&self) -> Style {
-        Style::default().fg(self.white[0]).bg(self.primary[0])
-    }
-
-    pub fn armed_style(&self) -> Style {
-        Style::default().fg(self.black[0]).bg(self.secondary[0])
-    }
-
-    pub fn list_styles(&self) -> ListStyle {
+    pub fn list_style(&self) -> ListStyle {
         ListStyle {
-            style: self.list_style(),
+            style: self.list_base(),
             select: Some(self.select()),
             focus: Some(self.focus()),
             ..Default::default()
@@ -320,7 +360,7 @@ impl Scheme {
         }
     }
 
-    /// Complete Split style
+    /// Complete SplitStyle
     pub fn split_style(&self, t: SplitType) -> SplitStyle {
         if t == SplitType::FullEmpty {
             let style = Style::default().bg(self.gray[0]).fg(self.gray[3]);
@@ -349,7 +389,7 @@ impl Scheme {
     /// example, which shows timings for Render/Event/Action.
     pub fn statusline_style(&self) -> Vec<Style> {
         vec![
-            self.status_style(),
+            self.status_base(),
             Style::default()
                 .fg(self.text_color(self.white[0]))
                 .bg(self.blue[3]),
@@ -362,21 +402,15 @@ impl Scheme {
         ]
     }
 
+    /// Complete FileDialogStyle
     pub fn file_dialog_style(&self) -> FileDialogStyle {
         FileDialogStyle {
-            style: self.dialog_style(),
+            style: self.dialog_base(),
             list: Some(self.list_style()),
-            path: Some(self.text_input()),
-            name: Some(self.text_input()),
-            invalid: Some(Style::new().fg(self.red[3]).bg(self.gray[2])),
-            select: Some(self.select()),
-            focus: Some(self.focus()),
-            button: Some(ButtonStyle {
-                style: self.button_style(),
-                focus: Some(self.focus()),
-                armed: Some(self.armed_style()),
-                ..Default::default()
-            }),
+            roots: Some(self.list_style()),
+            text: Some(self.input_style()),
+            button: Some(self.button_style_no_border()),
+            block: Some(Block::bordered()),
             ..Default::default()
         }
     }
@@ -384,17 +418,26 @@ impl Scheme {
     /// Complete MsgDialogStyle.
     pub fn msg_dialog_style(&self) -> MsgDialogStyle {
         MsgDialogStyle {
-            style: self.status_style(),
-            button: ButtonStyle {
-                style: self.button_style(),
-                focus: Some(self.focus()),
-                armed: Some(self.armed_style()),
-                ..Default::default()
-            },
+            style: self.status_base(),
+            button: Some(self.button_style_no_border()),
             ..Default::default()
         }
     }
 
+    pub fn pager_style(&self) -> PagerStyle {
+        let nav_style = Style::new().fg(self.secondary[1]);
+        let divider_style = Style::default().fg(self.gray[0]).bg(self.black[1]);
+        PagerStyle {
+            style: self.data_base(),
+            nav: Some(nav_style),
+            divider: Some(divider_style),
+            title: None,
+            block: Some(Block::bordered().border_style(divider_style)),
+            ..Default::default()
+        }
+    }
+
+    /// Calculate a style based on the bg color.
     pub fn style(&self, color: Color) -> Style {
         Style::new().bg(color).fg(self.text_color(color))
     }

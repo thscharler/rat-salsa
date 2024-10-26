@@ -4,14 +4,12 @@ use rat_event::{ct_event, try_flow};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_widget::button::ButtonStyle;
 use rat_widget::event::Outcome;
 use rat_widget::layout::layout_middle;
 use rat_widget::msgdialog;
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
-use ratatui::widgets::{Block, StatefulWidget};
+use ratatui::widgets::StatefulWidget;
 use ratatui::Frame;
 use std::iter::repeat_with;
 
@@ -52,16 +50,15 @@ fn repaint_input(
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
-    let menu1 = MenuLine::new()
+    MenuLine::new()
         .title("Sample")
         .item_parsed("Choose _1")
         .item_parsed("Choose _2")
         .item_parsed("Choose _3")
         .item_parsed("_Message|F1")
         .item_parsed("_Quit")
-        .title_style(Style::default().black().on_yellow())
-        .style(Style::default().black().on_dark_gray());
-    frame.render_stateful_widget(menu1, l1[1], &mut state.menu);
+        .styles(THEME.menu_style())
+        .render(l1[1], frame.buffer_mut(), &mut state.menu);
 
     if state.msg.active() {
         let l_msg = layout_middle(
@@ -72,14 +69,15 @@ fn repaint_input(
             Constraint::Percentage(19),
         );
         MsgDialog::new()
-            .block(Block::bordered().style(THEME.gray(3)))
-            .style(THEME.gray(3))
-            .button_style(ButtonStyle {
-                style: THEME.secondary(2),
-                focus: Some(THEME.primary(3)),
-                armed: Some(THEME.primary(1)),
-                ..Default::default()
-            })
+            .styles(THEME.msg_dialog_style())
+            // .block(Block::bordered().style(THEME.gray(3)))
+            // .style(THEME.gray(3))
+            // .button_style(ButtonStyle {
+            //     style: THEME.secondary(2),
+            //     focus: Some(THEME.primary(3)),
+            //     armed: Some(THEME.primary(1)),
+            //     ..Default::default()
+            // })
             .render(l_msg, frame.buffer_mut(), &mut state.msg);
     }
 

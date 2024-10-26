@@ -58,9 +58,9 @@ fn repaint_input(
     let lg = layout_grid::<2, 4>(
         l1[0],
         Layout::horizontal([
-            Constraint::Length(15), //
+            Constraint::Length(25), //
             Constraint::Fill(1),
-            Constraint::Length(15),
+            Constraint::Length(25),
         ])
         .flex(Flex::Start),
         Layout::vertical([
@@ -73,6 +73,7 @@ fn repaint_input(
     );
 
     let (w, p1) = Choice::new()
+        .styles(THEME.choice_style())
         .item("Carrots 🥕")
         .item("Potatoes 🥔")
         .item("Onions 🧅")
@@ -89,44 +90,29 @@ fn repaint_input(
         .item("Chili")
         .item("Äpfel 🍎")
         .item("...")
+        .default_settable()
         .popup_boundary(l1[0])
-        .style(THEME.text_input())
-        .focus_style(THEME.focus())
-        // .button_style(THEME.gray(0))
-        .popup_style(THEME.gray(3))
-        .popup_block(Block::bordered())
-        .popup_scroll(
-            Scroll::new()
-                .styles(THEME.scrolled_style())
-                .policy(ScrollbarPolicy::Collapse),
-        )
         .into_widgets();
     w.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     let (w, p2) = Choice::new()
+        .styles(THEME.choice_style())
         .item("wine")
         .item("beer")
         .item("water")
-        .style(THEME.text_input())
-        .focus_style(THEME.focus())
-        // .button_style(THEME.gray(0))
-        .popup_style(THEME.gray(3))
+        .default_settable()
         .popup_boundary(l1[0])
-        .popup_block(Block::bordered())
         .into_widgets();
     w.render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
     let (w, p3) = Choice::new()
+        .styles(THEME.choice_style())
         .item("red")
         .item("blue")
         .item("green")
-        .style(THEME.text_input())
-        .focus_style(THEME.focus())
-        // .button_style(THEME.gray(0))
-        .popup_style(THEME.gray(3))
         .block(Block::bordered().border_type(BorderType::Rounded))
+        .popup_block(Block::bordered().border_type(BorderType::Rounded))
         .popup_boundary(l1[0])
-        .popup_block(Block::bordered())
         .into_widgets();
     w.render(lg[1][3], frame.buffer_mut(), &mut state.c3);
 

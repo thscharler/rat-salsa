@@ -1,3 +1,4 @@
+use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::try_flow;
 use rat_text::HasScreenCursor;
@@ -5,8 +6,8 @@ use rat_widget::date_input;
 use rat_widget::date_input::{DateInput, DateInputState};
 use rat_widget::event::Outcome;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
+use ratatui::widgets::{StatefulWidget, Widget};
 use ratatui::Frame;
 
 mod mini_salsa;
@@ -56,7 +57,7 @@ fn repaint_input(
         Constraint::Length(1),
         Constraint::Fill(1),
     ])
-    .split(l0[1]);
+    .split(l0[0]);
 
     let l2 = Layout::vertical([
         Constraint::Length(7),
@@ -66,14 +67,15 @@ fn repaint_input(
     ])
     .split(l0[1]);
 
-    let input1 = DateInput::default().style(Style::default().white().on_dark_gray());
-    frame.render_stateful_widget(input1, l1[1], &mut state.input);
+    DateInput::new() //
+        .styles(THEME.input_style())
+        .render(l1[1], frame.buffer_mut(), &mut state.input);
     if let Some((x, y)) = state.input.screen_cursor() {
         frame.set_cursor_position((x, y));
     }
 
-    let txt1 = Span::from(format!("{:?}", state.input.value()));
-    frame.render_widget(txt1, l2[1]);
+    Span::from(format!("{:?}", state.input.value())) //
+        .render(l2[1], frame.buffer_mut());
 
     Ok(())
 }
