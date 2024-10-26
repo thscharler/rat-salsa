@@ -133,6 +133,16 @@ impl<'a> TextArea<'a> {
 
     /// Set the combined style.
     #[inline]
+    pub fn styles_opt(self, styles: Option<TextStyle>) -> Self {
+        if let Some(styles) = styles {
+            self.styles(styles)
+        } else {
+            self
+        }
+    }
+
+    /// Set the combined style.
+    #[inline]
     pub fn styles(mut self, style: TextStyle) -> Self {
         self.style = style.style;
         if style.focus.is_some() {
@@ -281,7 +291,7 @@ fn render_text_area(
     let select_style = if let Some(select_style) = widget.select_style {
         select_style
     } else {
-        Style::default().on_yellow()
+        Style::default().black().on_yellow()
     };
     let style = widget.style;
 
