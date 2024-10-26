@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
-use crate::util::revert_style;
+use crate::util::{fallback_select_style, revert_style};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
@@ -151,6 +151,7 @@ impl<'a, Selection> List<'a, Selection> {
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -159,6 +160,16 @@ impl<'a, Selection> List<'a, Selection> {
     pub fn scroll(mut self, scroll: Scroll<'a>) -> Self {
         self.scroll = Some(scroll);
         self
+    }
+
+    /// Set all styles.
+    #[inline]
+    pub fn styles_opt(self, styles: Option<ListStyle>) -> Self {
+        if let Some(styles) = styles {
+            self.styles(styles)
+        } else {
+            self
+        }
     }
 
     /// Set all styles.
@@ -177,6 +188,7 @@ impl<'a, Selection> List<'a, Selection> {
         if let Some(block) = styles.block {
             self.block = Some(block);
         }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -184,6 +196,7 @@ impl<'a, Selection> List<'a, Selection> {
     #[inline]
     pub fn style<S: Into<Style>>(mut self, style: S) -> Self {
         self.style = style.into();
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -218,22 +231,6 @@ impl<'a, Selection> List<'a, Selection> {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.items.is_empty()
-    }
-
-    fn defaulted_select(&self) -> Style {
-        if let Some(select) = self.select_style {
-            select
-        } else {
-            revert_style(self.style)
-        }
-    }
-
-    fn defaulted_focus(&self) -> Style {
-        if let Some(focus) = self.focus_style {
-            focus
-        } else {
-            revert_style(self.style)
-        }
     }
 }
 
@@ -291,6 +288,11 @@ fn render_list<Selection: ListSelection>(
         state.scroll.set_page_len(state.row_areas.len());
     }
 
+    let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
+    let select_style = widget
+        .select_style
+        .unwrap_or(fallback_select_style(widget.style));
+
     // max_v_offset
     let mut n = 0;
     let mut height = 0;
@@ -304,9 +306,9 @@ fn render_list<Selection: ListSelection>(
     state.scroll.set_max_offset(state.rows.saturating_sub(n));
 
     let (style, select_style) = if state.is_focused() {
-        (widget.style, widget.defaulted_focus())
+        (widget.style, focus_style)
     } else {
-        (widget.style, widget.defaulted_select())
+        (widget.style, select_style)
     };
 
     sa.render(
