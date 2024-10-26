@@ -5,6 +5,7 @@ use rat_scrolled::ScrollStyle;
 use rat_text::TextStyle;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::MonthStyle;
+use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
@@ -238,6 +239,15 @@ impl Scheme {
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.red[3])),
+            ..Default::default()
+        }
+    }
+
+    /// Checkbox
+    pub fn checkbox_style(&self) -> CheckboxStyle {
+        CheckboxStyle {
+            style: self.text_input(),
+            focus: Some(self.text_focus()),
             ..Default::default()
         }
     }

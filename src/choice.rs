@@ -47,6 +47,8 @@ use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::{Line, Span};
+#[cfg(feature = "unstable-widget-ref")]
+use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cell::RefCell;
 use std::cmp::{max, min};
@@ -77,7 +79,7 @@ pub struct Choice<'a> {
 
 /// Renders the main widget.
 #[derive(Debug)]
-pub struct RenderChoice<'a> {
+pub struct ChoiceWidget<'a> {
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
@@ -90,7 +92,7 @@ pub struct RenderChoice<'a> {
 /// Renders the popup. This is called after the rest
 /// of the area is rendered and overwrites to display itself.
 #[derive(Debug)]
-pub struct RenderChoicePopup<'a> {
+pub struct ChoicePopup<'a> {
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
     style: Style,
@@ -319,9 +321,9 @@ impl<'a> Choice<'a> {
     /// Choice itself doesn't render.
     ///
     /// This builds the widgets from the parameters set for Choice.
-    pub fn into_widgets(self) -> (RenderChoice<'a>, RenderChoicePopup<'a>) {
+    pub fn into_widgets(self) -> (ChoiceWidget<'a>, ChoicePopup<'a>) {
         (
-            RenderChoice {
+            ChoiceWidget {
                 items: self.items.clone(),
                 style: self.style,
                 button_style: self.button_style,
@@ -329,7 +331,7 @@ impl<'a> Choice<'a> {
                 block: self.block,
                 len: self.popup_len,
             },
-            RenderChoicePopup {
+            ChoicePopup {
                 items: self.items.clone(),
                 style: self.style,
                 select_style: self.select_style,
@@ -341,139 +343,156 @@ impl<'a> Choice<'a> {
     }
 }
 
-impl<'a> StatefulWidget for RenderChoice<'a> {
+#[cfg(feature = "unstable-widget-ref")]
+impl<'a> StatefulWidgetRef for ChoiceWidget<'a> {
     type State = ChoiceState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        state.area = area;
-        state.z_areas[0] = ZRect::from(area);
-        state.len = self.items.borrow().len();
-
-        if !state.popup.is_active() {
-            let len = self
-                .len
-                .unwrap_or_else(|| min(5, self.items.borrow().len()) as u16);
-            state.popup.v_scroll.max_offset =
-                self.items.borrow().len().saturating_sub(len as usize);
-            state.popup.v_scroll.page_len = len as usize;
-            state
-                .popup
-                .v_scroll
-                .scroll_to_pos(state.selected.unwrap_or_default());
-        }
-
-        state.nav_char.clear();
-        state.nav_char.extend(self.items.borrow().iter().map(|v| {
-            v.spans
-                .first()
-                .map(|v| v.content.as_ref().chars().next())
-                .flatten()
-                .map_or(Vec::default(), |c| c.to_lowercase().collect::<Vec<_>>())
-        }));
-
-        let inner = self.block.inner_if_some(area);
-
-        state.item_area = Rect::new(
-            inner.x,
-            inner.y,
-            inner.width.saturating_sub(3),
-            inner.height,
-        );
-        state.button_area = Rect::new(inner.right().saturating_sub(3), inner.y, 3, inner.height);
-
-        let button_style = self.button_style.unwrap_or(self.style);
-        let focus_style = self.focus_style.unwrap_or(self.style);
-
-        self.block.render(area, buf);
-
-        if state.is_focused() {
-            buf.set_style(state.item_area, focus_style);
-        } else {
-            buf.set_style(state.item_area, self.style);
-        }
-        if let Some(selected) = state.selected {
-            if let Some(item) = self.items.borrow().get(selected) {
-                item.render(state.item_area, buf);
-            }
-        }
-
-        buf.set_style(state.button_area, button_style);
-        let dy = if (state.button_area.height & 1) == 1 {
-            state.button_area.height / 2
-        } else {
-            state.button_area.height.saturating_sub(1) / 2
-        };
-        let bc = if state.is_popup_active() {
-            " ◆ "
-        } else {
-            " ▼ "
-        };
-        Span::from(bc).render(
-            Rect::new(state.button_area.x, state.button_area.y + dy, 3, 1),
-            buf,
-        );
+    fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_choice(self, area, buf, state);
     }
 }
 
-impl<'a> StatefulWidget for RenderChoicePopup<'a> {
+impl<'a> StatefulWidget for ChoiceWidget<'a> {
     type State = ChoiceState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        if state.popup.is_active() {
-            let len = self
-                .popup_len
-                .unwrap_or_else(|| min(5, self.items.borrow().len()) as u16);
+        render_choice(&self, area, buf, state);
+    }
+}
 
-            let popup_len = len + self.popup.get_block_size().height;
-            let popup_style = self.popup.style;
-            let pop_area = Rect::new(0, 0, area.width, popup_len);
+fn render_choice(widget: &ChoiceWidget<'_>, area: Rect, buf: &mut Buffer, state: &mut ChoiceState) {
+    state.area = area;
+    state.z_areas[0] = ZRect::from(area);
+    state.len = widget.items.borrow().len();
 
-            self.popup
-                .constraint(self.popup_placement.into_constraint(area))
-                .render(pop_area, buf, &mut state.popup);
+    if !state.popup.is_active() {
+        let len = widget
+            .len
+            .unwrap_or_else(|| min(5, widget.items.borrow().len()) as u16);
+        state.popup.v_scroll.max_offset = widget.items.borrow().len().saturating_sub(len as usize);
+        state.popup.v_scroll.page_len = len as usize;
+        state
+            .popup
+            .v_scroll
+            .scroll_to_pos(state.selected.unwrap_or_default());
+    }
 
-            let inner = state.popup.widget_area;
+    state.nav_char.clear();
+    state.nav_char.extend(widget.items.borrow().iter().map(|v| {
+        v.spans
+            .first()
+            .map(|v| v.content.as_ref().chars().next())
+            .flatten()
+            .map_or(Vec::default(), |c| c.to_lowercase().collect::<Vec<_>>())
+    }));
 
-            state.popup.v_scroll.max_offset = self
-                .items
-                .borrow()
-                .len()
-                .saturating_sub(inner.height as usize);
-            state.popup.v_scroll.page_len = inner.height as usize;
+    let inner = widget.block.inner_if_some(area);
 
-            state.item_areas.clear();
-            let mut row = inner.y;
-            let mut idx = state.popup.v_scroll.offset;
-            loop {
-                if row >= inner.bottom() {
-                    break;
-                }
+    state.item_area = Rect::new(
+        inner.x,
+        inner.y,
+        inner.width.saturating_sub(3),
+        inner.height,
+    );
+    state.button_area = Rect::new(inner.right().saturating_sub(3), inner.y, 3, inner.height);
 
-                let item_area = Rect::new(inner.x, row, inner.width, 1);
-                state.item_areas.push(item_area);
+    let button_style = widget.button_style.unwrap_or(widget.style);
+    let focus_style = widget.focus_style.unwrap_or(widget.style);
 
-                if let Some(item) = self.items.borrow().get(idx) {
-                    let style = if state.selected == Some(idx) {
-                        self.select_style.unwrap_or(revert_style(self.style))
-                    } else {
-                        popup_style
-                    };
+    widget.block.render(area, buf);
 
-                    buf.set_style(item_area, style);
-                    item.render(item_area, buf);
-                } else {
-                    // noop?
-                }
+    if state.is_focused() {
+        buf.set_style(state.item_area, focus_style);
+    } else {
+        buf.set_style(state.item_area, widget.style);
+    }
+    if let Some(selected) = state.selected {
+        if let Some(item) = widget.items.borrow().get(selected) {
+            item.render(state.item_area, buf);
+        }
+    }
 
-                row += 1;
-                idx += 1;
+    buf.set_style(state.button_area, button_style);
+    let dy = if (state.button_area.height & 1) == 1 {
+        state.button_area.height / 2
+    } else {
+        state.button_area.height.saturating_sub(1) / 2
+    };
+    let bc = if state.is_popup_active() {
+        " ◆ "
+    } else {
+        " ▼ "
+    };
+    Span::from(bc).render(
+        Rect::new(state.button_area.x, state.button_area.y + dy, 3, 1),
+        buf,
+    );
+}
+
+impl<'a> StatefulWidget for ChoicePopup<'a> {
+    type State = ChoiceState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_popup(&self, area, buf, state);
+    }
+}
+
+fn render_popup(widget: &ChoicePopup<'_>, area: Rect, buf: &mut Buffer, state: &mut ChoiceState) {
+    if state.popup.is_active() {
+        let len = widget
+            .popup_len
+            .unwrap_or_else(|| min(5, widget.items.borrow().len()) as u16);
+
+        let popup_len = len + widget.popup.get_block_size().height;
+        let popup_style = widget.popup.style;
+        let pop_area = Rect::new(0, 0, area.width, popup_len);
+
+        widget
+            .popup
+            .ref_constraint(widget.popup_placement.into_constraint(area))
+            .render(pop_area, buf, &mut state.popup);
+
+        let inner = state.popup.widget_area;
+
+        state.popup.v_scroll.max_offset = widget
+            .items
+            .borrow()
+            .len()
+            .saturating_sub(inner.height as usize);
+        state.popup.v_scroll.page_len = inner.height as usize;
+
+        state.item_areas.clear();
+        let mut row = inner.y;
+        let mut idx = state.popup.v_scroll.offset;
+        loop {
+            if row >= inner.bottom() {
+                break;
             }
 
-            state.z_areas[1] = ZRect::from((1, state.popup.area));
-            state.area = ZRect::union_all(&state.z_areas).expect("area").as_rect();
-        } else {
-            state.popup.clear_areas();
+            let item_area = Rect::new(inner.x, row, inner.width, 1);
+            state.item_areas.push(item_area);
+
+            if let Some(item) = widget.items.borrow().get(idx) {
+                let style = if state.selected == Some(idx) {
+                    widget.select_style.unwrap_or(revert_style(widget.style))
+                } else {
+                    popup_style
+                };
+
+                buf.set_style(item_area, style);
+                item.render(item_area, buf);
+            } else {
+                // noop?
+            }
+
+            row += 1;
+            idx += 1;
         }
+
+        state.z_areas[1] = ZRect::from((1, state.popup.area));
+        state.area = ZRect::union_all(&state.z_areas).expect("area").as_rect();
+    } else {
+        state.popup.clear_areas();
     }
 }
 
