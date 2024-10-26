@@ -66,6 +66,9 @@ use std::rc::Rc;
 pub struct Choice<'a> {
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
+    // Can return to default with a user interaction.
+    default_settable: bool,
+
     style: Style,
     button_style: Option<Style>,
     select_style: Option<Style>,
@@ -81,6 +84,9 @@ pub struct Choice<'a> {
 #[derive(Debug)]
 pub struct ChoiceWidget<'a> {
     items: Rc<RefCell<Vec<Line<'a>>>>,
+
+    // Can return to default with a user interaction.
+    default_settable: bool,
 
     style: Style,
     button_style: Option<Style>,
@@ -143,6 +149,9 @@ pub struct ChoiceState {
     /// __read only__. renewed with each render.
     pub len: usize,
 
+    /// Can return to default with a user interaction.
+    /// __read only__. renewed for each render.
+    pub default_settable: bool,
     /// Select item.
     /// __read+write__
     pub selected: Option<usize>,
@@ -177,6 +186,7 @@ impl<'a> Default for Choice<'a> {
     fn default() -> Self {
         Self {
             items: Default::default(),
+            default_settable: false,
             style: Default::default(),
             button_style: None,
             select_style: None,
@@ -194,9 +204,25 @@ impl<'a> Choice<'a> {
         Self::default()
     }
 
+    /// Button text.
+    #[inline]
+    pub fn items(self, items: impl IntoIterator<Item = impl Into<Line<'a>>>) -> Self {
+        self.items.borrow_mut().clear();
+        self.items
+            .borrow_mut()
+            .extend(items.into_iter().map(|v| v.into()));
+        self
+    }
+
     /// Add an item.
     pub fn item(self, item: impl Into<Line<'a>>) -> Self {
         self.items.borrow_mut().push(item.into());
+        self
+    }
+
+    /// Can return to default with some user interaction.
+    pub fn default_settable(mut self) -> Self {
+        self.default_settable = true;
         self
     }
 
@@ -325,6 +351,7 @@ impl<'a> Choice<'a> {
         (
             ChoiceWidget {
                 items: self.items.clone(),
+                default_settable: self.default_settable,
                 style: self.style,
                 button_style: self.button_style,
                 focus_style: self.focus_style,
@@ -364,6 +391,7 @@ fn render_choice(widget: &ChoiceWidget<'_>, area: Rect, buf: &mut Buffer, state:
     state.area = area;
     state.z_areas[0] = ZRect::from(area);
     state.len = widget.items.borrow().len();
+    state.default_settable = widget.default_settable;
 
     if !state.popup.is_active() {
         let len = widget
@@ -397,7 +425,7 @@ fn render_choice(widget: &ChoiceWidget<'_>, area: Rect, buf: &mut Buffer, state:
     state.button_area = Rect::new(inner.right().saturating_sub(3), inner.y, 3, inner.height);
 
     let button_style = widget.button_style.unwrap_or(widget.style);
-    let focus_style = widget.focus_style.unwrap_or(widget.style);
+    let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
 
     widget.block.render(area, buf);
 
@@ -506,6 +534,7 @@ impl Default for ChoiceState {
             button_area: Default::default(),
             item_areas: Default::default(),
             len: 0,
+            default_settable: false,
             selected: None,
             popup: Default::default(),
             focus: Default::default(),
@@ -712,6 +741,14 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ChoiceState {
                 ct_event!(keycode press Enter) | ct_event!(keycode press Esc) => {
                     self.set_popup_active(false).into()
                 }
+                ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
+                    if self.default_settable {
+                        self.select(None);
+                        Outcome::Changed
+                    } else {
+                        Outcome::Continue
+                    }
+                }
                 ct_event!(keycode press Down) => {
                     let r0 = if !self.popup.is_active() {
                         self.popup.set_active(true);
@@ -755,7 +792,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ChoiceState {
                 if self.item_area.contains((*x, *y).into())
                     || self.button_area.contains((*x, *y).into()) =>
             {
-                if !self.is_popup_active() && !self.popup.active.lost() {
+                if !self.gained_focus() && !self.is_popup_active() && !self.popup.active.lost() {
                     self.set_popup_active(true);
                     Outcome::Changed
                 } else {
