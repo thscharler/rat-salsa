@@ -227,6 +227,11 @@ impl PageLayoutCore {
 
         self.area = page;
 
+        if self.area.is_empty() {
+            self.ext_area = self.area;
+            return self.ext_area;
+        }
+
         // range that contains all widgets that are visible on the page.
         let y_range = self
             .y_ranges

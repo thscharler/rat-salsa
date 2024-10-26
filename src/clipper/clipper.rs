@@ -1,4 +1,5 @@
 use crate::clipper::{AreaHandle, ClipperLayout, ClipperStyle};
+use log::debug;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
 use rat_reloc::RelocatableState;
@@ -7,6 +8,8 @@ use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
 use ratatui::widgets::{Block, StatefulWidget, Widget};
+use std::cmp::min;
+use std::time::SystemTime;
 
 /// Configure the Clipper.
 #[derive(Debug, Default, Clone)]
@@ -349,7 +352,7 @@ impl<'a> ClipperBuffer<'a> {
 impl<'a> StatefulWidget for ClipperWidget<'a> {
     type State = ClipperState;
 
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         assert_eq!(area, state.area);
 
         ScrollArea::new()
@@ -366,20 +369,15 @@ impl<'a> StatefulWidget for ClipperWidget<'a> {
 
         let inner_area = state.widget_area;
 
+        let copy_width = min(inner_area.width, self.buffer.area.width) as usize;
+
         for y in 0..inner_area.height {
-            for x in 0..inner_area.width {
-                let xx = inner_area.x + x;
-                let yy = inner_area.y + y;
-
-                let buffer_x = x + self.buf_offset_x;
-                let buffer_y = y + self.buf_offset_y;
-
-                if let Some(cell) = self.buffer.cell(Position::new(buffer_x, buffer_y)) {
-                    if let Some(tgt_cell) = buf.cell_mut(Position::new(xx, yy)) {
-                        *tgt_cell = cell.clone();
-                    }
-                }
-            }
+            let buf0 = self
+                .buffer
+                .index_of(self.buf_offset_x, self.buf_offset_y + y);
+            let tgt0 = buf.index_of(inner_area.x, inner_area.y + y);
+            buf.content[tgt0..tgt0 + copy_width]
+                .clone_from_slice(&self.buffer.content[buf0..buf0 + copy_width]);
         }
 
         // keep buffer
