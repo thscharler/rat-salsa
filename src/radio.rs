@@ -5,23 +5,13 @@ use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
+use ratatui::layout::{Direction, Rect, Size};
 use ratatui::prelude::{BlockExt, StatefulWidget};
 use ratatui::style::{Style, Stylize};
 use ratatui::text::{Span, Text};
 use ratatui::widgets::{Block, Widget};
 use std::cmp::max;
 use unicode_segmentation::UnicodeSegmentation;
-
-/// Radio button alignment.
-#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
-pub enum RadioAlignment {
-    /// Horizontally aligned.
-    #[default]
-    Horizontal,
-    /// Vertically aligned.
-    Vertical,
-}
 
 /// Radio style.
 ///
@@ -39,7 +29,7 @@ pub enum RadioLayout {
 #[derive(Debug, Clone)]
 pub struct Radio<'a> {
     items: Vec<Text<'a>>,
-    alignment: RadioAlignment,
+    direction: Direction,
     layout: RadioLayout,
 
     // Can return to default with a user interaction.
@@ -141,7 +131,7 @@ impl<'a> Default for Radio<'a> {
     fn default() -> Self {
         Self {
             items: Default::default(),
-            alignment: Default::default(),
+            direction: Default::default(),
             layout: Default::default(),
             default_settable: false,
             true_str: Span::from("\u{2B24}"),
@@ -207,14 +197,14 @@ impl<'a> Radio<'a> {
         self
     }
 
-    /// Radio alignment
+    /// Radio direction
     #[inline]
-    pub fn alignment(mut self, alignment: RadioAlignment) -> Self {
-        self.alignment = alignment;
+    pub fn direction(mut self, direction: Direction) -> Self {
+        self.direction = direction;
         self
     }
 
-    ///
+    /// Layout type, stacked or evenly spaced.
     #[inline]
     pub fn layout(mut self, layout: RadioLayout) -> Self {
         self.layout = layout;
@@ -263,7 +253,7 @@ impl<'a> Radio<'a> {
 
     /// Inherent size
     pub fn size(&self) -> Size {
-        if self.alignment == RadioAlignment::Horizontal {
+        if self.direction == Direction::Horizontal {
             self.horizontal_size()
         } else {
             self.vertical_size()
@@ -622,17 +612,17 @@ impl<'a> StatefulWidget for Radio<'a> {
         state.area = area;
         state.default_settable = self.default_settable;
 
-        match (self.alignment, self.layout) {
-            (RadioAlignment::Horizontal, RadioLayout::Stacked) => {
+        match (self.direction, self.layout) {
+            (Direction::Horizontal, RadioLayout::Stacked) => {
                 self.horizontal_stack_layout(area, state);
             }
-            (RadioAlignment::Horizontal, RadioLayout::Spaced) => {
+            (Direction::Horizontal, RadioLayout::Spaced) => {
                 self.horizontal_spaced_layout(area, state);
             }
-            (RadioAlignment::Vertical, RadioLayout::Stacked) => {
+            (Direction::Vertical, RadioLayout::Stacked) => {
                 self.vertical_stack_layout(area, state);
             }
-            (RadioAlignment::Vertical, RadioLayout::Spaced) => {
+            (Direction::Vertical, RadioLayout::Spaced) => {
                 self.vertical_spaced_layout(area, state);
             }
         }
