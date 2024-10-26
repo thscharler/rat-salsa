@@ -6,7 +6,7 @@ use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::layout::layout_dialog;
 use crate::paragraph::{Paragraph, ParagraphState};
-use crate::util::fill_buf_area;
+use crate::util::reset_buf_area;
 use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::{Scroll, ScrollStyle};
@@ -24,10 +24,10 @@ use std::fmt::Debug;
 /// Basic status dialog for longer messages.
 #[derive(Debug, Default, Clone)]
 pub struct MsgDialog<'a> {
-    block: Option<Block<'a>>,
     style: Style,
     scroll_style: Option<ScrollStyle>,
-    button_style: ButtonStyle,
+    button_style: Option<ButtonStyle>,
+    block: Option<Block<'a>>,
 }
 
 /// Combined style.
@@ -36,7 +36,8 @@ pub struct MsgDialogStyle {
     pub style: Style,
     pub scroll: Option<ScrollStyle>,
     pub block: Option<Block<'static>>,
-    pub button: ButtonStyle,
+    pub button: Option<ButtonStyle>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -80,6 +81,7 @@ impl<'a> MsgDialog<'a> {
     /// Block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -92,13 +94,17 @@ impl<'a> MsgDialog<'a> {
         if styles.block.is_some() {
             self.block = styles.block;
         }
-        self.button_style = styles.button;
+        if styles.button.is_some() {
+            self.button_style = styles.button;
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Base style
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -110,7 +116,7 @@ impl<'a> MsgDialog<'a> {
 
     /// Button style.
     pub fn button_style(mut self, style: ButtonStyle) -> Self {
-        self.button_style = style;
+        self.button_style = Some(style);
         self
     }
 }
@@ -236,7 +242,7 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         state.area = l_dlg.area;
         state.inner = l_dlg.inner;
 
-        fill_buf_area(buf, state.area, " ", widget.style);
+        reset_buf_area(state.area, buf);
         block.render(state.area, buf);
 
         {
@@ -260,7 +266,7 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
         }
 
         Button::new("Ok")
-            .styles(widget.button_style.clone())
+            .styles_opt(widget.button_style.clone())
             .render(l_dlg.buttons[0], buf, &mut state.button.borrow_mut());
     }
 }
