@@ -93,6 +93,7 @@ pub struct CheckboxState {
     pub text_area: Rect,
 
     /// Can return to default with a user interaction.
+    /// __read only__. renewed for each render.
     pub default_settable: bool,
 
     /// Checked state.
