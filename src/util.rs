@@ -30,7 +30,7 @@ pub fn union_non_empty(area1: Rect, area2: Rect) -> Rect {
 /// The latter sends special controls to the terminal,
 /// the former just swaps.
 pub fn revert_style(mut style: Style) -> Style {
-    if style.fg.is_some() && style.bg.is_some() {
+    if style.fg.is_some() || style.bg.is_some() {
         mem::swap(&mut style.fg, &mut style.bg);
         style
     } else {
@@ -38,8 +38,17 @@ pub fn revert_style(mut style: Style) -> Style {
     }
 }
 
+/// Fallback for select style.
+pub fn fallback_select_style(style: Style) -> Style {
+    if style.fg.is_some() || style.bg.is_some() {
+        style
+    } else {
+        style.underlined()
+    }
+}
+
 /// Reset an area of the buffer.
-pub fn reset_buf_area(buf: &mut Buffer, area: Rect) {
+pub fn reset_buf_area(area: Rect, buf: &mut Buffer) {
     for y in area.top()..area.bottom() {
         for x in area.left()..area.right() {
             if let Some(cell) = buf.cell_mut((x, y)) {
