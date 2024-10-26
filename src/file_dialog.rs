@@ -9,7 +9,7 @@ use crate::layout::{layout_dialog, layout_grid};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
-use crate::util::{fill_buf_area, revert_style};
+use crate::util::reset_buf_area;
 #[cfg(feature = "user_directories")]
 use directories_next::UserDirs;
 use rat_event::{
@@ -41,15 +41,10 @@ pub struct FileDialog<'a> {
     block: Option<Block<'a>>,
 
     style: Style,
-    list_style: Option<Style>,
-    path_style: Option<Style>,
-    name_style: Option<Style>,
-    new_style: Option<Style>,
-    invalid_style: Option<Style>,
-    select_style: Option<Style>,
-    focus_style: Option<Style>,
+    list_style: Option<ListStyle>,
+    roots_style: Option<ListStyle>,
+    text_style: Option<TextStyle>,
     button_style: Option<ButtonStyle>,
-
     ok_text: &'a str,
     cancel_text: &'a str,
 }
@@ -58,14 +53,16 @@ pub struct FileDialog<'a> {
 #[derive(Debug)]
 pub struct FileDialogStyle {
     pub style: Style,
-    pub list: Option<Style>,
-    pub path: Option<Style>,
-    pub name: Option<Style>,
-    pub new: Option<Style>,
-    pub invalid: Option<Style>,
-    pub select: Option<Style>,
-    pub focus: Option<Style>,
+    /// Lists
+    pub list: Option<ListStyle>,
+    /// FS roots
+    pub roots: Option<ListStyle>,
+    /// Text fields
+    pub text: Option<TextStyle>,
+    /// Buttons.
     pub button: Option<ButtonStyle>,
+    /// Outer border.
+    pub block: Option<Block<'static>>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -196,14 +193,11 @@ impl Default for FileDialogStyle {
         FileDialogStyle {
             style: Default::default(),
             list: None,
-            path: None,
-            name: None,
-            new: None,
-            invalid: None,
-            select: None,
-            focus: None,
+            roots: None,
             button: None,
+            block: None,
             non_exhaustive: NonExhaustive,
+            text: None,
         }
     }
 }
@@ -244,12 +238,8 @@ impl<'a> FileDialog<'a> {
             block: None,
             style: Default::default(),
             list_style: None,
-            path_style: None,
-            name_style: None,
-            new_style: None,
-            invalid_style: None,
-            select_style: None,
-            focus_style: None,
+            roots_style: None,
+            text_style: None,
             button_style: None,
             ok_text: "Ok",
             cancel_text: "Cancel",
@@ -271,6 +261,7 @@ impl<'a> FileDialog<'a> {
     /// Block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -281,44 +272,20 @@ impl<'a> FileDialog<'a> {
     }
 
     /// Style for the lists.
-    pub fn list_style(mut self, style: Style) -> Self {
+    pub fn list_style(mut self, style: ListStyle) -> Self {
         self.list_style = Some(style);
         self
     }
 
-    /// Style for path input.
-    pub fn path_style(mut self, style: Style) -> Self {
-        self.path_style = Some(style);
+    /// Filesystem roots style.
+    pub fn roots_style(mut self, style: ListStyle) -> Self {
+        self.roots_style = Some(style);
         self
     }
 
-    /// Style for the save name.
-    pub fn name_style(mut self, style: Style) -> Self {
-        self.name_style = Some(style);
-        self
-    }
-
-    /// Style for the new directory name.
-    pub fn new_style(mut self, style: Style) -> Self {
-        self.new_style = Some(style);
-        self
-    }
-
-    /// Invalid indicator.
-    pub fn invalid_style(mut self, style: Style) -> Self {
-        self.invalid_style = Some(style);
-        self
-    }
-
-    /// Text selection.
-    pub fn select_style(mut self, style: Style) -> Self {
-        self.select_style = Some(style);
-        self
-    }
-
-    /// Focused widget.
-    pub fn focus_style(mut self, style: Style) -> Self {
-        self.focus_style = Some(style);
+    /// Textfield style.
+    pub fn text_style(mut self, style: TextStyle) -> Self {
+        self.text_style = Some(style);
         self
     }
 
@@ -334,120 +301,20 @@ impl<'a> FileDialog<'a> {
         if styles.list.is_some() {
             self.list_style = styles.list;
         }
-        if styles.path.is_some() {
-            self.path_style = styles.path;
+        if styles.roots.is_some() {
+            self.roots_style = styles.roots;
         }
-        if styles.name.is_some() {
-            self.name_style = styles.name;
-        }
-        if styles.new.is_some() {
-            self.new_style = styles.new;
-        }
-        if styles.invalid.is_some() {
-            self.invalid_style = styles.invalid;
-        }
-        if styles.select.is_some() {
-            self.select_style = styles.select;
-        }
-        if styles.focus.is_some() {
-            self.focus_style = styles.focus;
+        if styles.text.is_some() {
+            self.text_style = styles.text;
         }
         if styles.button.is_some() {
             self.button_style = styles.button;
         }
+        if styles.block.is_some() {
+            self.block = styles.block;
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         self
-    }
-
-    fn defaulted_focus(&self) -> Option<Style> {
-        if let Some(focus) = &self.focus_style {
-            Some(*focus)
-        } else {
-            Some(revert_style(self.style))
-        }
-    }
-
-    fn defaulted_select(&self) -> Option<Style> {
-        if let Some(select) = &self.select_style {
-            Some(*select)
-        } else {
-            Some(revert_style(self.style))
-        }
-    }
-
-    fn style_roots(&self) -> ListStyle {
-        ListStyle {
-            style: self.style,
-            select: self.defaulted_select(),
-            focus: self.defaulted_focus(),
-            ..Default::default()
-        }
-    }
-
-    fn style_lists(&self) -> ListStyle {
-        ListStyle {
-            style: if let Some(list) = self.list_style {
-                list
-            } else {
-                self.style
-            },
-            select: self.defaulted_select(),
-            focus: self.defaulted_focus(),
-            ..Default::default()
-        }
-    }
-
-    fn style_name(&self) -> TextStyle {
-        TextStyle {
-            style: if let Some(name) = self.name_style {
-                name
-            } else {
-                self.style
-            },
-            focus: self.defaulted_focus(),
-            select: self.defaulted_select(),
-            invalid: self.invalid_style,
-            ..Default::default()
-        }
-    }
-
-    fn style_new(&self) -> TextStyle {
-        TextStyle {
-            style: if let Some(name) = self.new_style {
-                name
-            } else {
-                self.style
-            },
-            focus: self.defaulted_focus(),
-            select: self.defaulted_select(),
-            invalid: self.invalid_style,
-            ..Default::default()
-        }
-    }
-
-    fn style_path(&self) -> TextStyle {
-        TextStyle {
-            style: if let Some(path) = self.path_style {
-                path
-            } else {
-                self.style
-            },
-            focus: self.defaulted_focus(),
-            select: self.defaulted_select(),
-            invalid: self.invalid_style,
-            ..Default::default()
-        }
-    }
-
-    fn style_button(&self) -> ButtonStyle {
-        if let Some(button) = self.button_style.clone() {
-            button
-        } else {
-            ButtonStyle {
-                style: self.defaulted_select().expect("style"),
-                focus: self.defaulted_focus(),
-                ..Default::default()
-            }
-        }
     }
 }
 
@@ -541,7 +408,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             Flex::Center,
         );
 
-        fill_buf_area(buf, layout.area, " ", self.style);
+        reset_buf_area(layout.area, buf);
         block.render(area, buf);
 
         match state.mode {
@@ -559,7 +426,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
         let mut l_n = layout.buttons[1];
         l_n.width = 10;
         Button::new(Text::from("New").alignment(Alignment::Center))
-            .styles(self.style_button())
+            .styles_opt(self.button_style.clone())
             .render(l_n, buf, &mut state.new_state);
 
         let l_oc = Layout::horizontal([Constraint::Length(10), Constraint::Length(10)])
@@ -568,11 +435,11 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             .split(layout.buttons[2]);
 
         Button::new(Text::from(self.cancel_text).alignment(Alignment::Center))
-            .styles(self.style_button())
+            .styles_opt(self.button_style.clone())
             .render(l_oc[0], buf, &mut state.cancel_state);
 
         Button::new(Text::from(self.ok_text).alignment(Alignment::Center))
-            .styles(self.style_button())
+            .styles_opt(self.button_style.clone())
             .render(l_oc[1], buf, &mut state.ok_state);
     }
 }
@@ -599,7 +466,7 @@ fn render_open_dir(
     let mut l_path = l_grid[1][0];
     l_path.width = l_path.width.saturating_sub(1);
     TextInput::new()
-        .styles(widget.style_path())
+        .styles_opt(widget.text_style.clone())
         .render(l_path, buf, &mut state.path_state);
 
     List::default()
@@ -608,7 +475,7 @@ fn render_open_dir(
             ListItem::from(format!("{}", s))
         }))
         .scroll(Scroll::new())
-        .styles(widget.style_roots())
+        .styles_opt(widget.roots_style.clone())
         .render(l_grid[0][1], buf, &mut state.root_state);
 
     EditList::new(
@@ -618,9 +485,9 @@ fn render_open_dir(
                 ListItem::from(s)
             }))
             .scroll(Scroll::new())
-            .styles(widget.style_lists()),
+            .styles_opt(widget.list_style.clone()),
         EditDirName {
-            edit_dir: TextInput::new().styles(widget.style_new()),
+            edit_dir: TextInput::new().styles_opt(widget.text_style.clone()),
         },
     )
     .render(l_grid[1][1], buf, &mut state.dir_state);
@@ -644,7 +511,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
     let mut l_path = l_grid[1][0].union(l_grid[2][0]);
     l_path.width = l_path.width.saturating_sub(1);
     TextInput::new()
-        .styles(widget.style_path())
+        .styles_opt(widget.text_style.clone())
         .render(l_path, buf, &mut state.path_state);
 
     List::default()
@@ -653,7 +520,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             ListItem::from(format!("{}", s))
         }))
         .scroll(Scroll::new())
-        .styles(widget.style_roots())
+        .styles_opt(widget.roots_style.clone())
         .render(l_grid[0][1], buf, &mut state.root_state);
 
     EditList::new(
@@ -663,9 +530,9 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
                 ListItem::from(s)
             }))
             .scroll(Scroll::new())
-            .styles(widget.style_lists()),
+            .styles_opt(widget.list_style.clone()),
         EditDirName {
-            edit_dir: TextInput::new().styles(widget.style_new()),
+            edit_dir: TextInput::new().styles_opt(widget.text_style.clone()),
         },
     )
     .render(l_grid[1][1], buf, &mut state.dir_state);
@@ -676,7 +543,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             ListItem::from(s)
         }))
         .scroll(Scroll::new())
-        .styles(widget.style_lists())
+        .styles_opt(widget.list_style.clone())
         .render(l_grid[2][1], buf, &mut state.file_state);
 }
 
@@ -702,7 +569,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
     let mut l_path = l_grid[1][0].union(l_grid[2][0]);
     l_path.width = l_path.width.saturating_sub(1);
     TextInput::new()
-        .styles(widget.style_path())
+        .styles_opt(widget.text_style.clone())
         .render(l_path, buf, &mut state.path_state);
 
     List::default()
@@ -711,7 +578,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             ListItem::from(format!("{}", s))
         }))
         .scroll(Scroll::new())
-        .styles(widget.style_roots())
+        .styles_opt(widget.roots_style.clone())
         .render(l_grid[0][1], buf, &mut state.root_state);
 
     EditList::new(
@@ -721,9 +588,9 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
                 ListItem::from(s)
             }))
             .scroll(Scroll::new())
-            .styles(widget.style_lists()),
+            .styles_opt(widget.list_style.clone()),
         EditDirName {
-            edit_dir: TextInput::new().styles(widget.style_new()),
+            edit_dir: TextInput::new().styles_opt(widget.text_style.clone()),
         },
     )
     .render(l_grid[1][1], buf, &mut state.dir_state);
@@ -734,14 +601,12 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             ListItem::from(s)
         }))
         .scroll(Scroll::new())
-        .styles(widget.style_lists())
+        .styles_opt(widget.list_style.clone())
         .render(l_grid[2][1], buf, &mut state.file_state);
 
-    TextInput::new().styles(widget.style_name()).render(
-        l_grid[2][2],
-        buf,
-        &mut state.save_name_state,
-    );
+    TextInput::new()
+        .styles_opt(widget.text_style.clone())
+        .render(l_grid[2][2], buf, &mut state.save_name_state);
 }
 
 impl FileDialogState {
