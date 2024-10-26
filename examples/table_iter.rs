@@ -5,8 +5,11 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
+use log::debug;
+use rat_event::{HandleEvent, Regular};
+use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_ftable::event::Outcome;
-use rat_ftable::selection::{rowselection, RowSelection};
+use rat_ftable::selection::RowSelection;
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableDataIter, TableState};
 use rat_scrolled::Scroll;
@@ -15,6 +18,7 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::text::Span;
 use ratatui::widgets::{block, Block, StatefulWidget, Widget};
 use ratatui::Frame;
+use std::cmp::max;
 use std::iter::Enumerate;
 use std::slice::Iter;
 
@@ -45,18 +49,18 @@ fn main() -> Result<(), anyhow::Error> {
 }
 
 struct Sample {
-    pub(crate) text: &'static str,
-    pub(crate) num1: f32,
-    pub(crate) num2: f32,
-    pub(crate) check: bool,
+    text: &'static str,
+    num1: f32,
+    num2: f32,
+    check: bool,
 }
 
 struct Data {
-    pub(crate) table_data: Vec<Sample>,
+    table_data: Vec<Sample>,
 }
 
 struct State {
-    pub(crate) table: TableState<RowSelection>,
+    table: TableState<RowSelection>,
 }
 
 fn repaint_table(
@@ -71,13 +75,14 @@ fn repaint_table(
         .split(area);
 
     struct DataIter<'a> {
+        size: usize,
         iter: Enumerate<Iter<'a, Sample>>,
         item: Option<(usize, &'a Sample)>,
     }
 
     impl<'a> TableDataIter<'a> for DataIter<'a> {
         fn rows(&self) -> Option<usize> {
-            None
+            Some(self.size)
         }
 
         fn nth(&mut self, n: usize) -> bool {
@@ -119,6 +124,7 @@ fn repaint_table(
 
     Table::default()
         .iter(DataIter {
+            size: data.table_data.len(),
             iter: data.table_data.iter().enumerate(),
             item: None,
         })
@@ -130,29 +136,32 @@ fn repaint_table(
             Constraint::Length(3),
         ])
         .column_spacing(1)
-        .header(
-            Row::new([
-                Cell::from("Nr"),
-                Cell::from("Text"),
-                Cell::from("Val1"),
-                Cell::from("Val2"),
-                Cell::from("State"),
-            ])
-            .style(Some(THEME.table_header())),
-        )
-        .footer(Row::new(["a", "b", "c", "d", "e"]).style(Some(THEME.table_footer())))
+        .header(Row::new([
+            Cell::from("Nr"),
+            Cell::from("Text"),
+            Cell::from("Val1"),
+            Cell::from("Val2"),
+            Cell::from("State"),
+        ]))
+        .footer(Row::new(["a", "b", "c", "d", "e"]))
         .block(
             Block::bordered()
                 .border_type(block::BorderType::Rounded)
                 .border_style(THEME.block())
+                .title_style(THEME.block_title())
                 .title("tabledata-iter (no row-count)"),
         )
-        .vscroll(Scroll::new().style(THEME.block()))
-        .flex(Flex::End)
-        .style(THEME.table())
-        .select_row_style(Some(THEME.gray(3)))
+        .vscroll(Scroll::new())
+        .styles(THEME.table_style())
         .render(l0[0], frame.buffer_mut(), &mut state.table);
     Ok(())
+}
+
+fn focus(state: &mut State) -> Focus {
+    let mut fb = FocusBuilder::new(None);
+    fb.widget(&state.table);
+    fb.widget(&FocusFlag::new());
+    fb.build()
 }
 
 fn handle_table(
@@ -161,6 +170,9 @@ fn handle_table(
     _istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
-    let r = rowselection::handle_events(&mut state.table, true, event);
-    Ok(r)
+    let f = focus(state).handle(event, Regular);
+
+    let r = state.table.handle(event, Regular);
+
+    Ok(max(f, r))
 }

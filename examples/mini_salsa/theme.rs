@@ -155,6 +155,14 @@ impl Scheme {
         Style::default().fg(self.gray[1]).bg(self.black[1])
     }
 
+    pub fn block_title(&self) -> Style {
+        Style::default().fg(self.secondary[1]).bg(self.black[1])
+    }
+
+    pub fn scroll_base(&self) -> Style {
+        Style::default().fg(self.gray[0]).bg(self.black[1])
+    }
+
     pub fn table(&self) -> Style {
         Style::default().fg(self.white[1]).bg(self.black[0])
     }
@@ -196,11 +204,15 @@ impl Scheme {
 
     /// Complete FTableStyle
     pub fn table_style(&self) -> TableStyle {
+        let title_style = self.style(self.black[3]);
         TableStyle {
             style: self.data(),
             select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
+            scroll: Some(self.scrolled_style()),
+            header: Some(title_style),
+            footer: Some(title_style),
             ..Default::default()
         }
     }
@@ -221,12 +233,11 @@ impl Scheme {
 
     /// Complete ScrolledStyle
     pub fn scrolled_style(&self) -> ScrollStyle {
-        let style = Style::default().fg(self.gray[0]).bg(self.black[1]);
         let arrow_style = Style::default().fg(self.secondary[0]).bg(self.black[1]);
         ScrollStyle {
-            thumb_style: Some(style),
-            track_style: Some(style),
-            min_style: Some(style),
+            thumb_style: Some(self.scroll_base()),
+            track_style: Some(self.scroll_base()),
+            min_style: Some(self.scroll_base()),
             begin_style: Some(arrow_style),
             end_style: Some(arrow_style),
             ..Default::default()

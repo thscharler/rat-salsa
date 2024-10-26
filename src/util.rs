@@ -13,6 +13,15 @@ pub(crate) fn revert_style(mut style: Style) -> Style {
     }
 }
 
+/// Fallback for select style.
+pub(crate) fn fallback_select_style(style: Style) -> Style {
+    if style.fg.is_some() || style.bg.is_some() {
+        style
+    } else {
+        style.underlined()
+    }
+}
+
 /// Move a tmp-buffer to a target.
 /// All cells in the tmp-buffer are reset to defaults.
 ///

@@ -5,7 +5,7 @@ use crate::event::{DoubleClick, DoubleClickOutcome};
 use crate::selection::{CellSelection, RowSelection, RowSetSelection};
 use crate::table::data::{DataRepr, DataReprIter};
 use crate::textdata::{Row, TextTableData};
-use crate::util::{revert_style, transfer_buffer};
+use crate::util::{fallback_select_style, revert_style, transfer_buffer};
 use crate::{TableContext, TableData, TableDataIter, TableSelection};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent};
@@ -38,7 +38,7 @@ use std::rc::Rc;
 /// works better if you only have an Iterator over your data.
 ///
 /// See [Table::data] and [Table::iter] for an example.
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Table<'a, Selection> {
     data: DataRepr<'a>,
     no_row_count: bool,
@@ -305,6 +305,41 @@ pub struct TableState<Selection> {
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
+}
+
+impl<'a, Selection> Default for Table<'a, Selection> {
+    fn default() -> Self {
+        Self {
+            data: Default::default(),
+            no_row_count: false,
+            header: None,
+            footer: None,
+            widths: vec![],
+            flex: Default::default(),
+            column_spacing: 0,
+            layout_width: None,
+            auto_layout_width: false,
+            block: None,
+            hscroll: None,
+            vscroll: None,
+            header_style: None,
+            footer_style: None,
+            style: Default::default(),
+            select_row_style: None,
+            show_row_focus: true, // non standard
+            select_column_style: None,
+            show_column_focus: false,
+            select_cell_style: None,
+            show_cell_focus: false,
+            select_header_style: None,
+            show_header_focus: false,
+            select_footer_style: None,
+            show_footer_focus: false,
+            focus_style: None,
+            debug: false,
+            _phantom: Default::default(),
+        }
+    }
 }
 
 impl<'a, Selection> Table<'a, Selection> {
@@ -633,6 +668,7 @@ impl<'a, Selection> Table<'a, Selection> {
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -665,7 +701,6 @@ impl<'a, Selection> Table<'a, Selection> {
         if styles.footer.is_some() {
             self.footer_style = styles.footer;
         }
-
         if styles.select_row.is_some() {
             self.select_row_style = styles.select_row;
         }
@@ -689,6 +724,9 @@ impl<'a, Selection> Table<'a, Selection> {
 
         self.focus_style = styles.focus_style;
 
+        if styles.focus_style.is_some() {
+            self.focus_style = styles.focus_style;
+        }
         if styles.block.is_some() {
             self.block = styles.block;
         }
@@ -696,6 +734,7 @@ impl<'a, Selection> Table<'a, Selection> {
             self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
             self.vscroll = self.vscroll.map(|v| v.styles(styles));
         }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -703,6 +742,7 @@ impl<'a, Selection> Table<'a, Selection> {
     #[inline]
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -925,6 +965,17 @@ where
 
         // set everything, so I don't have to care about unpainted areas later.
         buf.set_style(state.area, self.style);
+        // render block+scroll
+        if self.block.is_none() {
+            buf.set_style(state.area, self.style);
+        }
+        sa.render(
+            area,
+            buf,
+            &mut ScrollAreaState::new()
+                .h_scroll(&mut state.hscroll)
+                .v_scroll(&mut state.vscroll),
+        );
 
         // render header & footer
         self.render_header(
@@ -1023,49 +1074,48 @@ where
                             render_row_area.height,
                         );
 
-                        ctx.select_style =
-                            if state.selection.is_selected_cell(col, row.expect("row")) {
-                                ctx.selected_cell = true;
-                                ctx.selected_row = false;
-                                ctx.selected_column = false;
+                        if state.selection.is_selected_cell(col, row.expect("row")) {
+                            ctx.selected_cell = true;
+                            ctx.selected_row = false;
+                            ctx.selected_column = false;
+                            ctx.select_style = self.patch_select(
+                                self.select_cell_style,
+                                state.focus.get(),
+                                self.show_cell_focus,
+                            );
+                        } else if state.selection.is_selected_row(row.expect("row")) {
+                            ctx.selected_cell = false;
+                            ctx.selected_row = true;
+                            ctx.selected_column = false;
+                            // use a fallback if no row-selected style is set.
+                            ctx.select_style = if self.select_row_style.is_some() {
                                 self.patch_select(
-                                    self.select_cell_style,
+                                    self.select_row_style,
                                     state.focus.get(),
-                                    self.show_cell_focus,
-                                )
-                            } else if state.selection.is_selected_row(row.expect("row")) {
-                                ctx.selected_cell = false;
-                                ctx.selected_row = true;
-                                ctx.selected_column = false;
-                                // use a fallback if no row-selected style is set.
-                                if self.select_row_style.is_some() {
-                                    self.patch_select(
-                                        self.select_row_style,
-                                        state.focus.get(),
-                                        self.show_row_focus,
-                                    )
-                                } else {
-                                    self.patch_select(
-                                        Some(revert_style(self.style)),
-                                        state.focus.get(),
-                                        self.show_row_focus,
-                                    )
-                                }
-                            } else if state.selection.is_selected_column(col) {
-                                ctx.selected_cell = false;
-                                ctx.selected_row = false;
-                                ctx.selected_column = true;
-                                self.patch_select(
-                                    self.select_column_style,
-                                    state.focus.get(),
-                                    self.show_column_focus,
+                                    self.show_row_focus,
                                 )
                             } else {
-                                ctx.selected_cell = false;
-                                ctx.selected_row = false;
-                                ctx.selected_column = false;
-                                None
+                                self.patch_select(
+                                    Some(self.style),
+                                    state.focus.get(),
+                                    self.show_row_focus,
+                                )
                             };
+                        } else if state.selection.is_selected_column(col) {
+                            ctx.selected_cell = false;
+                            ctx.selected_row = false;
+                            ctx.selected_column = true;
+                            ctx.select_style = self.patch_select(
+                                self.select_column_style,
+                                state.focus.get(),
+                                self.show_column_focus,
+                            );
+                        } else {
+                            ctx.selected_cell = false;
+                            ctx.selected_row = false;
+                            ctx.selected_column = false;
+                            ctx.select_style = None;
+                        }
 
                         // partially visible?
                         if render_cell_area.right() > state.hscroll.offset as u16
@@ -1246,15 +1296,6 @@ where
                 .hscroll
                 .set_max_offset(width.saturating_sub(state.table_area.width) as usize);
         }
-
-        // render block+scroll
-        sa.render(
-            area,
-            buf,
-            &mut ScrollAreaState::new()
-                .h_scroll(&mut state.hscroll)
-                .v_scroll(&mut state.vscroll),
-        );
 
         #[cfg(debug_assertions)]
         {
@@ -1477,10 +1518,14 @@ where
                 if focus && show {
                     Some(style.patch(focus_style))
                 } else {
-                    Some(style)
+                    Some(fallback_select_style(style))
                 }
             } else {
-                Some(style)
+                if focus && show {
+                    Some(revert_style(style))
+                } else {
+                    Some(fallback_select_style(style))
+                }
             }
         } else {
             None
@@ -1499,7 +1544,7 @@ impl Default for TableStyle {
             select_cell: None,
             select_header: None,
             select_footer: None,
-            show_row_focus: false,
+            show_row_focus: true, // non standard
             show_column_focus: false,
             show_cell_focus: false,
             show_header_focus: false,
