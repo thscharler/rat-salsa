@@ -9,7 +9,7 @@ use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::BlockExt;
-use ratatui::style::Style;
+use ratatui::style::{Style, Stylize};
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, StatefulWidget};
@@ -207,24 +207,28 @@ impl<'a> PopupCore<'a> {
                 self.v_scroll = Some(v_scroll.styles(styles));
             }
         }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Base style for the popup.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Block
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Block
     pub fn block_opt(mut self, block: Option<Block<'a>>) -> Self {
         self.block = block;
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -318,7 +322,10 @@ fn render_popup(widget: &PopupCore<'_>, area: Rect, buf: &mut Buffer, state: &mu
 
     state.area = widget._layout(area, widget.boundary_area.unwrap_or(buf.area));
 
-    clear_area(state.area, widget.style, buf);
+    reset_buf_area(state.area, buf);
+    if widget.block.is_none() {
+        buf.set_style(state.area, fallback_popup_style(widget.style))
+    }
 
     let sa = ScrollArea::new()
         .block(widget.block.as_ref())
@@ -336,12 +343,21 @@ fn render_popup(widget: &PopupCore<'_>, area: Rect, buf: &mut Buffer, state: &mu
     );
 }
 
-fn clear_area(area: Rect, style: Style, buf: &mut Buffer) {
+/// Fallback for popup style.
+pub fn fallback_popup_style(style: Style) -> Style {
+    if style.fg.is_some() || style.bg.is_some() {
+        style
+    } else {
+        style.black().on_gray()
+    }
+}
+
+/// Reset an area of the buffer.
+pub fn reset_buf_area(area: Rect, buf: &mut Buffer) {
     for y in area.top()..area.bottom() {
         for x in area.left()..area.right() {
             if let Some(cell) = buf.cell_mut((x, y)) {
                 cell.reset();
-                cell.set_style(style);
             }
         }
     }
