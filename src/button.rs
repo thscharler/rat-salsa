@@ -15,6 +15,8 @@ use ratatui::text::Text;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
+use std::thread;
+use std::time::Duration;
 
 /// Button widget.
 #[derive(Debug, Default, Clone)]
@@ -23,16 +25,26 @@ pub struct Button<'a> {
     style: Style,
     focus_style: Option<Style>,
     armed_style: Option<Style>,
+    armed_delay: Option<Duration>,
     block: Option<Block<'a>>,
 }
 
 /// Composite style.
 #[derive(Debug, Clone)]
 pub struct ButtonStyle {
+    /// Base style
     pub style: Style,
+    /// Focused style
     pub focus: Option<Style>,
+    /// Armed style
     pub armed: Option<Style>,
+    /// Button border
     pub block: Option<Block<'static>>,
+    /// Some terminals repaint too fast to see the click.
+    /// This adds some delay when the button state goes from
+    /// armed to clicked.
+    pub armed_delay: Option<Duration>,
+
     pub non_exhaustive: NonExhaustive,
 }
 
@@ -49,6 +61,12 @@ pub struct ButtonState {
     /// Button has been clicked but not released yet.
     /// __used for mouse interaction__
     pub armed: bool,
+    /// Some terminals repaint too fast to see the click.
+    /// This adds some delay when the button state goes from
+    /// armed to clicked.
+    ///
+    /// Default is 50ms.
+    pub armed_delay: Option<Duration>,
 
     /// Current focus state.
     /// __read+write__
@@ -64,6 +82,7 @@ impl Default for ButtonStyle {
             focus: None,
             armed: None,
             block: None,
+            armed_delay: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -76,6 +95,16 @@ impl<'a> Button<'a> {
 
     /// Set all styles.
     #[inline]
+    pub fn styles_opt(self, styles: Option<ButtonStyle>) -> Self {
+        if let Some(styles) = styles {
+            self.styles(styles)
+        } else {
+            self
+        }
+    }
+
+    /// Set all styles.
+    #[inline]
     pub fn styles(mut self, styles: ButtonStyle) -> Self {
         self.style = styles.style;
         if styles.focus.is_some() {
@@ -83,6 +112,9 @@ impl<'a> Button<'a> {
         }
         if styles.armed.is_some() {
             self.armed_style = styles.armed;
+        }
+        if styles.armed_delay.is_some() {
+            self.armed_delay = styles.armed_delay;
         }
         if let Some(block) = styles.block {
             self.block = Some(block);
@@ -109,6 +141,14 @@ impl<'a> Button<'a> {
     #[inline]
     pub fn armed_style(mut self, style: impl Into<Style>) -> Self {
         self.armed_style = Some(style.into());
+        self
+    }
+
+    /// Some terminals repaint too fast to see the click.
+    /// This adds some delay when the button state goes from
+    /// armed to clicked.
+    pub fn armed_delay(mut self, delay: Duration) -> Self {
+        self.armed_delay = Some(delay);
         self
     }
 
@@ -170,6 +210,7 @@ impl<'a> StatefulWidget for Button<'a> {
 fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut ButtonState) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
+    state.armed_delay = widget.armed_delay;
 
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
@@ -179,31 +220,47 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
     let armed_style = if let Some(armed_style) = widget.armed_style {
         armed_style
     } else {
-        revert_style(widget.style)
+        if state.is_focused() {
+            revert_style(focus_style)
+        } else {
+            revert_style(widget.style)
+        }
     };
 
-    widget.block.render(area, buf);
+    if widget.block.is_some() {
+        widget.block.render(area, buf);
+    } else {
+        buf.set_style(area, widget.style);
+    }
+
+    if state.focus.get() {
+        buf.set_style(state.inner, focus_style);
+    }
 
     if state.armed {
-        buf.set_style(state.inner, armed_style);
-    } else if state.focus.get() {
-        buf.set_style(state.inner, focus_style);
+        let armed_area = Rect::new(
+            state.inner.x + 1,
+            state.inner.y,
+            state.inner.width.saturating_sub(2),
+            state.inner.height,
+        );
+        buf.set_style(armed_area, armed_style);
     }
 
     let h = widget.text.height() as u16;
     let r = state.inner.height.saturating_sub(h) / 2;
     let area = Rect::new(state.inner.x, state.inner.y + r, state.inner.width, h);
-
     (&widget.text).render(area, buf);
 }
 
 impl Default for ButtonState {
     fn default() -> Self {
         Self {
-            focus: Default::default(),
             area: Default::default(),
             inner: Default::default(),
             armed: false,
+            armed_delay: None,
+            focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -277,12 +334,15 @@ impl HandleEvent<crossterm::event::Event, Regular, ButtonOutcome> for ButtonStat
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> ButtonOutcome {
         let r = if self.is_focused() {
             match event {
-                ct_event!(keycode press Enter) => {
+                ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
                     self.armed = true;
                     ButtonOutcome::Changed
                 }
-                ct_event!(keycode release Enter) => {
+                ct_event!(keycode release Enter) | ct_event!(key release ' ') => {
                     if self.armed {
+                        if let Some(delay) = self.armed_delay {
+                            thread::sleep(delay);
+                        }
                         self.armed = false;
                         ButtonOutcome::Pressed
                     } else {
