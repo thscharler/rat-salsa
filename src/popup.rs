@@ -13,6 +13,7 @@ use ratatui::style::Style;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, StatefulWidget};
+use std::cell::Cell;
 
 /// Provides the core for popup widgets.
 ///
@@ -38,7 +39,7 @@ use ratatui::widgets::{Block, Padding, StatefulWidget};
 pub struct PopupCore<'a> {
     pub style: Style,
 
-    pub constraint: PopupConstraint,
+    pub constraint: Cell<PopupConstraint>,
     pub offset: (i16, i16),
     pub boundary_area: Option<Rect>,
 
@@ -111,7 +112,7 @@ impl<'a> Default for PopupCore<'a> {
     fn default() -> Self {
         Self {
             style: Default::default(),
-            constraint: PopupConstraint::None,
+            constraint: Cell::new(PopupConstraint::None),
             offset: (0, 0),
             boundary_area: None,
             block: None,
@@ -130,8 +131,15 @@ impl<'a> PopupCore<'a> {
 
     /// Placement of the popup widget.
     /// See placement for the options.
-    pub fn constraint(mut self, constraint: PopupConstraint) -> Self {
-        self.constraint = constraint;
+    pub fn ref_constraint(&self, constraint: PopupConstraint) -> &Self {
+        self.constraint.set(constraint);
+        self
+    }
+
+    /// Placement of the popup widget.
+    /// See placement for the options.
+    pub fn constraint(self, constraint: PopupConstraint) -> Self {
+        self.constraint.set(constraint);
         self
     }
 
@@ -286,6 +294,14 @@ impl<'a> StatefulWidgetRef for PopupCore<'a> {
     }
 }
 
+impl<'a> StatefulWidget for &'a PopupCore<'a> {
+    type State = PopupCoreState;
+
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        render_popup(&self, area, buf, state);
+    }
+}
+
 impl<'a> StatefulWidget for PopupCore<'a> {
     type State = PopupCoreState;
 
@@ -346,7 +362,7 @@ impl<'a> PopupCore<'a> {
         // offsets may change
         let mut offset = self.offset;
 
-        let mut area = match self.constraint {
+        let mut area = match self.constraint.get() {
             PopupConstraint::None => area,
             PopupConstraint::Above(rel) | PopupConstraint::AboveLeft(rel) => Rect::new(
                 rel.x,
