@@ -1,8 +1,11 @@
 //!
 //! Implements a dark theme.
 //!
+
 use crate::Scheme;
 use rat_widget::button::ButtonStyle;
+use rat_widget::calendar::MonthStyle;
+use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
 use rat_widget::clipper::ClipperStyle;
 use rat_widget::file_dialog::FileDialogStyle;
@@ -22,6 +25,7 @@ use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::prelude::{Style, Stylize};
 use ratatui::widgets::Block;
+use std::time::Duration;
 
 /// One sample theme which prefers dark colors from the color-scheme
 /// and generates styles for widgets.
@@ -162,31 +166,39 @@ impl DarkTheme {
 
     /// Focus style
     pub fn focus(&self) -> Style {
-        let bg = self.s.primary[2];
-        Style::default().fg(self.s.text_color(bg)).bg(bg)
+        self.s.style(self.s.primary[2])
     }
 
     /// Selection style
     pub fn select(&self) -> Style {
-        let bg = self.s.secondary[1];
-        Style::default().fg(self.s.text_color(bg)).bg(bg)
+        self.s.style(self.s.secondary[1])
     }
 
     /// Text field style.
     pub fn text_input(&self) -> Style {
-        Style::default().fg(self.s.black[0]).bg(self.s.gray[3])
+        self.s.style(self.s.gray[3])
     }
 
     /// Focused text field style.
     pub fn text_focus(&self) -> Style {
-        let bg = self.s.primary[0];
-        Style::default().fg(self.s.text_color(bg)).bg(bg)
+        self.s.style(self.s.primary[0])
     }
 
     /// Text selection style.
     pub fn text_select(&self) -> Style {
-        let bg = self.s.secondary[0];
-        Style::default().fg(self.s.text_color(bg)).bg(bg)
+        self.s.style(self.s.secondary[0])
+    }
+
+    pub fn table_base(&self) -> Style {
+        Style::default().fg(self.s.white[1]).bg(self.s.black[0])
+    }
+
+    pub fn table_header(&self) -> Style {
+        Style::default().fg(self.s.white[1]).bg(self.s.blue[2])
+    }
+
+    pub fn table_footer(&self) -> Style {
+        Style::default().fg(self.s.white[1]).bg(self.s.blue[2])
     }
 
     /// Container base
@@ -195,18 +207,55 @@ impl DarkTheme {
     }
 
     /// Data display style. Used for lists, tables, ...
-    pub fn data(&self) -> Style {
+    pub fn data_base(&self) -> Style {
         Style::default().fg(self.s.white[0]).bg(self.s.black[1])
     }
 
     /// Background for dialogs.
-    pub fn dialog_style(&self) -> Style {
+    pub fn dialog_base(&self) -> Style {
         Style::default().fg(self.s.white[2]).bg(self.s.gray[1])
     }
 
     /// Style for the status line.
-    pub fn status_style(&self) -> Style {
+    pub fn status_base(&self) -> Style {
         Style::default().fg(self.s.white[0]).bg(self.s.black[2])
+    }
+
+    /// Base style for lists.
+    pub fn list_base(&self) -> Style {
+        self.data_base()
+    }
+
+    /// Base style for buttons.
+    pub fn button_base(&self) -> Style {
+        self.s.style(self.s.gray[2])
+    }
+
+    /// Armed style for buttons.
+    pub fn button_armed(&self) -> Style {
+        self.s.style(self.s.secondary[0])
+    }
+
+    pub fn block(&self) -> Style {
+        Style::default().fg(self.s.gray[1]).bg(self.s.black[1])
+    }
+
+    pub fn block_title(&self) -> Style {
+        Style::default().fg(self.s.secondary[1])
+    }
+
+    /// Complete MonthStyle.
+    pub fn month_style(&self) -> MonthStyle {
+        MonthStyle {
+            style: self.s.style(self.s.black[2]),
+            title: None,
+            week: Some(Style::new().fg(self.s.limegreen[2])),
+            weekday: Some(Style::new().fg(self.s.limegreen[2])),
+            day: None,
+            select: Some(self.select()),
+            focus: Some(self.focus()),
+            ..MonthStyle::default()
+        }
     }
 
     /// Style for shadows.
@@ -214,14 +263,14 @@ impl DarkTheme {
         ShadowStyle {
             style: Style::new().bg(self.s.black[0]),
             dir: ShadowDirection::BottomRight,
-            ..Default::default()
+            ..ShadowStyle::default()
         }
     }
 
     /// Style for LineNumbers.
     pub fn line_nr_style(&self) -> LineNumberStyle {
         LineNumberStyle {
-            style: self.data().fg(self.s.gray[0]),
+            style: self.data_base().fg(self.s.gray[0]),
             cursor: Some(self.text_select()),
             ..LineNumberStyle::default()
         }
@@ -230,7 +279,7 @@ impl DarkTheme {
     /// Complete TextAreaStyle
     pub fn textarea_style(&self) -> TextStyle {
         TextStyle {
-            style: self.data(),
+            style: self.data_base(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
             scroll: Some(self.scroll_style()),
@@ -246,6 +295,38 @@ impl DarkTheme {
             select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.s.red[3])),
             ..TextStyle::default()
+        }
+    }
+
+    pub fn paragraph_style(&self) -> ParagraphStyle {
+        ParagraphStyle {
+            style: self.data_base(),
+            focus: Some(self.focus()),
+            scroll: Some(self.scroll_style()),
+            ..Default::default()
+        }
+    }
+
+    pub fn choice_style(&self) -> ChoiceStyle {
+        ChoiceStyle {
+            style: self.text_input(),
+            select: Some(self.select()),
+            focus: Some(self.text_focus()),
+            popup: PopupStyle {
+                style: self.dialog_base(),
+                scroll: Some(self.scroll_style()),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    /// Complete CheckboxStyle
+    pub fn checkbox_style(&self) -> CheckboxStyle {
+        CheckboxStyle {
+            style: self.text_input(),
+            focus: Some(self.text_focus()),
+            ..Default::default()
         }
     }
 
@@ -269,19 +350,21 @@ impl DarkTheme {
         }
     }
 
-    /// Paragraph style
-    pub fn paragraph_style(&self) -> ParagraphStyle {
-        ParagraphStyle {
-            style: self.data(),
-            scroll: Some(self.scroll_style()),
+    /// Complete ButtonStyle
+    pub fn button_style(&self) -> ButtonStyle {
+        ButtonStyle {
+            style: self.button_base(),
+            focus: Some(self.focus()),
+            armed: Some(self.select()),
+            armed_delay: Some(Duration::from_millis(50)),
             ..Default::default()
         }
     }
 
-    /// Table style
+    /// Complete TableStyle
     pub fn table_style(&self) -> TableStyle {
         TableStyle {
-            style: self.data(),
+            style: self.data_base(),
             select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
@@ -290,29 +373,13 @@ impl DarkTheme {
         }
     }
 
-    /// List style
+    /// Complete ListStyle
     pub fn list_style(&self) -> ListStyle {
         ListStyle {
-            style: self.data(),
+            style: self.list_base(),
             select: Some(self.select()),
             focus: Some(self.focus()),
             scroll: Some(self.scroll_style()),
-            ..Default::default()
-        }
-    }
-
-    /// Button style
-    pub fn button_style(&self) -> ButtonStyle {
-        ButtonStyle {
-            style: Style::default()
-                .fg(self.s.text_color(self.s.primary[0]))
-                .bg(self.s.primary[0]),
-            focus: Some(
-                Style::default()
-                    .fg(self.s.text_color(self.s.primary[3]))
-                    .bg(self.s.primary[3]),
-            ),
-            armed: Some(Style::default().fg(self.s.black[0]).bg(self.s.secondary[0])),
             ..Default::default()
         }
     }
@@ -334,7 +401,7 @@ impl DarkTheme {
     /// Split style
     pub fn split_style(&self) -> SplitStyle {
         let style = self.container();
-        let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
+        let arrow_style = Style::default().fg(self.s.secondary[2]).bg(self.s.black[1]);
         SplitStyle {
             style,
             arrow_style: Some(arrow_style),
@@ -363,68 +430,56 @@ impl DarkTheme {
         }
     }
 
-    /// StatusLineStyle for a StatusLine with 3 indicator fields.
+    /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
     /// This is what I need for the
     /// [minimal](https://github.com/thscharler/rat-salsa/blob/master/examples/minimal.rs)
     /// example, which shows timings for Render/Event/Action.
     pub fn statusline_style(&self) -> Vec<Style> {
-        let s = &self.s;
         vec![
-            self.status_style(),
-            Style::default().fg(s.text_color(s.white[0])).bg(s.blue[3]),
-            Style::default().fg(s.text_color(s.white[0])).bg(s.blue[2]),
-            Style::default().fg(s.text_color(s.white[0])).bg(s.blue[1]),
+            self.status_base(),
+            Style::default()
+                .fg(self.s.text_color(self.s.white[0]))
+                .bg(self.s.blue[3]),
+            Style::default()
+                .fg(self.s.text_color(self.s.white[0]))
+                .bg(self.s.blue[2]),
+            Style::default()
+                .fg(self.s.text_color(self.s.white[0]))
+                .bg(self.s.blue[1]),
         ]
-    }
-
-    /// MsgDialog style.
-    pub fn msg_dialog_style(&self) -> MsgDialogStyle {
-        MsgDialogStyle {
-            style: self.dialog_style(),
-            button: self.button_style(),
-            ..Default::default()
-        }
     }
 
     /// FileDialog style.
     pub fn file_dialog_style(&self) -> FileDialogStyle {
         FileDialogStyle {
-            style: self.dialog_style(),
-            list: Some(self.data()),
-            path: Some(self.text_input()),
-            name: Some(self.text_input()),
-            new: Some(self.text_input()),
-            invalid: Some(Style::new().fg(self.s.red[3]).bg(self.s.gray[2])),
-            select: Some(self.select()),
-            focus: Some(self.focus()),
+            style: self.dialog_base(),
+            list: Some(self.list_style()),
+            roots: Some(self.list_style()),
+            text: Some(self.input_style()),
             button: Some(self.button_style()),
+            block: Some(Block::bordered()),
             ..Default::default()
         }
     }
 
-    /// Choice style.
-    pub fn choice_style(&self) -> ChoiceStyle {
-        ChoiceStyle {
-            style: self.text_input(),
-            button: Some(self.text_input()),
-            select: Some(self.select()),
-            focus: Some(self.focus()),
-            popup: PopupStyle {
-                style: self.text_input(),
-                block: Some(Block::bordered()),
-                scroll: Some(self.scroll_style()),
-                ..Default::default()
-            },
+    /// Complete MsgDialogStyle.
+    pub fn msg_dialog_style(&self) -> MsgDialogStyle {
+        MsgDialogStyle {
+            style: self.dialog_base(),
+            button: Some(self.button_style()),
             ..Default::default()
         }
     }
 
     /// Pager style.
     pub fn pager_style(&self) -> PagerStyle {
+        let nav_style = Style::new().fg(self.s.secondary[1]);
+        let divider_style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
         PagerStyle {
             style: self.container(),
-            nav: Some(self.select()),
-            divider: Some(self.container()),
+            nav: Some(nav_style),
+            divider: Some(divider_style),
+            block: Some(Block::bordered().border_style(divider_style)),
             ..Default::default()
         }
     }
