@@ -11,6 +11,7 @@ use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::pager::PagerStyle;
+use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::splitter::{SplitStyle, SplitType};
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::widgets::{Block, BorderType};
@@ -165,10 +166,6 @@ impl Scheme {
         Style::default().fg(self.text_color(bg)).bg(bg).underlined()
     }
 
-    pub fn block(&self) -> Style {
-        Style::default().fg(self.gray[1]).bg(self.black[1])
-    }
-
     pub fn table_base(&self) -> Style {
         Style::default().fg(self.white[1]).bg(self.black[0])
     }
@@ -223,6 +220,14 @@ impl Scheme {
         Style::default().fg(self.black[0]).bg(self.secondary[0])
     }
 
+    pub fn block(&self) -> Style {
+        Style::default().fg(self.gray[1]).bg(self.black[1])
+    }
+
+    pub fn block_title(&self) -> Style {
+        Style::default().fg(self.secondary[1])
+    }
+
     /// Complete MonthStyle.
     pub fn month_style(&self) -> MonthStyle {
         MonthStyle {
@@ -254,6 +259,15 @@ impl Scheme {
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.red[3])),
+            ..Default::default()
+        }
+    }
+
+    pub fn paragraph_style(&self) -> ParagraphStyle {
+        ParagraphStyle {
+            style: self.data_base(),
+            focus: Some(self.focus()),
+            scroll: Some(self.scrolled_style()),
             ..Default::default()
         }
     }

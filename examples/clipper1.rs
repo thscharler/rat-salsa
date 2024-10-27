@@ -114,27 +114,33 @@ fn repaint_input(
         // map an additional ad hoc area.
         let v_area = clip_buf.layout_area(state.hundred_areas[i]);
         let w_area = Rect::new(5, v_area.y, 5, 1);
-        clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
+        if clip_buf.is_visible(w_area) {
+            clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
+        }
 
         // render widget
-        clip_buf.render_stateful_handle(
-            TextInputMock::default()
-                .sample(format!("{:?}", state.hundred_areas[i]))
-                .style(THEME.limegreen(0))
-                .focus_style(THEME.limegreen(2)),
-            state.hundred_areas[i],
-            &mut state.hundred[i],
-        );
+        if clip_buf.is_visible_handle(state.hundred_areas[i]) {
+            clip_buf.render_stateful_handle(
+                TextInputMock::default()
+                    .sample(format!("{:?}", state.hundred_areas[i]))
+                    .style(THEME.limegreen(0))
+                    .focus_style(THEME.limegreen(2)),
+                state.hundred_areas[i],
+                &mut state.hundred[i],
+            );
+        }
     }
 
-    clip_buf.render_stateful(
-        TextInputMock::default()
-            .sample("__outlier__")
-            .style(THEME.orange(0))
-            .focus_style(THEME.orange(2)),
-        Rect::new(90, 0, 10, 1),
-        &mut TextInputMockState::default(),
-    );
+    if clip_buf.is_visible(Rect::new(90, 0, 10, 1)) {
+        clip_buf.render_stateful(
+            TextInputMock::default()
+                .sample("__outlier__")
+                .style(THEME.orange(0))
+                .focus_style(THEME.orange(2)),
+            Rect::new(90, 0, 10, 1),
+            &mut TextInputMockState::default(),
+        );
+    }
 
     clip_buf
         .into_widget()

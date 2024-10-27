@@ -194,7 +194,6 @@ pub mod textarea {
         handle_events, handle_mouse_events, handle_readonly_events, TextArea, TextAreaState,
     };
 }
-// mod date_combo;
 pub mod util;
 pub mod view;
 
