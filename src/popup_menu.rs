@@ -34,7 +34,6 @@ use ratatui::text::{Line, Span};
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, Widget};
 use std::cmp::max;
-use std::mem;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Popup menu.
@@ -362,7 +361,7 @@ impl<'a> StatefulWidget for PopupMenu<'a> {
 }
 
 fn render_popup_menu(
-    widget: &PopupMenu,
+    widget: &PopupMenu<'_>,
     _area: Rect,
     buf: &mut Buffer,
     state: &mut PopupMenuState,
