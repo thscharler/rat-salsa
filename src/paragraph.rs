@@ -303,7 +303,7 @@ fn render_paragraph(
         }
 
         let y = min(
-            state.inner.y as usize + state.vscroll.page_len() / 2,
+            state.inner.y as usize + state.vscroll.page_len() * 6 / 10,
             (state.inner.y as usize + state.vscroll.max_offset)
                 .saturating_sub(state.vscroll.offset),
         );
@@ -409,10 +409,10 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
                 ct_event!(keycode press Up) => self.scroll_up(1).into(),
                 ct_event!(keycode press Down) => self.scroll_down(1).into(),
                 ct_event!(keycode press PageUp) => {
-                    self.scroll_up(self.vscroll.page_len() / 2).into()
+                    self.scroll_up(self.vscroll.page_len() * 6 / 10).into()
                 }
                 ct_event!(keycode press PageDown) => {
-                    self.scroll_down(self.vscroll.page_len() / 2).into()
+                    self.scroll_down(self.vscroll.page_len() * 6 / 10).into()
                 }
                 ct_event!(keycode press Home) => self.set_line_offset(0).into(),
                 ct_event!(keycode press End) => {
@@ -422,10 +422,10 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ParagraphState {
                 ct_event!(keycode press Left) => self.scroll_left(1).into(),
                 ct_event!(keycode press Right) => self.scroll_right(1).into(),
                 ct_event!(keycode press ALT-PageUp) => {
-                    self.scroll_left(self.hscroll.page_len() / 2).into()
+                    self.scroll_left(self.hscroll.page_len() * 6 / 10).into()
                 }
                 ct_event!(keycode press ALT-PageDown) => {
-                    self.scroll_right(self.hscroll.page_len() / 2).into()
+                    self.scroll_right(self.hscroll.page_len() * 6 / 10).into()
                 }
                 ct_event!(keycode press ALT-Home) => self.set_col_offset(0).into(),
                 ct_event!(keycode press ALT-End) => {
