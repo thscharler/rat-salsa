@@ -3,7 +3,6 @@ use crate::{Scroll, ScrollState, ScrollbarPolicy};
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
-use ratatui::prelude::BlockExt;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, ScrollbarOrientation, StatefulWidget, Widget};
