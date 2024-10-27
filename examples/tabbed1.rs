@@ -112,7 +112,7 @@ fn repaint_input(
                 "L-29", //
             ])
             .style(THEME.gray(3))
-            .scroll(Scroll::new().styles(THEME.scrolled_style()))
+            .scroll(Scroll::new().styles(THEME.scroll_style()))
             .render(
                 state.tabbed.widget_area,
                 frame.buffer_mut(),
@@ -129,7 +129,7 @@ fn repaint_input(
             ])
             .style(THEME.gray(3))
             .block(Block::bordered().style(THEME.block()))
-            .scroll(Scroll::new().styles(THEME.scrolled_style()))
+            .scroll(Scroll::new().styles(THEME.scroll_style()))
             .render(
                 state.tabbed.widget_area,
                 frame.buffer_mut(),

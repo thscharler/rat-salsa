@@ -203,13 +203,17 @@ fn repaint_input(
         .block(Block::bordered().borders(Borders::TOP))
         .render(l2[3], frame.buffer_mut(), &mut state.cal2);
 
-    Button::new("<<<")
-        .styles(THEME.button_style_no_border())
-        .render(l4[1], frame.buffer_mut(), &mut state.prev);
+    Button::new("<<<").styles(THEME.button_style()).render(
+        l4[1],
+        frame.buffer_mut(),
+        &mut state.prev,
+    );
 
-    Button::new(">>>")
-        .styles(THEME.button_style_no_border())
-        .render(l4[3], frame.buffer_mut(), &mut state.next);
+    Button::new(">>>").styles(THEME.button_style()).render(
+        l4[3],
+        frame.buffer_mut(),
+        &mut state.next,
+    );
 
     MenuLine::new()
         .title("|/\\|")

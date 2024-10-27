@@ -4,7 +4,6 @@ use rat_event::{ConsumedEvent, HandleEvent, Popup, Regular};
 use rat_focus::{Focus, FocusBuilder};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_scrolled::{Scroll, ScrollbarPolicy};
 use rat_widget::choice::{Choice, ChoiceState};
 use rat_widget::event::Outcome;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};

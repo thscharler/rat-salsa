@@ -81,7 +81,7 @@ fn repaint_input(
     .split(l1[1]);
 
     let mut split = Split::new()
-        .styles(THEME.split_style(state.split_type))
+        .styles(THEME.split_style())
         .direction(state.dir)
         .split_type(state.split_type)
         .resize(state.resize)
@@ -125,7 +125,7 @@ fn repaint_input(
                         .border_type(inner_border),
                 );
             }
-            let mut scroll_left = Scroll::new().styles(THEME.scrolled_style());
+            let mut scroll_left = Scroll::new().styles(THEME.scroll_style());
             if state.dir == Direction::Horizontal {
                 scroll_left = scroll_left.start_margin(2);
             }

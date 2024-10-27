@@ -2,19 +2,24 @@ use rat_ftable::TableStyle;
 use rat_menu::MenuStyle;
 use rat_popup::PopupStyle;
 use rat_scrolled::ScrollStyle;
+use rat_text::line_number::LineNumberStyle;
 use rat_text::TextStyle;
 use rat_widget::button::ButtonStyle;
 use rat_widget::calendar::MonthStyle;
 use rat_widget::checkbox::CheckboxStyle;
 use rat_widget::choice::ChoiceStyle;
+use rat_widget::clipper::ClipperStyle;
 use rat_widget::file_dialog::FileDialogStyle;
 use rat_widget::list::ListStyle;
 use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
-use rat_widget::splitter::{SplitStyle, SplitType};
+use rat_widget::shadow::{ShadowDirection, ShadowStyle};
+use rat_widget::splitter::SplitStyle;
+use rat_widget::tabbed::TabbedStyle;
+use rat_widget::view::ViewStyle;
 use ratatui::style::{Color, Style, Stylize};
-use ratatui::widgets::{Block, BorderType};
+use ratatui::widgets::Block;
 use std::time::Duration;
 
 #[derive(Debug, Default, Clone)]
@@ -145,25 +150,27 @@ impl Scheme {
 
     /// Focus style
     pub fn focus(&self) -> Style {
-        let bg = self.primary[2];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+        self.style(self.primary[2])
     }
 
     /// Selection style
     pub fn select(&self) -> Style {
-        let bg = self.secondary[1];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+        self.style(self.secondary[1])
     }
 
     /// Text field style.
     pub fn text_input(&self) -> Style {
-        self.style(self.gray[2])
+        self.style(self.gray[3])
     }
 
-    /// Focus style
-    pub fn text_input_focus(&self) -> Style {
-        let bg = self.primary[2];
-        Style::default().fg(self.text_color(bg)).bg(bg).underlined()
+    /// Focused text field style.
+    pub fn text_focus(&self) -> Style {
+        self.style(self.primary[0])
+    }
+
+    /// Text selection style.
+    pub fn text_select(&self) -> Style {
+        self.style(self.secondary[0])
     }
 
     pub fn table_base(&self) -> Style {
@@ -178,16 +185,9 @@ impl Scheme {
         Style::default().fg(self.white[1]).bg(self.blue[2])
     }
 
-    /// Focused text field style.
-    pub fn text_focus(&self) -> Style {
-        let bg = self.primary[0];
-        Style::default().fg(self.text_color(bg)).bg(bg)
-    }
-
-    /// Text selection style.
-    pub fn text_select(&self) -> Style {
-        let bg = self.secondary[0];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+    /// Container base
+    pub fn container(&self) -> Style {
+        Style::default().fg(self.gray[0]).bg(self.black[1])
     }
 
     /// Data display style. Used for lists, tables, ...
@@ -217,7 +217,7 @@ impl Scheme {
 
     /// Armed style for buttons.
     pub fn button_armed(&self) -> Style {
-        Style::default().fg(self.black[0]).bg(self.secondary[0])
+        self.style(self.secondary[0])
     }
 
     pub fn block(&self) -> Style {
@@ -238,7 +238,25 @@ impl Scheme {
             day: None,
             select: Some(self.select()),
             focus: Some(self.focus()),
-            ..Default::default()
+            ..MonthStyle::default()
+        }
+    }
+
+    /// Style for shadows.
+    pub fn shadow_style(&self) -> ShadowStyle {
+        ShadowStyle {
+            style: Style::new().bg(self.black[0]),
+            dir: ShadowDirection::BottomRight,
+            ..ShadowStyle::default()
+        }
+    }
+
+    /// Style for LineNumbers.
+    pub fn line_nr_style(&self) -> LineNumberStyle {
+        LineNumberStyle {
+            style: self.data_base().fg(self.gray[0]),
+            cursor: Some(self.text_select()),
+            ..LineNumberStyle::default()
         }
     }
 
@@ -248,7 +266,8 @@ impl Scheme {
             style: self.data_base(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
-            ..Default::default()
+            scroll: Some(self.scroll_style()),
+            ..TextStyle::default()
         }
     }
 
@@ -259,7 +278,7 @@ impl Scheme {
             focus: Some(self.text_focus()),
             select: Some(self.text_select()),
             invalid: Some(Style::default().bg(self.red[3])),
-            ..Default::default()
+            ..TextStyle::default()
         }
     }
 
@@ -267,7 +286,7 @@ impl Scheme {
         ParagraphStyle {
             style: self.data_base(),
             focus: Some(self.focus()),
-            scroll: Some(self.scrolled_style()),
+            scroll: Some(self.scroll_style()),
             ..Default::default()
         }
     }
@@ -279,7 +298,7 @@ impl Scheme {
             focus: Some(self.text_focus()),
             popup: PopupStyle {
                 style: self.dialog_base(),
-                scroll: Some(self.scrolled_style()),
+                scroll: Some(self.scroll_style()),
                 ..Default::default()
             },
             ..Default::default()
@@ -308,21 +327,9 @@ impl Scheme {
             highlight: Some(Style::default().underlined()),
             popup: PopupStyle {
                 style: menu,
-                block: Some(Block::bordered().border_type(BorderType::Rounded)),
+                block: Some(Block::bordered()),
                 ..Default::default()
             },
-            ..Default::default()
-        }
-    }
-
-    /// Complete ButtonStyle
-    pub fn button_style_no_border(&self) -> ButtonStyle {
-        ButtonStyle {
-            style: self.button_base(),
-            focus: Some(self.focus()),
-            armed: Some(self.select()),
-            armed_delay: Some(Duration::from_millis(50)),
-            block: None,
             ..Default::default()
         }
     }
@@ -334,7 +341,6 @@ impl Scheme {
             focus: Some(self.focus()),
             armed: Some(self.select()),
             armed_delay: Some(Duration::from_millis(50)),
-            block: Some(Block::bordered().border_type(BorderType::Rounded)),
             ..Default::default()
         }
     }
@@ -346,6 +352,7 @@ impl Scheme {
             select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
+            scroll: Some(self.scroll_style()),
             ..Default::default()
         }
     }
@@ -356,13 +363,14 @@ impl Scheme {
             style: self.list_base(),
             select: Some(self.select()),
             focus: Some(self.focus()),
+            scroll: Some(self.scroll_style()),
             ..Default::default()
         }
     }
 
     /// Complete ScrolledStyle
-    pub fn scrolled_style(&self) -> ScrollStyle {
-        let style = Style::default().fg(self.gray[0]).bg(self.black[1]);
+    pub fn scroll_style(&self) -> ScrollStyle {
+        let style = self.container();
         let arrow_style = Style::default().fg(self.secondary[0]).bg(self.black[1]);
         ScrollStyle {
             thumb_style: Some(style),
@@ -374,26 +382,35 @@ impl Scheme {
         }
     }
 
-    /// Complete SplitStyle
-    pub fn split_style(&self, t: SplitType) -> SplitStyle {
-        if t == SplitType::FullEmpty {
-            let style = Style::default().bg(self.gray[0]).fg(self.gray[3]);
-            let arrow_style = Style::default().fg(self.secondary[3]).bg(self.gray[0]);
-            SplitStyle {
-                style,
-                arrow_style: Some(arrow_style),
-                drag_style: Some(self.secondary(2)),
-                ..Default::default()
-            }
-        } else {
-            let style = Style::default().fg(self.gray[0]).bg(self.gray[3]);
-            let arrow_style = Style::default().fg(self.secondary[3]).bg(self.gray[0]);
-            SplitStyle {
-                style,
-                arrow_style: Some(arrow_style),
-                drag_style: Some(self.secondary(2)),
-                ..Default::default()
-            }
+    /// Split style
+    pub fn split_style(&self) -> SplitStyle {
+        let style = self.container();
+        let arrow_style = Style::default().fg(self.secondary[2]).bg(self.black[1]);
+        SplitStyle {
+            style,
+            arrow_style: Some(arrow_style),
+            drag_style: Some(self.focus()),
+            ..Default::default()
+        }
+    }
+
+    /// View style
+    pub fn view_style(&self) -> ViewStyle {
+        ViewStyle {
+            scroll: Some(self.scroll_style()),
+            ..Default::default()
+        }
+    }
+
+    /// Tabbed style
+    pub fn tabbed_style(&self) -> TabbedStyle {
+        let style = self.container();
+        TabbedStyle {
+            style,
+            tab: Some(self.gray(1)),
+            select: Some(self.gray(3)),
+            focus: Some(self.focus()),
+            ..Default::default()
         }
     }
 
@@ -423,7 +440,7 @@ impl Scheme {
             list: Some(self.list_style()),
             roots: Some(self.list_style()),
             text: Some(self.input_style()),
-            button: Some(self.button_style_no_border()),
+            button: Some(self.button_style()),
             block: Some(Block::bordered()),
             ..Default::default()
         }
@@ -432,21 +449,29 @@ impl Scheme {
     /// Complete MsgDialogStyle.
     pub fn msg_dialog_style(&self) -> MsgDialogStyle {
         MsgDialogStyle {
-            style: self.status_base(),
-            button: Some(self.button_style_no_border()),
+            style: self.dialog_base(),
+            button: Some(self.button_style()),
             ..Default::default()
         }
     }
 
+    /// Pager style.
     pub fn pager_style(&self) -> PagerStyle {
         let nav_style = Style::new().fg(self.secondary[1]);
         let divider_style = Style::default().fg(self.gray[0]).bg(self.black[1]);
         PagerStyle {
-            style: self.data_base(),
+            style: self.container(),
             nav: Some(nav_style),
             divider: Some(divider_style),
-            title: None,
             block: Some(Block::bordered().border_style(divider_style)),
+            ..Default::default()
+        }
+    }
+
+    /// Clipper style.
+    pub fn clipper_style(&self) -> ClipperStyle {
+        ClipperStyle {
+            scroll: Some(self.scroll_style()),
             ..Default::default()
         }
     }

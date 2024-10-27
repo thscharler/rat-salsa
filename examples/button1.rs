@@ -3,14 +3,12 @@ use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 use rat_event::{ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder};
-use rat_widget::button;
 use rat_widget::button::{Button, ButtonOutcome, ButtonState};
 use rat_widget::event::Outcome;
 use ratatui::layout::{Constraint, Layout, Rect};
 use ratatui::prelude::Widget;
-use ratatui::style::{Style, Stylize};
 use ratatui::text::Span;
-use ratatui::widgets::{Block, BorderType, StatefulWidget};
+use ratatui::widgets::StatefulWidget;
 use ratatui::Frame;
 use std::cmp::max;
 

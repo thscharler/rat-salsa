@@ -11,9 +11,8 @@ use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::pager::{AreaHandle, DualPager, DualPagerState, PagerLayout};
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
+use ratatui::widgets::StatefulWidget;
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
@@ -85,7 +84,7 @@ fn repaint_input(
     // maybe rebuild layout
     let width = pager.layout_width(l2[1]);
     if state.layout.width_changed(width) {
-        let mut pl = PagerLayout::new();
+        let mut pl = PagerLayout::new(1);
         let mut row = 0;
         for i in 0..state.hundred.len() {
             let h = if i == 0 {
@@ -101,7 +100,7 @@ fn repaint_input(
             };
 
             let area = Rect::new(10, row, 15, h);
-            state.hundred_areas[i] = pl.add(area);
+            state.hundred_areas[i] = pl.add(&[area]);
 
             if i > 0 && i % 17 == 0 {
                 pl.break_before(row);
@@ -109,7 +108,7 @@ fn repaint_input(
 
             row += h + 1;
         }
-        pl.add(Rect::new(90, 0, 10, 1));
+        pl.add(&[Rect::new(90, 0, 10, 1)]);
         state.layout = pl;
     }
 
@@ -122,7 +121,7 @@ fn repaint_input(
     // render the input fields.
     for i in 0..state.hundred.len() {
         // map an additional ad hoc area.
-        let v_area = pg_buf.layout_area(state.hundred_areas[i]);
+        let v_area = pg_buf.layout_area(state.hundred_areas[i])[0];
         let w_area = Rect::new(5, v_area.y, 5, 1);
         pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
 
