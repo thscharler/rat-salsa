@@ -166,7 +166,7 @@ mod root {
                     Constraint::Length(7),
                 ])
                 .styles(vec![
-                    ctx.g.theme.status_style(),
+                    ctx.g.theme.status_base(),
                     ctx.g.theme.deepblue(3),
                     ctx.g.theme.deepblue(2),
                     ctx.g.theme.deepblue(1),
@@ -506,7 +506,7 @@ mod app {
                 let err = MsgDialog::new()
                     .block(
                         Block::bordered()
-                            .style(ctx.g.theme.dialog_style())
+                            .style(ctx.g.theme.dialog_base())
                             .border_type(BorderType::Rounded)
                             .title_style(Style::new().fg(ctx.g.scheme().red[0]))
                             .padding(Padding::new(1, 1, 1, 1)),
@@ -1581,7 +1581,7 @@ pub mod file_list {
             let l_file_list =
                 Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).split(area);
 
-            buf.set_style(l_file_list[0], ctx.g.theme.data());
+            buf.set_style(l_file_list[0], ctx.g.theme.data_base());
 
             List::default()
                 .styles(ctx.g.theme.list_style())

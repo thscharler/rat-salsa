@@ -403,7 +403,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 Block::bordered()
                     .borders(Borders::TOP)
                     .border_set(set)
-                    .style(ctx.g.theme.data())
+                    .style(ctx.g.theme.data_base())
                     .title(title),
             )
             .render(state.w_split.widget_areas[2], buf, &mut state.w_data);

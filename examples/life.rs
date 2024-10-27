@@ -266,7 +266,7 @@ pub mod app {
                     Constraint::Length(8),
                 ])
                 .styles(vec![
-                    ctx.g.theme.status_style(),
+                    ctx.g.theme.status_base(),
                     Style::default()
                         .fg(scheme.text_color(scheme.white[0]))
                         .bg(scheme.orange[2]),

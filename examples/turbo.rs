@@ -641,6 +641,7 @@ pub mod theme {
     use rat_widget::text::TextStyle;
     use ratatui::prelude::Style;
     use ratatui::style::Stylize;
+    use ratatui::widgets::Block;
 
     #[derive(Debug, Clone)]
     pub struct TurboTheme {
@@ -972,7 +973,7 @@ pub mod theme {
         pub fn msg_dialog_style(&self) -> MsgDialogStyle {
             MsgDialogStyle {
                 style: self.dialog_style(),
-                button: self.button_style(),
+                button: Some(self.button_style()),
                 scroll: Some(self.scroll_style()),
                 ..Default::default()
             }
@@ -981,14 +982,11 @@ pub mod theme {
         pub fn file_dialog_style(&self) -> FileDialogStyle {
             FileDialogStyle {
                 style: self.dialog_style(),
-                list: Some(self.data()),
-                path: Some(self.text_input()),
-                name: Some(self.text_input()),
-                new: Some(self.text_input()),
-                invalid: Some(Style::new().fg(self.s.red[3]).bg(self.s.gray[2])),
-                select: Some(self.select()),
-                focus: Some(self.focus()),
+                list: Some(self.list_style()),
+                roots: Some(self.list_style()),
+                text: Some(self.input_style()),
                 button: Some(self.button_style()),
+                block: Some(Block::bordered()),
                 ..Default::default()
             }
         }
