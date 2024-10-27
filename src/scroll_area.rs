@@ -3,9 +3,11 @@ use crate::{Scroll, ScrollState, ScrollbarPolicy};
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
+use ratatui::prelude::BlockExt;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Block, ScrollbarOrientation, StatefulWidget, Widget};
+use ratatui::widgets::{Block, Padding, ScrollbarOrientation, StatefulWidget, Widget};
+use std::cmp::max;
 
 /// Utility widget for layout/rendering the combined block and scrollbars.
 ///
@@ -56,6 +58,22 @@ impl<'a> ScrollArea<'a> {
         self
     }
 
+    /// What padding does this effect.
+    pub fn padding(&self) -> Padding {
+        let mut padding = block_padding(&self.block);
+        if let Some(h_scroll) = self.h_scroll {
+            let scroll_pad = h_scroll.padding();
+            padding.top = max(padding.top, scroll_pad.top);
+            padding.bottom = max(padding.bottom, scroll_pad.bottom);
+        }
+        if let Some(v_scroll) = self.v_scroll {
+            let scroll_pad = v_scroll.padding();
+            padding.left = max(padding.left, scroll_pad.left);
+            padding.right = max(padding.right, scroll_pad.right);
+        }
+        padding
+    }
+
     /// Calculate the size of the inner area.
     pub fn inner(
         &self,
@@ -72,6 +90,22 @@ impl<'a> ScrollArea<'a> {
             vscroll_state,
         )
         .0
+    }
+}
+
+/// Get the padding the block imposes as Padding.
+fn block_padding(block: &Option<&Block<'_>>) -> Padding {
+    let area = Rect::new(0, 0, 20, 20);
+    let inner = if let Some(block) = block {
+        block.inner(area)
+    } else {
+        area
+    };
+    Padding {
+        left: inner.left() - area.left(),
+        right: area.right() - inner.right(),
+        top: inner.top() - area.top(),
+        bottom: area.bottom() - inner.bottom(),
     }
 }
 

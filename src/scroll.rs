@@ -9,7 +9,7 @@ use ratatui::layout::Rect;
 use ratatui::prelude::Style;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
-use ratatui::widgets::{Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
+use ratatui::widgets::{Padding, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
 use std::cmp::{max, min};
 use std::mem;
 
@@ -435,6 +435,15 @@ impl<'a> Scroll<'a> {
         self.min_style = Some(style);
         self.scrollbar = self.scrollbar.style(style);
         self
+    }
+
+    pub fn padding(&self) -> Padding {
+        match self.orientation {
+            ScrollbarOrientation::VerticalRight => Padding::new(0, 1, 0, 0),
+            ScrollbarOrientation::VerticalLeft => Padding::new(1, 0, 0, 0),
+            ScrollbarOrientation::HorizontalBottom => Padding::new(0, 0, 0, 1),
+            ScrollbarOrientation::HorizontalTop => Padding::new(0, 0, 1, 0),
+        }
     }
 }
 
