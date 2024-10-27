@@ -1,15 +1,13 @@
 use crate::clipper::{AreaHandle, ClipperLayout, ClipperStyle};
-use log::debug;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::min;
-use std::time::SystemTime;
 
 /// Configure the Clipper.
 #[derive(Debug, Default, Clone)]
@@ -352,7 +350,7 @@ impl<'a> ClipperBuffer<'a> {
 impl<'a> StatefulWidget for ClipperWidget<'a> {
     type State = ClipperState;
 
-    fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         assert_eq!(area, state.area);
 
         ScrollArea::new()

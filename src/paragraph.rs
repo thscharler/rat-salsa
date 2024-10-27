@@ -186,17 +186,17 @@ impl<'a> Paragraph<'a> {
     }
 
     /// Text alignment.
-    pub fn left_aligned(mut self) -> Self {
+    pub fn left_aligned(self) -> Self {
         self.alignment(Alignment::Left)
     }
 
     /// Text alignment.
-    pub fn centered(mut self) -> Self {
+    pub fn centered(self) -> Self {
         self.alignment(Alignment::Center)
     }
 
     /// Text alignment.
-    pub fn right_aligned(mut self) -> Self {
+    pub fn right_aligned(self) -> Self {
         self.alignment(Alignment::Right)
     }
 
