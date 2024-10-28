@@ -16,6 +16,7 @@ use rat_widget::msgdialog::MsgDialogStyle;
 use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::popup::PopupStyle;
+use rat_widget::radio::{RadioLayout, RadioStyle};
 use rat_widget::scrolled::ScrollStyle;
 use rat_widget::shadow::{ShadowDirection, ShadowStyle};
 use rat_widget::splitter::SplitStyle;
@@ -206,6 +207,11 @@ impl DarkTheme {
         Style::default().fg(self.s.gray[0]).bg(self.s.black[1])
     }
 
+    /// Container arrows
+    pub fn container_arrow(&self) -> Style {
+        Style::default().fg(self.s.secondary[0]).bg(self.s.black[1])
+    }
+
     /// Data display style. Used for lists, tables, ...
     pub fn data_base(&self) -> Style {
         Style::default().fg(self.s.white[0]).bg(self.s.black[1])
@@ -311,7 +317,7 @@ impl DarkTheme {
         ChoiceStyle {
             style: self.text_input(),
             select: Some(self.select()),
-            focus: Some(self.text_focus()),
+            focus: Some(self.focus()),
             popup: PopupStyle {
                 style: self.dialog_base(),
                 scroll: Some(self.scroll_style()),
@@ -321,11 +327,20 @@ impl DarkTheme {
         }
     }
 
+    pub fn radio_style(&self) -> RadioStyle {
+        RadioStyle {
+            layout: Some(RadioLayout::Stacked),
+            style: self.text_input(),
+            focus: Some(self.focus()),
+            ..Default::default()
+        }
+    }
+
     /// Complete CheckboxStyle
     pub fn checkbox_style(&self) -> CheckboxStyle {
         CheckboxStyle {
             style: self.text_input(),
-            focus: Some(self.text_focus()),
+            focus: Some(self.focus()),
             ..Default::default()
         }
     }
@@ -386,25 +401,21 @@ impl DarkTheme {
 
     /// Scroll style
     pub fn scroll_style(&self) -> ScrollStyle {
-        let style = self.container();
-        let arrow_style = Style::default().fg(self.s.secondary[0]).bg(self.s.black[1]);
         ScrollStyle {
-            thumb_style: Some(style),
-            track_style: Some(style),
-            min_style: Some(style),
-            begin_style: Some(arrow_style),
-            end_style: Some(arrow_style),
+            thumb_style: Some(self.container()),
+            track_style: Some(self.container()),
+            min_style: Some(self.container()),
+            begin_style: Some(self.container_arrow()),
+            end_style: Some(self.container_arrow()),
             ..Default::default()
         }
     }
 
     /// Split style
     pub fn split_style(&self) -> SplitStyle {
-        let style = self.container();
-        let arrow_style = Style::default().fg(self.s.secondary[2]).bg(self.s.black[1]);
         SplitStyle {
-            style,
-            arrow_style: Some(arrow_style),
+            style: self.container(),
+            arrow_style: Some(self.container_arrow()),
             drag_style: Some(self.focus()),
             ..Default::default()
         }
@@ -420,9 +431,8 @@ impl DarkTheme {
 
     /// Tabbed style
     pub fn tabbed_style(&self) -> TabbedStyle {
-        let style = self.container();
         TabbedStyle {
-            style,
+            style: self.container(),
             tab: Some(self.gray(1)),
             select: Some(self.gray(3)),
             focus: Some(self.focus()),
@@ -473,13 +483,11 @@ impl DarkTheme {
 
     /// Pager style.
     pub fn pager_style(&self) -> PagerStyle {
-        let nav_style = Style::new().fg(self.s.secondary[1]);
-        let divider_style = Style::default().fg(self.s.gray[0]).bg(self.s.black[1]);
         PagerStyle {
             style: self.container(),
-            nav: Some(nav_style),
-            divider: Some(divider_style),
-            block: Some(Block::bordered().border_style(divider_style)),
+            nav: Some(self.container_arrow()),
+            divider: Some(self.container()),
+            block: Some(Block::bordered().border_style(self.container())),
             ..Default::default()
         }
     }
