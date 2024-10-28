@@ -869,30 +869,22 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
             }
         }
 
-        let arrow_style = if state.mouse.hover.get() == Some(n) {
+        let (style, arrow_style) = if Some(n) == state.mouse.drag.get()
+            || Some(n) == state.focus_marker
+            || Some(n) == state.mouse.hover.get()
+        {
             if let Some(drag) = split.drag_style {
-                drag
+                (drag, drag)
             } else {
-                revert_style(split.style)
+                (revert_style(split.style), revert_style(split.style))
             }
         } else {
             if let Some(arrow) = split.arrow_style {
-                arrow
+                (split.style, arrow)
             } else {
-                split.style
+                (split.style, split.style)
             }
         };
-
-        let (style, arrow_style) =
-            if Some(n) == state.mouse.drag.get() || Some(n) == state.focus_marker {
-                if let Some(drag) = split.drag_style {
-                    (drag, drag)
-                } else {
-                    (revert_style(split.style), arrow_style)
-                }
-            } else {
-                (split.style, arrow_style)
-            };
 
         if let Some(fill) = split.get_fill_char() {
             fill_buf_area(buf, *split_area, fill, style);
@@ -1047,7 +1039,7 @@ impl SplitState {
     pub fn select_next_split(&mut self) -> bool {
         if self.is_focused() {
             let n = self.focus_marker.unwrap_or_default();
-            if n + 1 >= self.area_length.len() {
+            if n + 1 >= self.area_length.len().saturating_sub(1) {
                 self.focus_marker = Some(0);
             } else {
                 self.focus_marker = Some(n + 1);
@@ -1063,7 +1055,8 @@ impl SplitState {
         if self.is_focused() {
             let n = self.focus_marker.unwrap_or_default();
             if n == 0 {
-                self.focus_marker = Some(self.area_length.len() - 1);
+                self.focus_marker =
+                    Some(self.area_length.len().saturating_sub(1).saturating_sub(1));
             } else {
                 self.focus_marker = Some(n - 1);
             }
@@ -1454,10 +1447,10 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SplitState {
                     ct_event!(keycode press Up) => self.move_split_up(n, 1).into(),
                     ct_event!(keycode press Down) => self.move_split_down(n, 1).into(),
 
-                    ct_event!(keycode press CONTROL-Left) => self.select_next_split().into(),
-                    ct_event!(keycode press CONTROL-Right) => self.select_prev_split().into(),
-                    ct_event!(keycode press CONTROL-Up) => self.select_next_split().into(),
-                    ct_event!(keycode press CONTROL-Down) => self.select_prev_split().into(),
+                    ct_event!(keycode press CONTROL-Left) => self.select_prev_split().into(),
+                    ct_event!(keycode press CONTROL-Right) => self.select_next_split().into(),
+                    ct_event!(keycode press CONTROL-Up) => self.select_prev_split().into(),
+                    ct_event!(keycode press CONTROL-Down) => self.select_next_split().into(),
                     _ => Outcome::Continue,
                 }
             } else {
