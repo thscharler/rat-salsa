@@ -102,7 +102,7 @@ fn repaint_input(
         split = split
             .block(
                 Block::bordered()
-                    .border_type(blk)
+                    .border_type(blk) //
                     .border_style(THEME.block()),
             )
             .join_1(blk)
@@ -126,15 +126,15 @@ fn repaint_input(
                 w_left = w_left.block(
                     Block::bordered()
                         .title("inner block")
-                        .border_style(THEME.gray(3))
+                        .border_style(THEME.magenta(0))
                         .border_type(inner_border),
                 );
             }
             let mut scroll_left = Scroll::new().styles(THEME.scroll_style());
             if state.dir == Direction::Horizontal {
-                scroll_left = scroll_left.start_margin(2);
+                scroll_left = scroll_left.start_margin(3);
             }
-            w_left = w_left.scroll(scroll_left);
+            w_left = w_left.vscroll(scroll_left);
         }
         SplitType::Widget => {
             if let Some(inner_border) = state.inner_border_type {
@@ -177,7 +177,10 @@ fn repaint_input(
         .max(2024) //
         .style(THEME.bluegreen(0))
         .focus_style(THEME.focus())
-        .v_scroll(Scroll::new().styles(THEME.scroll_style()))
+        .v_scroll(
+            Scroll::new() //
+                .styles(THEME.scroll_style()),
+        )
         // .block(
         //     Block::bordered()
         //         .border_type(BorderType::Rounded)
@@ -246,6 +249,8 @@ fn repaint_input(
     Line::from(txt).render(area, frame.buffer_mut());
     area.y += 1;
     Line::from(format!("Drag {:?}", state.split.mouse.drag.get())).render(area, frame.buffer_mut());
+    area.y += 1;
+    Line::from(format!("Mark {:?}", state.split.focus_marker)).render(area, frame.buffer_mut());
     area.y += 1;
     Line::from(format!("{:?}", state.split.split_type)).render(area, frame.buffer_mut());
     area.y += 1;
