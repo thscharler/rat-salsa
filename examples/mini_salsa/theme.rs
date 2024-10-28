@@ -417,8 +417,8 @@ impl Scheme {
     pub fn tabbed_style(&self) -> TabbedStyle {
         TabbedStyle {
             style: self.container(),
-            tab: Some(self.gray(1)),
-            select: Some(self.gray(3)),
+            tab: Some(self.black(3)),
+            select: Some(self.gray(1)),
             focus: Some(self.focus()),
             ..Default::default()
         }

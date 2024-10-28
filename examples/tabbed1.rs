@@ -1,4 +1,5 @@
 #![allow(dead_code)]
+use crate::mini_salsa::endless_scroll::{EndlessScroll, EndlessScrollState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, flow, ConsumedEvent, HandleEvent, Regular};
@@ -31,7 +32,9 @@ fn main() -> Result<(), anyhow::Error> {
         style: TabType::default(),
         close: false,
         tabbed: TabbedState::default(),
-        tabs: Default::default(),
+        tabs_0: Default::default(),
+        tabs_1: Default::default(),
+        tabs_2: Default::default(),
         menu: MenuLineState::default(),
         status: StatusLineState::default(),
     };
@@ -55,7 +58,10 @@ struct State {
     close: bool,
 
     tabbed: TabbedState,
-    tabs: [ListState<RowSelection>; 3],
+
+    tabs_0: ListState<RowSelection>,
+    tabs_1: EndlessScrollState,
+    tabs_2: EndlessScrollState,
 
     menu: MenuLineState,
     status: StatusLineState,
@@ -84,11 +90,9 @@ fn repaint_input(
     .split(l1[1]);
 
     let mut tab = Tabbed::new()
+        .styles(THEME.tabbed_style())
         .tab_type(state.style)
-        .placement(state.placement)
-        .style(THEME.black(2))
-        .select_style(THEME.orange(2))
-        .tab_style(THEME.limegreen(0));
+        .placement(state.placement);
     if state.close {
         tab = tab.closeable(true);
     }
@@ -99,44 +103,44 @@ fn repaint_input(
                 .border_set(border_type.1),
         );
     }
-    tab = tab.tabs(["Tabbed 1", "Tabbed 2", "Tabbed 3"]);
+    tab = tab.tabs(["Issues", "Numbers", "More numbers"]);
     tab.render(l2[1], frame.buffer_mut(), &mut state.tabbed);
 
     match state.tabbed.selected().expect("tab") {
-        0 => {
-            List::<RowSelection>::new([
-                "L-0", "L-1", "L-2", "L-3", "L-4", "L-5", "L-6", "L-7", "L-8", "L-9", //
-                "L-10", "L-11", "L-12", "L-13", "L-14", "L-15", "L-16", "L-17", "L-18",
-                "L-19", //
-                "L-20", "L-21", "L-22", "L-23", "L-24", "L-25", "L-26", "L-27", "L-28",
-                "L-29", //
-            ])
-            .style(THEME.gray(3))
+        0 => List::<RowSelection>::new(LIST)
+            .styles(THEME.list_style())
             .scroll(Scroll::new().styles(THEME.scroll_style()))
             .render(
                 state.tabbed.widget_area,
                 frame.buffer_mut(),
-                &mut state.tabs[0],
-            );
-        }
-        1 => {
-            List::<RowSelection>::new([
-                "R-0", "R-1", "R-2", "R-3", "R-4", "R-5", "R-6", "R-7", "R-8", "R-9", //
-                "R-10", "R-11", "R-12", "R-13", "R-14", "R-15", "R-16", "R-17", "R-18",
-                "R-19", //
-                "R-20", "R-21", "R-22", "R-23", "R-24", "R-25", "R-26", "R-27", "R-28",
-                "R-29", //
-            ])
-            .style(THEME.gray(3))
-            .block(Block::bordered().style(THEME.block()))
-            .scroll(Scroll::new().styles(THEME.scroll_style()))
+                &mut state.tabs_0,
+            ),
+        1 => EndlessScroll::new()
+            .max(2024) //
+            .style(THEME.bluegreen(0))
+            .focus_style(THEME.focus())
+            .v_scroll(
+                Scroll::new() //
+                    .styles(THEME.scroll_style()),
+            )
             .render(
                 state.tabbed.widget_area,
                 frame.buffer_mut(),
-                &mut state.tabs[1],
-            );
-        }
-        2 => "nothing".render(state.tabbed.widget_area, frame.buffer_mut()),
+                &mut state.tabs_1,
+            ),
+        2 => EndlessScroll::new()
+            .max(2024) //
+            .style(THEME.cyan(0))
+            .focus_style(THEME.focus())
+            .v_scroll(
+                Scroll::new() //
+                    .styles(THEME.scroll_style()),
+            )
+            .render(
+                state.tabbed.widget_area,
+                frame.buffer_mut(),
+                &mut state.tabs_2,
+            ),
         _ => {}
     }
 
@@ -158,10 +162,13 @@ fn repaint_input(
         .yellow()
         .render(area, frame.buffer_mut());
     area.y += 1;
-    Line::from("F12: key-nav")
+    Line::from("F6: reorder")
         .yellow()
         .render(area, frame.buffer_mut());
     area.y += 1;
+    Line::from("F12: key-nav")
+        .yellow()
+        .render(area, frame.buffer_mut());
     area.y += 1;
 
     let menu1 = MenuLine::new()
@@ -176,9 +183,16 @@ fn repaint_input(
 
 fn focus(state: &State) -> Focus {
     let mut fb = FocusBuilder::default();
-    fb.widget(&state.tabbed)
-        .widget(&state.tabs[state.tabbed.selected().expect("tab")])
-        .widget(&state.menu);
+    fb.widget(&state.tabbed);
+    if let Some(sel) = state.tabbed.selected {
+        match sel {
+            0 => _ = fb.widget(&state.tabs_0),
+            1 => _ = fb.widget(&state.tabs_1),
+            2 => _ = fb.widget(&state.tabs_2),
+            _ => {}
+        }
+    }
+    fb.widget(&state.menu);
     fb.build()
 }
 
@@ -303,10 +317,13 @@ fn handle_input(
         });
 
         flow!(HandleEvent::handle(&mut state.tabbed, event, Regular));
-        match state.tabbed.selected().expect("tab") {
-            0 => flow!(state.tabs[0].handle(event, Regular)),
-            1 => flow!(state.tabs[1].handle(event, Regular)),
-            _ => {}
+        if let Some(sel) = state.tabbed.selected() {
+            match sel {
+                0 => flow!(state.tabs_0.handle(event, Regular)),
+                1 => flow!(state.tabs_1.handle(event, Regular)),
+                2 => flow!(state.tabs_2.handle(event, Regular)),
+                _ => {}
+            }
         }
         flow!(match state.menu.handle(event, Regular) {
             MenuOutcome::Activated(0) => {
@@ -323,3 +340,123 @@ fn handle_input(
 
     Ok(r)
 }
+
+static LIST: [&str; 28] = [
+    "Advisory: Ratatui / Crossterm Version incompatibility (0.27 / 0.28 and beyond)
+#1298 · joshka opened on Aug 6, 2024",
+    "Examples may not be compatible with the latest release
+#779 · joshka opened on Jan 10, 2024",
+    "Ratatui's Vision
+#1321 · orhun opened on Aug 13, 2024",
+    "Convert the buffer type into a trait with the current buffer as one of it's implementations
+Type: Enhancement
+Status: Open.
+#1450 In ratatui/ratatui;· giocri opened on Oct 25, 2024",
+    "Canvas rendering issue when area is huge
+Type: Bug
+Status: Open.
+#1449 In ratatui/ratatui;· JeromeSchmied opened on Oct 22, 2024",
+    "Checkbox and Radio button widgets
+Status: Design Needed
+Type: Enhancement
+Status: Open.
+#1446 In ratatui/ratatui;· fujiapple852 opened on Oct 21, 2024",
+    "Stylize the highlight_symbol in List Widget
+    Effort: Good First Issue
+Type: Enhancement
+Status: Open.
+#1443 In ratatui/ratatui;· aktaboot opened on Oct 21, 2024",
+    "Implement Rect::resize similar to Rect::offset
+Type: Enhancement
+Status: Open.
+#1440 In ratatui/ratatui;· kardwen opened on Oct 20, 2024",
+    "Inline viewport should support an Terminal::insert_lines_before method.
+Type: Enhancement
+Status: Open.
+#1426 In ratatui/ratatui;· nfachan opened on Oct 17, 2024",
+    "Rendering Caching needs to be one level deeper
+Priority: Low
+Type: Bug
+Status: Open.
+#1405 In ratatui/ratatui;· joshka opened on Oct 6, 2024",
+    "Support asserting TestBackend buffer with color
+Effort: Good First Issue
+Type: Enhancement
+Status: Open.
+#1402 In ratatui/ratatui;· orhun opened on Oct 5, 2024",
+    "Introduce new way to compare visually output of layout tests
+Type: Enhancement
+Status: Open.
+#1400 In ratatui/ratatui;· kdheepak opened on Oct 3, 2024",
+    "Korean characters are not rendered correctly
+Type: Bug
+Status: Open.
+#1396 In ratatui/ratatui;· sxyazi opened on Oct 2, 2024",
+    "GraphType::Bar does not work when y-axis minimum bound is > 0
+Type: Bug
+Status: Open.
+#1391 In ratatui/ratatui;· Yomguithereal opened on Sep 30, 2024",
+    "Modularize Ratatui crate
+Type: Enhancement
+Type: RFC
+Status: Open.
+#1388 In ratatui/ratatui;· joshka opened on Sep 27, 2024",
+    "Most examples don't work or look bad in macOS's Terminal.app
+Type: Bug
+Status: Open.
+#1387 In ratatui/ratatui;· ccbrown opened on Sep 25, 2024",
+    "Scrolling the list widget by page
+Effort: Difficult
+Status: Design Needed
+Type: Enhancement
+Status: Open.
+#1370 In ratatui/ratatui;· francisdb opened on Sep 12, 2024",
+    "insert_before dynamic height based on content
+Type: Enhancement
+Status: Open.
+#1365 In ratatui/ratatui;· staehle opened on Sep 11, 2024",
+    "Add support for Dash borders
+Effort: Easy
+Effort: Good First Issue
+Type: Enhancement
+Status: Open.
+#1355 In ratatui/ratatui;· 0xfalafel opened on Sep 6, 2024",
+    "dweatherstone
+crossterm::style::Stylize is imported instead of ratatui::style::Stylize
+Type: Bug
+Status: Open.
+#1347 In ratatui/ratatui;· orhun opened on Aug 28, 2024",
+    "underline_color() on an input field makes the screen flicker from that line to the bottom
+Status: Pending
+Type: Bug
+Status: Open.
+#1346 In ratatui/ratatui;· mazzi opened on Aug 27, 2024",
+    "Extremely high CPU usage of the terminal.draw method
+Type: Bug
+Status: Open.
+#1338 In ratatui/ratatui;· gtema opened on Aug 23, 2024",
+    "insert_before and emoji width empty space issue
+Type: Bug
+Status: Open.
+#1332 In ratatui/ratatui;· Kongga666 opened on Aug 20, 2024",
+    "Ratatui's Vision
+Type: Enhancement
+Status: Open.
+#1321 In ratatui/ratatui;· orhun opened on Aug 13, 2024",
+    "Feature request: Add feature flags for backends
+Type: Enhancement
+Status: Open.
+#1319 In ratatui/ratatui;· nick42d opened on Aug 11, 2024",
+    "Advisory: Ratatui / Crossterm Version incompatibility (0.27 / 0.28 and beyond)
+Type: Documentation
+Status: Open.
+#1298 In ratatui/ratatui;· joshka opened on Aug 6, 2024",
+    "Allow reversing Chart Legend direction
+Type: Enhancement
+Status: Open.
+#1290 In ratatui/ratatui;· nullstalgia opened on Aug 5, 2024",
+    "WidgetRef / StatefulWidgetRef tracking issue
+Type: Documentation
+Status: Open.
+#1287 In ratatui/ratatui;· joshka opened on Aug 5, 2024",
+];
