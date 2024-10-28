@@ -304,7 +304,7 @@ impl<'a> Split<'a> {
         if styles.drag_style.is_some() {
             self.drag_style = styles.drag_style;
         }
-        if self.arrow_style.is_some() {
+        if styles.arrow_style.is_some() {
             self.arrow_style = styles.arrow_style;
         }
         match self.direction {
