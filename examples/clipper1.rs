@@ -37,7 +37,13 @@ fn main() -> Result<(), anyhow::Error> {
     state.menu.focus.set(true);
     state.menu.select(Some(0));
 
-    run_ui("pager1", handle_input, repaint_input, &mut data, &mut state)
+    run_ui(
+        "clipper1",
+        handle_input,
+        repaint_input,
+        &mut data,
+        &mut state,
+    )
 }
 
 struct Data {}

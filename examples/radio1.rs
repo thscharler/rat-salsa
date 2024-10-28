@@ -86,9 +86,8 @@ fn repaint_input(
         .spacing(1),
     );
 
-    frame.buffer_mut().set_style(area, Style::new().on_blue());
-
     Radio::new()
+        .styles(THEME.radio_style())
         .direction(state.direction)
         .layout(state.layout)
         .item("🥕Carrots")
@@ -96,30 +95,25 @@ fn repaint_input(
         .item("🧅Onions")
         .item("Peas\n&\nLentils")
         .default_settable()
-        // .style(THEME.text_input())
-        // .select_style(THEME.text_select())
-        // .focus_style(THEME.focus())
         .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     Radio::new()
+        .styles(THEME.radio_style())
         .direction(state.direction)
         .layout(state.layout)
         .item("wine")
         .item("beer")
         .item("water")
-        // .style(THEME.text_input())
-        // .focus_style(THEME.focus())
         .render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
     Radio::new()
+        .styles(THEME.radio_style())
         .direction(state.direction)
         .layout(state.layout)
         .item("red")
         .item("blue")
         .item("green")
         .item("pink")
-        // .style(THEME.text_input())
-        // .focus_style(THEME.focus())
         .block(Block::bordered().border_type(BorderType::Rounded))
         .render(lg[1][3], frame.buffer_mut(), &mut state.c3);
 
