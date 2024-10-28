@@ -113,6 +113,7 @@ impl<'a> LineNumbers<'a> {
 
     /// Complete set of styles.
     pub fn styles(mut self, styles: LineNumberStyle) -> Self {
+        self.style = styles.style;
         if let Some(flag_width) = styles.flag_width {
             self.flag_width = Some(flag_width);
         }
@@ -122,19 +123,20 @@ impl<'a> LineNumbers<'a> {
         if let Some(format) = styles.format {
             self.format = Some(format);
         }
-        self.style = styles.style;
         if let Some(cursor_style) = styles.cursor {
             self.cursor_style = Some(cursor_style);
         }
         if let Some(block) = styles.block {
             self.block = Some(block);
         }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 
@@ -146,7 +148,7 @@ impl<'a> LineNumbers<'a> {
 
     /// Block.
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = Some(block);
+        self.block = Some(block.style(self.style));
         self
     }
 
@@ -195,7 +197,6 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
         state.inner = self.block.inner_if_some(area);
-        let inner = state.inner;
         state.start = self.start;
         let end = self.end.unwrap_or(upos_type::MAX);
 
@@ -204,6 +205,7 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
         } else {
             (self.start + 100).ilog10() as u16 + 1
         };
+
         let flag_width = if let Some(flag_width) = self.flag_width {
             flag_width
         } else {
@@ -213,6 +215,7 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
                 .max()
                 .unwrap_or_default()
         };
+
         let format = if let Some(format) = self.format {
             format
         } else {
@@ -228,23 +231,14 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
         };
 
         self.block.render(area, buf);
-        // set base style
-        for y in inner.top()..inner.bottom() {
-            for x in inner.left()..inner.right() {
-                if let Some(cell) = buf.cell_mut((x, y)) {
-                    cell.reset();
-                    cell.set_style(self.style);
-                }
-            }
-        }
 
         let mut tmp = String::new();
-        for y in inner.top()..inner.bottom() {
+        for y in state.inner.top()..state.inner.bottom() {
             let (nr, is_cursor) = if self.relative {
-                let pos = self.start + (y - inner.y) as upos_type;
+                let pos = self.start + (y - state.inner.y) as upos_type;
                 (pos.abs_diff(self.cursor), pos == self.cursor)
             } else {
-                let pos = self.start + (y - inner.y) as upos_type;
+                let pos = self.start + (y - state.inner.y) as upos_type;
                 (pos, pos == self.cursor)
             };
 
@@ -253,18 +247,25 @@ impl<'a> StatefulWidget for LineNumbers<'a> {
                 _ = format.fmt_to(nr, &mut tmp);
             }
 
-            if is_cursor {
-                for x in inner.x + self.margin.0..inner.x + self.margin.0 + nr_width {
-                    if let Some(cell) = buf.cell_mut((x, y)) {
-                        cell.reset();
-                        cell.set_style(cursor_style);
-                    }
-                }
-            }
-            buf.set_string(inner.x + self.margin.0, y, &tmp, Style::default());
-            if let Some(flags) = self.flags.get((y - inner.y) as usize) {
+            let style = if is_cursor { cursor_style } else { self.style };
+
+            let nr_area = Rect::new(
+                state.inner.x + self.margin.0, //
+                y,
+                nr_width,
+                1,
+            )
+            .intersection(area);
+            buf.set_stringn(nr_area.x, nr_area.y, &tmp, nr_area.width as usize, style);
+
+            if let Some(flags) = self.flags.get((y - state.inner.y) as usize) {
                 flags.render(
-                    Rect::new(inner.x + self.margin.0 + nr_width + 1, y, flag_width, 1),
+                    Rect::new(
+                        state.inner.x + self.margin.0 + nr_width + 1,
+                        y,
+                        flag_width,
+                        1,
+                    ),
                     buf,
                 );
             }
