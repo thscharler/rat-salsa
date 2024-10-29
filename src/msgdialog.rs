@@ -4,7 +4,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
-use crate::layout::layout_dialog;
+use crate::layout::{layout_dialog, DialogItem};
 use crate::paragraph::{Paragraph, ParagraphState};
 use crate::util::reset_buf_area;
 use rat_event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Outcome, Regular};
@@ -239,8 +239,8 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             0,
             Flex::End,
         );
-        state.area = l_dlg.area;
-        state.inner = l_dlg.inner;
+        state.area = l_dlg.area();
+        state.inner = l_dlg[DialogItem::Inner];
 
         reset_buf_area(state.area, buf);
         block.render(state.area, buf);
@@ -259,7 +259,7 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
             }
             let text = Text::from(lines).alignment(Alignment::Center);
             Paragraph::new(text).scroll(scroll).render(
-                l_dlg.content,
+                l_dlg[DialogItem::Content],
                 buf,
                 &mut state.paragraph.borrow_mut(),
             );
@@ -267,7 +267,11 @@ fn render_ref(widget: &MsgDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut 
 
         Button::new("Ok")
             .styles_opt(widget.button_style.clone())
-            .render(l_dlg.buttons[0], buf, &mut state.button.borrow_mut());
+            .render(
+                l_dlg[DialogItem::Button(0)],
+                buf,
+                &mut state.button.borrow_mut(),
+            );
     }
 }
 

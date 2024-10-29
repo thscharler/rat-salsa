@@ -2,7 +2,7 @@
 //! Calculate a layout-grid from horizontal + vertical Constraints.
 //!
 
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Layout, Rect};
 
 ///
 /// Calculates a full grid of rects from the horizontal and vertical components.
@@ -51,27 +51,4 @@ pub fn layout_grid<const X: usize, const Y: usize>(
     }
 
     res
-}
-
-/// Calculate the middle Rect inside a given area.
-pub fn layout_middle(
-    area: Rect,
-    left: Constraint,
-    right: Constraint,
-    top: Constraint,
-    bottom: Constraint,
-) -> Rect {
-    let h_layout = Layout::horizontal([
-        left, //
-        Constraint::Fill(1),
-        right,
-    ])
-    .split(area);
-    let v_layout = Layout::vertical([
-        top, //
-        Constraint::Fill(1),
-        bottom,
-    ])
-    .split(h_layout[1]);
-    v_layout[1]
 }

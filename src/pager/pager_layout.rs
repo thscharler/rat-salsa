@@ -1,3 +1,4 @@
+use crate::layout::StructuredLayout;
 use crate::pager::AreaHandle;
 use ratatui::layout::Rect;
 use std::cell::RefCell;
@@ -14,127 +15,108 @@ use std::rc::Rc;
 ///
 #[derive(Debug, Default, Clone)]
 pub struct PagerLayout {
-    core: Rc<RefCell<PageLayoutCore>>,
+    core: Rc<RefCell<PagerLayoutCore>>,
 }
 
 #[derive(Debug, Default, Clone)]
-struct PageLayoutCore {
-    // just for checks on re-layout
-    area: Rect,
-    // collected areas
-    areas: Vec<Rect>,
-    // manual breaks
-    man_breaks: Vec<u16>,
+struct PagerLayoutCore {
+    layout: StructuredLayout,
     // calculated breaks
     breaks: Vec<u16>,
 }
 
 impl PagerLayout {
     /// New layout.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(stride: usize) -> Self {
+        Self {
+            core: Rc::new(RefCell::new(PagerLayoutCore {
+                layout: StructuredLayout::new(stride),
+                ..Default::default()
+            })),
+        }
+    }
+
+    /// New layout from StructuredLayout
+    pub fn with_layout(layout: StructuredLayout) -> Self {
+        Self {
+            core: Rc::new(RefCell::new(PagerLayoutCore {
+                layout,
+                ..Default::default()
+            })),
+        }
     }
 
     /// Has the target width of the layout changed.
     pub fn width_changed(&self, width: u16) -> bool {
-        self.core.borrow().area.width != width
+        self.core.borrow().layout.width_change(width)
     }
 
     /// Add a rect.
-    pub fn add(&mut self, area: Rect) -> AreaHandle {
-        let mut core = self.core.borrow_mut();
+    pub fn add(&mut self, area: &[Rect]) -> AreaHandle {
         // reset page to re-layout
-        core.area = Default::default();
-        core.areas.push(area);
-        AreaHandle(core.areas.len() - 1)
+        self.core.borrow_mut().layout.set_area(Default::default());
+        self.core.borrow_mut().layout.add(area)
     }
 
-    /// Add rects.
-    pub fn add_all(&mut self, areas: impl IntoIterator<Item = Rect>) {
-        let mut core = self.core.borrow_mut();
-        // reset page to re-layout
-        core.area = Default::default();
-        core.areas.extend(areas)
-    }
-
-    /// Add rects. Appends the resulting handles.
-    pub fn add_all_out(
-        &mut self,
-        areas: impl IntoIterator<Item = Rect>,
-        handles: &mut Vec<AreaHandle>,
-    ) {
-        let mut core = self.core.borrow_mut();
-
-        // reset page to re-layout
-        core.area = Default::default();
-
-        let start = core.areas.len();
-        core.areas.extend(areas);
-        let end = core.areas.len();
-
-        for i in start..end {
-            handles.push(AreaHandle(i));
-        }
+    /// Get the layout area for the given handle
+    pub fn layout_handle(&self, handle: AreaHandle) -> Box<[Rect]> {
+        self.core.borrow().layout[handle]
+            .to_vec()
+            .into_boxed_slice()
     }
 
     /// Add a manual break after the given position.
     pub fn break_after(&mut self, y: u16) {
-        let mut core = self.core.borrow_mut();
-
         // reset page to re-layout
-        core.area = Default::default();
-
-        core.man_breaks.push(y + 1);
+        self.core.borrow_mut().layout.set_area(Default::default());
+        self.core.borrow_mut().layout.break_after_row(y);
     }
 
     /// Add a manual break before the given position.
     pub fn break_before(&mut self, y: u16) {
-        let mut core = self.core.borrow_mut();
-
         // reset page to re-layout
-        core.area = Default::default();
-
-        core.man_breaks.push(y);
+        self.core.borrow_mut().layout.set_area(Default::default());
+        self.core.borrow_mut().layout.break_before_row(y);
     }
 
     /// Number of areas.
     pub fn len(&self) -> usize {
-        self.core.borrow().areas.len()
+        self.core.borrow().layout.len()
     }
 
     /// Contains areas?
     pub fn is_empty(&self) -> bool {
-        self.core.borrow().areas.is_empty()
-    }
-
-    /// View/buffer area in layout coordinates
-    pub fn buffer_area(&self) -> Rect {
-        self.core.borrow().area
-    }
-
-    /// Get the original area for the handle.
-    pub fn layout_area_by_handle(&self, handle: AreaHandle) -> Rect {
-        self.core.borrow().areas[handle.0]
+        self.core.borrow().layout.is_empty()
     }
 
     /// Run the layout algorithm.
     pub fn layout(&mut self, page: Rect) {
-        let mut core = self.core.borrow_mut();
-        core.layout(page);
+        self.core.borrow_mut().layout(page);
     }
 
-    /// Number of pages.
-    ///
+    /// Page area in layout coordinates
+    pub fn page_area(&self) -> Rect {
+        self.core.borrow().layout.area()
+    }
+
+    /// Number of pages after calculating the layout.
     pub fn num_pages(&self) -> usize {
         self.core.borrow().breaks.len()
     }
 
     /// First area on the given page.
-    pub fn first_layout_area(&self, page: usize) -> Option<Rect> {
+    pub fn first_layout_area(&self, page: usize) -> Option<Box<[Rect]>> {
         let core = self.core.borrow();
 
         let brk = core.breaks[page];
-        core.areas.iter().find(|v| v.y >= brk).cloned()
+
+        let r = core
+            .layout
+            .chunked()
+            .find(|v| v.iter().find(|w| w.y >= brk).is_some())
+            .map(|v| v.to_vec().into_boxed_slice());
+
+        r
     }
 
     /// First area-handle on the given page.
@@ -142,13 +124,20 @@ impl PagerLayout {
         let core = self.core.borrow();
 
         let brk = core.breaks[page];
-        core.areas.iter().enumerate().find_map(|(i, v)| {
-            if v.y >= brk {
-                Some(AreaHandle(i))
-            } else {
-                None
-            }
-        })
+
+        let r = core
+            .layout
+            .chunked() //
+            .enumerate()
+            .find_map(|(i, v)| {
+                if v.iter().find(|w| w.y >= brk).is_some() {
+                    Some(AreaHandle(i))
+                } else {
+                    None
+                }
+            });
+
+        r
     }
 
     /// Locate an area by handle.
@@ -157,9 +146,9 @@ impl PagerLayout {
     /// page it is in. But still in layout-coords.
     ///
     /// And it returns the page the Rect is on.
-    pub fn buf_area_by_handle(&self, handle: AreaHandle) -> (usize, Rect) {
-        let area = self.core.borrow().areas[handle.0];
-        self.buf_area(area)
+    pub fn buf_handle(&self, handle: AreaHandle) -> (usize, Box<[Rect]>) {
+        let area = &self.core.borrow().layout[handle];
+        self.buf_areas(area)
     }
 
     /// Locate an area.
@@ -167,11 +156,29 @@ impl PagerLayout {
     /// This will return a Rect with a y-value relative to the
     /// page it is in. But still in layout-coords.
     ///
-    /// This will clip the bounds to the page area.
+    /// This will clip the bounds to the page area if not
+    /// displayable otherwise.
     ///
     /// And it returns the page the Rect is on.
     pub fn buf_area(&self, area: Rect) -> (usize, Rect) {
+        let tmp = self.buf_areas(&[area]);
+        (tmp.0, tmp.1[0])
+    }
+
+    /// Locate the given areas on one page.
+    ///
+    /// The correct page for top-most area is used for all areas.
+    ///
+    /// This will return a Rect with a y-value relative to the
+    /// page it is in. But still in layout-coords.
+    ///
+    /// This will clip the bounds to the page area.
+    ///
+    /// And it returns the page the Rect is on.
+    fn buf_areas(&self, area: &[Rect]) -> (usize, Box<[Rect]>) {
         let core = self.core.borrow();
+
+        let min_y = area.iter().map(|v| v.y).min().expect("array of rect");
 
         // find page
         let (page_nr, brk) = core
@@ -179,38 +186,53 @@ impl PagerLayout {
             .iter()
             .enumerate()
             .rev()
-            .find(|(_i, v)| **v <= area.y)
+            .find(|(_i, v)| **v <= min_y)
             .expect("valid breaks");
-        let relocated = Rect::new(area.x, area.y - *brk, area.width, area.height);
 
         // clip to fit
-        let clip_area = Rect::new(0, 0, core.area.width, core.area.height);
+        let clip_area = Rect::new(
+            0, //
+            0,
+            core.layout.area().width,
+            core.layout.area().height,
+        );
 
-        (page_nr, relocated.intersection(clip_area))
+        let mut res = Vec::new();
+        for a in area.iter() {
+            let r = Rect::new(
+                a.x, //
+                a.y - *brk,
+                a.width,
+                a.height,
+            )
+            .intersection(clip_area);
+            res.push(r);
+        }
+
+        (page_nr, res.into_boxed_slice())
     }
 }
 
-impl PageLayoutCore {
+impl PagerLayoutCore {
     /// Run the layout algorithm.
     fn layout(&mut self, page: Rect) {
-        if self.area == page {
+        if self.layout.area() == page {
             return;
         }
-        self.area = page;
+        self.layout.set_area(page);
 
         // must not change the order of the areas.
         // gave away handles ...
-        let mut areas = self.areas.clone();
+        let mut areas = self.layout.as_slice().to_vec();
         areas.sort_by(|a, b| a.y.cmp(&b.y));
 
-        self.man_breaks.sort_by(|a, b| b.cmp(a));
-        self.man_breaks.dedup();
-
+        self.layout.sort_row_breaks_desc();
         self.breaks.clear();
 
         self.breaks.push(0);
+
         let mut last_break = 0;
-        let mut man_breaks = self.man_breaks.clone();
+        let mut man_breaks = self.layout.row_breaks().to_vec();
 
         for v in areas.iter() {
             if let Some(brk_y) = man_breaks.last() {
@@ -240,28 +262,28 @@ mod test {
     use ratatui::layout::Rect;
     use std::ops::Deref;
 
-    fn hr(y: u16, height: u16) -> Rect {
-        Rect::new(0, y, 0, height)
+    fn hr(y: u16, height: u16) -> [Rect; 1] {
+        [Rect::new(0, y, 0, height)]
     }
 
     #[test]
     fn test_layout() {
-        let mut p0 = PagerLayout::new();
+        let mut p0 = PagerLayout::new(1);
 
-        p0.add(hr(5, 1));
-        p0.add(hr(5, 2));
-        p0.add(hr(9, 1));
-        p0.add(hr(9, 2));
-        p0.add(hr(9, 1));
-        p0.add(hr(9, 0));
-        p0.add(hr(12, 1));
-        p0.add(hr(14, 1));
-        p0.add(hr(16, 1));
-        p0.add(hr(18, 1));
-        p0.add(hr(19, 1));
-        p0.add(hr(20, 1));
+        p0.add(&hr(5, 1));
+        p0.add(&hr(5, 2));
+        p0.add(&hr(9, 1));
+        p0.add(&hr(9, 2));
+        p0.add(&hr(9, 1));
+        p0.add(&hr(9, 0));
+        p0.add(&hr(12, 1));
+        p0.add(&hr(14, 1));
+        p0.add(&hr(16, 1));
+        p0.add(&hr(18, 1));
+        p0.add(&hr(19, 1));
+        p0.add(&hr(20, 1));
 
-        p0.layout(hr(0, 10));
+        p0.layout(Rect::new(0, 0, 0, 10));
 
         assert_eq!(p0.core.borrow().breaks.deref(), &vec![0, 9, 19]);
     }

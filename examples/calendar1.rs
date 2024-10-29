@@ -19,7 +19,6 @@ use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::cmp::max;
 use std::collections::HashMap;
-use std::mem;
 use std::ops::{Add, Sub};
 
 mod mini_salsa;
@@ -32,11 +31,7 @@ fn main() -> Result<(), anyhow::Error> {
     };
 
     let mut state = State {
-        cal_b: Default::default(),
-        cal0: Default::default(),
-        cal1: Default::default(),
-        cal2: Default::default(),
-        cal_a: Default::default(),
+        months: Default::default(),
         prev: Default::default(),
         next: Default::default(),
         menu: Default::default(),
@@ -58,11 +53,7 @@ struct Data {
 }
 
 struct State {
-    cal_b: MonthState,
-    cal0: MonthState,
-    cal1: MonthState,
-    cal2: MonthState,
-    cal_a: MonthState,
+    months: [MonthState; 5],
 
     prev: ButtonState,
     next: ButtonState,
@@ -83,19 +74,19 @@ impl Data {
 
 impl State {
     fn prev_month(&mut self) {
-        mem::swap(&mut self.cal_a, &mut self.cal2);
-        mem::swap(&mut self.cal2, &mut self.cal1);
-        mem::swap(&mut self.cal1, &mut self.cal0);
-        mem::swap(&mut self.cal0, &mut self.cal_b);
-        self.cal_b = Default::default();
+        self.months.swap(4, 3);
+        self.months.swap(3, 2);
+        self.months.swap(2, 1);
+        self.months.swap(1, 0);
+        self.months[0] = Default::default();
     }
 
     fn next_month(&mut self) {
-        mem::swap(&mut self.cal_b, &mut self.cal0);
-        mem::swap(&mut self.cal0, &mut self.cal1);
-        mem::swap(&mut self.cal1, &mut self.cal2);
-        mem::swap(&mut self.cal2, &mut self.cal_a);
-        self.cal_a = Default::default();
+        self.months.swap(0, 1);
+        self.months.swap(1, 2);
+        self.months.swap(2, 3);
+        self.months.swap(3, 4);
+        self.months[4] = Default::default();
     }
 }
 
@@ -149,8 +140,8 @@ fn repaint_input(
     let date2 = date1.add(Months::new(1));
     let date_a = date1.add(Months::new(2));
 
-    state.cal_b.start_date = date_b.with_day(1).unwrap();
-    state.cal_a.start_date = date_a.with_day(1).unwrap();
+    state.months[0].start_date = date_b.with_day(1).unwrap();
+    state.months[4].start_date = date_a.with_day(1).unwrap();
 
     let title = if date0.year() != date2.year() {
         format!(
@@ -177,7 +168,7 @@ fn repaint_input(
         .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[1], frame.buffer_mut(), &mut state.cal0);
+        .render(l2[1], frame.buffer_mut(), &mut state.months[1]);
 
     Month::new()
         .date(date1)
@@ -189,7 +180,7 @@ fn repaint_input(
         .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[2], frame.buffer_mut(), &mut state.cal1);
+        .render(l2[2], frame.buffer_mut(), &mut state.months[2]);
 
     Month::new()
         .date(date2)
@@ -201,7 +192,7 @@ fn repaint_input(
         .week_selection()
         .show_weekdays()
         .block(Block::bordered().borders(Borders::TOP))
-        .render(l2[3], frame.buffer_mut(), &mut state.cal2);
+        .render(l2[3], frame.buffer_mut(), &mut state.months[3]);
 
     Button::new("<<<").styles(THEME.button_style()).render(
         l4[1],
@@ -227,9 +218,9 @@ fn repaint_input(
 
 fn focus(state: &State) -> Focus {
     let mut fb = FocusBuilder::default();
-    fb.widget(&state.cal0)
-        .widget(&state.cal1)
-        .widget(&state.cal2)
+    fb.widget(&state.months[1])
+        .widget(&state.months[2])
+        .widget(&state.months[3])
         .widget(&state.menu);
     fb.build()
 }
@@ -243,34 +234,26 @@ fn handle_input(
     let mut focus = focus(state);
     let f = focus.handle(event, Regular);
 
-    let mut all_months = [
-        &mut state.cal_b,
-        &mut state.cal0,
-        &mut state.cal1,
-        &mut state.cal2,
-        &mut state.cal_a,
-    ];
-
-    let r: Outcome = match all_months.handle(event, Regular) {
+    let r: Outcome = match state.months.as_mut_slice().handle(event, Regular) {
         CalOutcome::Month(0) => {
             data.prev_month();
             state.prev_month();
             // renew focus
             let focus = crate::focus(state);
-            focus.focus(&state.cal0);
+            focus.focus(&state.months[1]);
 
             Outcome::Changed
         }
         CalOutcome::Month(1) => {
-            focus.focus(&state.cal0);
+            focus.focus(&state.months[1]);
             Outcome::Changed
         }
         CalOutcome::Month(2) => {
-            focus.focus(&state.cal1);
+            focus.focus(&state.months[2]);
             Outcome::Changed
         }
         CalOutcome::Month(3) => {
-            focus.focus(&state.cal2);
+            focus.focus(&state.months[3]);
             Outcome::Changed
         }
         CalOutcome::Month(4) => {
@@ -278,7 +261,7 @@ fn handle_input(
             state.next_month();
             // renew focus
             let focus = crate::focus(state);
-            focus.focus(&state.cal2);
+            focus.focus(&state.months[3]);
             Outcome::Changed
         }
         r => r.into(),

@@ -1,4 +1,5 @@
 use crate::clipper::AreaHandle;
+use crate::layout::StructuredLayout;
 use iset::IntervalSet;
 use ratatui::layout::Rect;
 use std::cell::RefCell;
@@ -13,17 +14,14 @@ use std::rc::Rc;
 ///
 #[derive(Debug, Default, Clone)]
 pub struct ClipperLayout {
-    core: Rc<RefCell<PageLayoutCore>>,
+    core: Rc<RefCell<ClipperLayoutCore>>,
 }
 
 #[derive(Debug, Default, Clone)]
-struct PageLayoutCore {
-    // xview area in layout coordinates
-    area: Rect,
-    // extended xview area in layout coordinates
+struct ClipperLayoutCore {
+    layout: StructuredLayout,
+    // extended view area in layout coordinates
     ext_area: Rect,
-    // collected areas
-    areas: Vec<Rect>,
     // vertical ranges
     y_ranges: IntervalSet<u16>,
     // horizontal ranges
@@ -32,8 +30,23 @@ struct PageLayoutCore {
 
 impl ClipperLayout {
     /// New layout.
-    pub fn new() -> Self {
-        Self::default()
+    pub fn new(stride: usize) -> Self {
+        Self {
+            core: Rc::new(RefCell::new(ClipperLayoutCore {
+                layout: StructuredLayout::new(stride),
+                ..Default::default()
+            })),
+        }
+    }
+
+    /// New layout from StructuredLayout
+    pub fn with_layout(layout: StructuredLayout) -> Self {
+        Self {
+            core: Rc::new(RefCell::new(ClipperLayoutCore {
+                layout,
+                ..Default::default()
+            })),
+        }
     }
 
     /// Has the target width of the layout changed.
@@ -41,69 +54,31 @@ impl ClipperLayout {
     /// This is helpful if you only want vertical scrolling, and
     /// build your layout to fit.
     pub fn width_changed(&self, width: u16) -> bool {
-        self.core.borrow().area.width != width
+        self.core.borrow().layout.width_change(width)
     }
 
     /// Add a layout area.
-    pub fn add(&mut self, area: Rect) -> AreaHandle {
-        let mut core = self.core.borrow_mut();
+    pub fn add(&mut self, area: &[Rect]) -> AreaHandle {
         // reset page to re-layout
-        core.area = Default::default();
-        core.areas.push(area);
-        AreaHandle(core.areas.len() - 1)
+        self.core.borrow_mut().layout.set_area(Default::default());
+        self.core.borrow_mut().layout.add(area)
     }
 
-    /// Add layout area. Doesn't give you a handle.
-    pub fn add_all(&mut self, areas: impl IntoIterator<Item = Rect>) {
-        let mut core = self.core.borrow_mut();
-        // reset page to re-layout
-        core.area = Default::default();
-        core.areas.extend(areas)
-    }
-
-    /// Add layout area. Appends the resulting handles.
-    pub fn add_all_out(
-        &mut self,
-        areas: impl IntoIterator<Item = Rect>,
-        handles: &mut Vec<AreaHandle>,
-    ) {
-        let mut core = self.core.borrow_mut();
-
-        // reset page to re-layout
-        core.area = Default::default();
-
-        let start = core.areas.len();
-        core.areas.extend(areas);
-        let end = core.areas.len();
-
-        for i in start..end {
-            handles.push(AreaHandle(i));
-        }
+    /// Get the layout area for the given handle
+    pub fn layout_handle(&self, handle: AreaHandle) -> Box<[Rect]> {
+        self.core.borrow().layout[handle]
+            .to_vec()
+            .into_boxed_slice()
     }
 
     /// Number of areas.
     pub fn len(&self) -> usize {
-        self.core.borrow().areas.len()
+        self.core.borrow().layout.len()
     }
 
     /// Contains areas?
     pub fn is_empty(&self) -> bool {
-        self.core.borrow().areas.is_empty()
-    }
-
-    /// View/buffer area in layout coordinates
-    pub fn buffer_area(&self) -> Rect {
-        self.core.borrow().area
-    }
-
-    /// Extended view/buffer area in layout coordinates.
-    pub fn ext_buffer_area(&self) -> Rect {
-        self.core.borrow().ext_area
-    }
-
-    /// Get the original area for the handle.
-    pub fn layout_area_by_handle(&self, handle: AreaHandle) -> Rect {
-        self.core.borrow().areas[handle.0]
+        self.core.borrow().layout.is_empty()
     }
 
     /// Run the layout algorithm.
@@ -116,6 +91,18 @@ impl ClipperLayout {
     pub fn layout(&mut self, page: Rect) -> Rect {
         let mut core = self.core.borrow_mut();
         core.layout(page)
+    }
+
+    /// Page area in layout coordinates
+    pub fn page_area(&self) -> Rect {
+        self.core.borrow().layout.area()
+    }
+
+    /// Extended page area in layout coordinates.
+    /// This area is at least as large as page_area()
+    /// and has enough space for partially visible widgets.
+    pub fn ext_page_area(&self) -> Rect {
+        self.core.borrow().ext_area
     }
 
     /// Returns the bottom-right corner for the Layout.
@@ -135,17 +122,25 @@ impl ClipperLayout {
     ///
     /// __Caution__
     /// Order is the order of addition, not necessarily the top-left area.
-    pub fn first_layout_area(&self) -> Option<Rect> {
+    pub fn first_layout_area(&self) -> Option<Box<[Rect]>> {
         let core = self.core.borrow();
-        core.areas
-            .iter()
+
+        let r = core
+            .layout
+            .chunked()
             .find(|v| {
-                core.ext_area.top() <= v.top()
-                    && core.ext_area.bottom() >= v.bottom()
-                    && core.ext_area.left() <= v.left()
-                    && core.ext_area.right() >= v.right()
+                v.iter()
+                    .find(|w| {
+                        core.ext_area.top() <= w.top()
+                            && core.ext_area.bottom() >= w.bottom()
+                            && core.ext_area.left() <= w.left()
+                            && core.ext_area.right() >= w.right()
+                    })
+                    .is_some()
             })
-            .cloned()
+            .map(|v| v.to_vec().into_boxed_slice());
+
+        r
     }
 
     /// First visible area-handle.
@@ -155,68 +150,96 @@ impl ClipperLayout {
     pub fn first_layout_handle(&self) -> Option<AreaHandle> {
         let core = self.core.borrow();
 
-        core.areas
-            .iter()
+        let r = core
+            .layout
+            .chunked() //
             .enumerate()
-            .find(|(_, v)| {
-                core.ext_area.top() <= v.top()
-                    && core.ext_area.bottom() >= v.bottom()
-                    && core.ext_area.left() <= v.left()
-                    && core.ext_area.right() >= v.right()
-            })
-            .map(|(idx, _)| AreaHandle(idx))
+            .find_map(|(i, v)| {
+                if v.iter()
+                    .find(|w| {
+                        core.ext_area.top() <= w.top()
+                            && core.ext_area.bottom() >= w.bottom()
+                            && core.ext_area.left() <= w.left()
+                            && core.ext_area.right() >= w.right()
+                    })
+                    .is_some()
+                {
+                    Some(AreaHandle(i))
+                } else {
+                    None
+                }
+            });
+
+        r
     }
 
-    /// Converts the area behind the handle to buffer coordinates.
+    /// Converts the areas behind the handle to buffer coordinates.
     /// This will return coordinates relative to the extended page.
     /// Or None.
-    pub fn buf_area_by_handle(&self, handle: AreaHandle) -> Option<Rect> {
-        let area = self.core.borrow().areas[handle.0];
-        self.buf_area(area)
+    pub fn buf_handle(&self, handle: AreaHandle) -> Box<[Rect]> {
+        let area = &self.core.borrow().layout[handle];
+        self.buf_areas(area)
     }
 
-    /// Converts the area behind the handle to buffer coordinates.
-    /// This will return coordinates relative to the extended page.
-    /// Or None.
-    ///
-    /// __Caution__
-    ///
-    /// This _will_ return None, even if the area is only partially
-    /// outside the bounds. If you want to render a partial widget,
-    /// register the area with add or stay inside the bounds given
-    /// by the registered widgets.
-    pub fn buf_area(&self, area: Rect) -> Option<Rect> {
+    /// Converts the areas to buffer coordinates.
+    /// This will return coordinates relative to the extended page,
+    /// or Rect::ZERO if clipped.
+    fn buf_areas(&self, areas: &[Rect]) -> Box<[Rect]> {
         let core = self.core.borrow();
 
-        let wide = core.ext_area;
+        let mut res = Vec::new();
+        for area in areas {
+            if core.ext_area.top() <= area.top()
+                && core.ext_area.bottom() >= area.bottom()
+                && core.ext_area.left() <= area.left()
+                && core.ext_area.right() >= area.right()
+            {
+                res.push(Rect::new(
+                    area.x - core.ext_area.x,
+                    area.y - core.ext_area.y,
+                    area.width,
+                    area.height,
+                ));
+            } else {
+                res.push(Rect::ZERO);
+            }
+        }
+
+        res.into_boxed_slice()
+    }
+
+    /// Converts the layout area to buffer coordinates and clips to the
+    /// buffer area.
+    pub fn buf_area(&self, area: Rect) -> Rect {
+        let core = self.core.borrow();
 
         if core.ext_area.top() <= area.top()
             && core.ext_area.bottom() >= area.bottom()
             && core.ext_area.left() <= area.left()
             && core.ext_area.right() >= area.right()
         {
-            Some(Rect::new(
-                area.x - wide.x,
-                area.y - wide.y,
+            Rect::new(
+                area.x - core.ext_area.x,
+                area.y - core.ext_area.y,
                 area.width,
                 area.height,
-            ))
+            )
         } else {
-            None
+            Rect::ZERO
         }
     }
 }
 
-impl PageLayoutCore {
+impl ClipperLayoutCore {
     /// Run the layout algorithm.
     fn layout(&mut self, page: Rect) -> Rect {
-        if self.area == page {
+        if self.layout.area() == page {
             return self.ext_area;
         }
 
         self.y_ranges.clear();
         self.x_ranges.clear();
-        for v in self.areas.iter() {
+        for v in self.layout.iter() {
             if v.height > 0 {
                 self.y_ranges.insert(v.top()..v.bottom());
             }
@@ -225,10 +248,10 @@ impl PageLayoutCore {
             }
         }
 
-        self.area = page;
+        self.layout.set_area(page);
 
-        if self.area.is_empty() {
-            self.ext_area = self.area;
+        if self.layout.area().is_empty() {
+            self.ext_area = self.layout.area();
             return self.ext_area;
         }
 

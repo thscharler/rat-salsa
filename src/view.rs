@@ -1,51 +1,55 @@
-//! A xview allows scrolling of on or more widgets without builtin
+//! A view allows scrolling of on or more widgets without builtin
 //! support for scrolling.
 //!
-//! View works in 3 phases:
+//! ```rust
+//! # use rat_scrolled::Scroll;
+//! use rat_widget::paragraph::{Paragraph, ParagraphState};
+//! # use rat_widget::view::{View, ViewState};
+//! # use ratatui::prelude::*;
+//! #
+//! # let l2 = [Rect::ZERO, Rect::ZERO];
+//! # struct State {
+//! #      view: ViewState,
+//! #      first: ParagraphState,
+//! #  }
+//! # let mut state = State {
+//! #     view: Default::default(),
+//! #     first: Default::default(),
+//! # };
+//! # let mut buf = Buffer::default();
 //!
-//! * Configuration
+//! ///
+//! /// Create the view and set the layout area
+//! /// for the buffer.
+//! ///
 //!
-//! ```rust ignore
-//!     let mut view_buf = View::new()
-//!         .xview(Rect::new(0, 0, 400, 400))
-//!         .vscroll(Scroll::new())
-//!         .hscroll(Scroll::new())
-//!         .into_buffer(layout[1], &mut state.view_state);
+//! let mut view_buf = View::new()
+//!     .layout(Rect::new(0, 0, 400, 400))
+//!     .vscroll(Scroll::new())
+//!     .hscroll(Scroll::new())
+//!     .into_buffer(l2[1], &mut state.view);
+//!
+//! ///
+//! /// Render the widgets to the view buffer.
+//! ///
+//! view_buf.render_stateful(
+//!     Paragraph::new("Paragraph\nParagraph\n..."),
+//!     Rect::new(0, 0, 40, 15),
+//!     &mut state.first,
+//! );
+//!
+//! ///
+//! /// Render the finished buffer.
+//! ///
+//! view_buf
+//!     .into_widget()
+//!     .render(l2[1], &mut buf, &mut state.view);
+//!
 //! ```
-//!
-//! * Rendering the widgets
-//!
-//! The into_render() call returns a struct which can render
-//! widgets to an internal buffer.
-//!
-//! ```rust ignore
-//!     view_buf.render_stateful(
-//!         Paragraph::new(data.sample1.clone()),
-//!         Rect::new(0, 0, 40, 15),
-//!         &mut state.first,
-//!     );
-//! ```
-//! This uses the views coordinate system. If you have a
-//! stateful widget, it may keep Rect's in its state, that
-//! would now also be in the views coordinate system.
-//!
-//! The widget can implement the trait [RelocatableState] to
-//! deal with this situation. It provides information how to
-//! shift and clip the widgets areas.
-//!
-//! * Rendering the buffer
-//!
-//! This panics if you give it a different area than to into_buffer(),
-//! but otherwise it just renders the buffer contents.
-//!
-//! ```rust ignore
-//!     view_buf
-//!         .into_widget()
-//!         .render(layout[1], frame.buffer_mut(), &mut state.view_state);
-//! ```
-//!
 
 mod view_style;
+
+use std::cmp::min;
 pub use view_style::*;
 
 use crate::event::ScrollOutcome;
@@ -53,7 +57,7 @@ use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Position, Rect};
+use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::widgets::Block;
 
@@ -73,9 +77,12 @@ pub struct View<'a> {
 ///   to screen coordinates before rendering.
 /// * It helps with cleanup of the widget state if your
 ///   widget is currently invisible.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ViewBuffer<'a> {
-    // Scroll offset into the xview.
+    // page layout
+    layout: Rect,
+
+    // Scroll offset into the view.
     buf_offset_x: u16,
     buf_offset_y: u16,
     buffer: Buffer,
@@ -88,10 +95,10 @@ pub struct ViewBuffer<'a> {
     vscroll: Option<Scroll<'a>>,
 }
 
-/// Rendering widget for View.
-#[derive(Debug, Clone)]
+/// Clips and copies the temp buffer to the frame buffer.
+#[derive(Debug)]
 pub struct ViewWidget<'a> {
-    // Scroll offset into the xview.
+    // Scroll offset into the view.
     buf_offset_x: u16,
     buf_offset_y: u16,
     buffer: Buffer,
@@ -111,9 +118,9 @@ pub struct ViewState {
     /// __read only__ renewed for each render.
     pub widget_area: Rect,
 
-    /// The viewport area that the inner widget uses.
+    /// The layout of the temp buffer uses.
     /// __read only__ renewed for each render.
-    pub view: Rect,
+    pub layout: Rect,
 
     /// Horizontal scroll
     /// __read+write__
@@ -133,7 +140,7 @@ impl<'a> View<'a> {
     }
 
     /// Area for the temp buffer.
-    pub fn view(mut self, area: Rect) -> Self {
+    pub fn layout(mut self, area: Rect) -> Self {
         self.layout = area;
         self
     }
@@ -175,6 +182,11 @@ impl<'a> View<'a> {
         self
     }
 
+    /// Calculate the layout width.
+    pub fn layout_width(&self, area: Rect, state: &ViewState) -> u16 {
+        self.inner(area, state).width
+    }
+
     /// Calculate the view area.
     pub fn inner(&self, area: Rect, state: &ViewState) -> Rect {
         let sa = ScrollArea::new()
@@ -184,10 +196,10 @@ impl<'a> View<'a> {
         sa.inner(area, Some(&state.hscroll), Some(&state.vscroll))
     }
 
-    /// Create the temporary buffer.
+    /// Calculates the layout and creates a temporary buffer.
     pub fn into_buffer(self, area: Rect, state: &mut ViewState) -> ViewBuffer<'a> {
         state.area = area;
-        state.view = self.layout;
+        state.layout = self.layout;
 
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -197,21 +209,22 @@ impl<'a> View<'a> {
 
         state
             .hscroll
-            .set_max_offset(state.view.width.saturating_sub(state.widget_area.width) as usize);
+            .set_max_offset(state.layout.width.saturating_sub(state.widget_area.width) as usize);
         state.hscroll.set_page_len(state.widget_area.width as usize);
         state
             .vscroll
-            .set_max_offset(state.view.height.saturating_sub(state.widget_area.height) as usize);
+            .set_max_offset(state.layout.height.saturating_sub(state.widget_area.height) as usize);
         state
             .vscroll
             .set_page_len(state.widget_area.height as usize);
 
-        // internal buffer starts at (xview.x,xview.y)
+        // offset is in layout coordinates.
+        // internal buffer starts at (view.x,view.y)
         let buf_offset_x = state.hscroll.offset as u16 + self.layout.x;
         let buf_offset_y = state.vscroll.offset as u16 + self.layout.y;
 
         // resize buffer to fit all visible widgets.
-        let buffer_area = state.view;
+        let buffer_area = state.layout;
         let buffer = if let Some(mut buffer) = state.buffer.take() {
             buffer.reset();
             buffer.resize(buffer_area);
@@ -221,6 +234,7 @@ impl<'a> View<'a> {
         };
 
         ViewBuffer {
+            layout: self.layout,
             buf_offset_x,
             buf_offset_y,
             buffer,
@@ -246,7 +260,7 @@ impl<'a> ViewBuffer<'a> {
     }
 
     /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState.
+    /// This expects that the state is a [RelocatableState].
     #[inline(always)]
     pub fn render_stateful<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
     where
@@ -259,16 +273,21 @@ impl<'a> ViewBuffer<'a> {
             // shift and clip the output areas.
             self.relocate(state);
         } else {
-            self.relocate_clear(state);
+            self.hidden(state);
         }
     }
 
+    /// Return the buffer layout.
+    pub fn layout(&self) -> Rect {
+        self.layout
+    }
+
     /// Is the given area visible?
-    pub fn is_visible(&self, area: Rect) -> bool {
+    pub fn is_visible_area(&self, area: Rect) -> bool {
         area.intersects(self.buffer.area)
     }
 
-    /// Calculate the necessary shift from xview to screen.
+    /// Calculate the necessary shift from view to screen.
     pub fn shift(&self) -> (i16, i16) {
         (
             self.widget_area.x as i16 - self.buf_offset_x as i16,
@@ -276,8 +295,17 @@ impl<'a> ViewBuffer<'a> {
         )
     }
 
-    /// Relocate all the widget state that refers to an area to
-    /// the actual screen space used.
+    /// Does nothing for view.
+    /// Only exists to match [Clipper].
+    pub fn locate_area(&self, area: Rect) -> Rect {
+        area
+    }
+
+    /// After rendering the widget to the buffer it may have
+    /// stored areas in its state. These will be in buffer
+    /// coordinates instead of screen coordinates.
+    ///
+    /// Call this function to correct this after rendering.
     pub fn relocate<S>(&self, state: &mut S)
     where
         S: RelocatableState,
@@ -285,9 +313,12 @@ impl<'a> ViewBuffer<'a> {
         state.relocate(self.shift(), self.widget_area);
     }
 
-    /// Relocate in a way that clears the areas.
-    /// This effectively hides any out of bounds widgets.
-    pub fn relocate_clear<S>(&self, state: &mut S)
+    /// If a widget is not rendered because it is out of
+    /// the buffer area, it may still have left over areas
+    /// in its state.
+    ///
+    /// This uses the mechanism for [relocate] to zero them out.
+    pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,
     {
@@ -337,27 +368,15 @@ impl<'a> StatefulWidget for ViewWidget<'a> {
 
         let inner_area = state.widget_area;
 
-        'y_loop: for y in 0..inner_area.height {
-            'x_loop: for x in 0..inner_area.width {
-                let xx = inner_area.x + x;
-                let yy = inner_area.y + y;
+        let copy_width = min(inner_area.width, self.buffer.area.width) as usize;
 
-                if xx >= inner_area.right() {
-                    break 'x_loop;
-                }
-                if yy >= inner_area.bottom() {
-                    break 'y_loop;
-                }
-
-                let buffer_x = x + self.buf_offset_x;
-                let buffer_y = y + self.buf_offset_y;
-
-                if let Some(cell) = self.buffer.cell(Position::new(buffer_x, buffer_y)) {
-                    if let Some(tgt_cell) = buf.cell_mut(Position::new(xx, yy)) {
-                        *tgt_cell = cell.clone();
-                    }
-                }
-            }
+        for y in 0..inner_area.height {
+            let buf0 = self
+                .buffer
+                .index_of(self.buf_offset_x, self.buf_offset_y + y);
+            let tgt0 = buf.index_of(inner_area.x, inner_area.y + y);
+            buf.content[tgt0..tgt0 + copy_width]
+                .clone_from_slice(&self.buffer.content[buf0..buf0 + copy_width]);
         }
 
         // keep buffer

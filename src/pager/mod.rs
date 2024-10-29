@@ -4,70 +4,79 @@
 //! If you have a lot of widgets to display, splitting
 //! them into pages is an alternative to scrolling.
 //!
-//! * Prepare the work with [SinglePager] or [DualPager].
+//! ```rust
+//!     # use rat_widget::pager::{SinglePager, AreaHandle, PagerLayout, SinglePagerState};
+//!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
+//!     # use ratatui::prelude::*;
+//!     #
+//!     # let l2 = [Rect::ZERO, Rect::ZERO];
+//!     # struct State {
+//!     #      layout: PagerLayout,
+//!     #      handles: Vec<AreaHandle>,
+//!     #      check_states: Vec<CheckboxState>,
+//!     #      pager: SinglePagerState
+//!     #  }
+//!     # let mut state = State {
+//!     #      layout: PagerLayout::new(1),
+//!     #      handles: Vec::default(),
+//!     #      pager: Default::default(),
+//!     #      check_states: Vec::default()
+//!     #  };
+//!     # let mut buf = Buffer::default();
 //!
-//!     ```rust ignore
-//!     let pager = SinglePager::new()
-//!         .nav_style(Style::new().fg(THEME.orange[2]))
-//!         .style(THEME.gray(0))
-//!         .block(Block::new());
-//!
+//!     /// Single pager shows the widgets in one column, and
+//!     /// can page through the list.
+//!     let pager = SinglePager::new();
 //!     let width = pager.layout_width(l2[1]);
-//!     ```
 //!
-//! * [PagerLayout] collects the bounds for all widgets that
-//!   will be rendered.
-//!
-//!     ```rust ignore
-//!       if state.layout.width_changed(width) {
-//!           let mut pl = PagerLayout::new();
+//!     if state.layout.width_changed(width) {
+//!           ///
+//!           /// PagerLayout collects the bounds for all widgets.
+//!           ///
+//!           let mut pl = PagerLayout::new(1);
 //!           for i in 0..100 {
-//!               let handle = cl.add(Rect::new(10, i*11, 15, 10));
+//!               let handle = pl.add(&[Rect::new(10, i*11, 15, 10)]);
 //!               state.handles[i] = handle;
 //!
 //!               if i > 0 && i % 17 == 0 {
-//!                   pl.break_before(row);
+//!                   pl.break_before(i);
 //!               }
 //!           }
 //!           state.layout = pl;
 //!       }
-//!     ```
 //!
-//! * Use [SinglePager] or [DualPager] to calculate the page breaks.
-//!
-//!     ```rust ignore
+//!       ///
+//!       /// Use [SinglePager] or [DualPager] to calculate the page breaks.
+//!       ///
 //!       let mut pg_buf = pager
 //!             .layout(state.layout.clone())
-//!             .into_buffer(l2[1], frame.buffer_mut(), &mut state.pager);
-//!     ```
+//!             .into_buffer(l2[1], &mut buf, &mut state.pager);
 //!
-//! * Render your widgets with the help of [SinglePagerBuffer]/[DualPagerBuffer]
+//!       ///
+//!       /// Render your widgets with the help of [SinglePagerBuffer]/[DualPagerBuffer]
+//!       ///
+//!       for i in 0..100 {
+//!           // calculate an area
+//!           let v_area = pg_buf.layout().layout_area(state.handles[i])[0];
+//!           let w_area = Rect::new(5, v_area.y, 5, 1);
+//!           pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
 //!
-//!   Either ad hoc
-//!     ```rust ignore
-//!         let v_area = pg_buf.layout_area(state.handles[i]);
-//!         let w_area = Rect::new(5, v_area.y, 5, 1);
-//!         pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
-//!     ```
-//!   or by referring to a handle
-//!     ```rust ignore
-//!         pg_buf.render_stateful_handle(
-//!             TextInputMock::default()
-//!                 .sample(format!("{:?}", state.hundred_areas[i]))
-//!                 .style(THEME.limegreen(0))
-//!                 .focus_style(THEME.limegreen(2)),
-//!             state.handles[i],
-//!             &mut state.widget_states[i],
-//!         );
-//!     ```
-//!
-//! * Render the finishings.
-//!
-//!     ```rust ignore
+//!           // use the handle
+//!           pg_buf.render_stateful_handle(
+//!               Checkbox::new()
+//!                   .text(format!("{:?}", state.handles[i]).to_string()),
+//!               state.handles[i],
+//!               0,
+//!               &mut state.check_states[i],
+//!           );
+//!       }
+//!       ///
+//!       /// Render the finishings.
+//!       ///
 //!       pg_buf
 //!           .into_widget()
-//!           .render(l2[1], frame.buffer_mut(), &mut state.pager);
-//!     ```
+//!           .render(l2[1], &mut buf, &mut state.pager);
+//! ```
 
 mod dual_pager;
 mod pager_layout;

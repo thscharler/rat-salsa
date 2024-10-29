@@ -969,9 +969,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, CalOutcome> for MonthState 
     }
 }
 
-impl<const N: usize> HandleEvent<crossterm::event::Event, Regular, CalOutcome>
-    for [&mut MonthState; N]
-{
+impl HandleEvent<crossterm::event::Event, Regular, CalOutcome> for &mut [MonthState] {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> CalOutcome {
         for i in 0..self.len() {
             let month = &mut self[i];

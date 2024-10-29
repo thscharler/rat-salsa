@@ -60,7 +60,7 @@ fn repaint_text(
 
     // Define the view and create the Render struct.
     let mut view_buf = View::new()
-        .view(Rect::new(0, 0, 400, 400))
+        .layout(Rect::new(0, 0, 400, 400))
         .vscroll(Scroll::new().style(THEME.block()))
         .hscroll(Scroll::new().style(THEME.block()))
         .block(Block::bordered().border_type(BorderType::Rounded))

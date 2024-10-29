@@ -7,7 +7,6 @@ use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_widget::event::Outcome;
 use rat_widget::radio::{Radio, RadioLayout, RadioState};
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
-use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, BorderType, StatefulWidget};
 use ratatui::Frame;
 use std::cmp::max;

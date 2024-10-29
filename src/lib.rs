@@ -40,15 +40,7 @@ pub mod focus {
 }
 
 /// Some functions that calculate more complicate layouts.
-pub mod layout {
-    mod layout_dialog;
-    mod layout_edit;
-    mod layout_grid;
-
-    pub use layout_dialog::{layout_dialog, LayoutDialog};
-    pub use layout_edit::{layout_edit, EditConstraint, LayoutEdit, LayoutEditIterator};
-    pub use layout_grid::{layout_grid, layout_middle};
-}
+pub mod layout;
 
 /// Relocatable widgets.
 pub mod reloc {

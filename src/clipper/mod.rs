@@ -7,65 +7,79 @@
 //!
 //! It works in 4 phases:
 //!
-//! * Create the layout. The layout can be stored long-term
-//!   and needs to be rebuilt only if your widget layout changes.
+//! ```rust
+//!     # use rat_widget::clipper::{Clipper, AreaHandle, ClipperLayout, ClipperState};
+//!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
+//!     # use ratatui::prelude::*;
+//!     #
+//!     # let l2 = [Rect::ZERO, Rect::ZERO];
+//!     # struct State {
+//!     #      layout: ClipperLayout,
+//!     #      handles: Vec<AreaHandle>,
+//!     #      check_states: Vec<CheckboxState>,
+//!     #      clipper: ClipperState
+//!     #  }
+//!     # let mut state = State {
+//!     #      layout: ClipperLayout::new(1),
+//!     #      handles: Vec::default(),
+//!     #      clipper: Default::default(),
+//!     #      check_states: Vec::default()
+//!     #  };
+//!     # let mut buf = Buffer::default();
+//!     ///
+//!     /// Create the layout. The layout can be stored long-term
+//!     /// and needs to be rebuilt only if your widget layout changes.
+//!     ///
+//!     ///> __Note__: add() returns a handle for the area. Can be used later
+//!     ///> to refer to the stored area.
 //!
-//!   > __Note__: add() returns a handle for the area. Can be used later
-//!   > to refer to the stored area.
-//!
-//!     ```rust ignore
-//!         if state.layout.is_empty() {
-//!             let mut cl = ClipperLayout::new();
-//!             for i in 0..100 {
-//!                 let handle = cl.add(Rect::new(10, i*11, 15, 10));
-//!                 state.handles[i] = handle;
-//!             }
+//!     if state.layout.is_empty() {
+//!         let mut cl = ClipperLayout::new(1);
+//!         for i in 0..100 {
+//!             let handle = cl.add(&[Rect::new(10, i*11, 15, 10)]);
+//!             state.handles[i] = handle;
 //!         }
-//!     ```
+//!     }
 //!
-//! * The given area plus the current scroll offset define the
-//!   view area. With the view area a temporary buffer is created
-//!   that is big enough to fit all widgets that are at least
-//!   partially visible.
+//!     /// The given area plus the current scroll offset define the
+//!     /// view area. With the view area a temporary buffer is created
+//!     /// that is big enough to fit all widgets that are at least
+//!     /// partially visible.
 //!
-//!     ```rust ignore
-//!         let clipper = Clipper::new()
-//!             .block(Block::bordered())
-//!             .hscroll(Scroll::new())
-//!             .vscroll(Scroll::new());
+//!     let clipper = Clipper::new();
 //!
-//!         let mut clip_buf = clipper
-//!             .layout(state.layout.clone())
-//!             .into_buffer(l2[1], &mut state.clipper);
-//!     ```
+//!     let mut clip_buf = clipper
+//!         .layout(state.layout.clone())
+//!         .into_buffer(l2[1], &mut state.clipper);
 //!
-//! * The widgets are rendered to that buffer.
-//!
-//!   Either ad hoc
-//!     ```rust ignore
-//!         let v_area = clip_buf.layout_area(state.handles[i]);
+//!     ///
+//!     /// The widgets are rendered to that buffer.
+//!     ///
+//!     for i in 0..100 {
+//!         // create a new area
+//!         let v_area = clip_buf.layout().layout_area(state.handles[i]);
 //!         let w_area = Rect::new(5, v_area.y, 5, 1);
 //!         clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
-//!     ```
-//!   or by referring to a handle
-//!     ```rust ignore
+//!
+//!         // refer by handle
 //!         clip_buf.render_stateful_handle(
-//!             TextInputMock::default()
-//!                 .sample(format!("{:?}", state.hundred_areas[i]))
-//!                 .style(THEME.limegreen(0))
-//!                 .focus_style(THEME.limegreen(2)),
+//!             Checkbox::new()
+//!                 .text(format!("{:?}", state.handles[i])),
 //!             state.handles[i],
-//!             &mut state.widget_states[i],
+//!             0,
+//!             &mut state.check_states[i],
 //!         );
-//!     ```
+//!     }
 //!
-//! * The last step clips and copies the buffer to the frame buffer.
+//!     ///
+//!     /// The last step clips and copies the buffer to the frame buffer.
+//!     ///
 //!
-//!     ```rust ignore
-//!         clip_buf
-//!             .into_widget()
-//!             .render(l2[1], frame.buffer_mut(), &mut state.clipper);
-//!     ```
+//!     clip_buf
+//!         .into_widget()
+//!         .render(l2[1], &mut buf, &mut state.clipper);
+//!
+//! ```
 //!
 //! __StatefulWidget__
 //!

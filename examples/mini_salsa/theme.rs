@@ -448,7 +448,10 @@ impl Scheme {
         FileDialogStyle {
             style: self.dialog_base(),
             list: Some(self.list_style()),
-            roots: Some(self.list_style()),
+            roots: Some(ListStyle {
+                style: self.dialog_base(),
+                ..self.list_style()
+            }),
             text: Some(self.input_style()),
             button: Some(self.button_style()),
             block: Some(Block::bordered()),

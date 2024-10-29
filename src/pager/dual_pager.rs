@@ -1,5 +1,6 @@
 use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
+use crate::layout::StructuredLayout;
 use crate::pager::{AreaHandle, PagerLayout, PagerStyle};
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
@@ -11,6 +12,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Span, StatefulWidget, Style};
 use ratatui::widgets::{Block, Borders, Widget};
 use std::cmp::min;
+use std::ops::Index;
 
 /// Prepare the page-layout for your widgets.
 ///
@@ -24,8 +26,8 @@ pub struct DualPager<'a> {
     block: Option<Block<'a>>,
     style: Style,
     nav_style: Option<Style>,
-    divider_style: Option<Style>,
     title_style: Option<Style>,
+    divider_style: Option<Style>,
 }
 
 /// Renders directly to the frame buffer.
@@ -47,16 +49,16 @@ pub struct DualPagerBuffer<'a> {
     widget_area2: Rect,
 
     style: Style,
-    divider_style: Option<Style>,
     nav_style: Option<Style>,
+    divider_style: Option<Style>,
 }
 
 /// Renders the finishings for the DualPager.
 #[derive(Debug)]
 pub struct DualPagerWidget {
     style: Style,
-    divider_style: Option<Style>,
     nav_style: Option<Style>,
+    divider_style: Option<Style>,
 }
 
 /// Widget state.
@@ -68,9 +70,6 @@ pub struct DualPagerState {
     /// Left area inside the border.
     /// __read only__ renewed for each render.
     pub widget_area1: Rect,
-    /// Divider area.
-    /// __read only__ renewed for each render.
-    pub divider_area: Rect,
     /// Right area inside the border.
     /// __read only__ renewed for each render.
     pub widget_area2: Rect,
@@ -83,6 +82,9 @@ pub struct DualPagerState {
     /// Area for next-page indicator.
     /// __read only__ renewed with each render.
     pub next_area: Rect,
+    /// Divider area.
+    /// __read only__ renewed for each render.
+    pub divider_area: Rect,
 
     /// Page layout
     /// __read only__ renewed with each render.
@@ -111,6 +113,12 @@ impl<'a> DualPager<'a> {
     /// Set page layout.
     pub fn layout(mut self, page_layout: PagerLayout) -> Self {
         self.layout = page_layout;
+        self
+    }
+
+    /// Set page layout from StructLayout
+    pub fn struct_layout(mut self, page_layout: StructuredLayout) -> Self {
+        self.layout = PagerLayout::with_layout(page_layout);
         self
     }
 
@@ -214,7 +222,7 @@ impl<'a> DualPager<'a> {
     ) -> DualPagerBuffer<'b> {
         state.area = area;
 
-        let inner = if let Some(block) = &self.block {
+        let widget_area = if let Some(block) = &self.block {
             block.inner(area)
         } else {
             Rect::new(
@@ -226,16 +234,21 @@ impl<'a> DualPager<'a> {
         };
 
         let p1 = 5;
-        let p4 = inner.width - p1;
-        state.prev_area = Rect::new(inner.x, area.y, p1, 1);
-        state.next_area = Rect::new(inner.x + p4, area.y, p1, 1);
+        let p4 = widget_area.width - p1;
+        state.prev_area = Rect::new(widget_area.x, area.y, p1, 1);
+        state.next_area = Rect::new(widget_area.x + p4, area.y, p1, 1);
         state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
 
-        let p1 = inner.width.saturating_sub(1) / 2;
-        let p2 = inner.width.saturating_sub(1).saturating_sub(p1);
-        state.widget_area1 = Rect::new(inner.x, inner.y, p1, inner.height);
-        state.divider_area = Rect::new(inner.x + p1, inner.y, 1, inner.height);
-        state.widget_area2 = Rect::new(inner.x + p1 + 1, inner.y, p2, inner.height);
+        let p1 = widget_area.width.saturating_sub(1) / 2;
+        let p2 = widget_area.width.saturating_sub(1).saturating_sub(p1);
+        state.widget_area1 = Rect::new(widget_area.x, widget_area.y, p1, widget_area.height);
+        state.divider_area = Rect::new(widget_area.x + p1, widget_area.y, 1, widget_area.height);
+        state.widget_area2 = Rect::new(
+            widget_area.x + p1 + 1,
+            widget_area.y,
+            p2,
+            widget_area.height,
+        );
 
         // run page layout
         state.layout = self.layout;
@@ -243,6 +256,7 @@ impl<'a> DualPager<'a> {
         // clip page nr
         state.set_page(state.page);
 
+        // render
         let title = format!(" {}/{} ", state.page + 1, state.layout.num_pages());
         let block = self
             .block
@@ -263,8 +277,8 @@ impl<'a> DualPager<'a> {
             widget_area1: state.widget_area1,
             widget_area2: state.widget_area2,
             style: self.style,
-            divider_style: self.divider_style,
             nav_style: self.nav_style,
+            divider_style: self.divider_style,
         }
     }
 }
@@ -276,7 +290,7 @@ impl<'a> DualPagerBuffer<'a> {
     where
         W: Widget,
     {
-        if let Some(buffer_area) = self.locate(area) {
+        if let Some(buffer_area) = self.locate_area(area) {
             // render the actual widget.
             widget.render(buffer_area, self.buffer);
         } else {
@@ -293,106 +307,140 @@ impl<'a> DualPagerBuffer<'a> {
         W: StatefulWidget<State = S>,
         S: RelocatableState,
     {
-        if let Some(buffer_area) = self.locate(area) {
+        if let Some(buffer_area) = self.locate_area(area) {
             // render the actual widget.
             widget.render(buffer_area, self.buffer, state);
         } else {
-            self.relocate_clear(state);
+            self.hidden(state);
         }
     }
 
     /// Render a widget to the buffer.
     #[inline(always)]
-    pub fn render_widget_handle<W>(&mut self, widget: W, area: AreaHandle)
+    pub fn render_widget_handle<W, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx)
     where
         W: Widget,
+        [Rect]: Index<Idx, Output = Rect>,
     {
-        if let Some(buffer_area) = self.locate_handle(area) {
+        if let Some(buffer_areas) = self.locate_handle(area) {
             // render the actual widget.
-            widget.render(buffer_area, self.buffer);
+            widget.render(buffer_areas[tag], self.buffer);
         } else {
             // noop
         }
     }
 
     /// Render a widget to the buffer.
+    ///
     /// This expects that the state is a RelocatableState,
     /// so it can reset the areas for hidden widgets.
     #[inline(always)]
-    pub fn render_stateful_handle<W, S>(&mut self, widget: W, area: AreaHandle, state: &mut S)
-    where
+    pub fn render_stateful_handle<W, S, Idx>(
+        &mut self,
+        widget: W,
+        area: AreaHandle,
+        tag: Idx,
+        state: &mut S,
+    ) where
         W: StatefulWidget<State = S>,
         S: RelocatableState,
+        [Rect]: Index<Idx, Output = Rect>,
     {
-        if let Some(buffer_area) = self.locate_handle(area) {
+        if let Some(buffer_areas) = self.locate_handle(area) {
             // render the actual widget.
-            widget.render(buffer_area, self.buffer, state);
+            widget.render(buffer_areas[tag], self.buffer, state);
         } else {
-            self.relocate_clear(state);
+            self.hidden(state);
         }
     }
 
-    /// Get the layout area for the handle.
-    pub fn layout_area(&self, handle: AreaHandle) -> Rect {
-        self.layout.layout_area_by_handle(handle)
-    }
-
-    /// Get the buffer area for the handle.
-    /// Returns the tuple (page-nr, area).
-    ///
-    /// This still uses layout-coordinates, not
-    /// corrected for the widget's position.
-    pub fn buf_area(&self, handle: AreaHandle) -> (usize, Rect) {
-        self.layout.buf_area_by_handle(handle)
+    /// Return the layout.
+    pub fn layout(&self) -> &PagerLayout {
+        &self.layout
     }
 
     /// Is the given area visible?
-    pub fn is_visible(&self, area: Rect) -> bool {
+    pub fn is_visible_area(&self, area: Rect) -> bool {
         self.layout.buf_area(area).0 == self.page
     }
 
     /// Is the given area visible?
     pub fn is_visible_handle(&self, handle: AreaHandle) -> bool {
-        self.layout.buf_area_by_handle(handle).0 == self.page
+        self.layout.buf_handle(handle).0 == self.page
+    }
+
+    /// Calculate the necessary shift from view to screen.
+    /// This does nothing as pager always places the widgets
+    /// in screen coordinates.
+    ///
+    /// Just to keep the api in sync with [Clipper].
+    pub fn shift(&self) -> (i16, i16) {
+        (0, 0)
     }
 
     /// Relocate an area from layout coordinates to screen coordinates.
     /// A result None indicates that the area is invisible.
-    pub fn locate_handle(&self, handle: AreaHandle) -> Option<Rect> {
-        let (page, target) = self.layout.buf_area_by_handle(handle);
-        self._locate(page, target)
+    pub fn locate_handle(&self, handle: AreaHandle) -> Option<Box<[Rect]>> {
+        let (page, mut areas) = self.layout.buf_handle(handle);
+        if self.page == page {
+            for area in &mut areas {
+                *area = Rect::new(
+                    area.x + self.widget_area1.x,
+                    area.y + self.widget_area1.y,
+                    area.width,
+                    area.height,
+                );
+            }
+            Some(areas)
+        } else if self.page + 1 == page {
+            for area in &mut areas {
+                *area = Rect::new(
+                    area.x + self.widget_area2.x,
+                    area.y + self.widget_area2.y,
+                    area.width,
+                    area.height,
+                );
+            }
+            Some(areas)
+        } else {
+            None
+        }
     }
 
     /// Relocate an area from layout coordinates to screen coordinates.
     /// A result None indicates that the area is invisible.
-    pub fn locate(&self, area: Rect) -> Option<Rect> {
-        let (page, target) = self.layout.buf_area(area);
-        self._locate(page, target)
-    }
-
-    fn _locate(&self, page: usize, layout_area: Rect) -> Option<Rect> {
+    pub fn locate_area(&self, layout_area: Rect) -> Option<Rect> {
+        let (page, area) = self.layout.buf_area(layout_area);
         if self.page == page {
             Some(Rect::new(
-                layout_area.x + self.widget_area1.x,
-                layout_area.y + self.widget_area1.y,
-                layout_area.width,
-                layout_area.height,
+                area.x + self.widget_area1.x,
+                area.y + self.widget_area1.y,
+                area.width,
+                area.height,
             ))
         } else if self.page + 1 == page {
             Some(Rect::new(
-                layout_area.x + self.widget_area2.x,
-                layout_area.y + self.widget_area2.y,
-                layout_area.width,
-                layout_area.height,
+                area.x + self.widget_area2.x,
+                area.y + self.widget_area2.y,
+                area.width,
+                area.height,
             ))
         } else {
             None
         }
     }
 
+    /// Does nothing for pager.
+    /// Just to keep the api in sync with [Clipper].
+    pub fn relocate<S>(&self, _state: &mut S)
+    where
+        S: RelocatableState,
+    {
+    }
+
     /// Clear the areas in the widget-state.
     /// This is called by render_xx whenever a widget is invisible.
-    pub fn relocate_clear<S>(&self, state: &mut S)
+    pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,
     {
@@ -412,8 +460,8 @@ impl<'a> DualPagerBuffer<'a> {
     pub fn into_widget(self) -> DualPagerWidget {
         DualPagerWidget {
             style: self.style,
-            divider_style: self.divider_style,
             nav_style: self.nav_style,
+            divider_style: self.divider_style,
         }
     }
 }
@@ -493,7 +541,7 @@ impl DualPagerState {
 
     /// Show the page for this rect.
     pub fn show_handle(&mut self, handle: AreaHandle) {
-        let (page, _) = self.layout.buf_area_by_handle(handle);
+        let (page, _) = self.layout.buf_handle(handle);
         self.page = page & !1;
     }
 

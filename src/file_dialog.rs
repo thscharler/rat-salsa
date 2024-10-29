@@ -5,7 +5,7 @@
 use crate::_private::NonExhaustive;
 use crate::button::{Button, ButtonOutcome, ButtonState, ButtonStyle};
 use crate::event::{FileOutcome, TextOutcome};
-use crate::layout::{layout_dialog, layout_grid};
+use crate::layout::{layout_dialog, layout_grid, DialogItem};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
@@ -408,22 +408,22 @@ impl<'a> StatefulWidget for FileDialog<'a> {
             Flex::Center,
         );
 
-        reset_buf_area(layout.area, buf);
+        reset_buf_area(layout.area(), buf);
         block.render(area, buf);
 
         match state.mode {
             Mode::Open => {
-                render_open(&self, layout.content, buf, state);
+                render_open(&self, layout[DialogItem::Content], buf, state);
             }
             Mode::Save => {
-                render_save(&self, layout.content, buf, state);
+                render_save(&self, layout[DialogItem::Content], buf, state);
             }
             Mode::Dir => {
-                render_open_dir(&self, layout.content, buf, state);
+                render_open_dir(&self, layout[DialogItem::Content], buf, state);
             }
         }
 
-        let mut l_n = layout.buttons[1];
+        let mut l_n = layout[DialogItem::Button(1)];
         l_n.width = 10;
         Button::new(Text::from("New").alignment(Alignment::Center))
             .styles_opt(self.button_style.clone())
@@ -432,7 +432,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
         let l_oc = Layout::horizontal([Constraint::Length(10), Constraint::Length(10)])
             .spacing(1)
             .flex(Flex::End)
-            .split(layout.buttons[2]);
+            .split(layout[DialogItem::Button(2)]);
 
         Button::new(Text::from(self.cancel_text).alignment(Alignment::Center))
             .styles_opt(self.button_style.clone())

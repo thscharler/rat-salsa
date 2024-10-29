@@ -3,6 +3,7 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
+use log::debug;
 use rat_event::{ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, HasFocus};
 use rat_menu::event::MenuOutcome;
@@ -91,7 +92,7 @@ fn repaint_input(
 
     if state.layout.is_empty() {
         // the inner layout is fixed, need to init only once.
-        let mut pl = ClipperLayout::new();
+        let mut pl = ClipperLayout::new(1);
         let mut row = 0;
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
@@ -103,11 +104,11 @@ fn repaint_input(
             };
 
             let area = Rect::new(10, row, 15, h);
-            state.hundred_areas[i] = pl.add(area);
+            state.hundred_areas[i] = pl.add(&[area]);
 
             row += h + 1;
         }
-        pl.add(Rect::new(90, 0, 10, 1));
+        pl.add(&[Rect::new(90, 0, 10, 1)]);
         state.layout = pl;
     }
 
@@ -118,9 +119,9 @@ fn repaint_input(
     // render the input fields.
     for i in 0..state.hundred.len() {
         // map an additional ad hoc area.
-        let v_area = clip_buf.layout_area(state.hundred_areas[i]);
+        let v_area = clip_buf.layout().layout_handle(state.hundred_areas[i])[0];
         let w_area = Rect::new(5, v_area.y, 5, 1);
-        if clip_buf.is_visible(w_area) {
+        if clip_buf.is_visible_area(w_area) {
             clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
         }
 
@@ -132,12 +133,15 @@ fn repaint_input(
                     .style(THEME.limegreen(0))
                     .focus_style(THEME.limegreen(2)),
                 state.hundred_areas[i],
+                0,
                 &mut state.hundred[i],
             );
+        } else {
+            clip_buf.hidden(&mut state.hundred[i]);
         }
     }
 
-    if clip_buf.is_visible(Rect::new(90, 0, 10, 1)) {
+    if clip_buf.is_visible_area(Rect::new(90, 0, 10, 1)) {
         clip_buf.render_stateful(
             TextInputMock::default()
                 .sample("__outlier__")
@@ -201,6 +205,7 @@ fn handle_input(
     // set the page from focus.
     for i in 0..state.hundred.len() {
         if state.hundred[i].gained_focus() {
+            debug!("show handle {} {:?}", i, state.hundred_areas[i]);
             state.clipper.show_handle(state.hundred_areas[i])
         }
     }

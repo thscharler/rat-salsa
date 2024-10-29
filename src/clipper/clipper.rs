@@ -1,4 +1,6 @@
 use crate::clipper::{AreaHandle, ClipperLayout, ClipperStyle};
+use crate::layout::StructuredLayout;
+use log::debug;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
 use rat_reloc::RelocatableState;
@@ -8,6 +10,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::widgets::{Block, StatefulWidget, Widget};
 use std::cmp::min;
+use std::ops::Index;
 
 /// Configure the Clipper.
 #[derive(Debug, Default, Clone)]
@@ -30,7 +33,7 @@ pub struct ClipperBuffer<'a> {
     // page layout
     layout: ClipperLayout,
 
-    // Scroll offset into the xview.
+    // Scroll offset into the view.
     buf_offset_x: u16,
     buf_offset_y: u16,
     buffer: Buffer,
@@ -44,9 +47,9 @@ pub struct ClipperBuffer<'a> {
 }
 
 /// Clips and copies the temp buffer to the frame buffer.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ClipperWidget<'a> {
-    // Scroll offset into the xview.
+    // Scroll offset into the view.
     buf_offset_x: u16,
     buf_offset_y: u16,
     buffer: Buffer,
@@ -94,6 +97,12 @@ impl<'a> Clipper<'a> {
     /// Page layout.
     pub fn layout(mut self, page_layout: ClipperLayout) -> Self {
         self.layout = page_layout;
+        self
+    }
+
+    /// Set page layout from StructLayout
+    pub fn struct_layout(mut self, page_layout: StructuredLayout) -> Self {
+        self.layout = ClipperLayout::with_layout(page_layout);
         self
     }
 
@@ -215,7 +224,8 @@ impl<'a> ClipperBuffer<'a> {
     where
         W: Widget,
     {
-        if let Some(buffer_area) = self.layout.buf_area(area) {
+        let buffer_area = self.locate_area(area);
+        if !buffer_area.is_empty() {
             // render the actual widget.
             widget.render(buffer_area, self.buffer_mut());
         }
@@ -230,23 +240,26 @@ impl<'a> ClipperBuffer<'a> {
         W: StatefulWidget<State = S>,
         S: RelocatableState,
     {
-        if let Some(buffer_area) = self.layout.buf_area(area) {
+        let buffer_area = self.locate_area(area);
+        if !buffer_area.is_empty() {
             // render the actual widget.
             widget.render(buffer_area, self.buffer_mut(), state);
             // shift and clip the output areas.
             self.relocate(state);
         } else {
-            self.relocate_clear(state);
+            self.hidden(state);
         }
     }
 
     /// Render a widget to the temp buffer.
     #[inline(always)]
-    pub fn render_widget_handle<W>(&mut self, widget: W, area: AreaHandle)
+    pub fn render_widget_handle<W, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx)
     where
         W: Widget,
+        [Rect]: Index<Idx, Output = Rect>,
     {
-        if let Some(buffer_area) = self.layout.buf_area_by_handle(area) {
+        let buffer_area = self.locate_handle(area)[tag];
+        if buffer_area.is_empty() {
             // render the actual widget.
             widget.render(buffer_area, self.buffer_mut());
         }
@@ -256,49 +269,46 @@ impl<'a> ClipperBuffer<'a> {
     /// This expects that the state is a RelocatableState,
     /// so it can reset the areas for hidden widgets.
     #[inline(always)]
-    pub fn render_stateful_handle<W, S>(&mut self, widget: W, area: AreaHandle, state: &mut S)
-    where
+    pub fn render_stateful_handle<W, S, Idx>(
+        &mut self,
+        widget: W,
+        area: AreaHandle,
+        tag: Idx,
+        state: &mut S,
+    ) where
         W: StatefulWidget<State = S>,
         S: RelocatableState,
+        [Rect]: Index<Idx, Output = Rect>,
     {
-        if let Some(buffer_area) = self.layout.buf_area_by_handle(area) {
+        let buffer_area = self.locate_handle(area)[tag];
+        if !buffer_area.is_empty() {
             // render the actual widget.
             widget.render(buffer_area, self.buffer_mut(), state);
             // shift and clip the output areas.
             self.relocate(state);
         } else {
-            self.relocate_clear(state);
+            self.hidden(state);
         }
     }
 
-    /// Get the layout area for the handle.
-    /// This uses layout coordinates.
-    pub fn layout_area(&self, handle: AreaHandle) -> Rect {
-        self.layout.layout_area_by_handle(handle)
-    }
-
-    /// Get the buffer area for the handle.
-    /// This uses coordinates that fit the temp buffer.
-    pub fn buf_area(&self, handle: AreaHandle) -> Option<Rect> {
-        self.layout.buf_area_by_handle(handle)
-    }
-
-    /// Convert the layout coordinates to buffer coordinates.
-    pub fn layout_area_to_buf_area(&self, area: Rect) -> Option<Rect> {
-        self.layout.buf_area(area)
+    /// Return the layout.
+    pub fn layout(&self) -> &ClipperLayout {
+        &self.layout
     }
 
     /// Is the given area visible?
-    pub fn is_visible(&self, area: Rect) -> bool {
-        self.layout.buf_area(area).is_some()
+    pub fn is_visible_area(&self, area: Rect) -> bool {
+        let area = self.layout.buf_area(area);
+        !area.is_empty()
     }
 
-    /// Is the given area visible?
+    /// Is any of the areas behind the handle visible?
     pub fn is_visible_handle(&self, handle: AreaHandle) -> bool {
-        self.layout.buf_area_by_handle(handle).is_some()
+        let areas = self.layout.buf_handle(handle);
+        areas.iter().find(|v| !v.is_empty()).is_some()
     }
 
-    /// Calculate the necessary shift from xview to screen.
+    /// Calculate the necessary shift from view to screen.
     pub fn shift(&self) -> (i16, i16) {
         (
             self.widget_area.x as i16 - self.buf_offset_x as i16,
@@ -306,8 +316,28 @@ impl<'a> ClipperBuffer<'a> {
         )
     }
 
-    /// Relocate all the widget state that refers to an area to
-    /// the actual screen space used.
+    /// Locate an area from layout coordinates to buffer coordinates
+    /// for rendering.
+    ///
+    /// Any sub-area may be None if it is outside the buffer.
+    ///
+    /// These are still not screen coordinates as the buffer may
+    /// be clipped into place.
+    pub fn locate_handle(&self, handle: AreaHandle) -> Box<[Rect]> {
+        self.layout.buf_handle(handle)
+    }
+
+    /// Locate an area coordinates to buffer coordinates
+    /// for rendering.
+    pub fn locate_area(&self, area: Rect) -> Rect {
+        self.layout.buf_area(area)
+    }
+
+    /// After rendering the widget to the buffer it may have
+    /// stored areas in its state. These will be in buffer
+    /// coordinates instead of screen coordinates.
+    ///
+    /// Call this function to correct this after rendering.
     pub fn relocate<S>(&self, state: &mut S)
     where
         S: RelocatableState,
@@ -315,9 +345,12 @@ impl<'a> ClipperBuffer<'a> {
         state.relocate(self.shift(), self.widget_area);
     }
 
-    /// Relocate in a way that clears the areas.
-    /// This effectively hides any out of bounds widgets.
-    pub fn relocate_clear<S>(&self, state: &mut S)
+    /// If a widget is not rendered because it is out of
+    /// the buffer area, it may still have left over areas
+    /// in its state.
+    ///
+    /// This uses the mechanism for [relocate] to zero them out.
+    pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,
     {
@@ -390,15 +423,24 @@ impl ClipperState {
 
     /// Show the area for the given handle.
     pub fn show_handle(&mut self, handle: AreaHandle) {
-        let area = self.layout.layout_area_by_handle(handle);
-        self.hscroll.scroll_to_pos(area.x as usize);
-        self.vscroll.scroll_to_pos(area.y as usize);
+        let area = self.layout.layout_handle(handle);
+        debug!("show area {:?}", area);
+
+        let min_x = area.iter().map(|v| v.left()).min().expect("area") as usize;
+        let max_x = area.iter().map(|v| v.right()).max().expect("area") as usize;
+        let min_y = area.iter().map(|v| v.top()).min().expect("area") as usize;
+        let max_y = area.iter().map(|v| v.bottom()).max().expect("area") as usize;
+
+        self.hscroll.scroll_to_range(min_x..max_x);
+        self.vscroll.scroll_to_range(min_y..max_y);
     }
 
     /// Show this rect in layout coordinates.
     pub fn show_area(&mut self, area: Rect) {
-        self.hscroll.scroll_to_pos(area.x as usize);
-        self.vscroll.scroll_to_pos(area.y as usize);
+        self.hscroll
+            .scroll_to_range(area.left() as usize..area.right() as usize);
+        self.vscroll
+            .scroll_to_range(area.top() as usize..area.bottom() as usize);
     }
 
     /// First handle for the page.
@@ -411,7 +453,7 @@ impl ClipperState {
     /// First handle for the page.
     /// This returns the first handle for the page.
     /// Does not check whether the connected area is visible.
-    pub fn first_area(&self) -> Option<Rect> {
+    pub fn first_area(&self) -> Option<Box<[Rect]>> {
         self.layout.first_layout_area()
     }
 }

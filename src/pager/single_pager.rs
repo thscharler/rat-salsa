@@ -1,5 +1,6 @@
 use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
+use crate::layout::StructuredLayout;
 use crate::pager::{AreaHandle, PagerLayout, PagerStyle};
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
@@ -10,6 +11,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Span, StatefulWidget, Style};
 use ratatui::widgets::{Block, Borders, Widget};
+use std::ops::Index;
 
 /// Prepare the page-layout for your widgets.
 ///
@@ -76,6 +78,7 @@ pub struct SinglePagerState {
     /// Page layout
     /// __read only__ renewed with each render.
     pub layout: PagerLayout,
+
     /// Current page.
     /// __read+write__
     pub page: usize,
@@ -97,9 +100,15 @@ impl<'a> SinglePager<'a> {
         Self::default()
     }
 
-    /// Set page layout.
+    /// Page layout.
     pub fn layout(mut self, page_layout: PagerLayout) -> Self {
         self.layout = page_layout;
+        self
+    }
+
+    /// Set page layout from StructLayout
+    pub fn struct_layout(mut self, page_layout: StructuredLayout) -> Self {
+        self.layout = PagerLayout::with_layout(page_layout);
         self
     }
 
@@ -227,7 +236,7 @@ impl<'a> SinglePagerBuffer<'a> {
     where
         W: Widget,
     {
-        if let Some(buffer_area) = self.locate(area) {
+        if let Some(buffer_area) = self.locate_area(area) {
             // render the actual widget.
             widget.render(buffer_area, self.buffer);
         } else {
@@ -244,99 +253,123 @@ impl<'a> SinglePagerBuffer<'a> {
         W: StatefulWidget<State = S>,
         S: RelocatableState,
     {
-        if let Some(buffer_area) = self.locate(area) {
+        if let Some(buffer_area) = self.locate_area(area) {
             // render the actual widget.
             widget.render(buffer_area, self.buffer, state);
         } else {
-            self.relocate_clear(state);
+            self.hidden(state);
         }
     }
 
     /// Render a widget to the buffer.
     #[inline(always)]
-    pub fn render_widget_handle<W>(&mut self, widget: W, area: AreaHandle)
+    pub fn render_widget_handle<W, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx)
     where
         W: Widget,
+        [Rect]: Index<Idx, Output = Rect>,
     {
-        if let Some(buffer_area) = self.locate_handle(area) {
+        if let Some(buffer_areas) = self.locate_handle(area) {
             // render the actual widget.
-            widget.render(buffer_area, self.buffer);
+            widget.render(buffer_areas[tag], self.buffer);
         } else {
             // noop
         }
     }
 
     /// Render a widget to the buffer.
+    ///
     /// This expects that the state is a RelocatableState,
     /// so it can reset the areas for hidden widgets.
     #[inline(always)]
-    pub fn render_stateful_handle<W, S>(&mut self, widget: W, area: AreaHandle, state: &mut S)
-    where
+    pub fn render_stateful_handle<W, S, Idx>(
+        &mut self,
+        widget: W,
+        area: AreaHandle,
+        tag: Idx,
+        state: &mut S,
+    ) where
         W: StatefulWidget<State = S>,
         S: RelocatableState,
+        [Rect]: Index<Idx, Output = Rect>,
     {
-        if let Some(buffer_area) = self.locate_handle(area) {
+        if let Some(buffer_areas) = self.locate_handle(area) {
             // render the actual widget.
-            widget.render(buffer_area, self.buffer, state);
+            widget.render(buffer_areas[tag], self.buffer, state);
         } else {
-            self.relocate_clear(state);
+            self.hidden(state);
         }
     }
 
-    /// Get the layout area for the handle.
-    pub fn layout_area(&self, handle: AreaHandle) -> Rect {
-        self.layout.layout_area_by_handle(handle)
-    }
-
-    /// Get the buffer area for the handle.
-    /// Returns the tuple (page-nr, area).
-    ///
-    /// This still uses layout-coordinates, not
-    /// corrected for the widget's position.
-    pub fn buf_area(&self, handle: AreaHandle) -> (usize, Rect) {
-        self.layout.buf_area_by_handle(handle)
+    /// Return the layout.
+    pub fn layout(&self) -> &PagerLayout {
+        &self.layout
     }
 
     /// Is the given area visible?
-    pub fn is_visible(&self, area: Rect) -> bool {
+    pub fn is_visible_area(&self, area: Rect) -> bool {
         self.layout.buf_area(area).0 == self.page
     }
 
     /// Is the given area visible?
     pub fn is_visible_handle(&self, handle: AreaHandle) -> bool {
-        self.layout.buf_area_by_handle(handle).0 == self.page
+        self.layout.buf_handle(handle).0 == self.page
+    }
+
+    /// Calculate the necessary shift from view to screen.
+    /// This does nothing as pager always places the widgets
+    /// in screen coordinates.
+    ///
+    /// Just to keep the api in sync with [Clipper].
+    pub fn shift(&self) -> (i16, i16) {
+        (0, 0)
     }
 
     /// Relocate an area from layout coordinates to screen coordinates.
     /// A result None indicates that the area is invisible.
-    pub fn locate_handle(&self, handle: AreaHandle) -> Option<Rect> {
-        let (page, target) = self.layout.buf_area_by_handle(handle);
-        self._locate(page, target)
+    pub fn locate_handle(&self, handle: AreaHandle) -> Option<Box<[Rect]>> {
+        let (page, mut areas) = self.layout.buf_handle(handle);
+        if self.page == page {
+            for area in &mut areas {
+                *area = Rect::new(
+                    area.x + self.widget_area.x,
+                    area.y + self.widget_area.y,
+                    area.width,
+                    area.height,
+                );
+            }
+            Some(areas)
+        } else {
+            None
+        }
     }
 
     /// Relocate an area from layout coordinates to screen coordinates.
     /// A result None indicates that the area is invisible.
-    pub fn locate(&self, area: Rect) -> Option<Rect> {
-        let (page, target) = self.layout.buf_area(area);
-        self._locate(page, target)
-    }
-
-    fn _locate(&self, page: usize, layout_area: Rect) -> Option<Rect> {
+    pub fn locate_area(&self, layout_area: Rect) -> Option<Rect> {
+        let (page, area) = self.layout.buf_area(layout_area);
         if self.page == page {
             Some(Rect::new(
-                layout_area.x + self.widget_area.x,
-                layout_area.y + self.widget_area.y,
-                layout_area.width,
-                layout_area.height,
+                area.x + self.widget_area.x,
+                area.y + self.widget_area.y,
+                area.width,
+                area.height,
             ))
         } else {
             None
         }
     }
 
+    /// Does nothing for pager.
+    /// Just to keep the api in sync with [Clipper].
+    pub fn relocate<S>(&self, _state: &mut S)
+    where
+        S: RelocatableState,
+    {
+    }
+
     /// Clear the areas in the widget-state.
     /// This is called by render_xx whenever a widget is invisible.
-    pub fn relocate_clear<S>(&self, state: &mut S)
+    pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,
     {
@@ -416,7 +449,7 @@ impl SinglePagerState {
 
     /// Show the page for this rect.
     pub fn show_handle(&mut self, handle: AreaHandle) {
-        let (page, _) = self.layout.buf_area_by_handle(handle);
+        let (page, _) = self.layout.buf_handle(handle);
         self.page = page;
     }
 
