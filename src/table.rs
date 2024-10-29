@@ -10,6 +10,7 @@ use crate::{TableContext, TableData, TableDataIter, TableSelection};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent};
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
@@ -1585,6 +1586,23 @@ impl<Selection> HasFocus for TableState<Selection> {
     #[inline]
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl<Selection> RelocatableState for TableState<Selection> {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
+        self.inner = relocate_area(self.inner, shift, clip);
+        self.table_area = relocate_area(self.table_area, shift, clip);
+        self.footer_area = relocate_area(self.footer_area, shift, clip);
+        self.header_area = relocate_area(self.header_area, shift, clip);
+
+        relocate_areas(self.row_areas.as_mut_slice(), shift, clip);
+        relocate_areas(self.column_areas.as_mut_slice(), shift, clip);
+        relocate_areas(self.column_layout.as_mut_slice(), shift, clip);
+
+        self.hscroll.relocate(shift, clip);
+        self.vscroll.relocate(shift, clip);
     }
 }
 
