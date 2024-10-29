@@ -26,6 +26,7 @@ use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
@@ -65,6 +66,8 @@ pub struct TextInputState {
     pub invalid: bool,
     /// Display offset
     pub offset: upos_type,
+    /// Dark offset due to clipping.
+    pub dark_offset: (u16, u16),
 
     /// Mouse selection in progress.
     pub mouse: MouseFlags,
@@ -299,6 +302,7 @@ impl Default for TextInputState {
             value,
             non_exhaustive: NonExhaustive,
             offset: 0,
+            dark_offset: (0, 0),
         }
     }
 }
@@ -1061,15 +1065,24 @@ impl HasScreenCursor for TextInputState {
 
             if cx < ox {
                 None
-            } else if cx > ox + self.inner.width as upos_type {
+            } else if cx > ox + (self.inner.width + self.dark_offset.0) as upos_type {
                 None
             } else {
-                let sc = self.col_to_screen(cx);
-                Some((self.inner.x + sc, self.inner.y))
+                self.col_to_screen(cx)
+                    .map(|sc| (self.inner.x + sc, self.inner.y))
             }
         } else {
             None
         }
+    }
+}
+
+impl RelocatableState for TextInputState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        // clip offset for some corrections.
+        self.dark_offset = relocate_dark_offset(self.inner, shift, clip);
+        self.area = relocate_area(self.area, shift, clip);
+        self.inner = relocate_area(self.inner, shift, clip);
     }
 }
 
@@ -1079,14 +1092,16 @@ impl TextInputState {
     pub fn screen_to_col(&self, scx: i16) -> upos_type {
         let ox = self.offset();
 
+        let scx = scx + self.dark_offset.0 as i16;
+
         if scx < 0 {
             ox.saturating_sub((scx as ipos_type).unsigned_abs())
-        } else if scx as u16 >= self.inner.width {
+        } else if scx as u16 >= (self.inner.width + self.dark_offset.0) {
             min(ox + scx as upos_type, self.len())
         } else {
             let scx = scx as u16;
 
-            let line = self.glyphs(ox as u16, self.inner.width);
+            let line = self.glyphs(ox as u16, (self.inner.width + self.dark_offset.0));
 
             let mut col = ox;
             for g in line {
@@ -1101,14 +1116,14 @@ impl TextInputState {
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
-    pub fn col_to_screen(&self, pos: upos_type) -> u16 {
+    pub fn col_to_screen(&self, pos: upos_type) -> Option<u16> {
         let ox = self.offset();
 
         if pos < ox {
-            return 0;
+            return None;
         }
 
-        let line = self.glyphs(ox as u16, self.inner.width);
+        let line = self.glyphs(ox as u16, self.inner.width + self.dark_offset.0);
         let mut screen_x = 0;
         for g in line {
             if g.pos().x == pos {
@@ -1116,7 +1131,12 @@ impl TextInputState {
             }
             screen_x = g.screen_pos().0 + g.screen_width();
         }
-        screen_x
+
+        if screen_x >= self.dark_offset.0 {
+            Some(screen_x - self.dark_offset.0)
+        } else {
+            None
+        }
     }
 
     /// Set the cursor position from a screen position relative to the origin
@@ -1186,8 +1206,8 @@ impl TextInputState {
 
         let no = if c < o {
             c
-        } else if c >= o + self.inner.width as upos_type {
-            c.saturating_sub(self.inner.width as upos_type)
+        } else if c >= o + (self.inner.width + self.dark_offset.0) as upos_type {
+            c.saturating_sub((self.inner.width + self.dark_offset.0) as upos_type)
         } else {
             o
         };

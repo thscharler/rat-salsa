@@ -69,6 +69,7 @@ log = "0.4"
 dyn-clone = "1.0.17"
 
 rat-event = { version = "0.25", path = "../rat-event" }
+rat-reloc = { version = "0.1", path = "../rat-reloc" }
 rat-cursor = { version = "0.25", path = "../rat-cursor" }
 rat-focus = { version = "0.27", path = "../rat-focus" }
 rat-scrolled = { version = "0.26", path = "../rat-scrolled" }

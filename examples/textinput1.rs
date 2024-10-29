@@ -1,5 +1,6 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, try_flow, Outcome};
+use rat_reloc::RelocatableState;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::{text_input, HasScreenCursor};
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -46,6 +47,7 @@ fn repaint_input(
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
         Constraint::Length(1),
+        Constraint::Length(3),
         Constraint::Fill(1),
         Constraint::Length(1),
         Constraint::Length(1),
@@ -60,6 +62,19 @@ fn repaint_input(
     ])
     .split(l1[1]);
 
+    frame.buffer_mut().set_style(
+        Rect::new(
+            l2[0].x,
+            l1[0].y,
+            l2[0].width,
+            l1[0].height + l1[1].height + l1[2].height,
+        ),
+        Style::new().on_cyan(),
+    );
+
+    let mut txt_area = l2[1];
+    txt_area.x -= 10;
+
     TextInput::new()
         .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
         .style(Style::default().white().on_dark_gray())
@@ -70,7 +85,18 @@ fn repaint_input(
             Style::new().green(),
             Style::new().on_yellow(),
         ])
-        .render(l2[1], frame.buffer_mut(), &mut state.textinput);
+        .render(txt_area, frame.buffer_mut(), &mut state.textinput);
+
+    let clip = l2[1];
+    state.textinput.relocate((0, 0), clip);
+
+    for y in txt_area.top()..txt_area.bottom() {
+        for x in txt_area.x..txt_area.x + 10 {
+            if let Some(cell) = frame.buffer_mut().cell_mut((x, y)) {
+                cell.set_style(Style::new().on_red());
+            }
+        }
+    }
 
     if let Some((cx, cy)) = state.textinput.screen_cursor() {
         frame.set_cursor_position((cx, cy));
@@ -196,7 +222,8 @@ pub(crate) fn insert_text_2(state: &mut State) -> Outcome {
 }
 
 pub(crate) fn insert_text_1(state: &mut State) -> Outcome {
-    let str = "w🤷‍♂️x w🤷‍♀️x w🤦‍♂️x w❤️x w🤦‍♀️x w💕x w🙍🏿‍♀️x";
+    // let str = "w🤷‍♂️x w🤷‍♀️x w🤦‍♂️x w❤️x w🤦‍♀️x w💕x w🙍🏿‍♀️x";
+    let str = "word word word word word word word";
     state.textinput.set_text(str);
     Outcome::Changed
 }
