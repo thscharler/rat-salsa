@@ -286,7 +286,7 @@ pub mod mask0 {
             let view_area = view.inner(layout[0], &mut state.scroll);
 
             let mut v_buf = view
-                .view(Rect::new(0, 0, view_area.width, 38))
+                .layout(Rect::new(0, 0, view_area.width, 38))
                 .into_buffer(layout[0], &mut state.scroll);
 
             v_buf.render_stateful(
