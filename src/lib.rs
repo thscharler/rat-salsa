@@ -1,6 +1,7 @@
 //! Current status: BETA
 //!
 #![doc = include_str!("../readme.md")]
+
 use ratatui::layout::{Position, Rect};
 
 /// Widgets can be rendered to a temporary buffer using
@@ -26,15 +27,11 @@ pub fn relocate_areas(area: &mut [Rect], shift: (i16, i16), clip: Rect) {
 
 /// Shift the area by offset and clip it.
 pub fn relocate_area(area: Rect, shift: (i16, i16), clip: Rect) -> Rect {
-    let x0 = area.left().saturating_add_signed(shift.0);
-    let x1 = area.right().saturating_add_signed(shift.0);
-    let y0 = area.top().saturating_add_signed(shift.1);
-    let y1 = area.bottom().saturating_add_signed(shift.1);
+    let relocated = relocate(area, shift);
+    let clipped = clipped(relocated, clip);
 
-    let tgt = Rect::new(x0, y0, x1 - x0, y1 - y0);
-    let tgt = tgt.intersection(clip);
-    if !tgt.is_empty() {
-        tgt
+    if !clipped.is_empty() {
+        clipped
     } else {
         // default on empty
         Rect::default()
@@ -52,13 +49,45 @@ pub fn relocate_positions(pos: &mut [Position], shift: (i16, i16), clip: Rect) {
 /// Shift the position by offset and clip it.
 /// Returns None if the position is clipped.
 pub fn relocate_position(pos: Position, shift: (i16, i16), clip: Rect) -> Option<Position> {
-    let x0 = pos.x.saturating_add_signed(shift.0);
-    let y0 = pos.y.saturating_add_signed(shift.0);
-    let pos0 = Position::new(x0, y0);
+    let reloc = relocate(Rect::new(pos.x, pos.y, 0, 0), shift);
+    let reloc_pos = Position::new(reloc.x, reloc.y);
 
-    if clip.contains(pos0) {
-        Some(pos0)
+    if clip.contains(reloc_pos) {
+        Some(reloc_pos)
     } else {
         None
     }
+}
+
+/// Clipping might introduce another offset by cutting away
+/// part of an area that a widgets internal offset refers to.
+///
+/// This calculates this dark, extra offset.
+pub fn relocate_dark_offset(area: Rect, shift: (i16, i16), clip: Rect) -> (u16, u16) {
+    let relocated = relocate(area, shift);
+    let clipped = clipped(relocated, clip);
+
+    (clipped.x - relocated.x, clipped.y - relocated.y)
+}
+
+pub fn rect_dbg(area: Rect) -> String {
+    use std::fmt::Write;
+    let mut buf = String::new();
+    _ = write!(buf, "{}:{}+{}+{}", area.x, area.y, area.width, area.height);
+    buf
+}
+
+#[inline]
+fn relocate(area: Rect, shift: (i16, i16)) -> Rect {
+    let x0 = area.left().saturating_add_signed(shift.0);
+    let x1 = area.right().saturating_add_signed(shift.0);
+    let y0 = area.top().saturating_add_signed(shift.1);
+    let y1 = area.bottom().saturating_add_signed(shift.1);
+
+    Rect::new(x0, y0, x1 - x0, y1 - y0)
+}
+
+#[inline]
+fn clipped(area: Rect, clip: Rect) -> Rect {
+    area.intersection(clip)
 }
