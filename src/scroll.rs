@@ -12,6 +12,7 @@ use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Padding, Scrollbar, ScrollbarOrientation, ScrollbarState, StatefulWidget};
 use std::cmp::{max, min};
 use std::mem;
+use std::ops::Range;
 
 /// Scroll widget.
 ///
@@ -633,6 +634,23 @@ impl ScrollState {
             self.offset = pos - self.page_len + 1;
         } else if pos < self.offset {
             self.offset = pos;
+        }
+        old != self.offset
+    }
+
+    /// Scroll to make the given range visible.Adjusts the
+    /// offset just enough to make this happen. Does nothing if
+    /// the range is already visible.
+    #[inline]
+    pub fn scroll_to_range(&mut self, range: Range<usize>) -> bool {
+        let old = self.offset;
+        // start of range first
+        if range.start >= self.offset + self.page_len {
+            self.offset = range.start - self.page_len + 1;
+        } else if range.start < self.offset {
+            self.offset = range.start;
+        } else if range.end >= self.offset + self.page_len {
+            self.offset = range.end - self.page_len;
         }
         old != self.offset
     }
