@@ -16,22 +16,20 @@ use std::ops::{Index, IndexMut};
 ///
 /// ```rust
 /// # use rat_widget::layout::StructuredLayout;
-/// # use ratatui::buffer::Buffer;
-/// # use ratatui::layout::Rect;
-/// # use ratatui::text::Span;
-/// # use ratatui::widgets::Widget;
 /// # use std::ops::Index;
+/// # use rat_widget::checkbox::{Checkbox, CheckboxState};
+/// # use ratatui::prelude::*;
 /// pub enum LW {
 ///     Label,
 ///     Widget
 /// }
-/// #    impl Index<[Rect;2]> for LW {
+/// #    impl Index<LW> for [Rect] {
 /// #        type Output = Rect;
 /// #
-/// #        fn index(&self, index: [Rect; 2]) -> &Self::Output {
-/// #            match self {
-/// #                LW::Label => &index[0],
-/// #                LW::Widget => &index[1]
+/// #        fn index(&self, index: LW) -> &Self::Output {
+/// #            match index {
+/// #                LW::Label => &self[0],
+/// #                LW::Widget => &self[1]
 /// #            }
 /// #        }
 /// #    }
@@ -43,10 +41,8 @@ use std::ops::{Index, IndexMut};
 /// #    }
 /// #
 /// # let mut buf = Buffer::default();
-/// # let buf = &mut buf;
-/// #
+/// # let mut state = CheckboxState::default();
 /// # use LW::*;
-/// # use rat_widget::checkbox::Checkbox;
 ///
 /// let mut l = StructuredLayout::new(LW::count());
 ///
@@ -59,11 +55,11 @@ use std::ops::{Index, IndexMut};
 /// // ... something entirely else ...
 ///
 /// Span::from("label")
-///     .render(l[w0][Label], buf);
+///     .render(l[w0][Label],&mut buf);
 ///
 /// Checkbox::new()
 ///     .text("Check this out")
-///     .render(l[w0][Widget], buf);
+///     .render(l[w0][Widget], &mut buf, &mut state);
 ///
 /// ```
 ///

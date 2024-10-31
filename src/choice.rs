@@ -1,15 +1,14 @@
 //!
 //! Choice/Select widget.
 //!
-//! ```
+//! ```rust no_run
 //! use rat_popup::Placement;
 //! use rat_scrolled::Scroll;
 //! use rat_widget::choice::{Choice, ChoiceState};
-//! # use ratatui::Frame;
-//! # use ratatui::layout::Rect;
-//! # use ratatui::widgets::{Block, StatefulWidget};
-//! # let mut frame: Frame;
-//! # let mut cstate: ChoiceState;
+//! # use ratatui::prelude::*;
+//! # use ratatui::widgets::Block;
+//! # let mut buf = Buffer::default();
+//! # let mut cstate = ChoiceState::default();
 //! # let mut max_bounds: Rect = Rect::default();
 //!
 //! let (widget, popup) = Choice::new()
@@ -23,11 +22,11 @@
 //!         .popup_placement(Placement::AboveOrBelow)
 //!         .popup_boundary(max_bounds)
 //!         .into_widgets();
-//!  widget.render(Rect::new(3,3,15,1), frame.buffer_mut(), &mut cstate);
+//!  widget.render(Rect::new(3,3,15,1), &mut buf, &mut cstate);
 //!
 //!  // ... render other widgets
 //!
-//!  popup.render(Rect::new(3,3,15,1), frame.buffer_mut(), &mut cstate);
+//!  popup.render(Rect::new(3,3,15,1), &mut buf, &mut cstate);
 //!
 //! ```
 //!

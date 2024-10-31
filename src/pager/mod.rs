@@ -4,7 +4,7 @@
 //! If you have a lot of widgets to display, splitting
 //! them into pages is an alternative to scrolling.
 //!
-//! ```rust
+//! ```rust no_run
 //!     # use rat_widget::pager::{SinglePager, AreaHandle, PagerLayout, SinglePagerState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
 //!     # use ratatui::prelude::*;
@@ -36,7 +36,7 @@
 //!           let mut pl = PagerLayout::new(1);
 //!           for i in 0..100 {
 //!               let handle = pl.add(&[Rect::new(10, i*11, 15, 10)]);
-//!               state.handles[i] = handle;
+//!               state.handles[i as usize] = handle;
 //!
 //!               if i > 0 && i % 17 == 0 {
 //!                   pl.break_before(i);
@@ -57,7 +57,7 @@
 //!       ///
 //!       for i in 0..100 {
 //!           // calculate an area
-//!           let v_area = pg_buf.layout().layout_area(state.handles[i])[0];
+//!           let v_area = pg_buf.layout().layout_handle(state.handles[i])[0];
 //!           let w_area = Rect::new(5, v_area.y, 5, 1);
 //!           pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
 //!

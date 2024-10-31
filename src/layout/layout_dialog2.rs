@@ -54,7 +54,7 @@ impl IndexMut<DialogItem> for StructuredLayout {
 ///
 /// Access the items via the index operator, using DialogItem as index.
 ///
-/// ```
+/// ```rust no_run
 /// # use rat_widget::layout::{DialogItem, StructuredLayout};
 /// # let l = StructuredLayout::default();
 ///

@@ -6,8 +6,7 @@ use ratatui::layout::{Rect, Size};
 use ratatui::prelude::{BlockExt, Widget};
 use ratatui::style::{Style, Stylize};
 use ratatui::widgets::{Block, Padding};
-use std::fmt::{Debug, Formatter};
-use std::mem;
+use std::{fmt, mem};
 
 /// Union the areas, but regard only non-empty ones.
 ///
@@ -73,20 +72,11 @@ pub fn fill_buf_area(buf: &mut Buffer, area: Rect, symbol: &str, style: impl Int
     }
 }
 
-pub struct RectDbg(Rect);
-
-impl Debug for RectDbg {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "{}:{}+{}+{}",
-            self.0.x, self.0.y, self.0.width, self.0.height
-        )
-    }
-}
-
-pub fn rect_dbg(area: Rect) -> RectDbg {
-    RectDbg(area)
+pub fn rect_dbg(area: Rect) -> String {
+    use fmt::Write;
+    let mut buf = String::new();
+    _ = write!(buf, "{}:{}+{}+{}", area.x, area.y, area.width, area.height);
+    buf
 }
 
 pub(crate) const DOUBLE_VERTICAL_SINGLE_LEFT: &str = "\u{2562}";

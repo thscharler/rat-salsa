@@ -7,7 +7,7 @@
 //!
 //! It works in 4 phases:
 //!
-//! ```rust
+//! ```rust no_run
 //!     # use rat_widget::clipper::{Clipper, AreaHandle, ClipperLayout, ClipperState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
 //!     # use ratatui::prelude::*;
@@ -37,7 +37,7 @@
 //!         let mut cl = ClipperLayout::new(1);
 //!         for i in 0..100 {
 //!             let handle = cl.add(&[Rect::new(10, i*11, 15, 10)]);
-//!             state.handles[i] = handle;
+//!             state.handles[i as usize] = handle;
 //!         }
 //!     }
 //!
@@ -57,7 +57,7 @@
 //!     ///
 //!     for i in 0..100 {
 //!         // create a new area
-//!         let v_area = clip_buf.layout().layout_area(state.handles[i]);
+//!         let v_area = clip_buf.layout().layout_handle(state.handles[i])[0];
 //!         let w_area = Rect::new(5, v_area.y, 5, 1);
 //!         clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
 //!
