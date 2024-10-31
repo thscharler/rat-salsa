@@ -1101,7 +1101,7 @@ impl TextInputState {
         } else {
             let scx = scx as u16;
 
-            let line = self.glyphs(ox as u16, (self.inner.width + self.dark_offset.0));
+            let line = self.glyphs(ox as u16, self.inner.width + self.dark_offset.0);
 
             let mut col = ox;
             for g in line {
