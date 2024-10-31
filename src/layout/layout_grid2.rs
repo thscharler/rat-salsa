@@ -39,7 +39,7 @@ pub fn layout_grid<const X: usize, const Y: usize>(
     horizontal: Layout,
     vertical: Layout,
 ) -> StructuredLayout {
-    let mut l = StructuredLayout::new(X);
+    let mut l = StructuredLayout::new(Y);
     l.set_area(area);
 
     let hori = horizontal.areas::<X>(Rect::new(area.x, 0, area.width, 0));
