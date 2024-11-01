@@ -1,6 +1,6 @@
 [package]
 name = "rat-popup"
-version = "0.27.2"
+version = "0.28.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui popup semi-window widget"
@@ -52,13 +52,13 @@ ratatui = { version = "0.29", features = ["unstable-rendered-line-info"], path =
 crossterm = "0.28"
 log = "0.4"
 
-rat-event = { version = "0.25", path = "../rat-event" }
-rat-reloc = { version = "0.1", path = "../rat-reloc" }
-rat-focus = { version = "0.27", path = "../rat-focus" }
-rat-scrolled = { version = "0.26", path = "../rat-scrolled" }
+rat-event = { version = "0.26", path = "../rat-event" }
+rat-reloc = { version = "0.2", path = "../rat-reloc" }
+rat-focus = { version = "0.28", path = "../rat-focus" }
+rat-scrolled = { version = "0.27", path = "../rat-scrolled" }
 rat-cursor = { version = "0.25", path = "../rat-cursor" }
 
 [dev-dependencies]
-fern = "0.6"
-anyhow = "1.0.82"
+fern = "0.7"
+anyhow = "1.0"
 unicode-segmentation = "1.11"

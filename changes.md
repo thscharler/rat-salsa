@@ -1,3 +1,12 @@
+# 0.28.0
+
+** upgrade to ratatui 0.29 **
+
+* feature: all values of PopupCore can be public.
+* feature: add support for rat-reloc to change position after rendering.
+* feature: enable StatefulWidgetRef for PopupCore.
+* feat: provide usable fallbacks when no styles are set.
+
 # 0.27.2
 
 * feature: add Placement to styles.
