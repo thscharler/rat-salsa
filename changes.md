@@ -1,3 +1,10 @@
+# 0.27.0
+
+** upgrade to ratatui 0.29 **
+
+* break: tried to implement some naming scheme upon DarkTheme.
+* feat: add styles for new widgets in rat-widget
+
 # 0.26.2
 
 * fix: add missing styles.
