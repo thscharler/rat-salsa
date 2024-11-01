@@ -1,3 +1,9 @@
+# 0.28.0
+
+** upgrade to ratatui 0.29 **
+
+* feature: add support for rat-reloc. adds relocate_z_area() and relocate_z_areas()
+
 # 0.27.1
 
 * feature: add ZRect::union_all(), ZRect::union()
