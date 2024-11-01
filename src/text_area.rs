@@ -8,7 +8,6 @@ use crate::clipboard::{Clipboard, LocalClipboard};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::grapheme::{Glyph, Grapheme};
 use crate::text_core::TextCore;
-use crate::text_input::TextInputState;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
@@ -1627,7 +1626,6 @@ impl HasScreenCursor for TextAreaState {
             } else if cursor.y >= oy + (self.inner.height + self.dark_offset.1) as upos_type {
                 None
             } else {
-                let sy = cursor.y - oy - self.dark_offset.1 as upos_type; // TODO:????
                 if cursor.x < ox {
                     None
                 } else if cursor.x > ox + (self.inner.width + self.dark_offset.0) as upos_type {

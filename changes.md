@@ -1,3 +1,13 @@
+# 0.29.0
+
+** upgrade to ratatui 0.29 **
+** upgrade to unicode-width 0.2 **
+
+* feat: make useable when no styles are set.
+* fix: rendering of LineNumbers.
+* feature: implement RelocatableState for TextInput, TextArea and MaskedInput.
+  Those work correctly even when partially clipped.
+
 # 0.28.0
 
 * refactor: merge TextInputStyle and TextAreaStyle to TextStyle.
