@@ -1,3 +1,22 @@
+//!
+//! Slider widget.
+//!
+//! ```rust no_run
+//! use rat_widget::slider::{Slider, SliderState};
+//! # use ratatui::layout::Rect;
+//! # use ratatui::prelude::*;;
+//! #
+//! # let slider_area = Rect::ZERO;
+//! # let mut buf = Buffer::default();
+//!
+//! let mut state = SliderState::<u8>::new_range((0,255), 1);
+//! state.set_value(Some(42));
+//!
+//! Slider::new().render(slider_area, &mut buf, &mut state);
+//!
+//! ```
+//!
+
 use crate::_private::NonExhaustive;
 use crate::range_op::RangeOp;
 use crate::util::revert_style;
@@ -19,6 +38,11 @@ use std::fmt::{Debug, Formatter};
 use std::marker::PhantomData;
 use unicode_width::UnicodeWidthStr;
 
+/// Slider widget for a type T.
+///
+/// T has to implement [RangeOp](crate::range_op::RangeOp)
+/// and [MapRange](map_range_int::MapRange) to and from u16.
+///
 #[derive(Debug, Clone)]
 pub struct Slider<'a, T>
 where
@@ -32,42 +56,57 @@ where
 
     direction: Direction,
 
-    align: Alignment,
-    lower_bound_str: Option<Cow<'a, str>>,
-    upper_bound_str: Option<Cow<'a, str>>,
+    range: Option<(T, T)>,
+    step: Option<<T as RangeOp>::Step>,
+    long_step: Option<<T as RangeOp>::Step>,
 
-    track_str: Option<Cow<'a, str>>,
+    text_align: Alignment,
+    lower_bound: Option<Cow<'a, str>>,
+    upper_bound: Option<Cow<'a, str>>,
 
-    knob_str: Option<Cow<'a, str>>,
-    h_knob_str: Option<Cow<'a, str>>,
-    v_knob_str: Option<Cow<'a, str>>,
+    track_char: Option<Cow<'a, str>>,
+
+    horizontal_knob: Option<Cow<'a, str>>,
+    vertical_knob: Option<Cow<'a, str>>,
 
     block: Option<Block<'a>>,
 
     _phantom: PhantomData<T>,
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct SliderStyle {
-    style: Style,
-    bounds: Option<Style>,
-    knob: Option<Style>,
-    focus: Option<Style>,
+    /// Base style.
+    pub style: Style,
+    /// Style for the upper/lower bounds text.
+    pub bounds: Option<Style>,
+    /// Style for the knob.
+    pub knob: Option<Style>,
+    /// Style when focused.
+    pub focus: Option<Style>,
 
-    align: Option<Alignment>,
-    lower_bound_str: Option<&'static str>,
-    upper_bound_str: Option<&'static str>,
+    /// Alignment for all text.
+    pub text_align: Option<Alignment>,
+    /// Text string for the lower bound. Can contain newlines.
+    pub lower_bound: Option<&'static str>,
+    /// Text string for the upper bound. Can contain newlines.
+    pub upper_bound: Option<&'static str>,
 
-    track_str: Option<&'static str>,
+    /// Fill char for the track.
+    pub track_char: Option<&'static str>,
 
-    vertical_knob_str: Option<&'static str>,
-    horizontal_knob_str: Option<&'static str>,
+    /// Text for the knob in vertical mode.
+    pub vertical_knob: Option<&'static str>,
+    /// Text for the knob in horizontal mode.
+    pub horizontal_knob: Option<&'static str>,
 
-    block: Option<Block<'static>>,
+    /// Border
+    pub block: Option<Block<'static>>,
 
-    non_exhaustive: NonExhaustive,
+    pub non_exhaustive: NonExhaustive,
 }
 
+/// State.
 #[derive(Clone)]
 pub struct SliderState<T>
 where
@@ -126,12 +165,12 @@ impl Default for SliderStyle {
             bounds: None,
             knob: None,
             focus: None,
-            align: None,
-            lower_bound_str: None,
-            upper_bound_str: None,
-            track_str: None,
-            vertical_knob_str: None,
-            horizontal_knob_str: None,
+            text_align: None,
+            lower_bound: None,
+            upper_bound: None,
+            track_char: None,
+            vertical_knob: None,
+            horizontal_knob: None,
             block: None,
             non_exhaustive: NonExhaustive,
         }
@@ -150,13 +189,15 @@ where
             knob_style: None,
             focus_style: None,
             direction: Direction::Horizontal,
-            align: Alignment::Left,
-            lower_bound_str: None,
-            upper_bound_str: None,
-            track_str: None,
-            knob_str: None,
-            h_knob_str: None,
-            v_knob_str: None,
+            range: None,
+            step: None,
+            long_step: None,
+            text_align: Alignment::Left,
+            lower_bound: None,
+            upper_bound: None,
+            track_char: None,
+            horizontal_knob: None,
+            vertical_knob: None,
             block: None,
             _phantom: Default::default(),
         }
@@ -168,15 +209,36 @@ where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
 {
+    /// New
     pub fn new() -> Self {
         Default::default()
     }
 
+    /// Direction for the slider.
     pub fn direction(mut self, direction: Direction) -> Self {
         self.direction = direction;
         self
     }
 
+    /// Overrides the range of the slider.
+    pub fn range(mut self, range: (T, T)) -> Self {
+        self.range = Some(range);
+        self
+    }
+
+    /// First step size.
+    pub fn step(mut self, step: <T as RangeOp>::Step) -> Self {
+        self.step = Some(step);
+        self
+    }
+
+    /// Second step size.
+    pub fn long_step(mut self, step: <T as RangeOp>::Step) -> Self {
+        self.long_step = Some(step);
+        self
+    }
+
+    /// Set all styles.
     pub fn styles(mut self, styles: SliderStyle) -> Self {
         self.style = styles.style;
         if styles.bounds.is_some() {
@@ -188,23 +250,23 @@ where
         if styles.focus.is_some() {
             self.focus_style = styles.focus;
         }
-        if let Some(align) = styles.align {
-            self.align = align;
+        if let Some(align) = styles.text_align {
+            self.text_align = align;
         }
-        if styles.lower_bound_str.is_some() {
-            self.lower_bound_str = styles.lower_bound_str.map(|v| Cow::Borrowed(v));
+        if styles.lower_bound.is_some() {
+            self.lower_bound = styles.lower_bound.map(|v| Cow::Borrowed(v));
         }
-        if styles.upper_bound_str.is_some() {
-            self.upper_bound_str = styles.upper_bound_str.map(|v| Cow::Borrowed(v));
+        if styles.upper_bound.is_some() {
+            self.upper_bound = styles.upper_bound.map(|v| Cow::Borrowed(v));
         }
-        if styles.track_str.is_some() {
-            self.track_str = styles.track_str.map(|v| Cow::Borrowed(v));
+        if styles.track_char.is_some() {
+            self.track_char = styles.track_char.map(|v| Cow::Borrowed(v));
         }
-        if styles.vertical_knob_str.is_some() {
-            self.v_knob_str = styles.vertical_knob_str.map(|v| Cow::Borrowed(v));
+        if styles.vertical_knob.is_some() {
+            self.vertical_knob = styles.vertical_knob.map(|v| Cow::Borrowed(v));
         }
-        if styles.horizontal_knob_str.is_some() {
-            self.h_knob_str = styles.horizontal_knob_str.map(|v| Cow::Borrowed(v));
+        if styles.horizontal_knob.is_some() {
+            self.horizontal_knob = styles.horizontal_knob.map(|v| Cow::Borrowed(v));
         }
         if styles.block.is_some() {
             self.block = styles.block;
@@ -212,64 +274,71 @@ where
         self.block = self.block.map(|v| v.style(self.style));
         self
     }
-    // TODO styles
 
+    /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
         self.block = self.block.map(|v| v.style(style));
         self
     }
 
+    /// Style for focus.
     pub fn focus_style(mut self, style: Style) -> Self {
         self.focus_style = Some(style);
         self
     }
 
+    /// Style for the bounds text.
     pub fn bounds_style(mut self, style: Style) -> Self {
         self.bounds_style = Some(style);
         self
     }
 
+    /// Style for the knob.
     pub fn knob_style(mut self, style: Style) -> Self {
         self.knob_style = Some(style);
         self
     }
 
-    pub fn align_bounds(mut self, align: Alignment) -> Self {
-        self.align = align;
+    /// Text alignment. Used for the bounds and the knob.
+    pub fn text_align(mut self, align: Alignment) -> Self {
+        self.text_align = align;
         self
     }
 
-    pub fn lower_bound_str(mut self, bound: impl Into<Cow<'a, str>>) -> Self {
-        self.lower_bound_str = Some(bound.into());
+    /// Text for the lower bound. Can contain newlines.
+    pub fn lower_bound(mut self, bound: impl Into<Cow<'a, str>>) -> Self {
+        self.lower_bound = Some(bound.into());
         self
     }
 
-    pub fn upper_bound_str(mut self, bound: impl Into<Cow<'a, str>>) -> Self {
-        self.upper_bound_str = Some(bound.into());
+    /// Text for the upper bound. Can contain newlines.
+    pub fn upper_bound(mut self, bound: impl Into<Cow<'a, str>>) -> Self {
+        self.upper_bound = Some(bound.into());
         self
     }
 
-    pub fn track_str(mut self, bound: impl Into<Cow<'a, str>>) -> Self {
-        self.track_str = Some(bound.into());
+    /// Fill char for the track.
+    pub fn track_char(mut self, bound: impl Into<Cow<'a, str>>) -> Self {
+        self.track_char = Some(bound.into());
         self
     }
 
-    pub fn knob_str(mut self, knob: impl Into<Cow<'a, str>>) -> Self {
-        self.knob_str = Some(knob.into());
+    /// Text for the horizontal knob. Can contain newlines for
+    /// multiline sliders.
+    pub fn horizontal_knob(mut self, knob: impl Into<Cow<'a, str>>) -> Self {
+        self.horizontal_knob = Some(knob.into());
         self
     }
 
-    pub fn h_knob_str(mut self, knob: impl Into<Cow<'a, str>>) -> Self {
-        self.h_knob_str = Some(knob.into());
+    /// Text for the vertical knob. Can contain newlines for a
+    /// multiline knob.
+    pub fn vertical_knob(mut self, knob: impl Into<Cow<'a, str>>) -> Self {
+        self.vertical_knob = Some(knob.into());
         self
     }
 
-    pub fn v_knob_str(mut self, knob: impl Into<Cow<'a, str>>) -> Self {
-        self.v_knob_str = Some(knob.into());
-        self
-    }
-
+    /// Block for borders.
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
         self.block = self.block.map(|v| v.style(self.style));
@@ -282,38 +351,27 @@ where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
 {
+    // Creates the default knob text.
+    // knob_repeat is either rows/columns, the off direction.
     fn render_knob_str(&'a self, knob_repeat: u16, is_focused: bool) -> Cow<'a, str> {
-        fn map_ref<'b>(
-            s0: &'b Option<Cow<'b, str>>,
-            s1: &'b Option<Cow<'b, str>>,
-            d: Cow<'b, str>,
-        ) -> Cow<'b, str> {
-            s0.as_ref()
-                .map(|v| Cow::Borrowed(v.as_ref()))
-                .unwrap_or(s1.as_ref().map(|v| Cow::Borrowed(v.as_ref())).unwrap_or(d))
+        fn map_ref<'b>(s0: &'b Option<Cow<'b, str>>, d: Cow<'b, str>) -> Cow<'b, str> {
+            s0.as_ref().map(|v| Cow::Borrowed(v.as_ref())).unwrap_or(d)
         }
 
         if is_focused {
             match (self.direction, knob_repeat) {
-                (Direction::Horizontal, 1) => {
-                    map_ref(&self.h_knob_str, &self.knob_str, Cow::Borrowed(" | "))
-                }
+                (Direction::Horizontal, 1) => map_ref(&self.horizontal_knob, Cow::Borrowed(" | ")),
                 (Direction::Horizontal, 2) => {
-                    map_ref(&self.h_knob_str, &self.knob_str, Cow::Borrowed(" ╷ \n ╵ "))
+                    map_ref(&self.horizontal_knob, Cow::Borrowed(" ╷ \n ╵ "))
                 }
-                (Direction::Horizontal, 3) => map_ref(
-                    &self.h_knob_str,
-                    &self.knob_str,
-                    Cow::Borrowed(" ╷ \n │ \n ╵ "),
-                ),
-                (Direction::Horizontal, 4) => map_ref(
-                    &self.h_knob_str,
-                    &self.knob_str,
-                    Cow::Borrowed(" ╷ \n │ \n │ \n ╵ "),
-                ),
+                (Direction::Horizontal, 3) => {
+                    map_ref(&self.horizontal_knob, Cow::Borrowed(" ╷ \n │ \n ╵ "))
+                }
+                (Direction::Horizontal, 4) => {
+                    map_ref(&self.horizontal_knob, Cow::Borrowed(" ╷ \n │ \n │ \n ╵ "))
+                }
                 (Direction::Horizontal, 5) => map_ref(
-                    &self.h_knob_str,
-                    &self.knob_str,
+                    &self.horizontal_knob,
                     Cow::Borrowed(" ╷ \n │ \n │ \n │ \n ╵ "),
                 ),
                 (Direction::Horizontal, n) => {
@@ -323,24 +381,14 @@ where
                         tmp.push_str(" │ \n");
                     }
                     tmp.push_str(" ╵ ");
-                    map_ref(&self.h_knob_str, &self.knob_str, Cow::Owned(tmp))
+                    map_ref(&self.horizontal_knob, Cow::Owned(tmp))
                 }
 
-                (Direction::Vertical, 1) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("─"))
-                }
-                (Direction::Vertical, 2) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("╶╴"))
-                }
-                (Direction::Vertical, 3) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("╶─╴"))
-                }
-                (Direction::Vertical, 4) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("╶──╴"))
-                }
-                (Direction::Vertical, 5) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("╶───╴"))
-                }
+                (Direction::Vertical, 1) => map_ref(&self.vertical_knob, Cow::Borrowed("─")),
+                (Direction::Vertical, 2) => map_ref(&self.vertical_knob, Cow::Borrowed("╶╴")),
+                (Direction::Vertical, 3) => map_ref(&self.vertical_knob, Cow::Borrowed("╶─╴")),
+                (Direction::Vertical, 4) => map_ref(&self.vertical_knob, Cow::Borrowed("╶──╴")),
+                (Direction::Vertical, 5) => map_ref(&self.vertical_knob, Cow::Borrowed("╶───╴")),
                 (Direction::Vertical, n) => {
                     let mut tmp = String::new();
                     tmp.push('╶');
@@ -348,30 +396,23 @@ where
                         tmp.push('─');
                     }
                     tmp.push('╴');
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Owned(tmp))
+                    map_ref(&self.vertical_knob, Cow::Owned(tmp))
                 }
             }
         } else {
             match (self.direction, knob_repeat) {
-                (Direction::Horizontal, 1) => {
-                    map_ref(&self.h_knob_str, &self.knob_str, Cow::Borrowed("   "))
-                }
+                (Direction::Horizontal, 1) => map_ref(&self.horizontal_knob, Cow::Borrowed("   ")),
                 (Direction::Horizontal, 2) => {
-                    map_ref(&self.h_knob_str, &self.knob_str, Cow::Borrowed("   \n   "))
+                    map_ref(&self.horizontal_knob, Cow::Borrowed("   \n   "))
                 }
-                (Direction::Horizontal, 3) => map_ref(
-                    &self.h_knob_str,
-                    &self.knob_str,
-                    Cow::Borrowed("   \n   \n   "),
-                ),
-                (Direction::Horizontal, 4) => map_ref(
-                    &self.h_knob_str,
-                    &self.knob_str,
-                    Cow::Borrowed("   \n   \n   \n   "),
-                ),
+                (Direction::Horizontal, 3) => {
+                    map_ref(&self.horizontal_knob, Cow::Borrowed("   \n   \n   "))
+                }
+                (Direction::Horizontal, 4) => {
+                    map_ref(&self.horizontal_knob, Cow::Borrowed("   \n   \n   \n   "))
+                }
                 (Direction::Horizontal, 5) => map_ref(
-                    &self.h_knob_str,
-                    &self.knob_str,
+                    &self.horizontal_knob,
                     Cow::Borrowed("   \n   \n   \n   \n   "),
                 ),
                 (Direction::Horizontal, n) => {
@@ -381,33 +422,22 @@ where
                         tmp.push_str("   \n");
                     }
                     tmp.push_str("   ");
-                    map_ref(&self.h_knob_str, &self.knob_str, Cow::Owned(tmp))
+                    map_ref(&self.horizontal_knob, Cow::Owned(tmp))
                 }
 
-                (Direction::Vertical, 1) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed(" "))
+                (Direction::Vertical, 1) => map_ref(&self.vertical_knob, Cow::Borrowed(" ")),
+                (Direction::Vertical, 2) => map_ref(&self.vertical_knob, Cow::Borrowed("  ")),
+                (Direction::Vertical, 3) => map_ref(&self.vertical_knob, Cow::Borrowed("   ")),
+                (Direction::Vertical, 4) => map_ref(&self.vertical_knob, Cow::Borrowed("    ")),
+                (Direction::Vertical, 5) => map_ref(&self.vertical_knob, Cow::Borrowed("     ")),
+                (Direction::Vertical, n) => {
+                    map_ref(&self.vertical_knob, Cow::Owned(" ".repeat(n as usize)))
                 }
-                (Direction::Vertical, 2) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("  "))
-                }
-                (Direction::Vertical, 3) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("   "))
-                }
-                (Direction::Vertical, 4) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("    "))
-                }
-                (Direction::Vertical, 5) => {
-                    map_ref(&self.v_knob_str, &self.knob_str, Cow::Borrowed("     "))
-                }
-                (Direction::Vertical, n) => map_ref(
-                    &self.v_knob_str,
-                    &self.knob_str,
-                    Cow::Owned(" ".repeat(n as usize)),
-                ),
             }
         }
     }
 
+    // layout
     fn layout(&self, area: Rect, state: &mut SliderState<T>) {
         state.area = area;
         state.inner = self.block.inner_if_some(area);
@@ -418,12 +448,12 @@ where
         match self.direction {
             Direction::Horizontal => {
                 let lower_width = self
-                    .lower_bound_str
+                    .lower_bound
                     .as_ref()
                     .map(|v| v.width() as u16)
                     .unwrap_or_default();
                 let upper_width = self
-                    .upper_bound_str
+                    .upper_bound
                     .as_ref()
                     .map(|v| v.width() as u16)
                     .unwrap_or_default();
@@ -464,12 +494,12 @@ where
             }
             Direction::Vertical => {
                 let lower_height = self
-                    .lower_bound_str
+                    .lower_bound
                     .as_ref()
                     .map(|v| v.split('\n').count() as u16)
                     .unwrap_or_default();
                 let upper_height = self
-                    .upper_bound_str
+                    .upper_bound
                     .as_ref()
                     .map(|v| v.split('\n').count() as u16)
                     .unwrap_or_default();
@@ -551,16 +581,18 @@ fn render_slider<'a, T>(
         widget.knob_style.unwrap_or(revert_style(style))
     };
 
-    if let Some(lower_bound_str) = widget.lower_bound_str.as_ref() {
+    if let Some(lower_bound_str) = widget.lower_bound.as_ref() {
         match widget.direction {
             Direction::Horizontal => {
                 buf.set_style(state.lower_bound, bounds_style);
 
-                let y_offset = state
-                    .lower_bound
-                    .height
-                    .saturating_sub(lower_bound_str.split('\n').count() as u16)
-                    / 2;
+                // need to vertically align manually.
+                let lower_height = lower_bound_str.split('\n').count() as u16;
+                let y_offset = match widget.text_align {
+                    Alignment::Left => 0,
+                    Alignment::Center => state.lower_bound.height.saturating_sub(lower_height) / 2,
+                    Alignment::Right => state.lower_bound.height.saturating_sub(lower_height),
+                };
                 let txt_area = Rect::new(
                     state.lower_bound.x,
                     state.lower_bound.y + y_offset,
@@ -569,27 +601,30 @@ fn render_slider<'a, T>(
                 );
 
                 Text::from(lower_bound_str.as_ref())
-                    .alignment(widget.align)
+                    .alignment(widget.text_align)
                     .render(txt_area, buf);
             }
             Direction::Vertical => {
                 Text::from(lower_bound_str.as_ref())
                     .style(bounds_style)
-                    .alignment(widget.align)
+                    .alignment(widget.text_align)
                     .render(state.lower_bound, buf);
             }
         }
     }
-    if let Some(upper_bound_str) = widget.upper_bound_str.as_ref() {
+    if let Some(upper_bound_str) = widget.upper_bound.as_ref() {
         match widget.direction {
             Direction::Horizontal => {
                 buf.set_style(state.upper_bound, bounds_style);
 
-                let y_offset = state
-                    .upper_bound
-                    .height
-                    .saturating_sub(upper_bound_str.split('\n').count() as u16)
-                    / 2;
+                // need to vertically align manually.
+                let upper_height = upper_bound_str.split('\n').count() as u16;
+                let y_offset = match widget.text_align {
+                    Alignment::Left => 0,
+                    Alignment::Center => state.upper_bound.height.saturating_sub(upper_height) / 2,
+                    Alignment::Right => state.upper_bound.height.saturating_sub(upper_height),
+                };
+
                 let txt_area = Rect::new(
                     state.upper_bound.x,
                     state.upper_bound.y + y_offset,
@@ -598,19 +633,19 @@ fn render_slider<'a, T>(
                 );
 
                 Text::from(upper_bound_str.as_ref())
-                    .alignment(widget.align)
+                    .alignment(widget.text_align)
                     .render(txt_area, buf);
             }
             Direction::Vertical => {
                 Text::from(upper_bound_str.as_ref())
                     .style(bounds_style)
-                    .alignment(widget.align)
+                    .alignment(widget.text_align)
                     .render(state.upper_bound, buf);
             }
         }
     }
 
-    let track_str = widget.track_str.as_ref().unwrap_or(&Cow::Borrowed(" "));
+    let track_str = widget.track_char.as_ref().unwrap_or(&Cow::Borrowed(" "));
     if " " != track_str.as_ref() {
         for y in state.track.top()..state.track.bottom() {
             for x in state.track.left()..state.track.right() {
@@ -631,7 +666,7 @@ fn render_slider<'a, T>(
         Direction::Vertical => {
             let knob_str = widget.render_knob_str(state.knob.width, state.is_focused());
             Line::from(knob_str)
-                .alignment(widget.align)
+                .alignment(widget.text_align)
                 .style(knob_style)
                 .render(state.knob, buf);
         }
@@ -773,6 +808,9 @@ where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
 {
+    /// New state with a given range and step.
+    ///
+    /// The range will still be overridden when set with the Widget.
     pub fn new_range(range: (T, T), step: T::Step) -> Self {
         Self {
             area: Default::default(),
@@ -793,40 +831,49 @@ where
         }
     }
 
+    /// Change the value.
     pub fn set_value(&mut self, value: Option<T>) -> bool {
         let old_value = self.value;
         self.value = value;
         old_value != value
     }
 
+    /// Current value.
     pub fn value(&self) -> Option<T> {
         self.value
     }
 
+    /// Set the range.
     pub fn set_range(&mut self, range: (T, T)) {
         self.range = range;
     }
 
+    /// Range.
     pub fn range(&self) -> (T, T) {
         self.range
     }
 
+    /// Minor step size.
     pub fn set_step(&mut self, step: T::Step) {
         self.step = step;
     }
 
+    /// Minor step size.
     pub fn step(&self) -> T::Step {
         self.step
     }
 
+    /// Major step size.
     pub fn set_long_step(&mut self, step: T::Step) {
         self.long_step = Some(step);
     }
 
+    /// Major step size.
     pub fn long_step(&self) -> Option<T::Step> {
         self.long_step
     }
 
+    /// Next value by one step.
     pub fn next(&mut self) -> bool {
         let old_value = self.value;
         let value = self.value.unwrap_or_default();
@@ -834,6 +881,7 @@ where
         old_value != self.value
     }
 
+    /// Previous value by one step.
     pub fn prev(&mut self) -> bool {
         let old_value = self.value;
         let value = self.value.unwrap_or_default();
@@ -841,6 +889,7 @@ where
         old_value != self.value
     }
 
+    /// Next value by one major step.
     pub fn next_major(&mut self) -> bool {
         let old_value = self.value;
         let value = self.value.unwrap_or_default();
@@ -850,6 +899,7 @@ where
         old_value != self.value
     }
 
+    /// Previous value by one major step.
     pub fn prev_major(&mut self) -> bool {
         let old_value = self.value;
         let value = self.value.unwrap_or_default();
@@ -859,6 +909,8 @@ where
         old_value != self.value
     }
 
+    /// Clicked in the range or at the boundary.
+    /// Transforms the relative screen position to a value.
     pub fn clicked_at(&mut self, x: u16, y: u16) -> bool {
         match self.direction {
             Direction::Horizontal => {

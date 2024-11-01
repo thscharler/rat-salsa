@@ -1,7 +1,6 @@
 //!
 //! Small helpers.
 //!
-use log::debug;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Rect, Size};
 use ratatui::prelude::{BlockExt, Widget};

@@ -9,8 +9,8 @@ use rat_widget::event::Outcome;
 use rat_widget::range_op::RangeOp;
 use rat_widget::slider::{Slider, SliderState};
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
-use ratatui::text::{Line, Span};
-use ratatui::widgets::{StatefulWidget, Widget};
+use ratatui::text::Span;
+use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use ratatui::Frame;
 use std::cmp::max;
 
@@ -45,20 +45,20 @@ fn main() -> Result<(), anyhow::Error> {
 
 struct Data {}
 
-#[derive(Debug, Default, Clone, Copy, PartialEq)]
+#[derive(Debug, Default, Clone, Copy, PartialEq, PartialOrd)]
 enum EnumSlide {
     #[default]
-    A,
-    B,
-    C,
-    D,
-    E,
-    F,
-    G,
-    H,
-    I,
-    J,
-    K,
+    A = 0,
+    B = 1,
+    C = 2,
+    D = 3,
+    E = 4,
+    F = 5,
+    G = 6,
+    H = 7,
+    I = 8,
+    J = 9,
+    K = 10,
 }
 
 impl From<u8> for EnumSlide {
@@ -82,54 +82,28 @@ impl From<u8> for EnumSlide {
 
 impl From<EnumSlide> for u8 {
     fn from(value: EnumSlide) -> Self {
-        match value {
-            EnumSlide::A => 0,
-            EnumSlide::B => 1,
-            EnumSlide::C => 2,
-            EnumSlide::D => 3,
-            EnumSlide::E => 4,
-            EnumSlide::F => 5,
-            EnumSlide::G => 6,
-            EnumSlide::H => 7,
-            EnumSlide::I => 8,
-            EnumSlide::J => 9,
-            EnumSlide::K => 10,
-        }
+        value as u8
     }
 }
 
 impl MapRange<u16> for EnumSlide {
-    fn map_range(self, range: (Self, Self), o_range: (u16, u16)) -> Option<u16> {
+    fn map_range_unchecked(self, bounds: (Self, Self), o_range: (u16, u16)) -> u16 {
         let v = u8::from(self);
-        let l = u8::from(range.0);
-        let u = u8::from(range.1);
-        v.map_range((l, u), o_range)
-    }
-
-    fn map_range_unchecked(self, range: (Self, Self), o_range: (u16, u16)) -> u16 {
-        let v = u8::from(self);
-        let l = u8::from(range.0);
-        let u = u8::from(range.1);
+        let l = u8::from(bounds.0);
+        let u = u8::from(bounds.1);
         v.map_range_unchecked((l, u), o_range)
     }
 }
 
 impl MapRange<EnumSlide> for u16 {
-    fn map_range(self, range: (Self, Self), o_range: (EnumSlide, EnumSlide)) -> Option<EnumSlide> {
-        let l = u8::from(o_range.0);
-        let u = u8::from(o_range.1);
-        let o = self.map_range(range, (l, u));
-        o.map(|v| EnumSlide::from(v))
-    }
-
     fn map_range_unchecked(
         self,
-        range: (Self, Self),
+        bounds: (Self, Self),
         o_range: (EnumSlide, EnumSlide),
     ) -> EnumSlide {
         let l = u8::from(o_range.0);
         let u = u8::from(o_range.1);
-        let o = self.map_range_unchecked(range, (l, u));
+        let o = self.map_range_unchecked(bounds, (l, u));
         EnumSlide::from(o)
     }
 }
@@ -209,27 +183,21 @@ fn repaint_input(
         }
     }
     Slider::new()
-        .style(THEME.text_input())
-        .knob_style(THEME.secondary(1))
-        .bounds_style(THEME.gray(2))
-        .focus_style(THEME.focus())
-        .lower_bound_str(a)
-        .upper_bound_str(b)
+        .styles(THEME.slider_style())
+        .lower_bound(a)
+        .upper_bound(b)
         .direction(state.direction)
-        .align_bounds(state.alignment)
+        .text_align(state.alignment)
         .render(slider_area, frame.buffer_mut(), &mut state.c1);
 
     let mut slider_area = lg[2][1];
-    slider_area.height = 1;
+    slider_area.height = 3;
     let knob = format!("||{:?}||", state.c2.value.expect("some"));
     Slider::new()
-        .style(THEME.text_input())
-        .knob_style(THEME.secondary(1))
-        .bounds_style(THEME.gray(2))
-        .focus_style(THEME.focus())
-        .lower_bound_str(">")
-        .upper_bound_str("<")
-        .knob_str(knob)
+        .styles(THEME.slider_style())
+        .track_char("-")
+        .horizontal_knob(knob)
+        .block(Block::bordered().border_type(BorderType::Rounded))
         .direction(Direction::Horizontal)
         .render(slider_area, frame.buffer_mut(), &mut state.c2);
 

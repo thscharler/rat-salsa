@@ -16,9 +16,11 @@ use rat_widget::pager::PagerStyle;
 use rat_widget::paragraph::ParagraphStyle;
 use rat_widget::radio::{RadioLayout, RadioStyle};
 use rat_widget::shadow::{ShadowDirection, ShadowStyle};
+use rat_widget::slider::SliderStyle;
 use rat_widget::splitter::SplitStyle;
 use rat_widget::tabbed::TabbedStyle;
 use rat_widget::view::ViewStyle;
+use ratatui::layout::Alignment;
 use ratatui::style::{Color, Style, Stylize};
 use ratatui::widgets::Block;
 use std::time::Duration;
@@ -325,6 +327,18 @@ impl Scheme {
         CheckboxStyle {
             style: self.text_input(),
             focus: Some(self.focus()),
+            ..Default::default()
+        }
+    }
+
+    /// Slider Style
+    pub fn slider_style(&self) -> SliderStyle {
+        SliderStyle {
+            style: self.text_input(),
+            bounds: Some(self.gray(2)),
+            knob: Some(self.select()),
+            focus: Some(self.focus()),
+            text_align: Some(Alignment::Center),
             ..Default::default()
         }
     }
