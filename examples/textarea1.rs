@@ -1,5 +1,6 @@
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, try_flow, Outcome};
+use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
 use rat_text::text_area::{TextArea, TextAreaState};
 use rat_text::{text_area, HasScreenCursor, TextRange};
@@ -48,7 +49,7 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([
-        Constraint::Length(1),
+        Constraint::Length(7),
         Constraint::Fill(1),
         Constraint::Length(1),
         Constraint::Length(1),
@@ -62,6 +63,10 @@ fn repaint_input(
         Constraint::Length(25),
     ])
     .split(l1[1]);
+
+    let mut txt_area = l2[1];
+    txt_area.x -= 5;
+    txt_area.y -= 5;
 
     TextArea::new()
         .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
@@ -79,7 +84,25 @@ fn repaint_input(
             Style::new().green(),
             Style::new().on_yellow(),
         ])
-        .render(l2[1], frame.buffer_mut(), &mut state.textarea);
+        .render(txt_area, frame.buffer_mut(), &mut state.textarea);
+
+    let clip = l2[1];
+    state.textarea.relocate((0, 0), clip);
+
+    for y in txt_area.top()..txt_area.bottom() {
+        for x in txt_area.x..txt_area.x + 5 {
+            if let Some(cell) = frame.buffer_mut().cell_mut((x, y)) {
+                cell.set_style(Style::new().on_red());
+            }
+        }
+    }
+    for y in txt_area.top()..txt_area.top() + 5 {
+        for x in txt_area.left()..txt_area.right() {
+            if let Some(cell) = frame.buffer_mut().cell_mut((x, y)) {
+                cell.set_style(Style::new().on_red());
+            }
+        }
+    }
 
     if let Some((cx, cy)) = state.textarea.screen_cursor() {
         frame.set_cursor_position((cx, cy));

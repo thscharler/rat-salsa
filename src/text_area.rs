@@ -8,6 +8,7 @@ use crate::clipboard::{Clipboard, LocalClipboard};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::grapheme::{Glyph, Grapheme};
 use crate::text_core::TextCore;
+use crate::text_input::TextInputState;
 use crate::text_store::text_rope::TextRope;
 use crate::text_store::TextStore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
@@ -18,6 +19,7 @@ use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
@@ -82,26 +84,38 @@ pub struct TextArea<'a> {
 /// State & event handling.
 #[derive(Debug)]
 pub struct TextAreaState {
-    /// Current focus state.
-    pub focus: FocusFlag,
-    /// Complete area.
+    /// The whole area with block.
+    /// __read only__ renewed with each render.
     pub area: Rect,
-    /// Area inside the borders.
+    /// Area inside a possible block.
+    /// __read only__ renewed with each render.
     pub inner: Rect,
+
+    /// Horizontal scroll
+    /// __read+write__
+    pub hscroll: ScrollState,
+    /// Vertical offset
+    /// __read+write__
+    pub vscroll: ScrollState,
+    /// Dark offset due to clipping.
+    /// __read only__ secondary offset due to clipping.
+    pub dark_offset: (u16, u16),
 
     /// Text edit core
     pub value: TextCore<TextRope>,
 
-    /// Horizontal scroll
-    pub hscroll: ScrollState,
-    pub vscroll: ScrollState,
-
     /// movement column
     pub move_col: Option<upos_type>,
+    /// auto indent active
     pub auto_indent: bool,
+    /// quote selection active
     pub auto_quote: bool,
 
-    /// Helper for mouse.
+    /// Current focus state.
+    pub focus: FocusFlag,
+
+    /// Mouse selection in progress.
+    /// __read+write__
     pub mouse: MouseFlags,
 
     pub non_exhaustive: NonExhaustive,
@@ -121,6 +135,7 @@ impl Clone for TextAreaState {
             auto_quote: self.auto_quote,
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
+            dark_offset: (0, 0),
         }
     }
 }
@@ -390,6 +405,7 @@ impl Default for TextAreaState {
             move_col: None,
             auto_indent: true,
             auto_quote: true,
+            dark_offset: (0, 0),
         };
         s.hscroll.set_max_offset(255);
         s.hscroll.set_overscroll_by(Some(16384));
@@ -510,6 +526,7 @@ impl TextAreaState {
 
 impl TextAreaState {
     /// Clipboard
+    #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
         match clip {
             None => self.value.set_clipboard(None),
@@ -518,11 +535,13 @@ impl TextAreaState {
     }
 
     /// Clipboard
+    #[inline]
     pub fn clipboard(&self) -> Option<&dyn Clipboard> {
         self.value.clipboard()
     }
 
     /// Copy to internal buffer
+    #[inline]
     pub fn copy_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -533,6 +552,7 @@ impl TextAreaState {
     }
 
     /// Cut to internal buffer
+    #[inline]
     pub fn cut_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -545,6 +565,7 @@ impl TextAreaState {
     }
 
     /// Paste from internal buffer.
+    #[inline]
     pub fn paste_from_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -560,6 +581,7 @@ impl TextAreaState {
 
 impl TextAreaState {
     /// Set undo buffer.
+    #[inline]
     pub fn set_undo_buffer(&mut self, undo: Option<impl UndoBuffer + 'static>) {
         match undo {
             None => self.value.set_undo_buffer(None),
@@ -592,21 +614,25 @@ impl TextAreaState {
     }
 
     /// Get all recent replay recordings.
+    #[inline]
     pub fn recent_replay_log(&mut self) -> Vec<UndoEntry> {
         self.value.recent_replay_log()
     }
 
     /// Apply the replay recording.
+    #[inline]
     pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         self.value.replay_log(replay)
     }
 
     /// Undo operation
+    #[inline]
     pub fn undo(&mut self) -> bool {
         self.value.undo()
     }
 
     /// Redo operation
+    #[inline]
     pub fn redo(&mut self) -> bool {
         self.value.redo()
     }
@@ -1164,11 +1190,13 @@ impl TextAreaState {
     }
 
     /// Deletes the given range.
+    #[inline]
     pub fn delete_range(&mut self, range: impl Into<TextRange>) -> bool {
         self.try_delete_range(range).expect("valid_range")
     }
 
     /// Deletes the given range.
+    #[inline]
     pub fn try_delete_range(&mut self, range: impl Into<TextRange>) -> Result<bool, TextError> {
         let range = range.into();
         if !range.is_empty() {
@@ -1596,18 +1624,23 @@ impl HasScreenCursor for TextAreaState {
 
             if cursor.y < oy {
                 None
-            } else if cursor.y >= oy + self.inner.height as upos_type {
+            } else if cursor.y >= oy + (self.inner.height + self.dark_offset.1) as upos_type {
                 None
             } else {
-                let sy = cursor.y - oy;
+                let sy = cursor.y - oy - self.dark_offset.1 as upos_type; // TODO:????
                 if cursor.x < ox {
                     None
-                } else if cursor.x > ox + self.inner.width as upos_type {
+                } else if cursor.x > ox + (self.inner.width + self.dark_offset.0) as upos_type {
                     None
                 } else {
+                    let sy = self.row_to_screen(cursor);
                     let sx = self.col_to_screen(cursor);
 
-                    Some((self.inner.x + sx, self.inner.y + sy as u16))
+                    if let Some((sx, sy)) = sx.iter().zip(sy.iter()).next() {
+                        Some((self.inner.x + *sx, self.inner.y + *sy))
+                    } else {
+                        None
+                    }
                 }
             }
         } else {
@@ -1616,16 +1649,25 @@ impl HasScreenCursor for TextAreaState {
     }
 }
 
+impl RelocatableState for TextAreaState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        // clip offset for some corrections.
+        self.dark_offset = relocate_dark_offset(self.inner, shift, clip);
+        self.area = relocate_area(self.area, shift, clip);
+        self.inner = relocate_area(self.inner, shift, clip);
+    }
+}
+
 impl TextAreaState {
     /// Converts from a widget relative screen coordinate to a line.
     /// It limits its result to a valid row.
     pub fn screen_to_row(&self, scy: i16) -> upos_type {
         let (_, oy) = self.offset();
-        let oy = oy as upos_type;
+        let oy = oy as upos_type + self.dark_offset.1 as upos_type;
 
         if scy < 0 {
             oy.saturating_sub((scy as ipos_type).unsigned_abs())
-        } else if scy as u16 >= self.inner.height {
+        } else if scy as u16 >= (self.inner.height + self.dark_offset.1) {
             min(oy + scy as upos_type, self.len_lines().saturating_sub(1))
         } else {
             let scy = oy + scy as upos_type;
@@ -1656,16 +1698,21 @@ impl TextAreaState {
     /// * x is the relative screen position.
     pub fn try_screen_to_col(&self, row: upos_type, scx: i16) -> Result<upos_type, TextError> {
         let (ox, _) = self.offset();
-        let ox = ox as upos_type;
+
+        let ox = ox as upos_type + self.dark_offset.0 as upos_type;
 
         if scx < 0 {
             Ok(ox.saturating_sub((scx as ipos_type).unsigned_abs()))
-        } else if scx as u16 >= self.inner.width {
+        } else if scx as u16 >= (self.inner.width + self.dark_offset.0) {
             Ok(min(ox + scx as upos_type, self.line_width(row)))
         } else {
             let scx = scx as u16;
 
-            let line = self.try_glyphs(row..row + 1, ox as u16, self.inner.width)?;
+            let line = self.try_glyphs(
+                row..row + 1,
+                ox as u16,
+                self.inner.width + self.dark_offset.0,
+            )?;
 
             let mut col = ox;
             for g in line {
@@ -1678,23 +1725,49 @@ impl TextAreaState {
         }
     }
 
+    /// Converts the row of the position to a screen position
+    /// relative to the widget area.
+    pub fn row_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
+        let pos = pos.into();
+        let (_, oy) = self.offset();
+
+        if pos.y < oy as upos_type {
+            return None;
+        }
+
+        let screen_y = pos.y - oy as upos_type;
+
+        if screen_y >= self.dark_offset.1 as upos_type {
+            Some(screen_y as u16 - self.dark_offset.1)
+        } else {
+            None
+        }
+    }
+
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
-    pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> u16 {
+    pub fn col_to_screen(&self, pos: impl Into<TextPosition>) -> Option<u16> {
         self.try_col_to_screen(pos).expect("valid_pos")
     }
 
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
-    pub fn try_col_to_screen(&self, pos: impl Into<TextPosition>) -> Result<u16, TextError> {
+    pub fn try_col_to_screen(
+        &self,
+        pos: impl Into<TextPosition>,
+    ) -> Result<Option<u16>, TextError> {
         let pos = pos.into();
         let (ox, _) = self.offset();
 
         if pos.x < ox as upos_type {
-            return Ok(0);
+            return Ok(None);
         }
 
-        let line = self.try_glyphs(pos.y..pos.y + 1, ox as u16, self.inner.width)?;
+        let line = self.try_glyphs(
+            pos.y..pos.y + 1,
+            ox as u16,
+            self.inner.width + self.dark_offset.0,
+        )?;
         let mut screen_x = 0;
         for g in line {
             if g.pos().x == pos.x {
@@ -1702,7 +1775,12 @@ impl TextAreaState {
             }
             screen_x = g.screen_pos().0 + g.screen_width();
         }
-        Ok(screen_x)
+
+        if screen_x >= self.dark_offset.0 {
+            Ok(Some(screen_x - self.dark_offset.0))
+        } else {
+            Ok(None)
+        }
     }
 
     /// Set the cursor position from screen coordinates.
@@ -1867,16 +1945,20 @@ impl TextAreaState {
 
         let noy = if cursor.y < oy {
             cursor.y
-        } else if cursor.y >= oy + self.inner.height as upos_type {
-            cursor.y.saturating_sub(self.inner.height as upos_type - 1)
+        } else if cursor.y >= oy + (self.inner.height + self.dark_offset.1) as upos_type {
+            cursor
+                .y
+                .saturating_sub((self.inner.height + self.dark_offset.1) as upos_type - 1)
         } else {
             oy
         };
 
         let nox = if cursor.x < ox {
             cursor.x
-        } else if cursor.x >= ox + self.inner.width as upos_type {
-            cursor.x.saturating_sub(self.inner.width as upos_type)
+        } else if cursor.x >= ox + (self.inner.width + self.dark_offset.0) as upos_type {
+            cursor
+                .x
+                .saturating_sub((self.inner.width + self.dark_offset.0) as upos_type)
         } else {
             ox
         };

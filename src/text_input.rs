@@ -374,8 +374,7 @@ impl TextInputState {
         };
 
         _ = clip.set_string(self.selected_text().as_ref());
-
-        true
+        false
     }
 
     /// Cut to internal buffer
@@ -387,7 +386,7 @@ impl TextInputState {
 
         match clip.set_string(self.selected_text().as_ref()) {
             Ok(_) => self.delete_range(self.selection()),
-            Err(_) => true,
+            Err(_) => false,
         }
     }
 
@@ -401,7 +400,7 @@ impl TextInputState {
         if let Ok(text) = clip.get_string() {
             self.insert_str(text)
         } else {
-            true
+            false
         }
     }
 }
