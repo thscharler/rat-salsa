@@ -1,3 +1,9 @@
+# 0.28.0
+
+** upgrade to ratatui 0.29 **
+
+* examples changed due to upstream changes.
+
 # 0.27.2
 
 * fix: upstream changes

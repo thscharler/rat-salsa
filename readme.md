@@ -39,6 +39,8 @@ For a start you can have a look at the [book][refRSBook].
       Defines just one trait to propagate the required screen cursor position.
     * [rat-focus](https://docs.rs/rat-focus)
       Primitives for focus-handling.
+    * [rat-reloc](https://docs.rs/rat-reloc)
+      Relocate widgets after rendering. Needed support for view-like widgets.
     * [rat-scrolled](https://docs.rs/rat-scrolled)
       Utility widgets for scrolling.
     * [rat-popup](https://docs.rs/rat-popup)
