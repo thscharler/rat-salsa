@@ -2,9 +2,6 @@
 
 #![allow(dead_code)]
 
-use crate::Outcome;
-use ratatui::layout::Rect;
-
 /// A copy of the crossterm-KeyModifiers. Plus a few combinations of modifiers.
 pub mod modifiers {
     use crossterm::event::KeyModifiers;
@@ -336,14 +333,4 @@ macro_rules! ct_event {
     (paste $value:ident) => {
         crossterm::event::Event::Paste($value)
     };
-}
-
-/// This function consumes all mouse-events in the given area.
-pub fn mouse_trap(event: &crossterm::event::Event, area: Rect) -> Outcome {
-    match event {
-        crossterm::event::Event::Mouse(m) if area.contains((m.column, m.row).into()) => {
-            Outcome::Unchanged
-        }
-        _ => Outcome::Continue,
-    }
 }

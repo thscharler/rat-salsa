@@ -2,8 +2,9 @@
 //! Some utility functions that pop up all the time.
 //!
 
+use crate::Outcome;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
 use std::sync::atomic::{AtomicU32, Ordering};
 use std::time::SystemTime;
@@ -91,6 +92,29 @@ pub fn column_at_drag(encompassing: Rect, areas: &[Rect], x_pos: u16) -> Result<
         } else {
             Err(x_pos as isize - encompassing.left() as isize)
         }
+    }
+}
+
+/// This function consumes all mouse-events in the given area,
+/// except Drag events.
+///
+/// This should catch all events when using a popup area.
+pub fn mouse_trap(event: &crossterm::event::Event, area: Rect) -> Outcome {
+    match event {
+        crossterm::event::Event::Mouse(MouseEvent {
+            kind:
+                MouseEventKind::ScrollLeft
+                | MouseEventKind::ScrollRight
+                | MouseEventKind::ScrollUp
+                | MouseEventKind::ScrollDown
+                | MouseEventKind::Down(_)
+                | MouseEventKind::Up(_)
+                | MouseEventKind::Moved,
+            column,
+            row,
+            ..
+        }) if area.contains(Position::new(*column, *row)) => Outcome::Unchanged,
+        _ => Outcome::Continue,
     }
 }
 

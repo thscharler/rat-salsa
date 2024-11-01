@@ -1,3 +1,9 @@
+# 0.26
+
+** upgrade to ratatui 0.29 **
+
+# feature: add mouse_trap() to capture most events for a given area.
+
 # 0.25.2
 
 * fix: inline some trait fn.
