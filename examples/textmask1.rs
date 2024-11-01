@@ -3,6 +3,7 @@ use log::warn;
 use rat_event::{ct_event, Outcome};
 use rat_event::{flow, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{FocusBuilder, HasFocus};
+use rat_reloc::RelocatableState;
 use rat_text::text_input::{TextInput, TextInputState};
 use rat_text::text_input_mask::{MaskedInput, MaskedInputState};
 use rat_text::HasScreenCursor;
@@ -78,6 +79,9 @@ fn repaint_input(
         .focus_style(Style::default().black().on_cyan())
         .render(ll[1][1], frame.buffer_mut(), &mut state.sample1);
 
+    let mut txt_area = ll[1][2];
+    txt_area.x -= 10;
+
     MaskedInput::new()
         .block(Block::bordered().style(Style::default().gray().on_dark_gray()))
         .style(Style::default().white().on_dark_gray())
@@ -89,7 +93,18 @@ fn repaint_input(
             Style::new().green(),
             Style::new().on_yellow(),
         ])
-        .render(ll[1][2], frame.buffer_mut(), &mut state.masked);
+        .render(txt_area, frame.buffer_mut(), &mut state.masked);
+
+    let clip = ll[1][2];
+    state.masked.relocate((0, 0), clip);
+
+    for y in txt_area.top()..txt_area.bottom() {
+        for x in txt_area.x..txt_area.x + 10 {
+            if let Some(cell) = frame.buffer_mut().cell_mut((x, y)) {
+                cell.set_style(Style::new().on_red());
+            }
+        }
+    }
 
     TextInput::new()
         .style(Style::default().white().on_dark_gray())

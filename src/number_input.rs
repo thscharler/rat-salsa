@@ -11,6 +11,7 @@ use crate::{upos_type, HasScreenCursor, TextError, TextStyle};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
@@ -533,11 +534,17 @@ impl HasScreenCursor for NumberInputState {
     }
 }
 
+impl RelocatableState for NumberInputState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.widget.relocate(shift, clip);
+    }
+}
+
 impl NumberInputState {
     /// Converts a grapheme based position to a screen position
     /// relative to the widget area.
     #[inline]
-    pub fn col_to_screen(&self, pos: upos_type) -> u16 {
+    pub fn col_to_screen(&self, pos: upos_type) -> Option<u16> {
         self.widget.col_to_screen(pos)
     }
 

@@ -52,24 +52,32 @@ pub struct TextInput<'a> {
 /// State for TextInput.
 #[derive(Debug, Clone)]
 pub struct TextInputState {
-    /// Current focus state.
-    pub focus: FocusFlag,
     /// The whole area with block.
+    /// __read only__ renewed with each render.
     pub area: Rect,
     /// Area inside a possible block.
+    /// __read only__ renewed with each render.
     pub inner: Rect,
+
+    /// Display offset
+    /// __read+write__
+    pub offset: upos_type,
+    /// Dark offset due to clipping.
+    /// __read only__ secondary offset due to clipping.
+    pub dark_offset: (u16, u16),
 
     /// Editing core
     pub value: TextCore<TextString>,
-
     /// Display as invalid.
+    /// __read+write__
     pub invalid: bool,
-    /// Display offset
-    pub offset: upos_type,
-    /// Dark offset due to clipping.
-    pub dark_offset: (u16, u16),
+
+    /// Current focus state.
+    /// __read+write__
+    pub focus: FocusFlag,
 
     /// Mouse selection in progress.
+    /// __read+write__
     pub mouse: MouseFlags,
 
     /// Construct with `..Default::default()`
@@ -294,15 +302,15 @@ impl Default for TextInputState {
         value.set_glyph_line_break(false);
 
         Self {
-            focus: Default::default(),
-            invalid: false,
             area: Default::default(),
             inner: Default::default(),
-            mouse: Default::default(),
-            value,
-            non_exhaustive: NonExhaustive,
             offset: 0,
             dark_offset: (0, 0),
+            value,
+            invalid: false,
+            focus: Default::default(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -344,6 +352,7 @@ impl TextInputState {
 
 impl TextInputState {
     /// Clipboard
+    #[inline]
     pub fn set_clipboard(&mut self, clip: Option<impl Clipboard + 'static>) {
         match clip {
             None => self.value.set_clipboard(None),
@@ -352,11 +361,13 @@ impl TextInputState {
     }
 
     /// Clipboard
+    #[inline]
     pub fn clipboard(&self) -> Option<&dyn Clipboard> {
         self.value.clipboard()
     }
 
     /// Copy to internal buffer
+    #[inline]
     pub fn copy_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -368,6 +379,7 @@ impl TextInputState {
     }
 
     /// Cut to internal buffer
+    #[inline]
     pub fn cut_to_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -380,6 +392,7 @@ impl TextInputState {
     }
 
     /// Paste from internal buffer.
+    #[inline]
     pub fn paste_from_clip(&mut self) -> bool {
         let Some(clip) = self.value.clipboard() else {
             return false;
@@ -395,6 +408,7 @@ impl TextInputState {
 
 impl TextInputState {
     /// Set undo buffer.
+    #[inline]
     pub fn set_undo_buffer(&mut self, undo: Option<impl UndoBuffer + 'static>) {
         match undo {
             None => self.value.set_undo_buffer(None),
@@ -415,21 +429,25 @@ impl TextInputState {
     }
 
     /// Get all recent replay recordings.
+    #[inline]
     pub fn recent_replay_log(&mut self) -> Vec<UndoEntry> {
         self.value.recent_replay_log()
     }
 
     /// Apply the replay recording.
+    #[inline]
     pub fn replay_log(&mut self, replay: &[UndoEntry]) {
         self.value.replay_log(replay)
     }
 
     /// Undo operation
+    #[inline]
     pub fn undo(&mut self) -> bool {
         self.value.undo()
     }
 
     /// Redo operation
+    #[inline]
     pub fn redo(&mut self) -> bool {
         self.value.redo()
     }
@@ -1333,7 +1351,7 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputSt
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
         match event {
-            ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
+            ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 let c = (m.column as i16) - (self.inner.x as i16);
                 self.set_screen_cursor(c, true).into()
             }

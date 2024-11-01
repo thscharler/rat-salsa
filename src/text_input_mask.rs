@@ -81,6 +81,7 @@ use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::BlockExt;
@@ -108,29 +109,40 @@ pub struct MaskedInput<'a> {
 /// State & event-handling.
 #[derive(Debug, Clone)]
 pub struct MaskedInputState {
-    /// Current focus state.
-    pub focus: FocusFlag,
-    /// Display as invalid.
-    pub invalid: bool,
-
     /// The whole area with block.
+    /// __read only__ renewed with each render.
     pub area: Rect,
     /// Area inside a possible block.
+    /// __read only__ renewed with each render.
     pub inner: Rect,
 
     /// Display offset
+    /// __read+write__
     pub offset: upos_type,
+    /// Dark offset due to clipping.
+    /// __read only__ secondary offset due to clipping.
+    pub dark_offset: (u16, u16),
+
     /// Editing core
     pub value: MaskedCore,
+    /// Display as invalid.
+    /// __read+write__
+    pub invalid: bool,
+
+    /// Current focus state.
+    /// __read+write__
+    pub focus: FocusFlag,
 
     /// Mouse selection in progress.
+    /// __read+write__
     pub mouse: MouseFlags,
+
     /// Construct with `..Default::default()`
     pub non_exhaustive: NonExhaustive,
 }
 
 impl<'a> MaskedInput<'a> {
-    /// New
+    /// New widget.
     pub fn new() -> Self {
         Self::default()
     }
@@ -249,6 +261,11 @@ fn render_ref(
 
     let inner = state.inner;
 
+    if inner.width == 0 || inner.height == 0 {
+        // noop
+        return;
+    }
+
     let focus_style = if let Some(focus_style) = widget.focus_style {
         focus_style
     } else {
@@ -363,14 +380,15 @@ fn render_ref(
 impl Default for MaskedInputState {
     fn default() -> Self {
         Self {
-            focus: Default::default(),
-            invalid: false,
             area: Default::default(),
             inner: Default::default(),
-            mouse: Default::default(),
-            value: Default::default(),
-            non_exhaustive: NonExhaustive,
             offset: 0,
+            dark_offset: (0, 0),
+            value: Default::default(),
+            invalid: false,
+            focus: Default::default(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
@@ -1172,11 +1190,11 @@ impl HasScreenCursor for MaskedInputState {
 
             if cx < ox {
                 None
-            } else if cx > ox + self.inner.width as upos_type {
+            } else if cx > ox + (self.inner.width + self.dark_offset.0) as upos_type {
                 None
             } else {
-                let sc = self.col_to_screen(cx);
-                Some((self.inner.x + sc, self.inner.y))
+                self.col_to_screen(cx)
+                    .map(|sc| (self.inner.x + sc, self.inner.y))
             }
         } else {
             None
@@ -1184,40 +1202,31 @@ impl HasScreenCursor for MaskedInputState {
     }
 }
 
-impl MaskedInputState {
-    /// Converts a grapheme based position to a screen position
-    /// relative to the widget area.
-    pub fn col_to_screen(&self, pos: upos_type) -> u16 {
-        let ox = self.offset();
-
-        if pos < ox {
-            return 0;
-        }
-
-        let line = self.glyphs(ox as u16, self.inner.width);
-        let mut screen_x = 0;
-        for g in line {
-            if g.pos().x >= pos {
-                break;
-            }
-            screen_x = g.screen_pos().0 + g.screen_width();
-        }
-        screen_x
+impl RelocatableState for MaskedInputState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        // clip offset for some corrections.
+        self.dark_offset = relocate_dark_offset(self.inner, shift, clip);
+        self.area = relocate_area(self.area, shift, clip);
+        self.inner = relocate_area(self.inner, shift, clip);
     }
+}
 
+impl MaskedInputState {
     /// Converts from a widget relative screen coordinate to a grapheme index.
     /// x is the relative screen position.
     pub fn screen_to_col(&self, scx: i16) -> upos_type {
         let ox = self.offset();
 
+        let scx = scx + self.dark_offset.0 as i16;
+
         if scx < 0 {
             ox.saturating_sub((scx as ipos_type).unsigned_abs())
-        } else if scx as u16 >= self.inner.width {
+        } else if scx as u16 >= (self.inner.width + self.dark_offset.0) {
             min(ox + scx as upos_type, self.len())
         } else {
             let scx = scx as u16;
 
-            let line = self.glyphs(ox as u16, self.inner.width);
+            let line = self.glyphs(ox as u16, self.inner.width + self.dark_offset.0);
 
             let mut col = ox;
             for g in line {
@@ -1227,6 +1236,31 @@ impl MaskedInputState {
                 col = g.pos().x + 1;
             }
             col
+        }
+    }
+
+    /// Converts a grapheme based position to a screen position
+    /// relative to the widget area.
+    pub fn col_to_screen(&self, pos: upos_type) -> Option<u16> {
+        let ox = self.offset();
+
+        if pos < ox {
+            return None;
+        }
+
+        let line = self.glyphs(ox as u16, self.inner.width + self.dark_offset.0);
+        let mut screen_x = 0;
+        for g in line {
+            if g.pos().x == pos {
+                break;
+            }
+            screen_x = g.screen_pos().0 + g.screen_width();
+        }
+
+        if screen_x >= self.dark_offset.0 {
+            Some(screen_x - self.dark_offset.0)
+        } else {
+            None
         }
     }
 
@@ -1305,8 +1339,8 @@ impl MaskedInputState {
 
         let no = if c < o {
             c
-        } else if c >= o + self.inner.width as upos_type {
-            c.saturating_sub(self.inner.width as upos_type)
+        } else if c >= o + (self.inner.width + self.dark_offset.0) as upos_type {
+            c.saturating_sub((self.inner.width + self.dark_offset.0) as upos_type)
         } else {
             o
         };
