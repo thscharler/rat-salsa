@@ -1,3 +1,11 @@
+# 0.27.0
+
+** upgrade to ratatui 0.29 **
+
+* add some support for rat-reloc.
+* add Scroll::padding() and ScrollArea::padding()
+* add Scroll::scroll_to_range() which makes a whole range visible.
+
 # 0.26.0
 
 * break: ScrollArea no only uses references to Block/Scroll. This is a
