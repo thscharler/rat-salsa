@@ -1,6 +1,6 @@
 [package]
 name = "rat-widget"
-version = "0.29.0"
+version = "0.30.0"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -67,18 +67,18 @@ map_range_int = { version = "1.0", path = "../map_range_int" }
 directories-next = { version = "2.0.0", optional = true }
 sysinfo = { version = "0.32.0", optional = true }
 
-rat-event = { version = "0.25", path = "../rat-event" }
-rat-reloc = { version = "0.1", path = "../rat-reloc" }
-rat-focus = { version = "0.27", path = "../rat-focus" }
-rat-ftable = { version = "0.27", path = "../rat-ftable" }
-rat-text = { version = "0.28", path = "../rat-text" }
-rat-menu = { version = "0.29", path = "../rat-menu" }
-rat-scrolled = { version = "0.26", path = "../rat-scrolled" }
-rat-popup = { version = "0.27", path = "../rat-popup" }
+rat-event = { version = "0.26", path = "../rat-event" }
+rat-reloc = { version = "0.2", path = "../rat-reloc" }
+rat-focus = { version = "0.28", path = "../rat-focus" }
+rat-ftable = { version = "0.28", path = "../rat-ftable" }
+rat-text = { version = "0.29", path = "../rat-text" }
+rat-menu = { version = "0.30", path = "../rat-menu" }
+rat-scrolled = { version = "0.27", path = "../rat-scrolled" }
+rat-popup = { version = "0.28", path = "../rat-popup" }
 
 [dev-dependencies]
-fern = "0.6"
-anyhow = "1.0.82"
+fern = "0.7"
+anyhow = "1.0"
 lorem-rustum = "0.0.5"
 chrono = { version = "0.4", features = ["clock"] }
 rand = "0.8"

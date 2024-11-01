@@ -32,8 +32,7 @@
 //!
 use crate::_private::NonExhaustive;
 use crate::util::{block_size, revert_style};
-use rat_event::crossterm::mouse_trap;
-use rat_event::util::{item_at, MouseFlags};
+use rat_event::util::{item_at, mouse_trap, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
 use rat_focus::{relocate_z_areas, FocusFlag, HasFocus, ZRect};
 use rat_popup::event::PopupOutcome;

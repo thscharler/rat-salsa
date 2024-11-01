@@ -1,3 +1,37 @@
+# 0.30.0
+
+** upgrade to ratatui 0.29 **
+
+* break: removed View and Viewport. These container widgets are
+  not good enough. and cumbersome to work with.
+
+* add new View and the view-like Clipper, SinglePager and DualPager widgets.
+    * Clipper minimizes the required rendering.
+    * SinglePager/DualPager don't scroll but page.
+      These don't use a temporary Buffer.
+* add new StructuredLayout as a collection of Rect.
+    * the various layout_xx() return one.
+    * ClipperLayout and PagerLayout use it.
+* add Checkbox widget
+* add Radio widget
+* add Slider widget
+*
+* feature: make Paragraph more useable. Add focus-style.
+* feature: add width() and height() to the widgets with a known/required size.
+* feature: show weekdays in Month widget.
+* feat: implement RelocatableState for most widgets.
+* fix: button click is not visible in some terminals. add armed_delay()
+  as a primitive fix, which just sleeps for a few milliseconds.
+  that's enough time for the terminal to render the armed-state
+  before switching to clicked-state.
+* fix: keyboard resizing of Split
+* fix: allow drag to select tabs.
+* check fallbacks when no styling is applied. across all widgets.
+
+* refactor: styles for FileDialog
+* fix: revert_style()
+* fix: arg order in reset_buf_area()
+
 # 0.29.0
 
 * break: rename DualPagerRender to RenderDualPager
