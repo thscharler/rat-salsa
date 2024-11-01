@@ -5,7 +5,6 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
-use log::debug;
 use rat_event::{HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_ftable::event::Outcome;

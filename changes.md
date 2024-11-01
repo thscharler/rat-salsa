@@ -1,3 +1,10 @@
+# 0.28.0
+
+** upgrade to ratatui 0.29 **
+
+* feature: add support for rat-reloc. this allows widgets to change
+  position after rendering.
+
 # 0.27.2
 
 * feature: enable styles for Block and Scroll
