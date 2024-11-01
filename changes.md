@@ -1,3 +1,10 @@
+# 0.30.0
+
+** upgrade to ratatui 0.29 **
+
+* fix: use mouse_trap() to capture events for popup menus.
+* feat: provide usable fallbacks when no style is set.
+
 # 0.29.0
 
 * break: MenuStructure requires Debug
