@@ -186,6 +186,8 @@ pub mod textarea {
         handle_events, handle_mouse_events, handle_readonly_events, TextArea, TextAreaState,
     };
 }
+pub mod range_op;
+pub mod slider;
 pub mod util;
 pub mod view;
 
