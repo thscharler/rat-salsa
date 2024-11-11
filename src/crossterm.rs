@@ -282,6 +282,13 @@ macro_rules! ct_event {
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
+    (scroll down) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::ScrollDown,
+            modifiers: $crate::crossterm::modifiers::NONE,
+            ..
+        })
+    };
     (scroll $mod:ident up for $col:ident, $row:ident) => {
         crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
             kind: crossterm::event::MouseEventKind::ScrollUp,
@@ -298,6 +305,13 @@ macro_rules! ct_event {
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
+    (scroll up) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::ScrollUp,
+            modifiers: $crate::crossterm::modifiers::NONE,
+            ..
+        })
+    };
 
     //??
     (scroll left for $col:ident, $row:ident) => {
@@ -308,6 +322,13 @@ macro_rules! ct_event {
             modifiers: $crate::crossterm::modifiers::NONE,
         })
     };
+    (scroll left) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::ScrollLeft,
+            modifiers: $crate::crossterm::modifiers::NONE,
+            ..
+        })
+    };
     //??
     (scroll right for $col:ident, $row:ident) => {
         crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
@@ -315,6 +336,13 @@ macro_rules! ct_event {
             column: $col,
             row: $row,
             modifiers: $crate::crossterm::modifiers::NONE,
+        })
+    };
+    (scroll right) => {
+        crossterm::event::Event::Mouse(crossterm::event::MouseEvent {
+            kind: crossterm::event::MouseEventKind::ScrollRight,
+            modifiers: $crate::crossterm::modifiers::NONE,
+            ..
         })
     };
 
