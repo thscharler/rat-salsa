@@ -49,7 +49,7 @@ unstable-widget-ref = [
 ]
 
 [dependencies]
-ratatui = { version = "0.29", path = "../ratatui" }
+ratatui = { version = "0.29" }
 crossterm = "0.28"
 log = "0.4"
 unicode-segmentation = "1.11"
