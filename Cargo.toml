@@ -46,7 +46,7 @@ variant_size_differences = "warn"
 crossbeam = "0.8"
 crossterm = "0.28"
 log = "0.4"
-ratatui = { version = "0.29", path = "../ratatui" }
+ratatui = { version = "0.29" }
 
 rat-widget = { version = "0.30", path = "../rat-widget" }
 
