@@ -145,14 +145,13 @@ impl<Message, T: Into<Outcome>> From<T> for Control<Message> {
 ///
 /// AppWidget mimics StatefulWidget and adds a [RenderContext]
 ///
-#[allow(unused_variables)]
 pub trait AppWidget<Global, Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     /// Type of the State.
-    type State: AppState<Global, Message, Error> + Debug;
+    type State: AppState<Global, Message, Error> + ?Sized;
 
     /// Renders an application widget.
     fn render(
@@ -170,8 +169,8 @@ where
 #[allow(unused_variables)]
 pub trait AppState<Global, Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     /// Initialize the application. Runs before the first repaint.
     fn init(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<(), Error> {
@@ -221,8 +220,8 @@ where
 #[derive(Debug)]
 pub struct AppContext<'a, Global, Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     /// Global state for the application.
     pub g: &'a mut Global,
@@ -252,8 +251,8 @@ pub struct RenderContext<'a, Global> {
 
 impl<'a, Global, Message, Error> AppContext<'a, Global, Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     /// Add a timer.
     #[inline]
@@ -297,8 +296,8 @@ where
             + 'static,
     ) -> Result<Cancel, SendError<()>>
     where
-        Message: 'static + Send + Debug,
-        Error: 'static + Send + Debug,
+        Message: 'static + Send,
+        Error: 'static + Send,
     {
         self.tasks.send(Box::new(task))
     }

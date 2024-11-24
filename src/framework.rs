@@ -6,7 +6,6 @@ use crate::timer::Timers;
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
 use crossbeam::channel::{SendError, TryRecvError};
 use std::cmp::min;
-use std::fmt::Debug;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::time::Duration;
 use std::{io, thread};
@@ -23,8 +22,8 @@ fn _run_tui<App, Global, Message, Error>(
 ) -> Result<(), Error>
 where
     App: AppWidget<Global, Message, Error>,
-    Message: Send + 'static + Debug,
-    Error: Send + 'static + Debug + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
+    Message: Send + 'static,
+    Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
     let term = cfg.term.as_mut();
     let poll = cfg.poll.as_mut_slice();
@@ -224,8 +223,8 @@ pub fn run_tui<Widget, Global, Message, Error>(
 ) -> Result<(), Error>
 where
     Widget: AppWidget<Global, Message, Error>,
-    Message: Send + 'static + Debug,
-    Error: Send + 'static + Debug + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
+    Message: Send + 'static,
+    Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
     cfg.term.init()?;
 

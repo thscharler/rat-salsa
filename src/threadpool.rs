@@ -5,7 +5,6 @@
 use crate::Control;
 use crossbeam::channel::{bounded, unbounded, Receiver, SendError, Sender, TryRecvError};
 use log::warn;
-use std::fmt::Debug;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread::JoinHandle;
@@ -42,8 +41,8 @@ impl Cancel {
 #[derive(Debug)]
 pub(crate) struct ThreadPool<Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     send: Sender<(Cancel, BoxTask<Message, Error>)>,
     recv: Receiver<Result<Control<Message>, Error>>,
@@ -52,8 +51,8 @@ where
 
 impl<Message, Error> ThreadPool<Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     /// New thread-pool with the given task executor.
     pub(crate) fn new(n_worker: usize) -> Self {
@@ -148,8 +147,8 @@ where
 
 impl<Message, Error> Drop for ThreadPool<Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     fn drop(&mut self) {
         // dropping the channel will be noticed by the threads running the

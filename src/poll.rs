@@ -17,9 +17,9 @@ use std::time::Duration;
 ///
 pub trait PollEvents<Global, State, Message, Error>
 where
-    State: AppState<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    State: AppState<Global, Message, Error> + ?Sized,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     /// Poll for a new event.
     ///
@@ -51,9 +51,9 @@ pub struct PollTasks;
 
 impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollTasks
 where
-    State: AppState<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug + From<TryRecvError> + Debug,
+    State: AppState<Global, Message, Error> + ?Sized,
+    Message: 'static + Send,
+    Error: 'static + Send + From<TryRecvError>,
 {
     fn poll(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
         Ok(!ctx.tasks.is_empty())
@@ -74,9 +74,9 @@ pub struct PollTimers;
 
 impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollTimers
 where
-    State: AppState<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug + From<std::io::Error>,
+    State: AppState<Global, Message, Error> + ?Sized,
+    Message: 'static + Send,
+    Error: 'static + Send + From<std::io::Error>,
 {
     fn poll(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
         Ok(ctx.timers.poll())
@@ -100,9 +100,9 @@ pub struct PollCrossterm;
 
 impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollCrossterm
 where
-    State: AppState<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug + From<std::io::Error>,
+    State: AppState<Global, Message, Error> + ?Sized,
+    Message: 'static + Send,
+    Error: 'static + Send + From<std::io::Error>,
 {
     fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
         Ok(crossterm::event::poll(Duration::from_millis(0))?)

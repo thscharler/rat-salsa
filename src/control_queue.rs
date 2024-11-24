@@ -5,22 +5,21 @@
 use crate::Control;
 use std::cell::RefCell;
 use std::collections::VecDeque;
-use std::fmt::Debug;
 
 /// Queue for event-handling results.
 #[derive(Debug)]
 pub(crate) struct ControlQueue<Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     queue: RefCell<VecDeque<Result<Control<Message>, Error>>>,
 }
 
 impl<Message, Error> Default for ControlQueue<Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     fn default() -> Self {
         Self {
@@ -31,8 +30,8 @@ where
 
 impl<Message, Error> ControlQueue<Message, Error>
 where
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     /// is empty
     pub(crate) fn is_empty(&self) -> bool {

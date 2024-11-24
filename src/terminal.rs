@@ -27,7 +27,7 @@ use std::io::{stdout, Stdout};
 /// implement this trait.
 pub trait Terminal<Error>
 where
-    Error: 'static + Send + Debug,
+    Error: 'static + Send,
 {
     /// Terminal init.
     fn init(&mut self) -> Result<(), Error>
@@ -68,7 +68,7 @@ impl CrosstermTerminal {
 
 impl<Error> Terminal<Error> for CrosstermTerminal
 where
-    Error: 'static + Send + Debug,
+    Error: 'static + Send,
 {
     fn init(&mut self) -> Result<(), Error>
     where

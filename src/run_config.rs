@@ -9,8 +9,8 @@ use std::io;
 pub struct RunConfig<App, Global, Message, Error>
 where
     App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     /// How many worker threads are wanted?
     /// Most of the time 1 should be sufficient to offload any gui-blocking tasks.
@@ -29,8 +29,8 @@ where
 impl<App, Global, Message, Error> Debug for RunConfig<App, Global, Message, Error>
 where
     App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug,
+    Message: 'static + Send,
+    Error: 'static + Send,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("RunConfig")
@@ -44,8 +44,8 @@ where
 impl<App, Global, Message, Error> RunConfig<App, Global, Message, Error>
 where
     App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send + Debug,
-    Error: 'static + Send + Debug + From<io::Error> + From<TryRecvError>,
+    Message: 'static + Send,
+    Error: 'static + Send + From<io::Error> + From<TryRecvError>,
 {
     /// New configuration with some defaults.
     #[allow(clippy::should_implement_trait)]
