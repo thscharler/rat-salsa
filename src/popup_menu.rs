@@ -470,6 +470,14 @@ impl PopupMenuState {
         Default::default()
     }
 
+    /// New state with a focus name.
+    pub fn named(name: &'static str) -> Self {
+        Self {
+            popup: PopupCoreState::named(format!("{}.popup", name).to_string().leak()),
+            ..Default::default()
+        }
+    }
+
     /// Show the popup.
     pub fn flip_active(&mut self) {
         self.popup.flip_active();
