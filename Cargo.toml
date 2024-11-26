@@ -54,7 +54,7 @@ unstable-widget-ref = [
 user_directories = ["dep:directories-next", "dep:sysinfo"]
 
 [dependencies]
-ratatui = { version = "0.29", features = ["unstable-rendered-line-info"] }
+ratatui = { version = "0.29", features = ["unstable-rendered-line-info"], path = "../ratatui/ratatui" }
 crossterm = "0.28"
 unicode-segmentation = "1.11"
 unicode-width = "0.2"

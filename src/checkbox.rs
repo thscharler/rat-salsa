@@ -298,7 +298,7 @@ fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut C
     };
 
     if widget.block.is_some() {
-        widget.block.render(area, buf);
+        widget.block.as_ref().render(area, buf);
         if state.focus.get() {
             buf.set_style(state.inner, focus_style);
         }
