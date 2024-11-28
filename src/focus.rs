@@ -521,13 +521,6 @@ mod core {
             self.areas.push(area);
             self.z_areas.push(z_areas.into());
             self.navigable.push(navigable);
-
-            let len = self.focus_flags.len();
-            for (c, r) in self.containers.iter_mut().rev() {
-                if !c.complete {
-                    r.end = len;
-                }
-            }
         }
 
         /// Manually start a container widget. Must be matched with
@@ -579,6 +572,7 @@ mod core {
                         panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
                     }
                 } else {
+                    r.end = self.focus_flags.len();
                     c.complete = true;
                     focus_debug!(self.log, "container range {:?}", r);
                     break;
