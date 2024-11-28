@@ -1,8 +1,10 @@
 use crate::focus::core::FocusCore;
-use crate::{FocusContainer, FocusFlag, HasFocus, Navigation};
+use crate::{ContainerFlag, FocusContainer, FocusFlag, HasFocus, Navigation, ZRect};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
+use std::ops::Range;
 
 pub use core::FocusBuilder;
+use ratatui::layout::Rect;
 
 /// Focus deals with all focus-related issues.
 ///
@@ -411,6 +413,19 @@ impl Focus {
             }
             _ => false,
         }
+    }
+
+    /// Debug destructuring.
+    pub fn clone_destruct(
+        &self,
+    ) -> (
+        Vec<FocusFlag>,
+        Vec<Rect>,
+        Vec<Vec<ZRect>>,
+        Vec<Navigation>,
+        Vec<(ContainerFlag, Rect, Range<usize>)>,
+    ) {
+        self.core.clone_destruct()
     }
 }
 
@@ -1216,6 +1231,28 @@ mod core {
                     return n;
                 }
             }
+        }
+
+        /// Debug destructuring.
+        pub(super) fn clone_destruct(
+            &self,
+        ) -> (
+            Vec<FocusFlag>,
+            Vec<Rect>,
+            Vec<Vec<ZRect>>,
+            Vec<Navigation>,
+            Vec<(ContainerFlag, Rect, Range<usize>)>,
+        ) {
+            (
+                self.focus_flags.clone(),
+                self.areas.clone(),
+                self.z_areas.clone(),
+                self.navigable.clone(),
+                self.containers
+                    .iter()
+                    .map(|(v, w)| (v.container_flag.clone(), v.area, w.clone()))
+                    .collect::<Vec<_>>(),
+            )
         }
     }
 

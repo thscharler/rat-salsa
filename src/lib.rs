@@ -445,13 +445,17 @@ impl<const N: usize> Default for FocusAdapter<N> {
     }
 }
 
-impl HasFocus for FocusAdapter {
+impl<const N: usize> HasFocus for FocusAdapter<N> {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }
 
     fn area(&self) -> Rect {
         self.area
+    }
+
+    fn z_areas(&self) -> &[ZRect] {
+        &self.z_areas
     }
 
     fn navigable(&self) -> Navigation {
