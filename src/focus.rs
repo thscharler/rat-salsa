@@ -591,13 +591,15 @@ mod core {
                     v.clear();
                 }
             }
-            'l: for (v, _) in &self.last.containers {
-                for (w, _) in &self.containers {
-                    if v.container_flag == w.container_flag {
-                        break 'l;
-                    }
+            for (v, _) in &self.last.containers {
+                let have_container = self
+                    .containers
+                    .iter()
+                    .find(|(c, _)| v.container_flag == c.container_flag)
+                    .is_some();
+                if !have_container {
+                    v.container_flag.clear();
                 }
-                v.container_flag.clear();
             }
             self.last.clear();
 
