@@ -24,6 +24,10 @@ use std::ops::Range;
 use unicode_segmentation::UnicodeSegmentation;
 
 /// Widget for dates.
+///
+/// # Stateful
+/// This widget implements [`StatefulWidget`], you can use it with
+/// [`DateInputState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct DateInput<'a> {
     widget: MaskedInput<'a>,

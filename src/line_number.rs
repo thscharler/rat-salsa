@@ -13,6 +13,10 @@ use ratatui::text::Line;
 use ratatui::widgets::{Block, Widget};
 
 /// Renders line-numbers.
+///
+/// # Stateful
+/// This widget implements [`StatefulWidget`], you can use it with
+/// [`LineNumberState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct LineNumbers<'a> {
     start: upos_type,
