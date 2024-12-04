@@ -66,6 +66,10 @@ use std::ops::Range;
 /// For more interactions you can use [screen_to_col](TextAreaState::screen_to_col),
 /// and [try_col_to_screen](TextAreaState::try_col_to_screen). They calculate everything,
 /// even in the presence of more complex graphemes and those double-width emojis.
+///
+/// # Stateful
+/// This widget implements [`StatefulWidget`], you can use it with
+/// [`TextAreaState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct TextArea<'a> {
     block: Option<Block<'a>>,

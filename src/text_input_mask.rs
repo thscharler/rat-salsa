@@ -95,6 +95,10 @@ use std::fmt;
 use std::ops::Range;
 
 /// Text input widget with input mask.
+///
+/// # Stateful
+/// This widget implements [`StatefulWidget`], you can use it with
+/// [`MaskedInputState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct MaskedInput<'a> {
     compact: bool,
