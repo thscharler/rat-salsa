@@ -956,7 +956,6 @@ pub mod game {
             "white" => Style::new().on_white(),
             _ => {
                 if s.len() == 6 && !s.contains(' ') {
-                    debug!("16 color {}", s);
                     if let Ok(mut c) = u32::from_str_radix(s, 16) {
                         let b = c % 256;
                         c = c / 256;
@@ -971,8 +970,6 @@ pub mod game {
                     let r;
                     let g;
                     let b;
-
-                    debug!("triple color {}", s);
 
                     let mut si = s.split(" ");
                     if let Some(v) = si.next() {
