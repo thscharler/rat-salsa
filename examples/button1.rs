@@ -123,7 +123,6 @@ fn handle_buttons(
         }
         r => r.into(),
     };
-    debug!("b1 {:?}", state.button1.armed);
     r = r.or_else(|| match state.button2.handle(event, Regular) {
         ButtonOutcome::Pressed => {
             data.p1 += 1;
@@ -138,8 +137,6 @@ fn handle_buttons(
         }
         r => r.into(),
     });
-
-    debug!("r {:?}", r);
 
     Ok(max(f, r))
 }

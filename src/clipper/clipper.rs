@@ -1,6 +1,5 @@
 use crate::clipper::{AreaHandle, ClipperLayout, ClipperStyle};
 use crate::layout::StructuredLayout;
-use log::debug;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
 use rat_reloc::RelocatableState;
@@ -424,7 +423,6 @@ impl ClipperState {
     /// Show the area for the given handle.
     pub fn show_handle(&mut self, handle: AreaHandle) {
         let area = self.layout.layout_handle(handle);
-        debug!("show area {:?}", area);
 
         let min_x = area.iter().map(|v| v.left()).min().expect("area") as usize;
         let max_x = area.iter().map(|v| v.right()).max().expect("area") as usize;

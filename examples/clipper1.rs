@@ -205,7 +205,6 @@ fn handle_input(
     // set the page from focus.
     for i in 0..state.hundred.len() {
         if state.hundred[i].gained_focus() {
-            debug!("show handle {} {:?}", i, state.hundred_areas[i]);
             state.clipper.show_handle(state.hundred_areas[i])
         }
     }
