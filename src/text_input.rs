@@ -163,6 +163,8 @@ impl<'a> TextInput<'a> {
         self.block = Some(block);
         self
     }
+
+    // TODO: set base-style on block
 }
 
 #[cfg(feature = "unstable-widget-ref")]
@@ -186,7 +188,7 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
 
-    widget.block.render(area, buf);
+    widget.block.as_ref().render(area, buf);
 
     let inner = state.inner;
 
