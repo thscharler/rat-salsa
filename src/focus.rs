@@ -1016,41 +1016,15 @@ mod core {
         pub(super) fn focus_at(&self, col: u16, row: u16) -> bool {
             let pos = (col, row).into();
 
-            let mut z_order = Vec::new();
-            for (idx, area) in self.areas.iter().enumerate() {
-                if area.0.contains(pos) {
-                    focus_debug!(
-                        self.log,
-                        "    area-match {:?}",
-                        self.focus_flags[idx].name()
-                    );
-                    z_order.push((idx, area.1));
-                }
-            }
-            // process in order, last is on top if more than one.
-            if let Some((max_last, _)) = z_order.iter().max_by(|v, w| v.1.cmp(&w.1)) {
-                if self.navigable[*max_last] != Navigation::None {
-                    self.__start_change(true);
-                    self.__focus(*max_last, true);
-                    self.__accumulate();
-                    focus_debug!(
-                        self.log,
-                        "    -> focus {:?}",
-                        self.focus_flags[*max_last].name()
-                    );
-                    return true;
-                } else {
-                    focus_debug!(
-                        self.log,
-                        "    -> not mouse reachable {:?}",
-                        self.focus_flags[*max_last].name()
-                    );
-                    return false;
-                }
+            enum ZOrder {
+                Widget(usize),
+                Container(usize),
             }
 
-            // look through the sub-containers
-            z_order.clear();
+            // find any matching areas
+            let mut z_order: Option<(ZOrder, u16)> = None;
+            // search containers first. the widgets inside have the same z and are
+            // more specific, so they should override.
             for (idx, (sub, _)) in self.containers.iter().enumerate() {
                 if sub.area.0.contains(pos) {
                     focus_debug!(
@@ -1058,21 +1032,76 @@ mod core {
                         "    container area-match {:?}",
                         sub.container_flag.name()
                     );
-                    z_order.push((idx, sub.area.1));
+
+                    z_order = if let Some(zz) = z_order {
+                        if zz.1 <= sub.area.1 {
+                            Some((ZOrder::Container(idx), sub.area.1))
+                        } else {
+                            Some(zz)
+                        }
+                    } else {
+                        Some((ZOrder::Container(idx), sub.area.1))
+                    };
                 }
             }
-            // last is on top
-            if let Some((max_last, _)) = z_order.iter().max_by(|v, w| v.1.cmp(&w.1)) {
-                let range = &self.containers[*max_last].1;
-                if let Some(n) = self.first_navigable(range.start) {
-                    self.__start_change(true);
-                    self.__focus(n, true);
-                    self.__accumulate();
-                    focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
-                    return true;
+            // search widgets
+            for (idx, area) in self.areas.iter().enumerate() {
+                if area.0.contains(pos) {
+                    focus_debug!(
+                        self.log,
+                        "    area-match {:?}",
+                        self.focus_flags[idx].name()
+                    );
+
+                    z_order = if let Some(zz) = z_order {
+                        if zz.1 <= area.1 {
+                            Some((ZOrder::Widget(idx), area.1))
+                        } else {
+                            Some(zz)
+                        }
+                    } else {
+                        Some((ZOrder::Widget(idx), area.1))
+                    };
                 }
             }
 
+            // process in order, last is on top if more than one.
+            if let Some((idx, _)) = z_order {
+                match idx {
+                    ZOrder::Widget(idx) => {
+                        if self.navigable[idx] != Navigation::None {
+                            self.__start_change(true);
+                            self.__focus(idx, true);
+                            self.__accumulate();
+                            focus_debug!(
+                                self.log,
+                                "    -> focus {:?}",
+                                self.focus_flags[idx].name()
+                            );
+                            return true;
+                        } else {
+                            focus_debug!(
+                                self.log,
+                                "    -> not mouse reachable {:?}",
+                                self.focus_flags[idx].name()
+                            );
+                            return false;
+                        }
+                    }
+                    ZOrder::Container(idx) => {
+                        let range = &self.containers[idx].1;
+                        if let Some(n) = self.first_navigable(range.start) {
+                            self.__start_change(true);
+                            self.__focus(n, true);
+                            self.__accumulate();
+                            focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
+                            return true;
+                        }
+                    }
+                }
+            }
+
+            // last is on top
             focus_debug!(self.log, "    -> no widget at pos");
 
             false

@@ -7,7 +7,6 @@ mod focus;
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
-use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 pub use crate::focus::{handle_focus, Focus, FocusBuilder};
