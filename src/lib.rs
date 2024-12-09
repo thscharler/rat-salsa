@@ -35,7 +35,7 @@ pub mod event {
 pub mod focus {
     pub use rat_focus::{
         handle_focus, match_focus, on_gained, on_lost, ContainerFlag, Focus, FocusBuilder,
-        FocusContainer, FocusFlag, HasFocus, Navigation, ZRect,
+        FocusContainer, FocusFlag, HasFocus, Navigation,
     };
 }
 
@@ -44,7 +44,6 @@ pub mod layout;
 
 /// Relocatable widgets.
 pub mod reloc {
-    pub use rat_focus::{relocate_z_area, relocate_z_areas};
     pub use rat_reloc::{
         relocate_area, relocate_areas, relocate_position, relocate_positions, RelocatableState,
     };

@@ -34,7 +34,7 @@ use crate::_private::NonExhaustive;
 use crate::util::{block_size, revert_style};
 use rat_event::util::{item_at, mouse_trap, MouseFlags};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Popup, Regular};
-use rat_focus::{relocate_z_areas, FocusFlag, HasFocus, ZRect};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{Placement, PopupCore, PopupCoreState, PopupStyle};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
@@ -128,9 +128,6 @@ pub struct ChoiceState {
     /// Total area.
     /// __read only__. renewed with each render.
     pub area: Rect,
-    /// All areas
-    /// __read only__. renewed with each render.
-    pub z_areas: [ZRect; 2],
     /// First char of each item for navigation.
     /// __read only__. renewed with each render.
     pub nav_char: Vec<Vec<char>>,
@@ -387,7 +384,6 @@ impl<'a> StatefulWidget for ChoiceWidget<'a> {
 
 fn render_choice(widget: &ChoiceWidget<'_>, area: Rect, buf: &mut Buffer, state: &mut ChoiceState) {
     state.area = area;
-    state.z_areas[0] = ZRect::from(area);
     state.len = widget.items.borrow().len();
     state.default_settable = widget.default_settable;
 
@@ -514,9 +510,6 @@ fn render_popup(widget: &ChoicePopup<'_>, area: Rect, buf: &mut Buffer, state: &
             row += 1;
             idx += 1;
         }
-
-        state.z_areas[1] = ZRect::from((1, state.popup.area));
-        state.area = ZRect::union_all(&state.z_areas).expect("area").as_rect();
     } else {
         state.popup.clear_areas();
     }
@@ -526,7 +519,6 @@ impl Default for ChoiceState {
     fn default() -> Self {
         Self {
             area: Default::default(),
-            z_areas: [Default::default(); 2],
             nav_char: Default::default(),
             item_area: Default::default(),
             button_area: Default::default(),
@@ -543,6 +535,11 @@ impl Default for ChoiceState {
 }
 
 impl HasFocus for ChoiceState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.add_widget(self.focus(), self.area(), 0, self.navigable());
+        builder.add_widget(self.focus(), self.popup.area, 1, Navigation::Mouse);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }
@@ -550,16 +547,11 @@ impl HasFocus for ChoiceState {
     fn area(&self) -> Rect {
         self.area
     }
-
-    fn z_areas(&self) -> &[ZRect] {
-        &self.z_areas
-    }
 }
 
 impl RelocatableState for ChoiceState {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
-        relocate_z_areas(&mut self.z_areas, shift, clip);
         self.item_area = relocate_area(self.item_area, shift, clip);
         self.button_area = relocate_area(self.button_area, shift, clip);
         relocate_areas(&mut self.item_areas, shift, clip);
