@@ -19,7 +19,7 @@ use crate::menuline::{MenuLine, MenuLineState};
 use crate::popup_menu::{PopupMenu, PopupMenuState};
 use crate::{MenuStructure, MenuStyle};
 use rat_event::{flow, HandleEvent, MouseOnly, Popup, Regular};
-use rat_focus::{FocusFlag, HasFocus, ZRect};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::Placement;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -83,13 +83,9 @@ pub struct MenubarPopup<'a> {
 /// State & event-handling.
 #[derive(Debug, Default, Clone)]
 pub struct MenubarState {
-    /// Total area for the menubar and any visible popup.
+    /// Area for the menubar.
     /// __readonly__. renewed for each render.
     pub area: Rect,
-    /// Areas for the menubar.
-    /// __readonly__. renewed for each render.
-    pub z_areas: [ZRect; 2],
-
     /// State for the menu.
     pub bar: MenuLineState,
     /// State for the last rendered popup menu.
@@ -279,7 +275,6 @@ fn render_menubar(
 
     // Combined area + each part with a z-index.
     state.area = state.bar.area;
-    state.z_areas = [ZRect::from((0, state.bar.area)), ZRect::default()];
 }
 
 impl<'a> StatefulWidget for MenubarPopup<'a> {
@@ -298,7 +293,6 @@ fn render_menu_popup(
 ) {
     // Combined area + each part with a z-index.
     state.area = state.bar.area;
-    state.z_areas = [ZRect::from((0, state.bar.area)), ZRect::default()];
 
     let Some(selected) = state.bar.selected() else {
         return;
@@ -331,7 +325,6 @@ fn render_menu_popup(
 
             // Combined area + each part with a z-index.
             state.area = state.bar.area.union(state.popup.popup.area);
-            state.z_areas[1] = ZRect::from((1, state.popup.popup.area));
         }
     } else {
         state.popup = Default::default();
@@ -371,16 +364,17 @@ impl MenubarState {
 }
 
 impl HasFocus for MenubarState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.add_widget(self.focus(), self.area(), self.area_z(), self.navigable());
+        builder.add_widget(self.focus(), self.popup.popup.area, 1, Navigation::Mouse);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.bar.focus.clone()
     }
 
     fn area(&self) -> Rect {
         self.area
-    }
-
-    fn z_areas(&self) -> &[ZRect] {
-        &self.z_areas
     }
 }
 
