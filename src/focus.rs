@@ -1,5 +1,5 @@
 use crate::focus::core::FocusCore;
-use crate::{ContainerFlag, FocusContainer, FocusFlag, HasFocus, Navigation, ZRect};
+use crate::{ContainerFlag, FocusContainer, FocusFlag, HasFocus, Navigation};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use std::ops::Range;
 
@@ -420,17 +420,17 @@ impl Focus {
         &self,
     ) -> (
         Vec<FocusFlag>,
-        Vec<Rect>,
-        Vec<Vec<ZRect>>,
+        Vec<bool>,
+        Vec<(Rect, u16)>,
         Vec<Navigation>,
-        Vec<(ContainerFlag, Rect, Range<usize>)>,
+        Vec<(ContainerFlag, (Rect, u16), Range<usize>)>,
     ) {
         self.core.clone_destruct()
     }
 }
 
 mod core {
-    use crate::{ContainerFlag, Focus, FocusContainer, FocusFlag, HasFocus, Navigation, ZRect};
+    use crate::{ContainerFlag, Focus, FocusContainer, FocusFlag, HasFocus, Navigation};
     use ratatui::layout::Rect;
     use std::cell::Cell;
     use std::ops::Range;
@@ -442,23 +442,36 @@ mod core {
 
         log: Cell<bool>,
 
+        // base z value.
+        // starting a container adds the z-value of the container
+        // to the z_base. closing the container subtracts from the
+        // z_base. any widgets added in between have a z-value
+        // of z_base + widget z-value.
+        //
+        // this enables clean stacking of containers/widgets.
+        z_base: u16,
+
         // new core
         focus_flags: Vec<FocusFlag>,
-        areas: Vec<Rect>,
-        z_areas: Vec<Vec<ZRect>>,
+        duplicate: Vec<bool>,
+        areas: Vec<(Rect, u16)>,
         navigable: Vec<Navigation>,
         containers: Vec<(Container, Range<usize>)>,
     }
 
     impl FocusBuilder {
         pub fn new(last: Option<Focus>) -> FocusBuilder {
-            if let Some(last) = last {
+            if let Some(mut last) = last {
+                // clear any data but retain the allocation.
+                last.last.clear();
+
                 Self {
                     last: last.core,
                     log: Default::default(),
+                    z_base: 0,
                     focus_flags: last.last.focus_flags,
+                    duplicate: last.last.duplicate,
                     areas: last.last.areas,
-                    z_areas: last.last.z_areas,
                     navigable: last.last.navigable,
                     containers: last.last.containers,
                 }
@@ -466,9 +479,10 @@ mod core {
                 Self {
                     last: FocusCore::default(),
                     log: Default::default(),
+                    z_base: 0,
                     focus_flags: vec![],
+                    duplicate: vec![],
                     areas: vec![],
-                    z_areas: vec![],
                     navigable: vec![],
                     containers: vec![],
                 }
@@ -484,7 +498,7 @@ mod core {
         ///
         /// Adds start+end and calls container.build()
         pub fn container(&mut self, container: &dyn FocusContainer) -> &mut Self {
-            let flag = self.start(container.container(), container.area());
+            let flag = self.start(container.container(), container.area(), container.area_z());
             container.build(self);
             self.end(flag);
             self
@@ -504,22 +518,32 @@ mod core {
         /// HasFocus::build() for a widget.
         ///
         /// In all other situations it's better to use [widget].
+        ///
+        /// __Panic__
+        ///
+        /// Panics if the same focus-flag is added twice.
+        /// Except it is allowable to add the flag a second time with
+        /// Navigation::Mouse or Navigation::None
         pub fn add_widget(
             &mut self,
             focus: FocusFlag,
             area: Rect,
-            z_areas: &[ZRect],
+            area_z: u16,
             navigable: Navigation,
         ) {
-            for c in &self.focus_flags {
-                assert_ne!(*c, focus);
+            let duplicate = self.focus_flags.contains(&focus);
+
+            // there can be a second entry for the same focus-flag
+            // if it is only for mouse interactions.
+            if duplicate {
+                assert!(matches!(navigable, Navigation::Mouse | Navigation::None))
             }
 
             focus_debug!(self.log, "widget {:?}", focus);
 
             self.focus_flags.push(focus);
-            self.areas.push(area);
-            self.z_areas.push(z_areas.into());
+            self.duplicate.push(duplicate);
+            self.areas.push((area, self.z_base + area_z));
             self.navigable.push(navigable);
         }
 
@@ -529,13 +553,24 @@ mod core {
         /// Use of [container](Self::container) is preferred.
         ///
         /// __Attention__
+        ///
         /// If container_flag is None a dummy flag will be created and
         /// returned. Use the returned value when calling [end](Self::end).
+        ///
+        /// __Panic__
+        ///
+        /// Panics if the same container-flag is added twice.
         pub fn start(
             &mut self,
             container_flag: Option<ContainerFlag>,
             area: Rect,
+            area_z: u16,
         ) -> Option<ContainerFlag> {
+            // no duplicates allowed for containers.
+            for (c, _) in self.containers.iter() {
+                assert_ne!(Some(&c.container_flag), container_flag.as_ref());
+            }
+
             if container_flag.is_none() && area.is_empty() {
                 return None;
             }
@@ -543,11 +578,14 @@ mod core {
 
             focus_debug!(self.log, "start container {:?}", container_flag);
 
+            self.z_base += area_z;
+
             let len = self.focus_flags.len();
             self.containers.push((
                 Container {
                     container_flag: container_flag.clone(),
-                    area,
+                    area: (area, self.z_base),
+                    delta_z: area_z,
                     complete: false,
                 },
                 len..len,
@@ -559,22 +597,26 @@ mod core {
         /// Manually end a container widget.
         ///
         /// Use of [container](Self::container) is preferred.
-        pub fn end(&mut self, container_flag: Option<ContainerFlag>) {
-            let Some(container_flag) = container_flag else {
+        pub fn end(&mut self, tag: Option<ContainerFlag>) {
+            let Some(tag) = tag else {
                 return;
             };
 
-            focus_debug!(self.log, "end container {:?}", container_flag);
+            focus_debug!(self.log, "end container {:?}", tag);
 
             for (c, r) in self.containers.iter_mut().rev() {
-                if c.container_flag != container_flag {
+                if c.container_flag != tag {
                     if !c.complete {
                         panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
                     }
                 } else {
                     r.end = self.focus_flags.len();
                     c.complete = true;
+
                     focus_debug!(self.log, "container range {:?}", r);
+
+                    self.z_base -= c.delta_z;
+
                     break;
                 }
             }
@@ -617,8 +659,8 @@ mod core {
                 core: FocusCore {
                     log: Cell::new(log),
                     focus_flags: self.focus_flags,
+                    duplicate: self.duplicate,
                     areas: self.areas,
-                    z_areas: self.z_areas,
                     navigable: self.navigable,
                     containers: self.containers,
                 },
@@ -663,7 +705,10 @@ mod core {
         /// This can help if you build compound widgets.
         container_flag: ContainerFlag,
         /// Area for the whole compound.
-        area: Rect,
+        /// Contains the area and a z-value.
+        area: (Rect, u16),
+        /// Delta Z value compared to the enclosing container.
+        delta_z: u16,
         /// Flag for construction.
         complete: bool,
     }
@@ -676,10 +721,12 @@ mod core {
 
         /// List of flags.
         focus_flags: Vec<FocusFlag>,
+        /// Is the flag the primary flag, or just a duplicate
+        /// to allow for multiple areas.
+        duplicate: Vec<bool>,
         /// Areas for each widget.
-        areas: Vec<Rect>,
-        /// Areas for each widget split in regions.
-        z_areas: Vec<Vec<ZRect>>,
+        /// Contains the area and a z-value for the area.
+        areas: Vec<(Rect, u16)>,
         /// Keyboard navigable
         navigable: Vec<Navigation>,
         /// List of containers and their dependencies.
@@ -693,13 +740,13 @@ mod core {
         /// Clear.
         pub(super) fn clear(&mut self) {
             self.focus_flags.clear();
+            self.duplicate.clear();
             self.areas.clear();
-            self.z_areas.clear();
             self.navigable.clear();
             self.containers.clear();
         }
 
-        /// Find the given focus-flag.
+        /// Find the first occurrence of the given focus-flag.
         pub(super) fn index_of(&self, focus_flag: FocusFlag) -> Option<usize> {
             self.focus_flags
                 .iter()
@@ -742,8 +789,9 @@ mod core {
 
             self.focus_flags
                 .splice(idx..idx, container.focus_flags.drain(..));
+            self.duplicate
+                .splice(idx..idx, container.duplicate.drain(..));
             self.areas.splice(idx..idx, container.areas.drain(..));
-            self.z_areas.splice(idx..idx, container.z_areas.drain(..));
             self.navigable
                 .splice(idx..idx, container.navigable.drain(..));
 
@@ -768,8 +816,8 @@ mod core {
 
             // remove
             let focus_flags = self.focus_flags.drain(crange.clone()).collect::<Vec<_>>();
+            let duplicate = self.duplicate.drain(crange.clone()).collect::<Vec<_>>();
             let areas = self.areas.drain(crange.clone()).collect::<Vec<_>>();
-            let z_areas = self.z_areas.drain(crange.clone()).collect::<Vec<_>>();
             let navigable = self.navigable.drain(crange.clone()).collect::<Vec<_>>();
             let sub_containers = self
                 .containers
@@ -789,8 +837,8 @@ mod core {
             FocusCore {
                 log: Cell::new(false),
                 focus_flags,
+                duplicate,
                 areas,
-                z_areas,
                 navigable,
                 containers: sub_containers,
             }
@@ -840,14 +888,18 @@ mod core {
         /// Reset the flags for a new round.
         /// set_lost - copy the current focus to the lost flag.
         fn __start_change(&self, set_lost: bool) {
-            for p in self.focus_flags.iter() {
-                if set_lost {
-                    p.set_lost(p.get());
-                } else {
-                    p.set_lost(false);
+            for (f, duplicate) in self.focus_flags.iter().zip(self.duplicate.iter()) {
+                if *duplicate {
+                    // skip duplicates
+                    continue;
                 }
-                p.set_gained(false);
-                p.set(false);
+                if set_lost {
+                    f.set_lost(f.get());
+                } else {
+                    f.set_lost(false);
+                }
+                f.set_gained(false);
+                f.set(false);
             }
         }
 
@@ -966,31 +1018,13 @@ mod core {
 
             let mut z_order = Vec::new();
             for (idx, area) in self.areas.iter().enumerate() {
-                if area.contains(pos) {
+                if area.0.contains(pos) {
                     focus_debug!(
                         self.log,
                         "    area-match {:?}",
                         self.focus_flags[idx].name()
                     );
-
-                    // check for split areas
-                    if !self.z_areas[idx].is_empty() {
-                        for z_area in &self.z_areas[idx] {
-                            // use all matching areas. might differ in z.
-                            if z_area.contains(pos) {
-                                focus_debug!(
-                                    self.log,
-                                    "    add z-area-match {:?} -> {:?}",
-                                    self.focus_flags[idx].name(),
-                                    z_area
-                                );
-                                z_order.push((idx, z_area.z));
-                            }
-                        }
-                    } else {
-                        focus_debug!(self.log, "    add area-match");
-                        z_order.push((idx, 0));
-                    }
+                    z_order.push((idx, area.1));
                 }
             }
             // process in order, last is on top if more than one.
@@ -1018,18 +1052,18 @@ mod core {
             // look through the sub-containers
             z_order.clear();
             for (idx, (sub, _)) in self.containers.iter().enumerate() {
-                if sub.area.contains(pos) {
+                if sub.area.0.contains(pos) {
                     focus_debug!(
                         self.log,
                         "    container area-match {:?}",
                         sub.container_flag.name()
                     );
-                    z_order.push((idx, 0));
+                    z_order.push((idx, sub.area.1));
                 }
             }
             // last is on top
-            if let Some((idx, _)) = z_order.last() {
-                let range = &self.containers[*idx].1;
+            if let Some((max_last, _)) = z_order.iter().max_by(|v, w| v.1.cmp(&w.1)) {
+                let range = &self.containers[*max_last].1;
                 if let Some(n) = self.first_navigable(range.start) {
                     self.__start_change(true);
                     self.__focus(n, true);
@@ -1234,15 +1268,15 @@ mod core {
             &self,
         ) -> (
             Vec<FocusFlag>,
-            Vec<Rect>,
-            Vec<Vec<ZRect>>,
+            Vec<bool>,
+            Vec<(Rect, u16)>,
             Vec<Navigation>,
-            Vec<(ContainerFlag, Rect, Range<usize>)>,
+            Vec<(ContainerFlag, (Rect, u16), Range<usize>)>,
         ) {
             (
                 self.focus_flags.clone(),
+                self.duplicate.clone(),
                 self.areas.clone(),
-                self.z_areas.clone(),
                 self.navigable.clone(),
                 self.containers
                     .iter()
@@ -1325,7 +1359,7 @@ mod core {
             let cc = ContainerFlag::named("cc");
             let mut fb = FocusBuilder::new(None);
             fb.widget(&a);
-            let cc_end = fb.start(Some(cc.clone()), Rect::default());
+            let cc_end = fb.start(Some(cc.clone()), Rect::default(), 0);
             fb.widget(&d);
             fb.widget(&e);
             fb.widget(&f);

@@ -3,15 +3,14 @@
 #![doc = include_str!("../readme.md")]
 
 mod focus;
-mod zrect;
 
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
 use std::rc::Rc;
 
 pub use crate::focus::{handle_focus, Focus, FocusBuilder};
-pub use crate::zrect::{relocate_z_area, relocate_z_areas, ZRect};
 
 pub mod event {
     //! Rexported eventhandling traits.
@@ -168,7 +167,7 @@ pub enum Navigation {
 pub trait HasFocus {
     /// Build the focus-structure for the container.
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.add_widget(self.focus(), self.area(), self.z_areas(), self.navigable())
+        builder.add_widget(self.focus(), self.area(), self.area_z(), self.navigable())
     }
 
     /// Access to the flag for the rest.
@@ -181,20 +180,12 @@ pub trait HasFocus {
     /// Otherwise, the areas are searched in order of addition.
     fn area(&self) -> Rect;
 
-    /// The widget might have several disjointed/overlapping areas.
-    /// This is the case if it is showing a popup, but there might be other causes.
+    /// Z value for the area.
     ///
-    /// If `z_areas()` returns an empty slice it defaults to `area()`+z-index 0.
-    ///
-    /// `z_areas()` are a higher resolution image of the widgets areas.
-    /// If a widget returns anything but an empty slice here:
-    /// - `area()` must be the union of all z_areas. Hit detection will fail
-    ///   for anything outside `area()`
-    /// - z_areas may overlap other areas. The area with the higher z-index
-    ///   will win the hit-test. If there are still overlapping areas after
-    ///   that, they will be used in the order of addition.
-    fn z_areas(&self) -> &[ZRect] {
-        &[]
+    /// When testing for mouse interactions the z-value is taken into
+    /// consideration too.
+    fn area_z(&self) -> u16 {
+        0
     }
 
     /// Declares how the widget interacts with focus.
@@ -235,6 +226,14 @@ pub trait FocusContainer {
     /// Area of the container for mouse-events.
     fn area(&self) -> Rect {
         Rect::default()
+    }
+
+    /// Z value for the area.
+    ///
+    /// When testing for mouse interactions the z-value is taken into
+    /// consideration too.
+    fn area_z(&self) -> u16 {
+        0
     }
 
     /// Focused?
@@ -427,25 +426,25 @@ impl FocusFlagCore {
 /// This can be constructed on the fly, if you have the necessary parts.
 /// You will at least need a FocusFlag stored parallel to the widget state.
 #[derive(Debug)]
-pub struct FocusAdapter<const N: usize = 0> {
+pub struct FocusAdapter {
     pub focus: FocusFlag,
     pub area: Rect,
-    pub z_areas: [ZRect; N],
+    pub area_z: u16,
     pub navigation: Navigation,
 }
 
-impl<const N: usize> Default for FocusAdapter<N> {
+impl Default for FocusAdapter {
     fn default() -> Self {
         Self {
             focus: Default::default(),
             area: Default::default(),
-            z_areas: [Default::default(); N],
+            area_z: 0,
             navigation: Default::default(),
         }
     }
 }
 
-impl<const N: usize> HasFocus for FocusAdapter<N> {
+impl HasFocus for FocusAdapter {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }
@@ -454,8 +453,8 @@ impl<const N: usize> HasFocus for FocusAdapter<N> {
         self.area
     }
 
-    fn z_areas(&self) -> &[ZRect] {
-        &self.z_areas
+    fn area_z(&self) -> u16 {
+        self.area_z
     }
 
     fn navigable(&self) -> Navigation {
@@ -471,6 +470,7 @@ pub struct ContainerAdapter<'a> {
     pub container: ContainerFlag,
     pub build_fn: &'a dyn Fn(&mut FocusBuilder),
     pub area: Rect,
+    pub area_z: u16,
 }
 
 impl<'a> Debug for ContainerAdapter<'a> {
@@ -479,6 +479,7 @@ impl<'a> Debug for ContainerAdapter<'a> {
             .field("container", &self.container)
             .field("build_fn", &"..dyn..")
             .field("area", &self.area)
+            .field("area_z", &self.area_z)
             .finish()
     }
 }
@@ -489,6 +490,7 @@ impl<'a> Default for ContainerAdapter<'a> {
             build_fn: &|_builder| {},
             container: Default::default(),
             area: Default::default(),
+            area_z: 0,
         }
     }
 }
@@ -504,6 +506,10 @@ impl<'a> FocusContainer for ContainerAdapter<'a> {
 
     fn area(&self) -> Rect {
         self.area
+    }
+
+    fn area_z(&self) -> u16 {
+        self.area_z
     }
 }
 
