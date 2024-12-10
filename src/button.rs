@@ -228,7 +228,7 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
     };
 
     if widget.block.is_some() {
-        widget.block.as_ref().render(area, buf);
+        widget.block.render(area, buf);
     } else {
         buf.set_style(area, widget.style);
     }

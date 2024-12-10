@@ -421,7 +421,7 @@ fn render_choice(widget: &ChoiceWidget<'_>, area: Rect, buf: &mut Buffer, state:
     let button_style = widget.button_style.unwrap_or(widget.style);
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
 
-    widget.block.as_ref().render(area, buf);
+    widget.block.render(area, buf);
 
     if state.is_focused() {
         buf.set_style(state.item_area, focus_style);
