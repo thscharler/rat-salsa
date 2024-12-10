@@ -257,7 +257,7 @@ fn render_ref(
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
 
-    widget.block.as_ref().render(area, buf);
+    widget.block.render(area, buf);
 
     let inner = state.inner;
 
