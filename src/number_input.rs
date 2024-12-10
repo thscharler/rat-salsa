@@ -22,6 +22,14 @@ use std::fmt::{Debug, Display, LowerExp};
 use std::ops::Range;
 use std::str::FromStr;
 
+/// NumberInput with [format_num_pattern][refFormatNumPattern] backend. A bit
+/// similar to javas DecimalFormat.
+///
+/// # Stateful
+/// This widget implements [`StatefulWidget`], you can use it with
+/// [`NumberInputState`] to handle common actions.
+///
+/// [refFormatNumPattern]: https://docs.rs/format_num_pattern
 #[derive(Debug, Default, Clone)]
 pub struct NumberInput<'a> {
     widget: MaskedInput<'a>,

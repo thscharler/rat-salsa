@@ -39,6 +39,10 @@ use std::cmp::min;
 use std::ops::Range;
 
 /// Text input widget.
+///
+/// # Stateful
+/// This widget implements [`StatefulWidget`], you can use it with
+/// [`TextInputState`] to handle common actions.
 #[derive(Debug, Default, Clone)]
 pub struct TextInput<'a> {
     block: Option<Block<'a>>,
