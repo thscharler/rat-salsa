@@ -478,6 +478,16 @@ impl PopupMenuState {
         }
     }
 
+    /// Set the z-index for the popup-menu.
+    pub fn set_popup_z(&mut self, z: u16) {
+        self.popup.area_z = z;
+    }
+
+    /// The z-index for the popup-menu.
+    pub fn popup_z(&self) -> u16 {
+        self.popup.area_z
+    }
+
     /// Show the popup.
     pub fn flip_active(&mut self) {
         self.popup.flip_active();

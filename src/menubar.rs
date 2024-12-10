@@ -357,6 +357,19 @@ impl MenubarState {
         self.popup.set_active(active);
     }
 
+    /// Set the z-value for the popup-menu.
+    ///
+    /// This is the z-index used when adding the menubar to
+    /// the focus list.
+    pub fn set_popup_z(&mut self, z: u16) {
+        self.popup.set_popup_z(z)
+    }
+
+    /// The z-index for the popup-menu.
+    pub fn popup_z(&self) -> u16 {
+        self.popup.popup_z()
+    }
+
     /// Selected as menu/submenu
     pub fn selected(&self) -> (Option<usize>, Option<usize>) {
         (self.bar.selected, self.popup.selected)
@@ -366,7 +379,12 @@ impl MenubarState {
 impl HasFocus for MenubarState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder.add_widget(self.focus(), self.area(), self.area_z(), self.navigable());
-        builder.add_widget(self.focus(), self.popup.popup.area, 1, Navigation::Mouse);
+        builder.add_widget(
+            self.focus(),
+            self.popup.popup.area,
+            self.popup.popup.area_z,
+            Navigation::Mouse,
+        );
     }
 
     fn focus(&self) -> FocusFlag {
