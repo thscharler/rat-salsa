@@ -75,6 +75,8 @@ pub struct PopupCoreState {
     /// given constraints.
     /// __read only__. renewed for each render.
     pub area: Rect,
+    /// Z-Index for the popup.
+    pub area_z: u16,
     /// Area where the widget can render it's content.
     /// __read only__. renewed for each render.
     pub widget_area: Rect,
@@ -176,17 +178,6 @@ impl<'a> PopupCore<'a> {
     /// If not set it will use [Buffer::area] for this.
     pub fn boundary(mut self, boundary: Rect) -> Self {
         self.boundary_area = Some(boundary);
-        self
-    }
-
-    /// Sets outer boundaries for the resulting widget.
-    ///
-    /// This will be used to ensure that the widget is fully visible,
-    /// after calculation its position using the other parameters.
-    ///
-    /// If not set it will use [Buffer::area] for this.
-    pub fn boundary_opt(mut self, boundary: Option<Rect>) -> Self {
-        self.boundary_area = boundary;
         self
     }
 
@@ -554,6 +545,7 @@ impl Default for PopupCoreState {
     fn default() -> Self {
         Self {
             area: Default::default(),
+            area_z: 1,
             widget_area: Default::default(),
             h_scroll: Default::default(),
             v_scroll: Default::default(),
@@ -584,6 +576,16 @@ impl PopupCoreState {
             active: ContainerFlag::named(name),
             ..Default::default()
         }
+    }
+
+    /// Set the z-index of the popup.
+    pub fn set_area_z(&mut self, z: u16) {
+        self.area_z = z;
+    }
+
+    /// The z-index of the popup.
+    pub fn area_z(&self) -> u16 {
+        self.area_z
     }
 
     /// Is the popup active/visible.
