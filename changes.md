@@ -1,3 +1,10 @@
+# 0.31.0
+
+* remove uses of ZRect.
+  Uses HasFocus::build() to add both the main menu and the popup menu areas
+  as focus areas. Allows to set the z-value for the popup, which allows
+  the popup-menus to be always on top of the application.
+
 # 0.30.0
 
 ** upgrade to ratatui 0.29 **
