@@ -95,7 +95,7 @@ to
 
 - focus()     - FocusFlag
 - area()      - Rendered area.
-- z_areas()   - Extended area info.
+- area_z()    - Extended area info.
 - navigable() - Control flag.
 
 The widget can then use the FocusFlag for rendering and
@@ -113,6 +113,8 @@ This is used to recursively add widgets for focus handling.
   container and collects the states of the contained widgets.
 - area()      - Optional. Area for the whole container. Used for mouse
   events too.
+- area_z()    - Optional. Area z-value for the whole container. Used
+  for mouse events.
 
 [refHandleEvent]: https://docs.rs/rat-event/latest/rat_event/trait.HandleEvent.html
 
