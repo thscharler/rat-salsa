@@ -1,3 +1,7 @@
+# 0.31.0
+
+* remove uses of ZRect. Choice now adds two areas for its parts.
+
 # 0.30.0
 
 ** upgrade to ratatui 0.29 **

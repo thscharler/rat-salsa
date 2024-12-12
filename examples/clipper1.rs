@@ -174,7 +174,7 @@ fn repaint_input(
 fn focus(state: &State) -> Focus {
     let mut fb = FocusBuilder::default();
     fb.widget(&state.menu);
-    fb.start(Some(state.clipper.c_focus.clone()), Default::default());
+    fb.start(Some(state.clipper.c_focus.clone()), Default::default(), 0);
     for i in 0..state.hundred.len() {
         // Focus wants __all__ areas.
         fb.widget(&state.hundred[i]);
