@@ -1,3 +1,7 @@
+# 0.28.1
+
+* remove unnecessary Debug bounds everywhere.
+
 # 0.28.0
 
 ** upgrade to ratatui 0.29 **
