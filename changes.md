@@ -1,3 +1,20 @@
+# 0.29.0
+
+* break: remove ZRect. This was insufficient at the end, and the perf was not so good too.
+
+  Replaced HasFocus::z_areas() with HasFocus::area_z() which returns a single z-value
+  for the area. Now the same FocusFlag can now be added for a further areas as long
+  as it only uses Navigation::Mouse for these. This is good enough for popups.
+
+  Adds FocusContainer::area_z(). The z_area for a widget is now calculated starting
+  from the base-z value of the surrounding container. And containers within containers
+  stack one upon the other. When container and widget areas are encountered with
+  the same z-value, widgets get prioritized.
+
+  This gives a clean stacking now, and can satisfy window like structures.
+
+* Focus::clone_destruct() gives a clone of the internal structures for debugging.
+
 # 0.28.0
 
 ** upgrade to ratatui 0.29 **
