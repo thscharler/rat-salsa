@@ -1,3 +1,7 @@
+# 0.26.1
+
+* feature: add scroll up/scroll down without any bindings to ct_event!
+
 # 0.26
 
 ** upgrade to ratatui 0.29 **
