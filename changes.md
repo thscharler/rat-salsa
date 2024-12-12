@@ -1,3 +1,7 @@
+# 0.29.1
+
+* add doc-changes from #1 by nick42d.
+
 # 0.29.0
 
 ** upgrade to ratatui 0.29 **
