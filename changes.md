@@ -1,3 +1,7 @@
+# 0.28.1
+
+* Allow setting the z-value for the popup.
+
 # 0.28.0
 
 ** upgrade to ratatui 0.29 **

@@ -157,6 +157,7 @@ impl PopLockMagentaState {
                 build.widget(&self.edit3);
             },
             area: self.popup.area,
+            area_z: 0,
         });
         fb.build()
     }
