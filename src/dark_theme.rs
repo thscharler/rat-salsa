@@ -219,7 +219,12 @@ impl DarkTheme {
 
     /// Background for dialogs.
     pub fn dialog_base(&self) -> Style {
-        Style::default().fg(self.s.white[2]).bg(self.s.gray[1])
+        self.s.style(self.s.gray[1])
+    }
+
+    /// Container arrows
+    pub fn dialog_arrow(&self) -> Style {
+        Style::default().fg(self.s.secondary[2]).bg(self.s.gray[1])
     }
 
     /// Style for the status line.
@@ -320,7 +325,8 @@ impl DarkTheme {
             focus: Some(self.focus()),
             popup: PopupStyle {
                 style: self.dialog_base(),
-                scroll: Some(self.scroll_style()),
+                scroll: Some(self.dialog_scroll_style()),
+                block: Some(Block::bordered().border_style(self.dialog_base())),
                 ..Default::default()
             },
             ..Default::default()
@@ -407,6 +413,18 @@ impl DarkTheme {
             min_style: Some(self.container()),
             begin_style: Some(self.container_arrow()),
             end_style: Some(self.container_arrow()),
+            ..Default::default()
+        }
+    }
+
+    /// Popup/Dialog scroll style
+    pub fn dialog_scroll_style(&self) -> ScrollStyle {
+        ScrollStyle {
+            thumb_style: Some(self.dialog_base()),
+            track_style: Some(self.dialog_base()),
+            min_style: Some(self.dialog_base()),
+            begin_style: Some(self.dialog_arrow()),
+            end_style: Some(self.dialog_arrow()),
             ..Default::default()
         }
     }
