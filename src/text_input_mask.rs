@@ -1412,10 +1412,10 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
         let mut r = if self.is_focused() {
-            if self.focus.gained() {
-                self.set_default_cursor();
-                self.select_current_section();
-            };
+            // if self.focus.gained() {
+            //     self.set_default_cursor();
+            //     self.select_current_section();
+            // };
 
             match event {
                 ct_event!(keycode press Left) => self.move_left(false).into(),
