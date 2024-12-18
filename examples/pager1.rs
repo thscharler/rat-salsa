@@ -117,12 +117,12 @@ fn repaint_input(
     // render the input fields.
     for i in 0..state.hundred.len() {
         // map an additional ad hoc area.
-        let v_area = pg_buf.layout().layout_handle(state.hundred_areas[i])[0];
+        let v_area = pg_buf.layout().layout_area(state.hundred_areas[i])[0];
         let w_area = Rect::new(5, v_area.y, 5, 1);
-        pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
+        pg_buf.render_widget_area(Span::from(format!("{:?}:", i)), w_area);
 
         // map our widget area.
-        pg_buf.render_stateful_handle(
+        pg_buf.render(
             TextInputMock::default()
                 .sample(format!("{:?}", state.hundred_areas[i]))
                 .style(THEME.limegreen(0))
@@ -133,7 +133,7 @@ fn repaint_input(
         );
     }
 
-    pg_buf.render_stateful(
+    pg_buf.render_area(
         TextInputMock::default()
             .sample("__outlier__")
             .style(THEME.orange(0))
@@ -193,7 +193,7 @@ fn handle_input(
     // set the page from focus.
     for i in 0..state.hundred.len() {
         if state.hundred[i].gained_focus() {
-            state.pager.show_handle(state.hundred_areas[i])
+            state.pager.show(state.hundred_areas[i])
         }
     }
 

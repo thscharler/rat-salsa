@@ -193,7 +193,7 @@ impl<'a> SinglePager<'a> {
         };
 
         let p1 = 5;
-        let p4 = state.widget_area.width - p1;
+        let p4 = state.widget_area.width.saturating_sub(p1);
         state.prev_area = Rect::new(state.widget_area.x, area.y, p1, 1);
         state.next_area = Rect::new(state.widget_area.x + p4, area.y, p1, 1);
         state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
@@ -232,7 +232,7 @@ impl<'a> SinglePager<'a> {
 impl<'a> SinglePagerBuffer<'a> {
     /// Render a widget to the buffer.
     #[inline(always)]
-    pub fn render_widget<W>(&mut self, widget: W, area: Rect)
+    pub fn render_widget_area<W>(&mut self, widget: W, area: Rect)
     where
         W: Widget,
     {
@@ -248,7 +248,7 @@ impl<'a> SinglePagerBuffer<'a> {
     /// This expects that the state is a RelocatableState,
     /// so it can reset the areas for hidden widgets.
     #[inline(always)]
-    pub fn render_stateful<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
+    pub fn render_area<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
     where
         W: StatefulWidget<State = S>,
         S: RelocatableState,
@@ -261,14 +261,23 @@ impl<'a> SinglePagerBuffer<'a> {
         }
     }
 
+    /// Render the label if any.
+    pub fn render_label(&mut self, area: AreaHandle) {
+        if let Some(buffer_areas) = self.locate(area) {
+            if let Some(label) = self.layout.label(area) {
+                label.render(buffer_areas[0], self.buffer);
+            }
+        }
+    }
+
     /// Render a widget to the buffer.
     #[inline(always)]
-    pub fn render_widget_handle<W, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx)
+    pub fn render_widget<W, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx)
     where
         W: Widget,
         [Rect]: Index<Idx, Output = Rect>,
     {
-        if let Some(buffer_areas) = self.locate_handle(area) {
+        if let Some(buffer_areas) = self.locate(area) {
             // render the actual widget.
             widget.render(buffer_areas[tag], self.buffer);
         } else {
@@ -281,18 +290,13 @@ impl<'a> SinglePagerBuffer<'a> {
     /// This expects that the state is a RelocatableState,
     /// so it can reset the areas for hidden widgets.
     #[inline(always)]
-    pub fn render_stateful_handle<W, S, Idx>(
-        &mut self,
-        widget: W,
-        area: AreaHandle,
-        tag: Idx,
-        state: &mut S,
-    ) where
+    pub fn render<W, S, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx, state: &mut S)
+    where
         W: StatefulWidget<State = S>,
         S: RelocatableState,
         [Rect]: Index<Idx, Output = Rect>,
     {
-        if let Some(buffer_areas) = self.locate_handle(area) {
+        if let Some(buffer_areas) = self.locate(area) {
             // render the actual widget.
             widget.render(buffer_areas[tag], self.buffer, state);
         } else {
@@ -311,7 +315,7 @@ impl<'a> SinglePagerBuffer<'a> {
     }
 
     /// Is the given area visible?
-    pub fn is_visible_handle(&self, handle: AreaHandle) -> bool {
+    pub fn is_visible(&self, handle: AreaHandle) -> bool {
         self.layout.buf_handle(handle).0 == self.page
     }
 
@@ -326,7 +330,7 @@ impl<'a> SinglePagerBuffer<'a> {
 
     /// Relocate an area from layout coordinates to screen coordinates.
     /// A result None indicates that the area is invisible.
-    pub fn locate_handle(&self, handle: AreaHandle) -> Option<Box<[Rect]>> {
+    pub fn locate(&self, handle: AreaHandle) -> Option<Box<[Rect]>> {
         let (page, mut areas) = self.layout.buf_handle(handle);
         if self.page == page {
             for area in &mut areas {
@@ -448,7 +452,7 @@ impl SinglePagerState {
     }
 
     /// Show the page for this rect.
-    pub fn show_handle(&mut self, handle: AreaHandle) {
+    pub fn show(&mut self, handle: AreaHandle) {
         let (page, _) = self.layout.buf_handle(handle);
         self.page = page;
     }
@@ -463,7 +467,7 @@ impl SinglePagerState {
     /// This returns the first handle for the page.
     /// Does not check whether the connected area is visible.
     pub fn first_handle(&self, page: usize) -> Option<AreaHandle> {
-        self.layout.first_layout_handle(page)
+        self.layout.first_on_page(page)
     }
 
     /// Set the visible page.

@@ -121,7 +121,7 @@ fn repaint_input(
     // render the input fields.
     for i in 0..state.hundred.len() {
         // map an additional ad hoc area.
-        let v_area = pg_buf.layout().layout_handle(state.hundred_areas[i])[0];
+        let v_area = pg_buf.layout().layout_area(state.hundred_areas[i])[0];
         let w_area = Rect::new(5, v_area.y, 5, 1);
         pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
 

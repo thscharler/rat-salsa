@@ -555,7 +555,7 @@ impl DualPagerState {
     /// This returns the first handle for the page.
     /// Does not check whether the connected area is visible.
     pub fn first_handle(&self, page: usize) -> Option<AreaHandle> {
-        self.layout.first_layout_handle(page)
+        self.layout.first_on_page(page)
     }
 
     /// Set the visible page.

@@ -2,9 +2,11 @@
 //! Calculate the layout for an edit-mask with lots of label/widget pairs.
 //!
 
-use crate::layout::LabelWidget::{Lbl, Wdg};
+use crate::layout::LabelWidget::{EditLabel, EditWidget};
 use crate::layout::StructuredLayout;
-use ratatui::layout::Rect;
+use log::debug;
+use ratatui::layout::{Flex, Rect};
+use ratatui::text::Span;
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut};
 
@@ -13,8 +15,8 @@ use std::ops::{Index, IndexMut};
 /// This type can be used to index into the array.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LabelWidget {
-    Lbl,
-    Wdg,
+    EditLabel,
+    EditWidget,
 }
 
 impl LabelWidget {
@@ -28,8 +30,8 @@ impl Index<LabelWidget> for [Rect] {
 
     fn index(&self, index: LabelWidget) -> &Self::Output {
         match index {
-            Lbl => &self[0],
-            Wdg => &self[1],
+            EditLabel => &self[0],
+            EditWidget => &self[1],
         }
     }
 }
@@ -37,8 +39,8 @@ impl Index<LabelWidget> for [Rect] {
 impl IndexMut<LabelWidget> for [Rect] {
     fn index_mut(&mut self, index: LabelWidget) -> &mut Self::Output {
         match index {
-            Lbl => &mut self[0],
-            Wdg => &mut self[1],
+            EditLabel => &mut self[0],
+            EditWidget => &mut self[1],
         }
     }
 }
@@ -46,15 +48,15 @@ impl IndexMut<LabelWidget> for [Rect] {
 /// Constraint data for [layout_edit]
 #[allow(variant_size_differences)]
 #[derive(Debug)]
-pub enum EditConstraint<'a> {
+pub enum EditConstraint {
     /// Label by sample
-    Label(&'a str),
+    Label(Span<'static>),
     /// Label by width. (cols)
     LabelWidth(u16),
     /// Label by height+width. ( cols, rows).
     LabelRows(u16, u16),
     /// Label occupying the full row.
-    TitleLabel,
+    TitleLabel(Span<'static>),
     /// Label occupying the full row, but rendering only part of it. (cols)
     TitleLabelWidth(u16),
     /// Label occupying multiple full rows. (rows)
@@ -83,18 +85,22 @@ pub enum EditConstraint<'a> {
 /// This returns a [StructuredLayout] with pairs of [label area, widget area]
 /// for each index.
 #[allow(clippy::comparison_chain)]
-pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> StructuredLayout {
+pub fn layout_edit(
+    area: Rect,
+    constraints: &[EditConstraint],
+    mut spacing: u16,
+    flex: Flex,
+) -> StructuredLayout {
     let mut max_label = 0;
     let mut max_widget = 0;
-    let mut space = 1;
 
     // find max
     for l in constraints.iter() {
         match l {
-            EditConstraint::Label(s) => max_label = max(max_label, s.len() as u16),
+            EditConstraint::Label(s) => max_label = max(max_label, s.width() as u16),
             EditConstraint::LabelWidth(w) => max_label = max(max_label, *w),
             EditConstraint::LabelRows(w, _) => max_label = max(max_label, *w),
-            EditConstraint::TitleLabel => {}
+            EditConstraint::TitleLabel(_) => {}
             EditConstraint::TitleLabelWidth(_) => {}
             EditConstraint::TitleLabelRows(_) => {}
             EditConstraint::Widget(w) => max_widget = max(max_widget, *w),
@@ -109,18 +115,16 @@ pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> Structured
 
     let mut ll = StructuredLayout::new(2);
 
-    // area.width is a constraint too
-    if max_label + space + max_widget < area.width {
-        space = area.width - max_label - max_widget;
-    } else if max_label + space + max_widget > area.width {
-        let mut reduce = max_label + space + max_widget - area.width;
+    // cut excess
+    if max_label + spacing + max_widget > area.width {
+        let mut reduce = max_label + spacing + max_widget - area.width;
 
-        if space > reduce {
-            space -= reduce;
+        if spacing > reduce {
+            spacing -= reduce;
             reduce = 0;
         } else {
-            reduce -= space;
-            space = 0;
+            reduce -= spacing;
+            spacing = 0;
         }
         if max_label > 5 {
             if max_label - 5 > reduce {
@@ -156,36 +160,60 @@ pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> Structured
         }
     }
 
-    let mut x = area.x;
+    let mut label_x = 0;
+    let mut widget_x = 0;
+
+    match flex {
+        Flex::Start | Flex::Legacy => {
+            label_x = area.x;
+            widget_x = area.x + spacing + max_label;
+        }
+        Flex::End => {
+            widget_x = area.x + area.width - max_widget;
+            label_x = widget_x - spacing - max_label;
+        }
+        Flex::SpaceAround | Flex::Center => {
+            let rest = area.width - max_label - max_widget - spacing;
+            label_x = area.x + rest / 2;
+            widget_x = area.x + rest / 2 + spacing + max_label;
+        }
+        Flex::SpaceBetween => {
+            label_x = area.x;
+            widget_x = area.x + area.width - max_widget;
+        }
+    }
+
+    let mut x = label_x;
     let mut y = area.y;
-    let total = max_label + space + max_widget;
+    let total = max_label + spacing + max_widget;
     let mut rest_height = if area.height > 0 { area.height - 1 } else { 0 }; //todo: verify the '-1' somehow??
     let mut height = min(1, rest_height);
 
     let mut cur: [Rect; 2] = Default::default();
+    let mut label = None;
 
     for l in constraints.iter() {
         // break before
         match l {
             EditConstraint::LineWidget(_) | EditConstraint::LineWidgetRows(_, _) => {
-                if x != area.x {
+                if x != label_x {
                     // result.add(cur);
                     // cur = Default::default();
 
-                    x = area.x;
+                    x = label_x;
                     y += height;
                     rest_height -= height;
                     height = min(1, rest_height);
                 }
             }
-            EditConstraint::TitleLabel
+            EditConstraint::TitleLabel(_)
             | EditConstraint::TitleLabelWidth(_)
             | EditConstraint::TitleLabelRows(_) => {
-                if x != area.x {
+                if x != label_x {
                     ll.add(&cur);
                     cur = Default::default();
 
-                    x = area.x;
+                    x = label_x;
                     y += height;
                     rest_height -= height;
                     height = min(1, rest_height);
@@ -204,47 +232,50 @@ pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> Structured
         // self
         match l {
             EditConstraint::Label(s) => {
-                cur[Lbl] = Rect::new(x, y, min(s.len() as u16, max_label), min(1, rest_height))
+                cur[EditLabel] =
+                    Rect::new(x, y, min(s.width() as u16, max_label), min(1, rest_height));
+                label = Some(s);
             }
             EditConstraint::LabelWidth(w) => {
-                cur[Lbl] = Rect::new(x, y, min(*w, max_label), min(1, rest_height))
+                cur[EditLabel] = Rect::new(x, y, min(*w, max_label), min(1, rest_height));
             }
             EditConstraint::LabelRows(w, h) => {
-                cur[Lbl] = Rect::new(x, y, min(*w, max_label), min(1, *h))
+                cur[EditLabel] = Rect::new(x, y, min(*w, max_label), min(1, *h));
             }
-            EditConstraint::TitleLabel => {
-                cur[Lbl] = Rect::new(x, y, total, min(1, rest_height));
-                ll.add(&cur);
+            EditConstraint::TitleLabel(s) => {
+                cur[EditLabel] = Rect::new(x, y, total, min(1, rest_height));
+                label = Some(s);
+                ll.add_label(label.cloned(), &cur);
                 cur = Default::default();
             }
             EditConstraint::TitleLabelWidth(w) => {
-                cur[Lbl] = Rect::new(x, y, min(*w, max_label), min(1, rest_height));
-                ll.add(&cur);
+                cur[EditLabel] = Rect::new(x, y, min(*w, max_label), min(1, rest_height));
+                ll.add_label(label.cloned(), &cur);
                 cur = Default::default();
             }
             EditConstraint::TitleLabelRows(h) => {
-                cur[Lbl] = Rect::new(x, y, total, min(*h, rest_height));
-                ll.add(&cur);
+                cur[EditLabel] = Rect::new(x, y, total, min(*h, rest_height));
+                ll.add_label(label.cloned(), &cur);
                 cur = Default::default();
             }
             EditConstraint::Widget(w) => {
-                cur[Wdg] = Rect::new(x, y, min(*w, max_widget), min(1, rest_height));
-                ll.add(&cur);
+                cur[EditWidget] = Rect::new(x, y, min(*w, max_widget), min(1, rest_height));
+                ll.add_label(label.cloned(), &cur);
                 cur = Default::default();
             }
             EditConstraint::WidgetRows(w, h) => {
-                cur[Wdg] = Rect::new(x, y, min(*w, max_widget), min(*h, rest_height));
-                ll.add(&cur);
+                cur[EditWidget] = Rect::new(x, y, min(*w, max_widget), min(*h, rest_height));
+                ll.add_label(label.cloned(), &cur);
                 cur = Default::default();
             }
             EditConstraint::LineWidget(w) => {
-                cur[Wdg] = Rect::new(x, y, min(*w, max_widget), min(1, rest_height));
-                ll.add(&cur);
+                cur[EditWidget] = Rect::new(x, y, min(*w, max_widget), min(1, rest_height));
+                ll.add_label(label.cloned(), &cur);
                 cur = Default::default();
             }
             EditConstraint::LineWidgetRows(w, h) => {
-                cur[Wdg] = Rect::new(x, y, min(*w, max_widget), min(*h, rest_height));
-                ll.add(&cur);
+                cur[EditWidget] = Rect::new(x, y, min(*w, max_widget), min(*h, rest_height));
+                ll.add_label(label.cloned(), &cur);
                 cur = Default::default();
             }
             EditConstraint::Empty => {}
@@ -256,7 +287,7 @@ pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> Structured
         match l {
             EditConstraint::Label(_)
             | EditConstraint::LabelWidth(_)
-            | EditConstraint::TitleLabel
+            | EditConstraint::TitleLabel(_)
             | EditConstraint::TitleLabelWidth(_)
             | EditConstraint::Widget(_)
             | EditConstraint::Empty
@@ -278,12 +309,12 @@ pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> Structured
             EditConstraint::Label(_)
             | EditConstraint::LabelWidth(_)
             | EditConstraint::LabelRows(_, _) => {
-                x += max_label + space;
+                x = widget_x;
             }
-            EditConstraint::TitleLabel
+            EditConstraint::TitleLabel(_)
             | EditConstraint::TitleLabelWidth(_)
             | EditConstraint::TitleLabelRows(_) => {
-                x = area.x;
+                x = label_x;
                 y += height;
                 rest_height -= height;
                 height = min(1, rest_height);
@@ -294,7 +325,7 @@ pub fn layout_edit(area: Rect, constraints: &[EditConstraint<'_>]) -> Structured
             | EditConstraint::EmptyRows(_)
             | EditConstraint::LineWidget(_)
             | EditConstraint::LineWidgetRows(_, _) => {
-                x = area.x;
+                x = label_x;
                 y += height;
                 rest_height -= height;
                 height = min(1, rest_height);

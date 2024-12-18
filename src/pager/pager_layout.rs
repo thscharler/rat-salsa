@@ -1,6 +1,7 @@
 use crate::layout::StructuredLayout;
 use crate::pager::AreaHandle;
 use ratatui::layout::Rect;
+use ratatui::text::Span;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -58,11 +59,21 @@ impl PagerLayout {
         self.core.borrow_mut().layout.add(area)
     }
 
+    /// Returns a Vec with all handles.
+    pub fn handles(&self) -> Vec<AreaHandle> {
+        self.core.borrow().layout.handles()
+    }
+
     /// Get the layout area for the given handle
-    pub fn layout_handle(&self, handle: AreaHandle) -> Box<[Rect]> {
+    pub fn layout_area(&self, handle: AreaHandle) -> Box<[Rect]> {
         self.core.borrow().layout[handle]
             .to_vec()
             .into_boxed_slice()
+    }
+
+    /// Get the label for the given handle.
+    pub fn label(&self, handle: AreaHandle) -> Option<Span<'static>> {
+        self.core.borrow().layout.label(handle)
     }
 
     /// Add a manual break after the given position.
@@ -104,23 +115,8 @@ impl PagerLayout {
         self.core.borrow().breaks.len()
     }
 
-    /// First area on the given page.
-    pub fn first_layout_area(&self, page: usize) -> Option<Box<[Rect]>> {
-        let core = self.core.borrow();
-
-        let brk = core.breaks[page];
-
-        let r = core
-            .layout
-            .chunked()
-            .find(|v| v.iter().find(|w| w.y >= brk).is_some())
-            .map(|v| v.to_vec().into_boxed_slice());
-
-        r
-    }
-
     /// First area-handle on the given page.
-    pub fn first_layout_handle(&self, page: usize) -> Option<AreaHandle> {
+    pub fn first_on_page(&self, page: usize) -> Option<AreaHandle> {
         let core = self.core.borrow();
 
         let brk = core.breaks[page];
@@ -210,6 +206,12 @@ impl PagerLayout {
         }
 
         (page_nr, res.into_boxed_slice())
+    }
+}
+
+impl From<StructuredLayout> for PagerLayout {
+    fn from(value: StructuredLayout) -> Self {
+        PagerLayout::with_layout(value)
     }
 }
 

@@ -1,5 +1,6 @@
 use crate::pager::AreaHandle;
 use ratatui::layout::{Position, Rect};
+use ratatui::text::Span;
 use std::cell::Cell;
 use std::ops::{Index, IndexMut};
 
@@ -73,6 +74,8 @@ pub struct StructuredLayout {
     stride: usize,
     // list of areas
     areas: Vec<Rect>,
+    // list of labels
+    labels: Vec<Option<Span<'static>>>,
     // manual breaks
     row_breaks: Vec<u16>,
 }
@@ -84,6 +87,7 @@ impl Default for StructuredLayout {
             bounds: Cell::new(None),
             stride: 1, // non standard
             areas: vec![],
+            labels: vec![],
             row_breaks: vec![],
         }
     }
@@ -127,7 +131,6 @@ impl StructuredLayout {
 
     /// Add the areas for one item.
     ///
-    /// You can refer
     /// Returns a handle to access the item later.
     /// You can always use a simple index too.
     pub fn add(&mut self, areay: &[Rect]) -> AreaHandle {
@@ -136,13 +139,45 @@ impl StructuredLayout {
         // invalidate
         self.bounds.set(None);
 
-        let h = AreaHandle(self.areas.len());
+        let h = AreaHandle(self.areas.len() / self.stride);
 
         for a in areay {
             self.areas.push(*a);
         }
 
         h
+    }
+
+    /// Add the areas for one item, plus an optional label.
+    ///
+    /// Returns a handle to access the item later.
+    /// You can always use a simple index too.
+    pub fn add_label(&mut self, label: Option<Span<'static>>, areas: &[Rect]) -> AreaHandle {
+        assert_eq!(self.stride, areas.len());
+
+        // invalidate
+        self.bounds.set(None);
+
+        let h = AreaHandle(self.areas.len() / self.stride);
+
+        for a in areas {
+            self.areas.push(*a);
+        }
+        while self.labels.len() < h.0 {
+            self.labels.push(None);
+        }
+        self.labels.push(label);
+
+        h
+    }
+
+    /// Returns a Vec with all handles.
+    pub fn handles(&self) -> Vec<AreaHandle> {
+        let mut r = Vec::new();
+        for i in 0..self.areas.len() / self.stride {
+            r.push(AreaHandle(i));
+        }
+        r
     }
 
     /// Add a manual break after the given position.
@@ -200,6 +235,15 @@ impl StructuredLayout {
         self.stride
     }
 
+    /// Return the label for the area if any.
+    pub fn label(&self, handle: AreaHandle) -> Option<Span<'static>> {
+        if handle.0 < self.labels.len() {
+            self.labels[handle.0].clone()
+        } else {
+            None
+        }
+    }
+
     /// All areas. If you want to access a specific item you
     /// must use the stride to calculate the offset.
     pub fn as_slice(&self) -> &[Rect] {
@@ -220,34 +264,6 @@ impl StructuredLayout {
     /// Iterator over all areas chunked by stride.
     pub fn chunked(&self) -> impl Iterator<Item = &[Rect]> {
         self.areas.chunks(self.stride)
-    }
-
-    /// Calculate the bounding box for all areas.
-    pub fn bounds(&self) -> Rect {
-        if let Some(bounds) = self.bounds.get() {
-            return bounds;
-        }
-
-        let mut bounds;
-        'fine: {
-            for v in &self.areas {
-                if !v.is_empty() {
-                    bounds = *v;
-                    break 'fine;
-                }
-            }
-            bounds = Rect::new(self.area.x, self.area.y, 0, 0);
-        }
-
-        for v in &self.areas {
-            if !v.is_empty() {
-                bounds = bounds.union(*v);
-            }
-        }
-
-        self.bounds.set(Some(bounds));
-
-        bounds
     }
 }
 

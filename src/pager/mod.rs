@@ -57,12 +57,12 @@
 //!       ///
 //!       for i in 0..100 {
 //!           // calculate an area
-//!           let v_area = pg_buf.layout().layout_handle(state.handles[i])[0];
+//!           let v_area = pg_buf.layout().layout_area(state.handles[i])[0];
 //!           let w_area = Rect::new(5, v_area.y, 5, 1);
-//!           pg_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
+//!           pg_buf.render_widget_area(Span::from(format!("{:?}:", i)), w_area);
 //!
 //!           // use the handle
-//!           pg_buf.render_stateful_handle(
+//!           pg_buf.render(
 //!               Checkbox::new()
 //!                   .text(format!("{:?}", state.handles[i]).to_string()),
 //!               state.handles[i],
