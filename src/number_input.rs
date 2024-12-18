@@ -125,13 +125,15 @@ impl<'a> StatefulWidget for NumberInput<'a> {
 
 impl Default for NumberInputState {
     fn default() -> Self {
-        Self {
+        let mut s = Self {
             widget: Default::default(),
-            pattern: "#####".to_string(),
+            pattern: "".to_string(),
             locale: Default::default(),
-            format: NumberFormat::new("#####").expect("valid_pattern"),
+            format: Default::default(),
             non_exhaustive: NonExhaustive,
-        }
+        };
+        _ = s.set_format("#####");
+        s
     }
 }
 
