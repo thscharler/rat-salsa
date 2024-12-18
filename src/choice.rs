@@ -418,23 +418,27 @@ fn render_choice(widget: &ChoiceWidget<'_>, area: Rect, buf: &mut Buffer, state:
     );
     state.button_area = Rect::new(inner.right().saturating_sub(3), inner.y, 3, inner.height);
 
-    let button_style = widget.button_style.unwrap_or(widget.style);
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
 
-    widget.block.render(area, buf);
-
-    if state.is_focused() {
-        buf.set_style(state.item_area, focus_style);
+    if widget.block.is_some() {
+        widget.block.render(area, buf);
     } else {
-        buf.set_style(state.item_area, widget.style);
+        if state.is_focused() {
+            buf.set_style(inner, focus_style);
+        } else {
+            buf.set_style(inner, widget.style);
+            if let Some(button_style) = widget.button_style {
+                buf.set_style(state.button_area, button_style);
+            }
+        }
     }
+
     if let Some(selected) = state.selected {
         if let Some(item) = widget.items.borrow().get(selected) {
             item.render(state.item_area, buf);
         }
     }
 
-    buf.set_style(state.button_area, button_style);
     let dy = if (state.button_area.height & 1) == 1 {
         state.button_area.height / 2
     } else {
