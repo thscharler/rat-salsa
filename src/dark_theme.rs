@@ -321,8 +321,8 @@ impl DarkTheme {
     pub fn choice_style(&self) -> ChoiceStyle {
         ChoiceStyle {
             style: self.text_input(),
-            select: Some(self.select()),
-            focus: Some(self.focus()),
+            select: Some(self.text_focus()),
+            focus: Some(self.text_focus()),
             popup: PopupStyle {
                 style: self.dialog_base(),
                 scroll: Some(self.dialog_scroll_style()),
@@ -337,7 +337,7 @@ impl DarkTheme {
         RadioStyle {
             layout: Some(RadioLayout::Stacked),
             style: self.text_input(),
-            focus: Some(self.focus()),
+            focus: Some(self.text_focus()),
             ..Default::default()
         }
     }
@@ -346,7 +346,7 @@ impl DarkTheme {
     pub fn checkbox_style(&self) -> CheckboxStyle {
         CheckboxStyle {
             style: self.text_input(),
-            focus: Some(self.focus()),
+            focus: Some(self.text_focus()),
             ..Default::default()
         }
     }
