@@ -4,9 +4,8 @@
 
 use crate::layout::LabelWidget::{EditLabel, EditWidget};
 use crate::layout::StructuredLayout;
-use log::debug;
 use ratatui::layout::{Flex, Rect};
-use ratatui::text::Span;
+use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::ops::{Index, IndexMut};
 
@@ -50,13 +49,13 @@ impl IndexMut<LabelWidget> for [Rect] {
 #[derive(Debug)]
 pub enum EditConstraint {
     /// Label by sample
-    Label(Span<'static>),
+    Label(Cow<'static, str>),
     /// Label by width. (cols)
     LabelWidth(u16),
     /// Label by height+width. ( cols, rows).
     LabelRows(u16, u16),
     /// Label occupying the full row.
-    TitleLabel(Span<'static>),
+    TitleLabel(Cow<'static, str>),
     /// Label occupying the full row, but rendering only part of it. (cols)
     TitleLabelWidth(u16),
     /// Label occupying multiple full rows. (rows)
@@ -97,7 +96,7 @@ pub fn layout_edit(
     // find max
     for l in constraints.iter() {
         match l {
-            EditConstraint::Label(s) => max_label = max(max_label, s.width() as u16),
+            EditConstraint::Label(s) => max_label = max(max_label, s.len() as u16),
             EditConstraint::LabelWidth(w) => max_label = max(max_label, *w),
             EditConstraint::LabelRows(w, _) => max_label = max(max_label, *w),
             EditConstraint::TitleLabel(_) => {}
@@ -160,8 +159,8 @@ pub fn layout_edit(
         }
     }
 
-    let mut label_x = 0;
-    let mut widget_x = 0;
+    let label_x;
+    let widget_x;
 
     match flex {
         Flex::Start | Flex::Legacy => {
@@ -233,7 +232,7 @@ pub fn layout_edit(
         match l {
             EditConstraint::Label(s) => {
                 cur[EditLabel] =
-                    Rect::new(x, y, min(s.width() as u16, max_label), min(1, rest_height));
+                    Rect::new(x, y, min(s.len() as u16, max_label), min(1, rest_height));
                 label = Some(s);
             }
             EditConstraint::LabelWidth(w) => {

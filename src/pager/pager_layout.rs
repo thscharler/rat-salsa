@@ -1,7 +1,7 @@
 use crate::layout::StructuredLayout;
 use crate::pager::AreaHandle;
 use ratatui::layout::Rect;
-use ratatui::text::Span;
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::rc::Rc;
 
@@ -72,7 +72,7 @@ impl PagerLayout {
     }
 
     /// Get the label for the given handle.
-    pub fn label(&self, handle: AreaHandle) -> Option<Span<'static>> {
+    pub fn label(&self, handle: AreaHandle) -> Option<Cow<'static, str>> {
         self.core.borrow().layout.label(handle)
     }
 

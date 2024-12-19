@@ -10,6 +10,7 @@ use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
 use ratatui::prelude::{Span, StatefulWidget, Style};
+use ratatui::style::Stylize;
 use ratatui::widgets::{Block, Borders, Widget};
 use std::ops::Index;
 
@@ -24,6 +25,7 @@ pub struct SinglePager<'a> {
 
     block: Option<Block<'a>>,
     style: Style,
+    label_style: Option<Style>,
     nav_style: Option<Style>,
     title_style: Option<Style>,
 }
@@ -46,6 +48,7 @@ pub struct SinglePagerBuffer<'a> {
     widget_area: Rect,
 
     style: Style,
+    label_style: Option<Style>,
     nav_style: Option<Style>,
 }
 
@@ -140,6 +143,9 @@ impl<'a> SinglePager<'a> {
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
         self.style = styles.style;
+        if let Some(label) = styles.label_style {
+            self.label_style = Some(label);
+        }
         if let Some(nav) = styles.nav {
             self.nav_style = Some(nav);
         }
@@ -224,6 +230,7 @@ impl<'a> SinglePager<'a> {
             buffer: buf,
             widget_area: state.widget_area,
             style: self.style,
+            label_style: self.label_style,
             nav_style: self.nav_style,
         }
     }
@@ -265,7 +272,15 @@ impl<'a> SinglePagerBuffer<'a> {
     pub fn render_label(&mut self, area: AreaHandle) {
         if let Some(buffer_areas) = self.locate(area) {
             if let Some(label) = self.layout.label(area) {
-                label.render(buffer_areas[0], self.buffer);
+                let style = self.label_style.unwrap_or(self.style);
+                Span::from(label)
+                    .style(style)
+                    .render(buffer_areas[0], self.buffer);
+            } else {
+                Span::from("xxxx")
+                    .white()
+                    .on_red()
+                    .render(buffer_areas[0], self.buffer);
             }
         }
     }

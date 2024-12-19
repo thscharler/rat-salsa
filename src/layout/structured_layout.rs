@@ -1,6 +1,6 @@
 use crate::pager::AreaHandle;
 use ratatui::layout::{Position, Rect};
-use ratatui::text::Span;
+use std::borrow::Cow;
 use std::cell::Cell;
 use std::ops::{Index, IndexMut};
 
@@ -75,7 +75,7 @@ pub struct StructuredLayout {
     // list of areas
     areas: Vec<Rect>,
     // list of labels
-    labels: Vec<Option<Span<'static>>>,
+    labels: Vec<Option<Cow<'static, str>>>,
     // manual breaks
     row_breaks: Vec<u16>,
 }
@@ -152,7 +152,7 @@ impl StructuredLayout {
     ///
     /// Returns a handle to access the item later.
     /// You can always use a simple index too.
-    pub fn add_label(&mut self, label: Option<Span<'static>>, areas: &[Rect]) -> AreaHandle {
+    pub fn add_label(&mut self, label: Option<Cow<'static, str>>, areas: &[Rect]) -> AreaHandle {
         assert_eq!(self.stride, areas.len());
 
         // invalidate
@@ -236,7 +236,7 @@ impl StructuredLayout {
     }
 
     /// Return the label for the area if any.
-    pub fn label(&self, handle: AreaHandle) -> Option<Span<'static>> {
+    pub fn label(&self, handle: AreaHandle) -> Option<Cow<'static, str>> {
         if handle.0 < self.labels.len() {
             self.labels[handle.0].clone()
         } else {
