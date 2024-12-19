@@ -73,22 +73,22 @@ fn repaint_input(
 
     let (w, p1) = Choice::new()
         .styles(THEME.choice_style())
-        .item("Carrots 🥕")
-        .item("Potatoes 🥔")
-        .item("Onions 🧅")
-        .item("Peas")
-        .item("Beans")
-        .item(Line::from_iter([
+        .auto_item("Carrots 🥕")
+        .auto_item("Potatoes 🥔")
+        .auto_item("Onions 🧅")
+        .auto_item("Peas")
+        .auto_item("Beans")
+        .auto_item(Line::from_iter([
             Span::from("T").red(),
             Span::from("omatoes 🍅"),
         ]))
-        .item(Line::from_iter([
+        .auto_item(Line::from_iter([
             Span::from("Aubergines "),
             Span::from("🍆"),
         ]))
-        .item("Chili")
-        .item("Äpfel 🍎")
-        .item("...")
+        .auto_item("Chili")
+        .auto_item("Äpfel 🍎")
+        .auto_item("...")
         .default_settable()
         .popup_boundary(l1[0])
         .into_widgets();
@@ -96,9 +96,9 @@ fn repaint_input(
 
     let (w, p2) = Choice::new()
         .styles(THEME.choice_style())
-        .item("wine")
-        .item("beer")
-        .item("water")
+        .auto_item("wine")
+        .auto_item("beer")
+        .auto_item("water")
         .default_settable()
         .popup_boundary(l1[0])
         .into_widgets();
@@ -106,9 +106,9 @@ fn repaint_input(
 
     let (w, p3) = Choice::new()
         .styles(THEME.choice_style())
-        .item("red")
-        .item("blue")
-        .item("green")
+        .auto_item("red")
+        .auto_item("blue")
+        .auto_item("green")
         .block(Block::bordered().border_type(BorderType::Rounded))
         .popup_block(Block::bordered().border_type(BorderType::Rounded))
         .popup_boundary(l1[0])

@@ -27,13 +27,17 @@ pub enum RadioLayout {
 
 /// Horizontally aligned radio buttons.
 #[derive(Debug, Clone)]
-pub struct Radio<'a> {
+pub struct Radio<'a, T>
+where
+    T: PartialEq,
+{
+    keys: Vec<T>,
     items: Vec<Text<'a>>,
     direction: Direction,
     layout: RadioLayout,
 
     // Can return to default with a user interaction.
-    default_settable: bool,
+    default_key: Option<T>,
 
     true_str: Span<'a>,
     false_str: Span<'a>,
@@ -72,7 +76,10 @@ pub struct RadioStyle {
 
 /// State
 #[derive(Debug, Clone)]
-pub struct RadioState {
+pub struct RadioState<T = usize>
+where
+    T: PartialEq,
+{
     /// Complete area
     /// __read only__. renewed for each render.
     pub area: Rect,
@@ -93,12 +100,15 @@ pub struct RadioState {
     /// Area for the texts.
     /// __read only__. renewed for each render.
     pub text_areas: Vec<Rect>,
+    /// Keys.
+    /// __read only__. renewed for each render.
+    pub keys: Vec<T>,
 
     /// Can return to default with a user interaction.
-    pub default_settable: bool,
+    pub default_key: Option<T>,
 
     /// Selected state.
-    pub selected: Option<usize>,
+    pub selected: usize,
 
     /// Current focus state.
     /// __read+write__
@@ -127,13 +137,14 @@ impl Default for RadioStyle {
     }
 }
 
-impl<'a> Default for Radio<'a> {
+impl<'a, T: PartialEq> Default for Radio<'a, T> {
     fn default() -> Self {
         Self {
+            keys: Default::default(),
             items: Default::default(),
             direction: Default::default(),
             layout: Default::default(),
-            default_settable: false,
+            default_key: None,
             true_str: Span::from("\u{2B24}"),
             false_str: Span::from("\u{25EF}"),
             continue_str: Span::from("...").on_yellow(),
@@ -145,7 +156,36 @@ impl<'a> Default for Radio<'a> {
     }
 }
 
-impl<'a> Radio<'a> {
+impl<'a> Radio<'a, usize> {
+    /// Add items with auto-generated keys.
+    #[inline]
+    pub fn auto_items<V: Into<Text<'a>>>(mut self, items: impl IntoIterator<Item = V>) -> Self {
+        {
+            self.keys.clear();
+            self.items.clear();
+
+            for (k, v) in items.into_iter().enumerate() {
+                self.keys.push(k);
+                self.items.push(v.into());
+            }
+        }
+
+        self
+    }
+
+    /// Add an item with an auto generated key.
+    pub fn auto_item(mut self, item: impl Into<Text<'a>>) -> Self {
+        let idx = self.keys.len();
+        self.keys.push(idx);
+        self.items.push(item.into());
+        self
+    }
+}
+
+impl<'a, T> Radio<'a, T>
+where
+    T: PartialEq,
+{
     /// New.
     pub fn new() -> Self {
         Self::default()
@@ -213,21 +253,30 @@ impl<'a> Radio<'a> {
 
     /// Button text.
     #[inline]
-    pub fn items(mut self, items: impl IntoIterator<Item = impl Into<Text<'a>>>) -> Self {
-        self.items = items.into_iter().map(|v| v.into()).collect();
+    pub fn items<V: Into<Text<'a>>>(mut self, items: impl IntoIterator<Item = (T, V)>) -> Self {
+        {
+            self.keys.clear();
+            self.items.clear();
+
+            for (k, v) in items.into_iter() {
+                self.keys.push(k);
+                self.items.push(v.into());
+            }
+        }
+
         self
     }
 
-    /// Button text.
-    #[inline]
-    pub fn item(mut self, text: impl Into<Text<'a>>) -> Self {
-        self.items.push(text.into());
+    /// Add an item.
+    pub fn item(mut self, key: T, item: impl Into<Text<'a>>) -> Self {
+        self.keys.push(key);
+        self.items.push(item.into());
         self
     }
 
-    /// Can return to default with some user interaction.
-    pub fn default_settable(mut self) -> Self {
-        self.default_settable = true;
+    /// Can return to default with user interaction.
+    pub fn default_key(mut self, default: T) -> Self {
+        self.default_key = Some(default);
         self
     }
 
@@ -271,7 +320,10 @@ impl<'a> Radio<'a> {
     }
 }
 
-impl<'a> Radio<'a> {
+impl<'a, T> Radio<'a, T>
+where
+    T: PartialEq,
+{
     /// Length of the check
     fn check_len(&self) -> u16 {
         max(
@@ -362,7 +414,7 @@ impl<'a> Radio<'a> {
         }
     }
 
-    fn horizontal_spaced_layout(&self, area: Rect, state: &mut RadioState) {
+    fn horizontal_spaced_layout(&self, area: Rect, state: &mut RadioState<T>) {
         state.inner = self.block.inner_if_some(area);
 
         let check_len = self.check_len();
@@ -426,7 +478,7 @@ impl<'a> Radio<'a> {
         }
     }
 
-    fn horizontal_stack_layout(&self, area: Rect, state: &mut RadioState) {
+    fn horizontal_stack_layout(&self, area: Rect, state: &mut RadioState<T>) {
         state.inner = self.block.inner_if_some(area);
 
         let check_len = self.check_len();
@@ -488,7 +540,7 @@ impl<'a> Radio<'a> {
         }
     }
 
-    fn vertical_spaced_layout(&self, area: Rect, state: &mut RadioState) {
+    fn vertical_spaced_layout(&self, area: Rect, state: &mut RadioState<T>) {
         state.inner = self.block.inner_if_some(area);
 
         let check_len = self.check_len();
@@ -547,7 +599,7 @@ impl<'a> Radio<'a> {
         }
     }
 
-    fn vertical_stack_layout(&self, area: Rect, state: &mut RadioState) {
+    fn vertical_stack_layout(&self, area: Rect, state: &mut RadioState<T>) {
         state.inner = self.block.inner_if_some(area);
 
         let check_len = self.check_len();
@@ -605,12 +657,16 @@ impl<'a> Radio<'a> {
     }
 }
 
-impl<'a> StatefulWidget for Radio<'a> {
-    type State = RadioState;
+impl<'a, T> StatefulWidget for Radio<'a, T>
+where
+    T: PartialEq,
+{
+    type State = RadioState<T>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
+        assert!(!self.items.is_empty());
+
         state.area = area;
-        state.default_settable = self.default_settable;
 
         match (self.direction, self.layout) {
             (Direction::Horizontal, RadioLayout::Stacked) => {
@@ -626,6 +682,9 @@ impl<'a> StatefulWidget for Radio<'a> {
                 self.vertical_spaced_layout(area, state);
             }
         }
+
+        state.keys = self.keys;
+        state.default_key = self.default_key;
 
         let focus_style = if let Some(focus_style) = self.focus_style {
             focus_style
@@ -649,7 +708,7 @@ impl<'a> StatefulWidget for Radio<'a> {
         }
 
         for (i, item) in self.items.iter().enumerate() {
-            if Some(i) == state.selected {
+            if i == state.selected {
                 buf.set_style(
                     union_non_empty(state.check_areas[i], state.text_areas[i]),
                     if state.is_focused() {
@@ -672,7 +731,7 @@ impl<'a> StatefulWidget for Radio<'a> {
     }
 }
 
-impl Default for RadioState {
+impl<T: PartialEq> Default for RadioState<T> {
     fn default() -> Self {
         Self {
             area: Default::default(),
@@ -681,16 +740,17 @@ impl Default for RadioState {
             continue_area: Default::default(),
             check_areas: vec![],
             text_areas: vec![],
-            default_settable: false,
-            selected: None,
+            keys: vec![],
+            selected: 0,
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
+            default_key: None,
         }
     }
 }
 
-impl HasFocus for RadioState {
+impl<T: PartialEq> HasFocus for RadioState<T> {
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }
@@ -700,7 +760,7 @@ impl HasFocus for RadioState {
     }
 }
 
-impl RelocatableState for RadioState {
+impl<T: PartialEq> RelocatableState for RadioState<T> {
     fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
         self.area = relocate_area(self.area, shift, clip);
         self.inner = relocate_area(self.inner, shift, clip);
@@ -709,7 +769,10 @@ impl RelocatableState for RadioState {
     }
 }
 
-impl RadioState {
+impl<T> RadioState<T>
+where
+    T: PartialEq,
+{
     pub fn new() -> Self {
         Self::default()
     }
@@ -729,29 +792,58 @@ impl RadioState {
         self.text_areas.len()
     }
 
-    pub fn selected(&self) -> Option<usize> {
+    pub fn selected(&self) -> usize {
         self.selected
     }
 
-    pub fn select(&mut self, select: Option<usize>) -> bool {
+    pub fn select(&mut self, select: usize) -> bool {
         let old_sel = self.selected;
         self.selected = select;
         old_sel != self.selected
     }
 
+    /// Set the default value.
+    pub fn set_default_value(&mut self) -> bool {
+        if let Some(default_key) = &self.default_key {
+            for (i, k) in self.keys.iter().enumerate() {
+                if default_key == k {
+                    self.selected = i;
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    /// Select the given value.
+    pub fn set_value(&mut self, key: &T) -> bool
+    where
+        T: PartialEq,
+    {
+        for (i, k) in self.keys.iter().enumerate() {
+            if key == k {
+                self.selected = i;
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Get the selected value or None if no value
+    /// is selected or there are no options.
+    pub fn value(&self) -> &T {
+        &self.keys[self.selected]
+    }
+
     pub fn next(&mut self) -> bool {
         let old_sel = self.selected;
 
-        self.selected = if let Some(selected) = self.selected {
-            if self.text_areas.len() == 0 {
-                None
-            } else if selected + 1 >= self.text_areas.len() {
-                Some(0)
-            } else {
-                Some(selected + 1)
-            }
+        self.selected = if self.text_areas.len() == 0 {
+            0
+        } else if self.selected + 1 >= self.text_areas.len() {
+            0
         } else {
-            Some(0)
+            self.selected + 1
         };
 
         old_sel != self.selected
@@ -760,23 +852,19 @@ impl RadioState {
     pub fn prev(&mut self) -> bool {
         let old_sel = self.selected;
 
-        self.selected = if let Some(selected) = self.selected {
-            if self.text_areas.len() == 0 {
-                None
-            } else if selected == 0 {
-                Some(self.text_areas.len() - 1)
-            } else {
-                Some(selected - 1)
-            }
+        self.selected = if self.text_areas.len() == 0 {
+            0
+        } else if self.selected == 0 {
+            self.text_areas.len() - 1
         } else {
-            Some(self.text_areas.len() - 1)
+            self.selected - 1
         };
 
         old_sel != self.selected
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for RadioState {
+impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for RadioState<T> {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
         let r = if self.is_focused() {
             match event {
@@ -784,17 +872,17 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for RadioState {
                 ct_event!(keycode press Right) => self.next().into(),
                 ct_event!(keycode press Up) => self.prev().into(),
                 ct_event!(keycode press Down) => self.next().into(),
-                ct_event!(keycode press Home) => self.select(Some(0)).into(),
+                ct_event!(keycode press Home) => self.select(0).into(),
                 ct_event!(keycode press End) => {
                     if !self.is_empty() {
-                        self.select(Some(self.len() - 1)).into()
+                        self.select(self.len() - 1).into()
                     } else {
                         Outcome::Unchanged
                     }
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
-                    if self.default_settable {
-                        self.select(None);
+                    if self.default_key.is_some() {
+                        self.set_default_value();
                         Outcome::Changed
                     } else {
                         Outcome::Continue
@@ -814,14 +902,14 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for RadioState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RadioState {
+impl<T: PartialEq> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RadioState<T> {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.area, m) => {
                 if let Some(sel) = item_at(self.text_areas.as_slice(), m.column, m.row)
                     .or_else(|| item_at(self.check_areas.as_slice(), m.column, m.row))
                 {
-                    self.select(Some(sel)).into()
+                    self.select(sel).into()
                 } else {
                     Outcome::Unchanged
                 }
@@ -830,7 +918,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RadioState {
                 if let Some(sel) = item_at(self.text_areas.as_slice(), *x, *y)
                     .or_else(|| item_at(self.check_areas.as_slice(), *x, *y))
                 {
-                    self.select(Some(sel)).into()
+                    self.select(sel).into()
                 } else {
                     Outcome::Unchanged
                 }
@@ -843,8 +931,8 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for RadioState {
 /// Handle all events.
 /// Text events are only processed if focus is true.
 /// Mouse events are processed if they are in range.
-pub fn handle_events(
-    state: &mut RadioState,
+pub fn handle_events<T: PartialEq>(
+    state: &mut RadioState<T>,
     focus: bool,
     event: &crossterm::event::Event,
 ) -> Outcome {
@@ -853,6 +941,9 @@ pub fn handle_events(
 }
 
 /// Handle only mouse-events.
-pub fn handle_mouse_events(state: &mut RadioState, event: &crossterm::event::Event) -> Outcome {
+pub fn handle_mouse_events<T: PartialEq>(
+    state: &mut RadioState<T>,
+    event: &crossterm::event::Event,
+) -> Outcome {
     HandleEvent::handle(state, event, MouseOnly)
 }
