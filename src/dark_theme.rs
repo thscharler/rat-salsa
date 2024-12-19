@@ -25,7 +25,8 @@ use rat_widget::table::TableStyle;
 use rat_widget::text::TextStyle;
 use rat_widget::view::ViewStyle;
 use ratatui::prelude::{Style, Stylize};
-use ratatui::widgets::Block;
+use ratatui::style::Color;
+use ratatui::widgets::{Block, Borders};
 use std::time::Duration;
 
 /// One sample theme which prefers dark colors from the color-scheme
@@ -61,6 +62,11 @@ impl DarkTheme {
     /// The underlying scheme.
     pub fn scheme(&self) -> &Scheme {
         &self.s
+    }
+
+    /// Create a style from a background color
+    pub fn style(&self, bg: Color) -> Style {
+        self.s.style(bg)
     }
 
     /// Create a style from the given white shade.
@@ -207,6 +213,11 @@ impl DarkTheme {
         Style::default().fg(self.s.gray[0]).bg(self.s.black[1])
     }
 
+    /// Label text inside container.
+    pub fn container_label(&self) -> Style {
+        self.s.style(self.s.black[1])
+    }
+
     /// Container arrows
     pub fn container_arrow(&self) -> Style {
         Style::default().fg(self.s.secondary[0]).bg(self.s.black[1])
@@ -326,7 +337,11 @@ impl DarkTheme {
             popup: PopupStyle {
                 style: self.dialog_base(),
                 scroll: Some(self.dialog_scroll_style()),
-                block: Some(Block::bordered().border_style(self.dialog_base())),
+                block: Some(
+                    Block::bordered()
+                        .borders(Borders::LEFT)
+                        .border_style(self.dialog_base()),
+                ),
                 ..Default::default()
             },
             ..Default::default()
@@ -506,6 +521,7 @@ impl DarkTheme {
     pub fn pager_style(&self) -> PagerStyle {
         PagerStyle {
             style: self.container(),
+            label_style: Some(self.container_label()),
             nav: Some(self.container_arrow()),
             divider: Some(self.container()),
             block: Some(Block::bordered().border_style(self.container())),
