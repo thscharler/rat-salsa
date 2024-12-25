@@ -151,14 +151,9 @@ fn repaint_input(
         let et = SystemTime::now();
         state.layout = Rc::new(form_layout.layout(layout_size, Padding::default()));
         debug!("layout {:?}", et.elapsed()?);
-        debug!(
-            "page_count {}/{}",
-            state.layout.page_count,
-            (state.layout.page_count + 1) / 2
-        );
         state
             .page_nav
-            .set_page_count((state.layout.page_count + 1) / 2);
+            .set_page_count((state.layout.page_count() + 1) / 2);
     }
 
     // Render navigation

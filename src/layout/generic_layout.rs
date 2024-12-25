@@ -24,28 +24,28 @@ where
     C: Eq,
 {
     /// Reference area.
-    pub area: Rect,
+    area: Rect,
 
     /// Page size.
-    pub page_size: Size,
+    page_size: Size,
     /// Pages.
-    pub page_count: usize,
+    page_count: usize,
 
     /// Widget keys.
-    pub widgets: Vec<W>,
+    widgets: Vec<W>,
     /// Widget areas.
-    pub areas: Vec<Rect>,
+    areas: Vec<Rect>,
     /// Widget labels.
-    pub labels: Vec<Option<Cow<'static, str>>>,
+    labels: Vec<Option<Cow<'static, str>>>,
     /// Label areas.
-    pub label_areas: Vec<Rect>,
+    label_areas: Vec<Rect>,
 
     /// Container keys.
-    pub containers: Vec<C>,
+    containers: Vec<C>,
     /// Container areas.
-    pub container_areas: Vec<Rect>,
+    container_areas: Vec<Rect>,
     /// Container blocks.
-    pub container_blocks: Vec<Option<Block<'static>>>,
+    container_blocks: Vec<Option<Block<'static>>>,
 }
 
 impl<W, C> Default for GenericLayout<W, C>
@@ -181,11 +181,83 @@ where
         Some((self.areas[idx].y / self.page_size.height) as usize)
     }
 
+    /// Number of widgets/labels.
+    #[inline]
+    pub fn widget_len(&self) -> usize {
+        self.widgets.len()
+    }
+
     /// Returns the index for this widget.
     pub fn widget_idx(&self, widget: &W) -> Option<usize> {
         self.widgets
             .iter()
             .enumerate()
             .find_map(|(idx, w)| if w == widget { Some(idx) } else { None })
+    }
+
+    /// Access widget key.
+    #[inline]
+    pub fn widget_key(&self, idx: usize) -> &W {
+        &self.widgets[idx]
+    }
+
+    /// Access widget keys
+    #[inline]
+    pub fn widget_keys(&self) -> impl Iterator<Item = &W> {
+        self.widgets.iter()
+    }
+
+    /// Access label area.
+    #[inline]
+    pub fn label(&self, idx: usize) -> Rect {
+        self.label_areas[idx]
+    }
+
+    /// Access widget area.
+    #[inline]
+    pub fn widget(&self, idx: usize) -> Rect {
+        self.areas[idx]
+    }
+
+    /// Access labels.
+    #[inline]
+    pub fn label_str(&self, idx: usize) -> &Option<Cow<'static, str>> {
+        &self.labels[idx]
+    }
+
+    /// Container count.
+    #[inline]
+    pub fn container_len(&self) -> usize {
+        self.containers.len()
+    }
+
+    /// Access container key.
+    #[inline]
+    pub fn container_key(&self, idx: usize) -> &C {
+        &self.containers[idx]
+    }
+
+    /// Access container keys.
+    #[inline]
+    pub fn container_keys(&self) -> impl Iterator<Item = &C> {
+        self.containers.iter()
+    }
+
+    /// Access container area.
+    #[inline]
+    pub fn container(&self, idx: usize) -> Rect {
+        self.container_areas[idx]
+    }
+
+    /// Iterate container areas.
+    #[inline]
+    pub fn containers(&self) -> impl Iterator<Item = &Rect> {
+        self.container_areas.iter()
+    }
+
+    /// Accesss container block.
+    #[inline]
+    pub fn container_block(&self, idx: usize) -> &Option<Block<'static>> {
+        &self.container_blocks[idx]
     }
 }

@@ -107,7 +107,7 @@ where
         let Some(idx) = self.layout.widget_idx(widget) else {
             return false;
         };
-        self.page_area.intersects(self.layout.areas[idx])
+        self.page_area.intersects(self.layout.widget(idx))
     }
 
     /// Render a manual label.
@@ -120,7 +120,7 @@ where
         let Some(idx) = self.layout.widget_idx(widget) else {
             return false;
         };
-        let Some(label_area) = self.locate_area(self.layout.label_areas[idx]) else {
+        let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
             return false;
         };
 
@@ -138,7 +138,7 @@ where
         let Some(idx) = self.layout.widget_idx(widget) else {
             return false;
         };
-        let Some(widget_area) = self.locate_area(self.layout.areas[idx]) else {
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             return false;
         };
 
@@ -157,7 +157,7 @@ where
         let Some(idx) = self.layout.widget_idx(widget) else {
             return false;
         };
-        let Some(widget_area) = self.locate_area(self.layout.areas[idx]) else {
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             return false;
         };
 
@@ -168,8 +168,8 @@ where
     }
 
     fn render_auto_label(&mut self, idx: usize) {
-        if let Some(label) = &self.layout.labels[idx] {
-            if let Some(label_area) = self.locate_area(self.layout.label_areas[idx]) {
+        if let Some(label) = &self.layout.label_str(idx) {
+            if let Some(label_area) = self.locate_area(self.layout.label(idx)) {
                 let style = self.label_style.unwrap_or_default();
                 Span::from(label.as_ref())
                     .style(style)
@@ -180,9 +180,9 @@ where
 
     /// Render all containers for the current page.
     pub fn render_container(&mut self) {
-        for (idx, container_area) in self.layout.container_areas.iter().enumerate() {
+        for (idx, container_area) in self.layout.containers().enumerate() {
             if let Some(container_area) = self.locate_area(*container_area) {
-                (&self.layout.container_blocks[idx]).render(container_area, self.buffer);
+                (&self.layout.container_block(idx)).render(container_area, self.buffer);
             }
         }
     }
@@ -194,7 +194,7 @@ where
         let Some(idx) = self.layout.widget_idx(widget) else {
             return None;
         };
-        self.locate_area(self.layout.areas[idx])
+        self.locate_area(self.layout.widget(idx))
     }
 
     /// Relocate the label area to screen coordinates.
@@ -204,7 +204,7 @@ where
         let Some(idx) = self.layout.widget_idx(widget) else {
             return None;
         };
-        self.locate_area(self.layout.label_areas[idx])
+        self.locate_area(self.layout.label(idx))
     }
 
     /// Relocate the container area to screen coordinates.
@@ -214,10 +214,10 @@ where
     /// returns the first visible part.
     /// This clips the area to page_area.
     pub fn locate_container(&self, container: &C) -> Option<Rect> {
-        for (idx, c) in self.layout.containers.iter().enumerate() {
+        for (idx, c) in self.layout.container_keys().enumerate() {
             if c == container {
-                if self.layout.container_areas[idx].intersects(self.page_area) {
-                    return self.locate_area(self.layout.container_areas[idx]);
+                if self.layout.container(idx).intersects(self.page_area) {
+                    return self.locate_area(self.layout.container(idx));
                 }
             }
         }

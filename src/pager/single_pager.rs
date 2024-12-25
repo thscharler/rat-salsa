@@ -121,7 +121,7 @@ where
         buf: &'a mut Buffer,
         state: &mut SinglePagerState<W, C>,
     ) -> SinglePagerBuffer<'a, W, C> {
-        state.nav.page_count = state.layout.page_count;
+        state.nav.page_count = state.layout.page_count();
 
         self.page_nav.render(area, buf, &mut state.nav);
 
