@@ -1,4 +1,4 @@
-use rat_widget::layout::{Label, LayoutForm, Widget};
+use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::layout::{Rect, Size};
 use ratatui::widgets::{Block, Padding};
 
@@ -6,12 +6,12 @@ use ratatui::widgets::{Block, Padding};
 fn test_break() {
     let mut layout = LayoutForm::<i32>::new();
 
-    layout.widget(1, Label::Width(5), Widget::Width(15));
-    layout.widget(2, Label::Width(5), Widget::Width(15));
-    layout.widget(3, Label::Width(5), Widget::Width(15));
-    layout.widget(4, Label::Width(5), Widget::Width(15));
-    layout.widget(5, Label::Width(5), Widget::Width(15));
-    layout.widget(6, Label::Width(5), Widget::Width(15));
+    layout.widget(1, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(2, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(3, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(4, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(5, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(6, FormLabel::Width(5), FormWidget::Width(15));
 
     let g = layout.layout(Size::new(10, 5), Padding::default());
 
@@ -22,13 +22,13 @@ fn test_break() {
 fn test_break2() {
     let mut layout = LayoutForm::<i32>::new();
 
-    layout.widget(1, Label::Width(5), Widget::Width(15));
-    layout.widget(2, Label::Width(5), Widget::Width(15));
-    layout.widget(3, Label::Width(5), Widget::Width(15));
-    layout.widget(4, Label::Width(5), Widget::Width(15));
-    layout.widget(5, Label::Width(5), Widget::Width(15));
-    layout.widget(6, Label::Width(5), Widget::Width(15));
-    layout.widget(7, Label::Width(5), Widget::Width(15));
+    layout.widget(1, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(2, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(3, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(4, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(5, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(6, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(7, FormLabel::Width(5), FormWidget::Width(15));
 
     let g = layout.layout(Size::new(10, 5), Padding::new(0, 0, 1, 1));
 
@@ -40,13 +40,13 @@ fn test_break2() {
 fn test_break3() {
     let mut layout = LayoutForm::<i32>::new();
 
-    layout.widget(1, Label::Width(5), Widget::Width(15));
-    layout.widget(2, Label::Size(5, 3), Widget::Width(15));
-    layout.widget(3, Label::Width(5), Widget::Width(15));
-    layout.widget(4, Label::Width(5), Widget::Width(15));
-    layout.widget(5, Label::Width(5), Widget::Width(15));
-    layout.widget(6, Label::Width(5), Widget::Width(15));
-    layout.widget(7, Label::Width(5), Widget::Width(15));
+    layout.widget(1, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(2, FormLabel::Size(5, 3), FormWidget::Width(15));
+    layout.widget(3, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(4, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(5, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(6, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(7, FormLabel::Width(5), FormWidget::Width(15));
 
     let g = layout.layout(Size::new(10, 5), Padding::new(0, 0, 1, 1));
 
@@ -64,13 +64,13 @@ fn test_break4() {
     let mut layout = LayoutForm::<i32>::new();
 
     layout.start((), Some(Block::bordered()));
-    layout.widget(1, Label::Width(5), Widget::Width(15));
-    layout.widget(2, Label::Width(5), Widget::Width(15));
-    layout.widget(3, Label::Width(5), Widget::Width(15));
-    layout.widget(4, Label::Width(5), Widget::Width(15));
-    layout.widget(5, Label::Width(5), Widget::Width(15));
-    layout.widget(6, Label::Width(5), Widget::Width(15));
-    layout.widget(7, Label::Width(5), Widget::Width(15));
+    layout.widget(1, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(2, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(3, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(4, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(5, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(6, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(7, FormLabel::Width(5), FormWidget::Width(15));
     layout.end(());
 
     let g = layout.layout(Size::new(10, 5), Padding::new(0, 0, 1, 1));
@@ -84,14 +84,14 @@ fn test_break5() {
 
     layout.start((), Some(Block::bordered()));
     layout.start((), Some(Block::bordered()));
-    layout.widget(1, Label::Width(5), Widget::Width(15));
-    layout.widget(2, Label::Width(5), Widget::Width(15));
+    layout.widget(1, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(2, FormLabel::Width(5), FormWidget::Width(15));
     layout.end(());
-    layout.widget(3, Label::Width(5), Widget::Width(15));
-    layout.widget(4, Label::Width(5), Widget::Width(15));
-    layout.widget(5, Label::Width(5), Widget::Width(15));
-    layout.widget(6, Label::Width(5), Widget::Width(15));
-    layout.widget(7, Label::Width(5), Widget::Width(15));
+    layout.widget(3, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(4, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(5, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(6, FormLabel::Width(5), FormWidget::Width(15));
+    layout.widget(7, FormLabel::Width(5), FormWidget::Width(15));
     layout.end(());
 
     let g = layout.layout(Size::new(10, 14), Padding::new(0, 0, 1, 1));

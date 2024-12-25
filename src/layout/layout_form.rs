@@ -8,37 +8,90 @@ use std::fmt::Debug;
 use std::ops::Range;
 
 /// Label constraints.
+///
+/// Any given widths and heights will be reduced if there is not enough space.
 #[derive(Debug, Clone)]
-pub enum Label {
-    /// No label. Widget fills the space.
+pub enum FormLabel {
+    /// No label, just the widget.
     None,
-    /// Label by sample
+    /// Label by example.
+    /// Line breaks in the text don't work.
+    ///
+    /// Will create a label area with the max width of all labels and a height of 1.
+    /// The area will be top aligned with the widget.
     Str(Cow<'static, str>),
     /// Label by width. (cols).
+    ///
+    /// Will create a label area with the max width of all labels and a height of 1.
+    /// The area will be top aligned with the widget.
     Width(u16),
-    /// Label by height+width. ( cols, rows).
+    /// Label by height+width. (cols, rows).
+    ///
+    /// Will create a label area with the max width of all labels and a height of rows.
+    /// The area will be top aligned with the widget.
     Size(u16, u16),
-    /// Fill the total width of labels+widget. (rows).
+    /// Fill the total width of labels+widget.
+    /// The widget will be rendered below the label.
+    ///
+    /// The label text will be stored in the resulting
+    /// layout and can be used for rendering later.
     FullWidthStr(Cow<'static, str>),
     /// Fill the total width of labels+widget. (rows).
+    /// The widget will be rendered below the label.
     FullWidth(u16),
 }
 
 /// Widget constraints.
+///
+/// Any given widths and heights will be reduced if there is not enough space.
 #[derive(Debug, Clone)]
-pub enum Widget {
+pub enum FormWidget {
     /// No widget, just a label.
     None,
     /// Widget aligned with the label. (cols)
+    ///
+    /// Will create an area with the given width and height 1.
+    /// The area will be top aligned with the label.
     Width(u16),
     /// Widget aligned with the label. (cols, rows)
+    ///
+    /// Will create an area with the given width and height.
+    /// The area will be top aligned with the label.
     Size(u16, u16),
+
     /// Fill the total width of labels+widget. (rows).
+    /// Use FormLabel::FullWidth if you want a label above the widget.
+    ///
+    /// Will create an area with the full width of labels + widgets
+    /// and the given height.
     FullWidth(u16),
     // todo: fill height
 }
 
-/// Layout a single column of label/widget.
+/// Create a layout with a single column of label+widget.
+///
+/// There are a number of possible constraints that influence
+/// the exact layout: [FormLabel] and [FormWidget].
+///
+/// * This layout can page break the form, if there is not enough
+/// space on one page. This can be used with [SinglePager] and friends.
+///
+/// * Or it can generate an endless layout that will be used
+/// with scrolling logic like [Clipper].
+///
+/// * There is currently no functionality to shrink-fit the layout
+/// to a given page size.
+///
+/// The widgets can be grouped together and a [Block] can be set
+/// to highlight this grouping. Groups can cascade. Groups will
+/// be correctly broken by the page break logic. There is no
+/// special handling for orphans and widows.
+///
+/// Other features:
+/// * Spacing/Line spacing.
+/// * Supports Flex.
+/// * Manual page breaks.
+///
 #[derive(Debug, Clone)]
 pub struct LayoutForm<W, C = ()> {
     /// Column spacing.
@@ -48,7 +101,7 @@ pub struct LayoutForm<W, C = ()> {
     /// Flex
     flex: Flex,
     /// Areas
-    areas: Vec<(W, Label, Widget, (u16, u16))>,
+    areas: Vec<(W, FormLabel, FormWidget, (u16, u16))>,
     /// Page breaks.
     page_breaks: Vec<usize>,
 
@@ -96,25 +149,34 @@ where
         }
     }
 
+    /// Spacing between label and widget.
     #[inline]
     pub fn spacing(mut self, spacing: u16) -> Self {
         self.spacing = spacing;
         self
     }
 
+    /// Empty lines between widgets.
     #[inline]
     pub fn line_spacing(mut self, spacing: u16) -> Self {
         self.line_spacing = spacing;
         self
     }
 
+    /// Flex.
     #[inline]
     pub fn flex(mut self, flex: Flex) -> Self {
         self.flex = flex;
         self
     }
 
-    /// Start a container.
+    /// Start a container/block.
+    ///
+    /// This will create a block that covers all widgets added
+    /// before calling `end()`.
+    ///
+    /// The container identifier need not be unique. It
+    /// can be ignored completely by using `()`.
     pub fn start(&mut self, container: C, block: Option<Block<'static>>) {
         let max_idx = self.areas.len();
         let padding = block_padding(&block);
@@ -137,6 +199,17 @@ where
     }
 
     /// End a container.
+    ///
+    /// This will close the last container with the given
+    /// container id that has not been closed already.
+    ///
+    /// Containers must be ended in the reverse start order, otherwise
+    /// this function will panic.
+    /// It will also panic if there is no open container for
+    /// the given container id.
+    ///
+    /// This works fine with `()` too.
+    ///
     pub fn end(&mut self, container: C) {
         let max = self.areas.len();
         for (id, _, open, range, padding, _) in self.containers.iter_mut().rev() {
@@ -170,8 +243,9 @@ where
         }
     }
 
-    /// Add label + widget.
-    pub fn widget(&mut self, key: W, label: Label, widget: Widget) {
+    /// Add label + widget constraint.
+    /// Key must be a unique identifier.
+    pub fn widget(&mut self, key: W, label: FormLabel, widget: FormWidget) {
         self.areas
             .push((key, label, widget, (self.c_top, self.c_bottom)));
 
@@ -181,11 +255,10 @@ where
         self.c_top = 0;
     }
 
-    /// Add page break.
-    ///
-    /// Doesn't work before adding at least one widget.
+    /// Add a manual page break.
+    /// This will panic if the widget list is empty.
     pub fn page_break(&mut self) {
-        self.page_breaks.push(self.areas.len().saturating_sub(1));
+        self.page_breaks.push(self.areas.len() - 1);
     }
 
     // find maximum width for label, widget and spacing.
@@ -197,18 +270,18 @@ where
         // find max
         for (_, label, widget, _) in self.areas.iter() {
             match label {
-                Label::None => {}
-                Label::Str(s) => label_width = label_width.max(s.len() as u16),
-                Label::Width(w) => label_width = label_width.max(*w),
-                Label::Size(w, _) => label_width = label_width.max(*w),
-                Label::FullWidthStr(s) => label_width = label_width.max(s.len() as u16),
-                Label::FullWidth(_) => {}
+                FormLabel::None => {}
+                FormLabel::Str(s) => label_width = label_width.max(s.len() as u16),
+                FormLabel::Width(w) => label_width = label_width.max(*w),
+                FormLabel::Size(w, _) => label_width = label_width.max(*w),
+                FormLabel::FullWidthStr(s) => label_width = label_width.max(s.len() as u16),
+                FormLabel::FullWidth(_) => {}
             }
             match widget {
-                Widget::None => {}
-                Widget::Width(w) => widget_width = widget_width.max(*w),
-                Widget::Size(w, _) => widget_width = widget_width.max(*w),
-                Widget::FullWidth(_) => {}
+                FormWidget::None => {}
+                FormWidget::Width(w) => widget_width = widget_width.max(*w),
+                FormWidget::Size(w, _) => widget_width = widget_width.max(*w),
+                FormWidget::FullWidth(_) => {}
             }
         }
 
@@ -355,7 +428,7 @@ where
         )
     }
 
-    /// Create the layout.
+    /// Calculate the layout for the given page size and padding.
     pub fn layout(mut self, page: Size, border: Padding) -> GenericLayout<W, C> {
         self.validate_containers();
 
@@ -366,6 +439,7 @@ where
         let mut gen_layout =
             GenericLayout::with_capacity(self.areas.len(), self.containers.len() * 2);
         gen_layout.set_area(Rect::new(0, 0, page.width, page.height));
+        gen_layout.set_page_size(page);
 
         let mut page_no = 0u16;
         let mut page_y = page_no * page.height;
@@ -377,18 +451,18 @@ where
         for (idx, (key, label, widget, (c_top, c_bottom))) in self.areas.into_iter().enumerate() {
             // page break
             let brk_label_height = match label {
-                Label::None => 0,
-                Label::Str(_) => 1,
-                Label::Width(_) => 1,
-                Label::Size(_, h) => h,
-                Label::FullWidthStr(_) => 1,
-                Label::FullWidth(h) => h,
+                FormLabel::None => 0,
+                FormLabel::Str(_) => 1,
+                FormLabel::Width(_) => 1,
+                FormLabel::Size(_, h) => h,
+                FormLabel::FullWidthStr(_) => 1,
+                FormLabel::FullWidth(h) => h,
             };
             let brk_widget_height = match widget {
-                Widget::None => 0,
-                Widget::Width(_) => 1,
-                Widget::Size(_, h) => h,
-                Widget::FullWidth(h) => h,
+                FormWidget::None => 0,
+                FormWidget::Width(_) => 1,
+                FormWidget::Size(_, h) => h,
+                FormWidget::FullWidth(h) => h,
             };
 
             let page_break_widget =
@@ -448,44 +522,44 @@ where
             // get area + advance label
             // labels fill the available space.
             let label_size = match label {
-                Label::None => (0, 0),
-                Label::Str(_) => (label_width, min(1, max_height)),
-                Label::Width(_) => (label_width, min(1, max_height)),
-                Label::Size(_, h) => (label_width, min(h, max_height)),
-                Label::FullWidthStr(_) => (label_width, min(1, max_height)),
-                Label::FullWidth(h) => (total_width, min(h, max_height)),
+                FormLabel::None => (0, 0),
+                FormLabel::Str(_) => (label_width, min(1, max_height)),
+                FormLabel::Width(_) => (label_width, min(1, max_height)),
+                FormLabel::Size(_, h) => (label_width, min(h, max_height)),
+                FormLabel::FullWidthStr(_) => (label_width, min(1, max_height)),
+                FormLabel::FullWidth(h) => (total_width, min(h, max_height)),
             };
             let label_area = Rect::new(label_x, y, label_size.0, label_size.1);
             y += match label {
-                Label::FullWidthStr(_) | Label::FullWidth(_) => label_size.1,
+                FormLabel::FullWidthStr(_) | FormLabel::FullWidth(_) => label_size.1,
                 _ => 0,
             };
 
             // area + advance widget
             let widget_size = match widget {
-                Widget::None => (0, 0),
-                Widget::Width(w) => (min(w, widget_width), min(1, max_height)),
-                Widget::Size(w, h) => (min(w, widget_width), min(h, max_height)),
-                Widget::FullWidth(h) => (total_width, min(h, max_height)),
+                FormWidget::None => (0, 0),
+                FormWidget::Width(w) => (min(w, widget_width), min(1, max_height)),
+                FormWidget::Size(w, h) => (min(w, widget_width), min(h, max_height)),
+                FormWidget::FullWidth(h) => (total_width, min(h, max_height)),
             };
             let widget_area = match widget {
-                Widget::None | Widget::Width(_) | Widget::Size(_, _) => {
+                FormWidget::None | FormWidget::Width(_) | FormWidget::Size(_, _) => {
                     Rect::new(widget_x, y, widget_size.0, widget_size.1)
                 }
-                Widget::FullWidth(_) => Rect::new(label_x, y, widget_size.0, widget_size.1),
+                FormWidget::FullWidth(_) => Rect::new(label_x, y, widget_size.0, widget_size.1),
             };
             y += match label {
-                Label::FullWidthStr(_) | Label::FullWidth(_) => widget_size.1,
+                FormLabel::FullWidthStr(_) | FormLabel::FullWidth(_) => widget_size.1,
                 _ => max(label_size.1, widget_size.1),
             };
 
             let label_text = match label {
-                Label::None => None,
-                Label::Str(s) => Some(s.clone()),
-                Label::Width(_) => None,
-                Label::Size(_, _) => None,
-                Label::FullWidthStr(s) => Some(s.clone()),
-                Label::FullWidth(_) => None,
+                FormLabel::None => None,
+                FormLabel::Str(s) => Some(s.clone()),
+                FormLabel::Width(_) => None,
+                FormLabel::Size(_, _) => None,
+                FormLabel::FullWidthStr(s) => Some(s.clone()),
+                FormLabel::FullWidth(_) => None,
             };
 
             gen_layout.add(key, widget_area, label_text, label_area);
@@ -512,7 +586,7 @@ where
             line_spacing = self.line_spacing;
         }
 
-        gen_layout.page_count = (page_no + 1) as usize;
+        gen_layout.set_page_count((page_no + 1) as usize);
 
         gen_layout
     }

@@ -14,7 +14,7 @@ pub use layout_dialog::{
 };
 pub use layout_dialog2::{layout_dialog, DialogItem};
 pub use layout_edit2::{layout_edit, EditConstraint, LabelWidget};
-pub use layout_form::{Label, LayoutForm, Widget};
+pub use layout_form::{FormLabel, FormWidget, LayoutForm};
 pub use layout_grid::layout_grid as xx_layout_grid;
 pub use layout_grid2::layout_grid;
 pub use layout_middle::layout_middle;

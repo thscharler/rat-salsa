@@ -11,7 +11,7 @@ use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::layout::{GenericLayout, Label, LayoutForm, Widget};
+use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
 use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
@@ -136,8 +136,8 @@ fn repaint_input(
 
             form_layout.widget(
                 state.hundred[i].focus.clone(),
-                Label::Str(format!("{}", i).to_string().into()),
-                Widget::Size(15, h),
+                FormLabel::Str(format!("{}", i).to_string().into()),
+                FormWidget::Size(15, h),
             );
 
             if i == 17 {

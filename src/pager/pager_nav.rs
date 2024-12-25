@@ -13,7 +13,7 @@ use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
 use std::cmp::min;
 
 /// Render the navigation for one or more [Pager] widgets.
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct PageNavigation<'a> {
     pages: u8,
     block: Option<Block<'a>>,
@@ -152,16 +152,8 @@ impl<'a> StatefulWidget for PageNavigation<'a> {
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         state.area = area;
 
-        let widget_area = if let Some(block) = &self.block {
-            block.inner(area)
-        } else {
-            Rect::new(
-                area.x,
-                area.y + 1,
-                area.width,
-                area.height.saturating_sub(1),
-            )
-        };
+        let widget_area = self.inner(area);
+
         let width = widget_area.width / self.pages as u16;
         let mut column_area = Rect::new(widget_area.x, widget_area.y, width, widget_area.height);
         state.widget_areas.clear();
@@ -236,8 +228,10 @@ impl PageNavigationState {
     }
 
     /// Show the page.
-    pub fn set_page(&mut self, page: usize) {
+    pub fn set_page(&mut self, page: usize) -> bool {
+        let old_page = self.page;
         self.page = min(page, self.page_count.saturating_sub(1));
+        old_page != self.page
     }
 
     /// Current page.

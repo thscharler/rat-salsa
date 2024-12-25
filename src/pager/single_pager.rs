@@ -1,33 +1,24 @@
 use crate::_private::NonExhaustive;
 use crate::event::PagerOutcome;
-use crate::layout::StructuredLayout;
-use crate::pager::{AreaHandle, PagerLayout, PagerStyle};
-use crate::util::revert_style;
-use rat_event::util::MouseFlagsN;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
-use rat_focus::ContainerFlag;
+use crate::layout::GenericLayout;
+use crate::pager::{PageNavigation, PageNavigationState, Pager, PagerBuffer, PagerStyle};
+use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Alignment, Rect};
-use ratatui::prelude::{Span, StatefulWidget, Style};
-use ratatui::style::Stylize;
-use ratatui::widgets::{Block, Borders, Widget};
-use std::ops::Index;
+use ratatui::layout::{Rect, Size};
+use ratatui::prelude::{StatefulWidget, Style};
+use ratatui::widgets::{Block, Widget};
+use std::rc::Rc;
 
-/// Prepare the page-layout for your widgets.
-///
-/// This widget page-breaks the areas for your widgets
-/// and allows to render them in a single column.
-///
-#[derive(Debug, Default, Clone)]
-pub struct SinglePager<'a> {
-    layout: PagerLayout,
-
-    block: Option<Block<'a>>,
-    style: Style,
-    label_style: Option<Style>,
-    nav_style: Option<Style>,
-    title_style: Option<Style>,
+/// This widget renders a single page of a [GenericLayout].
+#[derive(Debug, Clone)]
+pub struct SinglePager<'a, W, C = ()>
+where
+    W: Eq,
+    C: Eq,
+{
+    pager: Pager<W, C>,
+    page_nav: PageNavigation<'a>,
 }
 
 /// Renders directly to the frame buffer.
@@ -37,301 +28,159 @@ pub struct SinglePager<'a> {
 /// * It helps with cleanup of the widget state if your
 ///   widget is currently invisible.
 #[derive(Debug)]
-pub struct SinglePagerBuffer<'a> {
-    layout: PagerLayout,
-
-    // current page.
-    page: usize,
-    buffer: &'a mut Buffer,
-
-    // inner area that will be rendered.
-    widget_area: Rect,
-
-    style: Style,
-    label_style: Option<Style>,
-    nav_style: Option<Style>,
-}
-
-/// Renders the finishings for the DualPager.
-#[derive(Debug)]
-pub struct SinglePagerWidget {
-    style: Style,
-    nav_style: Option<Style>,
+pub struct SinglePagerBuffer<'a, W, C = ()>
+where
+    W: Eq,
+    C: Eq,
+{
+    pager: PagerBuffer<'a, W, C>,
 }
 
 /// Widget state.
 #[derive(Debug, Clone)]
-pub struct SinglePagerState {
-    /// Full area for the widget.
-    /// __read only__ renewed for each render.
-    pub area: Rect,
-    /// Area inside the border.
-    /// __read only__ renewed for each render.
-    pub widget_area: Rect,
-    /// Title area except the page indicators.
-    /// __read only__ renewed with each render
-    pub scroll_area: Rect,
-    /// Area for prev-page indicator.
-    /// __read only__ renewed with each render.
-    pub prev_area: Rect,
-    /// Area for next-page indicator.
-    /// __read only__ renewed with each render.
-    pub next_area: Rect,
-
+pub struct SinglePagerState<W, C = ()>
+where
+    W: Eq,
+    C: Eq,
+{
     /// Page layout
     /// __read only__ renewed with each render.
-    pub layout: PagerLayout,
+    pub layout: Rc<GenericLayout<W, C>>,
 
-    /// Current page.
-    /// __read+write__
-    pub page: usize,
-
-    /// This widget has no focus of its own, but this flag
-    /// can be used to set a container state.
-    pub c_focus: ContainerFlag,
-
-    /// Mouse
-    pub mouse: MouseFlagsN,
+    /// PageNavigationState holds most of our state.
+    pub nav: PageNavigationState,
 
     /// Only construct with `..Default::default()`.
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> SinglePager<'a> {
+impl<'a, W, C> Default for SinglePager<'a, W, C>
+where
+    W: Eq,
+    C: Eq,
+{
+    fn default() -> Self {
+        Self {
+            pager: Default::default(),
+            page_nav: Default::default(),
+        }
+    }
+}
+
+impl<'a, W, C> SinglePager<'a, W, C>
+where
+    W: Eq,
+    C: Eq,
+{
     /// New SinglePage.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Page layout.
-    pub fn layout(mut self, page_layout: PagerLayout) -> Self {
-        self.layout = page_layout;
-        self
-    }
-
-    /// Set page layout from StructLayout
-    pub fn struct_layout(mut self, page_layout: StructuredLayout) -> Self {
-        self.layout = PagerLayout::with_layout(page_layout);
-        self
-    }
-
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
-        self.style = style;
-        self.block = self.block.map(|v| v.style(style));
+        self.pager = self.pager.style(style);
+        self.page_nav = self.page_nav.style(style);
         self
     }
 
     /// Style for navigation.
     pub fn nav_style(mut self, nav_style: Style) -> Self {
-        self.nav_style = Some(nav_style);
+        self.page_nav = self.page_nav.nav_style(nav_style);
         self
     }
 
     /// Style for the title.
     pub fn title_style(mut self, title_style: Style) -> Self {
-        self.title_style = Some(title_style);
+        self.page_nav = self.page_nav.title_style(title_style);
         self
     }
 
     /// Block for border
     pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = Some(block.style(self.style));
+        self.page_nav = self.page_nav.block(block);
         self
     }
 
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
-        self.style = styles.style;
-        if let Some(label) = styles.label_style {
-            self.label_style = Some(label);
-        }
-        if let Some(nav) = styles.nav {
-            self.nav_style = Some(nav);
-        }
-        if let Some(title) = styles.title {
-            self.title_style = Some(title);
-        }
-        if let Some(block) = styles.block {
-            self.block = Some(block);
-        }
-        self.block = self.block.map(|v| v.style(styles.style));
+        self.pager = self.pager.styles(styles.clone());
+        self.page_nav = self.page_nav.styles(styles);
         self
     }
 
-    /// Calculate the layout width.
-    pub fn layout_width(&self, area: Rect) -> u16 {
-        self.inner(area).width
-    }
-
-    /// Calculate the view area.
-    pub fn inner(&self, area: Rect) -> Rect {
-        if let Some(block) = &self.block {
-            block.inner(area)
-        } else {
-            Rect::new(
-                area.x,
-                area.y + 1,
-                area.width,
-                area.height.saturating_sub(1),
-            )
-        }
+    /// Calculate the layout page size.
+    pub fn layout_size(&self, area: Rect) -> Size {
+        self.page_nav.layout_size(area)
     }
 
     /// Run the layout and create the second stage.
-    pub fn into_buffer<'b>(
+    pub fn into_buffer(
         self,
         area: Rect,
-        buf: &'b mut Buffer,
-        state: &mut SinglePagerState,
-    ) -> SinglePagerBuffer<'b> {
-        state.area = area;
+        buf: &'a mut Buffer,
+        state: &mut SinglePagerState<W, C>,
+    ) -> SinglePagerBuffer<'a, W, C> {
+        state.nav.page_count = state.layout.page_count;
 
-        state.widget_area = if let Some(block) = &self.block {
-            block.inner(area)
-        } else {
-            Rect::new(
-                area.x,
-                area.y + 1,
-                area.width,
-                area.height.saturating_sub(1),
-            )
-        };
-
-        let p1 = 5;
-        let p4 = state.widget_area.width.saturating_sub(p1);
-        state.prev_area = Rect::new(state.widget_area.x, area.y, p1, 1);
-        state.next_area = Rect::new(state.widget_area.x + p4, area.y, p1, 1);
-        state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
-
-        // run page layout
-        state.layout = self.layout;
-        state.layout.layout(state.widget_area);
-        // clip page nr
-        state.set_page(state.page);
-
-        // render
-        let title = format!(" {}/{} ", state.page + 1, state.layout.num_pages());
-        let block = self
-            .block
-            .unwrap_or_else(|| Block::new().borders(Borders::TOP).style(self.style))
-            .title_bottom(title)
-            .title_alignment(Alignment::Right);
-        let block = if let Some(title_style) = self.title_style {
-            block.title_style(title_style)
-        } else {
-            block
-        };
-        block.render(area, buf);
+        self.page_nav.render(area, buf, &mut state.nav);
 
         SinglePagerBuffer {
-            layout: state.layout.clone(),
-            page: state.page,
-            buffer: buf,
-            widget_area: state.widget_area,
-            style: self.style,
-            label_style: self.label_style,
-            nav_style: self.nav_style,
+            pager: self
+                .pager //
+                .layout(state.layout.clone())
+                .page(state.nav.page)
+                .into_buffer(state.nav.widget_areas[0], buf),
         }
     }
 }
 
-impl<'a> SinglePagerBuffer<'a> {
-    /// Render a widget to the buffer.
-    #[inline(always)]
-    pub fn render_widget_area<W>(&mut self, widget: W, area: Rect)
-    where
-        W: Widget,
-    {
-        if let Some(buffer_area) = self.locate_area(area) {
-            // render the actual widget.
-            widget.render(buffer_area, self.buffer);
-        } else {
-            // noop
-        }
+impl<'a, W, C> SinglePagerBuffer<'a, W, C>
+where
+    W: Eq,
+    C: Eq,
+{
+    /// Render all containers for the current page.
+    pub fn render_container(&mut self) {
+        self.pager.render_container()
     }
 
-    /// Render a widget to the buffer.
-    /// This expects that the state is a RelocatableState,
-    /// so it can reset the areas for hidden widgets.
+    /// Render a manual label.
     #[inline(always)]
-    pub fn render_area<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
+    pub fn render_label<FN, WW>(&mut self, widget: &W, render_fn: FN)
     where
-        W: StatefulWidget<State = S>,
-        S: RelocatableState,
+        FN: FnOnce() -> WW,
+        WW: Widget,
     {
-        if let Some(buffer_area) = self.locate_area(area) {
-            // render the actual widget.
-            widget.render(buffer_area, self.buffer, state);
-        } else {
+        self.pager.render_label(widget, render_fn);
+    }
+
+    /// Render a stateless widget and its label, if any.
+    #[inline(always)]
+    pub fn render_widget<FN, WW>(&mut self, widget: &W, render_fn: FN)
+    where
+        FN: FnOnce() -> WW,
+        WW: Widget,
+    {
+        self.pager.render_widget(widget, render_fn);
+    }
+
+    /// Render a stateful widget and its label, if any.
+    #[inline(always)]
+    pub fn render<FN, WW, SS>(&mut self, widget: &W, render_fn: FN, state: &mut SS)
+    where
+        FN: FnOnce() -> WW,
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        if !self.pager.render(widget, render_fn, state) {
             self.hidden(state);
         }
     }
 
-    /// Render the label if any.
-    pub fn render_label(&mut self, area: AreaHandle) {
-        if let Some(buffer_areas) = self.locate(area) {
-            if let Some(label) = self.layout.label(area) {
-                let style = self.label_style.unwrap_or(self.style);
-                Span::from(label)
-                    .style(style)
-                    .render(buffer_areas[0], self.buffer);
-            } else {
-                Span::from("xxxx")
-                    .white()
-                    .on_red()
-                    .render(buffer_areas[0], self.buffer);
-            }
-        }
-    }
-
-    /// Render a widget to the buffer.
-    #[inline(always)]
-    pub fn render_widget<W, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx)
-    where
-        W: Widget,
-        [Rect]: Index<Idx, Output = Rect>,
-    {
-        if let Some(buffer_areas) = self.locate(area) {
-            // render the actual widget.
-            widget.render(buffer_areas[tag], self.buffer);
-        } else {
-            // noop
-        }
-    }
-
-    /// Render a widget to the buffer.
-    ///
-    /// This expects that the state is a RelocatableState,
-    /// so it can reset the areas for hidden widgets.
-    #[inline(always)]
-    pub fn render<W, S, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx, state: &mut S)
-    where
-        W: StatefulWidget<State = S>,
-        S: RelocatableState,
-        [Rect]: Index<Idx, Output = Rect>,
-    {
-        if let Some(buffer_areas) = self.locate(area) {
-            // render the actual widget.
-            widget.render(buffer_areas[tag], self.buffer, state);
-        } else {
-            self.hidden(state);
-        }
-    }
-
-    /// Return the layout.
-    pub fn layout(&self) -> &PagerLayout {
-        &self.layout
-    }
-
     /// Is the given area visible?
-    pub fn is_visible_area(&self, area: Rect) -> bool {
-        self.layout.buf_area(area).0 == self.page
-    }
-
-    /// Is the given area visible?
-    pub fn is_visible(&self, handle: AreaHandle) -> bool {
-        self.layout.buf_handle(handle).0 == self.page
+    pub fn is_visible(&self, widget: &W) -> bool {
+        self.pager.is_visible(widget)
     }
 
     /// Calculate the necessary shift from view to screen.
@@ -343,39 +192,36 @@ impl<'a> SinglePagerBuffer<'a> {
         (0, 0)
     }
 
-    /// Relocate an area from layout coordinates to screen coordinates.
-    /// A result None indicates that the area is invisible.
-    pub fn locate(&self, handle: AreaHandle) -> Option<Box<[Rect]>> {
-        let (page, mut areas) = self.layout.buf_handle(handle);
-        if self.page == page {
-            for area in &mut areas {
-                *area = Rect::new(
-                    area.x + self.widget_area.x,
-                    area.y + self.widget_area.y,
-                    area.width,
-                    area.height,
-                );
-            }
-            Some(areas)
-        } else {
-            None
-        }
+    /// Relocate the widget area to screen coordinates.
+    /// Returns None if the widget is not visible.
+    /// This clips the area to page_area.
+    pub fn locate_widget(&self, widget: &W) -> Option<Rect> {
+        self.pager.locate_widget(widget)
+    }
+
+    /// Relocate the label area to screen coordinates.
+    /// Returns None if the widget is not visible.
+    /// This clips the area to page_area.
+    pub fn locate_label(&self, widget: &W) -> Option<Rect> {
+        self.pager.locate_label(widget)
+    }
+
+    /// Relocate the container area to screen coordinates.
+    ///
+    /// Returns None if the container is not visible.
+    /// If the container is split into multiple parts, this
+    /// returns the first visible part.
+    /// This clips the area to page_area.
+    pub fn locate_container(&self, container: &C) -> Option<Rect> {
+        self.pager.locate_container(container)
     }
 
     /// Relocate an area from layout coordinates to screen coordinates.
     /// A result None indicates that the area is invisible.
-    pub fn locate_area(&self, layout_area: Rect) -> Option<Rect> {
-        let (page, area) = self.layout.buf_area(layout_area);
-        if self.page == page {
-            Some(Rect::new(
-                area.x + self.widget_area.x,
-                area.y + self.widget_area.y,
-                area.width,
-                area.height,
-            ))
-        } else {
-            None
-        }
+    ///
+    /// This will clip the area to the page_area.
+    pub fn locate_area(&self, area: Rect) -> Option<Rect> {
+        self.pager.locate_area(area)
     }
 
     /// Does nothing for pager.
@@ -394,183 +240,85 @@ impl<'a> SinglePagerBuffer<'a> {
     {
         state.relocate((0, 0), Rect::default())
     }
-
-    /// Access the buffer.
-    /// __Note__
-    /// Use of render_xxx is preferred.
-    pub fn buffer_mut(&mut self) -> &mut Buffer {
-        self.buffer
-    }
-
-    /// Rendering the content is finished.
-    ///
-    /// Convert to the final widget to render the finishings.
-    pub fn into_widget(self) -> SinglePagerWidget {
-        SinglePagerWidget {
-            style: self.style,
-            nav_style: self.nav_style,
-        }
-    }
 }
 
-impl StatefulWidget for SinglePagerWidget {
-    type State = SinglePagerState;
-
-    fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        assert_eq!(area, state.area);
-
-        // active areas
-        let nav_style = self.nav_style.unwrap_or(self.style);
-        if matches!(state.mouse.hover.get(), Some(0)) {
-            buf.set_style(state.prev_area, revert_style(nav_style));
-        } else {
-            buf.set_style(state.prev_area, nav_style);
-        }
-        if state.page > 0 {
-            Span::from(" <<< ").render(state.prev_area, buf);
-        } else {
-            Span::from(" [·] ").render(state.prev_area, buf);
-        }
-        if matches!(state.mouse.hover.get(), Some(1)) {
-            buf.set_style(state.next_area, revert_style(nav_style));
-        } else {
-            buf.set_style(state.next_area, nav_style);
-        }
-        if state.page + 1 < state.layout.num_pages() {
-            Span::from(" >>> ").render(state.next_area, buf);
-        } else {
-            Span::from(" [·] ").render(state.next_area, buf);
-        }
-    }
-}
-
-impl Default for SinglePagerState {
+impl<W, C> Default for SinglePagerState<W, C>
+where
+    W: Eq,
+    C: Eq,
+{
     fn default() -> Self {
         Self {
-            area: Default::default(),
-            widget_area: Default::default(),
-            scroll_area: Default::default(),
-            prev_area: Default::default(),
-            next_area: Default::default(),
             layout: Default::default(),
-            page: 0,
-            c_focus: Default::default(),
-            mouse: Default::default(),
+            nav: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
 }
 
-impl SinglePagerState {
+impl<W, C> SinglePagerState<W, C>
+where
+    W: Eq,
+    C: Eq,
+{
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Show the page for this rect.
-    pub fn show(&mut self, handle: AreaHandle) {
-        let (page, _) = self.layout.buf_handle(handle);
-        self.page = page;
+    /// Show the page for this widget.
+    pub fn show(&mut self, widget: &W) {
+        if let Some(page) = self.layout.page_of(widget) {
+            self.nav.set_page(page);
+        }
     }
 
-    /// Show the page for this rect.
-    pub fn show_area(&mut self, area: Rect) {
-        let (page, _) = self.layout.buf_area(area);
-        self.page = page;
+    /// Returns the first widget for the given page.
+    pub fn first(&self, page: usize) -> Option<&W> {
+        self.layout.first(page)
     }
 
-    /// First handle for the page.
-    /// This returns the first handle for the page.
-    /// Does not check whether the connected area is visible.
-    pub fn first_handle(&self, page: usize) -> Option<AreaHandle> {
-        self.layout.first_on_page(page)
+    /// Calculates the page of the widget.
+    pub fn page_of(&self, widget: &W) -> Option<usize> {
+        self.layout.page_of(widget)
     }
 
     /// Set the visible page.
     pub fn set_page(&mut self, page: usize) -> bool {
-        let old_page = self.page;
-        if page >= self.layout.num_pages() {
-            self.page = self.layout.num_pages() - 1;
-        } else {
-            self.page = page;
-        }
-        old_page != self.page
+        self.nav.set_page(page)
+    }
+
+    /// Visible page
+    pub fn page(&self) -> usize {
+        self.nav.page()
     }
 
     /// Select next page. Keeps the page in bounds.
     pub fn next_page(&mut self) -> bool {
-        let old_page = self.page;
-
-        if self.page + 1 >= self.layout.num_pages() {
-            self.page = self.layout.num_pages() - 1;
-        } else {
-            self.page += 1;
-        }
-
-        old_page != self.page
+        self.nav.next_page()
     }
 
     /// Select prev page.
     pub fn prev_page(&mut self) -> bool {
-        if self.page > 0 {
-            self.page -= 1;
-            true
-        } else {
-            false
-        }
+        self.nav.prev_page()
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for SinglePagerState {
+impl<W, C> HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for SinglePagerState<W, C>
+where
+    W: Eq,
+    C: Eq,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
-        self.handle(event, MouseOnly)
+        self.nav.handle(event, Regular)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for SinglePagerState {
+impl<W, C> HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for SinglePagerState<W, C>
+where
+    W: Eq,
+    C: Eq,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> PagerOutcome {
-        match event {
-            ct_event!(mouse down Left for x,y) if self.prev_area.contains((*x, *y).into()) => {
-                if self.prev_page() {
-                    PagerOutcome::Page(self.page)
-                } else {
-                    PagerOutcome::Unchanged
-                }
-            }
-            ct_event!(mouse down Left for x,y) if self.next_area.contains((*x, *y).into()) => {
-                if self.next_page() {
-                    PagerOutcome::Page(self.page)
-                } else {
-                    PagerOutcome::Unchanged
-                }
-            }
-            ct_event!(scroll down for x,y) => {
-                if self.scroll_area.contains((*x, *y).into()) {
-                    if self.next_page() {
-                        PagerOutcome::Page(self.page)
-                    } else {
-                        PagerOutcome::Unchanged
-                    }
-                } else {
-                    PagerOutcome::Continue
-                }
-            }
-            ct_event!(scroll up for x,y) => {
-                if self.scroll_area.contains((*x, *y).into()) {
-                    if self.prev_page() {
-                        PagerOutcome::Page(self.page)
-                    } else {
-                        PagerOutcome::Unchanged
-                    }
-                } else {
-                    PagerOutcome::Continue
-                }
-            }
-            ct_event!(mouse any for m)
-                if self.mouse.hover(&[self.prev_area, self.next_area], m) =>
-            {
-                PagerOutcome::Changed
-            }
-            _ => PagerOutcome::Continue,
-        }
+        self.nav.handle(event, MouseOnly)
     }
 }

@@ -3,6 +3,20 @@ use ratatui::widgets::Block;
 use std::borrow::Cow;
 
 /// Stores layout data.
+///
+/// This can store three types of layout areas:
+/// * widget area
+/// * label associated with a widget
+/// * container/[Block] areas.
+///
+/// This layout has a simple concept of pages too.
+/// The y-coordinate of each area divided by the
+/// page height.
+///
+/// There may be layout generators that don't set
+/// the page size. This will give a division by zero
+/// when calling page related functions.
+///
 #[derive(Debug, Clone)]
 pub struct GenericLayout<W, C = ()>
 where
@@ -12,6 +26,8 @@ where
     /// Reference area.
     pub area: Rect,
 
+    /// Page size.
+    pub page_size: Size,
     /// Pages.
     pub page_count: usize,
 
@@ -40,6 +56,7 @@ where
     fn default() -> Self {
         Self {
             area: Default::default(),
+            page_size: Default::default(),
             page_count: 1,
             widgets: Default::default(),
             areas: Default::default(),
@@ -64,6 +81,7 @@ where
     pub fn with_capacity(w: usize, c: usize) -> Self {
         Self {
             area: Default::default(),
+            page_size: Default::default(),
             page_count: Default::default(),
             widgets: Vec::with_capacity(w),
             areas: Vec::with_capacity(w),
@@ -88,11 +106,36 @@ where
     }
 
     /// Change detection.
-    pub fn size_changed(&self, size: Size) -> bool {
-        self.area.as_size() != size
+    pub fn area_changed(&self, area: Rect) -> bool {
+        self.area != area
     }
 
-    /// Add a widget + label.
+    /// Set the page-size for this layout.
+    pub fn set_page_size(&mut self, size: Size) {
+        self.page_size = size;
+    }
+
+    /// Get the page-size for this layout.
+    pub fn page_size(&self) -> Size {
+        self.page_size
+    }
+
+    /// Page-size changed.
+    pub fn size_changed(&self, size: Size) -> bool {
+        self.page_size != size
+    }
+
+    /// Number of pages
+    pub fn set_page_count(&mut self, page_count: usize) {
+        self.page_count = page_count;
+    }
+
+    /// Number of pages
+    pub fn page_count(&self) -> usize {
+        self.page_count
+    }
+
+    /// Add a widget + label areas.
     pub fn add(
         &mut self, //
         key: W,
@@ -106,7 +149,7 @@ where
         self.label_areas.push(label_area);
     }
 
-    /// Add a container/block.
+    /// Add a container + block.
     pub fn add_container(
         &mut self, //
         key: C,
@@ -121,7 +164,7 @@ where
     /// First widget on the given page.
     pub fn first(&self, page: usize) -> Option<&W> {
         for (idx, area) in self.areas.iter().enumerate() {
-            let test = (area.y / self.area.height) as usize;
+            let test = (area.y / self.page_size.height) as usize;
             if page == test {
                 return Some(&self.widgets[idx]);
             }
@@ -135,12 +178,10 @@ where
             return None;
         };
 
-        Some((self.areas[idx].y / self.area.height) as usize)
+        Some((self.areas[idx].y / self.page_size.height) as usize)
     }
 
-    /// Returns the __first__ index for this widget.
-    ///
-    /// Todo: It's not a good thing to have multiple areas for a widget.
+    /// Returns the index for this widget.
     pub fn widget_idx(&self, widget: &W) -> Option<usize> {
         self.widgets
             .iter()

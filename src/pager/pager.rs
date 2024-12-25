@@ -86,7 +86,7 @@ where
     }
 
     /// Create the second stage.
-    pub fn into_buffer(self, area: Rect, buf: &mut Buffer) -> PagerBuffer<W, C> {
+    pub fn into_buffer<'b>(self, area: Rect, buf: &'b mut Buffer) -> PagerBuffer<'b, W, C> {
         PagerBuffer {
             layout: self.layout,
             page_area: Rect::new(0, self.page as u16 * area.height, area.width, area.height),
@@ -110,43 +110,64 @@ where
         self.page_area.intersects(self.layout.areas[idx])
     }
 
-    /// Render a stateless widget and its label, if any.
+    /// Render a manual label.
     #[inline(always)]
-    pub fn render_widget<FN, WW>(&mut self, widget: &W, render_fn: FN)
+    pub fn render_label<FN, WW>(&mut self, widget: &W, render_fn: FN) -> bool
     where
         FN: FnOnce() -> WW,
         WW: Widget,
     {
         let Some(idx) = self.layout.widget_idx(widget) else {
-            return;
+            return false;
         };
-        let Some(widget_area) = self.locate_area(self.layout.areas[idx]) else {
-            return;
+        let Some(label_area) = self.locate_area(self.layout.label_areas[idx]) else {
+            return false;
         };
 
-        self.render_label(idx);
+        render_fn().render(label_area, self.buffer);
+        true
+    }
+
+    /// Render a stateless widget and its label, if any.
+    #[inline(always)]
+    pub fn render_widget<FN, WW>(&mut self, widget: &W, render_fn: FN) -> bool
+    where
+        FN: FnOnce() -> WW,
+        WW: Widget,
+    {
+        let Some(idx) = self.layout.widget_idx(widget) else {
+            return false;
+        };
+        let Some(widget_area) = self.locate_area(self.layout.areas[idx]) else {
+            return false;
+        };
+
+        self.render_auto_label(idx);
         render_fn().render(widget_area, self.buffer);
+        true
     }
 
     /// Render a stateful widget and its label, if any.
     #[inline(always)]
-    pub fn render<FN, WW, SS>(&mut self, widget: &W, render_fn: FN, state: &mut SS)
+    pub fn render<FN, WW, SS>(&mut self, widget: &W, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> WW,
         WW: StatefulWidget<State = SS>,
     {
         let Some(idx) = self.layout.widget_idx(widget) else {
-            return;
+            return false;
         };
         let Some(widget_area) = self.locate_area(self.layout.areas[idx]) else {
-            return;
+            return false;
         };
 
-        self.render_label(idx);
+        self.render_auto_label(idx);
         render_fn().render(widget_area, self.buffer, state);
+
+        true
     }
 
-    fn render_label(&mut self, idx: usize) {
+    fn render_auto_label(&mut self, idx: usize) {
         if let Some(label) = &self.layout.labels[idx] {
             if let Some(label_area) = self.locate_area(self.layout.label_areas[idx]) {
                 let style = self.label_style.unwrap_or_default();
