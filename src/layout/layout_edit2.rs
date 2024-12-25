@@ -185,7 +185,7 @@ pub fn layout_edit(
     let mut x = label_x;
     let mut y = area.y;
     let total = max_label + spacing + max_widget;
-    let mut rest_height = if area.height > 0 { area.height - 1 } else { 0 }; //todo: verify the '-1' somehow??
+    let mut rest_height = if area.height > 0 { area.height - 1 } else { 0 };
     let mut height = min(1, rest_height);
 
     let mut cur: [Rect; 2] = Default::default();
