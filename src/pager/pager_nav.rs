@@ -135,7 +135,7 @@ impl<'a> PageNavigation<'a> {
     }
 
     /// Calculate the view area for all columns.
-    fn inner(&self, area: Rect) -> Rect {
+    pub fn inner(&self, area: Rect) -> Rect {
         if let Some(block) = &self.block {
             block.inner(area)
         } else {

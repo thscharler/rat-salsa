@@ -13,7 +13,10 @@ use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{GenericLayout, Label, LayoutForm, Widget};
 use rat_widget::pager::{PageNavigation, PageNavigationState, Pager, PagerState};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
-use ratatui::widgets::{Block, Padding, StatefulWidget};
+use ratatui::style::Style;
+use ratatui::symbols::border::EMPTY;
+use ratatui::text::Span;
+use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget, Widget as RWidget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
@@ -30,6 +33,7 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
+        flex: Default::default(),
         layout: Default::default(),
         page_nav: Default::default(),
         pager: Default::default(),
@@ -45,6 +49,7 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
+    flex: Flex,
     layout: GenericLayout<()>,
     page_nav: PageNavigationState,
     pager: PagerState<FocusFlag>,
@@ -60,7 +65,7 @@ fn repaint_input(
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
     if istate.status[0] == "Ctrl-Q to quit." {
-        istate.status[0] = "Ctrl-Q to quit. F4/F5 navigate page.".into();
+        istate.status[0] = "Ctrl-Q to quit. F2 flex. F4/F5 navigate page.".into();
     }
 
     let l1 = Layout::vertical([
@@ -88,8 +93,13 @@ fn repaint_input(
 
     // rebuild layout
     if state.pager.layout.size_changed(layout_size) {
-        let mut form_layout = LayoutForm::new().spacing(1).flex(Flex::Start);
+        let mut form_layout = LayoutForm::new()
+            .spacing(1)
+            .flex(state.flex)
+            .line_spacing(1);
 
+        let mut c0 = false;
+        let mut c1 = false;
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
                 2
@@ -99,23 +109,54 @@ fn repaint_input(
                 1
             };
 
+            if i % 4 == 0 && i != 0 {
+                if c0 {
+                    form_layout.end(());
+                }
+                form_layout.start((), Some(Block::bordered()));
+                c0 = true;
+            }
+            if i % 17 == 0 && i % 4 != 0 && i != 0 {
+                if c1 {
+                    form_layout.end(());
+                }
+                form_layout.start(
+                    (),
+                    Some(
+                        Block::bordered().border_set(EMPTY).style(
+                            Style::new()
+                                .bg(THEME.purple[0])
+                                .fg(THEME.text_color(THEME.purple[0])),
+                        ),
+                    ),
+                );
+                c1 = true;
+            }
+
             form_layout.widget(
                 state.hundred[i].focus.clone(),
                 Label::Str(format!("{}", i).to_string().into()),
                 Widget::Size(15, h),
             );
 
-            // if i > 0 && i % 17 == 0 {
-            //     form_layout.page_break();
-            // }
+            if i == 17 {
+                form_layout.page_break();
+            }
+        }
+        if c0 {
+            form_layout.end(());
+        }
+        if c1 {
+            form_layout.end(());
         }
 
         let et = SystemTime::now();
         state.pager.layout = Rc::new(form_layout.layout(layout_size, Padding::default()));
-        debug!("elapsed {:?}", et.elapsed()?);
+        debug!("layout {:?}", et.elapsed()?);
         state.page_nav.set_page_count(state.pager.layout.page_count);
     }
 
+    let et = SystemTime::now();
     // Render navigation
     nav.render(l2[1], frame.buffer_mut(), &mut state.page_nav);
 
@@ -129,13 +170,15 @@ fn repaint_input(
             &mut state.pager,
         );
 
+    // render container areas
+    pager.render_container();
+
     // render the fields.
     for i in 0..state.hundred.len() {
         pager.render(
             &state.hundred[i].focus.clone(),
             || {
                 TextInputMock::default()
-                    .sample(format!("... {} ...", i))
                     .style(THEME.limegreen(0))
                     .focus_style(THEME.limegreen(2))
             },
@@ -145,6 +188,7 @@ fn repaint_input(
 
     // pager done.
     _ = pager.into_widget();
+    debug!("render {:?}", et.elapsed()?);
 
     let menu1 = MenuLine::new()
         .title("#.#")
@@ -219,6 +263,18 @@ fn handle_input(
             } else {
                 Outcome::Unchanged
             }
+        }
+        ct_event!(keycode press F(2)) => {
+            state.pager.layout = Default::default();
+            state.flex = match state.flex {
+                Flex::Legacy => Flex::Start,
+                Flex::Start => Flex::End,
+                Flex::End => Flex::Center,
+                Flex::Center => Flex::SpaceBetween,
+                Flex::SpaceBetween => Flex::SpaceAround,
+                Flex::SpaceAround => Flex::Legacy,
+            };
+            Outcome::Changed
         }
         _ => Outcome::Continue,
     });

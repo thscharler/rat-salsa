@@ -488,7 +488,7 @@ impl Scheme {
             style: self.container(),
             nav: Some(self.container_arrow()),
             divider: Some(self.container()),
-            block: Some(Block::bordered().border_style(self.container())),
+            label_style: Some(Style::new().fg(THEME.limegreen[3])),
             ..Default::default()
         }
     }

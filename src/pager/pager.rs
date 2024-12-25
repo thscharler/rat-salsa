@@ -13,7 +13,7 @@ use std::rc::Rc;
 
 /// Renders a single page of widgets.
 #[derive(Debug, Clone)]
-pub struct Pager<'a, W, C = ()>
+pub struct Pager<W, C = ()>
 where
     W: Eq,
     C: Eq,
@@ -21,7 +21,6 @@ where
     page: usize,
 
     style: Style,
-    block: Option<Block<'a>>,
     label_style: Option<Style>,
 
     phantom: PhantomData<(W, C)>,
@@ -34,11 +33,9 @@ where
     W: Eq,
     C: Eq,
 {
-    layout: Rc<GenericLayout<W, C>>,
-
     page_area: Rect,
     widget_area: Rect,
-
+    layout: Rc<GenericLayout<W, C>>,
     buffer: &'a mut Buffer,
 
     label_style: Option<Style>,
@@ -54,10 +51,6 @@ where
     /// Full area.
     /// __read only__ renewed for each render.
     pub area: Rect,
-    /// Area inside the border.
-    /// __read only__ renewed for each render.
-    pub widget_area: Rect,
-
     /// Layout
     /// __read+write__
     pub layout: Rc<GenericLayout<W, C>>,
@@ -66,7 +59,7 @@ where
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, W, C> Default for Pager<'a, W, C>
+impl<W, C> Default for Pager<W, C>
 where
     W: Eq,
     C: Eq,
@@ -75,14 +68,13 @@ where
         Self {
             page: Default::default(),
             style: Default::default(),
-            block: Default::default(),
             label_style: Default::default(),
             phantom: Default::default(),
         }
     }
 }
 
-impl<'a, W, C> Pager<'a, W, C>
+impl<W, C> Pager<W, C>
 where
     W: Eq,
     C: Eq,
@@ -100,13 +92,6 @@ where
     /// Base style.
     pub fn style(mut self, style: Style) -> Self {
         self.style = style;
-        self.block = self.block.map(|v| v.style(style));
-        self
-    }
-
-    /// Block for border
-    pub fn block(mut self, block: Block<'a>) -> Self {
-        self.block = Some(block.style(self.style));
         self
     }
 
@@ -116,10 +101,6 @@ where
         if let Some(label) = styles.label_style {
             self.label_style = Some(label);
         }
-        if let Some(block) = styles.block {
-            self.block = Some(block);
-        }
-        self.block = self.block.map(|v| v.style(styles.style));
         self
     }
 
@@ -131,14 +112,13 @@ where
         state: &mut PagerState<W, C>,
     ) -> PagerBuffer<'b, W, C> {
         state.area = area;
-        state.widget_area = self.block.inner_if_some(area);
 
         PagerBuffer {
             layout: state.layout.clone(),
             page_area: Rect::new(0, self.page as u16 * area.height, area.width, area.height),
-            widget_area: state.widget_area,
+            widget_area: area,
             buffer: buf,
-            label_style: None,
+            label_style: self.label_style,
         }
     }
 }
@@ -197,6 +177,15 @@ where
                 Span::from(label.as_ref())
                     .style(style)
                     .render(label_area, self.buffer);
+            }
+        }
+    }
+
+    /// Render all containers for the current page.
+    pub fn render_container(&mut self) {
+        for (idx, container_area) in self.layout.container_areas.iter().enumerate() {
+            if let Some(container_area) = self.locate_area(*container_area) {
+                (&self.layout.container_blocks[idx]).render(container_area, self.buffer);
             }
         }
     }
@@ -304,7 +293,6 @@ where
     fn default() -> Self {
         Self {
             area: Default::default(),
-            widget_area: Default::default(),
             layout: Default::default(),
             non_exhaustive: NonExhaustive,
         }
