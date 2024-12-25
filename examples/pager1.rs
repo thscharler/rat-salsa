@@ -12,7 +12,7 @@ use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{SinglePager, SinglePagerState};
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::widgets::Padding;
 use ratatui::Frame;
 use std::array;
@@ -81,12 +81,20 @@ fn repaint_input(
     let layout_size = pager.layout_size(l2[1]);
 
     if state.pager.layout.size_changed(layout_size) {
-        let mut form = LayoutForm::new();
+        let mut form = LayoutForm::new().line_spacing(1).flex(Flex::SpaceAround);
         for i in 0..state.hundred.len() {
+            let h = if i % 3 == 0 {
+                2
+            } else if i % 5 == 0 {
+                5
+            } else {
+                1
+            };
+
             form.widget(
                 state.hundred[i].focus.clone(),
                 FormLabel::Width(5),
-                FormWidget::Width(15),
+                FormWidget::Size(15, h),
             );
             if i == 17 {
                 form.page_break();

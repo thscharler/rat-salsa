@@ -5,7 +5,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use log::debug;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_reloc::RelocatableState;
@@ -16,8 +16,7 @@ use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::symbols::border::EMPTY;
-use ratatui::text::Span;
-use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget, Widget as RWidget};
+use ratatui::widgets::{Block, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
@@ -266,7 +265,7 @@ fn handle_input(
         r => r.into(),
     };
 
-    let r = r.or_else(|| match event {
+    r = r.or_else(|| match event {
         ct_event!(keycode press F(4)) => {
             if state.page_nav.prev_page() {
                 if let Some(w) = state.layout.first(state.page_nav.page * 2) {
@@ -302,7 +301,7 @@ fn handle_input(
         _ => Outcome::Continue,
     });
 
-    let r = r.or_else(|| match state.menu.handle(event, Regular) {
+    r = r.or_else(|| match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {
             istate.quit = true;
             Outcome::Changed
