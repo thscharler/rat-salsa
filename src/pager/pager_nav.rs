@@ -31,9 +31,6 @@ pub struct PageNavigationState {
     /// Area for each page.
     /// __read only__ renewed for each render.
     pub widget_areas: Vec<Rect>,
-    /// Title area except the page indicators.
-    /// __read only__ renewed with each render
-    pub scroll_area: Rect,
     /// Area for prev-page indicator.
     /// __read only__ renewed with each render.
     pub prev_area: Rect,
@@ -134,8 +131,8 @@ impl<'a> PageNavigation<'a> {
         Size::new(inner.width / self.pages as u16, inner.height)
     }
 
-    /// Calculate the view area for all columns.
-    pub fn inner(&self, area: Rect) -> Rect {
+    // Calculate the view area for all columns.
+    fn inner(&self, area: Rect) -> Rect {
         if let Some(block) = &self.block {
             block.inner(area)
         } else {
@@ -177,7 +174,6 @@ impl<'a> StatefulWidget for PageNavigation<'a> {
         let p4 = widget_area.width.saturating_sub(p1);
         state.prev_area = Rect::new(widget_area.x, area.y, p1, 1);
         state.next_area = Rect::new(widget_area.x + p4, area.y, p1, 1);
-        state.scroll_area = Rect::new(area.x + 1, area.y, area.width.saturating_sub(2), 1);
 
         // render
         let title = format!(" {}/{} ", state.page + 1, state.page_count);
@@ -223,7 +219,6 @@ impl Default for PageNavigationState {
         Self {
             area: Default::default(),
             widget_areas: Default::default(),
-            scroll_area: Default::default(),
             prev_area: Default::default(),
             next_area: Default::default(),
             page: Default::default(),
@@ -265,8 +260,8 @@ impl PageNavigationState {
     pub fn next_page(&mut self) -> bool {
         let old_page = self.page;
 
-        if self.page + self.widget_areas.len() >= self.page_count {
-            self.page = self.page_count.saturating_sub(self.widget_areas.len());
+        if self.page + 1 >= self.page_count {
+            self.page = self.page_count.saturating_sub(1);
         } else {
             self.page += 1;
         }
@@ -309,7 +304,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for PageNavig
                 }
             }
             ct_event!(scroll down for x,y) => {
-                if self.scroll_area.contains((*x, *y).into()) {
+                if self.area.contains((*x, *y).into()) {
                     if self.next_page() {
                         PagerOutcome::Page(self.page)
                     } else {
@@ -320,7 +315,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for PageNavig
                 }
             }
             ct_event!(scroll up for x,y) => {
-                if self.scroll_area.contains((*x, *y).into()) {
+                if self.area.contains((*x, *y).into()) {
                     if self.prev_page() {
                         PagerOutcome::Page(self.page)
                     } else {

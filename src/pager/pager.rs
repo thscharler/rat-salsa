@@ -1,14 +1,10 @@
-use crate::_private::NonExhaustive;
 use crate::layout::GenericLayout;
 use crate::pager::PagerStyle;
-use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
-use ratatui::prelude::BlockExt;
 use ratatui::style::Style;
 use ratatui::text::Span;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
-use std::marker::PhantomData;
+use ratatui::widgets::{StatefulWidget, Widget};
 use std::rc::Rc;
 
 /// Renders a single page of widgets.
@@ -18,12 +14,10 @@ where
     W: Eq,
     C: Eq,
 {
+    layout: Rc<GenericLayout<W, C>>,
     page: usize,
-
     style: Style,
     label_style: Option<Style>,
-
-    phantom: PhantomData<(W, C)>,
 }
 
 /// Rendering phase.
@@ -33,30 +27,11 @@ where
     W: Eq,
     C: Eq,
 {
+    layout: Rc<GenericLayout<W, C>>,
     page_area: Rect,
     widget_area: Rect,
-    layout: Rc<GenericLayout<W, C>>,
     buffer: &'a mut Buffer,
-
     label_style: Option<Style>,
-}
-
-/// Pager state.
-#[derive(Debug)]
-pub struct PagerState<W, C = ()>
-where
-    W: Eq,
-    C: Eq,
-{
-    /// Full area.
-    /// __read only__ renewed for each render.
-    pub area: Rect,
-    /// Layout
-    /// __read+write__
-    pub layout: Rc<GenericLayout<W, C>>,
-
-    /// Only construct with `..Default::default()`.
-    pub non_exhaustive: NonExhaustive,
 }
 
 impl<W, C> Default for Pager<W, C>
@@ -66,10 +41,10 @@ where
 {
     fn default() -> Self {
         Self {
+            layout: Default::default(),
             page: Default::default(),
             style: Default::default(),
             label_style: Default::default(),
-            phantom: Default::default(),
         }
     }
 }
@@ -81,6 +56,12 @@ where
 {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Layout
+    pub fn layout(mut self, layout: Rc<GenericLayout<W, C>>) -> Self {
+        self.layout = layout;
+        self
     }
 
     /// Display page.
@@ -105,16 +86,9 @@ where
     }
 
     /// Create the second stage.
-    pub fn into_buffer<'b>(
-        self,
-        area: Rect,
-        buf: &'b mut Buffer,
-        state: &mut PagerState<W, C>,
-    ) -> PagerBuffer<'b, W, C> {
-        state.area = area;
-
+    pub fn into_buffer(self, area: Rect, buf: &mut Buffer) -> PagerBuffer<W, C> {
         PagerBuffer {
-            layout: state.layout.clone(),
+            layout: self.layout,
             page_area: Rect::new(0, self.page as u16 * area.height, area.width, area.height),
             widget_area: area,
             buffer: buf,
@@ -137,6 +111,7 @@ where
     }
 
     /// Render a stateless widget and its label, if any.
+    #[inline(always)]
     pub fn render_widget<FN, WW>(&mut self, widget: &W, render_fn: FN)
     where
         FN: FnOnce() -> WW,
@@ -154,6 +129,7 @@ where
     }
 
     /// Render a stateful widget and its label, if any.
+    #[inline(always)]
     pub fn render<FN, WW, SS>(&mut self, widget: &W, render_fn: FN, state: &mut SS)
     where
         FN: FnOnce() -> WW,
@@ -188,39 +164,6 @@ where
                 (&self.layout.container_blocks[idx]).render(container_area, self.buffer);
             }
         }
-    }
-
-    /// Calculate the necessary shift from view to screen.
-    /// This does nothing as Pager always places the widgets
-    /// in screen coordinates.
-    ///
-    /// Just to keep the api in sync with [Clipper].
-    pub fn shift(&self) -> (i16, i16) {
-        (0, 0)
-    }
-
-    /// Does nothing for pager.
-    /// Just to keep the api in sync with [Clipper].
-    pub fn relocate<S>(&self, _state: &mut S)
-    where
-        S: RelocatableState,
-    {
-    }
-
-    /// Clear the areas in the widget-state.
-    /// This is called by render_xx whenever a widget is invisible.
-    pub fn hidden<S>(&self, state: &mut S)
-    where
-        S: RelocatableState,
-    {
-        state.relocate((0, 0), Rect::default())
-    }
-
-    /// Access the buffer.
-    /// __Note__
-    /// Use of render_xxx is preferred.
-    pub fn buffer_mut(&mut self) -> &mut Buffer {
-        self.buffer
     }
 
     /// Relocate the widget area to screen coordinates.
@@ -276,45 +219,5 @@ where
                 area.height,
             ))
         }
-    }
-
-    /// Rendering the content is finished.
-    ///
-    /// This function only exists to keep the api in sync with
-    /// [Clipper].
-    pub fn into_widget(self) -> () {}
-}
-
-impl<W, C> Default for PagerState<W, C>
-where
-    W: Eq,
-    C: Eq,
-{
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            layout: Default::default(),
-            non_exhaustive: NonExhaustive,
-        }
-    }
-}
-
-impl<W, C> PagerState<W, C>
-where
-    W: Eq,
-    C: Eq,
-{
-    pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Page of the given widget.
-    pub fn page_of(&self, widget: &W) -> Option<usize> {
-        self.layout.page_of(widget)
-    }
-
-    /// First widget on the given page.
-    pub fn first(&self, page: usize) -> Option<&W> {
-        self.layout.first(page)
     }
 }

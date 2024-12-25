@@ -87,7 +87,7 @@ mod single_pager;
 
 pub use crate::commons::AreaHandle;
 pub use dual_pager::*;
-pub use pager::{Pager, PagerBuffer, PagerState};
+pub use pager::{Pager, PagerBuffer};
 pub use pager_layout::*;
 pub use pager_nav::{PageNavigation, PageNavigationState};
 pub use pager_style::*;

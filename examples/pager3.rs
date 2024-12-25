@@ -12,7 +12,7 @@ use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{GenericLayout, Label, LayoutForm, Widget};
-use rat_widget::pager::{PageNavigation, PageNavigationState, Pager, PagerState};
+use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::symbols::border::EMPTY;
@@ -37,7 +37,6 @@ fn main() -> Result<(), anyhow::Error> {
         flex: Default::default(),
         layout: Default::default(),
         page_nav: Default::default(),
-        pager: Default::default(),
         hundred: array::from_fn(|_| Default::default()),
         menu: Default::default(),
     };
@@ -51,9 +50,8 @@ struct Data {}
 
 struct State {
     flex: Flex,
-    layout: GenericLayout<()>,
+    layout: Rc<GenericLayout<FocusFlag>>,
     page_nav: PageNavigationState,
-    pager: PagerState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
 }
@@ -87,18 +85,19 @@ fn repaint_input(
     // Prepare navigation.
     let nav = PageNavigation::new()
         .pages(2)
-        .block(Block::bordered())
+        .block(Block::bordered().borders(Borders::TOP | Borders::BOTTOM))
         .styles(THEME.pager_style());
 
     let layout_size = nav.layout_size(l2[1]);
 
     // rebuild layout
-    if state.pager.layout.size_changed(layout_size) {
+    if state.layout.size_changed(layout_size) {
         let mut form_layout = LayoutForm::new()
             .spacing(1)
             .flex(state.flex)
             .line_spacing(1);
 
+        // generate the layout ...
         let mut c0 = 0;
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
@@ -151,11 +150,16 @@ fn repaint_input(
         }
 
         let et = SystemTime::now();
-        state.pager.layout = Rc::new(form_layout.layout(layout_size, Padding::default()));
+        state.layout = Rc::new(form_layout.layout(layout_size, Padding::default()));
         debug!("layout {:?}", et.elapsed()?);
+        debug!(
+            "page_count {}/{}",
+            state.layout.page_count,
+            (state.layout.page_count + 1) / 2
+        );
         state
             .page_nav
-            .set_page_count((state.pager.layout.page_count + 1) / 2);
+            .set_page_count((state.layout.page_count + 1) / 2);
     }
 
     // Render navigation
@@ -193,13 +197,10 @@ fn render_page(
     let et = SystemTime::now();
     // set up pager
     let mut pager = Pager::new() //
+        .layout(state.layout.clone())
         .page(page)
         .styles(THEME.pager_style())
-        .into_buffer(
-            state.page_nav.widget_areas[area_idx],
-            frame.buffer_mut(),
-            &mut state.pager,
-        );
+        .into_buffer(state.page_nav.widget_areas[area_idx], frame.buffer_mut());
 
     // render container areas
     pager.render_container();
@@ -209,6 +210,7 @@ fn render_page(
         pager.render(
             &state.hundred[i].focus.clone(),
             || {
+                // lazy construction
                 TextInputMock::default()
                     .style(THEME.limegreen(0))
                     .focus_style(THEME.limegreen(2))
@@ -218,7 +220,6 @@ fn render_page(
     }
 
     // pager done.
-    _ = pager.into_widget();
     debug!("render {:?}", et.elapsed()?);
 
     Ok(())
@@ -246,9 +247,9 @@ fn handle_input(
     // set the page from focus.
     if f == Outcome::Changed {
         if let Some(ff) = focus.focused() {
-            if let Some(page) = state.pager.page_of(&ff) {
+            if let Some(page) = state.layout.page_of(&ff) {
                 let page = page / 2;
-                if page != state.page_nav.page && page != state.page_nav.page + 1 {
+                if page != state.page_nav.page {
                     state.page_nav.set_page(page);
                 }
             }
@@ -257,7 +258,7 @@ fn handle_input(
 
     let mut r = match state.page_nav.handle(event, Regular) {
         PagerOutcome::Page(p) => {
-            if let Some(w) = state.pager.first(p) {
+            if let Some(w) = state.layout.first(p * 2) {
                 focus.focus_flag(w.clone());
             }
             Outcome::Changed
@@ -268,7 +269,7 @@ fn handle_input(
     let r = r.or_else(|| match event {
         ct_event!(keycode press F(4)) => {
             if state.page_nav.prev_page() {
-                if let Some(w) = state.pager.first(state.page_nav.page) {
+                if let Some(w) = state.layout.first(state.page_nav.page * 2) {
                     focus.focus_flag(w.clone());
                 }
                 Outcome::Changed
@@ -278,7 +279,7 @@ fn handle_input(
         }
         ct_event!(keycode press F(5)) => {
             if state.page_nav.next_page() {
-                if let Some(w) = state.pager.first(state.page_nav.page) {
+                if let Some(w) = state.layout.first(state.page_nav.page * 2) {
                     focus.focus_flag(w.clone());
                 }
                 Outcome::Changed
@@ -287,7 +288,7 @@ fn handle_input(
             }
         }
         ct_event!(keycode press F(2)) => {
-            state.pager.layout = Default::default();
+            state.layout = Default::default();
             state.flex = match state.flex {
                 Flex::Legacy => Flex::Start,
                 Flex::Start => Flex::End,
