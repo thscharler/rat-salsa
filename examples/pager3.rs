@@ -8,6 +8,7 @@ use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
+use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{GenericLayout, Label, LayoutForm, Widget};
@@ -85,7 +86,7 @@ fn repaint_input(
 
     // Prepare navigation.
     let nav = PageNavigation::new()
-        .pages(1)
+        .pages(2)
         .block(Block::bordered())
         .styles(THEME.pager_style());
 
@@ -98,8 +99,7 @@ fn repaint_input(
             .flex(state.flex)
             .line_spacing(1);
 
-        let mut c0 = false;
-        let mut c1 = false;
+        let mut c0 = 0;
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
                 2
@@ -109,17 +109,17 @@ fn repaint_input(
                 1
             };
 
-            if i % 4 == 0 && i != 0 {
-                if c0 {
-                    form_layout.end(());
+            if i >= 8 {
+                if i % 8 == 0 {
+                    form_layout.start((), Some(Block::bordered()));
+                    c0 += 1;
                 }
-                form_layout.start((), Some(Block::bordered()));
-                c0 = true;
+                if (i - 4) % 8 == 0 {
+                    form_layout.end(());
+                    c0 -= 1;
+                }
             }
-            if i % 17 == 0 && i % 4 != 0 && i != 0 {
-                if c1 {
-                    form_layout.end(());
-                }
+            if i == 17 {
                 form_layout.start(
                     (),
                     Some(
@@ -130,7 +130,9 @@ fn repaint_input(
                         ),
                     ),
                 );
-                c1 = true;
+            }
+            if i == 23 {
+                form_layout.end(());
             }
 
             form_layout.widget(
@@ -143,29 +145,58 @@ fn repaint_input(
                 form_layout.page_break();
             }
         }
-        if c0 {
+        while c0 > 0 {
             form_layout.end(());
-        }
-        if c1 {
-            form_layout.end(());
+            c0 -= 1;
         }
 
         let et = SystemTime::now();
         state.pager.layout = Rc::new(form_layout.layout(layout_size, Padding::default()));
         debug!("layout {:?}", et.elapsed()?);
-        state.page_nav.set_page_count(state.pager.layout.page_count);
+        state
+            .page_nav
+            .set_page_count((state.pager.layout.page_count + 1) / 2);
     }
 
-    let et = SystemTime::now();
     // Render navigation
     nav.render(l2[1], frame.buffer_mut(), &mut state.page_nav);
 
+    // reset state areas
+    for i in 0..state.hundred.len() {
+        state.hundred[i].relocate((0, 0), Rect::default());
+    }
+    // render 2 pages
+    render_page(frame, state.page_nav.page * 2, 0, state)?;
+    render_page(frame, state.page_nav.page * 2 + 1, 1, state)?;
+
+    let menu1 = MenuLine::new()
+        .title("#.#")
+        .item_parsed("_Quit")
+        .styles(THEME.menu_style());
+    frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
+
+    for i in 0..state.hundred.len() {
+        if let Some(cursor) = state.hundred[i].screen_cursor() {
+            frame.set_cursor_position(cursor);
+        }
+    }
+
+    Ok(())
+}
+
+fn render_page(
+    frame: &mut Frame<'_>,
+    page: usize,
+    area_idx: usize,
+    state: &mut State,
+) -> Result<(), anyhow::Error> {
+    let et = SystemTime::now();
     // set up pager
     let mut pager = Pager::new() //
-        .page(state.page_nav.page())
+        .page(page)
         .styles(THEME.pager_style())
         .into_buffer(
-            state.page_nav.widget_areas[0],
+            state.page_nav.widget_areas[area_idx],
             frame.buffer_mut(),
             &mut state.pager,
         );
@@ -189,18 +220,6 @@ fn repaint_input(
     // pager done.
     _ = pager.into_widget();
     debug!("render {:?}", et.elapsed()?);
-
-    let menu1 = MenuLine::new()
-        .title("#.#")
-        .item_parsed("_Quit")
-        .styles(THEME.menu_style());
-    frame.render_stateful_widget(menu1, l1[3], &mut state.menu);
-
-    for i in 0..state.hundred.len() {
-        if let Some(cursor) = state.hundred[i].screen_cursor() {
-            frame.set_cursor_position(cursor);
-        }
-    }
 
     Ok(())
 }
@@ -228,7 +247,10 @@ fn handle_input(
     if f == Outcome::Changed {
         if let Some(ff) = focus.focused() {
             if let Some(page) = state.pager.page_of(&ff) {
-                state.page_nav.set_page(page);
+                let page = page / 2;
+                if page != state.page_nav.page && page != state.page_nav.page + 1 {
+                    state.page_nav.set_page(page);
+                }
             }
         }
     }
