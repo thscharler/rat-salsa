@@ -5,7 +5,7 @@ use crate::pager::{PageNavigation, PageNavigationState, Pager, PagerBuffer, Page
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
-use ratatui::layout::{Rect, Size};
+use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::{Block, Widget};
 use std::rc::Rc;
@@ -81,6 +81,18 @@ where
     pub fn style(mut self, style: Style) -> Self {
         self.pager = self.pager.style(style);
         self.page_nav = self.page_nav.style(style);
+        self
+    }
+
+    /// Style for text labels.
+    pub fn label_style(mut self, style: Style) -> Self {
+        self.pager = self.pager.label_style(style);
+        self
+    }
+
+    /// Alignment for text labels.
+    pub fn label_alignment(mut self, alignment: Alignment) -> Self {
+        self.pager = self.pager.label_alignment(alignment);
         self
     }
 

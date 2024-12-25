@@ -13,7 +13,7 @@ use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
 use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::symbols::border::EMPTY;
 use ratatui::widgets::{Block, Borders, Padding, StatefulWidget};
@@ -193,6 +193,7 @@ fn render_page(
     let mut pager = Pager::new() //
         .layout(state.layout.clone())
         .page(page)
+        .label_alignment(Alignment::Right)
         .styles(THEME.pager_style())
         .into_buffer(state.page_nav.widget_areas[area_idx], frame.buffer_mut());
 

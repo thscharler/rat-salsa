@@ -1,9 +1,9 @@
 use crate::layout::GenericLayout;
 use crate::pager::PagerStyle;
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
-use ratatui::text::Span;
+use ratatui::text::Line;
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::rc::Rc;
 
@@ -18,6 +18,7 @@ where
     page: usize,
     style: Style,
     label_style: Option<Style>,
+    label_alignment: Option<Alignment>,
 }
 
 /// Rendering phase.
@@ -32,6 +33,7 @@ where
     widget_area: Rect,
     buffer: &'a mut Buffer,
     label_style: Option<Style>,
+    label_alignment: Option<Alignment>,
 }
 
 impl<W, C> Default for Pager<W, C>
@@ -45,6 +47,7 @@ where
             page: Default::default(),
             style: Default::default(),
             label_style: Default::default(),
+            label_alignment: Default::default(),
         }
     }
 }
@@ -76,11 +79,24 @@ where
         self
     }
 
+    pub fn label_style(mut self, style: Style) -> Self {
+        self.label_style = Some(style);
+        self
+    }
+
+    pub fn label_alignment(mut self, alignment: Alignment) -> Self {
+        self.label_alignment = Some(alignment);
+        self
+    }
+
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
         self.style = styles.style;
         if let Some(label) = styles.label_style {
             self.label_style = Some(label);
+        }
+        if let Some(alignment) = styles.label_alignment {
+            self.label_alignment = Some(alignment);
         }
         self
     }
@@ -93,6 +109,7 @@ where
             widget_area: area,
             buffer: buf,
             label_style: self.label_style,
+            label_alignment: self.label_alignment,
         }
     }
 }
@@ -171,8 +188,10 @@ where
         if let Some(label) = &self.layout.label_str(idx) {
             if let Some(label_area) = self.locate_area(self.layout.label(idx)) {
                 let style = self.label_style.unwrap_or_default();
-                Span::from(label.as_ref())
+                let align = self.label_alignment.unwrap_or_default();
+                Line::from(label.as_ref())
                     .style(style)
+                    .alignment(align)
                     .render(label_area, self.buffer);
             }
         }
