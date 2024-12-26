@@ -155,10 +155,17 @@ struct WidgetDef<W>
 where
     W: Debug + Clone,
 {
+    // widget id
     id: W,
+    // label constraint
     label: FormLabel,
+    // widget constraint
     widget: FormWidget,
+    // effective top border due to container padding.
+    // this value will onyl be used for page-break.
     top_border: u16,
+    // effective bottom border due to container padding.
+    // this value will only be used for page-break.
     bottom_border: u16,
 }
 
@@ -167,18 +174,25 @@ struct ContainerDef<C>
 where
     C: Debug + Clone,
 {
+    // container id
     id: C,
+    // block
     block: Option<Block<'static>>,
+    // padding due to block
     padding: Padding,
-    open: bool,
+    // under construction
+    constructing: bool,
 }
 
 #[derive(Debug, Default, Clone)]
 struct ContainerArea {
+    // range into the widget vec
     range: Range<usize>,
+    // calculated container area.
     area: Rect,
 }
 
+// widths deduced from constraints.
 #[derive(Debug, Default, Clone)]
 struct Widths {
     label: u16,
@@ -187,16 +201,26 @@ struct Widths {
     stretch: bool,
 }
 
+// effective positions for layout construction.
 #[derive(Debug, Default, Clone)]
 struct Positions {
+    // label position
     label_x: u16,
+    // label width, max.
     label_width: u16,
+    // widget position
     widget_x: u16,
+    // widget width, max.
     widget_width: u16,
+    // left position for container blocks.
     container_left: u16,
+    // right position for container blocks.
     container_right: u16,
+    // total width label+spacing+widget
     total_width: u16,
+    // total width for the widget when stretched to max.
     stretch_width: u16,
+    // total width for label+spacing+widget when stretched to max.
     total_stretch_width: u16,
 }
 
@@ -267,7 +291,7 @@ where
             id: container,
             block,
             padding,
-            open: true,
+            constructing: true,
         });
         self.container_areas.push(ContainerArea {
             range: max_idx..max_idx,
@@ -298,9 +322,9 @@ where
     pub fn end(&mut self, container: C) {
         let max = self.areas.len();
         for (c_idx, cc) in self.containers.iter_mut().enumerate().rev() {
-            if cc.id == container && cc.open {
+            if cc.id == container && cc.constructing {
                 self.container_areas[c_idx].range.end = max;
-                cc.open = false;
+                cc.constructing = false;
 
                 // might have been used by a widget.
                 if self.c_top > 0 {
@@ -312,7 +336,7 @@ where
 
                 return;
             }
-            if cc.open {
+            if cc.constructing {
                 panic!("Unclosed container {:?}", cc.id);
             }
         }
@@ -322,7 +346,7 @@ where
 
     fn validate_containers(&self) {
         for cc in self.containers.iter() {
-            if cc.open {
+            if cc.constructing {
                 panic!("Unclosed container {:?}", cc.id);
             }
         }
