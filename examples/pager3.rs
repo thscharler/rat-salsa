@@ -97,6 +97,8 @@ fn repaint_input(
             .flex(state.flex)
             .line_spacing(1);
 
+        form_layout.widget(FocusFlag::new(), FormLabel::None, FormWidget::Measure(33));
+
         // generate the layout ...
         let mut c0 = 0;
         for i in 0..state.hundred.len() {
@@ -134,11 +136,11 @@ fn repaint_input(
                 form_layout.end(());
             }
 
-            if i == 3 || i == 9 {
+            if i == 3 || i == 9 || i == 17 {
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
                     FormLabel::Str(format!("{}", i).to_string().into()),
-                    FormWidget::WideStretchXY(h),
+                    FormWidget::StretchXY(h),
                 );
             } else {
                 form_layout.widget(

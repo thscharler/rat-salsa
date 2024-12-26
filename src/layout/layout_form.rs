@@ -269,10 +269,6 @@ struct Positions {
     container_right: u16,
     // total width label+spacing+widget
     total_width: u16,
-    // total width for the widget when stretched to max.
-    stretch_width: u16,
-    // total width for label+spacing+widget when stretched to max.
-    total_stretch_width: u16,
 }
 
 // Current page data
@@ -591,30 +587,8 @@ where
         let container_left;
         let container_right;
         let total_width;
-        let stretch_width;
-        let total_stretch_width;
 
-        let effective_flex = match self.flex {
-            Flex::End => {
-                // with stretch this is the same as start
-                if width.stretch_x {
-                    Flex::Start
-                } else {
-                    Flex::End
-                }
-            }
-            Flex::Center => {
-                // with stretch this is the same as start
-                if width.stretch_x {
-                    Flex::Start
-                } else {
-                    Flex::Center
-                }
-            }
-            v => v,
-        };
-
-        match effective_flex {
+        match self.flex {
             Flex::Legacy => {
                 label_x = border.left + self.max_left_padding;
                 widget_x = label_x + width.label + width.spacing;
@@ -623,8 +597,6 @@ where
                 container_right = layout_width.saturating_sub(border.right);
 
                 total_width = width.label + width.spacing + width.widget;
-                stretch_width = container_right.saturating_sub(widget_x);
-                total_stretch_width = container_right.saturating_sub(container_left);
             }
             Flex::Start => {
                 label_x = border.left + self.max_left_padding;
@@ -638,8 +610,6 @@ where
                 }
 
                 total_width = width.label + width.spacing + width.widget;
-                stretch_width = container_right.saturating_sub(widget_x);
-                total_stretch_width = container_right.saturating_sub(container_left);
             }
             Flex::Center => {
                 let rest = layout_width.saturating_sub(
@@ -658,8 +628,6 @@ where
                 container_right = widget_x + width.widget + self.max_right_padding;
 
                 total_width = width.label + width.spacing + width.widget;
-                stretch_width = width.widget;
-                total_stretch_width = total_width;
             }
             Flex::End => {
                 widget_x = layout_width
@@ -670,8 +638,6 @@ where
                 container_right = layout_width.saturating_sub(border.right);
 
                 total_width = width.label + width.spacing + width.widget;
-                stretch_width = width.widget;
-                total_stretch_width = total_width;
             }
             Flex::SpaceAround => {
                 let rest = layout_width.saturating_sub(
@@ -691,8 +657,6 @@ where
                 container_right = layout_width.saturating_sub(border.right);
 
                 total_width = width.label + spacing + width.widget;
-                stretch_width = container_right.saturating_sub(widget_x);
-                total_stretch_width = container_right.saturating_sub(container_left);
             }
             Flex::SpaceBetween => {
                 label_x = border.left + self.max_left_padding;
@@ -705,8 +669,6 @@ where
                 total_width = layout_width.saturating_sub(
                     border.left + self.max_left_padding + border.right + self.max_right_padding,
                 );
-                stretch_width = container_right.saturating_sub(widget_x);
-                total_stretch_width = container_right.saturating_sub(container_left);
             }
         }
 
@@ -718,8 +680,6 @@ where
             widget_width: width.widget,
             container_right,
             total_width,
-            stretch_width,
-            total_stretch_width,
         }
     }
 
@@ -990,6 +950,9 @@ impl Page {
             FormWidget::WideStretchXY(h) => *h,
         };
 
+        let stretch_width = self.container_right.saturating_sub(pos.widget_x + 1);
+        let total_stretch_width = self.container_right.saturating_sub(pos.label_x + 1);
+
         if stacked {
             let max_height = self
                 .max_height
@@ -1020,8 +983,8 @@ impl Page {
             };
             match &widget.widget {
                 FormWidget::Wide(_) => label_area.width = pos.total_width,
-                FormWidget::WideStretch(_) => label_area.width = pos.total_stretch_width,
-                FormWidget::WideStretchXY(_) => label_area.width = pos.total_stretch_width,
+                FormWidget::WideStretch(_) => label_area.width = total_stretch_width,
+                FormWidget::WideStretchXY(_) => label_area.width = total_stretch_width,
                 _ => {}
             }
 
@@ -1048,16 +1011,16 @@ impl Page {
                     Rect::new(pos.label_x, self.y, pos.total_width, widget_height)
                 }
                 FormWidget::Stretch(_) => {
-                    Rect::new(pos.widget_x, self.y, pos.stretch_width, widget_height)
+                    Rect::new(pos.widget_x, self.y, stretch_width, widget_height)
                 }
                 FormWidget::WideStretch(_) => {
-                    Rect::new(pos.label_x, self.y, pos.total_stretch_width, widget_height)
+                    Rect::new(pos.label_x, self.y, total_stretch_width, widget_height)
                 }
                 FormWidget::StretchXY(_) => {
-                    Rect::new(pos.widget_x, self.y, pos.stretch_width, widget_height)
+                    Rect::new(pos.widget_x, self.y, stretch_width, widget_height)
                 }
                 FormWidget::WideStretchXY(_) => {
-                    Rect::new(pos.label_x, self.y, pos.total_stretch_width, widget_height)
+                    Rect::new(pos.label_x, self.y, total_stretch_width, widget_height)
                 }
             };
 
@@ -1104,13 +1067,13 @@ impl Page {
                     unreachable!()
                 }
                 FormWidget::Stretch(_) => {
-                    Rect::new(pos.widget_x, self.y, pos.stretch_width, widget_height)
+                    Rect::new(pos.widget_x, self.y, stretch_width, widget_height)
                 }
                 FormWidget::WideStretch(_) => {
                     unreachable!()
                 }
                 FormWidget::StretchXY(_) => {
-                    Rect::new(pos.widget_x, self.y, pos.stretch_width, widget_height)
+                    Rect::new(pos.widget_x, self.y, stretch_width, widget_height)
                 }
                 FormWidget::WideStretchXY(_) => {
                     unreachable!()
