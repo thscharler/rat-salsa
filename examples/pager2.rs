@@ -80,7 +80,9 @@ fn repaint_input(
     // maybe rebuild layout
     let layout_size = pager.layout_size(l2[1]);
     if state.pager.layout.size_changed(layout_size) {
-        let mut form = LayoutForm::new();
+        let mut form = LayoutForm::new().mirror_odd_border();
+        form.widget(FocusFlag::new(), FormLabel::None, FormWidget::Measure(40));
+
         for i in 0..state.hundred.len() {
             let h = if i == 0 {
                 1
@@ -96,15 +98,15 @@ fn repaint_input(
 
             form.widget(
                 state.hundred[i].focus.clone(),
-                FormLabel::FullWidthStr(format!("{}", i).to_string().into()),
-                FormWidget::FullWidth(1),
+                FormLabel::Str(format!("{}", i).to_string().into()),
+                FormWidget::Stretch(2),
             );
 
             if i == 17 {
                 form.page_break();
             }
         }
-        state.pager.layout = Rc::new(form.layout(layout_size, Padding::new(2, 2, 1, 1)));
+        state.pager.layout = Rc::new(form.layout(layout_size, Padding::new(2, 1, 1, 0)));
     }
 
     // set current layout and prepare rendering.

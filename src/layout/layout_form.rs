@@ -14,6 +14,10 @@ use std::ops::Range;
 pub enum FormLabel {
     /// No label, just the widget.
     None,
+    /// Not a label, just a measure for column-width.
+    ///
+    /// This will not create an output area.
+    Measure(u16),
     /// Label by example.
     /// Line breaks in the text don't work.
     ///
@@ -30,15 +34,6 @@ pub enum FormLabel {
     /// Will create a label area with the max width of all labels and a height of rows.
     /// The area will be top aligned with the widget.
     Size(u16, u16),
-    /// Fill the total width of labels+widget.
-    /// The widget will be rendered below the label.
-    ///
-    /// The label text will be stored in the resulting
-    /// layout and can be used for rendering later.
-    FullWidthStr(Cow<'static, str>),
-    /// Fill the total width of labels+widget. (rows).
-    /// The widget will be rendered below the label.
-    FullWidth(u16),
 }
 
 /// Widget constraints.
@@ -48,6 +43,14 @@ pub enum FormLabel {
 pub enum FormWidget {
     /// No widget, just a label.
     None,
+    /// Not a widget, just a measure for widget width.
+    ///
+    /// This also discards any label added alongside, regardless of
+    /// label type, but it still uses the label-width as a measure.
+    ///
+    /// This will not create an output area.
+    Measure(u16),
+
     /// Widget aligned with the label. (cols)
     ///
     /// Will create an area with the given width and height 1.
@@ -60,11 +63,25 @@ pub enum FormWidget {
     Size(u16, u16),
 
     /// Fill the total width of labels+widget. (rows).
-    /// Use FormLabel::FullWidth if you want a label above the widget.
+    /// Any label that is not FormLabel::None will be placed above
+    /// the widget.
     ///
     /// Will create an area with the full width of labels + widgets
     /// and the given height.
     FullWidth(u16),
+
+    /// Stretch the widget to the maximum extent horizontally. (rows).
+    ///
+    /// Will create an area with the full width of the given area,
+    /// still respecting labels, borders and blocks.
+    Stretch(u16),
+
+    /// Stretch the widget to the maximum extend horizontally,
+    /// including the label. (rows).
+    ///
+    /// Will create an area with the full width of the given area,
+    /// still respecting borders and blocks.
+    FullStretch(u16),
     // todo: fill height
 }
 
@@ -98,6 +115,8 @@ pub struct LayoutForm<W, C = ()> {
     spacing: u16,
     /// Line spacing.
     line_spacing: u16,
+    /// Mirror the borders between even/odd pages.
+    mirror: bool,
     /// Flex
     flex: Flex,
     /// Areas
@@ -126,6 +145,27 @@ pub struct LayoutForm<W, C = ()> {
     tmp: Vec<(C, Rect, Option<Block<'static>>)>,
 }
 
+#[derive(Debug, Default, Clone)]
+struct Widths {
+    label: u16,
+    widget: u16,
+    spacing: u16,
+    stretch: bool,
+}
+
+#[derive(Debug, Default, Clone)]
+struct Positions {
+    label_x: u16,
+    label_width: u16,
+    widget_x: u16,
+    widget_width: u16,
+    container_left: u16,
+    container_right: u16,
+    total_width: u16,
+    stretch_width: u16,
+    total_stretch_width: u16,
+}
+
 impl<W, C> LayoutForm<W, C>
 where
     W: Eq + Clone + Debug + Default,
@@ -135,6 +175,7 @@ where
         Self {
             spacing: Default::default(),
             line_spacing: Default::default(),
+            mirror: false,
             flex: Default::default(),
             areas: Default::default(),
             page_breaks: Default::default(),
@@ -160,6 +201,14 @@ where
     #[inline]
     pub fn line_spacing(mut self, spacing: u16) -> Self {
         self.line_spacing = spacing;
+        self
+    }
+
+    /// Mirror the border given to layout between even and odd pages.
+    /// The layout starts with page 0 which is even.
+    #[inline]
+    pub fn mirror_odd_border(mut self) -> Self {
+        self.mirror = true;
         self
     }
 
@@ -262,10 +311,11 @@ where
     }
 
     // find maximum width for label, widget and spacing.
-    fn find_max(&self, width: u16, border: Padding) -> (u16, u16, u16) {
+    fn find_max(&self, width: u16, border: Padding) -> Widths {
         let mut label_width = 0;
         let mut widget_width = 0;
         let mut spacing = self.spacing;
+        let mut stretch = false;
 
         // find max
         for (_, label, widget, _) in self.areas.iter() {
@@ -274,14 +324,16 @@ where
                 FormLabel::Str(s) => label_width = label_width.max(s.len() as u16),
                 FormLabel::Width(w) => label_width = label_width.max(*w),
                 FormLabel::Size(w, _) => label_width = label_width.max(*w),
-                FormLabel::FullWidthStr(s) => label_width = label_width.max(s.len() as u16),
-                FormLabel::FullWidth(_) => {}
+                FormLabel::Measure(w) => label_width = label_width.max(*w),
             }
             match widget {
                 FormWidget::None => {}
                 FormWidget::Width(w) => widget_width = widget_width.max(*w),
                 FormWidget::Size(w, _) => widget_width = widget_width.max(*w),
                 FormWidget::FullWidth(_) => {}
+                FormWidget::Measure(w) => widget_width = widget_width.max(*w),
+                FormWidget::Stretch(_) => stretch = true,
+                FormWidget::FullStretch(_) => stretch = true,
             }
         }
 
@@ -333,108 +385,175 @@ where
             }
         }
 
-        (label_width, widget_width, spacing)
+        Widths {
+            label: label_width,
+            widget: widget_width,
+            spacing,
+            stretch,
+        }
     }
 
     // Find horizontal positions for label and widget.
-    fn find_pos(
-        &self,
-        width: u16,
-        label_width: u16,
-        widget_width: u16,
-        spacing: u16,
-        border: Padding,
-    ) -> (u16, u16, u16, u16, u16) {
+    fn find_pos(&self, layout_width: u16, border: Padding, width: Widths) -> Positions {
         let label_x;
         let widget_x;
         let container_left;
         let container_right;
         let total_width;
+        let stretch_width;
+        let total_stretch_width;
 
-        match self.flex {
+        let effective_flex = match self.flex {
+            Flex::Legacy => Flex::Legacy,
+            Flex::Start => Flex::Start,
+            Flex::End => {
+                // with stretch this is the same as start
+                if width.stretch {
+                    Flex::Start
+                } else {
+                    Flex::End
+                }
+            }
+            Flex::Center => {
+                // with stretch this is the same as start
+                if width.stretch {
+                    Flex::Start
+                } else {
+                    Flex::End
+                }
+            }
+            Flex::SpaceBetween => {
+                todo!()
+            }
+            Flex::SpaceAround => {
+                todo!()
+            }
+        };
+
+        match effective_flex {
             Flex::Legacy => {
                 label_x = border.left + self.max_left_padding;
-                widget_x = label_x + label_width + spacing;
+                widget_x = label_x + width.label + width.spacing;
+
                 container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = width.saturating_sub(border.right);
-                total_width = label_width + spacing + widget_width;
+                container_right = layout_width.saturating_sub(border.right);
+
+                total_width = width.label + width.spacing + width.widget;
+                stretch_width = container_right.saturating_sub(widget_x);
+                total_stretch_width = container_right.saturating_sub(container_left);
             }
             Flex::Start => {
                 label_x = border.left + self.max_left_padding;
-                widget_x = label_x + label_width + spacing;
+                widget_x = label_x + width.label + width.spacing;
+
                 container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = widget_x + widget_width + self.max_right_padding;
-                total_width = label_width + spacing + widget_width;
+                if width.stretch {
+                    container_right = layout_width.saturating_sub(border.right);
+                } else {
+                    container_right = widget_x + width.widget + self.max_right_padding;
+                }
+
+                total_width = width.label + width.spacing + width.widget;
+                stretch_width = container_right.saturating_sub(widget_x);
+                total_stretch_width = container_right.saturating_sub(container_left);
             }
             Flex::Center => {
-                let rest = width.saturating_sub(
+                let rest = layout_width.saturating_sub(
                     border.left
                         + self.max_left_padding
-                        + label_width
-                        + spacing
-                        + widget_width
+                        + width.label
+                        + width.spacing
+                        + width.widget
                         + self.max_right_padding
                         + border.right,
                 );
                 label_x = border.left + self.max_left_padding + rest / 2;
-                widget_x = label_x + label_width + spacing;
+                widget_x = label_x + width.label + width.spacing;
+
                 container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = widget_x + widget_width + self.max_right_padding;
-                total_width = label_width + spacing + widget_width;
+                container_right = widget_x + width.widget + self.max_right_padding;
+
+                total_width = width.label + width.spacing + width.widget;
+                stretch_width = width.widget;
+                total_stretch_width = total_width;
             }
             Flex::End => {
-                widget_x =
-                    width.saturating_sub(border.right + self.max_right_padding + widget_width);
-                label_x = widget_x.saturating_sub(spacing + label_width);
+                widget_x = layout_width
+                    .saturating_sub(border.right + self.max_right_padding + width.widget);
+                label_x = widget_x.saturating_sub(width.spacing + width.label);
+
                 container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = width.saturating_sub(border.right);
-                total_width = label_width + spacing + widget_width;
+                container_right = layout_width.saturating_sub(border.right);
+
+                total_width = width.label + width.spacing + width.widget;
+                stretch_width = width.widget;
+                total_stretch_width = total_width;
             }
             Flex::SpaceAround => {
-                let rest = width.saturating_sub(
+                let rest = layout_width.saturating_sub(
                     border.left
                         + self.max_left_padding
-                        + label_width
-                        + widget_width
+                        + width.label
+                        + width.widget
                         + self.max_right_padding
                         + border.right,
                 );
                 let spacing = rest / 3;
 
                 label_x = border.left + self.max_left_padding + spacing;
-                widget_x = label_x + label_width + spacing;
+                widget_x = label_x + width.label + spacing;
+
                 container_left = border.left;
-                container_right = width.saturating_sub(border.right);
-                total_width = label_width + spacing + widget_width;
+                container_right = layout_width.saturating_sub(border.right);
+
+                total_width = width.label + spacing + width.widget;
+                stretch_width = container_right.saturating_sub(widget_x);
+                total_stretch_width = container_right.saturating_sub(container_left);
             }
             Flex::SpaceBetween => {
                 label_x = border.left + self.max_left_padding;
-                widget_x =
-                    width.saturating_sub(border.right + self.max_right_padding + widget_width);
+                widget_x = layout_width
+                    .saturating_sub(border.right + self.max_right_padding + width.widget);
+
                 container_left = label_x.saturating_sub(self.max_left_padding);
-                container_right = width.saturating_sub(border.right);
-                total_width = width.saturating_sub(
+                container_right = layout_width.saturating_sub(border.right);
+
+                total_width = layout_width.saturating_sub(
                     border.left + self.max_left_padding + border.right + self.max_right_padding,
                 );
+                stretch_width = container_right.saturating_sub(widget_x);
+                total_stretch_width = container_right.saturating_sub(container_left);
             }
         }
 
-        (
+        Positions {
             container_left,
             label_x,
+            label_width: width.label,
             widget_x,
+            widget_width: width.widget,
             container_right,
             total_width,
-        )
+            stretch_width,
+            total_stretch_width,
+        }
     }
 
     /// Calculate the layout for the given page size and padding.
     pub fn layout(mut self, page: Size, border: Padding) -> GenericLayout<W, C> {
         self.validate_containers();
 
-        let (label_width, widget_width, spacing) = self.find_max(page.width, border);
-        let (c_left, label_x, widget_x, c_right, total_width) =
-            self.find_pos(page.width, label_width, widget_width, spacing, border);
+        let width = self.find_max(page.width, border);
+        let pos_even = self.find_pos(page.width, border, width.clone());
+        let pos_odd = if self.mirror {
+            self.find_pos(
+                page.width,
+                Padding::new(border.right, border.left, border.top, border.bottom),
+                width,
+            )
+        } else {
+            pos_even.clone()
+        };
 
         let mut gen_layout =
             GenericLayout::with_capacity(self.areas.len(), self.containers.len() * 2);
@@ -445,24 +564,34 @@ where
         let mut page_y = page_no * page.height;
         let mut y = border.top;
         let mut line_spacing = 0;
-        let mut container_left = c_left;
-        let mut container_right = c_right;
+        let mut pos = &pos_even;
+        let mut container_left = pos.container_left;
+        let mut container_right = pos.container_right;
 
         for (idx, (key, label, widget, (c_top, c_bottom))) in self.areas.into_iter().enumerate() {
+            if matches!(widget, FormWidget::Measure(_)) {
+                continue;
+            }
+
             // page break
             let brk_label_height = match label {
                 FormLabel::None => 0,
+                FormLabel::Measure(_) => 0,
                 FormLabel::Str(_) => 1,
                 FormLabel::Width(_) => 1,
                 FormLabel::Size(_, h) => h,
-                FormLabel::FullWidthStr(_) => 1,
-                FormLabel::FullWidth(h) => h,
             };
             let brk_widget_height = match widget {
                 FormWidget::None => 0,
+                FormWidget::Measure(_) => {
+                    unreachable!()
+                }
                 FormWidget::Width(_) => 1,
                 FormWidget::Size(_, h) => h,
                 FormWidget::FullWidth(h) => h,
+
+                FormWidget::Stretch(h) => h,
+                FormWidget::FullStretch(h) => h,
             };
 
             let page_break_widget =
@@ -495,8 +624,13 @@ where
                 page_no += 1;
                 page_y = page_no * page.height;
                 y = page_y + border.top;
-                container_left = c_left;
-                container_right = c_right;
+                pos = if page_no%2 == 0 {
+                    &pos_even
+                } else {
+                    &pos_odd
+                };
+                container_left = pos.container_left;
+                container_right = pos.container_right;
             } else {
                 // line spacing must not affect page-break of containers.
                 y += line_spacing;
@@ -521,48 +655,71 @@ where
 
             // get area + advance label
             // labels fill the available space.
-            let label_size = match label {
-                FormLabel::None => (0, 0),
-                FormLabel::Str(_) => (label_width, min(1, max_height)),
-                FormLabel::Width(_) => (label_width, min(1, max_height)),
-                FormLabel::Size(_, h) => (label_width, min(h, max_height)),
-                FormLabel::FullWidthStr(_) => (label_width, min(1, max_height)),
-                FormLabel::FullWidth(h) => (total_width, min(h, max_height)),
+            let label_area = match label {
+                FormLabel::None => Rect::default(),
+                FormLabel::Measure(_) => Rect::default(),
+                FormLabel::Str(_) | FormLabel::Width(_) => match widget {
+                    FormWidget::FullWidth(_) => {
+                        Rect::new(pos.label_x, y, pos.total_width, min(1, max_height))
+                    }
+                    FormWidget::FullStretch(_) => {
+                        Rect::new(pos.label_x, y, pos.total_stretch_width, min(1, max_height))
+                    }
+                    _ => Rect::new(pos.label_x, y, pos.label_width, min(1, max_height)),
+                },
+                FormLabel::Size(_, h) => match widget {
+                    FormWidget::FullWidth(_) => {
+                        Rect::new(pos.label_x, y, pos.total_width, min(h, max_height))
+                    }
+                    FormWidget::FullStretch(_) => {
+                        Rect::new(pos.label_x, y, pos.total_stretch_width, min(h, max_height))
+                    }
+                    _ => Rect::new(pos.label_x, y, pos.label_width, min(h, max_height)),
+                },
             };
-            let label_area = Rect::new(label_x, y, label_size.0, label_size.1);
-            y += match label {
-                FormLabel::FullWidthStr(_) | FormLabel::FullWidth(_) => label_size.1,
+            y += match widget {
+                FormWidget::FullWidth(_) => label_area.height,
+                FormWidget::FullStretch(_) => label_area.height,
                 _ => 0,
             };
 
             // area + advance widget
-            let widget_size = match widget {
-                FormWidget::None => (0, 0),
-                FormWidget::Width(w) => (min(w, widget_width), min(1, max_height)),
-                FormWidget::Size(w, h) => (min(w, widget_width), min(h, max_height)),
-                FormWidget::FullWidth(h) => (total_width, min(h, max_height)),
-            };
             let widget_area = match widget {
-                FormWidget::None | FormWidget::Width(_) | FormWidget::Size(_, _) => {
-                    Rect::new(widget_x, y, widget_size.0, widget_size.1)
+                FormWidget::None => Rect::default(),
+                FormWidget::Measure(_) => {
+                    unreachable!()
                 }
-                FormWidget::FullWidth(_) => Rect::new(label_x, y, widget_size.0, widget_size.1),
+                FormWidget::Width(w) => Rect::new(
+                    pos.widget_x,
+                    y,
+                    min(w, pos.widget_width),
+                    min(1, max_height),
+                ),
+                FormWidget::Size(w, h) => Rect::new(
+                    pos.widget_x,
+                    y,
+                    min(w, pos.widget_width),
+                    min(h, max_height),
+                ),
+                FormWidget::FullWidth(h) => {
+                    Rect::new(pos.label_x, y, pos.total_width, min(h, max_height))
+                }
+                FormWidget::Stretch(h) => {
+                    Rect::new(pos.widget_x, y, pos.stretch_width, min(h, max_height))
+                }
+                FormWidget::FullStretch(h) => {
+                    Rect::new(pos.label_x, y, pos.total_stretch_width, min(h, max_height))
+                }
             };
-            y += match label {
-                FormLabel::FullWidthStr(_) | FormLabel::FullWidth(_) => widget_size.1,
-                _ => max(label_size.1, widget_size.1),
-            };
-
             let label_text = match label {
                 FormLabel::None => None,
                 FormLabel::Str(s) => Some(s.clone()),
                 FormLabel::Width(_) => None,
                 FormLabel::Size(_, _) => None,
-                FormLabel::FullWidthStr(s) => Some(s.clone()),
-                FormLabel::FullWidth(_) => None,
+                FormLabel::Measure(_) => None,
             };
-
             gen_layout.add(key, widget_area, label_text, label_area);
+            y += widget_area.height;
 
             // end and push containers
             self.tmp.clear();
