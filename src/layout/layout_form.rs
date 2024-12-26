@@ -127,12 +127,10 @@ where
     flex: Flex,
     /// Areas
     areas: Vec<WidgetDef<W>>,
-    /// Page breaks.
-    page_breaks: Vec<usize>,
-
     /// Containers/Blocks
     containers: Vec<ContainerDef<C>>,
-    container_areas: Vec<ContainerArea>,
+    /// Page breaks.
+    page_breaks: Vec<usize>,
 
     /// maximum padding due to containers.
     max_left_padding: u16,
@@ -182,10 +180,6 @@ where
     padding: Padding,
     // under construction
     constructing: bool,
-}
-
-#[derive(Debug, Default, Clone)]
-struct ContainerArea {
     // range into the widget vec
     range: Range<usize>,
     // calculated container area.
@@ -238,7 +232,6 @@ where
             areas: Default::default(),
             page_breaks: Default::default(),
             containers: Default::default(),
-            container_areas: Default::default(),
             max_left_padding: Default::default(),
             max_right_padding: Default::default(),
             c_top: Default::default(),
@@ -292,8 +285,6 @@ where
             block,
             padding,
             constructing: true,
-        });
-        self.container_areas.push(ContainerArea {
             range: max_idx..max_idx,
             area: Rect::default(),
         });
@@ -321,9 +312,9 @@ where
     ///
     pub fn end(&mut self, container: C) {
         let max = self.areas.len();
-        for (c_idx, cc) in self.containers.iter_mut().enumerate().rev() {
+        for cc in self.containers.iter_mut().rev() {
             if cc.id == container && cc.constructing {
-                self.container_areas[c_idx].range.end = max;
+                cc.range.end = max;
                 cc.constructing = false;
 
                 // might have been used by a widget.
@@ -619,6 +610,7 @@ where
         gen_layout.set_page_size(page);
 
         let mut tmp = Vec::new();
+
         let mut page_no = 0u16;
         let mut page_y = page_no * page.height;
         let mut y = border.top;
@@ -627,7 +619,7 @@ where
         let mut container_left = pos.container_left;
         let mut container_right = pos.container_right;
 
-        for (idx, widget) in self.areas.iter().enumerate() {
+        for (idx, widget) in self.areas.into_iter().enumerate() {
             if matches!(widget.widget, FormWidget::Measure(_)) {
                 continue;
             }
@@ -659,6 +651,7 @@ where
                 + max(brk_label_height, brk_widget_height)
                 + widget.bottom_border
                 >= page_y + page.height.saturating_sub(border.bottom);
+
             let page_break_man = if idx > 0 {
                 self.page_breaks.contains(&(idx - 1))
             } else {
@@ -668,14 +661,13 @@ where
             if page_break_widget || page_break_man {
                 // close and push containers
                 tmp.clear();
-                for (c_idx, cc) in self.containers.iter().enumerate().rev() {
-                    let c_area = &mut self.container_areas[c_idx];
-                    if idx > c_area.range.start && idx < c_area.range.end {
+                for cc in self.containers.iter_mut().rev() {
+                    if idx > cc.range.start && idx < cc.range.end {
                         y += cc.padding.bottom;
-                        c_area.area.height = y - c_area.area.y;
-                        tmp.push((cc.id.clone(), c_area.area.clone(), cc.block.clone()));
+                        cc.area.height = y - cc.area.y;
+                        tmp.push((cc.id.clone(), cc.area.clone(), cc.block.clone()));
                         // restart on next page
-                        c_area.range.start = idx;
+                        cc.range.start = idx;
                     }
                 }
                 while !tmp.is_empty() {
@@ -700,12 +692,11 @@ where
             }
 
             // start container
-            for (c_idx, cc) in self.containers.iter().enumerate() {
-                let c_area = &mut self.container_areas[c_idx];
-                if c_area.range.start == idx {
-                    c_area.area.x = container_left;
-                    c_area.area.width = container_right - container_left;
-                    c_area.area.y = y;
+            for cc in self.containers.iter_mut() {
+                if cc.range.start == idx {
+                    cc.area.x = container_left;
+                    cc.area.width = container_right - container_left;
+                    cc.area.y = y;
 
                     y += cc.padding.top;
                     container_left += cc.padding.left;
@@ -789,14 +780,13 @@ where
 
             // end and push containers
             tmp.clear();
-            for (c_idx, cc) in self.containers.iter().enumerate().rev() {
-                let c_area = &mut self.container_areas[c_idx];
-                if idx + 1 == c_area.range.end {
+            for cc in self.containers.iter_mut().rev() {
+                if idx + 1 == cc.range.end {
                     y += cc.padding.bottom;
 
-                    c_area.area.height = y - c_area.area.y;
+                    cc.area.height = y - cc.area.y;
 
-                    tmp.push((cc.id.clone(), c_area.area.clone(), cc.block.clone()));
+                    tmp.push((cc.id.clone(), cc.area.clone(), cc.block.clone()));
 
                     container_left -= cc.padding.left;
                     container_right += cc.padding.right;
