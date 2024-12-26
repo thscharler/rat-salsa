@@ -213,16 +213,34 @@ where
         self.label_areas[idx]
     }
 
+    /// Set the label area.
+    #[inline]
+    pub fn set_label(&mut self, idx: usize, area: Rect) {
+        self.label_areas[idx] = area;
+    }
+
     /// Access widget area.
     #[inline]
     pub fn widget(&self, idx: usize) -> Rect {
         self.areas[idx]
     }
 
-    /// Access labels.
+    /// Change the widget area.
+    #[inline]
+    pub fn set_widget(&mut self, idx: usize, area: Rect) {
+        self.areas[idx] = area;
+    }
+
+    /// Access label string.
     #[inline]
     pub fn label_str(&self, idx: usize) -> &Option<Cow<'static, str>> {
         &self.labels[idx]
+    }
+
+    /// Set the label string.
+    #[inline]
+    pub fn set_label_str(&mut self, idx: usize, str: Option<Cow<'static, str>>) {
+        self.labels[idx] = str;
     }
 
     /// Container count.
@@ -249,15 +267,27 @@ where
         self.container_areas[idx]
     }
 
+    /// Set the container area.
+    #[inline]
+    pub fn set_container(&mut self, idx: usize, area: Rect) {
+        self.container_areas[idx] = area;
+    }
+
     /// Iterate container areas.
     #[inline]
     pub fn containers(&self) -> impl Iterator<Item = &Rect> {
         self.container_areas.iter()
     }
 
-    /// Accesss container block.
+    /// Access container block.
     #[inline]
     pub fn container_block(&self, idx: usize) -> &Option<Block<'static>> {
         &self.container_blocks[idx]
+    }
+
+    /// Set the container block.
+    #[inline]
+    pub fn set_container_block(&mut self, idx: usize, block: Option<Block<'static>>) {
+        self.container_blocks[idx] = block;
     }
 }

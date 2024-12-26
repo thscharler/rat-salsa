@@ -134,11 +134,19 @@ fn repaint_input(
                 form_layout.end(());
             }
 
-            form_layout.widget(
-                state.hundred[i].focus.clone(),
-                FormLabel::Str(format!("{}", i).to_string().into()),
-                FormWidget::Size(15, h),
-            );
+            if i == 3 || i == 9 {
+                form_layout.widget(
+                    state.hundred[i].focus.clone(),
+                    FormLabel::Str(format!("{}", i).to_string().into()),
+                    FormWidget::WideStretchXY(h),
+                );
+            } else {
+                form_layout.widget(
+                    state.hundred[i].focus.clone(),
+                    FormLabel::Str(format!("{}", i).to_string().into()),
+                    FormWidget::Size(15, h),
+                );
+            }
 
             if i == 17 {
                 form_layout.page_break();
