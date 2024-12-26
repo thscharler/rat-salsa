@@ -76,7 +76,18 @@ pub enum FormWidget {
     ///
     /// __unit: cols,rows__
     Size(u16, u16),
-
+    /// Widget aligned with the label.
+    ///
+    /// The widget will start with the given number of rows.
+    /// If there is remaining vertical space left after a page-break this
+    /// widget will get it. If there are more than one such widget
+    /// the remainder will be evenly distributed.
+    ///
+    /// Will create an area with the given width and height.
+    /// The area will be top aligned with the label.
+    ///
+    /// __unit: cols,rows__
+    StretchY(u16, u16),
     /// Fill the total width of labels+widget.
     /// Any label that is not FormLabel::None will be placed above
     /// the widget.
@@ -93,7 +104,7 @@ pub enum FormWidget {
     /// still respecting labels, borders and blocks.
     ///
     /// __unit: rows__
-    Stretch(u16),
+    StretchX(u16),
 
     /// Stretch the widget to the maximum extend horizontally,
     /// including the label. (rows).
@@ -102,7 +113,7 @@ pub enum FormWidget {
     /// still respecting borders and blocks.
     ///
     /// __unit: rows__
-    WideStretch(u16),
+    WideStretchX(u16),
 
     /// Stretch the widget to the maximum extent horizontally and vertically.
     ///
@@ -333,10 +344,11 @@ impl FormWidget {
             FormWidget::Width(_) => false,
             FormWidget::Size(_, _) => false,
             FormWidget::Wide(_) => false,
-            FormWidget::Stretch(_) => false,
-            FormWidget::WideStretch(_) => false,
+            FormWidget::StretchX(_) => false,
+            FormWidget::WideStretchX(_) => false,
             FormWidget::StretchXY(_) => true,
             FormWidget::WideStretchXY(_) => true,
+            FormWidget::StretchY(_, _) => true,
         }
     }
 }
@@ -515,10 +527,11 @@ where
                 FormWidget::None => {}
                 FormWidget::Width(w) => widget_width = widget_width.max(*w),
                 FormWidget::Size(w, _) => widget_width = widget_width.max(*w),
+                FormWidget::StretchY(w, _) => widget_width = widget_width.max(*w),
                 FormWidget::Wide(_) => {}
                 FormWidget::Measure(w) => widget_width = widget_width.max(*w),
-                FormWidget::Stretch(_) => stretch_x = true,
-                FormWidget::WideStretch(_) => stretch_x = true,
+                FormWidget::StretchX(_) => stretch_x = true,
+                FormWidget::WideStretchX(_) => stretch_x = true,
                 FormWidget::StretchXY(_) => stretch_x = true,
                 FormWidget::WideStretchXY(_) => stretch_x = true,
             }
@@ -925,7 +938,7 @@ impl Page {
     ) -> (Rect, Rect) {
         let stacked = matches!(
             widget.widget,
-            FormWidget::Wide(_) | FormWidget::WideStretch(_) | FormWidget::WideStretchXY(_)
+            FormWidget::Wide(_) | FormWidget::WideStretchX(_) | FormWidget::WideStretchXY(_)
         );
 
         let mut label_height = match &widget.label {
@@ -943,9 +956,10 @@ impl Page {
             }
             FormWidget::Width(_) => 1,
             FormWidget::Size(_, h) => *h,
+            FormWidget::StretchY(_, h) => *h,
             FormWidget::Wide(h) => *h,
-            FormWidget::Stretch(h) => *h,
-            FormWidget::WideStretch(h) => *h,
+            FormWidget::StretchX(h) => *h,
+            FormWidget::WideStretchX(h) => *h,
             FormWidget::StretchXY(h) => *h,
             FormWidget::WideStretchXY(h) => *h,
         };
@@ -983,7 +997,7 @@ impl Page {
             };
             match &widget.widget {
                 FormWidget::Wide(_) => label_area.width = pos.total_width,
-                FormWidget::WideStretch(_) => label_area.width = total_stretch_width,
+                FormWidget::WideStretchX(_) => label_area.width = total_stretch_width,
                 FormWidget::WideStretchXY(_) => label_area.width = total_stretch_width,
                 _ => {}
             }
@@ -1007,13 +1021,19 @@ impl Page {
                     min(*w, pos.widget_width),
                     widget_height,
                 ),
+                FormWidget::StretchY(w, _) => Rect::new(
+                    pos.widget_x,
+                    self.y,
+                    min(*w, pos.widget_width),
+                    widget_height,
+                ),
                 FormWidget::Wide(_) => {
                     Rect::new(pos.label_x, self.y, pos.total_width, widget_height)
                 }
-                FormWidget::Stretch(_) => {
+                FormWidget::StretchX(_) => {
                     Rect::new(pos.widget_x, self.y, stretch_width, widget_height)
                 }
-                FormWidget::WideStretch(_) => {
+                FormWidget::WideStretchX(_) => {
                     Rect::new(pos.label_x, self.y, total_stretch_width, widget_height)
                 }
                 FormWidget::StretchXY(_) => {
@@ -1063,13 +1083,19 @@ impl Page {
                     min(*w, pos.widget_width),
                     widget_height,
                 ),
+                FormWidget::StretchY(w, _) => Rect::new(
+                    pos.widget_x,
+                    self.y,
+                    min(*w, pos.widget_width),
+                    widget_height,
+                ),
                 FormWidget::Wide(_) => {
                     unreachable!()
                 }
-                FormWidget::Stretch(_) => {
+                FormWidget::StretchX(_) => {
                     Rect::new(pos.widget_x, self.y, stretch_width, widget_height)
                 }
-                FormWidget::WideStretch(_) => {
+                FormWidget::WideStretchX(_) => {
                     unreachable!()
                 }
                 FormWidget::StretchXY(_) => {

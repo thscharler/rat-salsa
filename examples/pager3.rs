@@ -16,6 +16,7 @@ use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::symbols::border::EMPTY;
+use ratatui::widgets::block::{title, Title};
 use ratatui::widgets::{Block, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
@@ -85,7 +86,15 @@ fn repaint_input(
     // Prepare navigation.
     let nav = PageNavigation::new()
         .pages(2)
-        .block(Block::bordered().borders(Borders::TOP | Borders::BOTTOM))
+        .block(
+            Block::bordered()
+                .borders(Borders::TOP | Borders::BOTTOM)
+                .title(
+                    Title::from(format!("{:?}", state.flex))
+                        .alignment(Alignment::Center)
+                        .position(title::Position::Top),
+                ),
+        )
         .styles(THEME.pager_style());
 
     let layout_size = nav.layout_size(l2[1]);
@@ -97,7 +106,7 @@ fn repaint_input(
             .flex(state.flex)
             .line_spacing(1);
 
-        form_layout.widget(FocusFlag::new(), FormLabel::None, FormWidget::Measure(33));
+        // form_layout.widget(FocusFlag::new(), FormLabel::None, FormWidget::Measure(33));
 
         // generate the layout ...
         let mut c0 = 0;
@@ -140,7 +149,7 @@ fn repaint_input(
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
                     FormLabel::Str(format!("{}", i).to_string().into()),
-                    FormWidget::StretchXY(h),
+                    FormWidget::StretchY(15, h),
                 );
             } else {
                 form_layout.widget(
