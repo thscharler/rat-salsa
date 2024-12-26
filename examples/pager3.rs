@@ -92,10 +92,8 @@ fn repaint_input(
 
     // rebuild layout
     if state.layout.size_changed(layout_size) {
-        let mut form_layout = LayoutForm::new()
-            .spacing(1)
-            .flex(state.flex)
-            .line_spacing(1);
+        let mut form_layout = LayoutForm::new().spacing(1).flex(state.flex);
+        // .line_spacing(1);
 
         // generate the layout ...
         let mut c0 = 0;
@@ -130,7 +128,7 @@ fn repaint_input(
                     ),
                 );
             }
-            if i == 23 {
+            if i == 21 {
                 form_layout.end(());
             }
 

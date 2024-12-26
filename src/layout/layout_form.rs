@@ -1,5 +1,6 @@
 use crate::layout::generic_layout::GenericLayout;
 use crate::util::block_padding;
+use log::debug;
 use ratatui::layout::{Flex, Rect, Size};
 use ratatui::widgets::{Block, Padding};
 use std::borrow::Cow;
@@ -229,25 +230,34 @@ struct Page {
     top: u16,
     // bottom border
     bottom: u16,
+    // maximum widget + label height
+    max_height: u16,
 
     // page number
     page_no: u16,
     // page start y
-    y_zero: u16,
-    // page max y
-    y_bottom: u16,
+    y_page: u16,
     // current y
     y: u16,
 
     // current line spacing
     line_spacing: u16,
-    // remaining lines
-    remainder: u16,
-
     // container left pos
     container_left: u16,
     // container right pos
     container_right: u16,
+}
+
+impl FormLabel {
+    fn label_txt(&self) -> Option<Cow<'static, str>> {
+        match self {
+            FormLabel::None => None,
+            FormLabel::Measure(_) => None,
+            FormLabel::Str(s) => Some(s.clone()),
+            FormLabel::Width(_) => None,
+            FormLabel::Size(_, _) => None,
+        }
+    }
 }
 
 impl<W, C> LayoutForm<W, C>
@@ -644,17 +654,19 @@ where
         let mut tmp = Vec::new();
 
         let mut pos = &pos_even;
+        let mut page_bak;
         let mut page = Page {
             width: page.width,
             height: page.height,
             top: border.top,
             bottom: border.bottom,
+            max_height: page.height.saturating_sub(border.top + border.bottom),
+
             page_no: 0,
-            y_zero: 0,
-            y_bottom: page.height.saturating_sub(border.bottom),
+            y_page: 0,
             y: border.top,
+
             line_spacing: 0,
-            remainder: 0,
             container_left: pos.container_left,
             container_right: pos.container_right,
         };
@@ -664,104 +676,112 @@ where
                 continue;
             }
 
-            // page break
-            let brk_label_height = match &widget.label {
-                FormLabel::None => 0,
-                FormLabel::Measure(_) => 0,
-                FormLabel::Str(_) => 1,
-                FormLabel::Width(_) => 1,
-                FormLabel::Size(_, h) => *h,
-            };
-            let brk_widget_height = match &widget.widget {
-                FormWidget::None => 0,
-                FormWidget::Measure(_) => {
-                    unreachable!()
+            // safe point
+            page_bak = page.clone();
+
+            // line spacing
+            page.next_widget();
+            // start container
+            for cc in self.containers.iter_mut() {
+                if cc.range.start == idx {
+                    page.start_container(cc);
                 }
-                FormWidget::Width(_) => 1,
-                FormWidget::Size(_, h) => *h,
-                FormWidget::FullWidth(h) => *h,
+            }
+            // get areas + advance
+            let (mut label_area, mut widget_area) = page.widget_area(&widget, pos);
+            // end and push containers
+            for cc in self.containers.iter_mut().rev() {
+                if idx + 1 == cc.range.end {
+                    page.end_container(cc);
+                    tmp.push(cc.clone());
+                }
+            }
 
-                FormWidget::Stretch(h) => *h,
-                FormWidget::FullStretch(h) => *h,
-            };
+            // still open containers add a 'minimum space left' requirement.
+            let mut opt_bottom = 0;
+            for cc in self.containers.iter_mut().rev() {
+                if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
+                    opt_bottom += cc.padding.bottom;
+                }
+            }
 
-            let page_break_widget = page.y
-                + page.line_spacing
-                + widget.top_border
-                + max(brk_label_height, brk_widget_height)
-                + widget.bottom_border
-                >= page.y_zero + page.height.saturating_sub(border.bottom);
-
-            let page_break_man = if idx > 0 {
-                self.page_breaks.contains(&(idx - 1))
-            } else {
-                false
-            };
-
-            if page_break_widget || page_break_man {
-                // close and push containers
+            // page overflow induces page-break
+            if page.y + opt_bottom >= page.y_page + page.height - page.bottom {
+                // reset safe-point
+                page = page_bak.clone();
+                // any container areas are invalid
                 tmp.clear();
+
+                // close and push containers
+                // rev() ensures closing from innermost to outermost container.
                 for cc in self.containers.iter_mut().rev() {
                     if idx > cc.range.start && idx < cc.range.end {
-                        page.close_container(cc);
-
-                        cc.area.height = page.y - cc.area.y;
-                        tmp.push((cc.id.clone(), cc.area.clone(), cc.block.clone()));
-
+                        page.end_container(cc);
+                        tmp.push(cc.clone());
                         // restart on next page
                         cc.range.start = idx;
                     }
                 }
-                while !tmp.is_empty() {
-                    let c = tmp.pop().expect("value");
-                    gen_layout.add_container(c.0, c.1, c.2);
+
+                // advance
+                pos = page.next_page(&pos_even, &pos_odd);
+
+                // redo current widget
+
+                // line spacing
+                page.next_widget();
+                // start container
+                for cc in self.containers.iter_mut() {
+                    if idx == cc.range.start {
+                        page.start_container(cc);
+                    }
+                }
+                // get areas + advance
+                (label_area, widget_area) = page.widget_area(&widget, pos);
+                // end and push containers
+                // rev() ensures closing from innermost to outermost container.
+                for cc in self.containers.iter_mut().rev() {
+                    if idx + 1 == cc.range.end {
+                        page.end_container(cc);
+                        tmp.push(cc.clone());
+                    }
+                }
+
+                page.line_spacing = self.line_spacing;
+            } else if self.page_breaks.contains(&idx) {
+                // page-break after widget
+
+                // close and push containers
+                // rev() ensures closing from innermost to outermost container.
+                for cc in self.containers.iter_mut().rev() {
+                    if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
+                        page.end_container(cc);
+                        tmp.push(cc.clone());
+                        // restart on next page
+                        cc.range.start = idx + 1;
+                    }
                 }
 
                 // advance
                 pos = page.next_page(&pos_even, &pos_odd);
             } else {
-                page.next_widget();
+                page.line_spacing = self.line_spacing;
             }
 
-            // start container
-            for cc in self.containers.iter_mut() {
-                if cc.range.start == idx {
-                    cc.area.x = page.container_left;
-                    cc.area.width = page.container_right - page.container_left;
-                    cc.area.y = page.y;
+            // add label + widget
+            gen_layout.add(
+                widget.id.clone(),
+                widget_area,
+                widget.label.label_txt(),
+                label_area,
+            );
 
-                    page.start_container(cc);
-                }
-            }
-
-            // get areas + advance
-            let label_area = page.label_area(&widget, pos);
-            let widget_area = page.widget_area(&widget, pos);
-            let label_text = match &widget.label {
-                FormLabel::None => None,
-                FormLabel::Str(s) => Some(s.clone()),
-                FormLabel::Width(_) => None,
-                FormLabel::Size(_, _) => None,
-                FormLabel::Measure(_) => None,
-            };
-
-            gen_layout.add(widget.id.clone(), widget_area, label_text, label_area);
-
-            // end and push containers
-            tmp.clear();
-            for cc in self.containers.iter_mut().rev() {
-                if idx + 1 == cc.range.end {
-                    page.close_container(cc);
-                    cc.area.height = page.y - cc.area.y;
-                    tmp.push((cc.id.clone(), cc.area.clone(), cc.block.clone()));
-                }
-            }
+            // pop reverts the ordering innermost-outermost
+            // to the correct order for rendering outermost-innermost
             while !tmp.is_empty() {
-                let c = tmp.pop().expect("value");
-                gen_layout.add_container(c.0, c.1, c.2);
+                let cc = tmp.pop().expect("value");
+                gen_layout.add_container(cc.id, cc.area, cc.block);
             }
-
-            page.line_spacing = self.line_spacing;
         }
 
         gen_layout.set_page_count((page.page_no + 1) as usize);
@@ -771,104 +791,167 @@ where
 }
 
 impl Page {
-    fn label_area<W: Debug + Clone>(&mut self, widget: &WidgetDef<W>, pos: &Positions) -> Rect {
-        let max_height = self
-            .height
-            .saturating_sub((self.y - self.y_zero) + widget.bottom_border);
+    fn widget_area<W: Debug + Clone>(
+        &mut self,
+        widget: &WidgetDef<W>,
+        pos: &Positions,
+    ) -> (Rect, Rect) {
+        let stacked = matches!(
+            widget.widget,
+            FormWidget::FullWidth(_) | FormWidget::FullStretch(_)
+        );
 
-        let label_area = match &widget.label {
-            FormLabel::None => Rect::default(),
-            FormLabel::Measure(_) => Rect::default(),
-            FormLabel::Str(_) | FormLabel::Width(_) => match &widget.widget {
-                FormWidget::FullWidth(_) => {
-                    Rect::new(pos.label_x, self.y, pos.total_width, min(1, max_height))
-                }
-                FormWidget::FullStretch(_) => Rect::new(
-                    pos.label_x,
-                    self.y,
-                    pos.total_stretch_width,
-                    min(1, max_height),
-                ),
-                _ => Rect::new(pos.label_x, self.y, pos.label_width, min(1, max_height)),
-            },
-            FormLabel::Size(_, h) => match &widget.widget {
-                FormWidget::FullWidth(_) => {
-                    Rect::new(pos.label_x, self.y, pos.total_width, min(*h, max_height))
-                }
-                FormWidget::FullStretch(_) => Rect::new(
-                    pos.label_x,
-                    self.y,
-                    pos.total_stretch_width,
-                    min(*h, max_height),
-                ),
-                _ => Rect::new(pos.label_x, self.y, pos.label_width, min(*h, max_height)),
-            },
+        let mut label_height = match &widget.label {
+            FormLabel::None => 0,
+            FormLabel::Measure(_) => 0,
+            FormLabel::Str(_) => 1,
+            FormLabel::Width(_) => 1,
+            FormLabel::Size(_, h) => *h,
         };
 
-        self.y += match &widget.widget {
-            FormWidget::FullWidth(_) => label_area.height,
-            FormWidget::FullStretch(_) => label_area.height,
-            _ => 0,
-        };
-
-        label_area
-    }
-
-    fn widget_area<W: Debug + Clone>(&mut self, widget: &WidgetDef<W>, pos: &Positions) -> Rect {
-        let max_height = self
-            .height
-            .saturating_sub((self.y - self.y_zero) + widget.bottom_border);
-
-        let widget_area = match &widget.widget {
-            FormWidget::None => Rect::default(),
+        let mut widget_height = match &widget.widget {
+            FormWidget::None => 0,
             FormWidget::Measure(_) => {
                 unreachable!()
             }
-            FormWidget::Width(w) => Rect::new(
-                pos.widget_x,
-                self.y,
-                min(*w, pos.widget_width),
-                min(1, max_height),
-            ),
-            FormWidget::Size(w, h) => Rect::new(
-                pos.widget_x,
-                self.y,
-                min(*w, pos.widget_width),
-                min(*h, max_height),
-            ),
-            FormWidget::FullWidth(h) => {
-                Rect::new(pos.label_x, self.y, pos.total_width, min(*h, max_height))
-            }
-            FormWidget::Stretch(h) => {
-                Rect::new(pos.widget_x, self.y, pos.stretch_width, min(*h, max_height))
-            }
-            FormWidget::FullStretch(h) => Rect::new(
-                pos.label_x,
-                self.y,
-                pos.total_stretch_width,
-                min(*h, max_height),
-            ),
+            FormWidget::Width(_) => 1,
+            FormWidget::Size(_, h) => *h,
+            FormWidget::FullWidth(h) => *h,
+            FormWidget::Stretch(h) => *h,
+            FormWidget::FullStretch(h) => *h,
         };
 
-        self.y += widget_area.height;
+        if stacked {
+            let max_height = self
+                .max_height
+                .saturating_sub(widget.top_border + widget.bottom_border);
+            if label_height + widget_height > max_height {
+                label_height = min(1, max_height.saturating_sub(widget_height));
+            }
+            if label_height + widget_height > max_height {
+                widget_height = min(1, max_height.saturating_sub(label_height));
+            }
+            if label_height + widget_height > max_height {
+                label_height = 0;
+            }
+            if label_height + widget_height > max_height {
+                widget_height = max_height;
+            }
 
-        widget_area
+            let mut label_area = match &widget.label {
+                FormLabel::None => Rect::default(),
+                FormLabel::Measure(_) => Rect::default(),
+                FormLabel::Str(_) => Rect::new(pos.label_x, self.y, pos.label_width, label_height),
+                FormLabel::Width(_) => {
+                    Rect::new(pos.label_x, self.y, pos.label_width, label_height)
+                }
+                FormLabel::Size(_, _) => {
+                    Rect::new(pos.label_x, self.y, pos.label_width, label_height)
+                }
+            };
+            match &widget.widget {
+                FormWidget::FullWidth(_) => label_area.width = pos.total_width,
+                FormWidget::FullStretch(_) => label_area.width = pos.total_stretch_width,
+                _ => {}
+            }
+
+            self.y += label_area.height;
+
+            let widget_area = match &widget.widget {
+                FormWidget::None => Rect::default(),
+                FormWidget::Measure(_) => {
+                    unreachable!()
+                }
+                FormWidget::Width(w) => Rect::new(
+                    pos.widget_x,
+                    self.y,
+                    min(*w, pos.widget_width),
+                    widget_height,
+                ),
+                FormWidget::Size(w, _) => Rect::new(
+                    pos.widget_x,
+                    self.y,
+                    min(*w, pos.widget_width),
+                    widget_height,
+                ),
+                FormWidget::FullWidth(_) => {
+                    Rect::new(pos.label_x, self.y, pos.total_width, widget_height)
+                }
+                FormWidget::Stretch(_) => {
+                    Rect::new(pos.widget_x, self.y, pos.stretch_width, widget_height)
+                }
+                FormWidget::FullStretch(_) => {
+                    Rect::new(pos.label_x, self.y, pos.total_stretch_width, widget_height)
+                }
+            };
+
+            self.y += widget_area.height;
+
+            (label_area, widget_area)
+        } else {
+            let max_height = self
+                .max_height
+                .saturating_sub(widget.top_border + widget.bottom_border);
+            label_height = min(label_height, max_height);
+            widget_height = min(widget_height, max_height);
+
+            let label_area = match &widget.label {
+                FormLabel::None => Rect::default(),
+                FormLabel::Measure(_) => Rect::default(),
+                FormLabel::Str(_) => Rect::new(pos.label_x, self.y, pos.label_width, label_height),
+                FormLabel::Width(_) => {
+                    Rect::new(pos.label_x, self.y, pos.label_width, label_height)
+                }
+                FormLabel::Size(_, _) => {
+                    Rect::new(pos.label_x, self.y, pos.label_width, label_height)
+                }
+            };
+
+            let widget_area = match &widget.widget {
+                FormWidget::None => Rect::default(),
+                FormWidget::Measure(_) => {
+                    unreachable!()
+                }
+                FormWidget::Width(w) => Rect::new(
+                    pos.widget_x,
+                    self.y,
+                    min(*w, pos.widget_width),
+                    widget_height,
+                ),
+                FormWidget::Size(w, _) => Rect::new(
+                    pos.widget_x,
+                    self.y,
+                    min(*w, pos.widget_width),
+                    widget_height,
+                ),
+                FormWidget::FullWidth(_) => {
+                    unreachable!()
+                }
+                FormWidget::Stretch(_) => {
+                    Rect::new(pos.widget_x, self.y, pos.stretch_width, widget_height)
+                }
+                FormWidget::FullStretch(_) => {
+                    unreachable!()
+                }
+            };
+
+            self.y += max(label_area.height, widget_area.height);
+
+            (label_area, widget_area)
+        }
     }
 
     // advance to next page
     fn next_page<'a>(&mut self, pos_even: &'a Positions, pos_odd: &'a Positions) -> &'a Positions {
         self.page_no += 1;
-        self.y_zero = self.page_no * self.height;
-        self.y_bottom = (self.y_zero + self.height).saturating_sub(self.bottom);
-        self.y = self.y_zero + self.top;
+        self.y_page = self.page_no * self.height;
+        self.y = self.y_page + self.top;
+        self.line_spacing = 0;
         let pos = if self.page_no % 2 == 0 {
             pos_even
         } else {
             pos_odd
         };
-        // self.container_left = pos.container_left;
-        // self.container_right = pos.container_right;
-
         pos
     }
 
@@ -878,14 +961,20 @@ impl Page {
     }
 
     // close the given container
-    fn close_container<C: Debug + Clone>(&mut self, cc: &ContainerDef<C>) {
+    fn end_container<C: Debug + Clone>(&mut self, cc: &mut ContainerDef<C>) {
         self.y += cc.padding.bottom;
         self.container_left -= cc.padding.left;
         self.container_right += cc.padding.right;
+
+        cc.area.height = self.y - cc.area.y;
     }
 
     // open the given container
-    fn start_container<C: Debug + Clone>(&mut self, cc: &ContainerDef<C>) {
+    fn start_container<C: Debug + Clone>(&mut self, cc: &mut ContainerDef<C>) {
+        cc.area.x = self.container_left;
+        cc.area.width = self.container_right - self.container_left;
+        cc.area.y = self.y;
+
         self.y += cc.padding.top;
         self.container_left += cc.padding.left;
         self.container_right -= cc.padding.right;
