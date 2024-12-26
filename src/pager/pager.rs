@@ -5,10 +5,11 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::{StatefulWidget, Widget};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 /// Renders a single page of widgets.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Pager<W, C = ()>
 where
     W: Eq,
@@ -31,9 +32,25 @@ where
     layout: Rc<GenericLayout<W, C>>,
     page_area: Rect,
     widget_area: Rect,
-    buffer: &'a mut Buffer,
+    buffer: Rc<RefCell<&'a mut Buffer>>,
     label_style: Option<Style>,
     label_alignment: Option<Alignment>,
+}
+
+impl<W, C> Clone for Pager<W, C>
+where
+    W: Eq,
+    C: Eq,
+{
+    fn clone(&self) -> Self {
+        Self {
+            layout: self.layout.clone(),
+            page: self.page,
+            style: self.style,
+            label_style: self.label_style,
+            label_alignment: self.label_alignment,
+        }
+    }
 }
 
 impl<W, C> Default for Pager<W, C>
@@ -102,7 +119,11 @@ where
     }
 
     /// Create the second stage.
-    pub fn into_buffer<'b>(self, area: Rect, buf: &'b mut Buffer) -> PagerBuffer<'b, W, C> {
+    pub fn into_buffer<'b>(
+        self,
+        area: Rect,
+        buf: Rc<RefCell<&'b mut Buffer>>,
+    ) -> PagerBuffer<'b, W, C> {
         PagerBuffer {
             layout: self.layout,
             page_area: Rect::new(0, self.page as u16 * area.height, area.width, area.height),
@@ -127,59 +148,60 @@ where
         self.page_area.intersects(self.layout.widget(idx))
     }
 
+    /// Get the widget index.
+    #[inline(always)]
+    pub fn widget_idx(&self, widget: &W) -> Option<usize> {
+        self.layout.widget_idx(widget)
+    }
+
     /// Render a manual label.
     #[inline(always)]
-    pub fn render_label<FN, WW>(&mut self, widget: &W, render_fn: FN) -> bool
+    pub fn render_label<FN, WW>(&mut self, idx: usize, render_fn: FN) -> bool
     where
         FN: FnOnce() -> WW,
         WW: Widget,
     {
-        let Some(idx) = self.layout.widget_idx(widget) else {
-            return false;
-        };
         let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
             return false;
         };
-
-        render_fn().render(label_area, self.buffer);
+        let mut buffer = self.buffer.borrow_mut();
+        render_fn().render(label_area, *buffer);
         true
     }
 
     /// Render a stateless widget and its label, if any.
     #[inline(always)]
-    pub fn render_widget<FN, WW>(&mut self, widget: &W, render_fn: FN) -> bool
+    pub fn render_widget<FN, WW>(&mut self, idx: usize, render_fn: FN) -> bool
     where
         FN: FnOnce() -> WW,
         WW: Widget,
     {
-        let Some(idx) = self.layout.widget_idx(widget) else {
-            return false;
-        };
         let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             return false;
         };
 
         self.render_auto_label(idx);
-        render_fn().render(widget_area, self.buffer);
+
+        let mut buffer = self.buffer.borrow_mut();
+        render_fn().render(widget_area, *buffer);
         true
     }
 
     /// Render a stateful widget and its label, if any.
     #[inline(always)]
-    pub fn render<FN, WW, SS>(&mut self, widget: &W, render_fn: FN, state: &mut SS) -> bool
+    pub fn render<FN, WW, SS>(&mut self, idx: usize, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> WW,
         WW: StatefulWidget<State = SS>,
     {
-        let Some(idx) = self.layout.widget_idx(widget) else {
-            return false;
-        };
         let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             return false;
         };
 
         self.render_auto_label(idx);
-        render_fn().render(widget_area, self.buffer, state);
+
+        let mut buffer = self.buffer.borrow_mut();
+        render_fn().render(widget_area, *buffer, state);
 
         true
     }
@@ -189,10 +211,11 @@ where
             if let Some(label_area) = self.locate_area(self.layout.label(idx)) {
                 let style = self.label_style.unwrap_or_default();
                 let align = self.label_alignment.unwrap_or_default();
+                let mut buffer = self.buffer.borrow_mut();
                 Line::from(label.as_ref())
                     .style(style)
                     .alignment(align)
-                    .render(label_area, self.buffer);
+                    .render(label_area, *buffer);
             }
         }
     }
@@ -201,7 +224,8 @@ where
     pub fn render_container(&mut self) {
         for (idx, container_area) in self.layout.containers().enumerate() {
             if let Some(container_area) = self.locate_area(*container_area) {
-                (&self.layout.container_block(idx)).render(container_area, self.buffer);
+                let mut buffer = self.buffer.borrow_mut();
+                (&self.layout.container_block(idx)).render(container_area, *buffer);
             }
         }
     }
@@ -209,20 +233,16 @@ where
     /// Relocate the widget area to screen coordinates.
     /// Returns None if the widget is not visible.
     /// This clips the area to page_area.
-    pub fn locate_widget(&self, widget: &W) -> Option<Rect> {
-        let Some(idx) = self.layout.widget_idx(widget) else {
-            return None;
-        };
+    #[inline]
+    pub fn locate_widget(&self, idx: usize) -> Option<Rect> {
         self.locate_area(self.layout.widget(idx))
     }
 
     /// Relocate the label area to screen coordinates.
     /// Returns None if the widget is not visible.
     /// This clips the area to page_area.
-    pub fn locate_label(&self, widget: &W) -> Option<Rect> {
-        let Some(idx) = self.layout.widget_idx(widget) else {
-            return None;
-        };
+    #[inline]
+    pub fn locate_label(&self, idx: usize) -> Option<Rect> {
         self.locate_area(self.layout.label(idx))
     }
 
@@ -232,11 +252,12 @@ where
     /// If the container is split into multiple parts, this
     /// returns the first visible part.
     /// This clips the area to page_area.
+    #[inline]
     pub fn locate_container(&self, container: &C) -> Option<Rect> {
         for (idx, c) in self.layout.container_keys().enumerate() {
             if c == container {
-                if self.layout.container(idx).intersects(self.page_area) {
-                    return self.locate_area(self.layout.container(idx));
+                if let Some(c_area) = self.locate_area(self.layout.container(idx)) {
+                    return Some(c_area);
                 }
             }
         }
@@ -247,6 +268,7 @@ where
     /// A result None indicates that the area is invisible.
     ///
     /// This will clip the area to the page_area.
+    #[inline]
     pub fn locate_area(&self, area: Rect) -> Option<Rect> {
         let area = self.page_area.intersection(area);
         if area.is_empty() {
@@ -259,5 +281,11 @@ where
                 area.height,
             ))
         }
+    }
+
+    /// Return a clone of the layout.
+    #[inline]
+    pub fn layout(&self) -> Rc<GenericLayout<W, C>> {
+        self.layout.clone()
     }
 }

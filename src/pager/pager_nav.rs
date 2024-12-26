@@ -3,7 +3,7 @@ use crate::event::PagerOutcome;
 use crate::pager::PagerStyle;
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
-use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
 use rat_focus::ContainerFlag;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
@@ -276,7 +276,25 @@ impl PageNavigationState {
 
 impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for PageNavigationState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
-        self.handle(event, MouseOnly)
+        let r = match event {
+            ct_event!(keycode press ALT-PageUp) => {
+                if self.prev_page() {
+                    PagerOutcome::Page(self.page())
+                } else {
+                    PagerOutcome::Continue
+                }
+            }
+            ct_event!(keycode press ALT-PageDown) => {
+                if self.next_page() {
+                    PagerOutcome::Page(self.page())
+                } else {
+                    PagerOutcome::Continue
+                }
+            }
+            _ => PagerOutcome::Continue,
+        };
+
+        r.or_else(|| self.handle(event, MouseOnly))
     }
 }
 

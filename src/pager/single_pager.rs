@@ -8,6 +8,7 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::{Block, Widget};
+use std::cell::RefCell;
 use std::rc::Rc;
 
 /// This widget renders a single page of a [GenericLayout].
@@ -44,10 +45,11 @@ where
     C: Eq,
 {
     /// Page layout
-    /// __read only__ renewed with each render.
+    /// __read+write__ renewed with each render.
     pub layout: Rc<GenericLayout<W, C>>,
 
     /// PageNavigationState holds most of our state.
+    /// __read+write__
     pub nav: PageNavigationState,
 
     /// Only construct with `..Default::default()`.
@@ -142,7 +144,7 @@ where
                 .pager //
                 .layout(state.layout.clone())
                 .page(state.nav.page)
-                .into_buffer(state.nav.widget_areas[0], buf),
+                .into_buffer(state.nav.widget_areas[0], Rc::new(RefCell::new(buf))),
         }
     }
 }
@@ -159,34 +161,46 @@ where
 
     /// Render a manual label.
     #[inline(always)]
-    pub fn render_label<FN, WW>(&mut self, widget: &W, render_fn: FN)
+    pub fn render_label<FN, WW>(&mut self, widget: &W, render_fn: FN) -> bool
     where
         FN: FnOnce() -> WW,
         WW: Widget,
     {
-        self.pager.render_label(widget, render_fn);
+        let Some(idx) = self.pager.widget_idx(widget) else {
+            return false;
+        };
+        self.pager.render_label(idx, render_fn)
     }
 
     /// Render a stateless widget and its label, if any.
     #[inline(always)]
-    pub fn render_widget<FN, WW>(&mut self, widget: &W, render_fn: FN)
+    pub fn render_widget<FN, WW>(&mut self, widget: &W, render_fn: FN) -> bool
     where
         FN: FnOnce() -> WW,
         WW: Widget,
     {
-        self.pager.render_widget(widget, render_fn);
+        let Some(idx) = self.pager.widget_idx(widget) else {
+            return false;
+        };
+        self.pager.render_widget(idx, render_fn)
     }
 
     /// Render a stateful widget and its label, if any.
     #[inline(always)]
-    pub fn render<FN, WW, SS>(&mut self, widget: &W, render_fn: FN, state: &mut SS)
+    pub fn render<FN, WW, SS>(&mut self, widget: &W, render_fn: FN, state: &mut SS) -> bool
     where
         FN: FnOnce() -> WW,
         WW: StatefulWidget<State = SS>,
         SS: RelocatableState,
     {
-        if !self.pager.render(widget, render_fn, state) {
+        let Some(idx) = self.pager.widget_idx(widget) else {
+            return false;
+        };
+        if !self.pager.render(idx, render_fn, state) {
             self.hidden(state);
+            false
+        } else {
+            true
         }
     }
 
@@ -208,14 +222,20 @@ where
     /// Returns None if the widget is not visible.
     /// This clips the area to page_area.
     pub fn locate_widget(&self, widget: &W) -> Option<Rect> {
-        self.pager.locate_widget(widget)
+        let Some(idx) = self.pager.widget_idx(widget) else {
+            return None;
+        };
+        self.pager.locate_widget(idx)
     }
 
     /// Relocate the label area to screen coordinates.
     /// Returns None if the widget is not visible.
     /// This clips the area to page_area.
     pub fn locate_label(&self, widget: &W) -> Option<Rect> {
-        self.pager.locate_label(widget)
+        let Some(idx) = self.pager.widget_idx(widget) else {
+            return None;
+        };
+        self.pager.locate_label(idx)
     }
 
     /// Relocate the container area to screen coordinates.

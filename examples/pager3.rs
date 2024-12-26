@@ -19,6 +19,7 @@ use ratatui::symbols::border::EMPTY;
 use ratatui::widgets::{Block, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
+use std::cell::RefCell;
 use std::cmp::max;
 use std::rc::Rc;
 use std::time::SystemTime;
@@ -195,23 +196,28 @@ fn render_page(
         .page(page)
         .label_alignment(Alignment::Right)
         .styles(THEME.pager_style())
-        .into_buffer(state.page_nav.widget_areas[area_idx], frame.buffer_mut());
+        .into_buffer(
+            state.page_nav.widget_areas[area_idx],
+            Rc::new(RefCell::new(frame.buffer_mut())),
+        );
 
     // render container areas
     pager.render_container();
 
     // render the fields.
     for i in 0..state.hundred.len() {
-        pager.render(
-            &state.hundred[i].focus.clone(),
-            || {
-                // lazy construction
-                TextInputMock::default()
-                    .style(THEME.limegreen(0))
-                    .focus_style(THEME.limegreen(2))
-            },
-            &mut state.hundred[i],
-        );
+        if let Some(idx) = pager.widget_idx(&state.hundred[i].focus.clone()) {
+            pager.render(
+                idx,
+                || {
+                    // lazy construction
+                    TextInputMock::default()
+                        .style(THEME.limegreen(0))
+                        .focus_style(THEME.limegreen(2))
+                },
+                &mut state.hundred[i],
+            );
+        }
     }
 
     // pager done.
