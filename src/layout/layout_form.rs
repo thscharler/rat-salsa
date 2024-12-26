@@ -1,6 +1,5 @@
 use crate::layout::generic_layout::GenericLayout;
 use crate::util::block_padding;
-use log::debug;
 use ratatui::layout::{Flex, Rect, Size};
 use ratatui::widgets::{Block, Padding};
 use std::borrow::Cow;
@@ -11,7 +10,7 @@ use std::ops::Range;
 /// Label constraints.
 ///
 /// Any given widths and heights will be reduced if there is not enough space.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub enum FormLabel {
     /// No label, just the widget.
     #[default]
@@ -41,7 +40,7 @@ pub enum FormLabel {
 /// Widget constraints.
 ///
 /// Any given widths and heights will be reduced if there is not enough space.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default)]
 pub enum FormWidget {
     /// No widget, just a label.
     #[default]
@@ -112,7 +111,7 @@ pub enum FormWidget {
 /// * Supports Flex.
 /// * Manual page breaks.
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct LayoutForm<W, C = ()>
 where
     W: Eq + Clone + Debug,
@@ -127,7 +126,7 @@ where
     /// Flex
     flex: Flex,
     /// Areas
-    areas: Vec<WidgetDef<W>>,
+    widgets: Vec<WidgetDef<W>>,
     /// Containers/Blocks
     containers: Vec<ContainerDef<C>>,
     /// Page breaks.
@@ -149,7 +148,7 @@ where
     c_right: u16,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct WidgetDef<W>
 where
     W: Debug + Clone,
@@ -161,14 +160,15 @@ where
     // widget constraint
     widget: FormWidget,
     // effective top border due to container padding.
-    // this value will onyl be used for page-break.
     top_border: u16,
     // effective bottom border due to container padding.
-    // this value will only be used for page-break.
     bottom_border: u16,
+    // optional bottom border. all containers that
+    // do not end exactly at this widget contribute.
+    opt_bottom_border: u16,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct ContainerDef<C>
 where
     C: Debug + Clone,
@@ -187,8 +187,21 @@ where
     area: Rect,
 }
 
+#[derive(Debug)]
+struct ContainerOut<C>
+where
+    C: Debug + Clone,
+{
+    // container id
+    id: C,
+    // block
+    block: Option<Block<'static>>,
+    // area
+    area: Rect,
+}
+
 // widths deduced from constraints.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Clone, Copy)]
 struct Widths {
     label: u16,
     widget: u16,
@@ -197,7 +210,7 @@ struct Widths {
 }
 
 // effective positions for layout construction.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 struct Positions {
     // label position
     label_x: u16,
@@ -220,7 +233,7 @@ struct Positions {
 }
 
 // Current page data
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Copy)]
 struct Page {
     // page width
     width: u16,
@@ -248,6 +261,19 @@ struct Page {
     container_right: u16,
 }
 
+impl<C> ContainerDef<C>
+where
+    C: Debug + Clone,
+{
+    fn as_out(&self) -> ContainerOut<C> {
+        ContainerOut {
+            id: self.id.clone(),
+            block: self.block.clone(),
+            area: self.area,
+        }
+    }
+}
+
 impl FormLabel {
     fn label_txt(&self) -> Option<Cow<'static, str>> {
         match self {
@@ -271,7 +297,7 @@ where
             line_spacing: Default::default(),
             mirror: Default::default(),
             flex: Default::default(),
-            areas: Default::default(),
+            widgets: Default::default(),
             page_breaks: Default::default(),
             containers: Default::default(),
             max_left_padding: Default::default(),
@@ -320,7 +346,7 @@ where
     /// The container identifier need not be unique. It
     /// can be ignored completely by using `()`.
     pub fn start(&mut self, container: C, block: Option<Block<'static>>) {
-        let max_idx = self.areas.len();
+        let max_idx = self.widgets.len();
         let padding = block_padding(&block);
         self.containers.push(ContainerDef {
             id: container,
@@ -353,7 +379,7 @@ where
     /// This works fine with `()` too.
     ///
     pub fn end(&mut self, container: C) {
-        let max = self.areas.len();
+        let max = self.widgets.len();
         for cc in self.containers.iter_mut().rev() {
             if cc.id == container && cc.constructing {
                 cc.range.end = max;
@@ -366,6 +392,10 @@ where
                 self.c_bottom -= cc.padding.bottom;
                 self.c_left -= cc.padding.left;
                 self.c_right -= cc.padding.right;
+
+                self.widgets
+                    .last_mut()
+                    .map(|v| v.opt_bottom_border -= cc.padding.bottom);
 
                 return;
             }
@@ -388,12 +418,13 @@ where
     /// Add label + widget constraint.
     /// Key must be a unique identifier.
     pub fn widget(&mut self, key: W, label: FormLabel, widget: FormWidget) {
-        self.areas.push(WidgetDef {
+        self.widgets.push(WidgetDef {
             id: key,
             label,
             widget,
             top_border: self.c_top,
             bottom_border: self.c_bottom,
+            opt_bottom_border: self.c_bottom,
         });
 
         // top padding is only used once.
@@ -402,10 +433,14 @@ where
         self.c_top = 0;
     }
 
-    /// Add a manual page break.
+    /// Add a manual page break after the last widget.
+    ///
+    /// This does _not_ page-break if the last widget would be
+    /// the only one left on a page.
+    ///
     /// This will panic if the widget list is empty.
     pub fn page_break(&mut self) {
-        self.page_breaks.push(self.areas.len() - 1);
+        self.page_breaks.push(self.widgets.len() - 1);
     }
 
     // find maximum width for label, widget and spacing.
@@ -416,7 +451,7 @@ where
         let mut stretch = false;
 
         // find max
-        for widget in self.areas.iter() {
+        for widget in self.widgets.iter() {
             match &widget.label {
                 FormLabel::None => {}
                 FormLabel::Str(s) => label_width = label_width.max(s.len() as u16),
@@ -635,7 +670,7 @@ where
         self.validate_containers();
 
         let width = self.find_max(page.width, border);
-        let pos_even = self.find_pos(page.width, border, width.clone());
+        let pos_even = self.find_pos(page.width, border, width);
         let pos_odd = if self.mirror {
             self.find_pos(
                 page.width,
@@ -643,11 +678,11 @@ where
                 width,
             )
         } else {
-            pos_even.clone()
+            pos_even
         };
 
         let mut gen_layout =
-            GenericLayout::with_capacity(self.areas.len(), self.containers.len() * 2);
+            GenericLayout::with_capacity(self.widgets.len(), self.containers.len() * 2);
         gen_layout.set_area(Rect::new(0, 0, page.width, page.height));
         gen_layout.set_page_size(page);
 
@@ -671,13 +706,13 @@ where
             container_right: pos.container_right,
         };
 
-        for (idx, widget) in self.areas.into_iter().enumerate() {
+        for (idx, widget) in self.widgets.into_iter().enumerate() {
             if matches!(widget.widget, FormWidget::Measure(_)) {
                 continue;
             }
 
             // safe point
-            page_bak = page.clone();
+            page_bak = page;
 
             // line spacing
             page.next_widget();
@@ -693,22 +728,14 @@ where
             for cc in self.containers.iter_mut().rev() {
                 if idx + 1 == cc.range.end {
                     page.end_container(cc);
-                    tmp.push(cc.clone());
-                }
-            }
-
-            // still open containers add a 'minimum space left' requirement.
-            let mut opt_bottom = 0;
-            for cc in self.containers.iter_mut().rev() {
-                if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
-                    opt_bottom += cc.padding.bottom;
+                    tmp.push(cc.as_out());
                 }
             }
 
             // page overflow induces page-break
-            if page.y + opt_bottom >= page.y_page + page.height - page.bottom {
+            if page.y + widget.opt_bottom_border >= page.y_page + page.height - page.bottom {
                 // reset safe-point
-                page = page_bak.clone();
+                page = page_bak;
                 // any container areas are invalid
                 tmp.clear();
 
@@ -717,7 +744,7 @@ where
                 for cc in self.containers.iter_mut().rev() {
                     if idx > cc.range.start && idx < cc.range.end {
                         page.end_container(cc);
-                        tmp.push(cc.clone());
+                        tmp.push(cc.as_out());
                         // restart on next page
                         cc.range.start = idx;
                     }
@@ -743,7 +770,7 @@ where
                 for cc in self.containers.iter_mut().rev() {
                     if idx + 1 == cc.range.end {
                         page.end_container(cc);
-                        tmp.push(cc.clone());
+                        tmp.push(cc.as_out());
                     }
                 }
 
@@ -756,7 +783,7 @@ where
                 for cc in self.containers.iter_mut().rev() {
                     if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
                         page.end_container(cc);
-                        tmp.push(cc.clone());
+                        tmp.push(cc.as_out());
                         // restart on next page
                         cc.range.start = idx + 1;
                     }
@@ -942,6 +969,7 @@ impl Page {
     }
 
     // advance to next page
+    #[inline(always)]
     fn next_page<'a>(&mut self, pos_even: &'a Positions, pos_odd: &'a Positions) -> &'a Positions {
         self.page_no += 1;
         self.y_page = self.page_no * self.height;
@@ -956,11 +984,13 @@ impl Page {
     }
 
     // advance to next widget
+    #[inline(always)]
     fn next_widget(&mut self) {
         self.y += self.line_spacing;
     }
 
     // close the given container
+    #[inline(always)]
     fn end_container<C: Debug + Clone>(&mut self, cc: &mut ContainerDef<C>) {
         self.y += cc.padding.bottom;
         self.container_left -= cc.padding.left;
@@ -970,6 +1000,7 @@ impl Page {
     }
 
     // open the given container
+    #[inline(always)]
     fn start_container<C: Debug + Clone>(&mut self, cc: &mut ContainerDef<C>) {
         cc.area.x = self.container_left;
         cc.area.width = self.container_right - self.container_left;
