@@ -218,6 +218,38 @@ struct Positions {
     total_stretch_width: u16,
 }
 
+// Current page data
+#[derive(Debug, Default, Clone)]
+struct Page {
+    // page width
+    width: u16,
+    // page height
+    height: u16,
+    // top border
+    top: u16,
+    // bottom border
+    bottom: u16,
+
+    // page number
+    page_no: u16,
+    // page start y
+    y_zero: u16,
+    // page max y
+    y_bottom: u16,
+    // current y
+    y: u16,
+
+    // current line spacing
+    line_spacing: u16,
+    // remaining lines
+    remainder: u16,
+
+    // container left pos
+    container_left: u16,
+    // container right pos
+    container_right: u16,
+}
+
 impl<W, C> LayoutForm<W, C>
 where
     W: Eq + Clone + Debug,
@@ -611,13 +643,21 @@ where
 
         let mut tmp = Vec::new();
 
-        let mut page_no = 0u16;
-        let mut page_y = page_no * page.height;
-        let mut y = border.top;
-        let mut line_spacing = 0;
         let mut pos = &pos_even;
-        let mut container_left = pos.container_left;
-        let mut container_right = pos.container_right;
+        let mut page = Page {
+            width: page.width,
+            height: page.height,
+            top: border.top,
+            bottom: border.bottom,
+            page_no: 0,
+            y_zero: 0,
+            y_bottom: page.height.saturating_sub(border.bottom),
+            y: border.top,
+            line_spacing: 0,
+            remainder: 0,
+            container_left: pos.container_left,
+            container_right: pos.container_right,
+        };
 
         for (idx, widget) in self.areas.into_iter().enumerate() {
             if matches!(widget.widget, FormWidget::Measure(_)) {
@@ -645,12 +685,12 @@ where
                 FormWidget::FullStretch(h) => *h,
             };
 
-            let page_break_widget = y
-                + line_spacing
+            let page_break_widget = page.y
+                + page.line_spacing
                 + widget.top_border
                 + max(brk_label_height, brk_widget_height)
                 + widget.bottom_border
-                >= page_y + page.height.saturating_sub(border.bottom);
+                >= page.y_zero + page.height.saturating_sub(border.bottom);
 
             let page_break_man = if idx > 0 {
                 self.page_breaks.contains(&(idx - 1))
@@ -663,9 +703,11 @@ where
                 tmp.clear();
                 for cc in self.containers.iter_mut().rev() {
                     if idx > cc.range.start && idx < cc.range.end {
-                        y += cc.padding.bottom;
-                        cc.area.height = y - cc.area.y;
+                        page.close_container(cc);
+
+                        cc.area.height = page.y - cc.area.y;
                         tmp.push((cc.id.clone(), cc.area.clone(), cc.block.clone()));
+
                         // restart on next page
                         cc.range.start = idx;
                     }
@@ -676,98 +718,25 @@ where
                 }
 
                 // advance
-                page_no += 1;
-                page_y = page_no * page.height;
-                y = page_y + border.top;
-                pos = if page_no % 2 == 0 {
-                    &pos_even
-                } else {
-                    &pos_odd
-                };
-                container_left = pos.container_left;
-                container_right = pos.container_right;
+                pos = page.next_page(&pos_even, &pos_odd);
             } else {
-                // line spacing must not affect page-break of containers.
-                y += line_spacing;
+                page.next_widget();
             }
 
             // start container
             for cc in self.containers.iter_mut() {
                 if cc.range.start == idx {
-                    cc.area.x = container_left;
-                    cc.area.width = container_right - container_left;
-                    cc.area.y = y;
+                    cc.area.x = page.container_left;
+                    cc.area.width = page.container_right - page.container_left;
+                    cc.area.y = page.y;
 
-                    y += cc.padding.top;
-                    container_left += cc.padding.left;
-                    container_right -= cc.padding.right;
+                    page.start_container(cc);
                 }
             }
 
-            // maximum allowable height.
-            // might be exceeded by a pathological widget or label.
-            let max_height = page
-                .height
-                .saturating_sub((y - page_y) + widget.bottom_border);
-
-            // get area + advance label
-            // labels fill the available space.
-            let label_area = match &widget.label {
-                FormLabel::None => Rect::default(),
-                FormLabel::Measure(_) => Rect::default(),
-                FormLabel::Str(_) | FormLabel::Width(_) => match &widget.widget {
-                    FormWidget::FullWidth(_) => {
-                        Rect::new(pos.label_x, y, pos.total_width, min(1, max_height))
-                    }
-                    FormWidget::FullStretch(_) => {
-                        Rect::new(pos.label_x, y, pos.total_stretch_width, min(1, max_height))
-                    }
-                    _ => Rect::new(pos.label_x, y, pos.label_width, min(1, max_height)),
-                },
-                FormLabel::Size(_, h) => match &widget.widget {
-                    FormWidget::FullWidth(_) => {
-                        Rect::new(pos.label_x, y, pos.total_width, min(*h, max_height))
-                    }
-                    FormWidget::FullStretch(_) => {
-                        Rect::new(pos.label_x, y, pos.total_stretch_width, min(*h, max_height))
-                    }
-                    _ => Rect::new(pos.label_x, y, pos.label_width, min(*h, max_height)),
-                },
-            };
-            y += match &widget.widget {
-                FormWidget::FullWidth(_) => label_area.height,
-                FormWidget::FullStretch(_) => label_area.height,
-                _ => 0,
-            };
-
-            // area + advance widget
-            let widget_area = match &widget.widget {
-                FormWidget::None => Rect::default(),
-                FormWidget::Measure(_) => {
-                    unreachable!()
-                }
-                FormWidget::Width(w) => Rect::new(
-                    pos.widget_x,
-                    y,
-                    min(*w, pos.widget_width),
-                    min(1, max_height),
-                ),
-                FormWidget::Size(w, h) => Rect::new(
-                    pos.widget_x,
-                    y,
-                    min(*w, pos.widget_width),
-                    min(*h, max_height),
-                ),
-                FormWidget::FullWidth(h) => {
-                    Rect::new(pos.label_x, y, pos.total_width, min(*h, max_height))
-                }
-                FormWidget::Stretch(h) => {
-                    Rect::new(pos.widget_x, y, pos.stretch_width, min(*h, max_height))
-                }
-                FormWidget::FullStretch(h) => {
-                    Rect::new(pos.label_x, y, pos.total_stretch_width, min(*h, max_height))
-                }
-            };
+            // get areas + advance
+            let label_area = page.label_area(&widget, pos);
+            let widget_area = page.widget_area(&widget, pos);
             let label_text = match &widget.label {
                 FormLabel::None => None,
                 FormLabel::Str(s) => Some(s.clone()),
@@ -775,21 +744,16 @@ where
                 FormLabel::Size(_, _) => None,
                 FormLabel::Measure(_) => None,
             };
+
             gen_layout.add(widget.id.clone(), widget_area, label_text, label_area);
-            y += widget_area.height;
 
             // end and push containers
             tmp.clear();
             for cc in self.containers.iter_mut().rev() {
                 if idx + 1 == cc.range.end {
-                    y += cc.padding.bottom;
-
-                    cc.area.height = y - cc.area.y;
-
+                    page.close_container(cc);
+                    cc.area.height = page.y - cc.area.y;
                     tmp.push((cc.id.clone(), cc.area.clone(), cc.block.clone()));
-
-                    container_left -= cc.padding.left;
-                    container_right += cc.padding.right;
                 }
             }
             while !tmp.is_empty() {
@@ -797,11 +761,133 @@ where
                 gen_layout.add_container(c.0, c.1, c.2);
             }
 
-            line_spacing = self.line_spacing;
+            page.line_spacing = self.line_spacing;
         }
 
-        gen_layout.set_page_count((page_no + 1) as usize);
+        gen_layout.set_page_count((page.page_no + 1) as usize);
 
         gen_layout
+    }
+}
+
+impl Page {
+    fn label_area<W: Debug + Clone>(&mut self, widget: &WidgetDef<W>, pos: &Positions) -> Rect {
+        let max_height = self
+            .height
+            .saturating_sub((self.y - self.y_zero) + widget.bottom_border);
+
+        let label_area = match &widget.label {
+            FormLabel::None => Rect::default(),
+            FormLabel::Measure(_) => Rect::default(),
+            FormLabel::Str(_) | FormLabel::Width(_) => match &widget.widget {
+                FormWidget::FullWidth(_) => {
+                    Rect::new(pos.label_x, self.y, pos.total_width, min(1, max_height))
+                }
+                FormWidget::FullStretch(_) => Rect::new(
+                    pos.label_x,
+                    self.y,
+                    pos.total_stretch_width,
+                    min(1, max_height),
+                ),
+                _ => Rect::new(pos.label_x, self.y, pos.label_width, min(1, max_height)),
+            },
+            FormLabel::Size(_, h) => match &widget.widget {
+                FormWidget::FullWidth(_) => {
+                    Rect::new(pos.label_x, self.y, pos.total_width, min(*h, max_height))
+                }
+                FormWidget::FullStretch(_) => Rect::new(
+                    pos.label_x,
+                    self.y,
+                    pos.total_stretch_width,
+                    min(*h, max_height),
+                ),
+                _ => Rect::new(pos.label_x, self.y, pos.label_width, min(*h, max_height)),
+            },
+        };
+
+        self.y += match &widget.widget {
+            FormWidget::FullWidth(_) => label_area.height,
+            FormWidget::FullStretch(_) => label_area.height,
+            _ => 0,
+        };
+
+        label_area
+    }
+
+    fn widget_area<W: Debug + Clone>(&mut self, widget: &WidgetDef<W>, pos: &Positions) -> Rect {
+        let max_height = self
+            .height
+            .saturating_sub((self.y - self.y_zero) + widget.bottom_border);
+
+        let widget_area = match &widget.widget {
+            FormWidget::None => Rect::default(),
+            FormWidget::Measure(_) => {
+                unreachable!()
+            }
+            FormWidget::Width(w) => Rect::new(
+                pos.widget_x,
+                self.y,
+                min(*w, pos.widget_width),
+                min(1, max_height),
+            ),
+            FormWidget::Size(w, h) => Rect::new(
+                pos.widget_x,
+                self.y,
+                min(*w, pos.widget_width),
+                min(*h, max_height),
+            ),
+            FormWidget::FullWidth(h) => {
+                Rect::new(pos.label_x, self.y, pos.total_width, min(*h, max_height))
+            }
+            FormWidget::Stretch(h) => {
+                Rect::new(pos.widget_x, self.y, pos.stretch_width, min(*h, max_height))
+            }
+            FormWidget::FullStretch(h) => Rect::new(
+                pos.label_x,
+                self.y,
+                pos.total_stretch_width,
+                min(*h, max_height),
+            ),
+        };
+
+        self.y += widget_area.height;
+
+        widget_area
+    }
+
+    // advance to next page
+    fn next_page<'a>(&mut self, pos_even: &'a Positions, pos_odd: &'a Positions) -> &'a Positions {
+        self.page_no += 1;
+        self.y_zero = self.page_no * self.height;
+        self.y_bottom = (self.y_zero + self.height).saturating_sub(self.bottom);
+        self.y = self.y_zero + self.top;
+        let pos = if self.page_no % 2 == 0 {
+            pos_even
+        } else {
+            pos_odd
+        };
+        // self.container_left = pos.container_left;
+        // self.container_right = pos.container_right;
+
+        pos
+    }
+
+    // advance to next widget
+    fn next_widget(&mut self) {
+        self.y += self.line_spacing;
+    }
+
+    // close the given container
+    fn close_container<C: Debug + Clone>(&mut self, cc: &ContainerDef<C>) {
+        self.y += cc.padding.bottom;
+        self.container_left -= cc.padding.left;
+        self.container_right += cc.padding.right;
+    }
+
+    // open the given container
+    fn start_container<C: Debug + Clone>(&mut self, cc: &ContainerDef<C>) {
+        self.y += cc.padding.top;
+        self.container_left += cc.padding.left;
+        self.container_right -= cc.padding.right;
     }
 }

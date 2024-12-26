@@ -99,7 +99,7 @@ fn repaint_input(
             form.widget(
                 state.hundred[i].focus.clone(),
                 FormLabel::Str(format!("{}", i).to_string().into()),
-                FormWidget::Stretch(2),
+                FormWidget::FullStretch(2),
             );
 
             if i == 17 {
