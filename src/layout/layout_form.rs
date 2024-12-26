@@ -435,9 +435,6 @@ where
 
     /// Add a manual page break after the last widget.
     ///
-    /// This does _not_ page-break if the last widget would be
-    /// the only one left on a page.
-    ///
     /// This will panic if the widget list is empty.
     pub fn page_break(&mut self) {
         self.page_breaks.push(self.widgets.len() - 1);
@@ -732,8 +729,12 @@ where
                 }
             }
 
+            let break_overflow =
+                page.y + widget.opt_bottom_border >= page.y_page + page.height - page.bottom;
+            let break_manual = self.page_breaks.contains(&idx);
+
             // page overflow induces page-break
-            if page.y + widget.opt_bottom_border >= page.y_page + page.height - page.bottom {
+            if break_overflow {
                 // reset safe-point
                 page = page_bak;
                 // any container areas are invalid
@@ -775,7 +776,9 @@ where
                 }
 
                 page.line_spacing = self.line_spacing;
-            } else if self.page_breaks.contains(&idx) {
+            }
+
+            if break_manual {
                 // page-break after widget
 
                 // close and push containers
@@ -791,7 +794,9 @@ where
 
                 // advance
                 pos = page.next_page(&pos_even, &pos_odd);
-            } else {
+            }
+
+            if !break_overflow && !break_manual {
                 page.line_spacing = self.line_spacing;
             }
 
