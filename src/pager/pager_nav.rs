@@ -4,7 +4,7 @@ use crate::pager::PagerStyle;
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
-use rat_focus::ContainerFlag;
+use rat_focus::{ContainerFlag, FocusContainer};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::style::Style;
@@ -48,7 +48,7 @@ pub struct PageNavigationState {
 
     /// This widget has no focus of its own, but this flag
     /// can be used to set a container state.
-    pub c_focus: ContainerFlag,
+    pub container: ContainerFlag,
 
     /// Mouse
     pub mouse: MouseFlagsN,
@@ -215,7 +215,7 @@ impl Default for PageNavigationState {
             next_area: Default::default(),
             page: Default::default(),
             page_count: Default::default(),
-            c_focus: Default::default(),
+            container: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -276,22 +276,26 @@ impl PageNavigationState {
 
 impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for PageNavigationState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
-        let r = match event {
-            ct_event!(keycode press ALT-PageUp) => {
-                if self.prev_page() {
-                    PagerOutcome::Page(self.page())
-                } else {
-                    PagerOutcome::Continue
+        let r = if self.container.is_container_focused() {
+            match event {
+                ct_event!(keycode press ALT-PageUp) => {
+                    if self.prev_page() {
+                        PagerOutcome::Page(self.page())
+                    } else {
+                        PagerOutcome::Continue
+                    }
                 }
-            }
-            ct_event!(keycode press ALT-PageDown) => {
-                if self.next_page() {
-                    PagerOutcome::Page(self.page())
-                } else {
-                    PagerOutcome::Continue
+                ct_event!(keycode press ALT-PageDown) => {
+                    if self.next_page() {
+                        PagerOutcome::Page(self.page())
+                    } else {
+                        PagerOutcome::Continue
+                    }
                 }
+                _ => PagerOutcome::Continue,
             }
-            _ => PagerOutcome::Continue,
+        } else {
+            PagerOutcome::Continue
         };
 
         r.or_else(|| self.handle(event, MouseOnly))

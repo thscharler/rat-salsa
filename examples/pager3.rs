@@ -35,6 +35,9 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
+        t_focus: 0.0,
+        n_focus: 0.0,
+        focus: Default::default(),
         flex: Default::default(),
         layout: Default::default(),
         page_nav: Default::default(),
@@ -50,6 +53,9 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
+    t_focus: f64,
+    n_focus: f64,
+    focus: Option<Focus>,
     flex: Flex,
     layout: Rc<GenericLayout<FocusFlag>>,
     page_nav: PageNavigationState,
@@ -249,18 +255,22 @@ fn render_page(
     }
 
     // pager done.
-    debug!("render {:?}", et.elapsed()?);
+    debug!("{:12}{:>12?}", "render", et.elapsed()?);
 
     Ok(())
 }
 
-fn focus(state: &State) -> Focus {
-    let mut fb = FocusBuilder::default();
+fn focus(state: &mut State) -> Focus {
+    let mut fb = FocusBuilder::new(state.focus.take());
     fb.widget(&state.menu);
+
+    let tag = fb.start(Some(state.page_nav.container.clone()), Rect::default(), 0);
     for i in 0..state.hundred.len() {
         // Focus wants __all__ areas.
         fb.widget(&state.hundred[i]);
     }
+    fb.end(tag);
+
     fb.build()
 }
 
@@ -270,7 +280,18 @@ fn handle_input(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, anyhow::Error> {
+    let et = SystemTime::now();
     let mut focus = focus(state);
+
+    let tt = et.elapsed()?;
+    state.t_focus += tt.as_secs_f64();
+    state.n_focus += 1f64;
+    debug!(
+        "{:12}{:>12.2?}",
+        "focus",
+        state.t_focus / state.n_focus * 1e6f64
+    );
+
     let f = focus.handle(event, Regular);
 
     // set the page from focus.
@@ -338,6 +359,8 @@ fn handle_input(
         }
         _ => Outcome::Continue,
     });
+
+    state.focus = Some(focus);
 
     Ok(max(f, r))
 }
