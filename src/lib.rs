@@ -7,6 +7,8 @@ mod focus;
 use ratatui::layout::Rect;
 use std::cell::Cell;
 use std::fmt::{Debug, Display, Formatter};
+use std::hash::{Hash, Hasher};
+use std::ptr;
 use std::rc::Rc;
 
 pub use crate::focus::{handle_focus, Focus, FocusBuilder};
@@ -61,6 +63,12 @@ impl PartialEq for FocusFlag {
 
 impl Eq for FocusFlag {}
 
+impl Hash for FocusFlag {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        ptr::hash(Rc::as_ptr(&self.0), state);
+    }
+}
+
 impl Display for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "|{}|", self.0.name)
@@ -86,6 +94,12 @@ impl PartialEq for ContainerFlag {
 }
 
 impl Eq for ContainerFlag {}
+
+impl Hash for ContainerFlag {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        ptr::hash(Rc::as_ptr(&self.0), state);
+    }
+}
 
 impl Display for ContainerFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
