@@ -431,7 +431,7 @@ impl Focus {
 
 mod core {
     use crate::{ContainerFlag, Focus, FocusContainer, FocusFlag, HasFocus, Navigation};
-    use fxhash::{FxBuildHasher, FxHasher};
+    use fxhash::FxBuildHasher;
     use ratatui::layout::Rect;
     use std::cell::Cell;
     use std::collections::HashSet;
