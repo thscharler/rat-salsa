@@ -309,6 +309,11 @@ impl FocusFlag {
         Self::default()
     }
 
+    /// Return an identity value.
+    fn focus_id(&self) -> usize {
+        Rc::as_ptr(&self.0) as usize
+    }
+
     /// Create a named flag.
     pub fn named(name: &str) -> Self {
         Self(Rc::new(FocusFlagCore::named(name)))

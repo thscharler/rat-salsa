@@ -431,8 +431,10 @@ impl Focus {
 
 mod core {
     use crate::{ContainerFlag, Focus, FocusContainer, FocusFlag, HasFocus, Navigation};
+    use fxhash::{FxBuildHasher, FxHasher};
     use ratatui::layout::Rect;
     use std::cell::Cell;
+    use std::collections::HashSet;
     use std::ops::Range;
 
     /// Builder for the Focus.
@@ -452,6 +454,7 @@ mod core {
         z_base: u16,
 
         // new core
+        focus_ids: HashSet<usize, FxBuildHasher>,
         focus_flags: Vec<FocusFlag>,
         duplicate: Vec<bool>,
         areas: Vec<(Rect, u16)>,
@@ -469,6 +472,7 @@ mod core {
                     last: last.core,
                     log: Default::default(),
                     z_base: 0,
+                    focus_ids: last.last.focus_ids,
                     focus_flags: last.last.focus_flags,
                     duplicate: last.last.duplicate,
                     areas: last.last.areas,
@@ -479,12 +483,13 @@ mod core {
                 Self {
                     last: FocusCore::default(),
                     log: Default::default(),
-                    z_base: 0,
-                    focus_flags: vec![],
-                    duplicate: vec![],
-                    areas: vec![],
-                    navigable: vec![],
-                    containers: vec![],
+                    z_base: Default::default(),
+                    focus_ids: Default::default(),
+                    focus_flags: Default::default(),
+                    duplicate: Default::default(),
+                    areas: Default::default(),
+                    navigable: Default::default(),
+                    containers: Default::default(),
                 }
             }
         }
@@ -531,7 +536,7 @@ mod core {
             area_z: u16,
             navigable: Navigation,
         ) {
-            let duplicate = self.focus_flags.contains(&focus);
+            let duplicate = self.focus_ids.contains(&focus.focus_id());
 
             // there can be a second entry for the same focus-flag
             // if it is only for mouse interactions.
@@ -541,6 +546,7 @@ mod core {
 
             focus_debug!(self.log, "widget {:?}", focus);
 
+            self.focus_ids.insert(focus.focus_id());
             self.focus_flags.push(focus);
             self.duplicate.push(duplicate);
             self.areas.push((area, self.z_base + area_z));
@@ -629,7 +635,7 @@ mod core {
         pub fn build(mut self) -> Focus {
             // cleanup outcasts.
             for v in &self.last.focus_flags {
-                if !self.focus_flags.contains(v) {
+                if !self.focus_ids.contains(&v.focus_id()) {
                     v.clear();
                 }
             }
@@ -658,6 +664,7 @@ mod core {
                 last: self.last,
                 core: FocusCore {
                     log: Cell::new(log),
+                    focus_ids: self.focus_ids,
                     focus_flags: self.focus_flags,
                     duplicate: self.duplicate,
                     areas: self.areas,
@@ -719,6 +726,8 @@ mod core {
         /// Focus logging
         pub(super) log: Cell<bool>,
 
+        /// List of focus-ids.
+        focus_ids: HashSet<usize, FxBuildHasher>,
         /// List of flags.
         focus_flags: Vec<FocusFlag>,
         /// Is the flag the primary flag, or just a duplicate
@@ -739,6 +748,7 @@ mod core {
     impl FocusCore {
         /// Clear.
         pub(super) fn clear(&mut self) {
+            self.focus_ids.clear();
             self.focus_flags.clear();
             self.duplicate.clear();
             self.areas.clear();
@@ -787,6 +797,7 @@ mod core {
             let start = idx;
             let end = idx + container.focus_flags.len();
 
+            self.focus_ids.extend(container.focus_ids.iter());
             self.focus_flags
                 .splice(idx..idx, container.focus_flags.drain(..));
             self.duplicate
@@ -816,6 +827,11 @@ mod core {
 
             // remove
             let focus_flags = self.focus_flags.drain(crange.clone()).collect::<Vec<_>>();
+            let mut focus_ids = HashSet::<_, FxBuildHasher>::default();
+            for f in focus_flags.iter() {
+                self.focus_ids.remove(&f.focus_id());
+                focus_ids.insert(f.focus_id());
+            }
             let duplicate = self.duplicate.drain(crange.clone()).collect::<Vec<_>>();
             let areas = self.areas.drain(crange.clone()).collect::<Vec<_>>();
             let navigable = self.navigable.drain(crange.clone()).collect::<Vec<_>>();
@@ -836,6 +852,7 @@ mod core {
 
             FocusCore {
                 log: Cell::new(false),
+                focus_ids,
                 focus_flags,
                 duplicate,
                 areas,
