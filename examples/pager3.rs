@@ -27,7 +27,7 @@ use std::time::SystemTime;
 
 mod mini_salsa;
 
-const HUN: usize = 100;
+const HUN: usize = 1000;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -106,7 +106,7 @@ fn repaint_input(
             .flex(state.flex)
             .line_spacing(1);
 
-        // form_layout.widget(FocusFlag::new(), FormLabel::None, FormWidget::Measure(33));
+        form_layout.widget(FocusFlag::new(), FormLabel::Measure(10), FormWidget::None);
 
         // generate the layout ...
         let mut c0 = 0;
@@ -117,6 +117,13 @@ fn repaint_input(
                 5
             } else {
                 1
+            };
+            let w = if i % 4 == 0 {
+                12
+            } else if i % 7 == 0 {
+                19
+            } else {
+                15
             };
 
             if i >= 8 {
@@ -149,13 +156,13 @@ fn repaint_input(
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
                     FormLabel::Str(format!("{}", i).to_string().into()),
-                    FormWidget::StretchY(15, h),
+                    FormWidget::StretchXY(h),
                 );
             } else {
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
                     FormLabel::Str(format!("{}", i).to_string().into()),
-                    FormWidget::Size(15, h),
+                    FormWidget::Size(w, h),
                 );
             }
 
@@ -225,17 +232,19 @@ fn render_page(
 
     // render the fields.
     for i in 0..state.hundred.len() {
-        if let Some(idx) = pager.widget_idx(&state.hundred[i].focus.clone()) {
-            pager.render(
-                idx,
-                || {
-                    // lazy construction
-                    TextInputMock::default()
-                        .style(THEME.limegreen(0))
-                        .focus_style(THEME.limegreen(2))
-                },
-                &mut state.hundred[i],
-            );
+        if pager.is_visible(&state.hundred[i].focus) {
+            if let Some(idx) = pager.widget_idx(&state.hundred[i].focus.clone()) {
+                pager.render(
+                    idx,
+                    || {
+                        // lazy construction
+                        TextInputMock::default()
+                            .style(THEME.limegreen(0))
+                            .focus_style(THEME.limegreen(2))
+                    },
+                    &mut state.hundred[i],
+                );
+            }
         }
     }
 
