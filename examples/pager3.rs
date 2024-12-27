@@ -16,7 +16,7 @@ use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::symbols::border::EMPTY;
-use ratatui::widgets::block::{title, Title};
+use ratatui::text::Line;
 use ratatui::widgets::{Block, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
@@ -95,11 +95,7 @@ fn repaint_input(
         .block(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
-                .title(
-                    Title::from(format!("{:?}", state.flex))
-                        .alignment(Alignment::Center)
-                        .position(title::Position::Top),
-                ),
+                .title_top(Line::from(format!("{:?}", state.flex)).alignment(Alignment::Center)),
         )
         .styles(THEME.pager_style());
 
@@ -107,6 +103,8 @@ fn repaint_input(
 
     // rebuild layout
     if state.layout.size_changed(layout_size) {
+        let et = SystemTime::now();
+
         let mut form_layout = LayoutForm::new()
             .spacing(1)
             .flex(state.flex)
@@ -116,6 +114,8 @@ fn repaint_input(
 
         // generate the layout ...
         let mut c0 = 0;
+        let mut tag8 = Default::default();
+        let mut tag17 = Default::default();
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
                 2
@@ -132,30 +132,27 @@ fn repaint_input(
                 15
             };
 
+            if i == 17 {
+                tag17 = form_layout.start(Some(
+                    Block::bordered().border_set(EMPTY).style(
+                        Style::new()
+                            .bg(THEME.purple[0])
+                            .fg(THEME.text_color(THEME.purple[0])),
+                    ),
+                ));
+            }
+            if i == 20 {
+                form_layout.end(tag17);
+            }
             if i >= 8 {
                 if i % 8 == 0 {
-                    form_layout.start((), Some(Block::bordered()));
+                    tag8 = form_layout.start(Some(Block::bordered()));
                     c0 += 1;
                 }
                 if (i - 4) % 8 == 0 {
-                    form_layout.end(());
+                    form_layout.end(tag8);
                     c0 -= 1;
                 }
-            }
-            if i == 17 {
-                form_layout.start(
-                    (),
-                    Some(
-                        Block::bordered().border_set(EMPTY).style(
-                            Style::new()
-                                .bg(THEME.purple[0])
-                                .fg(THEME.text_color(THEME.purple[0])),
-                        ),
-                    ),
-                );
-            }
-            if i == 21 {
-                form_layout.end(());
             }
 
             if i == 3 || i == 9 || i == 17 {
@@ -176,12 +173,7 @@ fn repaint_input(
                 form_layout.page_break();
             }
         }
-        while c0 > 0 {
-            form_layout.end(());
-            c0 -= 1;
-        }
 
-        let et = SystemTime::now();
         state.layout = Rc::new(form_layout.layout(layout_size, Padding::default()));
         debug!("layout {:?}", et.elapsed()?);
         state

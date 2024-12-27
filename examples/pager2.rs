@@ -4,16 +4,15 @@ use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_text::HasScreenCursor;
 use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
-use rat_widget::pager::{AreaHandle, DualPager, DualPagerState, PagerLayout};
+use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
+use rat_widget::pager::{DualPager, DualPagerState};
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::Span;
-use ratatui::widgets::{Padding, StatefulWidget};
+use ratatui::widgets::Padding;
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
@@ -99,7 +98,7 @@ fn repaint_input(
             form.widget(
                 state.hundred[i].focus.clone(),
                 FormLabel::Str(format!("{}", i).to_string().into()),
-                FormWidget::WideStretchX(2),
+                FormWidget::WideStretchX(h),
             );
 
             if i == 17 {

@@ -42,7 +42,7 @@ struct State {
     layout: RadioLayout,
     direction: Direction,
 
-    c1: RadioState,
+    c1: RadioState<&'static str>,
     c2: RadioState,
     c3: RadioState,
     menu: MenuLineState,
@@ -89,30 +89,30 @@ fn repaint_input(
         .styles(THEME.radio_style())
         .direction(state.direction)
         .layout(state.layout)
-        .item("🥕Carrots")
-        .item("🥔Potatoes")
-        .item("🧅Onions")
-        .item("Peas\n&\nLentils")
-        .default_settable()
+        .item("C", "🥕Carrots")
+        .item("P", "🥔Potatoes")
+        .item("O", "🧅Onions")
+        .item("L", "Peas\n&\nLentils")
+        .default_key("C")
         .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     Radio::new()
         .styles(THEME.radio_style())
         .direction(state.direction)
         .layout(state.layout)
-        .item("wine")
-        .item("beer")
-        .item("water")
+        .item(0, "wine")
+        .item(1, "beer")
+        .item(2, "water")
         .render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 
     Radio::new()
         .styles(THEME.radio_style())
         .direction(state.direction)
         .layout(state.layout)
-        .item("red")
-        .item("blue")
-        .item("green")
-        .item("pink")
+        .item(0, "red")
+        .item(1, "blue")
+        .item(2, "green")
+        .item(3, "pink")
         .block(Block::bordered().border_type(BorderType::Rounded))
         .render(lg[1][3], frame.buffer_mut(), &mut state.c3);
 

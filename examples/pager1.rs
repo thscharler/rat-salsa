@@ -3,7 +3,6 @@
 use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
-use log::debug;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
@@ -102,7 +101,6 @@ fn repaint_input(
         }
 
         state.pager.layout = Rc::new(form.layout(layout_size, Padding::default()));
-        debug!("{:#?}", state.pager.layout);
     }
 
     // set current layout and prepare rendering.
