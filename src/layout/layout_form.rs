@@ -163,10 +163,9 @@ pub enum FormWidget {
 /// * Manual page breaks.
 ///
 #[derive(Debug)]
-pub struct LayoutForm<W, C = ()>
+pub struct LayoutForm<W>
 where
     W: Eq + Hash + Clone + Debug,
-    C: Eq + Clone + Debug,
 {
     /// Column spacing.
     spacing: u16,
@@ -179,7 +178,7 @@ where
     /// Areas
     widgets: Vec<WidgetDef<W>>,
     /// Containers/Blocks
-    containers: Vec<ContainerDef<C>>,
+    blocks: Vec<BlockDef>,
     /// Page breaks.
     page_breaks: Vec<usize>,
 
@@ -219,13 +218,13 @@ where
     opt_bottom_border: u16,
 }
 
+/// Tag for a group/block.
+#[derive(Debug, Default, PartialEq, Eq, Clone, Copy)]
+pub struct BlockTag(usize);
+
 #[derive(Debug)]
-struct ContainerDef<C>
-where
-    C: Debug + Clone,
-{
-    // container id
-    id: C,
+struct BlockDef {
+    id: BlockTag,
     // block
     block: Option<Block<'static>>,
     // padding due to block
@@ -239,12 +238,7 @@ where
 }
 
 #[derive(Debug)]
-struct ContainerOut<C>
-where
-    C: Debug + Clone,
-{
-    // container id
-    id: C,
+struct BlockOut {
     // block
     block: Option<Block<'static>>,
     // area
@@ -260,8 +254,6 @@ struct Widths {
     widget: u16,
     // actual spacing between label and widget
     spacing: u16,
-    // is there any widget with Stretch
-    stretch_x: bool,
 }
 
 // effective positions for layout construction.
@@ -287,6 +279,7 @@ struct Positions {
 #[derive(Debug, Default, Clone, Copy)]
 struct Page {
     // page width
+    #[allow(dead_code)]
     width: u16,
     // page height
     height: u16,
@@ -312,13 +305,9 @@ struct Page {
     container_right: u16,
 }
 
-impl<C> ContainerDef<C>
-where
-    C: Debug + Clone,
-{
-    fn as_out(&self) -> ContainerOut<C> {
-        ContainerOut {
-            id: self.id.clone(),
+impl BlockDef {
+    fn as_out(&self) -> BlockOut {
+        BlockOut {
             block: self.block.clone(),
             area: self.area,
         }
@@ -354,10 +343,9 @@ impl FormWidget {
     }
 }
 
-impl<W, C> LayoutForm<W, C>
+impl<W> LayoutForm<W>
 where
     W: Eq + Hash + Clone + Debug,
-    C: Eq + Clone + Debug,
 {
     pub fn new() -> Self {
         Self {
@@ -367,7 +355,7 @@ where
             flex: Default::default(),
             widgets: Default::default(),
             page_breaks: Default::default(),
-            containers: Default::default(),
+            blocks: Default::default(),
             max_left_padding: Default::default(),
             max_right_padding: Default::default(),
             c_top: Default::default(),
@@ -406,18 +394,20 @@ where
         self
     }
 
-    /// Start a container/block.
+    /// Start a group/block.
     ///
     /// This will create a block that covers all widgets added
     /// before calling `end()`.
     ///
-    /// The container identifier need not be unique. It
-    /// can be ignored completely by using `()`.
-    pub fn start(&mut self, container: C, block: Option<Block<'static>>) {
+    /// Groups/blocks can be stacked, but they cannot interleave.
+    /// An inner group/block must be closed before an outer one.
+    pub fn start(&mut self, block: Option<Block<'static>>) -> BlockTag {
         let max_idx = self.widgets.len();
         let padding = block_padding(&block);
-        self.containers.push(ContainerDef {
-            id: container,
+
+        let tag = BlockTag(self.blocks.len());
+        self.blocks.push(BlockDef {
+            id: tag,
             block,
             padding,
             constructing: true,
@@ -432,24 +422,20 @@ where
 
         self.max_left_padding = max(self.max_left_padding, self.c_left);
         self.max_right_padding = max(self.max_right_padding, self.c_right);
+
+        tag
     }
 
-    /// End a container.
+    /// Closes the group/block with the given tag.
     ///
-    /// This will close the last container with the given
-    /// container id that has not been closed already.
-    ///
-    /// Containers must be ended in the reverse start order, otherwise
-    /// this function will panic.
-    /// It will also panic if there is no open container for
-    /// the given container id.
-    ///
-    /// This works fine with `()` too.
-    ///
-    pub fn end(&mut self, container: C) {
+    /// __Panic__
+    /// Groups must be closed in reverse start order, otherwise
+    /// this function will panic. It will also panic if there
+    /// is no open group for the given tag.
+    pub fn end(&mut self, tag: BlockTag) {
         let max = self.widgets.len();
-        for cc in self.containers.iter_mut().rev() {
-            if cc.id == container && cc.constructing {
+        for cc in self.blocks.iter_mut().rev() {
+            if cc.id == tag && cc.constructing {
                 cc.range.end = max;
                 cc.constructing = false;
 
@@ -476,7 +462,7 @@ where
     }
 
     fn validate_containers(&self) {
-        for cc in self.containers.iter() {
+        for cc in self.blocks.iter() {
             if cc.constructing {
                 panic!("Unclosed container {:?}", cc.id);
             }
@@ -513,7 +499,6 @@ where
         let mut label_width = 0;
         let mut widget_width = 0;
         let mut spacing = self.spacing;
-        let mut stretch_x = false;
 
         // find max
         for widget in self.widgets.iter() {
@@ -531,10 +516,10 @@ where
                 FormWidget::StretchY(w, _) => widget_width = widget_width.max(*w),
                 FormWidget::Wide(_) => {}
                 FormWidget::Measure(w) => widget_width = widget_width.max(*w),
-                FormWidget::StretchX(_) => stretch_x = true,
-                FormWidget::WideStretchX(_) => stretch_x = true,
-                FormWidget::StretchXY(_) => stretch_x = true,
-                FormWidget::WideStretchXY(_) => stretch_x = true,
+                FormWidget::StretchX(_) => {}
+                FormWidget::WideStretchX(_) => {}
+                FormWidget::StretchXY(_) => {}
+                FormWidget::WideStretchXY(_) => {}
             }
         }
 
@@ -590,7 +575,6 @@ where
             label: label_width,
             widget: widget_width,
             spacing,
-            stretch_x,
         }
     }
 
@@ -617,11 +601,7 @@ where
                 widget_x = label_x + width.label + width.spacing;
 
                 container_left = label_x.saturating_sub(self.max_left_padding);
-                if width.stretch_x {
-                    container_right = layout_width.saturating_sub(border.right);
-                } else {
-                    container_right = widget_x + width.widget + self.max_right_padding;
-                }
+                container_right = widget_x + width.widget + self.max_right_padding;
 
                 total_width = width.label + width.spacing + width.widget;
             }
@@ -698,7 +678,7 @@ where
     }
 
     /// Calculate the layout for the given page size and padding.
-    pub fn layout(mut self, page: Size, border: Padding) -> GenericLayout<W, C> {
+    pub fn layout(mut self, page: Size, border: Padding) -> GenericLayout<W> {
         self.validate_containers();
 
         let width = self.find_max(page.width, border);
@@ -714,8 +694,7 @@ where
         };
 
         let mut gen_layout =
-            GenericLayout::with_capacity(self.widgets.len(), self.containers.len() * 2);
-        gen_layout.set_area(Rect::new(0, 0, page.width, page.height));
+            GenericLayout::with_capacity(self.widgets.len(), self.blocks.len() * 2);
         gen_layout.set_page_size(page);
 
         let mut tmp = Vec::new();
@@ -751,7 +730,7 @@ where
             // line spacing
             page.next_widget();
             // start container
-            for cc in self.containers.iter_mut() {
+            for cc in self.blocks.iter_mut() {
                 if cc.range.start == idx {
                     page.start_container(cc);
                 }
@@ -759,7 +738,7 @@ where
             // get areas + advance
             let (mut label_area, mut widget_area) = page.widget_area(&widget, pos);
             // end and push containers
-            for cc in self.containers.iter_mut().rev() {
+            for cc in self.blocks.iter_mut().rev() {
                 if idx + 1 == cc.range.end {
                     page.end_container(cc);
                     tmp.push(cc.as_out());
@@ -779,7 +758,7 @@ where
 
                 // close and push containers
                 // rev() ensures closing from innermost to outermost container.
-                for cc in self.containers.iter_mut().rev() {
+                for cc in self.blocks.iter_mut().rev() {
                     if idx > cc.range.start && idx < cc.range.end {
                         page.end_container(cc);
                         tmp.push(cc.as_out());
@@ -790,7 +769,7 @@ where
                 // pop reverts the ordering for render
                 while !tmp.is_empty() {
                     let cc = tmp.pop().expect("value");
-                    gen_layout.add_container(cc.id, cc.area, cc.block);
+                    gen_layout.add_block(cc.area, cc.block);
                 }
 
                 // modify layout to add y-stretch
@@ -804,7 +783,7 @@ where
                 // line spacing
                 page.next_widget();
                 // start container
-                for cc in self.containers.iter_mut() {
+                for cc in self.blocks.iter_mut() {
                     if idx == cc.range.start {
                         page.start_container(cc);
                     }
@@ -813,7 +792,7 @@ where
                 (label_area, widget_area) = page.widget_area(&widget, pos);
                 // end and push containers
                 // rev() ensures closing from innermost to outermost container.
-                for cc in self.containers.iter_mut().rev() {
+                for cc in self.blocks.iter_mut().rev() {
                     if idx + 1 == cc.range.end {
                         page.end_container(cc);
                         tmp.push(cc.as_out());
@@ -837,7 +816,7 @@ where
             // pop reverts the ordering for render
             while !tmp.is_empty() {
                 let cc = tmp.pop().expect("value");
-                gen_layout.add_container(cc.id, cc.area, cc.block);
+                gen_layout.add_block(cc.area, cc.block);
             }
 
             if break_manual {
@@ -845,7 +824,7 @@ where
 
                 // close and push containers
                 // rev() ensures closing from innermost to outermost container.
-                for cc in self.containers.iter_mut().rev() {
+                for cc in self.blocks.iter_mut().rev() {
                     if idx + 1 > cc.range.start && idx + 1 < cc.range.end {
                         page.end_container(cc);
                         tmp.push(cc.as_out());
@@ -856,7 +835,7 @@ where
                 // pop reverts the ordering for render
                 while !tmp.is_empty() {
                     let cc = tmp.pop().expect("value");
-                    gen_layout.add_container(cc.id, cc.area, cc.block);
+                    gen_layout.add_block(cc.area, cc.block);
                 }
 
                 // modify layout to add y-stretch
@@ -878,7 +857,7 @@ where
     }
 
     // some stretching
-    fn y_stretch(page: &Page, stretch_y: &mut Vec<usize>, gen_layout: &mut GenericLayout<W, C>) {
+    fn y_stretch(page: &Page, stretch_y: &mut Vec<usize>, gen_layout: &mut GenericLayout<W>) {
         let bottom_y = page.y_page + page.height.saturating_sub(page.bottom);
 
         let mut remainder = bottom_y.saturating_sub(page.y);
@@ -916,8 +895,8 @@ where
             }
 
             // containers may be shifted or stretched.
-            for idx in 0..gen_layout.container_len() {
-                let mut area = gen_layout.container(idx);
+            for idx in 0..gen_layout.block_len() {
+                let mut area = gen_layout.block_area(idx);
                 if area.y >= test_y {
                     area.y += stretch;
                 }
@@ -925,7 +904,7 @@ where
                 if area.y <= test_y && area.bottom() > test_y {
                     area.height += stretch;
                 }
-                gen_layout.set_container(idx, area);
+                gen_layout.set_block_area(idx, area);
             }
         }
     }
@@ -1136,7 +1115,7 @@ impl Page {
 
     // close the given container
     #[inline(always)]
-    fn end_container<C: Debug + Clone>(&mut self, cc: &mut ContainerDef<C>) {
+    fn end_container(&mut self, cc: &mut BlockDef) {
         self.y += cc.padding.bottom;
         self.container_left -= cc.padding.left;
         self.container_right += cc.padding.right;
@@ -1146,7 +1125,7 @@ impl Page {
 
     // open the given container
     #[inline(always)]
-    fn start_container<C: Debug + Clone>(&mut self, cc: &mut ContainerDef<C>) {
+    fn start_container(&mut self, cc: &mut BlockDef) {
         cc.area.x = self.container_left;
         cc.area.width = self.container_right - self.container_left;
         cc.area.y = self.y;

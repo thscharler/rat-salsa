@@ -14,12 +14,11 @@ use std::rc::Rc;
 
 /// This widget renders a single page of a [GenericLayout].
 #[derive(Debug, Clone)]
-pub struct SinglePager<'a, W, C = ()>
+pub struct SinglePager<'a, W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
-    pager: Pager<W, C>,
+    pager: Pager<W>,
     page_nav: PageNavigation<'a>,
 }
 
@@ -30,24 +29,22 @@ where
 /// * It helps with cleanup of the widget state if your
 ///   widget is currently invisible.
 #[derive(Debug)]
-pub struct SinglePagerBuffer<'a, W, C = ()>
+pub struct SinglePagerBuffer<'a, W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
-    pager: PagerBuffer<'a, W, C>,
+    pager: PagerBuffer<'a, W>,
 }
 
 /// Widget state.
 #[derive(Debug, Clone)]
-pub struct SinglePagerState<W, C = ()>
+pub struct SinglePagerState<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     /// Page layout
     /// __read+write__ renewed with each render.
-    pub layout: Rc<GenericLayout<W, C>>,
+    pub layout: Rc<GenericLayout<W>>,
 
     /// PageNavigationState holds most of our state.
     /// __read+write__
@@ -57,10 +54,9 @@ where
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, W, C> Default for SinglePager<'a, W, C>
+impl<'a, W> Default for SinglePager<'a, W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     fn default() -> Self {
         Self {
@@ -70,10 +66,9 @@ where
     }
 }
 
-impl<'a, W, C> SinglePager<'a, W, C>
+impl<'a, W> SinglePager<'a, W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     /// New SinglePage.
     pub fn new() -> Self {
@@ -134,8 +129,8 @@ where
         self,
         area: Rect,
         buf: &'a mut Buffer,
-        state: &mut SinglePagerState<W, C>,
-    ) -> SinglePagerBuffer<'a, W, C> {
+        state: &mut SinglePagerState<W>,
+    ) -> SinglePagerBuffer<'a, W> {
         state.nav.page_count = state.layout.page_count();
 
         self.page_nav.render(area, buf, &mut state.nav);
@@ -150,10 +145,9 @@ where
     }
 }
 
-impl<'a, W, C> SinglePagerBuffer<'a, W, C>
+impl<'a, W> SinglePagerBuffer<'a, W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     /// Render all containers for the current page.
     pub fn render_container(&mut self) {
@@ -239,16 +233,6 @@ where
         self.pager.locate_label(idx)
     }
 
-    /// Relocate the container area to screen coordinates.
-    ///
-    /// Returns None if the container is not visible.
-    /// If the container is split into multiple parts, this
-    /// returns the first visible part.
-    /// This clips the area to page_area.
-    pub fn locate_container(&self, container: &C) -> Option<Rect> {
-        self.pager.locate_container(container)
-    }
-
     /// Relocate an area from layout coordinates to screen coordinates.
     /// A result None indicates that the area is invisible.
     ///
@@ -275,10 +259,9 @@ where
     }
 }
 
-impl<W, C> Default for SinglePagerState<W, C>
+impl<W> Default for SinglePagerState<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     fn default() -> Self {
         Self {
@@ -289,13 +272,22 @@ where
     }
 }
 
-impl<W, C> SinglePagerState<W, C>
+impl<W> SinglePagerState<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the layout.
+    pub fn set_layout(&mut self, layout: Rc<GenericLayout<W>>) {
+        self.layout = layout;
+    }
+
+    /// Layout.
+    pub fn layout(&self) -> Rc<GenericLayout<W>> {
+        self.layout.clone()
     }
 
     /// Show the page for this widget.
@@ -336,20 +328,18 @@ where
     }
 }
 
-impl<W, C> HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for SinglePagerState<W, C>
+impl<W> HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for SinglePagerState<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
         self.nav.handle(event, Regular)
     }
 }
 
-impl<W, C> HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for SinglePagerState<W, C>
+impl<W> HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for SinglePagerState<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> PagerOutcome {
         self.nav.handle(event, MouseOnly)

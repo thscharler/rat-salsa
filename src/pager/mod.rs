@@ -5,82 +5,69 @@
 //! them into pages is an alternative to scrolling.
 //!
 //! ```rust no_run
-//!     # use rat_widget::pager::{SinglePager, AreaHandle, PagerLayout, SinglePagerState};
+//!     # use std::rc::Rc;
+//!     # use rat_widget::pager::{SinglePager, AreaHandle, SinglePagerState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
 //!     # use ratatui::prelude::*;
+//!     # use rat_focus::FocusFlag;
+//!     # use rat_widget::layout::{GenericLayout, LayoutForm};
 //!     #
 //!     # let l2 = [Rect::ZERO, Rect::ZERO];
 //!     # struct State {
-//!     #      layout: PagerLayout,
-//!     #      handles: Vec<AreaHandle>,
+//!     #      layout: GenericLayout<FocusFlag>,
 //!     #      check_states: Vec<CheckboxState>,
-//!     #      pager: SinglePagerState
+//!     #      pager: SinglePagerState<FocusFlag>
 //!     #  }
 //!     # let mut state = State {
-//!     #      layout: PagerLayout::new(1),
-//!     #      handles: Vec::default(),
+//!     #      layout: GenericLayout::new(),
+//!     #      check_states: Vec::default(),
 //!     #      pager: Default::default(),
-//!     #      check_states: Vec::default()
 //!     #  };
 //!     # let mut buf = Buffer::default();
 //!
 //!     /// Single pager shows the widgets in one column, and
 //!     /// can page through the list.
 //!     let pager = SinglePager::new();
-//!     let width = pager.layout_width(l2[1]);
+//!     let size = pager.layout_size(l2[1]);
 //!
-//!     if state.layout.width_changed(width) {
-//!           ///
-//!           /// PagerLayout collects the bounds for all widgets.
-//!           ///
-//!           let mut pl = PagerLayout::new(1);
+//!     if state.layout.size_changed(size) {
+//!           // GenericLayout is very basic.
+//!           // Try LayoutForm or layout_edit() instead.
+//!           let mut pl = GenericLayout::new();
 //!           for i in 0..100 {
-//!               let handle = pl.add(&[Rect::new(10, i*11, 15, 10)]);
-//!               state.handles[i as usize] = handle;
-//!
-//!               if i > 0 && i % 17 == 0 {
-//!                   pl.break_before(i);
-//!               }
+//!               pl.add(
+//!                     state.check_states[i].focus.clone(), // widget-key
+//!                     Rect::new(10, 10+i as u16, 15, 10), // widget area
+//!                     None, // label text
+//!                     Rect::default() // label area
+//!               );
 //!           }
-//!           state.layout = pl;
+//!           state.pager.set_layout(Rc::new(pl));
 //!       }
 //!
 //!       ///
 //!       /// Use [SinglePager] or [DualPager] to calculate the page breaks.
 //!       ///
 //!       let mut pg_buf = pager
-//!             .layout(state.layout.clone())
 //!             .into_buffer(l2[1], &mut buf, &mut state.pager);
 //!
 //!       ///
 //!       /// Render your widgets with the help of [SinglePagerBuffer]/[DualPagerBuffer]
 //!       ///
 //!       for i in 0..100 {
-//!           // calculate an area
-//!           let v_area = pg_buf.layout().layout_area(state.handles[i])[0];
-//!           let w_area = Rect::new(5, v_area.y, 5, 1);
-//!           pg_buf.render_widget_area(Span::from(format!("{:?}:", i)), w_area);
-//!
-//!           // use the handle
 //!           pg_buf.render(
-//!               Checkbox::new()
-//!                   .text(format!("{:?}", state.handles[i]).to_string()),
-//!               state.handles[i],
-//!               0,
+//!               &state.check_states[i].focus.clone(),
+//!               || {
+//!                 Checkbox::new().text(format!("{:?}", i).to_string())
+//!               },
 //!               &mut state.check_states[i],
 //!           );
 //!       }
-//!       ///
-//!       /// Render the finishings.
-//!       ///
-//!       pg_buf
-//!           .into_widget()
-//!           .render(l2[1], &mut buf, &mut state.pager);
+//!
 //! ```
 
 mod dual_pager;
 mod pager;
-mod pager_layout;
 mod pager_nav;
 mod pager_style;
 mod single_pager;
@@ -88,7 +75,6 @@ mod single_pager;
 pub use crate::commons::AreaHandle;
 pub use dual_pager::*;
 pub use pager::{Pager, PagerBuffer};
-pub use pager_layout::*;
 pub use pager_nav::{PageNavigation, PageNavigationState};
 pub use pager_style::*;
 pub use single_pager::*;

@@ -1,5 +1,5 @@
 use crate::layout::GenericLayout;
-use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::layout::{Constraint, Flex, Layout, Rect, Size};
 use ratatui::prelude::BlockExt;
 use ratatui::widgets::Block;
 
@@ -9,27 +9,21 @@ pub enum DialogItem {
     Inner,
     /// Area where dialog content can be rendered.
     Content,
+    /// Button area
+    Buttons,
     /// Area for the nth button.
     Button(usize),
 }
 
-#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
-pub enum DialogAreas {
-    /// Dialog area
-    Dialog,
-    /// Button area
-    Buttons,
-}
-
 /// Calculates a layout for a dialog with buttons.
 pub fn layout_dialog<const N: usize>(
-    area: Rect,
+    area: Size,
     block: Option<Block<'static>>,
     buttons: [Constraint; N],
     button_spacing: u16,
     button_flex: Flex,
-) -> GenericLayout<DialogItem, DialogAreas> {
-    let inner = block.inner_if_some(area);
+) -> GenericLayout<DialogItem> {
+    let inner = block.inner_if_some(Rect::new(0, 0, area.width, area.height));
 
     let l_content = Layout::vertical([
         Constraint::Fill(1),
@@ -44,15 +38,15 @@ pub fn layout_dialog<const N: usize>(
         .areas::<N>(l_content[2]);
 
     let mut gen_layout = GenericLayout::new();
-    gen_layout.set_area(area);
+    gen_layout.set_page_size(area);
 
     gen_layout.add(DialogItem::Inner, inner, None, Rect::default());
     gen_layout.add(DialogItem::Content, l_content[0], None, Rect::default());
+    gen_layout.add(DialogItem::Buttons, l_content[2], None, Rect::default());
     for (n, area) in l_buttons.iter().enumerate() {
         gen_layout.add(DialogItem::Button(n), *area, None, Rect::default());
     }
-    gen_layout.add_container(DialogAreas::Dialog, area, block);
-    gen_layout.add_container(DialogAreas::Buttons, l_content[2], None);
+    gen_layout.add_block(Rect::new(0, 0, area.width, area.height), block);
 
     gen_layout
 }

@@ -9,14 +9,18 @@ use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
 
-/// Renders a single page of widgets.
+///
+/// Renders widgets for one page of a [GenericLayout].
+///
+///
+///
+///
 #[derive(Debug)]
-pub struct Pager<W, C = ()>
+pub struct Pager<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
-    layout: Rc<GenericLayout<W, C>>,
+    layout: Rc<GenericLayout<W>>,
     page: usize,
     style: Style,
     label_style: Option<Style>,
@@ -25,12 +29,11 @@ where
 
 /// Rendering phase.
 #[derive(Debug)]
-pub struct PagerBuffer<'a, W, C = ()>
+pub struct PagerBuffer<'a, W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
-    layout: Rc<GenericLayout<W, C>>,
+    layout: Rc<GenericLayout<W>>,
     page_area: Rect,
     widget_area: Rect,
     buffer: Rc<RefCell<&'a mut Buffer>>,
@@ -38,10 +41,9 @@ where
     label_alignment: Option<Alignment>,
 }
 
-impl<W, C> Clone for Pager<W, C>
+impl<W> Clone for Pager<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     fn clone(&self) -> Self {
         Self {
@@ -54,10 +56,9 @@ where
     }
 }
 
-impl<W, C> Default for Pager<W, C>
+impl<W> Default for Pager<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     fn default() -> Self {
         Self {
@@ -70,17 +71,16 @@ where
     }
 }
 
-impl<W, C> Pager<W, C>
+impl<W> Pager<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     pub fn new() -> Self {
         Self::default()
     }
 
     /// Layout
-    pub fn layout(mut self, layout: Rc<GenericLayout<W, C>>) -> Self {
+    pub fn layout(mut self, layout: Rc<GenericLayout<W>>) -> Self {
         self.layout = layout;
         self
     }
@@ -124,10 +124,18 @@ where
         self,
         area: Rect,
         buf: Rc<RefCell<&'b mut Buffer>>,
-    ) -> PagerBuffer<'b, W, C> {
+    ) -> PagerBuffer<'b, W> {
+        let page_size = self.layout.page_size();
+        let page_area = Rect::new(
+            0,
+            self.page as u16 * page_size.height,
+            page_size.width,
+            page_size.height,
+        );
+
         PagerBuffer {
             layout: self.layout,
-            page_area: Rect::new(0, self.page as u16 * area.height, area.width, area.height),
+            page_area,
             widget_area: area,
             buffer: buf,
             label_style: self.label_style,
@@ -136,10 +144,9 @@ where
     }
 }
 
-impl<'a, W, C> PagerBuffer<'a, W, C>
+impl<'a, W> PagerBuffer<'a, W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     /// Is the widget visible.
     pub fn is_visible(&self, widget: &W) -> bool {
@@ -223,10 +230,10 @@ where
 
     /// Render all containers for the current page.
     pub fn render_container(&mut self) {
-        for (idx, container_area) in self.layout.containers().enumerate() {
+        for (idx, container_area) in self.layout.block_area_iter().enumerate() {
             if let Some(container_area) = self.locate_area(*container_area) {
                 let mut buffer = self.buffer.borrow_mut();
-                (&self.layout.container_block(idx)).render(container_area, *buffer);
+                (&self.layout.block(idx)).render(container_area, *buffer);
             }
         }
     }
@@ -245,24 +252,6 @@ where
     #[inline]
     pub fn locate_label(&self, idx: usize) -> Option<Rect> {
         self.locate_area(self.layout.label(idx))
-    }
-
-    /// Relocate the container area to screen coordinates.
-    ///
-    /// Returns None if the container is not visible.
-    /// If the container is split into multiple parts, this
-    /// returns the first visible part.
-    /// This clips the area to page_area.
-    #[inline]
-    pub fn locate_container(&self, container: &C) -> Option<Rect> {
-        for (idx, c) in self.layout.container_keys().enumerate() {
-            if c == container {
-                if let Some(c_area) = self.locate_area(self.layout.container(idx)) {
-                    return Some(c_area);
-                }
-            }
-        }
-        None
     }
 
     /// Relocate an area from layout coordinates to screen coordinates.
@@ -286,7 +275,7 @@ where
 
     /// Return a clone of the layout.
     #[inline]
-    pub fn layout(&self) -> Rc<GenericLayout<W, C>> {
+    pub fn layout(&self) -> Rc<GenericLayout<W>> {
         self.layout.clone()
     }
 }

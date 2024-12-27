@@ -4,30 +4,30 @@ use std::borrow::Cow;
 use std::collections::HashMap;
 use std::hash::Hash;
 
-/// Stores layout data.
+/// Stores layout data resulting from some layout algorithm.
 ///
-/// This can store three types of layout areas:
-/// * widget area
-/// * label associated with a widget
-/// * container/[Block] areas.
+/// Widgets and labels are stored for some key that identifies
+/// the widget. It is also possible to store the label text.
 ///
-/// This layout has a simple concept of pages too.
-/// The y-coordinate of each area divided by the
-/// page height.
+/// [Block]s can be added too. It is expected that blocks
+/// will be rendered in order of addition.
 ///
-/// There may be layout generators that don't set
-/// the page size. This will give a division by zero
-/// when calling page related functions.
+/// There is a concept for pages too. The page-height defines
+/// the pages. The page-width is not used to constrain
+/// the pages and is just informational. It can be used
+/// to find if the layout has to be rebuilt after a resize.
+///
+/// The page-count is available too, but there may be
+/// areas that map beyond the page-count.
+///
+/// __See__
+/// [LayoutForm]
 ///
 #[derive(Debug, Clone)]
-pub struct GenericLayout<W, C = ()>
+pub struct GenericLayout<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
-    /// Reference area.
-    area: Rect,
-
     /// Page size.
     page_size: Size,
     /// Pages.
@@ -37,85 +37,63 @@ where
     widgets: HashMap<W, usize>,
     rwidgets: HashMap<usize, W>,
     /// Widget areas.
-    areas: Vec<Rect>,
+    widget_areas: Vec<Rect>,
     /// Widget labels.
     labels: Vec<Option<Cow<'static, str>>>,
     /// Label areas.
     label_areas: Vec<Rect>,
 
-    /// Container keys.
-    containers: Vec<C>,
     /// Container areas.
-    container_areas: Vec<Rect>,
+    block_areas: Vec<Rect>,
     /// Container blocks.
-    container_blocks: Vec<Option<Block<'static>>>,
+    blocks: Vec<Option<Block<'static>>>,
 }
 
-impl<W, C> Default for GenericLayout<W, C>
+impl<W> Default for GenericLayout<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     fn default() -> Self {
         Self {
-            area: Default::default(),
-            page_size: Default::default(),
+            page_size: Size::new(u16::MAX, u16::MAX),
             page_count: 1,
             widgets: Default::default(),
             rwidgets: Default::default(),
-            areas: Default::default(),
+            widget_areas: Default::default(),
             labels: Default::default(),
             label_areas: Default::default(),
-            containers: Default::default(),
-            container_areas: Default::default(),
-            container_blocks: Default::default(),
+            block_areas: Default::default(),
+            blocks: Default::default(),
         }
     }
 }
 
-impl<W, C> GenericLayout<W, C>
+impl<W> GenericLayout<W>
 where
     W: Eq + Hash + Clone,
-    C: Eq,
 {
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn with_capacity(w: usize, c: usize) -> Self {
+    /// Initialize with a certain capacity.
+    pub fn with_capacity(num_widgets: usize, num_blocks: usize) -> Self {
         Self {
-            area: Default::default(),
-            page_size: Default::default(),
+            page_size: Size::new(u16::MAX, u16::MAX),
             page_count: Default::default(),
-            widgets: HashMap::with_capacity(w),
-            rwidgets: HashMap::with_capacity(w),
-            areas: Vec::with_capacity(w),
-            labels: Vec::with_capacity(w),
-            label_areas: Vec::with_capacity(w),
-            containers: Vec::with_capacity(c),
-            container_areas: Vec::with_capacity(c),
-            container_blocks: Vec::with_capacity(c),
+            widgets: HashMap::with_capacity(num_widgets),
+            rwidgets: HashMap::with_capacity(num_widgets),
+            widget_areas: Vec::with_capacity(num_widgets),
+            labels: Vec::with_capacity(num_widgets),
+            label_areas: Vec::with_capacity(num_widgets),
+            block_areas: Vec::with_capacity(num_blocks),
+            blocks: Vec::with_capacity(num_blocks),
         }
     }
 
-    /// Original area for which this layout has been calculated.
-    /// Can be used to invalidate a layout if the area changes.
-    pub fn area(&self) -> Rect {
-        self.area
-    }
-
-    /// Original area for which this layout has been calculated.
-    /// Can be used to invalidate a layout if the area changes.
-    pub fn set_area(&mut self, area: Rect) {
-        self.area = area;
-    }
-
-    /// Change detection.
-    pub fn area_changed(&self, area: Rect) -> bool {
-        self.area != area
-    }
-
     /// Set the page-size for this layout.
+    ///
+    /// Defaults to (u16::MAX, u16::MAX).
     pub fn set_page_size(&mut self, size: Size) {
         self.page_size = size;
     }
@@ -140,7 +118,7 @@ where
         self.page_count
     }
 
-    /// Add a widget + label areas.
+    /// Add widget + label areas.
     pub fn add(
         &mut self, //
         key: W,
@@ -148,29 +126,27 @@ where
         label: Option<Cow<'static, str>>,
         label_area: Rect,
     ) {
-        let idx = self.areas.len();
+        let idx = self.widget_areas.len();
         self.widgets.insert(key.clone(), idx);
         self.rwidgets.insert(idx, key);
-        self.areas.push(area);
+        self.widget_areas.push(area);
         self.labels.push(label);
         self.label_areas.push(label_area);
     }
 
-    /// Add a container + block.
-    pub fn add_container(
+    /// Add a block.
+    pub fn add_block(
         &mut self, //
-        key: C,
         area: Rect,
         block: Option<Block<'static>>,
     ) {
-        self.containers.push(key);
-        self.container_areas.push(area);
-        self.container_blocks.push(block);
+        self.block_areas.push(area);
+        self.blocks.push(block);
     }
 
     /// First widget on the given page.
     pub fn first(&self, page: usize) -> Option<&W> {
-        for (idx, area) in self.areas.iter().enumerate() {
+        for (idx, area) in self.widget_areas.iter().enumerate() {
             let test = (area.y / self.page_size.height) as usize;
             if page == test {
                 return self.rwidgets.get(&idx);
@@ -186,7 +162,7 @@ where
             return None;
         };
 
-        Some((self.areas[idx].y / self.page_size.height) as usize)
+        Some((self.widget_areas[idx].y / self.page_size.height) as usize)
     }
 
     /// Number of widgets/labels.
@@ -198,13 +174,12 @@ where
     /// Returns the index for this widget.
     pub fn widget_idx(&self, widget: &W) -> Option<usize> {
         self.widgets.get(widget).copied()
-        // self.widgets
-        //     .iter()
-        //     .enumerate()
-        //     .find_map(|(idx, w)| if w == widget { Some(idx) } else { None })
     }
 
     /// Access widget key.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
     pub fn widget_key(&self, idx: usize) -> &W {
         &self.rwidgets.get(&idx).expect("valid_idx")
@@ -217,36 +192,54 @@ where
     }
 
     /// Access label area.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
     pub fn label(&self, idx: usize) -> Rect {
         self.label_areas[idx]
     }
 
     /// Set the label area.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
     pub fn set_label(&mut self, idx: usize, area: Rect) {
         self.label_areas[idx] = area;
     }
 
     /// Access widget area.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
     pub fn widget(&self, idx: usize) -> Rect {
-        self.areas[idx]
+        self.widget_areas[idx]
     }
 
     /// Change the widget area.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
     pub fn set_widget(&mut self, idx: usize, area: Rect) {
-        self.areas[idx] = area;
+        self.widget_areas[idx] = area;
     }
 
     /// Access label string.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
     pub fn label_str(&self, idx: usize) -> &Option<Cow<'static, str>> {
         &self.labels[idx]
     }
 
     /// Set the label string.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
     pub fn set_label_str(&mut self, idx: usize, str: Option<Cow<'static, str>>) {
         self.labels[idx] = str;
@@ -254,49 +247,49 @@ where
 
     /// Container count.
     #[inline]
-    pub fn container_len(&self) -> usize {
-        self.containers.len()
+    pub fn block_len(&self) -> usize {
+        self.blocks.len()
     }
 
-    /// Access container key.
+    /// Access block area.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
-    pub fn container_key(&self, idx: usize) -> &C {
-        &self.containers[idx]
+    pub fn block_area(&self, idx: usize) -> Rect {
+        self.block_areas[idx]
     }
 
-    /// Access container keys.
+    /// Set the block area.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
-    pub fn container_keys(&self) -> impl Iterator<Item = &C> {
-        self.containers.iter()
+    pub fn set_block_area(&mut self, idx: usize, area: Rect) {
+        self.block_areas[idx] = area;
     }
 
-    /// Access container area.
+    /// Iterate block areas.
     #[inline]
-    pub fn container(&self, idx: usize) -> Rect {
-        self.container_areas[idx]
-    }
-
-    /// Set the container area.
-    #[inline]
-    pub fn set_container(&mut self, idx: usize, area: Rect) {
-        self.container_areas[idx] = area;
-    }
-
-    /// Iterate container areas.
-    #[inline]
-    pub fn containers(&self) -> impl Iterator<Item = &Rect> {
-        self.container_areas.iter()
+    pub fn block_area_iter(&self) -> impl Iterator<Item = &Rect> {
+        self.block_areas.iter()
     }
 
     /// Access container block.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
-    pub fn container_block(&self, idx: usize) -> &Option<Block<'static>> {
-        &self.container_blocks[idx]
+    pub fn block(&self, idx: usize) -> &Option<Block<'static>> {
+        &self.blocks[idx]
     }
 
     /// Set the container block.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
     #[inline]
-    pub fn set_container_block(&mut self, idx: usize, block: Option<Block<'static>>) {
-        self.container_blocks[idx] = block;
+    pub fn set_block(&mut self, idx: usize, block: Option<Block<'static>>) {
+        self.blocks[idx] = block;
     }
 }
