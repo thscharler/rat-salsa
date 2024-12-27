@@ -3,7 +3,7 @@ use ratatui::layout::{Constraint, Flex, Layout, Rect};
 use ratatui::prelude::BlockExt;
 use ratatui::widgets::Block;
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum DialogItem {
     /// Area inside the border.
     Inner,
@@ -13,7 +13,7 @@ pub enum DialogItem {
     Button(usize),
 }
 
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum DialogAreas {
     /// Dialog area
     Dialog,

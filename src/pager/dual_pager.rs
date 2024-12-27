@@ -9,13 +9,14 @@ use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::{Block, Widget};
 use std::cell::RefCell;
+use std::hash::Hash;
 use std::rc::Rc;
 
 ///
 #[derive(Debug, Clone)]
 pub struct DualPager<'a, W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     pager: Pager<W, C>,
@@ -31,7 +32,7 @@ where
 #[derive(Debug)]
 pub struct DualPagerBuffer<'a, W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     pager0: PagerBuffer<'a, W, C>,
@@ -42,7 +43,7 @@ where
 #[derive(Debug, Clone)]
 pub struct DualPagerState<W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// Page layout
@@ -59,7 +60,7 @@ where
 
 impl<'a, W, C> Default for DualPager<'a, W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn default() -> Self {
@@ -72,7 +73,7 @@ where
 
 impl<'a, W, C> DualPager<'a, W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// New DualPager
@@ -161,7 +162,7 @@ where
 
 impl<'a, W, C> DualPagerBuffer<'a, W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// Render a manual label.
@@ -303,7 +304,7 @@ where
 
 impl<W, C> Default for DualPagerState<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn default() -> Self {
@@ -317,7 +318,7 @@ where
 
 impl<W, C> DualPagerState<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// State
@@ -369,7 +370,7 @@ where
 
 impl<W, C> HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for DualPagerState<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
@@ -379,7 +380,7 @@ where
 
 impl<W, C> HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for DualPagerState<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> PagerOutcome {

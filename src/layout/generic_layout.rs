@@ -1,6 +1,8 @@
 use ratatui::layout::{Rect, Size};
 use ratatui::widgets::Block;
 use std::borrow::Cow;
+use std::collections::HashMap;
+use std::hash::Hash;
 
 /// Stores layout data.
 ///
@@ -20,7 +22,7 @@ use std::borrow::Cow;
 #[derive(Debug, Clone)]
 pub struct GenericLayout<W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// Reference area.
@@ -32,7 +34,8 @@ where
     page_count: usize,
 
     /// Widget keys.
-    widgets: Vec<W>,
+    widgets: HashMap<W, usize>,
+    rwidgets: HashMap<usize, W>,
     /// Widget areas.
     areas: Vec<Rect>,
     /// Widget labels.
@@ -50,7 +53,7 @@ where
 
 impl<W, C> Default for GenericLayout<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn default() -> Self {
@@ -59,6 +62,7 @@ where
             page_size: Default::default(),
             page_count: 1,
             widgets: Default::default(),
+            rwidgets: Default::default(),
             areas: Default::default(),
             labels: Default::default(),
             label_areas: Default::default(),
@@ -71,7 +75,7 @@ where
 
 impl<W, C> GenericLayout<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     pub fn new() -> Self {
@@ -83,7 +87,8 @@ where
             area: Default::default(),
             page_size: Default::default(),
             page_count: Default::default(),
-            widgets: Vec::with_capacity(w),
+            widgets: HashMap::with_capacity(w),
+            rwidgets: HashMap::with_capacity(w),
             areas: Vec::with_capacity(w),
             labels: Vec::with_capacity(w),
             label_areas: Vec::with_capacity(w),
@@ -143,7 +148,9 @@ where
         label: Option<Cow<'static, str>>,
         label_area: Rect,
     ) {
-        self.widgets.push(key);
+        let idx = self.areas.len();
+        self.widgets.insert(key.clone(), idx);
+        self.rwidgets.insert(idx, key);
         self.areas.push(area);
         self.labels.push(label);
         self.label_areas.push(label_area);
@@ -166,7 +173,8 @@ where
         for (idx, area) in self.areas.iter().enumerate() {
             let test = (area.y / self.page_size.height) as usize;
             if page == test {
-                return Some(&self.widgets[idx]);
+                return self.rwidgets.get(&idx);
+                // return Some(&self.widgets[idx]);
             }
         }
         None
@@ -189,22 +197,23 @@ where
 
     /// Returns the index for this widget.
     pub fn widget_idx(&self, widget: &W) -> Option<usize> {
-        self.widgets
-            .iter()
-            .enumerate()
-            .find_map(|(idx, w)| if w == widget { Some(idx) } else { None })
+        self.widgets.get(widget).copied()
+        // self.widgets
+        //     .iter()
+        //     .enumerate()
+        //     .find_map(|(idx, w)| if w == widget { Some(idx) } else { None })
     }
 
     /// Access widget key.
     #[inline]
     pub fn widget_key(&self, idx: usize) -> &W {
-        &self.widgets[idx]
+        &self.rwidgets.get(&idx).expect("valid_idx")
     }
 
     /// Access widget keys
     #[inline]
     pub fn widget_keys(&self) -> impl Iterator<Item = &W> {
-        self.widgets.iter()
+        self.widgets.keys()
     }
 
     /// Access label area.

@@ -6,13 +6,14 @@ use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::cell::RefCell;
+use std::hash::Hash;
 use std::rc::Rc;
 
 /// Renders a single page of widgets.
 #[derive(Debug)]
 pub struct Pager<W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     layout: Rc<GenericLayout<W, C>>,
@@ -26,7 +27,7 @@ where
 #[derive(Debug)]
 pub struct PagerBuffer<'a, W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     layout: Rc<GenericLayout<W, C>>,
@@ -39,7 +40,7 @@ where
 
 impl<W, C> Clone for Pager<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn clone(&self) -> Self {
@@ -55,7 +56,7 @@ where
 
 impl<W, C> Default for Pager<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn default() -> Self {
@@ -71,7 +72,7 @@ where
 
 impl<W, C> Pager<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     pub fn new() -> Self {
@@ -137,7 +138,7 @@ where
 
 impl<'a, W, C> PagerBuffer<'a, W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// Is the widget visible.

@@ -5,6 +5,7 @@ use ratatui::widgets::{Block, Padding};
 use std::borrow::Cow;
 use std::cmp::{max, min};
 use std::fmt::Debug;
+use std::hash::Hash;
 use std::ops::Range;
 
 /// Label constraints.
@@ -164,7 +165,7 @@ pub enum FormWidget {
 #[derive(Debug)]
 pub struct LayoutForm<W, C = ()>
 where
-    W: Eq + Clone + Debug,
+    W: Eq + Hash + Clone + Debug,
     C: Eq + Clone + Debug,
 {
     /// Column spacing.
@@ -355,7 +356,7 @@ impl FormWidget {
 
 impl<W, C> LayoutForm<W, C>
 where
-    W: Eq + Clone + Debug,
+    W: Eq + Hash + Clone + Debug,
     C: Eq + Clone + Debug,
 {
     pub fn new() -> Self {

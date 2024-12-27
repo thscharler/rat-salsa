@@ -9,13 +9,14 @@ use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::{Block, Widget};
 use std::cell::RefCell;
+use std::hash::Hash;
 use std::rc::Rc;
 
 /// This widget renders a single page of a [GenericLayout].
 #[derive(Debug, Clone)]
 pub struct SinglePager<'a, W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     pager: Pager<W, C>,
@@ -31,7 +32,7 @@ where
 #[derive(Debug)]
 pub struct SinglePagerBuffer<'a, W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     pager: PagerBuffer<'a, W, C>,
@@ -41,7 +42,7 @@ where
 #[derive(Debug, Clone)]
 pub struct SinglePagerState<W, C = ()>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// Page layout
@@ -58,7 +59,7 @@ where
 
 impl<'a, W, C> Default for SinglePager<'a, W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn default() -> Self {
@@ -71,7 +72,7 @@ where
 
 impl<'a, W, C> SinglePager<'a, W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// New SinglePage.
@@ -151,7 +152,7 @@ where
 
 impl<'a, W, C> SinglePagerBuffer<'a, W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     /// Render all containers for the current page.
@@ -276,7 +277,7 @@ where
 
 impl<W, C> Default for SinglePagerState<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn default() -> Self {
@@ -290,7 +291,7 @@ where
 
 impl<W, C> SinglePagerState<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     pub fn new() -> Self {
@@ -337,7 +338,7 @@ where
 
 impl<W, C> HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for SinglePagerState<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
@@ -347,7 +348,7 @@ where
 
 impl<W, C> HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for SinglePagerState<W, C>
 where
-    W: Eq,
+    W: Eq + Hash + Clone,
     C: Eq,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> PagerOutcome {
