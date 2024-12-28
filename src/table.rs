@@ -126,7 +126,7 @@ mod data {
         }
     }
 
-    impl<'a> Debug for DataRepr<'a> {
+    impl Debug for DataRepr<'_> {
         fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
             f.debug_struct("Data").finish()
         }
@@ -145,7 +145,7 @@ mod data {
         IterIter(Box<dyn TableDataIter<'a> + 'a>),
     }
 
-    impl<'a, 'b> TableDataIter<'a> for DataReprIter<'a, 'b> {
+    impl<'a> TableDataIter<'a> for DataReprIter<'a, '_> {
         fn rows(&self) -> Option<usize> {
             match self {
                 DataReprIter::None => Some(0),
@@ -308,7 +308,7 @@ pub struct TableState<Selection> {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, Selection> Default for Table<'a, Selection> {
+impl<Selection> Default for Table<'_, Selection> {
     fn default() -> Self {
         Self {
             data: Default::default(),
@@ -851,7 +851,7 @@ impl<'a, Selection> Table<'a, Selection> {
     }
 }
 
-impl<'a, Selection> Table<'a, Selection> {
+impl<Selection> Table<'_, Selection> {
     // area_width or layout_width
     #[inline]
     fn total_width(&self, area_width: u16) -> u16 {
@@ -913,7 +913,7 @@ where
     }
 }
 
-impl<'a, Selection> StatefulWidget for Table<'a, Selection>
+impl<Selection> StatefulWidget for Table<'_, Selection>
 where
     Selection: TableSelection,
 {
@@ -1508,6 +1508,7 @@ where
         }
     }
 
+    #[expect(clippy::collapsible_else_if)]
     fn patch_select(&self, style: Option<Style>, focus: bool, show: bool) -> Option<Style> {
         if let Some(style) = style {
             if let Some(focus_style) = self.focus_style {

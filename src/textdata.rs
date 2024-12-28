@@ -71,7 +71,7 @@ impl<'a> TableData<'a> for TextTableData<'a> {
     }
 }
 
-impl<'a> Default for Row<'a> {
+impl Default for Row<'_> {
     fn default() -> Self {
         Self {
             cells: Default::default(),
@@ -84,7 +84,7 @@ impl<'a> Default for Row<'a> {
     }
 }
 
-impl<'a> Styled for Row<'a> {
+impl Styled for Row<'_> {
     type Item = Self;
 
     fn style(&self) -> Style {
@@ -170,7 +170,7 @@ impl<'a> Row<'a> {
     }
 }
 
-impl<'a> Default for Cell<'a> {
+impl Default for Cell<'_> {
     fn default() -> Self {
         Self {
             content: Default::default(),
@@ -193,7 +193,7 @@ where
     }
 }
 
-impl<'a> Styled for Cell<'a> {
+impl Styled for Cell<'_> {
     type Item = Self;
 
     fn style(&self) -> Style {
