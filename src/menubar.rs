@@ -92,7 +92,7 @@ pub struct MenubarState {
     pub popup: PopupMenuState,
 }
 
-impl<'a> Default for Menubar<'a> {
+impl Default for Menubar<'_> {
     fn default() -> Self {
         Self {
             structure: None,
@@ -244,7 +244,7 @@ impl<'a> Menubar<'a> {
     }
 }
 
-impl<'a> StatefulWidget for MenubarLine<'a> {
+impl StatefulWidget for MenubarLine<'_> {
     type State = MenubarState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -277,7 +277,7 @@ fn render_menubar(
     state.area = state.bar.area;
 }
 
-impl<'a> StatefulWidget for MenubarPopup<'a> {
+impl StatefulWidget for MenubarPopup<'_> {
     type State = MenubarState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

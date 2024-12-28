@@ -41,7 +41,7 @@ pub struct MenuItem<'a> {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> Default for MenuItem<'a> {
+impl Default for MenuItem<'_> {
     fn default() -> Self {
         Self {
             item: Default::default(),

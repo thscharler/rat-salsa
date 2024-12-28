@@ -94,7 +94,7 @@ impl Default for PopupMenuState {
     }
 }
 
-impl<'a> PopupMenu<'a> {
+impl PopupMenu<'_> {
     fn size(&self) -> Size {
         let width = if let Some(width) = self.width {
             width
@@ -351,7 +351,7 @@ impl<'a> StatefulWidgetRef for PopupMenu<'a> {
     }
 }
 
-impl<'a> StatefulWidget for PopupMenu<'a> {
+impl StatefulWidget for PopupMenu<'_> {
     type State = PopupMenuState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

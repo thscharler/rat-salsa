@@ -232,7 +232,7 @@ impl<'a> StatefulWidgetRef for MenuLine<'a> {
     }
 }
 
-impl<'a> StatefulWidget for MenuLine<'a> {
+impl StatefulWidget for MenuLine<'_> {
     type State = MenuLineState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
