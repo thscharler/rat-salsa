@@ -385,7 +385,7 @@ impl<'a> ScrollAreaState<'a> {
 ///
 /// Handle scrolling for the whole area spanned by the two scroll-states.
 ///
-impl<'a> HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollAreaState<'a> {
+impl HandleEvent<crossterm::event::Event, MouseOnly, ScrollOutcome> for ScrollAreaState<'_> {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: MouseOnly) -> ScrollOutcome {
         if let Some(h_scroll) = &mut self.h_scroll {
             flow!(match event {

@@ -455,7 +455,7 @@ impl<'a> Scroll<'a> {
     }
 }
 
-impl<'a> StatefulWidget for &Scroll<'a> {
+impl StatefulWidget for &Scroll<'_> {
     type State = ScrollState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -463,7 +463,7 @@ impl<'a> StatefulWidget for &Scroll<'a> {
     }
 }
 
-impl<'a> StatefulWidget for Scroll<'a> {
+impl StatefulWidget for Scroll<'_> {
     type State = ScrollState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -472,7 +472,7 @@ impl<'a> StatefulWidget for Scroll<'a> {
 }
 
 #[cfg(feature = "unstable-widget-ref")]
-impl<'a> StatefulWidgetRef for Scroll<'a> {
+impl StatefulWidgetRef for Scroll<'_> {
     type State = ScrollState;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
