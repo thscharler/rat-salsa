@@ -416,6 +416,7 @@ impl Focus {
     }
 
     /// Debug destructuring.
+    #[allow(clippy::type_complexity)]
     pub fn clone_destruct(
         &self,
     ) -> (
@@ -643,8 +644,7 @@ mod core {
                 let have_container = self
                     .containers
                     .iter()
-                    .find(|(c, _)| v.container_flag == c.container_flag)
-                    .is_some();
+                    .any(|(c, _)| v.container_flag == c.container_flag);
                 if !have_container {
                     v.container_flag.clear();
                 }
@@ -1310,6 +1310,7 @@ mod core {
         }
 
         /// Debug destructuring.
+        #[allow(clippy::type_complexity)]
         pub(super) fn clone_destruct(
             &self,
         ) -> (

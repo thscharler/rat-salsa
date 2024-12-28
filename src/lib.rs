@@ -443,23 +443,12 @@ impl FocusFlagCore {
 ///
 /// This can be constructed on the fly, if you have the necessary parts.
 /// You will at least need a FocusFlag stored parallel to the widget state.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct FocusAdapter {
     pub focus: FocusFlag,
     pub area: Rect,
     pub area_z: u16,
     pub navigation: Navigation,
-}
-
-impl Default for FocusAdapter {
-    fn default() -> Self {
-        Self {
-            focus: Default::default(),
-            area: Default::default(),
-            area_z: 0,
-            navigation: Default::default(),
-        }
-    }
 }
 
 impl HasFocus for FocusAdapter {
@@ -491,7 +480,7 @@ pub struct ContainerAdapter<'a> {
     pub area_z: u16,
 }
 
-impl<'a> Debug for ContainerAdapter<'a> {
+impl Debug for ContainerAdapter<'_> {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("ContainerAdapter")
             .field("container", &self.container)
@@ -502,7 +491,7 @@ impl<'a> Debug for ContainerAdapter<'a> {
     }
 }
 
-impl<'a> Default for ContainerAdapter<'a> {
+impl Default for ContainerAdapter<'_> {
     fn default() -> Self {
         Self {
             build_fn: &|_builder| {},
@@ -513,7 +502,7 @@ impl<'a> Default for ContainerAdapter<'a> {
     }
 }
 
-impl<'a> FocusContainer for ContainerAdapter<'a> {
+impl FocusContainer for ContainerAdapter<'_> {
     fn build(&self, builder: &mut FocusBuilder) {
         (self.build_fn)(builder);
     }
