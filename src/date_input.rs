@@ -111,7 +111,7 @@ impl<'a> StatefulWidgetRef for DateInput<'a> {
     }
 }
 
-impl<'a> StatefulWidget for DateInput<'a> {
+impl StatefulWidget for DateInput<'_> {
     type State = DateInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

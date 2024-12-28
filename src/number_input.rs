@@ -115,7 +115,7 @@ impl<'a> StatefulWidgetRef for NumberInput<'a> {
     }
 }
 
-impl<'a> StatefulWidget for NumberInput<'a> {
+impl StatefulWidget for NumberInput<'_> {
     type State = NumberInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

@@ -263,7 +263,7 @@ impl<'a> StatefulWidgetRef for TextArea<'a> {
     }
 }
 
-impl<'a> StatefulWidget for TextArea<'a> {
+impl StatefulWidget for TextArea<'_> {
     type State = TextAreaState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

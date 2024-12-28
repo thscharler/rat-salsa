@@ -243,7 +243,7 @@ impl<'a> StatefulWidgetRef for MaskedInput<'a> {
     }
 }
 
-impl<'a> StatefulWidget for MaskedInput<'a> {
+impl StatefulWidget for MaskedInput<'_> {
     type State = MaskedInputState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

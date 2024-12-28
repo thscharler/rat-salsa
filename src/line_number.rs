@@ -195,7 +195,7 @@ impl Default for LineNumberStyle {
     }
 }
 
-impl<'a> StatefulWidget for LineNumbers<'a> {
+impl StatefulWidget for LineNumbers<'_> {
     type State = LineNumberState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

@@ -15,7 +15,7 @@ pub struct Grapheme<'a> {
     text_bytes: Range<usize>,
 }
 
-impl<'a, R: AsRef<str>> PartialEq<R> for Grapheme<'a> {
+impl<R: AsRef<str>> PartialEq<R> for Grapheme<'_> {
     fn eq(&self, other: &R) -> bool {
         self.grapheme.as_ref() == other.as_ref()
     }
