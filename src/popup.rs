@@ -110,7 +110,7 @@ pub struct PopupCoreState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> Default for PopupCore<'a> {
+impl Default for PopupCore<'_> {
     fn default() -> Self {
         Self {
             style: Default::default(),
@@ -293,11 +293,11 @@ impl<'a> StatefulWidget for &'a PopupCore<'a> {
     type State = PopupCoreState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
-        render_popup(&self, area, buf, state);
+        render_popup(self, area, buf, state);
     }
 }
 
-impl<'a> StatefulWidget for PopupCore<'a> {
+impl StatefulWidget for PopupCore<'_> {
     type State = PopupCoreState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -354,7 +354,7 @@ pub fn reset_buf_area(area: Rect, buf: &mut Buffer) {
     }
 }
 
-impl<'a> PopupCore<'a> {
+impl PopupCore<'_> {
     fn _layout(&self, area: Rect, boundary_area: Rect) -> Rect {
         // helper fn
         fn center(len: u16, within: u16) -> u16 {
