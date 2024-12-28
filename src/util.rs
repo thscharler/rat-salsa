@@ -96,6 +96,18 @@ pub fn block_padding(block: &Option<Block<'_>>) -> Padding {
     }
 }
 
+/// Get the padding the block imposes as Padding.
+pub fn block_padding2(block: &Block<'_>) -> Padding {
+    let area = Rect::new(0, 0, 20, 20);
+    let inner = block.inner(area);
+    Padding {
+        left: inner.left() - area.left(),
+        right: area.right() - inner.right(),
+        top: inner.top() - area.top(),
+        bottom: area.bottom() - inner.bottom(),
+    }
+}
+
 /// Get the padding the block imposes as a Size.
 pub fn block_size(block: &Option<Block<'_>>) -> Size {
     let area = Rect::new(0, 0, 20, 20);
