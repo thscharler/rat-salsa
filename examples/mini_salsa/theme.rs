@@ -486,7 +486,7 @@ impl Scheme {
     pub fn pager_style(&self) -> PagerStyle {
         PagerStyle {
             style: self.container(),
-            nav: Some(self.container_arrow()),
+            navigation: Some(self.container_arrow()),
             label_style: Some(Style::new().fg(THEME.white[3]).bg(THEME.orange[0])),
             ..Default::default()
         }

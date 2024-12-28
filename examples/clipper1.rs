@@ -4,23 +4,24 @@ use crate::mini_salsa::text_input_mock::{TextInputMock, TextInputMockState};
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use rat_event::{ConsumedEvent, HandleEvent, Regular};
-use rat_focus::{Focus, FocusBuilder, HasFocus};
+use rat_focus::{Focus, FocusBuilder, FocusFlag};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
-use rat_widget::clipper::{AreaHandle, Clipper, ClipperLayout, ClipperState};
+use rat_widget::clipper::{Clipper, ClipperState};
 use rat_widget::event::Outcome;
+use rat_widget::layout::GenericLayout;
 use ratatui::layout::{Constraint, Layout, Rect};
-use ratatui::text::Span;
 use ratatui::widgets::{Block, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cmp::max;
+use std::rc::Rc;
 
 mod mini_salsa;
 
-const HUN: usize = 100;
+const HUN: usize = 66;
 
 fn main() -> Result<(), anyhow::Error> {
     setup_logging()?;
@@ -28,10 +29,8 @@ fn main() -> Result<(), anyhow::Error> {
     let mut data = Data {};
 
     let mut state = State {
-        layout: Default::default(),
         clipper: ClipperState::default(),
         hundred: array::from_fn(|_| Default::default()),
-        hundred_areas: [Default::default(); HUN],
         menu: Default::default(),
     };
     state.menu.focus.set(true);
@@ -49,12 +48,8 @@ fn main() -> Result<(), anyhow::Error> {
 struct Data {}
 
 struct State {
-    layout: ClipperLayout,
-    clipper: ClipperState,
-
+    clipper: ClipperState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
-    hundred_areas: [AreaHandle; HUN],
-
     menu: MenuLineState,
 }
 
@@ -89,65 +84,38 @@ fn repaint_input(
         .hscroll(Scroll::new().scroll_by(1))
         .vscroll(Scroll::new().scroll_by(1));
 
-    if state.layout.is_empty() {
+    if state.clipper.layout.is_empty() {
         // the inner layout is fixed, need to init only once.
-        let mut pl = ClipperLayout::new(1);
-        let mut row = 0;
+        let mut gen_layout = GenericLayout::new();
+
+        let mut row = 5;
         for i in 0..state.hundred.len() {
-            let h = if i % 3 == 0 {
-                2
-            } else if i % 5 == 0 {
-                5
-            } else {
-                1
-            };
-
-            let area = Rect::new(10, row, 15, h);
-            state.hundred_areas[i] = pl.add(&[area]);
-
-            row += h + 1;
+            gen_layout.add(
+                state.hundred[i].focus.clone(),
+                Rect::new(5 + row, row, 10, 1),
+                None,
+                Rect::default(),
+            );
+            row += 2;
         }
-        pl.add(&[Rect::new(90, 0, 10, 1)]);
-        state.layout = pl;
+
+        // debug!("layout {:#?}", gen_layout);
+        state.clipper.set_layout(Rc::new(gen_layout));
     }
 
-    let mut clip_buf = clipper
-        .layout(state.layout.clone())
-        .into_buffer(l2[1], &mut state.clipper);
+    let mut clip_buf = clipper.into_buffer(l2[1], &mut state.clipper);
 
     // render the input fields.
     for i in 0..state.hundred.len() {
-        // map an additional ad hoc area.
-        let v_area = clip_buf.layout().layout_handle(state.hundred_areas[i])[0];
-        let w_area = Rect::new(5, v_area.y, 5, 1);
-        if clip_buf.is_visible_area(w_area) {
-            clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
-        }
-
-        // render widget
-        if clip_buf.is_visible_handle(state.hundred_areas[i]) {
-            clip_buf.render_stateful_handle(
+        clip_buf.render(
+            state.hundred[i].focus.clone(),
+            || {
                 TextInputMock::default()
-                    .sample(format!("{:?}", state.hundred_areas[i]))
+                    .sample(format!("{:?}", i))
                     .style(THEME.limegreen(0))
-                    .focus_style(THEME.limegreen(2)),
-                state.hundred_areas[i],
-                0,
-                &mut state.hundred[i],
-            );
-        } else {
-            clip_buf.hidden(&mut state.hundred[i]);
-        }
-    }
-
-    if clip_buf.is_visible_area(Rect::new(90, 0, 10, 1)) {
-        clip_buf.render_stateful(
-            TextInputMock::default()
-                .sample("__outlier__")
-                .style(THEME.orange(0))
-                .focus_style(THEME.orange(2)),
-            Rect::new(90, 0, 10, 1),
-            &mut TextInputMockState::default(),
+                    .focus_style(THEME.limegreen(2))
+            },
+            &mut state.hundred[i],
         );
     }
 
@@ -182,16 +150,6 @@ fn focus(state: &State) -> Focus {
     fb.build()
 }
 
-fn focus_by_handle(state: &State, handle: Option<AreaHandle>) {
-    if let Some(handle) = handle {
-        for i in 0..state.hundred.len() {
-            if state.hundred_areas[i] == handle {
-                focus(state).focus(&state.hundred[i]);
-            }
-        }
-    }
-}
-
 fn handle_input(
     event: &crossterm::event::Event,
     _data: &mut Data,
@@ -201,14 +159,21 @@ fn handle_input(
     let mut focus = focus(state);
     let f = focus.handle(event, Regular);
 
-    // set the page from focus.
-    for i in 0..state.hundred.len() {
-        if state.hundred[i].gained_focus() {
-            state.clipper.show_handle(state.hundred_areas[i])
+    if f == Outcome::Changed {
+        if let Some(ff) = focus.focused() {
+            state.clipper.show(ff);
         }
     }
 
-    let r = HandleEvent::handle(&mut state.clipper, event, Regular);
+    let r = match state.clipper.handle(event, Regular) {
+        Outcome::Changed => {
+            // if let Some(ff) = state.clipper.first() {
+            //     focus.focus_flag(ff);
+            // }
+            Outcome::Changed
+        }
+        r => r.into(),
+    };
 
     let r = r.or_else(|| match state.menu.handle(event, Regular) {
         MenuOutcome::Activated(0) => {

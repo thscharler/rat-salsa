@@ -115,7 +115,7 @@ fn repaint_input(
     for i in 0..state.hundred.len() {
         // map our widget area.
         pager.render(
-            &state.hundred[i].focus.clone(),
+            state.hundred[i].focus.clone(),
             || {
                 TextInputMock::default()
                     .style(THEME.limegreen(0))

@@ -12,6 +12,7 @@ use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use rat_widget::pager::{SinglePager, SinglePagerState};
 use ratatui::layout::{Constraint, Flex, Layout, Rect};
+use ratatui::text::Span;
 use ratatui::widgets::Padding;
 use ratatui::Frame;
 use std::array;
@@ -80,7 +81,10 @@ fn repaint_input(
     let layout_size = pager.layout_size(l2[1]);
 
     if state.pager.layout.size_changed(layout_size) {
-        let mut form = LayoutForm::new().line_spacing(1).flex(Flex::SpaceAround);
+        let mut form = LayoutForm::new() //
+            .spacing(1)
+            .line_spacing(1)
+            .flex(Flex::Legacy);
         for i in 0..state.hundred.len() {
             let h = if i % 3 == 0 {
                 2
@@ -100,7 +104,7 @@ fn repaint_input(
             }
         }
 
-        state.pager.layout = Rc::new(form.layout(layout_size, Padding::default()));
+        state.pager.layout = Rc::new(form.layout(layout_size, Padding::new(2, 2, 1, 1)));
     }
 
     // set current layout and prepare rendering.
@@ -108,9 +112,15 @@ fn repaint_input(
 
     // render the input fields.
     for i in 0..state.hundred.len() {
+        // render manual label
+        pager.render_label(
+            state.hundred[i].focus.clone(), //
+            |s| Span::from("<<?>>"),
+        );
+
         // map our widget area.
         pager.render(
-            &state.hundred[i].focus.clone(),
+            state.hundred[i].focus.clone(),
             || {
                 TextInputMock::default()
                     .sample(format!("{:?}", i))

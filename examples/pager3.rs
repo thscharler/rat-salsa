@@ -226,12 +226,13 @@ fn render_page(
         );
 
     // render container areas
-    pager.render_container();
+    pager.render_block();
 
     // render the fields.
     for i in 0..state.hundred.len() {
         if pager.is_visible(&state.hundred[i].focus) {
             if let Some(idx) = pager.widget_idx(&state.hundred[i].focus.clone()) {
+                pager.render_auto_label(idx);
                 pager.render(
                     idx,
                     || {
