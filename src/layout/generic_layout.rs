@@ -144,13 +144,36 @@ where
         self.blocks.push(block);
     }
 
+    /// Shifts all layout areas.
+    ///
+    /// Most layout functions create a layout that starts at (0,0).
+    /// That is ok, as the widgets __using__ such a layout
+    /// associate their top/left position with (0,0) and start
+    /// from there.
+    ///
+    /// If you want to use the layout without such a widget,
+    /// this one is nice.
+    ///
+    /// __Caution__
+    /// If you left/up-shift an area it will get truncated at 0.
+    pub fn shift(&mut self, shift: (i16, i16)) {
+        for v in self.widget_areas.iter_mut() {
+            *v = relocate(*v, shift);
+        }
+        for v in self.label_areas.iter_mut() {
+            *v = relocate(*v, shift);
+        }
+        for v in self.block_areas.iter_mut() {
+            *v = relocate(*v, shift);
+        }
+    }
+
     /// First widget on the given page.
     pub fn first(&self, page: usize) -> Option<&W> {
         for (idx, area) in self.widget_areas.iter().enumerate() {
             let test = (area.y / self.page_size.height) as usize;
             if page == test {
                 return self.rwidgets.get(&idx);
-                // return Some(&self.widgets[idx]);
             }
         }
         None
@@ -163,6 +186,11 @@ where
         };
 
         Some((self.widget_areas[idx].y / self.page_size.height) as usize)
+    }
+
+    /// Any widgets/blocks?
+    pub fn is_empty(&self) -> bool {
+        self.widget_areas.is_empty() && self.block_areas.is_empty()
     }
 
     /// Number of widgets/labels.
@@ -292,4 +320,14 @@ where
     pub fn set_block(&mut self, idx: usize, block: Option<Block<'static>>) {
         self.blocks[idx] = block;
     }
+}
+
+#[inline]
+fn relocate(area: Rect, shift: (i16, i16)) -> Rect {
+    let x0 = area.left().saturating_add_signed(shift.0);
+    let x1 = area.right().saturating_add_signed(shift.0);
+    let y0 = area.top().saturating_add_signed(shift.1);
+    let y1 = area.bottom().saturating_add_signed(shift.1);
+
+    Rect::new(x0, y0, x1 - x0, y1 - y0)
 }
