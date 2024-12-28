@@ -243,7 +243,7 @@ where
     }
 }
 
-impl<'a, Selection: ListSelection> StatefulWidget for List<'a, Selection> {
+impl<Selection: ListSelection> StatefulWidget for List<'_, Selection> {
     type State = ListState<Selection>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

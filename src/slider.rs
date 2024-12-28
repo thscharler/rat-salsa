@@ -177,7 +177,7 @@ impl Default for SliderStyle {
     }
 }
 
-impl<'a, T> Default for Slider<'a, T>
+impl<T> Default for Slider<'_, T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
@@ -254,19 +254,19 @@ where
             self.text_align = align;
         }
         if styles.lower_bound.is_some() {
-            self.lower_bound = styles.lower_bound.map(|v| Cow::Borrowed(v));
+            self.lower_bound = styles.lower_bound.map(Cow::Borrowed);
         }
         if styles.upper_bound.is_some() {
-            self.upper_bound = styles.upper_bound.map(|v| Cow::Borrowed(v));
+            self.upper_bound = styles.upper_bound.map(Cow::Borrowed);
         }
         if styles.track_char.is_some() {
-            self.track_char = styles.track_char.map(|v| Cow::Borrowed(v));
+            self.track_char = styles.track_char.map(Cow::Borrowed);
         }
         if styles.vertical_knob.is_some() {
-            self.vertical_knob = styles.vertical_knob.map(|v| Cow::Borrowed(v));
+            self.vertical_knob = styles.vertical_knob.map(Cow::Borrowed);
         }
         if styles.horizontal_knob.is_some() {
-            self.horizontal_knob = styles.horizontal_knob.map(|v| Cow::Borrowed(v));
+            self.horizontal_knob = styles.horizontal_knob.map(Cow::Borrowed);
         }
         if styles.block.is_some() {
             self.block = styles.block;
@@ -540,7 +540,7 @@ impl<'a, T> StatefulWidgetRef for Slider<'a, T> {
     }
 }
 
-impl<'a, T> StatefulWidget for Slider<'a, T>
+impl<T> StatefulWidget for Slider<'_, T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
     u16: MapRange<T>,
@@ -552,8 +552,8 @@ where
     }
 }
 
-fn render_slider<'a, T>(
-    widget: &Slider<'a, T>,
+fn render_slider<T>(
+    widget: &Slider<'_, T>,
     area: Rect,
     buf: &mut Buffer,
     state: &mut SliderState<T>,
@@ -874,6 +874,7 @@ where
     }
 
     /// Next value by one step.
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> bool {
         let old_value = self.value;
         let value = self.value.unwrap_or_default();

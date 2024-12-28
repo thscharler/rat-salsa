@@ -55,7 +55,7 @@ where
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, W> Default for SinglePager<'a, W>
+impl<W> Default for SinglePager<'_, W>
 where
     W: Eq + Hash + Clone,
 {
@@ -146,7 +146,7 @@ where
     }
 }
 
-impl<'a, W> SinglePagerBuffer<'a, W>
+impl<W> SinglePagerBuffer<'_, W>
 where
     W: Eq + Hash + Clone,
 {
@@ -219,6 +219,7 @@ where
     /// Relocate the widget area to screen coordinates.
     /// Returns None if the widget is not visible.
     /// This clips the area to page_area.
+    #[allow(clippy::question_mark)]
     pub fn locate_widget(&self, widget: W) -> Option<Rect> {
         let Some(idx) = self.pager.widget_idx(widget) else {
             return None;
@@ -229,6 +230,7 @@ where
     /// Relocate the label area to screen coordinates.
     /// Returns None if the widget is not visible.
     /// This clips the area to page_area.
+    #[allow(clippy::question_mark)]
     pub fn locate_label(&self, widget: W) -> Option<Rect> {
         let Some(idx) = self.pager.widget_idx(widget) else {
             return None;

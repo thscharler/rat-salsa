@@ -195,7 +195,7 @@ impl Default for ChoiceStyle {
     }
 }
 
-impl<'a, T> Default for Choice<'a, T>
+impl<T> Default for Choice<'_, T>
 where
     T: PartialEq,
 {
@@ -444,7 +444,7 @@ impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T> {
     }
 }
 
-impl<'a, T> StatefulWidget for ChoiceWidget<'a, T>
+impl<T> StatefulWidget for ChoiceWidget<'_, T>
 where
     T: PartialEq,
 {
@@ -482,8 +482,7 @@ fn render_choice<T: PartialEq>(
     state.nav_char.extend(widget.items.borrow().iter().map(|v| {
         v.spans
             .first()
-            .map(|v| v.content.as_ref().chars().next())
-            .flatten()
+            .and_then(|v| v.content.as_ref().chars().next())
             .map_or(Vec::default(), |c| c.to_lowercase().collect::<Vec<_>>())
     }));
 
@@ -537,7 +536,7 @@ fn render_choice<T: PartialEq>(
     );
 }
 
-impl<'a, T> StatefulWidget for ChoicePopup<'a, T>
+impl<T> StatefulWidget for ChoicePopup<'_, T>
 where
     T: PartialEq,
 {
@@ -755,7 +754,7 @@ where
     pub fn select(&mut self, select: Option<usize>) -> bool {
         let old_selected = self.selected;
 
-        if self.keys.len() == 0 {
+        if self.keys.is_empty() {
             self.selected = None;
         } else {
             if let Some(select) = select {
@@ -771,6 +770,11 @@ where
     /// Selected
     pub fn selected(&self) -> Option<usize> {
         self.selected
+    }
+
+    /// Items?
+    pub fn is_empty(&self) -> bool {
+        self.keys.is_empty()
     }
 
     /// Number of items.
@@ -861,7 +865,7 @@ where
     pub fn move_down(&mut self, n: usize) -> bool {
         let old_selected = self.selected;
 
-        if self.keys.len() == 0 {
+        if self.keys.is_empty() {
             self.selected = None;
         } else {
             if let Some(selected) = self.selected {
@@ -880,7 +884,7 @@ where
     pub fn move_up(&mut self, n: usize) -> bool {
         let old_selected = self.selected;
 
-        if self.keys.len() == 0 {
+        if self.keys.is_empty() {
             self.selected = None;
         } else {
             if let Some(selected) = self.selected {

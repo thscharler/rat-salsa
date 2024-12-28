@@ -228,7 +228,7 @@ impl<'a> StatefulWidgetRef for Paragraph<'a> {
     }
 }
 
-impl<'a> StatefulWidget for Paragraph<'a> {
+impl StatefulWidget for Paragraph<'_> {
     type State = ParagraphState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

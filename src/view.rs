@@ -348,7 +348,7 @@ impl<'a> ViewBuffer<'a> {
     }
 }
 
-impl<'a> StatefulWidget for ViewWidget<'a> {
+impl StatefulWidget for ViewWidget<'_> {
     type State = ViewState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

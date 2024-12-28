@@ -201,6 +201,7 @@ where
     }
 
     /// Calculates the page of the widget.
+    #[allow(clippy::question_mark)]
     pub fn page_of(&self, widget: W) -> Option<usize> {
         let Some(idx) = self.try_index_of(widget) else {
             return None;

@@ -137,7 +137,7 @@ impl Default for RadioStyle {
     }
 }
 
-impl<'a, T: PartialEq> Default for Radio<'a, T> {
+impl<T: PartialEq> Default for Radio<'_, T> {
     fn default() -> Self {
         Self {
             keys: Default::default(),
@@ -320,7 +320,7 @@ where
     }
 }
 
-impl<'a, T> Radio<'a, T>
+impl<T> Radio<'_, T>
 where
     T: PartialEq,
 {
@@ -657,7 +657,7 @@ where
     }
 }
 
-impl<'a, T> StatefulWidget for Radio<'a, T>
+impl<T> StatefulWidget for Radio<'_, T>
 where
     T: PartialEq,
 {
@@ -835,10 +835,11 @@ where
         &self.keys[self.selected]
     }
 
+    #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> bool {
         let old_sel = self.selected;
 
-        self.selected = if self.text_areas.len() == 0 {
+        self.selected = if self.text_areas.is_empty() {
             0
         } else if self.selected + 1 >= self.text_areas.len() {
             0
@@ -852,7 +853,7 @@ where
     pub fn prev(&mut self) -> bool {
         let old_sel = self.selected;
 
-        self.selected = if self.text_areas.len() == 0 {
+        self.selected = if self.text_areas.is_empty() {
             0
         } else if self.selected == 0 {
             self.text_areas.len() - 1

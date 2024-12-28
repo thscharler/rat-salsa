@@ -8,10 +8,6 @@
 #![allow(clippy::clone_on_copy)]
 #![allow(clippy::assigning_clones)]
 
-// types common to multiple modules.
-// reexported per module.
-mod commons;
-
 pub mod event {
     //!
     //! Event-handler traits and Keybindings.

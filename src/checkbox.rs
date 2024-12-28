@@ -128,7 +128,7 @@ impl Default for CheckboxStyle {
     }
 }
 
-impl<'a> Default for Checkbox<'a> {
+impl Default for Checkbox<'_> {
     fn default() -> Self {
         Self {
             text: Default::default(),
@@ -265,7 +265,7 @@ impl<'a> StatefulWidgetRef for Checkbox<'a> {
     }
 }
 
-impl<'a> StatefulWidget for Checkbox<'a> {
+impl StatefulWidget for Checkbox<'_> {
     type State = CheckboxState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -426,10 +426,8 @@ impl CheckboxState {
     pub fn flip_checked(&mut self) {
         if self.default {
             self.default = false;
-        } else if self.checked {
-            self.checked = false;
         } else {
-            self.checked = true;
+            self.checked = !self.checked;
         }
     }
 }

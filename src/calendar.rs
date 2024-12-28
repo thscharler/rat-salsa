@@ -286,7 +286,7 @@ impl<'a> StatefulWidgetRef for Month<'a> {
     }
 }
 
-impl<'a> StatefulWidget for Month<'a> {
+impl StatefulWidget for Month<'_> {
     type State = MonthState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

@@ -148,22 +148,22 @@ pub fn layout_edit(
             widget_x = label_x + spacing + max_label;
         }
         Flex::End => {
-            widget_x = 0 + area.width - max_widget;
+            widget_x = area.width - max_widget;
             label_x = widget_x - spacing - max_label;
         }
         Flex::Center => {
             let rest = area.width - max_label - max_widget - spacing;
-            label_x = 0 + rest / 2;
+            label_x = rest / 2;
             widget_x = label_x + spacing + max_label;
         }
         Flex::SpaceAround => {
             let rest = area.width - max_label - max_widget - spacing;
-            label_x = 0 + rest / 2;
+            label_x = rest / 2;
             widget_x = label_x + spacing + max_label;
         }
         Flex::SpaceBetween => {
             let rest = area.width - max_label - max_widget;
-            label_x = 0 + rest / 3;
+            label_x = rest / 3;
             widget_x = label_x + rest / 3 + max_label;
         }
     }

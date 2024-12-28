@@ -57,7 +57,7 @@ pub struct PageNavigationState {
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> Default for PageNavigation<'a> {
+impl Default for PageNavigation<'_> {
     fn default() -> Self {
         Self {
             pages: 1,
@@ -146,7 +146,7 @@ impl<'a> PageNavigation<'a> {
     }
 }
 
-impl<'a> StatefulWidget for PageNavigation<'a> {
+impl StatefulWidget for PageNavigation<'_> {
     type State = PageNavigationState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

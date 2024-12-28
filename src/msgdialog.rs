@@ -203,7 +203,7 @@ impl<'a> StatefulWidgetRef for MsgDialog<'a> {
     }
 }
 
-impl<'a> StatefulWidget for MsgDialog<'a> {
+impl StatefulWidget for MsgDialog<'_> {
     type State = MsgDialogState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

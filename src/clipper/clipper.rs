@@ -99,7 +99,7 @@ where
     pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, W> Clone for Clipper<'a, W>
+impl<W> Clone for Clipper<'_, W>
 where
     W: Eq + Clone + Hash,
 {
@@ -116,7 +116,7 @@ where
     }
 }
 
-impl<'a, W> Default for Clipper<'a, W>
+impl<W> Default for Clipper<'_, W>
 where
     W: Eq + Clone + Hash,
 {
@@ -243,13 +243,13 @@ where
             if view.intersects(area) || view.intersects(label_area) {
                 if !area.is_empty() {
                     ext_view = ext_view //
-                        .and_then(|v| Some(v.union(area)))
-                        .or_else(|| Some(area));
+                        .map(|v| v.union(area))
+                        .or(Some(area));
                 }
                 if !label_area.is_empty() {
                     ext_view = ext_view //
-                        .and_then(|v| Some(v.union(label_area)))
-                        .or_else(|| Some(label_area));
+                        .map(|v| v.union(label_area))
+                        .or(Some(label_area));
                 }
             }
 
@@ -262,8 +262,8 @@ where
             let area = layout.block_area(idx);
             if !area.is_empty() {
                 ext_view = ext_view //
-                    .and_then(|v| Some(v.union(area)))
-                    .or_else(|| Some(area));
+                    .map(|v| v.union(area))
+                    .or(Some(area));
             }
 
             max_pos.x = max(max_pos.x, area.right());
@@ -423,13 +423,14 @@ where
     pub fn render_block(&mut self) {
         for (idx, block_area) in self.layout.block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
-                (&self.layout.block(idx)).render(block_area, &mut self.buffer);
+                self.layout.block(idx).render(block_area, &mut self.buffer);
             }
         }
     }
 
     /// Get the buffer coordinates for the given widget.
     #[inline]
+    #[allow(clippy::question_mark)]
     pub fn locate_widget(&self, widget: W) -> Option<Rect> {
         let Some(idx) = self.layout.try_index_of(widget) else {
             return None;
@@ -439,6 +440,7 @@ where
 
     /// Get the buffer coordinates for the label of the given widget.
     #[inline]
+    #[allow(clippy::question_mark)]
     pub fn locate_label(&self, widget: W) -> Option<Rect> {
         let Some(idx) = self.layout.try_index_of(widget) else {
             return None;
@@ -514,7 +516,7 @@ where
     }
 }
 
-impl<'a, W> StatefulWidget for ClipperWidget<'a, W>
+impl<W> StatefulWidget for ClipperWidget<'_, W>
 where
     W: Eq + Clone + Hash,
 {

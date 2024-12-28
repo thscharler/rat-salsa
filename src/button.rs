@@ -199,7 +199,7 @@ impl<'a> StatefulWidgetRef for Button<'a> {
     }
 }
 
-impl<'a> StatefulWidget for Button<'a> {
+impl StatefulWidget for Button<'_> {
     type State = ButtonState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

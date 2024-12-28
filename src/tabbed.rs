@@ -298,7 +298,7 @@ impl Default for TabbedStyle {
     }
 }
 
-impl<'a> StatefulWidget for Tabbed<'a> {
+impl StatefulWidget for Tabbed<'_> {
     type State = TabbedState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

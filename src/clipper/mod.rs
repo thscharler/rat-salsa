@@ -8,20 +8,18 @@
 //! It works in 4 phases:
 //!
 //! ```rust no_run
-//!     # use rat_widget::clipper::{Clipper, AreaHandle, ClipperLayout, ClipperState};
+//!     # use rat_widget::clipper::{Clipper, ClipperState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
 //!     # use ratatui::prelude::*;
+//! use rat_focus::FocusFlag;
+//! use rat_widget::layout::GenericLayout;
 //!     #
 //!     # let l2 = [Rect::ZERO, Rect::ZERO];
 //!     # struct State {
-//!     #      layout: ClipperLayout,
-//!     #      handles: Vec<AreaHandle>,
 //!     #      check_states: Vec<CheckboxState>,
-//!     #      clipper: ClipperState
+//!     #      clipper: ClipperState<FocusFlag>
 //!     #  }
 //!     # let mut state = State {
-//!     #      layout: ClipperLayout::new(1),
-//!     #      handles: Vec::default(),
 //!     #      clipper: Default::default(),
 //!     #      check_states: Vec::default()
 //!     #  };
@@ -33,11 +31,14 @@
 //!     ///> __Note__: add() returns a handle for the area. Can be used later
 //!     ///> to refer to the stored area.
 //!
-//!     if state.layout.is_empty() {
-//!         let mut cl = ClipperLayout::new(1);
+//!     if state.clipper.layout.is_empty() {
+//!         let mut cl = GenericLayout::new();
 //!         for i in 0..100 {
-//!             let handle = cl.add(&[Rect::new(10, i*11, 15, 10)]);
-//!             state.handles[i as usize] = handle;
+//!             cl.add(state.check_states[i].focus.clone(),
+//!                 Rect::new(10, i as u16 *11, 15, 10),
+//!                 None,
+//!                 Rect::default()
+//!             );
 //!         }
 //!     }
 //!
@@ -49,24 +50,19 @@
 //!     let clipper = Clipper::new();
 //!
 //!     let mut clip_buf = clipper
-//!         .layout(state.layout.clone())
 //!         .into_buffer(l2[1], &mut state.clipper);
 //!
 //!     ///
 //!     /// The widgets are rendered to that buffer.
 //!     ///
 //!     for i in 0..100 {
-//!         // create a new area
-//!         let v_area = clip_buf.layout().layout_handle(state.handles[i])[0];
-//!         let w_area = Rect::new(5, v_area.y, 5, 1);
-//!         clip_buf.render_widget(Span::from(format!("{:?}:", i)), w_area);
-//!
 //!         // refer by handle
-//!         clip_buf.render_stateful_handle(
-//!             Checkbox::new()
-//!                 .text(format!("{:?}", state.handles[i])),
-//!             state.handles[i],
-//!             0,
+//!         clip_buf.render(
+//!             state.check_states[i].focus.clone(),
+//!             || {
+//!                 Checkbox::new()
+//!                 .text(format!("{:?}", i))
+//!             },
 //!             &mut state.check_states[i],
 //!         );
 //!     }
@@ -97,6 +93,5 @@
 mod clipper;
 mod clipper_style;
 
-pub use crate::commons::AreaHandle;
 pub use clipper::*;
 pub use clipper_style::*;

@@ -328,7 +328,7 @@ struct EditDirNameState {
     edit_dir: TextInputState,
 }
 
-impl<'a> StatefulWidget for EditDirName<'a> {
+impl StatefulWidget for EditDirName<'_> {
     type State = EditDirNameState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -374,7 +374,7 @@ impl HasFocus for EditDirNameState {
     }
 }
 
-impl<'a> StatefulWidget for FileDialog<'a> {
+impl StatefulWidget for FileDialog<'_> {
     type State = FileDialogState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {

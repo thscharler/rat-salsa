@@ -388,7 +388,7 @@ impl<'a> Split<'a> {
     }
 }
 
-impl<'a> Split<'a> {
+impl Split<'_> {
     /// Calculates the first layout according to the constraints.
     /// When a resize is detected, the current widths are used as constraints.
     fn layout_split(&self, area: Rect, state: &mut SplitState) {
@@ -598,7 +598,7 @@ fn adjust_for_split_type(
     }
 }
 
-impl<'a> Split<'a> {
+impl Split<'_> {
     fn get_mark_0(&self) -> &str {
         if let Some(mark) = self.mark_0_char {
             mark
@@ -809,7 +809,7 @@ impl<'a> StatefulWidgetRef for SplitWidget<'a> {
     }
 }
 
-impl<'a> StatefulWidget for SplitWidget<'a> {
+impl StatefulWidget for SplitWidget<'_> {
     type State = SplitState;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -843,7 +843,7 @@ impl<'a> StatefulWidgetRef for SplitOverlay<'a> {
     }
 }
 
-impl<'a> StatefulWidget for SplitOverlay<'a> {
+impl StatefulWidget for SplitOverlay<'_> {
     type State = SplitState;
 
     fn render(self, _area: Rect, buf: &mut Buffer, state: &mut Self::State) {

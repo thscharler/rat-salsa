@@ -144,13 +144,13 @@ pub enum FormWidget {
 /// the exact layout: [FormLabel] and [FormWidget].
 ///
 /// * This layout can page break the form, if there is not enough
-/// space on one page. This can be used with [SinglePager] and friends.
+///   space on one page. This can be used with [SinglePager] and friends.
 ///
 /// * Or it can generate an endless layout that will be used
-/// with scrolling logic like [Clipper].
+///   with scrolling logic like [Clipper].
 ///
 /// * There is currently no functionality to shrink-fit the layout
-/// to a given page size.
+///   to a given page size.
 ///
 /// The widgets can be grouped together and a [Block] can be set
 /// to highlight this grouping. Groups can cascade. Groups will
@@ -343,11 +343,11 @@ impl FormWidget {
     }
 }
 
-impl<W> LayoutForm<W>
+impl<W> Default for LayoutForm<W>
 where
-    W: Eq + Hash + Clone + Debug,
+    W: Eq + Clone + Hash + Debug,
 {
-    pub fn new() -> Self {
+    fn default() -> Self {
         Self {
             spacing: Default::default(),
             line_spacing: Default::default(),
@@ -363,6 +363,15 @@ where
             c_left: Default::default(),
             c_right: Default::default(),
         }
+    }
+}
+
+impl<W> LayoutForm<W>
+where
+    W: Eq + Hash + Clone + Debug,
+{
+    pub fn new() -> Self {
+        Self::default()
     }
 
     /// Spacing between label and widget.
@@ -447,9 +456,9 @@ where
                 self.c_left -= cc.padding.left;
                 self.c_right -= cc.padding.right;
 
-                self.widgets
-                    .last_mut()
-                    .map(|v| v.opt_bottom_border -= cc.padding.bottom);
+                if let Some(last) = self.widgets.last_mut() {
+                    last.opt_bottom_border -= cc.padding.bottom;
+                }
 
                 return;
             }
@@ -767,8 +776,7 @@ where
                     }
                 }
                 // pop reverts the ordering for render
-                while !tmp.is_empty() {
-                    let cc = tmp.pop().expect("value");
+                while let Some(cc) = tmp.pop() {
                     gen_layout.add_block(cc.area, cc.block);
                 }
 
@@ -814,8 +822,7 @@ where
                 label_area,
             );
             // pop reverts the ordering for render
-            while !tmp.is_empty() {
-                let cc = tmp.pop().expect("value");
+            while let Some(cc) = tmp.pop() {
                 gen_layout.add_block(cc.area, cc.block);
             }
 
@@ -833,8 +840,7 @@ where
                     }
                 }
                 // pop reverts the ordering for render
-                while !tmp.is_empty() {
-                    let cc = tmp.pop().expect("value");
+                while let Some(cc) = tmp.pop() {
                     gen_layout.add_block(cc.area, cc.block);
                 }
 
@@ -1099,12 +1105,12 @@ impl Page {
         self.y_page = self.page_no * self.height;
         self.y = self.y_page + self.top;
         self.line_spacing = 0;
-        let pos = if self.page_no % 2 == 0 {
+
+        if self.page_no % 2 == 0 {
             pos_even
         } else {
             pos_odd
-        };
-        pos
+        }
     }
 
     // advance to next widget

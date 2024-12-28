@@ -121,6 +121,7 @@ where
     }
 
     /// Create the second stage.
+    #[allow(clippy::needless_lifetimes)]
     pub fn into_buffer<'b>(
         self,
         area: Rect,
@@ -145,7 +146,7 @@ where
     }
 }
 
-impl<'a, W> PagerBuffer<'a, W>
+impl<W> PagerBuffer<'_, W>
 where
     W: Eq + Hash + Clone,
 {
@@ -241,7 +242,7 @@ where
         for (idx, block_area) in self.layout.block_area_iter().enumerate() {
             if let Some(block_area) = self.locate_area(*block_area) {
                 let mut buffer = self.buffer.borrow_mut();
-                (&self.layout.block(idx)).render(block_area, *buffer);
+                self.layout.block(idx).render(block_area, *buffer);
             }
         }
     }
