@@ -522,8 +522,7 @@ impl DarkTheme {
         PagerStyle {
             style: self.container(),
             label_style: Some(self.container_label()),
-            nav: Some(self.container_arrow()),
-            divider: Some(self.container()),
+            navigation: Some(self.container_arrow()),
             block: Some(Block::bordered().border_style(self.container())),
             ..Default::default()
         }
