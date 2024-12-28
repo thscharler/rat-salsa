@@ -1,67 +1,79 @@
-use crate::clipper::{AreaHandle, ClipperLayout, ClipperStyle};
-use crate::layout::StructuredLayout;
+use crate::_private::NonExhaustive;
+use crate::clipper::ClipperStyle;
+use crate::layout::GenericLayout;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::ContainerFlag;
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
-use ratatui::widgets::{Block, StatefulWidget, Widget};
-use std::cmp::min;
-use std::ops::Index;
+use ratatui::layout::{Alignment, Position, Rect, Size};
+use ratatui::prelude::{Style, Widget};
+use ratatui::text::Line;
+use ratatui::widgets::{Block, StatefulWidget};
+use std::borrow::Cow;
+use std::cmp::{max, min};
+use std::hash::Hash;
+use std::marker::PhantomData;
+use std::rc::Rc;
 
-/// Configure the Clipper.
-#[derive(Debug, Default, Clone)]
-pub struct Clipper<'a> {
-    layout: ClipperLayout,
-
+#[derive(Debug)]
+pub struct Clipper<'a, W>
+where
+    W: Eq + Clone + Hash,
+{
+    style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
+    label_style: Option<Style>,
+    label_alignment: Option<Alignment>,
+    phantom: PhantomData<W>,
 }
 
-/// Render to the temp buffer.
-///
-/// * It maps your widget area from layout coordinates
-///   to screen coordinates before rendering.
-/// * It helps with cleanup of the widget state if your
-///   widget is currently invisible.
 #[derive(Debug)]
-pub struct ClipperBuffer<'a> {
-    // page layout
-    layout: ClipperLayout,
+pub struct ClipperBuffer<'a, W>
+where
+    W: Eq + Clone + Hash,
+{
+    layout: Rc<GenericLayout<W>>,
 
-    // Scroll offset into the view.
-    buf_offset_x: u16,
-    buf_offset_y: u16,
+    // offset from buffer to scroll area
+    offset: Position,
     buffer: Buffer,
 
     // inner area that will finally be rendered.
     widget_area: Rect,
 
+    style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
+    label_style: Option<Style>,
+    label_alignment: Option<Alignment>,
 }
 
-/// Clips and copies the temp buffer to the frame buffer.
 #[derive(Debug)]
-pub struct ClipperWidget<'a> {
-    // Scroll offset into the view.
-    buf_offset_x: u16,
-    buf_offset_y: u16,
+pub struct ClipperWidget<'a, W>
+where
+    W: Eq + Clone + Hash,
+{
+    offset: Position,
     buffer: Buffer,
 
+    style: Style,
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
     vscroll: Option<Scroll<'a>>,
+    phantom: PhantomData<W>,
 }
 
-/// Clipper state.
-#[derive(Debug, Default, Clone)]
-pub struct ClipperState {
-    /// Full area for the widget.
+#[derive(Debug)]
+pub struct ClipperState<W>
+where
+    W: Eq + Clone + Hash,
+{
+    // Full area for the widget.
     /// __read only__ renewed for each render.
     pub area: Rect,
     /// Area inside the border.
@@ -70,7 +82,7 @@ pub struct ClipperState {
 
     /// Page layout.
     /// __read only__ renewed for each render.
-    pub layout: ClipperLayout,
+    pub layout: Rc<GenericLayout<W>>,
 
     /// Horizontal scroll
     /// __read+write__
@@ -83,25 +95,69 @@ pub struct ClipperState {
     /// can be used to set a container state.
     pub c_focus: ContainerFlag,
 
-    /// For the buffer to survive render()
-    buffer: Option<Buffer>,
+    /// Only construct with `..Default::default()`.
+    pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a> Clipper<'a> {
+impl<'a, W> Clone for Clipper<'a, W>
+where
+    W: Eq + Clone + Hash,
+{
+    fn clone(&self) -> Self {
+        Self {
+            style: Default::default(),
+            block: self.block.clone(),
+            hscroll: self.hscroll.clone(),
+            vscroll: self.vscroll.clone(),
+            label_style: self.label_style.clone(),
+            label_alignment: self.label_alignment.clone(),
+            phantom: Default::default(),
+        }
+    }
+}
+
+impl<'a, W> Default for Clipper<'a, W>
+where
+    W: Eq + Clone + Hash,
+{
+    fn default() -> Self {
+        Self {
+            style: Default::default(),
+            block: Default::default(),
+            hscroll: Default::default(),
+            vscroll: Default::default(),
+            label_style: Default::default(),
+            label_alignment: Default::default(),
+            phantom: Default::default(),
+        }
+    }
+}
+
+impl<'a, W> Clipper<'a, W>
+where
+    W: Eq + Clone + Hash,
+{
     /// New Clipper.
     pub fn new() -> Self {
         Self::default()
     }
 
-    /// Page layout.
-    pub fn layout(mut self, page_layout: ClipperLayout) -> Self {
-        self.layout = page_layout;
+    /// Base style.
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self.block = self.block.map(|v| v.style(style));
         self
     }
 
-    /// Set page layout from StructLayout
-    pub fn struct_layout(mut self, page_layout: StructuredLayout) -> Self {
-        self.layout = ClipperLayout::with_layout(page_layout);
+    /// Widget labels.
+    pub fn label_style(mut self, style: Style) -> Self {
+        self.label_style = Some(style);
+        self
+    }
+
+    /// Widget labels.
+    pub fn label_alignment(mut self, alignment: Alignment) -> Self {
+        self.label_alignment = Some(alignment);
         self
     }
 
@@ -132,6 +188,13 @@ impl<'a> Clipper<'a> {
 
     /// Combined style.
     pub fn styles(mut self, styles: ClipperStyle) -> Self {
+        self.style = styles.style;
+        if styles.label_style.is_some() {
+            self.label_style = styles.label_style;
+        }
+        if styles.label_alignment.is_some() {
+            self.label_alignment = styles.label_alignment;
+        }
         if styles.block.is_some() {
             self.block = styles.block;
         }
@@ -139,16 +202,17 @@ impl<'a> Clipper<'a> {
             self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
             self.vscroll = self.vscroll.map(|v| v.styles(styles.clone()));
         }
+        self.block = self.block.map(|v| v.style(styles.style));
         self
     }
 
     /// Calculate the layout width.
-    pub fn layout_width(&self, area: Rect, state: &ClipperState) -> u16 {
-        self.inner(area, state).width
+    pub fn layout_size(&self, area: Rect, state: &ClipperState<W>) -> Size {
+        self.inner(area, state).as_size()
     }
 
     /// Calculate the view area.
-    pub fn inner(&self, area: Rect, state: &ClipperState) -> Rect {
+    fn inner(&self, area: Rect, state: &ClipperState<W>) -> Rect {
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
@@ -156,10 +220,64 @@ impl<'a> Clipper<'a> {
         sa.inner(area, Some(&state.hscroll), Some(&state.vscroll))
     }
 
+    fn layout(&self, area: Rect, state: &mut ClipperState<W>) -> (Rect, Position) {
+        let layout = state.layout.clone();
+
+        let view = Rect::new(
+            state.hscroll.offset() as u16,
+            state.vscroll.offset() as u16,
+            area.width,
+            area.height,
+        );
+
+        // maxima for scroll bar max
+        let mut max_pos = Position::default();
+
+        // find the bounding box for the buffer.
+        // convex hull of all visible widgets/labels/blocks.
+        let mut ext_view: Option<Rect> = None;
+        for idx in 0..layout.widget_len() {
+            let area = layout.widget(idx);
+            let label_area = layout.label(idx);
+
+            if view.intersects(area) || view.intersects(label_area) {
+                if !area.is_empty() {
+                    ext_view = ext_view //
+                        .and_then(|v| Some(v.union(area)))
+                        .or_else(|| Some(area));
+                }
+                if !label_area.is_empty() {
+                    ext_view = ext_view //
+                        .and_then(|v| Some(v.union(label_area)))
+                        .or_else(|| Some(label_area));
+                }
+            }
+
+            max_pos.x = max(max_pos.x, area.right());
+            max_pos.y = max(max_pos.y, area.bottom());
+            max_pos.x = max(max_pos.x, label_area.right());
+            max_pos.y = max(max_pos.y, label_area.bottom());
+        }
+        for idx in 0..layout.block_len() {
+            let area = layout.block_area(idx);
+            if !area.is_empty() {
+                ext_view = ext_view //
+                    .and_then(|v| Some(v.union(area)))
+                    .or_else(|| Some(area));
+            }
+
+            max_pos.x = max(max_pos.x, area.right());
+            max_pos.y = max(max_pos.y, area.bottom());
+        }
+
+        let ext_view = ext_view.unwrap_or(view);
+
+        (ext_view, max_pos)
+    }
+
     /// Calculates the layout and creates a temporary buffer.
-    pub fn into_buffer(self, area: Rect, state: &mut ClipperState) -> ClipperBuffer<'a> {
+    pub fn into_buffer(self, area: Rect, state: &mut ClipperState<W>) -> ClipperBuffer<'a, W> {
         state.area = area;
-        state.layout = self.layout;
 
         let sa = ScrollArea::new()
             .block(self.block.as_ref())
@@ -168,168 +286,186 @@ impl<'a> Clipper<'a> {
         state.widget_area = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
         // run the layout
-        let ext_area = state.layout.layout(Rect::new(
-            state.hscroll.offset as u16,
-            state.vscroll.offset as u16,
-            state.widget_area.width,
-            state.widget_area.height,
-        ));
+        let (ext_area, max_pos) = self.layout(area, state);
 
         // adjust scroll
-        let (max_x, max_y) = state.layout.max_layout_pos();
         state
             .vscroll
             .set_page_len(state.widget_area.height as usize);
         state
             .vscroll
-            .set_max_offset(max_y.saturating_sub(state.widget_area.height) as usize);
+            .set_max_offset(max_pos.y.saturating_sub(state.widget_area.height) as usize);
         state.hscroll.set_page_len(state.widget_area.width as usize);
         state
             .hscroll
-            .set_max_offset(max_x.saturating_sub(state.widget_area.width) as usize);
+            .set_max_offset(max_pos.x.saturating_sub(state.widget_area.width) as usize);
 
-        // offset is in layout coordinates.
-        // internal buffer starts at (0,0).
-        let buf_offset_x = state.hscroll.offset as u16 - ext_area.x;
-        let buf_offset_y = state.vscroll.offset as u16 - ext_area.y;
+        let offset = Position::new(state.hscroll.offset as u16, state.vscroll.offset as u16);
 
         // resize buffer to fit all visible widgets.
-        let buffer_area = Rect::new(0, 0, ext_area.width, ext_area.height);
-        let buffer = if let Some(mut buffer) = state.buffer.take() {
-            buffer.reset();
-            buffer.resize(buffer_area);
-            buffer
-        } else {
-            Buffer::empty(buffer_area)
-        };
+        let buffer_area = ext_area;
+        let buffer = Buffer::empty(buffer_area);
 
         ClipperBuffer {
             layout: state.layout.clone(),
-            buf_offset_x,
-            buf_offset_y,
+            offset,
             buffer,
             widget_area: state.widget_area,
+            style: self.style,
             block: self.block,
             hscroll: self.hscroll,
             vscroll: self.vscroll,
+            label_style: self.label_style,
+            label_alignment: self.label_alignment,
         }
     }
 }
 
-impl<'a> ClipperBuffer<'a> {
-    /// Render a widget to the temp buffer.
-    #[inline(always)]
-    pub fn render_widget<W>(&mut self, widget: W, area: Rect)
-    where
-        W: Widget,
-    {
-        let buffer_area = self.locate_area(area);
-        if !buffer_area.is_empty() {
-            // render the actual widget.
-            widget.render(buffer_area, self.buffer_mut());
-        }
+impl<'a, W> ClipperBuffer<'a, W>
+where
+    W: Eq + Hash + Clone,
+{
+    /// Is the widget visible.
+    pub fn is_visible(&self, widget: W) -> bool {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return false;
+        };
+        let area = self.layout.widget(idx);
+        self.buffer.area.intersects(area)
     }
 
-    /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState,
-    /// so it can reset the areas for hidden widgets.
+    /// Render the label with the set style and alignment.
     #[inline(always)]
-    pub fn render_stateful<W, S>(&mut self, widget: W, area: Rect, state: &mut S)
+    fn render_auto_label(&mut self, idx: usize) -> bool {
+        let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
+            return false;
+        };
+        let Some(label_str) = self.layout.label_str(idx) else {
+            return false;
+        };
+
+        let style = self.label_style.unwrap_or_default();
+        let align = self.label_alignment.unwrap_or_default();
+        Line::from(label_str.as_ref())
+            .style(style)
+            .alignment(align)
+            .render(label_area, &mut self.buffer);
+
+        true
+    }
+
+    /// Render the label for the given widget.
+    #[inline(always)]
+    pub fn render_label<FN, WW>(&mut self, widget: W, render_fn: FN) -> bool
     where
-        W: StatefulWidget<State = S>,
-        S: RelocatableState,
+        FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
+        WW: Widget,
     {
-        let buffer_area = self.locate_area(area);
-        if !buffer_area.is_empty() {
-            // render the actual widget.
-            widget.render(buffer_area, self.buffer_mut(), state);
-            // shift and clip the output areas.
-            self.relocate(state);
-        } else {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return false;
+        };
+        let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
+            return false;
+        };
+        let label_str = self.layout.label_str(idx);
+
+        render_fn(label_str).render(label_area, &mut self.buffer);
+
+        true
+    }
+
+    /// Render a stateless widget and its label.
+    #[inline(always)]
+    pub fn render_widget<FN, WW>(&mut self, widget: W, render_fn: FN) -> bool
+    where
+        FN: FnOnce() -> WW,
+        WW: Widget,
+    {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return false;
+        };
+
+        self.render_auto_label(idx);
+
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
+            return false;
+        };
+        render_fn().render(widget_area, &mut self.buffer);
+
+        true
+    }
+
+    /// Render a stateful widget and its label.
+    #[inline(always)]
+    pub fn render<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
+    where
+        FN: FnOnce() -> WW,
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return false;
+        };
+
+        self.render_auto_label(idx);
+
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
             self.hidden(state);
+            return false;
+        };
+        render_fn().render(widget_area, &mut self.buffer, state);
+        self.relocate(state);
+
+        true
+    }
+
+    /// Render all visible blocks.
+    pub fn render_block(&mut self) {
+        for (idx, block_area) in self.layout.block_area_iter().enumerate() {
+            if let Some(block_area) = self.locate_area(*block_area) {
+                (&self.layout.block(idx)).render(block_area, &mut self.buffer);
+            }
         }
     }
 
-    /// Render a widget to the temp buffer.
-    #[inline(always)]
-    pub fn render_widget_handle<W, Idx>(&mut self, widget: W, area: AreaHandle, tag: Idx)
-    where
-        W: Widget,
-        [Rect]: Index<Idx, Output = Rect>,
-    {
-        let buffer_area = self.locate_handle(area)[tag];
-        if buffer_area.is_empty() {
-            // render the actual widget.
-            widget.render(buffer_area, self.buffer_mut());
-        }
+    /// Get the buffer coordinates for the given widget.
+    #[inline]
+    pub fn locate_widget(&self, widget: W) -> Option<Rect> {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return None;
+        };
+        self.locate_area(self.layout.widget(idx))
     }
 
-    /// Render a widget to the temp buffer.
-    /// This expects that the state is a RelocatableState,
-    /// so it can reset the areas for hidden widgets.
-    #[inline(always)]
-    pub fn render_stateful_handle<W, S, Idx>(
-        &mut self,
-        widget: W,
-        area: AreaHandle,
-        tag: Idx,
-        state: &mut S,
-    ) where
-        W: StatefulWidget<State = S>,
-        S: RelocatableState,
-        [Rect]: Index<Idx, Output = Rect>,
-    {
-        let buffer_area = self.locate_handle(area)[tag];
-        if !buffer_area.is_empty() {
-            // render the actual widget.
-            widget.render(buffer_area, self.buffer_mut(), state);
-            // shift and clip the output areas.
-            self.relocate(state);
+    /// Get the buffer coordinates for the label of the given widget.
+    #[inline]
+    pub fn locate_label(&self, widget: W) -> Option<Rect> {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return None;
+        };
+        self.locate_area(self.layout.label(idx))
+    }
+
+    /// Relocate the area from layout coordinates to buffer coordinates,
+    /// which is a noop as those are aligned.
+    ///
+    /// But this will return None if the given area is outside the buffer.
+    #[inline]
+    pub fn locate_area(&self, area: Rect) -> Option<Rect> {
+        let area = self.buffer.area.intersection(area);
+        if area.is_empty() {
+            None
         } else {
-            self.hidden(state);
+            Some(area)
         }
     }
 
-    /// Return the layout.
-    pub fn layout(&self) -> &ClipperLayout {
-        &self.layout
-    }
-
-    /// Is the given area visible?
-    pub fn is_visible_area(&self, area: Rect) -> bool {
-        let area = self.layout.buf_area(area);
-        !area.is_empty()
-    }
-
-    /// Is any of the areas behind the handle visible?
-    pub fn is_visible_handle(&self, handle: AreaHandle) -> bool {
-        let areas = self.layout.buf_handle(handle);
-        areas.iter().find(|v| !v.is_empty()).is_some()
-    }
-
-    /// Calculate the necessary shift from view to screen.
+    /// Calculate the necessary shift from layout to screen.
     pub fn shift(&self) -> (i16, i16) {
         (
-            self.widget_area.x as i16 - self.buf_offset_x as i16,
-            self.widget_area.y as i16 - self.buf_offset_y as i16,
+            self.widget_area.x as i16 - self.offset.x as i16,
+            self.widget_area.y as i16 - self.offset.y as i16,
         )
-    }
-
-    /// Locate an area from layout coordinates to buffer coordinates
-    /// for rendering.
-    ///
-    /// Any sub-area may be None if it is outside the buffer.
-    ///
-    /// These are still not screen coordinates as the buffer may
-    /// be clipped into place.
-    pub fn locate_handle(&self, handle: AreaHandle) -> Box<[Rect]> {
-        self.layout.buf_handle(handle)
-    }
-
-    /// Locate an area coordinates to buffer coordinates
-    /// for rendering.
-    pub fn locate_area(&self, area: Rect) -> Rect {
-        self.layout.buf_area(area)
     }
 
     /// After rendering the widget to the buffer it may have
@@ -356,36 +492,39 @@ impl<'a> ClipperBuffer<'a> {
         state.relocate((0, 0), Rect::default())
     }
 
-    /// Access the temporary buffer.
-    ///
-    /// __Note__
-    /// Use of render_widget is preferred.
-    pub fn buffer_mut(&mut self) -> &mut Buffer {
+    /// Return a reference to the buffer.
+    #[inline]
+    pub fn buffer(&mut self) -> &mut Buffer {
         &mut self.buffer
     }
 
     /// Rendering the content is finished.
     ///
     /// Convert to the output widget that can be rendered in the target area.
-    pub fn into_widget(self) -> ClipperWidget<'a> {
+    pub fn into_widget(self) -> ClipperWidget<'a, W> {
         ClipperWidget {
-            buf_offset_x: self.buf_offset_x,
-            buf_offset_y: self.buf_offset_y,
             block: self.block,
             hscroll: self.hscroll,
             vscroll: self.vscroll,
+            offset: self.offset,
             buffer: self.buffer,
+            phantom: Default::default(),
+            style: self.style,
         }
     }
 }
 
-impl<'a> StatefulWidget for ClipperWidget<'a> {
-    type State = ClipperState;
+impl<'a, W> StatefulWidget for ClipperWidget<'a, W>
+where
+    W: Eq + Clone + Hash,
+{
+    type State = ClipperState<W>;
 
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         assert_eq!(area, state.area);
 
         ScrollArea::new()
+            .style(self.style)
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
             .v_scroll(self.vscroll.as_ref())
@@ -397,66 +536,160 @@ impl<'a> StatefulWidget for ClipperWidget<'a> {
                     .v_scroll(&mut state.vscroll),
             );
 
-        let inner_area = state.widget_area;
+        let src_area = self.buffer.area;
+        let tgt_area = state.widget_area;
+        let offset = self.offset;
 
-        let copy_width = min(inner_area.width, self.buffer.area.width) as usize;
+        // extra offset due to buffer starts right of offset.
+        let off_x0 = src_area.x.saturating_sub(offset.x);
+        let off_y0 = src_area.y.saturating_sub(offset.y);
+        // cut source buffer due to start left of offset.
+        let cut_x0 = offset.x.saturating_sub(src_area.x);
+        let cut_y0 = offset.y.saturating_sub(src_area.y);
 
-        for y in 0..inner_area.height {
-            let buf0 = self
+        // length to copy
+        let len_src = src_area.width.saturating_sub(cut_x0);
+        let len_tgt = tgt_area.width.saturating_sub(off_x0);
+        let len = min(len_src, len_tgt);
+
+        // area height to copy
+        let height_src = src_area.height.saturating_sub(cut_y0);
+        let height_tgt = tgt_area.height.saturating_sub(off_y0);
+        let height = min(height_src, height_tgt);
+
+        // ** slow version **
+        // for y in 0..height {
+        //     for x in 0..len {
+        //         let src_pos = Position::new(src_area.x + cut_x0 + x, src_area.y + cut_y0 + y);
+        //         let src_cell = self.buffer.cell(src_pos).expect("src-cell");
+        //
+        //         let tgt_pos = Position::new(tgt_area.x + off_x0 + x, tgt_area.y + off_y0 + y);
+        //         let tgt_cell = buf.cell_mut(tgt_pos).expect("tgt_cell");
+        //
+        //         *tgt_cell = src_cell.clone();
+        //     }
+        // }
+
+        for y in 0..height {
+            let src_0 = self
                 .buffer
-                .index_of(self.buf_offset_x, self.buf_offset_y + y);
-            let tgt0 = buf.index_of(inner_area.x, inner_area.y + y);
-            buf.content[tgt0..tgt0 + copy_width]
-                .clone_from_slice(&self.buffer.content[buf0..buf0 + copy_width]);
-        }
+                .index_of(src_area.x + cut_x0, src_area.y + cut_y0 + y);
+            let tgt_0 = buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
 
-        // keep buffer
-        state.buffer = Some(self.buffer);
+            let src = &self.buffer.content[src_0..src_0 + len as usize];
+            let tgt = &mut buf.content[tgt_0..tgt_0 + len as usize];
+            tgt.clone_from_slice(src);
+        }
     }
 }
 
-impl ClipperState {
+impl<W> Default for ClipperState<W>
+where
+    W: Eq + Hash + Clone,
+{
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            widget_area: Default::default(),
+            layout: Default::default(),
+            hscroll: Default::default(),
+            vscroll: Default::default(),
+            c_focus: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl<W> Clone for ClipperState<W>
+where
+    W: Eq + Hash + Clone,
+{
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            widget_area: self.widget_area,
+            layout: self.layout.clone(),
+            hscroll: self.hscroll.clone(),
+            vscroll: self.vscroll.clone(),
+            c_focus: ContainerFlag::new(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl<W> ClipperState<W>
+where
+    W: Eq + Clone + Hash,
+{
     pub fn new() -> Self {
         Self::default()
     }
 
+    /// Set the layout.
+    pub fn set_layout(&mut self, layout: Rc<GenericLayout<W>>) {
+        self.layout = layout;
+    }
+
+    /// Layout.
+    pub fn layout(&self) -> Rc<GenericLayout<W>> {
+        self.layout.clone()
+    }
+
     /// Show the area for the given handle.
-    pub fn show_handle(&mut self, handle: AreaHandle) {
-        let area = self.layout.layout_handle(handle);
+    pub fn show(&mut self, widget: W) {
+        let Some(idx) = self.layout.try_index_of(widget) else {
+            return;
+        };
+        let widget_area = self.layout.widget(idx);
+        let label_area = self.layout.label(idx);
 
-        let min_x = area.iter().map(|v| v.left()).min().expect("area") as usize;
-        let max_x = area.iter().map(|v| v.right()).max().expect("area") as usize;
-        let min_y = area.iter().map(|v| v.top()).min().expect("area") as usize;
-        let max_y = area.iter().map(|v| v.bottom()).max().expect("area") as usize;
+        let area = if !widget_area.is_empty() {
+            if !label_area.is_empty() {
+                Some(widget_area.union(label_area))
+            } else {
+                Some(widget_area)
+            }
+        } else {
+            if !label_area.is_empty() {
+                Some(label_area)
+            } else {
+                None
+            }
+        };
 
-        self.hscroll.scroll_to_range(min_x..max_x);
-        self.vscroll.scroll_to_range(min_y..max_y);
+        if let Some(area) = area {
+            self.hscroll
+                .scroll_to_range(area.left() as usize..area.right() as usize);
+            self.vscroll
+                .scroll_to_range(area.top() as usize..area.bottom() as usize);
+        }
     }
 
-    /// Show this rect in layout coordinates.
-    pub fn show_area(&mut self, area: Rect) {
-        self.hscroll
-            .scroll_to_range(area.left() as usize..area.right() as usize);
-        self.vscroll
-            .scroll_to_range(area.top() as usize..area.bottom() as usize);
-    }
+    /// Returns the first visible widget.
+    /// This uses insertion order of the widgets, not
+    /// any graphical ordering.
+    pub fn first(&self) -> Option<W> {
+        let area = Rect::new(
+            self.hscroll.offset() as u16,
+            self.vscroll.offset() as u16,
+            self.widget_area.width,
+            self.widget_area.height,
+        );
 
-    /// First handle for the page.
-    /// This returns the first handle for the page.
-    /// Does not check whether the connected area is visible.
-    pub fn first_handle(&self) -> Option<AreaHandle> {
-        self.layout.first_layout_handle()
-    }
+        for idx in 0..self.layout.widget_len() {
+            if self.layout.widget(idx).intersects(area) {
+                return Some(self.layout.widget_key(idx).clone());
+            }
+        }
 
-    /// First handle for the page.
-    /// This returns the first handle for the page.
-    /// Does not check whether the connected area is visible.
-    pub fn first_area(&self) -> Option<Box<[Rect]>> {
-        self.layout.first_layout_area()
+        None
     }
 }
 
-impl ClipperState {
+impl<W> ClipperState<W>
+where
+    W: Eq + Clone + Hash,
+{
     pub fn vertical_offset(&self) -> usize {
         self.vscroll.offset()
     }
@@ -510,13 +743,19 @@ impl ClipperState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for ClipperState {
+impl<W> HandleEvent<crossterm::event::Event, Regular, Outcome> for ClipperState<W>
+where
+    W: Eq + Clone + Hash,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
         self.handle(event, MouseOnly)
     }
 }
 
-impl HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ClipperState {
+impl<W> HandleEvent<crossterm::event::Event, MouseOnly, Outcome> for ClipperState<W>
+where
+    W: Eq + Clone + Hash,
+{
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> Outcome {
         let mut sas = ScrollAreaState::new()
             .area(self.widget_area)
