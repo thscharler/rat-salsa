@@ -9,7 +9,7 @@ use crate::layout::{layout_dialog, layout_grid, DialogItem};
 use crate::list::edit::{EditList, EditListState};
 use crate::list::selection::RowSelection;
 use crate::list::{List, ListState, ListStyle};
-use crate::util::reset_buf_area;
+use crate::util::{block_padding2, reset_buf_area};
 #[cfg(feature = "user_directories")]
 use directories_next::UserDirs;
 use rat_event::{
@@ -398,7 +398,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
 
         let layout = layout_dialog(
             area,
-            Some(block),
+            block_padding2(block),
             [
                 Constraint::Percentage(20),
                 Constraint::Percentage(30),
@@ -413,17 +413,17 @@ impl<'a> StatefulWidget for FileDialog<'a> {
 
         match state.mode {
             Mode::Open => {
-                render_open(&self, layout[DialogItem::Content], buf, state);
+                render_open(&self, layout.widget_for(DialogItem::Content), buf, state);
             }
             Mode::Save => {
-                render_save(&self, layout[DialogItem::Content], buf, state);
+                render_save(&self, layout.widget_for(DialogItem::Content), buf, state);
             }
             Mode::Dir => {
-                render_open_dir(&self, layout[DialogItem::Content], buf, state);
+                render_open_dir(&self, layout.widget_for(DialogItem::Content), buf, state);
             }
         }
 
-        let mut l_n = layout[DialogItem::Button(1)];
+        let mut l_n = layout.widget_for(DialogItem::Button(1));
         l_n.width = 10;
         Button::new(Text::from("New").alignment(Alignment::Center))
             .styles_opt(self.button_style.clone())
@@ -432,7 +432,7 @@ impl<'a> StatefulWidget for FileDialog<'a> {
         let l_oc = Layout::horizontal([Constraint::Length(10), Constraint::Length(10)])
             .spacing(1)
             .flex(Flex::End)
-            .split(layout[DialogItem::Button(2)]);
+            .split(layout.widget_for(DialogItem::Button(2)));
 
         Button::new(Text::from(self.cancel_text).alignment(Alignment::Center))
             .styles_opt(self.button_style.clone())
@@ -463,7 +463,7 @@ fn render_open_dir(
     );
 
     //
-    let mut l_path = l_grid[1][0];
+    let mut l_path = l_grid.widget_for((1, 0));
     l_path.width = l_path.width.saturating_sub(1);
     TextInput::new()
         .styles_opt(widget.text_style.clone())
@@ -476,7 +476,7 @@ fn render_open_dir(
         }))
         .scroll(Scroll::new())
         .styles_opt(widget.roots_style.clone())
-        .render(l_grid[0][1], buf, &mut state.root_state);
+        .render(l_grid.widget_for((0, 1)), buf, &mut state.root_state);
 
     EditList::new(
         List::default()
@@ -490,7 +490,7 @@ fn render_open_dir(
             edit_dir: TextInput::new().styles_opt(widget.text_style.clone()),
         },
     )
-    .render(l_grid[1][1], buf, &mut state.dir_state);
+    .render(l_grid.widget_for((1, 1)), buf, &mut state.dir_state);
 }
 
 fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
@@ -508,7 +508,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
     );
 
     //
-    let mut l_path = l_grid[1][0].union(l_grid[2][0]);
+    let mut l_path = l_grid.widget_for((1, 0)).union(l_grid.widget_for((2, 0)));
     l_path.width = l_path.width.saturating_sub(1);
     TextInput::new()
         .styles_opt(widget.text_style.clone())
@@ -521,7 +521,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         }))
         .scroll(Scroll::new())
         .styles_opt(widget.roots_style.clone())
-        .render(l_grid[0][1], buf, &mut state.root_state);
+        .render(l_grid.widget_for((0, 1)), buf, &mut state.root_state);
 
     EditList::new(
         List::default()
@@ -535,7 +535,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             edit_dir: TextInput::new().styles_opt(widget.text_style.clone()),
         },
     )
-    .render(l_grid[1][1], buf, &mut state.dir_state);
+    .render(l_grid.widget_for((1, 1)), buf, &mut state.dir_state);
 
     List::default()
         .items(state.files.iter().map(|v| {
@@ -544,7 +544,7 @@ fn render_open(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         }))
         .scroll(Scroll::new())
         .styles_opt(widget.list_style.clone())
-        .render(l_grid[2][1], buf, &mut state.file_state);
+        .render(l_grid.widget_for((2, 1)), buf, &mut state.file_state);
 }
 
 fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mut FileDialogState) {
@@ -566,7 +566,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
     );
 
     //
-    let mut l_path = l_grid[1][0].union(l_grid[2][0]);
+    let mut l_path = l_grid.widget_for((1, 0)).union(l_grid.widget_for((2, 0)));
     l_path.width = l_path.width.saturating_sub(1);
     TextInput::new()
         .styles_opt(widget.text_style.clone())
@@ -579,7 +579,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         }))
         .scroll(Scroll::new())
         .styles_opt(widget.roots_style.clone())
-        .render(l_grid[0][1], buf, &mut state.root_state);
+        .render(l_grid.widget_for((0, 1)), buf, &mut state.root_state);
 
     EditList::new(
         List::default()
@@ -593,7 +593,7 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
             edit_dir: TextInput::new().styles_opt(widget.text_style.clone()),
         },
     )
-    .render(l_grid[1][1], buf, &mut state.dir_state);
+    .render(l_grid.widget_for((1, 1)), buf, &mut state.dir_state);
 
     List::default()
         .items(state.files.iter().map(|v| {
@@ -602,11 +602,11 @@ fn render_save(widget: &FileDialog<'_>, area: Rect, buf: &mut Buffer, state: &mu
         }))
         .scroll(Scroll::new())
         .styles_opt(widget.list_style.clone())
-        .render(l_grid[2][1], buf, &mut state.file_state);
+        .render(l_grid.widget_for((2, 1)), buf, &mut state.file_state);
 
     TextInput::new()
         .styles_opt(widget.text_style.clone())
-        .render(l_grid[2][2], buf, &mut state.save_name_state);
+        .render(l_grid.widget_for((2, 2)), buf, &mut state.save_name_state);
 }
 
 impl FileDialogState {
