@@ -3,6 +3,7 @@ use crate::{Scroll, ScrollState, ScrollbarPolicy};
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Position, Rect};
+use ratatui::style::Style;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, ScrollbarOrientation, StatefulWidget, Widget};
@@ -14,6 +15,7 @@ use std::cmp::max;
 /// scrollbars on top of the border if one exists.
 #[derive(Debug, Default, Clone)]
 pub struct ScrollArea<'a> {
+    style: Style,
     block: Option<&'a Block<'a>>,
     h_scroll: Option<&'a Scroll<'a>>,
     v_scroll: Option<&'a Scroll<'a>>,
@@ -37,6 +39,12 @@ pub struct ScrollAreaState<'a> {
 impl<'a> ScrollArea<'a> {
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the base style.
+    pub fn style(mut self, style: Style) -> Self {
+        self.style = style;
+        self
     }
 
     /// Sets the block.
@@ -142,6 +150,8 @@ fn render_scroll_area(
 
     if let Some(block) = widget.block {
         block.render(area, buf);
+    } else {
+        buf.set_style(area, widget.style);
     }
     if let Some(h) = widget.h_scroll {
         if let Some(hstate) = &mut state.h_scroll {
