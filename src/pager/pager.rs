@@ -5,6 +5,7 @@ use ratatui::layout::{Alignment, Rect};
 use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::{StatefulWidget, Widget};
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::hash::Hash;
 use std::rc::Rc;
@@ -153,7 +154,8 @@ where
         let Some(idx) = self.layout.widget_idx(widget) else {
             return false;
         };
-        self.page_area.intersects(self.layout.widget(idx))
+        let area = self.layout.widget(idx);
+        self.page_area.intersects(area)
     }
 
     /// Get the widget index.
@@ -166,18 +168,42 @@ where
     #[inline(always)]
     pub fn render_label<FN, WW>(&mut self, idx: usize, render_fn: FN) -> bool
     where
-        FN: FnOnce() -> WW,
+        FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
         WW: Widget,
     {
         let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
             return false;
         };
+        let label_str = self.layout.label_str(idx);
+
         let mut buffer = self.buffer.borrow_mut();
-        render_fn().render(label_area, *buffer);
+        render_fn(label_str).render(label_area, *buffer);
+
         true
     }
 
-    /// Render a stateless widget and its label, if any.
+    /// Render the label with the set style and alignment.
+    #[inline(always)]
+    pub fn render_auto_label(&mut self, idx: usize) -> bool {
+        let Some(label_area) = self.locate_area(self.layout.label(idx)) else {
+            return false;
+        };
+        let Some(label_str) = self.layout.label_str(idx) else {
+            return false;
+        };
+
+        let mut buffer = self.buffer.borrow_mut();
+        let style = self.label_style.unwrap_or_default();
+        let align = self.label_alignment.unwrap_or_default();
+        Line::from(label_str.as_ref())
+            .style(style)
+            .alignment(align)
+            .render(label_area, *buffer);
+
+        true
+    }
+
+    /// Render a stateless widget.
     #[inline(always)]
     pub fn render_widget<FN, WW>(&mut self, idx: usize, render_fn: FN) -> bool
     where
@@ -188,14 +214,12 @@ where
             return false;
         };
 
-        self.render_auto_label(idx);
-
         let mut buffer = self.buffer.borrow_mut();
         render_fn().render(widget_area, *buffer);
         true
     }
 
-    /// Render a stateful widget and its label, if any.
+    /// Render a stateful widget.
     #[inline(always)]
     pub fn render<FN, WW, SS>(&mut self, idx: usize, render_fn: FN, state: &mut SS) -> bool
     where
@@ -206,34 +230,18 @@ where
             return false;
         };
 
-        self.render_auto_label(idx);
-
         let mut buffer = self.buffer.borrow_mut();
         render_fn().render(widget_area, *buffer, state);
 
         true
     }
 
-    fn render_auto_label(&mut self, idx: usize) {
-        if let Some(label) = &self.layout.label_str(idx) {
-            if let Some(label_area) = self.locate_area(self.layout.label(idx)) {
-                let style = self.label_style.unwrap_or_default();
-                let align = self.label_alignment.unwrap_or_default();
+    /// Render all blocks for the current page.
+    pub fn render_block(&mut self) {
+        for (idx, block_area) in self.layout.block_area_iter().enumerate() {
+            if let Some(block_area) = self.locate_area(*block_area) {
                 let mut buffer = self.buffer.borrow_mut();
-                Line::from(label.as_ref())
-                    .style(style)
-                    .alignment(align)
-                    .render(label_area, *buffer);
-            }
-        }
-    }
-
-    /// Render all containers for the current page.
-    pub fn render_container(&mut self) {
-        for (idx, container_area) in self.layout.block_area_iter().enumerate() {
-            if let Some(container_area) = self.locate_area(*container_area) {
-                let mut buffer = self.buffer.borrow_mut();
-                (&self.layout.block(idx)).render(container_area, *buffer);
+                (&self.layout.block(idx)).render(block_area, *buffer);
             }
         }
     }

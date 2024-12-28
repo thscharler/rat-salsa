@@ -56,7 +56,7 @@
 //!       ///
 //!       for i in 0..100 {
 //!           pg_buf.render(
-//!               &state.check_states[i].focus.clone(),
+//!               state.check_states[i].focus.clone(),
 //!               || {
 //!                 Checkbox::new().text(format!("{:?}", i).to_string())
 //!               },

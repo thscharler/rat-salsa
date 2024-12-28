@@ -112,7 +112,7 @@ impl<'a> PageNavigation<'a> {
     /// Set all styles.
     pub fn styles(mut self, styles: PagerStyle) -> Self {
         self.style = styles.style;
-        if let Some(nav) = styles.nav {
+        if let Some(nav) = styles.navigation {
             self.nav_style = Some(nav);
         }
         if let Some(title) = styles.title {
