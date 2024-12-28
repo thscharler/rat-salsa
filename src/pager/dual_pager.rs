@@ -161,8 +161,8 @@ where
     W: Eq + Hash + Clone,
 {
     /// Is the given area visible?
-    pub fn is_visible(&self, widget: &W) -> bool {
-        self.pager0.is_visible(widget) || self.pager1.is_visible(widget)
+    pub fn is_visible(&self, widget: W) -> bool {
+        self.pager0.is_visible(widget.clone()) || self.pager1.is_visible(widget)
     }
 
     /// Render all blocks for the current page.
@@ -178,7 +178,7 @@ where
         FN: Fn(&Option<Cow<'static, str>>) -> WW,
         WW: Widget,
     {
-        let Some(idx) = self.pager0.widget_idx(&widget) else {
+        let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
         };
         self.pager0.render_label(idx, &render_fn) || self.pager1.render_label(idx, &render_fn)
@@ -191,7 +191,7 @@ where
         FN: Fn() -> WW,
         WW: Widget,
     {
-        let Some(idx) = self.pager0.widget_idx(&widget) else {
+        let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
         };
         _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
@@ -206,7 +206,7 @@ where
         WW: StatefulWidget<State = SS>,
         SS: RelocatableState,
     {
-        let Some(idx) = self.pager0.widget_idx(&widget) else {
+        let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
         };
         _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
@@ -232,7 +232,7 @@ where
     /// Relocate the widget area to screen coordinates.
     /// Returns None if the widget is not visible.
     /// This clips the area to page_area.
-    pub fn locate_widget(&self, widget: &W) -> Option<Rect> {
+    pub fn locate_widget(&self, widget: W) -> Option<Rect> {
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return None;
         };
@@ -244,7 +244,7 @@ where
     /// Relocate the label area to screen coordinates.
     /// Returns None if the widget is not visible.
     /// This clips the area to page_area.
-    pub fn locate_label(&self, widget: &W) -> Option<Rect> {
+    pub fn locate_label(&self, widget: W) -> Option<Rect> {
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return None;
         };
@@ -314,19 +314,19 @@ where
     }
 
     /// Show the page for this rect.
-    pub fn show(&mut self, widget: &W) {
+    pub fn show(&mut self, widget: W) {
         if let Some(page) = self.layout.page_of(widget) {
             self.nav.set_page(page / 2);
         }
     }
 
     /// Returns the first widget for the given page.
-    pub fn first(&self, page: usize) -> Option<&W> {
+    pub fn first(&self, page: usize) -> Option<W> {
         self.layout.first(page * 2)
     }
 
     /// Calculates the page of the widget.
-    pub fn page_of(&self, widget: &W) -> Option<usize> {
+    pub fn page_of(&self, widget: W) -> Option<usize> {
         if let Some(page) = self.layout.page_of(widget) {
             Some(page / 2)
         } else {

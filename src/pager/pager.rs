@@ -150,8 +150,8 @@ where
     W: Eq + Hash + Clone,
 {
     /// Is the widget visible.
-    pub fn is_visible(&self, widget: &W) -> bool {
-        let Some(idx) = self.layout.widget_idx(widget) else {
+    pub fn is_visible(&self, widget: W) -> bool {
+        let Some(idx) = self.layout.try_index_of(widget) else {
             return false;
         };
         let area = self.layout.widget(idx);
@@ -160,8 +160,8 @@ where
 
     /// Get the widget index.
     #[inline(always)]
-    pub fn widget_idx(&self, widget: &W) -> Option<usize> {
-        self.layout.widget_idx(widget)
+    pub fn widget_idx(&self, widget: W) -> Option<usize> {
+        self.layout.try_index_of(widget)
     }
 
     /// Render a manual label.

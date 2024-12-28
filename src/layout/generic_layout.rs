@@ -28,6 +28,8 @@ pub struct GenericLayout<W>
 where
     W: Eq + Hash + Clone,
 {
+    /// Area of the layout.
+    area: Rect,
     /// Page size.
     page_size: Size,
     /// Pages.
@@ -55,6 +57,7 @@ where
 {
     fn default() -> Self {
         Self {
+            area: Default::default(),
             page_size: Size::new(u16::MAX, u16::MAX),
             page_count: 1,
             widgets: Default::default(),
@@ -79,6 +82,7 @@ where
     /// Initialize with a certain capacity.
     pub fn with_capacity(num_widgets: usize, num_blocks: usize) -> Self {
         Self {
+            area: Default::default(),
             page_size: Size::new(u16::MAX, u16::MAX),
             page_count: Default::default(),
             widgets: HashMap::with_capacity(num_widgets),
@@ -89,6 +93,23 @@ where
             block_areas: Vec::with_capacity(num_blocks),
             blocks: Vec::with_capacity(num_blocks),
         }
+    }
+
+    /// Set the area used for this layout.
+    /// The area may or may not have anything to do with the page-size.
+    pub fn set_area(&mut self, area: Rect) {
+        self.area = area;
+    }
+
+    /// The area used for this layout.
+    /// The area may or may not have anything to do with the page-size.
+    pub fn area(&self) -> Rect {
+        self.area
+    }
+
+    /// Area differs from stored area?
+    pub fn area_changed(&self, area: Rect) -> bool {
+        self.area != area
     }
 
     /// Set the page-size for this layout.
@@ -169,19 +190,19 @@ where
     }
 
     /// First widget on the given page.
-    pub fn first(&self, page: usize) -> Option<&W> {
+    pub fn first(&self, page: usize) -> Option<W> {
         for (idx, area) in self.widget_areas.iter().enumerate() {
             let test = (area.y / self.page_size.height) as usize;
             if page == test {
-                return self.rwidgets.get(&idx);
+                return self.rwidgets.get(&idx).cloned();
             }
         }
         None
     }
 
     /// Calculates the page of the widget.
-    pub fn page_of(&self, widget: &W) -> Option<usize> {
-        let Some(idx) = self.widget_idx(widget) else {
+    pub fn page_of(&self, widget: W) -> Option<usize> {
+        let Some(idx) = self.try_index_of(widget) else {
             return None;
         };
 
@@ -200,8 +221,16 @@ where
     }
 
     /// Returns the index for this widget.
-    pub fn widget_idx(&self, widget: &W) -> Option<usize> {
-        self.widgets.get(widget).copied()
+    pub fn try_index_of(&self, widget: W) -> Option<usize> {
+        self.widgets.get(&widget).copied()
+    }
+
+    /// Returns the index for this widget.
+    ///
+    /// __Panic__
+    /// Panics if there is no widget for the key.
+    pub fn index_of(&self, widget: W) -> usize {
+        self.widgets.get(&widget).copied().expect("widget")
     }
 
     /// Access widget key.
@@ -209,14 +238,24 @@ where
     /// __Panic__
     /// Panics on out of bounds.
     #[inline]
-    pub fn widget_key(&self, idx: usize) -> &W {
-        &self.rwidgets.get(&idx).expect("valid_idx")
+    pub fn widget_key(&self, idx: usize) -> W {
+        self.rwidgets.get(&idx).cloned().expect("valid_idx")
     }
 
     /// Access widget keys
     #[inline]
     pub fn widget_keys(&self) -> impl Iterator<Item = &W> {
         self.widgets.keys()
+    }
+
+    /// Access the label area by key.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
+    /// Panics if the key doesn't exist.
+    #[inline]
+    pub fn label_for(&self, widget: W) -> Rect {
+        self.label_areas[self.index_of(widget)]
     }
 
     /// Access label area.
@@ -237,6 +276,16 @@ where
         self.label_areas[idx] = area;
     }
 
+    /// Access the widget area by key.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
+    /// Panics if the key doesn't exist.
+    #[inline]
+    pub fn widget_for(&self, widget: W) -> Rect {
+        self.widget_areas[self.index_of(widget)]
+    }
+
     /// Access widget area.
     ///
     /// __Panic__
@@ -253,6 +302,16 @@ where
     #[inline]
     pub fn set_widget(&mut self, idx: usize, area: Rect) {
         self.widget_areas[idx] = area;
+    }
+
+    /// Access the label string by key.
+    ///
+    /// __Panic__
+    /// Panics on out of bounds.
+    /// Panics if the key doesn't exist.
+    #[inline]
+    pub fn label_str_for(&self, widget: W) -> &Option<Cow<'static, str>> {
+        &self.labels[self.index_of(widget)]
     }
 
     /// Access label string.
