@@ -161,7 +161,7 @@ fn handle_input(
 
     if f == Outcome::Changed {
         if let Some(ff) = focus.focused() {
-            state.pager.show(&ff);
+            state.pager.show(ff);
         }
     }
 

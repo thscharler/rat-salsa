@@ -82,24 +82,29 @@ fn repaint_stuff(
     );
 
     // state.area = l[1][1];
-    state.left = l[0][0].union(l[2][2]);
-    state.right = l[3][0].union(l[3][2]);
+    state.left = l.widget_for((0, 0)).union(l.widget_for((2, 2)));
+    state.right = l.widget_for((3, 0)).union(l.widget_for((3, 2)));
 
     // two test regions:
     // for placement relative to a rect.
     Blue::new()
         .style(Style::new().on_blue())
         .focus_style(Style::new().on_light_blue())
-        .render(l[1][1], frame.buffer_mut(), &mut state.blue);
+        .render(l.widget_for((1, 1)), frame.buffer_mut(), &mut state.blue);
     Blue::new()
         .style(Style::new().on_yellow())
         .focus_style(Style::new().on_light_yellow())
-        .render(l[0][1], frame.buffer_mut(), &mut state.not_blue);
+        .render(
+            l.widget_for((0, 1)),
+            frame.buffer_mut(),
+            &mut state.not_blue,
+        );
 
     // for placement near the mouse cursor.
-    frame
-        .buffer_mut()
-        .set_style(l[3][0].union(l[3][2]), Style::new().on_dark_gray());
+    frame.buffer_mut().set_style(
+        l.widget_for((3, 0)).union(l.widget_for((3, 2))),
+        Style::new().on_dark_gray(),
+    );
 
     if state.popup.is_active() {
         PopupMenu::new()

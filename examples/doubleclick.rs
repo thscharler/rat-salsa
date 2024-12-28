@@ -86,22 +86,24 @@ fn repaint_buttons(
         if state.flip {
             frame
                 .buffer_mut()
-                .set_style(l[1][2], Style::new().on_white());
+                .set_style(l.widget_for((1, 2)), Style::new().on_white());
         } else {
-            frame.buffer_mut().set_style(l[1][2], Style::new().on_red());
+            frame
+                .buffer_mut()
+                .set_style(l.widget_for((1, 2)), Style::new().on_red());
         }
     } else {
         if state.flip {
             frame
                 .buffer_mut()
-                .set_style(l[1][2], Style::new().on_green());
+                .set_style(l.widget_for((1, 2)), Style::new().on_green());
         } else {
             frame
                 .buffer_mut()
-                .set_style(l[1][2], Style::new().on_blue());
+                .set_style(l.widget_for((1, 2)), Style::new().on_blue());
         }
     }
-    state.area = l[1][2];
+    state.area = l.widget_for((1, 2));
 
     if state.mouse.drag.get() {
         if let Some((c, r)) = state.drag_pos {
@@ -114,21 +116,30 @@ fn repaint_buttons(
                 )
                 .to_string(),
             );
-            drag.render(l[3][2], frame.buffer_mut());
+            drag.render(l.widget_for((3, 2)), frame.buffer_mut());
         }
     }
 
     if data.journal.len() > 0 {
         let numf = NumberFormat::new("##,###,###")?;
 
-        let off = data.journal.len().saturating_sub(l[2][2].height as usize);
+        let off = data
+            .journal
+            .len()
+            .saturating_sub(l.widget_for((2, 2)).height as usize);
         let journal = &data.journal[off..];
 
         let zero = off.saturating_sub(1);
         let mut prev_time = data.journal[zero].0.clone();
 
         for (n, (time, event)) in journal.iter().enumerate() {
-            let row_area = Rect::new(l[2][2].x, l[2][2].y + n as u16, l[2][2].width, 1);
+            let journal_area = l.widget_for((2, 2));
+            let row_area = Rect::new(
+                journal_area.x,
+                journal_area.y + n as u16,
+                journal_area.width,
+                1,
+            );
 
             let dur = time.signed_duration_since(prev_time);
 

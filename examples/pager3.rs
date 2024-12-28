@@ -113,7 +113,6 @@ fn repaint_input(
         form_layout.widget(FocusFlag::new(), FormLabel::Measure(10), FormWidget::None);
 
         // generate the layout ...
-        let mut c0 = 0;
         let mut tag8 = Default::default();
         let mut tag17 = Default::default();
         for i in 0..state.hundred.len() {
@@ -147,11 +146,9 @@ fn repaint_input(
             if i >= 8 {
                 if i % 8 == 0 {
                     tag8 = form_layout.start(Some(Block::bordered()));
-                    c0 += 1;
                 }
                 if (i - 4) % 8 == 0 {
                     form_layout.end(tag8);
-                    c0 -= 1;
                 }
             }
 
@@ -230,8 +227,8 @@ fn render_page(
 
     // render the fields.
     for i in 0..state.hundred.len() {
-        if pager.is_visible(&state.hundred[i].focus) {
-            if let Some(idx) = pager.widget_idx(&state.hundred[i].focus.clone()) {
+        if pager.is_visible(state.hundred[i].focus.clone()) {
+            if let Some(idx) = pager.widget_idx(state.hundred[i].focus.clone()) {
                 pager.render_auto_label(idx);
                 pager.render(
                     idx,
@@ -290,7 +287,7 @@ fn handle_input(
     // set the page from focus.
     if f == Outcome::Changed {
         if let Some(ff) = focus.focused() {
-            if let Some(page) = state.layout.page_of(&ff) {
+            if let Some(page) = state.layout.page_of(ff) {
                 let page = page / 2;
                 if page != state.page_nav.page {
                     state.page_nav.set_page(page);

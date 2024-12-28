@@ -115,7 +115,7 @@ fn repaint_input(
         // render manual label
         pager.render_label(
             state.hundred[i].focus.clone(), //
-            |s| Span::from("<<?>>"),
+            |_| Span::from("<<?>>"),
         );
 
         // map our widget area.
@@ -168,7 +168,7 @@ fn handle_input(
     // set the page from focus.
     if f == Outcome::Changed {
         if let Some(ff) = focus.focused() {
-            if let Some(page) = state.pager.page_of(&ff) {
+            if let Some(page) = state.pager.page_of(ff) {
                 state.pager.set_page(page);
             }
         }
