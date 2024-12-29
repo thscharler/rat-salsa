@@ -1,3 +1,7 @@
+# 0.27.1
+
+* add style for ScrollArea. Renders the style if no Block is present.
+
 # 0.27.0
 
 ** upgrade to ratatui 0.29 **
