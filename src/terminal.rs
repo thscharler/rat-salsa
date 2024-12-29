@@ -6,18 +6,15 @@
 //!
 
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
-use crossterm::event::{
-    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
-};
-use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
-};
+use crossterm::event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
+use crossterm::terminal::{disable_raw_mode, enable_raw_mode, supports_keyboard_enhancement, EnterAlternateScreen, LeaveAlternateScreen};
 use crossterm::ExecutableCommand;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Frame;
 use std::fmt::Debug;
 use std::io;
 use std::io::{stdout, Stdout};
+use rat_widget::event::util::set_have_keyboard_enhancement;
 
 /// Encapsulates Terminal and Backend.
 ///
@@ -88,6 +85,10 @@ where
         ))?;
 
         self.term.clear()?;
+
+        let enhanced = supports_keyboard_enhancement().unwrap_or_default();
+        set_have_keyboard_enhancement(enhanced);
+
         Ok(())
     }
 
