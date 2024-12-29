@@ -105,7 +105,7 @@ fn repaint_input(
                 form.page_break();
             }
         }
-        state.pager.layout = Rc::new(form.layout(layout_size, Padding::new(2, 1, 1, 0)));
+        state.pager.layout = Rc::new(form.paged(layout_size, Padding::new(2, 1, 1, 0)));
     }
 
     // set current layout and prepare rendering.

@@ -687,8 +687,20 @@ where
         }
     }
 
+    /// Calculate a layout without page-breaks using the given layout-width and padding.
+    #[inline(always)]
+    pub fn endless(self, width: u16, border: Padding) -> GenericLayout<W> {
+        self._layout::<true>(Size::new(width, u16::MAX), border)
+    }
+
     /// Calculate the layout for the given page size and padding.
-    pub fn layout(mut self, page: Size, border: Padding) -> GenericLayout<W> {
+    #[inline(always)]
+    pub fn paged(self, page: Size, border: Padding) -> GenericLayout<W> {
+        self._layout::<false>(page, border)
+    }
+
+    /// Calculate the layout for the given page size and padding.
+    fn _layout<const ENDLESS: bool>(mut self, page: Size, border: Padding) -> GenericLayout<W> {
         self.validate_containers();
 
         let width = self.find_max(page.width, border);
@@ -755,9 +767,17 @@ where
                 }
             }
 
-            let break_overflow =
-                page.y + widget.opt_bottom_border >= page.y_page + page.height - page.bottom;
-            let break_manual = self.page_breaks.contains(&idx);
+            let break_overflow = if ENDLESS {
+                false
+            } else {
+                page.y.saturating_add(widget.opt_bottom_border)
+                    >= page.y_page.saturating_add(page.height - page.bottom)
+            };
+            let break_manual = if ENDLESS {
+                false
+            } else {
+                self.page_breaks.contains(&idx)
+            };
 
             // page overflow induces page-break
             if break_overflow {
@@ -812,7 +832,7 @@ where
             }
 
             // remember stretch widget.
-            if widget.widget.is_stretch_y() {
+            if widget.widget.is_stretch_y() && !ENDLESS {
                 stretch_y.push(gen_layout.widget_len());
             }
             // add label + widget
@@ -865,7 +885,9 @@ where
 
     // some stretching
     fn y_stretch(page: &Page, stretch_y: &mut Vec<usize>, gen_layout: &mut GenericLayout<W>) {
-        let bottom_y = page.y_page + page.height.saturating_sub(page.bottom);
+        let bottom_y = page
+            .y_page
+            .saturating_add(page.height.saturating_sub(page.bottom));
 
         let mut remainder = bottom_y.saturating_sub(page.y);
         if remainder == 0 {
@@ -989,7 +1011,7 @@ impl Page {
                 _ => {}
             }
 
-            self.y += label_area.height;
+            self.y = self.y.saturating_add(label_area.height);
 
             let widget_area = match &widget.widget {
                 FormWidget::None => Rect::default(),
@@ -1031,7 +1053,7 @@ impl Page {
                 }
             };
 
-            self.y += widget_area.height;
+            self.y = self.y.saturating_add(widget_area.height);
 
             (label_area, widget_area)
         } else {
@@ -1093,7 +1115,9 @@ impl Page {
                 }
             };
 
-            self.y += max(label_area.height, widget_area.height);
+            self.y = self
+                .y
+                .saturating_add(max(label_area.height, widget_area.height));
 
             (label_area, widget_area)
         }
@@ -1103,8 +1127,8 @@ impl Page {
     #[inline(always)]
     fn next_page<'a>(&mut self, pos_even: &'a Positions, pos_odd: &'a Positions) -> &'a Positions {
         self.page_no += 1;
-        self.y_page = self.page_no * self.height;
-        self.y = self.y_page + self.top;
+        self.y_page = self.page_no.saturating_mul(self.height);
+        self.y = self.y_page.saturating_add(self.top);
         self.line_spacing = 0;
 
         if self.page_no % 2 == 0 {
@@ -1117,13 +1141,13 @@ impl Page {
     // advance to next widget
     #[inline(always)]
     fn next_widget(&mut self) {
-        self.y += self.line_spacing;
+        self.y = self.y.saturating_add(self.line_spacing);
     }
 
     // close the given container
     #[inline(always)]
     fn end_container(&mut self, cc: &mut BlockDef) {
-        self.y += cc.padding.bottom;
+        self.y = self.y.saturating_add(cc.padding.bottom);
         self.container_left -= cc.padding.left;
         self.container_right += cc.padding.right;
 
@@ -1137,7 +1161,7 @@ impl Page {
         cc.area.width = self.container_right - self.container_left;
         cc.area.y = self.y;
 
-        self.y += cc.padding.top;
+        self.y = self.y.saturating_add(cc.padding.top);
         self.container_left += cc.padding.left;
         self.container_right -= cc.padding.right;
     }

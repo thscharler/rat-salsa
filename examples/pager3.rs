@@ -171,7 +171,7 @@ fn repaint_input(
             }
         }
 
-        state.layout = Rc::new(form_layout.layout(layout_size, Padding::default()));
+        state.layout = Rc::new(form_layout.paged(layout_size, Padding::default()));
         debug!("layout {:?}", et.elapsed()?);
         state
             .page_nav
