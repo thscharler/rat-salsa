@@ -68,7 +68,7 @@ pub struct PopupStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct PopupCoreState {
     /// Area for the widget.
     /// This is the area given to render(), corrected by the
@@ -536,6 +536,21 @@ impl Default for PopupStyle {
             block: None,
             scroll: None,
             placement: None,
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl Clone for PopupCoreState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            area_z: self.area_z,
+            widget_area: self.widget_area,
+            h_scroll: self.h_scroll.clone(),
+            v_scroll: self.v_scroll.clone(),
+            active: ContainerFlag::named(self.active.name()),
+            mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }

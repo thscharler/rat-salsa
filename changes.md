@@ -1,3 +1,7 @@
+# 0.28.2
+
+* clippy fixes
+
 # 0.28.1
 
 * Allow setting the z-value for the popup.
