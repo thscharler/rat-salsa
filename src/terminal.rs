@@ -80,6 +80,12 @@ where
         stdout().execute(EnableBlinking)?;
         stdout().execute(SetCursorStyle::BlinkingBar)?;
         enable_raw_mode()?;
+        #[cfg(not(windows))]
+        stdout().execute(PushKeyboardEnhancementFlags(
+            KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+                | KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES,
+        ))?;
 
         self.term.clear()?;
         Ok(())
@@ -89,6 +95,8 @@ where
     where
         Error: From<io::Error>,
     {
+        #[cfg(not(windows))]
+        stdout().execute(PopKeyboardEnhancementFlags)?;
         disable_raw_mode()?;
         stdout().execute(SetCursorStyle::DefaultUserShape)?;
         stdout().execute(DisableBlinking)?;
