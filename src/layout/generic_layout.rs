@@ -1,4 +1,4 @@
-use ratatui::layout::{Rect, Size};
+use ratatui::layout::{Position, Rect, Size};
 use ratatui::widgets::Block;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -21,7 +21,8 @@ use std::hash::Hash;
 /// areas that map beyond the page-count.
 ///
 /// __See__
-/// [LayoutForm]
+/// [LayoutForm](crate::layout::LayoutForm)
+/// [layout_edit](crate::layout::layout_edit())
 ///
 #[derive(Debug, Clone)]
 pub struct GenericLayout<W>
@@ -165,7 +166,8 @@ where
         self.blocks.push(block);
     }
 
-    /// Shifts all layout areas.
+    /// Places the layout at the given position.
+    /// This shifts all area right by the given offset.
     ///
     /// Most layout functions create a layout that starts at (0,0).
     /// That is ok, as the widgets __using__ such a layout
@@ -174,19 +176,18 @@ where
     ///
     /// If you want to use the layout without such a widget,
     /// this one is nice.
-    ///
-    /// __Caution__
-    /// If you left/up-shift an area it will get truncated at 0.
-    pub fn shift(&mut self, shift: (i16, i16)) {
+    #[inline]
+    pub fn place(mut self, pos: Position) -> Self {
         for v in self.widget_areas.iter_mut() {
-            *v = relocate(*v, shift);
+            *v = place(*v, pos);
         }
         for v in self.label_areas.iter_mut() {
-            *v = relocate(*v, shift);
+            *v = place(*v, pos);
         }
         for v in self.block_areas.iter_mut() {
-            *v = relocate(*v, shift);
+            *v = place(*v, pos);
         }
+        self
     }
 
     /// First widget on the given page.
@@ -383,11 +384,8 @@ where
 }
 
 #[inline]
-fn relocate(area: Rect, shift: (i16, i16)) -> Rect {
-    let x0 = area.left().saturating_add_signed(shift.0);
-    let x1 = area.right().saturating_add_signed(shift.0);
-    let y0 = area.top().saturating_add_signed(shift.1);
-    let y1 = area.bottom().saturating_add_signed(shift.1);
-
-    Rect::new(x0, y0, x1 - x0, y1 - y0)
+fn place(mut area: Rect, pos: Position) -> Rect {
+    area.x += pos.x;
+    area.y += pos.y;
+    area
 }
