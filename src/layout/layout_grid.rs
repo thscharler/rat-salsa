@@ -26,7 +26,7 @@ use ratatui::layout::{Layout, Rect};
 /// );
 ///
 /// // middle column, second block
-/// let a_1_2 = layout.widget(layout.try_index_of(&(1,2)).expect("fine"));
+/// let a_1_2 = layout.widget(layout.try_index_of((1,2)).expect("fine"));
 /// ```
 #[allow(clippy::needless_range_loop)]
 pub fn layout_grid<const X: usize, const Y: usize>(

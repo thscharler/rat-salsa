@@ -6,7 +6,7 @@
 //!
 //! ```rust no_run
 //!     # use std::rc::Rc;
-//!     # use rat_widget::pager::{SinglePager, AreaHandle, SinglePagerState};
+//!     # use rat_widget::pager::{SinglePager, SinglePagerState};
 //!     # use rat_widget::checkbox::{Checkbox, CheckboxState};
 //!     # use ratatui::prelude::*;
 //!     # use rat_focus::FocusFlag;
