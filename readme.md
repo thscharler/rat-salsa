@@ -1,3 +1,5 @@
+![semver](https://img.shields.io/badge/semver-☑-FFD700)
+![stable](https://img.shields.io/badge/stability-stable-8A2BE2)
 [![crates.io](https://img.shields.io/crates/v/rat-reloc.svg)](https://crates.io/crates/rat-reloc)
 [![Documentation](https://docs.rs/rat-reloc/badge.svg)](https://docs.rs/rat-reloc)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -13,9 +15,11 @@ This crate is a part of [rat-salsa][refRatSalsa].
 RelocatableState enables rendering StatefulWidget's to a temporary buffer.
 
 After rendering a stateful widget all areas derived from the
-render area will be wrong. This trait defines a
-[relocate](RelocatableState::relocate) function that corrects
-the areas afterwards.
+render area will be wrong if the temporary buffer is rendered to screen
+at a different location and with some clipping.
+
+This trait defines a [relocate](RelocatableState::relocate) function that
+corrects the areas at some point after rendering the widget.
 
 * Doesn't impact normal rendering of the widget.
   It can just use the area and be done with it.
@@ -24,7 +28,7 @@ the areas afterwards.
 
     ```rust
       use rat_reloc::{RelocatableState, relocate_area};
-      use ratatui::layout::Rect;;
+      use ratatui::layout::Rect;
 
       # struct ButtonState{ area:Rect, inner:Rect}
 

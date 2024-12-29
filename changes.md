@@ -1,3 +1,7 @@
+1.0.0
+
+Seems good enough to stabilize.
+
 0.2.0
 
 ** upgrade to ratatui 0.29 **
