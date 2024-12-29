@@ -1,3 +1,7 @@
+# 0.28.2
+
+* doc fixes
+
 # 0.28.1
 
 * remove unnecessary Debug bounds everywhere.

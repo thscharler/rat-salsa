@@ -1,3 +1,10 @@
+![stable](https://img.shields.io/badge/stability-β--3-850101)
+[![crates.io](https://img.shields.io/crates/v/rat-salsa.svg)](https://crates.io/crates/rat-salsa)
+[![Documentation](https://docs.rs/rat-salsa/badge.svg)](https://docs.rs/rat-salsa)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
+[![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa)
+
 # rat-salsa
 
 An application event-loop with ratatui and crossterm.
