@@ -54,7 +54,7 @@ pub struct TextInput<'a> {
 }
 
 /// State for TextInput.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TextInputState {
     /// The whole area with block.
     /// __read only__ renewed with each render.
@@ -295,6 +295,22 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
                     cell.set_style(style);
                 }
             }
+        }
+    }
+}
+
+impl Clone for TextInputState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            offset: self.offset,
+            dark_offset: self.dark_offset,
+            value: self.value.clone(),
+            invalid: self.invalid,
+            focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }

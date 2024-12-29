@@ -1,3 +1,10 @@
+# 0.29.2
+
+* fix: default pattern for number_input
+* fix: remove select-all on focus-gained. not very useful, but looks ugly.
+  todo: might add a flag for 'overwrite on focus-gained' which
+  does the same without showing a selection.
+
 # 0.29.1
 
 * add doc-changes from #1 by nick42d.

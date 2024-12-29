@@ -1,3 +1,4 @@
+![stable](https://img.shields.io/badge/stability-β--3-850101)
 [![crates.io](https://img.shields.io/crates/v/rat-text.svg)](https://crates.io/crates/rat-text)
 [![Documentation](https://docs.rs/rat-text/badge.svg)](https://docs.rs/rat-text)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
