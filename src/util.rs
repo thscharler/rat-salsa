@@ -4,9 +4,11 @@
 
 use crate::Outcome;
 use crossterm::event::{KeyModifiers, MouseButton, MouseEvent, MouseEventKind};
+use crossterm::terminal::supports_keyboard_enhancement;
 use ratatui::layout::{Position, Rect};
 use std::cell::Cell;
-use std::sync::atomic::{AtomicU32, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, Ordering};
+use std::sync::OnceLock;
 use std::time::SystemTime;
 
 /// Which of the given rects is at the position.
@@ -659,6 +661,31 @@ pub fn set_double_click_timeout(timeout: u32) {
     DOUBLE_CLICK.store(timeout, Ordering::Release);
 }
 
-fn double_click_timeout() -> u32 {
+/// The global double click time-out between consecutive clicks.
+/// In milliseconds.
+pub fn double_click_timeout() -> u32 {
     DOUBLE_CLICK.load(Ordering::Acquire)
+}
+
+static ENHANCED_KEYS: OnceLock<bool> = OnceLock::new();
+
+/// Are enhanced keys available?
+/// Only then Release and Repeat keys are available.
+///
+/// Additionally, they must be enabled with crossterm's
+/// [PushKeyboardEnhancementFlags](crossterm::event::PushKeyboardEnhancementFlags).
+///
+pub fn have_enhanced_keys() -> bool {
+    if ENHANCED_KEYS.get().is_none() {
+        #[cfg(not(windows))]
+        {
+            let enhanced = supports_keyboard_enhancement().unwrap_or_default();
+            _ = ENHANCED_KEYS.set(enhanced);
+        }
+        #[cfg(windows)]
+        {
+            _ = ENHANCED_KEYS.set(true);
+        }
+    }
+    *ENHANCED_KEYS.get().expect("value")
 }
