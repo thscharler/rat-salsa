@@ -1,3 +1,5 @@
+![semver](https://img.shields.io/badge/semver-☑-FFD700)
+![stable](https://img.shields.io/badge/stability-stable-8A2BE2)
 [![crates.io](https://img.shields.io/crates/v/rat-cursor.svg)](https://crates.io/crates/rat-cursor)
 [![Documentation](https://docs.rs/rat-cursor/badge.svg)](https://docs.rs/rat-cursor)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
