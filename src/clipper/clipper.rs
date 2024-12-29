@@ -95,6 +95,9 @@ where
     /// can be used to set a container state.
     pub container: ContainerFlag,
 
+    /// For the buffer to survive render()
+    buffer: Option<Buffer>,
+
     /// Only construct with `..Default::default()`.
     pub non_exhaustive: NonExhaustive,
 }
@@ -304,7 +307,14 @@ where
 
         // resize buffer to fit all visible widgets.
         let buffer_area = ext_area;
-        let buffer = Buffer::empty(buffer_area);
+        // resize buffer to fit the layout.
+        let buffer = if let Some(mut buffer) = state.buffer.take() {
+            buffer.reset();
+            buffer.resize(buffer_area);
+            buffer
+        } else {
+            Buffer::empty(buffer_area)
+        };
 
         ClipperBuffer {
             layout: state.layout.clone(),
@@ -582,6 +592,9 @@ where
             let tgt = &mut buf.content[tgt_0..tgt_0 + len as usize];
             tgt.clone_from_slice(src);
         }
+
+        // keep buffer
+        state.buffer = Some(self.buffer);
     }
 }
 
@@ -597,6 +610,7 @@ where
             hscroll: Default::default(),
             vscroll: Default::default(),
             container: Default::default(),
+            buffer: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -614,6 +628,7 @@ where
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
             container: ContainerFlag::named(self.container.name()),
+            buffer: None,
             non_exhaustive: NonExhaustive,
         }
     }
