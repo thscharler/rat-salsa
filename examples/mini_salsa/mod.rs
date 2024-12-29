@@ -9,9 +9,13 @@ use crossterm::event::{
     KeyEvent, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
     PushKeyboardEnhancementFlags,
 };
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, supports_keyboard_enhancement, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, supports_keyboard_enhancement, EnterAlternateScreen,
+    LeaveAlternateScreen,
+};
 use crossterm::ExecutableCommand;
 use log::error;
+use rat_event::util::set_have_keyboard_enhancement;
 use rat_event::Outcome;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -22,7 +26,6 @@ use std::fs;
 use std::io::{stdout, Stdout};
 use std::time::{Duration, SystemTime};
 use unicode_segmentation::UnicodeSegmentation;
-use rat_event::util::set_have_keyboard_enhancement;
 
 pub struct MiniSalsaState {
     pub name: String,
@@ -72,15 +75,21 @@ pub fn run_ui<Data, State>(
     stdout().execute(EnableBracketedPaste)?;
 
     #[cfg(not(windows))]
-    stdout().execute(PushKeyboardEnhancementFlags(
-        KeyboardEnhancementFlags::REPORT_EVENT_TYPES
-            | KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-            | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
-            | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES,
-    ))?;
+    {
+        stdout().execute(PushKeyboardEnhancementFlags(
+            KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+                | KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES,
+        ))?;
 
-    let enhanced = supports_keyboard_enhancement().unwrap_or_default();
-    set_have_keyboard_enhancement(enhanced);
+        let enhanced = supports_keyboard_enhancement().unwrap_or_default();
+        set_have_keyboard_enhancement(enhanced);
+    }
+    #[cfg(windows)]
+    {
+        set_have_keyboard_enhancement(true);
+    }
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
@@ -125,9 +134,9 @@ pub fn run_ui<Data, State>(
         }
     };
 
-    // #[cfg(not(windows))]
-    // stdout().execute(PopKeyboardEnhancementFlags)?;
-    //
+    #[cfg(not(windows))]
+    stdout().execute(PopKeyboardEnhancementFlags)?;
+
     stdout().execute(DisableBracketedPaste)?;
     stdout().execute(SetCursorStyle::DefaultUserShape)?;
     stdout().execute(DisableBlinking)?;
