@@ -1,3 +1,14 @@
+# 0.27.2
+
+* add dialog_arrow() style for Scrollbars in popups/dialogs.
+* add dialog_scroll_style() for Scrollbars in popups/dialogs.
+* sync choice/radio/checkbox styles with text-input styles.
+* make choice-popups look nicer with a new border
+* add label-style to PagerStyle and ClipperStyle.
+* add style() function that creates a style from a background color.
+* remove divider from PagerStyle
+* rename nav to navigation in PagerStyle
+
 # 0.27.0
 
 ** upgrade to ratatui 0.29 **

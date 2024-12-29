@@ -233,7 +233,7 @@ impl DarkTheme {
         self.s.style(self.s.gray[1])
     }
 
-    /// Container arrows
+    /// Dialog arrows
     pub fn dialog_arrow(&self) -> Style {
         Style::default().fg(self.s.secondary[2]).bg(self.s.gray[1])
     }
@@ -531,7 +531,9 @@ impl DarkTheme {
     /// Clipper style.
     pub fn clipper_style(&self) -> ClipperStyle {
         ClipperStyle {
+            style: self.container(),
             scroll: Some(self.scroll_style()),
+            label_style: Some(self.container_label()),
             ..Default::default()
         }
     }
