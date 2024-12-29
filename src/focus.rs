@@ -523,7 +523,7 @@ mod core {
         /// This is intended to be used when __implementing__
         /// HasFocus::build() for a widget.
         ///
-        /// In all other situations it's better to use [widget].
+        /// In all other situations it's better to use [widget()](FocusBuilder::widget).
         ///
         /// __Panic__
         ///

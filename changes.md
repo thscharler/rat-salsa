@@ -1,3 +1,13 @@
+# 0.30.0
+
+* Add Hash to FocusFlag and ContainerFlag. With this addition those
+  two now can act as unique id to reference a widget from other subsystems.
+
+* perf: add an internal hashset to improve 'contains' checks.
+  This removes the last O(n) when adding a widget. There is still a
+  loop when adding a container, but that one corresponds with the
+  depth of the widget tree, so it should be fine.
+
 # 0.29.0
 
 * break: remove ZRect. This was insufficient at the end, and the perf was not so good too.
