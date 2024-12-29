@@ -49,7 +49,7 @@
 
 mod view_style;
 
-use std::cmp::min;
+use std::cmp::{max, min};
 pub use view_style::*;
 
 use crate::event::ScrollOutcome;
@@ -57,7 +57,7 @@ use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_reloc::RelocatableState;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
 use ratatui::buffer::Buffer;
-use ratatui::layout::Rect;
+use ratatui::layout::{Position, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Widget};
 use ratatui::widgets::Block;
 
@@ -65,6 +65,7 @@ use ratatui::widgets::Block;
 #[derive(Debug, Default, Clone)]
 pub struct View<'a> {
     layout: Rect,
+    view_size: Option<Size>,
 
     block: Option<Block<'a>>,
     hscroll: Option<Scroll<'a>>,
@@ -83,8 +84,7 @@ pub struct ViewBuffer<'a> {
     layout: Rect,
 
     // Scroll offset into the view.
-    buf_offset_x: u16,
-    buf_offset_y: u16,
+    offset: Position,
     buffer: Buffer,
 
     // inner area that will finally be rendered.
@@ -99,8 +99,7 @@ pub struct ViewBuffer<'a> {
 #[derive(Debug)]
 pub struct ViewWidget<'a> {
     // Scroll offset into the view.
-    buf_offset_x: u16,
-    buf_offset_y: u16,
+    offset: Position,
     buffer: Buffer,
 
     block: Option<Block<'a>>,
@@ -142,6 +141,13 @@ impl<'a> View<'a> {
     /// Area for the temp buffer.
     pub fn layout(mut self, area: Rect) -> Self {
         self.layout = area;
+        self
+    }
+
+    /// Area used for the scrollbars. Maybe bigger then the layout area.
+    /// Uses the area if not set.
+    pub fn view_size(mut self, view: Size) -> Self {
+        self.view_size = Some(view);
         self
     }
 
@@ -207,23 +213,33 @@ impl<'a> View<'a> {
             .v_scroll(self.vscroll.as_ref());
         state.widget_area = sa.inner(area, Some(&state.hscroll), Some(&state.vscroll));
 
+        let max_x = if let Some(view_size) = self.view_size {
+            max(state.layout.right(), view_size.width)
+        } else {
+            state.layout.right()
+        };
+        let max_y = if let Some(view_size) = self.view_size {
+            max(state.layout.bottom(), view_size.height)
+        } else {
+            state.layout.bottom()
+        };
+
         state
             .hscroll
-            .set_max_offset(state.layout.width.saturating_sub(state.widget_area.width) as usize);
+            .set_max_offset(max_x.saturating_sub(state.widget_area.width) as usize);
         state.hscroll.set_page_len(state.widget_area.width as usize);
         state
             .vscroll
-            .set_max_offset(state.layout.height.saturating_sub(state.widget_area.height) as usize);
+            .set_page_len(state.widget_area.height as usize);
         state
             .vscroll
-            .set_page_len(state.widget_area.height as usize);
+            .set_max_offset(max_y.saturating_sub(state.widget_area.height) as usize);
 
         // offset is in layout coordinates.
         // internal buffer starts at (view.x,view.y)
-        let buf_offset_x = state.hscroll.offset as u16 + self.layout.x;
-        let buf_offset_y = state.vscroll.offset as u16 + self.layout.y;
+        let offset = Position::new(state.hscroll.offset as u16, state.vscroll.offset as u16);
 
-        // resize buffer to fit all visible widgets.
+        // resize buffer to fit the layout.
         let buffer_area = state.layout;
         let buffer = if let Some(mut buffer) = state.buffer.take() {
             buffer.reset();
@@ -235,8 +251,7 @@ impl<'a> View<'a> {
 
         ViewBuffer {
             layout: self.layout,
-            buf_offset_x,
-            buf_offset_y,
+            offset,
             buffer,
             widget_area: state.widget_area,
             block: self.block,
@@ -255,7 +270,7 @@ impl<'a> ViewBuffer<'a> {
     {
         if area.intersects(self.buffer.area) {
             // render the actual widget.
-            widget.render(area, self.buffer_mut());
+            widget.render(area, self.buffer());
         }
     }
 
@@ -269,7 +284,7 @@ impl<'a> ViewBuffer<'a> {
     {
         if area.intersects(self.buffer.area) {
             // render the actual widget.
-            widget.render(area, self.buffer_mut(), state);
+            widget.render(area, self.buffer(), state);
             // shift and clip the output areas.
             self.relocate(state);
         } else {
@@ -290,8 +305,8 @@ impl<'a> ViewBuffer<'a> {
     /// Calculate the necessary shift from view to screen.
     pub fn shift(&self) -> (i16, i16) {
         (
-            self.widget_area.x as i16 - self.buf_offset_x as i16,
-            self.widget_area.y as i16 - self.buf_offset_y as i16,
+            self.widget_area.x as i16 - self.offset.x as i16,
+            self.widget_area.y as i16 - self.offset.y as i16,
         )
     }
 
@@ -329,7 +344,7 @@ impl<'a> ViewBuffer<'a> {
     ///
     /// __Note__
     /// Use of render_widget is preferred.
-    pub fn buffer_mut(&mut self) -> &mut Buffer {
+    pub fn buffer(&mut self) -> &mut Buffer {
         &mut self.buffer
     }
 
@@ -338,11 +353,10 @@ impl<'a> ViewBuffer<'a> {
     /// Convert to the output widget that can be rendered in the target area.
     pub fn into_widget(self) -> ViewWidget<'a> {
         ViewWidget {
-            buf_offset_x: self.buf_offset_x,
-            buf_offset_y: self.buf_offset_y,
             block: self.block,
             hscroll: self.hscroll,
             vscroll: self.vscroll,
+            offset: self.offset,
             buffer: self.buffer,
         }
     }
@@ -366,17 +380,49 @@ impl StatefulWidget for ViewWidget<'_> {
                     .v_scroll(&mut state.vscroll),
             );
 
-        let inner_area = state.widget_area;
+        let src_area = self.buffer.area;
+        let tgt_area = state.widget_area;
+        let offset = self.offset;
 
-        let copy_width = min(inner_area.width, self.buffer.area.width) as usize;
+        // extra offset due to buffer starts right of offset.
+        let off_x0 = src_area.x.saturating_sub(offset.x);
+        let off_y0 = src_area.y.saturating_sub(offset.y);
+        // cut source buffer due to start left of offset.
+        let cut_x0 = offset.x.saturating_sub(src_area.x);
+        let cut_y0 = offset.y.saturating_sub(src_area.y);
 
-        for y in 0..inner_area.height {
-            let buf0 = self
+        // length to copy
+        let len_src = src_area.width.saturating_sub(cut_x0);
+        let len_tgt = tgt_area.width.saturating_sub(off_x0);
+        let len = min(len_src, len_tgt);
+
+        // area height to copy
+        let height_src = src_area.height.saturating_sub(cut_y0);
+        let height_tgt = tgt_area.height.saturating_sub(off_y0);
+        let height = min(height_src, height_tgt);
+
+        // ** slow version **
+        // for y in 0..height {
+        //     for x in 0..len {
+        //         let src_pos = Position::new(src_area.x + cut_x0 + x, src_area.y + cut_y0 + y);
+        //         let src_cell = self.buffer.cell(src_pos).expect("src-cell");
+        //
+        //         let tgt_pos = Position::new(tgt_area.x + off_x0 + x, tgt_area.y + off_y0 + y);
+        //         let tgt_cell = buf.cell_mut(tgt_pos).expect("tgt_cell");
+        //
+        //         *tgt_cell = src_cell.clone();
+        //     }
+        // }
+
+        for y in 0..height {
+            let src_0 = self
                 .buffer
-                .index_of(self.buf_offset_x, self.buf_offset_y + y);
-            let tgt0 = buf.index_of(inner_area.x, inner_area.y + y);
-            buf.content[tgt0..tgt0 + copy_width]
-                .clone_from_slice(&self.buffer.content[buf0..buf0 + copy_width]);
+                .index_of(src_area.x + cut_x0, src_area.y + cut_y0 + y);
+            let tgt_0 = buf.index_of(tgt_area.x + off_x0, tgt_area.y + off_y0 + y);
+
+            let src = &self.buffer.content[src_0..src_0 + len as usize];
+            let tgt = &mut buf.content[tgt_0..tgt_0 + len as usize];
+            tgt.clone_from_slice(src);
         }
 
         // keep buffer

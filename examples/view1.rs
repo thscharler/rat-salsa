@@ -7,7 +7,7 @@ use rat_focus::{Focus, FocusBuilder};
 use rat_scrolled::Scroll;
 use rat_widget::paragraph::{Paragraph, ParagraphState};
 use rat_widget::view::{View, ViewState};
-use ratatui::layout::{Constraint, Layout, Rect};
+use ratatui::layout::{Constraint, Layout, Rect, Size};
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Wrap};
 use ratatui::Frame;
 
@@ -60,7 +60,8 @@ fn repaint_text(
 
     // Define the view and create the Render struct.
     let mut view_buf = View::new()
-        .layout(Rect::new(0, 0, 400, 400))
+        .layout(Rect::new(10, 10, 44, 47))
+        .view_size(Size::new(100, 100))
         .vscroll(Scroll::new().style(THEME.block()))
         .hscroll(Scroll::new().style(THEME.block()))
         .block(Block::bordered().border_type(BorderType::Rounded))
@@ -73,7 +74,7 @@ fn repaint_text(
             .style(THEME.limegreen(0))
             .block(Block::bordered().style(THEME.block()))
             .scroll(Scroll::new().style(THEME.block())),
-        Rect::new(0, 0, 40, 15),
+        Rect::new(10, 10, 40, 18),
         &mut state.first,
     );
     view_buf.render_stateful(
@@ -82,7 +83,7 @@ fn repaint_text(
             .style(THEME.bluegreen(0))
             .block(Block::bordered().style(THEME.block()))
             .scroll(Scroll::new().style(THEME.block())),
-        Rect::new(4, 17, 40, 15),
+        Rect::new(14, 29, 40, 18),
         &mut state.second,
     );
 
