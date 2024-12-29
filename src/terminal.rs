@@ -6,15 +6,21 @@
 //!
 
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
-use crossterm::event::{DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
-use crossterm::terminal::{disable_raw_mode, enable_raw_mode, supports_keyboard_enhancement, EnterAlternateScreen, LeaveAlternateScreen};
+use crossterm::event::{
+    DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
+use crossterm::terminal::{
+    disable_raw_mode, enable_raw_mode, supports_keyboard_enhancement, EnterAlternateScreen,
+    LeaveAlternateScreen,
+};
 use crossterm::ExecutableCommand;
+use rat_widget::event::util::set_have_keyboard_enhancement;
 use ratatui::backend::CrosstermBackend;
 use ratatui::Frame;
 use std::fmt::Debug;
 use std::io;
 use std::io::{stdout, Stdout};
-use rat_widget::event::util::set_have_keyboard_enhancement;
 
 /// Encapsulates Terminal and Backend.
 ///
@@ -78,11 +84,21 @@ where
         stdout().execute(SetCursorStyle::BlinkingBar)?;
         enable_raw_mode()?;
         #[cfg(not(windows))]
-        stdout().execute(PushKeyboardEnhancementFlags(
-            KeyboardEnhancementFlags::REPORT_EVENT_TYPES
-                | KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
-                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES,
-        ))?;
+        {
+            stdout().execute(PushKeyboardEnhancementFlags(
+                KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+                    | KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                    | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                    | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES,
+            ))?;
+
+            let enhanced = supports_keyboard_enhancement().unwrap_or_default();
+            set_have_keyboard_enhancement(enhanced);
+        }
+        #[cfg(windows)]
+        {
+            set_have_keyboard_enhancement(true);
+        }
 
         self.term.clear()?;
 
