@@ -1854,7 +1854,6 @@ mod mask {
     ///
     /// Default-values for editing and display.
     #[derive(Clone, PartialEq, Eq)]
-    #[non_exhaustive]
     pub(super) struct MaskToken {
         pub sec_id: u16,
         // section/number

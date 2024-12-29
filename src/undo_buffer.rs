@@ -2,6 +2,7 @@
 
 use crate::range_map::expand_range_by;
 use crate::TextPosition;
+use crate::_private::NonExhaustive;
 use dyn_clone::DynClone;
 use std::fmt::Debug;
 use std::mem;
@@ -98,11 +99,11 @@ pub struct TextPositionChange {
 }
 
 /// Storage for undo.
-#[non_exhaustive]
 #[derive(Debug, Clone)]
 pub struct UndoEntry {
     pub sequence: u32,
     pub operation: UndoOp,
+    pub non_exhaustive: NonExhaustive,
 }
 
 /// Storage for undo.
@@ -546,6 +547,7 @@ impl UndoVec {
         if let Some(UndoEntry {
             sequence,
             operation: last,
+            ..
         }) = self.buf.pop()
         {
             let (last, undo) = Self::merge_undo(last, undo);
@@ -554,6 +556,7 @@ impl UndoVec {
                 self.buf.push(UndoEntry {
                     sequence,
                     operation: last,
+                    non_exhaustive: NonExhaustive,
                 });
             }
             undo
@@ -656,6 +659,7 @@ impl UndoBuffer for UndoVec {
             self.replay.push(UndoEntry {
                 sequence: self.sequence,
                 operation: track_undo,
+                non_exhaustive: NonExhaustive,
             });
         }
 
@@ -672,6 +676,7 @@ impl UndoBuffer for UndoVec {
             self.buf.push(UndoEntry {
                 sequence: self.sequence,
                 operation: add_undo,
+                non_exhaustive: NonExhaustive,
             });
 
             self.idx = self.buf.len();
@@ -682,6 +687,7 @@ impl UndoBuffer for UndoVec {
         let UndoEntry {
             sequence,
             operation: undo,
+            ..
         } = undo;
 
         // try merge
@@ -713,6 +719,7 @@ impl UndoBuffer for UndoVec {
             self.buf.push(UndoEntry {
                 sequence,
                 operation: add_undo,
+                non_exhaustive: NonExhaustive,
             });
 
             self.idx = self.buf.len();
