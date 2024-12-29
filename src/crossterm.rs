@@ -48,6 +48,12 @@ pub mod modifiers {
 /// }
 /// ```
 ///
+/// __Caveat__
+/// press covers both KeyEventKind::Press and KeyEventKind::Repeat
+/// which is probably what you expect. This macro doesn't cover
+/// the case where those two need to be distinguished.
+///
+///
 /// Syntax:
 /// ```bnf
 /// "key" ("press"|"release") (modifier "-")? "'" char "'"
@@ -82,14 +88,14 @@ macro_rules! ct_event {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Press,
+            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Release,
             ..
         })
     };
     (key press ANY-$keychar:pat) => {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::Char($keychar),
-            kind: crossterm::event::KeyEventKind::Press,
+            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Release,
             ..
         })
     };
@@ -97,7 +103,7 @@ macro_rules! ct_event {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::Char($keychar),
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Press,
+            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Release,
             ..
         })
     };
@@ -129,7 +135,7 @@ macro_rules! ct_event {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::F($code),
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Press,
+            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Release,
             ..
         })
     };
@@ -137,7 +143,7 @@ macro_rules! ct_event {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::F($code),
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Press,
+            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Release,
             ..
         })
     };
@@ -145,7 +151,7 @@ macro_rules! ct_event {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::$code,
             modifiers: $crate::crossterm::modifiers::NONE,
-            kind: crossterm::event::KeyEventKind::Press,
+            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Release,
             ..
         })
     };
@@ -153,7 +159,7 @@ macro_rules! ct_event {
         crossterm::event::Event::Key(crossterm::event::KeyEvent {
             code: crossterm::event::KeyCode::$code,
             modifiers: $crate::crossterm::modifiers::$mod,
-            kind: crossterm::event::KeyEventKind::Press,
+            kind: crossterm::event::KeyEventKind::Press|crossterm::event::KeyEventKind::Release,
             ..
         })
     };
