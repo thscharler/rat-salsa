@@ -4,6 +4,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::util::{block_size, revert_style};
+use rat_event::util::have_enhanced_keys;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
@@ -346,24 +347,34 @@ impl From<ButtonOutcome> for Outcome {
 impl HandleEvent<crossterm::event::Event, Regular, ButtonOutcome> for ButtonState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> ButtonOutcome {
         let r = if self.is_focused() {
-            match event {
-                ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
-                    self.armed = true;
-                    ButtonOutcome::Changed
-                }
-                ct_event!(keycode release Enter) | ct_event!(key release ' ') => {
-                    if self.armed {
-                        if let Some(delay) = self.armed_delay {
-                            thread::sleep(delay);
-                        }
-                        self.armed = false;
-                        ButtonOutcome::Pressed
-                    } else {
-                        // single key release happen more often than not.
-                        ButtonOutcome::Unchanged
+            // Release keys may not be available.
+            if have_enhanced_keys() {
+                match event {
+                    ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
+                        self.armed = true;
+                        ButtonOutcome::Changed
                     }
+                    ct_event!(keycode release Enter) | ct_event!(key release ' ') => {
+                        if self.armed {
+                            if let Some(delay) = self.armed_delay {
+                                thread::sleep(delay);
+                            }
+                            self.armed = false;
+                            ButtonOutcome::Pressed
+                        } else {
+                            // single key release happen more often than not.
+                            ButtonOutcome::Unchanged
+                        }
+                    }
+                    _ => ButtonOutcome::Continue,
                 }
-                _ => ButtonOutcome::Continue,
+            } else {
+                match event {
+                    ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
+                        ButtonOutcome::Pressed
+                    }
+                    _ => ButtonOutcome::Continue,
+                }
             }
         } else {
             ButtonOutcome::Continue

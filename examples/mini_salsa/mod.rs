@@ -6,7 +6,8 @@ use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyCode,
-    KeyEvent, KeyEventKind, KeyModifiers,
+    KeyEvent, KeyEventKind, KeyModifiers, KeyboardEnhancementFlags, PopKeyboardEnhancementFlags,
+    PushKeyboardEnhancementFlags,
 };
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
@@ -64,12 +65,18 @@ pub fn run_ui<Data, State>(
     data: &mut Data,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
+    enable_raw_mode()?;
     stdout().execute(EnterAlternateScreen)?;
     stdout().execute(EnableMouseCapture)?;
     stdout().execute(EnableBlinking)?;
     stdout().execute(SetCursorStyle::BlinkingBar)?;
     stdout().execute(EnableBracketedPaste)?;
-    enable_raw_mode()?;
+    #[cfg(not(windows))]
+    stdout().execute(PushKeyboardEnhancementFlags(
+        KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+            | KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+            | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES,
+    ))?;
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
@@ -114,12 +121,14 @@ pub fn run_ui<Data, State>(
         }
     };
 
-    disable_raw_mode()?;
+    #[cfg(not(windows))]
+    stdout().execute(PopKeyboardEnhancementFlags)?;
     stdout().execute(DisableBracketedPaste)?;
     stdout().execute(SetCursorStyle::DefaultUserShape)?;
     stdout().execute(DisableBlinking)?;
     stdout().execute(DisableMouseCapture)?;
     stdout().execute(LeaveAlternateScreen)?;
+    disable_raw_mode()?;
 
     r
 }
