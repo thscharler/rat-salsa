@@ -33,7 +33,7 @@ pub struct MenuLine<'a> {
 }
 
 /// State & event handling.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MenuLineState {
     /// Area for the whole widget.
     /// __readonly__. renewed for each render.
@@ -499,6 +499,21 @@ impl MenuLineState {
     #[inline]
     pub fn item_at(&self, pos: (u16, u16)) -> Option<usize> {
         self.mouse.item_at(&self.item_areas, pos.0, pos.1)
+    }
+}
+
+impl Clone for MenuLineState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            item_areas: self.item_areas.clone(),
+            navchar: self.navchar.clone(),
+            disabled: self.disabled.clone(),
+            selected: self.selected,
+            focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

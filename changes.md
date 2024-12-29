@@ -1,3 +1,7 @@
+# 0.31.1
+
+* clippy fixes
+
 # 0.31.0
 
 * remove uses of ZRect.
