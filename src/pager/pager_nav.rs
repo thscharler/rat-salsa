@@ -12,7 +12,7 @@ use ratatui::text::Span;
 use ratatui::widgets::{Block, Borders, StatefulWidget, Widget};
 use std::cmp::min;
 
-/// Render the navigation for one or more [Pager] widgets.
+/// Render the navigation for one or more [Pager](crate::pager::Pager) widgets.
 #[derive(Debug, Clone)]
 pub struct PageNavigation<'a> {
     pages: u8,

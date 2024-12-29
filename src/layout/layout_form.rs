@@ -144,10 +144,11 @@ pub enum FormWidget {
 /// the exact layout: [FormLabel] and [FormWidget].
 ///
 /// * This layout can page break the form, if there is not enough
-///   space on one page. This can be used with [SinglePager] and friends.
+///   space on one page. This can be used with [SinglePager](crate::pager::SinglePager)
+///   and friends.
 ///
 /// * Or it can generate an endless layout that will be used
-///   with scrolling logic like [Clipper].
+///   with scrolling logic like [Clipper](crate::clipper::Clipper).
 ///
 /// * There is currently no functionality to shrink-fit the layout
 ///   to a given page size.

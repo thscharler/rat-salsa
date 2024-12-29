@@ -486,7 +486,7 @@ where
     /// the buffer area, it may still have left over areas
     /// in its state.
     ///
-    /// This uses the mechanism for [relocate] to zero them out.
+    /// This uses the mechanism for [relocate](Self::relocate) to zero them out.
     pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,

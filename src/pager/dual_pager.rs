@@ -224,7 +224,7 @@ where
     /// This does nothing as pager always places the widgets
     /// in screen coordinates.
     ///
-    /// Just to keep the api in sync with [Clipper].
+    /// Just to keep the api in sync with [Clipper](crate::clipper::Clipper).
     pub fn shift(&self) -> (i16, i16) {
         (0, 0)
     }
@@ -266,7 +266,7 @@ where
     }
 
     /// Does nothing for pager.
-    /// Just to keep the api in sync with [Clipper].
+    /// Just to keep the api in sync with [Clipper](crate::clipper::Clipper).
     pub fn relocate<S>(&self, _state: &mut S)
     where
         S: RelocatableState,

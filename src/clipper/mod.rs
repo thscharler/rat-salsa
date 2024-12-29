@@ -80,7 +80,7 @@
 //! __StatefulWidget__
 //!
 //! For this to work with StatefulWidgets they must cooperate
-//! by implementing the [RelocatableState](crate::relocate::RelocatableState)
+//! by implementing the [RelocatableState](crate::reloc::RelocatableState)
 //! trait. With this trait the widget can clip/hide all areas that
 //! it stores in its state.
 //!

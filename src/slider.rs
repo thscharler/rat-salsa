@@ -40,8 +40,7 @@ use unicode_width::UnicodeWidthStr;
 
 /// Slider widget for a type T.
 ///
-/// T has to implement [RangeOp](crate::range_op::RangeOp)
-/// and [MapRange](map_range_int::MapRange) to and from u16.
+/// T has to implement [RangeOp] and [MapRange] to and from u16.
 ///
 #[derive(Debug, Clone)]
 pub struct Slider<'a, T>

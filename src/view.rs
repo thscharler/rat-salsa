@@ -296,7 +296,7 @@ impl<'a> ViewBuffer<'a> {
     }
 
     /// Does nothing for view.
-    /// Only exists to match [Clipper].
+    /// Only exists to match [Clipper](crate::clipper::Clipper).
     pub fn locate_area(&self, area: Rect) -> Rect {
         area
     }
@@ -317,7 +317,7 @@ impl<'a> ViewBuffer<'a> {
     /// the buffer area, it may still have left over areas
     /// in its state.
     ///
-    /// This uses the mechanism for [relocate] to zero them out.
+    /// This uses the mechanism for [relocate](Self::relocate) to zero them out.
     pub fn hidden<S>(&self, state: &mut S)
     where
         S: RelocatableState,
