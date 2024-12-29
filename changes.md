@@ -1,3 +1,7 @@
+# 0.29.0
+
+* clippy fixes
+
 # 0.28.0
 
 ** upgrade to ratatui 0.29 **

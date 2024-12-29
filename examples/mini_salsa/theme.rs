@@ -168,11 +168,11 @@ impl Scheme {
     }
 
     pub fn table_header(&self) -> Style {
-        Style::default().fg(self.white[1]).bg(self.blue[2])
+        Style::default().fg(self.white[1]).bg(self.deepblue[2])
     }
 
     pub fn table_footer(&self) -> Style {
-        Style::default().fg(self.white[1]).bg(self.blue[2])
+        Style::default().fg(self.white[1]).bg(self.deepblue[2])
     }
 
     /// Focused text field style.

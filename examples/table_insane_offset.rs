@@ -237,7 +237,7 @@ fn repaint_table(
         )
         .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)
-        .style(THEME.table())
+        .styles(THEME.table_style())
         .select_row_style(Some(THEME.gray(3)))
         .render(l0[1], frame.buffer_mut(), &mut state.table);
 

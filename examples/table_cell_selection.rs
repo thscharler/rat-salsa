@@ -5,6 +5,7 @@
 use crate::mini_salsa::theme::THEME;
 use crate::mini_salsa::{run_ui, setup_logging, MiniSalsaState};
 use format_num_pattern::NumberFormat;
+use log::debug;
 use rat_ftable::event::Outcome;
 use rat_ftable::selection::{cellselection, CellSelection};
 use rat_ftable::textdata::{Cell, Row};
@@ -120,7 +121,7 @@ fn repaint_table(
         }
     }
 
-    Table::default()
+    let table = Table::default()
         .data(DataSlice(&data.table_data))
         .widths([
             Constraint::Length(6),
@@ -149,13 +150,15 @@ fn repaint_table(
         )
         .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::End)
-        .style(THEME.table())
-        .select_row_style(Some(THEME.gray(3)))
-        .select_column_style(Some(THEME.black(1)))
-        .select_cell_style(Some(THEME.white(0)))
-        .select_header_style(Some(THEME.blue(0)))
-        .select_footer_style(Some(THEME.blue(0)))
-        .render(l0[0], frame.buffer_mut(), &mut state.table);
+        .styles(THEME.table_style())
+        .select_row_style(Some(THEME.primary(1)))
+        .select_column_style(Some(THEME.black(2)))
+        .select_cell_style(Some(THEME.primary(3)))
+        .select_header_style(Some(THEME.table_header()))
+        .select_footer_style(Some(THEME.table_footer()))
+        .focus_style(Some(THEME.focus()));
+    table.render(l0[0], frame.buffer_mut(), &mut state.table);
+
     Ok(())
 }
 

@@ -262,7 +262,7 @@ pub struct TableStyle {
 }
 
 /// Table state.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct TableState<Selection> {
     /// Current focus state.
     pub focus: FocusFlag,
@@ -312,32 +312,32 @@ impl<Selection> Default for Table<'_, Selection> {
     fn default() -> Self {
         Self {
             data: Default::default(),
-            no_row_count: false,
-            header: None,
-            footer: None,
-            widths: vec![],
+            no_row_count: Default::default(),
+            header: Default::default(),
+            footer: Default::default(),
+            widths: Default::default(),
             flex: Default::default(),
-            column_spacing: 0,
-            layout_width: None,
-            auto_layout_width: false,
-            block: None,
-            hscroll: None,
-            vscroll: None,
-            header_style: None,
-            footer_style: None,
+            column_spacing: Default::default(),
+            layout_width: Default::default(),
+            auto_layout_width: Default::default(),
+            block: Default::default(),
+            hscroll: Default::default(),
+            vscroll: Default::default(),
+            header_style: Default::default(),
+            footer_style: Default::default(),
             style: Default::default(),
-            select_row_style: None,
-            show_row_focus: true, // non standard
-            select_column_style: None,
-            show_column_focus: false,
-            select_cell_style: None,
-            show_cell_focus: false,
-            select_header_style: None,
-            show_header_focus: false,
-            select_footer_style: None,
-            show_footer_focus: false,
-            focus_style: None,
-            debug: false,
+            select_row_style: Default::default(),
+            show_row_focus: true,
+            select_column_style: Default::default(),
+            show_column_focus: Default::default(),
+            select_cell_style: Default::default(),
+            show_cell_focus: Default::default(),
+            select_header_style: Default::default(),
+            show_header_focus: Default::default(),
+            select_footer_style: Default::default(),
+            show_footer_focus: Default::default(),
+            focus_style: Default::default(),
+            debug: Default::default(),
             _phantom: Default::default(),
         }
     }
@@ -1549,6 +1549,30 @@ impl Default for TableStyle {
             focus_style: None,
             block: None,
             scroll: None,
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl<Selection: Clone> Clone for TableState<Selection> {
+    fn clone(&self) -> Self {
+        Self {
+            focus: FocusFlag::named(self.focus.name()),
+            area: self.area,
+            inner: self.inner,
+            header_area: self.header_area,
+            table_area: self.table_area,
+            row_areas: self.row_areas.clone(),
+            column_areas: self.column_areas.clone(),
+            column_layout: self.column_layout.clone(),
+            footer_area: self.footer_area,
+            rows: self.rows,
+            _counted_rows: self._counted_rows,
+            columns: self.columns,
+            vscroll: self.vscroll.clone(),
+            hscroll: self.hscroll.clone(),
+            selection: self.selection.clone(),
+            mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }

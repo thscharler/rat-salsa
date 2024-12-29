@@ -157,7 +157,7 @@ fn repaint_table(
         .hscroll(Scroll::new().style(THEME.block()))
         .vscroll(Scroll::new().style(THEME.block()))
         .flex(Flex::SpaceBetween)
-        .style(THEME.table())
+        .styles(THEME.table_style())
         .select_row_style(Some(THEME.gray(3)))
         .render(l0[0], frame.buffer_mut(), &mut state.table);
 

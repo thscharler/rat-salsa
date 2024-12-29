@@ -1,3 +1,5 @@
+![semver](https://img.shields.io/badge/semver-☑-FFD700)
+![stable](https://img.shields.io/badge/stability-stable-8A2BE2)
 [![crates.io](https://img.shields.io/crates/v/rat-ftable.svg)](https://crates.io/crates/rat-ftable)
 [![Documentation](https://docs.rs/rat-ftable/badge.svg)](https://docs.rs/rat-ftable)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -28,7 +30,7 @@ works better if you only have an Iterator over your data.
 > for the necessary information. This might slow down everything
 > a bit.
 
-![image](https://github.com/thscharler/rat-ftable/blob/master/ftable.gif?raw=true)
+![image](https://github.com/thscharler/rat-ftable/blob/master/ftable.mp4?raw=true)
 
 More bullet points:
 
