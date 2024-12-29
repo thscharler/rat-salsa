@@ -17,7 +17,7 @@ use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::style::Style;
 use ratatui::symbols::border::EMPTY;
 use ratatui::text::Line;
-use ratatui::widgets::{Block, Borders, Padding, StatefulWidget};
+use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
 use std::cell::RefCell;
@@ -133,11 +133,9 @@ fn repaint_input(
 
             if i == 17 {
                 tag17 = form_layout.start(Some(
-                    Block::bordered().border_set(EMPTY).style(
-                        Style::new()
-                            .bg(THEME.purple[0])
-                            .fg(THEME.text_color(THEME.purple[0])),
-                    ),
+                    Block::bordered()
+                        .border_type(BorderType::Double)
+                        .style(THEME.bluegreen(0)),
                 ));
             }
             if i == 20 {
