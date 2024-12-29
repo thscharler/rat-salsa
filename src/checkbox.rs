@@ -77,7 +77,7 @@ pub struct CheckboxStyle {
 }
 
 /// State.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct CheckboxState {
     /// Complete area
     /// __read only__. renewed for each render.
@@ -319,6 +319,23 @@ fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut C
     };
     cc.render(state.check_area, buf);
     (&widget.text).render(state.text_area, buf);
+}
+
+impl Clone for CheckboxState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            check_area: self.check_area,
+            text_area: self.text_area,
+            default_settable: self.default_settable,
+            checked: self.checked,
+            default: self.default,
+            focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl Default for CheckboxState {

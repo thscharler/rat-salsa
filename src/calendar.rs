@@ -73,7 +73,7 @@ pub struct MonthStyle {
 }
 
 /// State & event-handling.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct MonthState {
     /// Total area.
     /// __readonly__. renewed for each render.
@@ -510,6 +510,25 @@ impl RelocatableState for MonthState {
         self.inner = relocate_area(self.inner, shift, clip);
         relocate_areas(&mut self.area_days, shift, clip);
         relocate_areas(&mut self.area_weeks, shift, clip);
+    }
+}
+
+impl Clone for MonthState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            area_days: self.area_days.clone(),
+            area_weeks: self.area_weeks.clone(),
+            start_date: self.start_date,
+            day_selection: self.day_selection,
+            week_selection: self.week_selection,
+            selected_week: self.selected_week,
+            selected_day: self.selected_day,
+            focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

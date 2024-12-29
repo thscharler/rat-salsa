@@ -50,7 +50,7 @@ pub struct ParagraphStyle {
 }
 
 /// State & event handling.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ParagraphState {
     /// Full area of the widget.
     /// __readonly__. renewed for each render.
@@ -332,6 +332,20 @@ impl RelocatableState for ParagraphState {
         self.inner = relocate_area(self.inner, offset, clip);
         self.hscroll.relocate(offset, clip);
         self.vscroll.relocate(offset, clip);
+    }
+}
+
+impl Clone for ParagraphState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            lines: self.lines,
+            vscroll: self.vscroll.clone(),
+            hscroll: self.hscroll.clone(),
+            focus: FocusFlag::named(self.focus.name()),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

@@ -93,7 +93,7 @@ where
 
     /// This widget has no focus of its own, but this flag
     /// can be used to set a container state.
-    pub c_focus: ContainerFlag,
+    pub container: ContainerFlag,
 
     /// Only construct with `..Default::default()`.
     pub non_exhaustive: NonExhaustive,
@@ -596,7 +596,7 @@ where
             layout: Default::default(),
             hscroll: Default::default(),
             vscroll: Default::default(),
-            c_focus: Default::default(),
+            container: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -613,7 +613,7 @@ where
             layout: self.layout.clone(),
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
-            c_focus: ContainerFlag::new(),
+            container: ContainerFlag::named(self.container.name()),
             non_exhaustive: NonExhaustive,
         }
     }

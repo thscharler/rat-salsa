@@ -49,7 +49,7 @@ pub struct ButtonStyle {
 }
 
 /// State & event-handling.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ButtonState {
     /// Complete area
     /// __readonly__. renewed for each render.
@@ -251,6 +251,19 @@ fn render_ref(widget: &Button<'_>, area: Rect, buf: &mut Buffer, state: &mut But
     let r = state.inner.height.saturating_sub(h) / 2;
     let area = Rect::new(state.inner.x, state.inner.y + r, state.inner.width, h);
     (&widget.text).render(area, buf);
+}
+
+impl Clone for ButtonState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            armed: self.armed,
+            armed_delay: self.armed_delay,
+            focus: FocusFlag::named(self.focus.name()),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 impl Default for ButtonState {

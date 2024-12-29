@@ -71,7 +71,7 @@ pub struct ListStyle {
 }
 
 /// State & event handling.
-#[derive(Debug, Default, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 pub struct ListState<Selection> {
     /// Total area
     /// __readonly__. renewed for each render.
@@ -353,6 +353,36 @@ impl<Selection> HasFocus for ListState<Selection> {
     #[inline]
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl<Selection: Default> Default for ListState<Selection> {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            inner: Default::default(),
+            row_areas: Default::default(),
+            rows: Default::default(),
+            scroll: Default::default(),
+            focus: Default::default(),
+            selection: Default::default(),
+            mouse: Default::default(),
+        }
+    }
+}
+
+impl<Selection: Clone> Clone for ListState<Selection> {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            row_areas: self.row_areas.clone(),
+            rows: self.rows,
+            scroll: self.scroll.clone(),
+            focus: FocusFlag::named(self.focus.name()),
+            selection: self.selection.clone(),
+            mouse: Default::default(),
+        }
     }
 }
 

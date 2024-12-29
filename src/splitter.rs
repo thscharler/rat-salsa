@@ -146,8 +146,7 @@ pub enum SplitResize {
 const SPLIT_WIDTH: u16 = 1;
 
 /// State & event handling.
-#[derive(Debug, Default)]
-#[non_exhaustive]
+#[derive(Debug)]
 pub struct SplitState {
     /// Total area.
     /// __readonly__. renewed for each render.
@@ -197,6 +196,8 @@ pub struct SplitState {
     /// Mouseflags.
     /// __read+write__
     pub mouse: MouseFlagsN,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
 impl SplitType {
@@ -924,6 +925,50 @@ fn render_split(split: &Split<'_>, buf: &mut Buffer, state: &mut SplitState) {
             if let Some(cell) = buf.cell_mut((pos_1.x, pos_1.y)) {
                 cell.set_symbol(c_1);
             }
+        }
+    }
+}
+
+impl Default for SplitState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            inner: Default::default(),
+            widget_areas: Default::default(),
+            splitline_areas: Default::default(),
+            splitline_mark_position: Default::default(),
+            mark_offset: Default::default(),
+            direction: Default::default(),
+            split_type: Default::default(),
+            resize: Default::default(),
+            area_length: Default::default(),
+            hidden_length: Default::default(),
+            focus: Default::default(),
+            focus_marker: Default::default(),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
+}
+
+impl Clone for SplitState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            widget_areas: self.widget_areas.clone(),
+            splitline_areas: self.splitline_areas.clone(),
+            splitline_mark_position: self.splitline_mark_position.clone(),
+            mark_offset: self.mark_offset,
+            direction: self.direction,
+            split_type: self.split_type,
+            resize: self.resize,
+            area_length: self.area_length.clone(),
+            hidden_length: self.hidden_length.clone(),
+            focus: FocusFlag::named(self.focus.name()),
+            focus_marker: self.focus_marker,
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }

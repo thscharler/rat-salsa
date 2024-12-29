@@ -107,7 +107,6 @@ pub struct SliderStyle {
 }
 
 /// State.
-#[derive(Clone)]
 pub struct SliderState<T>
 where
     T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
@@ -788,6 +787,32 @@ macro_rules! slider_new_f {
             }
         }
     };
+}
+
+impl<T> Clone for SliderState<T>
+where
+    T: RangeOp<Step: Copy + Debug> + MapRange<u16> + Debug + Default + Copy + PartialEq,
+    u16: MapRange<T>,
+{
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            lower_bound: self.lower_bound,
+            upper_bound: self.upper_bound,
+            track: self.track,
+            knob: self.knob,
+            scale_len: self.scale_len,
+            direction: self.direction,
+            range: self.range,
+            step: self.step,
+            long_step: self.long_step,
+            value: self.value,
+            focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
+    }
 }
 
 slider_new!(u8);

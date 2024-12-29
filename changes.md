@@ -1,3 +1,42 @@
+# 0.32.0
+
+* break: Replace StructuredLayout with GenericLayout
+    * removes the array-based access of StructuredLayout with Label+Widget areas.
+    * adds support to render arbitrary Blocks as part of the layout.
+      this allows to add support for groups of widgets during
+      layout calculation.
+
+* feature: add new LayoutForm.
+    * page-breaking layouts.
+    * Flex support
+    * widgets can fill the available width.
+    * widgets can use remainder space after a page-break.
+    * align labels with the widgets.
+    * keep and auto-render labels.
+    * allow groups of widgets with a surrounding block.
+    * blocks can stack.
+    * manual page-breaks.
+    * line-spacing.
+    * margins via Padding().
+    * margins can switch between odd/even pages.
+
+    * creates a GenericLayout
+
+* break: add Pager and PageNavigation widgets and reimplement
+  SinglePager and DualPager using those.
+* break: SinglePager and DualPager use GenericLayout now, breaking all of their api.
+* break: Clipper uses GenericLayout now, breaking all of their api.
+* break: remove separate ClipperLayout and PagerLayout. Layout now only
+  needs a single stage and creates a GenericLayout directly.
+* break: layout_edit() reimplemented. Creates a GenericLayout now.
+* break: layout_dialog() reimplemented. Creates a GenericLayout now.
+* break: layout_grid() reimplemented. Creates a GenericLayout now.
+
+* break: add a value type T to Choice and Radio. This makes
+  them so much easier to use, as the underlying values never
+  align with the displayed text. Requires only PartialEq from T.
+* fix: show focus for Choice
+
 # 0.31.0
 
 * remove uses of ZRect. Choice now adds two areas for its parts.

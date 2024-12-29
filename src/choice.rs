@@ -139,7 +139,7 @@ pub struct ChoiceStyle {
 }
 
 /// State.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct ChoiceState<T = usize>
 where
     T: PartialEq,
@@ -605,6 +605,28 @@ fn render_popup<T: PartialEq>(
         }
     } else {
         state.popup.clear_areas();
+    }
+}
+
+impl<T> Clone for ChoiceState<T>
+where
+    T: Clone + PartialEq,
+{
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            nav_char: self.nav_char.clone(),
+            keys: self.keys.clone(),
+            item_area: self.item_area,
+            button_area: self.button_area,
+            item_areas: self.item_areas.clone(),
+            default_key: self.default_key.clone(),
+            selected: self.selected,
+            popup: self.popup.clone(),
+            focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
+        }
     }
 }
 

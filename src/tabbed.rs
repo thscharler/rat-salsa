@@ -98,7 +98,7 @@ pub struct TabbedStyle {
 }
 
 /// State & event-handling.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug)]
 pub struct TabbedState {
     /// Total area.
     /// __readonly__. renewed for each render.
@@ -332,6 +332,38 @@ fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut Tab
         TabType::Attached => {
             AttachedTabs.layout(area, tabbed, state);
             AttachedTabs.render(buf, tabbed, state);
+        }
+    }
+}
+
+impl Default for TabbedState {
+    fn default() -> Self {
+        Self {
+            area: Default::default(),
+            block_area: Default::default(),
+            widget_area: Default::default(),
+            tab_title_area: Default::default(),
+            tab_title_areas: Default::default(),
+            tab_title_close_areas: Default::default(),
+            selected: Default::default(),
+            focus: Default::default(),
+            mouse: Default::default(),
+        }
+    }
+}
+
+impl Clone for TabbedState {
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            block_area: self.block_area,
+            widget_area: self.widget_area,
+            tab_title_area: self.tab_title_area,
+            tab_title_areas: self.tab_title_areas.clone(),
+            tab_title_close_areas: self.tab_title_close_areas.clone(),
+            selected: self.selected,
+            focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
         }
     }
 }

@@ -75,7 +75,7 @@ pub struct RadioStyle {
 }
 
 /// State
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct RadioState<T = usize>
 where
     T: PartialEq,
@@ -727,6 +727,28 @@ where
         if !state.continue_area.is_empty() {
             fill_buf_area(buf, state.continue_area, " ", self.style);
             self.continue_str.render(state.continue_area, buf);
+        }
+    }
+}
+
+impl<T> Clone for RadioState<T>
+where
+    T: Clone + PartialEq,
+{
+    fn clone(&self) -> Self {
+        Self {
+            area: self.area,
+            inner: self.inner,
+            marker_area: self.marker_area,
+            continue_area: self.continue_area,
+            check_areas: self.check_areas.clone(),
+            text_areas: self.text_areas.clone(),
+            keys: self.keys.clone(),
+            default_key: self.default_key.clone(),
+            selected: self.selected,
+            focus: FocusFlag::named(self.focus.name()),
+            mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
