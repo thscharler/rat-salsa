@@ -4,7 +4,7 @@
 
 use crate::_private::NonExhaustive;
 use crate::util::{block_size, revert_style};
-use rat_event::util::have_enhanced_keys;
+use rat_event::util::have_keyboard_enhancement;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
@@ -348,7 +348,7 @@ impl HandleEvent<crossterm::event::Event, Regular, ButtonOutcome> for ButtonStat
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> ButtonOutcome {
         let r = if self.is_focused() {
             // Release keys may not be available.
-            if have_enhanced_keys() {
+            if have_keyboard_enhancement() {
                 match event {
                     ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
                         self.armed = true;
