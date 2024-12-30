@@ -9,7 +9,7 @@ use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::{Block, Widget};
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -156,13 +156,17 @@ where
     }
 }
 
-impl<W> DualPagerBuffer<'_, W>
+impl<'a, W> DualPagerBuffer<'a, W>
 where
     W: Eq + Hash + Clone,
 {
     /// Is the given area visible?
     pub fn is_visible(&self, widget: W) -> bool {
-        self.pager0.is_visible(widget.clone()) || self.pager1.is_visible(widget)
+        if let Some(idx) = self.pager0.widget_idx(widget) {
+            self.pager0.is_visible(idx) || self.pager1.is_visible(idx)
+        } else {
+            false
+        }
     }
 
     /// Render all blocks for the current page.
@@ -175,34 +179,42 @@ where
     #[inline(always)]
     pub fn render_label<FN, WW>(&mut self, widget: W, render_fn: FN) -> bool
     where
-        FN: Fn(&Option<Cow<'static, str>>) -> WW,
+        FN: FnOnce(&Option<Cow<'static, str>>) -> WW,
         WW: Widget,
     {
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
         };
-        self.pager0.render_label(idx, &render_fn) || self.pager1.render_label(idx, &render_fn)
+        if self.pager0.is_label_visible(idx) {
+            self.pager0.render_label(idx, render_fn)
+        } else {
+            self.pager1.render_label(idx, render_fn)
+        }
     }
 
     /// Render a stateless widget and its label, if any.
     #[inline(always)]
     pub fn render_widget<FN, WW>(&mut self, widget: W, render_fn: FN) -> bool
     where
-        FN: Fn() -> WW,
+        FN: FnOnce() -> WW,
         WW: Widget,
     {
         let Some(idx) = self.pager0.widget_idx(widget) else {
             return false;
         };
         _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
-        self.pager0.render_widget(idx, &render_fn) || self.pager1.render_widget(idx, &render_fn)
+        if self.pager0.is_visible(idx) {
+            self.pager0.render_widget(idx, render_fn)
+        } else {
+            self.pager1.render_widget(idx, render_fn)
+        }
     }
 
-    /// Render a stateful widget and its label, if any.
+    /// Render an optional stateful widget and its label, if any.
     #[inline(always)]
-    pub fn render<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
+    pub fn render_opt<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
     where
-        FN: Fn() -> WW,
+        FN: FnOnce() -> Option<WW>,
         WW: StatefulWidget<State = SS>,
         SS: RelocatableState,
     {
@@ -210,13 +222,82 @@ where
             return false;
         };
         _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
-        if !(self.pager0.render(idx, &render_fn, state)
-            || self.pager1.render(idx, &render_fn, state))
-        {
-            self.hidden(state);
-            false
+
+        if self.pager0.is_visible(idx) {
+            if self.pager0.render_opt(idx, render_fn, state) {
+                true
+            } else {
+                self.hidden(state);
+                false
+            }
         } else {
-            true
+            if self.pager1.render_opt(idx, render_fn, state) {
+                true
+            } else {
+                self.hidden(state);
+                false
+            }
+        }
+    }
+
+    /// Render a stateful widget and its label, if any.
+    #[inline(always)]
+    pub fn render<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
+    where
+        FN: FnOnce() -> WW,
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.pager0.widget_idx(widget) else {
+            return false;
+        };
+        _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+        if self.pager0.is_visible(idx) {
+            if self.pager0.render(idx, render_fn, state) {
+                true
+            } else {
+                self.hidden(state);
+                false
+            }
+        } else {
+            if self.pager1.render(idx, render_fn, state) {
+                true
+            } else {
+                self.hidden(state);
+                false
+            }
+        }
+    }
+
+    /// Render a stateful widget and its label, if any.
+    /// The closure can return a second value, which will be forwarded
+    /// if the widget is visible.
+    #[inline(always)]
+    pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
+    where
+        FN: FnOnce() -> (WW, R),
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.pager0.widget_idx(widget) else {
+            return None;
+        };
+        _ = self.pager0.render_auto_label(idx) || self.pager1.render_auto_label(idx);
+
+        if self.pager0.is_visible(idx) {
+            if let Some(remainder) = self.pager0.render2(idx, render_fn, state) {
+                Some(remainder)
+            } else {
+                self.hidden(state);
+                None
+            }
+        } else {
+            if let Some(remainder) = self.pager1.render2(idx, render_fn, state) {
+                Some(remainder)
+            } else {
+                self.hidden(state);
+                None
+            }
         }
     }
 
@@ -280,6 +361,11 @@ where
         S: RelocatableState,
     {
         state.relocate((0, 0), Rect::default())
+    }
+
+    /// Get access to the buffer during rendering a page.
+    pub fn buffer<'b>(&'b mut self) -> RefMut<'b, &'a mut Buffer> {
+        self.pager0.buffer()
     }
 }
 

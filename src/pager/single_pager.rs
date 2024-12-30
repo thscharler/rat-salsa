@@ -158,7 +158,11 @@ where
 {
     /// Is the given area visible?
     pub fn is_visible(&self, widget: W) -> bool {
-        self.pager.is_visible(widget)
+        if let Some(idx) = self.pager.widget_idx(widget) {
+            self.pager.is_visible(idx)
+        } else {
+            false
+        }
     }
 
     /// Render all blocks for the current page.

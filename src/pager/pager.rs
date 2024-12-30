@@ -151,10 +151,15 @@ where
     W: Eq + Hash + Clone,
 {
     /// Is the widget visible.
-    pub fn is_visible(&self, widget: W) -> bool {
-        let Some(idx) = self.layout.try_index_of(widget) else {
-            return false;
-        };
+    #[inline]
+    pub fn is_visible(&self, idx: usize) -> bool {
+        let area = self.layout.widget(idx);
+        self.page_area.intersects(area)
+    }
+
+    /// Is the label visible.
+    #[inline]
+    pub fn is_label_visible(&self, idx: usize) -> bool {
         let area = self.layout.widget(idx);
         self.page_area.intersects(area)
     }
@@ -329,6 +334,7 @@ where
     }
 
     /// Get access to the buffer during rendering a page.
+    #[inline]
     pub fn buffer<'b>(&'b mut self) -> RefMut<'b, &'a mut Buffer> {
         self.buffer.borrow_mut()
     }
