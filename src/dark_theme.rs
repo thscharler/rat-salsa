@@ -69,6 +69,20 @@ impl DarkTheme {
         self.s.style(bg)
     }
 
+    /// Create a style from a background color.
+    /// The background color is first run through
+    /// [Scheme::true_dark_color] to ensure a really dark
+    /// color.
+    pub fn true_dark_style(&self, bg: Color) -> Style {
+        self.s.style(self.s.true_dark_color(bg))
+    }
+
+    /// Create a style from a gray-scaled version of
+    /// the given colorl.
+    pub fn grey_style(&self, bg: Color) -> Style {
+        self.s.style(self.s.grey_color(bg))
+    }
+
     /// Create a style from the given white shade.
     /// n is `0..=3`
     pub fn white(&self, n: usize) -> Style {
