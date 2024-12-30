@@ -237,6 +237,44 @@ where
         true
     }
 
+    /// Render a stateful widget.
+    #[inline(always)]
+    pub fn render_opt<FN, WW, SS>(&mut self, idx: usize, render_fn: FN, state: &mut SS) -> bool
+    where
+        FN: FnOnce() -> Option<WW>,
+        WW: StatefulWidget<State = SS>,
+    {
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
+            return false;
+        };
+
+        let mut buffer = self.buffer.borrow_mut();
+        let widget = render_fn();
+        if let Some(widget) = widget {
+            widget.render(widget_area, *buffer, state);
+        }
+
+        true
+    }
+
+    /// Render a stateful widget.
+    #[inline(always)]
+    pub fn render2<FN, WW, SS, R>(&mut self, idx: usize, render_fn: FN, state: &mut SS) -> Option<R>
+    where
+        FN: FnOnce() -> (WW, R),
+        WW: StatefulWidget<State = SS>,
+    {
+        let Some(widget_area) = self.locate_area(self.layout.widget(idx)) else {
+            return None;
+        };
+
+        let mut buffer = self.buffer.borrow_mut();
+        let (widget, remainder) = render_fn();
+        widget.render(widget_area, *buffer, state);
+
+        Some(remainder)
+    }
+
     /// Render all blocks for the current page.
     pub fn render_block(&mut self) {
         for (idx, block_area) in self.layout.block_area_iter().enumerate() {
