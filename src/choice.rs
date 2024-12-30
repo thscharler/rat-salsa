@@ -385,6 +385,31 @@ where
         self
     }
 
+    /// Adds an extra offset to the widget area.
+    ///
+    /// This can be used to
+    /// * place the widget under the mouse cursor.
+    /// * align the widget not by the outer bounds but by
+    ///   the text content.
+    pub fn popup_offset(mut self, offset: (i16, i16)) -> Self {
+        self.popup = self.popup.offset(offset);
+        self
+    }
+
+    /// Sets only the x offset.
+    /// See [offset](Self::offset)
+    pub fn popup_x_offset(mut self, offset: i16) -> Self {
+        self.popup = self.popup.x_offset(offset);
+        self
+    }
+
+    /// Sets only the y offset.
+    /// See [offset](Self::offset)
+    pub fn popup_y_offset(mut self, offset: i16) -> Self {
+        self.popup = self.popup.y_offset(offset);
+        self
+    }
+
     /// Inherent width.
     pub fn width(&self) -> u16 {
         let w = self
@@ -494,7 +519,12 @@ fn render_choice<T: PartialEq>(
         inner.width.saturating_sub(3),
         inner.height,
     );
-    state.button_area = Rect::new(inner.right().saturating_sub(3), inner.y, 3, inner.height);
+    state.button_area = Rect::new(
+        inner.right().saturating_sub(min(3, inner.width)),
+        inner.y,
+        3,
+        inner.height,
+    );
 
     let focus_style = widget.focus_style.unwrap_or(revert_style(widget.style));
 
