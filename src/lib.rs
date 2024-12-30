@@ -14,3 +14,14 @@ pub trait HasScreenCursor {
     /// - other reasons
     fn screen_cursor(&self) -> Option<(u16, u16)>;
 }
+
+/// Evaluate the screen-cursor for a list of widgets.
+#[inline(always)]
+pub fn screen_cursor<const N: usize>(list: [&dyn HasScreenCursor; N]) -> Option<(u16, u16)> {
+    for v in list {
+        if let Some(v) = v.screen_cursor() {
+            return Some(v);
+        }
+    }
+    None
+}
