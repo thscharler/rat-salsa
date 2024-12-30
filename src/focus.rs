@@ -518,6 +518,17 @@ mod core {
             self
         }
 
+        /// Add a bunch of widget.
+        ///
+        /// The widget is added to all open containers.
+        #[inline]
+        pub fn widgets<const N: usize>(&mut self, widgets: [&dyn HasFocus; N]) -> &mut Self {
+            for widget in widgets {
+                widget.build(self);
+            }
+            self
+        }
+
         /// Manually add a widget.
         ///
         /// This is intended to be used when __implementing__
