@@ -125,7 +125,8 @@ where
         self.page_nav.layout_size(area)
     }
 
-    /// Run the layout and create the second stage.
+    /// Render the page navigation and create the SinglePagerBuffer
+    /// that will do the actual widget rendering.
     pub fn into_buffer(
         self,
         area: Rect,
@@ -187,6 +188,26 @@ where
         self.pager.render_widget(idx, render_fn)
     }
 
+    /// Render an optional stateful widget and its label, if any.
+    #[inline(always)]
+    pub fn render_opt<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
+    where
+        FN: FnOnce() -> Option<WW>,
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.pager.widget_idx(widget) else {
+            return false;
+        };
+        self.pager.render_auto_label(idx);
+        if !self.pager.render_opt(idx, render_fn, state) {
+            self.hidden(state);
+            false
+        } else {
+            true
+        }
+    }
+
     /// Render a stateful widget and its label, if any.
     #[inline(always)]
     pub fn render<FN, WW, SS>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> bool
@@ -204,6 +225,28 @@ where
             false
         } else {
             true
+        }
+    }
+
+    /// Render a stateful widget and its label, if any.
+    /// The closure can return a second value, which will be forwarded
+    /// if the widget is visible.
+    #[inline(always)]
+    pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
+    where
+        FN: FnOnce() -> (WW, R),
+        WW: StatefulWidget<State = SS>,
+        SS: RelocatableState,
+    {
+        let Some(idx) = self.pager.widget_idx(widget) else {
+            return None;
+        };
+        self.pager.render_auto_label(idx);
+        if let Some(remainder) = self.pager.render2(idx, render_fn, state) {
+            Some(remainder)
+        } else {
+            self.hidden(state);
+            None
         }
     }
 
