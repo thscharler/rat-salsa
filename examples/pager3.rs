@@ -14,8 +14,6 @@ use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
 use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
-use ratatui::style::Style;
-use ratatui::symbols::border::EMPTY;
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
@@ -153,13 +151,13 @@ fn repaint_input(
             if i == 3 || i == 9 || i == 17 {
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
-                    FormLabel::Str(format!("{}", i).to_string().into()),
+                    FormLabel::String(format!("{}", i).to_string()),
                     FormWidget::StretchXY(h),
                 );
             } else {
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
-                    FormLabel::Str(format!("{}", i).to_string().into()),
+                    FormLabel::String(format!("{}", i).to_string()),
                     FormWidget::Size(w, h),
                 );
             }
