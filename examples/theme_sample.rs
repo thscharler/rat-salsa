@@ -404,7 +404,7 @@ pub mod show_scheme {
                 Direction::Horizontal,
                 [
                     Constraint::Fill(1),
-                    Constraint::Length(66),
+                    Constraint::Length(90),
                     Constraint::Fill(1),
                 ],
             )
@@ -465,18 +465,25 @@ pub mod show_scheme {
             {
                 Line::from(vec![
                     Span::from(format!("{:10}", n)),
-                    Span::from("     DARK     ")
-                        .bg(c[0])
-                        .fg(sc.text_color(c[0])),
-                    Span::from("     MID1     ")
-                        .bg(c[1])
-                        .fg(sc.text_color(c[1])),
-                    Span::from("     MID2     ")
-                        .bg(c[2])
-                        .fg(sc.text_color(c[2])),
-                    Span::from("     LITE     ")
-                        .bg(c[3])
-                        .fg(sc.text_color(c[3])),
+                    Span::from("  DARK  ").bg(c[0]).fg(sc.text_color(c[0])),
+                    Span::from("  MID1  ").bg(c[1]).fg(sc.text_color(c[1])),
+                    Span::from("  MID2  ").bg(c[2]).fg(sc.text_color(c[2])),
+                    Span::from("  LITE  ").bg(c[3]).fg(sc.text_color(c[3])),
+                    Span::from("  GRAY  ")
+                        .bg(sc.grey_color(c[3]))
+                        .fg(sc.text_color(sc.grey_color(c[3]))),
+                    Span::from("  DARK  ")
+                        .bg(sc.true_dark_color(c[0]))
+                        .fg(sc.text_color(sc.true_dark_color(c[0]))),
+                    Span::from("  MID1  ")
+                        .bg(sc.true_dark_color(c[1]))
+                        .fg(sc.text_color(sc.true_dark_color(c[1]))),
+                    Span::from("  MID2  ")
+                        .bg(sc.true_dark_color(c[2]))
+                        .fg(sc.text_color(sc.true_dark_color(c[2]))),
+                    Span::from("  LITE  ")
+                        .bg(sc.true_dark_color(c[3]))
+                        .fg(sc.text_color(sc.true_dark_color(c[3]))),
                 ])
                 .render(l1[i + 1], buf);
             }
