@@ -28,7 +28,13 @@ pub enum FormLabel {
     ///
     /// Will create a label area with the max width of all labels and a height of 1.
     /// The area will be top aligned with the widget.
-    Str(Cow<'static, str>),
+    Str(&'static str),
+    /// Label by example.
+    /// Line breaks in the text don't work.
+    ///
+    /// Will create a label area with the max width of all labels and a height of 1.
+    /// The area will be top aligned with the widget.
+    String(String),
     /// Label by width.
     ///
     /// Will create a label area with the max width of all labels and a height of 1.
@@ -316,11 +322,12 @@ impl BlockDef {
 }
 
 impl FormLabel {
-    fn label_txt(&self) -> Option<Cow<'static, str>> {
+    fn label_txt(self) -> Option<Cow<'static, str>> {
         match self {
             FormLabel::None => None,
             FormLabel::Measure(_) => None,
-            FormLabel::Str(s) => Some(s.clone()),
+            FormLabel::Str(s) => Some(Cow::Borrowed(s)),
+            FormLabel::String(s) => Some(Cow::Owned(s)),
             FormLabel::Width(_) => None,
             FormLabel::Size(_, _) => None,
         }
@@ -350,7 +357,7 @@ where
 {
     fn default() -> Self {
         Self {
-            spacing: Default::default(),
+            spacing: 1,
             line_spacing: Default::default(),
             mirror: Default::default(),
             flex: Default::default(),
@@ -515,6 +522,7 @@ where
             match &widget.label {
                 FormLabel::None => {}
                 FormLabel::Str(s) => label_width = label_width.max(s.len() as u16),
+                FormLabel::String(s) => label_width = label_width.max(s.len() as u16),
                 FormLabel::Width(w) => label_width = label_width.max(*w),
                 FormLabel::Size(w, _) => label_width = label_width.max(*w),
                 FormLabel::Measure(w) => label_width = label_width.max(*w),
@@ -953,7 +961,7 @@ impl Page {
         let mut label_height = match &widget.label {
             FormLabel::None => 0,
             FormLabel::Measure(_) => 0,
-            FormLabel::Str(_) => 1,
+            FormLabel::Str(_) | FormLabel::String(_) => 1,
             FormLabel::Width(_) => 1,
             FormLabel::Size(_, h) => *h,
         };
@@ -996,7 +1004,9 @@ impl Page {
             let mut label_area = match &widget.label {
                 FormLabel::None => Rect::default(),
                 FormLabel::Measure(_) => Rect::default(),
-                FormLabel::Str(_) => Rect::new(pos.label_x, self.y, pos.label_width, label_height),
+                FormLabel::Str(_) | FormLabel::String(_) => {
+                    Rect::new(pos.label_x, self.y, pos.label_width, label_height)
+                }
                 FormLabel::Width(_) => {
                     Rect::new(pos.label_x, self.y, pos.label_width, label_height)
                 }
@@ -1066,7 +1076,9 @@ impl Page {
             let label_area = match &widget.label {
                 FormLabel::None => Rect::default(),
                 FormLabel::Measure(_) => Rect::default(),
-                FormLabel::Str(_) => Rect::new(pos.label_x, self.y, pos.label_width, label_height),
+                FormLabel::Str(_) | FormLabel::String(_) => {
+                    Rect::new(pos.label_x, self.y, pos.label_width, label_height)
+                }
                 FormLabel::Width(_) => {
                     Rect::new(pos.label_x, self.y, pos.label_width, label_height)
                 }
@@ -1148,21 +1160,21 @@ impl Page {
     #[inline(always)]
     fn end_container(&mut self, cc: &mut BlockDef) {
         self.y = self.y.saturating_add(cc.padding.bottom);
-        self.container_left -= cc.padding.left;
-        self.container_right += cc.padding.right;
+        self.container_left = self.container_left.saturating_sub(cc.padding.left);
+        self.container_right = self.container_right.saturating_add(cc.padding.right);
 
-        cc.area.height = self.y - cc.area.y;
+        cc.area.height = self.y.saturating_sub(cc.area.y);
     }
 
     // open the given container
     #[inline(always)]
     fn start_container(&mut self, cc: &mut BlockDef) {
         cc.area.x = self.container_left;
-        cc.area.width = self.container_right - self.container_left;
+        cc.area.width = self.container_right.saturating_sub(self.container_left);
         cc.area.y = self.y;
 
         self.y = self.y.saturating_add(cc.padding.top);
-        self.container_left += cc.padding.left;
-        self.container_right -= cc.padding.right;
+        self.container_left = self.container_left.saturating_add(cc.padding.left);
+        self.container_right = self.container_right.saturating_sub(cc.padding.right);
     }
 }
