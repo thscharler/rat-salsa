@@ -196,21 +196,9 @@ impl DarkTheme {
         self.s.style(self.s.secondary[0])
     }
 
-    pub fn table_base(&self) -> Style {
-        Style::default().fg(self.s.white[1]).bg(self.s.black[0])
-    }
-
-    pub fn table_header(&self) -> Style {
-        Style::default().fg(self.s.white[1]).bg(self.s.blue[2])
-    }
-
-    pub fn table_footer(&self) -> Style {
-        Style::default().fg(self.s.white[1]).bg(self.s.blue[2])
-    }
-
     /// Container base
-    pub fn container(&self) -> Style {
-        Style::default().fg(self.s.gray[0]).bg(self.s.black[1])
+    pub fn container_base(&self) -> Style {
+        self.s.style(self.s.black[1])
     }
 
     /// Label text inside container.
@@ -218,19 +206,49 @@ impl DarkTheme {
         self.s.style(self.s.black[1])
     }
 
+    /// Container border
+    pub fn container_border(&self) -> Style {
+        Style::default().fg(self.s.gray[0]).bg(self.s.black[1])
+    }
+
     /// Container arrows
     pub fn container_arrow(&self) -> Style {
         Style::default().fg(self.s.secondary[0]).bg(self.s.black[1])
     }
 
-    /// Data display style. Used for lists, tables, ...
-    pub fn data_base(&self) -> Style {
-        Style::default().fg(self.s.white[0]).bg(self.s.black[1])
+    /// Background for popups.
+    pub fn popup_base(&self) -> Style {
+        self.s.style(self.s.white[0])
+    }
+
+    /// Label text inside container.
+    pub fn popup_label(&self) -> Style {
+        self.s.style(self.s.white[0])
+    }
+
+    /// Dialog arrows
+    pub fn popup_border(&self) -> Style {
+        Style::default().fg(self.s.gray[0]).bg(self.s.white[0])
+    }
+
+    /// Dialog arrows
+    pub fn popup_arrow(&self) -> Style {
+        Style::default().fg(self.s.secondary[0]).bg(self.s.white[0])
     }
 
     /// Background for dialogs.
     pub fn dialog_base(&self) -> Style {
         self.s.style(self.s.gray[1])
+    }
+
+    /// Label text inside container.
+    pub fn dialog_label(&self) -> Style {
+        self.s.style(self.s.gray[1])
+    }
+
+    /// Dialog arrows
+    pub fn dialog_border(&self) -> Style {
+        Style::default().fg(self.s.white[0]).bg(self.s.gray[1])
     }
 
     /// Dialog arrows
@@ -243,11 +261,6 @@ impl DarkTheme {
         Style::default().fg(self.s.white[0]).bg(self.s.black[2])
     }
 
-    /// Base style for lists.
-    pub fn list_base(&self) -> Style {
-        self.data_base()
-    }
-
     /// Base style for buttons.
     pub fn button_base(&self) -> Style {
         self.s.style(self.s.gray[2])
@@ -256,14 +269,6 @@ impl DarkTheme {
     /// Armed style for buttons.
     pub fn button_armed(&self) -> Style {
         self.s.style(self.s.secondary[0])
-    }
-
-    pub fn block(&self) -> Style {
-        Style::default().fg(self.s.gray[1]).bg(self.s.black[1])
-    }
-
-    pub fn block_title(&self) -> Style {
-        Style::default().fg(self.s.secondary[1])
     }
 
     /// Complete MonthStyle.
@@ -292,7 +297,7 @@ impl DarkTheme {
     /// Style for LineNumbers.
     pub fn line_nr_style(&self) -> LineNumberStyle {
         LineNumberStyle {
-            style: self.data_base().fg(self.s.gray[0]),
+            style: self.container_base().fg(self.s.gray[1]),
             cursor: Some(self.text_select()),
             ..LineNumberStyle::default()
         }
@@ -301,7 +306,7 @@ impl DarkTheme {
     /// Complete TextAreaStyle
     pub fn textarea_style(&self) -> TextStyle {
         TextStyle {
-            style: self.data_base(),
+            style: self.container_base(),
             focus: Some(self.focus()),
             select: Some(self.text_select()),
             scroll: Some(self.scroll_style()),
@@ -310,7 +315,7 @@ impl DarkTheme {
     }
 
     /// Complete TextInputStyle
-    pub fn input_style(&self) -> TextStyle {
+    pub fn text_style(&self) -> TextStyle {
         TextStyle {
             style: self.text_input(),
             focus: Some(self.text_focus()),
@@ -322,7 +327,7 @@ impl DarkTheme {
 
     pub fn paragraph_style(&self) -> ParagraphStyle {
         ParagraphStyle {
-            style: self.data_base(),
+            style: self.container_base(),
             focus: Some(self.focus()),
             scroll: Some(self.scroll_style()),
             ..Default::default()
@@ -335,12 +340,12 @@ impl DarkTheme {
             select: Some(self.text_focus()),
             focus: Some(self.text_focus()),
             popup: PopupStyle {
-                style: self.dialog_base(),
-                scroll: Some(self.dialog_scroll_style()),
+                style: self.popup_base(),
+                scroll: Some(self.popup_scroll_style()),
                 block: Some(
                     Block::bordered()
                         .borders(Borders::LEFT)
-                        .border_style(self.dialog_base()),
+                        .border_style(self.popup_arrow()),
                 ),
                 ..Default::default()
             },
@@ -400,7 +405,7 @@ impl DarkTheme {
     /// Complete TableStyle
     pub fn table_style(&self) -> TableStyle {
         TableStyle {
-            style: self.data_base(),
+            style: self.container_base(),
             select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
@@ -409,10 +414,18 @@ impl DarkTheme {
         }
     }
 
+    pub fn table_header(&self) -> Style {
+        self.style(self.s.blue[2])
+    }
+
+    pub fn table_footer(&self) -> Style {
+        self.style(self.s.blue[2])
+    }
+
     /// Complete ListStyle
     pub fn list_style(&self) -> ListStyle {
         ListStyle {
-            style: self.list_base(),
+            style: self.container_base(),
             select: Some(self.select()),
             focus: Some(self.focus()),
             scroll: Some(self.scroll_style()),
@@ -423,21 +436,33 @@ impl DarkTheme {
     /// Scroll style
     pub fn scroll_style(&self) -> ScrollStyle {
         ScrollStyle {
-            thumb_style: Some(self.container()),
-            track_style: Some(self.container()),
-            min_style: Some(self.container()),
+            thumb_style: Some(self.container_border()),
+            track_style: Some(self.container_border()),
+            min_style: Some(self.container_border()),
             begin_style: Some(self.container_arrow()),
             end_style: Some(self.container_arrow()),
             ..Default::default()
         }
     }
 
-    /// Popup/Dialog scroll style
+    /// Popup scroll style
+    pub fn popup_scroll_style(&self) -> ScrollStyle {
+        ScrollStyle {
+            thumb_style: Some(self.popup_border()),
+            track_style: Some(self.popup_border()),
+            min_style: Some(self.popup_border()),
+            begin_style: Some(self.popup_arrow()),
+            end_style: Some(self.popup_arrow()),
+            ..Default::default()
+        }
+    }
+
+    /// Dialog scroll style
     pub fn dialog_scroll_style(&self) -> ScrollStyle {
         ScrollStyle {
-            thumb_style: Some(self.dialog_base()),
-            track_style: Some(self.dialog_base()),
-            min_style: Some(self.dialog_base()),
+            thumb_style: Some(self.dialog_border()),
+            track_style: Some(self.dialog_border()),
+            min_style: Some(self.dialog_border()),
             begin_style: Some(self.dialog_arrow()),
             end_style: Some(self.dialog_arrow()),
             ..Default::default()
@@ -447,7 +472,7 @@ impl DarkTheme {
     /// Split style
     pub fn split_style(&self) -> SplitStyle {
         SplitStyle {
-            style: self.container(),
+            style: self.container_base(),
             arrow_style: Some(self.container_arrow()),
             drag_style: Some(self.focus()),
             ..Default::default()
@@ -465,7 +490,7 @@ impl DarkTheme {
     /// Tabbed style
     pub fn tabbed_style(&self) -> TabbedStyle {
         TabbedStyle {
-            style: self.container(),
+            style: self.container_base(),
             tab: Some(self.gray(1)),
             select: Some(self.gray(3)),
             focus: Some(self.focus()),
@@ -501,7 +526,7 @@ impl DarkTheme {
                 style: self.dialog_base(),
                 ..self.list_style()
             }),
-            text: Some(self.input_style()),
+            text: Some(self.text_style()),
             button: Some(self.button_style()),
             block: Some(Block::bordered()),
             ..Default::default()
@@ -520,10 +545,10 @@ impl DarkTheme {
     /// Pager style.
     pub fn pager_style(&self) -> PagerStyle {
         PagerStyle {
-            style: self.container(),
+            style: self.container_base(),
             label_style: Some(self.container_label()),
             navigation: Some(self.container_arrow()),
-            block: Some(Block::bordered().border_style(self.container())),
+            block: Some(Block::bordered().border_style(self.container_border())),
             ..Default::default()
         }
     }
@@ -531,7 +556,7 @@ impl DarkTheme {
     /// Clipper style.
     pub fn clipper_style(&self) -> ClipperStyle {
         ClipperStyle {
-            style: self.container(),
+            style: self.container_base(),
             scroll: Some(self.scroll_style()),
             label_style: Some(self.container_label()),
             ..Default::default()
