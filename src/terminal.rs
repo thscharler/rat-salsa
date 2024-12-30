@@ -8,6 +8,9 @@
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture,
+};
+#[cfg(not(windows))]
+use crossterm::event::{
     KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use crossterm::terminal::{
