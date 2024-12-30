@@ -194,12 +194,14 @@ where
         };
 
         let mut buffer = self.buffer.borrow_mut();
-        let style = self.label_style.unwrap_or_default();
-        let align = self.label_alignment.unwrap_or_default();
-        Line::from(label_str.as_ref())
-            .style(style)
-            .alignment(align)
-            .render(label_area, *buffer);
+        let mut label = Line::from(label_str.as_ref());
+        if let Some(style) = self.label_style {
+            label = label.style(style)
+        };
+        if let Some(align) = self.label_alignment {
+            label = label.alignment(align);
+        }
+        label.render(label_area, *buffer);
 
         true
     }
