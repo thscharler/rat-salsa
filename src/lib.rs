@@ -58,8 +58,8 @@ pub mod text {
     pub use rat_text::core;
     pub use rat_text::undo_buffer;
     pub use rat_text::{
-        ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, Locale, TextError,
-        TextPosition, TextRange, TextStyle,
+        ipos_type, screen_cursor, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, Locale,
+        TextError, TextPosition, TextRange, TextStyle,
     };
 }
 
