@@ -9,7 +9,7 @@ use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::prelude::{StatefulWidget, Style};
 use ratatui::widgets::{Block, Widget};
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -125,6 +125,11 @@ where
         self.page_nav.layout_size(area)
     }
 
+    // Calculate the view area for all columns.
+    pub fn inner(&self, area: Rect) -> Rect {
+        self.page_nav.inner(area)
+    }
+
     /// Render the page navigation and create the SinglePagerBuffer
     /// that will do the actual widget rendering.
     pub fn into_buffer(
@@ -147,7 +152,7 @@ where
     }
 }
 
-impl<W> SinglePagerBuffer<'_, W>
+impl<'a, W> SinglePagerBuffer<'a, W>
 where
     W: Eq + Hash + Clone,
 {
@@ -304,6 +309,11 @@ where
         S: RelocatableState,
     {
         state.relocate((0, 0), Rect::default())
+    }
+
+    /// Get access to the buffer during rendering a page.
+    pub fn buffer<'b>(&'b mut self) -> RefMut<'b, &'a mut Buffer> {
+        self.pager.buffer()
     }
 }
 

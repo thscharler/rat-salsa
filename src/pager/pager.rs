@@ -6,7 +6,7 @@ use ratatui::style::Style;
 use ratatui::text::Line;
 use ratatui::widgets::{StatefulWidget, Widget};
 use std::borrow::Cow;
-use std::cell::RefCell;
+use std::cell::{RefCell, RefMut};
 use std::hash::Hash;
 use std::rc::Rc;
 
@@ -146,7 +146,7 @@ where
     }
 }
 
-impl<W> PagerBuffer<'_, W>
+impl<'a, W> PagerBuffer<'a, W>
 where
     W: Eq + Hash + Clone,
 {
@@ -324,5 +324,10 @@ where
     #[inline]
     pub fn layout(&self) -> Rc<GenericLayout<W>> {
         self.layout.clone()
+    }
+
+    /// Get access to the buffer during rendering a page.
+    pub fn buffer<'b>(&'b mut self) -> RefMut<'b, &'a mut Buffer> {
+        self.buffer.borrow_mut()
     }
 }
