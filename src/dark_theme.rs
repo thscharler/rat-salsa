@@ -560,7 +560,6 @@ impl DarkTheme {
     pub fn pager_style(&self) -> PagerStyle {
         PagerStyle {
             style: self.container_base(),
-            label_style: Some(self.container_label()),
             navigation: Some(self.container_arrow()),
             block: Some(Block::bordered().border_style(self.container_border())),
             ..Default::default()
