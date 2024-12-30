@@ -115,6 +115,7 @@ pub mod number_input {
     };
 }
 pub mod pager;
+pub mod paired;
 pub mod paragraph;
 /// PopupCore helps with managing popup widgets.
 pub mod popup {
