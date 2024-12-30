@@ -779,7 +779,9 @@ where
                 false
             } else {
                 page.y.saturating_add(widget.opt_bottom_border)
-                    >= page.y_page.saturating_add(page.height - page.bottom)
+                    >= page
+                        .y_page
+                        .saturating_add(page.height.saturating_sub(page.bottom))
             };
             let break_manual = if ENDLESS {
                 false
