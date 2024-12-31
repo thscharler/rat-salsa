@@ -401,8 +401,12 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonSt
             }
             ct_event!(mouse up Left for column, row) => {
                 if self.area.contains((*column, *row).into()) {
-                    self.armed = false;
-                    ButtonOutcome::Pressed
+                    if self.armed {
+                        self.armed = false;
+                        ButtonOutcome::Pressed
+                    } else {
+                        ButtonOutcome::Continue
+                    }
                 } else {
                     if self.armed {
                         self.armed = false;
@@ -414,6 +418,89 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, ButtonOutcome> for ButtonSt
             }
             _ => ButtonOutcome::Continue,
         }
+    }
+}
+
+/// Create a HotKey for an event-handler.
+///
+/// __unstable__
+/// This is just a rough idea, might change any time.
+pub const fn ct_hot_key(code: crossterm::event::KeyCode) -> CTHotKey {
+    CTHotKey(crossterm::event::KeyEvent {
+        code,
+        modifiers: crossterm::event::KeyModifiers::NONE,
+        kind: crossterm::event::KeyEventKind::Press,
+        state: crossterm::event::KeyEventState::NONE,
+    })
+}
+
+/// Create a HotKey for an event-handler.
+///
+/// __unstable__
+/// This is just a rough idea, might change any time.
+pub const fn ct_hot_key_mod(
+    code: crossterm::event::KeyCode,
+    modifiers: crossterm::event::KeyModifiers,
+) -> CTHotKey {
+    CTHotKey(crossterm::event::KeyEvent {
+        code,
+        modifiers,
+        kind: crossterm::event::KeyEventKind::Press,
+        state: crossterm::event::KeyEventState::NONE,
+    })
+}
+
+/// Check event-handling for this hot-key and do Regular key-events otherwise.
+///
+/// __unstable__
+/// This is just a rough idea, might change any time.
+pub struct CTHotKey(pub crossterm::event::KeyEvent);
+
+impl HandleEvent<crossterm::event::Event, CTHotKey, ButtonOutcome> for ButtonState {
+    fn handle(&mut self, event: &crossterm::event::Event, hotkey: CTHotKey) -> ButtonOutcome {
+        use crossterm::event::Event;
+
+        let r = match event {
+            Event::Key(key) => {
+                // Release keys may not be available.
+                if have_keyboard_enhancement() {
+                    if hotkey.0.code == key.code && hotkey.0.modifiers == key.modifiers {
+                        if key.kind == crossterm::event::KeyEventKind::Press {
+                            self.armed = true;
+                            ButtonOutcome::Changed
+                        } else if key.kind == crossterm::event::KeyEventKind::Release {
+                            if self.armed {
+                                if let Some(delay) = self.armed_delay {
+                                    thread::sleep(delay);
+                                }
+                                self.armed = false;
+                                ButtonOutcome::Pressed
+                            } else {
+                                // single key release happen more often than not.
+                                ButtonOutcome::Unchanged
+                            }
+                        } else {
+                            ButtonOutcome::Continue
+                        }
+                    } else {
+                        ButtonOutcome::Continue
+                    }
+                } else {
+                    if hotkey.0.code == key.code && hotkey.0.modifiers == key.modifiers {
+                        if key.kind == crossterm::event::KeyEventKind::Press {
+                            ButtonOutcome::Pressed
+                        } else {
+                            ButtonOutcome::Continue
+                        }
+                    } else {
+                        ButtonOutcome::Continue
+                    }
+                }
+            }
+            _ => ButtonOutcome::Continue,
+        };
+
+        r.or_else(|| self.handle(event, Regular))
     }
 }
 
