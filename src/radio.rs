@@ -853,7 +853,7 @@ where
 
     /// Get the selected value or None if no value
     /// is selected or there are no options.
-    pub fn value(&self) -> &T {
+    pub fn value_ref(&self) -> &T {
         &self.keys[self.selected]
     }
 
@@ -884,6 +884,17 @@ where
         };
 
         old_sel != self.selected
+    }
+}
+
+impl<T> RadioState<T>
+where
+    T: PartialEq + Clone,
+{
+    /// Get the selected value or None if no value
+    /// is selected or there are no options.
+    pub fn value(&self) -> T {
+        self.keys[self.selected].clone()
     }
 }
 

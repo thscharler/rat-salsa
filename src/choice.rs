@@ -787,7 +787,7 @@ where
 
     /// Get the selected value or None if no value
     /// is selected or there are no items.
-    pub fn value_opt(&self) -> Option<&T> {
+    pub fn value_opt_ref(&self) -> Option<&T> {
         if let Some(selected) = self.selected {
             Some(&self.keys[selected])
         } else {
@@ -798,7 +798,7 @@ where
     /// Get the selected value.
     ///
     /// Panics if there is no selection or no items.
-    pub fn value(&self) -> &T {
+    pub fn value_ref(&self) -> &T {
         &self.keys[self.selected.expect("selection")]
     }
 
@@ -871,6 +871,28 @@ where
         } else {
             false
         }
+    }
+}
+
+impl<T> ChoiceState<T>
+where
+    T: PartialEq + Clone,
+{
+    /// Get the selected value or None if no value
+    /// is selected or there are no items.
+    pub fn value_opt(&self) -> Option<T> {
+        if let Some(selected) = self.selected {
+            Some(self.keys[selected].clone())
+        } else {
+            None
+        }
+    }
+
+    /// Get the selected value.
+    ///
+    /// Panics if there is no selection or no items.
+    pub fn value(&self) -> T {
+        self.keys[self.selected.expect("selection")].clone()
     }
 }
 
