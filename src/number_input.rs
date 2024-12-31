@@ -9,6 +9,7 @@ use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
 use crate::{upos_type, HasScreenCursor, TextError, TextStyle};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
+use log::debug;
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
@@ -439,6 +440,17 @@ impl NumberInputState {
     #[inline]
     pub fn is_empty(&self) -> bool {
         self.widget.is_empty()
+    }
+
+    /// Parses the text as the desired value type.
+    /// If the text content is empty returns None.
+    pub fn value_opt<T: FromStr>(&self) -> Result<Option<T>, NumberFmtError> {
+        let s = self.widget.text();
+        if s.trim().is_empty() {
+            Ok(None)
+        } else {
+            self.format.parse(s).map(|v| Some(v))
+        }
     }
 
     /// Parses the text as the desired value type.
