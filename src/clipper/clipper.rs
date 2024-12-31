@@ -1,8 +1,8 @@
 use crate::_private::NonExhaustive;
 use crate::clipper::ClipperStyle;
 use crate::layout::GenericLayout;
-use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::ContainerFlag;
+use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
+use rat_focus::{ContainerFlag, FocusContainer};
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
@@ -211,7 +211,8 @@ where
 
     /// Calculate the layout width.
     pub fn layout_size(&self, area: Rect, state: &ClipperState<W>) -> Size {
-        self.inner(area, state).as_size()
+        let width = self.inner(area, state).width;
+        Size::new(width, u16::MAX)
     }
 
     /// Calculate the view area.
@@ -262,15 +263,15 @@ where
             max_pos.y = max(max_pos.y, label_area.bottom());
         }
         for idx in 0..layout.block_len() {
-            let area = layout.block_area(idx);
-            if !area.is_empty() {
+            let block_area = layout.block_area(idx);
+            if view.intersects(block_area) {
                 ext_view = ext_view //
-                    .map(|v| v.union(area))
-                    .or(Some(area));
+                    .map(|v| v.union(block_area))
+                    .or(Some(block_area));
             }
 
-            max_pos.x = max(max_pos.x, area.right());
-            max_pos.y = max(max_pos.y, area.bottom());
+            max_pos.x = max(max_pos.x, block_area.right());
+            max_pos.y = max(max_pos.y, block_area.bottom());
         }
 
         let ext_view = ext_view.unwrap_or(view);
@@ -765,7 +766,25 @@ where
     W: Eq + Clone + Hash,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
-        self.handle(event, MouseOnly)
+        let r = if self.container.is_container_focused() {
+            match event {
+                ct_event!(keycode press ALT-PageUp) => {
+                    self.scroll_up(self.vscroll.page_len()).into()
+                }
+                ct_event!(keycode press ALT-PageDown) => {
+                    self.scroll_down(self.vscroll.page_len()).into()
+                }
+                ct_event!(keycode press ALT-Home) => self.vertical_scroll_to(0).into(),
+                ct_event!(keycode press ALT-End) => {
+                    self.vertical_scroll_to(self.vscroll.max_offset()).into()
+                }
+                _ => Outcome::Continue,
+            }
+        } else {
+            Outcome::Continue
+        };
+
+        r.or_else(|| self.handle(event, MouseOnly))
     }
 }
 

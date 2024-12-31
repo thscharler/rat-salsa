@@ -496,6 +496,7 @@ impl Scheme {
     pub fn clipper_style(&self) -> ClipperStyle {
         ClipperStyle {
             scroll: Some(self.scroll_style()),
+            label_style: Some(Style::new().fg(THEME.white[3]).bg(THEME.orange[0])),
             ..Default::default()
         }
     }

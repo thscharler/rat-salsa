@@ -9,10 +9,14 @@ use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
 use rat_reloc::RelocatableState;
+use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
+use rat_widget::clipper::{Clipper, ClipperBuffer, ClipperState};
 use rat_widget::event::{Outcome, PagerOutcome};
 use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
-use rat_widget::pager::{PageNavigation, PageNavigationState, Pager};
+use rat_widget::pager::{
+    PageNavigation, PageNavigationState, Pager, SinglePager, SinglePagerBuffer, SinglePagerState,
+};
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
@@ -37,8 +41,7 @@ fn main() -> Result<(), anyhow::Error> {
         n_focus: 0.0,
         focus: Default::default(),
         flex: Default::default(),
-        layout: Default::default(),
-        page_nav: Default::default(),
+        pager: Default::default(),
         hundred: array::from_fn(|_| Default::default()),
         menu: Default::default(),
     };
@@ -55,8 +58,7 @@ struct State {
     n_focus: f64,
     focus: Option<Focus>,
     flex: Flex,
-    layout: Rc<GenericLayout<FocusFlag>>,
-    page_nav: PageNavigationState,
+    pager: ClipperState<FocusFlag>,
     hundred: [TextInputMockState; HUN],
     menu: MenuLineState,
 }
@@ -88,19 +90,18 @@ fn repaint_input(
     .split(l1[1]);
 
     // Prepare navigation.
-    let nav = PageNavigation::new()
-        .pages(2)
+    let pager = Clipper::new()
+        .vscroll(Scroll::new().styles(THEME.scroll_style()))
         .block(
             Block::bordered()
                 .borders(Borders::TOP | Borders::BOTTOM)
                 .title_top(Line::from(format!("{:?}", state.flex)).alignment(Alignment::Center)),
         )
-        .styles(THEME.pager_style());
+        .styles(THEME.clipper_style());
 
-    let layout_size = nav.layout_size(l2[1]);
-
+    let layout_size = pager.layout_size(l2[1], &state.pager);
     // rebuild layout
-    if state.layout.size_changed(layout_size) {
+    if state.pager.layout.size_changed(layout_size) {
         let et = SystemTime::now();
 
         let mut form_layout = LayoutForm::new()
@@ -166,23 +167,24 @@ fn repaint_input(
             }
         }
 
-        state.layout = Rc::new(form_layout.paged(layout_size, Padding::default()));
-        debug!("layout {} {:?}", state.layout.page_count(), et.elapsed()?);
-        state
-            .page_nav
-            .set_page_count((state.layout.page_count() + 1) / 2);
+        state.pager.set_layout(Rc::new(
+            form_layout.endless(layout_size.width, Padding::default()),
+        ));
+        debug!(
+            "layout {} {:?}",
+            state.pager.layout.page_count(),
+            et.elapsed()?
+        );
     }
 
-    // Render navigation
-    nav.render(l2[1], frame.buffer_mut(), &mut state.page_nav);
-
-    // reset state areas
-    for i in 0..state.hundred.len() {
-        state.hundred[i].relocate((0, 0), Rect::default());
-    }
-    // render 2 pages
-    render_page(frame, state.page_nav.page * 2, 0, state)?;
-    render_page(frame, state.page_nav.page * 2 + 1, 1, state)?;
+    // Render
+    let et = SystemTime::now();
+    let mut pager = pager.into_buffer(l2[1], &mut state.pager);
+    render_page(&mut pager, state)?;
+    pager
+        .into_widget()
+        .render(l2[1], frame.buffer_mut(), &mut state.pager);
+    debug!("{:12}{:>12?}", "render", et.elapsed()?);
 
     let menu1 = MenuLine::new()
         .title("#.#")
@@ -200,48 +202,25 @@ fn repaint_input(
 }
 
 fn render_page(
-    frame: &mut Frame<'_>,
-    page: usize,
-    area_idx: usize,
+    pager: &mut ClipperBuffer<'_, FocusFlag>,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
-    let et = SystemTime::now();
-    // set up pager
-    let mut pager = Pager::new() //
-        .layout(state.layout.clone())
-        .page(page)
-        .label_alignment(Alignment::Right)
-        .styles(THEME.pager_style())
-        .into_buffer(
-            state.page_nav.widget_areas[area_idx],
-            Rc::new(RefCell::new(frame.buffer_mut())),
-        );
-
     // render container areas
     pager.render_block();
 
     // render the fields.
     for i in 0..state.hundred.len() {
-        let idx = pager.widget_idx(state.hundred[i].focus()).expect("fine");
-        if pager.is_visible(idx) {
-            if let Some(idx) = pager.widget_idx(state.hundred[i].focus.clone()) {
-                pager.render_auto_label(idx);
-                pager.render(
-                    idx,
-                    || {
-                        // lazy construction
-                        TextInputMock::default()
-                            .style(THEME.limegreen(0))
-                            .focus_style(THEME.limegreen(2))
-                    },
-                    &mut state.hundred[i],
-                );
-            }
-        }
+        pager.render(
+            state.hundred[i].focus(),
+            || {
+                // lazy construction
+                TextInputMock::default()
+                    .style(THEME.limegreen(0))
+                    .focus_style(THEME.limegreen(2))
+            },
+            &mut state.hundred[i],
+        );
     }
-
-    // pager done.
-    debug!("{:12}{:>12?}", "render", et.elapsed()?);
 
     Ok(())
 }
@@ -250,7 +229,7 @@ fn focus(state: &mut State) -> Focus {
     let mut fb = FocusBuilder::new(state.focus.take());
     fb.widget(&state.menu);
 
-    let tag = fb.start(Some(state.page_nav.container.clone()), Rect::default(), 0);
+    let tag = fb.start(Some(state.pager.container.clone()), Rect::default(), 0);
     for i in 0..state.hundred.len() {
         // Focus wants __all__ areas.
         fb.widget(&state.hundred[i]);
@@ -283,48 +262,43 @@ fn handle_input(
     // set the page from focus.
     if f == Outcome::Changed {
         if let Some(ff) = focus.focused() {
-            if let Some(page) = state.layout.page_of(ff) {
-                let page = page / 2;
-                if page != state.page_nav.page {
-                    state.page_nav.set_page(page);
-                }
-            }
+            state.pager.show(ff);
         }
     }
 
-    let mut r = match state.page_nav.handle(event, Regular) {
-        PagerOutcome::Page(p) => {
-            if let Some(w) = state.layout.first(p * 2) {
-                focus.focus_flag(w.clone());
-            }
-            Outcome::Changed
-        }
-        r => r.into(),
+    let mut r = match state.pager.handle(event, Regular) {
+        // PagerOutcome::Page(_p) => {
+        //     if let Some(first) = state.pager.first(p) {
+        //         focus.focus_flag(first.clone());
+        //     }
+        //     Outcome::Changed
+        // }
+        r => r,
     };
 
     r = r.or_else(|| match event {
-        ct_event!(keycode press F(4)) => {
-            if state.page_nav.prev_page() {
-                if let Some(w) = state.layout.first(state.page_nav.page * 2) {
-                    focus.focus_flag(w.clone());
-                }
-                Outcome::Changed
-            } else {
-                Outcome::Unchanged
-            }
-        }
-        ct_event!(keycode press F(5)) => {
-            if state.page_nav.next_page() {
-                if let Some(w) = state.layout.first(state.page_nav.page * 2) {
-                    focus.focus_flag(w.clone());
-                }
-                Outcome::Changed
-            } else {
-                Outcome::Unchanged
-            }
-        }
+        // ct_event!(keycode press F(4)) => {
+        //     if state.pager.prev_page() {
+        //         if let Some(first) = state.pager.first(state.pager.page()) {
+        //             focus.focus_flag(first.clone());
+        //         }
+        //         Outcome::Changed
+        //     } else {
+        //         Outcome::Unchanged
+        //     }
+        // }
+        // ct_event!(keycode press F(5)) => {
+        //     if state.pager.next_page() {
+        //         if let Some(first) = state.pager.first(state.pager.page()) {
+        //             focus.focus_flag(first.clone());
+        //         }
+        //         Outcome::Changed
+        //     } else {
+        //         Outcome::Unchanged
+        //     }
+        // }
         ct_event!(keycode press F(2)) => {
-            state.layout = Default::default();
+            state.pager.set_layout(Default::default());
             state.flex = match state.flex {
                 Flex::Legacy => Flex::Start,
                 Flex::Start => Flex::End,
