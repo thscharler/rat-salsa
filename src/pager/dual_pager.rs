@@ -134,6 +134,7 @@ where
         state: &mut DualPagerState<W>,
     ) -> DualPagerBuffer<'a, W> {
         state.nav.page_count = (state.layout.page_count() + 1) / 2;
+        state.nav.set_page(state.nav.page);
 
         self.page_nav.render(area, buf, &mut state.nav);
 
