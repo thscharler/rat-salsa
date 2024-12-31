@@ -418,6 +418,7 @@ impl DarkTheme {
             select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
+            border_style: Some(self.container_border()),
             scroll: Some(self.scroll_style()),
             ..Default::default()
         }
