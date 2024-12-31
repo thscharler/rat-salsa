@@ -627,6 +627,12 @@ impl TextInputState {
 
     /// Text value.
     #[inline]
+    pub fn value<T: for<'a> From<&'a str>>(&self) -> T {
+        self.value.text().as_str().into()
+    }
+
+    /// Text value.
+    #[inline]
     pub fn text(&self) -> &str {
         self.value.text().as_str()
     }
@@ -796,6 +802,15 @@ impl TextInputState {
             self.value.clear();
             true
         }
+    }
+
+    /// Set text.
+    ///
+    /// Returns an error if the text contains line-breaks.
+    #[inline]
+    pub fn set_value<S: Into<String>>(&mut self, s: S) {
+        self.offset = 0;
+        self.value.set_text(TextString::new_string(s.into()));
     }
 
     /// Set text.
