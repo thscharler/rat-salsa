@@ -96,6 +96,7 @@ mod data {
         Text(TextTableData<'a>),
         Data(Box<dyn TableData<'a> + 'a>),
         Iter(Box<dyn TableDataIter<'a> + 'a>),
+        // TODO: maybe add an Owned where data is kept in the state?
     }
 
     impl<'a> DataRepr<'a> {
@@ -256,6 +257,7 @@ pub struct TableStyle {
     pub focus_style: Option<Style>,
 
     pub block: Option<Block<'static>>,
+    pub border_style: Option<Style>,
     pub scroll: Option<ScrollStyle>,
 
     pub non_exhaustive: NonExhaustive,
@@ -725,6 +727,11 @@ impl<'a, Selection> Table<'a, Selection> {
         if styles.focus_style.is_some() {
             self.focus_style = styles.focus_style;
         }
+        // TODO: add border_style for other XXStyles too.
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
+        self.block = self.block.map(|v| v.style(self.style));
         if styles.block.is_some() {
             self.block = styles.block;
         }
@@ -732,7 +739,6 @@ impl<'a, Selection> Table<'a, Selection> {
             self.hscroll = self.hscroll.map(|v| v.styles(styles.clone()));
             self.vscroll = self.vscroll.map(|v| v.styles(styles));
         }
-        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -947,6 +953,7 @@ where
         state.area = area;
 
         let sa = ScrollArea::new()
+            .style(self.style)
             .block(self.block.as_ref())
             .h_scroll(self.hscroll.as_ref())
             .v_scroll(self.vscroll.as_ref());
@@ -962,9 +969,6 @@ where
         self.calculate_column_areas(state.columns, l_columns.as_ref(), l_spacers.as_ref(), state);
 
         // render block+scroll
-        if self.block.is_none() {
-            buf.set_style(state.area, self.style);
-        }
         sa.render(
             area,
             buf,
@@ -1548,6 +1552,7 @@ impl Default for TableStyle {
             show_footer_focus: false,
             focus_style: None,
             block: None,
+            border_style: None,
             scroll: None,
             non_exhaustive: NonExhaustive,
         }
