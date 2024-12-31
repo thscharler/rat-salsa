@@ -14,8 +14,7 @@ use crossterm::event::{
     KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
 use crossterm::terminal::{
-    disable_raw_mode, enable_raw_mode, supports_keyboard_enhancement, EnterAlternateScreen,
-    LeaveAlternateScreen,
+    disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
 use crossterm::ExecutableCommand;
 use rat_widget::event::util::set_have_keyboard_enhancement;
@@ -104,9 +103,6 @@ where
         }
 
         self.term.clear()?;
-
-        let enhanced = supports_keyboard_enhancement().unwrap_or_default();
-        set_have_keyboard_enhancement(enhanced);
 
         Ok(())
     }
