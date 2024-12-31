@@ -215,11 +215,6 @@ impl DarkTheme {
         self.s.style(self.s.black[1])
     }
 
-    /// Label text inside container.
-    pub fn container_label(&self) -> Style {
-        self.s.style(self.s.black[1])
-    }
-
     /// Container border
     pub fn container_border(&self) -> Style {
         Style::default().fg(self.s.gray[0]).bg(self.s.black[1])
@@ -561,7 +556,11 @@ impl DarkTheme {
         PagerStyle {
             style: self.container_base(),
             navigation: Some(self.container_arrow()),
-            block: Some(Block::bordered().border_style(self.container_border())),
+            block: Some(
+                Block::bordered()
+                    .borders(Borders::TOP | Borders::BOTTOM)
+                    .border_style(self.container_border()),
+            ),
             ..Default::default()
         }
     }
@@ -571,7 +570,6 @@ impl DarkTheme {
         ClipperStyle {
             style: self.container_base(),
             scroll: Some(self.scroll_style()),
-            label_style: Some(self.container_label()),
             ..Default::default()
         }
     }
