@@ -1,3 +1,14 @@
+# 0.27.3
+
+* refactor: DarkTheme has become an incoherent mess. Do some cleanup.
+* feature: add Scheme::true_dark_color() which reduces any given color
+  to something that can pass as a dark background. This works for
+  base-colors and indexed colors too. It took up the pain and copied
+  the RGB values from wikipedia :)
+* feature: add Schema::grey_color() which does a decent graying of
+  any color.
+* feature: a few styles gained a border_style. add here where applicable.
+
 # 0.27.2
 
 * add dialog_arrow() style for Scrollbars in popups/dialogs.
