@@ -1,3 +1,10 @@
+# 0.30.1
+
+* feature: add widgets() which can take an array of `dyn HasFocus` and
+  add all to the focus. convenience.
+* fix: mouse focus reported a change even if the focus stays on the same
+  widget after a mouse click.
+
 # 0.30.0
 
 * Add Hash to FocusFlag and ContainerFlag. With this addition those
