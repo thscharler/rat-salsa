@@ -1,3 +1,41 @@
+# 0.33.0
+
+* break: LayoutForm
+
+  FormLabel::Str is split in FormLabel::Str and FormLabel::String with
+  a simple &str or String as data. Makes using those much easier.
+  Both behave the same otherwise.
+
+  Remove FormLabel::Measure and FormWidget::Measure and replace them
+  with min_label() and min_widget().
+
+  FormWidget::Wide, StretchX, WideStretchX, StretchXY, WideStretchXY
+  all gain a preferred width.
+
+* break: Choice and Radio return an owned value for value().
+  There are new value_ref() and value_opt_ref() that return a reference.
+  Most of the time the owned value is easier to handle.
+
+* feature: Pager et al get a few new render() methods for special cases.
+* feature: add PairedWidget. Can render 2 widgets side by side in one
+  layout area. There are a few simple constraints how to divide the
+  space.
+* feature: Pager et al allow access to the buffer during rendering.
+* feature: Choice gets popup_offset()
+
+* fix: SinglePager, DualPager ensure that the current page
+  doesn't exceed page-count.
+* fix: LayoutForm. StretchY doesn't work on the last page.
+* fix: underflows in LayoutForm
+* fix: Clipper::layout_size() must return a Size with height u16::MAX.
+* fix: Pager styles labels only if expressedly set.
+* fix/break: DualPager must use FnOnce for its render functions too.
+* fix: Button cannot rely on Key Released. Add a flag to rat-focus
+  to recognize this. The button doesn't show a 'clicked' behaviour
+  if no Key Released is accessible.
+* fix: Button triggered for a lone Mouse-Up event without
+  a prior Mouse-Down.
+
 # 0.32.0
 
 * break: Replace StructuredLayout with GenericLayout

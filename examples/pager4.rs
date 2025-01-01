@@ -8,21 +8,16 @@ use rat_event::{ct_event, ConsumedEvent, HandleEvent, Regular};
 use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_menu::event::MenuOutcome;
 use rat_menu::menuline::{MenuLine, MenuLineState};
-use rat_reloc::RelocatableState;
 use rat_scrolled::Scroll;
 use rat_text::HasScreenCursor;
 use rat_widget::clipper::{Clipper, ClipperBuffer, ClipperState};
-use rat_widget::event::{Outcome, PagerOutcome};
-use rat_widget::layout::{FormLabel, FormWidget, GenericLayout, LayoutForm};
-use rat_widget::pager::{
-    PageNavigation, PageNavigationState, Pager, SinglePager, SinglePagerBuffer, SinglePagerState,
-};
+use rat_widget::event::Outcome;
+use rat_widget::layout::{FormLabel, FormWidget, LayoutForm};
 use ratatui::layout::{Alignment, Constraint, Flex, Layout, Rect};
 use ratatui::text::Line;
 use ratatui::widgets::{Block, BorderType, Borders, Padding, StatefulWidget};
 use ratatui::Frame;
 use std::array;
-use std::cell::RefCell;
 use std::cmp::max;
 use std::rc::Rc;
 use std::time::SystemTime;
@@ -152,7 +147,7 @@ fn repaint_input(
                 form_layout.widget(
                     state.hundred[i].focus.clone(),
                     FormLabel::String(format!("{}", i).to_string()),
-                    FormWidget::StretchXY(h),
+                    FormWidget::StretchXY(w, h),
                 );
             } else {
                 form_layout.widget(
