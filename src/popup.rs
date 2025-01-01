@@ -59,6 +59,8 @@ pub struct PopupStyle {
     pub offset: Option<(i16, i16)>,
     /// Block for the popup.
     pub block: Option<Block<'static>>,
+    /// Style for the block border.
+    pub border_style: Option<Style>,
     /// Style for scroll bars.
     pub scroll: Option<ScrollStyle>,
     /// Placement
@@ -187,6 +189,10 @@ impl<'a> PopupCore<'a> {
         if let Some(offset) = styles.offset {
             self.offset = offset;
         }
+        self.block = self.block.map(|v| v.style(self.style));
+        if let Some(border_style) = styles.border_style {
+            self.block = self.block.map(|v| v.border_style(border_style));
+        }
         if let Some(block) = styles.block {
             self.block = Some(block);
         }
@@ -198,7 +204,7 @@ impl<'a> PopupCore<'a> {
                 self.v_scroll = Some(v_scroll.styles(styles));
             }
         }
-        self.block = self.block.map(|v| v.style(self.style));
+
         self
     }
 
@@ -534,6 +540,7 @@ impl Default for PopupStyle {
             style: Default::default(),
             offset: None,
             block: None,
+            border_style: None,
             scroll: None,
             placement: None,
             non_exhaustive: NonExhaustive,
