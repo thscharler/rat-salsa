@@ -1,3 +1,9 @@
+# 0.28.3
+
+* add border_style to PopupStyle. Allows setting the style
+  without providing a definite border. When applying the PopupStyle
+  style+border_style override the settings of a previously set block.
+
 # 0.28.2
 
 * clippy fixes
