@@ -3,6 +3,7 @@
 use crate::mask0::{Mask0, Mask0State};
 use anyhow::Error;
 use crossterm::event::Event;
+use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
@@ -17,7 +18,7 @@ use std::fmt::Debug;
 use std::fs;
 use std::time::{Duration, SystemTime};
 
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MinimalAction, Error>;
+type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, ThemeEvent, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
@@ -34,7 +35,11 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig::default()?.threads(1),
+        RunConfig::default()?
+            .threads(1)
+            .poll(PollCrossterm)
+            .poll(PollTimers)
+            .poll(PollTasks),
     )?;
 
     Ok(())
@@ -67,8 +72,22 @@ impl GlobalState {
 pub struct MinimalConfig {}
 
 #[derive(Debug)]
-pub enum MinimalAction {
+pub enum ThemeEvent {
+    Event(crossterm::event::Event),
+    TimeOut(TimeOut),
     Message(String),
+}
+
+impl From<crossterm::event::Event> for ThemeEvent {
+    fn from(value: Event) -> Self {
+        Self::Event(value)
+    }
+}
+
+impl From<TimeOut> for ThemeEvent {
+    fn from(value: TimeOut) -> Self {
+        Self::TimeOut(value)
+    }
 }
 
 // -----------------------------------------------------------------------
@@ -81,7 +100,7 @@ struct MinimalState {
     mask0: Mask0State,
 }
 
-impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
+impl AppWidget<GlobalState, ThemeEvent, Error> for MinimalApp {
     type State = MinimalState;
 
     fn render(
@@ -126,76 +145,52 @@ impl AppWidget<GlobalState, MinimalAction, Error> for MinimalApp {
     }
 }
 
-impl AppState<GlobalState, MinimalAction, Error> for MinimalState {
+impl AppState<GlobalState, ThemeEvent, Error> for MinimalState {
     fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         Ok(())
     }
 
-    fn timer(
+    fn event(
         &mut self,
-        event: &TimeOut,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalAction>, Error> {
-        Ok(Control::Continue)
-    }
-
-    fn crossterm(
-        &mut self,
-        event: &Event,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalAction>, Error> {
-        use crossterm::event::*;
-
+        event: &ThemeEvent,
+        ctx: &mut rat_salsa::AppContext<'_, GlobalState, ThemeEvent, Error>,
+    ) -> Result<Control<ThemeEvent>, Error> {
         let t0 = SystemTime::now();
 
-        try_flow!(match &event {
-            Event::Resize(_, _) => Control::Changed,
-            ct_event!(key press CONTROL-'q') => Control::Quit,
-            _ => Control::Continue,
-        });
+        let r = match event {
+            ThemeEvent::Event(event) => {
+                try_flow!(match &event {
+                    Event::Resize(_, _) => Control::Changed,
+                    ct_event!(key press CONTROL-'q') => Control::Quit,
+                    _ => Control::Continue,
+                });
 
-        try_flow!({
-            if ctx.g.error_dlg.active() {
-                ctx.g.error_dlg.handle(&event, Dialog).into()
-            } else {
+                try_flow!({
+                    if ctx.g.error_dlg.active() {
+                        ctx.g.error_dlg.handle(&event, Dialog).into()
+                    } else {
+                        Control::Continue
+                    }
+                });
+
                 Control::Continue
             }
-        });
-
-        try_flow!(self.mask0.crossterm(&event, ctx)?);
-
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
-
-        Ok(Control::Continue)
-    }
-
-    fn message(
-        &mut self,
-        event: &mut MinimalAction,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalAction>, Error> {
-        let t0 = SystemTime::now();
-
-        // TODO: actions
-        try_flow!(match event {
-            MinimalAction::Message(s) => {
+            ThemeEvent::Message(s) => {
                 ctx.g.status.status(0, &*s);
                 Control::Changed
             }
-        });
+            _ => Control::Continue,
+        };
+
+        try_flow!(self.mask0.event(&event, ctx)?);
 
         let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(3, format!("A {:.3?}", el).to_string());
+        ctx.g.status.status(3, format!("H {:.3?}", el).to_string());
 
-        Ok(Control::Continue)
+        Ok(r)
     }
 
-    fn error(
-        &self,
-        event: Error,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalAction>, Error> {
+    fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<ThemeEvent>, Error> {
         ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
     }
@@ -203,9 +198,8 @@ impl AppState<GlobalState, MinimalAction, Error> for MinimalState {
 
 pub mod mask0 {
     use crate::show_scheme::{ShowScheme, ShowSchemeState};
-    use crate::{AppContext, GlobalState, MinimalAction, RenderContext};
+    use crate::{GlobalState, RenderContext, ThemeEvent};
     use anyhow::Error;
-    use crossterm::event::Event;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_theme::dark_themes;
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Popup, Regular};
@@ -262,7 +256,7 @@ pub mod mask0 {
         }
     }
 
-    impl AppWidget<GlobalState, MinimalAction, Error> for Mask0 {
+    impl AppWidget<GlobalState, ThemeEvent, Error> for Mask0 {
         type State = Mask0State;
 
         fn render(
@@ -313,36 +307,43 @@ pub mod mask0 {
         }
     }
 
-    impl AppState<GlobalState, MinimalAction, Error> for Mask0State {
-        fn crossterm(
+    impl AppState<GlobalState, ThemeEvent, Error> for Mask0State {
+        fn event(
             &mut self,
-            event: &Event,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MinimalAction>, Error> {
-            try_flow!(match self.menu.handle(event, Popup) {
-                MenuOutcome::MenuSelected(0, n) => {
-                    ctx.g.theme = dark_themes()[n].clone();
-                    Control::Changed
+            event: &ThemeEvent,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, ThemeEvent, Error>,
+        ) -> Result<Control<ThemeEvent>, Error> {
+            let r = match event {
+                ThemeEvent::Event(event) => {
+                    try_flow!(match self.menu.handle(event, Popup) {
+                        MenuOutcome::MenuSelected(0, n) => {
+                            ctx.g.theme = dark_themes()[n].clone();
+                            Control::Changed
+                        }
+                        MenuOutcome::MenuActivated(0, n) => {
+                            ctx.g.theme = dark_themes()[n].clone();
+                            Control::Changed
+                        }
+                        r => r.into(),
+                    });
+
+                    // TODO: handle_mask
+
+                    try_flow!(match self.menu.handle(event, Regular) {
+                        MenuOutcome::Activated(1) => {
+                            Control::Quit
+                        }
+                        r => r.into(),
+                    });
+
+                    try_flow!(self.scroll.handle(event, Regular));
+
+                    Control::Continue
                 }
-                MenuOutcome::MenuActivated(0, n) => {
-                    ctx.g.theme = dark_themes()[n].clone();
-                    Control::Changed
-                }
-                r => r.into(),
-            });
+                _ => Control::Continue,
+            };
 
-            // TODO: handle_mask
-
-            try_flow!(match self.menu.handle(event, Regular) {
-                MenuOutcome::Activated(1) => {
-                    Control::Quit
-                }
-                r => r.into(),
-            });
-
-            try_flow!(self.scroll.handle(event, Regular));
-
-            Ok(Control::Continue)
+            Ok(r)
         }
     }
 }

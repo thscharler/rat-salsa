@@ -77,7 +77,6 @@ impl AppState<GlobalState, UltraEvent, Error> for UltraState {
                 ct_event!(key press CONTROL-'q') => Control::Quit,
                 _ => Control::Continue,
             },
-            _ => Control::Continue,
         };
         Ok(r)
     }

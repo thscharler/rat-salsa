@@ -1,3 +1,38 @@
+# 0.29.0
+
+* major change: Replaced the current Message type variable with Event.
+
+  This offloads the complete event-type to the application.
+
+    * event distribution goes only through one channel now,
+      the newly added `event()` method. This makes it easier not
+      to miss some event-forwarding to different parts of the app.
+    * crossterm goes from 'requirement' to 'supported'.
+      There still is `PollCrossterm`, but it can be replaced with
+      something else entirely.
+    * A custom Pollxx can be added and distribute events via the standard `event()`.
+      It can require support for its own events with trait bounds.
+      Implementing one stays the same, and if configuration is needed
+      it still has to go in the Global struct and has to be shared
+      with the Pollxx.
+    * Timers and ThreadPool can be deactivated completely.
+      They are still kept in the AppContext and panic when they are
+      accessed and not initialized but otherwise are simply absent.
+
+  The change was surprisingly easy though. Most of the changes come from the optional
+  timer and threading. The AppState trait is much cleaner now. It retains init()
+  and gains the lost shutdown(). It is probably the best to keep those out of regular
+  event-handling. The error() handling functions stays too, but that's unused for
+  everything but the main AppState anyway.
+
+  *** Upgrading ***
+  Is copypasta more or less. Move the current crossterm(), message() and timer()
+  functions out of the trait impl and call them from event(). Or inline their
+  contents.
+
+* fix: Key Release events are not universal. Set a static flag during
+  terminal init to allow widgets to query this behaviour.
+
 # 0.28.2
 
 * doc fixes
