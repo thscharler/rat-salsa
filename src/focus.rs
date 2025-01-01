@@ -933,7 +933,7 @@ mod core {
 
         /// Set the focus to this index. Doesn't touch
         /// other flags.
-        fn __focus(&self, n: usize, set_lost: bool) {
+        fn __focus(&self, n: usize, set_lost: bool) -> bool {
             if let Some(f) = self.focus_flags.get(n) {
                 focus_debug!(self.log, "    -> manual focus {:?}", f.name());
                 f.set(true);
@@ -943,10 +943,16 @@ mod core {
                         // reset lost + gained
                         f.set_lost(false);
                         f.set_gained(false);
+                        false
                     } else {
                         f.set_gained(true);
+                        true
                     }
+                } else {
+                    false
                 }
+            } else {
+                false
             }
         }
 
@@ -1099,14 +1105,14 @@ mod core {
                     ZOrder::Widget(idx) => {
                         if self.navigable[idx] != Navigation::None {
                             self.__start_change(true);
-                            self.__focus(idx, true);
+                            let r = self.__focus(idx, true);
                             self.__accumulate();
                             focus_debug!(
                                 self.log,
                                 "    -> focus {:?}",
                                 self.focus_flags[idx].name()
                             );
-                            return true;
+                            return r; // TODO:???? catches fire
                         } else {
                             focus_debug!(
                                 self.log,
@@ -1120,10 +1126,10 @@ mod core {
                         let range = &self.containers[idx].1;
                         if let Some(n) = self.first_navigable(range.start) {
                             self.__start_change(true);
-                            self.__focus(n, true);
+                            let r = self.__focus(n, true);
                             self.__accumulate();
                             focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());
-                            return true;
+                            return r;
                         }
                     }
                 }
