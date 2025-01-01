@@ -1,3 +1,9 @@
+# 0.29.1
+
+* feature: add border_style to TableStyle. Allows setting the style
+  without providing a definite border. When applying the TableStyle
+  style+border_style override the settings of a previously set block.
+
 # 0.29.0
 
 * clippy fixes
