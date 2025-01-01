@@ -1,3 +1,10 @@
+# 0.29.3
+
+* feature: add TextInput::value() which auto-converts the text-field
+  content to any target type if an Into conversion exists.
+* feature: add NumberInput::value_opt() which returns None for an
+  empty number field.
+
 # 0.29.2
 
 * fix: default pattern for number_input
