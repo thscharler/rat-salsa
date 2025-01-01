@@ -1,3 +1,22 @@
+# 1.0.1
+
+* Key Release events are not generally available.
+
+  Add a static flag which can be queried with have_keyboard_enhancement()
+  and set it during terminal initialization.
+
+  There already exists a similar static for double-click delay, and this
+  sits in the same niche.
+
+* If KeyBoardEnhancement is set for a terminal it starts to differentiate
+  between Key Press and Key Repeat. This is not very useful for most
+  applications, and the ct_event! macro now covers both under the label
+  'Press'.
+
+# 1.0.0
+
+stabilization
+
 # 0.26.1
 
 * feature: add scroll up/scroll down without any bindings to ct_event!
