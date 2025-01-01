@@ -9,7 +9,6 @@ use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
 use crate::{upos_type, HasScreenCursor, TextError, TextStyle};
 use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
-use log::debug;
 use rat_event::{HandleEvent, MouseOnly, Regular};
 use rat_focus::{FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
