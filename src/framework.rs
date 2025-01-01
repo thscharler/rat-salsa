@@ -1,10 +1,12 @@
 use crate::control_queue::ControlQueue;
+use crate::poll::{PollTasks, PollTimers};
 use crate::poll_queue::PollQueue;
 use crate::run_config::RunConfig;
 use crate::threadpool::ThreadPool;
 use crate::timer::Timers;
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
 use crossbeam::channel::{SendError, TryRecvError};
+use std::any::TypeId;
 use std::cmp::min;
 use std::panic::{catch_unwind, resume_unwind, AssertUnwindSafe};
 use std::time::Duration;
@@ -14,22 +16,38 @@ const SLEEP: u64 = 250_000; // µs
 const BACKOFF: u64 = 10_000; // µs
 const FAST_SLEEP: u64 = 100; // µs
 
-fn _run_tui<App, Global, Message, Error>(
+fn _run_tui<App, Global, Event, Error>(
     app: App,
     global: &mut Global,
     state: &mut App::State,
-    cfg: &mut RunConfig<App, Global, Message, Error>,
+    cfg: &mut RunConfig<App, Global, Event, Error>,
 ) -> Result<(), Error>
 where
-    App: AppWidget<Global, Message, Error>,
-    Message: Send + 'static,
+    App: AppWidget<Global, Event, Error>,
+    App: 'static,
+    Global: 'static,
+    Event: Send + 'static,
     Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
     let term = cfg.term.as_mut();
     let poll = cfg.poll.as_mut_slice();
 
-    let timers = Timers::default();
-    let tasks = ThreadPool::new(cfg.n_threats);
+    let timers = if poll
+        .iter()
+        .any(|v| v.as_ref().type_id() == TypeId::of::<PollTimers>())
+    {
+        Some(Timers::default())
+    } else {
+        None
+    };
+    let tasks = if poll
+        .iter()
+        .any(|v| v.as_ref().type_id() == TypeId::of::<PollTasks>())
+    {
+        Some(ThreadPool::new(cfg.n_threats))
+    } else {
+        None
+    };
     let queue = ControlQueue::default();
 
     let mut appctx = AppContext {
@@ -63,9 +81,11 @@ where
 
     'ui: loop {
         // panic on worker panic
-        if !tasks.check_liveness() {
-            dbg!("worker panicked");
-            break 'ui;
+        if let Some(tasks) = &tasks {
+            if !tasks.check_liveness() {
+                dbg!("worker panicked");
+                break 'ui;
+            }
         }
 
         // No events queued, check here.
@@ -88,8 +108,12 @@ where
 
             // Sleep regime.
             if poll_queue.is_empty() {
-                let t = if let Some(timer_sleep) = timers.sleep_time() {
-                    min(timer_sleep, poll_sleep)
+                let t = if let Some(timers) = &timers {
+                    if let Some(timer_sleep) = timers.sleep_time() {
+                        min(timer_sleep, poll_sleep)
+                    } else {
+                        poll_sleep
+                    }
                 } else {
                     poll_sleep
                 };
@@ -140,7 +164,7 @@ where
                     }
                 }
                 Ok(Control::Message(mut a)) => {
-                    let r = state.message(&mut a, &mut appctx);
+                    let r = state.event(&mut a, &mut appctx);
                     queue.push(r);
                 }
                 Ok(Control::Quit) => {
@@ -150,6 +174,8 @@ where
         }
     }
 
+    state.shutdown(&mut appctx)?;
+
     Ok(())
 }
 
@@ -157,7 +183,6 @@ where
 ///
 /// The shortest version I can come up with:
 /// ```rust no_run
-/// use crossterm::event::Event;
 /// use rat_salsa::{run_tui, AppContext, AppState, AppWidget, Control, RenderContext, RunConfig};
 /// use ratatui::buffer::Buffer;
 /// use ratatui::layout::Rect;
@@ -172,7 +197,18 @@ where
 /// #[derive(Debug)]
 /// struct MainState;
 ///
-/// impl AppWidget<(), (), anyhow::Error> for MainApp {
+/// #[derive(Debug)]
+/// enum Event {
+///     Event(crossterm::event::Event)
+/// }
+///
+/// impl From<crossterm::event::Event> for Event {
+///     fn from(value: crossterm::event::Event) -> Self {
+///         Self::Event(value)
+///     }
+/// }
+///
+/// impl AppWidget<(), Event, anyhow::Error> for MainApp {
 ///     type State = MainState;
 ///
 ///     fn render(
@@ -190,12 +226,15 @@ where
 ///     }
 /// }
 ///
-/// impl AppState<(), (), anyhow::Error> for MainState {
-///     fn crossterm(
+/// impl AppState<(), Event, anyhow::Error> for MainState {
+///     fn event(
 ///         &mut self,
 ///         event: &Event,
 ///         _ctx: &mut AppContext<'_, (), (), anyhow::Error>,
 ///     ) -> Result<Control<()>, anyhow::Error> {
+///         let Event::Event(event) = event else {
+///             return Ok(Control::Continue);
+///         };
 ///
 ///         try_flow!(match event {
 ///             ct_event!(key press 'q') => Control::Quit,
@@ -207,7 +246,13 @@ where
 /// }
 ///
 /// fn main() -> Result<(), anyhow::Error> {
-///     run_tui(MainApp, &mut (), &mut MainState, RunConfig::default()?)?;
+///     use rat_salsa::poll::PollCrossterm;
+///     run_tui(MainApp,
+///         &mut (),
+///         &mut MainState,
+///         RunConfig::default()?
+///             .poll(PollCrossterm)
+///     )?;
 ///     Ok(())
 /// }
 ///
@@ -215,15 +260,16 @@ where
 ///
 /// Maybe `examples/minimal.rs` is more useful.
 ///
-pub fn run_tui<Widget, Global, Message, Error>(
+pub fn run_tui<Widget, Global, Event, Error>(
     app: Widget,
     global: &mut Global,
     state: &mut Widget::State,
-    mut cfg: RunConfig<Widget, Global, Message, Error>,
+    mut cfg: RunConfig<Widget, Global, Event, Error>,
 ) -> Result<(), Error>
 where
-    Widget: AppWidget<Global, Message, Error>,
-    Message: Send + 'static,
+    Widget: AppWidget<Global, Event, Error> + 'static,
+    Global: 'static,
+    Event: Send + 'static,
     Error: Send + 'static + From<TryRecvError> + From<io::Error> + From<SendError<()>>,
 {
     cfg.term.init()?;

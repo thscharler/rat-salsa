@@ -8,17 +8,17 @@ use std::collections::VecDeque;
 
 /// Queue for event-handling results.
 #[derive(Debug)]
-pub(crate) struct ControlQueue<Message, Error>
+pub(crate) struct ControlQueue<Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
-    queue: RefCell<VecDeque<Result<Control<Message>, Error>>>,
+    queue: RefCell<VecDeque<Result<Control<Event>, Error>>>,
 }
 
-impl<Message, Error> Default for ControlQueue<Message, Error>
+impl<Event, Error> Default for ControlQueue<Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     fn default() -> Self {
@@ -28,9 +28,9 @@ where
     }
 }
 
-impl<Message, Error> ControlQueue<Message, Error>
+impl<Event, Error> ControlQueue<Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     /// is empty
@@ -39,12 +39,12 @@ where
     }
 
     /// take the first result.
-    pub(crate) fn take(&self) -> Option<Result<Control<Message>, Error>> {
+    pub(crate) fn take(&self) -> Option<Result<Control<Event>, Error>> {
         self.queue.borrow_mut().pop_front()
     }
 
     /// push a new result to the queue.
-    pub(crate) fn push(&self, ctrl: Result<Control<Message>, Error>) {
+    pub(crate) fn push(&self, ctrl: Result<Control<Event>, Error>) {
         self.queue.borrow_mut().push_back(ctrl);
     }
 }

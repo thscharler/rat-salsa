@@ -1,4 +1,4 @@
-use crate::poll::{PollCrossterm, PollEvents, PollTasks, PollTimers};
+use crate::poll::PollEvents;
 use crate::terminal::{CrosstermTerminal, Terminal};
 use crate::AppWidget;
 use crossbeam::channel::TryRecvError;
@@ -6,10 +6,10 @@ use std::fmt::{Debug, Formatter};
 use std::io;
 
 /// Captures some parameters for [crate::run_tui()].
-pub struct RunConfig<App, Global, Message, Error>
+pub struct RunConfig<App, Global, Event, Error>
 where
-    App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send,
+    App: AppWidget<Global, Event, Error>,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     /// How many worker threads are wanted?
@@ -23,13 +23,13 @@ where
     /// List of all event-handlers for the application.
     ///
     /// Defaults to PollTimers, PollCrossterm, PollTasks. Add yours here.
-    pub(crate) poll: Vec<Box<dyn PollEvents<Global, App::State, Message, Error>>>,
+    pub(crate) poll: Vec<Box<dyn PollEvents<Global, App::State, Event, Error>>>,
 }
 
-impl<App, Global, Message, Error> Debug for RunConfig<App, Global, Message, Error>
+impl<App, Global, Event, Error> Debug for RunConfig<App, Global, Event, Error>
 where
-    App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send,
+    App: AppWidget<Global, Event, Error>,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
@@ -41,10 +41,10 @@ where
     }
 }
 
-impl<App, Global, Message, Error> RunConfig<App, Global, Message, Error>
+impl<App, Global, Event, Error> RunConfig<App, Global, Event, Error>
 where
-    App: AppWidget<Global, Message, Error>,
-    Message: 'static + Send,
+    App: AppWidget<Global, Event, Error>,
+    Event: 'static + Send,
     Error: 'static + Send + From<io::Error> + From<TryRecvError>,
 {
     /// New configuration with some defaults.
@@ -53,11 +53,7 @@ where
         Ok(Self {
             n_threats: 1,
             term: Box::new(CrosstermTerminal::new()?),
-            poll: vec![
-                Box::new(PollTimers),
-                Box::new(PollCrossterm),
-                Box::new(PollTasks),
-            ],
+            poll: Default::default(),
         })
     }
 
@@ -74,16 +70,10 @@ where
         self
     }
 
-    /// Remove default PollEvents.
-    pub fn no_poll(mut self) -> Self {
-        self.poll.clear();
-        self
-    }
-
     /// Add one more poll impl.
     pub fn poll(
         mut self,
-        poll: impl PollEvents<Global, App::State, Message, Error> + 'static,
+        poll: impl PollEvents<Global, App::State, Event, Error> + 'static,
     ) -> Self {
         self.poll.push(Box::new(poll));
         self

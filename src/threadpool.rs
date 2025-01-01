@@ -11,8 +11,8 @@ use std::thread::JoinHandle;
 use std::{mem, thread};
 
 /// Type for a background task.
-type BoxTask<Message, Error> = Box<
-    dyn FnOnce(Cancel, &Sender<Result<Control<Message>, Error>>) -> Result<Control<Message>, Error>
+type BoxTask<Event, Error> = Box<
+    dyn FnOnce(Cancel, &Sender<Result<Control<Event>, Error>>) -> Result<Control<Event>, Error>
         + Send,
 >;
 
@@ -39,25 +39,25 @@ impl Cancel {
 ///
 ///
 #[derive(Debug)]
-pub(crate) struct ThreadPool<Message, Error>
+pub(crate) struct ThreadPool<Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
-    send: Sender<(Cancel, BoxTask<Message, Error>)>,
-    recv: Receiver<Result<Control<Message>, Error>>,
+    send: Sender<(Cancel, BoxTask<Event, Error>)>,
+    recv: Receiver<Result<Control<Event>, Error>>,
     handles: Vec<JoinHandle<()>>,
 }
 
-impl<Message, Error> ThreadPool<Message, Error>
+impl<Event, Error> ThreadPool<Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     /// New thread-pool with the given task executor.
     pub(crate) fn new(n_worker: usize) -> Self {
-        let (send, t_recv) = unbounded::<(Cancel, BoxTask<Message, Error>)>();
-        let (t_send, recv) = unbounded::<Result<Control<Message>, Error>>();
+        let (send, t_recv) = unbounded::<(Cancel, BoxTask<Event, Error>)>();
+        let (t_send, recv) = unbounded::<Result<Control<Event>, Error>>();
 
         let mut handles = Vec::new();
 
@@ -104,7 +104,7 @@ where
     ///
     /// If you need more, create an extra channel for communication to the background task.
     #[inline]
-    pub(crate) fn send(&self, task: BoxTask<Message, Error>) -> Result<Cancel, SendError<()>> {
+    pub(crate) fn send(&self, task: BoxTask<Event, Error>) -> Result<Cancel, SendError<()>> {
         if self.handles.is_empty() {
             return Err(SendError(()));
         }
@@ -133,7 +133,7 @@ where
     }
 
     /// Receive a result.
-    pub(crate) fn try_recv(&self) -> Result<Control<Message>, Error>
+    pub(crate) fn try_recv(&self) -> Result<Control<Event>, Error>
     where
         Error: From<TryRecvError>,
     {
@@ -145,9 +145,9 @@ where
     }
 }
 
-impl<Message, Error> Drop for ThreadPool<Message, Error>
+impl<Event, Error> Drop for ThreadPool<Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     fn drop(&mut self) {

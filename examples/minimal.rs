@@ -1,15 +1,16 @@
 use crate::config::MinimalConfig;
+use crate::event::MinimalEvent;
 use crate::global::GlobalState;
-use crate::message::MinimalMsg;
 use crate::scenery::{Scenery, SceneryState};
 
 use anyhow::Error;
+use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use std::time::SystemTime;
 
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MinimalMsg, Error>;
+type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MinimalEvent, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
@@ -22,7 +23,15 @@ fn main() -> Result<(), Error> {
     let app = Scenery;
     let mut state = SceneryState::default();
 
-    run_tui(app, &mut global, &mut state, RunConfig::default()?)?;
+    run_tui(
+        app,
+        &mut global,
+        &mut state,
+        RunConfig::default()?
+            .poll(PollCrossterm)
+            .poll(PollTimers)
+            .poll(PollTasks),
+    )?;
 
     Ok(())
 }
@@ -61,23 +70,38 @@ pub mod config {
 }
 
 /// Application wide messages.
-pub mod message {
+pub mod event {
+    use crossterm::event::Event;
+    use rat_salsa::timer::TimeOut;
+
     #[derive(Debug)]
-    pub enum MinimalMsg {
+    pub enum MinimalEvent {
+        Timer(TimeOut),
+        Event(crossterm::event::Event),
         Message(String),
+    }
+
+    impl From<TimeOut> for MinimalEvent {
+        fn from(value: TimeOut) -> Self {
+            Self::Timer(value)
+        }
+    }
+
+    impl From<crossterm::event::Event> for MinimalEvent {
+        fn from(value: Event) -> Self {
+            Self::Event(value)
+        }
     }
 }
 
 pub mod scenery {
+    use crate::event::MinimalEvent;
     use crate::global::GlobalState;
-    use crate::message::MinimalMsg;
     use crate::minimal::{Minimal, MinimalState};
     use crate::{AppContext, RenderContext};
     use anyhow::Error;
-    use crossterm::event::Event;
-    use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent};
+    use rat_widget::event::{ct_event, ConsumedEvent, Dialog, HandleEvent, Regular};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::msgdialog::MsgDialog;
     use rat_widget::statusline::StatusLine;
@@ -94,7 +118,7 @@ pub mod scenery {
         pub minimal: MinimalState,
     }
 
-    impl AppWidget<GlobalState, MinimalMsg, Error> for Scenery {
+    impl AppWidget<GlobalState, MinimalEvent, Error> for Scenery {
         type State = SceneryState;
 
         fn render(
@@ -133,82 +157,59 @@ pub mod scenery {
         }
     }
 
-    impl AppState<GlobalState, MinimalMsg, Error> for SceneryState {
+    impl AppState<GlobalState, MinimalEvent, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
             ctx.focus = Some(FocusBuilder::for_container(&self.minimal));
             self.minimal.init(ctx)?;
             Ok(())
         }
 
-        fn timer(
+        fn event(
             &mut self,
-            event: &TimeOut,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MinimalMsg>, Error> {
+            event: &MinimalEvent,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
+        ) -> Result<Control<MinimalEvent>, Error> {
             let t0 = SystemTime::now();
 
-            ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-            let r = self.minimal.timer(event, ctx)?;
+            let mut r = match event {
+                MinimalEvent::Event(event) => {
+                    let mut r = match &event {
+                        ct_event!(resized) => Control::Changed,
+                        ct_event!(key press CONTROL-'q') => Control::Quit,
+                        _ => Control::Continue,
+                    };
 
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(2, format!("T {:.0?}", el).to_string());
+                    r = r.or_else(|| {
+                        if ctx.g.error_dlg.active() {
+                            ctx.g.error_dlg.handle(event, Dialog).into()
+                        } else {
+                            Control::Continue
+                        }
+                    });
 
-            Ok(r)
-        }
-
-        fn crossterm(
-            &mut self,
-            event: &Event,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MinimalMsg>, Error> {
-            let t0 = SystemTime::now();
-
-            let mut r = match &event {
-                ct_event!(resized) => Control::Changed,
-                ct_event!(key press CONTROL-'q') => Control::Quit,
-                _ => Control::Continue,
-            };
-
-            r = r.or_else(|| {
-                if ctx.g.error_dlg.active() {
-                    ctx.g.error_dlg.handle(&event, Dialog).into()
-                } else {
-                    Control::Continue
+                    r
                 }
-            });
-
-            r = r.or_else_try(|| {
-                ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-                self.minimal.crossterm(&event, ctx)
-            })?;
-
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(2, format!("H {:.0?}", el).to_string());
-
-            Ok(r)
-        }
-
-        fn message(
-            &mut self,
-            event: &mut MinimalMsg,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MinimalMsg>, Error> {
-            let t0 = SystemTime::now();
-
-            #[allow(unreachable_patterns)]
-            let r = match event {
-                MinimalMsg::Message(s) => {
+                MinimalEvent::Message(s) => {
                     ctx.g.status.status(0, &*s);
                     Control::Changed
                 }
-                _ => {
-                    ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-                    self.minimal.message(event, ctx)?
-                }
+                _ => Control::Continue,
             };
 
-            let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-            ctx.g.status.status(2, format!("A {:.0?}", el).to_string());
+            // rebuild and handle focus for each event
+            r = r.or_else(|| {
+                ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
+                if let MinimalEvent::Event(event) = event {
+                    let f = ctx.focus_mut().handle(event, Regular);
+                    ctx.queue(f);
+                }
+                Control::Continue
+            });
+
+            r = r.or_else_try(|| self.minimal.event(event, ctx))?;
+
+            let el = t0.elapsed()?;
+            ctx.g.status.status(2, format!("E {:.0?}", el).to_string());
 
             Ok(r)
         }
@@ -217,7 +218,7 @@ pub mod scenery {
             &self,
             event: Error,
             ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MinimalMsg>, Error> {
+        ) -> Result<Control<MinimalEvent>, Error> {
             ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
             Ok(Control::Changed)
         }
@@ -225,9 +226,8 @@ pub mod scenery {
 }
 
 pub mod minimal {
-    use crate::{AppContext, GlobalState, MinimalMsg, RenderContext};
+    use crate::{GlobalState, MinimalEvent, RenderContext};
     use anyhow::Error;
-    use crossterm::event::Event;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::{FocusBuilder, FocusContainer};
@@ -254,7 +254,7 @@ pub mod minimal {
         }
     }
 
-    impl AppWidget<GlobalState, MinimalMsg, Error> for Minimal {
+    impl AppWidget<GlobalState, MinimalEvent, Error> for Minimal {
         type State = MinimalState;
 
         fn render(
@@ -290,25 +290,24 @@ pub mod minimal {
         }
     }
 
-    impl AppState<GlobalState, MinimalMsg, Error> for MinimalState {
+    impl AppState<GlobalState, MinimalEvent, Error> for MinimalState {
         fn init(
             &mut self,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalMsg, Error>,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
         ) -> Result<(), Error> {
             ctx.focus().first();
             Ok(())
         }
 
         #[allow(unused_variables)]
-        fn crossterm(
+        fn event(
             &mut self,
-            event: &Event,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MinimalMsg>, Error> {
-            // TODO: handle_mask
-
-            let f = ctx.focus_mut().handle(event, Regular);
-            ctx.queue(f);
+            event: &MinimalEvent,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
+        ) -> Result<Control<MinimalEvent>, Error> {
+            let MinimalEvent::Event(event) = event else {
+                return Ok(Control::Continue);
+            };
 
             try_flow!(match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(0) => {

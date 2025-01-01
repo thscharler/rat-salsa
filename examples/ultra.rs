@@ -1,11 +1,11 @@
 use anyhow::Error;
-use crossterm::event::Event;
+use rat_salsa::poll::PollCrossterm;
 use rat_salsa::{run_tui, AppState, AppWidget, Control, RunConfig};
 use rat_theme::{dark_theme::DarkTheme, scheme::IMPERIAL};
 use rat_widget::event::ct_event;
 use ratatui::prelude::{Buffer, Rect, Widget};
 
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, UltraMsg, Error>;
+type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, UltraEvent, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
@@ -14,7 +14,7 @@ fn main() -> Result<(), Error> {
         Ultra,
         &mut GlobalState::new(DarkTheme::new("Imperial".into(), IMPERIAL)),
         &mut UltraState::default(),
-        RunConfig::default()?,
+        RunConfig::default()?.poll(PollCrossterm),
     )
 }
 
@@ -34,7 +34,15 @@ impl GlobalState {
 }
 
 #[derive(Debug, PartialEq, Eq, Clone)]
-pub enum UltraMsg {}
+pub enum UltraEvent {
+    Event(crossterm::event::Event),
+}
+
+impl From<crossterm::event::Event> for UltraEvent {
+    fn from(value: crossterm::event::Event) -> Self {
+        Self::Event(value)
+    }
+}
 
 #[derive(Debug, Default)]
 pub struct Ultra;
@@ -42,7 +50,7 @@ pub struct Ultra;
 #[derive(Debug, Default)]
 pub struct UltraState;
 
-impl AppWidget<GlobalState, UltraMsg, Error> for Ultra {
+impl AppWidget<GlobalState, UltraEvent, Error> for Ultra {
     type State = UltraState;
 
     fn render(
@@ -57,21 +65,24 @@ impl AppWidget<GlobalState, UltraMsg, Error> for Ultra {
     }
 }
 
-impl AppState<GlobalState, UltraMsg, Error> for UltraState {
-    fn crossterm(
+impl AppState<GlobalState, UltraEvent, Error> for UltraState {
+    fn event(
         &mut self,
-        event: &Event,
+        event: &UltraEvent,
         _ctx: &mut AppContext<'_>,
-    ) -> Result<Control<UltraMsg>, Error> {
+    ) -> Result<Control<UltraEvent>, Error> {
         let r = match event {
-            ct_event!(key press 'q') => Control::Quit,
-            ct_event!(key press CONTROL-'q') => Control::Quit,
+            UltraEvent::Event(event) => match event {
+                ct_event!(key press 'q') => Control::Quit,
+                ct_event!(key press CONTROL-'q') => Control::Quit,
+                _ => Control::Continue,
+            },
             _ => Control::Continue,
         };
         Ok(r)
     }
 
-    fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<UltraMsg>, Error> {
+    fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<UltraEvent>, Error> {
         ctx.g.err_msg = format!("{:?}", event).to_string();
         Ok(Control::Continue)
     }

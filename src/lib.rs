@@ -21,7 +21,7 @@ pub mod timer;
 
 use crate::control_queue::ControlQueue;
 use crate::threadpool::ThreadPool;
-use crate::timer::{TimeOut, TimerDef, TimerHandle, Timers};
+use crate::timer::{TimerDef, TimerHandle, Timers};
 use rat_widget::focus::Focus;
 
 pub use framework::*;
@@ -49,7 +49,7 @@ pub use threadpool::Cancel;
 #[derive(Debug, Clone, Copy)]
 #[must_use]
 #[non_exhaustive]
-pub enum Control<Message> {
+pub enum Control<Event> {
     /// Continue with event-handling.
     /// In the event-loop this waits for the next event.
     Continue,
@@ -59,25 +59,30 @@ pub enum Control<Message> {
     /// Break event-handling and repaints/renders the application.
     /// In the event-loop this calls `render`.
     Changed,
-    /// Handle an application defined event. This calls `message`
-    /// to distribute the message throughout the application.
+    /// Eventhandling can cause secondary application specific events.
+    /// One common way is to return this `Control::Message(my_event)`
+    /// to reenter the event-loop with your own secondary event.
     ///
-    /// This helps with interactions between parts of the
-    /// application.
-    Message(Message),
+    /// This acts quite like a message-queue to communicate between
+    /// disconnected parts of your application. And indeed there is
+    /// a hidden message-queue as part of the event-loop.
+    ///
+    /// The other way is to call [AppContext::queue] to initiate such
+    /// events.
+    Message(Event),
     /// Quit the application.
     Quit,
 }
 
-impl<Message> Eq for Control<Message> {}
+impl<Event> Eq for Control<Event> {}
 
-impl<Message> PartialEq for Control<Message> {
+impl<Event> PartialEq for Control<Event> {
     fn eq(&self, other: &Self) -> bool {
         mem::discriminant(self) == mem::discriminant(other)
     }
 }
 
-impl<Message> Ord for Control<Message> {
+impl<Event> Ord for Control<Event> {
     fn cmp(&self, other: &Self) -> Ordering {
         match self {
             Control::Continue => match other {
@@ -119,19 +124,19 @@ impl<Message> Ord for Control<Message> {
     }
 }
 
-impl<Message> PartialOrd for Control<Message> {
+impl<Event> PartialOrd for Control<Event> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<Message> ConsumedEvent for Control<Message> {
+impl<Event> ConsumedEvent for Control<Event> {
     fn is_consumed(&self) -> bool {
         !matches!(self, Control::Continue)
     }
 }
 
-impl<Message, T: Into<Outcome>> From<T> for Control<Message> {
+impl<Event, T: Into<Outcome>> From<T> for Control<Event> {
     fn from(value: T) -> Self {
         let r = value.into();
         match r {
@@ -145,13 +150,13 @@ impl<Message, T: Into<Outcome>> From<T> for Control<Message> {
 ///
 /// AppWidget mimics StatefulWidget and adds a [RenderContext]
 ///
-pub trait AppWidget<Global, Message, Error>
+pub trait AppWidget<Global, Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     /// Type of the State.
-    type State: AppState<Global, Message, Error> + ?Sized;
+    type State: AppState<Global, Event, Error> + ?Sized;
 
     /// Renders an application widget.
     fn render(
@@ -164,43 +169,43 @@ where
 }
 
 ///
-/// AppState packs together the currently supported event-handlers.
+/// AppState executes events and has some init and error-handling.
+///
+/// There is no separate shutdown, handle this case with an application
+/// specific event.
 ///
 #[allow(unused_variables)]
-pub trait AppState<Global, Message, Error>
+pub trait AppState<Global, Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     /// Initialize the application. Runs before the first repaint.
-    fn init(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<(), Error> {
+    fn init(
+        &mut self, //
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<(), Error> {
         Ok(())
     }
 
-    /// Timeout event.
-    fn timer(
-        &mut self,
-        event: &TimeOut,
-        ctx: &mut AppContext<'_, Global, Message, Error>,
-    ) -> Result<Control<Message>, Error> {
-        Ok(Control::Continue)
+    /// Shutdown the application. Runs after the event-loop has ended.
+    ///
+    /// __Panic__
+    ///
+    /// Doesn't run if a panic occurred.
+    ///
+    ///__Errors__
+    /// Any errors will be returned to main().
+    fn shutdown(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<(), Error> {
+        Ok(())
     }
 
-    /// Crossterm event.
-    fn crossterm(
+    /// Handle an event.
+    fn event(
         &mut self,
-        event: &crossterm::event::Event,
-        ctx: &mut AppContext<'_, Global, Message, Error>,
-    ) -> Result<Control<Message>, Error> {
-        Ok(Control::Continue)
-    }
-
-    /// Process a message.
-    fn message(
-        &mut self,
-        event: &mut Message,
-        ctx: &mut AppContext<'_, Global, Message, Error>,
-    ) -> Result<Control<Message>, Error> {
+        event: &Event,
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error> {
         Ok(Control::Continue)
     }
 
@@ -208,8 +213,8 @@ where
     fn error(
         &self,
         event: Error,
-        ctx: &mut AppContext<'_, Global, Message, Error>,
-    ) -> Result<Control<Message>, Error> {
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error> {
         Ok(Control::Continue)
     }
 }
@@ -218,9 +223,9 @@ where
 /// Application context for event handling.
 ///
 #[derive(Debug)]
-pub struct AppContext<'a, Global, Message, Error>
+pub struct AppContext<'a, Global, Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     /// Global state for the application.
@@ -229,11 +234,11 @@ where
     pub focus: Option<Focus>,
 
     /// Application timers.
-    pub(crate) timers: &'a Timers,
+    pub(crate) timers: &'a Option<Timers>,
     /// Background tasks.
-    pub(crate) tasks: &'a ThreadPool<Message, Error>,
+    pub(crate) tasks: &'a Option<ThreadPool<Event, Error>>,
     /// Queue foreground tasks.
-    pub(crate) queue: &'a ControlQueue<Message, Error>,
+    pub(crate) queue: &'a ControlQueue<Event, Error>,
 }
 
 ///
@@ -249,26 +254,44 @@ pub struct RenderContext<'a, Global> {
     pub cursor: Option<(u16, u16)>,
 }
 
-impl<'a, Global, Message, Error> AppContext<'a, Global, Message, Error>
+impl<'a, Global, Event, Error> AppContext<'a, Global, Event, Error>
 where
-    Message: 'static + Send,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     /// Add a timer.
+    ///
+    /// __Panic__
+    ///
+    /// Panics if no timer support is configured.
     #[inline]
     pub fn add_timer(&self, t: TimerDef) -> TimerHandle {
-        self.timers.add(t)
+        self.timers
+            .as_ref()
+            .expect("No timers configured. In main() add RunConfig::default()?.poll(PollTimers)")
+            .add(t)
     }
 
     /// Remove a timer.
+    ///
+    /// __Panic__
+    ///
+    /// Panics if no timer support is configured.
     #[inline]
     pub fn remove_timer(&self, tag: TimerHandle) {
-        self.timers.remove(tag);
+        self.timers
+            .as_ref()
+            .expect("No timers configured. In main() add RunConfig::default()?.poll(PollTimers)")
+            .remove(tag);
     }
 
     /// Replace a timer.
     /// Remove the old timer and create a new one.
     /// If the old timer no longer exists it just creates the new one.
+    ///
+    /// __Panic__
+    ///
+    /// Panics if no timer support is configured.
     #[inline]
     pub fn replace_timer(&self, h: Option<TimerHandle>, t: TimerDef) -> TimerHandle {
         if let Some(h) = h {
@@ -285,26 +308,32 @@ where
     ///     Ok(Control::Continue)
     /// });
     /// ```
+    ///
+    /// __Panic__
+    ///
+    /// Panics if no worker-thread support is configured.
     #[inline]
     pub fn spawn(
         &self,
-        task: impl FnOnce(
-                Cancel,
-                &Sender<Result<Control<Message>, Error>>,
-            ) -> Result<Control<Message>, Error>
+        task: impl FnOnce(Cancel, &Sender<Result<Control<Event>, Error>>) -> Result<Control<Event>, Error>
             + Send
             + 'static,
     ) -> Result<Cancel, SendError<()>>
     where
-        Message: 'static + Send,
+        Event: 'static + Send,
         Error: 'static + Send,
     {
-        self.tasks.send(Box::new(task))
+        self.tasks
+            .as_ref()
+            .expect(
+                "No thread-pool configured. In main() add RunConfig::default()?.poll(PollTasks)",
+            )
+            .send(Box::new(task))
     }
 
     /// Queue additional results.
     #[inline]
-    pub fn queue(&self, ctrl: impl Into<Control<Message>>) {
+    pub fn queue(&self, ctrl: impl Into<Control<Event>>) {
         self.queue.push(Ok(ctrl.into()));
     }
 
@@ -316,7 +345,8 @@ where
 
     /// Access the focus-field.
     ///
-    /// # Panic
+    /// __Panic__
+    ///
     /// Panics if no focus has been set.
     #[inline]
     pub fn focus(&self) -> &Focus {
@@ -325,7 +355,8 @@ where
 
     /// Access the focus-field.
     ///
-    /// # Panic
+    /// __Panic__
+    ///
     /// Panics if no focus has been set.
     #[inline]
     pub fn focus_mut(&mut self) -> &mut Focus {

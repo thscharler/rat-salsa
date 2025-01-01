@@ -2,9 +2,10 @@
 //! Defines the trait for event-sources.
 //!
 
-use crate::timer::TimerEvent;
+use crate::timer::{TimeOut, TimerEvent};
 use crate::{AppContext, AppState, Control};
 use crossbeam::channel::TryRecvError;
+use std::any::Any;
 use std::fmt::Debug;
 use std::time::Duration;
 
@@ -13,12 +14,11 @@ use std::time::Duration;
 /// If you need to add your own do the following:
 ///
 /// * Implement this trait for a struct that fits.
-///     TODO: try this
 ///
-pub trait PollEvents<Global, State, Message, Error>
+pub trait PollEvents<Global, State, Event, Error>: Any
 where
-    State: AppState<Global, Message, Error> + ?Sized,
-    Message: 'static + Send,
+    State: AppState<Global, Event, Error> + ?Sized,
+    Event: 'static + Send,
     Error: 'static + Send,
 {
     /// Poll for a new event.
@@ -31,7 +31,7 @@ where
     /// one source cannot just flood the app with events.
     fn poll(
         &mut self, //
-        ctx: &mut AppContext<'_, Global, Message, Error>,
+        ctx: &mut AppContext<'_, Global, Event, Error>,
     ) -> Result<bool, Error>;
 
     /// Read the event and distribute it.
@@ -41,30 +41,38 @@ where
     fn read_exec(
         &mut self,
         state: &mut State,
-        ctx: &mut AppContext<'_, Global, Message, Error>,
-    ) -> Result<Control<Message>, Error>;
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error>;
 }
 
 /// Processes results from background tasks.
 #[derive(Debug)]
 pub struct PollTasks;
 
-impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollTasks
+impl<Global, State, Event, Error> PollEvents<Global, State, Event, Error> for PollTasks
 where
-    State: AppState<Global, Message, Error> + ?Sized,
-    Message: 'static + Send,
+    State: AppState<Global, Event, Error> + ?Sized,
+    Event: 'static + Send,
     Error: 'static + Send + From<TryRecvError>,
 {
-    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
-        Ok(!ctx.tasks.is_empty())
+    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
+        if let Some(tasks) = ctx.tasks {
+            Ok(!tasks.is_empty())
+        } else {
+            Ok(false)
+        }
     }
 
     fn read_exec(
         &mut self,
         _state: &mut State,
-        ctx: &mut AppContext<'_, Global, Message, Error>,
-    ) -> Result<Control<Message>, Error> {
-        ctx.tasks.try_recv()
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error> {
+        if let Some(tasks) = ctx.tasks {
+            tasks.try_recv()
+        } else {
+            Ok(Control::Continue)
+        }
     }
 }
 
@@ -72,24 +80,32 @@ where
 #[derive(Debug, Default)]
 pub struct PollTimers;
 
-impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollTimers
+impl<Global, State, Event, Error> PollEvents<Global, State, Event, Error> for PollTimers
 where
-    State: AppState<Global, Message, Error> + ?Sized,
-    Message: 'static + Send,
+    State: AppState<Global, Event, Error> + ?Sized,
+    Event: 'static + Send + From<TimeOut>,
     Error: 'static + Send + From<std::io::Error>,
 {
-    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
-        Ok(ctx.timers.poll())
+    fn poll(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
+        if let Some(timers) = ctx.timers {
+            Ok(timers.poll())
+        } else {
+            Ok(false)
+        }
     }
 
     fn read_exec(
         &mut self,
         state: &mut State,
-        ctx: &mut AppContext<'_, Global, Message, Error>,
-    ) -> Result<Control<Message>, Error> {
-        match ctx.timers.read() {
-            None => Ok(Control::Continue),
-            Some(TimerEvent(t)) => state.timer(&t, ctx),
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error> {
+        if let Some(timers) = ctx.timers {
+            match timers.read() {
+                None => Ok(Control::Continue),
+                Some(TimerEvent(t)) => state.event(&t.into(), ctx),
+            }
+        } else {
+            Ok(Control::Continue)
         }
     }
 }
@@ -98,23 +114,23 @@ where
 #[derive(Debug)]
 pub struct PollCrossterm;
 
-impl<Global, State, Message, Error> PollEvents<Global, State, Message, Error> for PollCrossterm
+impl<Global, State, Event, Error> PollEvents<Global, State, Event, Error> for PollCrossterm
 where
-    State: AppState<Global, Message, Error> + ?Sized,
-    Message: 'static + Send,
+    State: AppState<Global, Event, Error> + ?Sized,
+    Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Send + From<std::io::Error>,
 {
-    fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Message, Error>) -> Result<bool, Error> {
+    fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
         Ok(crossterm::event::poll(Duration::from_millis(0))?)
     }
 
     fn read_exec(
         &mut self,
         state: &mut State,
-        ctx: &mut AppContext<'_, Global, Message, Error>,
-    ) -> Result<Control<Message>, Error> {
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error> {
         match crossterm::event::read() {
-            Ok(event) => state.crossterm(&event, ctx),
+            Ok(event) => state.event(&event.into(), ctx),
             Err(e) => Err(e.into()),
         }
     }

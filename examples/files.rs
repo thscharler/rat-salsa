@@ -1,12 +1,13 @@
 #![allow(unused_variables)]
 #![allow(unreachable_pub)]
 
-use crate::FilesAction::{Message, ReadDir, Update, UpdateFile};
+use crate::FilesEvent::{Message, ReadDir, Update, UpdateFile};
 use crate::Relative::{Current, Full, Parent, SubDir};
 use anyhow::Error;
 use crossbeam::channel::Sender;
+use crossterm::event::Event;
 use directories_next::UserDirs;
-use rat_salsa::timer::TimeOut;
+use rat_salsa::poll::{PollCrossterm, PollTasks};
 use rat_salsa::{run_tui, AppState, AppWidget, Cancel, Control, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::dark_themes;
@@ -35,13 +36,13 @@ use ratatui::text::{Line, Text};
 use ratatui::widgets::block::Title;
 use ratatui::widgets::{Block, BorderType, Borders, StatefulWidget, Widget};
 use std::ffi::OsString;
+use std::fs;
 use std::path::{Path, PathBuf};
 use std::str::from_utf8;
 use std::time::{Duration, SystemTime};
-use std::{fs, mem};
 use sysinfo::Disks;
 
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, FilesAction, Error>;
+type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, FilesEvent, Error>;
 type RenderContext<'a> = rat_salsa::RenderContext<'a, GlobalState>;
 
 fn main() -> Result<(), Error> {
@@ -58,7 +59,10 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig::default()?.threads(1),
+        RunConfig::default()?
+            .threads(1)
+            .poll(PollCrossterm)
+            .poll(PollTasks),
     )?;
 
     Ok(())
@@ -91,7 +95,8 @@ impl GlobalState {
 pub struct FilesConfig {}
 
 #[derive(Debug)]
-pub enum FilesAction {
+pub enum FilesEvent {
+    Event(crossterm::event::Event),
     Message(String),
     ReadDir(Relative, PathBuf, Option<OsString>),
     Update(
@@ -103,6 +108,12 @@ pub enum FilesAction {
         Option<String>,
     ),
     UpdateFile(PathBuf, String),
+}
+
+impl From<crossterm::event::Event> for FilesEvent {
+    fn from(value: Event) -> Self {
+        Self::Event(value)
+    }
 }
 
 #[derive(Debug, PartialEq, Eq, Clone, Copy)]
@@ -281,7 +292,7 @@ impl<'a> MenuStructure<'a> for Menu {
     }
 }
 
-impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
+impl AppWidget<GlobalState, FilesEvent, Error> for FilesApp {
     type State = FilesState;
 
     fn render(
@@ -403,7 +414,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
                 Block::bordered()
                     .borders(Borders::TOP)
                     .border_set(set)
-                    .style(ctx.g.theme.data_base())
+                    .style(ctx.g.theme.container_base())
                     .title(title),
             )
             .render(state.w_split.widget_areas[2], buf, &mut state.w_data);
@@ -444,7 +455,7 @@ impl AppWidget<GlobalState, FilesAction, Error> for FilesApp {
     }
 }
 
-impl AppState<GlobalState, FilesAction, Error> for FilesState {
+impl AppState<GlobalState, FilesEvent, Error> for FilesState {
     fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
         self.main_dir = if let Ok(dot) = PathBuf::from(".").canonicalize() {
             dot
@@ -460,21 +471,46 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
         Ok(())
     }
 
-    fn timer(
+    fn event(
         &mut self,
-        event: &TimeOut,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesAction>, Error> {
-        Ok(Control::Continue)
+        event: &FilesEvent,
+        ctx: &mut rat_salsa::AppContext<'_, GlobalState, FilesEvent, Error>,
+    ) -> Result<Control<FilesEvent>, Error> {
+        let t0 = SystemTime::now();
+
+        let r = match event {
+            FilesEvent::Event(event) => self.crossterm(event, ctx)?,
+            Message(s) => {
+                ctx.g.status.status(0, &*s);
+                Control::Changed
+            }
+            ReadDir(rel, path, sub) => {
+                self.read_dir(*rel, path, sub, ctx)? //
+            }
+            Update(rel, path, subdir, ddd, fff, err) => {
+                self.update_dirs(*rel, path, subdir, ddd, fff, err, ctx)?
+            }
+            UpdateFile(path, text) => self.update_preview(path, text, ctx)?,
+        };
+
+        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
+        ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
+
+        Ok(r)
     }
 
+    fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
+        ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+        Ok(Control::Changed)
+    }
+}
+
+impl FilesState {
     fn crossterm(
         &mut self,
         event: &crossterm::event::Event,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesAction>, Error> {
-        let t0 = SystemTime::now();
-
+        ctx: &mut AppContext,
+    ) -> Result<Control<FilesEvent>, Error> {
         try_flow!(match &event {
             ct_event!(resized) => Control::Changed,
             ct_event!(key press CONTROL-'q') => Control::Quit,
@@ -583,49 +619,12 @@ impl AppState<GlobalState, FilesAction, Error> for FilesState {
         });
         try_flow!(self.w_data.handle(event, ReadOnly));
 
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(2, format!("H {:.3?}", el).to_string());
-
         Ok(Control::Continue)
-    }
-
-    fn message(
-        &mut self,
-        event: &mut FilesAction,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesAction>, Error> {
-        let t0 = SystemTime::now();
-
-        // TODO: actions
-        try_flow!(match event {
-            Message(s) => {
-                ctx.g.status.status(0, &*s);
-                Control::Changed
-            }
-            ReadDir(rel, path, sub) => {
-                self.read_dir(*rel, path, sub, ctx)?
-            }
-            Update(rel, path, subdir, ddd, fff, err) =>
-                self.update_dirs(*rel, path, subdir, ddd, fff, err, ctx)?,
-            UpdateFile(path, text) => {
-                self.update_preview(path, text, ctx)?
-            }
-        });
-
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(3, format!("A {:.3?}", el).to_string());
-
-        Ok(Control::Continue)
-    }
-
-    fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
-        ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
-        Ok(Control::Changed)
     }
 }
 
 impl FilesState {
-    fn show_dir(&mut self) -> Result<Control<FilesAction>, Error> {
+    fn show_dir(&mut self) -> Result<Control<FilesEvent>, Error> {
         if let Some(n) = self.w_dirs.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from(".") {
@@ -658,15 +657,12 @@ impl FilesState {
 
     fn update_preview(
         &mut self,
-        path: &mut PathBuf,
-        text: &mut String,
+        path: &PathBuf,
+        text: &String,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesAction>, Error> {
+    ) -> Result<Control<FilesEvent>, Error> {
         let sel = self.current_file();
-        let path = mem::take(path);
-        let text = mem::take(text);
-
-        if Some(path) == sel {
+        if Some(path) == sel.as_ref() {
             self.w_data.set_text(text);
             Ok(Control::Changed)
         } else {
@@ -677,33 +673,28 @@ impl FilesState {
     fn update_dirs(
         &mut self,
         rel: Relative,
-        path: &mut PathBuf,
-        sub: &mut Option<OsString>,
-        ddd: &mut Vec<OsString>,
-        fff: &mut Vec<OsString>,
-        err: &mut Option<String>,
+        path: &PathBuf,
+        sub: &Option<OsString>,
+        ddd: &Vec<OsString>,
+        fff: &Vec<OsString>,
+        err: &Option<String>,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesAction>, Error> {
+    ) -> Result<Control<FilesEvent>, Error> {
         let selected = if let Some(n) = self.w_dirs.selected() {
             self.sub_dirs.get(n).cloned()
         } else {
             None
         };
 
-        let path = mem::take(path);
-        let sub = mem::take(sub);
-        let ddd = mem::take(ddd);
-        let fff = mem::take(fff);
-
-        self.err = mem::take(err);
+        self.err = err.clone();
 
         match rel {
             Full => {
-                self.main_dir = path;
+                self.main_dir = path.clone();
                 self.sub_dirs.clear();
-                self.sub_dirs.extend(ddd.into_iter());
+                self.sub_dirs.extend(ddd.iter().cloned());
                 self.files.clear();
-                self.files.extend(fff.into_iter().map(|v| (v, false)));
+                self.files.extend(fff.iter().cloned().map(|v| (v, false)));
 
                 self.w_dirs.select(Some(0));
                 self.w_files.select(Some(0));
@@ -711,23 +702,23 @@ impl FilesState {
             Parent => {
                 if selected == Some(OsString::from("..")) {
                     self.files.clear();
-                    self.files.extend(ddd.into_iter().map(|v| (v, true)));
-                    self.files.extend(fff.into_iter().map(|v| (v, false)));
+                    self.files.extend(ddd.iter().cloned().map(|v| (v, true)));
+                    self.files.extend(fff.iter().cloned().map(|v| (v, false)));
                     self.w_files.select(Some(0));
                 }
             }
             Current => {
                 if selected == Some(OsString::from(".")) {
                     self.files.clear();
-                    self.files.extend(fff.into_iter().map(|v| (v, false)));
+                    self.files.extend(fff.iter().cloned().map(|v| (v, false)));
                     self.w_files.select(Some(0));
                 }
             }
             SubDir => {
                 if selected == sub.as_ref().cloned() {
                     self.files.clear();
-                    self.files.extend(ddd.into_iter().map(|v| (v, true)));
-                    self.files.extend(fff.into_iter().map(|v| (v, false)));
+                    self.files.extend(ddd.iter().cloned().map(|v| (v, true)));
+                    self.files.extend(fff.iter().cloned().map(|v| (v, false)));
                     self.w_files.select(Some(0));
                 }
             }
@@ -741,12 +732,12 @@ impl FilesState {
     fn read_dir(
         &mut self,
         rel: Relative,
-        path: &mut PathBuf,
-        sub: &mut Option<OsString>,
+        path: &PathBuf,
+        sub: &Option<OsString>,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<FilesAction>, Error> {
-        let path = mem::take(path);
-        let sub = mem::take(sub);
+    ) -> Result<Control<FilesEvent>, Error> {
+        let path = path.clone();
+        let sub = sub.clone();
 
         _ = ctx.spawn(move |can, snd| {
             let Some(read_path) = (match rel {
@@ -785,14 +776,21 @@ impl FilesState {
                             }
                         }
                     }
-                    Ok(Control::Message(Update(rel, path, sub, ddd, fff, None)))
+                    Ok(Control::Message(Update(
+                        rel,
+                        path.clone(),
+                        sub.clone(),
+                        ddd,
+                        fff,
+                        None,
+                    )))
                 }
                 Err(e) => {
                     let msg = format!("{:?}", e);
                     Ok(Control::Message(Update(
                         rel,
-                        path,
-                        sub,
+                        path.clone(),
+                        sub.clone(),
                         Vec::default(),
                         Vec::default(),
                         Some(msg),
@@ -804,7 +802,7 @@ impl FilesState {
         Ok(Control::Continue)
     }
 
-    fn follow_dir(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
+    fn follow_dir(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
         if let Some(n) = self.w_dirs.selected() {
             if let Some(sub) = self.sub_dirs.get(n) {
                 if sub == &OsString::from("..") {
@@ -862,7 +860,7 @@ impl FilesState {
         file
     }
 
-    fn show_file(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
+    fn show_file(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
         let file = self.current_file();
 
         if let Some(file) = file {
@@ -897,7 +895,7 @@ impl FilesState {
 
     fn display_text(
         can: Cancel,
-        snd: &Sender<Result<Control<FilesAction>, Error>>,
+        snd: &Sender<Result<Control<FilesEvent>, Error>>,
         file: &Path,
         text: &Vec<u8>,
     ) -> Result<String, Error> {
@@ -985,7 +983,7 @@ impl FilesState {
         Ok(str_text)
     }
 
-    fn follow_file(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesAction>, Error> {
+    fn follow_file(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<FilesEvent>, Error> {
         let file = self.current_file();
 
         if let Some(file) = file {

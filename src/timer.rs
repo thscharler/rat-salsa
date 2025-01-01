@@ -75,7 +75,7 @@ impl Timers {
 
                 Some(evt)
             } else {
-                self.timers.borrow_mut().push(timer);
+                timers.push(timer);
                 None
             }
         } else {

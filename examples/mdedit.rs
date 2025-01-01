@@ -5,6 +5,9 @@
 use crate::facilities::MDFileDialogState;
 use crate::root::{MDRoot, MDRootState};
 use anyhow::Error;
+use crossterm::event::Event;
+use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
+use rat_salsa::timer::TimeOut;
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
@@ -16,7 +19,7 @@ use std::path::PathBuf;
 
 mod mdedit_parts;
 
-type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MDAction, Error>;
+type AppContext<'a> = rat_salsa::AppContext<'a, GlobalState, MDEvent, Error>;
 
 fn main() -> Result<(), Error> {
     setup_logging()?;
@@ -39,7 +42,11 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig::default()?.threads(1),
+        RunConfig::default()?
+            .threads(1)
+            .poll(PollCrossterm)
+            .poll(PollTasks)
+            .poll(PollTimers),
     )?;
 
     Ok(())
@@ -85,9 +92,13 @@ pub struct MDConfig {
     pub new_line: String,
 }
 
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]
-pub enum MDAction {
+#[derive(Debug, PartialEq, Eq)]
+pub enum MDEvent {
+    TimeOut(TimeOut),
+    Event(crossterm::event::Event),
+
     Message(String),
+
     MenuNew,
     MenuOpen,
     MenuSave,
@@ -112,15 +123,26 @@ pub enum MDAction {
     SelectAt(usize, usize),
 }
 
+impl From<crossterm::event::Event> for MDEvent {
+    fn from(value: Event) -> Self {
+        Self::Event(value)
+    }
+}
+
+impl From<TimeOut> for MDEvent {
+    fn from(value: TimeOut) -> Self {
+        Self::TimeOut(value)
+    }
+}
+
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 mod root {
     use crate::app::{MDApp, MDAppState};
-    use crate::{AppContext, GlobalState, MDAction};
+    use crate::{AppContext, GlobalState, MDEvent};
     use anyhow::Error;
-    use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{ct_event, try_flow};
+    use rat_widget::event::{ct_event, try_flow, ConsumedEvent};
     use rat_widget::focus::FocusBuilder;
     use rat_widget::statusline::StatusLine;
     use ratatui::buffer::Buffer;
@@ -136,7 +158,7 @@ mod root {
         pub app: MDAppState,
     }
 
-    impl AppWidget<GlobalState, MDAction, Error> for MDRoot {
+    impl AppWidget<GlobalState, MDEvent, Error> for MDRoot {
         type State = MDRootState;
 
         fn render(
@@ -178,19 +200,35 @@ mod root {
         }
     }
 
-    impl AppState<GlobalState, MDAction, Error> for MDRootState {
+    impl AppState<GlobalState, MDEvent, Error> for MDRootState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
             self.app.init(ctx)
         }
 
-        fn timer(
+        fn event(
             &mut self,
-            event: &TimeOut,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
+            event: &MDEvent,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDEvent, Error>,
+        ) -> Result<Control<MDEvent>, Error> {
             let t0 = SystemTime::now();
 
-            let r = self.app.timer(event, ctx)?;
+            let mut r = match event {
+                MDEvent::Event(event) => {
+                    try_flow!(match &event {
+                        ct_event!(resized) => Control::Changed,
+                        ct_event!(key press CONTROL-'q') => Control::Quit,
+                        _ => Control::Continue,
+                    });
+
+                    // keyboard + mouse focus
+                    ctx.focus = Some(FocusBuilder::rebuild(&self.app, ctx.focus.take()));
+
+                    Control::Continue
+                }
+                _ => Control::Continue,
+            };
+
+            r = r.or_else_try(|| self.app.event(event, ctx))?;
 
             if r == Control::Changed {
                 let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
@@ -200,56 +238,7 @@ mod root {
             Ok(r)
         }
 
-        fn crossterm(
-            &mut self,
-            event: &crossterm::event::Event,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            let t0 = SystemTime::now();
-
-            try_flow!(match &event {
-                ct_event!(resized) => Control::Changed,
-                ct_event!(key press CONTROL-'q') => Control::Quit,
-                _ => Control::Continue,
-            });
-
-            // keyboard + mouse focus
-            ctx.focus = Some(FocusBuilder::for_container(&self.app));
-
-            let r = self.app.crossterm(event, ctx)?;
-
-            if r == Control::Changed {
-                let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-                ctx.g.status.status(3, format!("H {:.0?}", el).to_string());
-            }
-
-            Ok(r)
-        }
-
-        fn message(
-            &mut self,
-            event: &mut MDAction,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            let t0 = SystemTime::now();
-
-            ctx.focus = Some(FocusBuilder::for_container(&self.app));
-
-            let r = self.app.message(event, ctx)?;
-
-            if r == Control::Changed {
-                let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-                ctx.g.status.status(4, format!("A {:.0?}", el).to_string());
-            }
-
-            Ok(r)
-        }
-
-        fn error(
-            &self,
-            event: Error,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
+        fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<MDEvent>, Error> {
             self.app.error(event, ctx)
         }
     }
@@ -258,7 +247,7 @@ mod root {
 // -----------------------------------------------------------------------
 // -----------------------------------------------------------------------
 pub mod facilities {
-    use crate::MDAction;
+    use crate::MDEvent;
     use anyhow::Error;
     use crossterm::event::Event;
     use rat_salsa::Control;
@@ -313,15 +302,15 @@ pub mod facilities {
     #[derive(Debug, Default)]
     pub struct MDFileDialogState {
         pub file_dlg: FileDialogState,
-        pub handle: Option<fn(PathBuf) -> Result<Control<MDAction>, Error>>,
+        pub handle: Option<fn(PathBuf) -> Result<Control<MDEvent>, Error>>,
     }
 
-    impl Facility<FileDialogState, PathBuf, MDAction, Error> for MDFileDialogState {
+    impl Facility<FileDialogState, PathBuf, MDEvent, Error> for MDFileDialogState {
         fn engage(
             &mut self,
-            prepare: impl FnOnce(&mut FileDialogState) -> Result<Control<MDAction>, Error>,
-            handle: fn(PathBuf) -> Result<Control<MDAction>, Error>,
-        ) -> Result<Control<MDAction>, Error> {
+            prepare: impl FnOnce(&mut FileDialogState) -> Result<Control<MDEvent>, Error>,
+            handle: fn(PathBuf) -> Result<Control<MDEvent>, Error>,
+        ) -> Result<Control<MDEvent>, Error> {
             let r = prepare(&mut self.file_dlg);
             if r.is_ok() {
                 self.handle = Some(handle);
@@ -329,7 +318,7 @@ pub mod facilities {
             r
         }
 
-        fn handle(&mut self, event: &Event) -> Result<Control<MDAction>, Error> {
+        fn handle(&mut self, event: &Event) -> Result<Control<MDEvent>, Error> {
             try_flow!(match self.file_dlg.handle(event, Dialog)? {
                 FileOutcome::Ok(path) => {
                     if let Some(handle) = self.handle.take() {
@@ -359,9 +348,8 @@ pub mod facilities {
 mod app {
     use crate::facilities::{Facility, MDFileDialog};
     use crate::mdedit::{MDEdit, MDEditState};
-    use crate::{AppContext, GlobalState, MDAction, CHEAT, HELP};
+    use crate::{AppContext, GlobalState, MDEvent, CHEAT, HELP};
     use anyhow::Error;
-    use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_theme::dark_themes;
     use rat_widget::event::{
@@ -377,7 +365,6 @@ mod app {
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{StatefulWidget, Style};
     use ratatui::widgets::{Block, BorderType, Padding};
-    use std::cmp::max;
     use std::str::from_utf8;
 
     #[derive(Debug)]
@@ -452,7 +439,7 @@ mod app {
         }
     }
 
-    impl AppWidget<GlobalState, MDAction, Error> for MDApp {
+    impl AppWidget<GlobalState, MDEvent, Error> for MDApp {
         type State = MDAppState;
 
         fn render(
@@ -549,7 +536,7 @@ mod app {
         }
     }
 
-    impl AppState<GlobalState, MDAction, Error> for MDAppState {
+    impl AppState<GlobalState, MDEvent, Error> for MDAppState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
             self.menu.bar.select(Some(0));
             self.menu.focus().set(true);
@@ -557,25 +544,44 @@ mod app {
             Ok(())
         }
 
-        fn timer(
+        fn event(
             &mut self,
-            event: &TimeOut,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            let r = self.editor.timer(event, ctx)?;
+            event: &MDEvent,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDEvent, Error>,
+        ) -> Result<Control<MDEvent>, Error> {
+            let mut r = match event {
+                MDEvent::Event(event) => self.crossterm(event, ctx)?,
+                _ => self.other(event, ctx)?,
+            };
+
+            r = r.or_else_try(|| self.editor.event(event, ctx))?;
+
+            if self.editor.set_active_split() {
+                self.editor.sync_views(ctx)?;
+            }
+
             Ok(r)
         }
 
+        fn error(&self, event: Error, ctx: &mut AppContext<'_>) -> Result<Control<MDEvent>, Error> {
+            ctx.g.error_dlg.title("Error occured");
+            ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
+            Ok(Control::Changed)
+        }
+    }
+
+    impl MDAppState {
         fn crossterm(
             &mut self,
             event: &crossterm::event::Event,
             ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
+        ) -> Result<Control<MDEvent>, Error> {
             try_flow!(ctx.g.error_dlg.handle(event, Dialog));
             try_flow!(ctx.g.message_dlg.handle(event, Dialog));
             try_flow!(ctx.g.file_dlg.handle(event)?);
 
             let f = Control::from(ctx.focus_mut().handle(event, Regular));
+            ctx.queue(f);
 
             // regular global
             let mut r = match &event {
@@ -616,10 +622,10 @@ mod app {
             };
 
             r = r.or_else(|| match self.menu.handle(event, Popup) {
-                MenuOutcome::MenuActivated(0, 0) => Control::Message(MDAction::MenuNew),
-                MenuOutcome::MenuActivated(0, 1) => Control::Message(MDAction::MenuOpen),
-                MenuOutcome::MenuActivated(0, 2) => Control::Message(MDAction::MenuSave),
-                MenuOutcome::MenuActivated(0, 3) => Control::Message(MDAction::MenuSaveAs),
+                MenuOutcome::MenuActivated(0, 0) => Control::Message(MDEvent::MenuNew),
+                MenuOutcome::MenuActivated(0, 1) => Control::Message(MDEvent::MenuOpen),
+                MenuOutcome::MenuActivated(0, 2) => Control::Message(MDEvent::MenuSave),
+                MenuOutcome::MenuActivated(0, 3) => Control::Message(MDEvent::MenuSaveAs),
                 MenuOutcome::MenuActivated(1, 0) => {
                     if let Some((_, sel)) = self.editor.split_tab.selected_mut() {
                         ctx.focus().focus(sel);
@@ -638,7 +644,7 @@ mod app {
                 }
                 MenuOutcome::MenuActivated(2, 0) => {
                     ctx.g.cfg.show_ctrl = !ctx.g.cfg.show_ctrl;
-                    Control::Message(MDAction::CfgShowCtrl)
+                    Control::Message(MDEvent::CfgShowCtrl)
                 }
                 MenuOutcome::MenuActivated(2, 1) => {
                     if ctx.g.cfg.new_line == "\r\n" {
@@ -646,11 +652,11 @@ mod app {
                     } else {
                         ctx.g.cfg.new_line = "\r\n".into();
                     }
-                    Control::Message(MDAction::CfgNewline)
+                    Control::Message(MDEvent::CfgNewline)
                 }
-                MenuOutcome::MenuActivated(2, 2) => Control::Message(MDAction::Split),
-                MenuOutcome::MenuActivated(2, 3) => Control::Message(MDAction::JumpToFiles),
-                MenuOutcome::MenuActivated(2, 4) => Control::Message(MDAction::HideFiles),
+                MenuOutcome::MenuActivated(2, 2) => Control::Message(MDEvent::Split),
+                MenuOutcome::MenuActivated(2, 3) => Control::Message(MDEvent::JumpToFiles),
+                MenuOutcome::MenuActivated(2, 4) => Control::Message(MDEvent::HideFiles),
                 MenuOutcome::MenuSelected(3, n) => {
                     ctx.g.theme = dark_themes()[n].clone();
                     Control::Changed
@@ -658,84 +664,58 @@ mod app {
                 r => r.into(),
             });
 
-            r = r.or_else_try(|| -> Result<Control<MDAction>, Error> {
-                let r = self.editor.crossterm(event, ctx)?;
-                if self.editor.set_active_split() {
-                    self.editor.sync_views(ctx)?;
-                }
-                Ok(r)
-            })?;
-
             r = r.or_else(|| match self.menu.handle(event, Regular) {
                 MenuOutcome::Activated(4) => Control::Quit,
                 r => r.into(),
             });
 
-            Ok(max(f, r))
+            Ok(r)
         }
 
-        fn message(
+        fn other(
             &mut self,
-            event: &mut MDAction,
+            event: &MDEvent,
             ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
+        ) -> Result<Control<MDEvent>, Error> {
             try_flow!(match event {
-                MDAction::Message(s) => {
+                MDEvent::Message(s) => {
                     ctx.g.status.status(0, &*s);
                     Control::Changed
                 }
-                MDAction::MenuNew => {
+                MDEvent::MenuNew => {
                     ctx.g.file_dlg.engage(
                         |w| {
                             w.save_dialog_ext(".", "", "md")?;
                             Ok(Control::Changed)
                         },
-                        |p| Ok(Control::Message(MDAction::New(p))),
+                        |p| Ok(Control::Message(MDEvent::New(p))),
                     )?
                 }
-                MDAction::MenuOpen => {
+                MDEvent::MenuOpen => {
                     ctx.g.file_dlg.engage(
                         |w| {
                             w.open_dialog(".")?;
                             Ok(Control::Changed)
                         },
-                        |p| Ok(Control::Message(MDAction::Open(p))),
+                        |p| Ok(Control::Message(MDEvent::Open(p))),
                     )?
                 }
-                MDAction::MenuSave => {
-                    Control::Message(MDAction::Save)
+                MDEvent::MenuSave => {
+                    Control::Message(MDEvent::Save)
                 }
-                MDAction::MenuSaveAs => {
+                MDEvent::MenuSaveAs => {
                     ctx.g.file_dlg.engage(
                         |w| {
                             w.save_dialog(".", "")?;
                             Ok(Control::Changed)
                         },
-                        |p| Ok(Control::Message(MDAction::SaveAs(p))),
+                        |p| Ok(Control::Message(MDEvent::SaveAs(p))),
                     )?
                 }
                 _ => Control::Continue,
             });
 
-            try_flow!({
-                let r = self.editor.message(event, ctx)?;
-                if self.editor.set_active_split() {
-                    self.editor.sync_views(ctx)?;
-                }
-                r
-            });
-
             Ok(Control::Continue)
-        }
-
-        fn error(
-            &self,
-            event: Error,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            ctx.g.error_dlg.title("Error occured");
-            ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
-            Ok(Control::Changed)
         }
     }
 }
@@ -747,12 +727,12 @@ pub mod mdfile {
     use crate::mdedit_parts::format::md_format;
     use crate::mdedit_parts::styles::parse_md_styles;
     use crate::mdedit_parts::MarkDown;
-    use crate::{AppContext, GlobalState, MDAction};
+    use crate::{AppContext, GlobalState, MDEvent};
     use anyhow::Error;
     use log::warn;
-    use rat_salsa::timer::{TimeOut, TimerDef, TimerHandle};
+    use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{try_flow, HandleEvent, TextOutcome};
+    use rat_widget::event::{HandleEvent, TextOutcome};
     use rat_widget::focus::{FocusFlag, HasFocus, Navigation};
     use rat_widget::line_number::{LineNumberState, LineNumbers};
     use rat_widget::scrolled::Scroll;
@@ -797,7 +777,7 @@ pub mod mdfile {
         }
     }
 
-    impl AppWidget<GlobalState, MDAction, Error> for MDFile {
+    impl AppWidget<GlobalState, MDEvent, Error> for MDFile {
         type State = MDFileState;
 
         fn render(
@@ -944,51 +924,40 @@ pub mod mdfile {
         }
     }
 
-    impl AppState<GlobalState, MDAction, Error> for MDFileState {
-        fn timer(
+    impl AppState<GlobalState, MDEvent, Error> for MDFileState {
+        fn event(
             &mut self,
-            event: &TimeOut,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            if self.parse_timer == Some(event.handle) {
-                self.parse_markdown();
-                return Ok(Control::Changed);
-            }
-            Ok(Control::Continue)
-        }
-
-        fn crossterm(
-            &mut self,
-            event: &crossterm::event::Event,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            // call markdown event-handling instead of regular.
-            try_flow!(match self.edit.handle(event, MarkDown) {
-                TextOutcome::TextChanged => {
-                    self.text_changed(ctx)
+            event: &MDEvent,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDEvent, Error>,
+        ) -> Result<Control<MDEvent>, Error> {
+            let r = match event {
+                MDEvent::TimeOut(event) => {
+                    if self.parse_timer == Some(event.handle) {
+                        self.parse_markdown();
+                        Control::Changed
+                    } else {
+                        Control::Continue
+                    }
                 }
-                r => r.into(),
-            });
-
-            Ok(Control::Continue)
-        }
-
-        fn message(
-            &mut self,
-            event: &mut MDAction,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
-        ) -> Result<Control<MDAction>, Error> {
-            match event {
-                MDAction::CfgNewline => {
+                MDEvent::Event(event) => {
+                    // call markdown event-handling instead of regular.
+                    match self.edit.handle(event, MarkDown) {
+                        TextOutcome::TextChanged => self.text_changed(ctx),
+                        r => r.into(),
+                    }
+                }
+                MDEvent::CfgNewline => {
                     self.edit.set_newline(&ctx.g.cfg.new_line);
-                    Ok(Control::Continue)
+                    Control::Continue
                 }
-                MDAction::CfgShowCtrl => {
+                MDEvent::CfgShowCtrl => {
                     self.edit.set_show_ctrl(ctx.g.cfg.show_ctrl);
-                    Ok(Control::Continue)
+                    Control::Continue
                 }
-                _ => Ok(Control::Continue),
-            }
+                _ => Control::Continue,
+            };
+
+            Ok(r)
         }
     }
 
@@ -1081,7 +1050,7 @@ pub mod mdfile {
             &mut self,
             eq_width: bool,
             ctx: &mut AppContext<'_>,
-        ) -> Control<MDAction> {
+        ) -> Control<MDEvent> {
             match md_format(&mut self.edit, eq_width) {
                 TextOutcome::TextChanged => self.text_changed(ctx),
                 r => r.into(),
@@ -1089,10 +1058,10 @@ pub mod mdfile {
         }
 
         // Flag any text-changes.
-        pub fn text_changed(&mut self, ctx: &mut AppContext<'_>) -> Control<MDAction> {
+        pub fn text_changed(&mut self, ctx: &mut AppContext<'_>) -> Control<MDEvent> {
             self.changed = true;
             // send sync
-            ctx.queue(Control::Message(MDAction::SyncEdit));
+            ctx.queue(Control::Message(MDEvent::SyncEdit));
             // restart timer
             self.parse_timer = Some(ctx.replace_timer(
                 self.parse_timer,
@@ -1108,12 +1077,11 @@ pub mod mdfile {
 // -----------------------------------------------------------------------
 pub mod split_tab {
     use crate::mdfile::{MDFile, MDFileState};
-    use crate::{AppContext, GlobalState, MDAction};
+    use crate::{AppContext, GlobalState, MDEvent};
     use anyhow::Error;
-    use crossterm::event::Event;
-    use rat_salsa::timer::{TimeOut, TimerDef};
+    use rat_salsa::timer::TimerDef;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{try_flow, HandleEvent, Regular, TabbedOutcome};
+    use rat_widget::event::{try_flow, ConsumedEvent, HandleEvent, Regular, TabbedOutcome};
     use rat_widget::focus::{ContainerFlag, FocusBuilder, FocusContainer, HasFocus};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::tabbed::{TabType, Tabbed, TabbedState};
@@ -1151,7 +1119,7 @@ pub mod split_tab {
         }
     }
 
-    impl AppWidget<GlobalState, MDAction, Error> for SplitTab {
+    impl AppWidget<GlobalState, MDEvent, Error> for SplitTab {
         type State = SplitTabState;
 
         fn render(
@@ -1246,56 +1214,41 @@ pub mod split_tab {
         }
     }
 
-    impl AppState<GlobalState, MDAction, Error> for SplitTabState {
-        fn timer(
+    impl AppState<GlobalState, MDEvent, Error> for SplitTabState {
+        fn event(
             &mut self,
-            event: &TimeOut,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            for split in &mut self.tabs {
-                for tab in split {
-                    try_flow!(tab.timer(event, ctx)?);
-                }
-            }
-            Ok(Control::Continue)
-        }
-
-        fn crossterm(
-            &mut self,
-            event: &Event,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            try_flow!(self.splitter.handle(event, Regular));
-            for (idx_split, tabbed) in self.tabbed.iter_mut().enumerate() {
-                try_flow!(match tabbed.handle(event, Regular) {
-                    TabbedOutcome::Close(n) => {
-                        Control::Message(MDAction::CloseAt(idx_split, n))
+            event: &MDEvent,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDEvent, Error>,
+        ) -> Result<Control<MDEvent>, Error> {
+            let mut r = match event {
+                MDEvent::Event(event) => {
+                    try_flow!(self.splitter.handle(event, Regular));
+                    for (idx_split, tabbed) in self.tabbed.iter_mut().enumerate() {
+                        try_flow!(match tabbed.handle(event, Regular) {
+                            TabbedOutcome::Close(n) => {
+                                Control::Message(MDEvent::CloseAt(idx_split, n))
+                            }
+                            TabbedOutcome::Select(n) => {
+                                Control::Message(MDEvent::SelectAt(idx_split, n))
+                            }
+                            r => r.into(),
+                        });
                     }
-                    TabbedOutcome::Select(n) => {
-                        Control::Message(MDAction::SelectAt(idx_split, n))
+                    Control::Continue
+                }
+                _ => Control::Continue,
+            };
+
+            r = r.or_else_try(|| {
+                for tab in &mut self.tabs {
+                    for ed in tab {
+                        try_flow!(ed.event(event, ctx)?);
                     }
-                    r => r.into(),
-                });
-
-                if let Some(idx_tab) = tabbed.selected() {
-                    try_flow!(self.tabs[idx_split][idx_tab].crossterm(event, ctx)?);
                 }
-            }
+                Ok::<_, Error>(Control::Continue)
+            })?;
 
-            Ok(Control::Continue)
-        }
-
-        fn message(
-            &mut self,
-            event: &mut MDAction,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
-        ) -> Result<Control<MDAction>, Error> {
-            for v in &mut self.tabs {
-                for w in v {
-                    try_flow!(w.message(event, ctx)?);
-                }
-            }
-            Ok(Control::Continue)
+            Ok(r)
         }
     }
 
@@ -1526,9 +1479,8 @@ pub mod split_tab {
 // md files in current directory.
 // -----------------------------------------------------------------------
 pub mod file_list {
-    use crate::{GlobalState, MDAction};
+    use crate::{GlobalState, MDEvent};
     use anyhow::Error;
-    use crossterm::event::Event;
     use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
     use rat_widget::focus::{FocusBuilder, FocusContainer, HasFocus};
@@ -1568,7 +1520,7 @@ pub mod file_list {
         }
     }
 
-    impl AppWidget<GlobalState, MDAction, Error> for FileList {
+    impl AppWidget<GlobalState, MDEvent, Error> for FileList {
         type State = FileListState;
 
         fn render(
@@ -1581,7 +1533,7 @@ pub mod file_list {
             let l_file_list =
                 Layout::vertical([Constraint::Length(1), Constraint::Fill(1)]).split(area);
 
-            buf.set_style(l_file_list[0], ctx.g.theme.data_base());
+            buf.set_style(l_file_list[0], ctx.g.theme.container_base());
 
             List::default()
                 .styles(ctx.g.theme.list_style())
@@ -1627,79 +1579,86 @@ pub mod file_list {
         }
     }
 
-    impl AppState<GlobalState, MDAction, Error> for FileListState {
+    impl AppState<GlobalState, MDEvent, Error> for FileListState {
         fn init(
             &mut self,
-            ctx: &mut AppContext<'_, GlobalState, MDAction, Error>,
+            ctx: &mut AppContext<'_, GlobalState, MDEvent, Error>,
         ) -> Result<(), Error> {
             self.load(&Path::new("."))?;
             Ok(())
         }
 
-        fn crossterm(
+        fn event(
             &mut self,
-            event: &Event,
-            ctx: &mut AppContext<'_, GlobalState, MDAction, Error>,
-        ) -> Result<Control<MDAction>, Error> {
-            try_flow!(match self.popup.handle(event, Popup) {
-                MenuOutcome::Activated(0) => {
-                    Control::Message(MDAction::MenuNew)
-                }
-                MenuOutcome::Activated(1) => {
-                    if let Some(pos) = self.file_list.row_at_clicked(self.popup_pos) {
-                        Control::Message(MDAction::Open(self.files[pos].clone()))
-                    } else {
-                        Control::Changed
-                    }
-                }
-                MenuOutcome::Activated(2) => {
-                    Control::Message(MDAction::Message("buh".into()))
-                }
-                r => r.into(),
-            });
+            event: &MDEvent,
+            ctx: &mut AppContext<'_, GlobalState, MDEvent, Error>,
+        ) -> Result<Control<MDEvent>, Error> {
+            match event {
+                MDEvent::Event(event) => {
+                    try_flow!(match self.popup.handle(event, Popup) {
+                        MenuOutcome::Activated(0) => {
+                            Control::Message(MDEvent::MenuNew)
+                        }
+                        MenuOutcome::Activated(1) => {
+                            if let Some(pos) = self.file_list.row_at_clicked(self.popup_pos) {
+                                Control::Message(MDEvent::Open(self.files[pos].clone()))
+                            } else {
+                                Control::Changed
+                            }
+                        }
+                        MenuOutcome::Activated(2) => {
+                            Control::Message(MDEvent::Message("buh".into()))
+                        }
+                        r => r.into(),
+                    });
 
-            if self.file_list.is_focused() {
-                try_flow!(match event {
-                    ct_event!(keycode press Enter) => {
-                        if let Some(row) = self.file_list.selected() {
-                            Control::Message(MDAction::SelectOrOpen(self.files[row].clone()))
-                        } else {
-                            Control::Continue
-                        }
+                    if self.file_list.is_focused() {
+                        try_flow!(match event {
+                            ct_event!(keycode press Enter) => {
+                                if let Some(row) = self.file_list.selected() {
+                                    Control::Message(MDEvent::SelectOrOpen(self.files[row].clone()))
+                                } else {
+                                    Control::Continue
+                                }
+                            }
+                            ct_event!(key press '+') => {
+                                if let Some(row) = self.file_list.selected() {
+                                    Control::Message(MDEvent::SelectOrOpenSplit(
+                                        self.files[row].clone(),
+                                    ))
+                                } else {
+                                    Control::Continue
+                                }
+                            }
+                            _ => Control::Continue,
+                        });
                     }
-                    ct_event!(key press '+') => {
-                        if let Some(row) = self.file_list.selected() {
-                            Control::Message(MDAction::SelectOrOpenSplit(self.files[row].clone()))
-                        } else {
-                            Control::Continue
+                    try_flow!(match event {
+                        ct_event!(mouse down Right for x,y)
+                            if self.file_list.area.contains(Position::new(*x, *y)) =>
+                        {
+                            self.popup_pos = (*x, *y);
+                            self.popup.set_active(true);
+                            Control::Changed
                         }
-                    }
-                    _ => Control::Continue,
-                });
+                        ct_event!(mouse any for m)
+                            if self.file_list.mouse.doubleclick(self.file_list.area, m) =>
+                        {
+                            if let Some(row) = self.file_list.row_at_clicked((m.column, m.row)) {
+                                Control::Message(MDEvent::SelectOrOpen(self.files[row].clone()))
+                            } else {
+                                Control::Continue
+                            }
+                        }
+
+                        _ => Control::Continue,
+                    });
+                    try_flow!(self.file_list.handle(event, Regular));
+
+                    Ok(Control::Continue)
+                }
+                _ => Ok(Control::Continue),
             }
-            try_flow!(match event {
-                ct_event!(mouse down Right for x,y)
-                    if self.file_list.area.contains(Position::new(*x, *y)) =>
-                {
-                    self.popup_pos = (*x, *y);
-                    self.popup.set_active(true);
-                    Control::Changed
-                }
-                ct_event!(mouse any for m)
-                    if self.file_list.mouse.doubleclick(self.file_list.area, m) =>
-                {
-                    if let Some(row) = self.file_list.row_at_clicked((m.column, m.row)) {
-                        Control::Message(MDAction::SelectOrOpen(self.files[row].clone()))
-                    } else {
-                        Control::Continue
-                    }
-                }
-
-                _ => Control::Continue,
-            });
-            try_flow!(self.file_list.handle(event, Regular));
-
-            Ok(Control::Continue)
         }
     }
 
@@ -1774,12 +1733,10 @@ pub mod mdedit {
     use crate::file_list::{FileList, FileListState};
     use crate::mdfile::MDFileState;
     use crate::split_tab::{SplitTab, SplitTabState};
-    use crate::{AppContext, GlobalState, MDAction};
+    use crate::{AppContext, GlobalState, MDEvent};
     use anyhow::Error;
-    use crossterm::event::Event;
-    use rat_salsa::timer::TimeOut;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
-    use rat_widget::event::{ct_event, try_flow, HandleEvent, Regular};
+    use rat_widget::event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
     use rat_widget::focus::{FocusBuilder, FocusContainer, HasFocus};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;
@@ -1799,7 +1756,7 @@ pub mod mdedit {
         pub split_tab: SplitTabState,
     }
 
-    impl AppWidget<GlobalState, MDAction, Error> for MDEdit {
+    impl AppWidget<GlobalState, MDEvent, Error> for MDEdit {
         type State = MDEditState;
 
         fn render(
@@ -1850,152 +1807,132 @@ pub mod mdedit {
         }
     }
 
-    impl AppState<GlobalState, MDAction, Error> for MDEditState {
+    impl AppState<GlobalState, MDEvent, Error> for MDEditState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
             self.file_list.load(&Path::new("."))?;
             Ok(())
         }
 
-        fn timer(
+        fn event(
             &mut self,
-            event: &TimeOut,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            try_flow!(self.split_tab.timer(event, ctx)?);
-            Ok(Control::Changed)
-        }
-
-        fn crossterm(
-            &mut self,
-            event: &Event,
-            ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
-            if self.window_cmd {
-                self.window_cmd = false;
-                try_flow!(match event {
-                    ct_event!(key release CONTROL-'w') => {
-                        self.window_cmd = true;
-                        Control::Changed
-                    }
-                    ct_event!(keycode press Left) => {
-                        self.split_tab.select_prev(ctx);
-                        Control::Changed
-                    }
-                    ct_event!(keycode press Right) => {
-                        self.split_tab.select_next(ctx);
-                        Control::Changed
-                    }
-                    ct_event!(keycode press Tab) => {
-                        ctx.focus().next();
-                        Control::Changed
-                    }
-                    ct_event!(keycode press SHIFT-BackTab) => {
-                        ctx.focus().prev();
-                        Control::Changed
-                    }
-                    ct_event!(key press CONTROL-'c')
-                    | ct_event!(key press 'c')
-                    | ct_event!(key press 'x')
-                    | ct_event!(key press CONTROL-'x') => {
-                        Control::Message(MDAction::Close)
-                    }
-                    ct_event!(key press CONTROL-'d')
-                    | ct_event!(key press 'd')
-                    | ct_event!(key press '+') => {
-                        Control::Message(MDAction::Split)
-                    }
-                    ct_event!(key press CONTROL-'t') | ct_event!(key press 't') => {
-                        if let Some((pos, sel)) = self.split_tab.selected() {
-                            if sel.is_focused() {
-                                ctx.focus().focus(&self.split_tab.tabbed[pos.0]);
-                            } else {
-                                ctx.focus().focus(sel);
+            event: &MDEvent,
+            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDEvent, Error>,
+        ) -> Result<Control<MDEvent>, Error> {
+            let mut r = match event {
+                MDEvent::Event(event) => {
+                    if self.window_cmd {
+                        self.window_cmd = false;
+                        try_flow!(match event {
+                            ct_event!(key release CONTROL-'w') => {
+                                self.window_cmd = true;
+                                Control::Changed
                             }
-                        }
-                        Control::Changed
-                    }
-                    ct_event!(key press CONTROL-'s') | ct_event!(key press 's') => {
-                        if let Some((pos, sel)) = self.split_tab.selected() {
-                            if sel.is_focused() {
-                                ctx.focus().focus(&self.split_tab.splitter);
-                            } else {
-                                ctx.focus().focus(sel);
+                            ct_event!(keycode press Left) => {
+                                self.split_tab.select_prev(ctx);
+                                Control::Changed
                             }
-                        }
-                        Control::Changed
+                            ct_event!(keycode press Right) => {
+                                self.split_tab.select_next(ctx);
+                                Control::Changed
+                            }
+                            ct_event!(keycode press Tab) => {
+                                ctx.focus().next();
+                                Control::Changed
+                            }
+                            ct_event!(keycode press SHIFT-BackTab) => {
+                                ctx.focus().prev();
+                                Control::Changed
+                            }
+                            ct_event!(key press CONTROL-'c')
+                            | ct_event!(key press 'c')
+                            | ct_event!(key press 'x')
+                            | ct_event!(key press CONTROL-'x') => {
+                                Control::Message(MDEvent::Close)
+                            }
+                            ct_event!(key press CONTROL-'d')
+                            | ct_event!(key press 'd')
+                            | ct_event!(key press '+') => {
+                                Control::Message(MDEvent::Split)
+                            }
+                            ct_event!(key press CONTROL-'t') | ct_event!(key press 't') => {
+                                if let Some((pos, sel)) = self.split_tab.selected() {
+                                    if sel.is_focused() {
+                                        ctx.focus().focus(&self.split_tab.tabbed[pos.0]);
+                                    } else {
+                                        ctx.focus().focus(sel);
+                                    }
+                                }
+                                Control::Changed
+                            }
+                            ct_event!(key press CONTROL-'s') | ct_event!(key press 's') => {
+                                if let Some((pos, sel)) = self.split_tab.selected() {
+                                    if sel.is_focused() {
+                                        ctx.focus().focus(&self.split_tab.splitter);
+                                    } else {
+                                        ctx.focus().focus(sel);
+                                    }
+                                }
+                                Control::Changed
+                            }
+                            _ => Control::Changed,
+                        });
                     }
-                    _ => Control::Changed,
-                });
-            }
 
-            try_flow!(match event {
-                ct_event!(key press CONTROL-'n') => {
-                    Control::Message(MDAction::MenuNew)
-                }
-                ct_event!(key press CONTROL-'o') => {
-                    Control::Message(MDAction::MenuOpen)
-                }
-                ct_event!(key press CONTROL-'s') => {
-                    Control::Message(MDAction::Save)
-                }
-                ct_event!(keycode press F(5)) => {
-                    self.jump_to_file(ctx)?
-                }
-                ct_event!(keycode press F(6)) => {
-                    self.hide_files(ctx)?
-                }
-                ct_event!(key press CONTROL-'w') => {
-                    self.window_cmd = true;
-                    Control::Changed
-                }
-                ct_event!(focus_lost) => {
-                    Control::Message(MDAction::Save)
-                }
-                _ => Control::Continue,
-            });
+                    try_flow!(match event {
+                        ct_event!(key press CONTROL-'n') => {
+                            Control::Message(MDEvent::MenuNew)
+                        }
+                        ct_event!(key press CONTROL-'o') => {
+                            Control::Message(MDEvent::MenuOpen)
+                        }
+                        ct_event!(key press CONTROL-'s') => {
+                            Control::Message(MDEvent::Save)
+                        }
+                        ct_event!(keycode press F(5)) => {
+                            self.jump_to_file(ctx)?
+                        }
+                        ct_event!(keycode press F(6)) => {
+                            self.hide_files(ctx)?
+                        }
+                        ct_event!(key press CONTROL-'w') => {
+                            self.window_cmd = true;
+                            Control::Changed
+                        }
+                        ct_event!(focus_lost) => {
+                            Control::Message(MDEvent::Save)
+                        }
+                        _ => Control::Continue,
+                    });
 
-            try_flow!(self.split_files.handle(event, Regular));
+                    try_flow!(self.split_files.handle(event, Regular));
 
-            try_flow!(self.file_list.crossterm(event, ctx)?);
-            try_flow!(self.split_tab.crossterm(event, ctx)?);
-
-            Ok(Control::Continue)
-        }
-
-        fn message(
-            &mut self,
-            event: &mut MDAction,
-            ctx: &mut rat_salsa::AppContext<'_, GlobalState, MDAction, Error>,
-        ) -> Result<Control<MDAction>, Error> {
-            try_flow!(self.file_list.message(event, ctx)?);
-            try_flow!(self.split_tab.message(event, ctx)?);
-
-            try_flow!(match event {
-                MDAction::New(p) => {
+                    Control::Continue
+                }
+                MDEvent::New(p) => {
                     self.new(p, ctx)?;
                     Control::Changed
                 }
-                MDAction::SelectOrOpen(p) => {
+                MDEvent::SelectOrOpen(p) => {
                     self.select_or_open(p, ctx)?;
                     Control::Changed
                 }
-                MDAction::SelectOrOpenSplit(p) => {
+                MDEvent::SelectOrOpenSplit(p) => {
                     self.select_or_open_split(p, ctx)?;
                     Control::Changed
                 }
-                MDAction::Open(p) => {
+                MDEvent::Open(p) => {
                     self.open(p, ctx)?;
                     Control::Changed
                 }
-                MDAction::Save => {
+                MDEvent::Save => {
                     self.save()?;
                     Control::Changed
                 }
-                MDAction::SaveAs(p) => {
+                MDEvent::SaveAs(p) => {
                     self.save_as(p)?;
                     Control::Changed
                 }
-                MDAction::Close => {
+                MDEvent::Close => {
                     if let Some(pos) = self.split_tab.selected_pos() {
                         self.split_tab.close((pos.0, pos.1), ctx)?;
                         Control::Changed
@@ -2003,34 +1940,26 @@ pub mod mdedit {
                         Control::Continue
                     }
                 }
-                MDAction::CloseAt(idx_split, idx_tab) => {
+                MDEvent::CloseAt(idx_split, idx_tab) => {
                     self.split_tab.close((*idx_split, *idx_tab), ctx)?;
                     Control::Changed
                 }
-                MDAction::SelectAt(idx_split, idx_tab) => {
+                MDEvent::SelectAt(idx_split, idx_tab) => {
                     self.split_tab.select((*idx_split, *idx_tab), ctx);
                     Control::Changed
                 }
 
-                MDAction::Split => {
+                MDEvent::Split => {
                     self.split(ctx)?;
                     Control::Changed
                 }
-                MDAction::CfgShowCtrl => {
-                    Control::Changed
-                }
-                MDAction::CfgNewline => {
-                    Control::Changed
-                }
+                MDEvent::CfgShowCtrl => Control::Changed,
+                MDEvent::CfgNewline => Control::Changed,
 
-                MDAction::JumpToFiles => {
-                    self.jump_to_file(ctx)?
-                }
-                MDAction::HideFiles => {
-                    self.hide_files(ctx)?
-                }
+                MDEvent::JumpToFiles => self.jump_to_file(ctx)?,
+                MDEvent::HideFiles => self.hide_files(ctx)?,
 
-                MDAction::SyncEdit => {
+                MDEvent::SyncEdit => {
                     // synchronize instances
                     let (id_sel, sel_path, replay) =
                         if let Some((id_sel, sel)) = self.split_tab.selected_mut() {
@@ -2043,10 +1972,13 @@ pub mod mdedit {
                     }
                     Control::Changed
                 }
-
                 _ => Control::Continue,
-            });
-            Ok(Control::Continue)
+            };
+
+            r = r.or_else_try(|| self.file_list.event(event, ctx))?;
+            r = r.or_else_try(|| self.split_tab.event(event, ctx))?;
+
+            Ok(r)
         }
     }
 
@@ -2176,7 +2108,7 @@ pub mod mdedit {
         }
 
         // Hide files
-        pub fn hide_files(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<MDAction>, Error> {
+        pub fn hide_files(&mut self, ctx: &mut AppContext<'_>) -> Result<Control<MDEvent>, Error> {
             if self.split_files.is_hidden(0) {
                 self.split_files.show_split(0);
             } else {
@@ -2189,7 +2121,7 @@ pub mod mdedit {
         pub fn jump_to_file(
             &mut self,
             ctx: &mut AppContext<'_>,
-        ) -> Result<Control<MDAction>, Error> {
+        ) -> Result<Control<MDEvent>, Error> {
             let mut r = Control::Continue;
 
             if self.split_files.is_hidden(0) {
@@ -2252,7 +2184,7 @@ pub mod mdedit {
         }
 
         // Sync file-list with the given file.
-        pub fn sync_files(&mut self, file: &Path) -> Result<Control<MDAction>, Error> {
+        pub fn sync_files(&mut self, file: &Path) -> Result<Control<MDEvent>, Error> {
             if let Some(parent) = file.parent() {
                 if self.file_list.current_dir() != parent {
                     self.file_list.load(parent)?;
