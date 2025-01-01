@@ -1,3 +1,11 @@
+# 1.0.1
+
+* feature: add screen_cursor() which acts on an array to evaluate the screencursor.
+
+# 1.0.0
+
+stabilization
+
 # 0.25.1
 
 * docs
