@@ -17,4 +17,4 @@ crossterm = "0.28"
 log = "0.4"
 map_range_int = "1.1.0"
 
-rat-widget = { version = "0.33", path = "../rat-widget" }
+rat-widget = { version = "0.33" }
