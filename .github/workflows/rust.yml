@@ -21,4 +21,5 @@ jobs:
       - name: Run tests
         run: cargo test
       - name: Run test examples
-        run: cargo test --no-run --features async --examples
+        run: cargo build --features async --examples
+
