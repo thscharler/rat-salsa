@@ -20,7 +20,10 @@ fn main() -> Result<(), Error> {
         app,
         &mut global,
         &mut state,
-        RunConfig::default()?,
+        RunConfig::default()?
+            .poll(PollCrossterm)
+            .poll(PollTimers)
+            .poll(PollTasks),
     )?;
 
     Ok(())
@@ -47,11 +50,14 @@ run_tui is fed with
       
     - Set the number of worker threads.
       
-    - Add extra event-sources. Implement the  
-      [PollEvents][refPollEvents] trait. This will need some
-      extra trait for the appstate to distribute your events.
+    - Add the event-sources. Implement the 
+      [PollEvents][refPollEvents] trait.
       
       See [examples/life.rs][refLife] for an example.
+      
+      Here we go with default drivers PollCrossterm for 
+      crossterm, PollTimers for timers, PollTasks for the
+      results from background tasks.
       
 ***
 
@@ -81,22 +87,50 @@ Defines the config...
     pub struct MinimalConfig {}
 ```
 
-## mod message
+## mod event
 
-This defines messages that can be sent between different parts of
-the application. 
+This defines the event type throughout the application.
 
-If you split the application into multiple AppWidget/AppState widgets,
-the widgets have no easy way to communicate with each other. Or to know
-of the others existence.
 
-Which is good. But sometimes they still need to communicate.
+```
+#[derive(Debug)]
+pub enum MinimalEvent {
+    Timer(TimeOut),
+    Event(crossterm::event::Event),
+    Message(String),
+}
 
-The MinimalMsg enum defines all messages that can be exchanged.
+```
 
-> This is also the means to report back from a worker thread.
+The trick here is that every PollXXX that you add requires that
+you provide a conversion from its event-type to your application
+event-type.
 
-Of course every message value can have all the data it needs to convey.
+
+```
+impl From<TimeOut> for MinimalEvent {
+    fn from(value: TimeOut) -> Self {
+        Self::Timer(value)
+    }
+}
+
+impl From<crossterm::event::Event> for MinimalEvent {
+    fn from(value: Event) -> Self {
+        Self::Event(value)
+    }
+}
+
+```
+
+But otherwise you are free to add more.
+
+Specifically you can add any events you want to send between the
+different parts of your application. There's a need for that.
+If you split the application into multiple AppWidget/AppState
+widgets there is no easy way to communicate between parts.
+
+Other approaches set up channels to do this, but rat-salsa just
+uses the main event-queue to distribute such messages. 
 
 ## mod scenery
 
@@ -116,7 +150,7 @@ Here it holds the state for the actual application.
 ### AppWidget
 
 ```rust
-    impl AppWidget<GlobalState, MinimalMsg, Error> for Scenery {
+impl AppWidget<GlobalState, MinimalEvent, Error> for Scenery {
     type State = SceneryState;
 
     fn render(
@@ -163,7 +197,7 @@ The default displays some timings taken for rendering too.
 ### AppState
 
 ```rust
-    impl AppState<GlobalState, MinimalMsg, Error> for SceneryState {
+    impl AppState<GlobalState, MinimalEvent, Error> for SceneryState {
 ```
 
 AppState has three type parameters that occur everywhere. I couldn't cut
@@ -183,64 +217,61 @@ it sets up the initial [Focus](./focus) for the application and
 forwards to MinimalState.
 
 ```rust
-    fn timer(
+    fn event(
         &mut self,
-        event: &TimeOut,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalMsg>, Error> {
+        event: &MinimalEvent,
+        ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
+    ) -> Result<Control<MinimalEvent>, Error> {
         let t0 = SystemTime::now();
-    
-        ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-        let r = self.minimal.timer(event, ctx)?;
-    
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(2, format!("T {:.0?}", el).to_string());
-    
-        Ok(r)
-    }
-```
 
-Timer handles TimeOut events. Does not much here, except rebuilding the
-Focus and forwarding to MinimalState.
+        let mut r = match event {
+            MinimalEvent::Event(event) => {
+                let mut r = match &event {
+                    ct_event!(resized) => Control::Changed,
+                    ct_event!(key press CONTROL-'q') => Control::Quit,
+                    _ => Control::Continue,
+                };
 
-```rust
-    fn crossterm(
-        &mut self,
-        event: &Event,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalMsg>, Error> {
-        let t0 = SystemTime::now();
-    
-        let mut r = match &event {
-            ct_event!(resized) => Control::Changed,
-            ct_event!(key press CONTROL-'q') => Control::Quit,
+                r = r.or_else(|| {
+                    if ctx.g.error_dlg.active() {
+                        ctx.g.error_dlg.handle(event, Dialog).into()
+                    } else {
+                        Control::Continue
+                    }
+                });
+
+                r
+            }
+            MinimalEvent::Message(s) => {
+                ctx.g.status.status(0, &*s);
+                Control::Changed
+            }
             _ => Control::Continue,
         };
-    
+
+        // rebuild and handle focus for each event
         r = r.or_else(|| {
-            if ctx.g.error_dlg.active() {
-                ctx.g.error_dlg.handle(&event, Dialog).into()
-            } else {
-                Control::Continue
-            }
-        });
-    
-        r = r.or_else_try(|| {
             ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-            self.minimal.crossterm(&event, ctx)
-        })?;
-    
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(2, format!("H {:.0?}", el).to_string());
-    
+            if let MinimalEvent::Event(event) = event {
+                let f = ctx.focus_mut().handle(event, Regular);
+                ctx.queue(f);
+            }
+            Control::Continue
+        });
+
+        r = r.or_else_try(|| self.minimal.event(event, ctx))?;
+
+        let el = t0.elapsed()?;
+        ctx.g.status.status(2, format!("E {:.0?}", el).to_string());
+
         Ok(r)
     }
 ```
 
-crossterm handles all crossterm events.
+all event-handling goes through here. 
 
 ```rust
-    let mut r = match & event {
+    let mut r = match &event {
         ct_event!(resized) => Control::Changed,
         ct_event!(key press CONTROL-'q') => Control::Quit,
         _ => Control::Continue,
@@ -261,9 +292,9 @@ The last result Control::Continue is 'nothing happened, continue
 with event handling'.
 
 ```rust
-    r = r.or_else(| | {
+    r = r.or_else(|| {
         if ctx.g.error_dlg.active() {
-            ctx.g.error_dlg.handle( & event, Dialog).into()
+            ctx.g.error_dlg.handle(event, Dialog).into()
         } else {
             Control::Continue
         }
@@ -278,17 +309,6 @@ with event handling'.
 > for Control returns false for Control::Continue and true for
 > everything else. And that's what these combinators work with.
 
-```rust
-    r = r.or_else(|| {
-        if ctx.g.error_dlg.active() {
-            ctx.g.error_dlg.handle(&event, Dialog).into()
-        } else {
-            Control::Continue
-        }
-    });
-
-```
-
 `or_else(..)` is only executed if r is Control::Continue. If the
 error dialog is active, which is just some flag, it calls it's
 event-handler for `Dialog` style event-handling. It does whatever
@@ -300,17 +320,39 @@ If the error dialog is not active it uses Control::Continue to
 show event handling can continue.
 
 ```rust
-    r = r.or_else_try(| | {
-        
-        ctx.focus = Some(FocusBuilder::rebuild(& self.minimal, ctx.focus.take()));
-        
-        self.minimal.crossterm( & event, ctx)
-    
-    }) ?;
+    MinimalEvent::Message(s) => {
+        ctx.g.status.status(0, &*s);
+        Control::Changed
+    }
 ```
 
-One more or_else. This one refreshes/rebuilds the Focus and forwards
-to MinimalState.
+This is a simple example for a application event. Show something
+in the status bar.
+
+```rust
+    // rebuild and handle focus for each event
+    r = r.or_else(|| {
+        ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
+        if let MinimalEvent::Event(event) = event {
+            let f = ctx.focus_mut().handle(event, Regular);
+            ctx.queue(f);
+        }
+        Control::Continue
+    });
+```
+
+This rebuilds the Focus for each event. 
+
+> TODO: add some feedback loop that can trigger this instead of
+> doing it all the time?
+
+
+```rust
+    r = r.or_else_try(|| self.minimal.event(event, ctx))?;
+```
+
+Forward events. 
+
 
 ```rust
     Ok(r)

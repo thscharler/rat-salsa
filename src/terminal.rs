@@ -47,12 +47,13 @@ where
     /// Render the app widget.
     ///
     /// Creates the render-context, fetches the frame and calls render.
+    /// Returns the frame number of the rendered frame or any error.
     #[allow(clippy::needless_lifetimes)]
     #[allow(clippy::type_complexity)]
     fn render(
         &mut self,
-        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<(), Error>,
-    ) -> Result<(), Error>
+        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<usize, Error>,
+    ) -> Result<usize, Error>
     where
         Error: From<io::Error>;
 }
@@ -125,12 +126,12 @@ where
     #[allow(clippy::needless_lifetimes)]
     fn render(
         &mut self,
-        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<(), Error>,
-    ) -> Result<(), Error>
+        f: &mut dyn FnMut(&mut Frame<'_>) -> Result<usize, Error>,
+    ) -> Result<usize, Error>
     where
         Error: From<io::Error>,
     {
-        let mut res = Ok(());
+        let mut res = Ok(0);
         _ = self.term.hide_cursor();
         self.term.draw(|frame| res = f(frame))?;
         res

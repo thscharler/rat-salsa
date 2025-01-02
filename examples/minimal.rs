@@ -2,9 +2,8 @@ use crate::config::MinimalConfig;
 use crate::event::MinimalEvent;
 use crate::global::GlobalState;
 use crate::scenery::{Scenery, SceneryState};
-
 use anyhow::Error;
-use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
+use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
@@ -30,7 +29,8 @@ fn main() -> Result<(), Error> {
         RunConfig::default()?
             .poll(PollCrossterm)
             .poll(PollTimers)
-            .poll(PollTasks),
+            .poll(PollTasks)
+            .poll(PollRendered),
     )?;
 
     Ok(())
@@ -71,14 +71,21 @@ pub mod config {
 
 /// Application wide messages.
 pub mod event {
-    use crossterm::event::Event;
     use rat_salsa::timer::TimeOut;
+    use rat_salsa::RenderedEvent;
 
     #[derive(Debug)]
     pub enum MinimalEvent {
         Timer(TimeOut),
         Event(crossterm::event::Event),
+        Rendered,
         Message(String),
+    }
+
+    impl From<RenderedEvent> for MinimalEvent {
+        fn from(_: RenderedEvent) -> Self {
+            Self::Rendered
+        }
     }
 
     impl From<TimeOut> for MinimalEvent {
@@ -88,7 +95,7 @@ pub mod event {
     }
 
     impl From<crossterm::event::Event> for MinimalEvent {
-        fn from(value: Event) -> Self {
+        fn from(value: crossterm::event::Event) -> Self {
             Self::Event(value)
         }
     }

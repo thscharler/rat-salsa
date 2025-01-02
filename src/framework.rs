@@ -1,5 +1,5 @@
 use crate::control_queue::ControlQueue;
-use crate::poll::{PollTasks, PollTimers};
+use crate::poll::{PollRendered, PollTasks, PollTimers};
 use crate::poll_queue::PollQueue;
 use crate::run_config::RunConfig;
 use crate::threadpool::ThreadPool;
@@ -48,11 +48,19 @@ where
     } else {
         None
     };
+    let rendered_event = poll.iter().enumerate().find_map(|(n, v)| {
+        if v.as_ref().type_id() == TypeId::of::<PollRendered>() {
+            Some(n)
+        } else {
+            None
+        }
+    });
     let queue = ControlQueue::default();
 
     let mut appctx = AppContext {
         g: global,
         focus: None,
+        count: 0,
         timers: &timers,
         tasks: &tasks,
         queue: &queue,
@@ -65,7 +73,7 @@ where
     state.init(&mut appctx)?;
 
     // initial render
-    term.render(&mut |frame| {
+    appctx.count = term.render(&mut |frame| {
         let mut ctx = RenderContext {
             g: appctx.g,
             count: frame.count(),
@@ -76,8 +84,12 @@ where
         if let Some((cursor_x, cursor_y)) = ctx.cursor {
             frame.set_cursor_position((cursor_x, cursor_y));
         }
-        Ok(())
+        Ok(frame.count())
     })?;
+    if let Some(h) = rendered_event {
+        let r = poll[h].read_exec(state, &mut appctx);
+        queue.push(r);
+    }
 
     'ui: loop {
         // panic on worker panic
@@ -147,7 +159,7 @@ where
                 Ok(Control::Continue) => {}
                 Ok(Control::Unchanged) => {}
                 Ok(Control::Changed) => {
-                    if let Err(e) = term.render(&mut |frame| {
+                    let r = term.render(&mut |frame| {
                         let mut ctx = RenderContext {
                             g: appctx.g,
                             count: frame.count(),
@@ -158,13 +170,21 @@ where
                         if let Some((cursor_x, cursor_y)) = ctx.cursor {
                             frame.set_cursor_position((cursor_x, cursor_y));
                         }
-                        Ok(())
-                    }) {
-                        queue.push(Err(e));
+                        Ok(frame.count())
+                    });
+                    match r {
+                        Ok(v) => {
+                            appctx.count = v;
+                            if let Some(h) = rendered_event {
+                                let r = poll[h].read_exec(state, &mut appctx);
+                                queue.push(r);
+                            }
+                        }
+                        Err(e) => queue.push(Err(e)),
                     }
                 }
-                Ok(Control::Message(mut a)) => {
-                    let r = state.event(&mut a, &mut appctx);
+                Ok(Control::Message(a)) => {
+                    let r = state.event(&a, &mut appctx);
                     queue.push(r);
                 }
                 Ok(Control::Quit) => {

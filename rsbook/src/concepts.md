@@ -24,11 +24,12 @@ I kept the split-widget concept and there are two traits
     [RenderContext][refRenderContext].
 * [AppState][refAppState] The state is the persistent half of
   every widget, so this one gets all the event-handling.
+
+  There are functions for application life-cycle and and
+  event() that is called for every application event.  
   
-  Every event-type has its own function here, and the event types
-  are used as provided.
-  
-  - It uses crossterm as it seems most complete at this time.
+  - I currently have a driver for crossterm events, but
+    this can easily be replaced with something else. 
 
 ## run_tui
 
@@ -39,7 +40,7 @@ application.
 - Renders on demand.
 - Maintains the background worker threads.
 - Maintains the timers.
-- Distributes application messages.
+- Distributes application events.
 - Initializes the terminal and ensure clean shutdown even when
   panics occur.
 

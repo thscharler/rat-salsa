@@ -5,10 +5,9 @@
 use crate::facilities::MDFileDialogState;
 use crate::root::{MDRoot, MDRootState};
 use anyhow::Error;
-use crossterm::event::Event;
-use rat_salsa::poll::{PollCrossterm, PollTasks, PollTimers};
+use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
 use rat_salsa::timer::TimeOut;
-use rat_salsa::{run_tui, RunConfig};
+use rat_salsa::{run_tui, RenderedEvent, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use rat_theme::Scheme;
@@ -46,7 +45,8 @@ fn main() -> Result<(), Error> {
             .threads(1)
             .poll(PollCrossterm)
             .poll(PollTasks)
-            .poll(PollTimers),
+            .poll(PollTimers)
+            .poll(PollRendered),
     )?;
 
     Ok(())
@@ -94,8 +94,9 @@ pub struct MDConfig {
 
 #[derive(Debug, PartialEq, Eq)]
 pub enum MDEvent {
-    TimeOut(TimeOut),
     Event(crossterm::event::Event),
+    TimeOut(TimeOut),
+    Rendered,
 
     Message(String),
 
@@ -123,8 +124,14 @@ pub enum MDEvent {
     SelectAt(usize, usize),
 }
 
+impl From<RenderedEvent> for MDEvent {
+    fn from(_: RenderedEvent) -> Self {
+        Self::Rendered
+    }
+}
+
 impl From<crossterm::event::Event> for MDEvent {
-    fn from(value: Event) -> Self {
+    fn from(value: crossterm::event::Event) -> Self {
         Self::Event(value)
     }
 }
@@ -141,6 +148,7 @@ mod root {
     use crate::app::{MDApp, MDAppState};
     use crate::{AppContext, GlobalState, MDEvent};
     use anyhow::Error;
+    use log::debug;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, ConsumedEvent};
     use rat_widget::focus::FocusBuilder;
@@ -220,9 +228,12 @@ mod root {
                         _ => Control::Continue,
                     });
 
-                    // keyboard + mouse focus
+                    Control::Continue
+                }
+                MDEvent::Rendered => {
+                    debug!("RENDERED {}", ctx.count);
+                    // rebuild keyboard + mouse focus
                     ctx.focus = Some(FocusBuilder::rebuild(&self.app, ctx.focus.take()));
-
                     Control::Continue
                 }
                 _ => Control::Continue,
@@ -1240,9 +1251,20 @@ pub mod split_tab {
             };
 
             r = r.or_else_try(|| {
-                for tab in &mut self.tabs {
-                    for ed in tab {
-                        try_flow!(ed.event(event, ctx)?);
+                match event {
+                    MDEvent::Event(_) => {
+                        for (idx_split, tabbed) in self.tabbed.iter_mut().enumerate() {
+                            if let Some(idx_tab) = tabbed.selected() {
+                                try_flow!(self.tabs[idx_split][idx_tab].event(event, ctx)?);
+                            }
+                        }
+                    }
+                    _ => {
+                        for tab in &mut self.tabs {
+                            for ed in tab {
+                                try_flow!(ed.event(event, ctx)?);
+                            }
+                        }
                     }
                 }
                 Ok::<_, Error>(Control::Continue)
@@ -2216,34 +2238,39 @@ fn setup_logging() -> Result<(), Error> {
 static HELP: &[u8] = include_bytes!("mdedit.md");
 static CHEAT: &[u8] = include_bytes!("cheat.md");
 
-fn event_str(event: &crossterm::event::Event) -> String {
+fn event_str(event: &MDEvent) -> String {
     use crossterm::event::*;
 
     match event {
-        Event::FocusGained => "focus-gained".into(),
-        Event::FocusLost => "focus-lost".into(),
-        Event::Key(KeyEvent {
-            code,
-            modifiers,
-            kind,
-            state,
-        }) => {
-            format!("key {:?} {} {:?}", code, mods(modifiers), kind)
-        }
-        Event::Mouse(MouseEvent {
-            kind,
-            column,
-            row,
-            modifiers,
-        }) => {
-            format!("mouse {:?} {:?} {}", kind, (*column, *row), mods(modifiers))
-        }
-        Event::Paste(v) => {
-            format!("paste {:?}", v)
-        }
-        Event::Resize(x, y) => {
-            format!("resize {:?}", (*x, *y))
-        }
+        MDEvent::TimeOut(timeout) => format!("{:?}", timeout).to_string(),
+        MDEvent::Event(event) => match event {
+            Event::FocusGained => "focus-gained".into(),
+            Event::FocusLost => "focus-lost".into(),
+            Event::Key(KeyEvent {
+                code,
+                modifiers,
+                kind,
+                state,
+            }) => {
+                format!("key {:?} {} {:?}", code, mods(modifiers), kind)
+            }
+            Event::Mouse(MouseEvent {
+                kind,
+                column,
+                row,
+                modifiers,
+            }) => {
+                format!("mouse {:?} {:?} {}", kind, (*column, *row), mods(modifiers))
+            }
+            Event::Paste(v) => {
+                format!("paste {:?}", v)
+            }
+            Event::Resize(x, y) => {
+                format!("resize {:?}", (*x, *y))
+            }
+        },
+        MDEvent::Message(message) => message.to_string(),
+        v => format!("{:?}", v).to_string(),
     }
 }
 

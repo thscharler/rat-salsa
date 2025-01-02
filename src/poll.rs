@@ -3,7 +3,7 @@
 //!
 
 use crate::timer::{TimeOut, TimerEvent};
-use crate::{AppContext, AppState, Control};
+use crate::{AppContext, AppState, Control, RenderedEvent};
 use crossbeam::channel::TryRecvError;
 use std::any::Any;
 use std::fmt::Debug;
@@ -133,5 +133,29 @@ where
             Ok(event) => state.event(&event.into(), ctx),
             Err(e) => Err(e.into()),
         }
+    }
+}
+
+/// Sends an event after a render of the UI.
+#[derive(Debug, Default)]
+pub struct PollRendered;
+
+impl<Global, State, Event, Error> PollEvents<Global, State, Event, Error> for PollRendered
+where
+    State: AppState<Global, Event, Error> + ?Sized,
+    Event: 'static + Send + From<RenderedEvent>,
+    Error: 'static + Send + From<std::io::Error>,
+{
+    fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
+        // doesn't poll. it's triggered by a repaint.
+        Ok(false)
+    }
+
+    fn read_exec(
+        &mut self,
+        state: &mut State,
+        ctx: &mut AppContext<'_, Global, Event, Error>,
+    ) -> Result<Control<Event>, Error> {
+        state.event(&RenderedEvent.into(), ctx)
     }
 }

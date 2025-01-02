@@ -169,6 +169,9 @@ where
 }
 
 ///
+pub struct RenderedEvent;
+
+///
 /// AppState executes events and has some init and error-handling.
 ///
 /// There is no separate shutdown, handle this case with an application
@@ -232,6 +235,8 @@ where
     pub g: &'a mut Global,
     /// Can be set to hold a Focus, if needed.
     pub focus: Option<Focus>,
+    /// Last frame count rendered.
+    pub count: usize,
 
     /// Application timers.
     pub(crate) timers: &'a Option<Timers>,
