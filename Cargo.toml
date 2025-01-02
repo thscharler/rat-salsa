@@ -17,8 +17,8 @@ crossterm = "0.28"
 log = "0.4"
 fxhash = "0.2"
 
-rat-event = { version = "1.0", path = "../rat-event" }
-rat-reloc = { version = "1.0", path = "../rat-reloc" }
+rat-event = { version = "1.0" }
+rat-reloc = { version = "1.0" }
 
 [dev-dependencies]
 fern = "0.7"
