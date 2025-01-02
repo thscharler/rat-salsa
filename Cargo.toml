@@ -24,9 +24,9 @@ unicode-segmentation = "1.11"
 unicode-width = "0.2"
 unicode-display-width = "0.3"
 
-rat-event = { version = "1.0", path = "../rat-event" }
-rat-focus = { version = "0.30", path = "../rat-focus" }
-rat-popup = { version = "0.28", path = "../rat-popup" }
+rat-event = { version = "1.0" }
+rat-focus = { version = "0.30" }
+rat-popup = { version = "0.28" }
 
 [dev-dependencies]
 fern = "0.7"
