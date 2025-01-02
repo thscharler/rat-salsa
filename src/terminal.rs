@@ -13,6 +13,8 @@ use crossterm::event::{
 use crossterm::event::{
     KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
 };
+#[cfg(not(windows))]
+use crossterm::terminal::supports_keyboard_enhancement;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
