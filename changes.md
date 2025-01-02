@@ -1,3 +1,10 @@
+# 0.30.0
+
+* feature: Add RenderedEvent. This can be activated by adding
+  PollRendered and will send one event after each successful render.
+* feature: Add an optional async runtime. Currently, tokio.
+  Start async tasks via the AppContext and get the result as event.
+
 # 0.29.0
 
 * major change: Replaced the current Message type variable with Event.

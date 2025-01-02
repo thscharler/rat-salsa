@@ -1,4 +1,4 @@
-![stable](https://img.shields.io/badge/stability-β--3-850101)
+![stable](https://img.shields.io/badge/stability-RC--1-850101)
 [![crates.io](https://img.shields.io/crates/v/rat-salsa.svg)](https://crates.io/crates/rat-salsa)
 [![Documentation](https://docs.rs/rat-salsa/badge.svg)](https://docs.rs/rat-salsa)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
@@ -15,6 +15,7 @@ rat-salsa provides
 
 - application event loop [run_tui]
     - [background tasks](AppContext::spawn)
+    - [background async tasks](AppContext::spawn_async)
     - [timers](AppContext::add_timer)
     - crossterm
     - [messages](AppContext::queue)
