@@ -12,17 +12,22 @@ All are regular widgets and can be used without rat-salsa.
 
 It contains 
 
-* Button: a button
+* Button
+* Choice
+* Checkbox
+* Radio
+* Slider
 * DateInput and NumberInput
 * TextInput and MaskedInput
 * TextArea and LineNumber
 * Table
+* EditTable and EditList
 * Tabbed and Split
 * MenuLine, PopupMenu and Menubar
 * StatusLine and MsgDialog
 * FileDialog
 * EditList and EditTable
-* View and Viewport
+* View, Clipper, SinglePager, DualPager: for scrolling/page-breaking
 * Month
 
 and adapters for 

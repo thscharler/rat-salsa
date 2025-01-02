@@ -231,7 +231,6 @@ mod root {
                     Control::Continue
                 }
                 MDEvent::Rendered => {
-                    debug!("RENDERED {}", ctx.count);
                     // rebuild keyboard + mouse focus
                     ctx.focus = Some(FocusBuilder::rebuild(&self.app, ctx.focus.take()));
                     Control::Continue

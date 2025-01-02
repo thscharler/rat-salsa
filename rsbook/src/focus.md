@@ -119,8 +119,14 @@ instead of Control, thus the conversion.
 > can save the day. If focus requires Control::Changed we return
 > this as the minimum regardless of what the rest of event
 > handling says.
-> 
-> And this is the only tricky part of Focus. --x
+
+Or you can just return a second result to the event-loop using
+
+```rust
+    let f = ctx.focus_mut().handle(event, Regular);
+    ctx.queue(f);
+```    
+and be done with it. 
 
 
 [refFocusContainer]: https://docs.rs/rat-focus/latest/rat_focus/trait.FocusContainer.html

@@ -194,7 +194,14 @@ pub mod scenery {
                         }
                     });
 
+                    let f = ctx.focus_mut().handle(event, Regular);
+                    ctx.queue(f);
+
                     r
+                }
+                MinimalEvent::Rendered => {
+                    ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
+                    Control::Continue
                 }
                 MinimalEvent::Message(s) => {
                     ctx.g.status.status(0, &*s);
@@ -202,16 +209,6 @@ pub mod scenery {
                 }
                 _ => Control::Continue,
             };
-
-            // rebuild and handle focus for each event
-            r = r.or_else(|| {
-                ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-                if let MinimalEvent::Event(event) = event {
-                    let f = ctx.focus_mut().handle(event, Regular);
-                    ctx.queue(f);
-                }
-                Control::Continue
-            });
 
             r = r.or_else_try(|| self.minimal.event(event, ctx))?;
 
@@ -246,19 +243,9 @@ pub mod minimal {
     #[derive(Debug)]
     pub(crate) struct Minimal;
 
-    #[derive(Debug)]
+    #[derive(Debug, Default)]
     pub struct MinimalState {
         pub menu: MenuLineState,
-    }
-
-    impl Default for MinimalState {
-        fn default() -> Self {
-            let mut s = Self {
-                menu: Default::default(),
-            };
-            s.menu.select(Some(0));
-            s
-        }
     }
 
     impl AppWidget<GlobalState, MinimalEvent, Error> for Minimal {
@@ -303,6 +290,7 @@ pub mod minimal {
             ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
         ) -> Result<(), Error> {
             ctx.focus().first();
+            self.menu.select(Some(0));
             Ok(())
         }
 
@@ -312,18 +300,15 @@ pub mod minimal {
             event: &MinimalEvent,
             ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
         ) -> Result<Control<MinimalEvent>, Error> {
-            let MinimalEvent::Event(event) = event else {
-                return Ok(Control::Continue);
+            let r = match event {
+                MinimalEvent::Event(event) => match self.menu.handle(event, Regular) {
+                    MenuOutcome::Activated(0) => Control::Quit,
+                    v => v.into(),
+                },
+                _ => Control::Continue,
             };
 
-            try_flow!(match self.menu.handle(event, Regular) {
-                MenuOutcome::Activated(0) => {
-                    Control::Quit
-                }
-                v => v.into(),
-            });
-
-            Ok(Control::Continue)
+            Ok(r)
         }
     }
 }

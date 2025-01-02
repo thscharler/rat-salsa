@@ -240,7 +240,14 @@ forwards to MinimalState.
                     }
                 });
 
+                let f = ctx.focus_mut().handle(event, Regular);
+                ctx.queue(f);
+
                 r
+            }
+            MinimalEvent::Rendered => {
+                ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
+                Control::Continue
             }
             MinimalEvent::Message(s) => {
                 ctx.g.status.status(0, &*s);
@@ -248,16 +255,6 @@ forwards to MinimalState.
             }
             _ => Control::Continue,
         };
-
-        // rebuild and handle focus for each event
-        r = r.or_else(|| {
-            ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-            if let MinimalEvent::Event(event) = event {
-                let f = ctx.focus_mut().handle(event, Regular);
-                ctx.queue(f);
-            }
-            Control::Continue
-        });
 
         r = r.or_else_try(|| self.minimal.event(event, ctx))?;
 
@@ -319,6 +316,28 @@ only it can react to events, everything else is shut out.
 If the error dialog is not active it uses Control::Continue to
 show event handling can continue.
 
+
+```rust
+    let f = ctx.focus_mut().handle(event, Regular);
+    ctx.queue(f);
+```
+Handling events for Focus is a bit special.
+
+Focus implements an event handler for `Regular` events. Regular is similar
+to `Dialog` seen before, and means bog-standard event handling whatever the
+widget does. The speciality is that focus handling shouldn't consume the
+recognized events. This is important for mouse events, where the widget might
+do something useful with the same click event that focused it.
+
+Here `ctx.queue()` comes into play and provides a second path to return
+results from event-handling. The primary return value from the function
+call is just added to the same queue. Then everything in that queue is 
+worked off, before polling new events. 
+
+This way the focus change can initiate a render while the event handling 
+function can still return whatever it wants.
+
+
 ```rust
     MinimalEvent::Message(s) => {
         ctx.g.status.status(0, &*s);
@@ -359,51 +378,19 @@ Forward events.
 ```
 
 And finally the result of event handling is returned to the event loop,
-which can work with the result. Depending on the result value it goes on
-and calls other functions within the application. And depending on that
-result value it goes on calling further functions in the application.
-Only after every such result is processed the event loop will go looking
-for new events.
+where the event-loop acts upon it. If the result is Control::Message
+the event will be added to the current event-queue and processed in
+order. Only if the current event-queue is empty will the event loop
+poll for a new event. This way the ordering of event+secondary events
+stays deterministic.
 
-```rust
-    fn message(
-        &mut self,
-        event: &mut MinimalMsg,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalMsg>, Error> {
-        let t0 = SystemTime::now();
-    
-        #[allow(unreachable_patterns)]
-        let r = match event {
-            MinimalMsg::Message(s) => {
-                ctx.g.status.status(0, &*s);
-                Control::Changed
-            }
-            _ => {
-                ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
-                self.minimal.message(event, ctx)?
-            }
-        };
-    
-        let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-        ctx.g.status.status(2, format!("A {:.0?}", el).to_string());
-    
-        Ok(r)
-    }
-```
-
-Processes a global message. Currently, there is only one such messages defined,
-which sets some value in the status bar and repaints. All other messages
-are forwarded to the MinimalStruct again.
-
-And finally this again can result in further functions being called.
 
 ```rust
     fn error(
         &self,
         event: Error,
         ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalMsg>, Error> {
+    ) -> Result<Control<MinimalEvent>, Error> {
         ctx.g.error_dlg.append(format!("{:?}", &*event).as_str());
         Ok(Control::Changed)
     }
@@ -432,19 +419,6 @@ lets you quit the application via menu.
 
 Define the necessary structs and any data/state.
 
-```rust
-    impl Default for MinimalState {
-        fn default() -> Self {
-            let mut s = Self {
-                menu: Default::default(),
-            };
-            s.menu.select(Some(0));
-            s
-        }
-    }
-```
-
-Manual impl for Default to set the initial selection for the menu.
 
 ```rust
     impl AppWidget<GlobalState, MinimalMsg, Error> for Minimal {
@@ -458,7 +432,7 @@ Manual impl for Default to set the initial selection for the menu.
             ctx: &mut RenderContext<'_>,
         ) -> Result<(), Error> {
             // TODO: repaint_mask
-    
+
             let r = Layout::new(
                 Direction::Vertical,
                 [
@@ -466,13 +440,13 @@ Manual impl for Default to set the initial selection for the menu.
                     Constraint::Length(1),
                 ],
             )
-                .split(area);
-    
+            .split(area);
+
             let menu = MenuLine::new()
                 .styles(ctx.g.theme.menu_style())
                 .item_parsed("_Quit");
             menu.render(r[1], buf, &mut state.menu);
-    
+
             Ok(())
         }
     }
@@ -488,8 +462,9 @@ Render the menu.
     }
 ```
 
-Implements the trait [HasFocus][refHasFocus] which is the trait for container like widgets
-used by [Focus][refFocus]. This adds its widgets in traversal order.
+Implements the trait [HasFocus][refHasFocus] which is the trait
+for container like widgets used by [Focus][refFocus]. This adds
+its widgets in traversal order.
 
 ```rust
     impl AppState<GlobalState, MinimalMsg, Error> for MinimalState {
@@ -500,64 +475,34 @@ Implements AppState...
 ```rust
     fn init(
         &mut self,
-        ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalMsg, Error>,
+        ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
     ) -> Result<(), Error> {
         ctx.focus().first();
+        self.menu.select(Some(0));
         Ok(())
     }
 ```    
 
-Init sets the focus to the first widget.
+Init sets the focus to the first widget. And does other init work.
 
 ```rust
-    #[allow(unused_variables)]
-    fn crossterm(
+    fn event(
         &mut self,
-        event: &Event,
-        ctx: &mut AppContext<'_>,
-    ) -> Result<Control<MinimalMsg>, Error> {
-        let f = ctx.focus_mut().handle(event, Regular);
-        ctx.queue(f);
-    
-        try_flow!(match self.menu.handle(event, Regular) {
-                MenuOutcome::Activated(0) => {
-                    Control::Quit
-                }
+        event: &MinimalEvent,
+        ctx: &mut rat_salsa::AppContext<'_, GlobalState, MinimalEvent, Error>,
+    ) -> Result<Control<MinimalEvent>, Error> {
+        let r = match event {
+            MinimalEvent::Event(event) => {
+                match self.menu.handle(event, Regular) {
+                    MenuOutcome::Activated(0) => Control::Quit,
                     v => v.into(),
-        });
-    
-        Ok(Control::Continue)
+                }
+            },
+            _ => Control::Continue,
+        };
+
+        Ok(r)
     }
-```
-
-Handling events for Focus is a bit special.
-
-```rust
-    let f = ctx.focus_mut().handle(event, Regular);
-    ctx.queue(f);
-```
-
-Focus implements an event handler for `Regular` events. Regular is similar
-to `Dialog` seen before, and means bog-standard event handling whatever the
-widget does. The speciality is that focus handling shouldn't consume the
-recognized events. This is important for mouse events, where the widget might
-do something useful with the same click event that focused it.
-
-Here `ctx.queue()` comes into play and provides a second path to return
-results from event-handling. The primary return value from the function
-call is just added to the same queue. Then everything in that queue is 
-worked off, before polling new events. 
-
-This way the focus change can initiate a render while the event handling 
-function can still return whatever it wants.
-
-```rust
-    try_flow!(match self.menu.handle(event, Regular) {
-        MenuOutcome::Activated(0) => {
-            Control::Quit
-        }
-        v => v.into(),
-    });
 ```
 
 Calls the `Regular` event handler for the menu. MenuLine has its

@@ -21,38 +21,37 @@ pub trait FocusContainer {
 ```
 
 * build()
-
+  
   This is called to construct the focus recursively.
   Use FocusBuilder::widget() to add a single widget, or
   FocusBuilder::container() to add a container widget.
-
+  
   That's it.
-
+  
 * container()
-
+  
   The container widget may want to know if any of the contained
-  widgets has a focus. If container() returns a ContainerFlag
-  (which is the same as FocusFlag just a separate type for
-  clarity). Focus updates the container flag for focus changes in
-  any of the widgets added with build; recursively.
-
-  The container-flag is also used to focus the first widget for a
-  container with Focus::focus_container().
-
+  widgets has a focus. If container() returns a ContainerFlag it
+  will be set to a summary of the widgets it contains.
+  
+  The container-flag can also be used to focus the first widget
+  for a container with Focus::focus_container().
+  
   And the container-flag is used to remove/update/replace the
   widgets of a container.
-
+  
 * area()
-
+  
   If area() returns a value than the first widget in the
   container is focused if you click on that area.
-
+  
 * area_z()
-
-  When stacking areas above another a z-value helps with mouse focus.
-
+  
+  When stacking areas above another a z-value helps with mouse
+  focus.
+  
 * is_container_focused(), container_lost_focus(),
   container_gained_focus()
-
+  
   For application code; uses the container flag.
   
