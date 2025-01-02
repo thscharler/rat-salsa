@@ -1,5 +1,3 @@
-//! Current status: BETA
-//!
 #![doc = include_str!("../readme.md")]
 
 use crossbeam::channel::{SendError, Sender};
