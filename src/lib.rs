@@ -8,7 +8,9 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::cmp::Ordering;
 use std::fmt::Debug;
+use std::future::Future;
 use std::mem;
+use tokio::task::AbortHandle;
 
 pub(crate) mod control_queue;
 mod framework;
@@ -18,15 +20,18 @@ mod run_config;
 pub mod terminal;
 mod threadpool;
 pub mod timer;
+mod tokio_tasks;
 
 use crate::control_queue::ControlQueue;
 use crate::threadpool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
+use crate::tokio_tasks::TokioSpawn;
 use rat_widget::focus::Focus;
 
 pub use framework::*;
 pub use run_config::*;
 pub use threadpool::Cancel;
+pub use tokio_tasks::PollTokio;
 
 /// Result enum for event handling.
 ///
@@ -242,6 +247,8 @@ where
     pub(crate) timers: &'a Option<Timers>,
     /// Background tasks.
     pub(crate) tasks: &'a Option<ThreadPool<Event, Error>>,
+    /// Background tasks.
+    pub(crate) tokio: &'a Option<TokioSpawn<Event, Error>>,
     /// Queue foreground tasks.
     pub(crate) queue: &'a ControlQueue<Event, Error>,
 }
@@ -334,6 +341,29 @@ where
                 "No thread-pool configured. In main() add RunConfig::default()?.poll(PollTasks)",
             )
             .send(Box::new(task))
+    }
+
+    /// Spawn a future in the executor.
+    #[inline]
+    pub fn spawn_async<F>(&self, future: F) -> AbortHandle
+    where
+        F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
+    {
+        self.tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))")
+            .spawn(Box::new(future))
+    }
+
+    /// Spawn a future in the executor.
+    /// You get an extra channel to send back more than one result.
+    #[inline]
+    pub fn spawn_async_ext<C, F>(&self, cr_future: C) -> AbortHandle
+    where
+        C: FnOnce(tokio::sync::mpsc::Sender<Result<Control<Event>, Error>>) -> F,
+        F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
+    {
+        let rt = self.tokio.as_ref().expect("No tokio runtime is configured. In main() add RunConfig::default()?.poll(PollTokio::new(rt))");
+        let future = cr_future(rt.sender());
+        rt.spawn(Box::new(future))
     }
 
     /// Queue additional results.

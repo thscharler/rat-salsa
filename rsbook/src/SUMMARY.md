@@ -19,7 +19,9 @@
       
    5. [Event control flow 2](./events_control_flow2.md)
       
-4. [Focus](./focus.md)
+4. [AppContext and RenderContext](./appctx.md)
+   
+5. [Focus](./focus.md)
    
    1. [Deeper](./focus_deeper.md)
       
@@ -28,10 +30,10 @@
    3. [Container widget](./focus_container.md)
       
    4. [Builder](./focus_builder.md)
-   
-1. [Examples](./examples.md)
       
-5. [Widgets](./widgets.md)
+6. [Examples](./examples.md)
+   
+7. [Widgets](./widgets.md)
    
    2. [Rendering overlays](./render_overlay.md)
 

@@ -4,6 +4,7 @@ use crate::poll_queue::PollQueue;
 use crate::run_config::RunConfig;
 use crate::threadpool::ThreadPool;
 use crate::timer::Timers;
+use crate::tokio_tasks::PollTokio;
 use crate::{AppContext, AppState, AppWidget, Control, RenderContext};
 use crossbeam::channel::{SendError, TryRecvError};
 use std::any::TypeId;
@@ -55,6 +56,13 @@ where
             None
         }
     });
+    let tokio_spawn = poll.iter().find_map(|v| {
+        if let Some(t) = v.as_any().downcast_ref::<PollTokio<Event, Error>>() {
+            Some(t.get_spawn())
+        } else {
+            None
+        }
+    });
     let queue = ControlQueue::default();
 
     let mut appctx = AppContext {
@@ -63,6 +71,7 @@ where
         count: 0,
         timers: &timers,
         tasks: &tasks,
+        tokio: &tokio_spawn,
         queue: &queue,
     };
 

@@ -21,6 +21,8 @@ where
     Event: 'static + Send,
     Error: 'static + Send,
 {
+    fn as_any(&self) -> &dyn Any;
+
     /// Poll for a new event.
     ///
     /// Events are not processed immediately when they occur. Instead,
@@ -55,6 +57,10 @@ where
     Event: 'static + Send,
     Error: 'static + Send + From<TryRecvError>,
 {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn poll(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
         if let Some(tasks) = ctx.tasks {
             Ok(!tasks.is_empty())
@@ -86,6 +92,10 @@ where
     Event: 'static + Send + From<TimeOut>,
     Error: 'static + Send + From<std::io::Error>,
 {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn poll(&mut self, ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
         if let Some(timers) = ctx.timers {
             Ok(timers.poll())
@@ -120,6 +130,10 @@ where
     Event: 'static + Send + From<crossterm::event::Event>,
     Error: 'static + Send + From<std::io::Error>,
 {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
         Ok(crossterm::event::poll(Duration::from_millis(0))?)
     }
@@ -146,6 +160,10 @@ where
     Event: 'static + Send + From<RenderedEvent>,
     Error: 'static + Send + From<std::io::Error>,
 {
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
     fn poll(&mut self, _ctx: &mut AppContext<'_, Global, Event, Error>) -> Result<bool, Error> {
         // doesn't poll. it's triggered by a repaint.
         Ok(false)
