@@ -8,8 +8,10 @@ use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use std::cmp::Ordering;
 use std::fmt::Debug;
+#[cfg(feature = "async")]
 use std::future::Future;
 use std::mem;
+#[cfg(feature = "async")]
 use tokio::task::AbortHandle;
 
 pub(crate) mod control_queue;
@@ -20,17 +22,20 @@ mod run_config;
 pub mod terminal;
 mod threadpool;
 pub mod timer;
+#[cfg(feature = "async")]
 mod tokio_tasks;
 
 use crate::control_queue::ControlQueue;
 use crate::threadpool::ThreadPool;
 use crate::timer::{TimerDef, TimerHandle, Timers};
+#[cfg(feature = "async")]
 use crate::tokio_tasks::TokioSpawn;
 use rat_widget::focus::Focus;
 
 pub use framework::*;
 pub use run_config::*;
 pub use threadpool::Cancel;
+#[cfg(feature = "async")]
 pub use tokio_tasks::PollTokio;
 
 /// Result enum for event handling.
@@ -248,6 +253,7 @@ where
     /// Background tasks.
     pub(crate) tasks: &'a Option<ThreadPool<Event, Error>>,
     /// Background tasks.
+    #[cfg(feature = "async")]
     pub(crate) tokio: &'a Option<TokioSpawn<Event, Error>>,
     /// Queue foreground tasks.
     pub(crate) queue: &'a ControlQueue<Event, Error>,
@@ -345,6 +351,7 @@ where
 
     /// Spawn a future in the executor.
     #[inline]
+    #[cfg(feature = "async")]
     pub fn spawn_async<F>(&self, future: F) -> AbortHandle
     where
         F: Future<Output = Result<Control<Event>, Error>> + Send + 'static,
@@ -356,6 +363,7 @@ where
     /// Spawn a future in the executor.
     /// You get an extra channel to send back more than one result.
     #[inline]
+    #[cfg(feature = "async")]
     pub fn spawn_async_ext<C, F>(&self, cr_future: C) -> AbortHandle
     where
         C: FnOnce(tokio::sync::mpsc::Sender<Result<Control<Event>, Error>>) -> F,

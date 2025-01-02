@@ -4,7 +4,9 @@ use crate::global::GlobalState;
 use crate::scenery::{Scenery, SceneryState};
 use anyhow::Error;
 use rat_salsa::poll::{PollCrossterm, PollRendered, PollTasks, PollTimers};
-use rat_salsa::{run_tui, PollTokio, RunConfig};
+#[cfg(feature = "async")]
+use rat_salsa::PollTokio;
+use rat_salsa::{run_tui, RunConfig};
 use rat_theme::dark_theme::DarkTheme;
 use rat_theme::scheme::IMPERIAL;
 use std::time::SystemTime;

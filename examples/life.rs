@@ -66,6 +66,7 @@ pub mod global {
     use rat_theme::dark_theme::DarkTheme;
     use rat_widget::msgdialog::MsgDialogState;
     use rat_widget::statusline::StatusLineState;
+    use std::any::Any;
     use std::cell::RefCell;
     use std::fmt::Debug;
     use std::rc::Rc;
@@ -124,6 +125,10 @@ pub mod global {
         State: AppState<Global, LifeEvent, Error>,
         Error: 'static + Send + Debug,
     {
+        fn as_any(&self) -> &dyn Any {
+            self
+        }
+
         fn poll(
             &mut self,
             _ctx: &mut AppContext<'_, Global, LifeEvent, Error>,
