@@ -304,5 +304,4 @@ pub fn layout_grid<const X: usize, const Y: usize>(
     res
 }
 
-pub mod text_input_mock;
 pub mod theme;
