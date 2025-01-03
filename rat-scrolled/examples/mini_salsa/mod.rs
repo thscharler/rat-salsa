@@ -9,7 +9,9 @@ use crossterm::event::{
     KeyEvent, KeyEventKind, KeyModifiers,
 };
 #[cfg(not(windows))]
-use crossterm::event::{KeyboardEnhancementFlags, PushKeyboardEnhancementFlags};
+use crossterm::event::{
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
 #[cfg(not(windows))]
 use crossterm::terminal::supports_keyboard_enhancement;
 use crossterm::terminal::{
