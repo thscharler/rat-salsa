@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui text input widgets"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/thscharler/rat-text"
+repository = "https://github.com/thscharler/rat-salsa-mono"
 readme = "readme.md"
 keywords = ["ratatui", "widget", "text"]
 categories = ["command-line-interface"]
@@ -37,11 +37,11 @@ format_num_pattern = "0.9"
 log = "0.4"
 dyn-clone = "1.0.17"
 
-rat-event = { version = "1.0" }
-rat-reloc = { version = "1.0" }
-rat-cursor = { version = "1.0" }
-rat-focus = { version = "0.30" }
-rat-scrolled = { version = "1.0" }
+rat-event = { version = "1.0", path = "../rat-event" }
+rat-reloc = { version = "1.0", path = "../rat-reloc" }
+rat-cursor = { version = "1.0", path = "../rat-cursor" }
+rat-focus = { version = "0.30", path = "../rat-focus" }
+rat-scrolled = { version = "1.0", path = "../rat-scrolled" }
 
 [dev-dependencies]
 fern = "0.7"

@@ -3,14 +3,14 @@
 [![Documentation](https://docs.rs/rat-text/badge.svg)](https://docs.rs/rat-text)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-text)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa-mono)
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-text GitHub][refGitHubText] or an extended example `mdedit.rs` in
 [rat-salsa GitHub][refGitHubSalsa].
 
-* [Changes](https://github.com/thscharler/rat-text/blob/master/changes.md)
+* [Changes](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-text/changes.md)
 
 # Text widgets for ratatui
 
@@ -98,6 +98,6 @@ Line numbers widget that can be combined with TextArea.
 
 [refFormatNumPattern]: https://docs.rs/format_num_pattern
 
-[refGitHubText]: https://github.com/thscharler/rat-text/tree/master/examples
+[refGitHubText]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-text/examples
 
 [refGitHubSalsa]: https://github.com/thscharler/rat-salsa/tree/master/examples

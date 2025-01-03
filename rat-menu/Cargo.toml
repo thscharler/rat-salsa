@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "menu widgets for ratatui"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/thscharler/rat-menu"
+repository = "https://github.com/thscharler/rat-salsa-mono"
 readme = "readme.md"
 keywords = ["ratatui", "focus"]
 categories = ["command-line-interface"]
@@ -24,9 +24,9 @@ unicode-segmentation = "1.11"
 unicode-width = "0.2"
 unicode-display-width = "0.3"
 
-rat-event = { version = "1.0" }
-rat-focus = { version = "0.30" }
-rat-popup = { version = "0.28" }
+rat-event = { version = "1.0", path = "../rat-event" }
+rat-focus = { version = "0.30", path = "../rat-focus" }
+rat-popup = { version = "0.28", path = "../rat-popup" }
 
 [dev-dependencies]
 fern = "0.7"

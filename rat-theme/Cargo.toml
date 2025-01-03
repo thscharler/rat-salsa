@@ -5,7 +5,7 @@ edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
 license = "MIT/Apache-2.0"
-repository = "https://github.com/thscharler/rat-theme"
+repository = "https://github.com/thscharler/rat-salsa-mono"
 readme = "readme.md"
 keywords = ["ratatui", "widget"]
 categories = ["command-line-interface"]
@@ -17,4 +17,4 @@ crossterm = "0.28"
 log = "0.4"
 map_range_int = "1.1.0"
 
-rat-widget = { version = "0.33" }
+rat-widget = { version = "0.33", path = "../rat-widget" }

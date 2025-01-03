@@ -3,13 +3,13 @@
 [![Documentation](https://docs.rs/rat-widget/badge.svg)](https://docs.rs/rat-widget)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-widget)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa-mono)
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-widget GitHub][refGitHubWidget]
 
-* [Changes](https://github.com/thscharler/rat-widget/blob/master/changes.md)
+* [Changes](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-widget/changes.md)
 
 # Rat Widgets
 
@@ -94,7 +94,6 @@ There are some layout calculators beyond ratatui's Layout.
 
 * [Layouts](layout/index.html)
 
-
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
 [refRatEvent]: https://docs.rs/rat-event
@@ -111,5 +110,6 @@ There are some layout calculators beyond ratatui's Layout.
 
 [refRatTextArea]: textarea/index.html
 
-[refGitHubWidget]: https://github.com/thscharler/rat-widget/tree/master/examples
+[refGitHubWidget]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-widget/examples
+
 

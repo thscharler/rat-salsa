@@ -3,11 +3,11 @@
 [![Documentation](https://docs.rs/rat-theme/badge.svg)](https://docs.rs/rat-theme)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-theme)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa-mono)
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
-* [Changes](https://github.com/thscharler/rat-theme/blob/master/changes.md)
+* [Changes](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-theme/changes.md)
 
 # Theming support for rat-salsa
 
