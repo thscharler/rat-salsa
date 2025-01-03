@@ -1,16 +1,17 @@
-[package]
-name = "rat-all"
-version = "0.1.0"
-authors.workspace = true
-documentation.workspace = true
-repository.workspace = true
-homepage.workspace = true
-keywords.workspace = true
-categories.workspace = true
-readme.workspace = true
-license.workspace = true
-edition.workspace = true
-rust-version.workspace = true
-exclude.workspace = true
+[workspace]
+resolver = "2"
 
-[dependencies]
+members = [
+    "rat-cursor",
+    "rat-event",
+    "rat-focus",
+    "rat-ftable",
+    "rat-menu",
+    "rat-popup",
+    "rat-reloc",
+    "rat-salsa",
+    "rat-scrolled",
+    "rat-text",
+    "rat-theme",
+    "rat-widget",
+]
