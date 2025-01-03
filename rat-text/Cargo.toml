@@ -1,0 +1,57 @@
+[package]
+name = "rat-text"
+version = "0.29.3"
+edition = "2021"
+authors = ["thscharler <thscharler@gmail.com>"]
+description = "ratatui text input widgets"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/rat-text"
+readme = "readme.md"
+keywords = ["ratatui", "widget", "text"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore"]
+
+[lints.clippy]
+collapsible_else_if = "allow"
+collapsible_if = "allow"
+if_same_then_else = "allow"
+comparison_chain = "allow"
+
+[features]
+unstable-widget-ref = ["ratatui/unstable-widget-ref"]
+
+[dependencies]
+ratatui = { version = "0.29" }
+crossterm = "0.28"
+ropey = "1.6.1"
+iset = "0.3"
+pure-rust-locales = "0.8"
+unicode-segmentation = "1.11"
+unicode-width = "0.2"
+unicode-display-width = "0.3"
+rust_decimal = "1.34"
+rust_decimal_macros = "1.34"
+chrono = { version = "0.4", features = ["unstable-locales"] }
+memchr = "2.7.2"
+format_num_pattern = "0.9"
+log = "0.4"
+dyn-clone = "1.0.17"
+
+rat-event = { version = "1.0" }
+rat-reloc = { version = "1.0" }
+rat-cursor = { version = "1.0" }
+rat-focus = { version = "0.30" }
+rat-scrolled = { version = "1.0" }
+
+[dev-dependencies]
+fern = "0.7"
+anyhow = "1.0"
+lorem-rustum = "0.0.5"
+
+
+
+
+
+
+
+
