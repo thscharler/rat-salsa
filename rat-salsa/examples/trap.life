@@ -1,0 +1,11 @@
+
+[life]
+    name = trap
+    rules = 23/3
+    one.color = orange(1)
+
+[data]
+0 = .XX.
+1 = ...X
+2 = X...
+3 = .XX.

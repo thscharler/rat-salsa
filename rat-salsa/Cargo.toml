@@ -1,0 +1,41 @@
+[package]
+name = "rat-salsa"
+version = "0.30.0"
+authors = ["thscharler <thscharler@gmail.com>"]
+edition = "2021"
+description = "ratatui widgets and a crossterm event-loop"
+license = "MIT/Apache-2.0"
+repository = "https://github.com/thscharler/rat-salsa"
+readme = "readme.md"
+keywords = ["ratatui", "input", "event-loop"]
+categories = ["command-line-interface"]
+exclude = [".idea/*", ".gitignore", "files.gif", "mdedit.gif"]
+
+[features]
+default = []
+async = ["dep:tokio"]
+
+[dependencies]
+crossbeam = "0.8"
+crossterm = "0.28"
+log = "0.4"
+ratatui = { version = "0.29" }
+tokio = { version = "1.42.0", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
+
+rat-widget = { version = "0.33" }
+
+[dev-dependencies]
+fern = "0.7"
+humantime = "2.1"
+anyhow = "1.0"
+directories-next = "2.0.0"
+sysinfo = "0.32.0"
+pulldown-cmark = "0.12.0"
+ropey = "1.6.1"
+cli-clipboard = "0.4.0"
+unicode-segmentation = "1.11"
+textwrap = "0.16"
+configparser = { version = "3.1.0", features = ["indexmap"] }
+rand = "0.8.5"
+
+rat-theme = { version = "0.27" }
