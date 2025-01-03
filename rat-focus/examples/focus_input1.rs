@@ -64,25 +64,25 @@ fn repaint_input(
     frame.render_widget(Span::from("Text 1"), l_grid[0][0]);
     let input1 = TextInputF::default()
         .style(THEME.text_input())
-        .focus_style(THEME.text_input_focus());
+        .focus_style(THEME.text_focus());
     frame.render_stateful_widget(input1, l_grid[1][0], &mut state.input1);
 
     frame.render_widget(Span::from("Text 2"), l_grid[0][1]);
     let input2 = TextInputF::default()
         .style(THEME.text_input())
-        .focus_style(THEME.text_input_focus());
+        .focus_style(THEME.text_focus());
     frame.render_stateful_widget(input2, l_grid[1][1], &mut state.input2);
 
     frame.render_widget(Span::from("Text 3"), l_grid[0][2]);
     let input3 = TextInputF::default()
         .style(THEME.text_input())
-        .focus_style(THEME.text_input_focus());
+        .focus_style(THEME.text_focus());
     frame.render_stateful_widget(input3, l_grid[1][2], &mut state.input3);
 
     frame.render_widget(Span::from("Text 4"), l_grid[0][3]);
     let input4 = TextInputF::default()
         .style(THEME.text_input())
-        .focus_style(THEME.text_input_focus());
+        .focus_style(THEME.text_focus());
     frame.render_stateful_widget(input4, l_grid[1][3], &mut state.input4);
 
     let cursor = if state.input1.is_focused() {

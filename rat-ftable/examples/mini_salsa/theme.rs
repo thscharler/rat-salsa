@@ -1,6 +1,9 @@
 use rat_ftable::TableStyle;
 use rat_scrolled::ScrollStyle;
+use ratatui::layout::Alignment;
 use ratatui::style::{Color, Style, Stylize};
+use ratatui::widgets::Block;
+use std::time::Duration;
 
 #[derive(Debug, Default, Clone)]
 pub struct Scheme {
@@ -130,25 +133,79 @@ impl Scheme {
 
     /// Focus style
     pub fn focus(&self) -> Style {
-        let bg = self.primary[2];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+        self.style(self.primary[2])
     }
 
     /// Selection style
     pub fn select(&self) -> Style {
-        let bg = self.secondary[1];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+        self.style(self.secondary[1])
     }
 
     /// Text field style.
     pub fn text_input(&self) -> Style {
+        self.style(self.gray[3])
+    }
+
+    /// Focused text field style.
+    pub fn text_focus(&self) -> Style {
+        self.style(self.primary[0])
+    }
+
+    /// Text selection style.
+    pub fn text_select(&self) -> Style {
+        self.style(self.secondary[0])
+    }
+
+    pub fn table_base(&self) -> Style {
+        Style::default().fg(self.white[1]).bg(self.black[0])
+    }
+
+    pub fn table_header(&self) -> Style {
+        Style::default().fg(self.white[1]).bg(self.blue[2])
+    }
+
+    pub fn table_footer(&self) -> Style {
+        Style::default().fg(self.white[1]).bg(self.blue[2])
+    }
+
+    /// Container base
+    pub fn container(&self) -> Style {
+        Style::default().fg(self.gray[0]).bg(self.black[1])
+    }
+
+    /// Container arrows
+    pub fn container_arrow(&self) -> Style {
+        Style::default().fg(self.secondary[0]).bg(self.black[1])
+    }
+
+    /// Data display style. Used for lists, tables, ...
+    pub fn data_base(&self) -> Style {
+        Style::default().fg(self.white[0]).bg(self.black[1])
+    }
+
+    /// Background for dialogs.
+    pub fn dialog_base(&self) -> Style {
+        Style::default().fg(self.white[2]).bg(self.gray[1])
+    }
+
+    /// Style for the status line.
+    pub fn status_base(&self) -> Style {
+        Style::default().fg(self.white[0]).bg(self.black[2])
+    }
+
+    /// Base style for lists.
+    pub fn list_base(&self) -> Style {
+        self.data_base()
+    }
+
+    /// Base style for buttons.
+    pub fn button_base(&self) -> Style {
         self.style(self.gray[2])
     }
 
-    /// Focus style
-    pub fn text_input_focus(&self) -> Style {
-        let bg = self.primary[2];
-        Style::default().fg(self.text_color(bg)).bg(bg).underlined()
+    /// Armed style for buttons.
+    pub fn button_armed(&self) -> Style {
+        self.style(self.secondary[0])
     }
 
     pub fn block(&self) -> Style {
@@ -156,90 +213,29 @@ impl Scheme {
     }
 
     pub fn block_title(&self) -> Style {
-        Style::default().fg(self.secondary[1]).bg(self.black[1])
+        Style::default().fg(self.secondary[1])
     }
 
-    pub fn scroll_base(&self) -> Style {
-        Style::default().fg(self.gray[0]).bg(self.black[1])
-    }
-
-    pub fn table(&self) -> Style {
-        Style::default().fg(self.white[1]).bg(self.black[0])
-    }
-
-    pub fn table_header(&self) -> Style {
-        Style::default().fg(self.white[1]).bg(self.deepblue[2])
-    }
-
-    pub fn table_footer(&self) -> Style {
-        Style::default().fg(self.white[1]).bg(self.deepblue[2])
-    }
-
-    /// Focused text field style.
-    pub fn text_focus(&self) -> Style {
-        let bg = self.primary[0];
-        Style::default().fg(self.text_color(bg)).bg(bg)
-    }
-
-    /// Text selection style.
-    pub fn text_select(&self) -> Style {
-        let bg = self.secondary[0];
-        Style::default().fg(self.text_color(bg)).bg(bg)
-    }
-
-    /// Data display style. Used for lists, tables, ...
-    pub fn data(&self) -> Style {
-        Style::default().fg(self.white[0]).bg(self.black[1])
-    }
-
-    /// Background for dialogs.
-    pub fn dialog_style(&self) -> Style {
-        Style::default().fg(self.white[2]).bg(self.gray[1])
-    }
-
-    /// Style for the status line.
-    pub fn status_style(&self) -> Style {
-        Style::default().fg(self.white[0]).bg(self.black[2])
-    }
-
-    /// Complete FTableStyle
+    /// Complete TableStyle
     pub fn table_style(&self) -> TableStyle {
-        let title_style = self.style(self.black[3]);
         TableStyle {
-            style: self.data(),
+            style: self.data_base(),
             select_row: Some(self.select()),
             show_row_focus: true,
             focus_style: Some(self.focus()),
-            scroll: Some(self.scrolled_style()),
-            header: Some(title_style),
-            footer: Some(title_style),
+            scroll: Some(self.scroll_style()),
             ..Default::default()
         }
     }
 
-    /// Complete ListStyle
-    pub fn list_style(&self) -> Style {
-        self.data()
-    }
-
-    /// Complete ButtonStyle
-    pub fn button_style(&self) -> Style {
-        Style::default().fg(self.white[0]).bg(self.primary[0])
-    }
-
-    pub fn armed_style(&self) -> Style {
-        Style::default().fg(self.black[0]).bg(self.secondary[0])
-    }
-
     /// Complete ScrolledStyle
-    pub fn scrolled_style(&self) -> ScrollStyle {
-        let arrow_style = Style::default().fg(self.secondary[0]).bg(self.black[1]);
+    pub fn scroll_style(&self) -> ScrollStyle {
         ScrollStyle {
-            thumb_style: Some(self.scroll_base()),
-            track_style: Some(self.scroll_base()),
-            min_style: Some(self.scroll_base()),
-            begin_style: Some(arrow_style),
-            end_style: Some(arrow_style),
+            thumb_style: Some(self.container()),
+            track_style: Some(self.container()),
+            min_style: Some(self.container()),
+            begin_style: Some(self.container_arrow()),
+            end_style: Some(self.container_arrow()),
             ..Default::default()
         }
     }
@@ -250,7 +246,7 @@ impl Scheme {
     /// example, which shows timings for Render/Event/Action.
     pub fn statusline_style(&self) -> Vec<Style> {
         vec![
-            self.status_style(),
+            self.status_base(),
             Style::default()
                 .fg(self.text_color(self.white[0]))
                 .bg(self.blue[3]),
@@ -263,6 +259,7 @@ impl Scheme {
         ]
     }
 
+    /// Calculate a style based on the bg color.
     pub fn style(&self, color: Color) -> Style {
         Style::new().bg(color).fg(self.text_color(color))
     }

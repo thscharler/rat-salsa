@@ -295,25 +295,25 @@ pub mod substratum1 {
             Span::from("Text 1").render(l_grid[0][0], buf);
             let input1 = TextInputF::default()
                 .style(THEME.text_input())
-                .focus_style(THEME.text_input_focus());
+                .focus_style(THEME.text_focus());
             input1.render(l_grid[1][0], buf, &mut state.input1);
 
             Span::from("Text 2").render(l_grid[0][1], buf);
             let input2 = TextInputF::default()
                 .style(THEME.text_input())
-                .focus_style(THEME.text_input_focus());
+                .focus_style(THEME.text_focus());
             input2.render(l_grid[1][1], buf, &mut state.input2);
 
             Span::from("Text 3").render(l_grid[0][2], buf);
             let input3 = TextInputF::default()
                 .style(THEME.text_input())
-                .focus_style(THEME.text_input_focus());
+                .focus_style(THEME.text_focus());
             input3.render(l_grid[1][2], buf, &mut state.input3);
 
             Span::from("Text 4").render(l_grid[0][3], buf);
             let input4 = TextInputF::default()
                 .style(THEME.text_input())
-                .focus_style(THEME.text_input_focus());
+                .focus_style(THEME.text_focus());
             input4.render(l_grid[1][3], buf, &mut state.input4);
         }
     }

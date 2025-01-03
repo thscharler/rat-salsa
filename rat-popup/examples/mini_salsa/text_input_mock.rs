@@ -1,8 +1,9 @@
 #![allow(dead_code)]
 
-use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, MouseOnly, Outcome, Regular};
 use rat_focus::{FocusFlag, HasFocus};
+use rat_reloc::{relocate_area, RelocatableState};
+use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::{StatefulWidget, Style};
@@ -11,6 +12,7 @@ use std::marker::PhantomData;
 #[derive(Debug, Default)]
 pub struct TextInputMock<'a> {
     style: Style,
+    text: String,
     focus_style: Style,
     phantom_data: PhantomData<&'a ()>,
 }
@@ -22,6 +24,12 @@ pub struct TextInputMockState {
 }
 
 impl<'a> TextInputMock<'a> {
+    /// Sample text
+    pub fn sample(mut self, text: impl Into<String>) -> Self {
+        self.text = text.into();
+        self
+    }
+
     /// Base text style.
     pub fn style(mut self, style: impl Into<Style>) -> Self {
         self.style = style.into();
@@ -46,13 +54,13 @@ impl<'a> StatefulWidget for TextInputMock<'a> {
         } else {
             buf.set_style(area, self.style);
         }
-        for y in area.top()..area.bottom() {
-            for x in area.top()..area.bottom() {
-                if let Some(cell) = buf.cell_mut((x, y)) {
-                    cell.set_symbol(" ");
-                }
-            }
-        }
+        buf.set_stringn(
+            area.x,
+            area.y,
+            self.text,
+            area.width as usize,
+            Style::default(),
+        );
     }
 }
 
@@ -82,6 +90,12 @@ impl HasFocus for TextInputMockState {
 
     fn area(&self) -> Rect {
         self.area
+    }
+}
+
+impl RelocatableState for TextInputMockState {
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        self.area = relocate_area(self.area, shift, clip);
     }
 }
 

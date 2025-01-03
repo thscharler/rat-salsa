@@ -1,4 +1,29 @@
+use rat_ftable::TableStyle;
+use rat_menu::MenuStyle;
+use rat_popup::PopupStyle;
+use rat_scrolled::ScrollStyle;
+use rat_text::line_number::LineNumberStyle;
+use rat_text::TextStyle;
+use rat_widget::button::ButtonStyle;
+use rat_widget::calendar::MonthStyle;
+use rat_widget::checkbox::CheckboxStyle;
+use rat_widget::choice::ChoiceStyle;
+use rat_widget::clipper::ClipperStyle;
+use rat_widget::file_dialog::FileDialogStyle;
+use rat_widget::list::ListStyle;
+use rat_widget::msgdialog::MsgDialogStyle;
+use rat_widget::pager::PagerStyle;
+use rat_widget::paragraph::ParagraphStyle;
+use rat_widget::radio::{RadioLayout, RadioStyle};
+use rat_widget::shadow::{ShadowDirection, ShadowStyle};
+use rat_widget::slider::SliderStyle;
+use rat_widget::splitter::SplitStyle;
+use rat_widget::tabbed::TabbedStyle;
+use rat_widget::view::ViewStyle;
+use ratatui::layout::Alignment;
 use ratatui::style::{Color, Style, Stylize};
+use ratatui::widgets::Block;
+use std::time::Duration;
 
 #[derive(Debug, Default, Clone)]
 pub struct Scheme {
@@ -128,32 +153,30 @@ impl Scheme {
 
     /// Focus style
     pub fn focus(&self) -> Style {
-        let bg = self.primary[2];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+        self.style(self.primary[2])
     }
 
     /// Selection style
     pub fn select(&self) -> Style {
-        let bg = self.secondary[1];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+        self.style(self.secondary[1])
     }
 
     /// Text field style.
     pub fn text_input(&self) -> Style {
-        self.style(self.gray[2])
+        self.style(self.gray[3])
     }
 
-    /// Focus style
-    pub fn text_input_focus(&self) -> Style {
-        let bg = self.primary[2];
-        Style::default().fg(self.text_color(bg)).bg(bg).underlined()
+    /// Focused text field style.
+    pub fn text_focus(&self) -> Style {
+        self.style(self.primary[0])
     }
 
-    pub fn block(&self) -> Style {
-        Style::default().fg(self.gray[1]).bg(self.black[1])
+    /// Text selection style.
+    pub fn text_select(&self) -> Style {
+        self.style(self.secondary[0])
     }
 
-    pub fn table(&self) -> Style {
+    pub fn table_base(&self) -> Style {
         Style::default().fg(self.white[1]).bg(self.black[0])
     }
 
@@ -165,45 +188,254 @@ impl Scheme {
         Style::default().fg(self.white[1]).bg(self.blue[2])
     }
 
-    /// Focused text field style.
-    pub fn text_focus(&self) -> Style {
-        let bg = self.primary[0];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+    /// Container base
+    pub fn container(&self) -> Style {
+        Style::default().fg(self.gray[0]).bg(self.black[1])
     }
 
-    /// Text selection style.
-    pub fn text_select(&self) -> Style {
-        let bg = self.secondary[0];
-        Style::default().fg(self.text_color(bg)).bg(bg)
+    /// Container arrows
+    pub fn container_arrow(&self) -> Style {
+        Style::default().fg(self.secondary[0]).bg(self.black[1])
     }
 
     /// Data display style. Used for lists, tables, ...
-    pub fn data(&self) -> Style {
+    pub fn data_base(&self) -> Style {
         Style::default().fg(self.white[0]).bg(self.black[1])
     }
 
     /// Background for dialogs.
-    pub fn dialog_style(&self) -> Style {
+    pub fn dialog_base(&self) -> Style {
         Style::default().fg(self.white[2]).bg(self.gray[1])
     }
 
     /// Style for the status line.
-    pub fn status_style(&self) -> Style {
+    pub fn status_base(&self) -> Style {
         Style::default().fg(self.white[0]).bg(self.black[2])
     }
 
-    /// Complete ListStyle
-    pub fn list_style(&self) -> Style {
-        self.data()
+    /// Base style for lists.
+    pub fn list_base(&self) -> Style {
+        self.data_base()
+    }
+
+    /// Base style for buttons.
+    pub fn button_base(&self) -> Style {
+        self.style(self.gray[2])
+    }
+
+    /// Armed style for buttons.
+    pub fn button_armed(&self) -> Style {
+        self.style(self.secondary[0])
+    }
+
+    pub fn block(&self) -> Style {
+        Style::default().fg(self.gray[1]).bg(self.black[1])
+    }
+
+    pub fn block_title(&self) -> Style {
+        Style::default().fg(self.secondary[1])
+    }
+
+    /// Complete MonthStyle.
+    pub fn month_style(&self) -> MonthStyle {
+        MonthStyle {
+            style: self.style(self.black[2]),
+            title: None,
+            week: Some(Style::new().fg(self.limegreen[2])),
+            weekday: Some(Style::new().fg(self.limegreen[2])),
+            day: None,
+            select: Some(self.select()),
+            focus: Some(self.focus()),
+            ..MonthStyle::default()
+        }
+    }
+
+    /// Style for shadows.
+    pub fn shadow_style(&self) -> ShadowStyle {
+        ShadowStyle {
+            style: Style::new().bg(self.black[0]),
+            dir: ShadowDirection::BottomRight,
+            ..ShadowStyle::default()
+        }
+    }
+
+    /// Style for LineNumbers.
+    pub fn line_nr_style(&self) -> LineNumberStyle {
+        LineNumberStyle {
+            style: self.data_base().fg(self.gray[0]),
+            cursor: Some(self.text_select()),
+            ..LineNumberStyle::default()
+        }
+    }
+
+    /// Complete TextAreaStyle
+    pub fn textarea_style(&self) -> TextStyle {
+        TextStyle {
+            style: self.data_base(),
+            focus: Some(self.focus()),
+            select: Some(self.text_select()),
+            scroll: Some(self.scroll_style()),
+            ..TextStyle::default()
+        }
+    }
+
+    /// Complete TextInputStyle
+    pub fn input_style(&self) -> TextStyle {
+        TextStyle {
+            style: self.text_input(),
+            focus: Some(self.text_focus()),
+            select: Some(self.text_select()),
+            invalid: Some(Style::default().bg(self.red[3])),
+            ..TextStyle::default()
+        }
+    }
+
+    pub fn paragraph_style(&self) -> ParagraphStyle {
+        ParagraphStyle {
+            style: self.data_base(),
+            focus: Some(self.focus()),
+            scroll: Some(self.scroll_style()),
+            ..Default::default()
+        }
+    }
+
+    pub fn choice_style(&self) -> ChoiceStyle {
+        ChoiceStyle {
+            style: self.text_input(),
+            select: Some(self.select()),
+            focus: Some(self.focus()),
+            popup: PopupStyle {
+                style: self.dialog_base(),
+                scroll: Some(self.scroll_style()),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
+    }
+
+    pub fn radio_style(&self) -> RadioStyle {
+        RadioStyle {
+            layout: Some(RadioLayout::Stacked),
+            style: self.text_input(),
+            focus: Some(self.focus()),
+            ..Default::default()
+        }
+    }
+
+    /// Complete CheckboxStyle
+    pub fn checkbox_style(&self) -> CheckboxStyle {
+        CheckboxStyle {
+            style: self.text_input(),
+            focus: Some(self.focus()),
+            ..Default::default()
+        }
+    }
+
+    /// Slider Style
+    pub fn slider_style(&self) -> SliderStyle {
+        SliderStyle {
+            style: self.text_input(),
+            bounds: Some(self.gray(2)),
+            knob: Some(self.select()),
+            focus: Some(self.focus()),
+            text_align: Some(Alignment::Center),
+            ..Default::default()
+        }
+    }
+
+    /// Complete MenuStyle
+    pub fn menu_style(&self) -> MenuStyle {
+        let menu = Style::default().fg(self.white[3]).bg(self.black[2]);
+        MenuStyle {
+            style: menu,
+            title: Some(Style::default().fg(self.black[0]).bg(self.yellow[2])),
+            select: Some(self.select()),
+            focus: Some(self.focus()),
+            right: Some(Style::default().fg(self.bluegreen[0])),
+            disabled: Some(Style::default().fg(self.gray[0])),
+            highlight: Some(Style::default().underlined()),
+            popup: PopupStyle {
+                style: menu,
+                block: Some(Block::bordered()),
+                ..Default::default()
+            },
+            ..Default::default()
+        }
     }
 
     /// Complete ButtonStyle
-    pub fn button_style(&self) -> Style {
-        Style::default().fg(self.white[0]).bg(self.primary[0])
+    pub fn button_style(&self) -> ButtonStyle {
+        ButtonStyle {
+            style: self.button_base(),
+            focus: Some(self.focus()),
+            armed: Some(self.select()),
+            armed_delay: Some(Duration::from_millis(50)),
+            ..Default::default()
+        }
     }
 
-    pub fn armed_style(&self) -> Style {
-        Style::default().fg(self.black[0]).bg(self.secondary[0])
+    /// Complete TableStyle
+    pub fn table_style(&self) -> TableStyle {
+        TableStyle {
+            style: self.data_base(),
+            select_row: Some(self.select()),
+            show_row_focus: true,
+            focus_style: Some(self.focus()),
+            scroll: Some(self.scroll_style()),
+            ..Default::default()
+        }
+    }
+
+    /// Complete ListStyle
+    pub fn list_style(&self) -> ListStyle {
+        ListStyle {
+            style: self.list_base(),
+            select: Some(self.select()),
+            focus: Some(self.focus()),
+            scroll: Some(self.scroll_style()),
+            ..Default::default()
+        }
+    }
+
+    /// Complete ScrolledStyle
+    pub fn scroll_style(&self) -> ScrollStyle {
+        ScrollStyle {
+            thumb_style: Some(self.container()),
+            track_style: Some(self.container()),
+            min_style: Some(self.container()),
+            begin_style: Some(self.container_arrow()),
+            end_style: Some(self.container_arrow()),
+            ..Default::default()
+        }
+    }
+
+    /// Split style
+    pub fn split_style(&self) -> SplitStyle {
+        SplitStyle {
+            style: self.container(),
+            arrow_style: Some(self.container_arrow()),
+            drag_style: Some(self.focus()),
+            ..Default::default()
+        }
+    }
+
+    /// View style
+    pub fn view_style(&self) -> ViewStyle {
+        ViewStyle {
+            scroll: Some(self.scroll_style()),
+            ..Default::default()
+        }
+    }
+
+    /// Tabbed style
+    pub fn tabbed_style(&self) -> TabbedStyle {
+        TabbedStyle {
+            style: self.container(),
+            tab: Some(self.black(3)),
+            select: Some(self.gray(1)),
+            focus: Some(self.focus()),
+            ..Default::default()
+        }
     }
 
     /// Complete StatusLineStyle for a StatusLine with 3 indicator fields.
@@ -212,7 +444,7 @@ impl Scheme {
     /// example, which shows timings for Render/Event/Action.
     pub fn statusline_style(&self) -> Vec<Style> {
         vec![
-            self.status_style(),
+            self.status_base(),
             Style::default()
                 .fg(self.text_color(self.white[0]))
                 .bg(self.blue[3]),
@@ -225,6 +457,51 @@ impl Scheme {
         ]
     }
 
+    /// Complete FileDialogStyle
+    pub fn file_dialog_style(&self) -> FileDialogStyle {
+        FileDialogStyle {
+            style: self.dialog_base(),
+            list: Some(self.list_style()),
+            roots: Some(ListStyle {
+                style: self.dialog_base(),
+                ..self.list_style()
+            }),
+            text: Some(self.input_style()),
+            button: Some(self.button_style()),
+            block: Some(Block::bordered()),
+            ..Default::default()
+        }
+    }
+
+    /// Complete MsgDialogStyle.
+    pub fn msg_dialog_style(&self) -> MsgDialogStyle {
+        MsgDialogStyle {
+            style: self.dialog_base(),
+            button: Some(self.button_style()),
+            ..Default::default()
+        }
+    }
+
+    /// Pager style.
+    pub fn pager_style(&self) -> PagerStyle {
+        PagerStyle {
+            style: self.container(),
+            navigation: Some(self.container_arrow()),
+            label_style: Some(Style::new().fg(THEME.white[3]).bg(THEME.orange[0])),
+            ..Default::default()
+        }
+    }
+
+    /// Clipper style.
+    pub fn clipper_style(&self) -> ClipperStyle {
+        ClipperStyle {
+            scroll: Some(self.scroll_style()),
+            label_style: Some(Style::new().fg(THEME.white[3]).bg(THEME.orange[0])),
+            ..Default::default()
+        }
+    }
+
+    /// Calculate a style based on the bg color.
     pub fn style(&self, color: Color) -> Style {
         Style::new().bg(color).fg(self.text_color(color))
     }

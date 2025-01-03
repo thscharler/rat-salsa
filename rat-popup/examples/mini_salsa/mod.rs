@@ -4,6 +4,8 @@
 use crate::mini_salsa::theme::{Scheme, THEME};
 use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
+#[cfg(not(windows))]
+use crossterm::event::PushKeyboardEnhancementFlags;
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyCode,
     KeyEvent, KeyEventKind, KeyModifiers,
@@ -13,6 +15,7 @@ use crossterm::terminal::{
 };
 use crossterm::ExecutableCommand;
 use log::error;
+use rat_event::util::set_have_keyboard_enhancement;
 use rat_event::Outcome;
 use ratatui::backend::CrosstermBackend;
 use ratatui::layout::{Constraint, Layout, Rect};
@@ -64,12 +67,29 @@ pub fn run_ui<Data, State>(
     data: &mut Data,
     state: &mut State,
 ) -> Result<(), anyhow::Error> {
+    enable_raw_mode()?;
     stdout().execute(EnterAlternateScreen)?;
     stdout().execute(EnableMouseCapture)?;
     stdout().execute(EnableBlinking)?;
     stdout().execute(SetCursorStyle::BlinkingBar)?;
     stdout().execute(EnableBracketedPaste)?;
-    enable_raw_mode()?;
+
+    #[cfg(not(windows))]
+    {
+        stdout().execute(PushKeyboardEnhancementFlags(
+            KeyboardEnhancementFlags::REPORT_EVENT_TYPES
+                | KeyboardEnhancementFlags::DISAMBIGUATE_ESCAPE_CODES
+                | KeyboardEnhancementFlags::REPORT_ALTERNATE_KEYS
+                | KeyboardEnhancementFlags::REPORT_ALL_KEYS_AS_ESCAPE_CODES,
+        ))?;
+
+        let enhanced = supports_keyboard_enhancement().unwrap_or_default();
+        set_have_keyboard_enhancement(enhanced);
+    }
+    #[cfg(windows)]
+    {
+        set_have_keyboard_enhancement(true);
+    }
 
     let mut terminal = Terminal::new(CrosstermBackend::new(stdout()))?;
     terminal.clear()?;
@@ -114,12 +134,15 @@ pub fn run_ui<Data, State>(
         }
     };
 
-    disable_raw_mode()?;
+    #[cfg(not(windows))]
+    stdout().execute(PopKeyboardEnhancementFlags)?;
+
     stdout().execute(DisableBracketedPaste)?;
     stdout().execute(SetCursorStyle::DefaultUserShape)?;
     stdout().execute(DisableBlinking)?;
     stdout().execute(DisableMouseCapture)?;
     stdout().execute(LeaveAlternateScreen)?;
+    disable_raw_mode()?;
 
     r
 }
@@ -240,7 +263,7 @@ fn handle_event<Data, State>(
     };
 
     let el = t0.elapsed().unwrap_or(Duration::from_nanos(0));
-    istate.status[2] = format!("Handle {:.0?}", el).to_string();
+    istate.status[2] = format!(" Handle {:.0?}", el).to_string();
 
     Ok(r)
 }
@@ -277,5 +300,6 @@ pub fn layout_grid<const X: usize, const Y: usize>(
     res
 }
 
+pub mod endless_scroll;
 pub mod text_input_mock;
 pub mod theme;
