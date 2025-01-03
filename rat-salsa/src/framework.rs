@@ -262,8 +262,8 @@ where
 ///     fn event(
 ///         &mut self,
 ///         event: &Event,
-///         _ctx: &mut AppContext<'_, (), (), anyhow::Error>,
-///     ) -> Result<Control<()>, anyhow::Error> {
+///         _ctx: &mut AppContext<'_, (), Event, anyhow::Error>,
+///     ) -> Result<Control<Event>, anyhow::Error> {
 ///         let Event::Event(event) = event else {
 ///             return Ok(Control::Continue);
 ///         };
