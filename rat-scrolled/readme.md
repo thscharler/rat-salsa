@@ -4,13 +4,13 @@
 [![Documentation](https://docs.rs/rat-scrolled/badge.svg)](https://docs.rs/rat-scrolled)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-salsa-mono)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa)
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-scrolled GitHub][refGitHubScrolled]
 
-* [Changes](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-scrolled/changes.md)
+* [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-scrolled/changes.md)
 
 # Scroll
 
@@ -31,4 +31,4 @@ scrolling it can do, horizontal vertical or both.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
-[refGitHubScrolled]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-scrolled/examples
+[refGitHubScrolled]: https://github.com/thscharler/rat-salsa/blob/master/rat-scrolled/examples

@@ -3,13 +3,13 @@
 [![Documentation](https://docs.rs/rat-focus/badge.svg)](https://docs.rs/rat-focus)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-salsa-mono)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa)
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-focus GitHub][refGithubFocus].
 
-* [Changes](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-focus/changes.md)
+* [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-focus/changes.md)
 
 # Focus handling for ratatui
 
@@ -121,4 +121,4 @@ This is used to recursively add widgets for focus handling.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
-[refGithubFocus]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-focus/examples
+[refGithubFocus]: https://github.com/thscharler/rat-salsa/blob/master/rat-focus/examples

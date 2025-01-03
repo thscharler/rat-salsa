@@ -4,13 +4,13 @@
 [![Documentation](https://docs.rs/rat-ftable/badge.svg)](https://docs.rs/rat-ftable)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-salsa-mono)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa)
 
 This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-ftable GitHub][refGitHubFTable].
 
-* [Changes](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-focus/changes.md)
+* [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-focus/changes.md)
 
 # Table widget for ratatui
 
@@ -30,7 +30,7 @@ works better if you only have an Iterator over your data.
 > for the necessary information. This might slow down everything
 > a bit.
 
-![image](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-ftable/ftable.mp4?raw=true)
+![image](https://github.com/thscharler/rat-salsa/blob/master/rat-ftable/ftable.mp4?raw=true)
 
 More bullet points:
 
@@ -45,4 +45,4 @@ Eventhandling is currently crossterm only.
 
 [refRatSalsa]: https://docs.rs/rat-salsa/latest/rat_salsa/
 
-[refGitHubFTable]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-ftable/examples
+[refGitHubFTable]: https://github.com/thscharler/rat-salsa/blob/master/rat-ftable/examples

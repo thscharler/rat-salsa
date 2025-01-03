@@ -9,7 +9,7 @@ This crate is a part of [rat-salsa][refRatSalsa].
 
 For examples see [rat-popup GitHub][refGitHubPopup]
 
-* [Changes](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-popup/changes.md)
+* [Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-popup/changes.md)
 
 # Rat-Popup
 

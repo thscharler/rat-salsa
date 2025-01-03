@@ -3,7 +3,7 @@
 [![Documentation](https://docs.rs/rat-salsa/badge.svg)](https://docs.rs/rat-salsa)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](https://opensource.org/licenses/MIT)
 [![License](https://img.shields.io/badge/license-APACHE-blue.svg)](https://www.apache.org/licenses/LICENSE-2.0)
-![](https://tokei.rs/b1/github/thscharler/rat-salsa-mono)
+![](https://tokei.rs/b1/github/thscharler/rat-salsa)
 
 # rat-salsa
 
@@ -27,7 +27,7 @@ rat-salsa provides
 
 ## Changes
 
-[Changes](https://github.com/thscharler/rat-salsa-mono/blob/master/rat-salsa/changes.md)
+[Changes](https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/changes.md)
 
 ## Book
 
@@ -90,18 +90,18 @@ There are some starters too
 ![image][refFilesGif]
 
 
-[refFilesGif]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-salsa/files.gif?raw=true
+[refFilesGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/files.gif?raw=true
 
-[refMDEditGif]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-salsa/mdedit.gif?raw=true
+[refMDEditGif]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/mdedit.gif?raw=true
 
-[refLife]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-salsa/examples/life.rs
+[refLife]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/life.rs
 
-[refMDEdit]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-salsa/examples/mdedit.rs
+[refMDEdit]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/mdedit.rs
 
-[refFiles]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-salsa/examples/files.rs
+[refFiles]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/files.rs
 
-[refMinimal]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-salsa/examples/minimal.rs
+[refMinimal]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/minimal.rs
 
-[refUltra]: https://github.com/thscharler/rat-salsa-mono/blob/master/rat-salsa/examples/ultra.rs
+[refUltra]: https://github.com/thscharler/rat-salsa/blob/master/rat-salsa/examples/ultra.rs
 
-[refRSBook]: https://thscharler.github.io/rat-salsa-mono/
+[refRSBook]: https://thscharler.github.io/rat-salsa/
