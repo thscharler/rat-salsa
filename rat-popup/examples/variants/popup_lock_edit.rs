@@ -50,7 +50,7 @@ impl StatefulWidget for PopLockMagenta {
             a1.height = 1;
             TextInputMock::default()
                 .style(THEME.text_input())
-                .focus_style(THEME.text_input_focus())
+                .focus_style(THEME.text_focus())
                 .render(a1, buf, &mut state.edit1);
 
             let mut a2 = state.popup.widget_area;
@@ -58,7 +58,7 @@ impl StatefulWidget for PopLockMagenta {
             a2.height = 1;
             TextInputMock::default()
                 .style(THEME.text_input())
-                .focus_style(THEME.text_input_focus())
+                .focus_style(THEME.text_focus())
                 .render(a2, buf, &mut state.edit2);
 
             let mut a3 = state.popup.widget_area;
@@ -66,7 +66,7 @@ impl StatefulWidget for PopLockMagenta {
             a3.height = 1;
             TextInputMock::default()
                 .style(THEME.text_input())
-                .focus_style(THEME.text_input_focus())
+                .focus_style(THEME.text_focus())
                 .render(a3, buf, &mut state.edit3);
         }
     }
