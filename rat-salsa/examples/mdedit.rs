@@ -148,7 +148,6 @@ mod root {
     use crate::app::{MDApp, MDAppState};
     use crate::{AppContext, GlobalState, MDEvent};
     use anyhow::Error;
-    use log::debug;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, ConsumedEvent};
     use rat_widget::focus::FocusBuilder;

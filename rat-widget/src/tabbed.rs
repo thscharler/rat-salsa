@@ -98,7 +98,7 @@ pub struct TabbedStyle {
 }
 
 /// State & event-handling.
-#[derive(Debug)]
+#[derive(Debug, Default)]
 pub struct TabbedState {
     /// Total area.
     /// __readonly__. renewed for each render.
@@ -332,22 +332,6 @@ fn render_ref(tabbed: &Tabbed<'_>, area: Rect, buf: &mut Buffer, state: &mut Tab
         TabType::Attached => {
             AttachedTabs.layout(area, tabbed, state);
             AttachedTabs.render(buf, tabbed, state);
-        }
-    }
-}
-
-impl Default for TabbedState {
-    fn default() -> Self {
-        Self {
-            area: Default::default(),
-            block_area: Default::default(),
-            widget_area: Default::default(),
-            tab_title_area: Default::default(),
-            tab_title_areas: Default::default(),
-            tab_title_close_areas: Default::default(),
-            selected: Default::default(),
-            focus: Default::default(),
-            mouse: Default::default(),
         }
     }
 }

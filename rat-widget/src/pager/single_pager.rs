@@ -242,6 +242,7 @@ where
     /// The closure can return a second value, which will be forwarded
     /// if the widget is visible.
     #[inline(always)]
+    #[allow(clippy::question_mark)]
     pub fn render2<FN, WW, SS, R>(&mut self, widget: W, render_fn: FN, state: &mut SS) -> Option<R>
     where
         FN: FnOnce() -> (WW, R),

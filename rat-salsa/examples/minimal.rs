@@ -233,7 +233,7 @@ pub mod minimal {
     use crate::{GlobalState, MinimalEvent, RenderContext};
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control};
-    use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
+    use rat_widget::event::{HandleEvent, MenuOutcome, Regular};
     use rat_widget::focus::{FocusBuilder, FocusContainer};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;

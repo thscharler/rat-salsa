@@ -266,6 +266,7 @@ where
 
     /// Render a stateful widget.
     #[inline(always)]
+    #[allow(clippy::question_mark)]
     pub fn render2<FN, WW, SS, R>(&mut self, idx: usize, render_fn: FN, state: &mut SS) -> Option<R>
     where
         FN: FnOnce() -> (WW, R),

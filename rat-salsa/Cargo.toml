@@ -20,7 +20,7 @@ crossbeam = "0.8"
 crossterm = "0.28"
 log = "0.4"
 ratatui = { version = "0.29" }
-tokio = { version = "1.42.0", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
+tokio = { version = "1.42", features = ["rt", "rt-multi-thread", "sync", "time"], optional = true }
 
 rat-widget = { version = "0.33", path = "../rat-widget" }
 
@@ -28,14 +28,19 @@ rat-widget = { version = "0.33", path = "../rat-widget" }
 fern = "0.7"
 humantime = "2.1"
 anyhow = "1.0"
-directories-next = "2.0.0"
-sysinfo = "0.32.0"
-pulldown-cmark = "0.12.0"
-ropey = "1.6.1"
-cli-clipboard = "0.4.0"
+directories-next = "2.0"
+sysinfo = "0.33"
+pulldown-cmark = "0.12"
+ropey = "1.6"
+cli-clipboard = "0.4"
 unicode-segmentation = "1.11"
 textwrap = "0.16"
-configparser = { version = "3.1.0", features = ["indexmap"] }
-rand = "0.8.5"
+configparser = { version = "3.1", features = ["indexmap"] }
+rand = "0.8"
 
 rat-theme = { version = "0.27", path = "../rat-theme" }
+
+
+[[example]]
+name = "async1"
+required-features = ["async"]

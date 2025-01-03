@@ -176,7 +176,7 @@ where
     ) -> Result<(), Error>;
 }
 
-///
+/// Event sent immediately after rendering.
 pub struct RenderedEvent;
 
 ///
@@ -270,7 +270,7 @@ pub struct RenderContext<'a, Global> {
     pub cursor: Option<(u16, u16)>,
 }
 
-impl<'a, Global, Event, Error> AppContext<'a, Global, Event, Error>
+impl<Global, Event, Error> AppContext<'_, Global, Event, Error>
 where
     Event: 'static + Send,
     Error: 'static + Send,
@@ -405,7 +405,7 @@ where
     }
 }
 
-impl<'a, Global> RenderContext<'a, Global> {
+impl<Global> RenderContext<'_, Global> {
     /// Set the cursor, if the given value is Some.
     pub fn set_screen_cursor(&mut self, cursor: Option<(u16, u16)>) {
         if let Some(c) = cursor {

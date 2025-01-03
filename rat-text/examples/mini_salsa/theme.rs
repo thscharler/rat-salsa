@@ -1,10 +1,7 @@
 use rat_scrolled::ScrollStyle;
 use rat_text::line_number::LineNumberStyle;
 use rat_text::TextStyle;
-use ratatui::layout::Alignment;
-use ratatui::style::{Color, Style, Stylize};
-use ratatui::widgets::Block;
-use std::time::Duration;
+use ratatui::style::{Color, Style};
 
 #[derive(Debug, Default, Clone)]
 pub struct Scheme {

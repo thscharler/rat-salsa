@@ -112,7 +112,7 @@ where
     }
 }
 
-impl<'a, TS, US> HasScreenCursor for PairedState<'a, TS, US>
+impl<TS, US> HasScreenCursor for PairedState<'_, TS, US>
 where
     TS: HasScreenCursor,
     US: HasScreenCursor,
@@ -122,7 +122,7 @@ where
     }
 }
 
-impl<'a, TS, US> RelocatableState for PairedState<'a, TS, US>
+impl<TS, US> RelocatableState for PairedState<'_, TS, US>
 where
     TS: RelocatableState,
     US: RelocatableState,

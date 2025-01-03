@@ -673,15 +673,15 @@ static ENHANCED_KEYS: AtomicBool = AtomicBool::new(false);
 /// This flag is set during startup of the application when
 /// configuring the terminal.
 pub fn have_keyboard_enhancement() -> bool {
-     ENHANCED_KEYS.load(Ordering::Acquire)
+    ENHANCED_KEYS.load(Ordering::Acquire)
 }
 
 /// Set the flag for enhanced keys.
 ///
 /// For windows + crossterm this can always be set true.
 ///
-/// For unix this needs to activate the enhancements with PushKeyboardEnhancementFlags
-/// + it still needs to query supports_keyboard_enhancement().
+/// For unix this needs to activate the enhancements with PushKeyboardEnhancementFlags,
+/// and it still needs to query supports_keyboard_enhancement().
 /// If you enable REPORT_ALL_KEYS_AS_ESCAPE_CODES you need REPORT_ALTERNATE_KEYS to,
 /// otherwise shift+key will not return something useful.
 ///

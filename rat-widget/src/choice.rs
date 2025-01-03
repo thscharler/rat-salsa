@@ -880,6 +880,7 @@ where
 {
     /// Get the selected value or None if no value
     /// is selected or there are no items.
+    #[allow(clippy::manual_map)]
     pub fn value_opt(&self) -> Option<T> {
         if let Some(selected) = self.selected {
             Some(self.keys[selected].clone())
