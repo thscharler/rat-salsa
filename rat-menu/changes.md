@@ -1,3 +1,7 @@
+# 0.31.2
+
+* moved all rat-crates to one repo
+
 # 0.31.1
 
 * clippy fixes

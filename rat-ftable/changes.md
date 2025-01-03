@@ -1,3 +1,7 @@
+# 0.29.2
+
+* moved all rat-crates to one repo
+
 # 0.29.1
 
 * feature: add border_style to TableStyle. Allows setting the style

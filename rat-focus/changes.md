@@ -1,3 +1,7 @@
+# 0.30.2
+
+* moved all rat-crates to one repo
+
 # 0.30.1
 
 * feature: add widgets() which can take an array of `dyn HasFocus` and
