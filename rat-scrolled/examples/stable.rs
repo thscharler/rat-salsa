@@ -86,7 +86,7 @@ fn repaint_lists(
     .scroll_selection()
     .block(Block::bordered().style(THEME.block()))
     .scroll(Scroll::new().style(THEME.block()))
-    .style(THEME.table())
+    .style(THEME.table_base())
     .render(l[0], frame.buffer_mut(), &mut state.table1);
 
     TableS::new(
@@ -118,7 +118,7 @@ fn repaint_lists(
     .highlight_style(THEME.primary(2))
     .block(Block::bordered().style(THEME.block()))
     .scroll(Scroll::new().style(THEME.block()))
-    .style(THEME.table())
+    .style(THEME.table_base())
     .render(l[1], frame.buffer_mut(), &mut state.table2);
 
     Ok(())

@@ -4,12 +4,16 @@
 use crate::mini_salsa::theme::{Scheme, THEME};
 use anyhow::anyhow;
 use crossterm::cursor::{DisableBlinking, EnableBlinking, SetCursorStyle};
-#[cfg(not(windows))]
-use crossterm::event::PushKeyboardEnhancementFlags;
 use crossterm::event::{
     DisableBracketedPaste, DisableMouseCapture, EnableBracketedPaste, EnableMouseCapture, KeyCode,
     KeyEvent, KeyEventKind, KeyModifiers,
 };
+#[cfg(not(windows))]
+use crossterm::event::{
+    KeyboardEnhancementFlags, PopKeyboardEnhancementFlags, PushKeyboardEnhancementFlags,
+};
+#[cfg(not(windows))]
+use crossterm::terminal::supports_keyboard_enhancement;
 use crossterm::terminal::{
     disable_raw_mode, enable_raw_mode, EnterAlternateScreen, LeaveAlternateScreen,
 };
