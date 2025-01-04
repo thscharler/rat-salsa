@@ -39,7 +39,8 @@ pub mod layout;
 /// Relocatable widgets.
 pub mod reloc {
     pub use rat_reloc::{
-        relocate_area, relocate_areas, relocate_position, relocate_positions, RelocatableState,
+        impl_relocatable_state, relocate_area, relocate_areas, relocate_position,
+        relocate_positions, RelocatableState,
     };
 }
 
@@ -58,8 +59,8 @@ pub mod text {
     pub use rat_text::core;
     pub use rat_text::undo_buffer;
     pub use rat_text::{
-        ipos_type, screen_cursor, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, Locale,
-        TextError, TextPosition, TextRange, TextStyle,
+        impl_screen_cursor, ipos_type, screen_cursor, upos_type, Cursor, Glyph, Grapheme,
+        HasScreenCursor, Locale, TextError, TextPosition, TextRange, TextStyle,
     };
 }
 
