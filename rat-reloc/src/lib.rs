@@ -21,7 +21,7 @@ pub trait RelocatableState {
 #[macro_export]
 macro_rules! impl_relocatable_state {
     ($($n:ident),* for $ty:ty) => {
-        impl RelocatableState for $ty {
+        impl $crate::RelocatableState for $ty {
             fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
                 $(self.$n.relocate(shift, clip);)*
             }
