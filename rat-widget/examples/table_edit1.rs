@@ -10,8 +10,8 @@ use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
 use rat_focus::{match_focus, ContainerFlag, FocusBuilder, FocusContainer};
-use rat_ftable::edit::table::{EditTable, EditTableState};
-use rat_ftable::edit::{Editor, EditorState};
+use rat_ftable::edit::table::{EditableTable, EditableTableState};
+use rat_ftable::edit::{TableEditor, TableEditorState};
 use rat_ftable::event::EditOutcome;
 use rat_ftable::textdata::{Cell, Row};
 use rat_ftable::{Table, TableContext, TableData};
@@ -60,7 +60,7 @@ fn main() -> Result<(), Error> {
 
     let mut state = State {
         loc: de_AT_euro,
-        table: EditTableState::new(SampleEditorState::new(de_AT_euro)?),
+        table: EditableTableState::new(SampleEditorState::new(de_AT_euro)?),
         text1: Default::default(),
         text2: Default::default(),
     };
@@ -90,7 +90,7 @@ struct Data {
 struct State {
     loc: Locale,
 
-    table: EditTableState<SampleEditorState>,
+    table: EditableTableState<SampleEditorState>,
     text1: TextInputState,
     text2: TextInputState,
 }
@@ -199,7 +199,7 @@ fn repaint_input(
         &mut state.text1,
     );
 
-    EditTable::new(
+    EditableTable::new(
         Table::default()
             .data(TableData1 {
                 data: &data.table_data,
@@ -367,7 +367,7 @@ struct SampleEditorState {
     num3: NumberInputState,
 }
 
-impl Editor for SampleEditor {
+impl TableEditor for SampleEditor {
     type State = SampleEditorState;
 
     fn render(&self, _area: Rect, cell_areas: &[Rect], buf: &mut Buffer, state: &mut Self::State) {
@@ -397,7 +397,7 @@ impl SampleEditorState {
     }
 }
 
-impl EditorState for SampleEditorState {
+impl TableEditorState for SampleEditorState {
     type Context<'a> = MiniSalsaState;
     type Data = Sample;
     type Err = Error;
