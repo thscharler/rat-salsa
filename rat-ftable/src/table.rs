@@ -1971,6 +1971,21 @@ impl TableState<RowSelection> {
         self.selection.selected()
     }
 
+    /// Return the selected row and ensure it is in the
+    /// range 0..rows
+    #[inline]
+    pub fn selected_checked(&self) -> Option<usize> {
+        if let Some(selected) = self.selection.selected() {
+            if selected < self.rows {
+                Some(selected)
+            } else {
+                None
+            }
+        } else {
+            None
+        }
+    }
+
     /// Select the row.
     #[inline]
     pub fn select(&mut self, row: Option<usize>) -> bool {
