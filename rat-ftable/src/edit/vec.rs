@@ -12,7 +12,7 @@ use crate::edit::{Mode, TableEditor, TableEditorState};
 use crate::rowselection::RowSelection;
 use crate::textdata::Row;
 use crate::{Table, TableContext, TableData, TableSelection, TableState};
-use log::warn;
+use log::{debug, warn};
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
@@ -65,11 +65,9 @@ where
     mode: Mode,
 
     /// Backing table.
-    table: TableState<RowSelection>,
+    pub table: TableState<RowSelection>,
     /// Editor
     editor: S,
-    /// Focus-flag for the whole editor widget.
-    editor_focus: FocusFlag,
     /// Data store
     editor_data: Rc<RefCell<Vec<S::Data>>>,
 
@@ -182,7 +180,6 @@ where
             mode: Mode::View,
             table: Default::default(),
             editor: S::default(),
-            editor_focus: Default::default(),
             editor_data: Rc::new(RefCell::new(Vec::default())),
             mouse: Default::default(),
         }
@@ -199,7 +196,6 @@ where
             .field("mode", &self.mode)
             .field("table", &self.table)
             .field("editor", &self.editor)
-            .field("editor_focus", &self.editor_focus)
             .field("editor_data", &self.editor_data)
             .field("mouse", &self.mouse)
             .finish()
@@ -211,11 +207,7 @@ where
     S: TableEditorState,
 {
     fn focus(&self) -> FocusFlag {
-        match self.mode {
-            Mode::View => self.table.focus(),
-            Mode::Edit => self.editor_focus.clone(),
-            Mode::Insert => self.editor_focus.clone(),
-        }
+        self.table.focus()
     }
 
     fn area(&self) -> Rect {
@@ -230,24 +222,15 @@ where
     }
 
     fn is_focused(&self) -> bool {
-        match self.mode {
-            Mode::View => self.table.is_focused(),
-            Mode::Edit | Mode::Insert => self.editor_focus.get(),
-        }
+        self.table.is_focused()
     }
 
     fn lost_focus(&self) -> bool {
-        match self.mode {
-            Mode::View => self.table.is_focused(),
-            Mode::Edit | Mode::Insert => self.editor_focus.lost(),
-        }
+        self.table.lost_focus()
     }
 
     fn gained_focus(&self) -> bool {
-        match self.mode {
-            Mode::View => self.table.is_focused(),
-            Mode::Edit | Mode::Insert => self.editor_focus.gained(),
-        }
+        self.table.gained_focus()
     }
 }
 
@@ -286,7 +269,6 @@ where
             mode: Mode::View,
             table: TableState::new(),
             editor,
-            editor_focus: Default::default(),
             editor_data: Rc::new(RefCell::new(vec![])),
             mouse: Default::default(),
         }
@@ -297,7 +279,6 @@ where
             mode: Mode::View,
             table: TableState::named(name),
             editor,
-            editor_focus: Default::default(),
             editor_data: Rc::new(RefCell::new(vec![])),
             mouse: Default::default(),
         }
@@ -369,8 +350,6 @@ where
 
     fn _start(&mut self, pos: usize, mode: Mode) {
         if self.table.is_focused() {
-            self.table.focus().set(false);
-            self.editor_focus.set(true);
             // black magic
             FocusBuilder::for_container(&self.editor).first();
         }
@@ -390,7 +369,7 @@ where
         if self.mode == Mode::View {
             return;
         }
-        let Some(row) = self.table.selected() else {
+        let Some(row) = self.table.selected_checked() else {
             return;
         };
         if self.mode == Mode::Insert {
@@ -405,7 +384,7 @@ where
         if self.mode == Mode::View {
             return Ok(());
         }
-        let Some(row) = self.table.selected() else {
+        let Some(row) = self.table.selected_checked() else {
             return Ok(());
         };
         {
@@ -418,14 +397,14 @@ where
 
     pub fn commit_and_append(&mut self, ctx: S::Context<'_>) -> Result<(), S::Err> {
         self.commit(ctx.clone())?;
-        if let Some(row) = self.table.selected() {
+        if let Some(row) = self.table.selected_checked() {
             self.edit_new(row + 1, ctx.clone())?;
         }
         Ok(())
     }
 
     pub fn commit_and_edit(&mut self, ctx: S::Context<'_>) -> Result<(), S::Err> {
-        let Some(row) = self.table.selected() else {
+        let Some(row) = self.table.selected_checked() else {
             return Ok(());
         };
 
@@ -437,10 +416,6 @@ where
 
     fn _stop(&mut self) {
         self.mode = Mode::View;
-        if self.editor_focus.get() {
-            self.table.focus.set(true);
-            self.editor_focus.set(false);
-        }
         self.table.scroll_to_col(0);
     }
 }
@@ -474,7 +449,7 @@ where
                     Outcome::Changed
                 }
                 ct_event!(keycode press Enter) => {
-                    if self.table.selected() < Some(self.table.rows().saturating_sub(1)) {
+                    if self.table.selected_checked() < Some(self.table.rows().saturating_sub(1)) {
                         self.commit_and_edit(ctx.clone())?;
                         Outcome::Changed
                     } else {
@@ -509,31 +484,34 @@ where
 
             try_flow!(match event {
                 ct_event!(keycode press Insert) => {
-                    if let Some(row) = self.table.selected() {
+                    if let Some(row) = self.table.selected_checked() {
                         self.edit_new(row, ctx.clone())?;
                     }
                     Outcome::Changed
                 }
                 ct_event!(keycode press Delete) => {
-                    if let Some(row) = self.table.selected() {
+                    if let Some(row) = self.table.selected_checked() {
                         self.remove(row);
                     }
                     Outcome::Changed
                 }
                 ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
-                    if let Some(row) = self.table.selected() {
+                    if let Some(row) = self.table.selected_checked() {
                         self.edit(row, ctx.clone())?;
                     }
                     Outcome::Changed
                 }
                 ct_event!(keycode press Down) => {
-                    if let Some((_column, row)) = self.table.selection.lead_selection() {
+                    if let Some(row) = self.table.selected_checked() {
                         if row == self.table.rows().saturating_sub(1) {
                             self.edit_new(row + 1, ctx.clone())?;
                             Outcome::Changed
                         } else {
                             Outcome::Continue
                         }
+                    } else if self.table.rows() == 0 {
+                        self.edit_new(0, ctx.clone())?;
+                        Outcome::Changed
                     } else {
                         Outcome::Continue
                     }

@@ -52,8 +52,6 @@ pub struct EditableTableState<S> {
     pub table: TableState<RowSelection>,
     /// Editor
     pub editor: S,
-    /// Focus-flag for the whole editor widget.
-    pub editor_focus: FocusFlag,
 
     pub mouse: MouseFlags,
 
@@ -80,7 +78,7 @@ where
         self.table.render_ref(area, buf, &mut state.table);
 
         if state.mode == Mode::Edit || state.mode == Mode::Insert {
-            if let Some(row) = state.table.selected() {
+            if let Some(row) = state.table.selected_checked() {
                 // but it might be out of view
                 if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
                     self.editor
@@ -106,7 +104,7 @@ where
         self.table.render(area, buf, &mut state.table);
 
         if state.mode == Mode::Insert || state.mode == Mode::Edit {
-            if let Some(row) = state.table.selected() {
+            if let Some(row) = state.table.selected_checked() {
                 // but it might be out of view
                 if let Some((row_area, cell_areas)) = state.table.row_cells(row) {
                     self.editor
@@ -130,7 +128,6 @@ where
             mode: Mode::View,
             table: Default::default(),
             editor: S::default(),
-            editor_focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -146,7 +143,6 @@ where
             .field("mode", &self.mode)
             .field("table", &self.table)
             .field("editor", &self.editor)
-            .field("editor_focus", &self.editor_focus)
             .field("mouse", &self.mouse)
             .finish()
     }
@@ -154,11 +150,7 @@ where
 
 impl<S> HasFocus for EditableTableState<S> {
     fn focus(&self) -> FocusFlag {
-        match self.mode {
-            Mode::View => self.table.focus(),
-            Mode::Edit => self.editor_focus.clone(),
-            Mode::Insert => self.editor_focus.clone(),
-        }
+        self.table.focus()
     }
 
     fn area(&self) -> Rect {
@@ -173,24 +165,15 @@ impl<S> HasFocus for EditableTableState<S> {
     }
 
     fn is_focused(&self) -> bool {
-        match self.mode {
-            Mode::View => self.table.is_focused(),
-            Mode::Edit | Mode::Insert => self.editor_focus.get(),
-        }
+        self.table.is_focused()
     }
 
     fn lost_focus(&self) -> bool {
-        match self.mode {
-            Mode::View => self.table.is_focused(),
-            Mode::Edit | Mode::Insert => self.editor_focus.lost(),
-        }
+        self.table.lost_focus()
     }
 
     fn gained_focus(&self) -> bool {
-        match self.mode {
-            Mode::View => self.table.is_focused(),
-            Mode::Edit | Mode::Insert => self.editor_focus.gained(),
-        }
+        self.table.gained_focus()
     }
 }
 
@@ -227,7 +210,6 @@ impl<S> EditableTableState<S> {
             mode: Mode::View,
             table: TableState::new(),
             editor,
-            editor_focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -240,7 +222,6 @@ impl<S> EditableTableState<S> {
             table: TableState::named(name),
             editor,
             mouse: Default::default(),
-            editor_focus: Default::default(),
             non_exhaustive: NonExhaustive,
         }
     }
@@ -310,8 +291,6 @@ where
 
     fn _start(&mut self, pos: usize, mode: Mode) {
         if self.table.is_focused() {
-            self.table.focus().set(false);
-            self.editor_focus.set(true);
             FocusBuilder::for_container(&self.editor).first();
         }
 
@@ -336,7 +315,7 @@ where
         if self.mode == Mode::View {
             return;
         }
-        let Some(row) = self.table.selected() else {
+        let Some(row) = self.table.selected_checked() else {
             return;
         };
         if self.mode == Mode::Insert {
@@ -364,10 +343,6 @@ where
 
     fn _stop(&mut self) {
         self.mode = Mode::View;
-        if self.editor_focus.get() {
-            self.table.focus.set(true);
-            self.editor_focus.set(false);
-        }
         self.table.scroll_to_col(0);
     }
 }
@@ -380,7 +355,7 @@ where
 {
     fn handle(&mut self, event: &crossterm::event::Event, ctx: S::Context<'a>) -> EditOutcome {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
-            if self.editor_focus.is_focused() {
+            if self.table.is_focused() {
                 flow!(match self.editor.handle(event, ctx.clone()) {
                     EditOutcome::Continue => EditOutcome::Continue,
                     EditOutcome::Unchanged => EditOutcome::Unchanged,
@@ -397,7 +372,8 @@ where
                         EditOutcome::Cancel
                     }
                     ct_event!(keycode press Enter) => {
-                        if self.table.selected() < Some(self.table.rows().saturating_sub(1)) {
+                        if self.table.selected_checked() < Some(self.table.rows().saturating_sub(1))
+                        {
                             EditOutcome::CommitAndEdit
                         } else {
                             EditOutcome::CommitAndAppend
