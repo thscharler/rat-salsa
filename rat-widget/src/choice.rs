@@ -69,9 +69,6 @@ where
     keys: Rc<RefCell<Vec<T>>>,
     items: Rc<RefCell<Vec<Line<'a>>>>,
 
-    // Can return to default with a user interaction.
-    default_key: Option<T>,
-
     style: Style,
     button_style: Option<Style>,
     select_style: Option<Style>,
@@ -91,9 +88,6 @@ where
 {
     keys: Rc<RefCell<Vec<T>>>,
     items: Rc<RefCell<Vec<Line<'a>>>>,
-
-    // Can return to default with a user interaction.
-    default_key: Option<T>,
 
     style: Style,
     button_style: Option<Style>,
@@ -162,12 +156,9 @@ where
     /// Visible items in the popup.
     /// __read only__. renewed with each render.
     pub item_areas: Vec<Rect>,
-    /// Can return to default with a user interaction.
-    /// __read only__. renewed for each render.
-    pub default_key: Option<T>,
     /// Select item.
     /// __read+write__
-    pub selected: Option<usize>,
+    pub selected: usize,
     /// Popup state.
     pub popup: PopupCoreState,
 
@@ -203,7 +194,6 @@ where
         Self {
             keys: Default::default(),
             items: Default::default(),
-            default_key: None,
             style: Default::default(),
             button_style: None,
             select_style: None,
@@ -276,12 +266,6 @@ where
     pub fn item(self, key: T, item: impl Into<Line<'a>>) -> Self {
         self.keys.borrow_mut().push(key);
         self.items.borrow_mut().push(item.into());
-        self
-    }
-
-    /// Can return to default with user interaction.
-    pub fn default_key(mut self, default: T) -> Self {
-        self.default_key = Some(default);
         self
     }
 
@@ -436,7 +420,6 @@ where
             ChoiceWidget {
                 keys: self.keys,
                 items: self.items.clone(),
-                default_key: self.default_key,
                 style: self.style,
                 button_style: self.button_style,
                 focus_style: self.focus_style,
@@ -464,7 +447,6 @@ impl<'a, T> StatefulWidgetRef for ChoiceWidget<'a, T> {
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_choice(self, area, buf, state);
 
-        state.default_key = self.default_key.clone();
         state.keys = self.keys.borrow().clone();
     }
 }
@@ -478,7 +460,6 @@ where
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         render_choice(&self, area, buf, state);
 
-        state.default_key = self.default_key;
         state.keys = self.keys.take();
     }
 }
@@ -497,10 +478,7 @@ fn render_choice<T: PartialEq>(
             .unwrap_or_else(|| min(5, widget.items.borrow().len()) as u16);
         state.popup.v_scroll.max_offset = widget.items.borrow().len().saturating_sub(len as usize);
         state.popup.v_scroll.page_len = len as usize;
-        state
-            .popup
-            .v_scroll
-            .scroll_to_pos(state.selected.unwrap_or_default());
+        state.popup.v_scroll.scroll_to_pos(state.selected);
     }
 
     state.nav_char.clear();
@@ -544,10 +522,8 @@ fn render_choice<T: PartialEq>(
         }
     }
 
-    if let Some(selected) = state.selected {
-        if let Some(item) = widget.items.borrow().get(selected) {
-            item.render(state.item_area, buf);
-        }
+    if let Some(item) = widget.items.borrow().get(state.selected) {
+        item.render(state.item_area, buf);
     }
 
     let dy = if (state.button_area.height & 1) == 1 {
@@ -618,7 +594,7 @@ fn render_popup<T: PartialEq>(
             state.item_areas.push(item_area);
 
             if let Some(item) = widget.items.borrow().get(idx) {
-                let style = if state.selected == Some(idx) {
+                let style = if state.selected == idx {
                     widget.select_style.unwrap_or(revert_style(widget.style))
                 } else {
                     popup_style
@@ -650,7 +626,6 @@ where
             item_area: self.item_area,
             button_area: self.button_area,
             item_areas: self.item_areas.clone(),
-            default_key: self.default_key.clone(),
             selected: self.selected,
             popup: self.popup.clone(),
             focus: FocusFlag::named(self.focus.name()),
@@ -672,8 +647,7 @@ where
             item_area: Default::default(),
             button_area: Default::default(),
             item_areas: Default::default(),
-            default_key: None,
-            selected: None,
+            selected: 0,
             popup: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
@@ -745,26 +719,6 @@ where
         old_active != active
     }
 
-    /// Set the default value.
-    ///
-    /// Returns false if there is no default value, or
-    /// no items, or nothing changed.
-    ///
-    /// Doesn't change the selection if the default key doesn't exist.
-    pub fn set_default_value(&mut self) -> bool {
-        let old_selected = self.selected;
-
-        if let Some(default_key) = &self.default_key {
-            for (i, k) in self.keys.iter().enumerate() {
-                if default_key == k {
-                    self.selected = Some(i);
-                    return old_selected != self.selected;
-                }
-            }
-        }
-        old_selected != self.selected
-    }
-
     /// Select the given value.
     ///
     /// Returns false if there is no such value, or
@@ -778,18 +732,17 @@ where
         let old_selected = self.selected;
         for (i, k) in self.keys.iter().enumerate() {
             if key == k {
-                self.selected = Some(i);
+                self.selected = i;
                 return old_selected != self.selected;
             }
         }
         old_selected != self.selected
     }
 
-    /// Get the selected value or None if no value
-    /// is selected or there are no items.
-    pub fn value_opt_ref(&self) -> Option<&T> {
-        if let Some(selected) = self.selected {
-            Some(&self.keys[selected])
+    /// Get the selected value or None if there are no items.
+    pub fn try_value_ref(&self) -> Option<&T> {
+        if self.selected < self.keys.len() {
+            Some(&self.keys[self.selected])
         } else {
             None
         }
@@ -797,30 +750,22 @@ where
 
     /// Get the selected value.
     ///
+    /// __Panic__
+    ///
     /// Panics if there is no selection or no items.
     pub fn value_ref(&self) -> &T {
-        &self.keys[self.selected.expect("selection")]
+        &self.keys[self.selected]
     }
 
-    /// Select
-    pub fn select(&mut self, select: Option<usize>) -> bool {
+    /// Select the item.
+    pub fn select(&mut self, select: usize) -> bool {
         let old_selected = self.selected;
-
-        if self.keys.is_empty() {
-            self.selected = None;
-        } else {
-            if let Some(select) = select {
-                self.selected = Some(select.clamp(0, self.keys.len() - 1));
-            } else {
-                self.selected = None;
-            }
-        }
-
+        self.selected = select.clamp(0, self.keys.len().saturating_sub(1));
         old_selected != self.selected
     }
 
     /// Selected
-    pub fn selected(&self) -> Option<usize> {
+    pub fn selected(&self) -> usize {
         self.selected
     }
 
@@ -866,11 +811,7 @@ where
 
     /// Scroll the item list to the selected value.
     pub fn scroll_to_selected(&mut self) -> bool {
-        if let Some(selected) = self.selected {
-            self.popup.v_scroll.scroll_to_pos(selected)
-        } else {
-            false
-        }
+        self.popup.v_scroll.scroll_to_pos(self.selected)
     }
 }
 
@@ -878,12 +819,11 @@ impl<T> ChoiceState<T>
 where
     T: PartialEq + Clone,
 {
-    /// Get the selected value or None if no value
-    /// is selected or there are no items.
+    /// Get the selected value or None there are no items.
     #[allow(clippy::manual_map)]
-    pub fn value_opt(&self) -> Option<T> {
-        if let Some(selected) = self.selected {
-            Some(self.keys[selected].clone())
+    pub fn try_value(&self) -> Option<T> {
+        if self.selected < self.keys.len() {
+            Some(self.keys[self.selected].clone())
         } else {
             None
         }
@@ -891,9 +831,27 @@ where
 
     /// Get the selected value.
     ///
-    /// Panics if there is no selection or no items.
+    /// __Panic__
+    ///
+    /// Panics if there are no items.
     pub fn value(&self) -> T {
-        self.keys[self.selected.expect("selection")].clone()
+        self.keys[self.selected].clone()
+    }
+}
+
+impl<T> ChoiceState<T>
+where
+    T: PartialEq + Clone + Default,
+{
+    /// Get the selected value or T::default() if there
+    /// are no items.
+    #[allow(clippy::manual_map)]
+    pub fn value_or_default(&self) -> T {
+        if self.selected < self.keys.len() {
+            self.keys[self.selected].clone()
+        } else {
+            T::default()
+        }
     }
 }
 
@@ -907,20 +865,18 @@ where
             return false;
         }
 
-        let selected = self.selected.unwrap_or_default();
-
         let c = c.to_lowercase().collect::<Vec<_>>();
-        let mut idx = selected + 1;
+        let mut idx = self.selected + 1;
         loop {
             if idx >= self.nav_char.len() {
                 idx = 0;
             }
-            if idx == selected {
+            if idx == self.selected {
                 break;
             }
 
             if self.nav_char[idx] == c {
-                self.selected = Some(idx);
+                self.selected = idx;
                 return true;
             }
 
@@ -931,7 +887,7 @@ where
 
     /// Select at position
     pub fn move_to(&mut self, n: usize) -> bool {
-        let r1 = self.select(Some(n));
+        let r1 = self.select(n);
         let r2 = self.scroll_to_selected();
         r1 || r2
     }
@@ -940,16 +896,7 @@ where
     pub fn move_down(&mut self, n: usize) -> bool {
         let old_selected = self.selected;
 
-        if self.keys.is_empty() {
-            self.selected = None;
-        } else {
-            if let Some(selected) = self.selected {
-                self.selected = Some((selected + n).clamp(0, self.keys.len() - 1));
-            } else {
-                self.selected = Some(0);
-            }
-        }
-
+        self.selected = (self.selected + n).clamp(0, self.keys.len().saturating_sub(1));
         let r2 = self.scroll_to_selected();
 
         old_selected != self.selected || r2
@@ -959,16 +906,10 @@ where
     pub fn move_up(&mut self, n: usize) -> bool {
         let old_selected = self.selected;
 
-        if self.keys.is_empty() {
-            self.selected = None;
-        } else {
-            if let Some(selected) = self.selected {
-                self.selected = Some(selected.saturating_sub(n).clamp(0, self.keys.len() - 1));
-            } else {
-                self.selected = Some(self.keys.len() - 1);
-            }
-        }
-
+        self.selected = self
+            .selected
+            .saturating_sub(n)
+            .clamp(0, self.keys.len().saturating_sub(1));
         let r2 = self.scroll_to_selected();
 
         old_selected != self.selected || r2
@@ -1003,12 +944,8 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for Ch
                     self.set_popup_active(false).into()
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
-                    if self.default_key.is_some() {
-                        self.set_default_value();
-                        Outcome::Changed
-                    } else {
-                        Outcome::Continue
-                    }
+                    self.move_to(0);
+                    Outcome::Changed
                 }
                 ct_event!(keycode press Down) => {
                     let r0 = if !self.popup.is_active() {
