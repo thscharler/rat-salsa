@@ -14,6 +14,7 @@ use ratatui::style::{Style, Stylize};
 use ratatui::widgets::StatefulWidgetRef;
 use ratatui::widgets::{Block, Padding, StatefulWidget};
 use std::cell::Cell;
+use std::cmp::max;
 
 /// Provides the core for popup widgets.
 ///
@@ -504,20 +505,18 @@ impl PopupCore<'_> {
 
         // keep in sight
         if area.left() < boundary_area.left() {
-            let corr = boundary_area.left().saturating_sub(area.left());
-            area.x += corr;
+            area.x = boundary_area.left();
         }
         if area.right() >= boundary_area.right() {
             let corr = area.right().saturating_sub(boundary_area.right());
-            area.x = area.x.saturating_sub(corr);
+            area.x = max(boundary_area.left(), area.x.saturating_sub(corr));
         }
         if area.top() < boundary_area.top() {
-            let corr = boundary_area.top().saturating_sub(area.top());
-            area.y += corr;
+            area.y = boundary_area.top();
         }
         if area.bottom() >= boundary_area.bottom() {
             let corr = area.bottom().saturating_sub(boundary_area.bottom());
-            area.y = area.y.saturating_sub(corr);
+            area.y = max(boundary_area.top(), area.y.saturating_sub(corr));
         }
 
         // shrink to size
