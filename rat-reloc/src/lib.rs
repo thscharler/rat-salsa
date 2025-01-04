@@ -23,7 +23,7 @@ macro_rules! impl_relocatable_state {
     ($($n:ident),* for $ty:ty) => {
         impl RelocatableState for $ty {
             fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
-                $(&self.$n.relocate(shift, clip);)*
+                $(self.$n.relocate(shift, clip);)*
             }
         }
     };
