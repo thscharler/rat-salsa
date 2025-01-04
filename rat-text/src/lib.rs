@@ -23,7 +23,7 @@ pub use grapheme::{Glyph, Grapheme};
 
 use crate::_private::NonExhaustive;
 pub use pure_rust_locales::Locale;
-pub use rat_cursor::{screen_cursor, HasScreenCursor};
+pub use rat_cursor::{impl_screen_cursor, screen_cursor, HasScreenCursor};
 use rat_scrolled::ScrollStyle;
 use ratatui::prelude::Style;
 use ratatui::widgets::Block;
