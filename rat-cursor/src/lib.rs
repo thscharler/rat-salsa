@@ -31,7 +31,7 @@ pub fn screen_cursor<const N: usize>(list: [&dyn HasScreenCursor; N]) -> Option<
 #[macro_export]
 macro_rules! impl_screen_cursor {
     ($($n:ident),* for $ty:ty) => {
-        impl HasScreenCursor for $ty {
+        impl $crate::HasScreenCursor for $ty {
             fn screen_cursor(&self) -> Option<(u16, u16)> {
                 use $crate::screen_cursor;
                 screen_cursor([
