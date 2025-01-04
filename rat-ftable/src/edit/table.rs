@@ -7,7 +7,8 @@
 //! For examples go to the rat-widget crate.
 //! There is `examples/table_edit1.rs`.
 
-use crate::edit::{Editor, EditorState, Mode};
+use crate::_private::NonExhaustive;
+use crate::edit::{Mode, TableEditor, TableEditorState};
 use crate::event::EditOutcome;
 use crate::rowselection::RowSelection;
 use crate::{Table, TableSelection, TableState};
@@ -16,11 +17,13 @@ use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::prelude::StatefulWidget;
 #[cfg(feature = "unstable-widget-ref")]
 use ratatui::widgets::StatefulWidgetRef;
+use std::fmt::{Debug, Formatter};
 
 /// Widget that supports row-wise editing of a table.
 ///
@@ -28,9 +31,9 @@ use ratatui::widgets::StatefulWidgetRef;
 /// the input line and handles events. The result of event-handling
 /// is an [EditOutcome] that can be used to do the actual editing.
 #[derive(Debug)]
-pub struct EditTable<'a, E>
+pub struct EditableTable<'a, E>
 where
-    E: Editor + 'a,
+    E: TableEditor + 'a,
 {
     table: Table<'a, RowSelection>,
     editor: E,
@@ -41,8 +44,7 @@ where
 /// Contains `mode` to differentiate between edit/non-edit.
 /// This will lock the focus to the input line while editing.
 ///
-#[derive(Debug)]
-pub struct EditTableState<S> {
+pub struct EditableTableState<S> {
     /// Editing mode.
     pub mode: Mode,
 
@@ -54,11 +56,13 @@ pub struct EditTableState<S> {
     pub editor_focus: FocusFlag,
 
     pub mouse: MouseFlags,
+
+    pub non_exhaustive: NonExhaustive,
 }
 
-impl<'a, E> EditTable<'a, E>
+impl<'a, E> EditableTable<'a, E>
 where
-    E: Editor + 'a,
+    E: TableEditor + 'a,
 {
     pub fn new(table: Table<'a, RowSelection>, editor: E) -> Self {
         Self { table, editor }
@@ -66,11 +70,11 @@ where
 }
 
 #[cfg(feature = "unstable-widget-ref")]
-impl<'a, E> StatefulWidgetRef for EditTable<'a, E>
+impl<'a, E> StatefulWidgetRef for EditableTable<'a, E>
 where
-    E: Editor + 'a,
+    E: TableEditor + 'a,
 {
-    type State = EditTableState<E::State>;
+    type State = EditableTableState<E::State>;
 
     fn render_ref(&self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
         self.table.render_ref(area, buf, &mut state.table);
@@ -91,11 +95,11 @@ where
     }
 }
 
-impl<'a, E> StatefulWidget for EditTable<'a, E>
+impl<'a, E> StatefulWidget for EditableTable<'a, E>
 where
-    E: Editor + 'a,
+    E: TableEditor + 'a,
 {
-    type State = EditTableState<E::State>;
+    type State = EditableTableState<E::State>;
 
     #[allow(clippy::collapsible_else_if)]
     fn render(self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -117,7 +121,7 @@ where
     }
 }
 
-impl<S> Default for EditTableState<S>
+impl<S> Default for EditableTableState<S>
 where
     S: Default,
 {
@@ -128,11 +132,27 @@ where
             editor: S::default(),
             editor_focus: Default::default(),
             mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
 
-impl<S> HasFocus for EditTableState<S> {
+impl<S> Debug for EditableTableState<S>
+where
+    S: Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EditTableState")
+            .field("mode", &self.mode)
+            .field("table", &self.table)
+            .field("editor", &self.editor)
+            .field("editor_focus", &self.editor_focus)
+            .field("mouse", &self.mouse)
+            .finish()
+    }
+}
+
+impl<S> HasFocus for EditableTableState<S> {
     fn focus(&self) -> FocusFlag {
         match self.mode {
             Mode::View => self.table.focus(),
@@ -174,7 +194,7 @@ impl<S> HasFocus for EditTableState<S> {
     }
 }
 
-impl<S> HasScreenCursor for EditTableState<S>
+impl<S> HasScreenCursor for EditableTableState<S>
 where
     S: HasScreenCursor,
 {
@@ -186,7 +206,21 @@ where
     }
 }
 
-impl<S> EditTableState<S> {
+impl<S> RelocatableState for EditableTableState<S>
+where
+    S: TableEditorState + RelocatableState,
+{
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        match self.mode {
+            Mode::View => {}
+            Mode::Edit | Mode::Insert => {
+                self.editor.relocate(shift, clip);
+            }
+        }
+    }
+}
+
+impl<S> EditableTableState<S> {
     /// New state.
     pub fn new(editor: S) -> Self {
         Self {
@@ -195,6 +229,7 @@ impl<S> EditTableState<S> {
             editor,
             editor_focus: Default::default(),
             mouse: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 
@@ -206,13 +241,14 @@ impl<S> EditTableState<S> {
             editor,
             mouse: Default::default(),
             editor_focus: Default::default(),
+            non_exhaustive: NonExhaustive,
         }
     }
 }
 
-impl<S> EditTableState<S>
+impl<S> EditableTableState<S>
 where
-    S: EditorState,
+    S: TableEditorState,
 {
     /// Editing is active?
     pub fn is_editing(&self) -> bool {
@@ -244,7 +280,7 @@ where
     /// beforehand.
     ///
     /// __See__
-    /// [EditorState::set_edit_data]
+    /// [TableEditorState::set_edit_data]
     ///
     /// This does all the bookkeeping with the table-state and
     /// switches the mode to Mode::Insert.
@@ -261,7 +297,7 @@ where
     /// beforehand.
     ///
     /// __See__
-    /// [EditorState::set_edit_data]
+    /// [TableEditorState::set_edit_data]
     ///
     /// This does all the bookkeeping with the table-state and
     /// switches the mode to Mode::Edit.
@@ -292,7 +328,7 @@ where
     /// This doesn't reset the edit-widget.
     ///
     /// __See__
-    /// [EditorState::set_edit_data]
+    /// [TableEditorState::set_edit_data]
     ///
     /// But it does all the bookkeeping with the table-state and
     /// switches the mode back to Mode::View.
@@ -315,7 +351,7 @@ where
     /// row-item.
     ///
     /// __See__
-    /// [EditorState::get_edit_data]
+    /// [TableEditorState::get_edit_data]
     ///
     /// But it does all the bookkeeping with the table-state and
     /// switches the mode back to Mode::View.
@@ -336,16 +372,16 @@ where
     }
 }
 
-impl<'a, S> HandleEvent<crossterm::event::Event, &'a S::Context<'a>, EditOutcome>
-    for EditTableState<S>
+impl<'a, S> HandleEvent<crossterm::event::Event, S::Context<'a>, EditOutcome>
+    for EditableTableState<S>
 where
-    S: HandleEvent<crossterm::event::Event, &'a S::Context<'a>, EditOutcome>,
-    S: EditorState,
+    S: HandleEvent<crossterm::event::Event, S::Context<'a>, EditOutcome>,
+    S: TableEditorState,
 {
-    fn handle(&mut self, event: &crossterm::event::Event, ctx: &'a S::Context<'a>) -> EditOutcome {
+    fn handle(&mut self, event: &crossterm::event::Event, ctx: S::Context<'a>) -> EditOutcome {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
             if self.editor_focus.is_focused() {
-                flow!(match self.editor.handle(event, ctx) {
+                flow!(match self.editor.handle(event, ctx.clone()) {
                     EditOutcome::Continue => EditOutcome::Continue,
                     EditOutcome::Unchanged => EditOutcome::Unchanged,
                     r => {

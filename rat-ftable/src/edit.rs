@@ -22,35 +22,32 @@ pub mod vec;
 ///
 /// This one takes a slice of areas for all the cells in the table,
 /// and renders all input widgets as it needs.
-pub trait Editor {
+pub trait TableEditor {
     /// State associated with the stateful widget.
-    type State: EditorState;
+    type State: TableEditorState;
 
     /// Standard render call, but with added areas for each cell.
     fn render(&self, area: Rect, cell_areas: &[Rect], buf: &mut Buffer, state: &mut Self::State);
 }
 
 /// Trait for the editor widget state
-pub trait EditorState: FocusContainer {
-    type Context<'a>;
-    type Data;
+pub trait TableEditorState: FocusContainer {
+    type Context<'a>: Clone;
+    type Data: Clone;
     type Err;
 
     /// Create default data.
-    fn new_edit_data(&self, ctx: &Self::Context<'_>) -> Result<Self::Data, Self::Err>;
+    fn new_edit_data(&self, ctx: Self::Context<'_>) -> Result<Self::Data, Self::Err>;
 
     /// Set editing data.
-    fn set_edit_data(
-        &mut self,
-        data: &Self::Data,
-        ctx: &Self::Context<'_>,
-    ) -> Result<(), Self::Err>;
+    fn set_edit_data(&mut self, data: &Self::Data, ctx: Self::Context<'_>)
+        -> Result<(), Self::Err>;
 
     /// Copy the editor state back to the data.
     fn get_edit_data(
         &mut self,
         data: &mut Self::Data,
-        ctx: &Self::Context<'_>,
+        ctx: Self::Context<'_>,
     ) -> Result<(), Self::Err>;
 
     /// Is this some empty state?

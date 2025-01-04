@@ -8,7 +8,7 @@
 //! For examples go to the rat-widget crate.
 //! There is `examples/table_edit2.rs`.
 
-use crate::edit::{Editor, EditorState, Mode};
+use crate::edit::{Mode, TableEditor, TableEditorState};
 use crate::rowselection::RowSelection;
 use crate::textdata::Row;
 use crate::{Table, TableContext, TableData, TableSelection, TableState};
@@ -17,6 +17,7 @@ use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
 use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
+use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Rect};
 use ratatui::prelude::{StatefulWidget, Style};
@@ -31,7 +32,7 @@ use std::rc::Rc;
 /// leaving the rendering to the caller.
 ///
 /// Due to life-time issues the data is given as Rc<>.
-pub trait EditorData<D>: TableData<'static> {
+pub trait TableDataVec<D>: TableData<'static> {
     /// Set the actual table data.
     fn set_data(&mut self, data: Rc<RefCell<Vec<D>>>);
 }
@@ -42,12 +43,12 @@ pub trait EditorData<D>: TableData<'static> {
 ///
 /// It's parameterized with a `Editor` widget, that renders
 /// the input line and handles events.
-pub struct EditVec<'a, E>
+pub struct EditableTableVec<'a, E>
 where
-    E: Editor + 'a,
+    E: TableEditor + 'a,
 {
     table: Table<'a, RowSelection>,
-    table_data: Box<dyn EditorData<<<E as Editor>::State as EditorState>::Data>>,
+    table_data: Box<dyn TableDataVec<<<E as TableEditor>::State as TableEditorState>::Data>>,
     editor: E,
 }
 
@@ -56,32 +57,31 @@ where
 /// Contains `mode` to differentiate between edit/non-edit.
 /// This will lock the focus to the input line while editing.
 ///
-#[derive(Debug)]
-pub struct EditVecState<S>
+pub struct EditableTableVecState<S>
 where
-    S: EditorState,
+    S: TableEditorState,
 {
     /// Editing mode.
-    pub mode: Mode,
+    mode: Mode,
 
     /// Backing table.
-    pub table: TableState<RowSelection>,
+    table: TableState<RowSelection>,
     /// Editor
-    pub editor: S,
+    editor: S,
     /// Focus-flag for the whole editor widget.
-    pub editor_focus: FocusFlag,
+    editor_focus: FocusFlag,
     /// Data store
-    pub editor_data: Rc<RefCell<Vec<S::Data>>>,
+    editor_data: Rc<RefCell<Vec<S::Data>>>,
 
-    pub mouse: MouseFlags,
+    mouse: MouseFlags,
 }
 
-impl<'a, E> EditVec<'a, E>
+impl<'a, E> EditableTableVec<'a, E>
 where
-    E: Editor + 'a,
+    E: TableEditor + 'a,
 {
     pub fn new(
-        table_data: impl EditorData<<<E as Editor>::State as EditorState>::Data> + 'static,
+        table_data: impl TableDataVec<<<E as TableEditor>::State as TableEditorState>::Data> + 'static,
         table: Table<'a, RowSelection>,
         editor: E,
     ) -> Self {
@@ -93,7 +93,7 @@ where
     }
 }
 
-impl<'a, D> TableData<'a> for Box<dyn EditorData<D> + 'a> {
+impl<'a, D> TableData<'a> for Box<dyn TableDataVec<D> + 'a> {
     fn rows(&self) -> usize {
         (**self).rows()
     }
@@ -130,10 +130,10 @@ impl<'a, D> TableData<'a> for Box<dyn EditorData<D> + 'a> {
     }
 }
 
-impl<'a, E> Debug for EditVec<'a, E>
+impl<'a, E> Debug for EditableTableVec<'a, E>
 where
     E: Debug,
-    E: Editor + 'a,
+    E: TableEditor + 'a,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EditVec")
@@ -144,11 +144,11 @@ where
     }
 }
 
-impl<'a, E> StatefulWidget for EditVec<'a, E>
+impl<'a, E> StatefulWidget for EditableTableVec<'a, E>
 where
-    E: Editor + 'a,
+    E: TableEditor + 'a,
 {
-    type State = EditVecState<E::State>;
+    type State = EditableTableVecState<E::State>;
 
     #[allow(clippy::collapsible_else_if)]
     fn render(mut self, area: Rect, buf: &mut Buffer, state: &mut Self::State) {
@@ -173,10 +173,9 @@ where
     }
 }
 
-impl<S> Default for EditVecState<S>
+impl<S> Default for EditableTableVecState<S>
 where
-    S: Default,
-    S: EditorState,
+    S: TableEditorState + Default,
 {
     fn default() -> Self {
         Self {
@@ -190,9 +189,26 @@ where
     }
 }
 
-impl<S> HasFocus for EditVecState<S>
+impl<S> Debug for EditableTableVecState<S>
 where
-    S: EditorState,
+    S: TableEditorState + Debug,
+    S::Data: Debug,
+{
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("EditVecState")
+            .field("mode", &self.mode)
+            .field("table", &self.table)
+            .field("editor", &self.editor)
+            .field("editor_focus", &self.editor_focus)
+            .field("editor_data", &self.editor_data)
+            .field("mouse", &self.mouse)
+            .finish()
+    }
+}
+
+impl<S> HasFocus for EditableTableVecState<S>
+where
+    S: TableEditorState,
 {
     fn focus(&self) -> FocusFlag {
         match self.mode {
@@ -235,10 +251,9 @@ where
     }
 }
 
-impl<S> HasScreenCursor for EditVecState<S>
+impl<S> HasScreenCursor for EditableTableVecState<S>
 where
-    S: HasScreenCursor,
-    S: EditorState,
+    S: TableEditorState + HasScreenCursor,
 {
     fn screen_cursor(&self) -> Option<(u16, u16)> {
         match self.mode {
@@ -248,9 +263,23 @@ where
     }
 }
 
-impl<S> EditVecState<S>
+impl<S> RelocatableState for EditableTableVecState<S>
 where
-    S: EditorState,
+    S: TableEditorState + RelocatableState,
+{
+    fn relocate(&mut self, shift: (i16, i16), clip: Rect) {
+        match self.mode {
+            Mode::View => {}
+            Mode::Edit | Mode::Insert => {
+                self.editor.relocate(shift, clip);
+            }
+        }
+    }
+}
+
+impl<S> EditableTableVecState<S>
+where
+    S: TableEditorState,
 {
     pub fn new(editor: S) -> Self {
         Self {
@@ -275,10 +304,20 @@ where
     }
 }
 
-impl<S> EditVecState<S>
+impl<S> EditableTableVecState<S>
 where
-    S: EditorState,
+    S: TableEditorState,
 {
+    /// Set the edit data.
+    pub fn set_value(&mut self, data: Vec<S::Data>) {
+        self.editor_data = Rc::new(RefCell::new(data));
+    }
+
+    /// Get the edit data.
+    pub fn value(&self) -> Vec<S::Data> {
+        self.editor_data.borrow().clone()
+    }
+
     /// Editing is active?
     pub fn is_editing(&self) -> bool {
         self.mode == Mode::Edit || self.mode == Mode::Insert
@@ -304,25 +343,25 @@ where
     }
 
     /// Edit a new item inserted at the selected row.
-    pub fn edit_new(&mut self, row: usize, ctx: &S::Context<'_>) -> Result<(), S::Err> {
+    pub fn edit_new(&mut self, row: usize, ctx: S::Context<'_>) -> Result<(), S::Err> {
         if self.mode != Mode::View {
             return Ok(());
         }
-        let value = self.editor.new_edit_data(ctx)?;
-        self.editor.set_edit_data(&value, ctx)?;
+        let value = self.editor.new_edit_data(ctx.clone())?;
+        self.editor.set_edit_data(&value, ctx.clone())?;
         self.editor_data.borrow_mut().insert(row, value);
         self._start(row, Mode::Insert);
         Ok(())
     }
 
     /// Edit the item at the selected row.
-    pub fn edit(&mut self, row: usize, ctx: &S::Context<'_>) -> Result<(), S::Err> {
+    pub fn edit(&mut self, row: usize, ctx: S::Context<'_>) -> Result<(), S::Err> {
         if self.mode != Mode::View {
             return Ok(());
         }
         {
             let value = &self.editor_data.borrow()[row];
-            self.editor.set_edit_data(value, ctx)?;
+            self.editor.set_edit_data(value, ctx.clone())?;
         }
         self._start(row, Mode::Edit);
         Ok(())
@@ -332,6 +371,7 @@ where
         if self.table.is_focused() {
             self.table.focus().set(false);
             self.editor_focus.set(true);
+            // black magic
             FocusBuilder::for_container(&self.editor).first();
         }
 
@@ -361,7 +401,7 @@ where
     }
 
     /// Commit the changes in the editor.
-    pub fn commit(&mut self, ctx: &S::Context<'_>) -> Result<(), S::Err> {
+    pub fn commit(&mut self, ctx: S::Context<'_>) -> Result<(), S::Err> {
         if self.mode == Mode::View {
             return Ok(());
         }
@@ -370,28 +410,28 @@ where
         };
         {
             let value = &mut self.editor_data.borrow_mut()[row];
-            self.editor.get_edit_data(value, ctx)?;
+            self.editor.get_edit_data(value, ctx.clone())?;
         }
         self._stop();
         Ok(())
     }
 
-    pub fn commit_and_append(&mut self, ctx: &S::Context<'_>) -> Result<(), S::Err> {
-        self.commit(ctx)?;
+    pub fn commit_and_append(&mut self, ctx: S::Context<'_>) -> Result<(), S::Err> {
+        self.commit(ctx.clone())?;
         if let Some(row) = self.table.selected() {
-            self.edit_new(row + 1, ctx)?;
+            self.edit_new(row + 1, ctx.clone())?;
         }
         Ok(())
     }
 
-    pub fn commit_and_edit(&mut self, ctx: &S::Context<'_>) -> Result<(), S::Err> {
+    pub fn commit_and_edit(&mut self, ctx: S::Context<'_>) -> Result<(), S::Err> {
         let Some(row) = self.table.selected() else {
             return Ok(());
         };
 
-        self.commit(ctx)?;
+        self.commit(ctx.clone())?;
         self.table.select(Some(row + 1));
-        self.edit(row + 1, ctx)?;
+        self.edit(row + 1, ctx.clone())?;
         Ok(())
     }
 
@@ -405,19 +445,19 @@ where
     }
 }
 
-impl<'a, S> HandleEvent<crossterm::event::Event, &'a S::Context<'a>, Result<Outcome, S::Err>>
-    for EditVecState<S>
+impl<'a, S> HandleEvent<crossterm::event::Event, S::Context<'a>, Result<Outcome, S::Err>>
+    for EditableTableVecState<S>
 where
-    S: HandleEvent<crossterm::event::Event, Regular, Outcome>,
-    S: EditorState,
+    S: HandleEvent<crossterm::event::Event, S::Context<'a>, Result<Outcome, S::Err>>,
+    S: TableEditorState,
 {
     fn handle(
         &mut self,
         event: &crossterm::event::Event,
-        ctx: &'a S::Context<'a>,
+        ctx: S::Context<'a>,
     ) -> Result<Outcome, S::Err> {
         if self.mode == Mode::Edit || self.mode == Mode::Insert {
-            try_flow!(match self.editor.handle(event, Regular) {
+            try_flow!(match self.editor.handle(event, ctx.clone())? {
                 Outcome::Continue => Outcome::Continue,
                 Outcome::Unchanged => Outcome::Unchanged,
                 r => {
@@ -435,19 +475,19 @@ where
                 }
                 ct_event!(keycode press Enter) => {
                     if self.table.selected() < Some(self.table.rows().saturating_sub(1)) {
-                        self.commit_and_edit(ctx)?;
+                        self.commit_and_edit(ctx.clone())?;
                         Outcome::Changed
                     } else {
-                        self.commit_and_append(ctx)?;
+                        self.commit_and_append(ctx.clone())?;
                         Outcome::Changed
                     }
                 }
                 ct_event!(keycode press Up) => {
-                    self.commit(ctx)?;
+                    self.commit(ctx.clone())?;
                     Outcome::Changed
                 }
                 ct_event!(keycode press Down) => {
-                    self.commit(ctx)?;
+                    self.commit(ctx.clone())?;
                     Outcome::Changed
                 }
                 _ => Outcome::Continue,
@@ -458,7 +498,7 @@ where
             try_flow!(match event {
                 ct_event!(mouse any for m) if self.mouse.doubleclick(self.table.table_area, m) => {
                     if let Some((_col, row)) = self.table.cell_at_clicked((m.column, m.row)) {
-                        self.edit(row, ctx)?;
+                        self.edit(row, ctx.clone())?;
                         Outcome::Changed
                     } else {
                         Outcome::Continue
@@ -470,7 +510,7 @@ where
             try_flow!(match event {
                 ct_event!(keycode press Insert) => {
                     if let Some(row) = self.table.selected() {
-                        self.edit_new(row, ctx)?;
+                        self.edit_new(row, ctx.clone())?;
                     }
                     Outcome::Changed
                 }
@@ -482,14 +522,14 @@ where
                 }
                 ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
                     if let Some(row) = self.table.selected() {
-                        self.edit(row, ctx)?;
+                        self.edit(row, ctx.clone())?;
                     }
                     Outcome::Changed
                 }
                 ct_event!(keycode press Down) => {
                     if let Some((_column, row)) = self.table.selection.lead_selection() {
                         if row == self.table.rows().saturating_sub(1) {
-                            self.edit_new(row + 1, ctx)?;
+                            self.edit_new(row + 1, ctx.clone())?;
                             Outcome::Changed
                         } else {
                             Outcome::Continue
