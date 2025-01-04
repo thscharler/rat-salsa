@@ -324,7 +324,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for PageNavig
                     if self.next_page() {
                         PagerOutcome::Page(self.page)
                     } else {
-                        PagerOutcome::Unchanged
+                        PagerOutcome::Continue
                     }
                 } else {
                     PagerOutcome::Continue
@@ -335,7 +335,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, PagerOutcome> for PageNavig
                     if self.prev_page() {
                         PagerOutcome::Page(self.page)
                     } else {
-                        PagerOutcome::Unchanged
+                        PagerOutcome::Continue
                     }
                 } else {
                     PagerOutcome::Continue
