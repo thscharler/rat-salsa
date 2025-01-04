@@ -15,7 +15,7 @@ pub trait HasScreenCursor {
     fn screen_cursor(&self) -> Option<(u16, u16)>;
 }
 
-/// Evaluate the screen-cursor for a list of widgets.
+/// Returns the screen_cursor for the first widget that returns one.
 #[inline(always)]
 pub fn screen_cursor<const N: usize>(list: [&dyn HasScreenCursor; N]) -> Option<(u16, u16)> {
     for v in list {
@@ -24,4 +24,20 @@ pub fn screen_cursor<const N: usize>(list: [&dyn HasScreenCursor; N]) -> Option<
         }
     }
     None
+}
+
+/// Create the implementation of HasScreenCursor for the
+/// given list of struct members.
+#[macro_export]
+macro_rules! impl_screen_cursor {
+    ($($n:ident),* for $ty:ty) => {
+        impl HasScreenCursor for $ty {
+            fn screen_cursor(&self) -> Option<(u16, u16)> {
+                use $crate::screen_cursor;
+                screen_cursor([
+                    $(&self.$n),*
+                ])
+            }
+        }
+    };
 }
