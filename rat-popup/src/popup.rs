@@ -3,7 +3,7 @@ use crate::event::PopupOutcome;
 use crate::{Placement, PopupConstraint};
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, Popup};
-use rat_focus::{ContainerFlag, FocusContainer};
+use rat_focus::{FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -103,7 +103,7 @@ pub struct PopupCoreState {
     /// __See__
     /// See the examples how to use for both cases.
     /// __read+write__
-    pub active: ContainerFlag,
+    pub active: FocusFlag,
 
     /// Mouse flags.
     /// __read+write__
@@ -313,7 +313,7 @@ impl StatefulWidget for PopupCore<'_> {
 }
 
 fn render_popup(widget: &PopupCore<'_>, area: Rect, buf: &mut Buffer, state: &mut PopupCoreState) {
-    if !state.active.is_container_focused() {
+    if !state.active.is_focused() {
         state.clear_areas();
         return;
     }
@@ -555,7 +555,7 @@ impl Clone for PopupCoreState {
             widget_area: self.widget_area,
             h_scroll: self.h_scroll.clone(),
             v_scroll: self.v_scroll.clone(),
-            active: ContainerFlag::named(self.active.name()),
+            active: FocusFlag::named(self.active.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -570,7 +570,7 @@ impl Default for PopupCoreState {
             widget_area: Default::default(),
             h_scroll: Default::default(),
             v_scroll: Default::default(),
-            active: ContainerFlag::named("popup"),
+            active: FocusFlag::named("popup"),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
         }
@@ -594,7 +594,7 @@ impl PopupCoreState {
     /// New with a focus name.
     pub fn named(name: &str) -> Self {
         Self {
-            active: ContainerFlag::named(name),
+            active: FocusFlag::named(name),
             ..Default::default()
         }
     }
@@ -611,7 +611,7 @@ impl PopupCoreState {
 
     /// Is the popup active/visible.
     pub fn is_active(&self) -> bool {
-        self.active.is_container_focused()
+        self.active.is_focused()
     }
 
     /// Flip visibility of the popup.
@@ -655,16 +655,6 @@ impl PopupCoreState {
 
 impl HandleEvent<crossterm::event::Event, Popup, PopupOutcome> for PopupCoreState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Popup) -> PopupOutcome {
-        // this only works out if the active flag is actually used
-        // as a container flag. but that's fine.
-
-        // TODO: this is too spooky ...
-        // let r0 = if self.active.container_lost_focus() {
-        //     PopupOutcome::Hide
-        // } else {
-        //     PopupOutcome::Continue
-        // };
-
         if self.is_active() {
             match event {
                 ct_event!(mouse down Left for x,y)

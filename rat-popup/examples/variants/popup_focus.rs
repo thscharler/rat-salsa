@@ -1,10 +1,7 @@
 //! Popup acts as a single widget, and takes part of the focus.
 
 use rat_event::{ct_event, HandleEvent, Popup, Regular};
-use rat_focus::{
-    ContainerFlag, Focus, FocusAdapter, FocusBuilder, FocusContainer, FocusFlag, HasFocus,
-    Navigation,
-};
+use rat_focus::{Focus, FocusAdapter, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
@@ -89,21 +86,19 @@ impl PopFocusBlueState {
     }
 }
 
-impl FocusContainer for PopFocusBlueState {
+impl HasFocus for PopFocusBlueState {
     fn build(&self, builder: &mut FocusBuilder) {
-        // build the focus on the fly.
-        // don't want to expose HasFocus, as using
-        // it would be wrong. This is not a simple widget.
-        builder.widget(&FocusAdapter {
-            focus: self.focus.clone(),
-            area: self.area,
-            navigation: Navigation::Leave,
-            ..Default::default()
-        });
+        // only add when active.
+        // use container-flag to auto-hide.
+        if self.popup.active.is_focused() {
+            let tag = builder.start(self);
+            builder.add_widget(self.focus.clone(), self.area, 0, Navigation::Leave);
+            builder.end(tag);
+        }
     }
 
-    fn container(&self) -> Option<ContainerFlag> {
-        Some(self.popup.active.clone())
+    fn focus(&self) -> FocusFlag {
+        self.popup.active.clone()
     }
 
     fn area(&self) -> Rect {

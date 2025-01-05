@@ -4,7 +4,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
 use rat_event::{ct_event, HandleEvent, Outcome, Popup, Regular};
-use rat_focus::{ContainerAdapter, Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
@@ -148,17 +148,11 @@ impl PopLockMagentaState {
 
     fn inner_focus(&mut self) -> Focus {
         let mut fb = FocusBuilder::new(None);
-        // create on-the-fly container
-        fb.container(&ContainerAdapter {
-            container: self.popup.active.clone(),
-            build_fn: &|build| {
-                build.widget(&self.edit1);
-                build.widget(&self.edit2);
-                build.widget(&self.edit3);
-            },
-            area: self.popup.area,
-            area_z: 0,
-        });
+        let tag = fb.start_container(Some(self.popup.active.clone()), self.popup.area, 0);
+        fb.widget(&self.edit1);
+        fb.widget(&self.edit2);
+        fb.widget(&self.edit3);
+        fb.end(tag);
         fb.build()
     }
 }

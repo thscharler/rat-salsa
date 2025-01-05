@@ -6,7 +6,7 @@ use crate::mini_salsa::theme::THEME;
 use crate::variants::calc_dxy;
 use rat_cursor::HasScreenCursor;
 use rat_event::{HandleEvent, Popup, Regular};
-use rat_focus::{ContainerFlag, Focus, FocusBuilder, FocusContainer};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
@@ -91,20 +91,24 @@ impl HasScreenCursor for PopEditGreenState {
     }
 }
 
-impl FocusContainer for PopEditGreenState {
+impl HasFocus for PopEditGreenState {
     fn build(&self, builder: &mut FocusBuilder) {
+        let tag = builder.start(self);
         // only has widgets when active.
         if self.popup.is_active() {
             builder.widget(&self.edit1);
             builder.widget(&self.edit2);
             builder.widget(&self.edit3);
         }
+        builder.end(tag);
     }
 
-    fn container(&self) -> Option<ContainerFlag> {
-        // use active as container flag.
-        // will be set false when the container looses focus.
-        Some(self.popup.active.clone())
+    fn focus(&self) -> FocusFlag {
+        self.popup.active.clone()
+    }
+
+    fn area(&self) -> Rect {
+        Rect::default()
     }
 }
 
@@ -134,7 +138,7 @@ impl PopEditGreenState {
     pub fn hide(&mut self, focus: &mut Focus) {
         // move away focus, set inactive and update Focus.
         if self.popup.is_active() {
-            focus.expel_focus_container(&*self);
+            focus.expel_focus(&*self);
         }
         self.popup.set_active(false);
         focus.update_container(&*self);
