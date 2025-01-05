@@ -42,14 +42,11 @@ use unicode_segmentation::UnicodeSegmentation;
 pub struct Checkbox<'a> {
     text: Text<'a>,
 
-    // Can return to default with a user interaction.
-    default_settable: bool,
     // Check state override.
     checked: Option<bool>,
 
     true_str: Span<'a>,
     false_str: Span<'a>,
-    default_str: Span<'a>,
 
     style: Style,
     focus_style: Option<Style>,
@@ -70,8 +67,6 @@ pub struct CheckboxStyle {
     pub true_str: Option<Span<'static>>,
     /// Display text for 'false'
     pub false_str: Option<Span<'static>>,
-    /// Display text for 'use default'
-    pub default_str: Option<Span<'static>>,
 
     pub non_exhaustive: NonExhaustive,
 }
@@ -92,16 +87,9 @@ pub struct CheckboxState {
     /// __read only__. renewed for each render.
     pub text_area: Rect,
 
-    /// Can return to default with a user interaction.
-    /// __read only__. renewed for each render.
-    pub default_settable: bool,
-
     /// Checked state.
     /// __read+write__
     pub checked: bool,
-    /// Defaulted state.
-    /// __read+write__
-    pub default: bool,
 
     /// Current focus state.
     /// __read+write__
@@ -122,7 +110,6 @@ impl Default for CheckboxStyle {
             block: Default::default(),
             true_str: None,
             false_str: None,
-            default_str: None,
             non_exhaustive: NonExhaustive,
         }
     }
@@ -132,11 +119,9 @@ impl Default for Checkbox<'_> {
     fn default() -> Self {
         Self {
             text: Default::default(),
-            default_settable: false,
             checked: None,
             true_str: Span::from("[\u{2713}]"),
             false_str: Span::from("[ ]"),
-            default_str: Span::from("[\u{25EF}]"),
             style: Default::default(),
             focus_style: None,
             block: None,
@@ -164,9 +149,6 @@ impl<'a> Checkbox<'a> {
         }
         if let Some(false_str) = styles.false_str {
             self.false_str = false_str;
-        }
-        if let Some(default_str) = styles.default_str {
-            self.default_str = default_str;
         }
         self.block = self.block.map(|v| v.style(self.style));
         self
@@ -199,12 +181,6 @@ impl<'a> Checkbox<'a> {
         self
     }
 
-    /// Can return to default with some user interaction.
-    pub fn default_settable(mut self) -> Self {
-        self.default_settable = true;
-        self
-    }
-
     /// Block.
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
@@ -225,20 +201,11 @@ impl<'a> Checkbox<'a> {
         self
     }
 
-    /// Text for default value
-    pub fn default_str(mut self, str: Span<'a>) -> Self {
-        self.default_str = str;
-        self
-    }
-
     /// Length of the check
     fn check_len(&self) -> u16 {
         max(
-            max(
-                self.true_str.content.graphemes(true).count(),
-                self.false_str.content.graphemes(true).count(),
-            ),
-            self.default_str.content.graphemes(true).count(),
+            self.true_str.content.graphemes(true).count(),
+            self.false_str.content.graphemes(true).count(),
         ) as u16
     }
 
@@ -286,7 +253,6 @@ fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut C
         state.inner.height,
     );
 
-    state.default_settable = widget.default_settable;
     if let Some(checked) = widget.checked {
         state.checked = checked;
     }
@@ -310,9 +276,7 @@ fn render_ref(widget: &Checkbox<'_>, area: Rect, buf: &mut Buffer, state: &mut C
         }
     }
 
-    let cc = if state.default {
-        &widget.default_str
-    } else if state.checked {
+    let cc = if state.checked {
         &widget.true_str
     } else {
         &widget.false_str
@@ -328,9 +292,7 @@ impl Clone for CheckboxState {
             inner: self.inner,
             check_area: self.check_area,
             text_area: self.text_area,
-            default_settable: self.default_settable,
             checked: self.checked,
-            default: self.default,
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -345,9 +307,7 @@ impl Default for CheckboxState {
             inner: Default::default(),
             check_area: Default::default(),
             text_area: Default::default(),
-            default_settable: false,
             checked: false,
-            default: false,
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -384,16 +344,6 @@ impl CheckboxState {
         }
     }
 
-    /// Only changes the default flag.
-    pub fn set_default(&mut self, default: bool) {
-        self.default = default;
-    }
-
-    /// Default flag is set?
-    pub fn defaulted(&self) -> bool {
-        self.default
-    }
-
     /// Get the checked value, disregarding of the default state.
     pub fn checked(&self) -> bool {
         self.checked
@@ -401,7 +351,6 @@ impl CheckboxState {
 
     /// Set checked value. Always sets default to false.
     pub fn set_checked(&mut self, checked: bool) {
-        self.default = false;
         self.checked = checked;
     }
 
@@ -412,40 +361,14 @@ impl CheckboxState {
 
     /// Set checked value. Always sets default to false.
     pub fn set_value(&mut self, checked: bool) {
-        self.default = false;
         self.checked = checked;
-    }
-
-    /// Set an optional checked value. If the value is
-    /// None, default will be set.
-    pub fn set_checked_opt(&mut self, checked: Option<bool>) {
-        if let Some(checked) = checked {
-            self.default = false;
-            self.checked = checked;
-        } else {
-            self.default = true;
-            self.checked = false;
-        }
-    }
-
-    /// Get the value as optional bool.
-    pub fn value_opt(&self) -> Option<bool> {
-        if self.default {
-            None
-        } else {
-            Some(self.checked)
-        }
     }
 
     /// Flip the checkbox.
     /// If it was in default state it just switches off
     /// the default flag. Otherwise, it flips true/false.
     pub fn flip_checked(&mut self) {
-        if self.default {
-            self.default = false;
-        } else {
-            self.checked = !self.checked;
-        }
+        self.checked = !self.checked;
     }
 }
 
@@ -456,14 +379,6 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for CheckboxState {
                 ct_event!(keycode press Enter) | ct_event!(key press ' ') => {
                     self.flip_checked();
                     Outcome::Changed
-                }
-                ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
-                    if self.default_settable {
-                        self.set_default(true);
-                        Outcome::Changed
-                    } else {
-                        Outcome::Continue
-                    }
                 }
                 _ => Outcome::Continue,
             }
