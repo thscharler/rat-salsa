@@ -11,8 +11,8 @@
 use crate::edit::{Mode, TableEditor, TableEditorState};
 use crate::rowselection::RowSelection;
 use crate::textdata::Row;
-use crate::{Table, TableContext, TableData, TableSelection, TableState};
-use log::{debug, warn};
+use crate::{Table, TableContext, TableData, TableState};
+use log::warn;
 use rat_cursor::HasScreenCursor;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, try_flow, HandleEvent, Outcome, Regular};
