@@ -71,6 +71,7 @@ pub struct PopupStyle {
     pub non_exhaustive: NonExhaustive,
 }
 
+/// State for the PopupCore.
 #[derive(Debug)]
 pub struct PopupCoreState {
     /// Area for the widget.
@@ -134,15 +135,13 @@ impl<'a> PopupCore<'a> {
         Self::default()
     }
 
-    /// Placement of the popup widget.
-    /// See placement for the options.
+    /// Placement of the popup widget + the area of the main widget.
     pub fn ref_constraint(&self, constraint: PopupConstraint) -> &Self {
         self.constraint.set(constraint);
         self
     }
 
-    /// Placement of the popup widget.
-    /// See placement for the options.
+    /// Placement of the popup widget + the area of the main widget.
     pub fn constraint(self, constraint: PopupConstraint) -> Self {
         self.constraint.set(constraint);
         self

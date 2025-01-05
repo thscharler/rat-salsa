@@ -1,7 +1,7 @@
 //! Popup acts as a single widget, and takes part of the focus.
 
 use rat_event::{ct_event, HandleEvent, Popup, Regular};
-use rat_focus::{Focus, FocusAdapter, FocusBuilder, FocusFlag, HasFocus, Navigation};
+use rat_focus::{Focus, FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_popup::event::PopupOutcome;
 use rat_popup::{PopupConstraint, PopupCore, PopupCoreState};
 use ratatui::buffer::Buffer;
@@ -73,10 +73,7 @@ impl PopFocusBlueState {
 
     pub fn show(&mut self, placement: PopupConstraint, focus: &mut Focus) {
         self.placement = placement;
-        focus.focus(&FocusAdapter {
-            focus: self.focus.clone(),
-            ..Default::default()
-        });
+        focus.focus_flag(&self.focus);
     }
 
     pub fn hide(&mut self, focus: &mut Focus) {

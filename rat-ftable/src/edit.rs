@@ -32,8 +32,11 @@ pub trait TableEditor {
 
 /// Trait for the editor widget state
 pub trait TableEditorState: HasFocus {
+    /// Some external context.
     type Context<'a>: Clone;
+    /// Type of data.
     type Data: Clone;
+    /// Error type.
     type Err;
 
     /// Create default data.
@@ -54,6 +57,7 @@ pub trait TableEditorState: HasFocus {
     fn is_empty(&self) -> bool;
 
     /// Returns the currently focused column.
+    /// Used to scroll the column to fully visible.
     fn focused_col(&self) -> Option<usize>;
 }
 

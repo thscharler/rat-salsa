@@ -77,13 +77,13 @@ has happened.
 
 ### Widget events
 
-If the widgets has it's own FocusFlag, it will decide the
-appropriate event handling using this state. No external control
-needed.
+The widget can use its FocusFlag to decide the kind of event-handling
+it should do. There is usually a big difference between focused and
+not focused behaviour.
 
-If it doesn't you can use a [FocusAdapter] to keep track of the
-focus. Use that state to call the appropriate functions defined
-by the widget.
+If you are using some third party widget you can add a FocusFlag
+somewhere to your state and use that to control the third party
+widget. Or you may want to write a wrapper.
 
 ## Traits and Widgets
 

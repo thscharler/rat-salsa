@@ -244,16 +244,16 @@ impl Focus {
     ///
     /// Sets focus and gained but not lost.
     /// This can be used to prevent validation of the field.
-    pub fn focus_flag_no_lost(&self, flag: FocusFlag) {
+    pub fn focus_flag_no_lost(&self, flag: &FocusFlag) {
         focus_debug!(self.core.log, "focus no_lost {:?}", flag.name());
-        if self.core.is_widget(&flag) {
-            if let Some(n) = self.core.index_of(&flag) {
+        if self.core.is_widget(flag) {
+            if let Some(n) = self.core.index_of(flag) {
                 self.core.focus_idx(n, false);
                 focus_debug!(self.core.log, "    -> focused");
             } else {
                 focus_debug!(self.core.log, "    => widget not found");
             }
-        } else if self.core.is_container(&flag) {
+        } else if self.core.is_container(flag) {
             self.core.first_container(flag);
         } else {
             focus_debug!(self.core.log, "    => not a valid widget");
@@ -266,16 +266,16 @@ impl Focus {
     ///
     /// If this ends up with the same widget as
     /// before gained and lost flags are not set.
-    pub fn focus_flag(&self, flag: FocusFlag) {
+    pub fn focus_flag(&self, flag: &FocusFlag) {
         focus_debug!(self.core.log, "focus {:?}", flag.name());
-        if self.core.is_widget(&flag) {
-            if let Some(n) = self.core.index_of(&flag) {
+        if self.core.is_widget(flag) {
+            if let Some(n) = self.core.index_of(flag) {
                 self.core.focus_idx(n, true);
                 focus_debug!(self.core.log, "    -> focused");
             } else {
                 focus_debug!(self.core.log, "    => widget not found");
             }
-        } else if self.core.is_container(&flag) {
+        } else if self.core.is_container(flag) {
             self.core.first_container(flag);
         } else {
             focus_debug!(self.core.log, "    => not a valid widget");
@@ -359,7 +359,7 @@ impl Focus {
         );
         let flag = container.focus();
         if self.core.is_container(&flag) {
-            self.core.first_container(flag);
+            self.core.first_container(&flag);
         } else {
             focus_debug!(self.core.log, "    -> not a container");
         }
@@ -504,6 +504,35 @@ mod core {
             }
         }
 
+        /// Shortcut for building the focus for a container
+        /// that implements [HasFocus]().
+        ///
+        /// This creates a fresh Focus.
+        ///
+        /// __See__
+        /// Use [rebuild](FocusBuilder::rebuild) if you want to ensure that widgets
+        /// that are no longer in the widget structure have their
+        /// focus flag reset properly. If you don't have
+        /// some logic to conditionally add widgets to the focus,
+        /// this function is probably fine.
+        pub fn for_container(container: &dyn HasFocus) -> Focus {
+            let mut b = FocusBuilder::new(None);
+            b.widget(container);
+            b.build()
+        }
+
+        /// Shortcut function for building the focus for a container
+        /// that implements [HasFocus]()
+        ///
+        /// This takes the old Focus and reuses most of its allocations.
+        /// It also ensures that any widgets no longer in the widget structure
+        /// have their focus-flags reset.
+        pub fn rebuild(container: &dyn HasFocus, old: Option<Focus>) -> Focus {
+            let mut b = FocusBuilder::new(old);
+            b.widget(container);
+            b.build()
+        }
+
         pub fn enable_log(self) -> Self {
             self.log.set(true);
             self
@@ -565,12 +594,13 @@ mod core {
         }
 
         /// Start a container widget. Must be matched with
-        /// the equivalent [end](Self::end).
+        /// the equivalent [end](Self::end). Uses focus(), area() and
+        /// z_area() of the given container. navigable() is
+        /// currently not used, just leave it at the default.
         ///
         /// __Attention__
         ///
-        /// If container_flag is None a dummy flag will be created and
-        /// returned. Use the returned value when calling [end](Self::end).
+        /// Use the returned value when calling [end](Self::end).
         ///
         /// __Panic__
         ///
@@ -627,9 +657,7 @@ mod core {
             container_flag
         }
 
-        /// Manually end a container widget.
-        ///
-        /// Use of [container](Self::container) is preferred.
+        /// End a container widget.
         pub fn end(&mut self, tag: FocusFlag) {
             focus_debug!(self.log, "end container {:?}", tag);
             assert!(self.container_ids.contains(&tag.focus_id()));
@@ -652,10 +680,10 @@ mod core {
             }
         }
 
-        /// Build the final focus.
+        /// Build the final Focus.
         ///
-        /// If old is given, all widgets/containers no longer in
-        /// the focus list are cleared().
+        /// If the old Focus has been set with new(), all widgets
+        /// that are no longer part of the focus will be cleared().
         pub fn build(mut self) -> Focus {
             // cleanup outcasts.
             for v in &self.last.focus_flags {
@@ -696,35 +724,6 @@ mod core {
                     containers: self.containers,
                 },
             }
-        }
-
-        /// Shortcut for building the focus for a container
-        /// that implements [HasFocus]().
-        ///
-        /// This creates a fresh Focus.
-        ///
-        /// __See__
-        /// Use [rebuild](FocusBuilder::rebuild) if you want to ensure that widgets
-        /// that are no longer in the widget structure have their
-        /// focus flag reset properly. If you don't have
-        /// some logic to conditionally add widgets to the focus,
-        /// this function is probably fine.
-        pub fn for_container(container: &dyn HasFocus) -> Focus {
-            let mut b = FocusBuilder::new(None);
-            b.widget(container);
-            b.build()
-        }
-
-        /// Shortcut function for building the focus for a container
-        /// that implements [HasFocus]()
-        ///
-        /// This takes the old Focus and reuses most of its allocations.
-        /// It also ensures that any widgets no longer in the widget structure
-        /// have their focus-flags reset.
-        pub fn rebuild(container: &dyn HasFocus, old: Option<Focus>) -> Focus {
-            let mut b = FocusBuilder::new(old);
-            b.widget(container);
-            b.build()
         }
     }
 
@@ -1053,9 +1052,9 @@ mod core {
         }
 
         /// Set the initial focus.
-        pub(super) fn first_container(&self, container: FocusFlag) {
+        pub(super) fn first_container(&self, container: &FocusFlag) {
             self.__start_change(true);
-            if let Some((_idx, range)) = self.container_index_of(&container) {
+            if let Some((_idx, range)) = self.container_index_of(container) {
                 if let Some(n) = self.first_navigable(range.start) {
                     if n < range.end {
                         focus_debug!(self.log, "    -> focus {:?}", self.focus_flags[n].name());

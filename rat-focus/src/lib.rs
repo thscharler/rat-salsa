@@ -293,36 +293,6 @@ impl FocusFlagCore {
     }
 }
 
-/// Adapter for widgets that don't use this library.
-///
-/// This can be constructed on the fly, if you have the necessary parts.
-/// You will at least need a FocusFlag stored parallel to the widget state.
-#[derive(Debug, Default)]
-pub struct FocusAdapter {
-    pub focus: FocusFlag,
-    pub area: Rect,
-    pub area_z: u16,
-    pub navigation: Navigation,
-}
-
-impl HasFocus for FocusAdapter {
-    fn focus(&self) -> FocusFlag {
-        self.focus.clone()
-    }
-
-    fn area(&self) -> Rect {
-        self.area
-    }
-
-    fn area_z(&self) -> u16 {
-        self.area_z
-    }
-
-    fn navigable(&self) -> Navigation {
-        self.navigation
-    }
-}
-
 /// Does a match on the state struct of a widget. If `widget_state.lost_focus()` is true
 /// the block is executed. This requires that `widget_state` implements [HasFocus],
 /// but that's the basic requirement for this whole crate.

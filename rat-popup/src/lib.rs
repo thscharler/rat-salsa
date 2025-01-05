@@ -45,7 +45,13 @@ pub mod event {
     }
 }
 
-/// Placement relative a target rect.
+/// Placement of the popup.
+///
+/// This enum is for use in a widget that then uses PopupCore
+/// internally. Expose Placement to the users of your widget
+/// to let them define a popup placement. Convert the Placement
+/// to a PopupConstraint internally when forwarding this
+/// to PopupCore.
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum Placement {
@@ -119,7 +125,16 @@ impl Placement {
     }
 }
 
-/// Placement relative a target rect.
+/// Placement relative to the widget area + the widget area.
+///
+/// The render() call for PopupCore will only use the size of
+/// the area given to the render call as the size of the popup.
+/// It will calculate the position of the popup given one of
+/// these constraints.
+///
+/// If you build a widget that uses a PopupCore internally you
+/// will rather use Placement as a parameter
+///
 #[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
 #[non_exhaustive]
 pub enum PopupConstraint {
