@@ -4,13 +4,13 @@
 //! ```rust no_run
 //! use rat_widget::slider::{Slider, SliderState};
 //! # use ratatui::layout::Rect;
-//! # use ratatui::prelude::*;;
+//! # use ratatui::prelude::*;
 //! #
 //! # let slider_area = Rect::ZERO;
 //! # let mut buf = Buffer::default();
 //!
 //! let mut state = SliderState::<u8>::new_range((0,255), 1);
-//! state.set_value(Some(42));
+//! state.set_value(42);
 //!
 //! Slider::new().render(slider_area, &mut buf, &mut state);
 //!
@@ -143,7 +143,7 @@ where
     pub long_step: Option<<T as RangeOp>::Step>,
 
     /// Value
-    pub value: Option<T>,
+    pub value: T,
 
     /// Current focus state.
     /// __read+write__
@@ -441,6 +441,16 @@ where
         state.inner = self.block.inner_if_some(area);
         state.direction = self.direction;
 
+        if let Some(range) = self.range {
+            state.range = range;
+        }
+        if let Some(step) = self.step {
+            state.step = step;
+        }
+        if let Some(long_step) = self.long_step {
+            state.long_step = Some(long_step);
+        }
+
         let inner = state.inner;
 
         match self.direction {
@@ -479,13 +489,9 @@ where
                     .width() as u16;
                 state.scale_len = track_len.saturating_sub(knob_width);
 
-                if let Some(value) = state.value {
-                    if let Some(knob_pos) = value.map_range(state.range, (0, state.scale_len)) {
-                        state.knob =
-                            Rect::new(state.track.x + knob_pos, inner.y, knob_width, inner.height)
-                    } else {
-                        state.knob = Rect::new(state.track.x, inner.y, 0, inner.height);
-                    }
+                if let Some(knob_pos) = state.value.map_range(state.range, (0, state.scale_len)) {
+                    state.knob =
+                        Rect::new(state.track.x + knob_pos, inner.y, knob_width, inner.height)
                 } else {
                     state.knob = Rect::new(state.track.x, inner.y, 0, inner.height);
                 }
@@ -515,12 +521,8 @@ where
 
                 state.scale_len = track_len.saturating_sub(1);
 
-                if let Some(value) = state.value {
-                    if let Some(knob_pos) = value.map_range(state.range, (0, state.scale_len)) {
-                        state.knob = Rect::new(inner.x, state.track.y + knob_pos, inner.width, 1)
-                    } else {
-                        state.knob = Rect::new(inner.x, state.track.y, inner.width, 0)
-                    }
+                if let Some(knob_pos) = state.value.map_range(state.range, (0, state.scale_len)) {
+                    state.knob = Rect::new(inner.x, state.track.y + knob_pos, inner.width, 1)
                 } else {
                     state.knob = Rect::new(inner.x, state.track.y, inner.width, 0)
                 }
@@ -741,7 +743,7 @@ macro_rules! slider_new {
                     range: (<$tt>::MIN, <$tt>::MAX),
                     step: 1,
                     long_step: None,
-                    value: None,
+                    value: Default::default(),
                     focus: Default::default(),
                     mouse: Default::default(),
                     non_exhaustive: NonExhaustive,
@@ -772,7 +774,7 @@ macro_rules! slider_new_f {
                     range: (<$tt>::MIN, <$tt>::MAX),
                     step: 1.,
                     long_step: None,
-                    value: None,
+                    value: Default::default(),
                     focus: Default::default(),
                     mouse: Default::default(),
                     non_exhaustive: NonExhaustive,
@@ -848,7 +850,7 @@ where
             range,
             step,
             long_step: None,
-            value: None,
+            value: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -856,14 +858,14 @@ where
     }
 
     /// Change the value.
-    pub fn set_value(&mut self, value: Option<T>) -> bool {
+    pub fn set_value(&mut self, value: T) -> bool {
         let old_value = self.value;
         self.value = value;
         old_value != value
     }
 
     /// Current value.
-    pub fn value(&self) -> Option<T> {
+    pub fn value(&self) -> T {
         self.value
     }
 
@@ -901,25 +903,22 @@ where
     #[allow(clippy::should_implement_trait)]
     pub fn next(&mut self) -> bool {
         let old_value = self.value;
-        let value = self.value.unwrap_or_default();
-        self.value = Some(value.add_clamp(self.step, self.range));
+        self.value = self.value.add_clamp(self.step, self.range);
         old_value != self.value
     }
 
     /// Previous value by one step.
     pub fn prev(&mut self) -> bool {
         let old_value = self.value;
-        let value = self.value.unwrap_or_default();
-        self.value = Some(value.sub_clamp(self.step, self.range));
+        self.value = self.value.sub_clamp(self.step, self.range);
         old_value != self.value
     }
 
     /// Next value by one major step.
     pub fn next_major(&mut self) -> bool {
         let old_value = self.value;
-        let value = self.value.unwrap_or_default();
         if let Some(long_step) = self.long_step {
-            self.value = Some(value.add_clamp(long_step, self.range));
+            self.value = self.value.add_clamp(long_step, self.range);
         }
         old_value != self.value
     }
@@ -927,9 +926,8 @@ where
     /// Previous value by one major step.
     pub fn prev_major(&mut self) -> bool {
         let old_value = self.value;
-        let value = self.value.unwrap_or_default();
         if let Some(long_step) = self.long_step {
-            self.value = Some(value.sub_clamp(long_step, self.range));
+            self.value = self.value.sub_clamp(long_step, self.range);
         }
         old_value != self.value
     }
@@ -941,10 +939,10 @@ where
             Direction::Horizontal => {
                 let x_pos = x.saturating_sub(self.track.x);
                 if x_pos >= self.track.width {
-                    self.value = Some(self.range.1);
+                    self.value = self.range.1;
                     true
                 } else if let Some(value) = x_pos.map_range((0, self.scale_len), self.range) {
-                    self.value = Some(value);
+                    self.value = value;
                     true
                 } else {
                     false
@@ -953,10 +951,10 @@ where
             Direction::Vertical => {
                 let y_pos = y.saturating_sub(self.track.y);
                 if y_pos >= self.track.height {
-                    self.value = Some(self.range.1);
+                    self.value = self.range.1;
                     true
                 } else if let Some(value) = y_pos.map_range((0, self.scale_len), self.range) {
-                    self.value = Some(value);
+                    self.value = value;
                     true
                 } else {
                     false
@@ -976,11 +974,11 @@ where
             match event {
                 ct_event!(keycode press CONTROL-Left)
                 | ct_event!(keycode press CONTROL-Up)
-                | ct_event!(keycode press Home) => self.set_value(Some(self.range.0)).into(),
+                | ct_event!(keycode press Home) => self.set_value(self.range.0).into(),
 
                 ct_event!(keycode press CONTROL-Right)
                 | ct_event!(keycode press CONTROL-Down)
-                | ct_event!(keycode press End) => self.set_value(Some(self.range.1)).into(),
+                | ct_event!(keycode press End) => self.set_value(self.range.1).into(),
 
                 ct_event!(keycode press Up)
                 | ct_event!(keycode press Left)
