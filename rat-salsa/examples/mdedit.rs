@@ -364,7 +364,7 @@ mod app {
     use rat_widget::event::{
         ct_event, try_flow, ConsumedEvent, Dialog, HandleEvent, MenuOutcome, Popup, Regular,
     };
-    use rat_widget::focus::{FocusBuilder, FocusContainer, HasFocus};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::layout::layout_middle;
     use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState, Separator};
     use rat_widget::msgdialog::MsgDialog;
@@ -539,9 +539,17 @@ mod app {
         }
     }
 
-    impl FocusContainer for MDAppState {
+    impl HasFocus for MDAppState {
         fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(&self.menu).container(&self.editor);
+            builder.widget(&self.menu).widget(&self.editor);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("don't use this")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("don't use this")
         }
     }
 
@@ -1091,7 +1099,7 @@ pub mod split_tab {
     use rat_salsa::timer::TimerDef;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{try_flow, ConsumedEvent, HandleEvent, Regular, TabbedOutcome};
-    use rat_widget::focus::{ContainerFlag, FocusBuilder, FocusContainer, HasFocus};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use rat_widget::tabbed::{TabType, Tabbed, TabbedState};
     use rat_widget::text::undo_buffer::UndoEntry;
@@ -1107,7 +1115,7 @@ pub mod split_tab {
 
     #[derive(Debug)]
     pub struct SplitTabState {
-        pub focus: ContainerFlag,
+        pub container: FocusFlag,
         pub splitter: SplitState,
         pub sel_split: Option<usize>,
         pub sel_tab: Option<usize>,
@@ -1118,7 +1126,7 @@ pub mod split_tab {
     impl Default for SplitTabState {
         fn default() -> Self {
             Self {
-                focus: ContainerFlag::named("split_tab"),
+                container: FocusFlag::named("split_tab"),
                 splitter: SplitState::named("splitter"),
                 sel_split: None,
                 sel_tab: None,
@@ -1207,8 +1215,9 @@ pub mod split_tab {
         }
     }
 
-    impl FocusContainer for SplitTabState {
+    impl HasFocus for SplitTabState {
         fn build(&self, builder: &mut FocusBuilder) {
+            let tag = builder.start(self);
             builder.widget(&self.splitter);
             for (idx_split, tabbed) in self.tabbed.iter().enumerate() {
                 builder.widget(&self.tabbed[idx_split]);
@@ -1216,10 +1225,15 @@ pub mod split_tab {
                     builder.widget(&self.tabs[idx_split][idx_tab]);
                 }
             }
+            builder.end(tag);
         }
 
-        fn container(&self) -> Option<ContainerFlag> {
-            Some(self.focus.clone())
+        fn focus(&self) -> FocusFlag {
+            self.container.clone()
+        }
+
+        fn area(&self) -> Rect {
+            Rect::default()
         }
     }
 
@@ -1503,7 +1517,7 @@ pub mod file_list {
     use anyhow::Error;
     use rat_salsa::{AppContext, AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusContainer, HasFocus};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::list::selection::RowSelection;
     use rat_widget::list::{List, ListState};
     use rat_widget::menu::{PopupConstraint, PopupMenu, PopupMenuState};
@@ -1520,6 +1534,7 @@ pub mod file_list {
 
     #[derive(Debug)]
     pub struct FileListState {
+        pub container: FocusFlag,
         pub files_dir: PathBuf,
         pub files: Vec<PathBuf>,
         pub file_list: ListState<RowSelection>,
@@ -1531,6 +1546,7 @@ pub mod file_list {
     impl Default for FileListState {
         fn default() -> Self {
             Self {
+                container: Default::default(),
                 files_dir: Default::default(),
                 files: vec![],
                 file_list: ListState::named("file_list"),
@@ -1589,9 +1605,15 @@ pub mod file_list {
         }
     }
 
-    impl FocusContainer for FileListState {
+    impl HasFocus for FileListState {
         fn build(&self, builder: &mut FocusBuilder) {
+            let tag = builder.start(self);
             builder.widget(&self.file_list);
+            builder.end(tag);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            self.container.clone()
         }
 
         fn area(&self) -> Rect {
@@ -1757,7 +1779,7 @@ pub mod mdedit {
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{ct_event, try_flow, ConsumedEvent, HandleEvent, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusContainer, HasFocus};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::splitter::{Split, SplitState, SplitType};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Rect};
@@ -1820,10 +1842,18 @@ pub mod mdedit {
         }
     }
 
-    impl FocusContainer for MDEditState {
+    impl HasFocus for MDEditState {
         fn build(&self, builder: &mut FocusBuilder) {
-            builder.container(&self.file_list);
-            builder.container(&self.split_tab);
+            builder.widget(&self.file_list);
+            builder.widget(&self.split_tab);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("not in use, silent container")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not in use, silent container")
         }
     }
 
@@ -2148,7 +2178,7 @@ pub mod mdedit {
                 self.split_files.show_split(0);
                 r = Control::Changed;
             }
-            if !self.file_list.is_container_focused() {
+            if !self.file_list.is_focused() {
                 ctx.focus().focus(&self.file_list.file_list);
                 r = Control::Changed;
             } else {

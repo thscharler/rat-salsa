@@ -234,7 +234,7 @@ pub mod minimal {
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{HandleEvent, MenuOutcome, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusContainer};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -278,9 +278,17 @@ pub mod minimal {
         }
     }
 
-    impl FocusContainer for MinimalState {
+    impl HasFocus for MinimalState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.menu);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("not in use, silent container")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not in use, silent container")
         }
     }
 

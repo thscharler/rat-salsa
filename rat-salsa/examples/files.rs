@@ -16,7 +16,7 @@ use rat_widget::event::{
     ct_event, try_flow, Dialog, DoubleClick, DoubleClickOutcome, HandleEvent, MenuOutcome, Outcome,
     Popup, ReadOnly, Regular,
 };
-use rat_widget::focus::{match_focus, FocusBuilder, FocusContainer, HasFocus};
+use rat_widget::focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_widget::list::selection::RowSelection;
 use rat_widget::menu::{MenuBuilder, MenuStructure, Menubar, MenubarState};
 use rat_widget::msgdialog::{MsgDialog, MsgDialogState};
@@ -996,7 +996,7 @@ impl FilesState {
     }
 }
 
-impl FocusContainer for FilesState {
+impl HasFocus for FilesState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder
             .widget(&self.w_split)
@@ -1004,6 +1004,14 @@ impl FocusContainer for FilesState {
             .widget(&self.w_files)
             .widget(&self.w_data)
             .widget(&self.w_menu);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not in use, silent container")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not in use, silent container")
     }
 }
 

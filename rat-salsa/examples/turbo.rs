@@ -262,7 +262,7 @@ pub mod turbo {
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{ct_event, try_flow, HandleEvent, MenuOutcome, Popup, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusContainer};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::menu::{
         MenuBuilder, MenuStructure, Menubar, MenubarState, PopupConstraint, PopupMenu,
         PopupMenuState,
@@ -519,9 +519,17 @@ pub mod turbo {
         }
     }
 
-    impl FocusContainer for TurboState {
+    impl HasFocus for TurboState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.menu);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("not in use, silent container")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("not in use, silent container")
         }
     }
 

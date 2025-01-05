@@ -377,7 +377,7 @@ pub mod life {
     use anyhow::Error;
     use rat_salsa::{AppState, AppWidget, Control};
     use rat_widget::event::{try_flow, HandleEvent, MenuOutcome, Regular};
-    use rat_widget::focus::{FocusBuilder, FocusContainer};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::menu::{MenuLine, MenuLineState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Layout, Rect};
@@ -456,9 +456,17 @@ pub mod life {
         }
     }
 
-    impl FocusContainer for LifeState {
+    impl HasFocus for LifeState {
         fn build(&self, builder: &mut FocusBuilder) {
             builder.widget(&self.menu);
+        }
+
+        fn focus(&self) -> FocusFlag {
+            unimplemented!("don't use this")
+        }
+
+        fn area(&self) -> Rect {
+            unimplemented!("don't use this")
         }
     }
 
