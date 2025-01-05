@@ -39,18 +39,6 @@ pub mod event {
 #[derive(Clone, Default)]
 pub struct FocusFlag(Rc<FocusFlagCore>);
 
-/// The same as FocusFlag, but distinct to mark the focus for
-/// a container.
-///
-/// This serves the purpose of
-///
-/// * summarizing the focus for the container. If any of the
-///     widgets of the container has the focus, the container
-///     itself has the focus.
-/// * identifying the container for some functions on Focus.
-#[derive(Clone, Default)]
-pub struct ContainerFlag(Rc<FocusFlagCore>);
-
 /// Equality for FocusFlag means pointer equality of the underlying
 /// Rc using Rc::ptr_eq.
 impl PartialEq for FocusFlag {
@@ -76,42 +64,6 @@ impl Display for FocusFlag {
 impl HasFocus for FocusFlag {
     fn focus(&self) -> FocusFlag {
         self.clone()
-    }
-
-    fn area(&self) -> Rect {
-        Rect::default()
-    }
-}
-
-/// Equality for ContainerFlag means pointer equality of the underlying
-/// Rc using Rc::ptr_eq.
-impl PartialEq for ContainerFlag {
-    fn eq(&self, other: &Self) -> bool {
-        Rc::ptr_eq(&self.0, &other.0)
-    }
-}
-
-impl Eq for ContainerFlag {}
-
-impl Hash for ContainerFlag {
-    fn hash<H: Hasher>(&self, state: &mut H) {
-        ptr::hash(Rc::as_ptr(&self.0), state);
-    }
-}
-
-impl Display for ContainerFlag {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "|{}|", self.0.name)
-    }
-}
-
-impl FocusContainer for ContainerFlag {
-    fn build(&self, _builder: &mut FocusBuilder) {
-        // no widgets
-    }
-
-    fn container(&self) -> Option<ContainerFlag> {
-        Some(self.clone())
     }
 
     fn area(&self) -> Rect {
@@ -222,77 +174,9 @@ pub trait HasFocus {
     }
 }
 
-/// Is this a container widget.
-pub trait FocusContainer {
-    /// Build the focus-structure for the container.
-    fn build(&self, builder: &mut FocusBuilder);
-
-    /// Returns the container-flag.
-    ///
-    /// Will be used to collect the state of all widgets in the container.
-    fn container(&self) -> Option<ContainerFlag> {
-        None
-    }
-
-    /// Area of the container for mouse-events.
-    fn area(&self) -> Rect {
-        Rect::default()
-    }
-
-    /// Z value for the area.
-    ///
-    /// When testing for mouse interactions the z-value is taken into
-    /// consideration too.
-    fn area_z(&self) -> u16 {
-        0
-    }
-
-    /// Focused?
-    fn is_container_focused(&self) -> bool {
-        if let Some(flag) = self.container() {
-            flag.get()
-        } else {
-            false
-        }
-    }
-
-    /// Just lost focus.
-    fn container_lost_focus(&self) -> bool {
-        if let Some(flag) = self.container() {
-            flag.lost()
-        } else {
-            false
-        }
-    }
-
-    /// Just gained focus.
-    fn container_gained_focus(&self) -> bool {
-        if let Some(flag) = self.container() {
-            flag.gained()
-        } else {
-            false
-        }
-    }
-}
-
-impl FocusContainer for () {
-    fn build(&self, _: &mut FocusBuilder) {}
-}
-
 impl Debug for FocusFlag {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("FocusFlag")
-            .field("name", &self.name())
-            .field("focus", &self.get())
-            .field("gained", &self.gained())
-            .field("lost", &self.lost())
-            .finish()
-    }
-}
-
-impl Debug for ContainerFlag {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ContainerFlag")
             .field("name", &self.name())
             .field("focus", &self.get())
             .field("gained", &self.gained())
@@ -310,66 +194,6 @@ impl FocusFlag {
     /// Return an identity value.
     fn focus_id(&self) -> usize {
         Rc::as_ptr(&self.0) as usize
-    }
-
-    /// Create a named flag.
-    pub fn named(name: &str) -> Self {
-        Self(Rc::new(FocusFlagCore::named(name)))
-    }
-
-    /// Has the focus.
-    #[inline]
-    pub fn get(&self) -> bool {
-        self.0.focus.get()
-    }
-
-    /// Set the focus.
-    #[inline]
-    pub fn set(&self, focus: bool) {
-        self.0.focus.set(focus);
-    }
-
-    /// Get the field-name.
-    #[inline]
-    pub fn name(&self) -> &str {
-        self.0.name.as_ref()
-    }
-
-    /// Just lost the focus.
-    #[inline]
-    pub fn lost(&self) -> bool {
-        self.0.lost.get()
-    }
-
-    #[inline]
-    pub fn set_lost(&self, lost: bool) {
-        self.0.lost.set(lost);
-    }
-
-    /// Just gained the focus.
-    #[inline]
-    pub fn gained(&self) -> bool {
-        self.0.gained.get()
-    }
-
-    #[inline]
-    pub fn set_gained(&self, gained: bool) {
-        self.0.gained.set(gained);
-    }
-
-    /// Reset all flags to false.
-    #[inline]
-    pub fn clear(&self) {
-        self.0.focus.set(false);
-        self.0.lost.set(false);
-        self.0.gained.set(false);
-    }
-}
-
-impl ContainerFlag {
-    /// Create a default flag.
-    pub fn new() -> Self {
-        Self::default()
     }
 
     /// Create a named flag.
@@ -464,57 +288,6 @@ impl HasFocus for FocusAdapter {
 
     fn navigable(&self) -> Navigation {
         self.navigation
-    }
-}
-
-/// Adapter for widgets that don't use this library.
-///
-/// This can be constructed on the fly, if you have the necessary parts.
-/// You will at least need a ContainerFlag stored parallel to the widget state.
-pub struct ContainerAdapter<'a> {
-    pub container: ContainerFlag,
-    pub build_fn: &'a dyn Fn(&mut FocusBuilder),
-    pub area: Rect,
-    pub area_z: u16,
-}
-
-impl Debug for ContainerAdapter<'_> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("ContainerAdapter")
-            .field("container", &self.container)
-            .field("build_fn", &"..dyn..")
-            .field("area", &self.area)
-            .field("area_z", &self.area_z)
-            .finish()
-    }
-}
-
-impl Default for ContainerAdapter<'_> {
-    fn default() -> Self {
-        Self {
-            build_fn: &|_builder| {},
-            container: Default::default(),
-            area: Default::default(),
-            area_z: 0,
-        }
-    }
-}
-
-impl FocusContainer for ContainerAdapter<'_> {
-    fn build(&self, builder: &mut FocusBuilder) {
-        (self.build_fn)(builder);
-    }
-
-    fn container(&self) -> Option<ContainerFlag> {
-        Some(self.container.clone())
-    }
-
-    fn area(&self) -> Rect {
-        self.area
-    }
-
-    fn area_z(&self) -> u16 {
-        self.area_z
     }
 }
 

@@ -77,9 +77,9 @@ fn repaint_input(
 
 fn focus_input(state: &mut State) -> Focus {
     let mut fb = FocusBuilder::default();
-    fb.container(&state.sub1)
-        .container(&state.sub3)
-        .container(&state.sub4);
+    fb.widget(&state.sub1)
+        .widget(&state.sub3)
+        .widget(&state.sub4);
     fb.build()
 }
 
@@ -102,7 +102,7 @@ pub mod substratum2 {
     use crate::mini_salsa::theme::THEME;
     use crate::substratum1::{Substratum, SubstratumState};
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-    use rat_focus::{ContainerFlag, FocusBuilder, FocusContainer};
+    use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Style, Widget};
@@ -126,7 +126,7 @@ pub mod substratum2 {
 
     #[derive(Debug, Default)]
     pub struct Substratum2State {
-        pub container_focus: ContainerFlag,
+        pub container_focus: FocusFlag,
         pub area: Rect,
         pub stratum1: SubstratumState,
         pub stratum2: SubstratumState,
@@ -135,7 +135,7 @@ pub mod substratum2 {
     impl Substratum2State {
         pub fn named(name: &str) -> Self {
             Self {
-                container_focus: ContainerFlag::named(name),
+                container_focus: FocusFlag::named(name),
                 area: Default::default(),
                 stratum1: SubstratumState::named(format!("{}.1", name).as_str()),
                 stratum2: SubstratumState::named(format!("{}.2", name).as_str()),
@@ -175,9 +175,9 @@ pub mod substratum2 {
 
     impl Substratum2State {
         pub fn screen_cursor(&self) -> Option<(u16, u16)> {
-            if self.stratum1.is_container_focused() {
+            if self.stratum1.is_focused() {
                 self.stratum1.screen_cursor()
-            } else if self.stratum2.is_container_focused() {
+            } else if self.stratum2.is_focused() {
                 self.stratum2.screen_cursor()
             } else {
                 None
@@ -185,14 +185,16 @@ pub mod substratum2 {
         }
     }
 
-    impl FocusContainer for Substratum2State {
+    impl HasFocus for Substratum2State {
         fn build(&self, builder: &mut FocusBuilder) {
-            builder.container(&self.stratum1);
-            builder.container(&self.stratum2);
+            let tag = builder.start(self);
+            builder.widget(&self.stratum1);
+            builder.widget(&self.stratum2);
+            builder.end(tag);
         }
 
-        fn container(&self) -> Option<ContainerFlag> {
-            Some(self.container_focus.clone())
+        fn focus(&self) -> FocusFlag {
+            self.container_focus.clone()
         }
 
         fn area(&self) -> Rect {
@@ -214,7 +216,7 @@ pub mod substratum1 {
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-    use rat_focus::{ContainerFlag, FocusBuilder, FocusContainer, HasFocus};
+    use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
@@ -240,7 +242,7 @@ pub mod substratum1 {
 
     #[derive(Debug, Default)]
     pub struct SubstratumState {
-        pub container_focus: ContainerFlag,
+        pub container_focus: FocusFlag,
         pub area: Rect,
         pub input1: TextInputFState,
         pub input2: TextInputFState,
@@ -251,7 +253,7 @@ pub mod substratum1 {
     impl SubstratumState {
         pub fn named(name: &str) -> Self {
             Self {
-                container_focus: ContainerFlag::named(name),
+                container_focus: FocusFlag::named(name),
                 area: Default::default(),
                 input1: Default::default(),
                 input2: Default::default(),
@@ -334,17 +336,19 @@ pub mod substratum1 {
         }
     }
 
-    impl FocusContainer for SubstratumState {
+    impl HasFocus for SubstratumState {
         fn build(&self, builder: &mut FocusBuilder) {
+            let tag = builder.start(self);
             builder
                 .widget(&self.input1)
                 .widget(&self.input2)
                 .widget(&self.input3)
                 .widget(&self.input4);
+            builder.end(tag);
         }
 
-        fn container(&self) -> Option<ContainerFlag> {
-            Some(self.container_focus.clone())
+        fn focus(&self) -> FocusFlag {
+            self.container_focus.clone()
         }
 
         fn area(&self) -> Rect {

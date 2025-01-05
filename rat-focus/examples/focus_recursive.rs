@@ -85,10 +85,10 @@ fn repaint_input(
 
 fn focus_input(state: &mut State) -> Focus {
     let mut fb = FocusBuilder::default();
-    fb.container(&state.sub1)
-        .container(&state.sub2)
-        .container(&state.sub3)
-        .container(&state.sub4);
+    fb.widget(&state.sub1)
+        .widget(&state.sub2)
+        .widget(&state.sub3)
+        .widget(&state.sub4);
     fb.build()
 }
 
@@ -113,7 +113,7 @@ pub mod substratum1 {
     use crate::mini_salsa::layout_grid;
     use crate::mini_salsa::theme::THEME;
     use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-    use rat_focus::{ContainerFlag, FocusBuilder, FocusContainer, HasFocus};
+    use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Layout, Rect};
     use ratatui::prelude::{BlockExt, Span, StatefulWidget, Style};
@@ -139,7 +139,7 @@ pub mod substratum1 {
 
     #[derive(Debug, Default)]
     pub struct SubstratumState {
-        pub container_focus: ContainerFlag,
+        pub container_focus: FocusFlag,
         pub area: Rect,
         pub input1: TextInputFState,
         pub input2: TextInputFState,
@@ -219,17 +219,19 @@ pub mod substratum1 {
         }
     }
 
-    impl FocusContainer for SubstratumState {
+    impl HasFocus for SubstratumState {
         fn build(&self, builder: &mut FocusBuilder) {
+            let tag = builder.start(self);
             builder
                 .widget(&self.input1)
                 .widget(&self.input2)
                 .widget(&self.input3)
                 .widget(&self.input4);
+            builder.end(tag);
         }
 
-        fn container(&self) -> Option<ContainerFlag> {
-            Some(self.container_focus.clone())
+        fn focus(&self) -> FocusFlag {
+            self.container_focus.clone()
         }
 
         fn area(&self) -> Rect {
