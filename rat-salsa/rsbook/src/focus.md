@@ -1,4 +1,3 @@
-
 # Focus
 
 The struct [Focus][refFocus] can do all the focus handling for
@@ -10,11 +9,11 @@ in AppContext.
 ## Usage
 
 ```rust
-    if self.w_split.is_focused() {
-        ctx.focus().next();
-    } else {
-        ctx.focus().focus(&self.w_split);
-    }
+    if self .w_split.is_focused() {
+ctx.focus().next();
+} else {
+ctx.focus().focus( & self.w_split);
+}
 ```
 
 Just some example: This queries some widget state whether it
@@ -26,38 +25,36 @@ focus to the same widget.
 or two.
 
 * [HasFocus][refHasFocus]:
-  
-  This trait is for single widgets.
-  
-  It's main functions are focus() and area().
-  
+
+  This trait is used both for simple widgets and for containers.
+
+    * Widgets
+
+  The main functions are focus() and area().
+
   focus() returns a clone of a [FocusFlag][refFocusFlag] that
   is part of the widgets state. It has a hidden `Rc<>`, so this
   is fine.
-  
+
   > The flag is close to the widget, so it's always there when
   > you need it. As an Rc it can be used elsewhere too, say
   > Focus.
-  
+
   area() returns the widgets current screen area. Which is used
   for mouse focus.
-  
-* [FocusContainer][refFocusContainer]
-  
-  The second trait is for container widgets.
-  
-  It's main function is build().
-  
-  `build(&mut FocusBuilder)` gets a
-  [FocusBuilder][refFocusBuilder] and collects all widgets and
-  nested containers in the preferred focus order.
-  
+
+    * Containers
+
+  Containers use the build() function of the trait to add
+  their component widgets.
+
 ## AppState
 
 In your application you construct the current Focus for each
 event.
 
 This is necessary as
+
 - the application state might have changed
 - the terminal might have been resized
 
@@ -68,7 +65,7 @@ and
 - there is room for optimizations later.
 
 ```rust
-    ctx.focus = Some(FocusBuilder::for_container(&self.app));
+    ctx.focus = Some(FocusBuilder::for_container( & self .app));
 ```
 
 If you have a AppWidget that `HasFocus` you can simply use
@@ -81,8 +78,8 @@ Focus implements HandleEvent, so event handling is simple.
 
 ```rust
     let f = Control::from(
-        ctx.focus_mut().handle(event, Regular)
-    );
+ctx.focus_mut().handle(event, Regular)
+);
 ```
 
 `Regular` event-handling for focus is
@@ -95,18 +92,18 @@ Focus is independent from rat-salsa, so it returns Outcome
 instead of Control, thus the conversion.
 
 > _Complications_
-> 
+>
 > `handle` returns Outcome::Changed when the focus switches to a
 > new widget and everything has to be rendered. On the other hand
 > the focused widget might want to use the same mouse click that
 > switched the focus to do something else.
-> 
+>
 > We end up with two results we need to return from the event
 > handler.
 
 ```rust
     let f = Control::from(ctx.focus_mut().handle(event, Regular));
-    let r = self.app.crossterm(event, ctx)?;
+let r = self .app.crossterm(event, ctx) ?;
 ```
 
 > Here `Ord` comes to the rescue. The values of Control are
@@ -124,9 +121,10 @@ Or you can just return a second result to the event-loop using
 
 ```rust
     let f = ctx.focus_mut().handle(event, Regular);
-    ctx.queue(f);
+ctx.queue(f);
 ```    
-and be done with it. 
+
+and be done with it.
 
 
 [refFocusContainer]: https://docs.rs/rat-focus/latest/rat_focus/trait.FocusContainer.html

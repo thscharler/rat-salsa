@@ -127,6 +127,38 @@ pub enum Navigation {
 }
 
 /// Trait for a widget that has a focus flag.
+///
+/// When used for a widget implement
+/// - focus()
+/// - area()
+/// and optionally
+/// - area_z() and navigable()
+///
+/// When used for a container widget implement
+/// - build()
+/// ```rust ignore
+///     fn build(&self, builder: &mut FocusBuilder) {
+///         let tag = builder.start(self);
+///         builder.widget(&self.component_a);
+///         builder.widget(&self.component_b);
+///         builder.end(tag);
+///     }
+/// ```
+/// Creates a container with an identity.
+///
+/// Or just
+/// ```rust ignore
+///     fn build(&self, builder: &mut FocusBuilder) {
+///         builder.widget(&self.component_a);
+///         builder.widget(&self.component_b);
+///     }
+/// ```
+/// for an anonymous container.
+///
+/// focus(), area() and area_z() are only used for the first
+/// case. navigable() is ignored for containers, leave it at
+/// the default.
+///
 pub trait HasFocus {
     /// Build the focus-structure for the container.
     fn build(&self, builder: &mut FocusBuilder) {

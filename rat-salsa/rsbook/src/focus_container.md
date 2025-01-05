@@ -3,55 +3,74 @@
 Container widgets are just widgets with some inner structure
 they want to expose.
 
-For a container widget implement FocusContainer instead of HasFocus.
+They, too, implement HasFocus, but their main function is build()
+instead of just defining the focus()-flag and area().
 
-```rust
-pub trait FocusContainer {
-    // Required method
-    fn build(&self, builder: &mut FocusBuilder);
+## With identity
 
-    // Provided methods
-    fn container(&self) -> Option<ContainerFlag> { ... }
-    fn area(&self) -> Rect { ... }
-    fn area_z(&self) -> u16 { ... }
-    fn is_container_focused(&self) -> bool { ... }
-    fn container_lost_focus(&self) -> bool { ... }
-    fn container_gained_focus(&self) -> bool { ... }
+The container widget can have a FocusFlag of its own.
+
+```rust ignore
+impl HasFocus for FooWidget {
+    fn build(&self, builder: &mut FocusBuilder) {
+        let tag = builder.start(self);
+        builder.widget(&self.component_a);
+        builder.widget(&self.component_b);
+        builder.end(tag);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        self.focus.clone()
+    }
+
+    fn area(&self) -> Rect {
+        self.area
+    }
 }
 ```
 
-* build()
-  
-  This is called to construct the focus recursively.
-  Use FocusBuilder::widget() to add a single widget, or
-  FocusBuilder::container() to add a container widget.
-  
-  That's it.
-  
-* container()
-  
-  The container widget may want to know if any of the contained
-  widgets has a focus. If container() returns a ContainerFlag it
-  will be set to a summary of the widgets it contains.
-  
-  The container-flag can also be used to focus the first widget
-  for a container with Focus::focus_container().
-  
-  And the container-flag is used to remove/update/replace the
-  widgets of a container.
-  
-* area()
-  
-  If area() returns a value than the first widget in the
-  container is focused if you click on that area.
-  
-* area_z()
-  
-  When stacking areas above another a z-value helps with mouse
-  focus.
-  
-* is_container_focused(), container_lost_focus(),
-  container_gained_focus()
-  
-  For application code; uses the container flag.
-  
+If it does so,
+
+- focusing the container sets the focus to the first widget in the container.
+- mouse-click in the area does the same.
+- the container-flag will be a summary of the component flags.
+  If any component has the focus, the container will have its focus-flag set too.
+
+- Other functions of Focus will differentiate between Widgets and Containers too.
+
+Containers can be used to update the Focus structure after creation.
+There are Focus::update_container(), remove_container() and replace_container()
+that take containers and change the internal structure. As the Focus is
+rebuilt regularly this is rarely needed.
+
+There can be state changes that
+will change Focus the next time it is rebuilt. But with the same state
+change you already want to act upon the new future structure. e.g.
+when changing the selected tab. Focus on tabs is created for the visible
+tab only, and with the tab change the focus should be transferred to
+the first widget on the newly visible tab.
+
+## Anonymous
+
+A container widget can be just a bunch of components.
+
+```rust ignore
+impl HasFocus for FooWidget {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.widget(&self.component_a);
+        builder.widget(&self.component_b);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not in use");
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not in use");
+    }
+}
+```
+
+This just adds the widgets to the overall focus. focus(), area() and area_z()
+will not be used. navigable() is not used for containers anyway.
+ 

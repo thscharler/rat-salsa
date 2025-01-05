@@ -47,8 +47,7 @@ a given mouse event.
 
 * build()
 
-  Like FocusContainer there is a build method. For most widgets
-  the default implementation will suffice.
+  For most widgets the default implementation will suffice.
 
   But if you have a complex widget with inner structures,
   you can implement this to set up your focus requirements.

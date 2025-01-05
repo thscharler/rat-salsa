@@ -89,33 +89,78 @@ by the widget.
 
 # HasFocus
 
-[HasFocus] is the interface for single widgets.
+[HasFocus] is the main interface for focus.
 
-It is implemented for the widget state struct and provides access
-to
+## Widgets
 
-- focus()     - FocusFlag
-- area()      - Rendered area.
-- area_z()    - Extended area info.
-- navigable() - Control flag.
+Simple widgets implement at least the first two of these functions.
 
-The widget can then use the FocusFlag for rendering and
-event-handling as it sees fit.
+- focus() - Return a clone of FocusFlag. There is a Rc inside,
+  so this is a cheap clone.
+- area() - Rendered area. This is used for mouse interaction.
+- area_z() - When there are overlapping areas an extra z-value
+  can be provided to find the top widget.
+- navigable() - A control flag indicating __how__ the widget interacts
+  with focus.
 
-# FocusContainer
+There is also a build() function, but for simple widgets the default impl
+should be fine.
 
-[FocusContainer] is the interface for container widgets.
+## Widgets as Containers
 
-This is used to recursively add widgets for focus handling.
+When a widget contains other widgets it can also implement HasFocus.
 
-- build()     - Uses the FocusBuilder to construct the current
-  widget structure.
-- container() - Optional. Similar to FocusFlag, identifies the
-  container and collects the states of the contained widgets.
-- area()      - Optional. Area for the whole container. Used for mouse
-  events too.
-- area_z()    - Optional. Area z-value for the whole container. Used
-  for mouse events.
+The primary function then is
+
+- build() - This is called with the current FocusBuilder and
+  can add the separate component widgets of the container.
+
+  You can set a FocusFlag marking the whole container.
+  Such a FocusFlag collects the status of each component widget.
+  That means the FocusFlag of the container 'is_focused' when any
+  of the components 'is_focused'.
+
+  If you manually call Focus::focus() for a container, the first
+  component widget will get the focus. Similarly, if you click anywhere
+  in the provided area the first component widget will get the focus.
+
+build() with container focus
+
+```rust ignore
+impl HasFocus for FooWidget {
+    fn build(&self, builder: &mut FocusBuilder) {
+        let tag = builder.start(self);
+        builder.widget(&self.component_a);
+        builder.widget(&self.component_b);
+        builder.end(tag);
+    }
+}
+```
+
+This will use focus(), area() and area_z() to define the container.
+
+If you don't need this, just leave it out
+
+```rust ignore
+impl HasFocus for FooWidget {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.widget(&self.component_a);
+        builder.widget(&self.component_b);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("not in use");
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("not in use");
+    }
+}
+```
+
+This will just add more widgets to the focus. The focus() and area() functions
+are still technically necessary, but are not used.
+
 
 [refHandleEvent]: https://docs.rs/rat-event/latest/rat_event/trait.HandleEvent.html
 
