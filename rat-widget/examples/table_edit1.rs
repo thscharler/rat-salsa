@@ -9,7 +9,7 @@ use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{match_focus, ContainerFlag, FocusBuilder, FocusContainer};
+use rat_focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::edit::table::{EditableTable, EditableTableState};
 use rat_ftable::edit::{TableEditor, TableEditorState};
 use rat_ftable::event::EditOutcome;
@@ -75,7 +75,7 @@ fn main() -> Result<(), Error> {
     )
 }
 
-#[derive(Debug, Default)]
+#[derive(Debug, Clone, Default)]
 struct Sample {
     pub(crate) text: String,
     pub(crate) num1: f32,
@@ -95,7 +95,7 @@ struct State {
     text2: TextInputState,
 }
 
-impl FocusContainer for State {
+impl HasFocus for State {
     fn build(&self, builder: &mut FocusBuilder) {
         builder
             .widget(&self.text1)
@@ -103,12 +103,12 @@ impl FocusContainer for State {
             .widget(&self.text2);
     }
 
-    fn container(&self) -> Option<ContainerFlag> {
-        None
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("silent container")
     }
 
     fn area(&self) -> Rect {
-        Rect::default()
+        unimplemented!("silent container")
     }
 }
 
@@ -398,15 +398,15 @@ impl SampleEditorState {
 }
 
 impl TableEditorState for SampleEditorState {
-    type Context<'a> = MiniSalsaState;
+    type Context<'a> = &'a MiniSalsaState;
     type Data = Sample;
     type Err = Error;
 
-    fn new_edit_data(&self, _ctx: &Self::Context<'_>) -> Result<Self::Data, Self::Err> {
+    fn new_edit_data(&self, _ctx: Self::Context<'_>) -> Result<Self::Data, Self::Err> {
         Ok(Sample::default())
     }
 
-    fn set_edit_data(&mut self, data: &Sample, _ctx: &Self::Context<'_>) -> Result<(), Error> {
+    fn set_edit_data(&mut self, data: &Sample, _ctx: Self::Context<'_>) -> Result<(), Error> {
         self.text.set_text(&data.text);
         self.num1.set_value(data.num1)?;
         self.num2.set_value(data.num2)?;
@@ -414,7 +414,7 @@ impl TableEditorState for SampleEditorState {
         Ok(())
     }
 
-    fn get_edit_data(&mut self, data: &mut Sample, _ctx: &Self::Context<'_>) -> Result<(), Error> {
+    fn get_edit_data(&mut self, data: &mut Sample, _ctx: Self::Context<'_>) -> Result<(), Error> {
         if self.text.text().is_empty() {
             return Err(anyhow!("invalid"));
         }
@@ -441,13 +441,21 @@ impl TableEditorState for SampleEditorState {
     }
 }
 
-impl FocusContainer for SampleEditorState {
+impl HasFocus for SampleEditorState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder
             .widget(&self.text)
             .widget(&self.num1)
             .widget(&self.num2)
             .widget(&self.num3);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("silent container")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("silent container")
     }
 }
 

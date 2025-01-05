@@ -9,7 +9,7 @@ use format_num_pattern::{NumberFmtError, NumberFormat, NumberSymbols};
 use pure_rust_locales::Locale;
 use pure_rust_locales::Locale::de_AT_euro;
 use rat_event::{ConsumedEvent, HandleEvent, Outcome, Regular};
-use rat_focus::{match_focus, FocusBuilder, FocusContainer};
+use rat_focus::{match_focus, FocusBuilder, FocusFlag, HasFocus};
 use rat_ftable::edit::vec::{EditableTableVec, EditableTableVecState, TableDataVec};
 use rat_ftable::edit::{TableEditor, TableEditorState};
 use rat_ftable::textdata::{Cell, Row};
@@ -56,7 +56,7 @@ fn main() -> Result<(), Error> {
         text2: Default::default(),
     };
 
-    state.table.editor_data = Rc::new(RefCell::new(
+    state.table.set_value(
         data::TINY_DATA
             .iter()
             .map(|v| Sample {
@@ -66,7 +66,7 @@ fn main() -> Result<(), Error> {
                 num3: rand::random(),
             })
             .collect(),
-    ));
+    );
     state.table.table.select(Some(0));
 
     run_ui(
@@ -96,12 +96,20 @@ struct State {
     text2: TextInputState,
 }
 
-impl FocusContainer for State {
+impl HasFocus for State {
     fn build(&self, builder: &mut FocusBuilder) {
         builder
             .widget(&self.text1)
             .widget(&self.table)
             .widget(&self.text2);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("silent container")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("silent container")
     }
 }
 
@@ -297,7 +305,7 @@ impl SampleEditorState {
 }
 
 impl TableEditorState for SampleEditorState {
-    type Context<'a> = MiniSalsaState;
+    type Context<'a> = &'a MiniSalsaState;
     type Data = Sample;
     type Err = Error;
 
@@ -345,13 +353,21 @@ impl TableEditorState for SampleEditorState {
     }
 }
 
-impl FocusContainer for SampleEditorState {
+impl HasFocus for SampleEditorState {
     fn build(&self, builder: &mut FocusBuilder) {
         builder
             .widget(&self.text)
             .widget(&self.num1)
             .widget(&self.num2)
             .widget(&self.num3);
+    }
+
+    fn focus(&self) -> FocusFlag {
+        unimplemented!("silent container")
+    }
+
+    fn area(&self) -> Rect {
+        unimplemented!("silent container")
     }
 }
 
@@ -365,8 +381,14 @@ impl HasScreenCursor for SampleEditorState {
     }
 }
 
-impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SampleEditorState {
-    fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
+impl HandleEvent<crossterm::event::Event, &MiniSalsaState, Result<Outcome, Error>>
+    for SampleEditorState
+{
+    fn handle(
+        &mut self,
+        event: &crossterm::event::Event,
+        _ctx: &MiniSalsaState,
+    ) -> Result<Outcome, Error> {
         let f = FocusBuilder::for_container(self).handle(event, Regular);
 
         let mut r = Outcome::Continue;
@@ -375,6 +397,6 @@ impl HandleEvent<crossterm::event::Event, Regular, Outcome> for SampleEditorStat
         r = r.or_else(|| self.num2.handle(event, Regular).into());
         r = r.or_else(|| self.num3.handle(event, Regular).into());
 
-        max(f, r)
+        Ok(max(f, r))
     }
 }

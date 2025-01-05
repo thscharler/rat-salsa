@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::clipper::ClipperStyle;
 use crate::layout::GenericLayout;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{ContainerFlag, FocusContainer};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
@@ -93,7 +93,7 @@ where
 
     /// This widget has no focus of its own, but this flag
     /// can be used to set a container state.
-    pub container: ContainerFlag,
+    pub container: FocusFlag,
 
     /// For the buffer to survive render()
     buffer: Option<Buffer>,
@@ -628,10 +628,27 @@ where
             layout: self.layout.clone(),
             hscroll: self.hscroll.clone(),
             vscroll: self.vscroll.clone(),
-            container: ContainerFlag::named(self.container.name()),
+            container: FocusFlag::named(self.container.name()),
             buffer: None,
             non_exhaustive: NonExhaustive,
         }
+    }
+}
+
+impl<W> HasFocus for ClipperState<W>
+where
+    W: Eq + Clone + Hash,
+{
+    fn build(&self, _builder: &mut FocusBuilder) {
+        // not a widget
+    }
+
+    fn focus(&self) -> FocusFlag {
+        self.container.clone()
+    }
+
+    fn area(&self) -> Rect {
+        self.area
     }
 }
 
@@ -766,7 +783,7 @@ where
     W: Eq + Clone + Hash,
 {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: Regular) -> Outcome {
-        let r = if self.container.is_container_focused() {
+        let r = if self.container.is_focused() {
             match event {
                 ct_event!(keycode press ALT-PageUp) => {
                     self.scroll_up(self.vscroll.page_len()).into()

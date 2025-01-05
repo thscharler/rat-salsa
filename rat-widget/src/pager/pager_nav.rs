@@ -4,7 +4,7 @@ use crate::pager::PagerStyle;
 use crate::util::revert_style;
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Regular};
-use rat_focus::{ContainerFlag, FocusContainer};
+use rat_focus::{FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect, Size};
 use ratatui::style::Style;
@@ -48,7 +48,7 @@ pub struct PageNavigationState {
 
     /// This widget has no focus of its own, but this flag
     /// can be used to set a container state.
-    pub container: ContainerFlag,
+    pub container: FocusFlag,
 
     /// Mouse
     pub mouse: MouseFlagsN,
@@ -276,7 +276,7 @@ impl PageNavigationState {
 
 impl HandleEvent<crossterm::event::Event, Regular, PagerOutcome> for PageNavigationState {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> PagerOutcome {
-        let r = if self.container.is_container_focused() {
+        let r = if self.container.is_focused() {
             match event {
                 ct_event!(keycode press ALT-PageUp) => {
                     if self.prev_page() {

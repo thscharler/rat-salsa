@@ -89,7 +89,6 @@ fn repaint_input(
         .auto_item("Chili")
         .auto_item("Äpfel 🍎")
         .auto_item("...")
-        .default_key(0)
         .popup_boundary(l1[0])
         .into_widgets();
     w.render(lg[1][1], frame.buffer_mut(), &mut state.c1);
@@ -99,7 +98,6 @@ fn repaint_input(
         .auto_item("wine")
         .auto_item("beer")
         .auto_item("water")
-        .default_key(0)
         .popup_boundary(l1[0])
         .into_widgets();
     w.render(lg[1][2], frame.buffer_mut(), &mut state.c2);

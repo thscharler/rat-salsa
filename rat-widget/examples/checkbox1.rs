@@ -25,7 +25,6 @@ fn main() -> Result<(), anyhow::Error> {
         menu: MenuLineState::named("menu"),
     };
     state.c2.set_value(true);
-    state.c2.set_default(true);
 
     run_ui(
         "choice1",
@@ -73,13 +72,11 @@ fn repaint_input(
 
     Checkbox::new()
         .text("Carrots 🥕")
-        .default_settable()
         .styles(THEME.checkbox_style())
         .render(lg[1][1], frame.buffer_mut(), &mut state.c1);
 
     Checkbox::new()
         .text("Potatoes 🥔\nTomatoes 🍅")
-        .default_settable()
         .styles(THEME.checkbox_style())
         .render(lg[1][2], frame.buffer_mut(), &mut state.c2);
 

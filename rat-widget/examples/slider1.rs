@@ -9,6 +9,7 @@ use rat_widget::event::Outcome;
 use rat_widget::range_op::RangeOp;
 use rat_widget::slider::{Slider, SliderState};
 use ratatui::layout::{Alignment, Constraint, Direction, Flex, Layout, Rect};
+use ratatui::style::{Color, Style};
 use ratatui::text::Span;
 use ratatui::widgets::{Block, BorderType, StatefulWidget, Widget};
 use ratatui::Frame;
@@ -24,15 +25,18 @@ fn main() -> Result<(), anyhow::Error> {
     let mut state = State {
         direction: Direction::Vertical,
         alignment: Alignment::Center,
-        v_width: 1,
+        v_width: 3,
         c1: SliderState::<u8>::new(),
         c2: SliderState::<EnumSlide>::new_range((EnumSlide::A, EnumSlide::K), 1),
+        r: SliderState::default(),
+        g: SliderState::default(),
+        b: SliderState::default(),
         menu: MenuLineState::named("menu"),
     };
-    state.c1.set_value(Some(0));
+    state.c1.set_value(0);
     state.c1.set_long_step(10);
 
-    state.c2.set_value(Some(EnumSlide::C));
+    state.c2.set_value(EnumSlide::C);
 
     run_ui(
         "slider1",
@@ -139,6 +143,11 @@ struct State {
 
     c1: SliderState<u8>,
     c2: SliderState<EnumSlide>,
+
+    r: SliderState<u8>,
+    g: SliderState<u8>,
+    b: SliderState<u8>,
+
     menu: MenuLineState,
 }
 
@@ -151,10 +160,11 @@ fn repaint_input(
 ) -> Result<(), anyhow::Error> {
     let l1 = Layout::vertical([Constraint::Fill(1), Constraint::Length(1)]).split(area);
 
-    let lg = layout_grid::<3, 3>(
+    let lg = layout_grid::<4, 3>(
         l1[0],
         Layout::horizontal([
             Constraint::Length(21), //
+            Constraint::Length(20),
             Constraint::Length(20),
             Constraint::Length(20),
         ])
@@ -192,7 +202,7 @@ fn repaint_input(
 
     let mut slider_area = lg[2][1];
     slider_area.height = 3;
-    let knob = format!("||{:?}||", state.c2.value.expect("some"));
+    let knob = format!("||{:?}||", state.c2.value);
     Slider::new()
         .styles(THEME.slider_style())
         .track_char("-")
@@ -203,6 +213,39 @@ fn repaint_input(
 
     Span::from(format!("{:?} of {:?}", state.c1.value, state.c1.range))
         .render(lg[0][1], frame.buffer_mut());
+
+    let mut slider_area = lg[3][1];
+    slider_area.height = 1;
+    let color = Color::Rgb(state.r.value(), state.g.value(), state.b.value());
+    Slider::new()
+        .styles(THEME.slider_style())
+        .style(Style::new().bg(color).fg(THEME.text_color(color)))
+        .direction(Direction::Horizontal)
+        .horizontal_knob("|")
+        .long_step(16)
+        .lower_bound(format!("R {:02x} ", state.r.value()))
+        .upper_bound("")
+        .render(slider_area, frame.buffer_mut(), &mut state.r);
+    slider_area.y += 1;
+    Slider::new()
+        .styles(THEME.slider_style())
+        .style(Style::new().bg(color).fg(THEME.text_color(color)))
+        .direction(Direction::Horizontal)
+        .horizontal_knob("|")
+        .long_step(16)
+        .lower_bound(format!("G {:02x} ", state.g.value()))
+        .upper_bound("")
+        .render(slider_area, frame.buffer_mut(), &mut state.g);
+    slider_area.y += 1;
+    Slider::new()
+        .styles(THEME.slider_style())
+        .style(Style::new().bg(color).fg(THEME.text_color(color)))
+        .direction(Direction::Horizontal)
+        .horizontal_knob("|")
+        .long_step(16)
+        .lower_bound(format!("B {:02x} ", state.b.value()))
+        .upper_bound("")
+        .render(slider_area, frame.buffer_mut(), &mut state.b);
 
     let menu1 = MenuLine::new()
         .title("~~~ swoosh ~~~")
@@ -218,6 +261,9 @@ fn focus(state: &mut State) -> Focus {
     fb.widget(&state.menu);
     fb.widget(&state.c1);
     fb.widget(&state.c2);
+    fb.widget(&state.r);
+    fb.widget(&state.g);
+    fb.widget(&state.b);
     let f = fb.build();
     f.enable_log();
     f
@@ -235,6 +281,9 @@ fn handle_input(
     let r = Outcome::Continue;
     let r = r.or_else(|| state.c1.handle(event, Regular));
     let r = r.or_else(|| state.c2.handle(event, Regular));
+    let r = r.or_else(|| state.r.handle(event, Regular));
+    let r = r.or_else(|| state.g.handle(event, Regular));
+    let r = r.or_else(|| state.b.handle(event, Regular));
 
     let r = r.or_else(|| match event {
         ct_event!(keycode press F(2)) => {

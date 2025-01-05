@@ -224,7 +224,7 @@ fn focus(state: &mut State) -> Focus {
     let mut fb = FocusBuilder::new(state.focus.take());
     fb.widget(&state.menu);
 
-    let tag = fb.start(Some(state.pager.container.clone()), Rect::default(), 0);
+    let tag = fb.start_container(Some(state.pager.container.clone()), Rect::default(), 0);
     for i in 0..state.hundred.len() {
         // Focus wants __all__ areas.
         fb.widget(&state.hundred[i]);
