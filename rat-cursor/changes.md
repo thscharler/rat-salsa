@@ -1,3 +1,7 @@
+# 1.2.0
+
+* add impl_screen_cursor! for quick impl
+
 # 1.1.1
 
 * moved all rat-crates to one repo

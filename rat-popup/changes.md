@@ -1,3 +1,7 @@
+# 0.28.5
+
+* fix: didn't behave correctly on overflow of boundary.
+
 # 0.28.4
 
 * moved all rat-crates to one repo

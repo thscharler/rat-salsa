@@ -1,6 +1,6 @@
 [package]
 name = "rat-theme"
-version = "0.27.4"
+version = "0.27.5"
 edition = "2021"
 authors = ["thscharler <thscharler@gmail.com>"]
 description = "ratatui widgets extended edition"
@@ -17,4 +17,4 @@ crossterm = "0.28"
 log = "0.4"
 map_range_int = "1.1.0"
 
-rat-widget = { version = "0.33", path = "../rat-widget" }
+rat-widget = { version = "0.34", path = "../rat-widget" }

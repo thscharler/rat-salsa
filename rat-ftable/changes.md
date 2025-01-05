@@ -1,3 +1,13 @@
+# 0.30.0
+
+* break: rename for clarity: Editor->TableEditor, EditorState->TableEditorState,
+  EditorData->TableDataVec,
+  EditVec->EditableTableVec,
+  EditTable->EditabledTable,
+* break: EditableTable+EditableTableVec: remove separate focus.
+  use selected_checked() everywhere. allow insert if table is empty.
+* feature: add selected_checked(). this provides a selection that stays in 0..rows
+
 # 0.29.2
 
 * moved all rat-crates to one repo

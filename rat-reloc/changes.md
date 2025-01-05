@@ -1,3 +1,7 @@
+# 1.1.0
+
+* add impl_relocatable_state! for quick impl
+
 # 1.0.1
 
 * moved all rat-crates to one repo

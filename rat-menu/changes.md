@@ -1,3 +1,7 @@
+# 0.31.3
+
+* update rat-focus
+
 # 0.31.2
 
 * moved all rat-crates to one repo

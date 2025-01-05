@@ -1,3 +1,7 @@
+# 0.30.2
+
+* update rat-widget
+
 # 0.30.1
 
 * moved all rat-crates to one repo

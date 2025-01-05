@@ -1,3 +1,12 @@
+# 0.34.0
+
+* break: Choice: remove default_key, replace with simple select(0).
+* break: Choice: change selection from optional to plain usize.
+* break: Slider: refactor: change from Option<T> to T. out of bounds is
+  handled differently. ease of use.
+* break: Checkbox: remove default-settable. too complicated.
+* fix: scrolling in Pager shouldn't consume event if nothing happened
+
 # 0.33.1
 
 * moved all rat-crates to one repo

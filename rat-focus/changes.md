@@ -1,3 +1,10 @@
+# 0.31.0
+
+* BREAK: Remove ContainerFlag and relatives.
+  Since the addition of HasFocus::build() this separate trait
+  has become more and more useless. And is now removed completely.
+* break: remove focus_container(). focus() does all the work.
+
 # 0.30.2
 
 * moved all rat-crates to one repo
