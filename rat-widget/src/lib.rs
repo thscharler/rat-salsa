@@ -60,7 +60,8 @@ pub mod text {
     pub use rat_text::undo_buffer;
     pub use rat_text::{
         impl_screen_cursor, ipos_type, screen_cursor, upos_type, Cursor, Glyph, Grapheme,
-        HasScreenCursor, Locale, TextError, TextPosition, TextRange, TextStyle,
+        HasScreenCursor, Locale, TextError, TextFocusGained, TextFocusLost, TextPosition,
+        TextRange, TextStyle,
     };
 }
 
