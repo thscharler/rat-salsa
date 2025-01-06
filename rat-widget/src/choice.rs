@@ -918,15 +918,12 @@ where
 
 impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for ChoiceState<T> {
     fn handle(&mut self, event: &crossterm::event::Event, _qualifier: Regular) -> Outcome {
-        // todo: here???
-        let r0 = if self.lost_focus() {
+        if self.lost_focus() {
             self.set_popup_active(false);
-            Outcome::Changed
-        } else {
-            Outcome::Continue
-        };
+            // focus change triggers the repaint.
+        }
 
-        let r1 = if self.is_focused() {
+        let r = if self.is_focused() {
             match event {
                 ct_event!(key press ' ') => {
                     self.flip_popup_active();
@@ -973,13 +970,13 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for Ch
             Outcome::Continue
         };
 
-        let r1 = if !r1.is_consumed() {
+        let r = if !r.is_consumed() {
             self.handle(event, MouseOnly)
         } else {
-            r1
+            r
         };
 
-        max(r0, r1)
+        r
     }
 }
 
