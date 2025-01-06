@@ -582,6 +582,20 @@ impl MaskedInputState {
     pub fn get_invalid(&self) -> bool {
         self.invalid
     }
+
+    /// The next edit operation will overwrite the current content
+    /// instead of adding text. Any move operations will cancel
+    /// this overwrite.
+    #[inline]
+    pub fn set_overwrite(&mut self, overwrite: bool) {
+        self.overwrite = overwrite;
+    }
+
+    /// Will the next edit operation overwrite the content?
+    #[inline]
+    pub fn overwrite(&self) -> bool {
+        self.overwrite
+    }
 }
 
 impl MaskedInputState {

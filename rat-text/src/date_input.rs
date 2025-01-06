@@ -7,7 +7,7 @@ use crate::clipboard::Clipboard;
 use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input_mask::{MaskedInput, MaskedInputState};
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{upos_type, HasScreenCursor, TextError, TextStyle};
+use crate::{upos_type, HasScreenCursor, TextError, TextFocusGained, TextFocusLost, TextStyle};
 use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use chrono::NaiveDate;
 use rat_event::{HandleEvent, MouseOnly, Regular};
@@ -98,6 +98,20 @@ impl<'a> DateInput<'a> {
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.widget = self.widget.block(block);
+        self
+    }
+
+    /// Focus behaviour
+    #[inline]
+    pub fn on_focus_gained(mut self, of: TextFocusGained) -> Self {
+        self.widget = self.widget.on_focus_gained(of);
+        self
+    }
+
+    /// Focus behaviour
+    #[inline]
+    pub fn on_focus_lost(mut self, of: TextFocusLost) -> Self {
+        self.widget = self.widget.on_focus_lost(of);
         self
     }
 }
@@ -324,6 +338,20 @@ impl DateInputState {
     #[inline]
     pub fn get_invalid(&self) -> bool {
         self.widget.invalid
+    }
+
+    /// The next edit operation will overwrite the current content
+    /// instead of adding text. Any move operations will cancel
+    /// this overwrite.
+    #[inline]
+    pub fn set_overwrite(&mut self, overwrite: bool) {
+        self.widget.overwrite = overwrite;
+    }
+
+    /// Will the next edit operation overwrite the content?
+    #[inline]
+    pub fn overwrite(&self) -> bool {
+        self.widget.overwrite
     }
 }
 
