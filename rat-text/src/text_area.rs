@@ -4,7 +4,7 @@
 //!
 
 use crate::_private::NonExhaustive;
-use crate::clipboard::{Clipboard, LocalClipboard};
+use crate::clipboard::{global_clipboard, Clipboard};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::grapheme::{Glyph, Grapheme};
 use crate::text_core::TextCore;
@@ -398,10 +398,7 @@ impl Default for TextAreaState {
             area: Default::default(),
             inner: Default::default(),
             mouse: Default::default(),
-            value: TextCore::new(
-                Some(Box::new(UndoVec::new(99))),
-                Some(Box::new(LocalClipboard::new())),
-            ),
+            value: TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard())),
             hscroll: Default::default(),
             non_exhaustive: NonExhaustive,
             vscroll: Default::default(),

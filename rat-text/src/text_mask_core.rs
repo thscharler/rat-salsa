@@ -1,4 +1,4 @@
-use crate::clipboard::{Clipboard, LocalClipboard};
+use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
 use crate::grapheme::GlyphIter;
 use crate::text_mask_core::mask::{EditDirection, Mask, MaskToken};
@@ -27,7 +27,7 @@ impl Default for MaskedCore {
     fn default() -> Self {
         let mut value = TextCore::new(
             Some(Box::new(UndoVec::new(99))),
-            Some(Box::new(LocalClipboard::new())),
+            Some(Box::new(global_clipboard())),
         );
         value.set_glyph_line_break(false);
 

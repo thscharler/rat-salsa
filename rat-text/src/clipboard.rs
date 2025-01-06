@@ -3,10 +3,10 @@
 //!
 
 use crate::TextError;
-use dyn_clone::DynClone;
+use dyn_clone::{clone_box, DynClone};
 use std::error::Error;
 use std::fmt::{Debug, Display, Formatter};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, OnceLock};
 
 #[derive(Debug)]
 pub struct ClipboardError;
@@ -32,6 +32,52 @@ pub trait Clipboard: DynClone + Debug {
 
     /// Set text from the clipboard.
     fn set_string(&self, s: &str) -> Result<(), ClipboardError>;
+}
+
+static GLOBAL_CLIPBOARD: OnceLock<StaticClipboard> = OnceLock::new();
+
+/// Get a Clone of the global default clipboard.
+pub fn global_clipboard() -> Box<dyn Clipboard> {
+    let c = GLOBAL_CLIPBOARD.get_or_init(|| StaticClipboard::default());
+    Box::new(c.clone())
+}
+
+/// Clipboard that can be set as a static.
+/// It can replace the actual clipboard implementation at a later time.
+/// Initializes with a LocalClipboard.
+#[derive(Debug, Clone)]
+pub struct StaticClipboard {
+    clip: Arc<Mutex<Box<dyn Clipboard + Send>>>,
+}
+
+impl Default for StaticClipboard {
+    fn default() -> Self {
+        Self {
+            clip: Arc::new(Mutex::new(Box::new(LocalClipboard::new()))),
+        }
+    }
+}
+
+impl StaticClipboard {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Replace the static clipboard with the given one.
+    pub fn replace(&self, clipboard: impl Clipboard + Send + 'static) {
+        let mut clip = self.clip.lock().expect("clipboard-lock");
+        *clip = Box::new(clipboard);
+    }
+}
+
+impl Clipboard for StaticClipboard {
+    fn get_string(&self) -> Result<String, ClipboardError> {
+        self.clip.lock().expect("clipboard-lock").get_string()
+    }
+
+    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+        self.clip.lock().expect("clipboard-lock").set_string(s)
+    }
 }
 
 /// Local clipboard.
@@ -63,5 +109,21 @@ impl Clipboard for LocalClipboard {
             }
             Err(_) => Err(ClipboardError),
         }
+    }
+}
+
+impl Clone for Box<dyn Clipboard> {
+    fn clone(&self) -> Self {
+        clone_box(self.as_ref())
+    }
+}
+
+impl Clipboard for Box<dyn Clipboard> {
+    fn get_string(&self) -> Result<String, ClipboardError> {
+        self.as_ref().get_string()
+    }
+
+    fn set_string(&self, s: &str) -> Result<(), ClipboardError> {
+        self.as_ref().set_string(s)
     }
 }

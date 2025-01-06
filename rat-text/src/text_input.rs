@@ -14,7 +14,7 @@
 //! the mouse behaviour.
 //!
 use crate::_private::NonExhaustive;
-use crate::clipboard::{Clipboard, LocalClipboard};
+use crate::clipboard::{global_clipboard, Clipboard};
 use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
@@ -317,10 +317,7 @@ impl Clone for TextInputState {
 
 impl Default for TextInputState {
     fn default() -> Self {
-        let mut value = TextCore::new(
-            Some(Box::new(UndoVec::new(99))),
-            Some(Box::new(LocalClipboard::new())),
-        );
+        let mut value = TextCore::new(Some(Box::new(UndoVec::new(99))), Some(global_clipboard()));
         value.set_glyph_line_break(false);
 
         Self {
