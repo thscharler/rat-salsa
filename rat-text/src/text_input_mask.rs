@@ -75,7 +75,10 @@ use crate::event::{ReadOnly, TextOutcome};
 use crate::text_input::TextInputState;
 use crate::text_mask_core::MaskedCore;
 use crate::undo_buffer::{UndoBuffer, UndoEntry};
-use crate::{ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextStyle};
+use crate::{
+    ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextFocusGained,
+    TextFocusLost, TextStyle,
+};
 use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
@@ -108,6 +111,8 @@ pub struct MaskedInput<'a> {
     select_style: Option<Style>,
     invalid_style: Option<Style>,
     text_style: Vec<Style>,
+    on_focus_gained: TextFocusGained,
+    on_focus_lost: TextFocusLost,
 }
 
 /// State & event-handling.
@@ -132,6 +137,15 @@ pub struct MaskedInputState {
     /// Display as invalid.
     /// __read+write__
     pub invalid: bool,
+    /// The next user edit clears the text for doing any edit.
+    /// It will reset this flag. Other interactions may reset this flag too.
+    pub overwrite: bool,
+    /// Focus behaviour.
+    /// __read only__
+    pub on_focus_gained: TextFocusGained,
+    /// Focus behaviour.
+    /// __read only__
+    pub on_focus_lost: TextFocusLost,
 
     /// Current focus state.
     /// __read+write__
@@ -182,9 +196,16 @@ impl<'a> MaskedInput<'a> {
         if styles.invalid.is_some() {
             self.invalid_style = styles.invalid;
         }
+        if let Some(of) = styles.on_focus_gained {
+            self.on_focus_gained = of;
+        }
+        if let Some(of) = styles.on_focus_lost {
+            self.on_focus_lost = of;
+        }
         if styles.block.is_some() {
             self.block = styles.block;
         }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -230,6 +251,21 @@ impl<'a> MaskedInput<'a> {
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
+        self
+    }
+
+    /// Focus behaviour
+    #[inline]
+    pub fn on_focus_gained(mut self, of: TextFocusGained) -> Self {
+        self.on_focus_gained = of;
+        self
+    }
+
+    /// Focus behaviour
+    #[inline]
+    pub fn on_focus_lost(mut self, of: TextFocusLost) -> Self {
+        self.on_focus_lost = of;
         self
     }
 }
@@ -260,6 +296,8 @@ fn render_ref(
 ) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
+    state.on_focus_gained = widget.on_focus_gained;
+    state.on_focus_lost = widget.on_focus_lost;
 
     widget.block.render(area, buf);
 
@@ -390,6 +428,9 @@ impl Clone for MaskedInputState {
             dark_offset: self.dark_offset,
             value: self.value.clone(),
             invalid: self.invalid,
+            overwrite: Default::default(),
+            on_focus_gained: Default::default(),
+            on_focus_lost: Default::default(),
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -402,10 +443,13 @@ impl Default for MaskedInputState {
         Self {
             area: Default::default(),
             inner: Default::default(),
-            offset: 0,
-            dark_offset: (0, 0),
+            offset: Default::default(),
+            dark_offset: Default::default(),
             value: Default::default(),
-            invalid: false,
+            invalid: Default::default(),
+            overwrite: Default::default(),
+            on_focus_gained: Default::default(),
+            on_focus_lost: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -1381,22 +1425,85 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
                 TextOutcome::Unchanged
             }
         }
+        fn overwrite(state: &mut MaskedInputState) {
+            if state.overwrite {
+                state.overwrite = false;
+                state.clear();
+            }
+        }
+        fn clear_overwrite(state: &mut MaskedInputState) {
+            state.overwrite = false;
+        }
+
+        // focus behaviour
+        if self.lost_focus() {
+            match self.on_focus_lost {
+                TextFocusLost::None => {}
+                TextFocusLost::Position0 => {
+                    self.set_default_cursor();
+                    self.scroll_cursor_to_visible();
+                    // repaint is triggered by focus-change
+                }
+            }
+        }
+        if self.gained_focus() {
+            match self.on_focus_gained {
+                TextFocusGained::None => {}
+                TextFocusGained::Overwrite => {
+                    self.overwrite = true;
+                }
+                TextFocusGained::SelectAll => {
+                    self.select_all();
+                    // repaint is triggered by focus-change
+                }
+            }
+        }
 
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => tc(self.insert_char(*c)),
-                ct_event!(keycode press Backspace) => tc(self.delete_prev_char()),
-                ct_event!(keycode press Delete) => tc(self.delete_next_char()),
+                | ct_event!(key press CONTROL_ALT-c) => {
+                    overwrite(self);
+                    tc(self.insert_char(*c))
+                }
+                ct_event!(keycode press Backspace) => {
+                    clear_overwrite(self);
+                    tc(self.delete_prev_char())
+                }
+                ct_event!(keycode press Delete) => {
+                    clear_overwrite(self);
+                    tc(self.delete_next_char())
+                }
                 ct_event!(keycode press CONTROL-Backspace)
-                | ct_event!(keycode press ALT-Backspace) => tc(self.delete_prev_section()),
-                ct_event!(keycode press CONTROL-Delete) => tc(self.delete_next_section()),
-                ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
-                ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
-                ct_event!(key press CONTROL-'d') => tc(self.clear()),
-                ct_event!(key press CONTROL-'z') => tc(self.undo()),
-                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.redo()),
+                | ct_event!(keycode press ALT-Backspace) => {
+                    clear_overwrite(self);
+                    tc(self.delete_prev_section())
+                }
+                ct_event!(keycode press CONTROL-Delete) => {
+                    clear_overwrite(self);
+                    tc(self.delete_next_section())
+                }
+                ct_event!(key press CONTROL-'x') => {
+                    clear_overwrite(self);
+                    tc(self.cut_to_clip())
+                }
+                ct_event!(key press CONTROL-'v') => {
+                    clear_overwrite(self);
+                    tc(self.paste_from_clip())
+                }
+                ct_event!(key press CONTROL-'d') => {
+                    clear_overwrite(self);
+                    tc(self.clear())
+                }
+                ct_event!(key press CONTROL-'z') => {
+                    clear_overwrite(self);
+                    tc(self.undo())
+                }
+                ct_event!(key press CONTROL_SHIFT-'Z') => {
+                    clear_overwrite(self);
+                    tc(self.redo())
+                }
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
@@ -1427,32 +1534,64 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for MaskedInputS
 
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
-        let mut r = if self.is_focused() {
-            // if self.focus.gained() {
-            //     self.set_default_cursor();
-            //     self.select_current_section();
-            // };
+        fn clear_overwrite(state: &mut MaskedInputState) {
+            state.overwrite = false;
+        }
 
+        let mut r = if self.is_focused() {
             match event {
-                ct_event!(keycode press Left) => self.move_left(false).into(),
-                ct_event!(keycode press Right) => self.move_right(false).into(),
-                ct_event!(keycode press CONTROL-Left) => self.move_to_prev_section(false).into(),
-                ct_event!(keycode press CONTROL-Right) => self.move_to_next_section(false).into(),
-                ct_event!(keycode press Home) => self.move_to_line_start(false).into(),
-                ct_event!(keycode press End) => self.move_to_line_end(false).into(),
-                ct_event!(keycode press SHIFT-Left) => self.move_left(true).into(),
-                ct_event!(keycode press SHIFT-Right) => self.move_right(true).into(),
+                ct_event!(keycode press Left) => {
+                    clear_overwrite(self);
+                    self.move_left(false).into()
+                }
+                ct_event!(keycode press Right) => {
+                    clear_overwrite(self);
+                    self.move_right(false).into()
+                }
+                ct_event!(keycode press CONTROL-Left) => {
+                    clear_overwrite(self);
+                    self.move_to_prev_section(false).into()
+                }
+                ct_event!(keycode press CONTROL-Right) => {
+                    clear_overwrite(self);
+                    self.move_to_next_section(false).into()
+                }
+                ct_event!(keycode press Home) => {
+                    clear_overwrite(self);
+                    self.move_to_line_start(false).into()
+                }
+                ct_event!(keycode press End) => {
+                    clear_overwrite(self);
+                    self.move_to_line_end(false).into()
+                }
+                ct_event!(keycode press SHIFT-Left) => {
+                    clear_overwrite(self);
+                    self.move_left(true).into()
+                }
+                ct_event!(keycode press SHIFT-Right) => {
+                    clear_overwrite(self);
+                    self.move_right(true).into()
+                }
                 ct_event!(keycode press CONTROL_SHIFT-Left) => {
+                    clear_overwrite(self);
                     self.move_to_prev_section(true).into()
                 }
                 ct_event!(keycode press CONTROL_SHIFT-Right) => {
+                    clear_overwrite(self);
                     self.move_to_next_section(true).into()
                 }
-                ct_event!(keycode press SHIFT-Home) => self.move_to_line_start(true).into(),
-                ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
+                ct_event!(keycode press SHIFT-Home) => {
+                    clear_overwrite(self);
+                    self.move_to_line_start(true).into()
+                }
+                ct_event!(keycode press SHIFT-End) => {
+                    clear_overwrite(self);
+                    self.move_to_line_end(true).into()
+                }
                 ct_event!(keycode press Tab) => {
                     // ignore tab from focus
                     if !self.focus.gained() {
+                        clear_overwrite(self);
                         self.select_next_section().into()
                     } else {
                         TextOutcome::Unchanged
@@ -1461,13 +1600,20 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
                 ct_event!(keycode press SHIFT-BackTab) => {
                     // ignore tab from focus
                     if !self.focus.gained() {
+                        clear_overwrite(self);
                         self.select_prev_section().into()
                     } else {
                         TextOutcome::Unchanged
                     }
                 }
-                ct_event!(key press CONTROL-'a') => self.select_all().into(),
-                ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
+                ct_event!(key press CONTROL-'a') => {
+                    clear_overwrite(self);
+                    self.select_all().into()
+                }
+                ct_event!(key press CONTROL-'c') => {
+                    clear_overwrite(self);
+                    self.copy_to_clip().into()
+                }
 
                 ct_event!(keycode release Left)
                 | ct_event!(keycode release Right)
@@ -1499,17 +1645,24 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for MaskedInput
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
+        fn clear_overwrite(state: &mut MaskedInputState) {
+            state.overwrite = false;
+        }
+
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 let c = (m.column as i16) - (self.inner.x as i16);
+                clear_overwrite(self);
                 self.set_screen_cursor(c, true).into()
             }
             ct_event!(mouse any for m) if self.mouse.drag2(self.inner, m, KeyModifiers::ALT) => {
                 let cx = m.column as i16 - self.inner.x as i16;
+                clear_overwrite(self);
                 self.set_screen_cursor_sections(cx, true).into()
             }
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
                 let tx = self.screen_to_col(m.column as i16 - self.inner.x as i16);
+                clear_overwrite(self);
                 if let Some(range) = self.value.section_range(tx) {
                     self.set_selection(range.start, range.end).into()
                 } else {
@@ -1523,6 +1676,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
                     TextOutcome::Unchanged
                 } else if self.inner.contains((*column, *row).into()) {
                     let c = (column - self.inner.x) as i16;
+                    clear_overwrite(self);
                     self.set_screen_cursor(c, false).into()
                 } else {
                     TextOutcome::Continue
@@ -1531,6 +1685,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
             ct_event!(mouse down CONTROL-Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
+                    clear_overwrite(self);
                     self.set_screen_cursor(cx, true).into()
                 } else {
                     TextOutcome::Continue
@@ -1539,6 +1694,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for MaskedInpu
             ct_event!(mouse down ALT-Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
+                    clear_overwrite(self);
                     self.set_screen_cursor_sections(cx, true).into()
                 } else {
                     TextOutcome::Continue

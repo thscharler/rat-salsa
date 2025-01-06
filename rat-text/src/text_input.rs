@@ -19,8 +19,8 @@ use crate::core::{TextCore, TextString};
 use crate::event::{ReadOnly, TextOutcome};
 use crate::undo_buffer::{UndoBuffer, UndoEntry, UndoVec};
 use crate::{
-    ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextPosition,
-    TextRange, TextStyle,
+    ipos_type, upos_type, Cursor, Glyph, Grapheme, HasScreenCursor, TextError, TextFocusGained,
+    TextFocusLost, TextPosition, TextRange, TextStyle,
 };
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
@@ -50,6 +50,9 @@ pub struct TextInput<'a> {
     focus_style: Option<Style>,
     select_style: Option<Style>,
     invalid_style: Option<Style>,
+    on_focus_gained: TextFocusGained,
+    on_focus_lost: TextFocusLost,
+    passwd: bool,
     text_style: Vec<Style>,
 }
 
@@ -75,6 +78,18 @@ pub struct TextInputState {
     /// Display as invalid.
     /// __read+write__
     pub invalid: bool,
+    /// Display as password.
+    /// __read only__
+    pub passwd: bool,
+    /// The next user edit clears the text for doing any edit.
+    /// It will reset this flag. Other interactions may reset this flag too.
+    pub overwrite: bool,
+    /// Focus behaviour.
+    /// __read only__
+    pub on_focus_gained: TextFocusGained,
+    /// Focus behaviour.
+    /// __read only__
+    pub on_focus_lost: TextFocusLost,
 
     /// Current focus state.
     /// __read+write__
@@ -117,9 +132,16 @@ impl<'a> TextInput<'a> {
         if styles.invalid.is_some() {
             self.invalid_style = styles.invalid;
         }
+        if let Some(of) = styles.on_focus_gained {
+            self.on_focus_gained = of;
+        }
+        if let Some(of) = styles.on_focus_lost {
+            self.on_focus_lost = of;
+        }
         if styles.block.is_some() {
             self.block = styles.block;
         }
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
@@ -165,10 +187,30 @@ impl<'a> TextInput<'a> {
     #[inline]
     pub fn block(mut self, block: Block<'a>) -> Self {
         self.block = Some(block);
+        self.block = self.block.map(|v| v.style(self.style));
         self
     }
 
-    // TODO: set base-style on block
+    /// Display as password field.
+    #[inline]
+    pub fn passwd(mut self) -> Self {
+        self.passwd = true;
+        self
+    }
+
+    /// Focus behaviour
+    #[inline]
+    pub fn on_focus_gained(mut self, of: TextFocusGained) -> Self {
+        self.on_focus_gained = of;
+        self
+    }
+
+    /// Focus behaviour
+    #[inline]
+    pub fn on_focus_lost(mut self, of: TextFocusLost) -> Self {
+        self.on_focus_lost = of;
+        self
+    }
 }
 
 #[cfg(feature = "unstable-widget-ref")]
@@ -191,6 +233,9 @@ impl StatefulWidget for TextInput<'_> {
 fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut TextInputState) {
     state.area = area;
     state.inner = widget.block.inner_if_some(area);
+    state.passwd = widget.passwd;
+    state.on_focus_gained = widget.on_focus_gained;
+    state.on_focus_lost = widget.on_focus_lost;
 
     widget.block.render(area, buf);
 
@@ -257,42 +302,77 @@ fn render_ref(widget: &TextInput<'_>, area: Rect, buf: &mut Buffer, state: &mut 
     let selection = state.selection();
     let mut styles = Vec::new();
 
-    let glyph_iter = state
-        .value
-        .glyphs(0..1, ox, inner.width)
-        .expect("valid_offset");
-    for g in glyph_iter {
-        if g.screen_width() > 0 {
-            let mut style = style;
-            styles.clear();
-            state
-                .value
-                .styles_at_page(show_range.clone(), g.text_bytes().start, &mut styles);
-            for style_nr in &styles {
-                if let Some(s) = widget.text_style.get(*style_nr) {
-                    style = style.patch(*s);
+    if widget.passwd {
+        // Render as passwd
+        let glyph_iter = state
+            .value
+            .glyphs(0..1, ox, inner.width)
+            .expect("valid_offset");
+        for g in glyph_iter {
+            if g.screen_width() > 0 {
+                let mut style = style;
+                styles.clear();
+                state
+                    .value
+                    .styles_at_page(show_range.clone(), g.text_bytes().start, &mut styles);
+                for style_nr in &styles {
+                    if let Some(s) = widget.text_style.get(*style_nr) {
+                        style = style.patch(*s);
+                    }
+                }
+                // selection
+                if selection.contains(&g.pos().x) {
+                    style = style.patch(select_style);
+                };
+
+                // relative screen-pos of the glyph
+                let screen_pos = g.screen_pos();
+
+                // render glyph
+                if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
+                    cell.set_symbol("*");
+                    cell.set_style(style);
                 }
             }
-            // selection
-            if selection.contains(&g.pos().x) {
-                style = style.patch(select_style);
-            };
+        }
+    } else {
+        let glyph_iter = state
+            .value
+            .glyphs(0..1, ox, inner.width)
+            .expect("valid_offset");
+        for g in glyph_iter {
+            if g.screen_width() > 0 {
+                let mut style = style;
+                styles.clear();
+                state
+                    .value
+                    .styles_at_page(show_range.clone(), g.text_bytes().start, &mut styles);
+                for style_nr in &styles {
+                    if let Some(s) = widget.text_style.get(*style_nr) {
+                        style = style.patch(*s);
+                    }
+                }
+                // selection
+                if selection.contains(&g.pos().x) {
+                    style = style.patch(select_style);
+                };
 
-            // relative screen-pos of the glyph
-            let screen_pos = g.screen_pos();
+                // relative screen-pos of the glyph
+                let screen_pos = g.screen_pos();
 
-            // render glyph
-            if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
-                cell.set_symbol(g.glyph());
-                cell.set_style(style);
-            }
-            // clear the reset of the cells to avoid interferences.
-            for d in 1..g.screen_width() {
-                if let Some(cell) =
-                    buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
-                {
-                    cell.reset();
+                // render glyph
+                if let Some(cell) = buf.cell_mut((inner.x + screen_pos.0, inner.y + screen_pos.1)) {
+                    cell.set_symbol(g.glyph());
                     cell.set_style(style);
+                }
+                // clear the reset of the cells to avoid interferences.
+                for d in 1..g.screen_width() {
+                    if let Some(cell) =
+                        buf.cell_mut((inner.x + screen_pos.0 + d, inner.y + screen_pos.1))
+                    {
+                        cell.reset();
+                        cell.set_style(style);
+                    }
                 }
             }
         }
@@ -308,6 +388,10 @@ impl Clone for TextInputState {
             dark_offset: self.dark_offset,
             value: self.value.clone(),
             invalid: self.invalid,
+            passwd: Default::default(),
+            overwrite: Default::default(),
+            on_focus_gained: Default::default(),
+            on_focus_lost: Default::default(),
             focus: FocusFlag::named(self.focus.name()),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -323,10 +407,14 @@ impl Default for TextInputState {
         Self {
             area: Default::default(),
             inner: Default::default(),
-            offset: 0,
-            dark_offset: (0, 0),
+            offset: Default::default(),
+            dark_offset: Default::default(),
             value,
-            invalid: false,
+            invalid: Default::default(),
+            passwd: Default::default(),
+            overwrite: Default::default(),
+            on_focus_gained: Default::default(),
+            on_focus_lost: Default::default(),
             focus: Default::default(),
             mouse: Default::default(),
             non_exhaustive: NonExhaustive,
@@ -391,6 +479,9 @@ impl TextInputState {
         let Some(clip) = self.value.clipboard() else {
             return false;
         };
+        if self.passwd {
+            return false;
+        }
 
         _ = clip.set_string(self.selected_text().as_ref());
         false
@@ -402,6 +493,9 @@ impl TextInputState {
         let Some(clip) = self.value.clipboard() else {
             return false;
         };
+        if self.passwd {
+            return false;
+        }
 
         match clip.set_string(self.selected_text().as_ref()) {
             Ok(_) => self.delete_range(self.selection()),
@@ -1279,30 +1373,93 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
                 TextOutcome::Unchanged
             }
         }
+        fn overwrite(state: &mut TextInputState) {
+            if state.overwrite {
+                state.overwrite = false;
+                state.clear();
+            }
+        }
+        fn clear_overwrite(state: &mut TextInputState) {
+            state.overwrite = false;
+        }
+
+        // focus behaviour
+        if self.lost_focus() {
+            match self.on_focus_lost {
+                TextFocusLost::None => {}
+                TextFocusLost::Position0 => {
+                    self.move_to_line_start(false);
+                    // repaint is triggered by focus-change
+                }
+            }
+        }
+        if self.gained_focus() {
+            match self.on_focus_gained {
+                TextFocusGained::None => {}
+                TextFocusGained::Overwrite => {
+                    self.overwrite = true;
+                }
+                TextFocusGained::SelectAll => {
+                    self.select_all();
+                    // repaint is triggered by focus-change
+                }
+            }
+        }
 
         let mut r = if self.is_focused() {
             match event {
                 ct_event!(key press c)
                 | ct_event!(key press SHIFT-c)
-                | ct_event!(key press CONTROL_ALT-c) => tc(self.insert_char(*c)),
+                | ct_event!(key press CONTROL_ALT-c) => {
+                    overwrite(self);
+                    tc(self.insert_char(*c))
+                }
                 ct_event!(keycode press Tab) => {
                     // ignore tab from focus
                     tc(if !self.focus.gained() {
+                        clear_overwrite(self);
                         self.insert_tab()
                     } else {
                         false
                     })
                 }
-                ct_event!(keycode press Backspace) => tc(self.delete_prev_char()),
-                ct_event!(keycode press Delete) => tc(self.delete_next_char()),
+                ct_event!(keycode press Backspace) => {
+                    clear_overwrite(self);
+                    tc(self.delete_prev_char())
+                }
+                ct_event!(keycode press Delete) => {
+                    clear_overwrite(self);
+                    tc(self.delete_next_char())
+                }
                 ct_event!(keycode press CONTROL-Backspace)
-                | ct_event!(keycode press ALT-Backspace) => tc(self.delete_prev_word()),
-                ct_event!(keycode press CONTROL-Delete) => tc(self.delete_next_word()),
-                ct_event!(key press CONTROL-'x') => tc(self.cut_to_clip()),
-                ct_event!(key press CONTROL-'v') => tc(self.paste_from_clip()),
-                ct_event!(key press CONTROL-'d') => tc(self.clear()),
-                ct_event!(key press CONTROL-'z') => tc(self.undo()),
-                ct_event!(key press CONTROL_SHIFT-'Z') => tc(self.redo()),
+                | ct_event!(keycode press ALT-Backspace) => {
+                    clear_overwrite(self);
+                    tc(self.delete_prev_word())
+                }
+                ct_event!(keycode press CONTROL-Delete) => {
+                    clear_overwrite(self);
+                    tc(self.delete_next_word())
+                }
+                ct_event!(key press CONTROL-'x') => {
+                    clear_overwrite(self);
+                    tc(self.cut_to_clip())
+                }
+                ct_event!(key press CONTROL-'v') => {
+                    overwrite(self);
+                    tc(self.paste_from_clip())
+                }
+                ct_event!(key press CONTROL-'d') => {
+                    clear_overwrite(self);
+                    tc(self.clear())
+                }
+                ct_event!(key press CONTROL-'z') => {
+                    clear_overwrite(self);
+                    tc(self.undo())
+                }
+                ct_event!(key press CONTROL_SHIFT-'Z') => {
+                    clear_overwrite(self);
+                    tc(self.redo())
+                }
 
                 ct_event!(key release _)
                 | ct_event!(key release SHIFT-_)
@@ -1334,24 +1491,76 @@ impl HandleEvent<crossterm::event::Event, Regular, TextOutcome> for TextInputSta
 
 impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: ReadOnly) -> TextOutcome {
+        fn clear_overwrite(state: &mut TextInputState) {
+            state.overwrite = false;
+        }
+
         let mut r = if self.is_focused() {
             match event {
-                ct_event!(keycode press Left) => self.move_left(false).into(),
-                ct_event!(keycode press Right) => self.move_right(false).into(),
-                ct_event!(keycode press CONTROL-Left) => self.move_to_prev_word(false).into(),
-                ct_event!(keycode press CONTROL-Right) => self.move_to_next_word(false).into(),
-                ct_event!(keycode press Home) => self.move_to_line_start(false).into(),
-                ct_event!(keycode press End) => self.move_to_line_end(false).into(),
-                ct_event!(keycode press SHIFT-Left) => self.move_left(true).into(),
-                ct_event!(keycode press SHIFT-Right) => self.move_right(true).into(),
-                ct_event!(keycode press CONTROL_SHIFT-Left) => self.move_to_prev_word(true).into(),
-                ct_event!(keycode press CONTROL_SHIFT-Right) => self.move_to_next_word(true).into(),
-                ct_event!(keycode press SHIFT-Home) => self.move_to_line_start(true).into(),
-                ct_event!(keycode press SHIFT-End) => self.move_to_line_end(true).into(),
-                ct_event!(keycode press ALT-Left) => self.scroll_left(1).into(),
-                ct_event!(keycode press ALT-Right) => self.scroll_right(1).into(),
-                ct_event!(key press CONTROL-'a') => self.select_all().into(),
-                ct_event!(key press CONTROL-'c') => self.copy_to_clip().into(),
+                ct_event!(keycode press Left) => {
+                    clear_overwrite(self);
+                    self.move_left(false).into()
+                }
+                ct_event!(keycode press Right) => {
+                    clear_overwrite(self);
+                    self.move_right(false).into()
+                }
+                ct_event!(keycode press CONTROL-Left) => {
+                    clear_overwrite(self);
+                    self.move_to_prev_word(false).into()
+                }
+                ct_event!(keycode press CONTROL-Right) => {
+                    clear_overwrite(self);
+                    self.move_to_next_word(false).into()
+                }
+                ct_event!(keycode press Home) => {
+                    clear_overwrite(self);
+                    self.move_to_line_start(false).into()
+                }
+                ct_event!(keycode press End) => {
+                    clear_overwrite(self);
+                    self.move_to_line_end(false).into()
+                }
+                ct_event!(keycode press SHIFT-Left) => {
+                    clear_overwrite(self);
+                    self.move_left(true).into()
+                }
+                ct_event!(keycode press SHIFT-Right) => {
+                    clear_overwrite(self);
+                    self.move_right(true).into()
+                }
+                ct_event!(keycode press CONTROL_SHIFT-Left) => {
+                    clear_overwrite(self);
+                    self.move_to_prev_word(true).into()
+                }
+                ct_event!(keycode press CONTROL_SHIFT-Right) => {
+                    clear_overwrite(self);
+                    self.move_to_next_word(true).into()
+                }
+                ct_event!(keycode press SHIFT-Home) => {
+                    clear_overwrite(self);
+                    self.move_to_line_start(true).into()
+                }
+                ct_event!(keycode press SHIFT-End) => {
+                    clear_overwrite(self);
+                    self.move_to_line_end(true).into()
+                }
+                ct_event!(keycode press ALT-Left) => {
+                    clear_overwrite(self);
+                    self.scroll_left(1).into()
+                }
+                ct_event!(keycode press ALT-Right) => {
+                    clear_overwrite(self);
+                    self.scroll_right(1).into()
+                }
+                ct_event!(key press CONTROL-'a') => {
+                    clear_overwrite(self);
+                    self.select_all().into()
+                }
+                ct_event!(key press CONTROL-'c') => {
+                    clear_overwrite(self);
+                    self.copy_to_clip().into()
+                }
 
                 ct_event!(keycode release Left)
                 | ct_event!(keycode release Right)
@@ -1383,19 +1592,26 @@ impl HandleEvent<crossterm::event::Event, ReadOnly, TextOutcome> for TextInputSt
 
 impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputState {
     fn handle(&mut self, event: &crossterm::event::Event, _keymap: MouseOnly) -> TextOutcome {
+        fn clear_overwrite(state: &mut TextInputState) {
+            state.overwrite = false;
+        }
+
         match event {
             ct_event!(mouse any for m) if self.mouse.drag(self.inner, m) => {
                 let c = (m.column as i16) - (self.inner.x as i16);
+                clear_overwrite(self);
                 self.set_screen_cursor(c, true).into()
             }
             ct_event!(mouse any for m) if self.mouse.drag2(self.inner, m, KeyModifiers::ALT) => {
                 let cx = m.column as i16 - self.inner.x as i16;
+                clear_overwrite(self);
                 self.set_screen_cursor_words(cx, true).into()
             }
             ct_event!(mouse any for m) if self.mouse.doubleclick(self.inner, m) => {
                 let tx = self.screen_to_col(m.column as i16 - self.inner.x as i16);
                 let start = self.word_start(tx);
                 let end = self.word_end(tx);
+                clear_overwrite(self);
                 self.set_selection(start, end).into()
             }
             ct_event!(mouse down Left for column,row) => {
@@ -1405,6 +1621,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
                     TextOutcome::Unchanged
                 } else if self.inner.contains((*column, *row).into()) {
                     let c = (column - self.inner.x) as i16;
+                    clear_overwrite(self);
                     self.set_screen_cursor(c, false).into()
                 } else {
                     TextOutcome::Continue
@@ -1413,6 +1630,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
             ct_event!(mouse down CONTROL-Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
+                    clear_overwrite(self);
                     self.set_screen_cursor(cx, true).into()
                 } else {
                     TextOutcome::Continue
@@ -1421,6 +1639,7 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, TextOutcome> for TextInputS
             ct_event!(mouse down ALT-Left for column,row) => {
                 if self.inner.contains((*column, *row).into()) {
                     let cx = (column - self.inner.x) as i16;
+                    clear_overwrite(self);
                     self.set_screen_cursor_words(cx, true).into()
                 } else {
                     TextOutcome::Continue

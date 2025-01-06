@@ -95,6 +95,28 @@ pub mod event {
     }
 }
 
+/// Behavior modifiers.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum TextFocusGained {
+    /// None
+    #[default]
+    None,
+    /// Flag for overwrite.
+    Overwrite,
+    /// Select all text.
+    SelectAll,
+}
+
+/// Behaviour modifiers.
+#[derive(Debug, Default, Clone, Copy, PartialEq, Eq)]
+pub enum TextFocusLost {
+    /// None
+    #[default]
+    None,
+    /// Sets the Position back to 0.
+    Position0,
+}
+
 /// Combined style for the widget.
 #[derive(Debug, Clone)]
 pub struct TextStyle {
@@ -102,6 +124,11 @@ pub struct TextStyle {
     pub focus: Option<Style>,
     pub select: Option<Style>,
     pub invalid: Option<Style>,
+
+    /// Focus behaviour.
+    pub on_focus_gained: Option<TextFocusGained>,
+    /// Focus behaviour.
+    pub on_focus_lost: Option<TextFocusLost>,
 
     pub scroll: Option<ScrollStyle>,
     pub block: Option<Block<'static>>,
@@ -116,6 +143,8 @@ impl Default for TextStyle {
             focus: None,
             select: None,
             invalid: None,
+            on_focus_gained: None,
+            on_focus_lost: None,
             scroll: None,
             block: None,
             non_exhaustive: NonExhaustive,
