@@ -924,8 +924,11 @@ impl MaskedCore {
             Mask::LetterDigitSpace => c.is_alphanumeric() || c == ' ',
             Mask::AnyChar => true,
             Mask::Separator(sep) => {
-                // todo: don't know better
-                if let Some(sepc) = sep.chars().next() {
+                // ',' and '.' match any separator.
+                if c == '.' || c == ',' {
+                    true
+                } else if let Some(sepc) = sep.chars().next() {
+                    // todo: don't know better
                     sepc == c
                 } else {
                     false
