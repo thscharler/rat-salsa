@@ -576,7 +576,7 @@ mod core {
             area_z: u16,
             navigable: Navigation,
         ) {
-            let duplicate = self.focus_ids.contains(&focus.focus_id());
+            let duplicate = self.focus_ids.contains(&focus.widget_id());
 
             // there can be a second entry for the same focus-flag
             // if it is only for mouse interactions.
@@ -586,7 +586,7 @@ mod core {
 
             focus_debug!(self.log, "widget {:?}", focus);
 
-            self.focus_ids.insert(focus.focus_id());
+            self.focus_ids.insert(focus.widget_id());
             self.focus_flags.push(focus);
             self.duplicate.push(duplicate);
             self.areas.push((area, self.z_base + area_z));
@@ -634,7 +634,7 @@ mod core {
         ) -> FocusFlag {
             // no duplicates allowed for containers.
             if let Some(container_flag) = &container_flag {
-                assert!(!self.container_ids.contains(&container_flag.focus_id()))
+                assert!(!self.container_ids.contains(&container_flag.widget_id()))
             }
             let container_flag = container_flag.unwrap_or_default();
 
@@ -643,7 +643,7 @@ mod core {
             self.z_base += area_z;
 
             let len = self.focus_flags.len();
-            self.container_ids.insert(container_flag.focus_id());
+            self.container_ids.insert(container_flag.widget_id());
             self.containers.push((
                 Container {
                     container_flag: container_flag.clone(),
@@ -660,7 +660,7 @@ mod core {
         /// End a container widget.
         pub fn end(&mut self, tag: FocusFlag) {
             focus_debug!(self.log, "end container {:?}", tag);
-            assert!(self.container_ids.contains(&tag.focus_id()));
+            assert!(self.container_ids.contains(&tag.widget_id()));
 
             for (c, r) in self.containers.iter_mut().rev() {
                 if c.container_flag != tag {
@@ -687,7 +687,7 @@ mod core {
         pub fn build(mut self) -> Focus {
             // cleanup outcasts.
             for v in &self.last.focus_flags {
-                if !self.focus_ids.contains(&v.focus_id()) {
+                if !self.focus_ids.contains(&v.widget_id()) {
                     v.clear();
                 }
             }
@@ -784,7 +784,7 @@ mod core {
 
         /// Is a widget?
         pub(super) fn is_widget(&self, focus_flag: &FocusFlag) -> bool {
-            self.focus_ids.contains(&focus_flag.focus_id())
+            self.focus_ids.contains(&focus_flag.widget_id())
         }
 
         /// Find the first occurrence of the given focus-flag.
@@ -798,7 +798,7 @@ mod core {
 
         /// Is a container
         pub(super) fn is_container(&self, focus_flag: &FocusFlag) -> bool {
-            self.container_ids.contains(&focus_flag.focus_id())
+            self.container_ids.contains(&focus_flag.widget_id())
         }
 
         /// Find the given container-flag in the list of sub-containers.
@@ -866,8 +866,8 @@ mod core {
             let focus_flags = self.focus_flags.drain(crange.clone()).collect::<Vec<_>>();
             let mut focus_ids = HashSet::<_, FxBuildHasher>::default();
             for f in focus_flags.iter() {
-                self.focus_ids.remove(&f.focus_id());
-                focus_ids.insert(f.focus_id());
+                self.focus_ids.remove(&f.widget_id());
+                focus_ids.insert(f.widget_id());
             }
             let duplicate = self.duplicate.drain(crange.clone()).collect::<Vec<_>>();
             let areas = self.areas.drain(crange.clone()).collect::<Vec<_>>();
@@ -883,8 +883,8 @@ mod core {
                 .retain(|(_, r)| !(r.start >= crange.start && r.end <= crange.end));
             let mut sub_container_ids: HashSet<usize, FxBuildHasher> = HashSet::default();
             for (sc, _) in sub_containers.iter() {
-                self.container_ids.remove(&sc.container_flag.focus_id());
-                sub_container_ids.insert(sc.container_flag.focus_id());
+                self.container_ids.remove(&sc.container_flag.widget_id());
+                sub_container_ids.insert(sc.container_flag.widget_id());
             }
 
             // adjust the remaining sub-containers

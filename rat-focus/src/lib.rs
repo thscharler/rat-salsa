@@ -224,7 +224,7 @@ impl FocusFlag {
     }
 
     /// Return an identity value.
-    fn focus_id(&self) -> usize {
+    pub fn widget_id(&self) -> usize {
         Rc::as_ptr(&self.0) as usize
     }
 
