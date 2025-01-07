@@ -1,7 +1,6 @@
 use crate::focus::core::FocusCore;
 use crate::{FocusFlag, HasFocus, Navigation};
 pub use core::FocusBuilder;
-use log::debug;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use ratatui::layout::Rect;
 use std::ops::Range;
