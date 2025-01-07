@@ -353,7 +353,7 @@ pub mod mask0 {
 pub mod show_scheme {
     use rat_theme::Scheme;
     use rat_widget::event::{HandleEvent, MouseOnly, Outcome, Regular};
-    use rat_widget::focus::{FocusFlag, HasFocus};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus};
     use rat_widget::reloc::{relocate_area, RelocatableState};
     use ratatui::buffer::Buffer;
     use ratatui::layout::{Constraint, Direction, Flex, Layout, Rect};
@@ -380,6 +380,10 @@ pub mod show_scheme {
     }
 
     impl HasFocus for ShowSchemeState {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.append_leaf(self);
+        }
+
         fn focus(&self) -> FocusFlag {
             self.focus.clone()
         }

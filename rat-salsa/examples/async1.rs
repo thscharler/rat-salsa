@@ -184,7 +184,7 @@ pub mod scenery {
 
     impl AppState<GlobalState, Async1Event, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(FocusBuilder::for_container(&self.async1));
+            ctx.focus = Some(FocusBuilder::build_for(&self.async1));
             self.async1.init(ctx)?;
             Ok(())
         }
@@ -218,7 +218,7 @@ pub mod scenery {
                     r
                 }
                 Async1Event::Rendered => {
-                    ctx.focus = Some(FocusBuilder::rebuild(&self.async1, ctx.focus.take()));
+                    ctx.focus = Some(FocusBuilder::rebuild_for(&self.async1, ctx.focus.take()));
                     Control::Continue
                 }
                 Async1Event::Message(s) => {

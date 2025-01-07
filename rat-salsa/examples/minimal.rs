@@ -166,7 +166,7 @@ pub mod scenery {
 
     impl AppState<GlobalState, MinimalEvent, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(FocusBuilder::for_container(&self.minimal));
+            ctx.focus = Some(FocusBuilder::build_for(&self.minimal));
             self.minimal.init(ctx)?;
             Ok(())
         }
@@ -200,7 +200,7 @@ pub mod scenery {
                     r
                 }
                 MinimalEvent::Rendered => {
-                    ctx.focus = Some(FocusBuilder::rebuild(&self.minimal, ctx.focus.take()));
+                    ctx.focus = Some(FocusBuilder::rebuild_for(&self.minimal, ctx.focus.take()));
                     Control::Continue
                 }
                 MinimalEvent::Message(s) => {

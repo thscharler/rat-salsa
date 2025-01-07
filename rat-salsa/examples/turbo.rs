@@ -192,7 +192,7 @@ pub mod app {
 
     impl AppState<GlobalState, TurboEvent, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(FocusBuilder::for_container(&self.turbo));
+            ctx.focus = Some(FocusBuilder::build_for(&self.turbo));
             self.turbo.init(ctx)?;
             ctx.g.status.status(0, "Ctrl-Q to quit.");
             Ok(())
@@ -223,7 +223,7 @@ pub mod app {
                     });
 
                     r = r.or_else(|| {
-                        ctx.focus = Some(FocusBuilder::rebuild(&self.turbo, ctx.focus.take()));
+                        ctx.focus = Some(FocusBuilder::rebuild_for(&self.turbo, ctx.focus.take()));
                         let f = ctx.focus_mut().handle(event, Regular);
                         ctx.queue(f);
                         Control::Continue

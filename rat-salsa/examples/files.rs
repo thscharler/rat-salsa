@@ -525,7 +525,7 @@ impl FilesState {
             }
         });
 
-        ctx.focus = Some(FocusBuilder::rebuild(self, ctx.focus.take()));
+        ctx.focus = Some(FocusBuilder::rebuild_for(self, ctx.focus.take()));
         let f = ctx.focus_mut().handle(event, Regular);
         ctx.queue(f);
 

@@ -295,7 +295,7 @@ pub mod app {
 
     impl AppState<GlobalState, LifeEvent, Error> for SceneryState {
         fn init(&mut self, ctx: &mut AppContext<'_>) -> Result<(), Error> {
-            ctx.focus = Some(FocusBuilder::for_container(&self.life));
+            ctx.focus = Some(FocusBuilder::build_for(&self.life));
             self.life.init(ctx)?;
             Ok(())
         }
@@ -358,7 +358,7 @@ pub mod app {
             });
 
             r = r.or_else(|| {
-                ctx.focus = Some(FocusBuilder::rebuild(&self.life, ctx.focus.take()));
+                ctx.focus = Some(FocusBuilder::rebuild_for(&self.life, ctx.focus.take()));
 
                 let f = ctx.focus_mut().handle(event, Regular);
                 ctx.queue(f);

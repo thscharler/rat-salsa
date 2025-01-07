@@ -231,7 +231,7 @@ mod root {
                 }
                 MDEvent::Rendered => {
                     // rebuild keyboard + mouse focus
-                    ctx.focus = Some(FocusBuilder::rebuild(&self.app, ctx.focus.take()));
+                    ctx.focus = Some(FocusBuilder::rebuild_for(&self.app, ctx.focus.take()));
                     Control::Continue
                 }
                 _ => Control::Continue,
@@ -541,7 +541,8 @@ mod app {
 
     impl HasFocus for MDAppState {
         fn build(&self, builder: &mut FocusBuilder) {
-            builder.widget(&self.menu).widget(&self.editor);
+            builder.widget(&self.menu);
+            builder.widget(&self.editor);
         }
 
         fn focus(&self) -> FocusFlag {
@@ -750,7 +751,7 @@ pub mod mdfile {
     use rat_salsa::timer::{TimerDef, TimerHandle};
     use rat_salsa::{AppState, AppWidget, Control, RenderContext};
     use rat_widget::event::{HandleEvent, TextOutcome};
-    use rat_widget::focus::{FocusFlag, HasFocus, Navigation};
+    use rat_widget::focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
     use rat_widget::line_number::{LineNumberState, LineNumbers};
     use rat_widget::scrolled::Scroll;
     use rat_widget::text::clipboard::{Clipboard, ClipboardError};
@@ -903,6 +904,10 @@ pub mod mdfile {
     }
 
     impl HasFocus for MDFileState {
+        fn build(&self, builder: &mut FocusBuilder) {
+            builder.append_leaf(self);
+        }
+
         fn focus(&self) -> FocusFlag {
             self.edit.focus()
         }
