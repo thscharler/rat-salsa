@@ -18,8 +18,8 @@ s state.
 
 [FocusBuilder](FocusBuilder) then is used to collect an ordered list of
 all widgets that should be considered for focus handling.
-It builds up the [Focus](Focus) which has [next](Focus::next),
-[prev](Focus::prev) and [focus_at](Focus::focus_at) which can do
+It builds up the [Focus](Focus) which has the functions [next](Focus::next),
+[prev](Focus::prev) and [focus_at](Focus::focus_at) that can do
 the navigation.
 
 > from <focus_input1.rs>
@@ -95,6 +95,14 @@ widget. Or you may want to write a wrapper.
 
 Simple widgets implement at least the first two of these functions.
 
+- build() - For simple widgets with no internal structure this
+  adds a leaf to the widget list.
+  ```rust ignore
+  fn build(&self, builder: &mut FocusBuilder) {
+      builder.append_leaf(self);
+  }
+  ```
+
 - focus() - Return a clone of FocusFlag. There is a Rc inside,
   so this is a cheap clone.
 - area() - Rendered area. This is used for mouse interaction.
@@ -103,14 +111,11 @@ Simple widgets implement at least the first two of these functions.
 - navigable() - A control flag indicating __how__ the widget interacts
   with focus.
 
-There is also a build() function, but for simple widgets the default impl
-should be fine.
-
 ## Widgets as Containers
 
-When a widget contains other widgets it can also implement HasFocus.
+When a widget contains other widgets it also implements HasFocus.
 
-The primary function then is
+The primary function here is
 
 - build() - This is called with the current FocusBuilder and
   can add the separate component widgets of the container.

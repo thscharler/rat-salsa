@@ -23,8 +23,6 @@ pub mod event {
 /// This struct is intended to be cloned and uses a Rc internally
 /// to share the state.
 ///
-///
-///
 /// __Attention__
 /// Equality for FocusFlag means pointer-equality of the underlying
 /// Rc using Rc::ptr_eq.
@@ -62,12 +60,24 @@ impl Display for FocusFlag {
 }
 
 impl HasFocus for FocusFlag {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.clone()
     }
 
     fn area(&self) -> Rect {
         Rect::default()
+    }
+
+    fn area_z(&self) -> u16 {
+        0
+    }
+
+    fn navigable(&self) -> Navigation {
+        Navigation::Regular
     }
 }
 
@@ -126,44 +136,124 @@ pub enum Navigation {
     Regular,
 }
 
-/// Trait for a widget that has a focus flag.
+/// Trait for a widget that takes part of focus handling.
 ///
-/// When used for a widget implement
+/// When used for a simple widget implement
+/// - build()
 /// - focus()
 /// - area()
 /// and optionally
 /// - area_z() and navigable()
 ///
+/// ```rust no_run
+/// use ratatui::layout::Rect;
+/// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+///
+/// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
+///
+/// impl HasFocus for MyWidgetState {
+///     fn build(&self, builder: &mut FocusBuilder) {
+///         builder.append_leaf(self);
+///     }
+///
+///     fn focus(&self) -> FocusFlag {
+///         self.focus.clone()
+///     }
+///
+///     fn area(&self) -> Rect {
+///         self.area
+///     }
+/// }
+/// ```
+///
+///
 /// When used for a container widget implement
 /// - build()
-/// ```rust ignore
+/// ```rust no_run
+/// use ratatui::layout::Rect;
+/// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+///
+/// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
+/// # impl HasFocus for MyWidgetState {
+/// #     fn build(&self, builder: &mut FocusBuilder) {
+/// #         builder.append_leaf(self);
+/// #     }
+/// #
+/// #     fn focus(&self) -> FocusFlag {
+/// #         self.focus.clone()
+/// #     }
+/// #
+/// #     fn area(&self) -> Rect {
+/// #         self.area
+/// #     }
+/// # }
+/// struct SomeWidgetState { pub focus: FocusFlag, pub area: Rect, pub component_a: MyWidgetState, pub component_b: MyWidgetState }
+///
+/// impl HasFocus for SomeWidgetState {
 ///     fn build(&self, builder: &mut FocusBuilder) {
 ///         let tag = builder.start(self);
 ///         builder.widget(&self.component_a);
 ///         builder.widget(&self.component_b);
 ///         builder.end(tag);
 ///     }
+///
+///     fn focus(&self) -> FocusFlag {
+///         self.focus.clone()
+///     }
+///
+///     fn area(&self) -> Rect {
+///         self.area
+///     }
+/// }
 /// ```
 /// Creates a container with an identity.
 ///
-/// Or just
-/// ```rust ignore
+/// Or
+/// ```rust no_run
+/// use ratatui::layout::Rect;
+/// use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
+///
+/// struct MyWidgetState { pub focus: FocusFlag, pub area: Rect }
+/// # impl HasFocus for MyWidgetState {
+/// #     fn build(&self, builder: &mut FocusBuilder) {
+/// #         builder.append_leaf(self);
+/// #     }
+/// #
+/// #     fn focus(&self) -> FocusFlag {
+/// #         self.focus.clone()
+/// #     }
+/// #
+/// #     fn area(&self) -> Rect {
+/// #         self.area
+/// #     }
+/// # }
+/// struct SomeWidgetState { pub focus: FocusFlag, pub area: Rect, pub component_a: MyWidgetState, pub component_b: MyWidgetState }
+///
+/// impl HasFocus for SomeWidgetState {
 ///     fn build(&self, builder: &mut FocusBuilder) {
+///         let tag = builder.start(self);
 ///         builder.widget(&self.component_a);
 ///         builder.widget(&self.component_b);
+///         builder.end(tag);
 ///     }
+///
+///     fn focus(&self) -> FocusFlag {
+///         unimplemented!("not in use")
+///     }
+///
+///     fn area(&self) -> Rect {
+///         unimplemented!("not in use")
+///     }
+/// }
 /// ```
 /// for an anonymous container.
 ///
-/// focus(), area() and area_z() are only used for the first
-/// case. navigable() is ignored for containers, leave it at
-/// the default.
+/// focus(), area() and area_z() are only used for the first case.
+/// navigable() is ignored for containers, leave it at the default.
 ///
 pub trait HasFocus {
     /// Build the focus-structure for the container.
-    fn build(&self, builder: &mut FocusBuilder) {
-        builder.add_widget(self.focus(), self.area(), self.area_z(), self.navigable())
-    }
+    fn build(&self, builder: &mut FocusBuilder);
 
     /// Access to the flag for the rest.
     fn focus(&self) -> FocusFlag;

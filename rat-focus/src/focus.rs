@@ -510,12 +510,12 @@ mod core {
         /// This creates a fresh Focus.
         ///
         /// __See__
-        /// Use [rebuild](FocusBuilder::rebuild) if you want to ensure that widgets
+        /// Use [rebuild](FocusBuilder::rebuild_for) if you want to ensure that widgets
         /// that are no longer in the widget structure have their
         /// focus flag reset properly. If you don't have
         /// some logic to conditionally add widgets to the focus,
         /// this function is probably fine.
-        pub fn for_container(container: &dyn HasFocus) -> Focus {
+        pub fn build_for(container: &dyn HasFocus) -> Focus {
             let mut b = FocusBuilder::new(None);
             b.widget(container);
             b.build()
@@ -527,18 +527,20 @@ mod core {
         /// This takes the old Focus and reuses most of its allocations.
         /// It also ensures that any widgets no longer in the widget structure
         /// have their focus-flags reset.
-        pub fn rebuild(container: &dyn HasFocus, old: Option<Focus>) -> Focus {
+        pub fn rebuild_for(container: &dyn HasFocus, old: Option<Focus>) -> Focus {
             let mut b = FocusBuilder::new(old);
             b.widget(container);
             b.build()
         }
 
+        /// Do some logging of the build.
         pub fn enable_log(self) -> Self {
             self.log.set(true);
             self
         }
 
-        /// Add a widget.
+        /// Add a widget by calling its build function.
+        /// The build function of the HasFocus trait can
         ///
         /// The widget is added to all open containers.
         pub fn widget(&mut self, widget: &dyn HasFocus) -> &mut Self {
@@ -557,7 +559,65 @@ mod core {
             self
         }
 
-        /// Manually add a widget.
+        /// Start a container widget. Must be matched with
+        /// the equivalent [end](Self::end). Uses focus(), area() and
+        /// z_area() of the given container. navigable() is
+        /// currently not used, just leave it at the default.
+        ///
+        /// __Attention__
+        ///
+        /// Use the returned value when calling [end](Self::end).
+        ///
+        /// __Panic__
+        ///
+        /// Panics if the same container-flag is added twice.
+        #[must_use]
+        pub fn start(&mut self, container: &dyn HasFocus) -> FocusFlag {
+            self.start_with_flags(
+                Some(container.focus()),
+                container.area(),
+                container.area_z(),
+            )
+        }
+
+        /// End a container widget.
+        pub fn end(&mut self, tag: FocusFlag) {
+            focus_debug!(self.log, "end container {:?}", tag);
+            assert!(self.container_ids.contains(&tag.widget_id()));
+
+            for (c, r) in self.containers.iter_mut().rev() {
+                if c.container_flag != tag {
+                    if !c.complete {
+                        panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
+                    }
+                } else {
+                    r.end = self.focus_flags.len();
+                    c.complete = true;
+
+                    focus_debug!(self.log, "container range {:?}", r);
+
+                    self.z_base -= c.delta_z;
+
+                    break;
+                }
+            }
+        }
+
+        /// Add the given widgets flags. Doesn't call the
+        /// build() function of HasFocus as widget() would, instead
+        /// it uses focus(), area(), area_z() and navigable() of the
+        /// given widget and appends them.
+        pub fn append_leaf(&mut self, widget: &dyn HasFocus) -> &mut Self {
+            self.append_flags(
+                widget.focus(),
+                widget.area(),
+                widget.area_z(),
+                widget.navigable(),
+            );
+            self
+        }
+
+        /// Manually add a widgets flags.
         ///
         /// This is intended to be used when __implementing__
         /// HasFocus::build() for a widget.
@@ -569,7 +629,7 @@ mod core {
         /// Panics if the same focus-flag is added twice.
         /// Except it is allowable to add the flag a second time with
         /// Navigation::Mouse or Navigation::None
-        pub fn add_widget(
+        pub fn append_flags(
             &mut self,
             focus: FocusFlag,
             area: Rect,
@@ -594,27 +654,6 @@ mod core {
         }
 
         /// Start a container widget. Must be matched with
-        /// the equivalent [end](Self::end). Uses focus(), area() and
-        /// z_area() of the given container. navigable() is
-        /// currently not used, just leave it at the default.
-        ///
-        /// __Attention__
-        ///
-        /// Use the returned value when calling [end](Self::end).
-        ///
-        /// __Panic__
-        ///
-        /// Panics if the same container-flag is added twice.
-        #[must_use]
-        pub fn start(&mut self, container: &dyn HasFocus) -> FocusFlag {
-            self.start_container(
-                Some(container.focus()),
-                container.area(),
-                container.area_z(),
-            )
-        }
-
-        /// Start a container widget. Must be matched with
         /// the equivalent [end](Self::end).
         ///
         /// __Attention__
@@ -626,7 +665,7 @@ mod core {
         ///
         /// Panics if the same container-flag is added twice.
         #[must_use]
-        pub fn start_container(
+        pub fn start_with_flags(
             &mut self,
             container_flag: Option<FocusFlag>,
             area: Rect,
@@ -655,29 +694,6 @@ mod core {
             ));
 
             container_flag
-        }
-
-        /// End a container widget.
-        pub fn end(&mut self, tag: FocusFlag) {
-            focus_debug!(self.log, "end container {:?}", tag);
-            assert!(self.container_ids.contains(&tag.widget_id()));
-
-            for (c, r) in self.containers.iter_mut().rev() {
-                if c.container_flag != tag {
-                    if !c.complete {
-                        panic!("FocusBuilder: Unclosed container {:?}", c.container_flag);
-                    }
-                } else {
-                    r.end = self.focus_flags.len();
-                    c.complete = true;
-
-                    focus_debug!(self.log, "container range {:?}", r);
-
-                    self.z_base -= c.delta_z;
-
-                    break;
-                }
-            }
         }
 
         /// Build the final Focus.
@@ -1455,7 +1471,7 @@ mod core {
             let cc = FocusFlag::named("cc");
             let mut fb = FocusBuilder::new(None);
             fb.widget(&a);
-            let cc_end = fb.start_container(Some(cc.clone()), Rect::default(), 0);
+            let cc_end = fb.start_with_flags(Some(cc.clone()), Rect::default(), 0);
             fb.widget(&d);
             fb.widget(&e);
             fb.widget(&f);
@@ -1480,7 +1496,8 @@ mod core {
 
             impl HasFocus for DD {
                 fn build(&self, fb: &mut FocusBuilder) {
-                    let tag = fb.start_container(Some(self.dd.clone()), self.area(), self.area_z());
+                    let tag =
+                        fb.start_with_flags(Some(self.dd.clone()), self.area(), self.area_z());
                     fb.widget(&self.g);
                     fb.widget(&self.h);
                     fb.widget(&self.i);
