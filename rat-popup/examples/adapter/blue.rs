@@ -1,6 +1,6 @@
 //! more blue, in multiple colors.
 
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
 use ratatui::style::{Style, Stylize};
@@ -67,6 +67,10 @@ impl BlueState {
 }
 
 impl HasFocus for BlueState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

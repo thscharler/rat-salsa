@@ -188,7 +188,7 @@ impl HasFocus for State {
 }
 
 fn focus(state: &mut State) -> Focus {
-    let f = FocusBuilder::for_container(state);
+    let f = FocusBuilder::build_for(state);
     f.enable_log();
     f
 }

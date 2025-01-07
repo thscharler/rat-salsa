@@ -95,6 +95,10 @@ impl HasScreenCursor for PopLockMagentaState {
 }
 
 impl HasFocus for PopLockMagentaState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.outer_focus.clone()
     }
@@ -148,7 +152,7 @@ impl PopLockMagentaState {
 
     fn inner_focus(&mut self) -> Focus {
         let mut fb = FocusBuilder::new(None);
-        let tag = fb.start_container(Some(self.popup.active.clone()), self.popup.area, 0);
+        let tag = fb.start_with_flags(Some(self.popup.active.clone()), self.popup.area, 0);
         fb.widget(&self.edit1);
         fb.widget(&self.edit2);
         fb.widget(&self.edit3);
