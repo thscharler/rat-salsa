@@ -99,7 +99,7 @@ pub struct ScrollState {
 }
 
 /// Collected styles for the Scroll.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ScrollStyle {
     pub thumb_style: Option<Style>,
     pub track_style: Option<Style>,
@@ -133,7 +133,7 @@ pub struct ScrollStyle {
 /// ```
 ///
 ///
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub struct ScrollSymbols {
     pub track: &'static str,
     pub thumb: &'static str,
