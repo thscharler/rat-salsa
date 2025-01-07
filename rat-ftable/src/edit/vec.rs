@@ -206,6 +206,10 @@ impl<S> HasFocus for EditableTableVecState<S>
 where
     S: TableEditorState,
 {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.table.focus()
     }
@@ -351,7 +355,7 @@ where
     fn _start(&mut self, pos: usize, mode: Mode) {
         if self.table.is_focused() {
             // black magic
-            FocusBuilder::for_container(&self.editor).first();
+            FocusBuilder::build_for(&self.editor).first();
         }
 
         self.mode = mode;
@@ -388,8 +392,14 @@ where
             return Ok(());
         };
         {
-            let value = &mut self.editor_data.borrow_mut()[row];
-            self.editor.get_edit_data(value, ctx.clone())?;
+            let mut editor_data = self.editor_data.borrow_mut();
+
+            let value = &mut editor_data[row];
+            let r = self.editor.get_edit_data(value, ctx.clone())?;
+            if !r && self.mode == Mode::Insert {
+                editor_data.remove(row);
+                self.table.items_removed(row, 1);
+            }
         }
         self._stop();
         Ok(())

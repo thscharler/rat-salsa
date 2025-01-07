@@ -47,11 +47,12 @@ pub trait TableEditorState: HasFocus {
         -> Result<(), Self::Err>;
 
     /// Copy the editor state back to the data.
+    /// Returns false if there is no useful data.
     fn get_edit_data(
         &mut self,
         data: &mut Self::Data,
         ctx: Self::Context<'_>,
-    ) -> Result<(), Self::Err>;
+    ) -> Result<bool, Self::Err>;
 
     /// Is this some empty state?
     fn is_empty(&self) -> bool;

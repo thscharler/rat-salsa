@@ -149,6 +149,10 @@ where
 }
 
 impl<S> HasFocus for EditableTableState<S> {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.table.focus()
     }
@@ -291,7 +295,7 @@ where
 
     fn _start(&mut self, pos: usize, mode: Mode) {
         if self.table.is_focused() {
-            FocusBuilder::for_container(&self.editor).first();
+            FocusBuilder::build_for(&self.editor).first();
         }
 
         self.mode = mode;
