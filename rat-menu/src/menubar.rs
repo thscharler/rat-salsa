@@ -378,8 +378,8 @@ impl MenubarState {
 
 impl HasFocus for MenubarState {
     fn build(&self, builder: &mut FocusBuilder) {
-        builder.add_widget(self.focus(), self.area(), self.area_z(), self.navigable());
-        builder.add_widget(
+        builder.append_flags(self.focus(), self.area(), self.area_z(), self.navigable());
+        builder.append_flags(
             self.focus(),
             self.popup.popup.area,
             self.popup.popup.area_z,
