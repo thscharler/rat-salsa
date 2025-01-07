@@ -1,10 +1,10 @@
 use crate::focus::core::FocusCore;
 use crate::{FocusFlag, HasFocus, Navigation};
-use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
-use std::ops::Range;
-
 pub use core::FocusBuilder;
+use log::debug;
+use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
 use ratatui::layout::Rect;
+use std::ops::Range;
 
 /// Focus deals with all focus-related issues.
 ///
@@ -393,7 +393,15 @@ impl Focus {
                 );
                 self.core.next()
             }
-            _ => false,
+            v => {
+                focus_debug!(
+                    self.core.log,
+                    "next after {:?}, but navigation says {:?}",
+                    self.core.focused().map(|v| v.name().to_string()),
+                    v
+                );
+                false
+            }
         }
     }
 
@@ -1283,7 +1291,7 @@ mod core {
         fn first_navigable(&self, start: usize) -> Option<usize> {
             focus_debug!(
                 self.log,
-                "first navigable {:?} after ",
+                "first navigable, start at {:?} ",
                 if start < self.focus_flags.len() {
                     self.focus_flags[start].name()
                 } else {
