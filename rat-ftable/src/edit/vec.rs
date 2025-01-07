@@ -507,8 +507,13 @@ where
                 ct_event!(keycode press Enter) | ct_event!(keycode press F(2)) => {
                     if let Some(row) = self.table.selected_checked() {
                         self.edit(row, ctx.clone())?;
+                        Outcome::Changed
+                    } else if self.table.rows() == 0 {
+                        self.edit_new(0, ctx.clone())?;
+                        Outcome::Changed
+                    } else {
+                        Outcome::Continue
                     }
-                    Outcome::Changed
                 }
                 ct_event!(keycode press Down) => {
                     if let Some(row) = self.table.selected_checked() {
