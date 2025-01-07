@@ -6,7 +6,7 @@ use crate::_private::NonExhaustive;
 use crate::util::{block_size, revert_style};
 use rat_event::util::have_keyboard_enhancement;
 use rat_event::{ct_event, ConsumedEvent, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -294,6 +294,10 @@ impl ButtonState {
 }
 
 impl HasFocus for ButtonState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.focus.clone()

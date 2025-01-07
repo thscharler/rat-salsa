@@ -365,6 +365,10 @@ impl HandleEvent<crossterm::event::Event, MouseOnly, EditOutcome> for EditDirNam
 }
 
 impl HasFocus for EditDirNameState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.edit_dir.focus()
     }

@@ -2,7 +2,7 @@ use crate::_private::NonExhaustive;
 use crate::util::{block_size, fill_buf_area, revert_style, union_non_empty};
 use rat_event::util::{item_at, MouseFlags};
 use rat_event::{ct_event, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Direction, Rect, Size};
@@ -773,6 +773,10 @@ impl<T: PartialEq> Default for RadioState<T> {
 }
 
 impl<T: PartialEq> HasFocus for RadioState<T> {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

@@ -246,7 +246,7 @@ fn handle_table(
     istate: &mut MiniSalsaState,
     state: &mut State,
 ) -> Result<Outcome, Error> {
-    let f = FocusBuilder::for_container(state).handle(event, Regular);
+    let f = FocusBuilder::build_for(state).handle(event, Regular);
 
     let mut r = Outcome::Continue;
     r = r.or_else(|| state.text1.handle(event, Regular).into());
@@ -326,7 +326,7 @@ impl TableEditorState for SampleEditorState {
         Ok(())
     }
 
-    fn get_edit_data(&mut self, data: &mut Sample, _ctx: &MiniSalsaState) -> Result<(), Error> {
+    fn get_edit_data(&mut self, data: &mut Sample, _ctx: &MiniSalsaState) -> Result<bool, Error> {
         if self.text.text().is_empty() {
             return Err(anyhow!("invalid"));
         }
@@ -335,7 +335,7 @@ impl TableEditorState for SampleEditorState {
         data.num1 = self.num1.value()?;
         data.num2 = self.num2.value()?;
         data.num3 = self.num3.value()?;
-        Ok(())
+        Ok(true)
     }
 
     fn is_empty(&self) -> bool {
@@ -389,7 +389,7 @@ impl HandleEvent<crossterm::event::Event, &MiniSalsaState, Result<Outcome, Error
         event: &crossterm::event::Event,
         _ctx: &MiniSalsaState,
     ) -> Result<Outcome, Error> {
-        let f = FocusBuilder::for_container(self).handle(event, Regular);
+        let f = FocusBuilder::build_for(self).handle(event, Regular);
 
         let mut r = Outcome::Continue;
         r = r.or_else(|| self.text.handle(event, Regular).into());

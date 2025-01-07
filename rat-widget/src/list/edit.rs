@@ -8,7 +8,7 @@ use crate::list::{List, ListSelection, ListState};
 use log::warn;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::RelocatableState;
 use rat_text::HasScreenCursor;
 use ratatui::buffer::Buffer;
@@ -105,6 +105,10 @@ impl<S> HasFocus for EditListState<S>
 where
     S: HasFocus,
 {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         match self.mode {
             Mode::View => self.list.focus(),

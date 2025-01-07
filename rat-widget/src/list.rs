@@ -6,7 +6,7 @@ use crate::_private::NonExhaustive;
 use crate::event::util::MouseFlags;
 use crate::list::selection::{RowSelection, RowSetSelection};
 use crate::util::{fallback_select_style, revert_style};
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState, ScrollStyle};
 use ratatui::buffer::Buffer;
@@ -345,6 +345,10 @@ fn render_list<Selection: ListSelection>(
 }
 
 impl<Selection> HasFocus for ListState<Selection> {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.focus.clone()

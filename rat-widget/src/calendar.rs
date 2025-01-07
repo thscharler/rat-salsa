@@ -9,7 +9,7 @@ use crate::util::{block_size, revert_style};
 use chrono::{Datelike, NaiveDate, Weekday};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_areas, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Alignment, Rect};
@@ -493,6 +493,10 @@ fn render_ref(widget: &Month<'_>, area: Rect, buf: &mut Buffer, state: &mut Mont
 }
 
 impl HasFocus for MonthState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.focus.clone()

@@ -6,7 +6,7 @@ use crate::_private::NonExhaustive;
 use crate::util::{fill_buf_area, revert_style};
 use rat_event::util::MouseFlagsN;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Outcome, Regular};
-use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_areas, relocate_positions, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::{Constraint, Direction, Flex, Layout, Position, Rect};
@@ -974,6 +974,10 @@ impl Clone for SplitState {
 }
 
 impl HasFocus for SplitState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

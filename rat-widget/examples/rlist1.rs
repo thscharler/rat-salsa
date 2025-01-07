@@ -117,6 +117,10 @@ impl Default for EditEntryState {
 }
 
 impl HasFocus for EditEntryState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.text_input.focus()
     }
