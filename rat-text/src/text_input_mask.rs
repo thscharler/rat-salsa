@@ -83,7 +83,7 @@ use crossterm::event::KeyModifiers;
 use format_num_pattern::NumberSymbols;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -458,6 +458,10 @@ impl Default for MaskedInputState {
 }
 
 impl HasFocus for MaskedInputState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

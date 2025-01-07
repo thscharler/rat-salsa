@@ -11,7 +11,7 @@ use crate::{upos_type, HasScreenCursor, TextError, TextFocusGained, TextFocusLos
 use chrono::format::{Fixed, Item, Numeric, Pad, StrftimeItems};
 use chrono::NaiveDate;
 use rat_event::{HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::RelocatableState;
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -145,6 +145,10 @@ impl Default for DateInputState {
 }
 
 impl HasFocus for DateInputState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     #[inline]
     fn focus(&self) -> FocusFlag {
         self.widget.focus.clone()

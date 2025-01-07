@@ -17,7 +17,7 @@ use crate::{
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, flow, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocus, Navigation};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus, Navigation};
 use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use rat_scrolled::event::ScrollOutcome;
 use rat_scrolled::{Scroll, ScrollArea, ScrollAreaState, ScrollState};
@@ -414,6 +414,10 @@ impl Default for TextAreaState {
 }
 
 impl HasFocus for TextAreaState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }

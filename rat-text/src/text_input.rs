@@ -25,7 +25,7 @@ use crate::{
 use crossterm::event::KeyModifiers;
 use rat_event::util::MouseFlags;
 use rat_event::{ct_event, HandleEvent, MouseOnly, Regular};
-use rat_focus::{FocusFlag, HasFocus};
+use rat_focus::{FocusBuilder, FocusFlag, HasFocus};
 use rat_reloc::{relocate_area, relocate_dark_offset, RelocatableState};
 use ratatui::buffer::Buffer;
 use ratatui::layout::Rect;
@@ -423,6 +423,10 @@ impl Default for TextInputState {
 }
 
 impl HasFocus for TextInputState {
+    fn build(&self, builder: &mut FocusBuilder) {
+        builder.append_leaf(self);
+    }
+
     fn focus(&self) -> FocusFlag {
         self.focus.clone()
     }
