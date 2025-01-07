@@ -1036,6 +1036,7 @@ impl MaskedInputState {
     pub fn set_text<S: Into<String>>(&mut self, s: S) {
         self.offset = 0;
         self.value.set_text(s);
+        self.value.set_default_cursor();
     }
 
     /// Insert a char at the current position.

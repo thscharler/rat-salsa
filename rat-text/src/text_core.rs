@@ -874,16 +874,10 @@ impl<Store: TextStore + Default> TextCore<Store> {
             sty.clear();
         }
 
-        self.cursor.y = min(self.cursor.y, self.len_lines().saturating_sub(1));
-        self.cursor.x = min(
-            self.cursor.x,
-            self.line_width(self.cursor.y).expect("valid_line"),
-        );
-        self.anchor.y = min(self.anchor.y, self.len_lines().saturating_sub(1));
-        self.anchor.x = min(
-            self.anchor.x,
-            self.line_width(self.anchor.y).expect("valid_line"),
-        );
+        self.cursor.y = 0;
+        self.cursor.x = 0;
+        self.anchor.y = 0;
+        self.anchor.x = 0;
 
         if let Some(undo) = &mut self.undo {
             undo.clear();
