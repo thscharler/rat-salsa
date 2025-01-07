@@ -306,40 +306,37 @@ impl SampleEditorState {
 
 impl TableEditorState for SampleEditorState {
     type Context<'a> = &'a MiniSalsaState;
-    type Data = Sample;
+    type Value = Sample;
     type Err = Error;
 
-    fn new_edit_data(&self, _ctx: &MiniSalsaState) -> Result<Sample, Error> {
+    fn create_value(&self, _ctx: &MiniSalsaState) -> Result<Sample, Error> {
         Ok(Sample {
-            text: "".to_string(),
-            num1: 0.0,
-            num2: 0,
-            num3: 0,
+            text: Default::default(),
+            num1: Default::default(),
+            num2: Default::default(),
+            num3: Default::default(),
         })
     }
 
-    fn set_edit_data(&mut self, data: &Sample, _ctx: &MiniSalsaState) -> Result<(), Error> {
-        self.text.set_text(&data.text);
-        self.num1.set_value(data.num1)?;
-        self.num2.set_value(data.num2)?;
-        self.num3.set_value(data.num3)?;
+    fn set_value(&mut self, value: &Sample, _ctx: &MiniSalsaState) -> Result<(), Error> {
+        self.text.set_text(&value.text);
+        self.num1.set_value(value.num1)?;
+        self.num2.set_value(value.num2)?;
+        self.num3.set_value(value.num3)?;
         Ok(())
     }
 
-    fn get_edit_data(&mut self, data: &mut Sample, _ctx: &MiniSalsaState) -> Result<bool, Error> {
+    fn value(&mut self, _ctx: &MiniSalsaState) -> Result<Option<Sample>, Error> {
         if self.text.text().is_empty() {
-            return Err(anyhow!("invalid"));
+            return Ok(None);
         }
 
-        data.text = self.text.text().to_string();
-        data.num1 = self.num1.value()?;
-        data.num2 = self.num2.value()?;
-        data.num3 = self.num3.value()?;
-        Ok(true)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.text.text().is_empty()
+        let mut value = Sample::default();
+        value.text = self.text.text().to_string();
+        value.num1 = self.num1.value()?;
+        value.num2 = self.num2.value()?;
+        value.num3 = self.num3.value()?;
+        Ok(Some(value))
     }
 
     fn focused_col(&self) -> Option<usize> {

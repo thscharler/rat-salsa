@@ -263,83 +263,72 @@ fn handle_table(
     let mut r = Outcome::Continue;
     r = r.or_else_try::<_, Error>(|| match state.table.handle(event, istate) {
         EditOutcome::Edit => {
-            if let Some(sel) = state.table.table.selected() {
+            if let Some(sel) = state.table.table.selected_checked() {
                 state
                     .table
                     .editor
-                    .set_edit_data(&data.table_data[sel], istate)?;
+                    .set_value(&data.table_data[sel], istate)?;
                 state.table.edit(sel);
             }
             Ok(Outcome::Changed)
         }
         EditOutcome::Cancel => {
-            if let Some(sel) = state.table.table.selected() {
-                if state.table.is_insert() {
-                    data.table_data.remove(sel);
-                }
-                state.table.cancel();
+            if let Some(sel) = state.table.table.selected_checked() {
+                cancel_edit(data, sel, istate, state)?;
+                Ok(Outcome::Changed)
+            } else {
+                Ok(Outcome::Continue)
             }
-            Ok(Outcome::Changed)
         }
         EditOutcome::Commit => {
-            if let Some(sel) = state.table.table.selected() {
-                state
-                    .table
-                    .editor
-                    .get_edit_data(&mut data.table_data[sel], istate)?;
-                state.table.commit();
+            if let Some(sel) = state.table.table.selected_checked() {
+                commit_edit(data, sel, istate, state)?;
+                Ok(Outcome::Changed)
+            } else {
+                Ok(Outcome::Continue)
             }
-            Ok(Outcome::Changed)
         }
         EditOutcome::CommitAndAppend => {
-            if let Some(sel) = state.table.table.selected() {
-                state
-                    .table
-                    .editor
-                    .get_edit_data(&mut data.table_data[sel], istate)?;
-                state.table.commit();
-
-                let value = state.table.editor.new_edit_data(istate)?;
-                state.table.editor.set_edit_data(&value, istate)?;
+            if let Some(sel) = state.table.table.selected_checked() {
+                commit_edit(data, sel, istate, state)?;
+            }
+            if let Some(sel) = state.table.table.selected_checked() {
+                let value = state.table.editor.create_value(istate)?;
+                state.table.editor.set_value(&value, istate)?;
                 data.table_data.insert(sel + 1, value);
                 state.table.edit_new(sel + 1);
             }
             Ok(Outcome::Changed)
         }
         EditOutcome::CommitAndEdit => {
-            if let Some(sel) = state.table.table.selected() {
+            if let Some(sel) = state.table.table.selected_checked() {
+                commit_edit(data, sel, istate, state)?;
                 state
                     .table
                     .editor
-                    .get_edit_data(&mut data.table_data[sel], istate)?;
-                state.table.commit();
-
-                state
-                    .table
-                    .editor
-                    .set_edit_data(&data.table_data[sel + 1], istate)?;
+                    .set_value(&data.table_data[sel + 1], istate)?;
                 state.table.edit(sel + 1);
             }
             Ok(Outcome::Changed)
         }
         EditOutcome::Insert => {
-            if let Some(sel) = state.table.table.selected() {
-                let value = state.table.editor.new_edit_data(istate)?;
-                state.table.editor.set_edit_data(&value, istate)?;
+            if let Some(sel) = state.table.table.selected_checked() {
+                let value = state.table.editor.create_value(istate)?;
+                state.table.editor.set_value(&value, istate)?;
                 data.table_data.insert(sel, value);
                 state.table.edit_new(sel);
             }
             Ok(Outcome::Changed)
         }
         EditOutcome::Append => {
-            let value = state.table.editor.new_edit_data(istate)?;
-            state.table.editor.set_edit_data(&value, istate)?;
+            let value = state.table.editor.create_value(istate)?;
+            state.table.editor.set_value(&value, istate)?;
             data.table_data.push(value);
             state.table.edit_new(data.table_data.len() - 1);
             Ok(Outcome::Changed)
         }
         EditOutcome::Remove => {
-            if let Some(sel) = state.table.table.selected() {
+            if let Some(sel) = state.table.table.selected_checked() {
                 if sel < data.table_data.len() {
                     data.table_data.remove(sel);
                     state.table.remove(sel);
@@ -352,6 +341,35 @@ fn handle_table(
     })?;
 
     Ok(r)
+}
+
+fn cancel_edit(
+    data: &mut Data,
+    sel: usize,
+    _istate: &mut MiniSalsaState,
+    state: &mut State,
+) -> Result<(), Error> {
+    if state.table.is_insert() {
+        data.table_data.remove(sel);
+    }
+    state.table.cancel();
+    Ok(())
+}
+
+fn commit_edit(
+    data: &mut Data,
+    sel: usize,
+    istate: &mut MiniSalsaState,
+    state: &mut State,
+) -> Result<(), Error> {
+    if let Some(value) = state.table.editor.value(istate)? {
+        data.table_data[sel] = value;
+        state.table.commit();
+        Ok(())
+    } else {
+        cancel_edit(data, sel, istate, state)?;
+        Ok(())
+    }
 }
 
 // -------------------------------------------------------------
@@ -399,14 +417,14 @@ impl SampleEditorState {
 
 impl TableEditorState for SampleEditorState {
     type Context<'a> = &'a MiniSalsaState;
-    type Data = Sample;
+    type Value = Sample;
     type Err = Error;
 
-    fn new_edit_data(&self, _ctx: Self::Context<'_>) -> Result<Self::Data, Self::Err> {
+    fn create_value(&self, _ctx: Self::Context<'_>) -> Result<Self::Value, Self::Err> {
         Ok(Sample::default())
     }
 
-    fn set_edit_data(&mut self, data: &Sample, _ctx: Self::Context<'_>) -> Result<(), Error> {
+    fn set_value(&mut self, data: &Sample, _ctx: Self::Context<'_>) -> Result<(), Error> {
         self.text.set_text(&data.text);
         self.num1.set_value(data.num1)?;
         self.num2.set_value(data.num2)?;
@@ -414,20 +432,17 @@ impl TableEditorState for SampleEditorState {
         Ok(())
     }
 
-    fn get_edit_data(&mut self, data: &mut Sample, _ctx: Self::Context<'_>) -> Result<bool, Error> {
+    fn value(&mut self, _ctx: Self::Context<'_>) -> Result<Option<Sample>, Error> {
         if self.text.text().is_empty() {
-            return Err(anyhow!("invalid"));
+            return Ok(None);
         }
 
+        let mut data = Sample::default();
         data.text = self.text.text().to_string();
         data.num1 = self.num1.value()?;
         data.num2 = self.num2.value()?;
         data.num3 = self.num3.value()?;
-        Ok(true)
-    }
-
-    fn is_empty(&self) -> bool {
-        self.text.text().is_empty()
+        Ok(Some(data))
     }
 
     fn focused_col(&self) -> Option<usize> {

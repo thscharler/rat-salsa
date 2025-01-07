@@ -48,7 +48,7 @@ where
     E: TableEditor + 'a,
 {
     table: Table<'a, RowSelection>,
-    table_data: Box<dyn TableDataVec<<<E as TableEditor>::State as TableEditorState>::Data>>,
+    table_data: Box<dyn TableDataVec<<<E as TableEditor>::State as TableEditorState>::Value>>,
     editor: E,
 }
 
@@ -69,7 +69,7 @@ where
     /// Editor
     editor: S,
     /// Data store
-    editor_data: Rc<RefCell<Vec<S::Data>>>,
+    editor_data: Rc<RefCell<Vec<S::Value>>>,
 
     mouse: MouseFlags,
 }
@@ -79,7 +79,7 @@ where
     E: TableEditor + 'a,
 {
     pub fn new(
-        table_data: impl TableDataVec<<<E as TableEditor>::State as TableEditorState>::Data> + 'static,
+        table_data: impl TableDataVec<<<E as TableEditor>::State as TableEditorState>::Value> + 'static,
         table: Table<'a, RowSelection>,
         editor: E,
     ) -> Self {
@@ -189,7 +189,7 @@ where
 impl<S> Debug for EditableTableVecState<S>
 where
     S: TableEditorState + Debug,
-    S::Data: Debug,
+    S::Value: Debug,
 {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("EditVecState")
@@ -294,12 +294,12 @@ where
     S: TableEditorState,
 {
     /// Set the edit data.
-    pub fn set_value(&mut self, data: Vec<S::Data>) {
+    pub fn set_value(&mut self, data: Vec<S::Value>) {
         self.editor_data = Rc::new(RefCell::new(data));
     }
 
     /// Get the edit data.
-    pub fn value(&self) -> Vec<S::Data> {
+    pub fn value(&self) -> Vec<S::Value> {
         self.editor_data.borrow().clone()
     }
 
@@ -332,8 +332,8 @@ where
         if self.mode != Mode::View {
             return Ok(());
         }
-        let value = self.editor.new_edit_data(ctx.clone())?;
-        self.editor.set_edit_data(&value, ctx.clone())?;
+        let value = self.editor.create_value(ctx.clone())?;
+        self.editor.set_value(&value, ctx.clone())?;
         self.editor_data.borrow_mut().insert(row, value);
         self._start(row, Mode::Insert);
         Ok(())
@@ -346,7 +346,7 @@ where
         }
         {
             let value = &self.editor_data.borrow()[row];
-            self.editor.set_edit_data(value, ctx.clone())?;
+            self.editor.set_value(value, ctx.clone())?;
         }
         self._start(row, Mode::Edit);
         Ok(())
@@ -392,12 +392,11 @@ where
             return Ok(());
         };
         {
-            let mut editor_data = self.editor_data.borrow_mut();
-
-            let value = &mut editor_data[row];
-            let r = self.editor.get_edit_data(value, ctx.clone())?;
-            if !r && self.mode == Mode::Insert {
-                editor_data.remove(row);
+            let value = self.editor.value(ctx.clone())?;
+            if let Some(value) = value {
+                self.editor_data.borrow_mut()[row] = value;
+            } else {
+                self.editor_data.borrow_mut().remove(row);
                 self.table.items_removed(row, 1);
             }
         }

@@ -265,7 +265,7 @@ where
     /// beforehand.
     ///
     /// __See__
-    /// [TableEditorState::set_edit_data]
+    /// [TableEditorState::set_value]
     ///
     /// This does all the bookkeeping with the table-state and
     /// switches the mode to Mode::Insert.
@@ -282,7 +282,7 @@ where
     /// beforehand.
     ///
     /// __See__
-    /// [TableEditorState::set_edit_data]
+    /// [TableEditorState::set_value]
     ///
     /// This does all the bookkeeping with the table-state and
     /// switches the mode to Mode::Edit.
@@ -311,7 +311,7 @@ where
     /// This doesn't reset the edit-widget.
     ///
     /// __See__
-    /// [TableEditorState::set_edit_data]
+    /// [TableEditorState::set_value]
     ///
     /// But it does all the bookkeeping with the table-state and
     /// switches the mode back to Mode::View.
@@ -334,7 +334,7 @@ where
     /// row-item.
     ///
     /// __See__
-    /// [TableEditorState::get_edit_data]
+    /// [TableEditorState::value]
     ///
     /// But it does all the bookkeeping with the table-state and
     /// switches the mode back to Mode::View.

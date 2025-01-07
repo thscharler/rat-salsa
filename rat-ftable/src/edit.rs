@@ -35,27 +35,18 @@ pub trait TableEditorState: HasFocus {
     /// Some external context.
     type Context<'a>: Clone;
     /// Type of data.
-    type Data: Clone;
+    type Value: Clone;
     /// Error type.
     type Err;
 
-    /// Create default data.
-    fn new_edit_data(&self, ctx: Self::Context<'_>) -> Result<Self::Data, Self::Err>;
+    /// Create a fresh value with all the defaults.
+    fn create_value(&self, ctx: Self::Context<'_>) -> Result<Self::Value, Self::Err>;
 
-    /// Set editing data.
-    fn set_edit_data(&mut self, data: &Self::Data, ctx: Self::Context<'_>)
-        -> Result<(), Self::Err>;
+    /// Set the current value for the editor.
+    fn set_value(&mut self, value: &Self::Value, ctx: Self::Context<'_>) -> Result<(), Self::Err>;
 
-    /// Copy the editor state back to the data.
-    /// Returns false if there is no useful data.
-    fn get_edit_data(
-        &mut self,
-        data: &mut Self::Data,
-        ctx: Self::Context<'_>,
-    ) -> Result<bool, Self::Err>;
-
-    /// Is this some empty state?
-    fn is_empty(&self) -> bool;
+    /// Return the current value from the editor.
+    fn value(&mut self, ctx: Self::Context<'_>) -> Result<Option<Self::Value>, Self::Err>;
 
     /// Returns the currently focused column.
     /// Used to scroll the column to fully visible.
