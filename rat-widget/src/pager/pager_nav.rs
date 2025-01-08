@@ -178,12 +178,7 @@ impl<'a> PageNavigation<'a> {
         if let Some(block) = &self.block {
             block.inner(area)
         } else {
-            Rect::new(
-                area.x,
-                area.y + 1,
-                area.width,
-                area.height.saturating_sub(1),
-            )
+            area
         }
     }
 }
