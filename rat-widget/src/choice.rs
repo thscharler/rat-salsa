@@ -938,7 +938,11 @@ impl<T: PartialEq> HandleEvent<crossterm::event::Event, Regular, Outcome> for Ch
                     }
                 }
                 ct_event!(keycode press Enter) | ct_event!(keycode press Esc) => {
-                    self.set_popup_active(false).into()
+                    if self.set_popup_active(false) {
+                        Outcome::Changed
+                    } else {
+                        Outcome::Continue
+                    }
                 }
                 ct_event!(keycode press Delete) | ct_event!(keycode press Backspace) => {
                     self.move_to(0);
